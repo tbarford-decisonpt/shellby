@@ -1,0 +1,1155 @@
+{
+  "format": 1,
+  "id": "shellby",
+  "name": "Shellby Wardrobe",
+  "author": "Shellby",
+  "version": "1.0.0",
+  "description": "The built-in wardrobe: everyday basics, earned rewards and seasonal collectibles.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "beanie",
+      "name": "Cozy Beanie",
+      "description": "A warm knit for chilly desktops.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        3
+      ],
+      "rarity": "common",
+      "palette": {
+        "B": "#2a9d8f",
+        "b": "#1d7a70",
+        "w": "#e9c46a"
+      },
+      "pixels": [
+        "...w...",
+        ".BBBBB.",
+        "BbBbBbB",
+        "BBBBBBB"
+      ]
+    },
+    {
+      "id": "sunglasses",
+      "name": "Sunglasses",
+      "description": "Too cool for the command line.",
+      "slot": "face",
+      "pivot": [
+        4,
+        0
+      ],
+      "rarity": "common",
+      "palette": {
+        "K": "#15151c",
+        "g": "#7fd6c2"
+      },
+      "pixels": [
+        "KKKKKKKKK",
+        ".KgK.KgK.",
+        ".KKK.KKK."
+      ]
+    },
+    {
+      "id": "bow-tie",
+      "name": "Bow Tie",
+      "description": "For formal file operations.",
+      "slot": "neck",
+      "pivot": [
+        2,
+        -1
+      ],
+      "rarity": "common",
+      "palette": {
+        "R": "#d62828",
+        "d": "#8d0801"
+      },
+      "pixels": [
+        "R...R",
+        "RRdRR",
+        "R...R"
+      ]
+    },
+    {
+      "id": "party-hat",
+      "name": "Party Hat",
+      "description": "Your very first finished task. Party time!",
+      "slot": "hat",
+      "pivot": [
+        3,
+        5
+      ],
+      "rarity": "common",
+      "unlock": {
+        "achievement": "first-task"
+      },
+      "palette": {
+        "w": "#fff4e4",
+        "P": "#ff5ea8",
+        "y": "#ffd166"
+      },
+      "pixels": [
+        "...w...",
+        "...P...",
+        "..PyP..",
+        "..yPy..",
+        ".PyPyP.",
+        "yPyPyPy"
+      ]
+    },
+    {
+      "id": "hard-hat",
+      "name": "Hard Hat",
+      "description": "Ten tasks in. Safety on the job site.",
+      "slot": "hat",
+      "pivot": [
+        4,
+        3
+      ],
+      "rarity": "common",
+      "unlock": {
+        "achievement": "ten-tasks"
+      },
+      "palette": {
+        "Y": "#ffc93c",
+        "y": "#d99b00"
+      },
+      "pixels": [
+        "...YYY...",
+        "..YYYYY..",
+        "..YyYyY..",
+        "YYYYYYYYY"
+      ]
+    },
+    {
+      "id": "top-hat",
+      "name": "Top Hat",
+      "description": "Twenty-five tasks. Rather distinguished.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        4
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "quarter-century"
+      },
+      "palette": {
+        "K": "#1c1c24",
+        "k": "#3a3a4c",
+        "R": "#c9184a"
+      },
+      "pixels": [
+        ".kKKKK.",
+        ".kKKKK.",
+        ".kKKKK.",
+        ".RRRRR.",
+        "KKKKKKK"
+      ]
+    },
+    {
+      "id": "crown",
+      "name": "Crown",
+      "description": "One hundred tasks. Long live the crab.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        3
+      ],
+      "rarity": "legendary",
+      "unlock": {
+        "achievement": "centurion"
+      },
+      "palette": {
+        "Y": "#ffd23f",
+        "y": "#d99b00",
+        "r": "#ef233c",
+        "b": "#4cc9f0"
+      },
+      "pixels": [
+        "Y..Y..Y",
+        "YY.Y.YY",
+        "YYrYbYY",
+        "yyyyyyy"
+      ]
+    },
+    {
+      "id": "captains-hat",
+      "name": "Captain's Hat",
+      "description": "You sent out your first helper. Aye aye.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        3
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "crew-boss"
+      },
+      "palette": {
+        "W": "#f4f1ea",
+        "g": "#ffd23f",
+        "k": "#1d3557",
+        "K": "#14213d"
+      },
+      "pixels": [
+        ".WWWWW..",
+        "WWWgWWW.",
+        "kkkkkkk.",
+        "..KKKKKK"
+      ]
+    },
+    {
+      "id": "pirate-bandana",
+      "name": "Pirate Bandana",
+      "description": "Three helpers at once. All hands on deck!",
+      "slot": "hat",
+      "pivot": [
+        4,
+        2
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "all-hands"
+      },
+      "palette": {
+        "R": "#d62828",
+        "w": "#fff4e4",
+        "r": "#8d0801"
+      },
+      "pixels": [
+        "...RRRR.",
+        "..RwRRwR",
+        "rRRRRRRR",
+        "r......."
+      ]
+    },
+    {
+      "id": "grad-cap",
+      "name": "Graduation Cap",
+      "description": "Shellby learned his first new trick.",
+      "slot": "hat",
+      "pivot": [
+        4,
+        2
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "toolmaker"
+      },
+      "palette": {
+        "K": "#1b1b1f",
+        "k": "#34343d",
+        "y": "#ffd23f",
+        "Y": "#e0a800"
+      },
+      "pixels": [
+        "KKKKKKKKK",
+        "..kKKKk.y",
+        "..kKKKk.Y"
+      ]
+    },
+    {
+      "id": "wizard-hat",
+      "name": "Wizard Hat",
+      "description": "Five tricks learned. Practically magic.",
+      "slot": "hat",
+      "pivot": [
+        4,
+        7
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "achievement": "inventor"
+      },
+      "palette": {
+        "B": "#5a4fcf",
+        "b": "#3d348b",
+        "s": "#ffd23f"
+      },
+      "pixels": [
+        "......B..",
+        ".....BB..",
+        "....bBs..",
+        "....bBB..",
+        "...bsBB..",
+        "...bBBBB.",
+        "..bBBBsB.",
+        "BBBBBBBBB"
+      ]
+    },
+    {
+      "id": "nightcap",
+      "name": "Nightcap",
+      "description": "Finished a task after midnight. Go to bed!",
+      "slot": "hat",
+      "pivot": [
+        3,
+        6
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "night-owl"
+      },
+      "palette": {
+        "B": "#3a86ff",
+        "b": "#8ecae6",
+        "w": "#f8f9fa"
+      },
+      "pixels": [
+        "w......",
+        "BB.....",
+        ".bB....",
+        "..BbB..",
+        "..BBbB.",
+        ".BbBBbB",
+        "wwwwwww"
+      ]
+    },
+    {
+      "id": "headphones",
+      "name": "Headphones",
+      "description": "Three conversations at once, and in the zone.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        2
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "multitasker"
+      },
+      "palette": {
+        "K": "#2b2d42",
+        "C": "#ef476f",
+        "c": "#b5294e"
+      },
+      "pixels": [
+        ".KKKKK.",
+        "K.....K",
+        "K.....K",
+        "C.....C",
+        "c.....c"
+      ]
+    },
+    {
+      "id": "monocle",
+      "name": "Monocle",
+      "description": "Approved a plan from Plan mode. Indubitably.",
+      "slot": "face",
+      "pivot": [
+        0,
+        1
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "planner"
+      },
+      "palette": {
+        "g": "#ffd23f"
+      },
+      "pixels": [
+        ".gg.",
+        "g..g",
+        "g..g",
+        ".gg.",
+        "...g",
+        "..g."
+      ]
+    },
+    {
+      "id": "safety-goggles",
+      "name": "Safety Goggles",
+      "description": "Twenty-five permission prompts answered.",
+      "slot": "face",
+      "pivot": [
+        3,
+        1
+      ],
+      "rarity": "common",
+      "unlock": {
+        "achievement": "careful"
+      },
+      "palette": {
+        "S": "#ff9f1c",
+        "G": "#a8dadc"
+      },
+      "pixels": [
+        "SSSSSSS",
+        "SGGSGGS",
+        "SGGSGGS"
+      ]
+    },
+    {
+      "id": "rainbow-scarf",
+      "name": "Rainbow Scarf",
+      "description": "Seven days together. Old friends now.",
+      "slot": "neck",
+      "pivot": [
+        3,
+        0
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "achievement": "loyal"
+      },
+      "palette": {
+        "r": "#ef476f",
+        "o": "#f78c6b",
+        "y": "#ffd166",
+        "g": "#06d6a0",
+        "b": "#118ab2",
+        "v": "#8338ec"
+      },
+      "pixels": [
+        "roygbvro",
+        "oygbvroy",
+        ".....gb.",
+        ".....bv."
+      ]
+    },
+    {
+      "id": "coffee-mug",
+      "name": "Coffee Mug",
+      "description": "Finished a task before 8 AM. Early crab gets the worm.",
+      "slot": "held",
+      "pivot": [
+        1,
+        4
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "early-bird"
+      },
+      "palette": {
+        "s": "#cfd8dc",
+        "W": "#f4f1ea",
+        "c": "#6f4518",
+        "h": "#c9c9c9"
+      },
+      "pixels": [
+        ".s..",
+        "s.s.",
+        "WcWh",
+        "WWW."
+      ]
+    },
+    {
+      "id": "paper-plane",
+      "name": "Paper Plane",
+      "description": "You dropped a file on Shellby. Special delivery!",
+      "slot": "held",
+      "pivot": [
+        1,
+        4
+      ],
+      "rarity": "common",
+      "unlock": {
+        "achievement": "special-delivery"
+      },
+      "palette": {
+        "W": "#f8f9fa",
+        "w": "#b8c2cc"
+      },
+      "pixels": [
+        "W...",
+        "WW..",
+        "WwWW",
+        "Ww.."
+      ]
+    },
+    {
+      "id": "pocket-watch",
+      "name": "Pocket Watch",
+      "description": "Your first routine ran like clockwork.",
+      "slot": "held",
+      "pivot": [
+        1,
+        5
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "clockwork"
+      },
+      "palette": {
+        "G": "#ffd23f",
+        "W": "#fff4e4",
+        "K": "#1b1b1f"
+      },
+      "pixels": [
+        "..G",
+        ".G.",
+        "GWG",
+        "GKG",
+        ".G."
+      ]
+    },
+    {
+      "id": "wrench",
+      "name": "Wrench",
+      "description": "You let Shellby run a script he built himself.",
+      "slot": "held",
+      "pivot": [
+        1,
+        5
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "tinkerer"
+      },
+      "palette": {
+        "g": "#adb5bd",
+        "G": "#6c757d"
+      },
+      "pixels": [
+        "g.g",
+        "gGg",
+        ".g.",
+        ".G.",
+        ".g."
+      ]
+    },
+    {
+      "id": "jolly-roger",
+      "name": "Jolly Roger",
+      "description": "Twenty-five helpers sent out. Admiral of the fleet.",
+      "slot": "shell",
+      "pivot": [
+        0,
+        5
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "achievement": "fleet"
+      },
+      "palette": {
+        "p": "#8d5524",
+        "K": "#1b1b1f",
+        "w": "#f8f9fa"
+      },
+      "pixels": [
+        "pKKKK",
+        "pKwKK",
+        "pKKKK",
+        "p....",
+        "p...."
+      ]
+    },
+    {
+      "id": "witch-hat",
+      "name": "Witch Hat",
+      "description": "Spooky Season collectible.",
+      "slot": "hat",
+      "pivot": [
+        4,
+        5
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "season": "halloween"
+      },
+      "palette": {
+        "K": "#2b193d",
+        "k": "#44285e",
+        "P": "#9d4edd",
+        "y": "#ffd23f"
+      },
+      "pixels": [
+        ".....KK..",
+        "....kK...",
+        "....kK...",
+        "...kKKK..",
+        "..KPyPPK.",
+        "KKKKKKKKK"
+      ]
+    },
+    {
+      "id": "pumpkin-pail",
+      "name": "Pumpkin Pail",
+      "description": "Spooky Season collectible. Trick or treat!",
+      "slot": "held",
+      "pivot": [
+        2,
+        5
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "halloween"
+      },
+      "palette": {
+        "g": "#52b788",
+        "O": "#ff8c1a",
+        "o": "#d96c00",
+        "K": "#3d1a00"
+      },
+      "pixels": [
+        "..g..",
+        ".OOO.",
+        "OKOKo",
+        "OKKKo",
+        ".ooo."
+      ]
+    },
+    {
+      "id": "bat-wings",
+      "name": "Bat Wings",
+      "description": "Spooky Season collectible.",
+      "slot": "shell",
+      "pivot": [
+        3,
+        4
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "season": "halloween"
+      },
+      "palette": {
+        "K": "#2b193d",
+        "p": "#5a189a"
+      },
+      "pixels": [
+        "K.....K",
+        "Kp...pK",
+        "KpK.KpK",
+        ".KKKKK."
+      ]
+    },
+    {
+      "id": "santa-hat",
+      "name": "Santa Hat",
+      "description": "Winter Holidays collectible.",
+      "slot": "hat",
+      "pivot": [
+        4,
+        5
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "season": "winter"
+      },
+      "palette": {
+        "R": "#e63946",
+        "r": "#b5202c",
+        "w": "#f8f9fa"
+      },
+      "pixels": [
+        "ww.......",
+        "wRr......",
+        ".RRRr....",
+        "..RRRRr..",
+        ".RRRRRRr.",
+        "wwwwwwwww"
+      ]
+    },
+    {
+      "id": "striped-scarf",
+      "name": "Striped Scarf",
+      "description": "Winter Holidays collectible.",
+      "slot": "neck",
+      "pivot": [
+        3,
+        0
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "winter"
+      },
+      "palette": {
+        "R": "#e63946",
+        "W": "#f8f9fa"
+      },
+      "pixels": [
+        "RWRWRWRW",
+        "WRWRWRWR",
+        ".....RW.",
+        ".....WR."
+      ]
+    },
+    {
+      "id": "candy-cane",
+      "name": "Candy Cane",
+      "description": "Winter Holidays collectible.",
+      "slot": "held",
+      "pivot": [
+        3,
+        5
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "winter"
+      },
+      "palette": {
+        "R": "#e63946",
+        "W": "#f8f9fa"
+      },
+      "pixels": [
+        ".WR.",
+        "R..W",
+        "...R",
+        "...W",
+        "...R"
+      ]
+    },
+    {
+      "id": "rose",
+      "name": "Rose",
+      "description": "Valentine's collectible.",
+      "slot": "held",
+      "pivot": [
+        1,
+        6
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "valentine"
+      },
+      "palette": {
+        "R": "#e63946",
+        "r": "#8d0801",
+        "G": "#52b788"
+      },
+      "pixels": [
+        ".R.",
+        "RrR",
+        ".R.",
+        ".G.",
+        "GG.",
+        ".G."
+      ]
+    },
+    {
+      "id": "flower-crown",
+      "name": "Flower Crown",
+      "description": "Spring collectible.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        1
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "spring"
+      },
+      "palette": {
+        "p": "#ff8fab",
+        "y": "#ffd166",
+        "w": "#fff4e4",
+        "G": "#52b788"
+      },
+      "pixels": [
+        "p.y.w.p",
+        "GGGGGGG"
+      ]
+    },
+    {
+      "id": "sprout",
+      "name": "Sprout",
+      "description": "Spring collectible. Something's growing!",
+      "slot": "shell",
+      "pivot": [
+        1,
+        3
+      ],
+      "rarity": "common",
+      "unlock": {
+        "season": "spring"
+      },
+      "palette": {
+        "G": "#52b788",
+        "g": "#2d6a4f"
+      },
+      "pixels": [
+        "G.G",
+        ".G.",
+        ".g."
+      ]
+    },
+    {
+      "id": "ice-cream",
+      "name": "Ice Cream",
+      "description": "Summer collectible.",
+      "slot": "held",
+      "pivot": [
+        1,
+        5
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "summer"
+      },
+      "palette": {
+        "P": "#ffafcc",
+        "C": "#7f5539",
+        "Y": "#e9c46a",
+        "y": "#c68b3a"
+      },
+      "pixels": [
+        ".P.",
+        "PPP",
+        "YyY",
+        ".Y.",
+        ".y."
+      ]
+    },
+    {
+      "id": "autumn-scarf",
+      "name": "Autumn Scarf",
+      "description": "Autumn collectible.",
+      "slot": "neck",
+      "pivot": [
+        3,
+        0
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "season": "autumn"
+      },
+      "palette": {
+        "O": "#e76f51",
+        "o": "#8d5524"
+      },
+      "pixels": [
+        "OoOoOoOo",
+        "oOoOoOoO",
+        ".....Oo.",
+        ".....oO."
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "sparkles",
+      "name": "Sparkles",
+      "description": "A little twinkle.",
+      "motion": "twinkle",
+      "count": 6,
+      "speed": 1,
+      "rarity": "common",
+      "sprites": [
+        {
+          "palette": {
+            "w": "#fff4e4"
+          },
+          "pixels": [
+            ".w.",
+            "www",
+            ".w."
+          ]
+        },
+        {
+          "palette": {
+            "y": "#ffd166"
+          },
+          "pixels": [
+            "y"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "confetti",
+      "name": "Confetti",
+      "description": "Celebrate every finished task.",
+      "motion": "burst",
+      "count": 18,
+      "speed": 1,
+      "rarity": "common",
+      "unlock": {
+        "achievement": "first-task"
+      },
+      "sprites": [
+        {
+          "palette": {
+            "r": "#ff5ea8"
+          },
+          "pixels": [
+            "r"
+          ]
+        },
+        {
+          "palette": {
+            "y": "#ffd166"
+          },
+          "pixels": [
+            "yy"
+          ]
+        },
+        {
+          "palette": {
+            "b": "#4cc9f0"
+          },
+          "pixels": [
+            "b"
+          ]
+        },
+        {
+          "palette": {
+            "g": "#06d6a0"
+          },
+          "pixels": [
+            "g",
+            "g"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bats",
+      "name": "Bats",
+      "description": "Spooky Season collectible.",
+      "motion": "orbit",
+      "count": 4,
+      "speed": 1,
+      "rarity": "epic",
+      "unlock": {
+        "season": "halloween"
+      },
+      "sprites": [
+        {
+          "palette": {
+            "K": "#2b193d",
+            "p": "#7b2cbf"
+          },
+          "pixels": [
+            "K...K",
+            "KpKpK",
+            ".K.K."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "snow",
+      "name": "Snowfall",
+      "description": "Winter Holidays collectible.",
+      "motion": "fall",
+      "count": 14,
+      "speed": 0.8,
+      "rarity": "rare",
+      "unlock": {
+        "season": "winter"
+      },
+      "sprites": [
+        {
+          "palette": {
+            "w": "#ffffff"
+          },
+          "pixels": [
+            "w"
+          ]
+        },
+        {
+          "palette": {
+            "w": "#e8f4ff"
+          },
+          "pixels": [
+            ".w.",
+            "www",
+            ".w."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hearts",
+      "name": "Floating Hearts",
+      "description": "Valentine's collectible.",
+      "motion": "rise",
+      "count": 6,
+      "speed": 0.9,
+      "rarity": "rare",
+      "unlock": {
+        "season": "valentine"
+      },
+      "sprites": [
+        {
+          "palette": {
+            "R": "#ff4d6d"
+          },
+          "pixels": [
+            ".R.R.",
+            "RRRRR",
+            ".RRR.",
+            "..R.."
+          ]
+        },
+        {
+          "palette": {
+            "p": "#ffafcc"
+          },
+          "pixels": [
+            "p.p",
+            "ppp",
+            ".p."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fireflies",
+      "name": "Fireflies",
+      "description": "Summer collectible.",
+      "motion": "float",
+      "count": 8,
+      "speed": 0.7,
+      "rarity": "rare",
+      "unlock": {
+        "season": "summer"
+      },
+      "sprites": [
+        {
+          "palette": {
+            "y": "#fff3a3"
+          },
+          "pixels": [
+            "y"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leaves",
+      "name": "Falling Leaves",
+      "description": "Autumn collectible.",
+      "motion": "fall",
+      "count": 8,
+      "speed": 0.7,
+      "rarity": "rare",
+      "unlock": {
+        "season": "autumn"
+      },
+      "sprites": [
+        {
+          "palette": {
+            "O": "#e76f51",
+            "o": "#bc4b27"
+          },
+          "pixels": [
+            ".O",
+            "Oo"
+          ]
+        },
+        {
+          "palette": {
+            "Y": "#e9c46a",
+            "y": "#c68b3a"
+          },
+          "pixels": [
+            "Y.",
+            "yY"
+          ]
+        },
+        {
+          "palette": {
+            "R": "#c1121f"
+          },
+          "pixels": [
+            "R",
+            "RR"
+          ]
+        }
+      ]
+    }
+  ],
+  "skins": [
+    {
+      "id": "ghost",
+      "name": "Ghost",
+      "author": "Shellby",
+      "description": "Spooky Season collectible. Boo!",
+      "unlock": {
+        "season": "halloween"
+      },
+      "palette": {
+        "S": "#8a86a8",
+        "s": "#d9d6ee",
+        "h": "#ffffff",
+        "b": "#eeeaf8",
+        "B": "#b3aed0",
+        "c": "#ffffff",
+        "C": "#b3aed0",
+        "k": "#b3aed0",
+        "e": "#2b193d",
+        "w": "#9d4edd",
+        "l": "#b3aed0"
+      },
+      "parts": {
+        "S": "shell",
+        "s": "shell",
+        "h": "shell",
+        "b": "body",
+        "B": "body",
+        "c": "claw",
+        "C": "claw",
+        "k": "stalks",
+        "e": "eyes",
+        "w": "eyes",
+        "l": "legs"
+      },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "frost",
+      "name": "Frost",
+      "author": "Shellby",
+      "description": "Winter Holidays collectible. Brrr.",
+      "unlock": {
+        "season": "winter"
+      },
+      "palette": {
+        "S": "#3d5a80",
+        "s": "#98c1d9",
+        "h": "#e0fbfc",
+        "b": "#caf0f8",
+        "B": "#5fa8d3",
+        "c": "#ffffff",
+        "C": "#5fa8d3",
+        "k": "#5fa8d3",
+        "e": "#14213d",
+        "w": "#ffffff",
+        "l": "#5fa8d3"
+      },
+      "parts": {
+        "S": "shell",
+        "s": "shell",
+        "h": "shell",
+        "b": "body",
+        "B": "body",
+        "c": "claw",
+        "C": "claw",
+        "k": "stalks",
+        "e": "eyes",
+        "w": "eyes",
+        "l": "legs"
+      },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    }
+  ]
+}

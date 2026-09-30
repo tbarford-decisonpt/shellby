@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "title": "Shellby wardrobe pack",
+  "description": "A data-only pack of accessories, effects and skins for Shellby (format 1). See docs/ADDONS.md. The app strips unknown fields and skips invalid items; this schema is the strict version used to validate uploads.",
+  "type": "object",
+  "required": ["format", "id", "name", "author", "version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,39}$" },
+    "name": { "$ref": "#/$defs/text", "maxLength": 60 },
+    "author": { "$ref": "#/$defs/text", "maxLength": 60 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "description": { "type": "string", "maxLength": 240 },
+    "homepage": { "type": "string", "format": "uri", "pattern": "^https://\\S+$", "maxLength": 200 },
+    "accessories": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/accessory" } },
+    "effects": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/effect" } },
+    "skins": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/skin" } }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "itemId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+    "hex": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "rarity": { "enum": ["common", "rare", "epic", "legendary"] },
+    "palette": {
+      "description": "One character → one #rrggbb colour. '.' is reserved for transparency.",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "propertyNames": { "minLength": 1, "maxLength": 1, "not": { "const": "." } },
+      "additionalProperties": { "$ref": "#/$defs/hex" }
+    },
+    "pixels16": {
+      "type": "array", "minItems": 1, "maxItems": 16,
+      "items": { "type": "string", "maxLength": 16 }
+    },
+    "pixels8": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "items": { "type": "string", "maxLength": 8 }
+    },
+    "point": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "prefixItems": [{ "type": "integer" }, { "type": "integer" }],
+      "items": false
+    },
+    "pivot": {
+      "$ref": "#/$defs/point",
+      "prefixItems": [
+        { "type": "integer", "minimum": -16, "maximum": 32 },
+        { "type": "integer", "minimum": -16, "maximum": 32 }
+      ]
+    },
+    "anchorPoint": {
+      "$ref": "#/$defs/point",
+      "prefixItems": [
+        { "type": "integer", "minimum": -16, "maximum": 48 },
+        { "type": "integer", "minimum": -16, "maximum": 48 }
+      ]
+    },
+    "unlock": {
+      "description": "How the item is earned. Omit for always available.",
+      "oneOf": [
+        {
+          "type": "object", "required": ["default"], "additionalProperties": false,
+          "properties": { "default": { "const": true } }
+        },
+        {
+          "type": "object", "required": ["achievement"], "additionalProperties": false,
+          "properties": {
+            "achievement": {
+              "enum": ["first-task", "ten-tasks", "quarter-century", "centurion", "crew-boss", "all-hands", "fleet", "toolmaker", "inventor", "tinkerer", "clockwork", "night-owl", "early-bird", "multitasker", "careful", "planner", "special-delivery", "loyal"]
+            }
+          }
+        },
+        {
+          "type": "object", "required": ["season"], "additionalProperties": false,
+          "properties": {
+            "season": { "enum": ["halloween", "winter", "valentine", "spring", "summer", "autumn"] }
+          }
+        }
+      ]
+    },
+    "accessory": {
+      "type": "object",
+      "required": ["id", "name", "slot", "pivot", "palette", "pixels"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "name": { "$ref": "#/$defs/text", "maxLength": 40 },
+        "description": { "type": "string", "maxLength": 160 },
+        "slot": { "enum": ["hat", "face", "neck", "held", "shell"] },
+        "anchor": { "enum": ["head", "face", "neck", "claw", "shellTop"] },
+        "follows": { "enum": ["stalks", "body", "claw", "shell", "eyes", "legs"] },
+        "pivot": { "$ref": "#/$defs/pivot" },
+        "palette": { "$ref": "#/$defs/palette" },
+        "pixels": { "$ref": "#/$defs/pixels16" },
+        "rarity": { "$ref": "#/$defs/rarity" },
+        "unlock": { "$ref": "#/$defs/unlock" }
+      }
+    },
+    "sprite": {
+      "type": "object",
+      "required": ["palette", "pixels"],
+      "additionalProperties": false,
+      "properties": {
+        "palette": { "$ref": "#/$defs/palette" },
+        "pixels": { "$ref": "#/$defs/pixels8" }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "required": ["id", "name", "motion", "sprites"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "name": { "$ref": "#/$defs/text", "maxLength": 40 },
+        "description": { "type": "string", "maxLength": 160 },
+        "motion": { "enum": ["fall", "rise", "float", "orbit", "twinkle", "burst"] },
+        "count": { "type": "integer", "minimum": 1, "maximum": 24, "default": 10 },
+        "speed": { "type": "number", "minimum": 0.25, "maximum": 3, "default": 1 },
+        "sprites": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/sprite" } },
+        "rarity": { "$ref": "#/$defs/rarity" },
+        "unlock": { "$ref": "#/$defs/unlock" }
+      }
+    },
+    "skin": {
+      "description": "Same format as docs/SKINS.md, plus optional unlock and anchors.",
+      "type": "object",
+      "required": ["id", "palette", "pixels"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "name": { "type": "string", "maxLength": 40 },
+        "author": { "type": "string", "maxLength": 40 },
+        "description": { "type": "string", "maxLength": 120 },
+        "palette": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "minLength": 1, "maxLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/hex" }
+        },
+        "parts": {
+          "type": "object",
+          "propertyNames": { "minLength": 1, "maxLength": 1 },
+          "additionalProperties": { "enum": ["shell", "body", "claw", "eyes", "stalks", "legs", "extra"] }
+        },
+        "pixels": {
+          "type": "array", "minItems": 1, "maxItems": 32,
+          "items": { "type": "string", "maxLength": 40 }
+        },
+        "unlock": { "$ref": "#/$defs/unlock" },
+        "anchors": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "head": { "$ref": "#/$defs/anchorPoint" },
+            "face": { "$ref": "#/$defs/anchorPoint" },
+            "neck": { "$ref": "#/$defs/anchorPoint" },
+            "claw": { "$ref": "#/$defs/anchorPoint" },
+            "shellTop": { "$ref": "#/$defs/anchorPoint" }
+          }
+        }
+      }
+    }
+  }
+}

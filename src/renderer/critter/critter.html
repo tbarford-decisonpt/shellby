@@ -5,6 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:">
 <title>Shellby</title>
 <link rel="stylesheet" href="../shared/fonts.css">
+<link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="critter.css">
 </head>
 <body class="state-idle">
@@ -12,6 +13,7 @@
     <!-- helper crabs (running subagents) line up to Shellby's left -->
     <div id="crew" aria-live="polite"></div>
     <div id="self">
+      <div id="fx"></div>
       <div id="bubble" aria-hidden="true"><span id="bubbleText"></span></div>
       <div id="count" aria-hidden="true"></div>
       <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
@@ -22,6 +24,7 @@
     </div>
   </div>
 <script src="../shared/sprite.js"></script>
+<script src="../shared/effects.js"></script>
 <script src="critter.js"></script>
 </body>
 </html>

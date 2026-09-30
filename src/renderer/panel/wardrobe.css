@@ -1,0 +1,147 @@
+/* Shellby ??? Wardrobe + Trophies. Tokens come from panel.css. */
+
+body[data-view="wardrobe"] .view-wardrobe,
+body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-wardrobe, .view-trophies {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+
+.rarity-common { --rarity: var(--line); --rarity-glow: transparent; }
+.rarity-rare { --rarity: #4fb7a3; --rarity-glow: rgba(127, 214, 194, .18); }
+.rarity-epic { --rarity: #9d7bff; --rarity-glow: rgba(157, 123, 255, .2); }
+.rarity-legendary { --rarity: #ffc93c; --rarity-glow: rgba(255, 201, 60, .22); }
+
+/* the logo doubles as the Wardrobe button */
+.brand {
+  -webkit-app-region: no-drag;
+  position: relative; border: 0; background: none; color: inherit; padding: 3px 6px; margin: -3px -6px;
+  border-radius: var(--r-sm); cursor: pointer; transition: background .15s;
+}
+.brand:hover { background: var(--reef); }
+.brand:hover .brand-crab svg { animation: hop .42s ease-in-out 2; }
+.brand .dot-badge { top: 0; right: 0; }
+.brand-crab { overflow: visible; }
+
+.wd-count { font: 600 11px var(--font-mono); color: var(--sand-faint); }
+.view-head #trophiesBtn { margin-left: auto; }
+
+/* ---------------------------------------------------------------- season banner */
+.season-banner {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 10px 12px;
+  border-radius: var(--r); border: 1px solid rgba(255, 201, 60, .45);
+  background: linear-gradient(100deg, rgba(255, 140, 26, .16), rgba(157, 78, 221, .14)), var(--reef);
+  font-size: 12.5px; animation: rise .35s var(--ease-out);
+}
+.sb-emoji { font-size: 22px; }
+.sb-text { flex: 1; color: var(--sand-dim); }
+.sb-text b { color: var(--sand); }
+.sb-on { font: 700 10.5px var(--font-mono); color: var(--glass); text-transform: uppercase; letter-spacing: .05em; }
+
+/* ---------------------------------------------------------------- stage */
+.stage {
+  position: relative; height: 190px; border-radius: var(--r-lg); overflow: hidden;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(60% 55% at 50% 30%, rgba(127, 214, 194, .12), transparent 70%),
+    linear-gradient(var(--abyss), var(--reef));
+  display: grid; place-items: center;
+}
+.stage::before { /* soft spotlight */
+  content: ""; position: absolute; left: 50%; top: -30%; width: 70%; height: 120%; transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(243, 230, 204, .07), transparent); pointer-events: none;
+}
+.stage-crab { position: relative; z-index: 2; margin-top: 26px; }
+.stage-crab svg { width: 176px; height: auto; display: block; overflow: visible; }
+.stage-floor { position: absolute; left: 50%; bottom: 30px; width: 150px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, .45), transparent); z-index: 1; }
+.stage-fx { position: absolute; left: 50%; top: 0; bottom: 0; width: 240px; transform: translateX(-50%); z-index: 3; --fall-h: 200px; --orbit-r: 104px; }
+.stage-caption { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font: 600 11px var(--font-mono); color: var(--sand-faint); z-index: 4; padding: 0 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* preview moods (mirrors the desktop critter's animations) */
+.stage .part { transition: transform .35s var(--ease-spring), opacity .3s; }
+.stage.state-idle .stage-crab svg { animation: st-breathe 3.2s ease-in-out infinite; }
+.stage.state-idle .part-eyes:not(.acc) { animation: st-blink 5s steps(1) infinite; }
+.stage.state-working .stage-crab svg { animation: st-hop .42s ease-in-out infinite; }
+.stage.state-working .part-legs-a { animation: st-leg .21s steps(1) infinite; }
+.stage.state-working .part-legs-b { animation: st-leg .21s steps(1) infinite reverse; }
+.stage.state-working .part-claw { animation: st-snap .42s steps(1) infinite; }
+.stage.state-working .part-stalks, .stage.state-working .part-eyes { animation: st-look 1.6s steps(1) infinite; }
+.stage.state-asking .stage-crab svg { animation: st-sway 1.2s ease-in-out infinite; }
+.stage.state-asking .part-claw { transform: rotate(-35deg) translate(1px, -2px); }
+.stage.state-sleeping .part-body, .stage.state-sleeping .part-claw, .stage.state-sleeping .part-eyes,
+.stage.state-sleeping .part-stalks, .stage.state-sleeping [class*="part-legs"] { transform: translateX(-1.4px) scale(.55); opacity: 0; }
+.stage.state-sleeping .part-shell { animation: st-snooze 4s ease-in-out infinite; }
+@keyframes st-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes st-blink { 0%, 95%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+@keyframes st-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes st-leg { 0% { transform: translateY(0); } 50% { transform: translate(1px, -1px); } }
+@keyframes st-snap { 0% { transform: none; } 50% { transform: rotate(-20deg); } }
+@keyframes st-look { 0%, 100% { transform: translateX(0); } 33% { transform: translateX(1px); } 66% { transform: translateX(-1px); } }
+@keyframes st-sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes st-snooze { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-3deg); } }
+
+.stage-moods { display: flex; gap: 4px; justify-content: center; margin: 8px 0 12px; }
+.mood {
+  border: 1px solid var(--line); background: var(--reef); color: var(--sand-dim);
+  border-radius: 99px; padding: 3px 11px; font-size: 12px; font-weight: 700;
+}
+.mood:hover { color: var(--sand); border-color: var(--reef-3); }
+.mood.on { background: var(--glass-dim); border-color: var(--glass); color: var(--glass); }
+.mood.random { padding: 3px 9px; }
+
+/* ---------------------------------------------------------------- slot tabs + grid */
+.wd-slots { margin-bottom: 10px; flex-wrap: wrap; }
+.wd-slots button { flex: 1 0 auto; padding: 0 8px; position: relative; }
+.wd-slots button.has-new::after { content: ""; position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--coral); }
+
+.wd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; margin-bottom: 8px; }
+.wd-tile {
+  position: relative; display: grid; justify-items: center; align-content: start; gap: 5px;
+  min-height: 92px; padding: 10px 6px 8px;
+  border-radius: var(--r); border: 1px solid var(--line); border-bottom: 2px solid var(--rarity, var(--line));
+  background: linear-gradient(180deg, var(--rarity-glow, transparent), transparent 70%), var(--reef);
+  transition: transform .2s var(--ease-spring), border-color .15s, box-shadow .15s;
+}
+.wd-tile:hover { transform: translateY(-2px); border-color: var(--reef-3); }
+.wd-tile.on { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim); }
+.wd-art { height: 44px; display: grid; place-items: center; }
+.wd-art svg { max-width: 58px; max-height: 44px; width: auto; height: 44px; image-rendering: pixelated; }
+.wd-tile .wd-art svg[viewBox$=" 13"], .wd-tile .wd-art svg { overflow: visible; }
+.none-art { font: 600 22px var(--font-mono); color: var(--sand-faint); }
+.wd-name { font-size: 11.5px; font-weight: 700; line-height: 1.2; text-align: center; }
+.wd-tile .new-pill { position: absolute; top: 5px; right: 5px; }
+.wd-tile.locked .wd-art { filter: grayscale(1) brightness(.45) contrast(1.2); }
+.wd-tile.locked .wd-name { color: var(--sand-faint); }
+.wd-tile.locked:hover .wd-art { filter: grayscale(.6) brightness(.7); }
+.wd-lock { position: absolute; top: 6px; left: 7px; font-size: 11px; }
+.wd-progress { position: absolute; left: 8px; right: 8px; bottom: 5px; height: 3px; border-radius: 2px; background: var(--reef-3); overflow: hidden; }
+.wd-progress span { display: block; height: 100%; background: var(--rarity, var(--glass)); transform-origin: left; }
+
+/* ---------------------------------------------------------------- packs */
+.pack-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 5px; }
+.pack { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--reef); font-size: 13px; }
+.pack.bad { color: var(--amber); font-size: 12px; }
+.pack-main { flex: 1; min-width: 0; }
+.pack-meta { color: var(--sand-faint); font-size: 12px; }
+.pack-counts { font: 10.5px var(--font-mono); color: var(--sand-faint); margin-top: 2px; }
+
+/* ---------------------------------------------------------------- trophies */
+.trophy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.trophy {
+  display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center;
+  padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef);
+}
+.trophy.done { border-color: rgba(255, 201, 60, .45); background: linear-gradient(90deg, rgba(255, 201, 60, .08), transparent 60%), var(--reef); }
+.trophy.secret { opacity: .7; }
+.trophy-icon { font-size: 24px; text-align: center; filter: grayscale(1) opacity(.55); }
+.trophy.done .trophy-icon { filter: none; }
+.trophy-name { font-weight: 700; font-size: 13.5px; display: flex; gap: 6px; align-items: center; }
+.trophy-check { color: #ffc93c; }
+.trophy-desc { font-size: 12.5px; color: var(--sand-dim); }
+.trophy-bar { position: relative; height: 5px; margin-top: 6px; border-radius: 3px; background: var(--reef-3); overflow: hidden; }
+.trophy-bar span { display: block; height: 100%; background: var(--glass); transform-origin: left; }
+.trophy-bar em { position: absolute; right: 0; top: -15px; font: 10px var(--font-mono); font-style: normal; color: var(--sand-faint); }
+.trophy-rewards { display: flex; gap: 4px; }
+.reward { width: 34px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: var(--abyss); }
+.reward svg { max-width: 26px; max-height: 22px; width: auto; height: 22px; }
+.trophy:not(.done) .reward svg { filter: grayscale(1) brightness(.6); }

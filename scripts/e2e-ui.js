@@ -46,7 +46,7 @@ async function cdp(wsUrl) {
 (async () => {
   const fileA = path.join(os.tmpdir(), `shellby-e2e-a-${Date.now()}.txt`);
   const fileB = path.join(os.tmpdir(), `shellby-e2e-b-${Date.now()}.txt`);
-  const app = spawn(electron, [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore' });
+  const app = spawn(electron, [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: process.env.SHELLBY_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')) } });
   let ok = false;
   let panel;
   let originalMode = null;

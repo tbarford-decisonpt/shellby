@@ -3,13 +3,15 @@
 //   node scripts/titlebar-fit.js
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9341;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore' });
+  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: process.env.SHELLBY_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')) } });
   let fails = 0;
   try {
     let t;

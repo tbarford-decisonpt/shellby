@@ -81,6 +81,8 @@ const PINNED = [{ kind: 'skill', name: 'rename-screenshots' }, { kind: 'skill', 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 async function shot(win, file) {
+  // Hide transient toasts so they never cover README screenshots.
+  await win.webContents.executeJavaScript("{ const t = document.getElementById('toast'); if (t) t.hidden = true; }");
   win.webContents.invalidate();
   await wait(120);
   const img = await win.webContents.capturePage();
@@ -88,10 +90,13 @@ async function shot(win, file) {
   console.log('wrote', path.relative(process.cwd(), file));
 }
 
-async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots }) {
+async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe }) {
   const out = path.join(ROOT, 'docs');
   fs.mkdirSync(out, { recursive: true });
   const base = { toolbox: DEMO_TOOLBOX, routines: DEMO_ROUTINES, learned: LEARNED, pinned: PINNED, usage: DEMO_USAGE };
+  // Off-season for the plain shots; each wardrobe shot sets its own date.
+  const setDate = (y, m, d) => { captureClock.now = new Date(y, m - 1, d, 12); wardrobe.collectSeasonals(); broadcastWardrobe(); };
+  setDate(2026, 6, 10);
   try {
     await wait(2500);
     // Occluded windows stop painting, so capturePage would return stale frames.
@@ -139,6 +144,40 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots })
     send(critter, 'critter:state', { state: 'working', busy: 2, crew, moreCrew: 0 });
     await wait(1200);
     await shot(critter, path.join(out, 'critter-crew.png'));
+    send(critter, 'critter:state', { state: 'idle', busy: 0, crew: [], moreCrew: 0 });
+    setCrewSlots(0);
+    await wait(1300);
+
+    // ---- Wardrobe: earn some trophies, then dress up for the seasons
+    for (let i = 0; i < 12; i++) wardrobe.record('task-completed');
+    wardrobe.record('helper-spawned');
+    wardrobe.record('crew-size', { n: 3 });
+    wardrobe.record('trick-learned');
+    wardrobe.record('plan-approved');
+    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'trophies' });
+    await wait(900);
+    await shot(panel, path.join(out, 'screenshot-trophies.png'));
+
+    setDate(2026, 10, 15); // Spooky Season
+    wardrobe.wearSeason();
+    await wait(600);
+    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'wardrobe' });
+    await wait(1400);
+    await shot(panel, path.join(out, 'screenshot-wardrobe.png'));
+    send(critter, 'critter:state', { state: 'idle', busy: 0, crew: [], moreCrew: 0 });
+    await wait(1500);
+    await shot(critter, path.join(out, 'critter-halloween.png'));
+
+    setDate(2026, 12, 12); // Winter Holidays
+    wardrobe.wearSeason();
+    await wait(1600);
+    await shot(critter, path.join(out, 'critter-winter.png'));
+
+    setDate(2026, 6, 10);
+    wardrobe.setOptions({ unlockAll: true });
+    wardrobe.setOutfit({ hat: 'wizard-hat', held: 'coffee-mug', face: null, neck: null, shell: null, effect: 'sparkles' });
+    await wait(1400);
+    await shot(critter, path.join(out, 'critter-wizard.png'));
   } catch (e) {
     console.error('capture failed:', e);
   }

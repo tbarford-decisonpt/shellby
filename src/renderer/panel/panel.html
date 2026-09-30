@@ -7,15 +7,18 @@
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="../shared/effects.css">
+<link rel="stylesheet" href="wardrobe.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
 
   <header class="titlebar">
-    <div class="brand">
+    <button type="button" class="brand" id="brandBtn" title="Wardrobe: dress up Shellby" aria-label="Open the Wardrobe">
       <span class="brand-crab" id="brandCrab"></span>
       <span class="brand-name">Shellby</span>
-    </div>
+      <span class="dot-badge" id="wardrobeBadge" hidden></span>
+    </button>
     <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode">
       <span class="mode-dot"></span><span id="modeLabel">Ask</span>
       <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -181,6 +184,68 @@
     <ul class="routine-list" id="routineList"></ul>
   </main>
 
+  <!-- ====================== WARDROBE ====================== -->
+  <main class="view view-wardrobe" id="wardrobeView">
+    <div class="view-head">
+      <button type="button" class="back-btn" data-back>← Back</button>
+      <h2>Wardrobe</h2>
+      <span class="wd-count" id="wdCount"></span>
+      <button type="button" class="btn ghost slim-btn" id="trophiesBtn">🏆 Trophies</button>
+    </div>
+    <div class="season-banner" id="seasonBanner" hidden></div>
+    <div class="stage" id="wdStage" aria-label="Preview">
+      <div class="stage-fx" id="wdFx"></div>
+      <div class="stage-crab" id="wdCrab"></div>
+      <div class="stage-floor"></div>
+      <div class="stage-caption" id="wdCaption"></div>
+    </div>
+    <div class="stage-moods" role="group" aria-label="Preview mood">
+      <button type="button" class="mood on" data-mood="idle">Idle</button>
+      <button type="button" class="mood" data-mood="working">Working</button>
+      <button type="button" class="mood" data-mood="asking">Asking</button>
+      <button type="button" class="mood" data-mood="sleeping">Sleeping</button>
+      <button type="button" class="mood random" id="randomizeBtn" title="Surprise me">🎲</button>
+    </div>
+    <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots">
+      <button type="button" role="tab" data-slot="hat" aria-selected="true">Hats</button>
+      <button type="button" role="tab" data-slot="face">Face</button>
+      <button type="button" role="tab" data-slot="neck">Neck</button>
+      <button type="button" role="tab" data-slot="held">Held</button>
+      <button type="button" role="tab" data-slot="shell">Shell</button>
+      <button type="button" role="tab" data-slot="effect">Effects</button>
+      <button type="button" role="tab" data-slot="skin">Colors</button>
+    </div>
+    <div class="wd-grid" id="wdGrid" role="listbox" aria-label="Items"></div>
+    <section class="setting-group wd-options">
+      <h3>Options</h3>
+      <label class="toggle"><input type="checkbox" id="seasonalToggle"><span class="switch"></span>Seasonal outfits: dress up automatically for Halloween, winter and more</label>
+      <label class="toggle"><input type="checkbox" id="crewToggle"><span class="switch"></span>Helper crabs wear matching hats</label>
+      <label class="toggle"><input type="checkbox" id="unlockAllToggle"><span class="switch"></span>Unlock everything (skip the achievements)</label>
+    </section>
+    <section class="setting-group wd-packs">
+      <h3>Wardrobe packs</h3>
+      <p class="muted small">Community packs add hats, effects and colors. They're pixel art and settings only and can't run code. Drop a pack <code>.json</code> here, or:</p>
+      <div class="row wrap">
+        <button type="button" class="btn" id="installPackBtn">Install pack…</button>
+        <button type="button" class="btn ghost" id="packsFolderBtn">Packs folder</button>
+        <button type="button" class="btn ghost" id="reloadPacksBtn" title="Re-read packs after editing them">Reload</button>
+        <button type="button" class="btn ghost" id="packGuideBtn">Make your own</button>
+      </div>
+      <ul class="pack-list" id="packList"></ul>
+    </section>
+  </main>
+
+  <!-- ====================== TROPHIES ====================== -->
+  <main class="view view-trophies" id="trophiesView">
+    <div class="view-head">
+      <button type="button" class="back-btn" id="trophiesBack">← Wardrobe</button>
+      <h2>Trophies</h2>
+      <span class="wd-count" id="trophyCount"></span>
+    </div>
+    <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
+    <ul class="trophy-list" id="trophyList"></ul>
+  </main>
+
   <!-- ====================== HISTORY ====================== -->
   <main class="view view-history" id="historyView">
     <div class="view-head">
@@ -288,12 +353,14 @@
 
 <script src="../shared/sprite.js"></script>
 <script src="../shared/markdown.js"></script>
+<script src="../shared/effects.js"></script>
 <script src="core.js"></script>
 <script src="feed.js"></script>
 <script src="tabs.js"></script>
 <script src="toolbox.js"></script>
 <script src="routines.js"></script>
 <script src="settings.js"></script>
+<script src="wardrobe.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

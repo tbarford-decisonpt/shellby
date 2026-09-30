@@ -5,11 +5,13 @@ const crewHost = document.getElementById('crew');
 const countEl = document.getElementById('count');
 const api = window.shellby.critter;
 
-const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦' };
+const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★' };
 // Each helper gets its own shell colour so parallel agents are easy to tell apart.
 const HUES = [0, 145, 250, 60, 300, 200];
 
 let skin = null;
+let outfit = { accessories: [], effect: null, crewAccessories: [] };
+let fx = null;
 let px = 4;
 let state = 'idle';
 const helpers = new Map(); // task id -> element
@@ -17,14 +19,21 @@ const helpers = new Map(); // task id -> element
 api.onSkin(msg => {
   skin = msg.skin;
   px = msg.px;
+  outfit = msg.outfit || outfit;
   document.documentElement.style.setProperty('--px', `${px}px`);
   document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
-  spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px }));
+  spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories: outfit.accessories }));
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue));
+  // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
+  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
+  fx.set(outfit.effect);
 });
 
+api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
+
 function helperSprite(hue) {
-  const svg = window.ShellbySprite.build(skin, { px: Math.max(1, px * 0.5) });
+  // Helpers wear the same hat as Shellby when "crew outfits" is on.
+  const svg = window.ShellbySprite.build(skin, { px: Math.max(1, px * 0.5), accessories: outfit.crewAccessories || [] });
   svg.style.filter = `hue-rotate(${hue}deg) saturate(1.1)`;
   return svg;
 }

@@ -13,7 +13,7 @@ const PORT = 9342;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore' });
+  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: process.env.SHELLBY_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')) } });
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
   try {
@@ -34,7 +34,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const critter = await connect(list.find(t => t.url.endsWith('critter.html')).webSocketDebuggerUrl);
     const panel = await connect(list.find(t => t.url.endsWith('panel.html')).webSocketDebuggerUrl);
     await wait(3000);
-    await critter.ev('window.shellby.critter.click()'); // show the panel so layout/hover are real
+    // Open the panel only if it isn't already (a fresh profile opens it for onboarding).
+    if (await panel.ev('document.visibilityState') !== 'visible') await critter.ev('window.shellby.critter.click()'); // show the panel so layout/hover are real
     await wait(800);
     await panel.ev("SB.setView('chat')");
 
@@ -70,7 +71,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     fs.writeFileSync(out, Buffer.from(shot.data, 'base64'));
     console.log('tooltip screenshot:', out);
 
-    // 3. critter helpers have no native titles
+    // 3. scrollIntoView on deep content must never scroll the page itself
+    //    (the original "top of the panel gets messed up when scrolling" bug)
+    for (const view of ['settings', 'routines', 'history', 'chat']) {
+      await panel.ev(`SB.setView('${view}')`);
+      await wait(250);
+      const r2 = JSON.parse(await panel.ev(`(() => {
+        const main = document.querySelector('.view-${view}') || document.body;
+        const deep = main.querySelector('*:last-child') || main;
+        // block 'start' on content near the bottom: the view can't scroll that far,
+        // so the browser tries to scroll the page itself to make up the difference.
+        deep.scrollIntoView({ block: 'start' });
+        return JSON.stringify({ page: document.scrollingElement.scrollTop + document.body.scrollTop, bar: document.querySelector('.titlebar').getBoundingClientRect().top });
+      })()`));
+      check(r2.page === 0 && Math.abs(r2.bar) < 1, `${view}: page never scrolls, title bar stays at top (page=${r2.page}, bar=${r2.bar})`);
+    }
+
+    // 4. critter helpers have no native titles
     const titles = await critter.ev("document.querySelectorAll('[title]').length");
     check(titles === 0, `critter has no native-tooltip titles (${titles})`);
     panel.ws.close(); critter.ws.close();

@@ -16,6 +16,10 @@ const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher } = require('./toolbox');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
+const { Wardrobe } = require('./wardrobe/service');
+const { validatePack } = require('./wardrobe/catalog');
+const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
+const { KNOWN_SEASONS } = require('./wardrobe/seasons');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -29,10 +33,19 @@ const MAX_CREW_SHOWN = 5;          // helper crabs drawn on the desktop
 const SLEEP_AFTER_MS = 3 * 60 * 1000;
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
 
+// Dev/test isolation: a separate profile (settings, history, single-instance lock)
+// so test runs never touch the user's real Shellby or need it closed.
+if (!app.isPackaged && process.env.SHELLBY_USER_DATA) app.setPath('userData', process.env.SHELLBY_USER_DATA);
+// Screenshot runs always use a throwaway profile.
+if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_DATA) {
+  app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-capture-')));
+}
+const captureClock = { now: null }; // screenshot runs can pretend it's Halloween
+
 app.setAppUserModelId('com.xsalmon.shellby');
 if (!CAPTURE && !app.requestSingleInstanceLock()) app.exit(0);
 
-let config, history, skins, manager, toolbox, scheduler;
+let config, history, skins, manager, toolbox, scheduler, wardrobe;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -40,6 +53,7 @@ let shrinkTimer = null;
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let lastActivity = Date.now();
 let sleepTimer = null;
+let welcomeTrophies = [];       // achievements credited from history on first run
 const routineTabs = new Map();     // tabId -> routine id (for lastStatus bookkeeping)
 
 // ================================================================ windows
@@ -155,13 +169,32 @@ function send(win, channel, payload) {
 
 // ================================================================ critter state
 
+// Built-in/user skins plus wardrobe pack skins (which can be locked).
+function allSkins() {
+  const packSkins = wardrobe ? wardrobe.catalog.skins.map(s => ({ ...s, id: s.key, locked: wardrobe.lockInfo(s) })) : [];
+  return [...skins, ...packSkins];
+}
+
 function activeSkin() {
-  return skins.find(s => s.id === config.get('skin')) || skins.find(s => s.id === 'classic') || skins[0];
+  const list = allSkins();
+  const chosen = list.find(s => s.id === config.get('skin'));
+  return (chosen && !chosen.locked ? chosen : null) || list.find(s => s.id === 'classic') || list[0];
+}
+
+function outfit() {
+  return wardrobe ? wardrobe.render() : { accessories: [], effect: null, confetti: null, crewAccessories: [] };
 }
 
 function broadcastSkin() {
-  send(critter, 'critter:skin', { skin: activeSkin(), px: px(), helperWidth: helperWidth() });
-  send(panel, 'skin', activeSkin());
+  const skin = activeSkin();
+  const o = outfit();
+  send(critter, 'critter:skin', { skin, px: px(), helperWidth: helperWidth(), outfit: o });
+  send(panel, 'skin', { skin, outfit: o });
+}
+
+function broadcastWardrobe() {
+  broadcastSkin();
+  if (wardrobe) send(panel, 'wardrobe', wardrobe.view());
 }
 
 function flashState(state, ms = 7000) {
@@ -225,13 +258,25 @@ function createManager() {
     send(panel, 'tab:item', { tabId, item });
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
+    if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
   });
   manager.on('tabs', summary => {
     send(panel, 'tabs', summary);
     const saved = summary.filter(t => t.saved && !t.routineId).map(t => t.id);
     if (!CAPTURE) config.set({ openTabs: saved });
   });
-  manager.on('aggregate', refreshCritter);
+  manager.on('aggregate', agg => {
+    refreshCritter();
+    const s = wardrobe?.stats;
+    if (s && agg.crew.length > s.maxCrew) stat('crew-size', { n: agg.crew.length });
+    if (s && agg.busy > s.maxParallel) stat('parallel', { n: agg.busy });
+  });
+}
+
+// Feed the achievement system; unlocks celebrate via the wardrobe 'unlocked' event.
+function stat(event, payload) {
+  if (!wardrobe || CAPTURE) return;
+  try { wardrobe.record(event, payload); } catch (e) { console.warn('[shellby] stat failed:', e.message); }
 }
 
 function onPermission(tabId, item, tab) {
@@ -247,6 +292,11 @@ function onResult(tabId, item, tab) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
   }
   if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
+  if (item.ok && !item.interrupted) {
+    const fx = outfit().effect;
+    if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
+    stat('task-completed');
+  }
   if (item.interrupted || (panel.isVisible() && panel.isFocused())) return;
   const secs = Math.round((item.durationMs || 0) / 1000);
   notify(item.ok ? `${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
@@ -286,6 +336,7 @@ function createToolbox() {
     config.set({ learnedTricks: learned });
     send(panel, 'toolbox:learned', trick);
     flashState('learned', 5000);
+    stat('trick-learned');
     const noun = { skill: 'skill', agent: 'helper agent', command: 'command' }[trick.kind];
     if (!(panel.isVisible() && panel.isFocused())) {
       notify(`Shellby learned a new ${noun}`, `${trick.name}${trick.description ? `: ${trick.description}` : ''}`.slice(0, 160),
@@ -332,6 +383,7 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     const userItem = { kind: 'user', text: r.prompt, title: `⟳ ${r.name}`, routine: { id: r.id, name: r.name, reason } };
     manager.send(tabId, r.prompt, userItem);
     updateRoutine(r.id, { lastRunAt: Date.now(), lastStatus: null });
+    stat('routine-run');
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true });
     return { ok: true, tabId };
   } catch (err) {
@@ -386,6 +438,7 @@ function registerIpc() {
   ipcMain.on('critter:drop', (_e, paths) => {
     const files = (Array.isArray(paths) ? paths : []).filter(isStr).slice(0, 20);
     if (!files.length) return;
+    stat('files-dropped');
     showPanel();
     send(panel, 'panel:attach', files);
   });
@@ -408,8 +461,11 @@ function registerIpc() {
       version: app.getVersion(),
       settings: CAPTURE ? { ...config.data, onboarded: true, mode: 'ask', recentFolders: [], lastUsage: null } : config.data,
       status: claudeStatus,
-      skins,
       skin: activeSkin(),
+      skins: allSkins(),
+      outfit: outfit(),
+      wardrobe: wardrobe.view(),
+      welcomeTrophies: welcomeTrophies.splice(0),
       sessions: CAPTURE ? [] : history.list(),
       tabs: manager.summary,
       tabItems: Object.fromEntries(manager.summary.map(t => [t.id, history.load(t.id)])),
@@ -461,6 +517,12 @@ function registerIpc() {
   ipcMain.on('task:stop', (_e, tabId) => { if (isStr(tabId)) manager.interrupt(tabId); });
   ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message } = {}) => {
     if (!isStr(tabId) || !isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
+    const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
+    if (pending) {
+      stat('permission-answered');
+      if (decision !== 'deny' && pending.runsCreated?.length) stat('created-script-approved');
+      if (decision !== 'deny' && pending.toolName === 'ExitPlanMode') stat('plan-approved');
+    }
     return manager.respond(tabId, requestId, decision, typeof message === 'string' ? message.slice(0, 500) : undefined);
   });
 
@@ -499,6 +561,10 @@ function registerIpc() {
       if (response !== 0) { delete allowed.autonomousAcknowledged; if (allowed.mode === 'autonomous') delete allowed.mode; }
     }
     if ('mode' in allowed && !MODES.includes(allowed.mode)) delete allowed.mode;
+    if ('skin' in allowed) {
+      const sk = allSkins().find(x => x.id === allowed.skin);
+      if (!sk || sk.locked) delete allowed.skin;
+    }
     if (allowed.mode === 'autonomous' && !config.get('autonomousAcknowledged') && allowed.autonomousAcknowledged !== true) delete allowed.mode;
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
@@ -538,7 +604,47 @@ function registerIpc() {
   });
 
   // ---- skins
-  ipcMain.handle('skins:reload', () => { skins = loadSkins(userSkinsDir()); broadcastSkin(); return skins; });
+  ipcMain.handle('skins:reload', () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); });
+
+  // ---- wardrobe
+  ipcMain.handle('wardrobe:view', () => wardrobe.view());
+  ipcMain.handle('wardrobe:set-outfit', (_e, patch) => ({ ...wardrobe.setOutfit(patch && typeof patch === 'object' ? patch : {}), view: wardrobe.view() }));
+  ipcMain.handle('wardrobe:wear-season', () => ({ ...wardrobe.wearSeason(), view: wardrobe.view() }));
+  ipcMain.handle('wardrobe:randomize', () => ({ ...wardrobe.randomize(), view: wardrobe.view() }));
+  ipcMain.handle('wardrobe:options', (_e, opts) => { wardrobe.setOptions(opts || {}); return wardrobe.view(); });
+  ipcMain.on('wardrobe:seen', (_e, keys) => { if (Array.isArray(keys)) wardrobe.markSeen(keys.filter(isStr)); });
+  ipcMain.handle('wardrobe:install', async (_e, filePath) => {
+    let file = isStr(filePath) ? filePath : null;
+    if (!file) {
+      const r = await dialog.showOpenDialog(panel, { title: 'Install a Shellby wardrobe pack', filters: [{ name: 'Shellby pack', extensions: ['json'] }], properties: ['openFile'] });
+      if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+      file = r.filePaths[0];
+    }
+    // Only .json files under the size cap, and never echo parse errors: V8's
+    // messages quote file contents, which would let a renderer peek at any file.
+    if (!/\.json$/i.test(file)) return { ok: false, errors: ['Packs are .json files.'] };
+    try { if (fs.statSync(file).size > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] }; } catch { return { ok: false, errors: ['File not found.'] }; }
+    // Show what's inside before installing anything (native dialog: can't be scripted).
+    let preview;
+    try {
+      preview = validatePack(JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')), { source: 'user', knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
+    } catch {
+      return { ok: false, errors: ["That file isn't valid JSON, so it isn't a Shellby pack."] };
+    }
+    if (!preview.pack) return { ok: false, errors: preview.errors };
+    const p = preview.pack;
+    const { response } = await dialog.showMessageBox(panel, {
+      type: 'question', title: 'Install wardrobe pack?', noLink: true,
+      message: `Install "${p.name}" ${p.version} by ${p.author}?`,
+      detail: `${p.accessories.length} accessories, ${p.effects.length} effects, ${p.skins.length} skins.${p.description ? '\n\n' + p.description : ''}\n\nPacks are pixel art and settings only. They can't run code.`,
+      buttons: ['Install', 'Cancel'], defaultId: 0, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true };
+    const r = wardrobe.install(file);
+    return { ok: r.ok, errors: r.errors || [], warnings: r.warnings || [], pack: r.pack ? { id: r.pack.id, name: r.pack.name } : null, view: wardrobe.view() };
+  });
+  ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) wardrobe.remove(packId); return wardrobe.view(); });
+  ipcMain.on('wardrobe:open-folder', () => { fs.mkdirSync(wardrobe.userDir, { recursive: true }); shell.openPath(wardrobe.userDir); });
   ipcMain.on('skins:open-folder', () => shell.openPath(userSkinsDir()));
 
   // ---- toolbox
@@ -594,6 +700,7 @@ function buildMenu() {
   return Menu.buildFromTemplate([
     { label: 'Open Shellby', click: () => showPanel() },
     { label: 'New conversation', click: () => { showPanel(); send(panel, 'tab:new-request'); } },
+    { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
     { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
     { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
     { type: 'separator' },
@@ -647,6 +754,37 @@ app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
   history = new History(path.join(userData, 'sessions'));
+  wardrobe = new Wardrobe({
+    config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
+    now: () => captureClock.now || new Date(),
+  });
+  wardrobe.load();
+  wardrobe.on('changed', broadcastWardrobe);
+  wardrobe.on('unlocked', e => {
+    flashState('unlocked', 6000);
+    send(critter, 'critter:burst', outfit().confetti);
+    send(panel, 'wardrobe:unlocked', e);
+    send(panel, 'wardrobe', wardrobe.view());
+    if (!(panel?.isVisible() && panel.isFocused())) {
+      notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); });
+    }
+  });
+  wardrobe.on('collected', items => {
+    send(panel, 'wardrobe:collected', items.map(i => ({ key: i.key, name: i.name })));
+    broadcastWardrobe();
+  });
+  // Credit past usage from history on the Wardrobe's first run (must precede any stat()).
+  if (!CAPTURE) {
+    const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const entries = history.list();
+    welcomeTrophies = wardrobe.backfill({
+      tasksCompleted: entries.reduce((n, e) => n + history.load(e.id).filter(i => i.kind === 'result' && i.ok).length, 0),
+      activeDays: [...new Set(entries.flatMap(e => [e.createdAt, e.updatedAt]).filter(Boolean).map(day))],
+    });
+  }
+  stat('active');
+  setInterval(() => { wardrobe.collectSeasonals(); broadcastWardrobe(); }, 60 * 60 * 1000);
   skins = loadSkins(userSkinsDir());
 
   // Renderers never need camera, mic, geolocation etc.
@@ -658,7 +796,7 @@ app.whenReady().then(() => {
   createPanel();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
-  if (CAPTURE) return require('./capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots });
+  if (CAPTURE) return require('./capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe });
 
   createToolbox();
   createTray();

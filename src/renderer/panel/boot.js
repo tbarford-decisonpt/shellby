@@ -45,11 +45,17 @@
   api.onAttach(files => { if (state.view !== 'onboarding') SB.setView('chat'); SB.addAttachments(files); });
   api.onFocusInput(() => { if (state.view === 'chat') $('input').focus(); });
   api.onView(v => SB.setView(v));
-  api.onSkin(skin => {
+  api.onSkin(({ skin, outfit }) => {
     state.skin = skin;
+    state.outfit = outfit;
     SB.renderCrabs();
+    for (const tab of state.tabs.values()) for (const lane of tab.lanes.values()) lane.el.querySelector('.lane-crab')?.replaceChildren(SB.helperSprite(lane.index));
     if (state.view === 'settings') SB.renderSkins();
+    if (state.view === 'wardrobe') SB.views.wardrobe.render();
   });
+  api.onWardrobe(view => SB.applyWardrobe(view));
+  api.onUnlocked(e => SB.onUnlocked(e));
+  api.onCollected(items => SB.onCollected(items));
   api.onUpdateReady(v => SB.toast(`Update ${v} will install when you quit.`, { ms: 6000 }));
   // `npm run screenshots` drives the UI with scripted data (see src/main/capture.js).
   api.onDemo(demo => {
@@ -78,13 +84,18 @@
   (async function init() {
     const b = await api.bootstrap();
     Object.assign(state, {
-      settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, sessions: b.sessions,
+      settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,
       home: b.home, version: b.version, packaged: b.packaged, cwd: b.cwd,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines,
     });
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);
     SB.applyUsage(state.settings.lastUsage);
+    if (b.wardrobe) SB.applyWardrobe(b.wardrobe);
+    if (b.welcomeTrophies?.length) {
+      const names = b.welcomeTrophies.map(t => `${t.icon} ${t.name}`).join(', ');
+      setTimeout(() => SB.toast(`Welcome to the Wardrobe! Your history already earned: ${names}`, { action: 'Try it on', ms: 8000, onAction: () => SB.setView('wardrobe') }), 1200);
+    }
     SB.renderCrabs();
 
     // Restore tabs that were open last time, then pick one to show.

@@ -241,6 +241,7 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, .45), 0 1px 0 rgba(0, 0, 0, .3);
   animation: tip-in .12s var(--ease-out);
   overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 .tip::before {
   content: ""; position: absolute; left: var(--arrow-x, 50%); top: -5px; transform: translateX(-50%);

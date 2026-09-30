@@ -37,6 +37,24 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 - **Toolbox: he learns tricks.** Everything Claude Code can use: skills, subagents, slash commands and MCP servers (with connection status). When Claude writes itself a new skill or agent, Shellby notices the file, celebrates on your desktop, tags it **new**, and offers to pin it. Pinned tricks become one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
 - **Routines.** Recurring tasks ("every Friday at 5, tidy Downloads") that run in their own tab with their own permission mode. Missed runs catch up when your PC wakes up.
 
+### Dress him up: the Wardrobe
+<p align="center">
+<img src="docs/critter-halloween.png" width="150" alt="Shellby in a witch hat with a pumpkin pail and bat wings, bats orbiting"> <img src="docs/critter-winter.png" width="150" alt="Shellby in a Santa hat and striped scarf with a candy cane in the snow"> <img src="docs/critter-wizard.png" width="150" alt="Shellby in a wizard hat holding a coffee mug, sparkles around him">
+</p>
+
+- **32 pixel accessories and 7 effects** in six slots: hats, face, neck, held item (in his claw), shell, and effects like snowfall, orbiting bats, falling leaves, fireflies and confetti. Accessories animate with the part they're attached to, so a pumpkin swings with his claw and a hat bobs with his eye stalks.
+- **Unlock them by using Shellby.** 18 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
+- **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
+- **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
+- **Community packs.** Anyone can make hats, effects and colors as a JSON pack, and Shellby's own wardrobe ships in that same format. Packs are pixel art and settings only, so they can't run code, and Shellby shows you what's inside before installing. See [docs/ADDONS.md](docs/ADDONS.md) and the [JSON Schema](docs/addon.schema.json).
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshot-wardrobe.png" alt="The Wardrobe during Spooky Season"></td>
+<td width="50%"><img src="docs/screenshot-trophies.png" alt="Trophies with progress and rewards"></td>
+</tr>
+</table>
+
 ### And keeps you in the loop
 - **Asks before acting.** Permission prompts become cards: **Allow**, **Always allow**, or **Deny**, with <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>N</kbd> shortcuts.
 - **Flags self-built tooling.** If a command runs a script Claude wrote earlier in the same conversation, or an edit touches Claude Code's own setup (skills, agents, hooks, settings, `CLAUDE.md`), the card says so before you click Allow.
@@ -119,6 +137,8 @@ npm start
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
+| `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
+| `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
@@ -137,6 +157,7 @@ src/main/        Electron main process
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   routines.js      schedule maths + scheduler for recurring tasks
+  wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
@@ -145,6 +166,7 @@ src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   panel/           core · feed (crew lanes) · tabs · toolbox · routines · settings · boot
 src/skins/       built-in skins (JSON pixel grids)
+src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI
 ```
 

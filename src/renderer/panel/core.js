@@ -130,12 +130,18 @@ SB.ICONS = {
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',
 };
 
-SB.sprite = (skin = SB.state.skin, opts = {}) => (skin ? SB.Sprite.build(skin, opts) : document.createElement('span'));
+// Shellby as he's dressed right now (fit: the view box frames the whole outfit).
+// Pass { plain: true } for an undressed crab, e.g. skin swatches.
+SB.sprite = (skin = SB.state.skin, opts = {}) => {
+  if (!skin) return document.createElement('span');
+  const accessories = opts.plain ? [] : opts.accessories ?? SB.state.outfit?.accessories ?? [];
+  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories });
+};
 
 // Helper-crab colours, shared with the desktop critter.
 SB.HUES = [0, 145, 250, 60, 300, 200];
 SB.helperSprite = index => {
-  const svg = SB.sprite();
+  const svg = SB.sprite(SB.state.skin, { accessories: SB.state.outfit?.crewAccessories ?? [] });
   svg.style.filter = `hue-rotate(${SB.HUES[index % SB.HUES.length]}deg) saturate(1.1)`;
   return svg;
 };
@@ -183,6 +189,18 @@ SB.closeMenus = () => {
 document.addEventListener('mousedown', e => {
   if (!e.target.closest('.popover, .mode-chip, .folder-chip, .slash-menu, #input')) SB.closeMenus();
 });
+
+// ------------------------------------------------------------------ page never scrolls
+// Only the views scroll. If anything ever scrolls the page itself (e.g. a
+// scrollIntoView that runs out of room), snap it back so the title bar stays put.
+for (const target of [window, document.body]) {
+  target.addEventListener('scroll', () => {
+    if (document.scrollingElement.scrollTop || document.body.scrollTop) {
+      document.scrollingElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  });
+}
 
 // ------------------------------------------------------------------ themed tooltips
 // Any element with a `title` gets a styled tooltip instead of the unstyled OS

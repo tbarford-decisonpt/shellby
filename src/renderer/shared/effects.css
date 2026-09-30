@@ -1,0 +1,52 @@
+/* Particle motions for effects.js. Each particle gets --x/--y/--dur/--delay/
+   --drift/--spin (and --bx/--by for bursts, --ry for orbits) from script. */
+.fx-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.fx-p { position: absolute; left: var(--x); top: 0; will-change: transform, opacity; }
+.fx-p svg { display: block; }
+
+.fx-fall { top: -10%; animation: fx-fall var(--dur) linear var(--delay) infinite; }
+.fx-fall .fx-i { animation: fx-sway calc(var(--dur) / 2.5) ease-in-out var(--delay) infinite alternate; }
+@keyframes fx-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(var(--fall-h, 150px)); opacity: 0; }
+}
+@keyframes fx-sway { from { transform: translateX(calc(var(--drift) * -1)) rotate(-12deg); } to { transform: translateX(var(--drift)) rotate(12deg); } }
+
+.fx-rise { top: 78%; animation: fx-rise var(--dur) ease-out var(--delay) infinite; }
+.fx-rise .fx-i { animation: fx-sway calc(var(--dur) / 3) ease-in-out var(--delay) infinite alternate; }
+@keyframes fx-rise {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-110px) scale(1); opacity: 0; }
+}
+
+.fx-float { top: var(--y); animation: fx-float var(--dur) ease-in-out var(--delay) infinite alternate; }
+.fx-float .fx-i { animation: fx-glow 1.4s ease-in-out var(--delay) infinite alternate; filter: drop-shadow(0 0 3px rgba(255, 243, 163, .9)); }
+@keyframes fx-float { from { transform: translate(0, 0); } to { transform: translate(var(--drift), -14px); } }
+@keyframes fx-glow { from { opacity: .15; } to { opacity: 1; } }
+
+/* orbit: the arm spins around Shellby's middle, the sprite counter-rotates to stay upright */
+.fx-orbit { left: 50%; top: 52%; width: 0; height: 0; animation: fx-orbit var(--dur) linear var(--delay) infinite; }
+.fx-orbit .fx-i { position: absolute; left: 0; top: 0; transform: translate(var(--orbit-r, 58px), -50%); }
+.fx-orbit .fx-i svg { animation: fx-flap .28s steps(2) infinite, fx-upright var(--dur) linear var(--delay) infinite; }
+/* round orbit: squashing the arm with scaleY would squash the sprites too */
+@keyframes fx-orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes fx-upright { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+@keyframes fx-flap { 0% { scale: 1 1; } 100% { scale: 1 .55; } }
+
+.fx-twinkle { top: var(--y); animation: fx-twinkle var(--dur) ease-in-out var(--delay) infinite; }
+@keyframes fx-twinkle { 0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; } 50% { transform: scale(1) rotate(45deg); opacity: 1; } }
+
+.fx-burst-wrap, .fx-burst { position: absolute; left: 50%; top: 55%; }
+.fx-burst .fx-p { left: 0; top: 0; animation: fx-burst var(--dur) cubic-bezier(.15, .7, .4, 1) var(--delay) both; }
+@keyframes fx-burst {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--bx), calc(var(--by) + 40px)) rotate(var(--spin)); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-layer { display: none; }
+}

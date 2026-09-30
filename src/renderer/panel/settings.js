@@ -19,9 +19,14 @@
 
   function renderSkins() {
     $('skinGrid').replaceChildren(...state.skins.map(s => h('button', {
-      type: 'button', class: 'skin', role: 'radio', 'aria-checked': String(s.id === state.skin?.id), title: s.description || s.name,
-      onclick: async () => { const r = await api.setSettings({ skin: s.id }); state.settings = r.settings; },
-    }, SB.sprite(s), h('span', {}, s.name), s.source === 'user' ? h('small', { text: 'custom' }) : null)));
+      type: 'button', class: `skin${s.locked ? ' locked' : ''}`, role: 'radio', 'aria-checked': String(s.id === state.skin?.id),
+      title: s.locked ? `${s.name}: ${s.locked.text}` : s.description || s.name,
+      onclick: async () => {
+        if (s.locked) return SB.toast(`${s.name} is a ${s.locked.text.toLowerCase()}`);
+        const r = await api.setSettings({ skin: s.id });
+        state.settings = r.settings;
+      },
+    }, SB.sprite(s, { plain: true }), h('span', {}, s.name), s.locked ? h('small', { text: '🔒 seasonal' }) : s.source === 'user' ? h('small', { text: 'custom' }) : null)));
   }
   SB.renderSkins = renderSkins;
 

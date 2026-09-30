@@ -1,4 +1,4 @@
-/* Shellby — "tidepool terminal"
+/* Shellby â€” "tidepool terminal"
    Deep ink-teal water, sea-glass accents, coral for Shellby and for action. */
 :root {
   --abyss: #071012;
@@ -31,7 +31,9 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+/* Belt and braces only: on the root, overflow propagates to the viewport (clip
+   acts as hidden there). The real fix for page scrolling is .caustics being fixed. */
+html, body { margin: 0; height: 100%; overflow: clip; }
 body {
   display: flex; flex-direction: column;
   background: var(--ink);
@@ -49,8 +51,10 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 /* slow caustic light drifting through the water */
+/* fixed, not absolute: an absolute layer bigger than the window made the page
+   scrollable, and scrollIntoView() then shoved the title bar off the top. */
 .caustics {
-  position: absolute; inset: -20%; pointer-events: none; z-index: 0; contain: strict; will-change: transform;
+  position: fixed; inset: -20%; pointer-events: none; z-index: 0; contain: strict; will-change: transform;
   background:
     radial-gradient(40% 30% at 20% 10%, rgba(127, 214, 194, .07), transparent 70%),
     radial-gradient(35% 25% at 85% 30%, rgba(127, 214, 194, .05), transparent 70%),
@@ -274,11 +278,11 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 .tool .t-label { flex: none; font-weight: 700; color: var(--sand); }
 .tool .t-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11.5px var(--font-mono); font-stretch: 85%; color: var(--sand-dim); }
 .tool.pending { border-left-color: var(--glass); }
-.tool.pending .t-state::before { content: "◌"; display: inline-block; color: var(--glass); animation: spin 1s linear infinite; }
-.tool.ok .t-state::before { content: "✓"; color: var(--glass); }
+.tool.pending .t-state::before { content: "â—Œ"; display: inline-block; color: var(--glass); animation: spin 1s linear infinite; }
+.tool.ok .t-state::before { content: "âœ“"; color: var(--glass); }
 .tool.err { border-left-color: var(--danger); }
-.tool.err .t-state::before { content: "✕"; color: var(--danger); }
-.tool.denied .t-state::before { content: "⊘"; color: var(--amber); }
+.tool.err .t-state::before { content: "âœ•"; color: var(--danger); }
+.tool.denied .t-state::before { content: "âŠ˜"; color: var(--amber); }
 .tool .t-result {
   margin: 2px 0 8px 10px; padding: 8px 10px; max-height: 240px; overflow: auto;
   background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm);

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('shellby', {
     drop: fire('critter:drop'),
     onState: on('critter:state'),
     onSkin: on('critter:skin'),
+    onBurst: on('critter:burst'),
   },
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
@@ -58,6 +59,20 @@ contextBridge.exposeInMainWorld('shellby', {
   rescanToolbox: invoke('toolbox:rescan'),
   pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
   revealTool: fire('toolbox:reveal'),
+
+  // wardrobe
+  wardrobeView: invoke('wardrobe:view'),
+  setOutfit: invoke('wardrobe:set-outfit'),
+  wearSeason: invoke('wardrobe:wear-season'),
+  randomizeOutfit: invoke('wardrobe:randomize'),
+  setWardrobeOptions: invoke('wardrobe:options'),
+  markSeen: fire('wardrobe:seen'),
+  installPack: invoke('wardrobe:install'),
+  removePack: invoke('wardrobe:remove-pack'),
+  openPacksFolder: fire('wardrobe:open-folder'),
+  onWardrobe: on('wardrobe'),
+  onUnlocked: on('wardrobe:unlocked'),
+  onCollected: on('wardrobe:collected'),
 
   // routines
   listRoutines: invoke('routines:list'),
