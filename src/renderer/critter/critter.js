@@ -55,8 +55,9 @@ function renderCrew(crew, more) {
       helpers.set(c.id, el);
       crewHost.append(el);
     }
-    el.querySelector('.tag').textContent = c.label;
-    el.title = `${c.type}: ${c.label}`;
+    // Themed name tag only: a native `title` would pop an unstyled OS tooltip.
+    el.querySelector('.tag').textContent = c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
+    el.setAttribute('aria-label', `Helper ${c.type}: ${c.label}`);
   });
   crewHost.querySelector('.more')?.remove();
   if (more > 0) {
@@ -73,7 +74,7 @@ api.onState(msg => {
   bubbleText.textContent = BUBBLES[state] ?? '';
   countEl.textContent = msg.busy;
   countEl.classList.toggle('on', msg.busy > 1);
-  countEl.title = `${msg.busy} conversations running`;
+  countEl.setAttribute('aria-label', `${msg.busy} conversations running`);
   if (skin) renderCrew(msg.crew || [], msg.moreCrew || 0);
 });
 

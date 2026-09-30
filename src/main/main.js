@@ -76,7 +76,7 @@ function createCritter() {
     ...size, x: pos.x, y: pos.y,
     frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
     alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
-    title: 'Shellby', webPreferences,
+    title: 'Shellby', icon: ICON, webPreferences,
   });
   secureWindow(critter);
   critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));

@@ -46,7 +46,10 @@
   SB.syncTabs = (summaries) => {
     const ids = new Set(summaries.map(s => s.id));
     for (const s of summaries) SB.ensureTab(s);
-    for (const [id, tab] of state.tabs) if (!ids.has(id)) { tab.destroy(); state.tabs.delete(id); }
+    // A tab created locally may not be in this snapshot yet; only drop tabs the
+    // main process no longer knows about once they've been reported at least once.
+    for (const [id, tab] of state.tabs) if (!ids.has(id) && tab.reported) { tab.destroy(); state.tabs.delete(id); }
+    for (const s of summaries) { const t = state.tabs.get(s.id); if (t) t.reported = true; }
     if (!state.tabs.has(state.activeTab)) {
       const next = [...state.tabs.keys()].pop();
       if (next) SB.activate(next); else SB.newTab();
@@ -55,26 +58,35 @@
     SB.renderTabStrip();
   };
 
-  SB.newTab = async ({ focus = true } = {}) => {
+  // All tab creation funnels through here. Concurrent callers (e.g. closing the
+  // last tab while the main process reports "no tabs") share one in-flight
+  // request, so they can never produce two blank tabs.
+  let creating = null;
+  SB.newTab = ({ focus = true } = {}) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return cur; } // reuse a blank tab
-    const r = await api.newTab();
-    if (!r.ok) { SB.toast(r.error); return null; }
-    const tab = SB.ensureTab({ id: r.tabId, title: 'New task', cwd: state.cwd });
-    if (focus) SB.activate(r.tabId);
-    return tab;
+    if (cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
+    if (creating) return creating;
+    creating = (async () => {
+      const r = await api.newTab();
+      if (!r.ok) { SB.toast(r.error); return null; }
+      const tab = SB.ensureTab({ id: r.tabId, title: 'New task', cwd: state.cwd });
+      if (focus) SB.activate(r.tabId);
+      return tab;
+    })().finally(() => { creating = null; });
+    return creating;
   };
 
   SB.closeTab = async (tabId) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
-    await api.closeTab(tabId);
     tab.destroy();
     state.tabs.delete(tabId);
     if (state.activeTab === tabId) {
+      state.activeTab = null;
       const next = [...state.tabs.keys()].pop();
-      if (next) SB.activate(next); else await SB.newTab();
+      if (next) SB.activate(next); else SB.newTab();
     }
+    await api.closeTab(tabId);
     SB.renderTabStrip();
     if (tab.saved) SB.toast('Closed. It is still in History.');
   };

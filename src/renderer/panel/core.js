@@ -183,3 +183,70 @@ SB.closeMenus = () => {
 document.addEventListener('mousedown', e => {
   if (!e.target.closest('.popover, .mode-chip, .folder-chip, .slash-menu, #input')) SB.closeMenus();
 });
+
+// ------------------------------------------------------------------ themed tooltips
+// Any element with a `title` gets a styled tooltip instead of the unstyled OS
+// one: the text moves to data-tip on first hover (so the native tip never
+// shows) and is re-read each time, so code can keep setting `title` freely.
+(function tooltips() {
+  const tip = document.createElement('div');
+  tip.className = 'tip';
+  tip.setAttribute('role', 'tooltip');
+  tip.hidden = true;
+  document.body.append(tip);
+  let target = null;
+  let timer = null;
+
+  const claim = el => {
+    const t = el.getAttribute('title');
+    if (t != null) {
+      el.removeAttribute('title');
+      if (t) el.dataset.tip = t; else delete el.dataset.tip;
+      if (t && !el.hasAttribute('aria-label') && !el.textContent.trim()) el.setAttribute('aria-label', t);
+    }
+    return el.dataset.tip;
+  };
+
+  const place = el => {
+    const r = el.getBoundingClientRect();
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let top = r.bottom + 8;
+    tip.classList.toggle('above', top + th > window.innerHeight - 6);
+    if (tip.classList.contains('above')) top = r.top - th - 8;
+    const left = Math.max(6, Math.min(r.left + r.width / 2 - tw / 2, window.innerWidth - tw - 6));
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(Math.max(6, top))}px`;
+    tip.style.setProperty('--arrow-x', `${Math.round(r.left + r.width / 2 - left)}px`);
+  };
+
+  const show = el => {
+    const text = claim(el);
+    if (!text || !el.isConnected) return;
+    tip.textContent = text;
+    tip.hidden = false;
+    place(el);
+  };
+  const hide = () => { clearTimeout(timer); target = null; tip.hidden = true; };
+
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest?.('[title], [data-tip]');
+    if (!el || el === target) return;
+    claim(el);
+    target = el;
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (target === el) show(el); }, 450);
+  });
+  document.addEventListener('mouseout', e => { if (target && !target.contains(e.relatedTarget)) hide(); });
+  document.addEventListener('focusin', e => {
+    const el = e.target.closest?.('[title], [data-tip]');
+    if (el && el.matches(':focus-visible')) { target = el; show(el); }
+  });
+  document.addEventListener('focusout', hide);
+  for (const ev of ['mousedown', 'keydown']) document.addEventListener(ev, hide, true);
+  // Programmatic scrolls happen all the time (tab strip, live feeds); only a
+  // scroll while a tip is actually showing should dismiss it.
+  for (const ev of ['scroll', 'wheel']) document.addEventListener(ev, () => { if (!tip.hidden) hide(); }, true);
+  window.addEventListener('blur', hide);
+})();

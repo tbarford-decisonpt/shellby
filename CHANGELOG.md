@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+### Fixed
+- Closing the last tab opened **two** blank tabs. All tab creation now goes through one shared request, so simultaneous "make sure a tab exists" calls can't double up.
+- Tooltips (including hovering a helper crab) used the unstyled Windows tooltip. They're now themed to match Shellby's speech bubbles and also appear on keyboard focus.
+- The crab window now carries the app icon explicitly.
+
 ## 0.2.1
 
 ### Fixed
