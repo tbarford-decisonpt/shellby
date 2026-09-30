@@ -1,6 +1,24 @@
 /* Shellby v0.2 components: tabs, crew lanes, slash menu, toolbox, routines.
    Tokens come from panel.css. */
 
+/* ================================================================ title bar fit
+   The window buttons must never be pushed off-screen: they don't shrink, the
+   mode chip truncates, and the wordmark gives way first on narrow panels. */
+.titlebar { min-width: 0; container-type: inline-size; container-name: titlebar; }
+.brand { min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.mode-chip { min-width: 0; flex: 0 1 auto; }
+#modeLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mode-chip svg, .mode-dot { flex: none; }
+.win-btns { flex: none; }
+/* Sized off the title bar itself, so it holds however the panel gets narrow. */
+@container titlebar (max-width: 470px) {
+  .brand-name { display: none; }
+}
+@container titlebar (max-width: 420px) {
+  .win-btns .sep { margin: 0 2px; }
+  .win-btns .icon-btn { width: 28px; }
+}
+
 /* ================================================================ tabs */
 .tabstrip {
   position: relative; z-index: 4;
