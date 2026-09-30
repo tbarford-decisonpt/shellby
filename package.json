@@ -15,7 +15,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node --test --test-timeout=30000 \"test/*.test.js\"",
     "icons": "python scripts/make-icons.py",
     "screenshots": "electron . --capture-screenshots",
     "dist": "electron-builder --win",

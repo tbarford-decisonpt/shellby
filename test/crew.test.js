@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const os = require('os');
@@ -10,6 +10,9 @@ const { annotatePermission, referencedFiles, selfConfigTarget } = require('../sr
 const { toItems } = require('../src/main/stream');
 
 const FAKE = path.join(__dirname, 'fixtures', 'fake-claude.js');
+const live = new Set();
+after(() => { for (const s of live) s.close(); });
+const track = s => (live.add(s), s);
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-crew-'));
 
 function waitFor(emitter, event, pred, ms = 8000) {
@@ -76,7 +79,7 @@ test('annotatePermission attributes subagent prompts to their task', () => {
 // ---------------------------------------------------------------- live sessions (fake CLI)
 
 test('subagent permission prompts arrive tagged with their crew member', async () => {
-  const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' });
+  const s = track(new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' }));
   const items = [];
   const crewSnapshots = [];
   s.on('item', i => items.push(i));
@@ -97,7 +100,7 @@ test('subagent permission prompts arrive tagged with their crew member', async (
 });
 
 test('running a script Claude just wrote is flagged on the permission card', async () => {
-  const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' });
+  const s = track(new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' }));
   s.send('script please');
   const [write] = await waitFor(s, 'item', i => i.kind === 'permission');
   assert.equal(write.runsCreated, undefined);
@@ -109,32 +112,49 @@ test('running a script Claude just wrote is flagged on the permission card', asy
   s.close();
 });
 
+// Resolves once `check()` is true, re-checking on every manager event. Unlike
+// waitFor, it can't miss an event that fired before the wait started.
+function until(mgr, check, ms = 8000) {
+  return new Promise((resolve, reject) => {
+    const done = () => { if (check()) { cleanup(); resolve(); } };
+    const t = setTimeout(() => { cleanup(); reject(new Error('timed out waiting for condition')); }, ms);
+    const cleanup = () => { clearTimeout(t); mgr.off('item', done); mgr.off('aggregate', done); };
+    mgr.on('item', done);
+    mgr.on('aggregate', done);
+    done();
+  });
+}
+
 test('SessionManager runs tabs in parallel and rolls up state for the critter', async () => {
   const history = new History(tmp());
   const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
-  const cwd = os.tmpdir();
-  mgr.open({ tabId: 'tab-a', cwd });
-  mgr.open({ tabId: 'tab-b', cwd });
-  const results = new Set();
-  mgr.on('item', (tabId, item) => { if (item.kind === 'result') results.add(tabId); });
+  try {
+    const cwd = os.tmpdir();
+    mgr.open({ tabId: 'tab-a', cwd });
+    mgr.open({ tabId: 'tab-b', cwd });
+    const results = new Set();
+    let sawAsking = false;
+    mgr.on('item', (tabId, item) => { if (item.kind === 'result') results.add(tabId); });
+    mgr.on('aggregate', a => { if (a.state === 'asking' && a.pending === 1) sawAsking = true; });
 
-  mgr.send('tab-a', 'tool one', { kind: 'user', text: 'tool one' });
-  mgr.send('tab-b', 'hello two', { kind: 'user', text: 'hello two' });
-  const [agg] = await waitFor(mgr, 'aggregate', a => a.state === 'asking');
-  assert.equal(agg.pending, 1);
+    mgr.send('tab-a', 'tool one', { kind: 'user', text: 'tool one' });
+    mgr.send('tab-b', 'hello two', { kind: 'user', text: 'hello two' });
 
-  await waitFor(mgr, 'item', (tabId, item) => tabId === 'tab-b' && item.kind === 'result');
-  const perm = history.load('tab-a').find(i => i.kind === 'permission');
-  assert.ok(mgr.respond('tab-a', perm.requestId, 'allow'));
-  await waitFor(mgr, 'item', (tabId, item) => tabId === 'tab-a' && item.kind === 'result');
+    // Tab B finishes on its own while tab A waits for approval: order doesn't matter.
+    // Critter updates are coalesced to one per tick, so wait for that emit too.
+    await until(mgr, () => results.has('tab-b') && mgr.tabs.get('tab-a').session.pending.size === 1 && sawAsking);
+    const [requestId] = mgr.tabs.get('tab-a').session.pending.keys();
+    assert.ok(mgr.respond('tab-a', requestId, 'allow'));
+    await until(mgr, () => results.has('tab-a'));
 
-  assert.deepEqual([...results].sort(), ['tab-a', 'tab-b']);
-  const tabs = Object.fromEntries(mgr.summary.map(t => [t.id, t]));
-  assert.equal(tabs['tab-a'].outcome, 'ok');
-  assert.equal(tabs['tab-b'].title, 'hello two');
-  assert.equal(history.get('tab-a').lastOutcome, 'ok');
-  assert.ok(history.load('tab-b').some(i => i.kind === 'text' && i.text.startsWith('echo: hello two')));
-  mgr.closeAll();
+    const tabs = Object.fromEntries(mgr.summary.map(t => [t.id, t]));
+    assert.equal(tabs['tab-a'].outcome, 'ok');
+    assert.equal(tabs['tab-b'].title, 'hello two');
+    assert.equal(history.get('tab-a').lastOutcome, 'ok');
+    assert.ok(history.load('tab-b').some(i => i.kind === 'text' && i.text.startsWith('echo: hello two')));
+  } finally {
+    mgr.closeAll(); // never leave fake CLI processes behind, even on failure
+  }
 });
 
 test('SessionManager enforces the tab limit and pins routine modes', () => {

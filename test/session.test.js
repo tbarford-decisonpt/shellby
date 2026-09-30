@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const os = require('os');
@@ -6,8 +6,12 @@ const { ClaudeSession } = require('../src/main/session');
 
 const FAKE = path.join(__dirname, 'fixtures', 'fake-claude.js');
 
+const live = new Set();
+after(() => { for (const s of live) s.close(); }); // no orphaned fake CLIs if a test fails midway
+
 function makeSession(opts = {}) {
   const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask', ...opts });
+  live.add(s);
   const items = [];
   s.on('item', i => items.push(i));
   return { s, items };
