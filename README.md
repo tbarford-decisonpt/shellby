@@ -118,6 +118,8 @@ npm start
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
+| `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
+| `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `npm run screenshots` | Re-render the README screenshots (with fake account details) |
 | `npm run icons` | Regenerate the app icons from the classic skin (needs Python + Pillow) |
 | `npm run dist` | Build the NSIS installer and portable exe into `dist/` |
