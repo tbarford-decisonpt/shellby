@@ -27,6 +27,10 @@ const DEFAULTS = {
   onboarded: false,
   autonomousAcknowledged: false,
   lastUsage: null,
+  openTabs: [],       // history ids of conversations open as tabs
+  pinnedTools: [],    // [{ kind, name }] shown as quick chips
+  learnedTricks: [],  // recently discovered skills/agents/commands
+  routines: [],       // see routines.js
 };
 
 class Config {

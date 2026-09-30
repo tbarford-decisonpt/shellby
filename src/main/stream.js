@@ -47,34 +47,94 @@ function usageFrom(ev) {
   return { kind: 'usage', status: info.status || null, fiveHour: win(w.five_hour), sevenDay: win(w.seven_day) };
 }
 
+const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+const AGENT_TOOLS = new Set(['Agent', 'Task']);
+
+const strings = a => (Array.isArray(a) ? a.filter(s => typeof s === 'string') : []);
+
+function writtenPath(name, input) {
+  if (!WRITE_TOOLS.has(name) || !input) return null;
+  const p = input.file_path ?? input.notebook_path;
+  return typeof p === 'string' ? p : null;
+}
+
+function toolItem(b, sub) {
+  const input = b.input || {};
+  const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
+  if (b.name === 'ExitPlanMode') item.plan = input.plan;
+  const fp = writtenPath(b.name, input);
+  if (fp) item.filePath = fp;
+  if (AGENT_TOOLS.has(b.name)) {
+    item.agent = {
+      type: typeof input.subagent_type === 'string' ? input.subagent_type : 'general-purpose',
+      description: typeof input.description === 'string' ? input.description : '',
+      background: !!input.run_in_background,
+    };
+  }
+  return item;
+}
+
+// task_* system events describe subagent lifecycles. task_id is the id that
+// permission requests from that subagent carry as agent_id; tool_use_id is the
+// Agent tool call it belongs to (= parent_tool_use_id of its messages).
+function taskItem(ev) {
+  const phase = { task_started: 'started', task_progress: 'progress', task_updated: 'updated', task_notification: 'done' }[ev.subtype];
+  const u = ev.usage || {};
+  const item = { kind: 'task', phase, taskId: ev.task_id || null, toolUseId: ev.tool_use_id || null };
+  if (ev.description) item.description = String(ev.description).slice(0, 200);
+  if (ev.subagent_type) item.subagentType = ev.subagent_type;
+  if (phase === 'started') { item.background = !!ev.is_backgrounded; item.depth = ev.spawn_depth ?? 1; }
+  if (ev.last_tool_name) item.lastTool = ev.last_tool_name;
+  if (ev.usage) item.usage = { tokens: u.total_tokens ?? null, toolUses: u.tool_uses ?? null, durationMs: u.duration_ms ?? null };
+  const status = ev.status ?? ev.patch?.status;
+  if (status) item.status = status;
+  if (ev.summary) item.summary = truncate(ev.summary, 4000);
+  return item;
+}
+
 // Returns an array of UI items for one parsed stream-json event.
 function toItems(ev) {
   if (!ev || typeof ev !== 'object') return [];
-  const sub = ev.parent_tool_use_id ? { sub: true } : {};
+  // Messages produced inside a subagent point at the Agent tool call that spawned it.
+  const sub = ev.parent_tool_use_id ? { sub: true, parent: ev.parent_tool_use_id } : {};
   switch (ev.type) {
     case 'system':
-      return ev.subtype === 'init'
-        ? [{ kind: 'init', sessionId: ev.session_id, model: ev.model || null, cwd: ev.cwd || null }]
-        : [];
+      if (ev.subtype === 'init') {
+        return [{
+          kind: 'init', sessionId: ev.session_id, model: ev.model || null, cwd: ev.cwd || null,
+          toolbox: {
+            skills: strings(ev.skills), agents: strings(ev.agents), slash_commands: strings(ev.slash_commands),
+            mcp_servers: Array.isArray(ev.mcp_servers) ? ev.mcp_servers.filter(s => s && typeof s.name === 'string') : [],
+            plugins: Array.isArray(ev.plugins) ? ev.plugins.filter(p => p && typeof p.name === 'string' && typeof p.path === 'string') : [],
+          },
+        }];
+      }
+      if (/^task_(started|progress|updated|notification)$/.test(ev.subtype)) return [taskItem(ev)];
+      return [];
     case 'assistant': {
       const out = [];
       for (const b of ev.message?.content || []) {
         if (b.type === 'text' && b.text?.trim()) out.push({ kind: 'text', text: b.text.trim(), ...sub });
         else if (b.type === 'thinking') out.push({ kind: 'thinking', ...sub });
-        else if (b.type === 'tool_use') {
-          out.push({ kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, b.input),
-                     plan: b.name === 'ExitPlanMode' ? b.input?.plan : undefined, ...sub });
-        }
+        else if (b.type === 'tool_use') out.push(toolItem(b, sub));
       }
       return out;
     }
     case 'user': {
       const content = ev.message?.content;
       if (!Array.isArray(content)) return [];
-      return content.filter(b => b.type === 'tool_result').map(b => ({
-        kind: 'tool_result', id: b.tool_use_id, isError: !!b.is_error,
-        text: truncate(resultText(b.content), MAX_RESULT_CHARS), ...sub,
-      }));
+      return content.filter(b => b.type === 'tool_result').map(b => {
+        const item = {
+          kind: 'tool_result', id: b.tool_use_id, isError: !!b.is_error,
+          text: truncate(resultText(b.content), MAX_RESULT_CHARS), ...sub,
+        };
+        // Subagent results carry run stats alongside the text.
+        const r = ev.tool_use_result;
+        if (r && typeof r === 'object' && r.agentId) {
+          item.agentStats = { durationMs: r.totalDurationMs ?? null, tokens: r.totalTokens ?? null, toolUses: r.totalToolUseCount ?? null };
+        }
+        return item;
+      });
     }
     case 'result':
       return [{
@@ -90,6 +150,7 @@ function toItems(ev) {
         const r = ev.request;
         return [{
           kind: 'permission', requestId: ev.request_id, toolName: r.tool_name, toolUseId: r.tool_use_id,
+          agentId: r.agent_id || null, filePath: writtenPath(r.tool_name, r.input),
           input: r.input, description: r.description || null,
           suggestions: Array.isArray(r.permission_suggestions) ? r.permission_suggestions : [],
           ...describeTool(r.tool_name, r.input),
@@ -111,4 +172,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { toItems, parseLine, describeTool, resultText, truncate, usageFrom };
+module.exports = { toItems, parseLine, describeTool, resultText, truncate, usageFrom, WRITE_TOOLS, AGENT_TOOLS };

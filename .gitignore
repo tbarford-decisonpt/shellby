@@ -14,3 +14,6 @@ config.json
 Thumbs.db
 *.log
 __pycache__/
+
+# local tooling databases (not part of Shellby)
+*.db

@@ -6,6 +6,7 @@
 <title>Shellby</title>
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
+<link rel="stylesheet" href="components.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -19,15 +20,19 @@
       <span class="mode-dot"></span><span id="modeLabel">Ask</span>
       <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
     </button>
-    <nav class="win-btns">
-      <button type="button" id="historyBtn" class="icon-btn" title="History" aria-label="History">
-        <svg viewBox="0 0 16 16"><path d="M8 3.2A4.8 4.8 0 1 1 3.4 9.4M3.2 4.2v3h3M8 5.5V8l1.8 1.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <nav class="win-btns" aria-label="Views">
+      <button type="button" data-view-btn="toolbox" class="icon-btn" title="Toolbox: skills, agents, commands" aria-label="Toolbox">
+        <svg viewBox="0 0 16 16"><path d="M2.5 6.5h11v6.2c0 .5-.4.8-.8.8H3.3c-.5 0-.8-.4-.8-.8zM5.5 6.5V4.4c0-.5.4-.9.9-.9h3.2c.5 0 .9.4.9.9v2.1M2.5 9.2h11M7 9.2v1.3h2V9.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        <span class="dot-badge" id="toolboxBadge" hidden></span>
       </button>
-      <button type="button" id="settingsBtn" class="icon-btn" title="Settings" aria-label="Settings">
+      <button type="button" data-view-btn="routines" class="icon-btn" title="Routines: scheduled tasks" aria-label="Routines">
+        <svg viewBox="0 0 16 16"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2M13.4 2.6v2.8h-2.8M8 5.2V8l2 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" data-view-btn="history" class="icon-btn" title="History" aria-label="History">
+        <svg viewBox="0 0 16 16"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" data-view-btn="settings" class="icon-btn" title="Settings" aria-label="Settings">
         <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <button type="button" id="newBtn" class="icon-btn" title="New conversation" aria-label="New conversation">
-        <svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
       <span class="sep"></span>
       <button type="button" id="minBtn" class="icon-btn" title="Minimize" aria-label="Minimize">
@@ -38,6 +43,14 @@
       </button>
     </nav>
   </header>
+
+  <!-- conversation tabs -->
+  <div class="tabstrip" id="tabstrip">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Conversations"></div>
+    <button type="button" class="tab-add" id="newTabBtn" title="New conversation (Ctrl+T)" aria-label="New conversation">
+      <svg viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
 
   <div class="subbar" id="subbar">
     <button type="button" class="folder-chip" id="folderChip" aria-haspopup="menu" title="Working folder">
@@ -50,21 +63,12 @@
     </div>
   </div>
 
-  <!-- popover menus -->
   <div class="popover" id="modeMenu" role="menu" hidden></div>
   <div class="popover" id="folderMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
-    <section class="feed" id="feed" aria-live="polite">
-      <div class="empty" id="empty">
-        <div class="empty-crab" id="emptyCrab"></div>
-        <h1>What should I scuttle off and do?</h1>
-        <p class="empty-sub">I'm Claude Code in a shell. I work in <b id="emptyFolder">~</b> on your own Claude plan.</p>
-        <div class="suggestions" id="suggestions"></div>
-        <p class="empty-hint"><kbd id="hotkeyHint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files on me to attach them</p>
-      </div>
-    </section>
+    <div class="feeds" id="feeds"></div>
 
     <footer class="composer" id="composer">
       <div class="status" id="status" hidden>
@@ -74,13 +78,107 @@
       </div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
-        <textarea id="input" rows="1" placeholder="Give Shellby a task…" aria-label="Task for Shellby"></textarea>
+        <textarea id="input" rows="1" placeholder="Give Shellby a task… (type / for skills)" aria-label="Task for Shellby"></textarea>
         <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
           <svg viewBox="0 0 16 16"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </form>
+      <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
       <div class="input-hint"><span id="modeHint"></span><span>Enter to send · Shift+Enter new line</span></div>
     </footer>
+  </main>
+
+  <template id="emptyTemplate">
+    <div class="empty">
+      <div class="empty-crab"></div>
+      <h1>What should I scuttle off and do?</h1>
+      <p class="empty-sub">I'm Claude Code in a shell. I work in <b class="empty-folder">~</b> on your own Claude plan.</p>
+      <div class="pinned-row" hidden>
+        <div class="row-label">Your tricks</div>
+        <div class="pinned-chips"></div>
+      </div>
+      <div class="suggestions"></div>
+      <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files on me · <kbd>/</kbd> for skills</p>
+    </div>
+  </template>
+
+  <!-- ====================== TOOLBOX ====================== -->
+  <main class="view view-toolbox" id="toolboxView">
+    <div class="view-head">
+      <button type="button" class="back-btn" data-back>← Back</button>
+      <h2>Toolbox</h2>
+      <button type="button" class="btn ghost slim-btn" id="rescanBtn" title="Scan again">Rescan</button>
+    </div>
+    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers. When Shellby builds itself a new one, it shows up here with a <span class="new-pill">new</span> tag.</p>
+    <div class="learned" id="learnedBox" hidden></div>
+    <div class="toolbox-controls">
+      <input type="search" id="toolSearch" class="field" placeholder="Search tools…" aria-label="Search tools">
+      <div class="seg" id="toolTabs" role="tablist">
+        <button type="button" role="tab" data-kind="skill" aria-selected="true">Skills <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
+      </div>
+    </div>
+    <ul class="tool-list" id="toolList"></ul>
+  </main>
+
+  <!-- ====================== ROUTINES ====================== -->
+  <main class="view view-routines" id="routinesView">
+    <div class="view-head">
+      <button type="button" class="back-btn" data-back>← Back</button>
+      <h2>Routines</h2>
+      <button type="button" class="btn primary slim-btn" id="newRoutineBtn">New routine</button>
+    </div>
+    <p class="view-lede">Tasks Shellby runs on a schedule while your PC is on. Each run opens its own tab, and if it needs you, you'll get a notification.</p>
+    <form class="routine-editor" id="routineEditor" hidden novalidate>
+      <h3 id="routineEditorTitle">New routine</h3>
+      <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>
+      <label class="field-label">What should Shellby do?
+        <textarea class="field area" name="prompt" rows="4" maxlength="8000" placeholder="Sort ~/Downloads into subfolders by type and tell me what moved." required></textarea>
+      </label>
+      <div class="grid-2">
+        <label class="field-label">Repeat
+          <select class="field" name="type">
+            <option value="daily">Every day</option>
+            <option value="weekly">On certain days</option>
+            <option value="interval">Every few hours</option>
+          </select>
+        </label>
+        <label class="field-label" data-when="daily weekly">At<input class="field" type="time" name="time" value="09:00"></label>
+        <label class="field-label" data-when="interval">Every (hours)<input class="field" type="number" name="everyHours" min="1" max="168" value="4"></label>
+      </div>
+      <div class="days" data-when="weekly" role="group" aria-label="Days">
+        <label><input type="checkbox" name="day" value="1" checked><span>Mon</span></label>
+        <label><input type="checkbox" name="day" value="2"><span>Tue</span></label>
+        <label><input type="checkbox" name="day" value="3"><span>Wed</span></label>
+        <label><input type="checkbox" name="day" value="4"><span>Thu</span></label>
+        <label><input type="checkbox" name="day" value="5"><span>Fri</span></label>
+        <label><input type="checkbox" name="day" value="6"><span>Sat</span></label>
+        <label><input type="checkbox" name="day" value="0"><span>Sun</span></label>
+      </div>
+      <div class="grid-2">
+        <label class="field-label">Permission mode
+          <select class="field" name="mode">
+            <option value="smart">Smart (recommended for routines)</option>
+            <option value="ask">Ask first</option>
+            <option value="acceptEdits">Auto-edit</option>
+            <option value="plan">Plan only</option>
+            <option value="autonomous">Autonomous</option>
+          </select>
+        </label>
+        <div class="field-label">Folder
+          <div class="row"><code class="path" id="routineFolder">Default folder</code><button type="button" class="btn slim-btn" id="routineFolderBtn">Change</button></div>
+        </div>
+      </div>
+      <label class="toggle"><input type="checkbox" name="catchUp" checked><span class="switch"></span>If the PC was off, run once when Shellby starts</label>
+      <p class="form-errors" id="routineErrors" role="alert" hidden></p>
+      <div class="row end">
+        <button type="button" class="btn ghost" id="routineCancel">Cancel</button>
+        <button type="submit" class="btn primary">Save routine</button>
+      </div>
+    </form>
+    <ul class="routine-list" id="routineList"></ul>
   </main>
 
   <!-- ====================== HISTORY ====================== -->
@@ -105,7 +203,7 @@
       <h3>How much can Shellby do?</h3>
       <div class="mode-cards" id="modeCards"></div>
       <div class="danger-confirm" id="autonomousConfirm" hidden>
-        <p><b>Autonomous mode skips every permission check.</b> Shellby can edit, run or delete anything your Windows account can, without asking. Use it only for tasks you'd trust to an unsupervised script.</p>
+        <p><b>Autonomous mode skips every permission check.</b> Shellby and its helper agents can edit, run or delete anything your Windows account can, without asking. That includes running scripts it writes for itself. Use it only for tasks you'd trust to an unsupervised script.</p>
         <div class="row">
           <button type="button" class="btn danger" id="autonomousYes">I understand, enable it</button>
           <button type="button" class="btn ghost" id="autonomousNo">Cancel</button>
@@ -116,7 +214,7 @@
     <section class="setting-group">
       <h3>Working folder</h3>
       <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
-      <p class="muted small">Shellby starts here and loads any CLAUDE.md it finds. Changing it starts a new conversation.</p>
+      <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
     </section>
 
     <section class="setting-group">
@@ -155,7 +253,7 @@
       <h3>System</h3>
       <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
       <p class="muted small" id="loginNote" hidden>Available in the installed app.</p>
-      <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes or needs approval</label>
+      <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
     </section>
 
     <section class="setting-group about">
@@ -174,7 +272,7 @@
     <div class="hello">
       <div class="hello-crab" id="helloCrab"></div>
       <h1>Hi, I'm Shellby.</h1>
-      <p>I'm a hermit crab who lives on your desktop. You give me tasks, and I get them done using Claude Code on your own Claude subscription.</p>
+      <p>I'm a hermit crab who lives on your desktop. You give me tasks, and I get them done using Claude Code on your own Claude subscription. I can even build tools for myself and send out helper crabs.</p>
     </div>
     <ol class="steps" id="steps"></ol>
     <section class="setting-group onboarding-modes">
@@ -190,6 +288,12 @@
 
 <script src="../shared/sprite.js"></script>
 <script src="../shared/markdown.js"></script>
-<script src="panel.js"></script>
+<script src="core.js"></script>
+<script src="feed.js"></script>
+<script src="tabs.js"></script>
+<script src="toolbox.js"></script>
+<script src="routines.js"></script>
+<script src="settings.js"></script>
+<script src="boot.js"></script>
 </body>
 </html>

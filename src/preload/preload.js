@@ -7,15 +7,18 @@ const on = channel => cb => {
   ipcRenderer.on(channel, handler);
   return () => ipcRenderer.removeListener(channel, handler);
 };
+const invoke = channel => (...args) => ipcRenderer.invoke(channel, ...args);
+const fire = channel => (...args) => ipcRenderer.send(channel, ...args);
 
 contextBridge.exposeInMainWorld('shellby', {
   critter: {
-    dragStart: () => ipcRenderer.send('critter:drag-start'),
+    dragStart: fire('critter:drag-start'),
     dragMove: (dx, dy) => ipcRenderer.send('critter:drag-move', { dx, dy }),
-    dragEnd: () => ipcRenderer.send('critter:drag-end'),
-    click: () => ipcRenderer.send('critter:click'),
-    menu: () => ipcRenderer.send('critter:menu'),
-    drop: files => ipcRenderer.send('critter:drop', files),
+    dragEnd: fire('critter:drag-end'),
+    click: fire('critter:click'),
+    crewClick: fire('critter:crew-click'),
+    menu: fire('critter:menu'),
+    drop: fire('critter:drop'),
     onState: on('critter:state'),
     onSkin: on('critter:skin'),
   },
@@ -23,34 +26,57 @@ contextBridge.exposeInMainWorld('shellby', {
   // Resolve dropped File objects to absolute paths (sandbox-safe).
   pathsForFiles: files => Array.from(files || []).map(f => { try { return webUtils.getPathForFile(f); } catch { return ''; } }).filter(Boolean),
 
-  bootstrap: () => ipcRenderer.invoke('app:bootstrap'),
-  claudeStatus: () => ipcRenderer.invoke('claude:status'),
-  claudeLogin: () => ipcRenderer.invoke('claude:login'),
+  bootstrap: invoke('app:bootstrap'),
+  claudeStatus: invoke('claude:status'),
+  claudeLogin: invoke('claude:login'),
 
-  sendTask: (text, attachments) => ipcRenderer.invoke('task:send', { text, attachments }),
-  stopTask: () => ipcRenderer.send('task:stop'),
-  answerPermission: (requestId, decision, message) => ipcRenderer.invoke('task:permission', { requestId, decision, message }),
+  // tabs + tasks
+  newTab: invoke('tab:new'),
+  closeTab: invoke('tab:close'),
+  seenTab: fire('tab:seen'),
+  sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
+  stopTask: fire('task:stop'),
+  answerPermission: (tabId, requestId, decision, message) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message }),
 
-  newSession: () => ipcRenderer.invoke('session:new'),
-  listSessions: () => ipcRenderer.invoke('session:list'),
-  openSession: id => ipcRenderer.invoke('session:open', id),
-  deleteSession: id => ipcRenderer.invoke('session:delete', id),
+  // history
+  listSessions: invoke('session:list'),
+  openSession: invoke('session:open'),
+  deleteSession: invoke('session:delete'),
 
-  setSettings: patch => ipcRenderer.invoke('settings:set', patch),
-  pickFolder: () => ipcRenderer.invoke('folder:pick'),
-  setFolder: dir => ipcRenderer.invoke('folder:set', dir),
-  reloadSkins: () => ipcRenderer.invoke('skins:reload'),
-  openSkinsFolder: () => ipcRenderer.send('skins:open-folder'),
-  openDataFolder: () => ipcRenderer.send('open-data-folder'),
-  openExternal: url => ipcRenderer.send('open-external', url),
+  // settings
+  setSettings: invoke('settings:set'),
+  pickFolder: invoke('folder:pick'),
+  pickAnyFolder: invoke('folder:pick-any'),
+  setFolder: invoke('folder:set'),
+  reloadSkins: invoke('skins:reload'),
+  openSkinsFolder: fire('skins:open-folder'),
+  openDataFolder: fire('open-data-folder'),
+  openExternal: fire('open-external'),
 
-  hide: () => ipcRenderer.send('panel:hide'),
-  minimize: () => ipcRenderer.send('panel:minimize'),
+  // toolbox
+  getToolbox: invoke('toolbox:get'),
+  rescanToolbox: invoke('toolbox:rescan'),
+  pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
+  revealTool: fire('toolbox:reveal'),
 
-  onItem: on('session:item'),
-  onBusy: on('session:busy'),
-  onReset: on('session:reset'),
-  onSessions: on('sessions'),
+  // routines
+  listRoutines: invoke('routines:list'),
+  saveRoutine: invoke('routines:save'),
+  deleteRoutine: invoke('routines:delete'),
+  runRoutine: invoke('routines:run'),
+
+  hide: fire('panel:hide'),
+  minimize: fire('panel:minimize'),
+
+  onTabItem: on('tab:item'),
+  onTabs: on('tabs'),
+  onTabOpened: on('tab:opened'),
+  onTabFocus: on('tab:focus'),
+  onNewTabRequest: on('tab:new-request'),
+  onUsage: on('usage'),
+  onToolbox: on('toolbox'),
+  onLearned: on('toolbox:learned'),
+  onRoutines: on('routines'),
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
   onView: on('panel:view'),

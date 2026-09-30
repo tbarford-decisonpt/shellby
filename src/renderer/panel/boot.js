@@ -1,0 +1,102 @@
+/* Shellby panel — wiring and startup. Loaded last. */
+'use strict';
+(function () {
+  const { api, state, $ } = SB;
+
+  document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => SB.setView('chat')));
+  document.querySelectorAll('[data-view-btn]').forEach(b => b.addEventListener('click', () => {
+    SB.setView(state.view === b.dataset.viewBtn ? 'chat' : b.dataset.viewBtn);
+  }));
+  $('closeBtn').addEventListener('click', () => api.hide());
+  $('minBtn').addEventListener('click', () => api.minimize());
+
+  SB.renderCrabs = () => {
+    for (const id of ['brandCrab', 'helloCrab']) $(id).replaceChildren(SB.sprite());
+    SB.refreshEmptyStates();
+  };
+  SB.refreshEmptyStates = () => { for (const tab of state.tabs.values()) tab.renderEmpty(); };
+
+  // ------------------------------------------------------------ events from main
+
+  api.onTabItem(({ tabId, item }) => {
+    const tab = state.tabs.get(tabId);
+    if (!tab) return;
+    tab.render(item);
+    if (item.kind === 'result') {
+      tab.busy = false;
+      if (!tab.isActive) tab.unread = true;
+      api.listSessions().then(s => { state.sessions = s; });
+    }
+    if (item.kind === 'decision' || item.kind === 'result') SB.syncBusyUi();
+  });
+  api.onTabs(summaries => SB.syncTabs(summaries));
+  api.onTabOpened(({ tabId, entry, items, background }) => {
+    const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy: true });
+    for (const item of items || []) tab.render(item, { replay: true });
+    if (!background || !state.activeTab) SB.activate(tabId);
+    else SB.renderTabStrip();
+  });
+  api.onTabFocus(tabId => { if (state.tabs.has(tabId)) SB.activate(tabId); });
+  api.onNewTabRequest(() => SB.newTab());
+  api.onUsage(SB.applyUsage);
+  api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
+  api.onLearned(SB.onLearned);
+  api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });
+  api.onAttach(files => { if (state.view !== 'onboarding') SB.setView('chat'); SB.addAttachments(files); });
+  api.onFocusInput(() => { if (state.view === 'chat') $('input').focus(); });
+  api.onView(v => SB.setView(v));
+  api.onSkin(skin => {
+    state.skin = skin;
+    SB.renderCrabs();
+    if (state.view === 'settings') SB.renderSkins();
+  });
+  api.onUpdateReady(v => SB.toast(`Update ${v} will install when you quit.`, { ms: 6000 }));
+  // `npm run screenshots` drives the UI with scripted data (see src/main/capture.js).
+  api.onDemo(demo => {
+    for (const tab of state.tabs.values()) tab.destroy();
+    state.tabs.clear();
+    state.activeTab = null;
+    Object.assign(state, { toolbox: demo.toolbox ?? state.toolbox, routines: demo.routines ?? state.routines, learned: demo.learned ?? [], pinned: demo.pinned ?? [] });
+    for (const t of demo.tabs) {
+      const tab = SB.ensureTab({ id: t.id, title: t.title, cwd: t.cwd, saved: true, busy: t.busy, pending: t.pending, crew: t.crew, outcome: t.outcome, unread: t.unread, routineId: t.routineId });
+      for (const item of t.items) tab.render(item, { replay: item.kind !== 'permission' });
+      if (t.status) tab.statusText = t.status;
+    }
+    if (demo.usage) SB.applyUsage(demo.usage);
+    SB.activate(demo.active || demo.tabs[0].id);
+    SB.refreshEmptyStates();
+    SB.setView(demo.view || 'chat');
+    if (demo.slash) { $('input').value = demo.slash; $('input').dispatchEvent(new Event('input')); }
+    requestAnimationFrame(() => { const t = SB.activeTab(); if (t && demo.scroll !== 'top') t.el.scrollTop = t.el.scrollHeight; });
+  });
+
+  // Routine "next run" times drift into the past while the panel is open.
+  setInterval(() => { if (state.view === 'routines') api.listRoutines().then(l => { state.routines = l; SB.views.routines.render(); }); }, 60000);
+
+  // ------------------------------------------------------------ boot
+
+  (async function init() {
+    const b = await api.bootstrap();
+    Object.assign(state, {
+      settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, sessions: b.sessions,
+      home: b.home, version: b.version, packaged: b.packaged, cwd: b.cwd,
+      toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines,
+    });
+    $('settingsFolder').textContent = b.cwd;
+    SB.applyMode(state.settings.mode);
+    SB.applyUsage(state.settings.lastUsage);
+    SB.renderCrabs();
+
+    // Restore tabs that were open last time, then pick one to show.
+    for (const s of b.tabs) {
+      const tab = SB.ensureTab(s);
+      for (const item of b.tabItems[s.id] || []) tab.render(item, { replay: true });
+      tab.cancelOpenAsks();
+      for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
+    }
+    if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
+    else await SB.newTab();
+
+    SB.setView(SB.needsOnboarding() ? 'onboarding' : 'chat');
+  })();
+})();

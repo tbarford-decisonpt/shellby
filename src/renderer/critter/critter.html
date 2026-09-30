@@ -9,12 +9,17 @@
 </head>
 <body class="state-idle">
   <div id="stage">
-    <div id="bubble" aria-hidden="true"><span id="bubbleText"></span></div>
-    <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
-    <button id="crab" type="button" aria-label="Shellby. Click to open, drag to move, right-click for menu, drop files to attach.">
-      <div id="sprite"></div>
-    </button>
-    <div id="shadow"></div>
+    <!-- helper crabs (running subagents) line up to Shellby's left -->
+    <div id="crew" aria-live="polite"></div>
+    <div id="self">
+      <div id="bubble" aria-hidden="true"><span id="bubbleText"></span></div>
+      <div id="count" aria-hidden="true"></div>
+      <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
+      <button id="crab" type="button" aria-label="Shellby. Click to open, drag to move, right-click for menu, drop files to attach.">
+        <div id="sprite"></div>
+      </button>
+      <div id="shadow"></div>
+    </div>
   </div>
 <script src="../shared/sprite.js"></script>
 <script src="critter.js"></script>

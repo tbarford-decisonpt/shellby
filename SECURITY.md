@@ -5,7 +5,10 @@ Shellby gives an AI agent hands on your PC, so it's built to keep those hands wh
 ## Model
 
 - **Claude Code enforces permissions; Shellby only relays your answers.** In every mode except Autonomous, any action Claude Code would prompt for is sent to Shellby as a `can_use_tool` request and blocks until you answer. Shellby never answers on its own. Pending requests are denied if you stop the task or the panel session ends.
-- **Autonomous mode** (`bypassPermissions`) is never the default. It requires a one-time explicit acknowledgement, and the UI shows it in red.
+- **Autonomous mode** (`bypassPermissions`) is never the default. Turning it on the first time requires a **native OS confirmation dialog** raised by the main process, which renderer code cannot click through. The UI shows the mode in red.
+- **Self-built tooling is flagged.** Shellby tracks the files Claude writes in each conversation. A permission card warns when a command runs one of them, and when a write or command touches Claude Code's own setup (skills, agents, commands, hooks, settings, `CLAUDE.md`, MCP config).
+- **Subagent prompts go through the same gate.** Permission requests from helper agents use the same `can_use_tool` channel and are labelled with the helper that asked.
+- **Routines** run with their own saved permission mode. Autonomous routines are only possible after the acknowledgement above.
 - **No credentials are handled by Shellby.** Authentication belongs to the Claude Code CLI. Shellby removes API-key and alternative-provider environment variables before starting it.
 - **Renderers are sandboxed.** Both windows run with `sandbox: true`, `contextIsolation: true` and `nodeIntegration: false`, behind a strict CSP (`default-src 'none'`, no inline scripts, no remote content). Navigation and new windows are blocked. The preload script exposes a fixed list of IPC calls, and the main process validates their arguments.
 - **Model output is untrusted.** Claude's replies are rendered by a small Markdown renderer that HTML-escapes everything first and only emits a fixed set of tags. Links are inert until clicked, and only `https:` links open (in your browser).

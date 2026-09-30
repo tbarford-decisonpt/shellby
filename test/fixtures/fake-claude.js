@@ -57,6 +57,46 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  if (content.startsWith('crew')) {
+    // A subagent that needs permission, with the real CLI's event shapes.
+    out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_agent', name: 'Agent', input: { subagent_type: 'general-purpose', description: 'Write crew file', prompt: 'write it' } }] } });
+    out({ type: 'system', subtype: 'task_started', task_id: 'agent-1', tool_use_id: 'tu_agent', description: 'Write crew file', subagent_type: 'general-purpose', is_backgrounded: false, spawn_depth: 1 });
+    out({ type: 'system', subtype: 'task_progress', task_id: 'agent-1', tool_use_id: 'tu_agent', description: 'Writing crew.txt', subagent_type: 'general-purpose', usage: { total_tokens: 100, tool_uses: 1, duration_ms: 50 }, last_tool_name: 'Write' });
+    const input = { file_path: 'C:\\tmp\\crew.txt', content: 'crew' };
+    out({ type: 'assistant', parent_tool_use_id: 'tu_agent', message: { content: [{ type: 'tool_use', id: 'tu_sub', name: 'Write', input }] } });
+    const requestId = `req-crew-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'can_use_tool', tool_name: 'Write', input, tool_use_id: 'tu_sub', agent_id: 'agent-1', permission_suggestions: [] } });
+    pending = { requestId, onAnswer: r => {
+      const ok = r.behavior === 'allow';
+      out({ type: 'user', parent_tool_use_id: 'tu_agent', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_sub', is_error: !ok, content: ok ? 'ok' : r.message }] } });
+      out({ type: 'system', subtype: 'task_updated', task_id: 'agent-1', patch: { status: 'completed' } });
+      out({ type: 'system', subtype: 'task_notification', task_id: 'agent-1', tool_use_id: 'tu_agent', status: 'completed', summary: ok ? 'wrote it' : 'was denied', usage: { total_tokens: 200, tool_uses: 1, duration_ms: 90 } });
+      out({ type: 'user', parent_tool_use_id: null, tool_use_result: { agentId: 'agent-1', totalDurationMs: 90, totalTokens: 200, totalToolUseCount: 1 }, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_agent', content: [{ type: 'text', text: ok ? 'wrote it' : 'was denied' }] }] } });
+      text(ok ? 'CREW OK' : 'CREW DENIED');
+      result(true);
+    } };
+    return;
+  }
+
+  if (content.startsWith('script')) {
+    // Writes a script, then asks to run it: the second prompt should be flagged.
+    const writeInput = { file_path: 'C:\\tmp\\tools\\cleanup.ps1', content: 'Remove-Item x' };
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_w', name: 'Write', input: writeInput }] } });
+    out({ type: 'control_request', request_id: `req-w-${turn}`, request: { subtype: 'can_use_tool', tool_name: 'Write', input: writeInput, tool_use_id: 'tu_w', permission_suggestions: [] } });
+    pending = { requestId: `req-w-${turn}`, onAnswer: () => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_w', content: 'written' }] } });
+      const runInput = { command: 'powershell -File .\\tools\\cleanup.ps1' };
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_r', name: 'PowerShell', input: runInput }] } });
+      out({ type: 'control_request', request_id: `req-r-${turn}`, request: { subtype: 'can_use_tool', tool_name: 'PowerShell', input: runInput, tool_use_id: 'tu_r', permission_suggestions: [] } });
+      pending = { requestId: `req-r-${turn}`, onAnswer: r => {
+        out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_r', is_error: r.behavior !== 'allow', content: 'ran' }] } });
+        text('SCRIPT DONE');
+        result(true);
+      } };
+    } };
+    return;
+  }
+
   if (content.startsWith('tool')) {
     const input = { file_path: 'C:\\tmp\\x.txt', content: '' };
     out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_1', name: 'Write', input }] } });

@@ -5,7 +5,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'init']);
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task']);
 
 class History {
   constructor(dir) {
@@ -19,9 +19,11 @@ class History {
     fs.writeFileSync(this.indexFile, JSON.stringify(this.index, null, 2));
   }
 
-  create({ title, cwd, mode }) {
+  create({ id, title, cwd, mode, routineId = null }) {
     const now = Date.now();
-    const entry = { id: randomUUID(), title: titleFrom(title), cwd, mode, claudeSessionId: null, createdAt: now, updatedAt: now };
+    const entryId = typeof id === 'string' && /^[\w-]{1,64}$/.test(id) ? id : randomUUID();
+    this.index = this.index.filter(e => e.id !== entryId);
+    const entry = { id: entryId, title: titleFrom(title), cwd, mode, routineId, claudeSessionId: null, createdAt: now, updatedAt: now };
     this.index.unshift(entry);
     this.index = this.index.slice(0, 200);
     this.saveIndex();
@@ -39,6 +41,7 @@ class History {
 
   append(id, item) {
     if (!PERSISTED.has(item.kind)) return;
+    if (item.kind === 'task' && (item.phase === 'progress' || item.phase === 'updated')) return; // start + finish are enough to replay
     const rec = item.kind === 'permission' ? { ...item, input: undefined } : item;
     fs.appendFileSync(this.file(id), JSON.stringify({ t: Date.now(), ...rec }) + '\n');
   }

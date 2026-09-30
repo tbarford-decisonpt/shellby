@@ -14,6 +14,58 @@ html, body {
 }
 
 #stage { position: absolute; inset: 0; }
+/* Shellby keeps a fixed slot at the right; the window grows left for helpers. */
+#self { position: absolute; right: 0; top: 0; bottom: 0; width: var(--self-w, 160px); }
+
+/* ---------- crew: one helper crab per running subagent ---------- */
+#crew {
+  position: absolute; left: 0; right: var(--self-w, 160px); bottom: 16px;
+  display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 10px;
+  padding: 0 4px 0 56px;
+}
+.helper {
+  position: relative; flex: none; cursor: pointer;
+  animation: helper-in .55s cubic-bezier(.2,.9,.3,1.2) backwards;
+}
+.helper svg { display: block; overflow: visible; animation: hop .38s ease-in-out infinite; }
+.helper:nth-child(2n) svg { animation-delay: -.19s; }
+.helper .part-legs-a { animation: leg .19s steps(1) infinite; }
+.helper .part-legs-b { animation: leg .19s steps(1) infinite reverse; }
+.helper .part-claw { animation: snap .38s steps(1) infinite; }
+.helper::after {
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 70%; height: 5px;
+  transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0,0,0,.35), transparent);
+}
+.helper .tag {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  max-width: 100px; padding: 2px 6px; border-radius: 6px;
+  font: 600 10px/1.2 "Pixelify Sans", monospace; color: var(--ink); background: var(--sand);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 1px 0 rgba(0,0,0,.35);
+  opacity: 0; transition: opacity .15s; pointer-events: none;
+}
+.helper:hover .tag, .helper.fresh .tag { opacity: 1; }
+/* stagger neighbouring labels so they never overlap */
+.helper:nth-child(even) .tag { bottom: calc(100% + 26px); }
+.helper:hover .tag { z-index: 2; }
+.helper.leaving { animation: helper-out .9s ease-in forwards; pointer-events: none; }
+.more {
+  align-self: center; padding: 2px 7px; border-radius: 99px;
+  font: 700 11px "Pixelify Sans", monospace; color: var(--ink); background: var(--glass);
+}
+@keyframes helper-in { from { transform: translateX(70px) scale(.4); opacity: 0; } }
+@keyframes helper-out { 30% { transform: translateY(-8px); } to { transform: translateX(90px) scale(.3); opacity: 0; } }
+
+/* ---------- busy count ---------- */
+#count {
+  position: absolute; left: 10px; bottom: 12px; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 10px; display: grid; place-items: center;
+  font: 700 11px "Martian Mono", monospace; color: var(--ink); background: var(--glass);
+  box-shadow: 0 1px 0 rgba(0,0,0,.35);
+  transform: scale(0); transition: transform .3s cubic-bezier(.3,1.7,.5,1);
+}
+#count.on { transform: scale(1); }
 
 #crab {
   position: absolute; left: 50%; bottom: 18px;
@@ -94,6 +146,10 @@ html, body {
 .state-asking #bubble::after { border-top-color: var(--coral); }
 .state-success #bubble { background: var(--glass); }
 .state-success #bubble::after { border-top-color: var(--glass); }
+.state-learned #bubble { background: var(--glass); animation: pulse .6s ease-in-out 3; }
+.state-learned #bubble::after { border-top-color: var(--glass); }
+.state-learned #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) 2; }
+.state-learned .part-claw { animation: wave .5s ease-in-out 4; }
 .state-error #bubble { background: #ff5a4a; color: #fff; }
 .state-error #bubble::after { border-top-color: #ff5a4a; }
 .state-working #bubbleText::after { content: ""; animation: dots 1.2s steps(4) infinite; }

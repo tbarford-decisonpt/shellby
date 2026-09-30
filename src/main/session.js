@@ -8,6 +8,7 @@ const { randomUUID } = require('crypto');
 const { parseLine } = require('./stream');
 const { subscriptionEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
+const { annotatePermission } = require('./safety');
 
 const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
 
@@ -21,6 +22,8 @@ class ClaudeSession extends EventEmitter {
     this.sessionId = resumeId;
     this.pending = new Map(); // requestId -> permission item
     this.interrupting = false;
+    this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
+    this.tasks = new Map();        // subagent task_id -> { status, description, ... }
   }
 
   buildArgs() {
@@ -63,6 +66,11 @@ class ClaudeSession extends EventEmitter {
       const wasBusy = this.busy;
       this.proc = null;
       this.cancelPending();
+      let crewChanged = false;
+      for (const [id, t] of this.tasks) {
+        if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
+      }
+      if (crewChanged) this.emit('crew', this.crew);
       if (wasBusy) {
         this.emit('item', { kind: 'error', text: stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).` });
         this.setBusy(false);
@@ -72,19 +80,56 @@ class ClaudeSession extends EventEmitter {
   }
 
   handle(item) {
-    if (item.kind === 'init' && item.sessionId) this.sessionId = item.sessionId;
-    if (item.kind === 'permission') this.pending.set(item.requestId, item);
-    if (item.kind === 'result') {
-      if (item.sessionId) this.sessionId = item.sessionId;
-      if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
-      this.interrupting = false;
-      this.cancelPending();
-      // Clear busy first so listeners reacting to the result can send a follow-up.
-      this.setBusy(false);
-      this.emit('item', item);
-      return;
+    switch (item.kind) {
+      case 'init':
+        if (item.sessionId) this.sessionId = item.sessionId;
+        break;
+      case 'tool':
+        if (item.filePath) this.createdFiles.add(item.filePath);
+        break;
+      case 'task':
+        this.trackTask(item);
+        break;
+      case 'permission':
+        Object.assign(item, annotatePermission(item, { createdFiles: this.createdFiles, tasks: this.tasks }));
+        this.pending.set(item.requestId, item);
+        break;
+      case 'result':
+        if (item.sessionId) this.sessionId = item.sessionId;
+        if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
+        this.interrupting = false;
+        // Background subagents can outlive the turn, so pending prompts stay open;
+        // only interrupt/exit cancel them. Clear busy before emitting so listeners
+        // reacting to the result can send a follow-up.
+        this.setBusy(false);
+        this.emit('item', item);
+        return;
     }
     this.emit('item', item);
+  }
+
+  // Keeps a live map of subagents so permission prompts can be attributed and
+  // the desktop can show one helper crab per running agent.
+  trackTask(item) {
+    if (!item.taskId) return;
+    const prev = this.tasks.get(item.taskId) || { taskId: item.taskId, status: 'running', startedAt: Date.now() };
+    const next = { ...prev };
+    for (const k of ['toolUseId', 'description', 'subagentType', 'background', 'lastTool', 'usage']) {
+      if (item[k] != null && !(k === 'description' && prev.description && item.phase === 'progress')) next[k] = item[k];
+    }
+    if (item.phase === 'progress' && item.description) next.activity = item.description;
+    if (item.status) next.status = item.status === 'completed' ? 'completed' : item.status;
+    if (item.phase === 'done' && !item.status) next.status = 'completed';
+    this.tasks.set(item.taskId, next);
+    this.emit('crew', this.crew);
+  }
+
+  get crew() {
+    return [...this.tasks.values()];
+  }
+
+  runningCrew() {
+    return this.crew.filter(t => t.status === 'running');
   }
 
   setBusy(b) {
