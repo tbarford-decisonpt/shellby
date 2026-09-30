@@ -23,7 +23,7 @@ const CAPTURE = process.argv.includes('--capture-screenshots');
 const BASE_PX = 4;           // screen pixels per sprite pixel at scale 1
 const PANEL_DEFAULT = { width: 440, height: 660 };
 
-app.setAppUserModelId('com.sandoxus.shellby');
+app.setAppUserModelId('com.xsalmon.shellby');
 if (!CAPTURE && !app.requestSingleInstanceLock()) app.exit(0);
 
 let config, history, skins;

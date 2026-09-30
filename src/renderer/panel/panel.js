@@ -565,7 +565,7 @@ $('loginToggle').addEventListener('change', async e => { const r = await api.set
 $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
 $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
 $('reloadSkinsBtn').addEventListener('click', async () => { state.skins = await api.reloadSkins(); renderSkins(); toast(`${state.skins.length} skins loaded`); });
-$('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/Sandoxus/shellby'));
+$('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));
 $('dataBtn').addEventListener('click', () => api.openDataFolder());
 
 // hotkey recorder

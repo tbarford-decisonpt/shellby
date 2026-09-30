@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you, on your own Claude subscription.",
   "main": "src/main/main.js",
-  "author": "Sandoxus",
+  "author": "x-salmon",
   "license": "MIT",
-  "homepage": "https://github.com/Sandoxus/shellby",
+  "homepage": "https://github.com/x-salmon/shellby",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Sandoxus/shellby.git"
+    "url": "https://github.com/x-salmon/shellby.git"
   },
   "keywords": ["claude-code", "desktop-pet", "electron", "windows", "ai-agent"],
   "private": true,
@@ -30,9 +30,9 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.sandoxus.shellby",
+    "appId": "com.xsalmon.shellby",
     "productName": "Shellby",
-    "copyright": "Copyright (c) 2026 Sandoxus",
+    "copyright": "Copyright (c) 2026 x-salmon",
     "directories": { "output": "dist", "buildResources": "assets" },
     "files": ["src/**/*", "assets/**/*", "package.json", "!**/*.md"],
     "asarUnpack": ["node_modules/koffi/**", "node_modules/@koromix/**"],
@@ -50,6 +50,6 @@
       "artifactName": "Shellby-Setup-${version}.${ext}"
     },
     "portable": { "artifactName": "Shellby-Portable-${version}.${ext}" },
-    "publish": [{ "provider": "github", "owner": "Sandoxus", "repo": "shellby" }]
+    "publish": [{ "provider": "github", "owner": "x-salmon", "repo": "shellby" }]
   }
 }

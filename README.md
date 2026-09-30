@@ -9,7 +9,7 @@
 Click him, type a task ("tidy my Downloads", "what's eating my disk?"), and watch him scuttle.<br>
 He runs on **your own Claude Pro/Max subscription**. No API keys, no per-token billing.
 
-[Download](https://github.com/Sandoxus/shellby/releases/latest) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md)
+[Download](https://github.com/x-salmon/shellby/releases/latest) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md)
 
 </div>
 
@@ -51,7 +51,7 @@ He runs on **your own Claude Pro/Max subscription**. No API keys, no per-token b
    npm install -g @anthropic-ai/claude-code
    claude auth login
    ```
-2. Download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/Sandoxus/shellby/releases/latest) and run it.
+2. Download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest) and run it.
 3. Shellby walks you through a two-step check (CLI found ✓, signed in with a Claude account ✓) and asks how much freedom he gets.
 
 > **Windows SmartScreen:** releases aren't code-signed yet, so Windows may say "Windows protected your PC". Click **More info → Run anyway**, or build from source (below). Every release is built by GitHub Actions from the tagged commit.
@@ -99,7 +99,7 @@ Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply i
 ## Build from source
 
 ```powershell
-git clone https://github.com/Sandoxus/shellby
+git clone https://github.com/x-salmon/shellby
 cd shellby
 npm install
 node node_modules/electron/install.js   # only if npm skipped the Electron download
