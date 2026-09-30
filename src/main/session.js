@@ -1,0 +1,160 @@
+// One conversation = one long-lived `claude -p` process speaking stream-json on
+// stdin/stdout. Permission prompts, interrupts and mode switches go over the same
+// control protocol the Claude Agent SDK uses, so no API key is ever involved.
+const { spawn, execFile } = require('child_process');
+const readline = require('readline');
+const { EventEmitter } = require('events');
+const { randomUUID } = require('crypto');
+const { parseLine } = require('./stream');
+const { subscriptionEnv } = require('./claude-cli');
+const { CLI_MODE } = require('./config');
+
+const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
+
+class ClaudeSession extends EventEmitter {
+  // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
+  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [] }) {
+    super();
+    Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix });
+    this.proc = null;
+    this.busy = false;
+    this.sessionId = resumeId;
+    this.pending = new Map(); // requestId -> permission item
+    this.interrupting = false;
+  }
+
+  buildArgs() {
+    const args = [
+      '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
+      '--permission-prompt-tool', 'stdio',
+      '--permission-mode', CLI_MODE[this.mode] || 'default',
+      // Lets the user switch into Autonomous mid-conversation; it has no effect
+      // unless that mode is actually selected.
+      '--allow-dangerously-skip-permissions',
+    ];
+    if (this.model) args.push('--model', this.model);
+    if (this.sessionId) args.push('--resume', this.sessionId);
+    return args;
+  }
+
+  start() {
+    if (this.proc) return;
+    const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
+      cwd: this.cwd, env: subscriptionEnv(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    this.proc = proc;
+    let stderr = '';
+
+    readline.createInterface({ input: proc.stdout }).on('line', line => {
+      const { event, items } = parseLine(line);
+      if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
+        // Unknown host callbacks (hooks, MCP bridging): answer so the CLI never hangs.
+        this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
+      }
+      for (const item of items) this.handle(item);
+    });
+    proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
+    proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
+
+    proc.on('error', err => {
+      this.emit('item', { kind: 'error', text: `Couldn't start Claude Code: ${err.message}` });
+    });
+    proc.on('close', code => {
+      const wasBusy = this.busy;
+      this.proc = null;
+      this.cancelPending();
+      if (wasBusy) {
+        this.emit('item', { kind: 'error', text: stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).` });
+        this.setBusy(false);
+      }
+      this.emit('exit', code);
+    });
+  }
+
+  handle(item) {
+    if (item.kind === 'init' && item.sessionId) this.sessionId = item.sessionId;
+    if (item.kind === 'permission') this.pending.set(item.requestId, item);
+    if (item.kind === 'result') {
+      if (item.sessionId) this.sessionId = item.sessionId;
+      if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
+      this.interrupting = false;
+      this.cancelPending();
+      // Clear busy first so listeners reacting to the result can send a follow-up.
+      this.setBusy(false);
+      this.emit('item', item);
+      return;
+    }
+    this.emit('item', item);
+  }
+
+  setBusy(b) {
+    if (this.busy === b) return;
+    this.busy = b;
+    this.emit('busy', b);
+  }
+
+  write(obj) {
+    if (this.proc?.stdin.writable) this.proc.stdin.write(JSON.stringify(obj) + '\n');
+  }
+
+  send(text) {
+    if (this.busy) throw new Error('Shellby is still working on the last task.');
+    this.start();
+    this.setBusy(true);
+    this.write({ type: 'user', message: { role: 'user', content: text } });
+  }
+
+  // decision: 'allow' | 'always' | 'deny'
+  respond(requestId, decision, message) {
+    const item = this.pending.get(requestId);
+    if (!item) return false;
+    this.pending.delete(requestId);
+    let response;
+    if (decision === 'deny') {
+      response = { behavior: 'deny', message: message || DENY_MESSAGE };
+    } else {
+      response = { behavior: 'allow', updatedInput: item.input };
+      if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
+    }
+    this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
+    this.emit('item', { kind: 'decision', requestId, decision, toolName: item.toolName });
+    return true;
+  }
+
+  cancelPending() {
+    for (const id of this.pending.keys()) this.emit('item', { kind: 'decision', requestId: id, decision: 'cancelled' });
+    this.pending.clear();
+  }
+
+  interrupt() {
+    if (!this.proc || !this.busy) return;
+    this.interrupting = true;
+    for (const id of [...this.pending.keys()]) this.respond(id, 'deny', 'Interrupted by the user.');
+    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'interrupt' } });
+    // If the CLI doesn't wind down promptly, kill it; the session can be resumed.
+    const proc = this.proc;
+    setTimeout(() => { if (this.proc === proc && this.busy) this.kill(); }, 8000);
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    if (this.proc) {
+      this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'set_permission_mode', mode: CLI_MODE[mode] } });
+    }
+  }
+
+  kill() {
+    if (!this.proc) return;
+    // /T takes down the whole tree: claude plus any shells or tools it spawned.
+    execFile('taskkill', ['/PID', String(this.proc.pid), '/T', '/F'], { windowsHide: true }, () => {});
+  }
+
+  close() {
+    if (!this.proc) return;
+    const proc = this.proc;
+    try { proc.stdin.end(); } catch { /* ignore */ }
+    setTimeout(() => { if (this.proc === proc) this.kill(); }, 3000);
+  }
+}
+
+module.exports = { ClaudeSession, DENY_MESSAGE };

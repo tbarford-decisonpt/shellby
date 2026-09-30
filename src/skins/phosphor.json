@@ -1,0 +1,47 @@
+{
+  "id": "phosphor",
+  "name": "Phosphor",
+  "author": "Shellby",
+  "description": "Green-screen terminal crab.",
+  "palette": {
+    "S": "#0f3d1c",
+    "s": "#1f8a3b",
+    "h": "#5cff84",
+    "b": "#3ddc68",
+    "B": "#1a7a36",
+    "c": "#8dffaa",
+    "C": "#1a7a36",
+    "k": "#1a7a36",
+    "e": "#021006",
+    "w": "#d6ffe0",
+    "l": "#1a7a36"
+  },
+  "parts": {
+    "S": "shell",
+    "s": "shell",
+    "h": "shell",
+    "b": "body",
+    "B": "body",
+    "c": "claw",
+    "C": "claw",
+    "k": "stalks",
+    "e": "eyes",
+    "w": "eyes",
+    "l": "legs"
+  },
+  "pixels": [
+    "......SSSS...ew.ew....",
+    "....SSsssSS..ee.ee....",
+    "...SsshhhssS..k..k....",
+    "..SshhSSSshsS.k..k....",
+    "..SshSsssSshSbbbbbb...",
+    ".SshSshhsSshSbbbbbbb..",
+    ".SshSshSsSshSbbbbbB.cc",
+    ".SshSssSSshsSbbbbBcccC",
+    ".SsshSSsshhsSbbbbBccc.",
+    "..SsshhhhhsSbbbbbBBC..",
+    "...SSsssssSBBBBBBB....",
+    "....SSSSSS..ll.ll.ll..",
+    "...........l..l..l...."
+  ]
+}

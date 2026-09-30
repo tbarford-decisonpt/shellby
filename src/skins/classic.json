@@ -1,0 +1,41 @@
+{
+  "id": "classic",
+  "name": "Classic",
+  "author": "Shellby",
+  "description": "Coral crab, sea-glass shell.",
+  "palette": {
+    "S": "#1d5f5a",
+    "s": "#3fb8a3",
+    "h": "#a8ecd9",
+    "b": "#ff7a5c",
+    "B": "#c9482f",
+    "c": "#ff9b7d",
+    "C": "#c9482f",
+    "k": "#c9482f",
+    "e": "#16201f",
+    "w": "#fff4e4",
+    "l": "#c9482f"
+  },
+  "parts": {
+    "S": "shell", "s": "shell", "h": "shell",
+    "b": "body", "B": "body",
+    "c": "claw", "C": "claw",
+    "k": "stalks", "e": "eyes", "w": "eyes",
+    "l": "legs"
+  },
+  "pixels": [
+    "......SSSS...ew.ew....",
+    "....SSsssSS..ee.ee....",
+    "...SsshhhssS..k..k....",
+    "..SshhSSSshsS.k..k....",
+    "..SshSsssSshSbbbbbb...",
+    ".SshSshhsSshSbbbbbbb..",
+    ".SshSshSsSshSbbbbbB.cc",
+    ".SshSssSSshsSbbbbBcccC",
+    ".SsshSSsshhsSbbbbBccc.",
+    "..SsshhhhhsSbbbbbBBC..",
+    "...SSsssssSBBBBBBB....",
+    "....SSSSSS..ll.ll.ll..",
+    "...........l..l..l...."
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "name": "shellby",
+  "productName": "Shellby",
+  "version": "0.1.0",
+  "description": "A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you, on your own Claude subscription.",
+  "main": "src/main/main.js",
+  "author": "Sandoxus",
+  "license": "MIT",
+  "homepage": "https://github.com/Sandoxus/shellby",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sandoxus/shellby.git"
+  },
+  "keywords": ["claude-code", "desktop-pet", "electron", "windows", "ai-agent"],
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "icons": "python scripts/make-icons.py",
+    "screenshots": "electron . --capture-screenshots",
+    "dist": "electron-builder --win",
+    "release": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "koffi": "^3.3.2"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.sandoxus.shellby",
+    "productName": "Shellby",
+    "copyright": "Copyright (c) 2026 Sandoxus",
+    "directories": { "output": "dist", "buildResources": "assets" },
+    "files": ["src/**/*", "assets/**/*", "package.json", "!**/*.md"],
+    "asarUnpack": ["node_modules/koffi/**", "node_modules/@koromix/**"],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Shellby-Setup-${version}.${ext}"
+    },
+    "portable": { "artifactName": "Shellby-Portable-${version}.${ext}" },
+    "publish": [{ "provider": "github", "owner": "Sandoxus", "repo": "shellby" }]
+  }
+}

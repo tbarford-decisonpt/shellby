@@ -1,0 +1,16 @@
+node_modules/
+dist/
+out/
+
+# Never commit local state: transcripts can contain file contents and secrets.
+logs/
+sessions/
+settings.json
+config.json
+*.jsonl
+!test/fixtures/*.jsonl
+
+.DS_Store
+Thumbs.db
+*.log
+__pycache__/

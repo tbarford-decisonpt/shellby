@@ -1,0 +1,47 @@
+{
+  "id": "sandcastle",
+  "name": "Sandcastle",
+  "author": "Shellby",
+  "description": "Sunburnt crab in a sandy conch.",
+  "palette": {
+    "S": "#8a5a2b",
+    "s": "#e0b872",
+    "h": "#fbe9c0",
+    "b": "#e8573a",
+    "B": "#9e2f1c",
+    "c": "#ff8a6b",
+    "C": "#9e2f1c",
+    "k": "#9e2f1c",
+    "e": "#1f1208",
+    "w": "#fff7e8",
+    "l": "#9e2f1c"
+  },
+  "parts": {
+    "S": "shell",
+    "s": "shell",
+    "h": "shell",
+    "b": "body",
+    "B": "body",
+    "c": "claw",
+    "C": "claw",
+    "k": "stalks",
+    "e": "eyes",
+    "w": "eyes",
+    "l": "legs"
+  },
+  "pixels": [
+    "......SSSS...ew.ew....",
+    "....SSsssSS..ee.ee....",
+    "...SsshhhssS..k..k....",
+    "..SshhSSSshsS.k..k....",
+    "..SshSsssSshSbbbbbb...",
+    ".SshSshhsSshSbbbbbbb..",
+    ".SshSshSsSshSbbbbbB.cc",
+    ".SshSssSSshsSbbbbBcccC",
+    ".SsshSSsshhsSbbbbBccc.",
+    "..SsshhhhhsSbbbbbBBC..",
+    "...SSsssssSBBBBBBB....",
+    "....SSSSSS..ll.ll.ll..",
+    "...........l..l..l...."
+  ]
+}

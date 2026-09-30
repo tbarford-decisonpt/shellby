@@ -1,0 +1,47 @@
+{
+  "id": "midnight",
+  "name": "Midnight",
+  "author": "Shellby",
+  "description": "Moon-pale crab in a deep-sea shell.",
+  "palette": {
+    "S": "#1b1f4a",
+    "s": "#3d47a8",
+    "h": "#8f9cf5",
+    "b": "#e8e4f2",
+    "B": "#9d97b8",
+    "c": "#ffffff",
+    "C": "#9d97b8",
+    "k": "#9d97b8",
+    "e": "#101226",
+    "w": "#ffffff",
+    "l": "#9d97b8"
+  },
+  "parts": {
+    "S": "shell",
+    "s": "shell",
+    "h": "shell",
+    "b": "body",
+    "B": "body",
+    "c": "claw",
+    "C": "claw",
+    "k": "stalks",
+    "e": "eyes",
+    "w": "eyes",
+    "l": "legs"
+  },
+  "pixels": [
+    "......SSSS...ew.ew....",
+    "....SSsssSS..ee.ee....",
+    "...SsshhhssS..k..k....",
+    "..SshhSSSshsS.k..k....",
+    "..SshSsssSshSbbbbbb...",
+    ".SshSshhsSshSbbbbbbb..",
+    ".SshSshSsSshSbbbbbB.cc",
+    ".SshSssSSshsSbbbbBcccC",
+    ".SsshSSsshhsSbbbbBccc.",
+    "..SsshhhhhsSbbbbbBBC..",
+    "...SSsssssSBBBBBBB....",
+    "....SSSSSS..ll.ll.ll..",
+    "...........l..l..l...."
+  ]
+}
