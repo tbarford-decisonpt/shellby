@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0: Community packs
+
+Find wardrobe packs other people made and add them in one click.
+
+### New
+- **Community gallery:** https://x-salmon.github.io/shellby-packs/. Browse packs, try items on Shellby in the browser, design your own in **Pack Studio** (live preview with Shellby's own validator and renderer), and submit by pull request.
+- **Themed confirmations.** "Install pack?", "Enable Autonomous?" and error notices now appear in Shellby-styled windows instead of plain Windows dialogs. The install confirmation previews **every item in the pack** as pixel art. Each confirmation is a separate, isolated window, so the panel can't answer it, which keeps the security of a native dialog.
+- **One-click installs from the community gallery.** Every pack on [the Shellby community gallery](https://x-salmon.github.io/shellby-packs/) has an **Add to Shellby** button. Click it and Shellby opens the Wardrobe, downloads the pack, shows you what's inside and asks before installing. If you already have that version, Shellby tells you instead of reinstalling.
+- **Browse community packs** button in **Wardrobe → Wardrobe packs**.
+
+### Security
+- Gallery links (`shellby://install?pack=<id>`) carry only a pack id. Shellby never downloads from an address that comes from a link.
+- Packs are only fetched from the official registry, and the download must match the sha256 checksum published in the registry's index, byte for byte. Downloads are size-capped while they stream and time out.
+- Nothing is installed without the native confirmation dialog, and gallery packs go through the same strict validation as packs you install from a file.
+
+### Fixed
+- Toasts without an action button showed a stray "null" at the end.
+- Opening Shellby from an **Add to Shellby** link now lands on the Wardrobe even when the link launched the app.
+- Clicking a notification could open Electron's default page. Dev and test builds no longer post Windows notifications and use a separate app identity, so notifications always belong to the installed Shellby.
+
+### Developer
+- `SHELLBY_REGISTER_PROTOCOL=1` makes a dev run register itself for `shellby://` links (off by default so it doesn't take them over from an installed Shellby). `SHELLBY_REGISTRY_URL` points a dev run at a different registry.
+
 ## 0.3.0: The Wardrobe
 
 Dress Shellby up, earn outfits by using him, and let him celebrate the seasons.

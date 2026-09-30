@@ -254,6 +254,16 @@ Use `rarity` to say how special an item is. It changes how the item is shown in 
 - **Check before sharing:** run your file against [`addon.schema.json`](addon.schema.json) with any JSON Schema (draft 2020-12) validator. The community site uses the same schema, which is stricter than the app: it rejects unknown fields and bad items instead of skipping them.
 - **Remove:** use the pack's **Remove** button in the Wardrobe, or delete the file.
 
+## Publishing to the community gallery
+
+Want other people to find your pack? Submit it to the community gallery:
+
+1. Open a pull request to [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs) that adds your pack file. Its [CONTRIBUTING.md](https://github.com/x-salmon/shellby-packs/blob/main/CONTRIBUTING.md) explains where the file goes and what reviewers look for.
+2. Your pack must pass the same validation as the app (and the stricter [`addon.schema.json`](addon.schema.json) check), and follow the [rules for shared packs](#rules-for-shared-packs) below.
+3. Once it's merged, your pack appears at [x-salmon.github.io/shellby-packs](https://x-salmon.github.io/shellby-packs/) with an **Add to Shellby** button. Anyone running Shellby 0.4.0 or later can install it in one click (they still see Shellby's confirmation dialog first).
+
+To ship an update, bump `version` and open another pull request. Keep the same `id` so it replaces the old copy.
+
 ## Rules for shared packs
 
 - **Original art only.** Don't include copyrighted characters, logos, brand marks or other people's sprites. Inspired-by is fine, but traced or copied isn't.

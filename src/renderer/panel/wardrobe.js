@@ -211,6 +211,8 @@
     SB.toast(`Reloaded ${state.wardrobe.packs.length} pack${state.wardrobe.packs.length === 1 ? '' : 's'}`);
   });
   $('packGuideBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby/blob/main/docs/ADDONS.md'));
+  // The gallery's "Add to Shellby" buttons come back as shellby:// links (see src/main/registry.js).
+  $('browsePacksBtn').addEventListener('click', () => api.openExternal(state.registryUrl || 'https://x-salmon.github.io/shellby-packs/'));
 
   async function install(file) {
     const r = await api.installPack(file);
@@ -243,6 +245,15 @@
         SB.setView('wardrobe');
       },
     });
+  };
+  // Result of a one-click install from the community gallery (main already
+  // broadcast the refreshed wardrobe view on success).
+  SB.onPackInstalled = r => {
+    if (!r || r.canceled) return;
+    if (!r.ok) return SB.toast(`Couldn't install: ${r.error || 'unknown error'}`, { ms: 6000 });
+    if (r.already) return SB.toast(`${r.name} ${r.version} is already installed.`, { ms: 4000 });
+    const skipped = r.warnings ? ` (${r.warnings} items skipped)` : '';
+    SB.toast(`Installed ${r.name}${skipped}. Find the new items in the Wardrobe`, { action: state.view === 'wardrobe' ? null : 'Open Wardrobe', ms: 5000, onAction: () => SB.setView('wardrobe') });
   };
   SB.onCollected = items => {
     if (!items.length) return;

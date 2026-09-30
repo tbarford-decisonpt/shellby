@@ -101,7 +101,8 @@ SB.prettyAccel = a => String(a || '').replace(/Control/g, 'Ctrl').replace(/\+/g,
 let toastTimer;
 SB.toast = (msg, { action, onAction, ms = 2800 } = {}) => {
   const t = SB.$('toast');
-  t.replaceChildren(SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { t.hidden = true; onAction(); } }, action) : null);
+  // (replaceChildren would print a literal "null" for a missing button, so filter it out)
+  t.replaceChildren(...[SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { t.hidden = true; onAction(); } }, action) : null].filter(Boolean));
   t.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, action ? ms + 2500 : ms);

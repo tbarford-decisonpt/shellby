@@ -56,6 +56,7 @@
   api.onWardrobe(view => SB.applyWardrobe(view));
   api.onUnlocked(e => SB.onUnlocked(e));
   api.onCollected(items => SB.onCollected(items));
+  api.onPackInstalled(r => SB.onPackInstalled(r));
   api.onUpdateReady(v => SB.toast(`Update ${v} will install when you quit.`, { ms: 6000 }));
   // `npm run screenshots` drives the UI with scripted data (see src/main/capture.js).
   api.onDemo(demo => {
@@ -85,7 +86,7 @@
     const b = await api.bootstrap();
     Object.assign(state, {
       settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,
-      home: b.home, version: b.version, packaged: b.packaged, cwd: b.cwd,
+      home: b.home, version: b.version, packaged: b.packaged, cwd: b.cwd, registryUrl: b.registryUrl,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines,
     });
     $('settingsFolder').textContent = b.cwd;
@@ -108,6 +109,6 @@
     if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
     else await SB.newTab();
 
-    SB.setView(SB.needsOnboarding() ? 'onboarding' : 'chat');
+    SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
   })();
 })();

@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onWardrobe: on('wardrobe'),
   onUnlocked: on('wardrobe:unlocked'),
   onCollected: on('wardrobe:collected'),
+  onPackInstalled: on('wardrobe:installed'), // result of an "Add to Shellby" gallery link
 
   // routines
   listRoutines: invoke('routines:list'),

@@ -17,9 +17,11 @@ const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher } = require('./toolbox');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const { Wardrobe } = require('./wardrobe/service');
+const confirm = require('./confirm');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
+const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -42,8 +44,19 @@ if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_
 }
 const captureClock = { now: null }; // screenshot runs can pretend it's Halloween
 
-app.setAppUserModelId('com.xsalmon.shellby');
+// Dev/test runs get their own identity so Windows never ties their toasts or
+// jump lists to the installed Shellby.
+app.setAppUserModelId(app.isPackaged ? 'com.xsalmon.shellby' : 'com.xsalmon.shellby.dev');
 if (!CAPTURE && !app.requestSingleInstanceLock()) app.exit(0);
+
+// shellby:// links ("Add to Shellby" on the community gallery). Dev runs only
+// register when asked, so they don't hijack the links from an installed Shellby.
+if (!CAPTURE) {
+  if (app.isPackaged) app.setAsDefaultProtocolClient(PROTOCOL);
+  else if (process.env.SHELLBY_REGISTER_PROTOCOL === '1') app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(ROOT)]);
+}
+// The community registry. Only dev builds may point elsewhere (for testing).
+const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe;
 let critter, panel, tray;
@@ -54,6 +67,10 @@ let flash = null;                  // { state, until } — brief success/error/l
 let lastActivity = Date.now();
 let sleepTimer = null;
 let welcomeTrophies = [];       // achievements credited from history on first run
+let booted = false;                // deep links wait for this
+let pendingLink = null;
+let startView = null;              // view the panel should open on at boot (e.g. a deep link wants the Wardrobe)            // a shellby:// link that arrived before boot finished
+let linkBusy = false;              // one registry install at a time
 const routineTabs = new Map();     // tabId -> routine id (for lastStatus bookkeeping)
 
 // ================================================================ windows
@@ -192,6 +209,11 @@ function broadcastSkin() {
   send(panel, 'skin', { skin, outfit: o });
 }
 
+function dialogLook() {
+  const o = outfit();
+  return { skin: activeSkin(), accessories: o.accessories };
+}
+
 function broadcastWardrobe() {
   broadcastSkin();
   if (wardrobe) send(panel, 'wardrobe', wardrobe.view());
@@ -305,6 +327,10 @@ function onResult(tabId, item, tab) {
 }
 
 function notify(title, body, onClick) {
+  // Dev, test and screenshot runs never post OS notifications: their toasts
+  // outlive the process, and clicking a stale one relaunches bare electron.exe
+  // (Electron's default page). SHELLBY_ALLOW_NOTIFY=1 opts a dev run back in.
+  if (CAPTURE || (!app.isPackaged && process.env.SHELLBY_ALLOW_NOTIFY !== '1')) return;
   if (!config.get('notifications') || !Notification.isSupported()) return;
   const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
   if (onClick) n.on('click', onClick);
@@ -476,6 +502,8 @@ function registerIpc() {
       cwd: CAPTURE ? `${demoHome}\\Downloads` : currentCwd(),
       home: CAPTURE ? demoHome : os.homedir(),
       packaged: app.isPackaged,
+      registryUrl: registryUrl(),
+      startView: (() => { const v = startView; startView = null; return v; })(),
     };
   });
   ipcMain.handle('claude:status', async () => (claudeStatus = await checkStatus()));
@@ -549,14 +577,16 @@ function registerIpc() {
     for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew']) {
       if (k in patch) allowed[k] = patch[k];
     }
-    // Turning on Autonomous for the first time needs a native confirmation that
-    // renderer code can't click through, even if a renderer were ever compromised.
+    // Turning on Autonomous for the first time needs a confirmation that renderer
+    // code can't click through (isolated confirm window; see confirm.js).
     if (allowed.autonomousAcknowledged === true && !config.get('autonomousAcknowledged')) {
-      const { response } = await dialog.showMessageBox(panel, {
-        type: 'warning', title: 'Enable Autonomous mode?', noLink: true,
+      const response = await confirm.ask(panel, {
+        ...dialogLook(), icon: '⚠️', danger: true,
+        title: 'Enable Autonomous mode?',
         message: 'Let Shellby act without asking?',
-        detail: 'In Autonomous mode Shellby and its helper agents can edit, run or delete anything your Windows account can, including scripts they write for themselves, without any permission prompt.',
-        buttons: ['Enable Autonomous', 'Cancel'], defaultId: 1, cancelId: 1,
+        detail: 'Shellby and his helper agents will be able to edit, run or delete anything your Windows account can, including scripts they write for themselves, with no permission prompts.',
+        note: 'You can switch back to Ask first any time from the mode menu.',
+        buttons: [{ label: 'Enable Autonomous', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
       });
       if (response !== 0) { delete allowed.autonomousAcknowledged; if (allowed.mode === 'autonomous') delete allowed.mode; }
     }
@@ -624,24 +654,10 @@ function registerIpc() {
     // messages quote file contents, which would let a renderer peek at any file.
     if (!/\.json$/i.test(file)) return { ok: false, errors: ['Packs are .json files.'] };
     try { if (fs.statSync(file).size > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] }; } catch { return { ok: false, errors: ['File not found.'] }; }
-    // Show what's inside before installing anything (native dialog: can't be scripted).
-    let preview;
-    try {
-      preview = validatePack(JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')), { source: 'user', knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
-    } catch {
-      return { ok: false, errors: ["That file isn't valid JSON, so it isn't a Shellby pack."] };
-    }
-    if (!preview.pack) return { ok: false, errors: preview.errors };
-    const p = preview.pack;
-    const { response } = await dialog.showMessageBox(panel, {
-      type: 'question', title: 'Install wardrobe pack?', noLink: true,
-      message: `Install "${p.name}" ${p.version} by ${p.author}?`,
-      detail: `${p.accessories.length} accessories, ${p.effects.length} effects, ${p.skins.length} skins.${p.description ? '\n\n' + p.description : ''}\n\nPacks are pixel art and settings only. They can't run code.`,
-      buttons: ['Install', 'Cancel'], defaultId: 0, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, canceled: true };
-    const r = wardrobe.install(file);
-    return { ok: r.ok, errors: r.errors || [], warnings: r.warnings || [], pack: r.pack ? { id: r.pack.id, name: r.pack.name } : null, view: wardrobe.view() };
+    let text;
+    try { text = fs.readFileSync(file, 'utf8'); } catch { return { ok: false, errors: ['File not found.'] }; }
+    const r = await confirmAndInstallPackText(text);
+    return { ...r, view: wardrobe.view() };
   });
   ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) wardrobe.remove(packId); return wardrobe.view(); });
   ipcMain.on('wardrobe:open-folder', () => { fs.mkdirSync(wardrobe.userDir, { recursive: true }); shell.openPath(wardrobe.userDir); });
@@ -684,6 +700,105 @@ function registerIpc() {
     try { if (new URL(url).protocol === 'https:') shell.openExternal(url); } catch { /* ignore bad urls */ }
   });
   ipcMain.on('open-data-folder', () => shell.openPath(app.getPath('userData')));
+}
+
+// ================================================================ pack installs
+
+// Preview a pack's text, ask in a native dialog (which renderer code can't click
+// through), then install exactly the previewed bytes. Shared by "Install pack…",
+// drag and drop, and the community gallery. Never echoes JSON parse errors.
+// opts: { sourceLabel?: shown in the dialog, expectId?: the pack id we asked for }
+async function confirmAndInstallPackText(text, { sourceLabel = null, expectId = null } = {}) {
+  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] };
+  let preview;
+  try {
+    preview = validatePack(JSON.parse(text.replace(/^﻿/, '')), { source: 'user', knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
+  } catch {
+    return { ok: false, errors: ["That file isn't valid JSON, so it isn't a Shellby pack."] };
+  }
+  if (!preview.pack) return { ok: false, errors: preview.errors };
+  const p = preview.pack;
+  if (expectId && p.id !== expectId) return { ok: false, errors: [`The downloaded pack's id (${p.id}) doesn't match the link (${expectId}), so it was not installed.`] };
+  const SLOT_LABEL = { hat: 'Hat', face: 'Face', neck: 'Neck', held: 'Held', shell: 'Shell' };
+  const response = await confirm.ask(panel, {
+    ...dialogLook(), icon: '📦',
+    title: 'Install wardrobe pack?',
+    message: `"${p.name}" ${p.version} by ${p.author}${sourceLabel ? `, ${sourceLabel}` : ''}`,
+    detail: p.description || '',
+    items: [
+      ...p.accessories.map(a => ({ kind: a.slot, label: SLOT_LABEL[a.slot] || a.slot, name: a.name, pixels: a.pixels, palette: { ...a.palette } })),
+      ...p.effects.map(e => ({ kind: 'effect', label: 'Effect', name: e.name, sprites: e.sprites.map(sp => ({ pixels: sp.pixels, palette: { ...sp.palette } })) })),
+      ...p.skins.map(k => ({ kind: 'skin', label: 'Colors', name: k.name, pixels: k.pixels, palette: { ...k.palette }, parts: { ...k.parts } })),
+    ],
+    note: "Packs are pixel art and settings only. They can't run code.",
+    buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+  });
+  if (response !== 0) return { ok: false, canceled: true };
+  // Install from a private temp copy of the previewed text, so what was shown is
+  // exactly what gets installed (installPack re-validates and picks the final name).
+  let dir = null;
+  try {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-pack-'));
+    const tmp = path.join(dir, 'pack.json');
+    fs.writeFileSync(tmp, text);
+    const r = wardrobe.install(tmp);
+    return { ok: r.ok, errors: r.errors || [], warnings: r.warnings || [], pack: r.pack ? { id: r.pack.id, name: r.pack.name } : null };
+  } catch {
+    return { ok: false, errors: ["Couldn't save the pack. Try again."] };
+  } finally {
+    if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ } }
+  }
+}
+
+// A shellby:// link from the community gallery. Queued until boot has finished.
+// The link only ever supplies a pack id; everything else comes from the registry.
+function onDeepLink(link) {
+  if (CAPTURE || !link) return;
+  if (!booted) { pendingLink = link; return; }
+  const parsed = parseDeepLink(link);
+  if (!parsed) {
+    showPanel({ focusInput: false });
+    reportPackResult({ ok: false, error: "That Shellby link isn't one this version understands." });
+    return;
+  }
+  // The panel must be loaded to switch views and hear the result.
+  const go = () => installFromRegistry(parsed.packId);
+  if (panel.webContents.isLoading()) panel.webContents.once('did-finish-load', go);
+  else go();
+}
+
+async function installFromRegistry(packId) {
+  startView = 'wardrobe'; // survives a panel that is still booting (its init would otherwise reset to chat)
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'wardrobe');
+  if (linkBusy) return reportPackResult({ ok: false, error: 'Shellby is already installing a pack. Try again when it finishes.' });
+  linkBusy = true;
+  try {
+    const got = await fetchRegistryPack(packId, { baseUrl: registryUrl() });
+    if (!got.ok) return reportPackResult({ ok: false, error: got.errors[0] || 'Download failed.' });
+    const have = wardrobe.catalog.packs.find(p => p.id === packId && p.source === 'user');
+    if (have && got.entry.version && have.version === got.entry.version) {
+      return reportPackResult({ ok: true, already: true, name: have.name, version: have.version });
+    }
+    const r = await confirmAndInstallPackText(got.text, { sourceLabel: 'from the Shellby community registry', expectId: packId });
+    if (r.canceled) return reportPackResult({ ok: false, canceled: true });
+    if (!r.ok) return reportPackResult({ ok: false, error: r.errors[0] || 'Install failed.' });
+    return reportPackResult({ ok: true, name: r.pack.name, warnings: r.warnings.length });
+  } catch (e) {
+    console.warn('[shellby] registry install failed:', e.message);
+    return reportPackResult({ ok: false, error: 'Something went wrong installing that pack.' });
+  } finally {
+    linkBusy = false;
+  }
+}
+
+// Tell the panel (it toasts); if nobody is looking, a failure also gets a native box.
+function reportPackResult(result) {
+  send(panel, 'wardrobe:installed', result);
+  if (!result.ok && !result.canceled && !(panel?.isVisible() && panel.isFocused())) {
+    confirm.ask(panel, { ...dialogLook(), icon: '😕', title: "Couldn't install that pack", message: result.error || 'Something went wrong.', buttons: [{ label: 'OK', style: 'primary' }], defaultId: 0, cancelId: 0 }).catch(() => {});
+  }
+  return result;
 }
 
 function setFolder(dir) {
@@ -813,9 +928,19 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', reclamp);
 
   if (!config.get('onboarded')) showPanel({ focusInput: false });
+
+  // A gallery link that launched us (or arrived while booting) runs now.
+  booted = true;
+  const link = pendingLink || findDeepLink(process.argv);
+  pendingLink = null;
+  if (link) onDeepLink(link);
 });
 
-app.on('second-instance', () => showPanel());
+app.on('second-instance', (_e, argv) => {
+  const link = findDeepLink(argv);
+  if (link) onDeepLink(link);
+  else if (booted) showPanel();
+});
 app.on('window-all-closed', e => e.preventDefault());
 app.on('will-quit', () => { globalShortcut.unregisterAll(); scheduler?.stop(); toolbox?.stop(); });
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

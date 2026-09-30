@@ -46,7 +46,7 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 - **Unlock them by using Shellby.** 18 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
 - **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
 - **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
-- **Community packs.** Anyone can make hats, effects and colors as a JSON pack, and Shellby's own wardrobe ships in that same format. Packs are pixel art and settings only, so they can't run code, and Shellby shows you what's inside before installing. See [docs/ADDONS.md](docs/ADDONS.md) and the [JSON Schema](docs/addon.schema.json).
+- **Community packs.** Browse the [community gallery](https://x-salmon.github.io/shellby-packs/) and click **Add to Shellby**. Anyone can make hats, effects and colors as a JSON pack, and Shellby's own wardrobe ships in that same format. Packs are pixel art and settings only, so they can't run code, and Shellby shows you what's inside before installing. See [docs/ADDONS.md](docs/ADDONS.md) and the [JSON Schema](docs/addon.schema.json).
 
 <table>
 <tr>
@@ -137,6 +137,7 @@ npm start
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
+| `node scripts/e2e-registry.js` | One-click install from the live community registry: warm and cold, themed confirmation, every item previewed |
 | `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |

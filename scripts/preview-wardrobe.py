@@ -58,7 +58,7 @@ def main():
     by_id = {a["id"]: a for a in items}
 
     tiles = [(a["id"], [a]) for a in items]
-    tiles += [(f"~{s}", [by_id[i] for i in o.values()]) for s, o in SEASON_OUTFITS.items()]
+    tiles += [(f"~{s}", [by_id[i] for i in o.values()]) for s, o in SEASON_OUTFITS.items() if all(i in by_id for i in o.values())]
     for s in pack.get("skins", []):
         tiles.append((f"skin:{s['id']}", []))
 
