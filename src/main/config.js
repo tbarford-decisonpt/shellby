@@ -26,7 +26,8 @@ const DEFAULTS = {
   model: '', // '' -> Claude Code's default
   onboarded: false,
   crabOnly: false,
-  xp: null,            // XP and levels (see xp.js); null -> level 1
+  xp: null,
+  statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)            // XP and levels (see xp.js); null -> level 1
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)      // "just the crab": no Claude Code (Health, Wardrobe, trophies)
   autonomousAcknowledged: false,
   lastUsage: null,

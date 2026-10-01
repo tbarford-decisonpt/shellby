@@ -56,3 +56,14 @@ body.crab-only .view-health .view-head [data-back] { display: none !important; }
 .ext-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sand-faint); }
 .ext-session.working .ext-dot { background: var(--coral); animation: hl-pulse 1s ease-in-out infinite; }
 .ext-session.asking .ext-dot { background: var(--amber); }
+
+/* Settings: Claude Code status line */
+.sl-card { margin-top: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
+.sl-head { display: flex; align-items: center; gap: 8px; }
+.sl-head b { font-size: 13.5px; }
+.sl-head .slim-btn { margin-left: auto; height: 28px; }
+.sl-card .small { margin: 5px 0 8px !important; }
+.sl-preview {
+  display: block; padding: 7px 10px; border-radius: var(--r-sm); background: #0b0f10; border: 1px solid var(--line-soft);
+  font: 500 12px var(--font-mono); color: var(--sand); white-space: nowrap; overflow-x: auto;
+}

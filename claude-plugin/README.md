@@ -18,6 +18,10 @@ In Claude Code:
 
 Then make sure the Shellby app is running (**Settings → Claude Code everywhere** shows your connected sessions).
 
+## Status line
+
+Run `/shellby:statusline` to put Shellby in Claude Code's status line (mood, level, XP and health), for example `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱`. It asks Claude's statusline-setup agent to add it, keeping any status line you already have. You can also turn it on in the Shellby app: **Settings → Claude Code everywhere → Status line**.
+
 ## How it works
 
 Each hook runs [`hooks/notify.sh`](hooks/notify.sh), which sends the hook's JSON to Shellby at `http://127.0.0.1:47913`:

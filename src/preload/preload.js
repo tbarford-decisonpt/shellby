@@ -87,6 +87,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onCollected: on('wardrobe:collected'),
   onPackInstalled: on('wardrobe:installed'), // result of an "Add to Shellby" gallery link
 
+  // Claude Code status line
+  getStatusLine: invoke('statusline:get'),
+  installStatusLine: invoke('statusline:install'),
+  removeStatusLine: invoke('statusline:remove'),
+
   // XP and levels
   getXp: invoke('xp:get'),
   onXp: on('xp'),

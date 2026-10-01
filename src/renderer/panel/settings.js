@@ -133,7 +133,32 @@
   }));
   api.onExternal(v => { if (state.view === 'settings') renderExternal(v); else state.external = v; });
 
-  SB.views.settings = { render: () => { renderSettings(); api.getExternal().then(renderExternal); } };
+  // ------------------------------------------------------------ status line
+
+  function renderStatusLine(v) {
+    if (!v) return;
+    state.statusLine = v;
+    $('slPreview').textContent = v.preview || '';
+    const text = {
+      ours: "Shellby is in your Claude Code status line. If it's empty, Shellby isn't running.",
+      none: "Show Shellby's mood, level and XP under Claude Code's prompt, in the terminal and VS Code.",
+      other: "You already have a status line. Adding Shellby's replaces it (yours is kept and comes back if you remove Shellby's).",
+      unreadable: "Couldn't read your Claude Code settings.json, so Shellby won't touch it.",
+    }[v.state];
+    $('slText').textContent = v.error || text;
+    $('slBtn').textContent = v.state === 'ours' ? 'Remove' : 'Add to Claude Code';
+    $('slBtn').className = v.state === 'ours' ? 'btn ghost slim-btn' : 'btn primary slim-btn';
+    $('slBtn').disabled = v.state === 'unreadable';
+  }
+  $('slBtn').addEventListener('click', async () => {
+    const was = state.statusLine?.state;
+    const v = await (was === 'ours' ? api.removeStatusLine() : api.installStatusLine());
+    renderStatusLine(v);
+    if (v.state === 'ours' && was !== 'ours') SB.toast('Shellby is in your status line. Start a new Claude Code session to see him.', { ms: 5000 });
+    if (v.state !== 'ours' && was === 'ours') SB.toast('Removed from your status line.');
+  });
+
+  SB.views.settings = { render: () => { renderSettings(); api.getExternal().then(renderExternal); api.getStatusLine().then(renderStatusLine); } };
 
   // ------------------------------------------------------------ history
 

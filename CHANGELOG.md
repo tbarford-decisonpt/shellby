@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0: Status-line face
+
+### New
+- **Shellby in Claude Code's status line,** right under the prompt in the terminal and VS Code, for example `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`.
+  - **His face follows his mood:** 💨 working, ✋ needs your OK, 🎉 done, ⭐ level up, 💤 napping. Helper crabs show as "+3 🦀".
+  - **The line also shows** his level, title and XP bar, any health warning, and a fresh "+XP".
+  - **It's fast and quiet:** the line comes from a file Shellby keeps up to date, so it costs about nothing, and it's simply empty when Shellby isn't running.
+- **Turning it on or off:**
+  - **In the app:** **Settings → Claude Code everywhere → Status line** shows a live preview and **Add to Claude Code**. It asks first, keeps a backup of your settings, and warns if it would replace an existing status line. **Remove** puts yours back.
+  - **In the terminal:** **`/shellby:statusline`**, a new command in the Shellby Claude Code plugin (v1.1.0), has Claude's statusline-setup agent add Shellby while keeping your existing status line.
+
 ## 0.12.0: XP and levels
 
 ### New

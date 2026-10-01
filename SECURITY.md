@@ -38,6 +38,11 @@ Shellby gives an AI agent hands on your PC, so it's built to keep those hands wh
   - **The plugin's hook script** never prints and always exits 0, so it can't influence Claude Code.
   - **XP:** a successful Bash or PowerShell command's text is checked once, in memory, to see whether it ran tests, pushed or deployed. Only that meaning (and the folder name) is kept, never the command.
 
+- **Status line.**
+  - **Asks first:** Shellby edits Claude Code's `~/.claude/settings.json` only after you confirm in the isolated confirmation window, which shows any status line it would replace.
+  - **Backups:** it keeps a backup of the file, never writes a settings file it can't parse, and Remove restores your previous status line (unless you've changed it since).
+  - **What gets added:** a single `bash` command that prints a temp file Shellby writes. That file holds only Shellby's mood, level and health.
+
 ## Reporting a vulnerability
 
 Please **don't open a public issue**. Use GitHub's private vulnerability reporting (Security tab → *Report a vulnerability*). You'll get a reply within a week.

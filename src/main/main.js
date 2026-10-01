@@ -27,6 +27,7 @@ const { itemHash } = require('./wardrobe/codes');
 const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
+const statusLine = require('./statusline');
 const { FAKE_SCENARIOS } = require('./health/fake');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -66,6 +67,11 @@ if (!CAPTURE) {
   else if (process.env.SHELLBY_REGISTER_PROTOCOL === '1') app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(ROOT)]);
 }
 // The community registry. Only dev builds may point elsewhere (for testing).
+// Isolated dev/test runs (SHELLBY_USER_DATA) never touch the real status file
+// or the real Claude Code settings.
+const ISOLATED = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
+const statusFile = () => (ISOLATED ? path.join(app.getPath('userData'), 'shellby-status.txt') : statusLine.STATUS_FILE);
+const claudeSettings = () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-settings.json') : statusLine.settingsPath());
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop;
@@ -75,7 +81,9 @@ let crewShown = 0;                 // helper slots currently allotted in the cri
 let shrinkTimer = null;
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let healthMood = null;
-let levelUpAt = 1;                 // level shown in the critter's level-up bubble             // { mood, level, text } from the health monitor, or null
+let levelUpAt = 1;
+let lastXp = null;                 // { amount, at } for the status line's "+25 XP"
+let lastStatus = { state: 'idle', busy: 0, crew: 0 };                 // level shown in the critter's level-up bubble             // { mood, level, text } from the health monitor, or null
 let lastActivity = Date.now();
 let sleepTimer = null;
 let welcomeTrophies = [];       // achievements credited from history on first run
@@ -262,6 +270,8 @@ function refreshCritter() {
     level: levelUpAt,
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
+  lastStatus = { state, busy: agg.busy, crew: agg.crew.length };
+  refreshStatusLine();
 
   clearTimeout(sleepTimer);
   if (state === 'idle') sleepTimer = setTimeout(refreshCritter, SLEEP_AFTER_MS - (Date.now() - lastActivity) + 100);
@@ -270,6 +280,15 @@ function refreshCritter() {
 }
 
 const HEALTH_TIP = { hot: 'running hot', scorching: 'overheating', dizzy: 'memory nearly full', stuffed: 'drive nearly full' };
+
+// Shellby's face in Claude Code's status line (see statusline.js).
+function refreshStatusLine() {
+  if (CAPTURE || !config) return;
+  const v = xpView();
+  statusLine.writeStatus(statusLine.formatStatus({
+    ...lastStatus, health: healthMood, xp: { level: v.level, title: v.title, progress: v.progress }, lastXp, now: Date.now(),
+  }), statusFile());
+}
 
 function wake() {
   lastActivity = Date.now();
@@ -351,6 +370,9 @@ function awardXp(kind, meta = {}) {
   if (!r.gained) return;
   config.set({ xp: r.state });
   send(critter, 'critter:xp', { amount: r.gained, kind });
+  lastXp = { amount: r.gained, at: Date.now() };
+  refreshStatusLine();
+  setTimeout(refreshStatusLine, 15500); // let "+25 XP" fade from the status line
   send(panel, 'xp', xpView());
   if (!r.levelUp) return;
   levelUpAt = r.after.level;
@@ -984,6 +1006,39 @@ function registerIpc() {
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
+  // ---- Claude Code status line
+  const statusLineView = () => ({ ...statusLine.inspectSettings(claudeSettings()), preview: statusLine.formatStatus({ ...lastStatus, health: healthMood, xp: xpView(), now: Date.now() }).replace(/\x1b\[[0-9;]*m/g, '') });
+  ipcMain.handle('statusline:get', () => statusLineView());
+  ipcMain.handle('statusline:install', async () => {
+    const now = statusLine.inspectSettings(claudeSettings());
+    if (now.state === 'unreadable') return { ...statusLineView(), error: "Couldn't read your Claude Code settings.json, so Shellby left it alone." };
+    if (now.state === 'ours') return statusLineView();
+    // Changing Claude Code's own config: ask in the isolated confirm window.
+    const response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '🦀',
+      title: 'Add Shellby to Claude Code?',
+      message: "Show Shellby's mood, level and XP in Claude Code's status line.",
+      detail: now.state === 'other'
+        ? `This replaces your current status line:\n\n${now.command.slice(0, 200)}\n\nShellby keeps it and puts it back if you remove Shellby's.`
+        : 'This adds a statusLine entry to your Claude Code settings (~/.claude/settings.json). A backup is kept, and Remove takes it out again.',
+      note: 'It works in the terminal and in VS Code. When Shellby is closed, the line is simply empty.',
+      buttons: [{ label: now.state === 'other' ? 'Replace it' : 'Add it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+    if (response !== 0) return statusLineView();
+    try {
+      const { previous } = statusLine.installStatusLine(claudeSettings());
+      config.set({ statusLinePrevious: previous });
+      refreshStatusLine();
+      return statusLineView();
+    } catch {
+      return { ...statusLineView(), error: "Couldn't update your Claude Code settings." };
+    }
+  });
+  ipcMain.handle('statusline:remove', () => {
+    try { statusLine.removeStatusLine(config.get('statusLinePrevious'), claudeSettings()); config.set({ statusLinePrevious: null }); } catch { /* left as is */ }
+    return statusLineView();
+  });
+
   // ---- XP and levels
   ipcMain.handle('xp:get', () => xpView());
 
@@ -1295,5 +1350,12 @@ app.on('second-instance', (_e, argv) => {
   else if (booted) showPanel();
 });
 app.on('window-all-closed', e => e.preventDefault());
-app.on('will-quit', () => { globalShortcut.unregisterAll(); scheduler?.stop(); toolbox?.stop(); health?.stop(); external?.stop(); });
+app.on('will-quit', () => {
+  statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
+  globalShortcut.unregisterAll();
+  scheduler?.stop();
+  toolbox?.stop();
+  health?.stop();
+  external?.stop();
+});
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

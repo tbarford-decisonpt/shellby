@@ -43,6 +43,7 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 ### He works like you use Claude Code: orchestrating
 - **Works with Claude Code everywhere.** Add the Shellby plugin (`/plugin marketplace add x-salmon/shellby`, then `/plugin install shellby@shellby`) and he reacts to *every* Claude Code session on your PC, in the terminal, VS Code or anywhere else. He scuttles while Claude works, raises a claw when it needs permission, celebrates finished turns and sends out helper crabs for subagents. See [claude-plugin/](claude-plugin/).
 - **Crew view.** When Claude delegates to subagents, each helper gets its own lane: task, live activity, tool count, tokens and time. The same number of helper crabs scuttle out next to Shellby on your desktop, and click one to jump to its conversation. When a helper needs permission, the card shows up in its lane, labelled with which crab is asking.
+- **His face in Claude Code's status line.** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on with **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and puts your old status line back if you remove it), or run `/shellby:statusline` in Claude Code with the plugin installed.
 - **Queue messages while he works.** Keep typing while Shellby is busy: Enter queues the message and it's sent when the current turn finishes, like Claude Code. Click a queued message (or press <kbd>↑</kbd>) to edit it. Stopping hands the queue back to you instead of firing it.
 - **Parallel conversations.** Tabs, each with its own Claude Code process: build a tool in one while you use it in another. The desktop crab shows how many are running. Shortcuts: <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd>, <kbd>Ctrl</kbd>+<kbd>Tab</kbd>.
 - **Toolbox: he learns tricks.** Everything Claude Code can use: skills, subagents, slash commands and MCP servers (with connection status). When Claude writes itself a new skill or agent, Shellby notices the file, celebrates on your desktop, tags it **new**, and offers to pin it. Pinned tricks become one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
@@ -191,6 +192,7 @@ npm start
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
+| `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
 | `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), git push, an outside deploy, desktop "+XP", level-up, Trophies card |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
@@ -219,6 +221,7 @@ src/main/        Electron main process
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
   xp.js            XP and levels: awards, hourly caps, the level curve, and what a shell command means
+  statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
