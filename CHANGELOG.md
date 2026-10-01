@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.12.0: XP and levels
+
+### New
+- **Shellby earns XP and levels up.** The biggest award is for **writing himself a new skill or agent** (+150), which usually tips him into the next level:
+  - Deploys and publishes (`vercel --prod`, `wrangler deploy`, `gh release create`, `npm publish` and more): **+50**
+  - `git push`: **+40**
+  - Passing tests (`npm test`, `pytest`, `go test`, `cargo test`, `dotnet test` and more): **+25**
+  - Trophies: **+20**
+  - Finished tasks: **+10**
+  - Each day you use him: **+5**
+- **It counts everywhere you use Claude Code:** in Shellby's tabs and, with the Shellby plugin, in your terminal and editor.
+- **Levels have crab titles,** from Hatchling through Claw Coder and Reef Architect to Legend of the Tides.
+- **On the desktop,** "+25 XP" floats up from him, and a level-up gets a gold "LV 5" bubble, a jump and confetti. In the panel, level-ups get a celebration card, plus a notification if the panel's closed.
+- **Your level is always visible** as a gold badge on the crab in the title bar, with a thin XP bar. **Trophies** has an XP card: level and title, progress to the next level, how he earns XP and a recent XP log. The crab card shows his level too.
+
+### Fair play
+- **Only successes count.** Failing test runs earn nothing, and `--dry-run` rehearsals don't count.
+- **Hourly caps** stop a test loop from farming XP.
+
 ## 0.11.0: Skill Shop
 
 ### New

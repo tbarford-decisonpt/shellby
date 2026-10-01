@@ -154,7 +154,8 @@
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = C.coral;
     ctx.font = '600 15px "Martian Mono"';
-    ctx.fillText(d.season ? `MY SHELLBY · ${d.season.emoji} ${d.season.name.toUpperCase()}` : 'MY SHELLBY', x0, 92);
+    const lv = state.xp ? ` · LV ${state.xp.level} ${state.xp.title.toUpperCase()}` : '';
+    ctx.fillText(d.season ? `MY SHELLBY${lv} · ${d.season.emoji} ${d.season.name.toUpperCase()}` : `MY SHELLBY${lv}`, x0, 92);
 
     ctx.fillStyle = C.sand;
     // Shrink a long title before resorting to an ellipsis.

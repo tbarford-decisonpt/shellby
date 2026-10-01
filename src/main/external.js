@@ -10,6 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
+const { classifyCommand } = require('./xp');
 
 const DEFAULT_PORT = 47913;
 const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file contents
@@ -57,9 +58,17 @@ function applyHookEvent(sessions, evt, now) {
       if (HELPER_TOOLS.has(evt.tool_name)) s.helpers = Math.min(s.helpers + 1, 12);
       break;
     }
-    case 'PostToolUse':
+    case 'PostToolUse': {
       if (s.state === 'asking') s.state = 'working'; // the permission was granted
+      // PostToolUse only fires for commands that succeeded (a failing one gets
+      // PreToolUse only), so a test command here means the tests passed. Only
+      // the meaning leaves this function, never the command itself.
+      if (evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell') {
+        const kind = classifyCommand(evt.tool_input?.command);
+        if (kind) effects.push({ type: 'command-ok', kind, project: s.project });
+      }
       break;
+    }
     case 'SubagentStop':
       s.helpers = Math.max(0, s.helpers - 1);
       break;

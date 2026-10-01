@@ -88,6 +88,15 @@ test('summary rolls up several sessions: asking beats working', () => {
   assert.deepEqual(sum.sessions.map(x => x.project), ['two', 'one']);
 });
 
+test('successful shell commands report their meaning (tests/ship/deploy), never the text', () => {
+  const r = play([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }),
+    ev('PostToolUse', { tool_name: 'PowerShell', tool_input: { command: 'vercel --prod' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'ls -la' } })]);
+  assert.deepEqual(r.effects, [{ type: 'command-ok', kind: 'tests', project: '3d-rack' }, { type: 'command-ok', kind: 'deploy', project: '3d-rack' }]);
+  assert.equal(JSON.stringify([...r.sessions.values()]).includes('npm test'), false);
+  // A failing command only ever gets PreToolUse (checked against the real CLI), so it earns nothing.
+  assert.deepEqual(play([ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } })]).effects, []);
+});
+
 test('a flood of fake session ids stays bounded (oldest evicted)', () => {
   let m = new Map();
   for (let i = 0; i < 1000; i++) m = applyHookEvent(m, { hook_event_name: 'UserPromptSubmit', session_id: `s${i}`, cwd: 'C:\\x' }, i).sessions;

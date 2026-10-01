@@ -36,6 +36,7 @@ Shellby gives an AI agent hands on your PC, so it's built to keep those hands wh
   - **What it keeps:** bodies are capped at 2 MB. Only the event name, tool name, folder name and session id are kept, clipped to short single lines. Tool inputs (commands, file contents) are dropped unread.
   - **What it can do:** events can only change the crab's mood and count finished turns. They can't start tasks, answer permissions or touch files.
   - **The plugin's hook script** never prints and always exits 0, so it can't influence Claude Code.
+  - **XP:** a successful Bash or PowerShell command's text is checked once, in memory, to see whether it ran tests, pushed or deployed. Only that meaning (and the folder name) is kept, never the command.
 
 ## Reporting a vulnerability
 

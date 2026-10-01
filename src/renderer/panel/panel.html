@@ -22,6 +22,8 @@
     <button type="button" class="brand" id="brandBtn" title="Wardrobe: dress up Shellby" aria-label="Open the Wardrobe">
       <span class="brand-crab" id="brandCrab"></span>
       <span class="brand-name">Shellby</span>
+      <span class="brand-level" id="brandLevel" hidden></span>
+      <span class="brand-xp" aria-hidden="true"><i id="brandXp"></i></span>
       <span class="dot-badge" id="wardrobeBadge" hidden></span>
     </button>
     <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode">
@@ -371,6 +373,20 @@
       <span class="wd-count" id="trophyCount"></span>
       <button type="button" class="btn ghost slim-btn" data-share-card title="Make a shareable picture of your Shellby">📸 Share</button>
     </div>
+    <section class="xp-card" id="xpCard" aria-label="Level and XP">
+      <div class="xp-head">
+        <span class="xp-level" id="xpLevel">1</span>
+        <div class="xp-titles">
+          <p class="xp-eyebrow">Level</p>
+          <h3 id="xpTitle">Hatchling</h3>
+        </div>
+        <span class="xp-total" id="xpTotal">0 XP</span>
+      </div>
+      <div class="xp-bar" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="100" id="xpBarWrap"><i id="xpBar"></i></div>
+      <p class="xp-next" id="xpNext"></p>
+      <ul class="xp-ways" id="xpWays"></ul>
+      <ul class="xp-log" id="xpLog"></ul>
+    </section>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
   </main>
@@ -596,6 +612,7 @@
 <script src="celebrate.js"></script>
 <script src="crabonly.js"></script>
 <script src="outfitcode.js"></script>
+<script src="xp.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

@@ -26,6 +26,7 @@ const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, 
 const { itemHash } = require('./wardrobe/codes');
 const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
+const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const { FAKE_SCENARIOS } = require('./health/fake');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -73,7 +74,8 @@ let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
 let shrinkTimer = null;
 let flash = null;                  // { state, until } — brief success/error/learned reaction
-let healthMood = null;             // { mood, level, text } from the health monitor, or null
+let healthMood = null;
+let levelUpAt = 1;                 // level shown in the critter's level-up bubble             // { mood, level, text } from the health monitor, or null
 let lastActivity = Date.now();
 let sleepTimer = null;
 let welcomeTrophies = [];       // achievements credited from history on first run
@@ -257,6 +259,7 @@ function refreshCritter() {
     crew: agg.crew.slice(0, MAX_CREW_SHOWN),
     moreCrew: Math.max(0, agg.crew.length - MAX_CREW_SHOWN),
     health: healthMood,
+    level: levelUpAt,
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
 
@@ -303,6 +306,17 @@ function createManager() {
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
+    if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
+      const dir = tab.session?.cwd || '';
+      pendingCommands.set(item.id, { command: item.detail, project: dir && path.resolve(dir) !== path.resolve(os.homedir()) ? path.basename(dir) : null });
+      if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
+    }
+    if (item.kind === 'tool_result' && pendingCommands.has(item.id)) {
+      const c = pendingCommands.get(item.id);
+      pendingCommands.delete(item.id);
+      const kind = !item.isError && classifyCommand(c.command);
+      if (kind) awardXp(kind, { project: c.project });
+    }
   });
   manager.on('tabs', summary => {
     send(panel, 'tabs', summary);
@@ -316,6 +330,42 @@ function createManager() {
     if (s && agg.busy > s.maxParallel) stat('parallel', { n: agg.busy });
   });
 }
+
+// ================================================================ XP and levels
+
+function xpView() {
+  const s = config.get('xp') || {};
+  return { ...levelFor(s.total || 0), log: (s.log || []).slice(0, 15) };
+}
+
+const LEVELUP_TEXT = {
+  trick: m => `He wrote himself a new trick: ${m.label}.`,
+  tests: m => `Tests passed${m.project ? ` in ${m.project}` : ''}.`,
+  ship: m => `Pushed code${m.project ? ` in ${m.project}` : ''}.`,
+  deploy: m => `Deployed${m.project ? ` from ${m.project}` : ''}!`,
+};
+
+function awardXp(kind, meta = {}) {
+  if (CAPTURE || !config) return;
+  const r = award(config.get('xp'), kind, new Date(), meta);
+  if (!r.gained) return;
+  config.set({ xp: r.state });
+  send(critter, 'critter:xp', { amount: r.gained, kind });
+  send(panel, 'xp', xpView());
+  if (!r.levelUp) return;
+  levelUpAt = r.after.level;
+  flashState('levelup', 6500);
+  send(critter, 'critter:burst', outfit().confetti);
+  const text = (LEVELUP_TEXT[kind] || (() => `${AWARDS[kind].label}.`))(meta);
+  send(panel, 'xp:levelup', { level: r.after.level, title: r.after.title, text });
+  if (!(panel?.isVisible() && panel.isFocused())) {
+    notify(`Level up! Shellby is level ${r.after.level}`, `${r.after.title}. ${text}`, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'trophies'); });
+  }
+}
+
+// Shell commands seen in Shellby's own tabs, so a successful result can be
+// scored (tests passed, pushed, deployed). tool_use id -> { command, project }.
+const pendingCommands = new Map();
 
 // Feed the achievement system; unlocks celebrate via the wardrobe 'unlocked' event.
 function stat(event, payload) {
@@ -340,6 +390,7 @@ function onResult(tabId, item, tab) {
     const fx = outfit().effect;
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
     stat('task-completed');
+    awardXp('task', { label: tab.title });
   }
   if (item.interrupted || (panel.isVisible() && panel.isFocused())) return;
   const secs = Math.round((item.durationMs || 0) / 1000);
@@ -402,7 +453,9 @@ function createExternal() {
   external = new ExternalSessions({ port });
   external.on('changed', summary => { refreshCritter(); send(panel, 'external', { ...summary, status: external.status, port: external.port, enabled: !!config.get('externalSessions') }); });
   external.on('status', () => send(panel, 'external', externalView()));
-  external.on('turn-done', () => {
+  external.on('command-ok', e => awardXp(e.kind, { project: e.project }));
+  external.on('turn-done', e => {
+    awardXp('task', { project: e.project });
     flashState('success');
     const fx = outfit().effect;
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
@@ -438,6 +491,7 @@ function createToolbox() {
     send(panel, 'toolbox:learned', trick);
     flashState('learned', 5000);
     stat('trick-learned');
+    awardXp('trick', { label: trick.name });
     const noun = { skill: 'skill', agent: 'helper agent', command: 'command' }[trick.kind];
     if (!(panel.isVisible() && panel.isFocused())) {
       notify(`Shellby learned a new ${noun}`, `${trick.name}${trick.description ? `: ${trick.description}` : ''}`.slice(0, 160),
@@ -679,6 +733,7 @@ function registerIpc() {
       skin: activeSkin(),
       skins: allSkins(),
       outfit: outfit(),
+      xp: xpView(),
       wardrobe: wardrobe.view(),
       welcomeTrophies: welcomeTrophies.splice(0),
       sessions: CAPTURE ? [] : history.list(),
@@ -929,6 +984,9 @@ function registerIpc() {
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
+  // ---- XP and levels
+  ipcMain.handle('xp:get', () => xpView());
+
   // ---- Claude Code sessions elsewhere
   ipcMain.on('clipboard:text', (_e, text) => { if (isStr(text) && text.length <= 2000) clipboard.writeText(text); });
   ipcMain.handle('external:get', () => externalView());
@@ -1164,6 +1222,7 @@ app.whenReady().then(() => {
   wardrobe.on('changed', broadcastWardrobe);
   wardrobe.on('unlocked', e => {
     flashState('unlocked', 6000);
+    awardXp('trophy', { label: e.achievement.name });
     send(critter, 'critter:burst', outfit().confetti);
     send(panel, 'wardrobe:unlocked', e);
     send(panel, 'wardrobe', wardrobe.view());
@@ -1186,6 +1245,7 @@ app.whenReady().then(() => {
     });
   }
   stat('active');
+  awardXp('day');
   setInterval(() => { wardrobe.collectSeasonals(); broadcastWardrobe(); }, 60 * 60 * 1000);
   skins = loadSkins(userSkinsDir());
 

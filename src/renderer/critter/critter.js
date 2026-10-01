@@ -5,7 +5,7 @@ const crewHost = document.getElementById('crew');
 const countEl = document.getElementById('count');
 const api = window.shellby.critter;
 
-const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★' };
+const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★', levelup: 'LV' };
 // Health readings show in the bubble only when nothing more important is.
 const HEALTH_BUBBLE_STATES = new Set(['idle', 'sleeping']);
 // Each helper gets its own shell colour so parallel agents are easy to tell apart.
@@ -34,6 +34,16 @@ api.onSkin(msg => {
 });
 
 api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
+
+// "+25 XP" rises out of Shellby whenever he earns XP.
+const xpHost = document.getElementById('xpFloat');
+api.onXp(({ amount }) => {
+  const el = document.createElement('span');
+  el.textContent = `+${amount} XP`;
+  el.className = amount >= 100 ? 'big' : '';
+  xpHost.append(el);
+  setTimeout(() => el.remove(), 1800);
+});
 
 function helperSprite(hue) {
   // Helpers wear the same hat as Shellby when "crew outfits" is on.
@@ -81,7 +91,9 @@ function renderCrew(crew, more) {
   }
 }
 
+let level = 1;
 function bubbleFor() {
+  if (state === 'levelup') return `LV ${level}`;
   if (health && HEALTH_BUBBLE_STATES.has(state)) return health.text;
   return BUBBLES[state] ?? '';
 }
@@ -90,6 +102,7 @@ const bubbleOn = () => state in BUBBLES || (health && HEALTH_BUBBLE_STATES.has(s
 api.onState(msg => {
   state = msg.state;
   health = msg.health || null;
+  level = msg.level || level;
   healthFx.set(health?.mood);
   document.body.className = `state-${state}` + (bubbleOn() ? ' bubble-on' : '') + (health ? ` health-${health.level}` : '');
   bubbleText.textContent = bubbleFor();

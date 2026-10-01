@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onState: on('critter:state'),
     onSkin: on('critter:skin'),
     onBurst: on('critter:burst'),
+    onXp: on('critter:xp'),
   },
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
@@ -85,6 +86,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onUnlocked: on('wardrobe:unlocked'),
   onCollected: on('wardrobe:collected'),
   onPackInstalled: on('wardrobe:installed'), // result of an "Add to Shellby" gallery link
+
+  // XP and levels
+  getXp: invoke('xp:get'),
+  onXp: on('xp'),
+  onLevelUp: on('xp:levelup'),
 
   // Claude Code sessions elsewhere (plugin hooks)
   getExternal: invoke('external:get'),

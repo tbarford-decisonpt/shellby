@@ -55,6 +55,7 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 </p>
 
 - **37 pixel accessories and 7 effects** in six slots: hats, face, neck, held item (in his claw), shell, and effects like snowfall, orbiting bats, falling leaves, fireflies and confetti. Accessories animate with the part they're attached to, so a pumpkin swings with his claw and a hat bobs with his eye stalks.
+- **XP and levels.** Shellby earns XP as you work, and most of all when he **writes himself a new skill or agent** (+150), which usually tips him into the next level. Other sources: deploys (+50), pushes (+40), passing tests (+25), trophies (+20) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. He climbs from Hatchling through Claw Coder and Reef Architect to Legend of the Tides. "+25 XP" floats up from him on the desktop, level-ups get a celebration, and Trophies shows his level and an XP log. Hourly caps stop a test loop from farming XP.
 - **Unlock them by using Shellby.** 22 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap, free up a full drive for a broom. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
 - **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
 - **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
@@ -190,6 +191,7 @@ npm start
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
+| `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), git push, an outside deploy, desktop "+XP", level-up, Trophies card |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
@@ -216,6 +218,7 @@ src/main/        Electron main process
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
+  xp.js            XP and levels: awards, hourly caps, the level curve, and what a shell command means
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts

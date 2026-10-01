@@ -177,3 +177,42 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .code-row.pack { border-style: dashed; border-color: color-mix(in srgb, var(--coral) 40%, transparent); }
 .code-row.unknown { opacity: .75; }
 .code-box .row.end { margin-top: 14px; }
+
+/* ---------- XP: titlebar badge + Trophies card ---------- */
+.brand { position: relative; }
+.brand-level {
+  position: absolute; left: 21px; bottom: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 99px;
+  font: 700 9px/14px var(--font-mono); text-align: center; color: #3d2a00; background: #ffd23f;
+  box-shadow: 0 0 0 2px var(--abyss);
+}
+.brand-xp { position: absolute; left: 0; width: 20px; bottom: 0; height: 2px; border-radius: 2px; background: rgba(255, 210, 63, .15); overflow: hidden; }
+.brand-xp i { display: block; height: 100%; background: #ffd23f; transform-origin: left; transform: scaleX(0); transition: transform .6s var(--ease-out); }
+
+.xp-card {
+  margin: 0 0 14px; padding: 14px; border-radius: var(--r-lg);
+  background: radial-gradient(120% 140% at 0% 0%, rgba(255, 210, 63, .12), transparent 55%), var(--reef);
+  border: 1px solid rgba(255, 210, 63, .3);
+}
+.xp-head { display: flex; align-items: center; gap: 12px; }
+.xp-level {
+  width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  font: 700 22px var(--font-pixel); color: #3d2a00;
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #ffd23f 60%, #c79a10);
+  box-shadow: 0 0 0 3px rgba(255, 210, 63, .22);
+}
+.xp-titles { min-width: 0; }
+.xp-eyebrow { margin: 0; font: 600 10px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: #ffd23f; }
+.xp-titles h3 { margin: 0; font: 600 20px var(--font-pixel); }
+.xp-total { margin-left: auto; font: 600 12px var(--font-mono); color: var(--sand-dim); white-space: nowrap; }
+.xp-bar { height: 8px; margin: 12px 0 5px; border-radius: 99px; background: var(--abyss); overflow: hidden; border: 1px solid rgba(255, 210, 63, .2); }
+.xp-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffb703, #ffd23f); transform-origin: left; transform: scaleX(0); transition: transform .8s var(--ease-out); }
+.xp-next { margin: 0 0 10px; font-size: 12px; color: var(--sand-dim); }
+.xp-ways, .xp-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.xp-ways { grid-template-columns: 1fr 1fr; column-gap: 12px; margin-bottom: 10px; }
+.xp-ways li { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items: center; font-size: 11.5px; color: var(--sand-dim); }
+.xp-ways b, .xp-log b { font: 700 11px var(--font-mono); color: #ffd23f; }
+.xp-log { border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.xp-log li { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; font-size: 12px; }
+.xp-log-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xp-log time { font: 500 10px var(--font-mono); color: var(--sand-faint); }
+.xp-empty { color: var(--sand-faint); font-size: 12px; }

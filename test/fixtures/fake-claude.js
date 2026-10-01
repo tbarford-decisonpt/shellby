@@ -59,6 +59,15 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     setTimeout(() => { text(`echo: ${content}`); result(true); }, ms);
     return;
   }
+  // "run <command>" -> runs it with the Bash tool; it "fails" if the command contains "FAIL"
+  if (content.startsWith('run ')) {
+    const command = content.slice(4);
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_run_${turn}`, name: 'Bash', input: { command } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_run_${turn}`, is_error: command.includes('FAIL'), content: command.includes('FAIL') ? 'Exit code 1' : 'ok' }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(`ran: ${command}`);
+    result(true);
+    return;
+  }
   // "fail [ms]" -> the turn ends with an error (optionally after a delay)
   if (content === 'fail' || content.startsWith('fail ')) {
     const ms = Math.min(30000, parseInt(content.split(' ')[1], 10) || 0);
