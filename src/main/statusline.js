@@ -8,9 +8,14 @@ const os = require('os');
 const path = require('path');
 
 const STATUS_FILE = path.join(os.tmpdir(), 'shellby-status.txt');
+// The classic Windows console (cmd.exe) can't draw emoji or ▰▱, so Shellby also
+// writes an all-ASCII twin, and the command picks it there.
+const plainFile = file => file.replace(/\.txt$/, '-plain.txt');
 // The statusLine command: print the file if it's there, else nothing. Pure bash
 // (Claude Code runs it through Git Bash on Windows), no other dependencies.
-const COMMAND = 'bash -c \'f="${TEMP:-${TMPDIR:-/tmp}}/shellby-status.txt"; [ -f "$f" ] && cat "$f"; exit 0\'';
+// Windows Terminal (WT_SESSION) and VS Code (TERM_PROGRAM) get the emoji line;
+// the classic Windows console gets the plain one.
+const COMMAND = 'bash -c \'d="${TEMP:-${TMPDIR:-/tmp}}"; f="$d/shellby-status.txt"; if [ "$OS" = Windows_NT ] && [ -z "$WT_SESSION$TERM_PROGRAM" ]; then f="$d/shellby-status-plain.txt"; fi; [ -f "$f" ] && cat "$f"; exit 0\'';
 const MARK = 'shellby-status.txt'; // how we recognise our own statusLine
 
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', gold: '\x1b[38;5;221m', coral: '\x1b[38;5;209m', glass: '\x1b[38;5;116m', amber: '\x1b[38;5;214m', red: '\x1b[38;5;203m' };
@@ -55,6 +60,29 @@ function formatStatus(s) {
   return parts.join(` ${C.dim}·${C.reset} `);
 }
 
+const PLAIN_FACE = {
+  idle: '', working: ' working', asking: ' needs your OK', success: ' done!', error: ' hit a snag',
+  learned: ' learned a trick', unlocked: ' got a trophy!', levelup: ' LEVEL UP!', sleeping: ' napping',
+};
+const PLAIN_HEALTH = { hot: 'hot', scorching: 'very hot', dizzy: 'memory full', stuffed: 'disk full' };
+
+/** The same line in plain ASCII (for consoles without emoji): (V)(;,,;)(V) Shellby working | Lv 5 Claw Coder [###--] */
+function formatPlain(s) {
+  const state = PLAIN_FACE[s.state] !== undefined ? s.state : 'idle';
+  let head = `${C.coral}(V)(;,,;)(V) Shellby${C.reset}${PLAIN_FACE[state]}`;
+  if (state === 'working' && s.busy > 1) head += ` x${s.busy}`;
+  if (s.crew > 0) head += ` +${s.crew} helpers`;
+  const parts = [head];
+  if (s.xp) {
+    const full = Math.round(Math.max(0, Math.min(1, Number(s.xp.progress) || 0)) * 5);
+    parts.push(`${C.gold}Lv ${s.xp.level}${C.reset} ${s.xp.title} [${'#'.repeat(full)}${'-'.repeat(5 - full)}]`);
+  }
+  if (s.streak >= 2) parts.push(`streak ${s.streak}d`);
+  if (s.health && PLAIN_HEALTH[s.health.mood]) parts.push(`${C.amber}${healthLabel(s.health).replace(/°/g, '')} ${PLAIN_HEALTH[s.health.mood]}${C.reset}`);
+  if (s.lastXp && s.now - s.lastXp.at < 15000) parts.push(`${C.gold}+${s.lastXp.amount} XP${C.reset}`);
+  return parts.join(` ${C.dim}|${C.reset} `).replace(/[^\x00-\x7f]/g, '');
+}
+
 function healthLabel(h) {
   const id = String(h.id || '');
   if (id.startsWith('gpu-temp')) return `GPU ${h.text}C`;
@@ -66,25 +94,30 @@ function healthLabel(h) {
 // ------------------------------------------------------------------ the file
 
 let lastWritten = null;
-function writeStatus(line, file = STATUS_FILE) {
-  if (line === lastWritten) return;
+/** Write the emoji line, and the plain twin when given. */
+function writeStatus(line, file = STATUS_FILE, plain = null) {
+  const key = `${line}\n${plain}`;
+  if (key === lastWritten) return;
   try {
-    const tmp = `${file}.tmp`;
-    fs.writeFileSync(tmp, line);
-    fs.renameSync(tmp, file); // never let the status line read a half-written file
-    lastWritten = line;
+    for (const [f, text] of [[file, line], [plainFile(file), plain]]) {
+      if (text == null) continue;
+      const tmp = `${f}.tmp`;
+      fs.writeFileSync(tmp, text);
+      fs.renameSync(tmp, f); // never let the status line read a half-written file
+    }
+    lastWritten = key;
   } catch { /* best effort */ }
 }
 function clearStatus(file = STATUS_FILE) {
   lastWritten = null;
-  try { fs.rmSync(file, { force: true }); } catch { /* ignore */ }
+  for (const f of [file, plainFile(file)]) { try { fs.rmSync(f, { force: true }); } catch { /* ignore */ } }
 }
 
 // ------------------------------------------------------------------ Claude Code settings
 
 const settingsPath = (home = os.homedir()) => path.join(home, '.claude', 'settings.json');
 
-/** { state: 'none' | 'ours' | 'other' | 'unreadable', command? } */
+/** { state: 'none' | 'ours' | 'other' | 'unreadable', command?, outdated? } (outdated: ours, but an older command) */
 function inspectSettings(file = settingsPath()) {
   let raw;
   try { raw = fs.readFileSync(file, 'utf8'); } catch (e) { return e.code === 'ENOENT' ? { state: 'none' } : { state: 'unreadable' }; }
@@ -93,7 +126,7 @@ function inspectSettings(file = settingsPath()) {
   if (!s || typeof s !== 'object' || Array.isArray(s)) return { state: 'unreadable' };
   const cmd = s.statusLine && typeof s.statusLine === 'object' ? String(s.statusLine.command || '') : '';
   if (!cmd) return { state: 'none' };
-  return cmd.includes(MARK) ? { state: 'ours', command: cmd } : { state: 'other', command: cmd };
+  return cmd.includes(MARK) ? { state: 'ours', command: cmd, outdated: cmd !== COMMAND } : { state: 'other', command: cmd };
 }
 
 /**
@@ -108,6 +141,25 @@ function installStatusLine(file = settingsPath()) {
   s.statusLine = { type: 'command', command: COMMAND, padding: 0 };
   writeJson(file, s);
   return { previous };
+}
+
+const PLUGIN_ID = 'shellby@shellby';
+/** Is the Shellby plugin on in Claude Code here? 'on' | 'off' (installed, disabled) | 'none' | 'unreadable' */
+function inspectPlugin(file = settingsPath()) {
+  let s;
+  try { s = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '') || '{}'); } catch (e) { return e.code === 'ENOENT' ? 'none' : 'unreadable'; }
+  const v = s && typeof s.enabledPlugins === 'object' ? s.enabledPlugins?.[PLUGIN_ID] : undefined;
+  return v === true ? 'on' : v === false ? 'off' : 'none';
+}
+
+/** Bring Shellby's own (older) statusLine entry up to date; anything else is left alone. */
+function upgradeStatusLine(file = settingsPath()) {
+  const now = inspectSettings(file);
+  if (now.state !== 'ours' || !now.outdated) return false;
+  const s = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '') || '{}');
+  s.statusLine = { ...s.statusLine, type: 'command', command: COMMAND };
+  writeJson(file, s);
+  return true;
 }
 
 /** Take Shellby out again, putting back whatever statusLine was there before. */
@@ -126,4 +178,4 @@ function writeJson(file, obj) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { formatStatus, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };
+module.exports = { PLUGIN_ID, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };

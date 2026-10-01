@@ -104,6 +104,20 @@ test('a flood of fake session ids stays bounded (oldest evicted)', () => {
   assert.ok(m.has('s999') && !m.has('s0'));
 });
 
+test("a copy that can't get the port never removes the listening Shellby's marker", async () => {
+  const holder = new ExternalSessions({ port: 0 });
+  holder.start();
+  await new Promise(r => holder.once('status', r));
+  assert.ok(fs.existsSync(markerPath(holder.port)));
+  const other = new ExternalSessions({ port: holder.port });
+  other.start();
+  await new Promise(r => other.once('status', r));
+  other.stop();
+  assert.ok(fs.existsSync(markerPath(holder.port)), 'still there after the failed copy started and stopped');
+  holder.stop();
+  assert.equal(fs.existsSync(markerPath(holder.port)), false, 'its owner removes it on quit');
+});
+
 test('a busy port: status busy, no leaked timers across retries', async () => {
   const holder = new ExternalSessions({ port: 0 });
   holder.start();

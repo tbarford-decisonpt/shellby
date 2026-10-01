@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.1
+
+### Fixed
+- **No more question marks in cmd.exe.** The classic Windows console can't draw emoji or the ▰▱ XP bar, so Shellby now also writes a plain-text status line (`(V)(;,,;)(V) Shellby working | Lv 5 Claw Coder [###--] | streak 4d`). The status-line command picks it automatically there, and keeps the emoji line in Windows Terminal, VS Code, macOS and Linux. If you already added Shellby's status line, it's updated for you.
+- **Shellby stops missing your terminal sessions.** The plugin only talks to Shellby while a small "I'm listening" marker file exists. A second copy of Shellby that couldn't get the port (a restart racing the old one, a dev run) used to delete the real one's marker, and from then on every Claude Code hook quietly did nothing. Now only the Shellby that wrote the marker can remove it, it puts it back every minute if anything else does, and dev/test copies listen on their own port.
+
+### New
+- **Settings → Claude Code everywhere → Shellby plugin** says whether the plugin is installed on this PC, with an **Install the plugin** button: one confirm, then Shellby adds the marketplace and installs the plugin with Claude Code for you. (Each computer needs it, and each talks only to its own Shellby.)
+
 ## 0.14.0: Streaks and nudges
 
 ### New

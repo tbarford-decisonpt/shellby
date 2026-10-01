@@ -144,6 +144,7 @@ class ExternalSessions extends EventEmitter {
   constructor({ port = DEFAULT_PORT, now = () => Date.now() } = {}) {
     super();
     this.port = port;
+    this.owner = `${process.pid}-${Math.random().toString(36).slice(2)}`; // whose marker it is
     this.now = now;
     this.sessions = new Map();
     this.server = null;
@@ -164,7 +165,7 @@ class ExternalSessions extends EventEmitter {
       this.timer = null;
       this.status = err.code === 'EADDRINUSE' ? 'busy' : 'error';
       this.server = null;
-      this.marker(false);
+      // (no marker(false): the port belongs to someone else, and so does its marker)
       this.emit('status', this.status);
     });
     server.listen(this.port, '127.0.0.1', () => {
@@ -172,7 +173,10 @@ class ExternalSessions extends EventEmitter {
       this.status = 'listening';
       this.marker(true);
       clearInterval(this.timer);
-      this.timer = setInterval(() => this.update(expire(this.sessions, this.now())), 60 * 1000);
+      this.timer = setInterval(() => {
+        this.update(expire(this.sessions, this.now()));
+        this.marker(true); // self-healing: put it back if anything removed it
+      }, 60 * 1000);
       this.emit('status', this.status);
     });
     this.server = server;
@@ -189,10 +193,15 @@ class ExternalSessions extends EventEmitter {
     this.emit('status', this.status);
   }
 
+  // The marker says "Shellby is listening on this port". Only the Shellby that
+  // wrote it may remove it: a second copy that fails to bind the same port (a
+  // dev run, a restart racing the old instance) must not switch hooks off for
+  // the one that's actually listening.
   marker(on) {
+    const file = markerPath(this.port);
     try {
-      if (on) fs.writeFileSync(markerPath(this.port), String(process.pid));
-      else fs.rmSync(markerPath(this.port), { force: true });
+      if (on) fs.writeFileSync(file, this.owner);
+      else if (fs.existsSync(file) && fs.readFileSync(file, 'utf8').trim() === this.owner) fs.rmSync(file, { force: true });
     } catch { /* best effort: without it hooks just skip */ }
   }
 

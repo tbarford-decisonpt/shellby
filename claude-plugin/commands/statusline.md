@@ -4,10 +4,10 @@ description: Show Shellby (mood, level, XP) in your Claude Code status line
 
 Add Shellby, the desktop crab, to my Claude Code status line. Use the statusline-setup agent to make the change.
 
-Shellby keeps a ready-made line in a temp file, so the segment is just this shell command (it prints nothing when Shellby isn't running):
+Shellby keeps a ready-made line in a temp file, plus a plain-ASCII twin for the classic Windows console (cmd.exe), which can't draw emoji. The segment is just this shell command (it prints nothing when Shellby isn't running):
 
 ```
-bash -c 'f="${TEMP:-${TMPDIR:-/tmp}}/shellby-status.txt"; [ -f "$f" ] && cat "$f"; exit 0'
+bash -c 'd="${TEMP:-${TMPDIR:-/tmp}}"; f="$d/shellby-status.txt"; if [ "$OS" = Windows_NT ] && [ -z "$WT_SESSION$TERM_PROGRAM" ]; then f="$d/shellby-status-plain.txt"; fi; [ -f "$f" ] && cat "$f"; exit 0'
 ```
 
 - If I don't have a `statusLine` yet, set it in my user settings (`~/.claude/settings.json`) to `{ "type": "command", "command": <that command>, "padding": 0 }`.

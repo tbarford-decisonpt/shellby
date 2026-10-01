@@ -196,6 +196,7 @@ npm start
 | `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
 | `node scripts/e2e-streaks.js` | Streaks and nudges with a real throwaway git repo (last commit 6 days ago): the streak starts, the repo root is found from a subfolder, the nudge fires once, and "Pick it up" opens a tab there |
+| `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
 | `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), git push, an outside deploy, desktop "+XP", level-up, Trophies card |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |

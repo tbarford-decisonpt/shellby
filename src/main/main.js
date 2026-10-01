@@ -287,10 +287,11 @@ const HEALTH_TIP = { hot: 'running hot', scorching: 'overheating', dizzy: 'memor
 function refreshStatusLine() {
   if (CAPTURE || !config) return;
   const v = xpView();
-  statusLine.writeStatus(statusLine.formatStatus({
+  const s = {
     ...lastStatus, health: healthMood, xp: { level: v.level, title: v.title, progress: v.progress }, lastXp, now: Date.now(),
     streak: streaks.streakOf(config.get('streaks'), Date.now()).current,
-  }), statusFile());
+  };
+  statusLine.writeStatus(statusLine.formatStatus(s), statusFile(), statusLine.formatPlain(s));
 }
 
 function wake() {
@@ -535,7 +536,8 @@ function createHealth() {
 
 // Claude Code sessions outside Shellby, reported by the Shellby plugin's hooks.
 function createExternal() {
-  const port = (!app.isPackaged && Number(process.env.SHELLBY_HOOK_PORT)) || HOOK_PORT;
+  // Isolated dev/test runs never take the real port (that's the installed Shellby's).
+  const port = (!app.isPackaged && Number(process.env.SHELLBY_HOOK_PORT)) || (ISOLATED ? 0 : HOOK_PORT);
   external = new ExternalSessions({ port });
   external.on('changed', summary => { refreshCritter(); send(panel, 'external', { ...summary, status: external.status, port: external.port, enabled: !!config.get('externalSessions') }); });
   external.on('status', () => send(panel, 'external', externalView()));
@@ -677,6 +679,39 @@ async function confirmAndUninstallPlugin(id) {
   if (r.ok) toolbox?.rescan();
   await shop.list().catch(() => {});
   return { ...r, view: shop.view() };
+}
+
+// The Shellby plugin itself, one click from Settings: add our marketplace if it
+// isn't there, then install. Same isolated confirm as any plugin.
+const SHELLBY_SOURCE = 'x-salmon/shellby';
+const pluginView = () => ({ state: statusLine.inspectPlugin(claudeSettings()) });
+async function confirmAndInstallShellbyPlugin() {
+  const blocked = shopBlocked();
+  if (blocked) return { ...pluginView(), ...blocked };
+  if (pluginView().state === 'on') return pluginView();
+  const response = await askOnce({
+    icon: '🦀',
+    title: 'Install the Shellby plugin?',
+    message: `Adds the Shellby marketplace (${SHELLBY_SOURCE}) to Claude Code and installs the Shellby plugin.`,
+    detail: 'Its hooks tell Shellby when a Claude Code session works, asks for permission or finishes, in any terminal or editor on this PC.',
+    note: 'The hooks only talk to Shellby on this PC (127.0.0.1) and do nothing when Shellby is closed.',
+    buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+  });
+  if (response === null) return { ...pluginView(), busy: true };
+  if (response !== 0) return pluginView();
+  await shop.list().catch(() => {});
+  const existing = shop.marketplace('shellby');
+  if (existing && !String(existing.source || '').toLowerCase().includes(SHELLBY_SOURCE)) {
+    return { ...pluginView(), error: `You already have a different marketplace called "shellby" (${existing.source}). Remove it in the Skill Shop first.` };
+  }
+  if (!existing) {
+    const added = await shop.addMarketplace(SHELLBY_SOURCE);
+    if (!added.ok) return { ...pluginView(), error: added.error };
+  }
+  await shop.list({ refresh: true }).catch(() => {});
+  const r = await shop.install(statusLine.PLUGIN_ID);
+  if (r.ok) { stat('plugin-installed'); toolbox?.rescan(); }
+  return { ...pluginView(), ...(r.ok ? { installed: true } : { error: r.error || "Claude Code couldn't install the plugin." }) };
 }
 
 async function confirmAndAddMarketplace(input) {
@@ -1101,6 +1136,8 @@ function registerIpc() {
   // ---- Claude Code status line
   const statusLineView = () => ({ ...statusLine.inspectSettings(claudeSettings()), preview: statusLine.formatStatus({ ...lastStatus, health: healthMood, xp: xpView(), now: Date.now() }).replace(/\x1b\[[0-9;]*m/g, '') });
   ipcMain.handle('statusline:get', () => statusLineView());
+  ipcMain.handle('plugin:get', () => pluginView());
+  ipcMain.handle('plugin:install', () => confirmAndInstallShellbyPlugin());
   ipcMain.handle('statusline:install', async () => {
     const now = statusLine.inspectSettings(claudeSettings());
     if (now.state === 'unreadable') return { ...statusLineView(), error: "Couldn't read your Claude Code settings.json, so Shellby left it alone." };
@@ -1416,6 +1453,7 @@ app.whenReady().then(() => {
   health.start();
   createExternal();
   setTimeout(checkNudges, 60 * 1000);
+  try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
   setInterval(checkNudges, 60 * 60 * 1000);
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));

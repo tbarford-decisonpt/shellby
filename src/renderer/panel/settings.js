@@ -133,6 +133,29 @@
   }));
   api.onExternal(v => { if (state.view === 'settings') renderExternal(v); else state.external = v; });
 
+  // ------------------------------------------------------------ the plugin
+
+  function renderPlugin(v) {
+    if (!v) return;
+    const text = {
+      on: "Installed. Claude Code sessions in any terminal or editor on this PC show up here. (Sessions on other computers can't reach this Shellby.)",
+      off: 'Installed but turned off. Turn it on in Claude Code with /plugin.',
+      none: 'Not installed on this PC yet, so Claude Code in the terminal can\'t tell Shellby what it\'s doing.',
+      unreadable: "Couldn't read your Claude Code settings.json.",
+    }[v.state];
+    $('pluginText').textContent = v.error || text;
+    $('pluginBtn').hidden = v.state === 'on' || v.state === 'off';
+    $('pluginBtn').disabled = false;
+    $('pluginBtn').textContent = 'Install the plugin';
+  }
+  $('pluginBtn').addEventListener('click', async () => {
+    $('pluginBtn').disabled = true;
+    $('pluginBtn').textContent = 'Installing…';
+    const v = await api.installPlugin();
+    renderPlugin(v);
+    if (v.installed) SB.toast('Plugin installed. Start a new Claude Code session and Shellby will follow along.', { ms: 5000 });
+  });
+
   // ------------------------------------------------------------ status line
 
   function renderStatusLine(v) {
@@ -158,7 +181,7 @@
     if (v.state !== 'ours' && was === 'ours') SB.toast('Removed from your status line.');
   });
 
-  SB.views.settings = { render: () => { renderSettings(); api.getExternal().then(renderExternal); api.getStatusLine().then(renderStatusLine); } };
+  SB.views.settings = { render: () => { renderSettings(); api.getExternal().then(renderExternal); api.getStatusLine().then(renderStatusLine); api.getPlugin().then(renderPlugin); } };
 
   // ------------------------------------------------------------ history
 

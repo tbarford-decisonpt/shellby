@@ -487,7 +487,15 @@
 
     <section class="setting-group" id="externalGroup">
       <h3>Claude Code everywhere</h3>
-      <p class="small muted ext-lede">Shellby can react to Claude Code in your terminal or editor too: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. Add the Shellby plugin in Claude Code:</p>
+      <p class="small muted ext-lede">Shellby can react to Claude Code in your terminal or editor too: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. That needs the Shellby plugin in Claude Code on this PC.</p>
+      <div class="sl-card" id="pluginCard">
+        <div class="sl-head">
+          <b>Shellby plugin</b>
+          <button type="button" class="btn primary slim-btn" id="pluginBtn">Install the plugin</button>
+        </div>
+        <p class="small muted" id="pluginText">Checking…</p>
+      </div>
+      <p class="small muted ext-lede">Or add it yourself from inside Claude Code:</p>
       <div class="cmd-row"><code id="cmdMarket">/plugin marketplace add x-salmon/shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdMarket">Copy</button></div>
       <div class="cmd-row"><code id="cmdInstall">/plugin install shellby@shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdInstall">Copy</button></div>
       <label class="toggle"><input type="checkbox" id="externalToggle"><span class="switch"></span>React to Claude Code sessions outside Shellby</label>

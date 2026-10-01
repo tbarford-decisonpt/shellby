@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { formatStatus, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, COMMAND } = require('../src/main/statusline');
+const { inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, COMMAND } = require('../src/main/statusline');
 
 const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '');
 const xp = { level: 5, title: 'Claw Coder', progress: 0.6 };
@@ -28,6 +28,54 @@ test('health and a fresh XP gain are appended', () => {
   assert.doesNotMatch(plain(formatStatus({ state: 'idle', lastXp: { amount: 25, at: 0 }, now: 60000 })), /XP/, 'old XP gains fade out');
 });
 
+test('plain twin: ASCII only, for consoles without emoji (cmd.exe)', () => {
+  const line = plain(formatPlain({ state: 'working', busy: 2, crew: 3, xp, streak: 4, health: { mood: 'hot', id: 'gpu-temp:0', text: '84°' }, lastXp: { amount: 25, at: 0 }, now: 1 }));
+  assert.equal(line, '(V)(;,,;)(V) Shellby working x2 +3 helpers | Lv 5 Claw Coder [###--] | streak 4d | GPU 84C hot | +25 XP');
+  assert.match(line, /^[\x00-\x7f]+$/);
+  assert.equal(plain(formatPlain({ state: 'idle', now: 0 })), '(V)(;,,;)(V) Shellby');
+});
+
+test('the command picks the plain line in the classic Windows console, emoji elsewhere', () => {
+  const bash = ['C:\\Program Files\\Git\\bin\\bash.exe'].find(b => fs.existsSync(b)) || 'bash';
+  const dir = tmp();
+  writeStatus('EMOJI', path.join(dir, 'shellby-status.txt'), 'PLAIN');
+  const inner = COMMAND.slice(COMMAND.indexOf("'") + 1, COMMAND.lastIndexOf("'"));
+  const runIn = extra => spawnSync(bash, ['-c', inner], { env: { ...process.env, TEMP: dir, TMPDIR: dir, OS: 'Windows_NT', WT_SESSION: '', TERM_PROGRAM: '', ...extra }, encoding: 'utf8' }).stdout;
+  assert.equal(runIn({}), 'PLAIN', 'cmd.exe');
+  assert.equal(runIn({ WT_SESSION: 'abc' }), 'EMOJI', 'Windows Terminal');
+  assert.equal(runIn({ TERM_PROGRAM: 'vscode' }), 'EMOJI', 'VS Code');
+  assert.equal(runIn({ OS: '' }), 'EMOJI', 'Linux / macOS');
+  clearStatus(path.join(dir, 'shellby-status.txt'));
+  assert.equal(fs.readdirSync(dir).length, 0, 'both files removed');
+});
+
+test('an older Shellby statusLine entry is upgraded in place; others are left alone', () => {
+  const file = path.join(tmp(), 'settings.json');
+  const old = "bash -c 'f=\"${TEMP:-${TMPDIR:-/tmp}}/shellby-status.txt\"; [ -f \"$f\" ] && cat \"$f\"; exit 0'";
+  fs.writeFileSync(file, JSON.stringify({ theme: 'dark', statusLine: { type: 'command', command: old, padding: 0 } }));
+  assert.equal(inspectSettings(file).outdated, true);
+  assert.equal(upgradeStatusLine(file), true);
+  const s = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.deepEqual([s.statusLine.command, s.statusLine.padding, s.theme], [COMMAND, 0, 'dark']);
+  assert.equal(upgradeStatusLine(file), false, 'already current');
+  fs.writeFileSync(file, JSON.stringify({ statusLine: { type: 'command', command: 'mine' } }));
+  assert.equal(upgradeStatusLine(file), false);
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).statusLine.command, 'mine');
+});
+
+test('whether the Shellby plugin is on, from enabledPlugins', () => {
+  const file = path.join(tmp(), 'settings.json');
+  assert.equal(inspectPlugin(file), 'none', 'no settings file');
+  fs.writeFileSync(file, '{"enabledPlugins":{"other@x":true}}');
+  assert.equal(inspectPlugin(file), 'none');
+  fs.writeFileSync(file, '\uFEFF{"enabledPlugins":{"shellby@shellby":true}}');
+  assert.equal(inspectPlugin(file), 'on');
+  fs.writeFileSync(file, '{"enabledPlugins":{"shellby@shellby":false}}');
+  assert.equal(inspectPlugin(file), 'off');
+  fs.writeFileSync(file, '{ broken');
+  assert.equal(inspectPlugin(file), 'unreadable');
+});
+
 test('a streak of 2+ days shows as a flame', () => {
   assert.equal(plain(formatStatus({ state: 'idle', xp, streak: 6, now: 0 })), '🦀 Shellby · Lv 5 Claw Coder ▰▰▰▱▱ · 🔥 6d');
   assert.doesNotMatch(plain(formatStatus({ state: 'idle', xp, streak: 1, now: 0 })), /🔥/);
@@ -42,7 +90,7 @@ test('unknown state falls back to idle; output is one line', () => {
 test('the statusLine command prints the file, and nothing (exit 0) without it', () => {
   const bash = ['C:\\Program Files\\Git\\bin\\bash.exe'].find(b => fs.existsSync(b)) || 'bash';
   const dir = tmp();
-  const env = { ...process.env, TEMP: dir, TMPDIR: dir };
+  const env = { ...process.env, TEMP: dir, TMPDIR: dir, OS: '' };
   // COMMAND is `bash -c '...'`: run its inner script the same way Claude Code would.
   const inner = COMMAND.slice(COMMAND.indexOf("'") + 1, COMMAND.lastIndexOf("'"));
   let r = spawnSync(bash, ['-c', inner], { env, encoding: 'utf8' });
