@@ -42,8 +42,8 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 <img src="docs/critter-halloween.png" width="150" alt="Shellby in a witch hat with a pumpkin pail and bat wings, bats orbiting"> <img src="docs/critter-winter.png" width="150" alt="Shellby in a Santa hat and striped scarf with a candy cane in the snow"> <img src="docs/critter-wizard.png" width="150" alt="Shellby in a wizard hat holding a coffee mug, sparkles around him">
 </p>
 
-- **32 pixel accessories and 7 effects** in six slots: hats, face, neck, held item (in his claw), shell, and effects like snowfall, orbiting bats, falling leaves, fireflies and confetti. Accessories animate with the part they're attached to, so a pumpkin swings with his claw and a hat bobs with his eye stalks.
-- **Unlock them by using Shellby.** 18 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
+- **36 pixel accessories and 7 effects** in six slots: hats, face, neck, held item (in his claw), shell, and effects like snowfall, orbiting bats, falling leaves, fireflies and confetti. Accessories animate with the part they're attached to, so a pumpkin swings with his claw and a hat bobs with his eye stalks.
+- **Unlock them by using Shellby.** 21 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap, free up a full drive for a broom. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
 - **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
 - **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
 - **Community packs.** More hats, effects and colors from other people, installed in one click. See [Community wardrobe](#community-wardrobe) below.
@@ -65,6 +65,20 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 - **Safe by design.** Packs are pixel art and settings in JSON, so they can't run code. Each download is checked against the gallery's SHA-256 before Shellby looks at it.
 - **Make your own.** Draw items pixel by pixel in [Pack Studio](https://x-salmon.github.io/shellby-packs/studio.html), try them on the crab, and export a pack. Shellby's own wardrobe is written in that same format ([docs/ADDONS.md](docs/ADDONS.md), [JSON Schema](docs/addon.schema.json)).
 - **Share it.** Open a pull request on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). An automated check validates it, and once it's merged it appears in the gallery and in everyone's Shellby.
+
+### He keeps an eye on your PC: Health
+<p align="center">
+<img src="docs/critter-hot.png" width="150" alt="Shellby sweating and fanning himself with his claw, a speech bubble reading 83 degrees"> <img src="docs/critter-dizzy.png" width="150" alt="Shellby with stars circling his eyes because memory is nearly full"> <img src="docs/critter-stuffed.png" width="150" alt="Shellby with boxes, papers and a floppy disk jammed into his shell because a drive is full">
+</p>
+
+- **Live vitals.** GPU and CPU temperatures, CPU and GPU load, memory and every drive's free space, each with a 10-minute sparkline. It's all read locally, with no admin rights needed.
+- **His mood follows your hardware.** When the GPU runs past 80°C he sweats and fans himself with his claw. Past 88°C he pants under a heat shimmer, and it wakes him up if he's asleep. Nearly-full memory makes him dizzy, with stars circling his eyes, and a full drive leaves junk spilling out of his shell. Readings must stay over the line for about 20 seconds, so a loading screen spike doesn't count.
+- **Notifies you when something's off**, once per problem rather than every 5 seconds, and tells you when it's fixed.
+- **"Ask Shellby why."** One click starts a read-only Claude Code task that finds out what's heating the GPU, eating the memory, or filling the drive, and reports back without deleting or killing anything.
+- **Your thresholds.** Set when the GPU, CPU, memory and drives count as trouble, or turn the desktop reactions off and keep only the dashboard.
+- **CPU temperature** comes from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'s local web server, because Windows won't give it to normal apps. The Health view walks you through the setup. NVIDIA GPUs work out of the box through `nvidia-smi`. More in [docs/HEALTH.md](docs/HEALTH.md).
+
+<p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
 
 ### And keeps you in the loop
 - **Asks before acting.** Permission prompts become cards: **Allow**, **Always allow**, or **Deny**, with <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>N</kbd> shortcuts.
@@ -151,6 +165,7 @@ npm start
 | `node scripts/e2e-registry.js` | One-click install from the live community registry: warm and cold, themed confirmation, every item previewed |
 | `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
+| `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, titlebar badge, screenshots |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
@@ -170,13 +185,14 @@ src/main/        Electron main process
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   routines.js      schedule maths + scheduler for recurring tasks
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
+  health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
   skins.js         loads and validates skins
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
-  panel/           core · feed (crew lanes) · tabs · toolbox · routines · settings · boot
+  panel/           core · feed (crew lanes) · tabs · toolbox · routines · settings · wardrobe · health · boot
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI
@@ -184,7 +200,7 @@ test/            node:test suites and a fake Claude CLI
 
 ## Privacy
 
-Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, and the updater checking GitHub Releases. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
+Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, the updater checking GitHub Releases, community pack downloads you ask for, and Health asking LibreHardwareMonitor for sensor readings on `127.0.0.1`. That last one never leaves your PC. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
 ## Contributing
 

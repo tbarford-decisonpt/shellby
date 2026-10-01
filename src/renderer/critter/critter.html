@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="critter.css">
+<link rel="stylesheet" href="../shared/health.css">
 </head>
 <body class="state-idle">
   <div id="stage">
@@ -19,12 +20,14 @@
       <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
       <button id="crab" type="button" aria-label="Shellby. Click to open, drag to move, right-click for menu, drop files to attach.">
         <div id="sprite"></div>
+        <div id="healthFx" class="hfx-layer"></div>
       </button>
       <div id="shadow"></div>
     </div>
   </div>
 <script src="../shared/sprite.js"></script>
 <script src="../shared/effects.js"></script>
+<script src="../shared/health-fx.js"></script>
 <script src="critter.js"></script>
 </body>
 </html>

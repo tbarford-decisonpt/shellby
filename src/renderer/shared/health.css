@@ -1,0 +1,74 @@
+/* Health moods (see health-fx.js). The fx layer covers the crab's sprite box;
+   every overlay is positioned in sprite pixels and scales with --px. The host
+   with data-health=<mood> also contains the crab, so its parts can react. */
+
+.hfx-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.hfx {
+  position: absolute;
+  left: calc(var(--px) * var(--x)); top: calc(var(--px) * var(--y));
+  width: calc(var(--px) * var(--w)); height: calc(var(--px) * var(--h));
+  animation-duration: 1.6s; animation-iteration-count: infinite; animation-fill-mode: backwards;
+}
+.hfx svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* ---------- hot: sweat, blush, fanning himself with his claw ---------- */
+.hfx-drip { animation-name: hfx-drip; animation-timing-function: cubic-bezier(.5, 0, .9, .6); opacity: 0; }
+.hfx-drip.fast { animation-duration: .95s; }
+.hfx-blush { animation: hfx-blush 2.4s ease-in-out infinite; }
+[data-health="hot"] .part-claw, [data-health="scorching"] .part-claw { animation: hfx-fan .28s ease-in-out infinite; }
+[data-health="scorching"] .part-claw { animation-duration: .18s; }
+[data-health="hot"] .part-body, [data-health="scorching"] .part-body { filter: saturate(1.25) brightness(1.04); }
+
+/* ---------- scorching: panting + heat shimmer over the shell ---------- */
+[data-health="scorching"] svg[data-cols] { animation: hfx-pant .5s ease-in-out infinite; }
+.hfx-wave { animation-name: hfx-rise; animation-duration: 2.1s; animation-timing-function: ease-out; opacity: 0; }
+
+/* ---------- dizzy (RAM): stars circling his eyes, eyes wobble ---------- */
+.hfx-orbit {
+  --cx: 15.5; --cy: -1.5;
+  left: calc(var(--px) * (var(--cx) - 1.5)); top: calc(var(--px) * (var(--cy) - 1.5));
+  animation: hfx-orbit 2.4s linear infinite;
+}
+[data-health="dizzy"] .part-eyes, [data-health="dizzy"] .part-stalks { animation: hfx-woozy 1.2s ease-in-out infinite; }
+
+/* ---------- stuffed (disk): junk jammed in his shell, one bit keeps popping out ---------- */
+.hfx-junk { animation: hfx-jiggle 1.8s ease-in-out infinite; transform-origin: 50% 100%; }
+.hfx-pop { animation: hfx-pop 3.2s cubic-bezier(.3, .7, .6, 1) infinite; opacity: 0; }
+[data-health="stuffed"] .part-shell { animation: hfx-strain 1.8s ease-in-out infinite; transform-origin: 50% 100%; }
+
+/* Asking for permission keeps the claw up; tucked in his shell asleep there's
+   no face to sweat from (the junk stays). */
+.state-asking [data-health] .part-claw, .state-sleeping [data-health] .part-claw { animation: none; }
+.state-sleeping .hfx-face { display: none; }
+
+@keyframes hfx-drip {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  15% { transform: translateY(0) scale(1); opacity: 1; }
+  80% { opacity: .9; }
+  100% { transform: translateY(calc(var(--px) * 7)); opacity: 0; }
+}
+@keyframes hfx-blush { 50% { opacity: .55; } }
+@keyframes hfx-fan { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(-38deg) translate(1px, -1px); } }
+@keyframes hfx-pant { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(1px) scaleY(.97); } }
+@keyframes hfx-rise {
+  0% { transform: translate(0, calc(var(--px) * 3)); opacity: 0; }
+  30% { opacity: .85; }
+  100% { transform: translate(calc(var(--px) * 1.5), calc(var(--px) * -5)) scaleX(1.4); opacity: 0; }
+}
+@keyframes hfx-orbit {
+  from { transform: rotate(0deg) translateX(calc(var(--px) * 4)) rotate(0deg) scaleY(.9); }
+  to { transform: rotate(360deg) translateX(calc(var(--px) * 4)) rotate(-360deg) scaleY(.9); }
+}
+@keyframes hfx-woozy { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes hfx-jiggle { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg) translateY(-1px); } }
+@keyframes hfx-pop {
+  0%, 55% { transform: translate(0, 0) rotate(0); opacity: 0; }
+  60% { opacity: 1; }
+  80% { transform: translate(calc(var(--px) * -4), calc(var(--px) * -5)) rotate(-160deg); opacity: 1; }
+  100% { transform: translate(calc(var(--px) * -7), calc(var(--px) * 6)) rotate(-300deg); opacity: 0; }
+}
+@keyframes hfx-strain { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04, .98); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hfx-drip, .hfx-wave, .hfx-pop { opacity: 1; }
+}

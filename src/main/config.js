@@ -31,6 +31,8 @@ const DEFAULTS = {
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
   learnedTricks: [],  // recently discovered skills/agents/commands
   routines: [],       // see routines.js
+  health: null,       // health monitor settings (see health/service.js); null -> defaults
+  healthLog: [],      // recent health alerts, newest first
 };
 
 class Config {

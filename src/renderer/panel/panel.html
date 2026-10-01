@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
+<link rel="stylesheet" href="../shared/health.css">
+<link rel="stylesheet" href="health-view.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -30,6 +32,10 @@
       </button>
       <button type="button" data-view-btn="routines" class="icon-btn" title="Routines: scheduled tasks" aria-label="Routines">
         <svg viewBox="0 0 16 16"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2M13.4 2.6v2.8h-2.8M8 5.2V8l2 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" data-view-btn="health" class="icon-btn" title="Health: temperatures, memory and drives" aria-label="Health">
+        <svg viewBox="0 0 16 16"><path d="M1.5 8.6h2.8l1.6-4.4 3 7.8 1.8-5 1 1.6h2.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="dot-badge" id="healthBadge" hidden></span>
       </button>
       <button type="button" data-view-btn="history" class="icon-btn" title="History" aria-label="History">
         <svg viewBox="0 0 16 16"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -182,6 +188,78 @@
       </div>
     </form>
     <ul class="routine-list" id="routineList"></ul>
+  </main>
+
+  <!-- ====================== HEALTH ====================== -->
+  <main class="view view-health" id="healthView">
+    <div class="view-head">
+      <button type="button" class="back-btn" data-back>← Back</button>
+      <h2>Health</h2>
+      <span class="hl-live" id="hlLive"><i></i>live</span>
+      <button type="button" class="btn ghost slim-btn" id="hlRecheck" title="Read every sensor again now">Recheck</button>
+    </div>
+
+    <section class="hl-hero" id="hlHero" data-level="ok" aria-live="polite">
+      <div class="hl-tank" aria-hidden="true">
+        <div class="hl-crab" id="hlCrab"><div class="hl-sprite" id="hlSprite"></div><div class="hfx-layer" id="hlFx"></div></div>
+        <div class="hl-sand"></div>
+      </div>
+      <div class="hl-verdict">
+        <p class="hl-eyebrow" id="hlEyebrow">Vitals</p>
+        <h3 id="hlTitle">Taking a first reading…</h3>
+        <p class="hl-sub" id="hlSub"></p>
+        <div class="row wrap">
+          <button type="button" class="btn primary" id="hlAsk" hidden>Ask Shellby why</button>
+          <button type="button" class="btn" id="hlEnable" hidden>Turn health checks on</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="hl-gauges" id="hlGauges"></div>
+
+    <section class="hl-block">
+      <h3 class="hl-h">Drives</h3>
+      <ul class="hl-disks" id="hlDisks"></ul>
+    </section>
+
+    <section class="hl-block">
+      <h3 class="hl-h">Sensors</h3>
+      <ul class="hl-sources" id="hlSources"></ul>
+      <div class="hl-setup" id="hlSetup" hidden>
+        <p><b>Windows doesn't let normal apps read CPU temperature.</b> LibreHardwareMonitor can (it's free and open source), and Shellby reads it from LHM's local web server. Nothing leaves your PC.</p>
+        <ol>
+          <li>Install it: <code>winget install LibreHardwareMonitor.LibreHardwareMonitor</code></li>
+          <li>Run it as administrator (it needs that to read the CPU's sensors).</li>
+          <li>In LHM, open <b>Options → Remote Web Server → Run</b>.</li>
+          <li>Optional: <b>Options → Run On Windows Startup</b> and <b>Start Minimized</b>, so it's always there.</li>
+        </ol>
+        <p class="hl-auth" id="hlAuth" hidden>LHM's web server is asking for a password. Turn off authentication in <b>Options → Remote Web Server</b>, then check again.</p>
+        <div class="row wrap">
+          <button type="button" class="btn primary" id="hlCheckLhm">I've done it, check again</button>
+          <button type="button" class="btn ghost" id="hlGetLhm">Get LibreHardwareMonitor</button>
+          <label class="inline-label hl-port">Port <input class="field slim" id="hlPort" type="number" min="1024" max="65535" inputmode="numeric"></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="setting-group hl-settings">
+      <h3>Alerts</h3>
+      <label class="toggle"><input type="checkbox" id="hlEnabledToggle"><span class="switch"></span>Watch my PC's health</label>
+      <label class="toggle"><input type="checkbox" id="hlMoodsToggle"><span class="switch"></span>Shellby reacts on the desktop (sweats, gets dizzy, overstuffs his shell)</label>
+      <label class="toggle"><input type="checkbox" id="hlNotifyToggle"><span class="switch"></span>Notify me when something's off</label>
+      <div class="hl-thresholds" id="hlThresholds">
+        <label class="field-label">GPU hot at<span class="hl-unit"><input class="field" type="number" data-key="gpuWarn" min="60" max="100">°C</span></label>
+        <label class="field-label">CPU hot at<span class="hl-unit"><input class="field" type="number" data-key="cpuWarn" min="60" max="105">°C</span></label>
+        <label class="field-label">Memory warning at<span class="hl-unit"><input class="field" type="number" data-key="ramWarn" min="70" max="98">%</span></label>
+        <label class="field-label">Drive low under<span class="hl-unit"><input class="field" type="number" data-key="diskWarnGb" min="1" max="1000">GB</span></label>
+      </div>
+      <p class="muted small">"Very hot" is 8°C past the line. Shellby waits about 20 seconds before reacting, so short spikes during a game load don't count. Small drives warn at 10% free instead.</p>
+    </section>
+
+    <section class="setting-group">
+      <div class="hl-loghead"><h3>Recent alerts</h3><button type="button" class="btn ghost slim-btn" id="hlClearLog">Clear</button></div>
+      <ul class="hl-log" id="hlLog"></ul>
+    </section>
   </main>
 
   <!-- ====================== WARDROBE ====================== -->
@@ -355,6 +433,7 @@
 <script src="../shared/sprite.js"></script>
 <script src="../shared/markdown.js"></script>
 <script src="../shared/effects.js"></script>
+<script src="../shared/health-fx.js"></script>
 <script src="core.js"></script>
 <script src="feed.js"></script>
 <script src="tabs.js"></script>
@@ -362,6 +441,7 @@
 <script src="routines.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
+<script src="health.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

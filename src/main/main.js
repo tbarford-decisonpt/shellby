@@ -22,6 +22,8 @@ const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
 const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
+const { HealthService } = require('./health/service');
+const { FAKE_SCENARIOS } = require('./health/fake');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -58,12 +60,13 @@ if (!CAPTURE) {
 // The community registry. Only dev builds may point elsewhere (for testing).
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
 let shrinkTimer = null;
 let flash = null;                  // { state, until } — brief success/error/learned reaction
+let healthMood = null;             // { mood, level, text } from the health monitor, or null
 let lastActivity = Date.now();
 let sleepTimer = null;
 let welcomeTrophies = [];       // achievements credited from history on first run
@@ -232,20 +235,24 @@ function refreshCritter() {
   let state = agg.state;
   if (state !== 'idle') lastActivity = Date.now();
   else if (flash && flash.until > Date.now()) state = flash.state;
-  else if (Date.now() - lastActivity > SLEEP_AFTER_MS) state = 'sleeping';
+  else if (Date.now() - lastActivity > SLEEP_AFTER_MS && healthMood?.level !== 'critical') state = 'sleeping';
 
   send(critter, 'critter:state', {
     state,
     busy: agg.busy,
     crew: agg.crew.slice(0, MAX_CREW_SHOWN),
     moreCrew: Math.max(0, agg.crew.length - MAX_CREW_SHOWN),
+    health: healthMood,
   });
   setCrewSlots(agg.crew.length);
 
   clearTimeout(sleepTimer);
   if (state === 'idle') sleepTimer = setTimeout(refreshCritter, SLEEP_AFTER_MS - (Date.now() - lastActivity) + 100);
-  tray?.setToolTip(agg.busy ? `Shellby: ${agg.busy} task${agg.busy > 1 ? 's' : ''} running` : 'Shellby');
+  const tip = agg.busy ? `Shellby: ${agg.busy} task${agg.busy > 1 ? 's' : ''} running` : 'Shellby';
+  tray?.setToolTip(healthMood ? `${tip} · ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : tip);
 }
+
+const HEALTH_TIP = { hot: 'running hot', scorching: 'overheating', dizzy: 'memory nearly full', stuffed: 'drive nearly full' };
 
 function wake() {
   lastActivity = Date.now();
@@ -339,6 +346,39 @@ function notify(title, body, onClick) {
 
 function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null, mode = null, routineId = null, title = null } = {}) {
   return manager.open({ tabId, cwd, historyEntry, mode, routineId, title });
+}
+
+// A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
+// in its own tab in the foreground, in the current permission mode.
+function startTask(prompt, title) {
+  if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
+  try {
+    const tabId = randomUUID();
+    openTab({ tabId, title });
+    manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
+    wake();
+    send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
+    return { ok: true, tabId };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function showHealth() {
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'health');
+}
+
+function createHealth() {
+  // Dev runs can fake a scenario (SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu);
+  // screenshot runs always do. Packaged builds only ever read real sensors.
+  const envFake = !app.isPackaged && FAKE_SCENARIOS.includes(process.env.SHELLBY_FAKE_HEALTH) ? process.env.SHELLBY_FAKE_HEALTH : null;
+  health = new HealthService({
+    config, send, notify, stat, startTask, showHealth,
+    getPanel: () => panel,
+    fakeScenario: CAPTURE ? 'calm' : envFake,
+    onMood: mood => { healthMood = mood; refreshCritter(); },
+  });
 }
 
 function composePrompt(text, files) {
@@ -695,6 +735,14 @@ function registerIpc() {
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
+  // ---- health
+  ipcMain.handle('health:get', () => health.view());
+  ipcMain.handle('health:set', (_e, patch) => health.setSettings(patch && typeof patch === 'object' ? patch : {}));
+  ipcMain.handle('health:recheck', () => health.recheck());
+  ipcMain.handle('health:ask', (_e, checkId) => (isStr(checkId) ? health.ask(checkId) : { ok: false, error: 'Unknown reading.' }));
+  ipcMain.handle('health:clear-log', () => { config.set({ healthLog: [] }); return health.view(); });
+  ipcMain.on('health:viewed', () => stat('health-viewed'));
+
   // ---- misc
   ipcMain.on('open-external', (_e, url) => {
     try { if (new URL(url).protocol === 'https:') shell.openExternal(url); } catch { /* ignore bad urls */ }
@@ -818,6 +866,7 @@ function buildMenu() {
     { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
     { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
     { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
+    { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
@@ -906,15 +955,17 @@ app.whenReady().then(() => {
   electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
 
   createManager();
+  createHealth();
   registerIpc();
   createCritter();
   createPanel();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
-  if (CAPTURE) return require('./capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe });
+  if (CAPTURE) return require('./capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
 
   createToolbox();
   createTray();
+  health.start();
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
@@ -942,5 +993,5 @@ app.on('second-instance', (_e, argv) => {
   else if (booted) showPanel();
 });
 app.on('window-all-closed', e => e.preventDefault());
-app.on('will-quit', () => { globalShortcut.unregisterAll(); scheduler?.stop(); toolbox?.stop(); });
+app.on('will-quit', () => { globalShortcut.unregisterAll(); scheduler?.stop(); toolbox?.stop(); health?.stop(); });
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

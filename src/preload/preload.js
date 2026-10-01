@@ -75,6 +75,16 @@ contextBridge.exposeInMainWorld('shellby', {
   onCollected: on('wardrobe:collected'),
   onPackInstalled: on('wardrobe:installed'), // result of an "Add to Shellby" gallery link
 
+  // health
+  getHealth: invoke('health:get'),
+  setHealth: invoke('health:set'),
+  recheckHealth: invoke('health:recheck'),
+  askAboutHealth: invoke('health:ask'),
+  clearHealthLog: invoke('health:clear-log'),
+  healthViewed: fire('health:viewed'),
+  onHealth: on('health'),
+  onHealthLog: on('health:log'),
+
   // routines
   listRoutines: invoke('routines:list'),
   saveRoutine: invoke('routines:save'),

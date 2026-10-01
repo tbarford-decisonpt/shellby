@@ -17,6 +17,13 @@ Shellby gives an AI agent hands on your PC, so it's built to keep those hands wh
 
 - **Community packs (one-click install).** A `shellby://install` link carries only a pack id. Shellby looks it up in the official registry index, downloads only from the registry's own origin and path (redirects are checked too), enforces a size cap while streaming, verifies the SHA-256 checksum from the index, requires the pack's id to match the link, validates it, and then shows the isolated confirmation window listing every item. Nothing installs without that confirmation. The gallery's PR check always runs the validator from the trusted main branch.
 
+- **Health checks read, never change.**
+  - **Processes:** Shellby runs only two programs, both with fixed arguments and no shell: `nvidia-smi` (a query) and a PowerShell one-liner that lists drives. Nothing from a renderer or a sensor ends up on a command line.
+  - **LibreHardwareMonitor:** reached only at `http://127.0.0.1:<port>`, with the port limited to 1024–65535. Responses are size-capped and parsed as data.
+  - **Hardware names:** reduced to one line of at most 80 characters before they're shown or put into an **Ask Shellby why** prompt.
+  - **Ask Shellby why:** these prompts are fixed templates that tell Claude not to delete, kill or change anything, and they run under your normal permission mode.
+  - **Dev scenarios:** fake sensor scenarios exist only in development builds.
+
 ## Reporting a vulnerability
 
 Please **don't open a public issue**. Use GitHub's private vulnerability reporting (Security tab → *Report a vulnerability*). You'll get a reply within a week.

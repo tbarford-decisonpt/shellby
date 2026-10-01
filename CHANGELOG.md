@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0: Health
+
+Shellby now keeps an eye on your PC, and his mood follows it.
+
+### New
+- **Health view** (the pulse icon in the title bar):
+  - live GPU and CPU temperatures, CPU and GPU load, memory and every drive, with 10-minute sparklines
+  - a sensor checklist, adjustable thresholds and a log of recent alerts
+  - a titlebar badge when something needs attention
+- **Health moods on the desktop:**
+  - **hot:** sweat, flushed cheeks and fanning with his claw
+  - **scorching:** panting and a heat shimmer; it wakes him if he's asleep
+  - **dizzy (memory):** stars circling his eyes
+  - **stuffed (full drive):** junk spilling out of his shell
+
+  The speech bubble shows the reading, e.g. `84°` or `C: 8.4 GB`. Readings must hold for about 20 seconds, so short spikes are ignored.
+- **Notifications** when a reading crosses your line (once per problem, with a 30-minute cooldown) and when it recovers.
+- **Ask Shellby why:** one click starts a read-only Claude Code task that finds what's heating the GPU, eating memory or filling a drive.
+- **CPU temperature** through LibreHardwareMonitor's local web server, with step-by-step setup in the Health view. NVIDIA GPUs work out of the box through `nvidia-smi`. See [docs/HEALTH.md](docs/HEALTH.md).
+- **Three new trophies and four accessories:**
+  - 🩺 Check-Up: Stethoscope
+  - 🧊 Keep Your Cool (secret): Sweatband and Handheld Fan
+  - 🧹 Spring Cleaning: Broom
+- **Health in the tray:** the menu and tooltip show what's wrong.
+
+### For developers
+- Dev builds can fake sensors with `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu`.
+- `node scripts/e2e-health.js` checks every mood end to end.
+- The pack schema accepts the new trophy ids as unlock conditions.
+
 ## 0.4.1
 
 ### Fixed

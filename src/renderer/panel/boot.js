@@ -52,6 +52,7 @@
     for (const tab of state.tabs.values()) for (const lane of tab.lanes.values()) lane.el.querySelector('.lane-crab')?.replaceChildren(SB.helperSprite(lane.index));
     if (state.view === 'settings') SB.renderSkins();
     if (state.view === 'wardrobe') SB.views.wardrobe.render();
+    SB.refreshHealthCrab?.();
   });
   api.onWardrobe(view => SB.applyWardrobe(view));
   api.onUnlocked(e => SB.onUnlocked(e));

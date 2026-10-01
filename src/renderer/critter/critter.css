@@ -192,3 +192,9 @@ html, body {
 
 /* ---------- wardrobe effects ---------- */
 #fx { position: absolute; left: 0; right: 0; top: 0; bottom: 14px; pointer-events: none; --fall-h: 150px; }
+
+/* ---------- health readings in the bubble (see shared/health.css for the moods) ---------- */
+.health-warn.state-idle #bubble, .health-warn.state-sleeping #bubble { background: #ffb347; color: #3d2200; font-size: 12px; }
+.health-warn.state-idle #bubble::after, .health-warn.state-sleeping #bubble::after { border-top-color: #ffb347; }
+.health-critical.state-idle #bubble, .health-critical.state-sleeping #bubble { background: #ff5a4a; color: #fff; font-size: 12px; animation: pulse 1s ease-in-out infinite; }
+.health-critical.state-idle #bubble::after, .health-critical.state-sleeping #bubble::after { border-top-color: #ff5a4a; }

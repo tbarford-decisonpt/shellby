@@ -6,6 +6,8 @@ const countEl = document.getElementById('count');
 const api = window.shellby.critter;
 
 const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★' };
+// Health readings show in the bubble only when nothing more important is.
+const HEALTH_BUBBLE_STATES = new Set(['idle', 'sleeping']);
 // Each helper gets its own shell colour so parallel agents are easy to tell apart.
 const HUES = [0, 145, 250, 60, 300, 200];
 
@@ -14,6 +16,8 @@ let outfit = { accessories: [], effect: null, crewAccessories: [] };
 let fx = null;
 let px = 4;
 let state = 'idle';
+let health = null;
+const healthFx = window.ShellbyHealthFx.mount(document.getElementById('healthFx'), document.getElementById('self'));
 const helpers = new Map(); // task id -> element
 
 api.onSkin(msg => {
@@ -77,10 +81,18 @@ function renderCrew(crew, more) {
   }
 }
 
+function bubbleFor() {
+  if (health && HEALTH_BUBBLE_STATES.has(state)) return health.text;
+  return BUBBLES[state] ?? '';
+}
+const bubbleOn = () => state in BUBBLES || (health && HEALTH_BUBBLE_STATES.has(state));
+
 api.onState(msg => {
   state = msg.state;
-  document.body.className = `state-${state}` + (state in BUBBLES ? ' bubble-on' : '');
-  bubbleText.textContent = BUBBLES[state] ?? '';
+  health = msg.health || null;
+  healthFx.set(health?.mood);
+  document.body.className = `state-${state}` + (bubbleOn() ? ' bubble-on' : '') + (health ? ` health-${health.level}` : '');
+  bubbleText.textContent = bubbleFor();
   countEl.textContent = msg.busy;
   countEl.classList.toggle('on', msg.busy > 1);
   countEl.setAttribute('aria-label', `${msg.busy} conversations running`);
@@ -115,8 +127,8 @@ window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); })
 let dragDepth = 0;
 const setDropping = on => {
   document.body.classList.toggle('dropping', on);
-  document.body.classList.toggle('bubble-on', on || state in BUBBLES);
-  bubbleText.textContent = on ? 'drop it!' : (BUBBLES[state] ?? '');
+  document.body.classList.toggle('bubble-on', on || bubbleOn());
+  bubbleText.textContent = on ? 'drop it!' : bubbleFor();
 };
 window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) setDropping(true); });
 window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; setDropping(false); } });

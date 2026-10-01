@@ -90,7 +90,7 @@ async function shot(win, file) {
   console.log('wrote', path.relative(process.cwd(), file));
 }
 
-async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe }) {
+async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health }) {
   const out = path.join(ROOT, 'docs');
   fs.mkdirSync(out, { recursive: true });
   const base = { toolbox: DEMO_TOOLBOX, routines: DEMO_ROUTINES, learned: LEARNED, pinned: PINNED, usage: DEMO_USAGE };
@@ -147,6 +147,29 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     send(critter, 'critter:state', { state: 'idle', busy: 0, crew: [], moreCrew: 0 });
     setCrewSlots(0);
     await wait(1300);
+
+    // ---- Health: ~11 minutes of scripted readings that warm up into a hot GPU,
+    // polled on a fake clock so the sparklines have history.
+    let clock = Date.now() - 11 * 60 * 1000;
+    health.monitor.now = () => clock;
+    health.monitor.running = true; // shows as live; the loop itself never starts here
+    for (let i = 0; i < 132; i++) {
+      if (i === 100) health.sensors.setScenario('hot');
+      await health.monitor.poll();
+      clock += 5000;
+    }
+    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'health' });
+    await wait(1600);
+    await shot(panel, path.join(out, 'screenshot-health.png'));
+    for (const mood of ['hot', 'scorching', 'dizzy', 'stuffed']) {
+      health.sensors.setScenario(mood);
+      await health.monitor.poll();
+      await wait(1300);
+      await shot(critter, path.join(out, `critter-${mood}.png`));
+    }
+    health.sensors.setScenario('calm');
+    await health.monitor.poll();
+    await wait(600);
 
     // ---- Wardrobe: earn some trophies, then dress up for the seasons
     for (let i = 0; i < 12; i++) wardrobe.record('task-completed');

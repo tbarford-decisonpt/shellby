@@ -535,6 +535,118 @@
       ]
     },
     {
+      "id": "stethoscope",
+      "name": "Stethoscope",
+      "description": "Dr. Shellby will see your PC now.",
+      "slot": "neck",
+      "pivot": [
+        2,
+        0
+      ],
+      "rarity": "common",
+      "unlock": {
+        "achievement": "check-up"
+      },
+      "palette": {
+        "k": "#2b2d42",
+        "K": "#8d99ae",
+        "s": "#edf2f4",
+        "S": "#adb5bd"
+      },
+      "pixels": [
+        "K.....K.",
+        "k.....k.",
+        ".k...k..",
+        "..kkk...",
+        "...k....",
+        "..sSs...",
+        "..SSS..."
+      ]
+    },
+    {
+      "id": "sweatband",
+      "name": "Sweatband",
+      "description": "Survived a heat wave. Stays cool under pressure.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        2
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "keep-your-cool"
+      },
+      "palette": {
+        "W": "#f8f9fa",
+        "w": "#ced4da",
+        "R": "#e63946"
+      },
+      "pixels": [
+        "wWWWWWWw",
+        "RRRRRRRR",
+        "wWWWWWWw"
+      ]
+    },
+    {
+      "id": "hand-fan",
+      "name": "Handheld Fan",
+      "description": "For the next time the GPU gets toasty.",
+      "slot": "held",
+      "pivot": [
+        2,
+        6
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "keep-your-cool"
+      },
+      "palette": {
+        "b": "#8ecae6",
+        "B": "#219ebc",
+        "c": "#f1faee",
+        "h": "#495057"
+      },
+      "pixels": [
+        ".bBb.",
+        "bBcBb",
+        "BcccB",
+        "bBcBb",
+        ".bBb.",
+        "..h..",
+        "..h.."
+      ]
+    },
+    {
+      "id": "broom",
+      "name": "Broom",
+      "description": "Made room on a full drive. Squeaky clean.",
+      "slot": "held",
+      "pivot": [
+        4,
+        2
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "spring-cleaning"
+      },
+      "palette": {
+        "h": "#8d5524",
+        "r": "#c1121f",
+        "y": "#e9c46a",
+        "Y": "#bc8a3c"
+      },
+      "pixels": [
+        "......h",
+        ".....h.",
+        "....h..",
+        "...rr..",
+        "..yyY..",
+        ".yyYy..",
+        "yYyY...",
+        ".Y.Y..."
+      ]
+    },
+    {
       "id": "witch-hat",
       "name": "Witch Hat",
       "description": "Spooky Season collectible.",

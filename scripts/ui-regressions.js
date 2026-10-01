@@ -73,7 +73,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
     // 3. scrollIntoView on deep content must never scroll the page itself
     //    (the original "top of the panel gets messed up when scrolling" bug)
-    for (const view of ['settings', 'routines', 'history', 'chat']) {
+    for (const view of ['settings', 'routines', 'history', 'health', 'chat']) {
       await panel.ev(`SB.setView('${view}')`);
       await wait(250);
       const r2 = JSON.parse(await panel.ev(`(() => {

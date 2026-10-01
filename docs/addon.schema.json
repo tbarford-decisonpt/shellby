@@ -70,7 +70,7 @@
           "type": "object", "required": ["achievement"], "additionalProperties": false,
           "properties": {
             "achievement": {
-              "enum": ["first-task", "ten-tasks", "quarter-century", "centurion", "crew-boss", "all-hands", "fleet", "toolmaker", "inventor", "tinkerer", "clockwork", "night-owl", "early-bird", "multitasker", "careful", "planner", "special-delivery", "loyal"]
+              "enum": ["first-task", "ten-tasks", "quarter-century", "centurion", "crew-boss", "all-hands", "fleet", "toolmaker", "inventor", "tinkerer", "clockwork", "night-owl", "early-bird", "multitasker", "careful", "planner", "special-delivery", "loyal", "check-up", "keep-your-cool", "spring-cleaning"]
             }
           }
         },

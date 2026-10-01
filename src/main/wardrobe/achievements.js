@@ -22,6 +22,9 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'planner', name: 'Master Planner', icon: '🧐', description: 'Approve a plan from Plan mode', stat: 'plansApproved', goal: 1, rewards: ['monocle'] },
   { id: 'special-delivery', name: 'Special Delivery', icon: '✈️', description: 'Drop a file on Shellby', stat: 'filesDropped', goal: 1, rewards: ['paper-plane'] },
   { id: 'loyal', name: 'Old Friends', icon: '🌈', description: 'Use Shellby on 7 different days', stat: 'activeDays', goal: 7, rewards: ['rainbow-scarf'] },
+  { id: 'check-up', name: 'Check-Up', icon: '🩺', description: "Look at your PC's vitals in the Health view", stat: 'healthViews', goal: 1, rewards: ['stethoscope'] },
+  { id: 'keep-your-cool', name: 'Keep Your Cool', icon: '🧊', description: 'Shellby cools down after a heat warning', stat: 'heatCooled', goal: 1, rewards: ['sweatband', 'hand-fan'], hidden: true },
+  { id: 'spring-cleaning', name: 'Spring Cleaning', icon: '🧹', description: 'Free up space after a low-disk warning', stat: 'spaceFreed', goal: 1, rewards: ['broom'] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -29,6 +32,7 @@ const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
 const COUNTERS = [
   'tasksCompleted', 'helpersSpawned', 'maxCrew', 'tricksLearned', 'createdScriptsRun', 'routinesRun',
   'nightTasks', 'earlyTasks', 'maxParallel', 'permissionsAnswered', 'plansApproved', 'filesDropped',
+  'healthViews', 'heatCooled', 'spaceFreed',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,6 +46,9 @@ const INCREMENTS = {
   'permission-answered': 'permissionsAnswered',
   'plan-approved': 'plansApproved',
   'files-dropped': 'filesDropped',
+  'health-viewed': 'healthViews',
+  'health-cooled': 'heatCooled',
+  'health-space-freed': 'spaceFreed',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = { 'crew-size': 'maxCrew', parallel: 'maxParallel' };
