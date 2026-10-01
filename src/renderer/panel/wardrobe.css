@@ -216,6 +216,7 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-log-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xp-log time { font: 500 10px var(--font-mono); color: var(--sand-faint); }
 .xp-empty { color: var(--sand-faint); font-size: 12px; }
+.xp-log li.xp-empty { display: block; } /* one line, not squeezed into the log's first column */
 
 /* ---------- streaks ---------- */
 .streak-card {

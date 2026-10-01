@@ -78,4 +78,10 @@
 
   /** c: { icon, title, text, rewards: [public items], eyebrow? } */
   SB.celebrate = c => { queue.push(c); show(); };
+  // Drop any showing or queued cards at once (used by the scripted screenshots).
+  SB.clearCelebrations = () => {
+    queue.length = 0;
+    if (current) { clearTimeout(current.timer); current.el.remove(); current = null; }
+    document.body.classList.remove('celebrating');
+  };
 })();

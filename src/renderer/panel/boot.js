@@ -74,6 +74,7 @@
     if (demo.usage) SB.applyUsage(demo.usage);
     SB.activate(demo.active || demo.tabs[0].id);
     SB.refreshEmptyStates();
+    SB.clearCelebrations();
     SB.setView(demo.view || 'chat');
     if (demo.slash) { $('input').value = demo.slash; $('input').dispatchEvent(new Event('input')); }
     requestAnimationFrame(() => { const t = SB.activeTab(); if (t && demo.scroll !== 'top') t.el.scrollTop = t.el.scrollHeight; });

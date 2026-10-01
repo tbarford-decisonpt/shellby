@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.3
+
+### Fixed
+- **"No XP yet" fits on one line** in Trophies & XP. Before your first XP it was squeezed into a narrow column, one word per line.
+
+### Docs
+- **An easier-to-read README.** It now leads with the crab, each section opens with a few one-line points, and the longer explanations, protocol notes, script list and project layout fold away until you open them.
+- **Clean screenshots of Shellby's screen.** A trophy card was covering the Outfits and Trophies & XP screenshots; the screenshot script now clears it first.
+
 ## 0.16.2
 
 ### Docs
