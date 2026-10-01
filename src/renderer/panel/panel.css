@@ -1,4 +1,4 @@
-/* Shellby â€” "tidepool terminal"
+/* Shellby — "tidepool terminal"
    Deep ink-teal water, sea-glass accents, coral for Shellby and for action. */
 :root {
   --abyss: #071012;
@@ -278,11 +278,11 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 .tool .t-label { flex: none; font-weight: 700; color: var(--sand); }
 .tool .t-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11.5px var(--font-mono); font-stretch: 85%; color: var(--sand-dim); }
 .tool.pending { border-left-color: var(--glass); }
-.tool.pending .t-state::before { content: "â—Œ"; display: inline-block; color: var(--glass); animation: spin 1s linear infinite; }
-.tool.ok .t-state::before { content: "âœ“"; color: var(--glass); }
+.tool.pending .t-state::before { content: "◌"; display: inline-block; color: var(--glass); animation: spin 1s linear infinite; }
+.tool.ok .t-state::before { content: "✓"; color: var(--glass); }
 .tool.err { border-left-color: var(--danger); }
-.tool.err .t-state::before { content: "âœ•"; color: var(--danger); }
-.tool.denied .t-state::before { content: "âŠ˜"; color: var(--amber); }
+.tool.err .t-state::before { content: "✕"; color: var(--danger); }
+.tool.denied .t-state::before { content: "⊘"; color: var(--amber); }
 .tool .t-result {
   margin: 2px 0 8px 10px; padding: 8px 10px; max-height: 240px; overflow: auto;
   background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm);

@@ -1,7 +1,7 @@
 {
   "name": "shellby",
   "productName": "Shellby",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you, on your own Claude subscription.",
   "main": "src/main/main.js",
   "author": "x-salmon",
@@ -11,7 +11,13 @@
     "type": "git",
     "url": "https://github.com/x-salmon/shellby.git"
   },
-  "keywords": ["claude-code", "desktop-pet", "electron", "windows", "ai-agent"],
+  "keywords": [
+    "claude-code",
+    "desktop-pet",
+    "electron",
+    "windows",
+    "ai-agent"
+  ],
   "private": true,
   "scripts": {
     "start": "electron .",
@@ -33,15 +39,43 @@
     "appId": "com.xsalmon.shellby",
     "productName": "Shellby",
     "copyright": "Copyright (c) 2026 x-salmon",
-    "directories": { "output": "dist", "buildResources": "assets" },
-    "files": ["src/**/*", "assets/**/*", "package.json", "!**/*.md"],
-    "asarUnpack": ["node_modules/koffi/**", "node_modules/@koromix/**"],
-    "protocols": [{ "name": "Shellby", "schemes": ["shellby"] }],
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "!**/*.md"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ],
+    "protocols": [
+      {
+        "name": "Shellby",
+        "schemes": [
+          "shellby"
+        ]
+      }
+    ],
     "win": {
       "icon": "assets/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
@@ -50,7 +84,16 @@
       "allowToChangeInstallationDirectory": true,
       "artifactName": "Shellby-Setup-${version}.${ext}"
     },
-    "portable": { "artifactName": "Shellby-Portable-${version}.${ext}" },
-    "publish": [{ "provider": "github", "owner": "x-salmon", "repo": "shellby", "releaseType": "draft" }]
+    "portable": {
+      "artifactName": "Shellby-Portable-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "x-salmon",
+        "repo": "shellby",
+        "releaseType": "draft"
+      }
+    ]
   }
 }

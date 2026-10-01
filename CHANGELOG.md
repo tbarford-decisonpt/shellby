@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+- While a command ran, its tool card spun three garbled letters instead of the ◌ spinner, and the ✓ / ✕ / ⊘ result icons were garbled too. A Windows-1252 re-encode had mangled them in 0.3.0. A new test now fails the build if any source file contains garbled text or stray control characters.
+
+### Docs
+- The README has a **Community wardrobe** section and a top-level link to the [community gallery](https://x-salmon.github.io/shellby-packs/).
+
 ## 0.4.0: Community packs
 
 Find wardrobe packs other people made and add them in one click.

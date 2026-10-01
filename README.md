@@ -10,7 +10,7 @@ Click him, type a task ("tidy my Downloads", "build yourself a tool that…"), a
 He sends out helper crabs, builds his own tools, and runs routines on a schedule, all on<br>
 **your own Claude Pro/Max subscription**. No API keys, no per-token billing.
 
-[Download](https://github.com/x-salmon/shellby/releases/latest) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[Download](https://github.com/x-salmon/shellby/releases/latest) · [**Community packs**](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -46,7 +46,7 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 - **Unlock them by using Shellby.** 18 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
 - **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
 - **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
-- **Community packs.** Browse the [community gallery](https://x-salmon.github.io/shellby-packs/) and click **Add to Shellby**. Anyone can make hats, effects and colors as a JSON pack, and Shellby's own wardrobe ships in that same format. Packs are pixel art and settings only, so they can't run code, and Shellby shows you what's inside before installing. See [docs/ADDONS.md](docs/ADDONS.md) and the [JSON Schema](docs/addon.schema.json).
+- **Community packs.** More hats, effects and colors from other people, installed in one click. See [Community wardrobe](#community-wardrobe) below.
 
 <table>
 <tr>
@@ -54,6 +54,17 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 <td width="50%"><img src="docs/screenshot-trophies.png" alt="Trophies with progress and rewards"></td>
 </tr>
 </table>
+
+### Community wardrobe
+
+<a href="https://x-salmon.github.io/shellby-packs/"><img src="docs/community-gallery.png" alt="The Shellby community gallery: Dress up the desktop crab"></a>
+
+**[x-salmon.github.io/shellby-packs](https://x-salmon.github.io/shellby-packs/)** is a gallery of wardrobe packs made by the community.
+
+- **Browse and install.** Every item is previewed on a live, animated Shellby. Click **Add to Shellby** and the app opens, shows you exactly what the pack contains, and asks before anything installs.
+- **Safe by design.** Packs are pixel art and settings in JSON, so they can't run code. Each download is checked against the gallery's SHA-256 before Shellby looks at it.
+- **Make your own.** Draw items pixel by pixel in [Pack Studio](https://x-salmon.github.io/shellby-packs/studio.html), try them on the crab, and export a pack. Shellby's own wardrobe is written in that same format ([docs/ADDONS.md](docs/ADDONS.md), [JSON Schema](docs/addon.schema.json)).
+- **Share it.** Open a pull request on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). An automated check validates it, and once it's merged it appears in the gallery and in everyone's Shellby.
 
 ### And keeps you in the loop
 - **Asks before acting.** Permission prompts become cards: **Allow**, **Always allow**, or **Deny**, with <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>N</kbd> shortcuts.
