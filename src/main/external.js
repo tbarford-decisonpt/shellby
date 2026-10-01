@@ -84,7 +84,7 @@ function applyHookEvent(sessions, evt, now) {
     }
     case 'Stop': {
       const worked = s.state === 'working' || s.state === 'asking';
-      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools });
+      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null });
       s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0;
       break;
     }

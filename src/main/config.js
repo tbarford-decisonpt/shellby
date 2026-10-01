@@ -27,6 +27,7 @@ const DEFAULTS = {
   onboarded: false,
   crabOnly: false,
   xp: null,
+  streaks: null,      // work days, projects and nudge settings (see streaks.js)
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)            // XP and levels (see xp.js); null -> level 1
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)      // "just the crab": no Claude Code (Health, Wardrobe, trophies)
   autonomousAcknowledged: false,

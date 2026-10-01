@@ -28,6 +28,11 @@ test('health and a fresh XP gain are appended', () => {
   assert.doesNotMatch(plain(formatStatus({ state: 'idle', lastXp: { amount: 25, at: 0 }, now: 60000 })), /XP/, 'old XP gains fade out');
 });
 
+test('a streak of 2+ days shows as a flame', () => {
+  assert.equal(plain(formatStatus({ state: 'idle', xp, streak: 6, now: 0 })), '🦀 Shellby · Lv 5 Claw Coder ▰▰▰▱▱ · 🔥 6d');
+  assert.doesNotMatch(plain(formatStatus({ state: 'idle', xp, streak: 1, now: 0 })), /🔥/);
+});
+
 test('unknown state falls back to idle; output is one line', () => {
   const line = formatStatus({ state: 'whatever', xp, now: 0 });
   assert.match(plain(line), /^🦀 Shellby/);

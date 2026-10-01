@@ -92,6 +92,16 @@ contextBridge.exposeInMainWorld('shellby', {
   installStatusLine: invoke('statusline:install'),
   removeStatusLine: invoke('statusline:remove'),
 
+  // streaks and nudges
+  getStreaks: invoke('streaks:get'),
+  setStreaks: invoke('streaks:set'),
+  muteProject: (key, muted) => ipcRenderer.invoke('streaks:mute', { key, muted }),
+  openProject: fire('streaks:open'),
+  onStreaks: on('streaks'),
+  onNudge: on('nudge'),
+  devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
+  onNewTabIn: on('tab:new-in'),
+
   // XP and levels
   getXp: invoke('xp:get'),
   onXp: on('xp'),

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0: Streaks and nudges
+
+### New
+- **Streaks.** Finish a Claude task on consecutive days, in Shellby or with the plugin anywhere, and the 🔥 streak grows. It stays alive until the end of the next day. The status line shows it ("🔥 6d").
+- **Projects.** Shellby remembers the git repos you work in (by repo root, even from a subfolder) and reads each one's real last commit with `git log`, so commits made outside Claude count too.
+- **Nudges:** *"You haven't committed to 3d-rack in 5 days 🐚"*.
+  - **Limits:** at most one a day, only between 9:00 and 21:00, only for projects you touched in the last month, and never in just-the-crab mode.
+  - **Pick it up** opens a new tab in that project with a "where did we leave off?" prompt ready to send.
+- **Trophies → Streaks card:** your streak and best streak, your projects with days since their last commit (quiet ones highlighted), a mute button per project, and how many quiet days before a nudge (2 days to 2 weeks).
+
 ## 0.13.1
 
 ### Fixed

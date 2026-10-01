@@ -76,6 +76,18 @@
     return creating;
   };
 
+  // A fresh tab in a known project, with a prompt ready to send (from a nudge).
+  SB.newTabIn = async ({ cwd, draft }) => {
+    const r = await api.newTab({ cwd });
+    if (!r.ok) return SB.toast(r.error);
+    SB.ensureTab({ id: r.tabId, title: 'New task', cwd });
+    SB.activate(r.tabId);
+    input.value = draft || '';
+    autosize();
+    input.focus();
+  };
+  api.onNewTabIn(o => { if (o?.cwd) SB.newTabIn(o); });
+
   SB.closeTab = async (tabId) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;

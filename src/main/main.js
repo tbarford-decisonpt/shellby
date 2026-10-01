@@ -28,6 +28,8 @@ const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const statusLine = require('./statusline');
+const streaks = require('./streaks');
+const { repoOf, lastCommitAt } = require('./gitinfo');
 const { FAKE_SCENARIOS } = require('./health/fake');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -287,6 +289,7 @@ function refreshStatusLine() {
   const v = xpView();
   statusLine.writeStatus(statusLine.formatStatus({
     ...lastStatus, health: healthMood, xp: { level: v.level, title: v.title, progress: v.progress }, lastXp, now: Date.now(),
+    streak: streaks.streakOf(config.get('streaks'), Date.now()).current,
   }), statusFile());
 }
 
@@ -350,6 +353,61 @@ function createManager() {
   });
 }
 
+// ================================================================ streaks and nudges
+
+function streaksView() {
+  const s = streaks.normalize(config.get('streaks'));
+  const now = Date.now();
+  return {
+    ...streaks.streakOf(s, now), nudges: s.nudges, afterDays: s.afterDays,
+    projects: Object.entries(s.projects).sort((a, b) => b[1].lastSeen - a[1].lastSeen).map(([key, p]) => ({
+      key, name: p.name, muted: p.muted, lastSeen: p.lastSeen, lastCommitAt: p.lastCommitAt,
+      quietDays: p.lastCommitAt ? streaks.daysSince(p.lastCommitAt, now) : null,
+    })),
+  };
+}
+
+function saveStreaks(next) {
+  config.set({ streaks: next });
+  send(panel, 'streaks', streaksView());
+  refreshStatusLine();
+}
+
+// A task finished somewhere (dir: its working folder). Keeps the streak, and
+// remembers the git repo it ran in with its newest commit time.
+async function recordWork(dir) {
+  if (CAPTURE || !config) return;
+  saveStreaks(streaks.recordWorkDay(config.get('streaks'), Date.now()));
+  const repo = await repoOf(dir);
+  if (!repo) return;
+  let s = streaks.recordProject(config.get('streaks'), repo.key, repo.name, Date.now());
+  const at = await lastCommitAt(repo.root);
+  if (at) s = streaks.recordCommit(s, repo.key, at);
+  saveStreaks(s);
+}
+
+// Dev/e2e only: run the nudge check on demand, ignoring quiet hours (nudges only fire 9:00-21:00).
+const NUDGE_TEST = !app.isPackaged && process.env.SHELLBY_NUDGE_TEST === '1';
+
+// Hourly: refresh every known project's last commit, then maybe nudge once.
+async function checkNudges() {
+  if (CAPTURE || !config) return;
+  let s = streaks.normalize(config.get('streaks'));
+  for (const key of Object.keys(s.projects)) {
+    const at = await lastCommitAt(key);
+    if (at) s = streaks.recordCommit(s, key, at);
+  }
+  saveStreaks(s);
+  if (config.get('crabOnly')) return;
+  const n = streaks.dueNudge(s, Date.now(), NUDGE_TEST ? 12 : undefined);
+  if (!n) return;
+  saveStreaks(streaks.markNudged(config.get('streaks'), n.key, Date.now()));
+  flashState('asking', 4000);
+  const open = () => { showPanel(); send(panel, 'tab:new-in', { cwd: n.key, draft: `Where did we leave off in ${n.name}? Summarize what changed recently, what's unfinished, and suggest the next step.` }); };
+  if (NUDGE_TEST || (panel?.isVisible() && panel.isFocused())) send(panel, 'nudge', { ...n, text: streaks.nudgeText(n) });
+  else notify(streaks.nudgeText(n), 'Click to pick up where you left off.', open);
+}
+
 // ================================================================ XP and levels
 
 function xpView() {
@@ -365,6 +423,7 @@ const LEVELUP_TEXT = {
 };
 
 function awardXp(kind, meta = {}) {
+  if (kind === 'ship') setTimeout(checkNudges, 3000); // a push means a fresh commit: update streak data
   if (CAPTURE || !config) return;
   const r = award(config.get('xp'), kind, new Date(), meta);
   if (!r.gained) return;
@@ -417,6 +476,7 @@ function onResult(tabId, item, tab) {
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
     stat('task-completed');
     awardXp('task', { label: tab.title });
+    recordWork(tab.session?.cwd);
   }
   if (item.interrupted || (panel.isVisible() && panel.isFocused())) return;
   const secs = Math.round((item.durationMs || 0) / 1000);
@@ -482,6 +542,7 @@ function createExternal() {
   external.on('command-ok', e => awardXp(e.kind, { project: e.project }));
   external.on('turn-done', e => {
     awardXp('task', { project: e.project });
+    recordWork(e.cwd);
     flashState('success');
     const fx = outfit().effect;
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
@@ -786,8 +847,10 @@ function registerIpc() {
   });
 
   // ---- tabs
-  ipcMain.handle('tab:new', () => {
-    try { return { ok: true, tabId: openTab().id }; } catch (err) { return { ok: false, error: err.message }; }
+  ipcMain.handle('tab:new', (_e, opts = {}) => {
+    // A folder is only accepted if it's a project Shellby already tracks (e.g. a nudge's "pick up where you left off").
+    const known = isStr(opts?.cwd) && streaks.normalize(config.get('streaks')).projects[opts.cwd] && fs.existsSync(opts.cwd);
+    try { return { ok: true, tabId: openTab(known ? { cwd: opts.cwd } : {}).id }; } catch (err) { return { ok: false, error: err.message }; }
   });
   ipcMain.handle('tab:close', (_e, tabId) => {
     if (!isStr(tabId)) return false;
@@ -1012,6 +1075,27 @@ function registerIpc() {
   ipcMain.handle('routines:run', (_e, id) => {
     const r = routines().find(x => x.id === id);
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
+  });
+
+  // ---- streaks and nudges
+  ipcMain.handle('streaks:get', () => streaksView());
+  if (NUDGE_TEST) ipcMain.handle('dev:check-nudges', () => checkNudges());
+  ipcMain.handle('streaks:set', (_e, patch = {}) => {
+    const s = streaks.normalize(config.get('streaks'));
+    const next = { ...s };
+    if ('nudges' in patch) next.nudges = !!patch.nudges;
+    if ('afterDays' in patch) next.afterDays = patch.afterDays;
+    saveStreaks(streaks.normalize(next));
+    return streaksView();
+  });
+  ipcMain.handle('streaks:mute', (_e, { key, muted } = {}) => {
+    if (isStr(key)) saveStreaks(streaks.setMuted(config.get('streaks'), key, muted));
+    return streaksView();
+  });
+  ipcMain.on('streaks:open', (_e, key) => {
+    const s = streaks.normalize(config.get('streaks'));
+    const p = isStr(key) && s.projects[key];
+    if (p) send(panel, 'tab:new-in', { cwd: key, draft: `Where did we leave off in ${p.name}? Summarize what changed recently, what's unfinished, and suggest the next step.` });
   });
 
   // ---- Claude Code status line
@@ -1331,6 +1415,8 @@ app.whenReady().then(() => {
   createTray();
   health.start();
   createExternal();
+  setTimeout(checkNudges, 60 * 1000);
+  setInterval(checkNudges, 60 * 60 * 1000);
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();

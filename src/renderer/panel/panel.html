@@ -387,6 +387,24 @@
       <ul class="xp-ways" id="xpWays"></ul>
       <ul class="xp-log" id="xpLog"></ul>
     </section>
+    <section class="streak-card" id="streakCard" aria-label="Streaks">
+      <div class="streak-head">
+        <span class="streak-flame" id="streakFlame">🔥</span>
+        <div>
+          <p class="xp-eyebrow streak-eyebrow">Streak</p>
+          <h3 id="streakTitle">No streak yet</h3>
+        </div>
+        <span class="xp-total" id="streakBest"></span>
+      </div>
+      <p class="streak-sub" id="streakSub"></p>
+      <ul class="streak-projects" id="streakProjects"></ul>
+      <div class="streak-settings">
+        <label class="toggle"><input type="checkbox" id="nudgeToggle"><span class="switch"></span>Nudge me when a project goes quiet for</label>
+        <select class="field slim" id="nudgeDays" aria-label="Days before a nudge">
+          <option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">a week</option><option value="14">2 weeks</option>
+        </select>
+      </div>
+    </section>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
   </main>
@@ -621,6 +639,7 @@
 <script src="crabonly.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
+<script src="streaks.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

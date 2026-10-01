@@ -46,6 +46,7 @@ function formatStatus(s) {
   if (s.crew > 0) head += ` ${C.glass}+${s.crew} 🦀${C.reset}`;
   parts.push(head);
   if (s.xp) parts.push(`${C.gold}Lv ${s.xp.level}${C.reset} ${s.xp.title} ${bar(s.xp.progress)}`);
+  if (s.streak >= 2) parts.push(`${C.coral}🔥 ${s.streak}d${C.reset}`);
   if (s.health && HEALTH[s.health.mood]) {
     const h = HEALTH[s.health.mood];
     parts.push(`${h.color}${h.icon} ${healthLabel(s.health)}${C.reset}`);

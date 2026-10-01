@@ -21,7 +21,7 @@ test('a turn: prompt -> tools -> stop celebrates once', () => {
   const { s, effects } = play([ev('SessionStart'), ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUse', { tool_name: 'Bash' }), ev('Stop')]);
   assert.equal(s.state, 'idle');
   assert.equal(s.project, '3d-rack');
-  assert.deepEqual(effects, [{ type: 'turn-done', project: '3d-rack', tools: 1 }]);
+  assert.deepEqual(effects, [{ type: 'turn-done', project: '3d-rack', tools: 1, cwd: 'C:\\Users\\you\\code\\3d-rack' }]);
   assert.equal(JSON.stringify(s).includes('npm test'), false, 'tool inputs are never kept');
 });
 
