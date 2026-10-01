@@ -52,6 +52,13 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
   if (content === 'crash') { process.exit(3); }
+  // "limit <seconds>" -> the plan's 5-hour limit is reached and resets in <seconds>
+  if (content.startsWith('limit')) {
+    const resetsAt = Math.round(Date.now() / 1000) + (parseInt(content.split(' ')[1], 10) || 60);
+    out({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', unifiedWindows: { five_hour: { utilization: 1, resetsAt }, seven_day: { utilization: 0.6, resetsAt: resetsAt + 86400 } } } });
+    result(false, { result: 'Claude AI usage limit reached' });
+    return;
+  }
 
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }

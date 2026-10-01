@@ -26,7 +26,11 @@ const DEFAULTS = {
   model: '', // '' -> Claude Code's default
   onboarded: false,
   crabOnly: false,
+  wander: true,      // idle strolls near his spot (see motion.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
+  home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
+  focus: null,       // the focus session in progress (see focus.js)
+  limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)

@@ -1,5 +1,6 @@
-// A small in-memory GitHub for tests: the device flow, /user, gists, and just
-// enough of the repos API for publishing a pack (fork, ref, contents, pulls).
+// A small in-memory GitHub for tests: the device flow, /user, gists, just
+// enough of the repos API for publishing a pack (fork, ref, contents, pulls),
+// and your open pull requests with their CI (search, pulls, check runs).
 //   const gh = await startMockGitHub({ login: 'crabfan' }); ... gh.approve(); ... await gh.close();
 const http = require('http');
 
@@ -8,6 +9,8 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
     login, approved: autoApprove, denied: false, requestedScope: '', token: 'gho_mocktoken123',
     gists: new Map(), files: new Map(), refs: new Map([['x-salmon/shellby-packs:main', 'basesha1']]),
     forks: new Set(), pulls: [], requests: [], nextGist: 1,
+    // Your open pull requests and the ones waiting for your review (see setCi()).
+    ci: { prs: [], reviews: [] },
   };
   const server = http.createServer((req, res) => {
     let body = '';
@@ -48,6 +51,21 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
         if (!g) return send(404, { message: 'Not Found' });
         if (req.method === 'PATCH') for (const [f, v] of Object.entries(json.files || {})) g.files[f] = { content: v.content, size: v.content.length };
         return send(200, g);
+      }
+
+      // ---- your pull requests and their CI
+      if (req.method === 'GET' && p === '/search/issues') {
+        const q = url.searchParams.get('q') || '';
+        const hit = pr => ({ number: pr.number, title: pr.title, repository_url: `${base}/repos/${pr.repo}` });
+        return send(200, { items: (q.includes('review-requested:') ? state.ci.reviews : state.ci.prs).map(hit) });
+      }
+      m = p.match(/^\/repos\/([^/]+\/[^/]+)\/(pulls\/(\d+)|commits\/([0-9a-f]{40})\/(check-runs|status))$/);
+      const ciPr = m && state.ci.prs.find(pr => pr.repo === m[1] && (m[3] ? pr.number === Number(m[3]) : pr.sha === m[4]));
+      if (ciPr) {
+        if (m[3]) return send(200, { number: ciPr.number, head: { sha: ciPr.sha } });
+        if (m[5] === 'status') return send(200, { state: 'success', statuses: [] });
+        const done = ciPr.conclusion !== 'pending';
+        return send(200, { check_runs: [{ name: 'test', status: done ? 'completed' : 'in_progress', conclusion: done ? ciPr.conclusion : null }] });
       }
 
       m = p.match(/^\/repos\/([^/]+)\/([^/]+)(\/.*)?$/);
@@ -102,6 +120,10 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
     deny() { state.denied = true; },
     /** Put a published pack on the gallery's main branch. */
     publish(id, json) { state.files.set(`x-salmon/shellby-packs:main:packs/${id}/pack.json`, { sha: 'pubsha', content: Buffer.from(JSON.stringify(json)).toString('base64') }); },
+    /** Your open PRs: [{ repo, number, title, conclusion: 'success'|'failure'|'pending' }], and review requests. */
+    setCi(prs, reviews = state.ci.reviews) {
+      state.ci = { prs: prs.map((pr, i) => ({ ...pr, sha: (pr.sha || String(i + 1)).padEnd(40, 'a') })), reviews };
+    },
     close: () => new Promise(r => server.close(r)),
   };
 }

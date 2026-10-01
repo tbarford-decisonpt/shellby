@@ -90,15 +90,21 @@
       }
     }
 
+    // opts.shell swaps his home: a shell grid drawn instead of the skin's shell
+    // pixels (see src/main/shells.js), or 'none' while he's between shells.
+    const home = opts.shell === 'none' ? 'none' : opts.shell && Array.isArray(opts.shell.pixels) ? opts.shell : null;
     paintGrid(pixels, palette, 0, 0, (ch, x, y) => {
       const part = parts[ch] || 'extra';
+      if (part === 'shell' && home) return null;
       return part === 'legs' ? `legs-${legGroup[`${x},${y}`] || 'a'}` : part;
     });
+    if (home && home !== 'none') paintGrid(home.pixels, home.palette || {}, 0, 0, () => 'shell');
 
     // Accessories: each joins the animation of the part it follows (same CSS
     // classes) and is painted above the crab, ordered by slot.
     const SLOT_Z = ['shell', 'neck', 'hat', 'face', 'held'];
-    const anchors = { ...DEFAULT_ANCHORS, ...(skin.anchors || {}), ...(opts.anchors || {}) };
+    const shellTop = home && home !== 'none' && Array.isArray(home.top) ? { shellTop: home.top } : {};
+    const anchors = { ...DEFAULT_ANCHORS, ...(skin.anchors || {}), ...shellTop, ...(opts.anchors || {}) };
     const accessories = [...(opts.accessories || [])].sort((a, b) => SLOT_Z.indexOf(a.slot) - SLOT_Z.indexOf(b.slot));
     const accGroups = [];
     for (const acc of accessories) {

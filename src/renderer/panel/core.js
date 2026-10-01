@@ -136,7 +136,8 @@ SB.ICONS = {
 SB.sprite = (skin = SB.state.skin, opts = {}) => {
   if (!skin) return document.createElement('span');
   const accessories = opts.plain ? [] : opts.accessories ?? SB.state.outfit?.accessories ?? [];
-  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories });
+  const shell = opts.plain ? null : opts.shell ?? SB.state.outfit?.home ?? null; // the shell he lives in (shells.js)
+  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories, shell });
 };
 
 // Helper-crab colours, shared with the desktop critter.

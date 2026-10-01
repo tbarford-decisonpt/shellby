@@ -9,10 +9,11 @@
     ['⬆️', 'Pushes code', 40],
     ['✅', 'Tests pass', 25],
     ['🏆', 'Earns a trophy', 20],
+    ['🛡️', 'Finishes a focus session', 15],
     ['🦀', 'Finishes a task', 10],
     ['☀️', 'Each day you use him', 5],
   ];
-  const KIND_ICON = { trick: '🧠', deploy: '🚀', ship: '⬆️', tests: '✅', trophy: '🏆', task: '🦀', day: '☀️' };
+  const KIND_ICON = { trick: '🧠', deploy: '🚀', ship: '⬆️', tests: '✅', trophy: '🏆', task: '🦀', day: '☀️', focus: '🛡️' };
 
   function apply(v) {
     if (!v) return;
@@ -44,7 +45,11 @@
   }
 
   api.onXp(apply);
-  api.onLevelUp(e => SB.celebrate({ eyebrow: 'Level up', icon: '⭐', title: `Level ${e.level} · ${e.title}`, text: e.text, rewards: [] }));
+  api.onLevelUp(e => SB.celebrate({
+    eyebrow: 'Level up', icon: e.shell ? '🐚' : '⭐', title: `Level ${e.level} · ${e.title}`,
+    text: e.shell ? `He outgrew his shell and moved into a ${e.shell.name}. Swap homes any time in Outfits → Homes.` : e.text,
+    rewards: e.shell ? [e.shell] : [],
+  }));
   const renderTrophies = SB.views.trophies.render;
   SB.views.trophies.render = () => { renderTrophies(); render(); };
   api.getXp().then(apply);

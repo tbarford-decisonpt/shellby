@@ -192,13 +192,14 @@
     return 3;
   }
 
-  const GROUP_RANK = { Screens: 0, Settings: 1, 'Permission mode': 2, Conversations: 3, Skills: 4, Commands: 5 };
+  const GROUP_RANK = { Screens: 0, Focus: 1, Settings: 2, 'Permission mode': 3, Conversations: 4, Skills: 5, Commands: 6 };
+  const focusEntries = () => (SB.focusCommands?.() || []).map(e => ({ ...e, group: 'Focus' }));
 
   function search(raw) {
     const q = raw.trim().toLowerCase();
     if (!q) return [...screenEntries(), ...settingEntries()];
     const words = q.split(/\s+/);
-    return [...screenEntries(), ...settingEntries(), ...modeEntries(), ...conversationEntries(), ...toolEntries()]
+    return [...screenEntries(), ...focusEntries(), ...settingEntries(), ...modeEntries(), ...conversationEntries(), ...toolEntries()]
       .map(entry => ({ entry, s: score(entry, q, words) }))
       .filter(x => x.s >= 0)
       .sort((a, b) => a.s - b.s || GROUP_RANK[a.entry.group] - GROUP_RANK[b.entry.group])

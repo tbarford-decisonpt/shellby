@@ -10,6 +10,7 @@ const AWARDS = Object.freeze({
   trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick' },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy' },
   day: { xp: 5, perHour: 1, label: 'Another day together' },
+  focus: { xp: 15, perHour: 3, label: 'Finished a focus session' },
 });
 
 const TITLES = [

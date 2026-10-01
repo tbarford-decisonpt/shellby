@@ -26,6 +26,7 @@
   const LEDES = {
     health: 'With Claude Code, Shellby can find out why and report back, without changing anything.',
     files: 'With Claude Code, drop files on Shellby and he works on them: sorts, renames, summarizes, converts.',
+    ci: 'With Claude Code, Shellby reads the failing logs and tells you why the build is red, without changing anything.',
   };
 
   SB.claudeUpsell = (reason = 'health') => {

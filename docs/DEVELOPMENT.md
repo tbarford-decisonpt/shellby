@@ -37,6 +37,7 @@ npm start
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
+| `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, the badge on Health in the bottom bar, screenshots |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
@@ -65,8 +66,12 @@ src/main/        Electron main process
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
   xp.js            XP and levels: awards, hourly caps, the level curve, and what a shell command means
+  shells.js        the shells he grows into as he levels up (molting)
+  motion.js        throws (release velocity, flight, landing) and idle strolls
+  focus.js         focus sessions: focus, break, and what a restart picks up
+  limits.js        usage limits: when one is reached, when it resets
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
-  github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, and the service tying them together
+  github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), and the service tying them together
   streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars

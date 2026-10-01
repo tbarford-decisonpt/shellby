@@ -28,7 +28,7 @@ function wire() {
   });
 }
 
-// spec: { title, message, detail, note, icon, danger, items, skin, accessories,
+// spec: { title, message, detail, note, icon, danger, items, skin, accessories, shell,
 //         buttons: [{ label, style }], defaultId, cancelId }
 // Resolves with the index of the chosen button (cancelId if the window closes).
 function ask(parent, spec) {

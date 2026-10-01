@@ -241,3 +241,25 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .sp-mute { width: 26px; height: 26px; font-size: 12px; }
 .streak-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; border-top: 1px solid var(--line-soft); padding-top: 8px; }
 .streak-settings .toggle { font-size: 12.5px; padding: 0; }
+
+/* ---------- focus sessions ---------- */
+.focus-card {
+  margin: 0 0 14px; padding: 14px; border-radius: var(--r-lg);
+  background: var(--reef); border: 1px solid var(--line);
+  transition: border-color .3s, background .3s;
+}
+.focus-card.on.focus {
+  background: radial-gradient(120% 140% at 0% 0%, rgba(90, 169, 255, .16), transparent 55%), var(--reef);
+  border-color: rgba(90, 169, 255, .4);
+}
+.focus-card.on.break { background: radial-gradient(120% 140% at 0% 0%, var(--glass-dim), transparent 55%), var(--reef); border-color: rgba(127, 214, 194, .35); }
+.focus-head { display: flex; align-items: center; gap: 12px; }
+.focus-badge { width: 48px; height: 48px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 24px; background: rgba(90, 169, 255, .14); }
+.focus-card:not(.on) .focus-badge { filter: saturate(.6); }
+.focus-titles { min-width: 0; }
+.focus-titles h3 { margin: 0; font: 600 20px var(--font-pixel); }
+.focus-eyebrow { color: #7cb8ff !important; }
+.focus-card.break .focus-eyebrow { color: var(--glass) !important; }
+.focus-clock { margin-left: auto; font: 600 26px/1 var(--font-mono); letter-spacing: .02em; color: #9ccaff; font-variant-numeric: tabular-nums; }
+.focus-card.break .focus-clock { color: var(--glass); }
+.focus-actions { display: flex; flex-wrap: wrap; gap: 6px; }

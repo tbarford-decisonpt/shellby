@@ -26,6 +26,10 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'keep-your-cool', name: 'Keep Your Cool', icon: '🧊', description: 'Shellby cools down after a heat warning', stat: 'heatCooled', goal: 1, rewards: ['sweatband', 'hand-fan'], hidden: true },
   { id: 'show-off', name: 'Show-Off', icon: '📸', description: 'Share your crab card', stat: 'cardsShared', goal: 1, rewards: ['camera'] },
   { id: 'spring-cleaning', name: 'Spring Cleaning', icon: '🧹', description: 'Free up space after a low-disk warning', stat: 'spaceFreed', goal: 1, rewards: ['broom'] },
+  { id: 'good-crab', name: 'Good Crab', icon: '💕', description: 'Pet Shellby 25 times', stat: 'petsGiven', goal: 25, rewards: ['heart-shades'], hidden: true },
+  { id: 'frequent-flyer', name: 'Frequent Flyer', icon: '🛩️', description: 'Throw Shellby across your screen', stat: 'timesThrown', goal: 1, rewards: ['aviator-cap'], hidden: true },
+  { id: 'deep-focus', name: 'Deep Focus', icon: '🛡️', description: 'Finish 5 focus sessions', stat: 'focusSessions', goal: 5, rewards: ['guard-helmet'] },
+  { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag'] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -33,7 +37,7 @@ const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
 const COUNTERS = [
   'tasksCompleted', 'helpersSpawned', 'maxCrew', 'tricksLearned', 'createdScriptsRun', 'routinesRun',
   'nightTasks', 'earlyTasks', 'maxParallel', 'permissionsAnswered', 'plansApproved', 'filesDropped',
-  'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared',
+  'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,6 +55,10 @@ const INCREMENTS = {
   'health-cooled': 'heatCooled',
   'health-space-freed': 'spaceFreed',
   'card-shared': 'cardsShared',
+  petted: 'petsGiven',
+  thrown: 'timesThrown',
+  'focus-completed': 'focusSessions',
+  'ci-fixed': 'buildsFixed',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = { 'crew-size': 'maxCrew', parallel: 'maxParallel' };

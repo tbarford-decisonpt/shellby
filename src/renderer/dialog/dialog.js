@@ -36,7 +36,7 @@
     $('detail').hidden = !s.detail;
     $('note').textContent = s.note || '';
     $('note').hidden = !s.note;
-    if (s.skin) $('crab').replaceChildren(window.ShellbySprite.build(s.skin, { accessories: s.accessories || [], fit: (s.accessories || []).length > 0 }));
+    if (s.skin) $('crab').replaceChildren(window.ShellbySprite.build(s.skin, { accessories: s.accessories || [], shell: s.shell || null, fit: (s.accessories || []).length > 0 }));
     const items = s.items || [];
     $('preview').hidden = !items.length;
     $('preview').replaceChildren(...items.map(it => {

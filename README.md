@@ -39,6 +39,8 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **On the wallpaper layer:** behind every window, and still there after <kbd>Win</kbd>+<kbd>D</kbd>.
 - **Shows you what's happening:** he scuttles while Claude works, raises a claw when it needs you, celebrates when it's done and naps when it's quiet.
 - **Drop files on him** to hand them to a task.
+- **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
+- **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, holds back the notifications that can wait, and takes a break with you when time's up.
 - **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
 
 ## 🎩 Dress him up
@@ -47,9 +49,10 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <img src="docs/critter-halloween.png" width="150" alt="Shellby in a witch hat with a pumpkin pail and bat wings, bats orbiting"> <img src="docs/critter-winter.png" width="150" alt="Shellby in a Santa hat and striped scarf with a candy cane in the snow"> <img src="docs/critter-wizard.png" width="150" alt="Shellby in a wizard hat holding a coffee mug, sparkles around him">
 </p>
 
-- **37 accessories and 7 effects** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw.
+- **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each one is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
+- **41 accessories and 7 effects** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep.
-- **22 trophies**, a few of them secret, unlock outfits as you use him. Or flip **Unlock everything**.
+- **26 trophies**, a few of them secret, unlock outfits as you use him. Or flip **Unlock everything**.
 - **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
 - **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
 
@@ -63,7 +66,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <details>
 <summary><b>XP, trophies, streaks and outfit codes in detail</b></summary>
 
-- **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), pushes (+40), passing tests (+25), trophies (+20) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop, and hourly caps stop a test loop from farming it. Level-ups get their own celebration.
+- **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), pushes (+40), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop, and hourly caps stop a test loop from farming it. Level-ups get their own celebration.
 - **Trophies & XP:** click the yellow level badge next to him in the title bar to see his level, an XP log and your streak.
 - **Trophy examples:** finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap, free up a full drive for a broom. Unlocks celebrate on your desktop with confetti.
 - **Streaks and nudges:** finish a Claude task on consecutive days for a 🔥 streak (it's in the status line too). Shellby remembers the git repos you work in, and when one goes quiet you get a nudge: *"You haven't committed to 3d-rack in 5 days 🐚"*. **Pick it up** opens a tab there with a "where did we leave off?" prompt. At most one nudge a day, only in the daytime, and each project can be muted.
@@ -128,6 +131,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use. When he writes himself a new one, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
 - **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
+- **Hit your usage limit?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
 - **Works everywhere you use Claude Code:** with the plugin he reacts to your terminal and VS Code sessions too, and shows up in Claude Code's status line.
 
 <details>
@@ -163,6 +167,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 Sign in with a short code you approve on github.com, with no password typed into Shellby. GitHub is only asked for what the features you turn on need:
 
 - **Sync between PCs:** trophies, collected items, XP, streak days, outfit and color, through a private gist. Syncing only ever adds progress.
+- **Watch CI on your pull requests:** when a build goes red he holds up a ✗ sign, when it's fixed he dances, and a review request makes him raise a claw. **Ask Shellby why** reads the failing logs and explains them without changing anything. Needs nothing beyond the sign-in for public repos; private ones need "Let Claude tasks push" too.
 - **Publish your Wardrobe packs** to the community gallery: Shellby forks it and opens the pull request for you.
 - **Let Claude tasks push:** Shellby's tabs get your sign-in for `git push`/`pull`, `gh` and the official GitHub plugin. Off by default, with a warning before it's turned on.
 
@@ -240,7 +245,7 @@ Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply i
 
 ## Privacy
 
-Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, the updater checking GitHub Releases, community pack downloads you ask for, GitHub (only if you sign in: your profile, the sync gist, pack pull requests), and Health asking LibreHardwareMonitor for sensor readings on `127.0.0.1`. That last one never leaves your PC. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
+Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, the updater checking GitHub Releases, community pack downloads you ask for, GitHub (only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests), and Health asking LibreHardwareMonitor for sensor readings on `127.0.0.1`. That last one never leaves your PC. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
 ## Contributing
 

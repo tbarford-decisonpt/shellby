@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('shellby', {
     onSkin: on('critter:skin'),
     onBurst: on('critter:burst'),
     onXp: on('critter:xp'),
+    onMolt: on('critter:molt'),
+    onMotion: on('critter:motion'),
+    pet: fire('critter:pet'),
   },
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
@@ -101,6 +104,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onGitHub: on('github'),
   onGitHubSignedIn: on('github:signed-in'),
   onGitHubError: on('github:error'),
+  getCi: invoke('ci:get'),
+  pollCi: invoke('ci:poll'),
+  openPr: fire('ci:open'),
+  askAboutCi: invoke('ci:ask'),
+  onCi: on('ci'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   getStatusLine: invoke('statusline:get'),
@@ -115,10 +123,21 @@ contextBridge.exposeInMainWorld('shellby', {
   onStreaks: on('streaks'),
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
+
+  // focus sessions
+  getFocus: invoke('focus:get'),
+  startFocus: invoke('focus:start'),
+  stopFocus: invoke('focus:stop'),
+  onFocus: on('focus'),
 
   // XP and levels
   getXp: invoke('xp:get'),
+  getHomes: invoke('homes:get'),
+  wearHome: invoke('homes:wear'),
+  homesSeen: fire('homes:seen'),
+  onHomes: on('homes'),
   onXp: on('xp'),
   onLevelUp: on('xp:levelup'),
 
@@ -158,6 +177,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),
   onUsage: on('usage'),
+  onLimit: on('limit'),
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),

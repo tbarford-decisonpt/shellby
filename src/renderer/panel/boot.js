@@ -56,6 +56,7 @@
     SB.refreshHealthCrab?.();
   });
   api.onWardrobe(view => SB.applyWardrobe(view));
+  api.onHomes(view => SB.applyHomes(view));
   api.onUnlocked(e => SB.onUnlocked(e));
   api.onCollected(items => SB.onCollected(items));
   api.onPackInstalled(r => SB.onPackInstalled(r));
@@ -96,6 +97,7 @@
     SB.applyMode(state.settings.mode);
     SB.applyCrabOnly();
     SB.applyUsage(state.settings.lastUsage);
+    if (b.homes) SB.applyHomes(b.homes);
     if (b.wardrobe) SB.applyWardrobe(b.wardrobe);
     if (b.welcomeTrophies?.length) {
       const names = b.welcomeTrophies.map(t => `${t.icon} ${t.name}`).join(', ');

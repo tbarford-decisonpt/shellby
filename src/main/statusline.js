@@ -23,6 +23,7 @@ const C = { reset: '\x1b[0m', dim: '\x1b[2m', gold: '\x1b[38;5;221m', coral: '\x
 const FACE = {
   idle: '🦀', working: '🦀💨', asking: '🦀✋', success: '🦀🎉', error: '🦀😵',
   learned: '🦀✨', unlocked: '🦀🏆', levelup: '🦀⭐', sleeping: '🦀💤',
+  molting: '🦀🐚', petted: '🦀💕', cheer: '🦀💃', refreshed: '🦀☀️',
 };
 const HEALTH = {
   hot: { icon: '🥵', color: C.amber }, scorching: { icon: '🔥', color: C.red },
@@ -56,6 +57,9 @@ function formatStatus(s) {
     const h = HEALTH[s.health.mood];
     parts.push(`${h.color}${h.icon} ${healthLabel(s.health)}${C.reset}`);
   }
+  if (s.limit) parts.push(`${C.amber}⏳ limit · back in ${limitLeft(s)}${C.reset}`);
+  if (s.focus?.phase) parts.push(`${C.glass}${s.focus.phase === 'focus' ? '🛡️ focus' : '☕ break'} ${focusLeft(s)}${C.reset}`);
+  if (s.ci > 0) parts.push(`${C.red}❌ CI${s.ci > 1 ? ` ×${s.ci}` : ''}${C.reset}`);
   if (s.lastXp && s.now - s.lastXp.at < 15000) parts.push(`${C.gold}+${s.lastXp.amount} XP${C.reset}`);
   return parts.join(` ${C.dim}·${C.reset} `);
 }
@@ -63,6 +67,7 @@ function formatStatus(s) {
 const PLAIN_FACE = {
   idle: '', working: ' working', asking: ' needs your OK', success: ' done!', error: ' hit a snag',
   learned: ' learned a trick', unlocked: ' got a trophy!', levelup: ' LEVEL UP!', sleeping: ' napping',
+  molting: ' moving shells', petted: ' happy', cheer: ' back to green!', refreshed: ' ready again!',
 };
 const PLAIN_HEALTH = { hot: 'hot', scorching: 'very hot', dizzy: 'memory full', stuffed: 'disk full' };
 
@@ -79,9 +84,16 @@ function formatPlain(s) {
   }
   if (s.streak >= 2) parts.push(`streak ${s.streak}d`);
   if (s.health && PLAIN_HEALTH[s.health.mood]) parts.push(`${C.amber}${healthLabel(s.health).replace(/°/g, '')} ${PLAIN_HEALTH[s.health.mood]}${C.reset}`);
+  if (s.limit) parts.push(`${C.amber}limit, back in ${limitLeft(s)}${C.reset}`);
+  if (s.focus?.phase) parts.push(`${C.glass}${s.focus.phase} ${focusLeft(s)}${C.reset}`);
+  if (s.ci > 0) parts.push(`${C.red}CI failing${s.ci > 1 ? ` x${s.ci}` : ''}${C.reset}`);
   if (s.lastXp && s.now - s.lastXp.at < 15000) parts.push(`${C.gold}+${s.lastXp.amount} XP${C.reset}`);
   return parts.join(` ${C.dim}|${C.reset} `).replace(/[^\x00-\x7f]/g, '');
 }
+
+// Minutes left in a focus session or break ("18m"); the line refreshes every 30 s.
+const focusLeft = s => `${Math.max(1, Math.ceil((s.focus.endsAt - s.now) / 60000))}m`;
+const limitLeft = s => require('./limits').left(s.limit.resetsAt, s.now).replace(/ 0?(\d+m)$/, ' $1');
 
 function healthLabel(h) {
   const id = String(h.id || '');

@@ -232,7 +232,7 @@ Items are available right away unless you add `unlock`. You can use one of these
 
 If an achievement or season id doesn't exist, the item is skipped with a warning. The ids you can use are listed below. They're defined in `src/main/wardrobe/achievements.js` and `src/main/wardrobe/seasons.js`.
 
-**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card).
+**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request).
 
 **Seasons** (local dates, both ends included):
 

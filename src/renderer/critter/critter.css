@@ -212,3 +212,97 @@ html, body {
 .state-levelup #bubble::after { border-top-color: #ffd23f; }
 .state-levelup #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) 3; }
 .state-levelup .part-claw { animation: wave .45s ease-in-out 6; }
+
+/* ---------- molting: out of the old shell, a bare shiver, into the new one ---------- */
+.molt-out #sprite, .molt-bare #sprite, .molt-in #sprite { animation: none; }
+.molt-out .part-shell { animation: molt-leave 1s cubic-bezier(.5, 0, .8, .4) forwards; }
+.molt-out [class*="part-legs"] { animation: leg .16s steps(1) infinite; }
+.molt-out .part-body, .molt-out .part-claw, .molt-out .part-eyes, .molt-out .part-stalks { animation: molt-wriggle .25s ease-in-out infinite; }
+.molt-bare #sprite { animation: molt-shiver .09s linear infinite; }
+.molt-bare .part-eyes { transform: scaleY(1.35); }
+.molt-bare .part-claw { transform: rotate(-30deg) translate(1px, -1px); }
+.molt-in .part-shell { animation: molt-drop .7s cubic-bezier(.3, 1.5, .5, 1) backwards; }
+.molt-in #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) .65s 2; }
+.molt-in .part-claw { animation: wave .45s ease-in-out .65s 4; }
+.molt-out #bubble, .molt-bare #bubble, .molt-in #bubble { background: #ffd23f; color: #3d2a00; font-size: 12px; }
+.molt-out #bubble::after, .molt-bare #bubble::after, .molt-in #bubble::after { border-top-color: #ffd23f; }
+@keyframes molt-leave { 0% { transform: none; opacity: 1; } 100% { transform: translateX(-9px) translateY(2px) rotate(-14deg); opacity: 0; } }
+@keyframes molt-wriggle { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1px); } }
+@keyframes molt-shiver { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+@keyframes molt-drop { 0% { transform: translateY(-16px); opacity: 0; } 40% { opacity: 1; } 100% { transform: none; } }
+
+/* ---------- petted: rub the mouse over him; happy squint, wiggle, hearts ---------- */
+.state-petted #sprite { animation: purr .32s ease-in-out infinite; }
+.state-petted .part-eyes { transform: scaleY(.3); }
+.state-petted .part-claw { animation: wave .5s ease-in-out infinite; }
+.state-petted #bubble { background: #ff8fab; color: #fff; }
+.state-petted #bubble::after { border-top-color: #ff8fab; }
+#hearts { position: absolute; left: 0; right: 0; bottom: calc(var(--px) * 12 + 26px); display: grid; justify-items: center; pointer-events: none; }
+#hearts span {
+  grid-area: 1 / 1; font: 700 15px "Pixelify Sans", monospace; color: #ff6b8b;
+  text-shadow: 0 1px 0 #6b1d33; animation: heart-rise 1.5s cubic-bezier(.2, .8, .3, 1) backwards;
+}
+@keyframes purr { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-1px); } }
+@keyframes heart-rise { 0% { transform: translate(0, 6px) scale(.4); opacity: 0; } 20% { opacity: 1; transform: translate(calc(var(--dx) * .5), 0) scale(1.1); } 100% { transform: translate(var(--dx), -38px) scale(.9); opacity: 0; } }
+
+/* ---------- thrown: tumble through the air, squash on landing ---------- */
+.flying #sprite { animation: tumble .55s linear infinite; }
+.fly-left #sprite { animation-direction: reverse; }
+.flying .part-eyes { transform: scaleY(1.4); }
+.flying [class*="part-legs"] { animation: leg .12s steps(1) infinite; }
+.flying #shadow { opacity: 0; }
+.landed #sprite { animation: squash .6s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes tumble { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes squash { 0% { transform: scale(1.25, .7) translateY(3px); } 60% { transform: scale(.95, 1.06); } 100% { transform: none; } }
+
+/* ---------- strolling: a sideways amble ---------- */
+.walking #sprite { animation: hop .5s ease-in-out infinite; }
+.walking .part-legs-a { animation: leg .25s steps(1) infinite; }
+.walking .part-legs-b { animation: leg .25s steps(1) infinite reverse; }
+.walking .part-eyes, .walking .part-stalks { animation: look 2s steps(1) infinite; }
+
+/* ---------- CI is red on one of your pull requests: worried, holding up a sign ---------- */
+#ciSign {
+  position: absolute; left: calc(var(--px) * 18); top: calc(var(--px) * -6);
+  width: calc(var(--px) * 8); height: calc(var(--px) * 9);
+  display: none; pointer-events: none; transform-origin: 50% 100%;
+}
+#ciSign svg { display: block; width: 100%; height: 100%; }
+.ci-red.state-idle #ciSign, .ci-red.state-working #ciSign { display: block; animation: sign-bob 1.4s ease-in-out infinite; }
+.ci-red.state-idle .part-claw { transform: rotate(-40deg) translate(1px, -2px); animation: none; }
+.ci-red.state-idle .part-eyes { transform: scaleY(.75) translateY(1px); }
+.ci-red.state-idle #bubble { background: #ff5a4a; color: #fff; font-size: 12px; }
+.ci-red.state-idle #bubble::after { border-top-color: #ff5a4a; }
+@keyframes sign-bob { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) translateY(-2px); } }
+
+/* ---------- cheer: a red build went green, so he dances ---------- */
+.state-cheer #sprite { animation: dance .5s ease-in-out infinite; }
+.state-cheer .part-claw { animation: wave .25s ease-in-out infinite; }
+.state-cheer [class*="part-legs"] { animation: leg .14s steps(1) infinite; }
+.state-cheer #bubble { background: #2dc653; color: #fff; font-size: 12px; animation: pulse .5s ease-in-out 6; }
+.state-cheer #bubble::after { border-top-color: #2dc653; }
+@keyframes dance { 0%, 100% { transform: rotate(-6deg) translateY(0); } 25% { transform: rotate(0) translateY(-6px); } 50% { transform: rotate(6deg) translateY(0); } 75% { transform: rotate(0) translateY(-6px); } }
+
+/* ---------- focus: helmet on, standing guard; then a little break ---------- */
+.focus-focus.state-idle #sprite { animation: guard 2.4s ease-in-out infinite; }
+.focus-focus.state-idle .part-claw { transform: rotate(-12deg); animation: none; }
+.focus-focus.state-idle .part-eyes { animation: guard-look 5s steps(1) infinite; }
+.focus-focus.state-idle #bubble { background: #3a86ff; color: #fff; font: 700 12px "Martian Mono", monospace; }
+.focus-focus.state-idle #bubble::after { border-top-color: #3a86ff; }
+.focus-break.state-idle #sprite { animation: breathe 4.5s ease-in-out infinite; }
+.focus-break.state-idle .part-eyes { transform: scaleY(.25); animation: none; }
+.focus-break.state-idle .part-claw { transform: rotate(10deg); animation: none; }
+.focus-break.state-idle #bubble { background: var(--glass); font: 700 12px "Martian Mono", monospace; }
+.focus-break.state-idle #bubble::after { border-top-color: var(--glass); }
+@keyframes guard { 0%, 100% { transform: translateY(0) scaleY(1.02); } 50% { transform: translateY(-1px) scaleY(1.04); } }
+@keyframes guard-look { 0%, 100% { transform: translateX(0); } 40% { transform: translateX(-1px); } 70% { transform: translateX(1px); } }
+
+/* ---------- usage limit: napping with a countdown, then a big stretch when it resets ---------- */
+.limited.state-sleeping #bubble { background: #ffb347; color: #3d2200; font: 700 12px "Martian Mono", monospace; }
+.limited.state-sleeping #bubble::after { border-top-color: #ffb347; }
+.state-refreshed #sprite { animation: stretch 1s cubic-bezier(.3, 1.4, .5, 1), jump .7s cubic-bezier(.3,1.6,.5,1) 1s 2; }
+.state-refreshed .part-claw { animation: wave .4s ease-in-out .2s 6; }
+.state-refreshed .part-eyes { transform: scaleY(1.2); }
+.state-refreshed #bubble { background: #ffd23f; color: #3d2a00; animation: pulse .5s ease-in-out 4; }
+.state-refreshed #bubble::after { border-top-color: #ffd23f; }
+@keyframes stretch { 0% { transform: scale(1, .8) translateY(3px); } 50% { transform: scale(.94, 1.14) translateY(-3px); } 100% { transform: none; } }

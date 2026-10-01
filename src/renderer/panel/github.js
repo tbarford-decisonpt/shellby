@@ -6,6 +6,7 @@
   const wanted = new Set(['sync']); // what a sign-in asks for (signed out)
 
   const ago = t => (t ? SB.relTime(t) : 'not yet');
+  const TOGGLES = [['sync', 'ghSync'], ['ci', 'ghCi'], ['publish', 'ghPublish'], ['claude', 'ghClaude']];
 
   function render(v) {
     if (!v) return;
@@ -22,7 +23,7 @@
     }
 
     // Toggles: signed in → the real state; signed out → what to ask for.
-    for (const [f, id] of [['sync', 'ghSync'], ['publish', 'ghPublish'], ['claude', 'ghClaude']]) {
+    for (const [f, id] of TOGGLES) {
       const el = $(id);
       el.checked = signedIn ? v.features[f].on && v.features[f].granted : wanted.has(f);
       el.disabled = !!v.flow || (f === 'claude' && !signedIn);
@@ -41,7 +42,40 @@
     if (v.flow) $('ghCodeText').textContent = v.flow.code;
     $('ghNoCrypto').hidden = v.encryption !== false;
     SB.views.wardrobe?.refreshPublish?.();
+    api.getCi().then(renderCi);
   }
+
+  // ------------------------------------------------------------ CI on your pull requests
+  const CI_LABEL = { failing: 'Failing', pending: 'Running', passing: 'Passing', none: 'No checks' };
+  function renderCi(v) {
+    if (!v) return;
+    $('ghCiRow').hidden = !v.enabled;
+    if (!v.enabled) return;
+    const n = v.prs.length;
+    $('ghCiStatus').textContent = v.error || (v.lastPollAt
+      ? `${n ? `${n} open pull request${n === 1 ? '' : 's'}` : 'No open pull requests'}${v.failing ? `, ${v.failing} failing` : ''}. Checked ${SB.relTime(v.lastPollAt)}. Private repos need "Let Claude tasks push" too.`
+      : 'Checking your pull requests shortly…');
+    $('ghCiStatus').classList.toggle('bad', !!v.error);
+    const row = (pr, review) => h('li', { class: `gh-ci-pr ci-${review ? 'review' : pr.state}` },
+      h('span', { class: 'gh-ci-dot', title: review ? 'Review requested' : CI_LABEL[pr.state] || '' }),
+      h('button', { type: 'button', class: 'gh-ci-link', title: `Open ${pr.repo}#${pr.number} on GitHub`, onclick: () => api.openPr(pr.key) },
+        h('b', { text: `${pr.repo}#${pr.number}` }), h('span', { text: pr.title })),
+      review ? h('span', { class: 'gh-ci-tag', text: 'Review' })
+        : pr.state === 'failing' ? h('button', { type: 'button', class: 'btn ghost slim-btn', title: pr.failing.join(', '), onclick: () => askWhy(pr) }, 'Ask Shellby why')
+          : h('span', { class: 'gh-ci-tag', text: CI_LABEL[pr.state] || '' }));
+    $('ghCiList').replaceChildren(...v.prs.map(pr => row(pr, false)), ...v.reviews.map(pr => row(pr, true)));
+  }
+  async function askWhy(pr) {
+    if (SB.isCrabOnly()) return SB.claudeUpsell('ci');
+    const r = await api.askAboutCi(pr.key);
+    if (!r.ok) SB.toast(r.error || "Couldn't start that task.", { ms: 5000 });
+  }
+  $('ghCiCheck').addEventListener('click', async () => {
+    $('ghCiCheck').disabled = true;
+    renderCi(await api.pollCi());
+    $('ghCiCheck').disabled = false;
+  });
+  api.onCi(v => renderCi({ ...v, enabled: !!(state.github?.signedIn && state.github.features.ci?.on) }));
 
   $('ghSignIn').addEventListener('click', async () => {
     $('ghSignIn').disabled = true;
@@ -63,7 +97,7 @@
     SB.toast(r.ok ? (r.pulled ? 'Synced: picked up progress from your other PCs.' : 'Synced.') : r.error, { ms: r.ok ? 2800 : 6000 });
   });
 
-  for (const [f, id] of [['sync', 'ghSync'], ['publish', 'ghPublish'], ['claude', 'ghClaude']]) {
+  for (const [f, id] of TOGGLES) {
     $(id).addEventListener('change', async e => {
       const on = e.target.checked;
       if (!state.github?.signedIn) { on ? wanted.add(f) : wanted.delete(f); return; }

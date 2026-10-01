@@ -490,4 +490,10 @@
     set($('meter5h'), u.fiveHour, '5-hour');
     set($('meter7d'), u.sevenDay, 'Weekly');
   };
+
+  // The plan's usage limit: Shellby naps until it resets, then says so (src/main/limits.js).
+  api.onLimit(e => {
+    if (e.phase === 'hit') SB.toast(`Your ${e.name} Claude limit is reached. Shellby will tap you when it resets, ${e.at}.`, { ms: 8000 });
+    if (e.phase === 'reset') SB.toast(`Your ${e.name} limit just reset. Go ahead!`, { ms: 6000 });
+  });
 })();

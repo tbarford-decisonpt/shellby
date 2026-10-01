@@ -675,6 +675,110 @@
       ]
     },
     {
+      "id": "heart-shades",
+      "name": "Heart Shades",
+      "description": "Somebody keeps petting him. He loves it.",
+      "slot": "face",
+      "pivot": [
+        4,
+        0
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "achievement": "good-crab"
+      },
+      "palette": {
+        "K": "#7a1236",
+        "p": "#ff5c8a",
+        "P": "#ffb3c8"
+      },
+      "pixels": [
+        "KKKKKKKKK",
+        ".p.p.p.p.",
+        ".pPp.pPp.",
+        "..p...p.."
+      ]
+    },
+    {
+      "id": "aviator-cap",
+      "name": "Aviator Cap",
+      "description": "For crabs who have been thrown across a desktop.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        3
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "frequent-flyer"
+      },
+      "palette": {
+        "b": "#8d5524",
+        "B": "#5e3613",
+        "g": "#90e0ef",
+        "K": "#2b2d42"
+      },
+      "pixels": [
+        "..bbbb..",
+        ".bbbbbb.",
+        "KgKbbKgK",
+        "BB....BB"
+      ]
+    },
+    {
+      "id": "guard-helmet",
+      "name": "Guard Helmet",
+      "description": "Five focus sessions guarded. Nobody got past.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        4
+      ],
+      "rarity": "epic",
+      "unlock": {
+        "achievement": "deep-focus"
+      },
+      "palette": {
+        "s": "#cfd8dc",
+        "S": "#8d99ae",
+        "k": "#2b2d42",
+        "r": "#e63946"
+      },
+      "pixels": [
+        "...rr...",
+        "..rr....",
+        ".ssssss.",
+        "sSssssSs",
+        "skkkkkks"
+      ]
+    },
+    {
+      "id": "green-flag",
+      "name": "Green Flag",
+      "description": "A red build turned green. Wave it proudly.",
+      "slot": "held",
+      "pivot": [
+        0,
+        5
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "green-light"
+      },
+      "palette": {
+        "p": "#adb5bd",
+        "g": "#2dc653",
+        "G": "#1a9e3c"
+      },
+      "pixels": [
+        "pgg",
+        "pgG",
+        "pgg",
+        "p..",
+        "p.."
+      ]
+    },
+    {
       "id": "witch-hat",
       "name": "Witch Hat",
       "description": "Spooky Season collectible.",

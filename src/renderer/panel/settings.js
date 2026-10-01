@@ -44,6 +44,7 @@
     $('loginToggle').disabled = !state.packaged;
     $('loginNote').hidden = state.packaged;
     $('notifyToggle').checked = !!state.settings.notifications;
+    $('wanderToggle').checked = state.settings.wander !== false;
     const st = state.status || {};
     const facts = [
       ['Shellby', `v${state.version}`],
@@ -67,6 +68,7 @@
   $('resetPosBtn').addEventListener('click', () => { api.resetCritterPosition(); SB.toast('Shellby is back in the bottom-right corner of your main screen.'); });
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
+  $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());

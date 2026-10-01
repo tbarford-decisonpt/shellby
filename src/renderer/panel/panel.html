@@ -328,6 +328,7 @@
       <button type="button" role="tab" data-slot="face">Face</button>
       <button type="button" role="tab" data-slot="neck">Neck</button>
       <button type="button" role="tab" data-slot="held">Held</button>
+      <button type="button" role="tab" data-slot="home" title="The shell he lives in. He grows into new ones as he levels up.">Homes</button>
       <button type="button" role="tab" data-slot="shell">Shell</button>
       <button type="button" role="tab" data-slot="effect">Effects</button>
       <button type="button" role="tab" data-slot="skin">Colors</button>
@@ -395,6 +396,18 @@
         </select>
       </div>
     </section>
+    <section class="focus-card" id="focusCard" aria-label="Focus">
+      <div class="focus-head">
+        <span class="focus-badge" aria-hidden="true">🛡️</span>
+        <div class="focus-titles">
+          <p class="xp-eyebrow focus-eyebrow">Focus</p>
+          <h3 id="focusTitle">Guard my focus</h3>
+        </div>
+        <span class="focus-clock" id="focusClock" hidden></span>
+      </div>
+      <p class="streak-sub" id="focusSub"></p>
+      <div class="focus-actions" id="focusActions"></div>
+    </section>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
   </main>
@@ -448,6 +461,8 @@
         <button type="button" class="btn ghost" id="openSkinsBtn">Open skins folder</button>
         <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
       </div>
+      <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
+      <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying.</p>
     </section>
 
     <section class="setting-group" data-nav="Shortcut">
@@ -508,11 +523,16 @@
         <div class="gh-who"><b id="ghName"></b><span class="small muted" id="ghLogin"></span></div>
         <button type="button" class="btn ghost slim-btn" id="ghSignOut">Sign out</button>
       </div>
-      <p class="small muted ext-lede" id="ghLede">Sign in to sync your progress between PCs, publish Wardrobe packs to the gallery, and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby.</p>
+      <p class="small muted ext-lede" id="ghLede">Sign in to sync your progress between PCs, have Shellby watch CI on your pull requests, publish Wardrobe packs to the gallery, and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby.</p>
       <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit and streak between PCs (a private gist)</label>
       <div class="gh-sync" id="ghSyncRow" hidden>
         <p class="small ext-status" id="ghSyncStatus"></p>
         <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
+      <div class="gh-ci" id="ghCiRow" hidden>
+        <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
+        <ul class="gh-ci-list" id="ghCiList"></ul>
       </div>
       <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
       <label class="toggle"><input type="checkbox" id="ghClaude"><span class="switch"></span>Let Claude tasks push code and open pull requests</label>
@@ -708,6 +728,7 @@
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
 <script src="streaks.js"></script>
+<script src="focus.js"></script>
 <script src="github.js"></script>
 <script src="nav.js"></script>
 <script src="boot.js"></script>

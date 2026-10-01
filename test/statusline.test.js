@@ -139,3 +139,21 @@ test("settings: never clobber what we can't read, or a statusLine changed since"
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).statusLine.command, 'theirs-now');
   assert.deepEqual(inspectSettings(path.join(tmp(), 'missing.json')), { state: 'none' });
 });
+
+test('focus sessions, red CI and the new moods show in both lines', () => {
+  const now = 1_000_000;
+  const focusing = { state: 'idle', xp, focus: { phase: 'focus', endsAt: now + 17.5 * 60000 }, ci: 2, now };
+  assert.equal(plain(formatStatus(focusing)), '🦀 Shellby · Lv 5 Claw Coder ▰▰▰▱▱ · 🛡️ focus 18m · ❌ CI ×2');
+  assert.equal(plain(formatPlain(focusing)), 'Shellby | Lv 5 Claw Coder [###--] | focus 18m | CI failing x2');
+  assert.match(plain(formatStatus({ state: 'idle', focus: { phase: 'break', endsAt: now + 20000 }, now })), /☕ break 1m$/);
+  assert.match(plain(formatStatus({ state: 'cheer', now })), /^🦀💃 Shellby/);
+  assert.match(plain(formatPlain({ state: 'molting', now })), /^Shellby moving shells/);
+});
+
+test('a reached usage limit shows when Shellby is back', () => {
+  const now = 1_000_000;
+  const s = { state: 'sleeping', limit: { window: 'fiveHour', resetsAt: now + (2 * 60 + 5) * 60000 }, now };
+  assert.equal(plain(formatStatus(s)), '🦀💤 Shellby napping · ⏳ limit · back in 2h 5m');
+  assert.equal(plain(formatPlain(s)), 'Shellby napping | limit, back in 2h 5m');
+  assert.match(plain(formatStatus({ state: 'refreshed', now })), /^🦀☀️ Shellby/);
+});

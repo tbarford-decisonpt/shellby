@@ -14,6 +14,7 @@ const FEATURE_SCOPES = Object.freeze({
   sync: ['gist'],              // private gist with your progress
   publish: ['public_repo'],    // fork shellby-packs and open a PR
   claude: ['repo'],            // Claude Code tasks can push and open PRs (private repos too)
+  ci: [],                      // watch CI on your pull requests (public repos; private ones ride on `repo`)
 });
 
 /** The scopes needed for a set of features (repo covers public_repo). */

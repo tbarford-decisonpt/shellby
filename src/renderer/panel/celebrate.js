@@ -32,7 +32,7 @@
         c.text ? h('p', { class: 'cel-text', text: c.text }) : null,
         c.rewards?.length ? h('ul', { class: 'cel-rewards' }, c.rewards.map(r => h('li', {},
           thumb(r),
-          h('span', { class: 'cel-rname' }, h('b', { text: r.name }), h('small', { text: r.slot ? SLOT_LABEL[r.slot] || r.slot : r.motion ? 'Effect' : 'Colors' }))))) : null,
+          h('span', { class: 'cel-rname' }, h('b', { text: r.name }), h('small', { text: r.slot ? SLOT_LABEL[r.slot] || r.slot : r.motion ? 'Effect' : r.kind === 'home' ? 'Home' : 'Colors' }))))) : null,
         h('div', { class: 'cel-actions' },
           wearable.length ? h('button', { class: 'btn primary slim-btn', type: 'button', onclick: () => wear(wearable) }, wearable.length > 1 ? 'Wear them' : 'Wear it') : null,
           h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => { dismiss(); SB.crabCard?.share(); } }, '📸 Share'))),

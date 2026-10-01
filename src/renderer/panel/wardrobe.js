@@ -2,7 +2,8 @@
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color' };
+  const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color', home: 'home' };
+  const HOME = 'home'; // his own shell (see src/main/shells.js)
   const RARITY = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
   let slot = 'hat';
   let mood = 'idle';
@@ -17,12 +18,20 @@
     if (!w) return [];
     if (s === 'effect') return w.effects;
     if (s === 'skin') return state.skins;
+    if (s === 'home') return homes();
     return w.accessories.filter(a => a.slot === s);
   }
+
+  // Shells he grows into: locked ones show the level that unlocks them.
+  const homes = () => (state.homes?.shells || []).map(sh => ({
+    ...sh, key: sh.id, locked: sh.locked ? { reason: 'level', text: `Grows into it at level ${sh.level}`, level: sh.level } : null,
+  }));
+  const shellFor = key => (key && key !== HOME ? (state.homes?.shells || []).find(sh => sh.id === key) || null : null);
 
   function lockText(l) {
     if (!l) return '';
     if (l.reason === 'achievement') return `🔒 ${l.text} (${l.current}/${l.goal})`;
+    if (l.reason === 'level') return `🔒 ${l.text}`;
     if (l.reason === 'season') {
       const back = l.back ? new Date(l.back).toLocaleDateString([], { month: 'long', day: 'numeric' }) : 'next season';
       return `🔒 ${l.text}, back ${back}`;
@@ -32,7 +41,7 @@
 
   function outfitWith(override) {
     const o = { ...(wd()?.outfit || {}) };
-    if (override && override.slot !== 'skin') o[override.slot] = override.key;
+    if (override && override.slot !== 'skin' && override.slot !== 'home') o[override.slot] = override.key;
     return o;
   }
 
@@ -50,7 +59,8 @@
     const w = wd();
     const outfit = outfitWith(tryOn);
     const skin = tryOn?.slot === 'skin' ? state.skins.find(s => s.id === tryOn.key) || state.skin : state.skin;
-    const svg = SB.Sprite.build(skin, { accessories: renderedAccessories(outfit), fit: false });
+    const shell = tryOn?.slot === 'home' ? shellFor(tryOn.key) : state.outfit?.home || null;
+    const svg = SB.Sprite.build(skin, { accessories: renderedAccessories(outfit), shell, fit: false });
     $('wdCrab').replaceChildren(svg);
     const stage = $('wdStage');
     stage.className = `stage state-${mood}`;
@@ -59,6 +69,8 @@
     stageFx.set(effect || null); // locked effects can still be previewed
     const bits = ['hat', 'face', 'neck', 'held', 'shell'].map(s => outfit[s]).filter(Boolean).map(k => w.accessories.find(a => a.key === k)?.name).filter(Boolean);
     if (effect) bits.push(effect.name);
+    const home = shellFor(state.homes?.worn);
+    if (home) bits.unshift(home.name);
     $('wdCaption').textContent = tryOn ? `Trying on: ${(itemsFor(tryOn.slot).find(i => (i.key || i.id) === tryOn.key) || {}).name || 'nothing'}` : bits.length ? bits.join(' · ') : 'Just the shell';
   }
 
@@ -66,7 +78,7 @@
   function tile(item) {
     const isSkin = slot === 'skin';
     const key = isSkin ? item.id : item.key;
-    const equipped = isSkin ? state.skin?.id === key : wd().outfit[slot] === key;
+    const equipped = isSkin ? state.skin?.id === key : slot === 'home' ? state.homes?.worn === key : wd().outfit[slot] === key;
     const locked = item.locked;
     let art;
     if (isSkin) art = SB.sprite(item, { plain: true });
@@ -93,7 +105,7 @@
   function renderGrid() {
     const items = itemsFor(slot);
     const grid = $('wdGrid');
-    const none = slot === 'skin' ? null : h('button', {
+    const none = slot === 'skin' ? null : slot === 'home' ? ownShellTile() : h('button', {
       type: 'button', role: 'option', class: `wd-tile none${!wd().outfit[slot] ? ' on' : ''}`, title: `No ${SLOT_LABEL[slot]}`,
       onmouseenter: () => { tryOn = { slot, key: null }; renderStage(); },
       onmouseleave: () => { tryOn = null; renderStage(); },
@@ -110,7 +122,21 @@
     });
     // Seen: new badges clear once their tab has been opened.
     const seen = items.filter(i => i.isNew && !i.locked).map(i => i.key);
-    if (seen.length) api.markSeen(seen);
+    if (seen.length && slot === 'home') api.homesSeen(seen);
+    else if (seen.length) api.markSeen(seen);
+  }
+
+  // The shell he hatched with: always there, first in the Homes tab.
+  function ownShellTile() {
+    const on = (state.homes?.worn || HOME) === HOME;
+    return h('button', {
+      type: 'button', role: 'option', 'aria-selected': String(on), class: `wd-tile${on ? ' on' : ''}`, title: ['His own shell', 'The one he hatched with.'].join('\n'),
+      onmouseenter: () => { tryOn = { slot, key: HOME }; renderStage(); },
+      onmouseleave: () => { tryOn = null; renderStage(); },
+      onfocus: () => { tryOn = { slot, key: HOME }; renderStage(); },
+      onblur: () => { tryOn = null; renderStage(); },
+      onclick: () => equip(null, HOME, on),
+    }, h('span', { class: 'wd-art' }, SB.sprite(state.skin, { plain: true })), h('span', { class: 'wd-name', text: 'His own' }));
   }
 
   async function equip(item, key, equipped) {
@@ -118,6 +144,12 @@
     if (slot === 'skin') {
       const r = await api.setSettings({ skin: key });
       state.settings = r.settings;
+      return;
+    }
+    if (slot === 'home') {
+      const r = await api.wearHome(key || HOME);
+      applyHomes(r.view);
+      if (!r.ok) SB.toast(r.error);
       return;
     }
     const r = await api.setOutfit({ [slot]: equipped ? null : key });
@@ -172,11 +204,23 @@
     if (!view) return;
     state.wardrobe = view;
     $('wdCount').textContent = `${view.totals.unlocked}/${view.totals.all}`;
-    $('wardrobeBadge').hidden = ![...view.accessories, ...view.effects].some(i => i.isNew && !i.locked);
+    refreshBadge();
     if (state.view === 'wardrobe') render();
     if (state.view === 'trophies') renderTrophies();
   }
   SB.applyWardrobe = applyView;
+
+  const refreshBadge = () => {
+    const w = wd();
+    $('wardrobeBadge').hidden = ![...(w?.accessories || []), ...(w?.effects || []), ...homes()].some(i => i.isNew && !i.locked);
+  };
+  function applyHomes(view) {
+    if (!view) return;
+    state.homes = view;
+    refreshBadge();
+    if (state.view === 'wardrobe' && wd()) render();
+  }
+  SB.applyHomes = applyHomes;
 
   function render() {
     if (!wd()) return;

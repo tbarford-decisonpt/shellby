@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.17.0: Shellby's own life
+
+### New
+- **He grows into new shells.** Hermit crabs move into bigger shells as they grow, and now Shellby does too: level 3 brings a Snail Shell, then a Tin Can (level 5), a Teacup (8), a Toy Brick (12) and the Golden Conch (20). The level-up that unlocks one plays a molt on your desktop: he crawls out of the old shell, shivers for a moment without one, and the new shell drops onto his back. Pick any shell you've grown into under **Outfits → Homes**, including the one he hatched with.
+- **Pet him.** Rub the mouse back and forth over him (no clicking) and he squints happily, wiggles and sends up hearts. Petting a sleeping Shellby wakes him up.
+- **Throw him.** Flick him while dragging and he tumbles through the air, bounces off the screen edges and lands on the taskbar. Where he lands is his new spot.
+- **He strolls a little.** When he's idle and awake he sometimes ambles a few steps (sideways, like a crab) and always stays near his spot. Turn it off in **Settings → Look**.
+- **He guards your focus.** Right-click him (or the tray icon, or Ctrl+K) → **Guard my focus** for 15, 25 or 50 minutes. He puts on a helmet and counts down in his bubble, and notifications that can wait are held back and summed up afterwards. A task waiting for your OK and health alerts still come through. When time's up he takes a short break with you. A finished session earns 15 XP and keeps your streak going, and the **Focus** card on Trophies & XP shows the clock.
+- **He watches CI on your pull requests.** Turn it on in **Settings → GitHub**. When a build goes red he holds up a ✗ sign and his bubble says so, when it's fixed he dances, and a review request makes him raise a claw. Settings lists your open pull requests, and **Ask Shellby why** starts a task that reads the failing logs and explains them without changing anything. Public repos need nothing beyond the sign-in; private ones need "Let Claude tasks push" too.
+- **Four new trophies:** Good Crab (secret) for petting him, Frequent Flyer (secret) for throwing him, Deep Focus for 5 focus sessions and Green Light for fixing a red build. They unlock Heart Shades, an Aviator Cap, a Guard Helmet and a Green Flag.
+- **A heads-up when your usage limit resets.** When Claude Code says your 5-hour or weekly limit is reached, Shellby tells you when it resets and naps with a countdown in his bubble. The moment it resets he wakes up with a big stretch and taps you, so anything you queued can go. It also works after your PC wakes from sleep or Shellby restarts.
+- The status line shows a running focus session (`🛡️ focus 18m`), red CI (`❌ CI`) and when a reached limit resets (`⏳ limit · back in 2h 5m`).
+
 ## 0.16.4
 
 ### Docs
