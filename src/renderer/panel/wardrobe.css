@@ -145,3 +145,35 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .reward { width: 34px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: var(--abyss); }
 .reward svg { max-width: 26px; max-height: 22px; width: auto; height: 22px; }
 .trophy:not(.done) .reward svg { filter: grayscale(1) brightness(.6); }
+
+/* ---------- outfit code ---------- */
+.outfit-code {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 10px 0 12px; padding: 8px 10px; border-radius: var(--r);
+  background: var(--reef); border: 1px solid var(--line-soft);
+}
+.oc-label { font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.outfit-code code { font: 500 14px var(--font-mono); color: var(--glass); letter-spacing: .04em; margin-right: auto; user-select: all; }
+.outfit-code .slim-btn { height: 28px; }
+
+.code-box { width: min(100%, 460px); }
+.code-lede { margin: 0 0 8px !important; }
+.code-input { font: 500 16px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; height: 40px; }
+.code-input::placeholder { text-transform: none; letter-spacing: .04em; }
+.code-error { margin: 8px 0 0; font-size: 12.5px; color: var(--amber); }
+.code-preview { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: start; margin-top: 12px; }
+.code-crab {
+  height: 110px; border-radius: var(--r); background: var(--abyss); border: 1px solid var(--line-soft);
+  display: grid; place-items: end center; padding-bottom: 12px;
+}
+.code-crab svg { width: 96px; height: auto; overflow: visible; }
+.code-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; max-height: 220px; overflow-y: auto; }
+.code-row {
+  display: grid; grid-template-columns: 38px 1fr auto; gap: 9px; align-items: center;
+  padding: 4px 8px 4px 4px; border-radius: var(--r-sm); background: rgba(6, 19, 22, .55); border: 1px solid var(--line-soft);
+}
+.code-state { font-size: 12px; color: var(--glass); white-space: nowrap; }
+.code-row.locked .code-state { color: var(--amber); white-space: normal; text-align: right; max-width: 150px; font-size: 11.5px; }
+.code-row.pack { border-style: dashed; border-color: color-mix(in srgb, var(--coral) 40%, transparent); }
+.code-row.unknown { opacity: .75; }
+.code-box .row.end { margin-top: 14px; }

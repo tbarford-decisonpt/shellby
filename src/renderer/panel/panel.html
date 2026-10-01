@@ -297,6 +297,12 @@
       <button type="button" class="mood" data-mood="sleeping">Sleeping</button>
       <button type="button" class="mood random" id="randomizeBtn" title="Surprise me">🎲</button>
     </div>
+    <div class="outfit-code" id="outfitCodeRow">
+      <span class="oc-label">Outfit code</span>
+      <code id="outfitCode" title="Share this: anyone with Shellby can wear your look">SHB-…</code>
+      <button type="button" class="btn ghost slim-btn" id="copyCodeBtn">Copy</button>
+      <button type="button" class="btn slim-btn" id="wearCodeBtn">Wear a code…</button>
+    </div>
     <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots">
       <button type="button" role="tab" data-slot="hat" aria-selected="true">Hats</button>
       <button type="button" role="tab" data-slot="face">Face</button>
@@ -518,6 +524,29 @@
     </div>
   </div>
 
+  <!-- outfit codes: wear someone else's look -->
+  <div class="card-sheet" id="codeSheet" role="dialog" aria-modal="true" aria-labelledby="codeTitle" hidden>
+    <div class="card-box code-box">
+      <div class="card-head">
+        <h2 id="codeTitle">Wear someone's look</h2>
+        <button type="button" class="icon-btn" id="codeClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="muted small code-lede">Paste an outfit code from a post, a comment or a friend.</p>
+      <input class="field code-input" id="codeInput" placeholder="SHB-XXXX-XXXX-XXXX" spellcheck="false" autocomplete="off" maxlength="60" aria-label="Outfit code">
+      <p class="code-error" id="codeError" role="alert" hidden></p>
+      <div class="code-preview" id="codePreview" hidden>
+        <div class="code-crab" id="codeCrab"></div>
+        <ul class="code-items" id="codeItems"></ul>
+      </div>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="codeCancel">Cancel</button>
+        <button type="button" class="btn primary" id="codeWear" disabled>Wear it</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../shared/sprite.js"></script>
@@ -535,6 +564,7 @@
 <script src="card.js"></script>
 <script src="celebrate.js"></script>
 <script src="crabonly.js"></script>
+<script src="outfitcode.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

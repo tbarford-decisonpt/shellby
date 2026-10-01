@@ -202,4 +202,40 @@ async function fetchRegistryPack(packId, { baseUrl = REGISTRY_URL, fetchImpl = g
   }
 }
 
-module.exports = { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, isUnderBase, normalizeBase };
+/**
+ * The gallery's catalog.json: every community item with its pack, so an outfit
+ * code can say which pack a missing item comes from. Never throws.
+ * @returns {Promise<{ ok: boolean, items?: [{ key, slot, name, packId, packName }], errors: string[] }>}
+ */
+async function fetchRegistryCatalog({ baseUrl = REGISTRY_URL, fetchImpl = globalThis.fetch, timeoutMs = 15000 } = {}) {
+  const fail = msg => ({ ok: false, errors: [msg] });
+  const base = normalizeBase(baseUrl);
+  if (!base || typeof fetchImpl !== 'function') return fail('The Shellby community registry is unavailable.');
+  try {
+    const raw = await fetchBytes(new URL('catalog.json', base).href, { fetchImpl, timeoutMs, base, maxBytes: MAX_INDEX_BYTES * 2, what: 'community catalog' });
+    const cat = JSON.parse(raw.toString('utf8').replace(/^\uFEFF/, ''));
+    if (!isObj(cat) || !Array.isArray(cat.packs)) return fail("The community catalog is in a format this version of Shellby doesn't understand.");
+    const ITEM_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+    const name = (v, id) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]+/g, ' ').slice(0, 60) : id);
+    const items = [];
+    for (const pk of cat.packs.slice(0, 500)) {
+      if (!isObj(pk) || !PACK_ID_RE.test(pk.id)) continue;
+      const add = (list, slotOf) => {
+        for (const it of Array.isArray(list) ? list.slice(0, 200) : []) {
+          if (!isObj(it) || !ITEM_ID.test(it.id)) continue;
+          const slot = slotOf(it);
+          if (slot) items.push({ key: `${pk.id}/${it.id}`, slot, name: name(it.name, it.id), packId: pk.id, packName: name(pk.name, pk.id) });
+        }
+      };
+      add(pk.accessories, it => (['hat', 'face', 'neck', 'held', 'shell'].includes(it.slot) ? it.slot : null));
+      add(pk.effects, () => 'effect');
+      add(pk.skins, () => 'skin');
+    }
+    return { ok: true, items, errors: [] };
+  } catch (e) {
+    if (e instanceof FetchError) return fail(e.message);
+    return fail("Couldn't read the community catalog. Try again later.");
+  }
+}
+
+module.exports = { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog, isUnderBase, normalizeBase };

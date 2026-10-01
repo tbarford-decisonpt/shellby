@@ -34,6 +34,7 @@
       trophiesAll: (v.achievements || []).length,
       badges: done.map(a => a.icon),
       season: v.season?.wearing ? v.season : null,
+      code: SB.outfitCode?.() || null,
       hasOutfit: !!(o && Object.values(o).some(Boolean)),
     };
   }
@@ -78,6 +79,7 @@
       .map(f => document.fonts.load(f).catch(() => null)));
     // Fresh numbers: the panel's wardrobe view only refreshes when something unlocks.
     SB.applyWardrobe(await api.wardrobeView());
+    if (!SB.outfitCode?.()) await new Promise(r => setTimeout(r, 50));
     const d = cardData();
     const canvas = document.createElement('canvas');
     canvas.width = W;
@@ -195,7 +197,7 @@
     ctx.fillText(d.badges.length ? 'TROPHY SHELF' : 'TROPHY SHELF · EMPTY FOR NOW', x0, by);
     const badge = 52;
     const perRow = Math.floor((colW + 10) / (badge + 10));
-    d.badges.slice(0, perRow * 2).forEach((icon, i) => {
+    d.badges.slice(0, perRow).forEach((icon, i) => {
       const bx = x0 + (i % perRow) * (badge + 10), byy = by + 16 + Math.floor(i / perRow) * (badge + 10);
       roundRect(ctx, bx, byy, badge, badge, 12);
       ctx.fillStyle = 'rgba(255,193,94,.10)';
@@ -208,10 +210,23 @@
       ctx.fillText(icon, bx + badge / 2, byy + 36);
       ctx.textAlign = 'left';
     });
-    if (d.badges.length > perRow * 2) {
+    if (d.badges.length > perRow) {
       ctx.fillStyle = C.sandDim;
       ctx.font = '600 15px "Martian Mono"';
-      ctx.fillText(`+${d.badges.length - perRow * 2}`, x0 + perRow * (badge + 10), by + 16 + badge + 46);
+      ctx.textAlign = 'right';
+      ctx.fillText(`+${d.badges.length - perRow} more`, right, by);
+      ctx.textAlign = 'left';
+    }
+
+    // The outfit code: anyone with Shellby can paste it to wear this look.
+    if (d.code) {
+      const cy = by + 16 + badge + 46;
+      ctx.fillStyle = C.sandFaint;
+      ctx.font = '600 13px "Martian Mono"';
+      ctx.fillText('WEAR MY LOOK', x0, cy);
+      ctx.fillStyle = C.glass;
+      ctx.font = '500 26px "Martian Mono"';
+      ctx.fillText(d.code, x0, cy + 34);
     }
 
     // Footer.
@@ -241,7 +256,7 @@
   const sheet = $('cardSheet');
   let last = null;
 
-  const postText = d => `Meet my Shellby 🦀 ${d.tasks} task${d.tasks === 1 ? '' : 's'} done and ${d.trophies}/${d.trophiesAll} trophies. A pixel hermit crab that runs Claude Code on my desktop.`;
+  const postText = d => `Meet my Shellby 🦀 ${d.tasks} task${d.tasks === 1 ? '' : 's'} done and ${d.trophies}/${d.trophiesAll} trophies. A pixel hermit crab that runs Claude Code on my desktop.${d.code ? ` Wear my look: ${d.code}` : ''}`;
 
   async function share() {
     const btns = document.querySelectorAll('[data-share-card]');

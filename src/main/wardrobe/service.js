@@ -4,6 +4,7 @@ const { EventEmitter } = require('events');
 const { loadCatalog, installPack, removePack } = require('./catalog');
 const { SEASONS, KNOWN_SEASONS, activeSeasons, featuredSeason, isActive, nextStart } = require('./seasons');
 const { ACHIEVEMENTS, KNOWN_ACHIEVEMENTS, normalizeStats, recordStat, evaluate, progress } = require('./achievements');
+const { encodeOutfit, decodeOutfit, resolveEntries } = require('./codes');
 
 const SLOTS = ['hat', 'face', 'neck', 'held', 'shell', 'effect'];
 const EMPTY_OUTFIT = Object.freeze({ hat: null, face: null, neck: null, held: null, shell: null, effect: null });
@@ -142,6 +143,60 @@ class Wardrobe extends EventEmitter {
     this.save({ outfit: next, seasonOverrides, newItems: d.newItems.filter(k => !touched.includes(k)) });
     this.emit('changed');
     return { ok: true };
+  }
+
+  // ------------------------------------------------------------ outfit codes
+
+  /** The code for what Shellby is wearing now. skin: the active skin id/key. */
+  outfitCode(skin) { return encodeOutfit(this.effectiveOutfit(), skin); }
+
+  /** Everything a code can point at: [{ key, slot }]. builtinSkins: [{ id, name }]. */
+  codeTargets(builtinSkins = []) {
+    return [
+      ...[...this.catalog.accessories.values()].map(a => ({ key: a.key, slot: a.slot, item: a })),
+      ...[...this.catalog.effects.values()].map(e => ({ key: e.key, slot: 'effect', item: e })),
+      ...this.catalog.skins.map(s => ({ key: s.key, slot: 'skin', item: s })),
+      ...builtinSkins.map(s => ({ key: s.id, slot: 'skin', item: { key: s.id, name: s.name, builtinSkin: true } })),
+    ];
+  }
+
+  /**
+   * What a code would put on: { ok, found: [{ slot, key, name, locked, item }], missing: [{ slot, hash }] }
+   * (locked: null, or { text } saying how to earn it).
+   */
+  previewCode(text, builtinSkins = []) {
+    const d = decodeOutfit(text);
+    if (!d.ok) return d;
+    const targets = this.codeTargets(builtinSkins);
+    const { found, missing } = resolveEntries(d.entries, targets);
+    return {
+      ok: true,
+      missing,
+      found: found.map(f => {
+        const it = targets.find(t => t.key === f.key && t.slot === f.slot).item;
+        return { slot: f.slot, key: f.key, name: it.name, locked: it.builtinSkin ? null : this.lockInfo(it), item: it.builtinSkin ? null : publicItem(it) };
+      }),
+    };
+  }
+
+  /**
+   * Wear a code: the whole look replaces the current one (slots the code leaves
+   * empty come off). Locked items are skipped. Returns { ok, worn, skipped, skin }.
+   */
+  wearCode(text, builtinSkins = []) {
+    const p = this.previewCode(text, builtinSkins);
+    if (!p.ok) return p;
+    const patch = { hat: null, face: null, neck: null, held: null, shell: null, effect: null };
+    const worn = [], skipped = [];
+    let skin = null;
+    for (const f of p.found) {
+      if (f.locked) { skipped.push(f); continue; }
+      if (f.slot === 'skin') skin = f.key; else patch[f.slot] = f.key;
+      worn.push(f);
+    }
+    const r = this.setOutfit(patch);
+    if (!r.ok) return r;
+    return { ok: true, worn, skipped, missing: p.missing, skin };
   }
 
   wearSeason() {

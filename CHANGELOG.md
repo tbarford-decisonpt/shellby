@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0: Outfit codes
+
+### New
+- **Outfit codes.** Every look has a short code like `SHB-B1T7-2DB1-7MXH-JW90`. It's shown under the Wardrobe preview with a **Copy** button. Post it in a comment, a thread or on Discord.
+- **Wear a code…** previews a pasted code on your crab before you put it on:
+  - Items you have are worn.
+  - Locked items say which trophy unlocks them.
+  - Items from community packs you don't have are looked up in the gallery, with a **Get pack** button (the usual install confirmation).
+- **Codes are forgiving:** any case, spaces, and `O`/`0` or `I`/`L`/`1` mix-ups all work. A built-in checksum catches typos instead of putting on the wrong outfit.
+- **No server, and future-proof:** a code doesn't depend on the order of items, so it keeps working as new items and packs arrive.
+- **The crab card shows your code** ("Wear my look"), and the X and Bluesky post text includes it.
+
 ## 0.9.0: Queue it up
 
 ### New

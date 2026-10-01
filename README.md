@@ -58,6 +58,7 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 - **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
 - **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
 - **Community packs.** More hats, effects and colors from other people, installed in one click. See [Community wardrobe](#community-wardrobe) below.
+- **Outfit codes.** Every look has a code like `SHB-B1T7-2DB1-7MXH-JW90`. Post yours, paste someone else's into **Wear a code…** and Shellby previews it on your crab, then puts it on. Locked items show which trophy unlocks them, and items from community packs you don't have come with a **Get pack** button. Codes are typo-proof and need no server.
 - **Show him off.** **📸 Share** in the Wardrobe makes a crab card with your Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`, ready to paste into a post. Sharing one earns a trophy too.
 
 <p align="center"><img src="docs/crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, titled Fleet Admiral, 12 tasks done, 7 of 22 trophies, 31 helper crabs sent"></p>
@@ -187,6 +188,7 @@ npm start
 | `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
+| `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |

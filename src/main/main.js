@@ -21,7 +21,8 @@ const confirm = require('./confirm');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
-const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
+const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog } = require('./registry');
+const { itemHash } = require('./wardrobe/codes');
 const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const { FAKE_SCENARIOS } = require('./health/fake');
@@ -733,6 +734,39 @@ function registerIpc() {
     return { ...r, view: wardrobe.view() };
   });
   ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) wardrobe.remove(packId); return wardrobe.view(); });
+
+  // ---- outfit codes (SHB-XXXX-XXXX): a whole look as a pasteable string
+  const builtinSkins = () => skins.map(s => ({ id: s.id, name: s.name }));
+  ipcMain.handle('wardrobe:code', () => ({ code: wardrobe.outfitCode(activeSkin()?.id) }));
+  ipcMain.handle('wardrobe:code-preview', async (_e, text) => {
+    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
+    const p = wardrobe.previewCode(text, builtinSkins());
+    if (!p.ok || !p.missing.length) return { ...p, packs: [] };
+    // Items from community packs you don't have: find them in the gallery's catalog.
+    const cat = await fetchRegistryCatalog({ baseUrl: registryUrl() });
+    const packs = new Map();
+    const unknown = [];
+    for (const m of p.missing) {
+      const hit = cat.ok && cat.items.find(it => it.slot === m.slot && itemHash(it.key) === m.hash);
+      if (!hit) { unknown.push(m); continue; }
+      const entry = packs.get(hit.packId) || { id: hit.packId, name: hit.packName, items: [] };
+      entry.items.push({ slot: m.slot, name: hit.name });
+      packs.set(hit.packId, entry);
+    }
+    return { ...p, packs: [...packs.values()], unknown, catalogError: cat.ok ? null : cat.errors[0] };
+  });
+  ipcMain.handle('wardrobe:code-wear', (_e, text) => {
+    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
+    const r = wardrobe.wearCode(text, builtinSkins());
+    if (!r.ok) return r;
+    if (r.skin && r.skin !== config.get('skin')) {
+      const sk = allSkins().find(x => x.id === r.skin);
+      if (sk && !sk.locked) { config.set({ skin: r.skin }); broadcastSkin(); }
+    }
+    return { ...r, view: wardrobe.view() };
+  });
+  // "Get the pack" from an outfit code: the same confirmed install as a gallery link.
+  ipcMain.handle('wardrobe:install-registry', (_e, packId) => (isStr(packId) && /^[a-z0-9][a-z0-9-]{1,39}$/.test(packId) ? installFromRegistry(packId) : { ok: false }));
   ipcMain.on('wardrobe:open-folder', () => { fs.mkdirSync(wardrobe.userDir, { recursive: true }); shell.openPath(wardrobe.userDir); });
   ipcMain.on('skins:open-folder', () => shell.openPath(userSkinsDir()));
 
