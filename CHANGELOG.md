@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.2
+
+### Docs
+- **A new demo at the top of the README**, recorded with the 0.16 layout: the bottom bar with Shellby leading it, helper crabs, and a trophy unlocking.
+
 ## 0.16.1
 
 ### Docs
