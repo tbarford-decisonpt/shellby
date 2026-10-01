@@ -1,0 +1,13 @@
+{
+  "description": "Lets Shellby, the desktop crab, react to your Claude Code sessions: works while Claude works, raises a claw when it needs permission, celebrates when a turn finishes, and sends out helper crabs for subagents.",
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "PreToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "Notification": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"", "timeout": 3 }] }]
+  }
+}

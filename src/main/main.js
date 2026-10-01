@@ -23,6 +23,7 @@ const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
 const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
 const { HealthService } = require('./health/service');
+const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const { FAKE_SCENARIOS } = require('./health/fake');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -62,7 +63,7 @@ if (!CAPTURE) {
 // The community registry. Only dev builds may point elsewhere (for testing).
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -233,7 +234,14 @@ function flashState(state, ms = 7000) {
 // Rolls every tab up into one mood: asking > working > flash > idle/sleeping.
 function refreshCritter() {
   if (!manager || !critter) return;
-  const agg = manager.aggregate;
+  const own = manager.aggregate;
+  const ext = external?.summary || { state: 'idle', busy: 0, crew: [] };
+  // Shellby's own tabs plus Claude Code sessions elsewhere: asking > working > idle.
+  const agg = {
+    state: own.state === 'asking' || ext.state === 'asking' ? 'asking' : own.state === 'working' || ext.state === 'working' ? 'working' : own.state,
+    busy: own.busy + ext.busy,
+    crew: [...own.crew, ...ext.crew],
+  };
   let state = agg.state;
   if (state !== 'idle') lastActivity = Date.now();
   else if (flash && flash.until > Date.now()) state = flash.state;
@@ -246,7 +254,7 @@ function refreshCritter() {
     moreCrew: Math.max(0, agg.crew.length - MAX_CREW_SHOWN),
     health: healthMood,
   });
-  setCrewSlots(agg.crew.length);
+  setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
 
   clearTimeout(sleepTimer);
   if (state === 'idle') sleepTimer = setTimeout(refreshCritter, SLEEP_AFTER_MS - (Date.now() - lastActivity) + 100);
@@ -381,6 +389,26 @@ function createHealth() {
     fakeScenario: CAPTURE ? 'calm' : envFake,
     onMood: mood => { healthMood = mood; refreshCritter(); },
   });
+}
+
+// Claude Code sessions outside Shellby, reported by the Shellby plugin's hooks.
+function createExternal() {
+  const port = (!app.isPackaged && Number(process.env.SHELLBY_HOOK_PORT)) || HOOK_PORT;
+  external = new ExternalSessions({ port });
+  external.on('changed', summary => { refreshCritter(); send(panel, 'external', { ...summary, status: external.status, port: external.port, enabled: !!config.get('externalSessions') }); });
+  external.on('status', () => send(panel, 'external', externalView()));
+  external.on('turn-done', () => {
+    flashState('success');
+    const fx = outfit().effect;
+    if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
+    stat('task-completed');
+  });
+  external.on('asking', () => wake());
+  if (config.get('externalSessions')) external.start();
+}
+
+function externalView() {
+  return { ...(external ? external.summary : { sessions: [], status: 'off' }), enabled: !!config.get('externalSessions') };
 }
 
 function composePrompt(text, files) {
@@ -737,6 +765,15 @@ function registerIpc() {
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
+  // ---- Claude Code sessions elsewhere
+  ipcMain.on('clipboard:text', (_e, text) => { if (isStr(text) && text.length <= 2000) clipboard.writeText(text); });
+  ipcMain.handle('external:get', () => externalView());
+  ipcMain.handle('external:set', (_e, enabled) => {
+    config.set({ externalSessions: !!enabled });
+    if (enabled) external.start(); else external.stop();
+    return externalView();
+  });
+
   // ---- health
   ipcMain.handle('health:get', () => health.view());
   ipcMain.handle('health:set', (_e, patch) => health.setSettings(patch && typeof patch === 'object' ? patch : {}));
@@ -1005,6 +1042,7 @@ app.whenReady().then(() => {
   createToolbox();
   createTray();
   health.start();
+  createExternal();
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
@@ -1032,5 +1070,5 @@ app.on('second-instance', (_e, argv) => {
   else if (booted) showPanel();
 });
 app.on('window-all-closed', e => e.preventDefault());
-app.on('will-quit', () => { globalShortcut.unregisterAll(); scheduler?.stop(); toolbox?.stop(); health?.stop(); });
+app.on('will-quit', () => { globalShortcut.unregisterAll(); scheduler?.stop(); toolbox?.stop(); health?.stop(); external?.stop(); });
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

@@ -75,6 +75,12 @@ contextBridge.exposeInMainWorld('shellby', {
   onCollected: on('wardrobe:collected'),
   onPackInstalled: on('wardrobe:installed'), // result of an "Add to Shellby" gallery link
 
+  // Claude Code sessions elsewhere (plugin hooks)
+  getExternal: invoke('external:get'),
+  setExternal: invoke('external:set'),
+  onExternal: on('external'),
+  copyText: fire('clipboard:text'),
+
   // health
   getHealth: invoke('health:get'),
   setHealth: invoke('health:set'),

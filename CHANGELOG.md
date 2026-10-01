@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0: Claude Code everywhere
+
+### New
+- **Shellby reacts to every Claude Code session on your PC**, not just the ones started in Shellby. Install the Shellby plugin in Claude Code (`/plugin marketplace add x-salmon/shellby`, then `/plugin install shellby@shellby`):
+  - he scuttles while Claude works in your terminal or editor
+  - he raises a claw when it needs permission
+  - he celebrates finished turns, which count toward trophies
+  - he sends out helper crabs, labeled with the project, for subagents
+- **Settings → Claude Code everywhere:** copy the install commands, turn the feature on or off, and see your connected sessions live (project, working or waiting, tool, helpers).
+- **The plugin costs nothing when Shellby is closed:** the hook checks a marker file and returns in milliseconds.
+
+### Security
+- The listener is local only (`127.0.0.1`), refuses browser-originated requests, caps bodies, and keeps only event, tool and folder names. Details in SECURITY.md.
+
 ## 0.7.0: Just the crab
 
 ### New

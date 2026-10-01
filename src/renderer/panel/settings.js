@@ -106,7 +106,34 @@
     SB.refreshEmptyStates();
   });
 
-  SB.views.settings = { render: renderSettings };
+  // ------------------------------------------------------------ Claude Code everywhere
+
+  const STATE_TEXT = { working: 'working', asking: 'needs your OK', idle: 'idle' };
+  function renderExternal(v) {
+    if (!v) return;
+    state.external = v;
+    $('externalToggle').checked = !!v.enabled;
+    const n = v.sessions?.length || 0;
+    $('externalStatus').textContent = !v.enabled ? 'Off. Turn it on to see your other Claude Code sessions here.'
+      : v.status === 'listening' ? (n ? `${n} session${n === 1 ? '' : 's'} connected.` : 'Listening. Start Claude Code anywhere with the plugin installed and it shows up here.')
+      : v.status === 'busy' ? `Another app is using port ${v.port}, so outside sessions can't reach Shellby.`
+      : 'Not listening right now.';
+    $('externalStatus').className = `small ext-status ${v.enabled && v.status === 'listening' ? 'ok' : v.status === 'busy' ? 'warn' : ''}`;
+    $('externalList').replaceChildren(...(v.enabled ? v.sessions || [] : []).map(s => h('li', { class: `ext-session ${s.state}` },
+      h('span', { class: 'ext-dot', 'aria-hidden': 'true' }),
+      h('b', { text: s.project }),
+      h('span', { class: 'ext-state', text: s.state === 'working' && s.tool ? `working · ${s.tool}` : STATE_TEXT[s.state] || s.state }),
+      s.helpers ? h('span', { class: 'ext-helpers', text: `${s.helpers} helper${s.helpers === 1 ? '' : 's'}` }) : null,
+      h('time', { text: SB.relTime(s.lastAt) }))));
+  }
+  $('externalToggle').addEventListener('change', async e => renderExternal(await api.setExternal(e.target.checked)));
+  document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
+    api.copyText($(b.dataset.copy).textContent);
+    SB.toast('Copied. Paste it into Claude Code.');
+  }));
+  api.onExternal(v => { if (state.view === 'settings') renderExternal(v); else state.external = v; });
+
+  SB.views.settings = { render: () => { renderSettings(); api.getExternal().then(renderExternal); } };
 
   // ------------------------------------------------------------ history
 

@@ -39,3 +39,20 @@ body.crab-only .view-health .view-head [data-back] { display: none !important; }
 .upsell-list { margin: 0 0 10px; padding-left: 18px; display: grid; gap: 5px; font-size: 13px; color: var(--sand-dim); }
 .upsell-list b { color: var(--sand); }
 .upsell-box .row.end { margin-top: 12px; }
+
+/* Settings: Claude Code everywhere */
+.ext-lede { margin: 0 0 10px !important; }
+.cmd-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cmd-row code { flex: 1; min-width: 0; padding: 7px 10px; border-radius: var(--r-sm); background: var(--abyss); border: 1px solid var(--line-soft); color: var(--glass); overflow-x: auto; white-space: nowrap; }
+.ext-status { margin: 4px 0 6px !important; color: var(--sand-dim); }
+.ext-status.ok { color: var(--glass); }
+.ext-status.warn { color: var(--amber); }
+.ext-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ext-session { display: grid; grid-template-columns: 10px auto 1fr auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: var(--reef); font-size: 12.5px; }
+.ext-session b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ext-state { color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ext-helpers { font: 600 10px var(--font-mono); color: var(--glass); }
+.ext-session time { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
+.ext-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sand-faint); }
+.ext-session.working .ext-dot { background: var(--coral); animation: hl-pulse 1s ease-in-out infinite; }
+.ext-session.asking .ext-dot { background: var(--amber); }

@@ -11,6 +11,9 @@ const BILLING_ENV = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BAS
 function subscriptionEnv(base = process.env) {
   const env = { ...base };
   for (const k of BILLING_ENV) delete env[k];
+  // Our own sessions tell the Shellby Claude Code plugin's hooks not to report
+  // back to us (their tabs already drive the crab).
+  env.SHELLBY_OWNED = '1';
   return env;
 }
 

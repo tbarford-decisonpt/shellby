@@ -41,6 +41,7 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 ## What it does
 
 ### He works like you use Claude Code: orchestrating
+- **Works with Claude Code everywhere.** Add the Shellby plugin (`/plugin marketplace add x-salmon/shellby`, then `/plugin install shellby@shellby`) and he reacts to *every* Claude Code session on your PC, in the terminal, VS Code or anywhere else. He scuttles while Claude works, raises a claw when it needs permission, celebrates finished turns and sends out helper crabs for subagents. See [claude-plugin/](claude-plugin/).
 - **Crew view.** When Claude delegates to subagents, each helper gets its own lane: task, live activity, tool count, tokens and time. The same number of helper crabs scuttle out next to Shellby on your desktop, and click one to jump to its conversation. When a helper needs permission, the card shows up in its lane, labelled with which crab is asking.
 - **Parallel conversations.** Tabs, each with its own Claude Code process: build a tool in one while you use it in another. The desktop crab shows how many are running. Shortcuts: <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd>, <kbd>Ctrl</kbd>+<kbd>Tab</kbd>.
 - **Toolbox: he learns tricks.** Everything Claude Code can use: skills, subagents, slash commands and MCP servers (with connection status). When Claude writes itself a new skill or agent, Shellby notices the file, celebrates on your desktop, tags it **new**, and offers to pin it. Pinned tricks become one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
@@ -184,6 +185,7 @@ npm start
 | `node scripts/e2e-registry.js` | One-click install from the live community registry: warm and cold, themed confirmation, every item previewed |
 | `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
+| `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, titlebar badge, screenshots |
@@ -208,6 +210,7 @@ src/main/        Electron main process
   routines.js      schedule maths + scheduler for recurring tasks
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
+  external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
@@ -218,6 +221,7 @@ src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI
+claude-plugin/   the Shellby plugin for Claude Code (hooks that report sessions to the app)
 ```
 
 ## Privacy

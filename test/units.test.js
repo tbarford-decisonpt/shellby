@@ -94,7 +94,7 @@ test('history refuses path-traversal ids', () => {
 // ---- billing safety
 test('subscriptionEnv strips every variable that would switch to API billing', () => {
   const env = subscriptionEnv({ PATH: 'x', ANTHROPIC_API_KEY: 'sk', ANTHROPIC_AUTH_TOKEN: 't', ANTHROPIC_BASE_URL: 'u', CLAUDE_CODE_USE_BEDROCK: '1' });
-  assert.deepEqual(env, { PATH: 'x' });
+  assert.deepEqual(env, { PATH: 'x', SHELLBY_OWNED: '1' }); // the marker tells the plugin's hooks to skip our own sessions
 });
 test('findClaude honours SHELLBY_CLAUDE_PATH and returns null when missing', () => {
   const dir = tmp();
