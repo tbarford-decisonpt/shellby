@@ -36,6 +36,7 @@
       season: v.season?.wearing ? v.season : null,
       code: SB.outfitCode?.() || null,
       hasOutfit: !!(o && Object.values(o).some(Boolean)),
+      login: state.github?.signedIn ? state.github.login : null,
     };
   }
 
@@ -155,7 +156,8 @@
     ctx.fillStyle = C.coral;
     ctx.font = '600 15px "Martian Mono"';
     const lv = state.xp ? ` · LV ${state.xp.level} ${state.xp.title.toUpperCase()}` : '';
-    ctx.fillText(d.season ? `MY SHELLBY${lv} · ${d.season.emoji} ${d.season.name.toUpperCase()}` : `MY SHELLBY${lv}`, x0, 92);
+    const whose = d.login ? `@${d.login.toUpperCase()}'S SHELLBY` : 'MY SHELLBY';
+    ctx.fillText(fitText(ctx, d.season ? `${whose}${lv} · ${d.season.emoji} ${d.season.name.toUpperCase()}` : `${whose}${lv}`, colW, ctx.font), x0, 92);
 
     ctx.fillStyle = C.sand;
     // Shrink a long title before resorting to an ellipsis.

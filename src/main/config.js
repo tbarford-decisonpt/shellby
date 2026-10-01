@@ -26,10 +26,13 @@ const DEFAULTS = {
   model: '', // '' -> Claude Code's default
   onboarded: false,
   crabOnly: false,
-  xp: null,
+  xp: null,          // XP and levels (see xp.js); null -> level 1
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
-  statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)            // XP and levels (see xp.js); null -> level 1
-  externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)      // "just the crab": no Claude Code (Health, Wardrobe, trophies)
+  statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
+  externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
+  github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here
+  syncGistId: null,   // the private gist progress syncs through
+  syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
   autonomousAcknowledged: false,
   lastUsage: null,
   openTabs: [],       // history ids of conversations open as tabs
@@ -51,11 +54,13 @@ class Config {
   get(key) { return this.data[key]; }
 
   set(patch) {
+    const prev = this.data;
     this.data = { ...this.data, ...patch };
     // Write via temp file so a crash mid-write can't corrupt settings.
     const tmp = this.file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
     fs.renameSync(tmp, this.file);
+    this.onSet?.(patch, prev);
     return this.data;
   }
 

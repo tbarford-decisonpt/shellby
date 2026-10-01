@@ -1,0 +1,19 @@
+/* Shellby panel — Settings → GitHub */
+.gh-account { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
+.gh-avatar { width: 40px; height: 40px; border-radius: 50%; image-rendering: auto; border: 1px solid var(--line); }
+.gh-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gh-who b, .gh-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gh-sync { display: flex; align-items: center; gap: 8px; margin: -2px 0 8px 46px; }
+.gh-sync .ext-status { flex: 1; margin: 0 !important; }
+.gh-sync .slim-btn { height: 28px; }
+.ext-status.bad { color: var(--coral); }
+.gh-note { margin: -4px 0 10px 46px !important; }
+.gh-code { margin-top: 6px; padding: 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--glass-dim); text-align: center; }
+.gh-code p { margin: 0 0 8px !important; }
+.gh-code-text { display: block; margin: 4px auto 12px; font: 600 26px/1.2 "Martian Mono", monospace; letter-spacing: .12em; color: var(--glass); user-select: all; }
+.gh-code-actions { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
+.gh-wait { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.gh-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--glass); animation: gh-pulse 1.2s ease-in-out infinite; }
+@keyframes gh-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .gh-dot { animation: none; } }
+.pack .publish-btn { margin-right: 2px; }

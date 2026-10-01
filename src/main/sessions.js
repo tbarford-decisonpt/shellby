@@ -8,9 +8,9 @@ const MAX_TABS = 8;
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
-  constructor({ getExe, history, getMode, getModel, argsPrefix = [] }) {
+  constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}) }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix });
+    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix, getEnv });
     this.tabs = new Map();
   }
 
@@ -27,6 +27,7 @@ class SessionManager extends EventEmitter {
       mode: mode || this.getMode(),
       model: this.getModel() || null,
       resumeId: historyEntry?.claudeSessionId || null,
+      extraEnv: () => this.getEnv(),
     });
     const tab = {
       id: tabId, session, routineId,

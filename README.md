@@ -57,6 +57,11 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 
 - **37 pixel accessories and 7 effects** in six slots: hats, face, neck, held item (in his claw), shell, and effects like snowfall, orbiting bats, falling leaves, fireflies and confetti. Accessories animate with the part they're attached to, so a pumpkin swings with his claw and a hat bobs with his eye stalks.
 - **XP and levels.** Shellby earns XP as you work, and most of all when he **writes himself a new skill or agent** (+150), which usually tips him into the next level. Other sources: deploys (+50), pushes (+40), passing tests (+25), trophies (+20) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. He climbs from Hatchling through Claw Coder and Reef Architect to Legend of the Tides. "+25 XP" floats up from him on the desktop, level-ups get a celebration, and Trophies shows his level and an XP log. Hourly caps stop a test loop from farming XP.
+- **GitHub sign-in (optional).** Sign in with a short code you approve on github.com, with no password typed into Shellby. Then turn on what you want, and GitHub is only asked for the permissions those features need:
+  - **Sync between PCs:** trophies, collected items, XP, streak days, outfit and color, through a private gist. Syncing only ever adds progress, so nothing is lost on either PC.
+  - **Publish Wardrobe packs:** a **Publish** button on your own packs forks the community gallery and opens the pull request for you.
+  - **Claude tasks can push:** Shellby's tabs get your sign-in for `git push`/`pull`, `gh` and the official GitHub plugin's tools, the same GitHub access Claude Code has in your terminal. Off by default, and Shellby warns you before turning it on.
+  - Your name and avatar show in Settings and on your share card. The sign-in is encrypted by Windows and never stored in settings.json.
 - **Streaks and nudges.** Finish a Claude task on consecutive days for a 🔥 streak (it's in the status line too). Shellby remembers the git repos you work in and reads their real last commit, and when one goes quiet you get a nudge: *"You haven't committed to 3d-rack in 5 days 🐚"*. **Pick it up** opens a tab there with a "where did we leave off?" prompt. You get at most one a day, only in the daytime, and each project can be muted.
 - **Unlock them by using Shellby.** 22 trophies, a few of them secret: finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap, free up a full drive for a broom. Unlocks celebrate on your desktop with confetti. If you don't want to grind, "Unlock everything" is one switch away.
 - **Seasons.** He dresses up for Halloween, winter, Valentine's, spring, summer and autumn automatically, and gives the season back if you change his look. Seasonal items are collectibles: be around while the season is on, and they're yours to keep.
@@ -196,6 +201,7 @@ npm start
 | `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
 | `node scripts/e2e-streaks.js` | Streaks and nudges with a real throwaway git repo (last commit 6 days ago): the streak starts, the repo root is found from a subfolder, the nudge fires once, and "Pick it up" opens a tab there |
+| `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist, publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
 | `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
 | `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), git push, an outside deploy, desktop "+XP", level-up, Trophies card |
@@ -227,6 +233,7 @@ src/main/        Electron main process
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
   xp.js            XP and levels: awards, hourly caps, the level curve, and what a shell command means
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
+  github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, and the service tying them together
   streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
@@ -243,7 +250,7 @@ claude-plugin/   the Shellby plugin for Claude Code (hooks that report sessions 
 
 ## Privacy
 
-Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, the updater checking GitHub Releases, community pack downloads you ask for, and Health asking LibreHardwareMonitor for sensor readings on `127.0.0.1`. That last one never leaves your PC. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
+Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, the updater checking GitHub Releases, community pack downloads you ask for, GitHub (only if you sign in: your profile, the sync gist, pack pull requests), and Health asking LibreHardwareMonitor for sensor readings on `127.0.0.1`. That last one never leaves your PC. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
 ## Contributing
 

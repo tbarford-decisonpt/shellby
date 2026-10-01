@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
 <link rel="stylesheet" href="crabonly.css">
+<link rel="stylesheet" href="github.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -512,6 +513,35 @@
       </div>
     </section>
 
+    <section class="setting-group" id="githubGroup">
+      <h3>GitHub</h3>
+      <div class="gh-account" id="ghAccount" hidden>
+        <img class="gh-avatar" id="ghAvatar" alt="" width="40" height="40" hidden>
+        <div class="gh-who"><b id="ghName"></b><span class="small muted" id="ghLogin"></span></div>
+        <button type="button" class="btn ghost slim-btn" id="ghSignOut">Sign out</button>
+      </div>
+      <p class="small muted ext-lede" id="ghLede">Sign in to sync your progress between PCs, publish Wardrobe packs to the gallery, and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby.</p>
+      <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit and streak between PCs (a private gist)</label>
+      <div class="gh-sync" id="ghSyncRow" hidden>
+        <p class="small ext-status" id="ghSyncStatus"></p>
+        <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
+      <label class="toggle"><input type="checkbox" id="ghClaude"><span class="switch"></span>Let Claude tasks push code and open pull requests</label>
+      <p class="small muted gh-note" id="ghClaudeNote"></p>
+      <p class="small ext-status bad" id="ghNoCrypto" hidden>Windows can't encrypt a sign-in on this PC, so GitHub sign-in is unavailable.</p>
+      <button type="button" class="btn primary" id="ghSignIn">Sign in with GitHub</button>
+      <div class="gh-code" id="ghCode" hidden>
+        <p class="small">Enter this code on github.com/login/device:</p>
+        <code class="gh-code-text" id="ghCodeText"></code>
+        <div class="gh-code-actions">
+          <button type="button" class="btn primary slim-btn" id="ghOpenCode">Copy code and open GitHub</button>
+          <button type="button" class="btn ghost slim-btn" id="ghCancel">Cancel</button>
+        </div>
+        <p class="small muted gh-wait"><span class="gh-dot"></span>Waiting for you to approve it on GitHub…</p>
+      </div>
+    </section>
+
     <section class="setting-group">
       <h3>System</h3>
       <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
@@ -649,6 +679,7 @@
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
 <script src="streaks.js"></script>
+<script src="github.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

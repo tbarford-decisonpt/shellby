@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, ipcMain, screen, Menu, Tray, shell, dialog,
-  globalShortcut, Notification, nativeImage, clipboard, session: electronSession,
+  globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -31,6 +31,9 @@ const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt } = require('./gitinfo');
 const { FAKE_SCENARIOS } = require('./health/fake');
+const { GitHubService } = require('./github/service');
+const { TokenStore } = require('./github/auth');
+const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -76,7 +79,7 @@ const statusFile = () => (ISOLATED ? path.join(app.getPath('userData'), 'shellby
 const claudeSettings = () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-settings.json') : statusLine.settingsPath());
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -349,6 +352,7 @@ function createManager() {
     getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude()),
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
+    getEnv: () => github?.claudeEnv() || {},
   });
 
   manager.on('item', (tabId, item, tab) => {
@@ -748,6 +752,88 @@ async function confirmAndInstallShellbyPlugin() {
   const r = await shop.install(statusLine.PLUGIN_ID);
   if (r.ok) { stat('plugin-installed'); toolbox?.rescan(); }
   return { ...pluginView(), ...(r.ok ? { installed: true } : { error: r.error || "Claude Code couldn't install the plugin." }) };
+}
+
+// ================================================================ GitHub
+
+// Dev/test builds can point at a mock GitHub; the installed app always uses github.com.
+function githubEndpoints() {
+  const dev = !app.isPackaged;
+  return {
+    web: (dev && process.env.SHELLBY_GITHUB_WEB) || 'https://github.com',
+    api: (dev && process.env.SHELLBY_GITHUB_API) || 'https://api.github.com',
+    clientId: (dev && process.env.SHELLBY_GITHUB_CLIENT_ID) || undefined,
+  };
+}
+
+function createGitHub() {
+  github = new GitHubService({
+    config,
+    store: new TokenStore(path.join(app.getPath('userData'), 'github.bin'), safeStorage),
+    ...githubEndpoints(),
+    onSynced: () => { broadcastWardrobe(); send(panel, 'xp', xpView()); refreshStatusLine(); },
+  });
+  github.on('change', v => send(panel, 'github', v));
+  github.on('signed-in', v => send(panel, 'github:signed-in', v));
+  github.on('error', message => send(panel, 'github:error', message));
+  // Outfit and color changes are stamped so sync keeps the newest, and shared soon.
+  config.onSet = (patch, prev) => {
+    if ('syncStamps' in patch) return; // a sync writing back, not you
+    const stamps = { ...(prev.syncStamps || {}) };
+    let changed = false;
+    if ('skin' in patch && patch.skin !== prev.skin) { stamps.skinAt = Date.now(); changed = true; }
+    if (patch.wardrobe && JSON.stringify(patch.wardrobe.outfit) !== JSON.stringify(prev.wardrobe?.outfit)) { stamps.outfitAt = Date.now(); changed = true; }
+    if (changed) config.set({ syncStamps: stamps });
+    if (changed || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) github?.changedSoon();
+  };
+  github.schedule();
+  if (github.can('sync')) setTimeout(() => github.sync().catch(() => {}), 30 * 1000);
+}
+
+// Claude tasks with your GitHub sign-in can push anywhere you can: ask, with the risk spelled out.
+async function confirmGitHubFeature(feature, on) {
+  if (feature === 'claude' && on) {
+    const response = await askOnce({
+      icon: '🔑', danger: true,
+      title: 'Let Claude tasks use your GitHub?',
+      message: 'Claude Code tasks you run in Shellby get your GitHub sign-in, so they can push commits and open pull requests, including in private repos.',
+      detail: 'Claude can also read the sign-in itself, so a task could use it for anything your GitHub account can do. Only turn this on if you check what your tasks do (Ask mode asks before every command).',
+      note: 'Only Shellby\'s own tabs get it. Claude Code in your terminal is unchanged. Turn it off here any time.',
+      buttons: [{ label: 'Allow', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
+  const r = await github.setFeature(feature, on);
+  return { ...r, view: github.view() };
+}
+
+async function confirmAndPublishPack(packId) {
+  if (!github?.can('publish')) return { ok: false, error: 'Turn on "Publish Wardrobe packs" in Settings → GitHub first.' };
+  const p = wardrobe.catalog.packs.find(x => x.id === packId && x.source === 'user');
+  if (!p?.file) return { ok: false, error: "That pack isn't one of yours." };
+  let json;
+  try { json = JSON.parse(fs.readFileSync(p.file, 'utf8')); } catch { return { ok: false, error: "Couldn't read that pack's file." }; }
+  const { pack, errors, warnings } = validatePack(json, { source: 'user', knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
+  if (!pack) return { ok: false, error: `The pack has problems: ${errors[0]}` };
+  if (warnings.length) return { ok: false, error: `The gallery needs every item to work. Fix this first: ${warnings[0]}` };
+  if (wardrobe.catalog.packs.some(x => x.source === 'builtin' && x.id === pack.id)) return { ok: false, error: 'That id belongs to a built-in pack.' };
+  const login = github.view().login;
+  const response = await askOnce({
+    icon: '🎁',
+    title: 'Publish to the gallery?',
+    message: `"${pack.name}" v${pack.version} by ${pack.author}, as @${login}`,
+    detail: `This opens a public pull request on github.com/${PACKS_REPO}. Once it's reviewed and merged, anyone can add your pack from the gallery.\n\nPacks are published under CC BY 4.0, credited to "${pack.author}".`,
+    note: 'Original art only: no copyrighted characters, logos or brands. Keep it friendly.',
+    buttons: [{ label: 'Publish', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+  });
+  if (response === null) return { ok: false, canceled: true, busy: true };
+  if (response !== 0) return { ok: false, canceled: true };
+  try {
+    return await publishPack(github.gh(), { login, pack: json });
+  } catch (e) {
+    console.warn('[shellby] publish failed:', e.message);
+    return { ok: false, error: e.status === 401 ? 'GitHub signed Shellby out. Sign in again in Settings.' : `GitHub said: ${String(e.message).slice(0, 200)}` };
+  }
 }
 
 async function confirmAndAddMarketplace(input) {
@@ -1182,6 +1268,29 @@ function registerIpc() {
   const statusLineView = () => ({ ...statusLine.inspectSettings(claudeSettings()), preview: statusLine.formatStatus({ ...lastStatus, health: healthMood, xp: xpView(), now: Date.now() }).replace(/\x1b\[[0-9;]*m/g, '') });
   ipcMain.handle('statusline:get', () => statusLineView());
   ipcMain.handle('plugin:get', () => pluginView());
+
+  // ---- GitHub
+  const FEATURE_NAMES = new Set(['sync', 'publish', 'claude']);
+  ipcMain.handle('github:get', () => github.view());
+  ipcMain.handle('github:sign-in', async (_e, features) => {
+    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && f !== 'claude') : [];
+    const r = await github.signIn(list);
+    return { ...r, view: github.view() };
+  });
+  const openDeviceCode = () => {
+    const f = github.view().flow;
+    if (!f) return;
+    clipboard.writeText(f.code);
+    // Checked against GitHub's own device page in the service; a dev mock (http) isn't opened.
+    if (f.url.startsWith('https:')) shell.openExternal(f.url);
+  };
+  ipcMain.on('github:open-code', openDeviceCode);
+  ipcMain.on('github:cancel', () => github.cancel());
+  ipcMain.handle('github:sign-out', () => { github.signOut(); return github.view(); });
+  ipcMain.handle('github:set-feature', (_e, feature, on) => (FEATURE_NAMES.has(feature) ? confirmGitHubFeature(feature, !!on) : { ok: false, view: github.view() }));
+  ipcMain.handle('github:sync', async () => ({ ...(await github.sync()), view: github.view() }));
+  ipcMain.handle('github:publish', (_e, packId) => (isStr(packId) && /^[a-z0-9][a-z0-9-]{1,39}$/.test(packId) ? confirmAndPublishPack(packId) : { ok: false }));
+  ipcMain.on('github:manage', () => shell.openExternal('https://github.com/settings/applications'));
   ipcMain.handle('plugin:install', () => confirmAndInstallShellbyPlugin());
   ipcMain.handle('statusline:install', async () => {
     const now = statusLine.inspectSettings(claudeSettings());
@@ -1483,6 +1592,7 @@ app.whenReady().then(() => {
 
   // The README reel shows Shellby big: he's the star.
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
+  createGitHub();
   createManager();
   createHealth();
   registerIpc();
@@ -1534,5 +1644,6 @@ app.on('will-quit', () => {
   toolbox?.stop();
   health?.stop();
   external?.stop();
+  github?.stop();
 });
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

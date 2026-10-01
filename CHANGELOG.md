@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0: GitHub sign-in
+
+### New
+- **Sign in with GitHub** (Settings → GitHub). Shellby shows a short code and you approve it on github.com, the same way `gh auth login` works. You never type a password into Shellby. The sign-in is encrypted by Windows in its own file (never in settings.json), and GitHub is asked only for what the features you turn on need. Turning on another feature later asks GitHub again for just that.
+- **Sync between PCs.** Trophies, collected seasonal items, XP, streak days, your outfit and your color go into a private gist. Sign in on another PC and they meet there. Syncing only ever adds progress (nothing gets lost on either side), and the outfit and color follow whichever PC changed them last. It syncs every 15 minutes, shortly after you change an outfit or win a trophy, or when you press **Sync now**.
+- **Publish Wardrobe packs.** Your own packs get a **Publish** button. After one confirm, Shellby forks `x-salmon/shellby-packs`, adds `packs/<id>/pack.json` on a new branch and opens the pull request, so the gallery's Pack check takes it from there. It won't publish a pack with invalid items or an unchanged version number.
+- **Let Claude tasks push code.** Off by default, and Shellby warns you first. When it's on, tasks in Shellby's tabs get your sign-in, so `git push`, `git pull`, `gh pr create` and the official GitHub plugin's tools (issues, pull requests, reviews) just work, including for private repos. It's provided through environment variables, so your git config is never changed, and Claude Code in your terminal isn't affected.
+- **Your GitHub name and avatar** in Settings, and "@you's Shellby" on the share card.
+
 ## 0.14.3
 
 ### Fixed

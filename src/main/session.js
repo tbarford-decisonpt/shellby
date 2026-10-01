@@ -14,9 +14,10 @@ const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how the
 
 class ClaudeSession extends EventEmitter {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
-  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [] }) {
+  // extraEnv: () => {} of variables to add when the process starts (GitHub access).
+  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [], extraEnv = () => ({}) }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix });
+    Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix, extraEnv });
     this.proc = null;
     this.busy = false;
     this.sessionId = resumeId;
@@ -43,7 +44,7 @@ class ClaudeSession extends EventEmitter {
   start() {
     if (this.proc) return;
     const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
-      cwd: this.cwd, env: subscriptionEnv(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: this.cwd, env: { ...subscriptionEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.proc = proc;
     let stderr = '';

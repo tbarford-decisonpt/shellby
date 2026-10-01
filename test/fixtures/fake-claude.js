@@ -53,6 +53,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   if (content === 'crash') { process.exit(3); }
 
+  // "gitenv" -> reports whether Shellby gave this process GitHub access
+  if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
   if (content.startsWith('wait ')) {
     const ms = Math.min(30000, parseInt(content.split(' ')[1], 10) || 1000);

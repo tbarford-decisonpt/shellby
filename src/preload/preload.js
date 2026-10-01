@@ -89,6 +89,18 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // Claude Code status line
   resetCritterPosition: fire('critter:reset-position'),
+  getGitHub: invoke('github:get'),
+  githubSignIn: invoke('github:sign-in'),
+  githubOpenCode: () => ipcRenderer.send('github:open-code'),
+  githubCancel: () => ipcRenderer.send('github:cancel'),
+  githubSignOut: invoke('github:sign-out'),
+  githubSetFeature: invoke('github:set-feature'),
+  githubSync: invoke('github:sync'),
+  githubManage: () => ipcRenderer.send('github:manage'),
+  publishPack: invoke('github:publish'),
+  onGitHub: on('github'),
+  onGitHubSignedIn: on('github:signed-in'),
+  onGitHubError: on('github:error'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   getStatusLine: invoke('statusline:get'),

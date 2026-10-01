@@ -145,14 +145,26 @@
     $('unlockAllToggle').checked = !!o.unlockAll;
   }
 
+  const canPublish = () => { const g = state.github; return !!(g?.signedIn && g.features.publish.on && g.features.publish.granted); };
+  async function publish(p, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Publishing…';
+    const r = await api.publishPack(p.id);
+    btn.disabled = false;
+    btn.textContent = 'Publish';
+    if (r.ok) SB.toast(`Pull request opened for ${p.name}. The gallery's Pack check reviews it next.`, { action: 'View', onAction: () => api.openExternal(r.url), ms: 7000 });
+    else if (!r.canceled) SB.toast(r.error || "Couldn't publish that pack.", { ms: 7000 });
+  }
+
   function renderPacks() {
     const packs = wd()?.packs || [];
     $('packList').replaceChildren(...packs.map(p => h('li', { class: 'pack' },
       h('div', { class: 'pack-main' },
         h('b', { text: p.name }), h('span', { class: 'pack-meta', text: ` v${p.version} · by ${p.author}` }),
         h('div', { class: 'pack-counts', text: [`${p.counts.accessories} accessories`, `${p.counts.effects} effects`, `${p.counts.skins} colors`].join(' · ') + (p.warnings ? ` · ${p.warnings} skipped` : '') })),
-      p.source === 'builtin' ? h('span', { class: 'src-pill', text: 'built in' })
-        : h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: async () => { applyView(await api.removePack(p.id)); SB.toast(`Removed ${p.name}`); } }, 'Remove'))));
+      p.source === 'builtin' ? h('span', { class: 'src-pill', text: 'built in' }) : null,
+      p.source !== 'builtin' && canPublish() ? h('button', { class: 'btn ghost slim-btn publish-btn', type: 'button', title: 'Open a pull request to the community gallery', onclick: e => publish(p, e.currentTarget) }, 'Publish') : null,
+      p.source !== 'builtin' ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: async () => { applyView(await api.removePack(p.id)); SB.toast(`Removed ${p.name}`); } }, 'Remove') : null)));
     for (const err of wd()?.errors || []) $('packList').append(h('li', { class: 'pack bad', text: `⚠ ${err}` }));
   }
 
@@ -251,6 +263,6 @@
     SB.toast(`✨ New seasonal items: ${items.map(i => i.name).join(', ')}`, { action: 'Open Wardrobe', ms: 6000, onAction: () => SB.setView('wardrobe') });
   };
 
-  SB.views.wardrobe = { render };
+  SB.views.wardrobe = { render, refreshPublish: () => { if (state.view === 'wardrobe') renderPacks(); } };
   SB.views.trophies = { render: renderTrophies };
 })();
