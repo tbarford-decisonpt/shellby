@@ -30,9 +30,9 @@ test('health and a fresh XP gain are appended', () => {
 
 test('plain twin: ASCII only, for consoles without emoji (cmd.exe)', () => {
   const line = plain(formatPlain({ state: 'working', busy: 2, crew: 3, xp, streak: 4, health: { mood: 'hot', id: 'gpu-temp:0', text: '84°' }, lastXp: { amount: 25, at: 0 }, now: 1 }));
-  assert.equal(line, '(V)(;,,;)(V) Shellby working x2 +3 helpers | Lv 5 Claw Coder [###--] | streak 4d | GPU 84C hot | +25 XP');
+  assert.equal(line, 'Shellby working x2 +3 helpers | Lv 5 Claw Coder [###--] | streak 4d | GPU 84C hot | +25 XP');
   assert.match(line, /^[\x00-\x7f]+$/);
-  assert.equal(plain(formatPlain({ state: 'idle', now: 0 })), '(V)(;,,;)(V) Shellby');
+  assert.equal(plain(formatPlain({ state: 'idle', now: 0 })), 'Shellby');
 });
 
 test('the command picks the plain line in the classic Windows console, emoji elsewhere', () => {

@@ -66,10 +66,10 @@ const PLAIN_FACE = {
 };
 const PLAIN_HEALTH = { hot: 'hot', scorching: 'very hot', dizzy: 'memory full', stuffed: 'disk full' };
 
-/** The same line in plain ASCII (for consoles without emoji): (V)(;,,;)(V) Shellby working | Lv 5 Claw Coder [###--] */
+/** The same line in plain ASCII (for consoles without emoji): Shellby working | Lv 5 Claw Coder [###--] */
 function formatPlain(s) {
   const state = PLAIN_FACE[s.state] !== undefined ? s.state : 'idle';
-  let head = `${C.coral}(V)(;,,;)(V) Shellby${C.reset}${PLAIN_FACE[state]}`;
+  let head = `${C.coral}Shellby${C.reset}${PLAIN_FACE[state]}`;
   if (state === 'working' && s.busy > 1) head += ` x${s.busy}`;
   if (s.crew > 0) head += ` +${s.crew} helpers`;
   const parts = [head];
