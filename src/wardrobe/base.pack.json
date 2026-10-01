@@ -647,6 +647,34 @@
       ]
     },
     {
+      "id": "camera",
+      "name": "Camera",
+      "description": "Say cheese! You shared your crab card.",
+      "slot": "held",
+      "pivot": [
+        1,
+        4
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "show-off"
+      },
+      "palette": {
+        "k": "#2b2d42",
+        "K": "#8d99ae",
+        "l": "#90e0ef",
+        "L": "#caf0f8",
+        "r": "#ef476f"
+      },
+      "pixels": [
+        ".KK..",
+        "kkkkr",
+        "kkllk",
+        "kkLlk",
+        "kkkkk"
+      ]
+    },
+    {
       "id": "witch-hat",
       "name": "Witch Hat",
       "description": "Spooky Season collectible.",

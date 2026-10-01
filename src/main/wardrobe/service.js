@@ -266,6 +266,13 @@ class Wardrobe extends EventEmitter {
         unlocked: [...this.catalog.accessories.values(), ...this.catalog.effects.values()].filter(i => this.isUnlocked(i, d)).length,
         all: this.catalog.accessories.size + this.catalog.effects.size,
       },
+      // Bragging rights for the shareable crab card (counts only, nothing personal).
+      stats: {
+        tasksCompleted: stats.tasksCompleted,
+        helpersSpawned: stats.helpersSpawned,
+        tricksLearned: stats.tricksLearned,
+        activeDays: stats.activeDays.length,
+      },
     };
   }
 }

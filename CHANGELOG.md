@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0: Show him off
+
+### New
+- **Crab card.** **📸 Share** in the Wardrobe or Trophies makes a 1200×630 picture of your Shellby as he's dressed (with his effect), titled by your best trophy, with tasks done, trophies, helper crabs sent and your trophy shelf. One click copies it to the clipboard and saves it to `Pictures\Shellby`. The preview has **Post on X** and **Post on Bluesky** buttons with the text filled in; paste the image into the post. The card contains counts only: no name, email or folders.
+- **New trophy: 📸 Show-Off.** Share your crab card to unlock a camera for him to hold.
+- **Trophy unlocks get a proper celebration card:** a medallion, the trophy's name and description, pixel previews of each reward, **Wear it** (or **Wear them**) and **Share**. It stays up while you hover, and several unlocks queue up instead of replacing each other.
+
+### Changed
+- Notifications inside the panel are rounded cards instead of pills, so longer messages and their buttons no longer look squashed.
+
 ## 0.5.1
 
 ### Fixed

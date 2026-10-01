@@ -235,16 +235,7 @@
 
   // ------------------------------------------------------------ celebrations
   SB.onUnlocked = e => {
-    const names = e.rewards.map(r => r.name).join(' + ');
-    const first = e.rewards.find(r => r.slot || r.motion);
-    SB.toast(`${e.achievement.icon} ${e.achievement.name}! Unlocked ${names}`, {
-      action: first ? 'Wear it' : null, ms: 5500,
-      onAction: async () => {
-        const r = await api.setOutfit({ [first.slot || 'effect']: first.key });
-        applyView(r.view);
-        SB.setView('wardrobe');
-      },
-    });
+    SB.celebrate({ icon: e.achievement.icon, title: e.achievement.name, text: e.achievement.description, rewards: e.rewards });
   };
   // Result of a one-click install from the community gallery (main already
   // broadcast the refreshed wardrobe view on success).

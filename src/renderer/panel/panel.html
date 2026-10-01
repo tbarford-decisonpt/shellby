@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
+<link rel="stylesheet" href="card.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -268,6 +269,7 @@
       <button type="button" class="back-btn" data-back>← Back</button>
       <h2>Wardrobe</h2>
       <span class="wd-count" id="wdCount"></span>
+      <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
       <button type="button" class="btn ghost slim-btn" id="trophiesBtn">🏆 Trophies</button>
     </div>
     <div class="season-banner" id="seasonBanner" hidden></div>
@@ -320,6 +322,7 @@
       <button type="button" class="back-btn" id="trophiesBack">← Wardrobe</button>
       <h2>Trophies</h2>
       <span class="wd-count" id="trophyCount"></span>
+      <button type="button" class="btn ghost slim-btn" data-share-card title="Make a shareable picture of your Shellby">📸 Share</button>
     </div>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
@@ -428,6 +431,26 @@
     </div>
   </main>
 
+  <!-- shareable crab card preview -->
+  <div class="card-sheet" id="cardSheet" role="dialog" aria-modal="true" aria-labelledby="cardTitle" hidden>
+    <div class="card-box">
+      <div class="card-head">
+        <h2 id="cardTitle">Your crab card</h2>
+        <button type="button" class="icon-btn" id="cardClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <img id="cardImg" class="card-img" alt="Your Shellby card: your crab as he's dressed now, with your trophies and task count">
+      <p class="card-note">Copied to your clipboard and saved as <b id="cardPath"></b>. Paste it into a post:</p>
+      <div class="row wrap">
+        <button type="button" class="btn primary" id="cardX">Post on X</button>
+        <button type="button" class="btn primary" id="cardBsky">Post on Bluesky</button>
+        <button type="button" class="btn" id="cardCopy">Copy again</button>
+        <button type="button" class="btn ghost" id="cardReveal">Show file</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../shared/sprite.js"></script>
@@ -442,6 +465,8 @@
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
 <script src="health.js"></script>
+<script src="card.js"></script>
+<script src="celebrate.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

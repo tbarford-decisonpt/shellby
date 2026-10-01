@@ -142,7 +142,7 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
     mark('Finish tasks, earn outfits');
     wardrobe.record('task-completed'); // first task ever: "Hello, World" → confetti + party hat
     await wait(2600);
-    await js("document.querySelector('#toast .toast-action')?.click()");
+    await js("document.querySelector('.celebrate .cel-actions .btn.primary')?.click()");
     await wait(3000);
 
     recording = false;

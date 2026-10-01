@@ -201,6 +201,13 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     wardrobe.setOutfit({ hat: 'wizard-hat', held: 'coffee-mug', face: null, neck: null, shell: null, effect: 'sparkles' });
     await wait(1400);
     await shot(critter, path.join(out, 'critter-wizard.png'));
+
+    // The shareable crab card, with the trophies earned above.
+    for (let i = 0; i < 30; i++) wardrobe.record('helper-spawned');
+    await wait(800);
+    const card = await panel.webContents.executeJavaScript('SB.crabCard.render().then(r => r.canvas.toDataURL("image/png"))');
+    fs.writeFileSync(path.join(out, 'crab-card.png'), Buffer.from(card.split(',')[1], 'base64'));
+    console.log('wrote', path.relative(process.cwd(), path.join(out, 'crab-card.png')));
   } catch (e) {
     console.error('capture failed:', e);
   }

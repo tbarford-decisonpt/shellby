@@ -85,6 +85,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onHealth: on('health'),
   onHealthLog: on('health:log'),
 
+  // shareable crab card
+  saveCard: invoke('card:save'),
+  copyCard: invoke('card:copy'),
+  revealCard: fire('card:reveal'),
+
   // routines
   listRoutines: invoke('routines:list'),
   saveRoutine: invoke('routines:save'),

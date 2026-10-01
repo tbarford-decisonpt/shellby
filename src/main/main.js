@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, ipcMain, screen, Menu, Tray, shell, dialog,
-  globalShortcut, Notification, nativeImage, session: electronSession,
+  globalShortcut, Notification, nativeImage, clipboard, session: electronSession,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -36,6 +36,8 @@ const PANEL_DEFAULT = { width: 460, height: 700 };
 const MAX_CREW_SHOWN = 5;          // helper crabs drawn on the desktop
 const SLEEP_AFTER_MS = 3 * 60 * 1000;
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
+const CARD_MAX_BYTES = 8 * 1024 * 1024;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 // Dev/test isolation: a separate profile (settings, history, single-instance lock)
 // so test runs never touch the user's real Shellby or need it closed.
@@ -742,6 +744,40 @@ function registerIpc() {
   ipcMain.handle('health:ask', (_e, checkId) => (isStr(checkId) ? health.ask(checkId) : { ok: false, error: 'Unknown reading.' }));
   ipcMain.handle('health:clear-log', () => { config.set({ healthLog: [] }); return health.view(); });
   ipcMain.on('health:viewed', () => stat('health-viewed'));
+
+  // ---- shareable crab card: the renderer draws it; main checks it's a PNG,
+  // picks the path itself, saves it and puts it on the clipboard.
+  let lastCard = null;
+  // Isolated dev/test runs keep cards in their throwaway profile and never touch the clipboard.
+  const isolated = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
+  const cardImage = bytes => {
+    const buf = Buffer.from(bytes instanceof Uint8Array ? bytes : []);
+    const isPng = buf.length > 8 && buf.length <= CARD_MAX_BYTES && buf.subarray(0, 8).equals(PNG_SIGNATURE);
+    const img = isPng ? nativeImage.createFromBuffer(buf) : null;
+    return img && !img.isEmpty() ? { buf, img } : null;
+  };
+  ipcMain.handle('card:save', (_e, bytes) => {
+    const card = cardImage(bytes);
+    if (!card) return { ok: false, error: "That card didn't come out right." };
+    try {
+      const dir = path.join(isolated ? app.getPath('userData') : app.getPath('pictures'), 'Shellby');
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+      lastCard = path.join(dir, `shellby-card-${stamp}.png`);
+      fs.writeFileSync(lastCard, card.buf);
+      if (!isolated) clipboard.writeImage(card.img);
+      stat('card-shared');
+      return { ok: true, name: path.join('Pictures', 'Shellby', path.basename(lastCard)) };
+    } catch {
+      return { ok: false, error: "Couldn't save the card to Pictures." };
+    }
+  });
+  ipcMain.handle('card:copy', (_e, bytes) => {
+    const card = cardImage(bytes);
+    if (card && !isolated) clipboard.writeImage(card.img);
+    return { ok: !!card };
+  });
+  ipcMain.on('card:reveal', () => { if (lastCard && fs.existsSync(lastCard)) shell.showItemInFolder(lastCard); });
 
   // ---- misc
   ipcMain.on('open-external', (_e, url) => {

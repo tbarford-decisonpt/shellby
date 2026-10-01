@@ -1,0 +1,104 @@
+/* Shellby panel — shareable crab card preview. */
+.card-sheet {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(4, 12, 14, .72);
+  backdrop-filter: blur(3px);
+  animation: fadein .18s var(--ease-out);
+}
+.card-box {
+  width: min(100%, 560px);
+  padding: 14px 16px 16px; border-radius: var(--r-lg);
+  background: var(--reef); border: 1px solid var(--line);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  animation: card-pop .32s var(--ease-spring);
+}
+@keyframes card-pop { from { transform: translateY(10px) scale(.96); opacity: 0; } }
+.card-head { display: flex; align-items: center; margin-bottom: 10px; }
+.card-head h2 { margin: 0; font: 600 18px var(--font-pixel); }
+.card-head .icon-btn { margin-left: auto; }
+.card-img {
+  display: block; width: 100%; aspect-ratio: 1200 / 630; border-radius: var(--r);
+  border: 1px solid var(--line-soft); background: var(--abyss);
+  image-rendering: auto;
+}
+.card-note { margin: 10px 0 10px; font-size: 12.5px; color: var(--sand-dim); }
+.card-note b { color: var(--sand); font-weight: 700; overflow-wrap: anywhere; }
+.card-box .row.wrap { gap: 8px; }
+[data-share-card]:disabled { opacity: .5; cursor: progress; }
+
+/* ================================================================ trophy unlock card */
+.celebrate-host {
+  position: absolute; left: 0; right: 0; bottom: 92px; z-index: 55;
+  display: grid; justify-items: center; padding: 0 14px; pointer-events: none;
+}
+.celebrate {
+  position: relative; pointer-events: auto;
+  width: min(100%, 400px);
+  display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: start;
+  padding: 13px 14px 14px 13px; border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(255, 193, 94, .16), transparent 55%),
+    var(--reef);
+  border: 1px solid rgba(255, 193, 94, .42);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .25);
+  overflow: hidden;
+  animation: cel-in .45s var(--ease-spring);
+}
+.celebrate.leaving { animation: cel-out .22s ease-in forwards; }
+@keyframes cel-in { from { transform: translateY(18px) scale(.94); opacity: 0; } }
+@keyframes cel-out { to { transform: translateY(10px) scale(.97); opacity: 0; } }
+
+.cel-medal {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #ffe3a3, #e0a33b 70%, #a8701c);
+  box-shadow: 0 0 0 3px rgba(255, 193, 94, .25), inset 0 -3px 0 rgba(0, 0, 0, .2);
+  animation: cel-medal 1.1s var(--ease-spring) .1s both;
+}
+.cel-medal span {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: #2b2006; font-size: 22px; line-height: 1;
+}
+@keyframes cel-medal { 0% { transform: scale(.3) rotate(-30deg); } 60% { transform: scale(1.12) rotate(6deg); } 100% { transform: none; } }
+
+.cel-body { min-width: 0; padding-right: 18px; }
+.cel-eyebrow { margin: 1px 0 1px; font: 600 10px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+.cel-title { margin: 0; font: 600 19px/1.15 var(--font-pixel); color: var(--sand); overflow-wrap: anywhere; }
+.cel-text { margin: 3px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--sand-dim); }
+
+.cel-rewards { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.cel-rewards li {
+  display: grid; grid-template-columns: 38px 1fr; gap: 9px; align-items: center;
+  padding: 5px 8px 5px 5px; border-radius: var(--r);
+  background: rgba(6, 19, 22, .55); border: 1px solid var(--line-soft);
+}
+.cel-thumb {
+  width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--abyss); color: var(--amber);
+}
+.cel-thumb svg { display: block; max-width: 32px; max-height: 32px; }
+.cel-rname { display: grid; min-width: 0; line-height: 1.25; }
+.cel-rname b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cel-rname small { font: 600 9.5px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+
+.cel-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+.cel-actions .slim-btn { height: 30px; }
+.cel-close { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; }
+.cel-timer {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  background: linear-gradient(90deg, var(--amber), var(--coral));
+  transform-origin: left; animation: cel-timer var(--show-ms, 9s) linear forwards;
+}
+.celebrate.paused .cel-timer { animation-play-state: paused; }
+@keyframes cel-timer { to { transform: scaleX(0); } }
+
+/* Ordinary toasts: a rounded card rather than a pill once text wraps, and the
+   action never gets squeezed. */
+.toast { border-radius: 14px; max-width: min(86%, 380px); line-height: 1.35; text-align: left; padding: 9px 12px 9px 14px; }
+.toast > span { min-width: 0; }
+.toast-action { flex: none; white-space: nowrap; padding: 5px 12px; }
+
+/* Wardrobe header is tight: the share button is icon-only there. */
+.view-head .share-icon { padding: 0 9px; font-size: 15px; }
+.view-head .share-icon + #trophiesBtn { margin-left: 0; }
