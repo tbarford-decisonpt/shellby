@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.2
+
+### Fixed
+- **Shellby no longer vanishes or drifts on PCs with mixed display scaling** (for example a 4K screen at 150% next to monitors at 100% or 125%). When his window crossed between monitors, Windows kept its pixel size instead of its real size, so it shrank or grew under him: "Reset position" could clip him out of sight, and dragging made him wander away from his own effects (like the autumn leaves). Every move now keeps his size, and any size Windows forces on him afterwards is put back.
+- **Dragging follows your mouse exactly**, across monitors too. It used to compute the motion from inside his own moving window, which drifts when the scale changes mid-drag.
+
+### New
+- **Settings → Look → Find Shellby** puts him back in the bottom-right corner of your main screen (same as the tray's Reset position).
+
 ## 0.14.1
 
 ### Fixed

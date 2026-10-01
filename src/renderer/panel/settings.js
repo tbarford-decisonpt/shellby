@@ -64,6 +64,7 @@
   });
   $('autonomousNo').addEventListener('click', () => { $('autonomousConfirm').hidden = true; });
   $('changeFolderBtn').addEventListener('click', async () => { await SB.folderChanged(await api.pickFolder()); renderSettings(); });
+  $('resetPosBtn').addEventListener('click', () => { api.resetCritterPosition(); SB.toast('Shellby is back in the bottom-right corner of your main screen.'); });
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });

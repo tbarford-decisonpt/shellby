@@ -109,6 +109,40 @@ function critterBaseSize() {
 
 function workAreas() { return screen.getAllDisplays().map(d => d.workArea); }
 
+// The critter window's size in DIPs: Shellby plus room for helper crabs.
+function critterSize() {
+  const b = critterBaseSize();
+  return { width: b.width + crewExtra(), height: b.height };
+}
+
+// Windows keeps a window's *physical* size when it crosses onto a monitor with
+// another scale (125% -> 150% shrinks it by a sixth), which clipped Shellby or
+// cut him loose from his effects. So every move sets the size too, and any size
+// Windows imposes afterwards (WM_DPICHANGED) is put back.
+function placeCritter(x, y) {
+  critter.setBounds({ x: Math.round(x), y: Math.round(y), ...critterSize() });
+  keepCritterSize();
+}
+let sizeFixes = [];
+function keepCritterSize() {
+  if (!critter || critter.isDestroyed()) return;
+  const want = critterSize();
+  const b = critter.getBounds();
+  if (b.width === want.width && b.height === want.height) return;
+  const now = Date.now();
+  sizeFixes = sizeFixes.filter(t => now - t < 1000);
+  if (sizeFixes.length >= 4) return; // never fight Windows in a loop
+  sizeFixes.push(now);
+  critter.setBounds({ x: b.x, y: b.y, ...want });
+}
+
+function resetCritterPos() {
+  const p = defaultCritterPos(critterBaseSize());
+  placeCritter(p.x - crewExtra(), p.y);
+  config.set({ critterPos: p });
+  sendToBottom(critter);
+}
+
 function defaultCritterPos(size) {
   const wa = screen.getPrimaryDisplay().workArea;
   return { x: wa.x + wa.width - size.width - 48, y: wa.y + wa.height - size.height - 24 };
@@ -134,10 +168,12 @@ function createCritter() {
   secureWindow(critter);
   critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));
   critter.once('ready-to-show', () => {
+    keepCritterSize(); // created on a scaled monitor, Windows may have rounded it
     critter.showInactive();
     if (!CAPTURE) keepOnDesktop(critter);
   });
   critter.on('blur', () => sendToBottom(critter));
+  critter.on('resize', () => setImmediate(keepCritterSize));
 }
 
 // The critter window grows to the left to make room for helper crabs, keeping
@@ -149,8 +185,8 @@ function setCrewSlots(n) {
     const b = critter.getBounds();
     const base = critterBaseSize();
     const width = base.width + crewExtra(slots);
-    critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
     crewShown = slots;
+    critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
   };
   clearTimeout(shrinkTimer);
   if (n > crewShown) apply(n);
@@ -160,7 +196,7 @@ function setCrewSlots(n) {
 function saveCritterPos() {
   const b = critter.getBounds();
   const c = clampToDisplays(b, workAreas());
-  if (c.x !== b.x || c.y !== b.y) critter.setPosition(c.x, c.y);
+  if (c.x !== b.x || c.y !== b.y) placeCritter(c.x, c.y);
   // Persist Shellby's own spot, not the crew-widened window's left edge.
   config.set({ critterPos: { x: c.x + crewExtra(), y: c.y } });
 }
@@ -817,12 +853,21 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 
 function registerIpc() {
   // ---- critter
-  let dragOrigin = null;
-  ipcMain.on('critter:drag-start', () => { dragOrigin = critter.getPosition(); });
-  ipcMain.on('critter:drag-move', (_e, { dx, dy } = {}) => {
-    if (dragOrigin && Number.isFinite(dx) && Number.isFinite(dy)) critter.setPosition(dragOrigin[0] + Math.round(dx), dragOrigin[1] + Math.round(dy));
+  // The grab offset is fixed at drag start; moves follow the real cursor (the
+  // renderer's screenX lags and rescales while its own window moves under it).
+  let grab = null;
+  ipcMain.on('critter:drag-start', () => {
+    const c = screen.getCursorScreenPoint();
+    const [x, y] = critter.getPosition();
+    grab = { dx: c.x - x, dy: c.y - y };
   });
-  ipcMain.on('critter:drag-end', () => { dragOrigin = null; saveCritterPos(); sendToBottom(critter); });
+  ipcMain.on('critter:drag-move', () => {
+    if (!grab) return;
+    const c = screen.getCursorScreenPoint();
+    placeCritter(c.x - grab.dx, c.y - grab.dy);
+  });
+  ipcMain.on('critter:drag-end', () => { grab = null; saveCritterPos(); sendToBottom(critter); });
+  ipcMain.on('critter:reset-position', () => resetCritterPos());
   ipcMain.on('critter:click', () => { wake(); togglePanel(); sendToBottom(critter); });
   ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) showPanel({ focusInput: false, tabId }); });
   ipcMain.on('critter:menu', () => buildMenu().popup({ window: critter }));
@@ -1350,7 +1395,7 @@ function buildMenu() {
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
-    { label: 'Reset position', click: () => { const p = defaultCritterPos(critterBaseSize()); critter.setPosition(p.x - crewExtra(), p.y); config.set({ critterPos: p }); } },
+    { label: 'Reset position', click: resetCritterPos },
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
     { type: 'separator' },
     { label: 'Quit Shellby', click: quit },
@@ -1462,7 +1507,7 @@ app.whenReady().then(() => {
 
   const reclamp = () => {
     const c = clampToDisplays(critter.getBounds(), workAreas());
-    critter.setPosition(c.x, c.y);
+    placeCritter(c.x, c.y);
   };
   screen.on('display-removed', reclamp);
   screen.on('display-metrics-changed', reclamp);

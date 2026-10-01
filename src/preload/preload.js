@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onPackInstalled: on('wardrobe:installed'), // result of an "Add to Shellby" gallery link
 
   // Claude Code status line
+  resetCritterPosition: fire('critter:reset-position'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   getStatusLine: invoke('statusline:get'),
