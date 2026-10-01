@@ -12,6 +12,8 @@ npm test       # must pass before a PR
 
 npm 11 may skip install scripts. If `npm start` says Electron failed to install, run `node node_modules/electron/install.js`.
 
+Every end-to-end and maintenance script, and a map of the code, is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 ## Guidelines
 
 - **No frameworks in the renderer.** The UI is plain HTML/CSS/JS on purpose: fast to start, easy to read, nothing to audit.

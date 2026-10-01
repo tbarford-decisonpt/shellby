@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.4
+
+### Docs
+- **A quicker README.** A three-step "Get started" sits right under the demo, the demo is the one image at the top, badges show the latest release, downloads and license at a glance, and the screenshots are bigger.
+- **Developer docs have their own page.** Building, every test and maintenance script, and the map of the code moved to [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), linked from CONTRIBUTING.md.
+- **An everyday Outfits screenshot,** so the README doesn't look out of season after Halloween.
+- **GitHub now recognizes the MIT license.** The fonts note moved from LICENSE to the README footer, so LICENSE is the standard MIT text (same terms as before).
+
 ## 0.16.3
 
 ### Fixed

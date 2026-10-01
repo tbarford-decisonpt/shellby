@@ -184,9 +184,6 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     setDate(2026, 10, 15); // Spooky Season
     wardrobe.wearSeason();
     await wait(600);
-    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'wardrobe' });
-    await wait(1400);
-    await shot(panel, path.join(out, 'screenshot-wardrobe.png'));
     send(critter, 'critter:state', { state: 'idle', busy: 0, crew: [], moreCrew: 0 });
     await wait(1500);
     await shot(critter, path.join(out, 'critter-halloween.png'));
@@ -201,6 +198,11 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     wardrobe.setOutfit({ hat: 'wizard-hat', held: 'coffee-mug', face: null, neck: null, shell: null, effect: 'sparkles' });
     await wait(1400);
     await shot(critter, path.join(out, 'critter-wizard.png'));
+
+    // The Outfits screen in an everyday look, so the README doesn't date with the seasons.
+    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'wardrobe' });
+    await wait(1400);
+    await shot(panel, path.join(out, 'screenshot-wardrobe.png'));
 
     // The shareable crab card, with the trophies earned above.
     for (let i = 0; i < 30; i++) wardrobe.record('helper-spawned');
