@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.1
+
+### Fixed
+- **The level badge no longer covers Shellby** in the top-left of the panel. It used to sit on top of the crab; it now follows his name as a small yellow pill (or sits right next to him when the window is narrow and the name is hidden). The new-outfit dot moved over a little so it doesn't touch the pill either.
+
 ## 0.15.0: GitHub sign-in
 
 ### New
