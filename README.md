@@ -192,6 +192,8 @@ npm start
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
+| `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
+| `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
 | `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), git push, an outside deploy, desktop "+XP", level-up, Trophies card |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |

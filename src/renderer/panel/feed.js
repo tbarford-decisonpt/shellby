@@ -37,6 +37,21 @@
         if (a) { e.preventDefault(); api.openExternal(a.dataset.href); }
       });
       this.renderEmpty();
+
+      // Keep the newest message in view. `stuck` = you're at the bottom; the
+      // feed shrinks whenever the Working bar, queued chips or attachments
+      // appear above the composer, and without this the end of your prompt
+      // would slide under them.
+      this.stuck = true;
+      this.el.addEventListener('scroll', () => { this.stuck = this.distanceFromEnd() < 40; }, { passive: true });
+      new ResizeObserver(() => { if (this.stuck && this.isActive) this.scrollToEnd(); }).observe(this.el);
+    }
+
+    distanceFromEnd() { return this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight; }
+
+    scrollToEnd() {
+      this.el.scrollTop = this.el.scrollHeight;
+      this.stuck = true;
     }
 
     // ------------------------------------------------------------ empty state
@@ -60,9 +75,9 @@
     append(el, parent) {
       this.empty.hidden = true;
       const host = (parent && this.lanes.get(parent)?.body) || this.el;
-      const nearBottom = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight < 140;
+      const follow = this.stuck || this.distanceFromEnd() < 140;
       host.append(el);
-      if (nearBottom && this.isActive) this.el.scrollTop = this.el.scrollHeight;
+      if (follow && this.isActive) this.scrollToEnd();
       return el;
     }
 
@@ -76,7 +91,10 @@
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
       switch (item.kind) {
-        case 'user': return this.renderUser(item);
+        case 'user':
+          // Something you just sent always comes into view, even if you'd scrolled up.
+          if (!replay) this.stuck = true;
+          return this.renderUser(item);
         case 'text': {
           const el = SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text);
           return this.append(el, item.parent);
@@ -142,6 +160,7 @@
 
     // ------------------------------------------------------------ permission cards
     renderAsk(item, replay) {
+      if (item.toolName === 'AskUserQuestion' && item.questions?.length) return this.renderQuestion(item, replay);
       const isPlan = item.toolName === 'ExitPlanMode';
       const always = item.suggestions?.[0];
       const persistent = always && always.destination && always.destination !== 'session';
@@ -208,6 +227,94 @@
       }
     }
 
+    // Claude's multiple-choice questions (AskUserQuestion): one block per
+    // question, options as buttons (number keys pick them), an "Other" box for
+    // your own words, then Send. A lone single-choice question sends on click.
+    renderQuestion(item, replay) {
+      const tabId = this.id;
+      const qs = item.questions;
+      const chosen = qs.map(() => new Set());
+      const other = qs.map(() => '');
+      const instant = qs.length === 1 && !qs[0].multiSelect;
+      let card;
+
+      const answerText = i => [...chosen[i], ...(other[i].trim() ? [other[i].trim()] : [])].join(', ');
+      const ready = () => qs.every((_, i) => answerText(i));
+      const send = async () => {
+        if (!ready()) return;
+        const answers = Object.fromEntries(qs.map((q, i) => [q.question, answerText(i)]));
+        card.answers = answers;
+        const ok = await api.answerPermission(tabId, item.requestId, 'allow', undefined, answers);
+        if (!ok) SB.toast('That question already expired.');
+      };
+      const skip = async () => {
+        card.answers = null;
+        const ok = await api.answerPermission(tabId, item.requestId, 'deny', "The user skipped the question. Continue with your best judgement, or ask in plain text if you're stuck.");
+        if (!ok) SB.toast('That question already expired.');
+      };
+
+      let key = 0;
+      const blocks = qs.map((q, i) => {
+        const opts = q.options.map(o => {
+          const n = ++key;
+          const btn = h('button', {
+            class: 'qa-opt', type: 'button', 'aria-pressed': 'false', 'data-key': n <= 9 ? String(n) : null,
+            onclick: () => {
+              if (q.multiSelect) {
+                if (chosen[i].has(o.label)) chosen[i].delete(o.label); else chosen[i].add(o.label);
+              } else {
+                chosen[i].clear(); chosen[i].add(o.label);
+              }
+              block.querySelectorAll('.qa-opt').forEach(b => b.setAttribute('aria-pressed', String(chosen[i].has(b.dataset.label))));
+              sendBtn.disabled = !ready();
+              if (instant) send();
+            },
+          },
+          n <= 9 ? h('kbd', { text: String(n) }) : null,
+          h('span', { class: 'qa-label', text: o.label }),
+          o.description ? h('span', { class: 'qa-desc', text: o.description }) : null);
+          btn.dataset.label = o.label;
+          return btn;
+        });
+        const otherInput = h('input', {
+          class: 'field qa-other', type: 'text', maxlength: '500', placeholder: q.options.length ? 'Or type your own answer…' : 'Your answer…',
+          'aria-label': `Your own answer to: ${q.question}`,
+          oninput: e => { other[i] = e.target.value; sendBtn.disabled = !ready(); },
+          onkeydown: e => { if (e.key === 'Enter' && ready()) { e.preventDefault(); send(); } },
+        });
+        const block = h('fieldset', { class: 'qa' },
+          h('legend', {}, q.header ? h('span', { class: 'qa-chip', text: q.header }) : null, h('span', { class: 'qa-q', text: q.question })),
+          q.multiSelect ? h('p', { class: 'qa-hint', text: 'Pick any that apply.' }) : null,
+          h('div', { class: 'qa-opts' }, opts),
+          otherInput);
+        return block;
+      });
+
+      const sendBtn = h('button', { class: 'btn allow', type: 'button', disabled: true, onclick: send }, qs.length > 1 ? 'Send answers' : 'Send answer');
+      const who = item.agent ? h('span', { class: 'ask-who' }, SB.helperSprite(this.laneIndexForTask(item.agent.taskId)), item.agent.description || item.agent.type) : null;
+      card = h('div', { class: 'ask question', role: 'group', 'aria-label': `Question: ${qs[0].question}` },
+        h('div', { class: 'ask-head' },
+          h('span', { class: 'ask-crab' }, SB.sprite()),
+          h('div', {},
+            h('div', { class: 'ask-title', text: qs.length > 1 ? `I have ${qs.length} quick questions` : 'Quick question' }),
+            h('div', { class: 'ask-sub' }, instant ? 'Pick one, or type your own answer.' : 'Answer, then send.', who ? [' · ', who] : null))),
+        h('div', { class: 'ask-body' }, blocks),
+        h('div', { class: 'ask-actions' }, instant ? null : sendBtn, h('button', { class: 'btn ghost', type: 'button', onclick: skip }, 'Skip')),
+        h('div', { class: 'ask-keys' }, 'Keys: ', h('kbd', {}, '1'), '–', h('kbd', {}, String(Math.min(key, 9))), ' pick'));
+      this.asks.set(item.requestId, card);
+      const laneId = item.agent?.toolUseId;
+      this.append(card, laneId);
+      if (laneId) this.lanes.get(laneId)?.setAsking(true);
+      if (!replay) {
+        this.setStatus('Waiting for your answer…');
+        if (this.isActive) {
+          // Focus the first option so number keys pick right away (not typed into the box).
+          card.querySelector('.qa-opt')?.focus({ preventScroll: true });
+          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+
     laneIndexForTask(taskId) {
       const lane = this.lanes.get(this.taskLane.get(taskId));
       return lane ? lane.index : 0;
@@ -218,7 +325,15 @@
       if (!card || card.classList.contains('decided')) return;
       card.classList.add('decided');
       const words = { allow: 'Allowed', always: 'Always allowed', deny: 'Denied', cancelled: 'Cancelled' };
-      card.append(h('div', { class: `ask-verdict ${item.decision === 'deny' || item.decision === 'cancelled' ? 'deny' : 'allow'}`, text: `→ ${words[item.decision] || item.decision}` }));
+      if (card.classList.contains('question')) {
+        // Show what was answered instead of "Allowed".
+        const a = card.answers ? Object.values(card.answers).join(' · ') : null;
+        const text = item.decision === 'cancelled' ? '→ Not answered' : a ? `→ ${a}` : item.decision === 'deny' ? '→ Skipped' : '→ Answered';
+        card.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
+        card.append(h('div', { class: `ask-verdict ${a ? 'allow' : 'deny'}`, text }));
+      } else {
+        card.append(h('div', { class: `ask-verdict ${item.decision === 'deny' || item.decision === 'cancelled' ? 'deny' : 'allow'}`, text: `→ ${words[item.decision] || item.decision}` }));
+      }
       for (const lane of this.lanes.values()) if (lane.body.contains(card)) lane.setAsking(false);
       if (this.busy) this.setStatus('Working…');
     }

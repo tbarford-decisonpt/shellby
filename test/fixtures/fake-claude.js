@@ -59,6 +59,24 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     setTimeout(() => { text(`echo: ${content}`); result(true); }, ms);
     return;
   }
+  // "ask" / "ask2" -> Claude asks one (or two) multiple-choice questions via
+  // AskUserQuestion, then repeats back the answers it was given.
+  if (content === 'ask' || content === 'ask2') {
+    const questions = [{ question: 'Which color do you like?', header: 'Color', multiSelect: false, options: [{ label: 'Red', description: 'Warm and loud' }, { label: 'Blue', description: 'Calm, like the sea' }] }];
+    if (content === 'ask2') questions.push({ question: 'Which snacks?', header: 'Snacks', multiSelect: true, options: [{ label: 'Chips', description: '' }, { label: 'Fruit', description: '' }, { label: 'Nuts', description: '' }] });
+    const requestId = `req-ask-${turn}`;
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_ask_${turn}`, name: 'AskUserQuestion', input: { questions } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'can_use_tool', tool_name: 'AskUserQuestion', tool_use_id: `tu_ask_${turn}`, input: { questions }, permission_suggestions: [] } });
+    pending = {
+      requestId,
+      onAnswer: r => {
+        text(r.behavior === 'allow' ? `answers: ${JSON.stringify(r.updatedInput?.answers || {})}` : `skipped: ${r.message}`);
+        result(true);
+      },
+    };
+    return;
+  }
+
   // "run <command>" -> runs it with the Bash tool; it "fails" if the command contains "FAIL"
   if (content.startsWith('run ')) {
     const command = content.slice(4);

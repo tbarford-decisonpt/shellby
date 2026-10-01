@@ -399,6 +399,10 @@ function onPermission(tabId, item, tab) {
   wake();
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
+  if (item.toolName === 'AskUserQuestion') {
+    notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }));
+    return;
+  }
   notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }));
 }
 
@@ -809,7 +813,7 @@ function registerIpc() {
     }
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (isStr(tabId)) manager.interrupt(tabId); });
-  ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message } = {}) => {
+  ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
     if (!isStr(tabId) || !isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
     const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
     if (pending) {
@@ -817,7 +821,11 @@ function registerIpc() {
       if (decision !== 'deny' && pending.runsCreated?.length) stat('created-script-approved');
       if (decision !== 'deny' && pending.toolName === 'ExitPlanMode') stat('plan-approved');
     }
-    return manager.respond(tabId, requestId, decision, typeof message === 'string' ? message.slice(0, 500) : undefined);
+    // AskUserQuestion answers: a small plain object of question -> answer strings.
+    const clean = answers && typeof answers === 'object' && !Array.isArray(answers)
+      ? Object.fromEntries(Object.entries(answers).slice(0, 10).filter(([q, a]) => isStr(q) && typeof a === 'string'))
+      : undefined;
+    return manager.respond(tabId, requestId, decision, typeof message === 'string' ? message.slice(0, 500) : undefined, clean);
   });
 
   // ---- history

@@ -71,8 +71,8 @@ class SessionManager extends EventEmitter {
     this.changed();
   }
 
-  respond(tabId, requestId, decision, message) {
-    return this.tabs.get(tabId)?.session.respond(requestId, decision, message) || false;
+  respond(tabId, requestId, decision, message, answers) {
+    return this.tabs.get(tabId)?.session.respond(requestId, decision, message, answers) || false;
   }
 
   interrupt(tabId) { this.tabs.get(tabId)?.session.interrupt(); }

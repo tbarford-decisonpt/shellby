@@ -8,7 +8,25 @@ const TOOL_VERBS = {
   MultiEdit: 'Edited', NotebookEdit: 'Edited', Glob: 'Searched files', Grep: 'Searched for',
   WebFetch: 'Fetched', WebSearch: 'Searched the web', Task: 'Delegated', Agent: 'Delegated',
   TodoWrite: 'Updated plan', ExitPlanMode: 'Proposed a plan', Skill: 'Used skill',
+  AskUserQuestion: 'Asked you',
 };
+
+/**
+ * Claude's AskUserQuestion input, cleaned up for the question card:
+ * [{ question, header, multiSelect, options: [{ label, description }] }]
+ */
+function questionsOf(input) {
+  const list = Array.isArray(input?.questions) ? input.questions : [];
+  const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+  return list.slice(0, 6).filter(q => q && typeof q.question === 'string' && q.question.trim()).map(q => ({
+    question: str(q.question, 500),
+    header: str(q.header, 40),
+    multiSelect: !!q.multiSelect,
+    options: (Array.isArray(q.options) ? q.options : []).slice(0, 8)
+      .filter(o => o && typeof o.label === 'string' && o.label.trim())
+      .map(o => ({ label: str(o.label, 120), description: str(o.description, 300) })),
+  }));
+}
 
 function truncate(s, n) {
   s = String(s ?? '');
@@ -17,6 +35,10 @@ function truncate(s, n) {
 
 function describeTool(name = '', input = {}) {
   const i = input || {};
+  if (name === 'AskUserQuestion') {
+    const qs = questionsOf(i);
+    return { label: TOOL_VERBS.AskUserQuestion, detail: qs.map(q => q.question).join(' · ').slice(0, 400) || 'a question' };
+  }
   let detail =
     i.command ?? i.file_path ?? i.notebook_path ??
     (i.pattern != null ? `${i.pattern}${i.path ? ` in ${i.path}` : ''}` : null) ??
@@ -155,6 +177,7 @@ function toItems(ev) {
           suggestions: Array.isArray(r.permission_suggestions) ? r.permission_suggestions : [],
           ...describeTool(r.tool_name, r.input),
           plan: r.tool_name === 'ExitPlanMode' ? r.input?.plan : undefined,
+          questions: r.tool_name === 'AskUserQuestion' ? questionsOf(r.input) : undefined,
         }];
       }
       return [];
@@ -172,4 +195,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { toItems, parseLine, describeTool, resultText, truncate, usageFrom, WRITE_TOOLS, AGENT_TOOLS };
+module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, WRITE_TOOLS, AGENT_TOOLS };

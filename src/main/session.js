@@ -149,8 +149,9 @@ class ClaudeSession extends EventEmitter {
     this.write({ type: 'user', message: { role: 'user', content: text } });
   }
 
-  // decision: 'allow' | 'always' | 'deny'
-  respond(requestId, decision, message) {
+  // decision: 'allow' | 'always' | 'deny'. answers: AskUserQuestion's
+  // { [question text]: chosen label(s) or the user's own words }.
+  respond(requestId, decision, message, answers) {
     const item = this.pending.get(requestId);
     if (!item) return false;
     this.pending.delete(requestId);
@@ -159,6 +160,13 @@ class ClaudeSession extends EventEmitter {
       response = { behavior: 'deny', message: message || DENY_MESSAGE };
     } else {
       response = { behavior: 'allow', updatedInput: item.input };
+      // Claude reads the user's choices from updatedInput.answers (checked against the real CLI).
+      if (item.toolName === 'AskUserQuestion' && answers) {
+        const asked = new Set((item.input?.questions || []).map(q => q?.question));
+        const clean = {};
+        for (const [q, a] of Object.entries(answers)) if (asked.has(q) && typeof a === 'string' && a.trim()) clean[q] = a.trim().slice(0, 2000);
+        response.updatedInput = { ...item.input, answers: clean };
+      }
       if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
     }
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });

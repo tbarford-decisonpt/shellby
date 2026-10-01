@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.1
+
+### Fixed
+- **Questions from Shellby look like questions.** When Claude asks you something (Claude Code's multiple-choice questions), you used to see the raw JSON in a permission card. Now you get a proper question card:
+  - **Layout:** the question, a topic chip, and each option with its description.
+  - **Answering:** press **1–9** to pick, select several when it's multi-choice, or type your own answer. **Send** returns your answers to Claude, or **Skip** tells Claude you'd rather not answer.
+  - **Afterwards:** the card shows what you answered, the activity line reads "Asked you: …", and the notification says "Shellby has a question".
+- **Your prompt is no longer cut off after you send it.** The "Working…" bar appearing above the box made the conversation shorter right as your message arrived, hiding its last line. The conversation now stays pinned to the bottom when the box area grows (the Working bar, queued messages, attachments), and sending always brings your prompt into view, even if you'd scrolled up. A reply still won't pull you away from history you're reading.
+
 ## 0.13.0: Status-line face
 
 ### New

@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('shellby', {
   seenTab: fire('tab:seen'),
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
-  answerPermission: (tabId, requestId, decision, message) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message }),
+  answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
 
   // history
   listSessions: invoke('session:list'),
