@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0: Skill Shop
+
+### New
+- **Skill Shop.** **Toolbox → Get more** lists every plugin in your Claude Code marketplaces (skills, agents, commands), most popular first, with search and a filter per marketplace:
+  - **Install** and **Remove** with one click; new plugins are ready in your next conversation
+  - **Installed** shows what you already have, with its version and a link to its source
+  - **Add a marketplace** from a GitHub repo or link; Anthropic's official marketplaces are one click
+  - It all runs through Claude Code's own `claude plugin` commands, so plugins installed here show up in your terminal and editor too, and vice versa
+
+### Security
+- **Skill Shop installs always ask first**, in the isolated confirmation window, which names where the plugin really comes from and shows a red warning for anything outside Anthropic's marketplaces. Cancel is the default. After an install, Shellby says plainly if it added hooks or MCP servers. Plugins that install by running a command are never installed from Shellby: you're told to review them in a terminal.
+- **What you approve is what gets installed.** Marketplaces aren't refreshed while an install confirmation is open, and if the catalog changed anyway while you were deciding, Shellby asks you to look again instead of installing.
+- **A stalled install is cleaned up completely.** When an install times out, its whole process tree is stopped, including any `git` it started, not just Claude Code.
+
 ## 0.10.0: Outfit codes
 
 ### New

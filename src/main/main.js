@@ -10,7 +10,8 @@ const { randomUUID } = require('crypto');
 const { Config, MODES } = require('./config');
 const { History } = require('./history');
 const { SessionManager } = require('./sessions');
-const { checkStatus, findClaude } = require('./claude-cli');
+const { checkStatus, findClaude, run: runCli } = require('./claude-cli');
+const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
 const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
@@ -66,7 +67,7 @@ if (!CAPTURE) {
 // The community registry. Only dev builds may point elsewhere (for testing).
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -446,6 +447,120 @@ function createToolbox() {
   toolbox.start();
 }
 
+// ================================================================ skill shop
+
+function createShop() {
+  // Every shop call runs in an empty folder of its own, so a source like
+  // "some/dir" can never resolve to a real folder next to Shellby.
+  const cwd = path.join(app.getPath('userData'), 'plugin-cli');
+  shop = new Marketplace({
+    pluginsRoot: path.join(os.homedir(), '.claude', 'plugins'),
+    run: async (args, timeout) => {
+      // The exe is looked up per call: Claude Code may be installed after Shellby starts.
+      const exe = claudeStatus?.exe || findClaude();
+      if (!exe) return { ok: false, notInstalled: true, stdout: '', stderr: '' };
+      try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
+      return runCli(exe, args, timeout, { cwd });
+    },
+  });
+}
+
+// The shop needs Claude Code; just-the-crab mode hides it, and main enforces that too.
+function shopBlocked() {
+  if (!shop) return { ok: false, error: 'Shellby is still starting. Try again in a moment.' };
+  if (config.get('crabOnly')) return { ok: false, error: 'The Skill Shop needs Claude Code. Turn it on in Settings.' };
+  return null;
+}
+
+// One shop dialog at a time, so a busy panel can't stack prompts under your typing.
+let shopAsking = false;
+async function askOnce(spec) {
+  if (shopAsking) return null;
+  shopAsking = true;
+  try { return await confirm.ask(panel, { ...dialogLook(), ...spec }); } finally { shopAsking = false; }
+}
+
+// Plugins can bring hooks and MCP servers that run programs, so installing one
+// is confirmed in an isolated window the panel can't click through. The dialog
+// says where the plugin really comes from, and anything outside Anthropic's
+// marketplaces gets the red warning.
+async function confirmAndInstallPlugin(id) {
+  const blocked = shopBlocked();
+  if (blocked) return blocked;
+  if (!shop.known(id)) return { ok: false, error: "That plugin isn't in your marketplaces." };
+  const p = shop.find(id);
+  if (p.installed) return { ok: true, already: true, id, view: shop.view() };
+  const official = shop.suggestedFor(p.marketplace);
+  const from = official ? `${official.label} by ${official.by}` : (shop.marketplace(p.marketplace)?.source || p.marketplace);
+  const shownAt = shop.cache?.at; // what the dialog shows comes from this catalog
+  const response = await askOnce({
+    icon: '🧰', danger: !official,
+    title: 'Install plugin?',
+    message: `"${p.name}" from ${from}`,
+    detail: [p.description, p.url && `Source: ${p.url}`].filter(Boolean).join('\n\n'),
+    note: official
+      ? 'Plugins can add skills, agents and commands. Some also add hooks or MCP servers that run programs on your PC.'
+      : "This marketplace isn't one of Anthropic's. Plugins can add hooks or MCP servers that run programs on your PC, so only install it if you trust whoever publishes it.",
+    buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+  });
+  if (response === null) return { ok: false, canceled: true, busy: true };
+  if (response !== 0) return { ok: false, canceled: true };
+  // A marketplace refresh that landed while you were deciding could have changed
+  // what "Install" means; ask again rather than install something you didn't see.
+  if (shop.cache?.at !== shownAt) return { ok: false, error: 'The marketplace changed while you were deciding. Check the plugin again and press Install once more.' };
+  const r = await shop.install(id);
+  if (r.ok) {
+    stat('plugin-installed');
+    toolbox?.rescan();
+  }
+  await shop.list().catch(() => {}); // best effort: the cache is already patched
+  return { ...r, view: shop.view() };
+}
+
+async function confirmAndUninstallPlugin(id) {
+  const blocked = shopBlocked();
+  if (blocked) return blocked;
+  const p = shop.known(id) ? shop.find(id) : null;
+  if (!p?.installed) return { ok: false, error: "That plugin isn't installed." };
+  if (p.scope !== 'user') return { ...(await shop.uninstall(id)), view: shop.view() }; // explains the terminal route
+  const response = await askOnce({
+    icon: '🧹',
+    title: 'Remove plugin?',
+    message: `"${p.name}" (${p.marketplace})`,
+    detail: 'Its skills, agents and commands go away in new conversations.',
+    buttons: [{ label: 'Remove', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+  });
+  if (response === null) return { ok: false, canceled: true, busy: true };
+  if (response !== 0) return { ok: false, canceled: true };
+  const r = await shop.uninstall(id);
+  if (r.ok) toolbox?.rescan();
+  await shop.list().catch(() => {});
+  return { ...r, view: shop.view() };
+}
+
+async function confirmAndAddMarketplace(input) {
+  const blocked = shopBlocked();
+  if (blocked) return blocked;
+  // Normalize first: the dialog shows exactly what Claude Code will be given.
+  const source = normalizeSource(input);
+  if (!source) return { ok: false, error: 'Use a GitHub repo like owner/repo, or a public https:// link.' };
+  const suggested = SUGGESTED_MARKETPLACES.find(m => m.source === source);
+  const response = await askOnce({
+    icon: '🏪', danger: !suggested,
+    title: 'Add marketplace?',
+    message: suggested ? `${suggested.label} by ${suggested.by} (${suggested.source})` : source,
+    detail: suggested ? '' : "Anyone can publish a marketplace. Its plugins haven't been reviewed by Anthropic or by Shellby.",
+    note: 'Adding it only lists its plugins. Nothing is installed until you choose to.',
+    buttons: [{ label: 'Add marketplace', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+  });
+  if (response === null) return { ok: false, canceled: true, busy: true };
+  if (response !== 0) return { ok: false, canceled: true };
+  const r = await shop.addMarketplace(source);
+  if (!r.ok) return r;
+  await shop.list().catch(() => {});
+  return { ...r, view: shop.view() };
+}
+
 function pinnedTools() {
   return (config.get('pinnedTools') || []).filter(p => p && TRICKS_KIND.has(p.kind) && typeof p.name === 'string');
 }
@@ -785,6 +900,18 @@ function registerIpc() {
     if (known) shell.showItemInFolder(p);
   });
 
+  // ---- skill shop (Claude Code plugin marketplaces)
+  // No marketplace refresh (git pull) while an install confirmation is open.
+  ipcMain.handle('shop:list', (_e, { refresh = false } = {}) => shopBlocked() || shop.list({ refresh: !!refresh && !shopAsking }));
+  ipcMain.handle('shop:install', (_e, id) => confirmAndInstallPlugin(id));
+  ipcMain.handle('shop:uninstall', (_e, id) => confirmAndUninstallPlugin(id));
+  ipcMain.handle('shop:add-marketplace', (_e, source) => confirmAndAddMarketplace(source));
+  ipcMain.on('shop:open', (_e, id) => {
+    // Only links the CLI itself reported for a listed plugin.
+    const url = shop.find(id)?.url;
+    if (url) shell.openExternal(url);
+  });
+
   // ---- routines
   ipcMain.handle('routines:list', () => routinesView());
   ipcMain.handle('routines:save', (_e, input) => {
@@ -1077,6 +1204,7 @@ app.whenReady().then(() => {
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
 
   createToolbox();
+  createShop();
   createTray();
   health.start();
   createExternal();

@@ -1,0 +1,23 @@
+/* Shellby panel — Skill Shop (Claude Code plugin marketplaces). */
+.view-head #shopBtn { margin-left: 6px; }
+#shopMarket { height: 32px; }
+#shopMarket[hidden] { display: none; }
+.shop-row .tool-name strong { font-weight: 700; color: var(--sand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.installed-pill { flex: none; font: 700 9.5px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 99px; color: var(--glass); border: 1px solid rgba(127, 214, 194, .45); }
+.installed-pill.off { color: var(--sand-faint); border-color: var(--line); }
+.shop-row.is-installed { border-color: rgba(127, 214, 194, .35); }
+.shop-meta { display: flex; gap: 10px; margin-top: 4px; font: 10.5px var(--font-mono); color: var(--sand-faint); }
+.shop-meta .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--sand-faint); text-decoration: underline dotted; cursor: pointer; }
+.shop-meta .link-btn:hover, .shop-meta .link-btn:focus-visible { color: var(--sand); }
+.shop-row .btn.slim-btn { min-width: 74px; }
+.shop-row.is-busy { opacity: .7; }
+.shop-suggest { margin-bottom: 12px; padding: 12px; border-radius: var(--r); border: 1px dashed rgba(127, 214, 194, .4); background: var(--glass-dim); display: grid; gap: 8px; }
+.shop-suggest .row { justify-content: space-between; }
+.shop-add { margin-top: 16px; font-size: 13px; color: var(--sand-dim); }
+.shop-add summary { cursor: pointer; font-weight: 700; }
+.shop-add form { margin: 8px 0 6px; }
+.shop-add .field { flex: 1; }
+/* One long unbroken word in any description would size the grid's implicit
+   column (and push every Install button off-screen); pin it to the panel. */
+#shopList { grid-template-columns: minmax(0, 1fr); }
+#shopList .tool-desc { overflow-wrap: anywhere; }

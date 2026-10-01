@@ -60,6 +60,13 @@ contextBridge.exposeInMainWorld('shellby', {
   pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
   revealTool: fire('toolbox:reveal'),
 
+  // skill shop (Claude Code plugin marketplaces)
+  shopList: invoke('shop:list'),
+  shopInstall: invoke('shop:install'),
+  shopUninstall: invoke('shop:uninstall'),
+  shopAddMarketplace: invoke('shop:add-marketplace'),
+  shopOpen: fire('shop:open'),
+
   // wardrobe
   wardrobeView: invoke('wardrobe:view'),
   setOutfit: invoke('wardrobe:set-outfit'),

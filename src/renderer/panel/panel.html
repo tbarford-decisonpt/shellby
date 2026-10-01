@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="shop.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="../shared/health.css">
@@ -120,6 +121,7 @@
       <button type="button" class="back-btn" data-back>← Back</button>
       <h2>Toolbox</h2>
       <button type="button" class="btn ghost slim-btn" id="rescanBtn" title="Scan again">Rescan</button>
+      <button type="button" class="btn primary slim-btn" id="shopBtn" title="Browse and install skills from Claude Code plugin marketplaces">Get more</button>
     </div>
     <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers. When Shellby builds itself a new one, it shows up here with a <span class="new-pill">new</span> tag.</p>
     <div class="learned" id="learnedBox" hidden></div>
@@ -133,6 +135,34 @@
       </div>
     </div>
     <ul class="tool-list" id="toolList"></ul>
+  </main>
+
+  <!-- ====================== SKILL SHOP ====================== -->
+  <main class="view view-shop" id="shopView">
+    <div class="view-head">
+      <button type="button" class="back-btn" id="shopBack">← Toolbox</button>
+      <h2>Skill Shop</h2>
+      <button type="button" class="btn ghost slim-btn" id="shopRefresh" title="Fetch the latest plugin lists">Refresh</button>
+    </div>
+    <p class="view-lede">Skills, agents and commands from Claude Code plugin marketplaces. Installed plugins are ready in new conversations.</p>
+    <div class="shop-suggest" id="shopSuggest" hidden></div>
+    <div class="toolbox-controls">
+      <input type="search" id="shopSearch" class="field" placeholder="Search plugins…" aria-label="Search plugins">
+      <div class="seg" id="shopTabs" role="tablist">
+        <button type="button" role="tab" data-filter="all" aria-selected="true">Browse <span class="n"></span></button>
+        <button type="button" role="tab" data-filter="installed">Installed <span class="n"></span></button>
+      </div>
+      <select class="field" id="shopMarket" aria-label="Marketplace"></select>
+    </div>
+    <ul class="tool-list" id="shopList"></ul>
+    <details class="shop-add">
+      <summary>Add a marketplace</summary>
+      <form class="row" id="shopAddForm">
+        <input type="text" class="field" id="shopAddInput" placeholder="owner/repo or https://…" aria-label="Marketplace GitHub repo or URL" spellcheck="false">
+        <button type="submit" class="btn slim-btn">Add</button>
+      </form>
+      <p class="muted small">Anyone can publish a marketplace. Only add ones you trust.</p>
+    </details>
   </main>
 
   <!-- ====================== ROUTINES ====================== -->
@@ -557,6 +587,7 @@
 <script src="feed.js"></script>
 <script src="tabs.js"></script>
 <script src="toolbox.js"></script>
+<script src="shop.js"></script>
 <script src="routines.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>

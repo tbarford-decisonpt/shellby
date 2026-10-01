@@ -33,11 +33,25 @@ function findClaude(env = process.env) {
   return candidatePaths(env).find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
 }
 
-function run(exe, args, timeout = 15000) {
+// opts.cwd: where the CLI runs (it resolves relative arguments there).
+function run(exe, args, timeout = 15000, { cwd } = {}) {
   return new Promise(resolve => {
-    execFile(exe, args, { env: subscriptionEnv(), windowsHide: true, timeout }, (err, stdout, stderr) => {
-      resolve({ ok: !err, stdout: String(stdout || ''), stderr: String(stderr || ''), err });
+    let timedOut = false;
+    // Plugin catalogs can be several MB of JSON; the 1 MB default would truncate them.
+    const child = execFile(exe, args, { env: subscriptionEnv(), windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      clearTimeout(timer);
+      resolve({ ok: !err && !timedOut, stdout: String(stdout || ''), stderr: String(stderr || ''), err: err || (timedOut ? new Error('timed out') : null), timedOut });
     });
+    // Our own timeout: kill the whole tree while claude is still alive (a plugin
+    // install may be running git; execFile's timeout would only kill claude.exe).
+    const timer = setTimeout(() => {
+      timedOut = true;
+      if (process.platform === 'win32' && child.pid) {
+        execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+      } else {
+        child.kill('SIGKILL');
+      }
+    }, timeout);
   });
 }
 
@@ -63,4 +77,4 @@ async function checkStatus() {
   return status;
 }
 
-module.exports = { findClaude, checkStatus, subscriptionEnv, candidatePaths, BILLING_ENV };
+module.exports = { findClaude, checkStatus, subscriptionEnv, candidatePaths, run, BILLING_ENV };
