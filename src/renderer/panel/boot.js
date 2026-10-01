@@ -42,7 +42,11 @@
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
   api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });
-  api.onAttach(files => { if (state.view !== 'onboarding') SB.setView('chat'); SB.addAttachments(files); });
+  api.onAttach(files => {
+    if (SB.isCrabOnly()) return SB.claudeUpsell('files');
+    if (state.view !== 'onboarding') SB.setView('chat');
+    SB.addAttachments(files);
+  });
   api.onFocusInput(() => { if (state.view === 'chat') $('input').focus(); });
   api.onView(v => SB.setView(v));
   api.onSkin(({ skin, outfit }) => {
@@ -92,6 +96,7 @@
     });
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);
+    SB.applyCrabOnly();
     SB.applyUsage(state.settings.lastUsage);
     if (b.wardrobe) SB.applyWardrobe(b.wardrobe);
     if (b.welcomeTrophies?.length) {

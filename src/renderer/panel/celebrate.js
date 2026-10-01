@@ -57,6 +57,7 @@
     const el = card(c);
     el.style.setProperty('--show-ms', `${SHOW_MS}ms`);
     host.replaceChildren(el);
+    document.body.classList.add('celebrating');
     current = { el, timer: null, left: SHOW_MS, started: Date.now() };
     const run = () => { current.started = Date.now(); current.timer = setTimeout(dismiss, current.left); el.classList.remove('paused'); };
     const pause = () => { clearTimeout(current.timer); current.left -= Date.now() - current.started; el.classList.add('paused'); };
@@ -72,7 +73,7 @@
     clearTimeout(timer);
     current = null;
     el.classList.add('leaving');
-    setTimeout(() => { el.remove(); show(); }, 220);
+    setTimeout(() => { el.remove(); if (!queue.length) document.body.classList.remove('celebrating'); show(); }, 220);
   }
 
   /** c: { icon, title, text, rewards: [public items], eyebrow? } */

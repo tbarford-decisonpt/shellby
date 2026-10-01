@@ -25,6 +25,7 @@ const DEFAULTS = {
   notifications: true,
   model: '', // '' -> Claude Code's default
   onboarded: false,
+  crabOnly: false,      // "just the crab": no Claude Code (Health, Wardrobe, trophies)
   autonomousAcknowledged: false,
   lastUsage: null,
   openTabs: [],       // history ids of conversations open as tabs

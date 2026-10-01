@@ -10,6 +10,9 @@ Click him, type a task ("tidy my Downloads", "build yourself a tool that…"), a
 He sends out helper crabs, builds his own tools, and runs routines on a schedule, all on<br>
 **your own Claude Pro/Max subscription**. No API keys, no per-token billing.
 
+**No Claude? Just the crab.** He still watches your PC: he sweats when the GPU passes 80°C, gets dizzy when RAM fills up,<br>
+and overflows his shell when C: is full. Dress him up and earn trophies, with no account needed.
+
 [Download](https://github.com/x-salmon/shellby/releases/latest) · [**Community packs**](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 <br>
@@ -102,6 +105,10 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 
 ## Install
 
+**Just the crab:** download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest), run it, and pick **Just the crab**. That's it: Health, the Wardrobe, trophies and crab cards, no account. You can add Claude Code later from Settings.
+
+**Crab + Claude Code:**
+
 1. **Install Claude Code** and sign in with your Claude account (Pro or Max):
    ```powershell
    npm install -g @anthropic-ai/claude-code
@@ -177,6 +184,8 @@ npm start
 | `node scripts/e2e-registry.js` | One-click install from the live community registry: warm and cold, themed confirmation, every item previewed |
 | `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
+| `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
+| `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, titlebar badge, screenshots |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |

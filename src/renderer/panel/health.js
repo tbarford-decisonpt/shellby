@@ -274,6 +274,7 @@
 
   async function ask(checkId) {
     const r = await api.askAboutHealth(checkId);
+    if (r?.needsClaude) return SB.claudeUpsell('health');
     if (!r?.ok) return SB.toast(r?.error || "Couldn't start that.");
     SB.setView('chat');
     SB.toast('Shellby is looking into it');

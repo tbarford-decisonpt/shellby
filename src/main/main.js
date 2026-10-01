@@ -353,7 +353,7 @@ function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null
 // A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
 // in its own tab in the foreground, in the current permission mode.
 function startTask(prompt, title) {
-  if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
+  if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
   try {
     const tabId = randomUUID();
     openTab({ tabId, title });
@@ -616,7 +616,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -641,7 +641,7 @@ function registerIpc() {
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly']) if (k in allowed) allowed[k] = !!allowed[k];
     const prevHotkey = config.get('hotkey');
     let hotkeyError = null;
     if ('hotkey' in allowed && allowed.hotkey !== prevHotkey) {
@@ -896,12 +896,13 @@ function setFolder(dir) {
 
 function buildMenu() {
   const agg = manager?.aggregate;
+  const claude = !config.get('crabOnly'); // just-the-crab mode has no tasks, toolbox or routines
   return Menu.buildFromTemplate([
     { label: 'Open Shellby', click: () => showPanel() },
-    { label: 'New conversation', click: () => { showPanel(); send(panel, 'tab:new-request'); } },
+    claude && { label: 'New conversation', click: () => { showPanel(); send(panel, 'tab:new-request'); } },
     { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
-    { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
-    { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
+    claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
+    claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
     { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
@@ -910,7 +911,7 @@ function buildMenu() {
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
     { type: 'separator' },
     { label: 'Quit Shellby', click: quit },
-  ]);
+  ].filter(Boolean));
 }
 
 function createTray() {

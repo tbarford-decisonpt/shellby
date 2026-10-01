@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0: Just the crab
+
+### New
+- **Just the crab: no Claude needed.** First run now offers two paths:
+  - **Just the crab:** a desktop pet that watches your PC, with Health, the Wardrobe, trophies and crab cards. No account and no CLI.
+  - **Crab + Claude Code:** the full setup, as before.
+
+  In crab mode, Health is home, and chat, permission modes, Toolbox, Routines and History are hidden.
+- **The Claude bits explain themselves.** In crab mode, **Ask Shellby why**, dropping files on him, and a "Give Shellby a brain" card in Health show what Claude Code would add, with a **Set up Claude Code** button. Settings switches modes either way, and your conversations stay saved.
+
+### Fixed
+- A trophy celebration and a toast arriving together no longer stack on top of each other, and dialogs always sit above both.
+
 ## 0.6.0: Show him off
 
 ### New

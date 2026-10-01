@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
+<link rel="stylesheet" href="crabonly.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -257,6 +258,15 @@
       <p class="muted small">"Very hot" is 8°C past the line. Shellby waits about 20 seconds before reacting, so short spikes during a game load don't count. Small drives warn at 10% free instead.</p>
     </section>
 
+    <section class="hl-claude" id="hlClaude" hidden>
+      <div class="hl-claude-crab" aria-hidden="true">⚡</div>
+      <div>
+        <b>Give Shellby a brain</b>
+        <p>With Claude Code, "Ask Shellby why" actually finds what's heating your GPU or filling your drive, and he can tidy folders, write scripts and send out helper crabs for you. Uses your Claude Pro or Max plan.</p>
+        <button type="button" class="btn slim-btn" data-claude-setup>Set up Claude Code</button>
+      </div>
+    </section>
+
     <section class="setting-group">
       <div class="hl-loghead"><h3>Recent alerts</h3><button type="button" class="btn ghost slim-btn" id="hlClearLog">Clear</button></div>
       <ul class="hl-log" id="hlLog"></ul>
@@ -396,6 +406,14 @@
       <p class="muted small">Applies to new conversations.</p>
     </section>
 
+    <section class="setting-group" id="claudeModeGroup">
+      <h3>Claude Code</h3>
+      <p class="small" id="claudeModeText"></p>
+      <div class="row wrap">
+        <button type="button" class="btn" id="claudeModeBtn"></button>
+      </div>
+    </section>
+
     <section class="setting-group">
       <h3>System</h3>
       <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
@@ -419,15 +437,30 @@
     <div class="hello">
       <div class="hello-crab" id="helloCrab"></div>
       <h1>Hi, I'm Shellby.</h1>
-      <p>I'm a hermit crab who lives on your desktop. You give me tasks, and I get them done using Claude Code on your own Claude subscription. I can even build tools for myself and send out helper crabs.</p>
+      <p>A pixel hermit crab who lives on your desktop. How do you want me?</p>
     </div>
-    <ol class="steps" id="steps"></ol>
-    <section class="setting-group onboarding-modes">
-      <h3>How much can I do without asking?</h3>
-      <div class="mode-cards compact" id="onboardModeCards"></div>
-    </section>
-    <div class="row end">
-      <button type="button" class="btn primary" id="letsGoBtn" disabled>Let's go</button>
+    <div class="paths" id="onboardPaths" role="group" aria-label="How do you want Shellby?">
+      <button type="button" class="path" data-path="crab">
+        <span class="path-icon" aria-hidden="true">🦀</span>
+        <span class="path-title">Just the crab</span>
+        <span class="path-sub">I watch your PC: I sweat when the GPU runs hot, get dizzy when memory's full and overflow when a drive fills up. Dress me up and earn trophies. <b>No account needed.</b></span>
+      </button>
+      <button type="button" class="path" data-path="claude">
+        <span class="path-icon" aria-hidden="true">⚡</span>
+        <span class="path-title">Crab + Claude Code</span>
+        <span class="path-sub">Everything above, plus give me tasks and I'll do them on your PC with helper crabs, using your Claude Pro or Max plan.</span>
+      </button>
+    </div>
+    <div id="claudeSetup" hidden>
+      <ol class="steps" id="steps"></ol>
+      <section class="setting-group onboarding-modes">
+        <h3>How much can I do without asking?</h3>
+        <div class="mode-cards compact" id="onboardModeCards"></div>
+      </section>
+      <div class="row end">
+        <button type="button" class="btn ghost" id="crabInsteadBtn">Just the crab for now</button>
+        <button type="button" class="btn primary" id="letsGoBtn" disabled>Let's go</button>
+      </div>
     </div>
   </main>
 
@@ -451,6 +484,29 @@
     </div>
   </div>
 
+  <!-- crab-only mode: what Claude Code would add -->
+  <div class="card-sheet" id="upsellSheet" role="dialog" aria-modal="true" aria-labelledby="upsellTitle" hidden>
+    <div class="card-box upsell-box">
+      <div class="card-head">
+        <h2 id="upsellTitle">That's a Claude Code trick</h2>
+        <button type="button" class="icon-btn" id="upsellClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="upsell-lede" id="upsellLede"></p>
+      <ul class="upsell-list">
+        <li><b>Investigates for you.</b> What's using the GPU, what's eating memory, what's filling C:</li>
+        <li><b>Does the chores.</b> Tidies folders, renames files, writes and runs scripts, with your OK first.</li>
+        <li><b>Sends out helper crabs</b> to work in parallel, and learns new tricks as he goes.</li>
+      </ul>
+      <p class="muted small">Needs Claude Code and a Claude Pro or Max plan. No API keys, nothing billed per use.</p>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="upsellLater">Not now</button>
+        <button type="button" class="btn primary" data-claude-setup>Set up Claude Code</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../shared/sprite.js"></script>
@@ -467,6 +523,7 @@
 <script src="health.js"></script>
 <script src="card.js"></script>
 <script src="celebrate.js"></script>
+<script src="crabonly.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

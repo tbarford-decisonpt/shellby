@@ -1,6 +1,6 @@
 /* Shellby panel — shareable crab card preview. */
 .card-sheet {
-  position: fixed; inset: 0; z-index: 40;
+  position: fixed; inset: 0; z-index: 70; /* dialogs sit above celebrations and toasts */
   display: grid; place-items: center; padding: 16px;
   background: rgba(4, 12, 14, .72);
   backdrop-filter: blur(3px);
@@ -92,6 +92,9 @@
 }
 .celebrate.paused .cel-timer { animation-play-state: paused; }
 @keyframes cel-timer { to { transform: scaleX(0); } }
+
+/* While a trophy celebration is up, toasts move to the top so they never stack on it. */
+body.celebrating .toast { bottom: auto; top: 64px; }
 
 /* Ordinary toasts: a rounded card rather than a pill once text wraps, and the
    action never gets squeezed. */

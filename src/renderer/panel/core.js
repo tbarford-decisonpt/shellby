@@ -158,6 +158,8 @@ SB.views = {};  // name -> { render?() }
 
 SB.setView = view => {
   const s = SB.state;
+  // Just-the-crab mode has no chat: Health is home.
+  if (view === 'chat' && s.settings.crabOnly) view = 'health';
   s.view = view;
   document.body.dataset.view = view;
   document.querySelectorAll('[data-view-btn]').forEach(b => b.classList.toggle('active', b.dataset.viewBtn === view));

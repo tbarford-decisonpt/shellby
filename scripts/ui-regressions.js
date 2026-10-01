@@ -56,14 +56,22 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     }
 
     // 2. themed tooltip on hover (real mouse move through the compositor)
+    // The tip correctly hides when the window loses focus, which happens if
+    // someone is using the PC during the run, so hover again before failing.
     const r = JSON.parse(await panel.ev("JSON.stringify(document.getElementById('newTabBtn').getBoundingClientRect())"));
-    await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r.x + r.width / 2, y: r.y + r.height / 2 });
-    await wait(700);
-    const t = JSON.parse(await panel.ev(`JSON.stringify({
-      visible: !document.querySelector('.tip').hidden,
-      text: document.querySelector('.tip').textContent,
-      nativeTitle: document.getElementById('newTabBtn').getAttribute('title'),
-    })`));
+    let t;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
+      await wait(100);
+      await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r.x + r.width / 2, y: r.y + r.height / 2 });
+      await wait(700);
+      t = JSON.parse(await panel.ev(`JSON.stringify({
+        visible: !document.querySelector('.tip').hidden,
+        text: document.querySelector('.tip').textContent,
+        nativeTitle: document.getElementById('newTabBtn').getAttribute('title'),
+      })`));
+      if (t.visible) break;
+    }
     check(t.visible && /New conversation/.test(t.text), `themed tooltip shows ("${t.text}")`);
     check(t.nativeTitle === null, 'native title removed, so no OS tooltip');
     const shot = await panel.send('Page.captureScreenshot', { format: 'png', clip: { x: Math.max(0, r.x - 150), y: r.y - 10, width: 260, height: 90, scale: 2 } });
