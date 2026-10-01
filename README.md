@@ -41,9 +41,9 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 ## What it does
 
 ### He works like you use Claude Code: orchestrating
-- **Works with Claude Code everywhere.** Add the Shellby plugin (`/plugin marketplace add x-salmon/shellby`, then `/plugin install shellby@shellby`) and he reacts to *every* Claude Code session on your PC, in the terminal, VS Code or anywhere else. He scuttles while Claude works, raises a claw when it needs permission, celebrates finished turns and sends out helper crabs for subagents. See [claude-plugin/](claude-plugin/).
+- **Works with Claude Code everywhere.** Add the Shellby plugin (one click in **Settings → Claude Code everywhere**, or `/plugin marketplace add x-salmon/shellby` then `/plugin install shellby@shellby` in Claude Code) and he reacts to *every* Claude Code session on your PC, in the terminal, VS Code or anywhere else. He scuttles while Claude works, raises a claw when it needs permission, celebrates finished turns and sends out helper crabs for subagents. See [claude-plugin/](claude-plugin/).
 - **Crew view.** When Claude delegates to subagents, each helper gets its own lane: task, live activity, tool count, tokens and time. The same number of helper crabs scuttle out next to Shellby on your desktop, and click one to jump to its conversation. When a helper needs permission, the card shows up in its lane, labelled with which crab is asking.
-- **His face in Claude Code's status line.** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on with **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and puts your old status line back if you remove it), or run `/shellby:statusline` in Claude Code with the plugin installed.
+- **His face in Claude Code's status line.** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on with **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and puts your old status line back if you remove it), or run `/shellby:statusline` in Claude Code with the plugin installed. In the classic cmd.exe console, which can't draw emoji, it switches to a plain-text line on its own.
 - **Queue messages while he works.** Keep typing while Shellby is busy: Enter queues the message and it's sent when the current turn finishes, like Claude Code. Click a queued message (or press <kbd>↑</kbd>) to edit it. Stopping hands the queue back to you instead of firing it.
 - **Parallel conversations.** Tabs, each with its own Claude Code process: build a tool in one while you use it in another. The desktop crab shows how many are running. Shortcuts: <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd>, <kbd>Ctrl</kbd>+<kbd>Tab</kbd>.
 - **Toolbox: he learns tricks.** Everything Claude Code can use: skills, subagents, slash commands and MCP servers (with connection status). When Claude writes itself a new skill or agent, Shellby notices the file, celebrates on your desktop, tags it **new**, and offers to pin it. Pinned tricks become one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
@@ -56,7 +56,7 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 </p>
 
 - **37 pixel accessories and 7 effects** in six slots: hats, face, neck, held item (in his claw), shell, and effects like snowfall, orbiting bats, falling leaves, fireflies and confetti. Accessories animate with the part they're attached to, so a pumpkin swings with his claw and a hat bobs with his eye stalks.
-- **XP and levels.** Shellby earns XP as you work, and most of all when he **writes himself a new skill or agent** (+150), which usually tips him into the next level. Other sources: deploys (+50), pushes (+40), passing tests (+25), trophies (+20) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. He climbs from Hatchling through Claw Coder and Reef Architect to Legend of the Tides. "+25 XP" floats up from him on the desktop, level-ups get a celebration, and Trophies shows his level and an XP log. Hourly caps stop a test loop from farming XP.
+- **XP and levels.** Shellby earns XP as you work, and most of all when he **writes himself a new skill or agent** (+150), which usually tips him into the next level. Other sources: deploys (+50), pushes (+40), passing tests (+25), trophies (+20) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. He climbs from Hatchling through Claw Coder and Reef Architect to Legend of the Tides. "+25 XP" floats up from him on the desktop, level-ups get a celebration, and **Trophies & XP** (click the yellow level badge next to him in the title bar) shows his level, an XP log and your streak. Hourly caps stop a test loop from farming XP.
 - **GitHub sign-in (optional).** Sign in with a short code you approve on github.com, with no password typed into Shellby. Then turn on what you want, and GitHub is only asked for the permissions those features need:
   - **Sync between PCs:** trophies, collected items, XP, streak days, outfit and color, through a private gist. Syncing only ever adds progress, so nothing is lost on either PC.
   - **Publish Wardrobe packs:** a **Publish** button on your own packs forks the community gallery and opens the pull request for you.
@@ -68,7 +68,7 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 - **Helper crabs wear matching hats**, and every crab in the app is dressed the same way.
 - **Community packs.** More hats, effects and colors from other people, installed in one click. See [Community wardrobe](#community-wardrobe) below.
 - **Outfit codes.** Every look has a code like `SHB-B1T7-2DB1-7MXH-JW90`. Post yours, paste someone else's into **Wear a code…** and Shellby previews it on your crab, then puts it on. Locked items show which trophy unlocks them, and items from community packs you don't have come with a **Get pack** button. Codes are typo-proof and need no server.
-- **Show him off.** **📸 Share** in the Wardrobe makes a crab card with your Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`, ready to paste into a post. Sharing one earns a trophy too.
+- **Show him off.** **📸 Share** on Shellby's screen makes a crab card with your Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`, ready to paste into a post. Sharing one earns a trophy too.
 
 <p align="center"><img src="docs/crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, titled Fleet Admiral, 12 tasks done, 7 of 22 trophies, 31 helper crabs sent"></p>
 
@@ -106,14 +106,21 @@ and overflows his shell when C: is full. Dress him up and earn trophies, with no
 
 ### And keeps you in the loop
 - **Asks before acting.** Permission prompts become cards: **Allow**, **Always allow**, or **Deny**, with <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>N</kbd> shortcuts.
+- **Questions become cards too.** When Claude asks you a multiple-choice question, you get a card with each option and its description: press <kbd>1</kbd>–<kbd>9</kbd> to pick, choose several when it allows that, type your own answer, or **Skip**.
 - **Flags self-built tooling.** If a command runs a script Claude wrote earlier in the same conversation, or an edit touches Claude Code's own setup (skills, agents, hooks, settings, `CLAUDE.md`), the card says so before you click Allow.
 - **Five permission modes.** Ask, Smart (Claude Code's auto mode), Auto-edit, Plan-only, and a fenced-off Autonomous mode.
 - **Lives on your desktop, not over your apps.** Shellby sits on the wallpaper layer, behind every window, and stays put through <kbd>Win</kbd>+<kbd>D</kbd>.
-- **Also:** drop files on the crab to attach them, a live 5-hour and weekly usage meter, resumable history, a global hotkey, tray, notifications, auto-updates, and [skins](docs/SKINS.md).
+- **Also:** drop files on the crab to attach them, **Settings → Look → Find Shellby** if he ever wanders off-screen, a live 5-hour and weekly usage meter, resumable history, a global hotkey, tray, notifications, auto-updates, and [skins](docs/SKINS.md).
 
 <p align="center">
 <img src="docs/critter-working.png" width="110" alt="working"> <img src="docs/critter-asking.png" width="110" alt="asking"> <img src="docs/critter-learned.png" width="110" alt="learned a new trick"> <img src="docs/critter-success.png" width="110" alt="done"> <img src="docs/critter-sleeping.png" width="110" alt="sleeping">
 </p>
+
+### Easy to get around
+- **A bar along the bottom of the panel**: **Shellby**, Chat, Toolbox, Routines, Health and History, always labeled, with the screen you're on lit up. Shellby leads it, drawn as himself in whatever he's wearing, and opens his own screen: **Outfits** and **Trophies & XP**.
+- **Jump anywhere with <kbd>Ctrl</kbd>+<kbd>K</kbd>** (or the magnifier in the title bar): type a few letters to open any screen, a Settings section, a permission mode, a past conversation, or a skill.
+- **Keyboard first:** <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd> for the screens in the bar, and <kbd>Esc</kbd> goes back up one level (Skill Shop → Toolbox → home), then hides the panel.
+- **Settings has section links** that stay at the top while you scroll, so the long page is one click from anywhere.
 
 ## Install
 
@@ -193,8 +200,9 @@ npm start
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
+| `node scripts/e2e-shop.js` | The Skill Shop against your real Claude Code, read-only: plugin list, search and filters, then Install is cancelled in the confirm window, so nothing is installed |
 | `node scripts/e2e-registry.js` | One-click install from the live community registry: warm and cold, themed confirmation, every item previewed |
-| `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration → wear the Party Hat (isolated profile) |
+| `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration and the celebration card → wear the Party Hat from it (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
@@ -211,6 +219,7 @@ npm start
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, the badge on Health in the bottom bar, screenshots |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
+| `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `npm run screenshots` | Re-render the README screenshots (with fake account details) |
 | `npm run reel` | Record the README demo GIF: a scripted task, helper crabs and a trophy, played through the real UI (needs Python + Pillow; `pip install imageio-ffmpeg` adds the MP4) |
@@ -227,6 +236,8 @@ src/main/        Electron main process
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
+  marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
+  confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
   routines.js      schedule maths + scheduler for recurring tasks
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
@@ -239,9 +250,12 @@ src/main/        Electron main process
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
   skins.js         loads and validates skins
+  config.js        settings in %APPDATA%\Shellby\settings.json
+  placement.js     pure geometry for placing the critter and panel across monitors
+  capture.js       `npm run screenshots`; reel.js records the README demo
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
-  panel/           core · feed (crew lanes) · tabs · toolbox · routines · settings · wardrobe · health · boot
+  panel/           core · nav (bottom bar, Ctrl+K) · feed (crew lanes) · tabs · toolbox · shop · routines · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI

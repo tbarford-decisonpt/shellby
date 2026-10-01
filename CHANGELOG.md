@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.1
+
+### Docs
+- **The README catches up** with everything through 0.16.0: the bottom bar, Ctrl+K and the other shortcuts, question cards, one-click plugin install, the plain-text status line in cmd.exe, and Find Shellby. Its screenshots now show the new layout, and the project layout and test-script list are complete again.
+
 ## 0.16.0: easier to get around
 
 ### New
