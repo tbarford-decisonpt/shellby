@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1
+
+### Fixed
+- **Health view:** the "Set up CPU temperature" link was cut off when the panel was wide enough for three gauge columns. Cards without a reading now wrap their text instead of clipping it.
+
+### New
+- **Demo GIF at the top of the README** (and an MP4 for sharing). `npm run reel` records it through the real UI with scripted data.
+- **Checksums:** every release now includes `SHA256SUMS.txt` for verifying downloads.
+- **Code signing support:** releases are signed automatically once Azure Artifact Signing credentials are configured. See [docs/SIGNING.md](docs/SIGNING.md).
+
 ## 0.5.0: Health
 
 Shellby now keeps an eye on your PC, and his mood follows it.

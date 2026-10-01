@@ -12,6 +12,12 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 
 [Download](https://github.com/x-salmon/shellby/releases/latest) · [**Community packs**](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
+<br>
+
+<img src="docs/shellby-demo.gif" width="860" alt="Shellby demo: typing a task, three helper crabs scuttling out to work in parallel lanes and walking home, then a trophy unlocking and Shellby wearing a party hat">
+
+<sub>Give him a task, watch the helper crabs go, earn outfits. ([MP4 version](docs/shellby-demo.mp4))</sub>
+
 </div>
 
 ---
@@ -101,7 +107,10 @@ He sends out helper crabs, builds his own tools, and runs routines on a schedule
 2. Download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest) and run it.
 3. Shellby walks you through a two-step check (CLI found ✓, signed in with a Claude account ✓) and asks how much freedom he gets.
 
-> **Windows SmartScreen:** releases aren't code-signed yet, so Windows may say "Windows protected your PC". Click **More info → Run anyway**, or build from source (below). Every release is built by GitHub Actions from the tagged commit.
+> **"Windows protected your PC"?** That's Microsoft SmartScreen. It warns about any app that isn't code-signed or that few people have downloaded yet, and Shellby releases aren't signed yet.
+>
+> - **To install anyway:** click **More info → Run anyway**.
+> - **To check you got the real file:** every release is built by [GitHub Actions](https://github.com/x-salmon/shellby/actions/workflows/release.yml) from the tagged commit, and each one lists SHA-256 checksums in `SHA256SUMS.txt`. Compare them with `Get-FileHash .\Shellby-Setup-x.y.z.exe`, or build from source (below).
 
 **Requirements:** Windows 10 or 11 (x64), Claude Code 2.1+, and a Claude Pro or Max plan.
 
@@ -170,6 +179,7 @@ npm start
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `npm run screenshots` | Re-render the README screenshots (with fake account details) |
+| `npm run reel` | Record the README demo GIF: a scripted task, helper crabs and a trophy, played through the real UI (needs Python + Pillow; `pip install imageio-ffmpeg` adds the MP4) |
 | `npm run icons` | Regenerate the app icons from the classic skin (needs Python + Pillow) |
 | `npm run dist` | Build the NSIS installer and portable exe into `dist/` |
 

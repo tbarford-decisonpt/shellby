@@ -954,6 +954,8 @@ app.whenReady().then(() => {
   // Renderers never need camera, mic, geolocation etc.
   electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
 
+  // The README reel shows Shellby big: he's the star.
+  if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
   createManager();
   createHealth();
   registerIpc();
@@ -961,7 +963,7 @@ app.whenReady().then(() => {
   createPanel();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
-  if (CAPTURE) return require('./capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
+  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
 
   createToolbox();
   createTray();

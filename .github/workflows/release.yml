@@ -30,8 +30,54 @@ jobs:
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" --draft --title "Shellby ${GITHUB_REF_NAME#v}" --notes-file .github/release-notes.md
 
+      # Code signing is opt-in: with Azure Artifact Signing (Trusted Signing)
+      # credentials in the repo's secrets/variables, the installer and the app
+      # are signed; without them the build is unsigned, as before. See
+      # docs/SIGNING.md for the one-time setup.
       - name: Build and upload
-        run: npx electron-builder --win --publish always
+        shell: bash
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SIGN_ENDPOINT: ${{ vars.AZURE_SIGN_ENDPOINT }}
+          SIGN_ACCOUNT: ${{ vars.AZURE_SIGN_ACCOUNT }}
+          SIGN_PROFILE: ${{ vars.AZURE_SIGN_PROFILE }}
+          SIGN_PUBLISHER: ${{ vars.AZURE_SIGN_PUBLISHER }}
+        run: |
+          args=()
+          if [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$SIGN_ENDPOINT" ] && [ -n "$SIGN_ACCOUNT" ] && [ -n "$SIGN_PROFILE" ] && [ -n "$SIGN_PUBLISHER" ]; then
+            echo "Signing with Azure Artifact Signing ($SIGN_PUBLISHER)"
+            args=(
+              "-c.win.azureSignOptions.endpoint=$SIGN_ENDPOINT"
+              "-c.win.azureSignOptions.codeSigningAccountName=$SIGN_ACCOUNT"
+              "-c.win.azureSignOptions.certificateProfileName=$SIGN_PROFILE"
+              "-c.win.azureSignOptions.publisherName=$SIGN_PUBLISHER"
+            )
+          else
+            echo "::warning::No code signing credentials configured; this release is unsigned (see docs/SIGNING.md)."
+          fi
+          npx electron-builder --win --publish always "${args[@]}"
+
+      # Checksums for anyone verifying a download (SmartScreen or not).
+      - name: Upload SHA-256 checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum Shellby-Setup-*.exe Shellby-Portable-*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$GITHUB_REF_NAME" SHA256SUMS.txt --clobber
+
+      # When signing is on, fail loudly if the result isn't actually signed.
+      - name: Check signatures
+        if: ${{ vars.AZURE_SIGN_ENDPOINT != '' }}
+        shell: pwsh
+        run: |
+          foreach ($f in Get-ChildItem dist\Shellby-*.exe) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            "{0}: {1} ({2})" -f $f.Name, $sig.Status, $sig.SignerCertificate.Subject
+            if ($sig.Status -ne 'Valid') { throw "$($f.Name) is not validly signed" }
+          }
 
       # Publish only once every file is attached, so auto-update never sees a
       # release without latest.yml.
