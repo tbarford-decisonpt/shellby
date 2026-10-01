@@ -5,6 +5,8 @@
 //   "tool ..."   -> asks permission for a Write; replies ALLOWED/DENIED
 //   "slow ..."   -> starts a long tool call and waits (use with interrupt)
 //   "crash"      -> exits with code 3 mid-turn
+//   "wait <ms>"  -> replies "echo: ..." after a delay
+//   "fail"       -> ends the turn with an error
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -50,6 +52,19 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
   if (content === 'crash') { process.exit(3); }
+
+  // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
+  if (content.startsWith('wait ')) {
+    const ms = Math.min(30000, parseInt(content.split(' ')[1], 10) || 1000);
+    setTimeout(() => { text(`echo: ${content}`); result(true); }, ms);
+    return;
+  }
+  // "fail [ms]" -> the turn ends with an error (optionally after a delay)
+  if (content === 'fail' || content.startsWith('fail ')) {
+    const ms = Math.min(30000, parseInt(content.split(' ')[1], 10) || 0);
+    setTimeout(() => { text('something broke'); result(false); }, ms);
+    return;
+  }
 
   if (content.startsWith('slow')) {
     out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_slow', name: 'Bash', input: { command: 'sleep 999' } }] } });

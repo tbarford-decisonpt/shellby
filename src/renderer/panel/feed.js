@@ -23,6 +23,8 @@
       this.statusText = 'Working…';
       this.draft = '';
       this.attachments = [];
+      this.queue = [];            // messages typed while busy: [{ text, attachments }]
+      this.queuePaused = false;   // after an error, wait for the user before sending the next
       this.tools = new Map();     // tool_use_id -> element
       this.asks = new Map();      // requestId -> card
       this.lanes = new Map();     // Agent tool_use_id -> lane

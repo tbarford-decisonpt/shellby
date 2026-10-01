@@ -47,7 +47,9 @@ if (!app.isPackaged && process.env.SHELLBY_USER_DATA) app.setPath('userData', pr
 if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_DATA) {
   app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-capture-')));
 }
-const captureClock = { now: null }; // screenshot runs can pretend it's Halloween
+const captureClock = { now: null };
+// Dev/e2e only: drive the app with the fake CLI from test/fixtures (no Claude account, no usage).
+const FAKE_CLI = !app.isPackaged && process.env.SHELLBY_FAKE_CLAUDE ? path.resolve(process.env.SHELLBY_FAKE_CLAUDE) : null; // screenshot runs can pretend it's Halloween
 
 // Dev/test runs get their own identity so Windows never ties their toasts or
 // jump lists to the installed Shellby.
@@ -278,8 +280,9 @@ function currentCwd() {
 
 function createManager() {
   manager = new SessionManager({
+    argsPrefix: FAKE_CLI ? [FAKE_CLI] : [],
     history,
-    getExe: () => claudeStatus?.exe || findClaude(),
+    getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude()),
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
   });
@@ -544,7 +547,7 @@ function registerIpc() {
   ipcMain.on('panel:minimize', () => panel.minimize());
 
   ipcMain.handle('app:bootstrap', async () => {
-    claudeStatus = CAPTURE ? require('./capture').FAKE_STATUS : await checkStatus();
+    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus();
     const demoHome = 'C:\\Users\\you';
     // Restore the tabs that were open last time (idle until you send something).
     if (!CAPTURE && !manager.tabs.size) {
@@ -1046,7 +1049,7 @@ app.whenReady().then(() => {
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
-  checkStatus().then(s => { claudeStatus = s; startScheduler(); });
+  checkStatus().then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; startScheduler(); });
 
   const reclamp = () => {
     const c = clampToDisplays(critter.getBounds(), workAreas());

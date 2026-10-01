@@ -25,6 +25,7 @@
     if (item.kind === 'result') {
       tab.busy = false;
       if (!tab.isActive) tab.unread = true;
+      SB.onTurnEnded(tab, item);
       api.listSessions().then(s => { state.sessions = s; });
     }
     if (item.kind === 'decision' || item.kind === 'result') SB.syncBusyUi();

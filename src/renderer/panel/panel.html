@@ -87,6 +87,7 @@
         <span class="status-text" id="statusText">Working…</span>
         <button type="button" class="stop-btn" id="stopBtn">Stop <kbd>Esc</kbd></button>
       </div>
+      <div class="queued" id="queued" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
         <textarea id="input" rows="1" placeholder="Give Shellby a task… (type / for skills)" aria-label="Task for Shellby"></textarea>
@@ -95,7 +96,7 @@
         </button>
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
-      <div class="input-hint"><span id="modeHint"></span><span>Enter to send · Shift+Enter new line</span></div>
+      <div class="input-hint"><span id="modeHint"></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
 

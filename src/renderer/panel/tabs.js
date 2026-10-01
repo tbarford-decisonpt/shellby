@@ -130,8 +130,12 @@
     const tab = SB.activeTab();
     const busy = !!tab?.busy;
     $('status').hidden = !busy;
-    $('sendBtn').disabled = busy;
-    if (tab) $('statusText').textContent = busy ? tab.statusText : '';
+    // While Shellby works you can keep typing: Enter queues the message.
+    $('sendBtn').title = busy ? 'Queue: sends when Shellby finishes' : 'Send';
+    $('sendBtn').classList.toggle('queueing', busy);
+    $('sendHint').textContent = busy ? 'Enter to queue · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
+    if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
+    renderQueue();
   }
   SB.syncBusyUi = syncBusyUi;
 
@@ -157,32 +161,115 @@
     input.focus();
   };
 
-  SB.send = async (text) => {
-    const tab = SB.activeTab();
-    if (!tab) return;
-    text = (text ?? input.value).trim();
-    if ((!text && !tab.attachments.length) || tab.busy) return;
-    const attachments = [...tab.attachments];
+  // Send to any tab: the active one, or a background tab draining its queue.
+  async function sendNow(tab, text, attachments) {
     const r = await api.sendTask(tab.id, text, attachments);
-    if (!r.ok) return SB.toast(r.error);
+    if (!r.ok) { SB.toast(r.error); return false; }
     tab.render({ kind: 'user', text, attachments });
     tab.busy = true;
     tab.saved = true;
     tab.statusText = 'Working…';
     if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || 'Attached files';
+    if (tab.isActive) syncBusyUi();
+    SB.renderTabStrip();
+    return true;
+  }
+
+  function clearComposer(tab) {
     input.value = '';
     tab.attachments = [];
     renderAttachments();
     autosize();
+  }
+
+  SB.send = async (text) => {
+    const tab = SB.activeTab();
+    if (!tab) return;
+    text = (text ?? input.value).trim();
+    if (!text && !tab.attachments.length) return;
+    const attachments = [...tab.attachments];
+    if (tab.busy) {
+      tab.queue.push({ text, attachments });
+      clearComposer(tab);
+      syncBusyUi();
+      return;
+    }
+    if (await sendNow(tab, text, attachments)) {
+      clearComposer(tab);
+      SB.setView('chat');
+    }
+  };
+
+  // ------------------------------------------------------------ queued messages
+
+  function renderQueue() {
+    const tab = SB.activeTab();
+    const q = tab?.queue || [];
+    const box = $('queued');
+    box.hidden = !q.length;
+    if (!q.length) { box.replaceChildren(); return; }
+    box.replaceChildren(...[
+      tab.queuePaused ? h('div', { class: 'queue-paused' },
+        h('span', { text: 'Paused: the last turn ended with an error.' }),
+        h('button', { class: 'btn slim-btn', type: 'button', onclick: () => { tab.queuePaused = false; drain(tab); } }, 'Send next now')) : null,
+      ...q.map((m, i) => h('div', { class: 'queue-item' },
+        h('span', { class: 'queue-tag', text: i === 0 ? 'Next' : `#${i + 1}` }),
+        h('button', { class: 'queue-text', type: 'button', title: 'Edit (puts it back in the box)', onclick: () => editQueued(tab, i) },
+          m.text || `${m.attachments.length} attached file${m.attachments.length === 1 ? '' : 's'}`),
+        h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => { tab.queue.splice(i, 1); syncBusyUi(); } },
+          SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })))),
+    ].filter(Boolean));
+  }
+
+  // Pull a queued message back into the box to edit (whatever was typed there is queued in its place).
+  function editQueued(tab, i) {
+    const [m] = tab.queue.splice(i, 1);
+    if (input.value.trim() || tab.attachments.length) tab.queue.splice(i, 0, { text: input.value.trim(), attachments: [...tab.attachments] });
+    input.value = m.text;
+    tab.attachments = [...m.attachments];
+    renderAttachments();
+    autosize();
     syncBusyUi();
-    SB.renderTabStrip();
-    SB.setView('chat');
+    input.focus();
+  }
+
+  async function drain(tab) {
+    if (tab.busy || tab.queuePaused || !tab.queue.length) return;
+    const next = tab.queue.shift();
+    if (!(await sendNow(tab, next.text, next.attachments))) tab.queue.unshift(next);
+    if (tab.isActive) syncBusyUi();
+  }
+
+  // A turn ended: send the next queued message, or hand the queue back after Stop.
+  SB.onTurnEnded = (tab, result) => {
+    if (!tab.queue.length) return;
+    if (result.interrupted) {
+      const back = tab.queue.map(m => m.text).filter(Boolean).join('\n\n');
+      const files = tab.queue.flatMap(m => m.attachments);
+      tab.queue = [];
+      if (tab.isActive) {
+        input.value = [input.value.trim(), back].filter(Boolean).join('\n\n');
+        for (const f of files) if (!tab.attachments.includes(f)) tab.attachments.push(f);
+        renderAttachments();
+        autosize();
+        syncBusyUi();
+        SB.toast('Stopped. Your queued messages are back in the box.');
+      } else {
+        tab.draft = [tab.draft, back].filter(Boolean).join('\n\n');
+      }
+      return;
+    }
+    if (!result.ok) { tab.queuePaused = true; if (tab.isActive) syncBusyUi(); return; }
+    drain(tab);
   };
 
   $('form').addEventListener('submit', e => { e.preventDefault(); SB.send(); });
   input.addEventListener('keydown', e => {
     if (slashKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
+    // Up in an empty box pulls back the last queued message, like Claude Code.
+    const tab = SB.activeTab();
+    if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); }
   });
   $('stopBtn').addEventListener('click', stop);
   function stop() {

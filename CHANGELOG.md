@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0: Queue it up
+
+### New
+- **Queue messages while Shellby works**, like in Claude Code:
+  - Keep typing while a task runs. Enter queues the message, and queued messages are sent one at a time as each turn finishes.
+  - They show as chips above the box. Click one, or press **↑** in an empty box, to pull it back and edit it; ✕ removes it. The status line shows how many are queued.
+  - **Stop** hands the queue back: your queued messages go into the box instead of firing.
+  - If a turn ends with an error, the queue pauses until you press **Send next now**.
+  - Each tab has its own queue, and a background tab keeps draining its queue while you look at another.
+
+### For developers
+- `SHELLBY_FAKE_CLAUDE=test/fixtures/fake-claude.js` runs a dev build against the fake CLI, with no account and no usage. The fixture gained `wait <ms>` and `fail [ms]` turns.
+- `node scripts/e2e-queue.js` covers the whole queue flow.
+
 ## 0.8.0: Claude Code everywhere
 
 ### New
