@@ -37,7 +37,7 @@ Packs hold **data only**: pixels, colours and a few settings. There is no code, 
    }
    ```
 
-2. Open **Wardrobe → Install pack…** (click the crab logo in Shellby's title bar, or tray → Wardrobe) and pick the file. Shellby copies it to `%APPDATA%\Shellby\wardrobe\my-first-pack.json`.
+2. Open **Wardrobe → Install pack…** (**Shellby** in the bar at the bottom of the panel, or tray → Wardrobe) and pick the file. Shellby copies it to `%APPDATA%\Shellby\wardrobe\my-first-pack.json`.
 3. Open the Wardrobe and put the beanie on. To try a change, edit the file in `%APPDATA%\Shellby\wardrobe\` and hit **Reload** in the Wardrobe's packs section. You can also just drop the `.json` file onto the Wardrobe.
 
 If something is wrong, the Wardrobe lists the pack with its warnings, for example `skipped accessory beanie: bad slot "head"`. The rest of the pack still loads.
@@ -249,7 +249,7 @@ Use `rarity` to say how special an item is. It changes how the item is shown in 
 
 ## Installing, testing and removing
 
-- **Install:** use **Wardrobe → Install pack…** (click the crab logo in Shellby's title bar, or tray → Wardrobe), or copy the file into `%APPDATA%\Shellby\wardrobe\` yourself. Installed packs are saved as `<pack id>.json`.
+- **Install:** use **Wardrobe → Install pack…** (**Shellby** in the bar at the bottom of the panel, or tray → Wardrobe), or copy the file into `%APPDATA%\Shellby\wardrobe\` yourself. Installed packs are saved as `<pack id>.json`.
 - **Test:** edit the installed file and hit **Reload**. Warnings show up next to the pack in the Wardrobe.
 - **Check before sharing:** run your file against [`addon.schema.json`](addon.schema.json) with any JSON Schema (draft 2020-12) validator. The community site uses the same schema, which is stricter than the app: it rejects unknown fields and bad items instead of skipping them.
 - **Remove:** use the pack's **Remove** button in the Wardrobe, or delete the file.

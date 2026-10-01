@@ -52,21 +52,22 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await panel.ev("SB.send('Reply with just the word hi. Do not use any tools.')");
     console.log('sent a real task...');
 
-    let toast = '';
+    // Since 0.6 a trophy shows as the celebration card (it used to be a toast).
+    let card = '';
     for (let i = 0; i < 120; i++) {
-      toast = await panel.ev("document.getElementById('toast').hidden ? '' : document.getElementById('toast').textContent");
-      if (/Hello, World/.test(toast)) break;
+      card = await panel.ev("document.querySelector('.celebrate')?.textContent || ''");
+      if (/Hello, World/.test(card)) break;
       await wait(500);
     }
-    check(/Hello, World/.test(toast) && /Party Hat/.test(toast), `panel toast: "${toast.replace(/\s+/g, ' ').slice(0, 80)}"`);
+    check(/Hello, World/.test(card) && /Party Hat/.test(card), `celebration card: "${card.replace(/\s+/g, ' ').slice(0, 80)}"`);
     await wait(800);
     const seen = JSON.parse(await critter.ev('JSON.stringify(window.__seen)'));
     check(seen.unlocked, 'desktop critter switched to the ★ unlocked state');
     check(seen.burst > 0, `confetti burst played (${seen.burst} particles)`);
     check(await panel.ev("SB.state.wardrobe.accessories.find(a => a.key === 'party-hat').locked === null"), 'Party Hat is now unlocked');
 
-    // Wear it via the toast's "Wear it" action, like a user would.
-    await panel.ev("document.querySelector('#toast .toast-action')?.click()");
+    // Wear it via the card's "Wear it" button, like a user would.
+    await panel.ev("document.querySelector('.celebrate .cel-actions .btn.primary')?.click()");
     await wait(1200);
     check(await panel.ev("SB.state.wardrobe.outfit.hat === 'party-hat'"), 'outfit now includes the Party Hat');
     const crabRects = await critter.ev("document.querySelectorAll('#sprite .acc-hat rect').length");

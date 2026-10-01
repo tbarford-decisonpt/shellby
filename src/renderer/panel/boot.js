@@ -3,15 +3,11 @@
 (function () {
   const { api, state, $ } = SB;
 
-  document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => SB.setView('chat')));
-  document.querySelectorAll('[data-view-btn]').forEach(b => b.addEventListener('click', () => {
-    SB.setView(state.view === b.dataset.viewBtn ? 'chat' : b.dataset.viewBtn);
-  }));
   $('closeBtn').addEventListener('click', () => api.hide());
   $('minBtn').addEventListener('click', () => api.minimize());
 
   SB.renderCrabs = () => {
-    for (const id of ['brandCrab', 'helloCrab']) $(id).replaceChildren(SB.sprite());
+    for (const id of ['brandCrab', 'helloCrab', 'dockCrab']) $(id).replaceChildren(SB.sprite());
     SB.refreshEmptyStates();
   };
   SB.refreshEmptyStates = () => { for (const tab of state.tabs.values()) tab.renderEmpty(); };

@@ -102,6 +102,5 @@ body.celebrating .toast { bottom: auto; top: 64px; }
 .toast > span { min-width: 0; }
 .toast-action { flex: none; white-space: nowrap; padding: 5px 12px; }
 
-/* Wardrobe header is tight: the share button is icon-only there. */
+/* Shellby screen headers are tight: the share button is icon-only there. */
 .view-head .share-icon { padding: 0 9px; font-size: 15px; }
-.view-head .share-icon + #trophiesBtn { margin-left: 0; }

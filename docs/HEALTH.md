@@ -1,6 +1,6 @@
 # Health
 
-Shellby watches your PC's temperatures, memory and drives, and his mood follows them. Open the **Health** view (the pulse icon in the title bar, or **Health** in the tray menu) to see everything live.
+Shellby watches your PC's temperatures, memory and drives, and his mood follows them. Open the **Health** view (**Health** in the bar at the bottom of the panel, or in the tray menu) to see everything live.
 
 ## What he reads, and from where
 
@@ -85,4 +85,4 @@ In the Health view:
 - `src/main/health/monitor.js`: the poll loop and an hour of history.
 - `src/main/health/service.js`: settings, notifications, the alert log, trophies and IPC.
 - **Fake sensors.** `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu npm start` runs a dev build with scripted sensors and no waiting. It's ignored by installed builds.
-- **End-to-end check.** `node scripts/e2e-health.js` launches each scenario and checks the desktop mood, the bubble, the Health view and the titlebar badge.
+- **End-to-end check.** `node scripts/e2e-health.js` launches each scenario and checks the desktop mood, the bubble, the Health view and the badge on Health in the panel's bottom bar.

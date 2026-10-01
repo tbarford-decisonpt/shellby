@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.16.0: easier to get around
+
+### New
+- **A labeled bar along the bottom of the panel**: Shellby, Chat, Toolbox, Routines, Health and History, always visible, with the current screen lit up. Shellby leads it, drawn as himself in whatever he's wearing. The title bar keeps just Settings, search, and the window buttons.
+- **Shellby's own screen.** Outfits and Trophies & XP are now two tabs of one screen, instead of the Wardrobe hiding behind the logo and Trophies hiding inside the Wardrobe. Click the yellow level badge to go straight to your level, XP and streak.
+- **Jump anywhere with Ctrl+K** (or the magnifier in the title bar). Type a few letters to open any screen, any Settings section, a permission mode, a past conversation, or a skill or command (it's put in the composer for you).
+- **Keyboard shortcuts for every screen in the bar:** Ctrl+1 for Shellby through Ctrl+6 for History.
+- **Settings has section links.** A row of links (Mode, Folder, Look, Claude Code, GitHub and more) stays at the top while you scroll, and highlights where you are.
+
+### Changed
+- **Back and Esc go up one level.** From the Skill Shop they return to the Toolbox instead of jumping all the way to Chat. Esc on any other screen goes home, and Esc on the home screen hides the panel, as before. In just-the-crab mode, Health is home.
+- **Clicking the screen you're already on** scrolls it back to the top (or, in Chat, puts the cursor in the composer) instead of quietly switching to Chat.
+- **Trophy celebrations and notices sit just above the bottom bar** on every screen, instead of floating over the middle of what you're reading.
+- History's note now says exactly where to clear it: Settings → About → Data folder.
+
 ## 0.15.1
 
 ### Fixed

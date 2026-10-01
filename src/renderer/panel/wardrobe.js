@@ -171,7 +171,7 @@
   function applyView(view) {
     if (!view) return;
     state.wardrobe = view;
-    $('wdCount').textContent = `${view.totals.unlocked}/${view.totals.all} unlocked`;
+    $('wdCount').textContent = `${view.totals.unlocked}/${view.totals.all}`;
     $('wardrobeBadge').hidden = ![...view.accessories, ...view.effects].some(i => i.isNew && !i.locked);
     if (state.view === 'wardrobe') render();
     if (state.view === 'trophies') renderTrophies();
@@ -209,9 +209,9 @@
     renderStage();
   }));
   $('randomizeBtn').addEventListener('click', async () => { const r = await api.randomizeOutfit(); applyView(r.view); });
-  $('brandBtn').addEventListener('click', () => SB.setView(state.view === 'wardrobe' ? 'chat' : 'wardrobe'));
-  $('trophiesBtn').addEventListener('click', () => SB.setView('trophies'));
-  $('trophiesBack').addEventListener('click', () => SB.setView('wardrobe'));
+  $('brandBtn').addEventListener('click', () => SB.setView('wardrobe'));
+  $('brandLevel').addEventListener('click', () => SB.setView('trophies'));
+  document.querySelectorAll('.shellby-tabs [data-goto]').forEach(b => b.addEventListener('click', () => SB.setView(b.dataset.goto)));
   $('seasonalToggle').addEventListener('change', async e => applyView(await api.setWardrobeOptions({ seasonalAuto: e.target.checked })));
   $('crewToggle').addEventListener('change', async e => applyView(await api.setWardrobeOptions({ crewOutfits: e.target.checked })));
   $('unlockAllToggle').addEventListener('change', async e => applyView(await api.setWardrobeOptions({ unlockAll: e.target.checked })));

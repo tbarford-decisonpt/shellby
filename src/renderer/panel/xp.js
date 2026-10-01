@@ -20,7 +20,9 @@
     $('brandLevel').hidden = false;
     $('brandLevel').textContent = String(v.level);
     $('brandXp').style.transform = `scaleX(${v.progress.toFixed(3)})`;
-    $('brandBtn').title = `Wardrobe · Level ${v.level} ${v.title} · ${v.into}/${v.needed} XP to level ${v.level + 1}`;
+    const progress = `Level ${v.level} ${v.title} · ${v.into}/${v.needed} XP to level ${v.level + 1}`;
+    $('brandLevel').title = `${progress}. Open Trophies & XP`;
+    $('brandLevel').setAttribute('aria-label', `Level ${v.level}: open Trophies and XP`);
     if (state.view === 'trophies') render();
   }
 

@@ -183,10 +183,6 @@
   });
 
   SB.views.shop = {
-    render() {
-      // The shop lives under the Toolbox: keep its titlebar button lit.
-      document.querySelector('[data-view-btn="toolbox"]')?.classList.add('active');
-      render();
-    },
+    render, // SB.NAV_SECTION keeps the Toolbox lit while the shop is open
   };
 })();

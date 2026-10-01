@@ -1,6 +1,6 @@
 // End-to-end check of health moods against the dev app over CDP, one launch per
 // fake scenario (SHELLBY_FAKE_HEALTH), each in a throwaway profile. Checks the
-// desktop critter's mood + bubble, the Health view, and the titlebar badge, and
+// desktop critter's mood + bubble, the Health view, and the Health badge in the bottom bar, and
 // saves screenshots of both windows.
 //   node scripts/e2e-health.js [outDir]
 const { spawn } = require('child_process');
@@ -88,7 +88,7 @@ async function until(fn, ms = 8000) {
       check(ask === !!sc.mood, `${sc.name}: "Ask Shellby" ${sc.mood ? 'shown' : 'hidden'}`);
 
       const badge = await panel.ev("(b => b.hidden ? false : b.classList.contains('critical') ? 'critical' : 'warn')(document.getElementById('healthBadge'))");
-      check(badge === sc.badge, `${sc.name}: titlebar badge ${sc.badge || 'hidden'} (got ${badge})`);
+      check(badge === sc.badge, `${sc.name}: Health badge ${sc.badge || 'hidden'} (got ${badge})`);
 
       const cards = await panel.ev("document.querySelectorAll('#hlGauges .hl-gauge').length");
       check(cards === 5, `${sc.name}: 5 gauges (got ${cards})`);

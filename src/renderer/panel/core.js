@@ -156,13 +156,24 @@ SB.renderMarkdownInto = (el, text) => {
 
 SB.views = {};  // name -> { render?() }
 
+// Which navigation item a screen lives under (Trophies is a tab of the Shellby screen),
+// and which screens sit one level down, so Back/Esc go up to their parent.
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe' };
+SB.PARENT_VIEW = { shop: 'toolbox' };
+SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
+
 SB.setView = view => {
   const s = SB.state;
   // Just-the-crab mode has no chat: Health is home.
   if (view === 'chat' && s.settings.crabOnly) view = 'health';
   s.view = view;
   document.body.dataset.view = view;
-  document.querySelectorAll('[data-view-btn]').forEach(b => b.classList.toggle('active', b.dataset.viewBtn === view));
+  const section = SB.NAV_SECTION[view] || view;
+  document.querySelectorAll('[data-view-btn]').forEach(b => {
+    const on = b.dataset.viewBtn === section;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
   SB.closeMenus();
   SB.views[view]?.render?.();
   if (view === 'chat') setTimeout(() => SB.$('input').focus(), 30);

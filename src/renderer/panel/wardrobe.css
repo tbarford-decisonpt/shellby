@@ -12,19 +12,16 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .rarity-epic { --rarity: #9d7bff; --rarity-glow: rgba(157, 123, 255, .2); }
 .rarity-legendary { --rarity: #ffc93c; --rarity-glow: rgba(255, 201, 60, .22); }
 
-/* the logo doubles as the Wardrobe button */
+/* the logo opens the Shellby screen (outfits and trophies) */
 .brand {
   -webkit-app-region: no-drag;
-  position: relative; border: 0; background: none; color: inherit; padding: 3px 9px 3px 6px; margin: -3px -9px -3px -6px; /* extra right room keeps the new-item dot off the level pill */
+  position: relative; border: 0; background: none; color: inherit; padding: 3px 6px; margin: -3px -6px;
   border-radius: var(--r-sm); cursor: pointer; transition: background .15s;
 }
 .brand:hover { background: var(--reef); }
 .brand:hover .brand-crab svg { animation: hop .42s ease-in-out 2; }
-.brand .dot-badge { top: 0; right: 0; }
 .brand-crab { overflow: visible; }
 
-.wd-count { font: 600 11px var(--font-mono); color: var(--sand-faint); }
-.view-head #trophiesBtn { margin-left: auto; }
 
 /* ---------------------------------------------------------------- season banner */
 .season-banner {
@@ -180,12 +177,15 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 
 /* ---------- XP: titlebar badge + Trophies card ---------- */
 .brand { position: relative; }
-/* sits in the brand's flex row after the name, so it never covers the crab */
+/* its own button right after the logo: it opens Trophies & XP, and never covers the crab */
 .brand-level {
-  flex: none; min-width: 16px; height: 16px; padding: 0 4px; margin-left: -2px; border-radius: 99px;
-  font: 700 10px/16px var(--font-mono); text-align: center; color: #3d2a00; background: #ffd23f;
+  -webkit-app-region: no-drag;
+  flex: none; min-width: 18px; height: 18px; padding: 0 5px; margin-left: -6px; border: 0; border-radius: 99px;
+  font: 700 10px/18px var(--font-mono); text-align: center; color: #3d2a00; background: #ffd23f;
+  transition: transform .15s var(--ease-spring), box-shadow .15s;
 }
-.brand-xp { position: absolute; left: 0; width: 20px; bottom: 0; height: 2px; border-radius: 2px; background: rgba(255, 210, 63, .15); overflow: hidden; }
+.brand-level:hover { transform: scale(1.12); box-shadow: 0 0 0 3px rgba(255, 210, 63, .22); }
+.brand-xp { position: absolute; left: 6px; width: 33px; bottom: 0; height: 2px; border-radius: 2px; background: rgba(255, 210, 63, .15); overflow: hidden; }
 .brand-xp i { display: block; height: 100%; background: #ffd23f; transform-origin: left; transform: scaleX(0); transition: transform .6s var(--ease-out); }
 
 .xp-card {

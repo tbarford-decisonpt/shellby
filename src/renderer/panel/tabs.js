@@ -305,7 +305,7 @@
     if (e.key === 'Escape') {
       if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
-      if (state.view !== 'chat' && state.view !== 'onboarding') return SB.setView('chat');
+      if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return api.hide();
     }
     // Y / A / N answer the newest open permission card in the active tab.
