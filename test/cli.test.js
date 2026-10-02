@@ -34,7 +34,9 @@ test('tokenMatches is exact, and refuses anything that is not a string', () => {
   assert.equal(tokenMatches(t, t), true);
   assert.equal(tokenMatches(t, `${t}x`), false);
   assert.equal(tokenMatches(t, t.slice(0, -1)), false);
-  assert.equal(tokenMatches(t, t.replace(/.$/, 'A')), false);
+  // Same length, last character definitely different (a token already ending
+  // in 'A' would otherwise make this assertion a no-op about once a run).
+  assert.equal(tokenMatches(t, t.slice(0, -1) + (t.endsWith('A') ? 'B' : 'A')), false);
   for (const bad of [null, undefined, 0, {}, [], Buffer.from(t)]) assert.equal(tokenMatches(t, bad), false);
   assert.equal(tokenMatches('', ''), false, 'no token means no access, not free access');
   assert.equal(tokenMatches(null, null), false);
