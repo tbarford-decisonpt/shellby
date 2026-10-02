@@ -11,33 +11,45 @@ a `winget install` — while `winget` still verifies the SHA-256 pinned in the m
 It does not change the UAC "Unknown publisher" line; only code signing does that
 (see [../../docs/SIGNING.md](../../docs/SIGNING.md)).
 
-## Submitting a version
+## First submission
 
-1. Fork `microsoft/winget-pkgs`.
-2. Copy this version folder to `manifests/x/x-salmon/Shellby/<version>/` in the fork.
-3. Validate and test locally:
-   ```powershell
-   winget validate --manifest manifests\x\x-salmon\Shellby\<version>
-   winget install --manifest manifests\x\x-salmon\Shellby\<version>
-   ```
-4. Open a PR. Automated validation runs the installer in a sandbox; a human moderator
-   reviews the first submission for a new package, which can take a few days.
+`wingetcreate update` (used by the release workflow) can only bump a package that
+already exists, so the package has to be created once. Everything needed is in this
+folder and already validated — `winget validate` passes with no warnings.
 
-Only the **first** submission is manual. After the package exists in `winget-pkgs`,
-every later version is handled by the release workflow (see below) — `wingetcreate
-update` looks up the published manifest, so it can't run until there is one.
+Two things only you can do, both in the browser:
+
+1. Create a **classic** personal access token with only the **`public_repo`** scope.
+   Fine-grained tokens are [not supported](https://github.com/microsoft/winget-create/issues/595).
+2. Add it as the repo secret **`WINGET_TOKEN`** (Settings → Secrets and variables →
+   Actions).
+
+Then run the **Submit to winget** workflow from the Actions tab, with version `0.18.0`.
+It opens the PR against `microsoft/winget-pkgs` for you, creating the fork if needed.
+
+A first-time package gets reviewed by a human moderator, which can take a few days.
+Automated validation runs the installer in a sandbox first.
+
+Nothing needs installing locally — the workflow runs on a GitHub runner, which matters
+because `wingetcreate` requires the .NET 9 runtime.
+
+### Doing it by hand instead
+
+```powershell
+winget validate --manifest packaging\winget\0.18.0
+winget install  --manifest packaging\winget\0.18.0   # optional local test
+```
+
+Then fork `microsoft/winget-pkgs`, copy this version folder to
+`manifests/x/x-salmon/Shellby/0.18.0/` in the fork, and open a PR.
 
 ## Automatic updates after that
 
 The release workflow's last two steps update winget on every tag, using Microsoft's
-[`wingetcreate`](https://github.com/microsoft/winget-create). It's opt-in; to enable it:
-
-1. Create a **classic** personal access token with only the **`public_repo`** scope.
-   Fine-grained tokens are [not supported](https://github.com/microsoft/winget-create/issues/595).
-2. Add it to the repo as the secret **`WINGET_TOKEN`** (Settings → Secrets and
-   variables → Actions).
-
-With the secret unset, the steps are skipped and releases behave exactly as before.
+[`wingetcreate`](https://github.com/microsoft/winget-create). It reuses the same
+`WINGET_TOKEN` secret as the first submission, so once that's set there is nothing
+further to do. With the secret unset, the steps are skipped and releases behave exactly
+as before.
 
 Notes on how it's wired, in case it needs debugging:
 
@@ -61,5 +73,5 @@ in the locale and version manifests: `PackageVersion` and `ReleaseNotesUrl`.
 `ProductCode` (`d01bce7a-6b6a-53c0-9edc-a2fd643590df`) is electron-builder's per-appId
 uninstall key. It does **not** change between versions — leave it alone. It's what lets
 `winget upgrade` find an existing install, which matters here because electron-builder
-writes a version-dependent ARP `DisplayName` ("Shellby 0.17.0") that `winget` can't
+writes a version-dependent ARP `DisplayName` ("Shellby 0.18.0") that `winget` can't
 match on its own.

@@ -1,0 +1,52 @@
+# One-off helper for the *first* winget submission, and a manual fallback if the
+# automatic update in release.yml ever fails.
+#
+# release.yml keeps winget current on every tag, but it uses `wingetcreate
+# update`, which looks up an already-published manifest — so it can't create the
+# package in the first place. This workflow runs `wingetcreate submit` on the
+# hand-written manifests in packaging/winget instead.
+#
+# Needs the WINGET_TOKEN secret: a *classic* PAT with the public_repo scope
+# (fine-grained tokens aren't supported). Run it from the Actions tab.
+name: Submit to winget
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version folder under packaging/winget (e.g. 0.18.0)'
+        required: true
+        default: '0.18.0'
+
+jobs:
+  submit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the manifests exist
+        shell: pwsh
+        run: |
+          $dir = "packaging/winget/${{ inputs.version }}"
+          if (-not (Test-Path $dir)) { throw "No manifests at $dir" }
+          Get-ChildItem $dir -Filter *.yaml | ForEach-Object { "found $($_.Name)" }
+
+      # wingetcreate.exe ships framework-dependent against net9.0, which the
+      # runner image doesn't necessarily have.
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Submit
+        shell: pwsh
+        env:
+          # --token can end up in logs; the tool reads this instead.
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if (-not $env:WINGET_CREATE_GITHUB_TOKEN) {
+            throw "WINGET_TOKEN secret is not set - see packaging/winget/README.md"
+          }
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe submit "packaging/winget/${{ inputs.version }}" `
+            --prtitle "New package: x-salmon.Shellby version ${{ inputs.version }}" `
+            --no-open
