@@ -553,16 +553,28 @@
 
     <section class="setting-group" id="channelsGroup" data-nav="Elsewhere">
       <h3>Tell me when I'm away</h3>
-      <p class="small muted ext-lede">Shellby can send a line to your phone when he needs permission, when a long task finishes, when your usage limit resets, or when something is overheating. One pasted address — no account, no app to install, and nothing goes through a server of ours.</p>
+      <p class="small muted ext-lede">Shellby can send a line to your phone when he needs permission, when a long task finishes, when your usage limit resets, or when something is overheating. Usually it's one scan of a QR code: no account, and nothing goes through a server of ours.</p>
       <label class="toggle"><input type="checkbox" id="chEnabled"><span class="switch"></span>Send me these when I'm not at the desk</label>
       <div class="ch-body" id="chBody" hidden>
         <label class="field-label"><span>Where</span>
           <select class="field" id="chProvider"></select>
         </label>
         <p class="small muted" id="chHint"></p>
+        <div class="ch-qr" id="chQr" hidden>
+          <canvas id="chQrCanvas" role="img" aria-label="QR code that subscribes your phone to Shellby's topic"></canvas>
+          <ol class="small">
+            <li>Install <b>ntfy</b> on your phone (free, Android or iPhone).</li>
+            <li>Point your camera at the code and open the link, or add the topic in the app by hand.</li>
+            <li>Press <b>Send a test</b> below.</li>
+          </ol>
+        </div>
         <label class="field-label"><span id="chTargetLabel">Topic</span>
           <input type="text" class="field" id="chTarget" spellcheck="false" autocomplete="off">
         </label>
+        <div class="row wrap" id="chFindRow" hidden>
+          <button type="button" class="btn ghost slim-btn" id="chFind">Find my chat</button>
+          <p class="small ext-status" id="chFindStatus"></p>
+        </div>
         <label class="field-label" id="chSecretField" hidden><span id="chSecretLabel">Token</span>
           <input type="password" class="field" id="chSecret" spellcheck="false" autocomplete="off" placeholder="unchanged">
         </label>
@@ -589,10 +601,11 @@
 
     <section class="setting-group" id="rgbGroup" data-nav="Desk lighting">
       <h3>Desk lighting</h3>
-      <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. OpenRGB has to be running with its SDK server on.</p>
+      <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. Shellby can install it for you and starts it in the tray whenever the lighting is on.</p>
       <label class="toggle"><input type="checkbox" id="rgbEnabled"><span class="switch"></span>Follow his mood with my lighting</label>
       <div class="rgb-body" id="rgbBody" hidden>
         <div class="row wrap">
+          <button type="button" class="btn slim-btn" id="rgbInstall" hidden>Install OpenRGB for me</button>
           <button type="button" class="btn slim-btn" id="rgbTest">Find my devices</button>
           <p class="small ext-status" id="rgbStatus"></p>
         </div>

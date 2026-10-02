@@ -503,6 +503,11 @@ select.field option { background: var(--reef); }
 .setting-group .row + .row { margin-top: 8px; }
 .ch-body .field-label { margin-top: 10px; }
 .ch-body .row { margin-top: 10px; }
+.ch-qr { display: flex; gap: 14px; align-items: center; margin-top: 10px; padding: 12px; background: var(--reef); border: 1px solid var(--line); border-radius: var(--r); }
+/* sand, not white: still plenty of contrast for a phone camera, and it sits in the tidepool */
+.ch-qr canvas { flex: none; width: 132px; height: 132px; border-radius: var(--r-sm); image-rendering: pixelated; }
+.ch-qr ol { margin: 0; padding-left: 1.2em; color: var(--sand-dim); line-height: 1.5; }
+.ch-qr li::marker { color: var(--coral); font-family: var(--font-pixel); }
 
 .mode-cards { display: grid; gap: 6px; }
 .mode-card {

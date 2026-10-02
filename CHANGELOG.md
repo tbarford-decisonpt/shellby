@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.21.0: he sets it up himself
+
+### New
+- **Phone notifications in one scan.** Turn on **Settings → Tell me when I'm away** and Shellby picks an ntfy topic nobody will guess and shows a QR code. Scan it with your phone, open the link in the free ntfy app, and press **Send a test**. No account, nothing to type.
+- **Telegram finds your chat by itself.** Paste your bot's token, send the bot any message, and Shellby fills in the chat id (or press **Find my chat**).
+- **OpenRGB, installed for you.** **Settings → Desk lighting → Install OpenRGB for me** installs it with winget after you confirm (Windows asks for permission too). Whenever the lighting is on, Shellby starts OpenRGB in the tray with its SDK server running, including when Shellby itself starts.
+
+### Fixed
+- Switching where notifications go no longer carries the old address over. A Telegram chat id would otherwise have become a public, guessable ntfy topic.
+- 0.20.4 couldn't start: a line meant for the PATH update sat outside its function. Its release never published, so nobody got it.
+
 ## 0.20.4
 
 ### Fixed

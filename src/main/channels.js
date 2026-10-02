@@ -13,6 +13,11 @@
 // request is unit-tested without touching the network. Credentials are passed in
 // rather than read here: main.js keeps them in Windows' encrypted store, the
 // same way it keeps the GitHub token, and they never reach settings.json.
+//
+// Setup does the fiddly part itself where it can: ntfy gets a topic picked for
+// you (and a QR code in Settings to subscribe with), and Telegram's chat id is
+// read off the bot once you've messaged it.
+const crypto = require('crypto');
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_TITLE = 100;
@@ -54,7 +59,7 @@ const PROVIDERS = {
   ntfy: {
     label: 'ntfy',
     targetLabel: 'Topic or full topic URL',
-    hint: 'A topic name like shellby-a7f3b2, or your own server\'s URL. Pick something nobody will guess: anyone who knows the topic can read it.',
+    hint: 'Shellby picked a topic nobody will guess. Scan the code with your phone to subscribe in the free ntfy app, no account needed. Anyone who knows the topic can read it, so keep it to yourself.',
     secret: 'optional',
     secretLabel: 'Access token (only if your server needs one)',
     checkTarget: t => (ntfyUrl(t) ? null : 'That needs to be a topic name, or an https:// URL to one.'),
@@ -99,7 +104,7 @@ const PROVIDERS = {
   telegram: {
     label: 'Telegram',
     targetLabel: 'Chat id',
-    hint: 'Make a bot with @BotFather, send it a message, and use your chat id. The bot token goes below.',
+    hint: 'Make a bot with @BotFather in Telegram and paste its token below. Then send your bot any message, and Shellby finds your chat by itself.',
     secret: 'required',
     secretLabel: 'Bot token',
     checkTarget: t => (/^-?\d{1,20}$/.test(clip(t, 24)) ? null : 'A Telegram chat id is a number (negative for a group).'),
@@ -216,6 +221,52 @@ const encodeHeader = s => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.fr
 // Telegram's MarkdownV2 needs every one of these escaped, or it rejects the whole message.
 const escapeMarkdown = s => String(s).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, c => `\\${c}`);
 
+// ------------------------------------------------------------------ setting it up for you
+
+// Lowercase letters and digits that can't be misread off a phone (no 0/o, 1/l/i).
+const TOPIC_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+/** An ntfy.sh topic nobody will guess (~69 bits): knowing the topic is all it takes to read it. */
+function randomTopic(bytes = crypto.randomBytes(14)) {
+  return `shellby-${[...bytes].map(b => TOPIC_ALPHABET[b % TOPIC_ALPHABET.length]).join('')}`;
+}
+
+/**
+ * Telegram's getUpdates reply -> the chat that last messaged the bot, preferring
+ * a private chat over a group the bot was added to.
+ *   -> { chatId, name } | { error }
+ */
+function chatFromUpdates(reply) {
+  if (!reply || typeof reply !== 'object') return { error: "Telegram didn't answer." };
+  if (reply.ok !== true) {
+    if (reply.error_code === 401 || reply.error_code === 404) return { error: "Telegram doesn't recognise that bot token." };
+    return { error: clip(reply.description, 160) || "Telegram didn't answer." };
+  }
+  const chats = (Array.isArray(reply.result) ? reply.result : [])
+    .map(u => (u?.message || u?.edited_message || u?.channel_post || u?.my_chat_member)?.chat)
+    .filter(c => c && Number.isSafeInteger(c.id))
+    .reverse(); // newest first
+  const chat = chats.find(c => c.type === 'private') || chats[0];
+  if (!chat) return { error: 'No messages yet. Send your bot any message in Telegram, then try again.' };
+  const name = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username;
+  return { chatId: String(chat.id), name: clip(name, 60) || null };
+}
+
+/** Ask Telegram who has messaged the bot lately. -> { chatId, name } | { error } */
+async function findTelegramChat(token, { fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  if (!token) return { error: 'Paste the bot token first.' };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates`, { signal: ctrl.signal, redirect: 'error' });
+    return chatFromUpdates(await res.json().catch(() => null));
+  } catch (e) {
+    return { error: e?.name === 'AbortError' ? 'Telegram timed out.' : clip(e?.message, 120) || "Couldn't reach Telegram." };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ------------------------------------------------------------------ settings
 
 /** Validate a settings patch on top of the current settings. */
@@ -225,7 +276,12 @@ function normalizeChannelSettings(current, patch = {}) {
 
   if ('enabled' in patch) next.enabled = !!patch.enabled;
   if ('whileFocused' in patch) next.whileFocused = !!patch.whileFocused;
-  if ('provider' in patch && PROVIDER_NAMES.includes(patch.provider)) next.provider = patch.provider;
+  if ('provider' in patch && PROVIDER_NAMES.includes(patch.provider) && patch.provider !== base.provider) {
+    next.provider = patch.provider;
+    // One provider's target means nothing to another, and can be dangerous: a
+    // Telegram chat id is a valid ntfy topic, but a public, guessable one.
+    next.target = '';
+  }
   if ('target' in patch) next.target = clip(patch.target, 300);
   if ('minSeconds' in patch) {
     const n = Number(patch.minSeconds);
@@ -392,6 +448,8 @@ function view(settings, { hasSecret = false } = {}) {
     ...s,
     hasSecret,
     problem: checkSettings(s, { hasSecret }),
+    // What a phone opens to subscribe; Settings shows it as a QR code.
+    subscribeUrl: s.provider === 'ntfy' ? ntfyUrl(s.target) : null,
     providers: PROVIDER_NAMES.map(name => ({
       name,
       label: PROVIDERS[name].label,
@@ -399,6 +457,7 @@ function view(settings, { hasSecret = false } = {}) {
       hint: PROVIDERS[name].hint,
       secret: PROVIDERS[name].secret,
       secretLabel: PROVIDERS[name].secretLabel || null,
+      findsTarget: name === 'telegram',
     })),
     eventLabels: Object.fromEntries(EVENT_NAMES.map(e => [e, EVENTS[e].label])),
   };
@@ -408,4 +467,5 @@ module.exports = {
   PROVIDERS, PROVIDER_NAMES, EVENTS, EVENT_NAMES, PRIORITIES, CHANNEL_DEFAULTS,
   normalizeChannelSettings, checkSettings, shouldSend, composeMessage,
   buildRequest, deliver, view, ntfyUrl, localOrHttps, duration,
+  randomTopic, chatFromUpdates, findTelegramChat,
 };

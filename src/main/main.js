@@ -31,6 +31,8 @@ const clipath = require('./clipath');
 const channels = require('./channels');
 const { ObsServer } = require('./obs');
 const { OpenRgbClient, colorFor } = require('./rgb');
+const openRgbSetup = require('./openrgb-setup');
+const { qrRows } = require('./qr');
 const { MediaWatcher, trackRemark } = require('./media');
 const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
@@ -1023,11 +1025,11 @@ function userPath() {
 async function setUserPath(value) {
   // setx truncates past 1024 characters, so the value goes in through reg.
   const r = await runCli('reg', ['add', 'HKCU\\Environment', '/v', 'Path', '/t', 'REG_EXPAND_SZ', '/d', value, '/f'], 8000);
-  return !!r.ok;
-}
   // Tell Explorer, so a new terminal from the Start menu sees it. Best effort:
   // the PATH is already written, and signing out would pick it up regardless.
   if (r.ok) await runCli('powershell.exe', clipath.settingChangeArgs(), 15000);
+  return !!r.ok;
+}
 
 async function addToUserPath(dir) {
   // A dev or test run has its own profile; it must not edit the PATH the real
@@ -1081,7 +1083,8 @@ function tellChannel(event) {
 }
 
 function channelsView() {
-  return channels.view(channelSettings(), { hasSecret: !!channelSecret });
+  const v = channels.view(channelSettings(), { hasSecret: !!channelSecret });
+  return v.subscribeUrl ? { ...v, qr: qrRows(v.subscribeUrl) } : v;
 }
 
 // ================================================================ on a stream
@@ -1146,7 +1149,60 @@ function paintLights() {
   rgbClient.setAll(color).then(r => { if (!r.ok) log.info(`rgb: ${r.error}`); }).catch(() => {});
 }
 
-const rgbView = () => ({ ...rgbSettings(), devices: rgbClient?.devices || null, error: rgbClient?.lastError || null });
+let rgbSetup = null; // 'installing' | 'starting' while Shellby gets OpenRGB going
+
+const rgbView = () => ({
+  ...rgbSettings(),
+  devices: rgbClient?.devices || null,
+  error: rgbClient?.lastError || null,
+  installed: !!openRgbSetup.findOpenRgb(),
+  setup: rgbSetup,
+});
+
+/**
+ * Probe OpenRGB, starting it first if it's installed but not running; then
+ * paint. One attempt at a time: startup, the switch and the button can all ask
+ * at once, and each launching its own OpenRGB would fight over the port.
+ */
+let ensuring = null;
+function ensureOpenRgb() {
+  if (rgbSetup === 'installing') return Promise.resolve({ ok: false, error: 'Installing OpenRGB…' }); // not a half-installed exe
+  if (ensuring) return ensuring;
+  rgbSetup = 'starting';
+  ensuring = openRgbSetup.ensureRunning({ probe: () => rgbClient.probe(), port: rgbSettings().port })
+    .then(r => { if (r.ok) { lastRgbColor = ''; paintLights(); } return r; })
+    .catch(e => ({ ok: false, error: e?.message || "Couldn't reach OpenRGB." }))
+    .finally(() => { ensuring = null; if (rgbSetup === 'starting') rgbSetup = null; });
+  return ensuring;
+}
+
+/** Install OpenRGB (after asking in the isolated confirm window), then start it. */
+let rgbInstallAsking = false;
+async function confirmAndInstallOpenRgb() {
+  // Main decides, not the panel's disabled button: one question, one install.
+  if (rgbInstallAsking || rgbSetup === 'installing') return rgbView();
+  if (openRgbSetup.findOpenRgb()) return { ...rgbView(), ...(await ensureOpenRgb()) };
+  rgbInstallAsking = true;
+  let response;
+  try {
+    response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '💡',
+      title: 'Install OpenRGB?',
+      message: 'Shellby installs OpenRGB with winget, then starts it in the tray with its SDK server on.',
+      detail: `OpenRGB is free and open source (GPL-2.0). winget downloads the official installer (${openRgbSetup.WINGET_ID}) from OpenRGB's GitHub release, and Windows asks for permission to install it.`,
+      note: 'The first time it runs, OpenRGB may ask for admin access too, so it can reach your motherboard and RAM lighting.',
+      buttons: [{ label: 'Install it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+  } finally {
+    rgbInstallAsking = false;
+  }
+  if (response !== 0) return rgbView();
+  rgbSetup = 'installing';
+  let installed;
+  try { installed = await openRgbSetup.installOpenRgb(); } finally { rgbSetup = null; }
+  if (!installed.ok) return { ...rgbView(), ok: false, error: installed.error, noWinget: !!installed.noWinget };
+  return { ...rgbView(), ...(await ensureOpenRgb()) };
+}
 
 // ================================================================ listening along
 
@@ -2264,8 +2320,18 @@ function registerIpc() {
   // ---- telling you when you're away (channels.js)
   ipcMain.handle('channels:get', () => channelsView());
   ipcMain.handle('channels:set', (_e, patch) => {
-    config.set({ channels: channels.normalizeChannelSettings(channelSettings(), patch && typeof patch === 'object' ? patch : {}) });
+    const next = channels.normalizeChannelSettings(channelSettings(), patch && typeof patch === 'object' ? patch : {});
+    // ntfy needs nothing but a topic, so Shellby picks one nobody will guess
+    // instead of asking you to invent it.
+    if (next.enabled && next.provider === 'ntfy' && !next.target) next.target = channels.randomTopic();
+    config.set({ channels: next });
     return channelsView();
+  });
+  ipcMain.handle('channels:findChat', async () => {
+    if (channelSettings().provider !== 'telegram') return { ...channelsView(), found: { error: 'That only works for Telegram.' } };
+    const found = await channels.findTelegramChat(channelSecret);
+    if (found.chatId) config.set({ channels: channels.normalizeChannelSettings(channelSettings(), { target: found.chatId }) });
+    return { ...channelsView(), found };
   });
   ipcMain.handle('channels:secret', (_e, secret) => {
     saveChannelSecret(typeof secret === 'string' ? secret.trim().slice(0, 400) : '');
@@ -2297,7 +2363,8 @@ function registerIpc() {
   // ---- the desk lighting (rgb.js)
   ipcMain.handle('rgb:get', () => rgbView());
   ipcMain.handle('rgb:set', (_e, patch) => {
-    const next = { ...rgbSettings() };
+    const prev = rgbSettings();
+    const next = { ...prev };
     if (patch && 'enabled' in patch) next.enabled = !!patch.enabled;
     if (patch && 'port' in patch) {
       const n = Number(patch.port);
@@ -2306,14 +2373,13 @@ function registerIpc() {
     config.set({ rgb: next });
     rgbClient = new OpenRgbClient({ port: next.port });
     lastRgbColor = '';
+    // Only switching it on starts OpenRGB; any other change just repaints.
+    if (next.enabled && !prev.enabled) return ensureOpenRgb().then(r => ({ ...rgbView(), ...r }));
     if (next.enabled) paintLights();
     return rgbView();
   });
-  ipcMain.handle('rgb:test', async () => {
-    const probe = await rgbClient.probe();
-    if (probe.ok) { lastRgbColor = ''; paintLights(); }
-    return { ...probe, ...rgbView() };
-  });
+  ipcMain.handle('rgb:test', async () => ({ ...rgbView(), ...(await ensureOpenRgb()) }));
+  ipcMain.handle('rgb:install', () => confirmAndInstallOpenRgb());
 
   // ---- listening along (media.js)
   ipcMain.handle('nowplaying:get', () => mediaView());
@@ -2701,6 +2767,7 @@ app.whenReady().then(() => {
   channelSecret = loadChannelSecret();
   createObs();
   createRgb();
+  if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
   createMedia();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed

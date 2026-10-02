@@ -226,6 +226,22 @@
 
   // ---------------------------------------------------------------- telling you elsewhere
   let channels = null;
+  // The subscribe link as pixel art: ink modules on sand, with the 4-module
+  // quiet zone a phone camera needs to find the code.
+  function drawQr(rows) {
+    const canvas = $('chQrCanvas');
+    const n = rows.length + 8;
+    const scale = 4;
+    canvas.width = canvas.height = n * scale;
+    const g = canvas.getContext('2d');
+    const css = getComputedStyle(document.documentElement);
+    g.fillStyle = css.getPropertyValue('--sand').trim() || '#f3e6cc';
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.fillStyle = css.getPropertyValue('--ink').trim() || '#0c1719';
+    rows.forEach((row, y) => [...row].forEach((bit, x) => {
+      if (bit === '1') g.fillRect((x + 4) * scale, (y + 4) * scale, scale, scale);
+    }));
+  }
   function renderChannels(v) {
     channels = v;
     $('chEnabled').checked = !!v.enabled;
@@ -242,6 +258,9 @@
     $('chSecretLabel').textContent = provider.secretLabel || 'Token';
     $('chSecret').placeholder = v.hasSecret ? 'saved — type to replace' : '';
     $('chWhileFocused').checked = !!v.whileFocused;
+    $('chQr').hidden = !v.qr;
+    if (v.qr && $('chQrCanvas').dataset.url !== v.subscribeUrl) { drawQr(v.qr); $('chQrCanvas').dataset.url = v.subscribeUrl; }
+    $('chFindRow').hidden = !provider.findsTarget;
     $('chEvents').replaceChildren(...Object.entries(v.eventLabels).map(([key, label]) => h('label', { class: 'toggle' },
       h('input', { type: 'checkbox', 'data-event': key, ...(v.events[key] ? { checked: 'checked' } : {}) }),
       h('span', { class: 'switch' }),
@@ -257,8 +276,23 @@
   $('chSecret').addEventListener('change', async e => {
     const typed = e.target.value;
     e.target.value = '';
-    if (typed) renderChannels(await api.setChannelSecret(typed));
+    if (!typed) return;
+    renderChannels(await api.setChannelSecret(typed));
+    // A fresh bot token and no chat yet: go and look, so pasting is the whole job.
+    if (channels.providers.find(p => p.name === channels.provider)?.findsTarget && !channels.target) findChat();
   });
+  async function findChat() {
+    $('chFind').disabled = true;
+    $('chFindStatus').textContent = 'Asking Telegram…';
+    $('chFindStatus').className = 'small ext-status';
+    const v = await api.findTelegramChat();
+    renderChannels(v);
+    const f = v.found || {};
+    $('chFindStatus').textContent = f.chatId ? `Found ${f.name || 'your chat'}.` : f.error || "Couldn't find it.";
+    $('chFindStatus').className = `small ext-status ${f.chatId ? 'ok' : 'warn'}`;
+    $('chFind').disabled = false;
+  }
+  $('chFind').addEventListener('click', findChat);
   $('chEvents').addEventListener('change', async e => {
     const key = e.target.dataset?.event;
     if (key) renderChannels(await api.setChannels({ events: { ...channels.events, [key]: e.target.checked } }));
@@ -285,22 +319,54 @@
   $('obsEnabled').addEventListener('change', async e => renderObs(await api.setObs({ enabled: e.target.checked })));
 
   // ---------------------------------------------------------------- desk lighting
+  let rgbLast = null;
   function renderRgb(v) {
+    rgbLast = v;
     $('rgbEnabled').checked = !!v.enabled;
     $('rgbBody').hidden = !v.enabled;
     const devices = v.devices || [];
-    $('rgbStatus').textContent = v.error ? v.error : devices.length ? `${devices.length} device${devices.length === 1 ? '' : 's'}.` : '';
-    $('rgbStatus').className = `small ext-status ${v.error ? 'warn' : devices.length ? 'ok' : ''}`;
+    const busy = { installing: 'Installing OpenRGB… say yes if Windows asks.', starting: 'Starting OpenRGB…' }[v.setup];
+    $('rgbStatus').textContent = busy || (v.error ? v.error : devices.length ? `${devices.length} device${devices.length === 1 ? '' : 's'}.` : '');
+    $('rgbStatus').className = `small ext-status ${busy ? '' : v.error ? 'warn' : devices.length ? 'ok' : ''}`;
+    // Not installed and nothing answering: installing is the only useful step.
+    // (A portable copy running from elsewhere answers, so it counts as there.)
+    const absent = !v.installed && !devices.length;
+    $('rgbInstall').hidden = !absent;
+    $('rgbTest').hidden = absent;
+    $('rgbInstall').disabled = $('rgbTest').disabled = !!v.setup;
     $('rgbList').replaceChildren(...devices.map(d => h('li', { class: 'ext-session' },
       h('b', { text: d.name }),
       h('span', { class: 'ext-state', text: `${d.numLeds} LED${d.numLeds === 1 ? '' : 's'}` }))));
   }
-  $('rgbEnabled').addEventListener('change', async e => renderRgb(await api.setRgb({ enabled: e.target.checked })));
-  $('rgbTest').addEventListener('click', async () => {
-    $('rgbTest').disabled = true;
-    renderRgb(await api.testRgb());
-    $('rgbTest').disabled = false;
-  });
+  // Starting or installing OpenRGB takes a while. Main says which step it's on
+  // (an install only begins once the confirm window says yes), so ask it
+  // until the call comes back.
+  const rgbBusy = async (setup, call) => {
+    if (setup) renderRgb({ ...(rgbLast || {}), enabled: true, setup });
+    let done = false;
+    const poll = setInterval(() => {
+      api.getRgb().then(v => { if (!done && v.setup) renderRgb(v); }).catch(() => { /* the final answer still comes */ });
+    }, 1500);
+    try {
+      const v = await call();
+      done = true;
+      renderRgb(v);
+      if (v.noWinget) {
+        SB.toast("winget isn't on this PC, so here's OpenRGB's site to download it from.", { ms: 6000 });
+        api.openExternal('https://openrgb.org/');
+      }
+    } catch {
+      done = true;
+      renderRgb({ ...(await api.getRgb().catch(() => rgbLast || {})), setup: null, error: "That didn't work. Try again?" });
+    } finally {
+      clearInterval(poll);
+    }
+  };
+  $('rgbEnabled').addEventListener('change', e => (e.target.checked
+    ? rgbBusy('starting', () => api.setRgb({ enabled: true }))
+    : api.setRgb({ enabled: false }).then(renderRgb)));
+  $('rgbTest').addEventListener('click', () => rgbBusy('starting', api.testRgb));
+  $('rgbInstall').addEventListener('click', () => rgbBusy(null, api.installOpenRgb));
 
   // ---------------------------------------------------------------- listening along
   function renderNowPlaying(v) {

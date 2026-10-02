@@ -171,6 +171,7 @@ contextBridge.exposeInMainWorld('shellby', {
   setChannels: invoke('channels:set'),
   setChannelSecret: invoke('channels:secret'),
   testChannel: invoke('channels:test'),
+  findTelegramChat: invoke('channels:findChat'),
 
   // the browser source for a stream
   getObs: invoke('obs:get'),
@@ -181,6 +182,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getRgb: invoke('rgb:get'),
   setRgb: invoke('rgb:set'),
   testRgb: invoke('rgb:test'),
+  installOpenRgb: invoke('rgb:install'),
 
   // listening along
   getNowPlaying: invoke('nowplaying:get'),
