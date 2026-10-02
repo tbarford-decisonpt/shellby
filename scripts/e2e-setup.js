@@ -62,6 +62,8 @@ const readJson = f => JSON.parse(fs.readFileSync(f, 'utf8'));
 async function answer(label, expect) {
   const dlg = await cdp((await target('dialog.html', 20)).webSocketDebuggerUrl);
   await until(() => dlg.evaluate(`(document.getElementById('title')?.textContent || '').length > 0`).catch(() => false), 'confirm content');
+  // The default button is focused a frame after the content goes in.
+  await until(() => dlg.evaluate(`document.activeElement?.tagName === 'BUTTON'`).catch(() => false), 'default button focus', 5000);
   const d = await dlg.evaluate(`({ title: document.getElementById('title').textContent, message: document.getElementById('message').textContent, detail: document.getElementById('detail')?.textContent || '', focused: document.activeElement?.textContent })`);
   console.log('confirm:', JSON.stringify(d));
   if (d.title !== expect.title || !d.detail.includes(expect.command)) throw new Error('confirm window content wrong');

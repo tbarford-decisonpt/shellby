@@ -502,12 +502,18 @@ body:not([data-home]) .status-crab { width: 10px; height: 10px; background: var(
   font: 11px var(--font-mono); font-stretch: 85%; color: var(--glass);
 }
 .att span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+/* A picture's chip leads with the picture itself (filled in by SB.attachmentChips). */
+.att.pic { padding-left: 3px; }
+.att-thumb { width: 22px; height: 22px; flex: none; border-radius: 99px; object-fit: cover; background: var(--glass-dim); }
+.att-thumb:not([src]) { visibility: hidden; }
+.msg.user .att.pic { border-radius: var(--r-sm); padding: 3px 8px 3px 3px; }
+.msg.user .att-thumb { width: auto; height: auto; max-width: 160px; max-height: 96px; border-radius: calc(var(--r-sm) - 2px); }
 .att button { border: 0; background: none; color: inherit; padding: 0 3px; font-size: 13px; line-height: 1; opacity: .7; }
 .att button:hover { opacity: 1; }
 
 .input-row {
   display: flex; align-items: flex-end; gap: 8px;
-  padding: 6px 6px 6px 12px;
+  padding: 6px 6px 6px 4px;
   background: var(--reef); border: 1px solid var(--line); border-radius: var(--r-lg);
   transition: border-color .15s, box-shadow .15s;
 }
@@ -532,6 +538,13 @@ textarea:focus-visible { outline: none; }
 .send-btn:hover:not(:disabled) { background: #ff8e74; transform: translateY(-1px); }
 .send-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
 .send-btn:disabled { opacity: .35; }
+.attach-btn {
+  width: 30px; height: 34px; flex: none; margin-right: -4px;
+  border: 0; border-radius: var(--r); background: transparent; color: var(--sand-faint);
+  display: grid; place-items: center; transition: color .15s, background .15s;
+}
+.attach-btn svg { width: 16px; height: 16px; }
+.attach-btn:hover { color: var(--glass); background: var(--glass-dim); }
 .input-hint { display: flex; justify-content: space-between; gap: 8px; margin: 6px 4px 0; font-size: 11px; color: var(--sand-faint); }
 #modeHint.danger { color: #ff9b8f; }
 

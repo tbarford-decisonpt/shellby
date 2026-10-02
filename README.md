@@ -106,7 +106,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
 - **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, counts down, holds back the notifications that can wait, and takes a break with you when time's up.
 - **He listens along:** when something's playing he puts his headphones on, with the odd *"good one"*. Read from Windows itself, so there's no account and nothing leaves your PC.
-- **Drop files on him** to hand them to a task. **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
+- **Drop files on him** to hand them to a task, or **paste a screenshot** (Win+Shift+S, then Ctrl+V) straight into the box: Claude sees the picture itself. **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
 
 <details>
 <summary><b>How much he talks, and when he doesn't</b></summary>
@@ -258,6 +258,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 </tr>
 </table>
 
+- **👋 While you were away:** come back after an hour or more and a short recap is waiting above the box: what finished, what failed, what's waiting on you, and roughly how much of your 5-hour usage window each conversation took. Click a row to open that conversation. Turn it off under **Settings → System**.
 - **📱 Tell me when I'm away:** a permission prompt, a finished run, a reset usage limit, a red build or an overheating GPU can reach your phone. **ntfy** is one QR scan with no account; **Telegram** finds your chat by itself; **Pushover**, a **Discord** or **Slack** webhook, or your own endpoint work too. Nothing goes through a server of ours, a four-second task doesn't buzz your pocket, and **Guard my focus** holds them back unless you say otherwise.
 - **📲 Answer from your phone (optional):** with Telegram or ntfy, **Let me answer Allow or Deny from my phone** puts the two buttons on the notification. Each prompt gets its own single-use code that expires after 30 minutes. Only your private chat with the bot counts, and an ntfy topic has to be one nobody will guess. Questions, plans, **Always allow**, long commands, and anything the card would warn you about still wait for you at the desk.
 - **🎥 On a stream:** **Settings → On a stream** serves him as an OBS browser source on a transparent background — the same crab, outfit and animations, reacting live in the corner. It's the critter's own stylesheet behind it, on 127.0.0.1 only.

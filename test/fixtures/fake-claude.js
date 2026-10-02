@@ -47,7 +47,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   if (msg.type !== 'user') return;
   turn++;
-  const content = String(msg.message.content);
+  // A message with pictures in it is a list of blocks: the text is in the text one(s).
+  const blocks = Array.isArray(msg.message.content) ? msg.message.content : null;
+  const content = blocks ? blocks.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.message.content);
+  const images = blocks ? blocks.filter(b => b.type === 'image') : [];
   out({ type: 'system', subtype: 'hook_started' });
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
@@ -70,6 +73,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "look ..." -> says how many pictures came with the message, and what kind
+  if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)

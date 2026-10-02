@@ -44,6 +44,7 @@
   api.onTabFocus(tabId => { if (state.tabs.has(tabId)) SB.activate(tabId); });
   api.onNewTabRequest(() => SB.newTab());
   api.onUsage(SB.applyUsage);
+  api.onRecap(d => SB.showRecap(d));
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
   api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });
