@@ -19,7 +19,7 @@ npm start
 | `npm start` | Run in development |
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
-| `npm run e2e:ci` | The ten end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
+| `npm run e2e:ci` | The eleven end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
@@ -33,6 +33,7 @@ npm start
 | `node scripts/e2e-feed-cap.js` | A very long conversation stops growing the DOM: 3,600 blocks pumped through one tab, the cap holds, the tool and lane maps let go with the elements, a result for a long-trimmed tool is ignored, and replay is capped too |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
 | `node scripts/e2e-streaks.js` | Streaks and nudges with a real throwaway git repo (last commit 6 days ago): the streak starts, the repo root is found from a subfolder, the nudge fires once, and "Pick it up" opens a tab there |
+| `node scripts/e2e-github-workflows.js` | The CI-workflow permission toggle: present, gated on "Let Claude tasks push", never on by default, and the right wording in each state (a fake signed-in view, so no account or network) |
 | `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist, publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
 | `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |

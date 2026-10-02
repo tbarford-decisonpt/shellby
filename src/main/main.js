@@ -1230,6 +1230,20 @@ async function confirmGitHubFeature(feature, on) {
     });
     if (response !== 0) return { ok: false, canceled: true, view: github.view() };
   }
+  // A workflow file decides what runs in CI, on GitHub's machines, with whatever
+  // secrets the repository holds. GitHub keeps it behind its own scope for that
+  // reason, and so does Shellby.
+  if (feature === 'workflows' && on) {
+    const response = await askOnce({
+      icon: '⚙️', danger: true,
+      title: 'Let Claude tasks change your CI workflows?',
+      message: 'Tasks will be able to push changes to .github/workflows — the files that decide what GitHub runs on every push.',
+      detail: 'A workflow runs on GitHub with access to that repository\'s secrets, so a task that edits one can make them run anything, in any repo you can push to. Without this, pushes that touch a workflow file are refused by GitHub.',
+      note: 'Needs "Let Claude tasks push" as well. Shellby will ask GitHub for the extra permission, which means signing in again.',
+      buttons: [{ label: 'Allow', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
   const r = await github.setFeature(feature, on);
   return { ...r, view: github.view() };
 }
@@ -1748,10 +1762,13 @@ function registerIpc() {
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'publish', 'claude', 'ci']);
+  const FEATURE_NAMES = new Set(['sync', 'publish', 'claude', 'ci', 'workflows']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && f !== 'claude') : [];
+    // claude and workflows are never granted by a first sign-in: each has its own
+    // confirmation, so they can only be turned on deliberately afterwards.
+    const GUARDED = new Set(['claude', 'workflows']);
+    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await github.signIn(list);
     return { ...r, view: github.view() };
   });

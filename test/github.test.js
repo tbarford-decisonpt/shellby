@@ -28,6 +28,17 @@ test('scopes: only what the features need; repo covers public_repo', () => {
   assert.equal(covers(['read:user'], 'sync'), false);
 });
 
+test('scopes: pushing a CI workflow needs `workflow`, which `repo` does not cover', () => {
+  // GitHub refuses any push touching .github/workflows without this scope, even
+  // with full `repo`, so it has to be asked for separately.
+  assert.deepEqual(scopesFor(['claude', 'workflows']), ['read:user', 'repo', 'workflow']);
+  assert.equal(covers(['repo'], 'workflows'), false, 'repo is not enough');
+  assert.equal(covers(['repo', 'workflow'], 'workflows'), true);
+  // And it is not dragged in by anything else.
+  assert.equal(scopesFor(['claude']).includes('workflow'), false);
+  assert.equal(scopesFor(['sync', 'publish', 'ci']).includes('workflow'), false);
+});
+
 test('the token file is encrypted and unreadable without the OS key', () => {
   const file = path.join(tmp(), 'github.bin');
   const store = new TokenStore(file, fakeCrypto);

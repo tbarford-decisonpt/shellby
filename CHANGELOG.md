@@ -10,6 +10,10 @@
 ### Kinder to your battery
 - **He stops animating when you aren't looking.** The drifting light and his breathing stop while the panel isn't the window in front, and everything in both windows stops while your screen is locked — together, about half of what he costs when idle. Spinners and progress carry on, so a task that's still running still looks like one.
 
+### Tasks can fix your CI now
+- **"…including changes to CI workflows"**, under **Settings → GitHub**. `repo` access was never enough to push a file in `.github/workflows` — GitHub refuses those pushes without a scope of their own — so "Shellby, fix my failing build" got all the way to the push and then failed. Turning this on asks GitHub for that permission.
+- It's **off by default and its own decision**, not folded into "Let Claude tasks push", because a workflow is what runs on GitHub's machines with your repository's secrets. Shellby spells that out before asking, and it can't be granted by a first sign-in.
+
 ### Claude Code in an unusual place
 - **Find it myself…** in setup, for when Shellby can't find Claude Code where it normally lives: a portable copy, another drive, a locked-down work PC. He runs the file once to check it really is Claude Code before keeping it, so a wrong pick tells you straight away instead of becoming a task that won't start.
 
@@ -20,7 +24,7 @@
 - **A very long conversation stays quick.** An overnight run with thousands of steps kept every one of them on screen for the life of the window. The oldest are hidden now, with a line saying how many — and the whole conversation is still in History.
 
 ### Under the hood
-- The ten end-to-end checks that need no Claude account now run in CI, so the panel and the desktop crab are covered by something other than a person remembering to run them. ESLint runs there too.
+- The eleven end-to-end checks that need no Claude account now run in CI, so the panel and the desktop crab are covered by something other than a person remembering to run them. ESLint runs there too.
 - `scripts/idle-cost.js` measures what he costs while doing nothing, per process, with the numbers written down in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#what-he-costs-when-idle).
 
 
