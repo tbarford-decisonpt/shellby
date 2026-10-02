@@ -545,13 +545,18 @@
   }
 
   SB.hideSlash = () => { $('slashMenu').hidden = true; };
-  SB.useTool = (t) => {
+  // Put text in the box (not sent) with the caret at the end, ready to add to.
+  SB.prefill = (text) => {
     SB.setView('chat');
-    const prefix = t.kind === 'agent' ? `Use the ${t.name} agent to ` : `/${t.name} `;
-    input.value = prefix + input.value.replace(/^\/\S*\s*/, '');
+    input.value = text;
     autosize();
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
+  };
+
+  SB.useTool = (t) => {
+    const prefix = t.kind === 'agent' ? `Use the ${t.name} agent to ` : `/${t.name} `;
+    SB.prefill(prefix + input.value.replace(/^\/\S*\s*/, ''));
   };
 
   // ------------------------------------------------------------ mode chip

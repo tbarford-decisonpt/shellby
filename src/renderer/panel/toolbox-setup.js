@@ -182,6 +182,28 @@
 
   // ================================================================ memory
 
+  // The claude-md-management plugin's improver skill, if it's installed (plugin
+  // skills are listed as "plugin:skill", so match on the end of the name).
+  const reviewSkill = () => (state.toolbox?.skills || []).find(t => /(^|:)claude-md-improver$/.test(t.name));
+
+  // Hand the review to Claude: the box is filled in, not sent, so you can say
+  // what you'd like changed first.
+  function askClaude(file) {
+    const what = file ? file : 'the CLAUDE.md files that load for this folder (including my own in ~/.claude)';
+    const ask = `Look over ${what} and suggest what to tighten, add or cut. Show me the changes before you make them.`;
+    const skill = reviewSkill();
+    SB.prefill(skill ? `/${skill.name} ${ask} ` : `${ask} `);
+  }
+
+  function askBtn(file, label) {
+    const skill = reviewSkill();
+    return h('button', {
+      class: 'btn ghost slim-btn', type: 'button',
+      title: skill ? `Starts a task with /${skill.name}` : 'Starts a task asking Claude to review it',
+      onclick: () => askClaude(file),
+    }, label);
+  }
+
   async function openMemory(entry) {
     const r = await call(() => api.readMemory(entry.path));
     if (!r.ok) { SB.toast(r.error || "Couldn't open that file"); return; }
@@ -244,7 +266,7 @@
         h('code', { class: 'mem-path', text: SB.shortPath(ed.entry.path, 46), title: ed.entry.path }),
         ed.entry.exists ? folderBtn(ed.entry.path) : null),
       area,
-      h('div', { class: 'row setup-actions' }, status, reloadBtn, save));
+      h('div', { class: 'row setup-actions' }, status, reloadBtn, ed.entry.exists ? askBtn(ed.entry.path, 'Ask Claude') : null, save));
   }
 
   function memoryRow(m) {
@@ -273,7 +295,8 @@
     list.hidden = false;
     pane.dataset.mounted = 'memory';
     pane.replaceChildren(h('div', { class: 'setup-intro' },
-      h('p', { text: 'CLAUDE.md files are instructions Claude Code reads at the start of every session: how you like to work, how a project builds, what to avoid.' })));
+      h('p', { text: 'CLAUDE.md files are instructions Claude Code reads at the start of every session: how you like to work, how a project builds, what to avoid.' }),
+      s.memory.some(m => m.exists) ? askBtn(null, 'Review with Claude') : null));
     const items = s.memory.filter(m => !q || m.path.toLowerCase().includes(q) || (MEMORY_TITLE[m.scope] || '').toLowerCase().includes(q));
     list.replaceChildren(...(items.length ? items.map(memoryRow) : [h('li', { class: 'history-empty', text: 'No matches.' })]));
   }
