@@ -399,8 +399,11 @@
 
     renderResult(item) {
       for (const el of this.tools.values()) if (el.classList.contains('pending')) el.classList.replace('pending', item.ok ? 'ok' : 'err');
-      const label = item.interrupted ? 'stopped' : item.ok ? 'done' : 'ended with an error';
-      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}`, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
+      const waiting = item.ok && !item.interrupted && item.waiting?.length
+        ? `waiting on ${item.waiting.length === 1 ? item.waiting[0] : `${item.waiting.length} background tasks`}`
+        : null;
+      const label = item.interrupted ? 'stopped' : waiting || (item.ok ? 'done' : 'ended with an error');
+      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
       if (!item.ok && !item.interrupted && item.error) this.append(h('div', { class: 'error-block', text: item.error }));
       if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }
@@ -582,7 +585,19 @@
     return 'Always allow';
   }
 
-  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: 'att', title: f },
+  // Pictures get a thumbnail, fetched once per path (main reads the file; the
+  // panel's CSP only loads images from data:).
+  const thumbs = new Map();
+  const isPicture = f => /\.(png|jpe?g|gif|webp)$/i.test(f);
+  const thumbImg = f => {
+    const img = h('img', { class: 'att-thumb', alt: '' });
+    if (!thumbs.has(f)) thumbs.set(f, api.attachThumb(f).catch(() => null));
+    thumbs.get(f).then(url => { if (url) img.src = url; else img.remove(); });
+    return img;
+  };
+
+  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}`, title: f },
+    isPicture(f) ? thumbImg(f) : null,
     h('span', { text: SB.basename(f) }),
     onRemove ? h('button', { type: 'button', 'aria-label': `Remove ${SB.basename(f)}`, onclick: () => onRemove(i) }, '×') : null));
 

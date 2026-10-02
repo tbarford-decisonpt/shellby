@@ -34,6 +34,24 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
   pathsForFiles: files => Array.from(files || []).map(f => { try { return webUtils.getPathForFile(f); } catch { return ''; } }).filter(Boolean),
+  // The same, for a drop or a paste that may hold a picture with no file behind
+  // it (a Win+Shift+S snip, an image dragged out of a browser): main saves those
+  // first. Resolves to { paths, error } — error is the last thing that failed.
+  attachFiles: async files => {
+    const paths = [];
+    let error = null;
+    for (const f of Array.from(files || []).slice(0, 20)) {
+      let p = '';
+      try { p = webUtils.getPathForFile(f); } catch { /* not on disk */ }
+      if (p) { paths.push(p); continue; }
+      if (!/^image\//.test(f.type)) continue;
+      const r = await ipcRenderer.invoke('attach:image', new Uint8Array(await f.arrayBuffer()));
+      if (r?.path) paths.push(r.path); else error = r?.error || 'Couldn’t attach that picture.';
+    }
+    return { paths, error };
+  },
+  attachThumb: invoke('attach:thumb'),
+  pickFiles: invoke('attach:pick'),
 
   bootstrap: invoke('app:bootstrap'),
   claudeStatus: invoke('claude:status'),
@@ -137,6 +155,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onStreaks: on('streaks'),
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
+  devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
   dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
@@ -214,6 +233,7 @@ contextBridge.exposeInMainWorld('shellby', {
   saveRoutine: invoke('routines:save'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
+  usageBreakdown: invoke('usage:breakdown'),
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
@@ -224,6 +244,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),
   onUsage: on('usage'),
+  onRecap: on('recap'), // back after an hour away: what happened (see recap.js)
   onLimit: on('limit'),
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),

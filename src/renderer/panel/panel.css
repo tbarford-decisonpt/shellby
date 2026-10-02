@@ -147,12 +147,27 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .menu-item.branch-info > span:last-child { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .mi-branch { font: 600 11.5px var(--font-mono); font-stretch: 88%; color: var(--glass); overflow-wrap: anywhere; }
 
-.usage { margin-left: auto; display: flex; gap: 10px; }
+.usage { margin-left: auto; display: flex; gap: 10px; padding: 3px 5px; border: 0; border-radius: 6px; background: none; color: inherit; cursor: pointer; }
+.usage:hover, .usage:focus-visible, .usage[aria-expanded="true"] { background: var(--reef-2); outline: none; }
 .meter { display: flex; align-items: center; gap: 5px; color: var(--sand-faint); font: 600 10.5px var(--font-mono); }
 .meter-track { width: 44px; height: 5px; border-radius: 3px; background: var(--reef-2); overflow: hidden; }
 .meter-fill { display: block; height: 100%; width: 100%; background: var(--glass); border-radius: inherit; transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease-out); }
 .meter.warn .meter-fill { background: var(--amber); }
 .meter.hot .meter-fill { background: var(--danger); }
+
+/* ================================================================ usage breakdown */
+.usage-menu { min-width: 280px; }
+.usage-by { display: flex; gap: 4px; padding: 3px 3px 4px; }
+.usage-by-btn { flex: 1; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--sand-dim); font: 600 11.5px var(--font-body); cursor: pointer; }
+.usage-by-btn:hover, .usage-by-btn:focus-visible { color: var(--sand); outline: none; border-color: var(--sand-faint); }
+.usage-by-btn.on { background: var(--reef-2); color: var(--sand); }
+.usage-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px 34px; align-items: center; gap: 8px; padding: 3px 9px; font-size: 12.5px; }
+.usage-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-row.kind-rest .usage-name { color: var(--sand-dim); }
+.usage-bar { height: 5px; border-radius: 3px; background: var(--reef-2); overflow: hidden; }
+.usage-bar-fill { display: block; height: 100%; background: var(--glass); border-radius: inherit; transform-origin: left; }
+.usage-share { text-align: right; color: var(--sand-dim); font: 600 10.5px var(--font-mono); }
+.usage-empty { padding: 3px 9px 5px; color: var(--sand-faint); font-size: 12px; line-height: 1.35; }
 
 /* ================================================================ popovers */
 .popover {
@@ -440,6 +455,7 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 }
 .meta::before, .meta::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
 .meta.bad { color: var(--danger); }
+.meta.waiting { color: var(--amber); }
 /* ---------------------------------------------------------------- idle cost
    An open panel spends most of a core on animation (scripts/idle-cost.js), and
    most of that while nobody is watching. `calm` (the window isn't focused)
@@ -504,12 +520,18 @@ body:not([data-home]) .status-crab { width: 10px; height: 10px; background: var(
   font: 11px var(--font-mono); font-stretch: 85%; color: var(--glass);
 }
 .att span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+/* A picture's chip leads with the picture itself (filled in by SB.attachmentChips). */
+.att.pic { padding-left: 3px; }
+.att-thumb { width: 22px; height: 22px; flex: none; border-radius: 99px; object-fit: cover; background: var(--glass-dim); }
+.att-thumb:not([src]) { visibility: hidden; }
+.msg.user .att.pic { border-radius: var(--r-sm); padding: 3px 8px 3px 3px; }
+.msg.user .att-thumb { width: auto; height: auto; max-width: 160px; max-height: 96px; border-radius: calc(var(--r-sm) - 2px); }
 .att button { border: 0; background: none; color: inherit; padding: 0 3px; font-size: 13px; line-height: 1; opacity: .7; }
 .att button:hover { opacity: 1; }
 
 .input-row {
   display: flex; align-items: flex-end; gap: 8px;
-  padding: 6px 6px 6px 12px;
+  padding: 6px 6px 6px 4px;
   background: var(--reef); border: 1px solid var(--line); border-radius: var(--r-lg);
   transition: border-color .15s, box-shadow .15s;
 }
@@ -534,6 +556,13 @@ textarea:focus-visible { outline: none; }
 .send-btn:hover:not(:disabled) { background: #ff8e74; transform: translateY(-1px); }
 .send-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
 .send-btn:disabled { opacity: .35; }
+.attach-btn {
+  width: 30px; height: 34px; flex: none; margin-right: -4px;
+  border: 0; border-radius: var(--r); background: transparent; color: var(--sand-faint);
+  display: grid; place-items: center; transition: color .15s, background .15s;
+}
+.attach-btn svg { width: 16px; height: 16px; }
+.attach-btn:hover { color: var(--glass); background: var(--glass-dim); }
 .input-hint { display: flex; justify-content: space-between; gap: 8px; margin: 6px 4px 0; font-size: 11px; color: var(--sand-faint); }
 #modeHint.danger { color: #ff9b8f; }
 

@@ -1,9 +1,31 @@
 # Changelog
 
+## 0.26.0: who used it all
+
+### New
+- **See what used up your limits.** Click the **5h / 7d** meters to see what filled each window: every tab and routine with its share, or switch to **Projects** to see it by folder. A conversation working in its own copy counts toward the project it came from. Each call is weighed by the model it used, since a limit fills faster on Opus than on Haiku. Only what Shellby ran is listed. Claude Code used elsewhere (a terminal, claude.ai) fills the meters too, and the breakdown says so. The tally stays on your PC and keeps just over a week.
+
+## 0.25.0: while you were away
+
+### New
+- **A recap when you come back.** Step away for an hour or more (or lock the PC) and, when you're back, a short digest waits above the box: what finished, what failed, and what's waiting on you, whether that's a question or a permission prompt in Shellby or in Claude Code elsewhere. It also shows roughly how much of your 5-hour usage window went while you were out, split by conversation. Click a row to open that conversation, even one whose tab you've closed. If the panel isn't in front, a notification sums it up and Shellby says hello. The usage split is approximate: Claude Code only reports how full the window is, so each rise is put down to whichever conversation reported it, and Claude Code running outside Shellby fills the same window. Turn it off under **Settings → System**.
+
+## 0.24.0: show him what's wrong
+
+### New
+- **Screenshot to task.** Snip with **Win+Shift+S** and press **Ctrl+V** in the box: the screenshot is attached, with a thumbnail. Claude sees the picture itself, not just a file name, so "this button is cut off" needs no more explaining. You can also drop a picture on the crab or the panel, including one dragged straight out of a browser. With a snip already on the clipboard, right-click the crab for **Task from screenshot**. Send a screenshot with nothing typed and he takes a look at it, in a tab called **Screenshot**.
+- **A 📎 button in the box** attaches files from a picker, for when there's nothing handy to drag.
+- **Pictures show as pictures.** Attached screenshots and images get a thumbnail in the box and a preview in the conversation.
+
+Big snips are shrunk to 2000 pixels on the long side before they go, which is about as much as Claude looks at anyway. They're kept in the data folder's `screenshots` folder for 30 days. Pasting something that carries text as well (a cell copied out of Excel) still pastes the text.
+
 ## 0.23.0: Shift+Tab switches mode
 
 ### New
 - **Shift+Tab switches the permission mode,** just like in Claude Code. Press it in the message box to step through **Ask → Smart → Auto-edit → Plan** and back round. The chip and the hint under the box change as you go, and the new mode applies to every open conversation. **Autonomous** isn't in the loop on purpose: holding a key down should never land on the one mode that never asks. Pick it from the chip or Settings as before.
+
+### Fixed
+- **The little shell beside his messages is your shell now.** In his own shell, the mark in the chat (and the one that scuttles while he works) was always coral, whatever skin you'd picked. It now takes the colours of your skin's shell, so Classic gets teal, Midnight indigo, and so on. Shells he's grown into (the teacup, the golden conch…) still show as themselves.
 
 ## 0.22.2
 

@@ -60,8 +60,8 @@ body.busy .dock-crab svg { animation: hop .4s ease-in-out infinite; }
 /* popups clear the bar (and the composer, in chat) */
 .toast { bottom: calc(var(--dock-h) + 96px); }
 body:not(.celebrating):not([data-view="chat"]) .toast { bottom: calc(var(--dock-h) + 16px); } /* card.css lifts toasts to the top during a celebration */
-.celebrate-host { bottom: calc(var(--dock-h) + 92px); }
-body:not([data-view="chat"]) .celebrate-host { bottom: calc(var(--dock-h) + 14px); }
+.celebrate-host, .recap-host { bottom: calc(var(--dock-h) + 92px); }
+body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(var(--dock-h) + 14px); }
 
 /* ================================================================ Shellby screen tabs */
 .view-head .shellby-tabs { flex: 1; min-width: 0; }

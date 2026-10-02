@@ -41,6 +41,8 @@ const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
+const spend = require('./spend');
+const recap = require('./recap');
 const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
@@ -54,6 +56,7 @@ const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
+const attach = require('./attachments');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -295,6 +298,65 @@ function watchIdleCost() {
   panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
   for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
   for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
+}
+
+// ---------------------------------------------------------------- while you were away (recap.js)
+// What finished, failed and used the window is noted as it happens; whether
+// you're at the keyboard comes from Windows' idle time, read once a minute and
+// on lock, unlock, sleep and wake.
+const AWAY_POLL_MS = 60 * 1000;
+// Dev/e2e only: the idle readings come from dev:away instead of Windows.
+const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
+let recapLog = [];
+let away = { since: null };
+
+function noteRecap(event) {
+  if (event) recapLog = recap.record(recapLog, event, Date.now());
+}
+
+function checkAway({ locked = false, idleMs = null } = {}) {
+  if (CAPTURE || !config) return;
+  if (idleMs === null) {
+    if (RECAP_TEST) return;
+    try {
+      idleMs = powerMonitor.getSystemIdleTime() * 1000;
+      // Asked each time rather than tracked from events: a nudge of the mouse
+      // on the lock screen, or a wake nobody is there for, still reads as locked.
+      locked = locked || powerMonitor.getSystemIdleState(60) === 'locked';
+    } catch { return; }
+  }
+  const r = recap.watch(away, { now: Date.now(), idleMs, locked });
+  away = r.state;
+  if (r.back) welcomeBack(r.back);
+}
+
+function watchAway() {
+  if (CAPTURE) return;
+  for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkAway({ locked: true }));
+  for (const here of ['unlock-screen', 'resume']) powerMonitor.on(here, () => checkAway());
+  setInterval(checkAway, AWAY_POLL_MS);
+}
+
+// Prompts open right now, in Shellby's tabs and in Claude Code elsewhere.
+function waitingOnYou() {
+  const kindOf = items => (items.some(i => i.toolName === 'AskUserQuestion') ? 'question' : items.some(i => i.toolName === 'ExitPlanMode') ? 'plan' : 'approval');
+  const own = [...(manager?.tabs.values() || [])]
+    .filter(t => t.session.pending.size)
+    .map(t => ({ tabId: t.id, title: t.title, what: kindOf([...t.session.pending.values()]) }));
+  const elsewhere = (external?.summary.sessions || [])
+    .filter(s => s.state === 'asking')
+    .map(s => ({ tabId: null, title: s.where || s.project, what: 'approval', external: true }));
+  return [...own, ...elsewhere];
+}
+
+function welcomeBack({ since, until }) {
+  if (config.get('recap') === false || !panel || panel.isDestroyed()) return;
+  const digest = recap.build(recapLog, { since, until, waiting: waitingOnYou(), limit: limitWait() });
+  if (!digest) return;
+  send(panel, 'recap', digest);
+  speak('back', { force: true });
+  if (panel.isVisible() && panel.isFocused()) return;
+  notify(`While you were away (${recap.awayFor(digest.awayMs)})`, recap.headline(digest), () => showPanel({ focusInput: false }));
 }
 
 // The critter window grows to the left to make room for helper crabs, keeping
@@ -580,9 +642,12 @@ function createManager() {
     },
   });
 
+  manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
+
   manager.on('item', (tabId, item, tab) => {
     if (item.kind === 'usage') {
       config.set({ lastUsage: { ...item, at: Date.now() } });
+      noteRecap(recap.usageEvent(tabId, tab.title, item));
       send(panel, 'usage', item);
       onUsage(item);
       return;
@@ -919,6 +984,7 @@ function onResult(tabId, item, tab) {
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
   }
+  noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
   if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
   if (item.ok && !item.interrupted) {
     const fx = outfit().effect;
@@ -932,7 +998,11 @@ function onResult(tabId, item, tab) {
   }
   if (item.interrupted || (panel.isVisible() && panel.isFocused())) return;
   const secs = Math.round((item.durationMs || 0) / 1000);
-  notify(item.ok ? `${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
+  if (item.ok && item.waiting?.length) {
+    notify(`Shellby is waiting: ${tab.title}`, `Still running in the background: ${item.waiting.join(', ').slice(0, 120)}`, () => showPanel({ tabId }));
+    return;
+  }
+  notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
     item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
     () => showPanel({ tabId }));
 }
@@ -1025,11 +1095,20 @@ function externalView() {
   return { ...(external ? external.summary : { sessions: [], status: 'off' }), enabled: !!config.get('externalSessions') };
 }
 
-function composePrompt(text, files) {
-  let prompt = text || 'Take a look at the attached files.';
-  if (files.length) prompt += `\n\nAttached files (dropped onto Shellby):\n${files.map(f => `- ${f}`).join('\n')}`;
-  return prompt;
+// Pictures go inline as image blocks; everything attached is listed by path too.
+// See attachments.js.
+const shotsDir = () => path.join(app.getPath('userData'), 'screenshots');
+const composePrompt = (text, files) => attach.composeContent(text, files, f => attach.loadForClaude(f, { nativeImage }));
+
+// The clipboard's picture (a Win+Shift+S snip) as a new task: from the crab's menu.
+function taskFromClipboard() {
+  const saved = attach.saveNative(clipboard.readImage(), shotsDir());
+  if (saved.error) return notify('No screenshot', `${saved.error} Press Win+Shift+S to snip one.`);
+  stat('files-dropped');
+  showPanel();
+  send(panel, 'panel:attach', [saved.path]);
 }
+const clipboardHasImage = () => { try { return clipboard.availableFormats().some(t => t.startsWith('image/')); } catch { return false; } };
 
 // ================================================================ driving the crab
 
@@ -1356,7 +1435,23 @@ function paintLights() {
   const key = `${color.r},${color.g},${color.b}`;
   if (key === lastRgbColor) return;      // the crab refreshes many times a second
   lastRgbColor = key;
-  rgbClient.setAll(color).then(r => { if (!r.ok) log.info(`rgb: ${r.error}`); }).catch(() => {});
+  rgbClient.setAll(color).then(r => {
+    if (!r.ok) { log.info(`rgb: ${r.error}`); return; }
+    // The first paint since switching on: remember how each device was, so
+    // switching off can hand the user's own lighting back.
+    if (!config.get('rgbSaved')) config.set({ rgbSaved: r.devices.map(({ id, name, saved }) => ({ id, name, saved })) });
+  }).catch(() => {});
+}
+
+/** Switching off: put every device back the way the first paint found it. */
+function restoreLights(client) {
+  const saved = config.get('rgbSaved');
+  if (!saved) return Promise.resolve({ ok: true });
+  return client.restore(saved).then(r => {
+    if (r.ok) config.set({ rgbSaved: null });
+    else log.info(`rgb restore: ${r.error}`);
+    return r;
+  });
 }
 
 let rgbSetup = null; // 'installing' | 'starting' while Shellby gets OpenRGB going
@@ -1661,6 +1756,60 @@ function onUsage(u) {
     scheduleLimit();
     refreshCritter();
   }
+}
+
+// ---- who used it (spend.js): the meters' breakdown by tab, routine and project
+
+let spendLedger = null;
+let spendSaveTimer = null;
+
+function spendSource(tab) {
+  const dir = tab.worktree?.originalCwd || tab.session?.cwd || '';
+  const full = dir ? path.resolve(dir) : null;
+  const pk = full?.toLowerCase() || null;
+  const project = !full ? null : pk === path.resolve(os.homedir()).toLowerCase() ? 'Home folder' : path.basename(full);
+  if (tab.routineId) {
+    // A routine renamed or deleted mid-run still counts as that routine.
+    const routine = routines().find(r => r.id === tab.routineId);
+    return { key: `r:${tab.routineId}`, kind: 'routine', label: routine?.name || tab.title.replace(/^⟳\s*/, ''), project, pk };
+  }
+  return { key: `t:${tab.id}`, kind: 'tab', label: tab.title, project, pk };
+}
+
+function onSpend(s, tab) {
+  spendLedger ??= spend.normalize(config.get('spendLedger'));
+  spendLedger = spend.record(spendLedger, spendSource(tab), s.weight, Date.now());
+  // Calls come in bursts; one write when they settle is plenty.
+  if (!spendSaveTimer) spendSaveTimer = setTimeout(saveSpend, 5000);
+}
+
+function saveSpend() {
+  clearTimeout(spendSaveTimer);
+  spendSaveTimer = null;
+  if (spendLedger) config.set({ spendLedger });
+}
+
+// Settings as the panel sees them: the ledger stays in main (usageBreakdown).
+function panelSettings() {
+  const { spendLedger: _ledger, ...rest } = config.data;
+  return rest;
+}
+
+function usageBreakdown() {
+  spendLedger ??= spend.normalize(config.get('spendLedger'));
+  const u = config.get('lastUsage') || {};
+  const now = Date.now();
+  return Object.keys(spend.WINDOW_MS).map(window => {
+    const resetsAt = u[window]?.resetsAt;
+    const since = spend.windowStart(window, resetsAt, now);
+    // A reading from before the last reset says nothing about this window.
+    const current = Number.isFinite(resetsAt) && resetsAt > now;
+    return {
+      window, name: limits.windowName(window), pct: current ? u[window].pct ?? null : null,
+      tasks: spend.breakdown(spendLedger, since, 'task'),
+      projects: spend.breakdown(spendLedger, since, 'project'),
+    };
+  });
 }
 
 function scheduleLimit() {
@@ -2025,6 +2174,23 @@ function registerIpc() {
     send(panel, 'panel:attach', files);
   });
 
+  // ---- pictures and files for the composer (see attachments.js)
+  // A pasted snip, or a picture dropped with no file behind it: saved, then attached by path.
+  ipcMain.handle('attach:image', (_e, bytes) => {
+    if (!(bytes instanceof Uint8Array)) return { error: 'That clipboard item is empty.' };
+    const r = attach.saveImage(bytes, shotsDir(), { nativeImage });
+    if (r.path) stat('files-dropped');
+    return r;
+  });
+  ipcMain.handle('attach:thumb', (_e, file) => (isStr(file) ? attach.thumbnail(file, { nativeImage }) : null));
+  ipcMain.handle('attach:pick', async () => {
+    const r = await dialog.showOpenDialog(panel, {
+      title: 'Attach files', properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'All files', extensions: ['*'] }, { name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+    });
+    return r.canceled ? [] : r.filePaths.slice(0, 20);
+  });
+
   // ---- panel lifecycle
   ipcMain.on('panel:hide', () => panel.hide());
   ipcMain.on('panel:minimize', () => panel.minimize());
@@ -2041,7 +2207,7 @@ function registerIpc() {
     }
     return {
       version: app.getVersion(),
-      settings: CAPTURE ? { ...config.data, onboarded: true, mode: 'ask', recentFolders: [], lastUsage: null } : config.data,
+      settings: CAPTURE ? { ...panelSettings(), onboarded: true, mode: 'ask', recentFolders: [], lastUsage: null } : panelSettings(),
       status: claudeStatus,
       skin: activeSkin(),
       skins: allSkins(),
@@ -2129,7 +2295,9 @@ function registerIpc() {
     if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
     try {
       if (!isStr(tabId) || !manager.tabs.has(tabId)) tabId = openTab({ tabId: isStr(tabId) ? tabId : undefined }).id;
-      manager.send(tabId, composePrompt(text, files), { kind: 'user', text, attachments: files });
+      // Nothing typed: the conversation is named for what was attached.
+      const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';
+      manager.send(tabId, composePrompt(text, files), { kind: 'user', text, attachments: files, title });
       wake();
       return { ok: true, tabId };
     } catch (err) {
@@ -2231,7 +2399,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -2256,7 +2424,7 @@ function registerIpc() {
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
@@ -2282,7 +2450,7 @@ function registerIpc() {
       critter.setBounds({ x: b.x + b.width - width, y: b.y + b.height - size.height, width, height: size.height });
       broadcastSkin();
     }
-    return { settings: config.data, hotkeyError };
+    return { settings: panelSettings(), hotkeyError };
   });
   ipcMain.handle('folder:pick', async () => {
     const r = await dialog.showOpenDialog(panel, { title: 'Where should Shellby work?', defaultPath: currentCwd(), properties: ['openDirectory'] });
@@ -2386,6 +2554,7 @@ function registerIpc() {
   });
 
   // ---- routines
+  ipcMain.handle('usage:breakdown', () => usageBreakdown());
   ipcMain.handle('routines:list', () => routinesView());
   ipcMain.handle('routines:save', (_e, input) => {
     const existing = routines().find(r => r.id === input?.id);
@@ -2405,6 +2574,7 @@ function registerIpc() {
   // ---- streaks and nudges
   ipcMain.handle('streaks:get', () => streaksView());
   if (NUDGE_TEST) ipcMain.handle('dev:check-nudges', () => checkNudges());
+  if (RECAP_TEST) ipcMain.handle('dev:away', (_e, r = {}) => checkAway({ idleMs: Number(r.idleMs) || 0, locked: !!r.locked }));
   ipcMain.handle('streaks:set', (_e, patch = {}) => {
     const s = streaks.normalize(config.get('streaks'));
     const next = { ...s };
@@ -2635,8 +2805,11 @@ function registerIpc() {
       if (Number.isInteger(n) && n >= 1 && n <= 65535) next.port = n;
     }
     config.set({ rgb: next });
+    const old = rgbClient;
     rgbClient = new OpenRgbClient({ port: next.port });
     lastRgbColor = '';
+    // Switching off hands the user's lighting back, through the port it was painted on.
+    if (prev.enabled && !next.enabled) return restoreLights(old || rgbClient).then(r => ({ ...rgbView(), ...(r.ok ? {} : { error: `Couldn't put your lighting back: ${r.error}` }) }));
     // Only switching it on starts OpenRGB; any other change just repaints.
     if (next.enabled && !prev.enabled) return ensureOpenRgb().then(r => ({ ...rgbView(), ...r }));
     if (next.enabled) paintLights();
@@ -2808,7 +2981,7 @@ function setFolder(dir) {
   config.set({ cwd: dir });
   config.addRecentFolder(dir);
   toolbox?.rescan();
-  return { cwd: dir, settings: config.data };
+  return { cwd: dir, settings: panelSettings() };
 }
 
 // ================================================================ tray + menu
@@ -2830,6 +3003,7 @@ function buildMenu() {
   return Menu.buildFromTemplate([
     { label: 'Open Shellby', click: () => showPanel() },
     claude && { label: 'New conversation', click: () => { showPanel(); send(panel, 'tab:new-request'); } },
+    claude && clipboardHasImage() && { label: 'Task from screenshot', click: taskFromClipboard },
     { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
     claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
     claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
@@ -2969,6 +3143,7 @@ app.whenReady().then(() => {
   // files nothing lists; see History.sweep().
   const swept = history.sweep();
   if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
+  attach.prune(path.join(userData, 'screenshots'));
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),
@@ -3017,6 +3192,7 @@ app.whenReady().then(() => {
   createMotion();
   createPanel();
   watchIdleCost();
+  watchAway();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });
@@ -3075,6 +3251,7 @@ app.on('will-quit', () => {
   statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
   globalShortcut.unregisterAll();
   scheduler?.stop();
+  if (config) saveSpend();
   toolbox?.stop();
   health?.stop();
   external?.stop();

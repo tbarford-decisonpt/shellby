@@ -14,6 +14,7 @@ const path = require('path');
 
 const SUITE = [
   'e2e-queue',        // queued messages: queue, edit, drain, stop, error pauses
+  'e2e-attachments',  // screenshots as tasks: paste a snip, drop a picture, Claude sees it
   'e2e-feed-scroll',  // your prompt stays visible as the Working bar appears
   'e2e-feed-cap',     // a very long conversation stops growing the DOM
   'e2e-questions',    // Claude's multiple-choice questions
@@ -23,6 +24,7 @@ const SUITE = [
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
   'e2e-changes',      // a turn's diff and Undo, a worktree per tab, answering from the phone
+  'e2e-usage-breakdown', // the meters' breakdown by tab, routine and project
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub

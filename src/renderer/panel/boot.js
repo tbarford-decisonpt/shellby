@@ -12,11 +12,12 @@
     SB.refreshEmptyStates();
   };
   // The gutter mark on his messages is the shell he lives in, so moving house
-  // re-marks the whole feed. CSS reads --home-mark; see shared/minishell.js.
+  // re-marks the whole feed, and so does a new skin (his own shell takes its
+  // colours). CSS reads --home-mark; see shared/minishell.js.
   SB.syncHomeMark = () => {
     const id = state.outfit?.home?.id || 'home';
     document.body.dataset.home = id;
-    document.body.style.setProperty('--home-mark', SB.MiniShell.markUrl(id));
+    document.body.style.setProperty('--home-mark', SB.MiniShell.markUrl(id, state.skin));
   };
   SB.refreshEmptyStates = () => { for (const tab of state.tabs.values()) tab.renderEmpty(); };
 
@@ -44,6 +45,7 @@
   api.onTabFocus(tabId => { if (state.tabs.has(tabId)) SB.activate(tabId); });
   api.onNewTabRequest(() => SB.newTab());
   api.onUsage(SB.applyUsage);
+  api.onRecap(d => SB.showRecap(d));
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
   api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });

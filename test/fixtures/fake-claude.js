@@ -20,7 +20,9 @@ let slow = null;
 let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
 
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
-const text = t => out({ type: 'assistant', message: { content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
+let messages = 0;
+// Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
+const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
 
 readline.createInterface({ input: process.stdin }).on('line', line => {
@@ -51,7 +53,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   if (msg.type !== 'user') return;
   turn++;
-  const content = String(msg.message.content);
+  // A message with pictures in it is a list of blocks: the text is in the text one(s).
+  const blocks = Array.isArray(msg.message.content) ? msg.message.content : null;
+  const content = blocks ? blocks.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.message.content);
+  const images = blocks ? blocks.filter(b => b.type === 'image') : [];
   out({ type: 'system', subtype: 'hook_started' });
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
@@ -89,6 +94,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "look ..." -> says how many pictures came with the message, and what kind
+  if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
