@@ -105,10 +105,39 @@
     },
   });
 
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const lum = hex => { const n = parseInt(hex.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255); };
+  const mix = (a, b, t) => '#' + [16, 8, 0].map(s => {
+    const x = parseInt(a.slice(1), 16) >> s & 255, y = parseInt(b.slice(1), 16) >> s & 255;
+    return Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
+  }).join('');
+
+  // His own shell wears the skin's shell colours, so the mark matches the crab
+  // you picked. The skin's 'shell' tones, darkest first, fill the mark's
+  // outline (D), shade (m), body (l) and highlight (h); missing ones are mixed.
+  // Null when the skin has no usable shell colours (keep the coral mark).
+  function skinPalette(skin) {
+    const tones = [...new Set(Object.entries(skin?.parts || {})
+      .filter(([, part]) => part === 'shell')
+      .map(([ch]) => String(skin.palette?.[ch] || '').toLowerCase())
+      .filter(c => HEX.test(c)))]
+      .sort((a, b) => lum(a) - lum(b));
+    const [t0, t1, t2] = tones;
+    switch (tones.length) {
+      case 0: return null;
+      case 1: return { D: mix(t0, '#000000', 0.5), m: mix(t0, '#000000', 0.2), l: t0, h: mix(t0, '#ffffff', 0.5) };
+      case 2: return { D: t0, m: mix(t0, t1, 0.5), l: t1, h: mix(t1, '#ffffff', 0.5) };
+      case 3: return { D: t0, m: mix(t0, t1, 0.5), l: t1, h: t2 };
+      default: return { D: t0, m: tones[1], l: tones[tones.length - 2], h: tones[tones.length - 1] };
+    }
+  }
+
   // One <path> per colour, horizontal runs merged — keeps the data URI short
   // enough to live in a CSS custom property.
-  function svg(id) {
-    const mark = MARKS[id] || MARKS.home;
+  function svg(id, skin) {
+    const drawn = MARKS[id] || MARKS.home;
+    const own = drawn === MARKS.home && skinPalette(skin);
+    const mark = own ? { ...drawn, palette: own } : drawn;
     const runs = new Map();
     mark.pixels.forEach((row, y) => {
       let x = 0;
@@ -128,10 +157,11 @@
 
   const ESCAPE = { '<': '%3C', '>': '%3E', '#': '%23' };
 
-  /** A CSS url() for one shell's mark. Unknown ids fall back to his own shell. */
-  const markUrl = id => `url("data:image/svg+xml,${svg(id).replace(/[<>#]/g, c => ESCAPE[c])}")`;
+  /** A CSS url() for one shell's mark. Unknown ids fall back to his own shell,
+   *  which is painted in `skin`'s shell colours when given. */
+  const markUrl = (id, skin) => `url("data:image/svg+xml,${svg(id, skin).replace(/[<>#]/g, c => ESCAPE[c])}")`;
 
-  const api = { SIZE, MARKS, svg, markUrl };
+  const api = { SIZE, MARKS, svg, markUrl, skinPalette };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyMiniShell = api;
 })(typeof window !== 'undefined' ? window : globalThis);
