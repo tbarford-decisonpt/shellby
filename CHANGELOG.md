@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.3: GitHub sign-in lets go on quit
+
+### Fixed
+- **Quitting during a GitHub sign-in leaves nothing behind.** If Shellby closed just as a GitHub sign-in finished, the sign-in could still start its 15-minute sync timer afterwards. Once Shellby is closing, a late sign-in no longer starts anything.
+
 ## 0.27.2: diffs under any spelling of the path
 
 ### Fixed

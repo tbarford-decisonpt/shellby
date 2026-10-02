@@ -63,6 +63,7 @@ class GitHubService extends EventEmitter {
     this.syncing = null;
     this.timer = null;
     this.soon = null;
+    this.stopped = false;   // after stop(), a sign-in finishing late starts nothing
   }
 
   get state() { return normalizeState(this.config.get('github')); }
@@ -130,6 +131,7 @@ class GitHubService extends EventEmitter {
       for (const f of wanted) if (covers(got.scopes, f)) features[f] = true;
       this.save({ features, lastSyncError: null });
       await this.refreshProfile().catch(() => {});
+      if (this.stopped) return;
       this.emit('signed-in', this.view());
       this.schedule();
       if (this.can('sync')) this.sync().catch(() => {});
@@ -190,12 +192,12 @@ class GitHubService extends EventEmitter {
 
   schedule() {
     clearInterval(this.timer);
-    this.timer = this.can('sync') ? setInterval(() => this.sync().catch(() => {}), SYNC_EVERY_MS) : null;
+    this.timer = this.can('sync') && !this.stopped ? setInterval(() => this.sync().catch(() => {}), SYNC_EVERY_MS) : null;
   }
 
   /** Something worth sharing changed locally (outfit, skin, a trophy): sync shortly. */
   changedSoon() {
-    if (!this.can('sync') || this.soon) return;
+    if (!this.can('sync') || this.soon || this.stopped) return;
     this.soon = setTimeout(() => { this.soon = null; this.sync().catch(() => {}); }, SYNC_SOON_MS);
   }
 
@@ -226,7 +228,7 @@ class GitHubService extends EventEmitter {
   /** Extra env for Shellby's own Claude Code tabs, when you allowed it. */
   claudeEnv() { return this.can('claude') ? gitEnv(this.auth.token) : {}; }
 
-  stop() { clearInterval(this.timer); clearTimeout(this.soon); this.cancel(); }
+  stop() { this.stopped = true; clearInterval(this.timer); clearTimeout(this.soon); this.cancel(); }
 }
 
 module.exports = { GitHubService, gitEnv, normalizeState, FEATURES };
