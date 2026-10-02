@@ -52,6 +52,7 @@ const DEFAULTS = {
   channels: null,     // where to send "he needs you" when you're away (see channels.js)
   obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
+  rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
