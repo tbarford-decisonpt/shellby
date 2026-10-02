@@ -36,12 +36,28 @@ if (!suite.length) {
 }
 
 // Each check launches and kills its own Electron, and Windows takes a moment to
-// let go of the profile and the ports. Without this gap, a later check
-// occasionally finds no window and sits there until its timeout.
-const GAP_MS = 5000;
+// let go of the profile, the ports and the GPU cache. Without a gap, a later
+// check occasionally finds no window and sits there until its timeout.
+//
 // Synchronous on purpose (this script is a spawnSync pipeline, not async), and
 // Atomics.wait rather than a spin loop so the gap is idle rather than a busy core.
 const sleep = ms => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+
+const SETTLE_MS = 2000;   // after the last Electron goes
+const MAX_WAIT_MS = 20000; // ...but never hang on someone else's Electron
+
+// Wait for the Electrons to actually be gone rather than guessing at a duration.
+// Capped, because another window on the machine (a dev run, another session's
+// checks) is not ours to wait for.
+function settle() {
+  const deadline = Date.now() + MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    const r = spawnSync('tasklist', ['/FI', 'IMAGENAME eq electron.exe', '/NH'], { encoding: 'utf8' });
+    if (!/electron\.exe/i.test(r.stdout || '')) break;
+    sleep(1000);
+  }
+  sleep(SETTLE_MS);
+}
 
 const run = (name, attempt) => {
   const script = path.join(__dirname, `${name}.js`);
@@ -62,12 +78,12 @@ for (const name of suite) {
   // passes on the second go is a problem of its own — but not a reason to fail
   // the build, and hiding it entirely would be worse than naming it.
   if (!r.ok) {
-    sleep(GAP_MS);
+    settle();
     const again = run(name, 2);
     if (again.ok) { flaky = true; r = again; }
   }
   results.push({ name, ...r, flaky });
-  sleep(GAP_MS);
+  settle();
 }
 
 console.log(`\n${'='.repeat(70)}`);
