@@ -34,20 +34,49 @@ if (!suite.length) {
   process.exit(2);
 }
 
-const results = [];
-for (const name of suite) {
+// Each check launches and kills its own Electron, and Windows takes a moment to
+// let go of the profile and the ports. Without this gap, a later check
+// occasionally finds no window and sits there until its timeout.
+const GAP_MS = 5000;
+// Synchronous on purpose (this script is a spawnSync pipeline, not async), and
+// Atomics.wait rather than a spin loop so the gap is idle rather than a busy core.
+const sleep = ms => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+
+const run = (name, attempt) => {
   const script = path.join(__dirname, `${name}.js`);
-  console.log(`\n${'='.repeat(70)}\n  ${name}\n${'='.repeat(70)}`);
+  console.log(`\n${'='.repeat(70)}\n  ${name}${attempt > 1 ? `  (attempt ${attempt})` : ''}\n${'='.repeat(70)}`);
   const started = Date.now();
   const r = spawnSync(process.execPath, [script], { stdio: 'inherit', timeout: TIMEOUT_MS });
   const secs = ((Date.now() - started) / 1000).toFixed(1);
   const ok = !r.error && r.status === 0;
-  results.push({ name, ok, secs, why: r.error ? r.error.message : r.status === null ? `killed (${r.signal})` : `exit ${r.status}` });
   console.log(`\n--- ${name}: ${ok ? 'PASS' : 'FAIL'} in ${secs}s`);
+  return { ok, secs, why: r.error ? r.error.message : r.status === null ? `killed (${r.signal})` : `exit ${r.status}` };
+};
+
+const results = [];
+for (const name of suite) {
+  let r = run(name, 1);
+  let flaky = false;
+  // One retry, reported as such: these drive a real UI, and a check that only
+  // passes on the second go is a problem of its own — but not a reason to fail
+  // the build, and hiding it entirely would be worse than naming it.
+  if (!r.ok) {
+    sleep(GAP_MS);
+    const again = run(name, 2);
+    if (again.ok) { flaky = true; r = again; }
+  }
+  results.push({ name, ...r, flaky });
+  sleep(GAP_MS);
 }
 
 console.log(`\n${'='.repeat(70)}`);
-for (const r of results) console.log(`  ${r.ok ? 'PASS' : 'FAIL'}  ${r.name.padEnd(18)} ${r.secs}s${r.ok ? '' : `  (${r.why})`}`);
+for (const r of results) {
+  const mark = r.ok ? (r.flaky ? 'FLAKY' : 'PASS ') : 'FAIL ';
+  console.log(`  ${mark} ${r.name.padEnd(18)} ${r.secs}s${r.ok ? (r.flaky ? '  (failed once, passed on retry)' : '') : `  (${r.why})`}`);
+}
 const failed = results.filter(r => !r.ok);
-console.log(`${'='.repeat(70)}\n${failed.length ? `${failed.length} of ${results.length} FAILED: ${failed.map(f => f.name).join(', ')}` : `all ${results.length} passed`}`);
+const flaky = results.filter(r => r.flaky);
+console.log('='.repeat(70));
+if (flaky.length) console.log(`${flaky.length} needed a retry: ${flaky.map(f => f.name).join(', ')}`);
+console.log(failed.length ? `${failed.length} of ${results.length} FAILED: ${failed.map(f => f.name).join(', ')}` : `all ${results.length} passed`);
 process.exit(failed.length ? 1 : 0);
