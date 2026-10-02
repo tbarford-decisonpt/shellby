@@ -25,6 +25,9 @@ git('config', 'user.email', 't@example.com');
 git('config', 'user.name', 'T');
 git('config', 'core.autocrlf', 'false');
 fs.writeFileSync(path.join(repo, 'a.txt'), 'original\n');
+// Where the fake CLI keeps its transcripts, for Shellby to carry into a copy.
+const claudeConfig = path.join(base, 'claude');
+fs.mkdirSync(claudeConfig);
 git('add', '-A');
 git('commit', '-qm', 'init');
 
@@ -55,7 +58,7 @@ const ntfy = http.createServer((req, res) => {
   const ntfyPort = ntfy.address().port;
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
-    env: { ...process.env, SHELLBY_USER_DATA: path.join(base, 'userdata'), SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47991' },
+    env: { ...process.env, SHELLBY_USER_DATA: path.join(base, 'userdata'), CLAUDE_CONFIG_DIR: claudeConfig, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47991' },
   });
   try {
     let list = [];
@@ -110,7 +113,7 @@ const ntfy = http.createServer((req, res) => {
     await idle();
     check(await until("!document.getElementById('branchChip').hidden"), 'the tab shows the branch it works on');
     const label = await ev("document.getElementById('branchLabel').textContent");
-    check(/^edit-b-txt-made-in-the-copy-[0-9a-f]{6}$/.test(label), `named after the task (${label})`);
+    check(/^add-greeting-[0-9a-f]{6}$/.test(label), `named as Claude suggested (${label})`);
     check(await ev("document.getElementById('folderLabel').textContent").then(t => t.endsWith('proj')), 'the folder chip still shows your project');
     check(!fs.existsSync(path.join(repo, 'b.txt')), 'your checkout is untouched');
     check(await until("document.querySelector('.feed:not([hidden]) details.changes')"), 'turns in the copy get their diffs too');
@@ -120,9 +123,12 @@ const ntfy = http.createServer((req, res) => {
     const home = await ev(`shellby.bringWorktreeHome(${JSON.stringify(tabId)})`);
     check(home?.ok && home.merged && home.commits === 1 && home.base === 'main', `bring it home merges one commit into main (${JSON.stringify(home)})`);
     check(fs.readFileSync(path.join(repo, 'b.txt'), 'utf8') === 'made in the copy\n', 'the work arrives in your checkout');
-    check(git('branch', '--list', 'shellby/*') === '', 'and the copy\'s branch is tidied away');
+    check(home?.kept && git('worktree', 'list').split('\n').length === 2, 'and the copy stays, for the conversation to carry on in');
+    const done = await ev(`shellby.bringWorktreeHome(${JSON.stringify(tabId)}, { finish: true })`);
+    check(done?.ok && !done.merged && done.tidied, `finishing brings nothing new home and tidies up (${JSON.stringify(done)})`);
+    check(git('branch', '--list', 'shellby/*') === '', 'the copy\'s branch is gone');
     check(git('worktree', 'list').split('\n').length === 1, 'as is the copy itself');
-    await ev(`SB.closeTab(${JSON.stringify(tabId)})`);
+    await ev(`SB.state.tabs.has(${JSON.stringify(tabId)}) && SB.closeTab(${JSON.stringify(tabId)})`);
 
     // ---- 3. answering from the phone
     await ev("shellby.setSettings({ worktrees: false }).then(r => { SB.state.settings = r.settings; })");

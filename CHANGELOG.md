@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.2: diffs under any spelling of the path
+
+### Fixed
+- **A turn's diff and Undo work wherever the project is.** If Windows knew the project folder by its short name (`C:\Users\RUNNER~1\...`), opening a file's diff or pressing **Undo** said "That project has moved." The folder is now compared with its full name.
+
 ## 0.27.1: tidier health warnings
 
 ### Fixed
