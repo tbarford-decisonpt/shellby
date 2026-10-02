@@ -1,0 +1,50 @@
+name: Something went wrong
+description: Shellby misbehaved, vanished, or wouldn't do the thing
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Shellby can fill most of this in for you: **right-click him → Report a problem**.
+        That opens a draft issue with his version, your Windows build and the tail of
+        his log, with your home folder shortened to `~` and anything token-shaped cut.
+        Nothing is sent until you press submit, so do skim it first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you were doing, and what he did instead.
+      placeholder: I dropped three files on him and the panel opened empty.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen again?
+      placeholder: |
+        1. Give him a task in a folder with spaces in the name
+        2. Stop it halfway
+        3. Send another one
+  - type: input
+    id: version
+    attributes:
+      label: Shellby version
+      description: Settings scrolls to it, or the tray menu's About line.
+      placeholder: 0.18.0
+    validations:
+      required: true
+  - type: dropdown
+    id: claude
+    attributes:
+      label: Is Claude Code set up?
+      options:
+        - Yes, signed in on a Pro or Max plan
+        - Installed, but not signed in
+        - Not installed — I'm running just the crab
+        - Not sure
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The last lines from "Report a problem", or from logs/shellby.log in his data folder.
+      render: text

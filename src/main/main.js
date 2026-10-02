@@ -40,6 +40,7 @@ const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
 const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
+const { Log } = require('./log');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -67,6 +68,33 @@ if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_
   app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-capture-')));
 }
 const captureClock = { now: null };
+
+// ---------------------------------------------------------------- the log
+// Shellby runs all day with no console attached, so until now a crash left
+// nothing behind: he simply vanished off the desktop. The log lives in the
+// profile folder (so dev and test runs keep their own) and is scrubbed of the
+// home directory and anything token-shaped, because its last lines are what
+// "Report a problem" offers to paste into an issue. See log.js.
+const log = new Log(path.join(app.getPath('userData'), 'logs'), { home: os.homedir() });
+log.info(`Shellby ${app.getVersion()} starting`, `${process.platform} ${os.release()}, electron ${process.versions.electron}`);
+
+// Keeping him alive through a stray throw is the right trade for a desk pet:
+// vanishing mid-task tells the user nothing and loses the conversation. It is
+// written down, and he says so once, rather than being swallowed.
+let snags = 0;
+function snag(what, detail) {
+  log.error(what, detail);
+  // No config yet means this is a crash during startup, before there's anywhere
+  // to show it (and notify() would throw from inside the handler).
+  if (++snags > 3 || !config) return; // a loop must not become a storm of toasts
+  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem);
+}
+process.on('uncaughtException', err => snag('uncaught exception', err));
+process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
+// A window or a helper process dying: the panel going blank used to be the only
+// sign, and nothing at all when it was the critter.
+app.on('render-process-gone', (_e, _wc, details) => snag('a window died', `${details.reason} (exit code ${details.exitCode})`));
+app.on('child-process-gone', (_e, details) => log.error('a child process died', `${details.type}: ${details.reason}`));
 // Dev/e2e only: drive the app with the fake CLI from test/fixtures (no Claude account, no usage).
 const FAKE_CLI = !app.isPackaged && process.env.SHELLBY_FAKE_CLAUDE ? path.resolve(process.env.SHELLBY_FAKE_CLAUDE) : null; // screenshot runs can pretend it's Halloween
 
@@ -1943,9 +1971,51 @@ function buildMenu() {
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
     { label: 'Reset position', click: resetCritterPos },
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
+    { label: 'Report a problem…', click: reportProblem },
     { type: 'separator' },
     { label: 'Quit Shellby', click: quit },
   ].filter(Boolean));
+}
+
+// Open a new GitHub issue with the facts already filled in: version, Windows
+// build, whether Claude Code was found, and the tail of the log (already scrubbed
+// of the home directory and anything token-shaped). It opens in the browser as a
+// draft, so nothing is sent anywhere until the user reads it and presses submit.
+const ISSUES_URL = 'https://github.com/x-salmon/shellby/issues/new';
+const MAX_URL = 7000; // GitHub starts dropping very long query strings
+
+function reportProblem() {
+  const lines = log.recent(40);
+  const body = [
+    '<!-- What were you doing when it went wrong? -->',
+    '',
+    '',
+    '### Shellby',
+    `- Version: ${app.getVersion()}${app.isPackaged ? '' : ' (dev build)'}`,
+    `- Windows: ${os.release()} (${process.arch})`,
+    `- Electron: ${process.versions.electron}`,
+    `- Claude Code: ${claudeStatus?.installed ? `${claudeStatus.version || 'found'}${claudeStatus.loggedIn ? ', signed in' : ', not signed in'}` : 'not found'}`,
+    `- Mode: ${config?.get('crabOnly') ? 'just the crab' : config?.get('mode') || 'unknown'}`,
+    '',
+    '### Log',
+    'The last lines before reporting. Paths are shortened to `~` and anything',
+    'token-shaped is cut; please still skim it before submitting.',
+    '',
+    '```',
+    ...(lines.length ? lines : ['(nothing logged this run)']),
+    '```',
+  ].join('\n');
+
+  const url = `${ISSUES_URL}?labels=bug&body=${encodeURIComponent(body)}`;
+  // Too long for a URL: open a blank issue and leave the details on the
+  // clipboard instead of silently truncating the thing they need to paste.
+  if (url.length > MAX_URL) {
+    clipboard.writeText(body);
+    notify('Report copied', 'The details are on your clipboard — paste them into the issue.');
+    shell.openExternal(`${ISSUES_URL}?labels=bug`);
+    return;
+  }
+  shell.openExternal(url);
 }
 
 function focusMenu() {
@@ -1995,7 +2065,12 @@ function setupUpdates() {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
-  history = new History(path.join(userData, 'sessions'));
+  history = new History(path.join(userData, 'sessions'), { onError: (what, err) => log.error(`history: ${what}`, err) });
+  // Transcripts orphaned by an older build (which trimmed the index without
+  // deleting them) or by an interrupted delete. Cheap, and it only ever removes
+  // files nothing lists; see History.sweep().
+  const swept = history.sweep();
+  if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),

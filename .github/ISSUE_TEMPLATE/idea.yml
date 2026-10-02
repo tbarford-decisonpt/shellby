@@ -1,0 +1,22 @@
+name: An idea
+description: A thing he should do, wear, or stop doing
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should he do?
+      placeholder: He should notice when a build finishes in a terminal he isn't watching.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would it save you?
+      description: What you do today instead, however small.
+  - type: markdown
+    attributes:
+      value: |
+        Outfits and skins don't need an issue — anyone can make a pack.
+        See [docs/SKINS.md](../blob/main/docs/SKINS.md) and
+        [docs/ADDONS.md](../blob/main/docs/ADDONS.md).
