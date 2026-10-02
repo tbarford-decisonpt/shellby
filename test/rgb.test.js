@@ -78,7 +78,8 @@ function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2
   u32(0);              // data_size, patched below
   u32(1);              // device type
   str(name);
-  if (version >= 1) str('a description');
+  if (version >= 1) str('Fakevendor');   // vendor
+  str('a description');
   str('1.2.3');        // version
   str('SERIAL123');    // serial
   str('HID: /dev/x');  // location
@@ -129,6 +130,14 @@ test('parseControllerData handles the older protocols with different mode fields
     const data = buildControllerData({ name: `v${version}`, numLeds: 8, version });
     assert.deepEqual(parseControllerData(data, version), { name: `v${version}`, numLeds: 8 }, `protocol ${version}`);
   }
+});
+
+test('parseControllerData reads a real OpenRGB 1.0 reply (vendor string and all)', () => {
+  // Captured from OpenRGB 1.0 (server protocol 6, asked for 3): Corsair DDR4 on PawnIO SMBus.
+  const data = require('fs').readFileSync(require('path').join(__dirname, 'fixtures', 'openrgb-corsair-dram-v3.bin'));
+  const { name, numLeds } = parseControllerData(data, 3);
+  assert.equal(name, 'Corsair Vengeance RGB Pro DDR4');
+  assert.ok(numLeds > 0 && numLeds < 100, `numLeds ${numLeds}`);
 });
 
 test('a device with no LEDs parses rather than failing', () => {

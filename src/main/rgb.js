@@ -110,7 +110,8 @@ function parseControllerData(buf, version = OUR_PROTOCOL) {
   r.u32();            // data_size, which we already have
   r.u32();            // device type
   const name = r.string();
-  if (version >= 1) r.string();   // description
+  if (version >= 1) r.string();   // vendor
+  r.string();         // description
   r.string();         // version
   r.string();         // serial
   r.string();         // location

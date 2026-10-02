@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.1: the lights come on for slow boards
+
+### Fixed
+- **Desk lighting could never connect on some PCs,** including ones with Corsair memory. Shellby misread OpenRGB's description of each device, which shifted everything after it, so the lighting never matched up with the hardware.
+- **OpenRGB on a board that takes a while to start** (memory and motherboard lighting found over SMBus can take a minute or more) no longer gets a second copy started on top of the first. The two fought over the hardware and neither one answered. Shellby now waits up to a minute and a half for the copy it started. If it still hasn't answered by then, the message says where to find it in the tray and what to check.
+- **"New trick" no longer repeats itself.** A skill or plugin that briefly went missing from a scan and then came back (two cached versions of a plugin, or a skill deleted and put back) was announced as newly learned again. Each one is now announced only once.
+
 ## 0.22.0: answer from your phone, see what changed
 
 ### New

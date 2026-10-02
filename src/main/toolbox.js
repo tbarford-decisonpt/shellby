@@ -255,6 +255,7 @@ class ToolboxWatcher extends EventEmitter {
     this.init = null;       // last CLI init event
     this.merged = null;     // scan + init
     this.sig = null;
+    this.seen = new Set();  // every item key ever scanned: a trick is only "learned" once
     this.pluginKey = '';
     this.started = false;
   }
@@ -323,15 +324,17 @@ class ToolboxWatcher extends EventEmitter {
     this.merged = mergeInit(scan, this.init);
     this.syncWatchers(cwd);
 
-    if (!initial && prev) {
-      // A plugin we've never scanned before isn't a "new trick" item by item.
-      const knownPlugins = new Set(prevPlugins.split('|').filter(Boolean).map(s => s.slice(0, s.indexOf('='))));
-      const before = new Set(ALL(prev).map(key));
-      for (const t of [...scan.skills, ...scan.agents, ...scan.commands]) {
-        if (before.has(key(t)) || t.source === 'cli') continue;
-        if (t.source.startsWith('plugin:') && !knownPlugins.has(t.source.slice(7))) continue;
-        this.emit('learned', { kind: t.kind, name: t.name, description: t.description, path: t.path, source: t.source });
-      }
+    // Diff against everything seen, not just the last scan: items can flicker
+    // (a plugin reported at two cached versions, a skill deleted and put back).
+    const announce = !initial && prev;
+    // A plugin we've never scanned before isn't a "new trick" item by item.
+    const knownPlugins = new Set(prevPlugins.split('|').filter(Boolean).map(s => s.slice(0, s.indexOf('='))));
+    for (const t of [...scan.skills, ...scan.agents, ...scan.commands]) {
+      if (this.seen.has(key(t))) continue;
+      this.seen.add(key(t));
+      if (!announce || t.source === 'cli') continue;
+      if (t.source.startsWith('plugin:') && !knownPlugins.has(t.source.slice(7))) continue;
+      this.emit('learned', { kind: t.kind, name: t.name, description: t.description, path: t.path, source: t.source });
     }
     const sig = signature(this.merged);
     if (sig !== this.sig) {

@@ -192,6 +192,38 @@ test('watcher: init plugins feed later scans without flooding "learned"', () => 
   }
 });
 
+test('watcher: a skill that flickers in and out is only "learned" once', () => {
+  // Claude Code sessions can report two cached versions of the same plugin
+  // (installed_plugins.json says 0.2.2, the auto-updated cache has 0.2.6).
+  const home = tmp(), v1 = tmp(), v2 = tmp();
+  put(path.join(v1, 'skills', 'doctor', 'SKILL.md'), md('', 'old'));
+  put(path.join(v2, 'skills', 'doctor', 'SKILL.md'), md('', 'old'));
+  put(path.join(v2, 'skills', 'status', 'SKILL.md'), md('', 'new in v2'));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+  const learned = [];
+  w.on('learned', l => learned.push(l.name));
+  w.start();
+  try {
+    w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
+    w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+    w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
+    w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+    assert.deepEqual(learned, ['ruflo:status']);
+
+    // Same for a user skill that's deleted and put back.
+    const file = path.join(home, '.claude', 'skills', 'mine', 'SKILL.md');
+    put(file, md('', 'mine'));
+    w.rescan();
+    fs.rmSync(path.dirname(file), { recursive: true });
+    w.rescan();
+    put(file, md('', 'mine'));
+    w.rescan();
+    assert.deepEqual(learned, ['ruflo:status', 'mine']);
+  } finally {
+    w.stop();
+  }
+});
+
 test('watcher: fs.watch failures never throw', () => {
   const home = tmp();
   fs.mkdirSync(path.join(home, '.claude', 'skills'), { recursive: true });

@@ -42,12 +42,20 @@ function launchArgs(port = DEFAULT_PORT) {
   return args;
 }
 
+// The copy we started, until it exits. Its first device scan can take minutes
+// on SMBus boards; a second copy started meanwhile fights it for the bus and
+// neither opens the port.
+let started = null;
+const stillStarting = () => !!started;
+
 /** Start OpenRGB detached: it's the user's app, and outlives Shellby. */
 function launchOpenRgb(exe, port, { spawn = childProcess.spawn } = {}) {
   try {
     const child = spawn(exe, launchArgs(port), { detached: true, stdio: 'ignore', windowsHide: true, cwd: path.dirname(exe) });
     child.on?.('error', () => { /* reported by the probe that follows */ });
+    child.on?.('exit', () => { if (started === child) started = null; });
     child.unref?.();
+    started = child;
     return true;
   } catch {
     return false;
@@ -85,19 +93,20 @@ function installOpenRgb({ execFile = childProcess.execFile } = {}) {
  *   probe: () => Promise<{ ok }>
  *   -> { ok, started? } | { ok: false, missing: true } | { ok: false, error }
  */
-async function ensureRunning({ probe, port = DEFAULT_PORT, find = findOpenRgb, launch = launchOpenRgb, wait = ms => new Promise(r => setTimeout(r, ms)), tries = 20, everyMs = 1000 }) {
+async function ensureRunning({ probe, port = DEFAULT_PORT, find = findOpenRgb, launch = launchOpenRgb, isStarting = stillStarting, wait = ms => new Promise(r => setTimeout(r, ms)), tries = 90, everyMs = 1000 }) {
   const first = await probe();
   if (first.ok) return first;
   const exe = find();
   if (!exe) return { ok: false, missing: true, error: 'OpenRGB isn\'t installed yet.' };
-  if (!launch(exe, port)) return { ok: false, error: "Couldn't start OpenRGB." };
-  // It scans every controller before the server opens, which takes a few seconds.
+  // Ours is still scanning: wait for it rather than start a rival.
+  if (!isStarting() && !launch(exe, port)) return { ok: false, error: "Couldn't start OpenRGB." };
+  // It scans every controller before the server opens: seconds for USB, a minute or more over SMBus.
   for (let i = 0; i < tries; i++) {
     await wait(everyMs);
     const r = await probe();
     if (r.ok) return { ...r, started: true };
   }
-  return { ok: false, error: 'Started OpenRGB, but its SDK server didn\'t answer. Turn it on under Settings → SDK Server in OpenRGB.' };
+  return { ok: false, error: 'OpenRGB is running (its icon is in the tray, under ^) but its SDK server hasn\'t answered. If it\'s still finding devices, give it a minute and test again; otherwise open it from the tray and turn on Settings → SDK Server.' };
 }
 
 module.exports = { WINGET_ID, INSTALL_ARGS, candidates, findOpenRgb, launchArgs, launchOpenRgb, installOutcome, installOpenRgb, ensureRunning };
