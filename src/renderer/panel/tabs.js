@@ -401,6 +401,7 @@
   input.addEventListener('keydown', e => {
     if (slashKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
+    if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); SB.cycleMode(); return; }
     // Up in an empty box pulls back the last queued message, like Claude Code.
     const tab = SB.activeTab();
     if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); }
@@ -575,6 +576,16 @@
     SB.applyMode(state.settings.mode);
     if (state.view === 'settings') SB.views.settings.render();
     if (!quiet) SB.toast(`Mode: ${SB.MODES.find(x => x.id === state.settings.mode).title} (all open conversations)`);
+  };
+
+  // Shift+Tab in the composer steps through the modes, like Claude Code. Autonomous
+  // stays out of the loop: holding a key down should never land on "never asks".
+  // The chip flips before the save so quick presses build on each other.
+  const CYCLE = SB.MODES.map(m => m.id).filter(id => id !== 'autonomous');
+  SB.cycleMode = () => {
+    const next = CYCLE[(CYCLE.indexOf(document.body.dataset.mode) + 1) % CYCLE.length];
+    SB.applyMode(next);
+    return SB.chooseMode(next);
   };
 
   $('modeChip').addEventListener('click', () => SB.openMenu($('modeMenu'), $('modeChip'), () => SB.MODES.map(m =>

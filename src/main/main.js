@@ -1308,7 +1308,23 @@ function paintLights() {
   const key = `${color.r},${color.g},${color.b}`;
   if (key === lastRgbColor) return;      // the crab refreshes many times a second
   lastRgbColor = key;
-  rgbClient.setAll(color).then(r => { if (!r.ok) log.info(`rgb: ${r.error}`); }).catch(() => {});
+  rgbClient.setAll(color).then(r => {
+    if (!r.ok) { log.info(`rgb: ${r.error}`); return; }
+    // The first paint since switching on: remember how each device was, so
+    // switching off can hand the user's own lighting back.
+    if (!config.get('rgbSaved')) config.set({ rgbSaved: r.devices.map(({ id, name, saved }) => ({ id, name, saved })) });
+  }).catch(() => {});
+}
+
+/** Switching off: put every device back the way the first paint found it. */
+function restoreLights(client) {
+  const saved = config.get('rgbSaved');
+  if (!saved) return Promise.resolve({ ok: true });
+  return client.restore(saved).then(r => {
+    if (r.ok) config.set({ rgbSaved: null });
+    else log.info(`rgb restore: ${r.error}`);
+    return r;
+  });
 }
 
 let rgbSetup = null; // 'installing' | 'starting' while Shellby gets OpenRGB going
@@ -2598,8 +2614,11 @@ function registerIpc() {
       if (Number.isInteger(n) && n >= 1 && n <= 65535) next.port = n;
     }
     config.set({ rgb: next });
+    const old = rgbClient;
     rgbClient = new OpenRgbClient({ port: next.port });
     lastRgbColor = '';
+    // Switching off hands the user's lighting back, through the port it was painted on.
+    if (prev.enabled && !next.enabled) return restoreLights(old || rgbClient).then(r => ({ ...rgbView(), ...(r.ok ? {} : { error: `Couldn't put your lighting back: ${r.error}` }) }));
     // Only switching it on starts OpenRGB; any other change just repaints.
     if (next.enabled && !prev.enabled) return ensureOpenRgb().then(r => ({ ...rgbView(), ...r }));
     if (next.enabled) paintLights();
