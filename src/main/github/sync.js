@@ -129,7 +129,7 @@ const content = snap => JSON.stringify({ ...clean(snap), note: 'Shellby sync: tr
  */
 async function syncNow(gh, { get, set }) {
   const local = snapshot(get);
-  let id = await findGist(gh, get('syncGistId'));
+  const id = await findGist(gh, get('syncGistId'));
   if (!id) {
     const created = await gh.post('/gists', { public: false, description: 'Shellby sync', files: { [FILE]: { content: content(local) } } });
     set({ syncGistId: created.id });

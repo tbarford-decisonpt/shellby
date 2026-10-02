@@ -12,7 +12,6 @@ const MAX_ITEMS = 1000;        // per list
 const MAX_DEPTH = 8;           // recursion limit for agents/commands (guards symlink loops)
 const MAX_DESC = 240;
 const KINDS = ['skills', 'agents', 'commands'];
-const KIND_OF = { skills: 'skill', agents: 'agent', commands: 'command' };
 const PRIORITY = { plugin: 0, user: 1, project: 2 };
 const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 

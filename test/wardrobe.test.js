@@ -10,7 +10,6 @@ const seasons = require('../src/main/wardrobe/seasons');
 const ach = require('../src/main/wardrobe/achievements');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-wardrobe-'));
-const clone = o => JSON.parse(JSON.stringify(o));
 const known = { knownAchievements: new Set(['ten-tasks']), knownSeasons: new Set(['halloween']) };
 
 const hat = (over = {}) => ({ id: 'witch-hat', name: 'Witch Hat', slot: 'hat', pivot: [2, 1], palette: { K: '#2b193d' }, pixels: ['..K..', 'KKKKK'], ...over });

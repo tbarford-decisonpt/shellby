@@ -22,6 +22,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test --test-timeout=30000 \"test/*.test.js\"",
+    "lint": "eslint .",
+    "e2e:ci": "node scripts/e2e-ci.js",
     "icons": "python scripts/make-icons.py",
     "screenshots": "electron . --capture-screenshots",
     "reel": "electron . --capture-screenshots --reel && python scripts/make-reel.py",
@@ -33,8 +35,10 @@
     "koffi": "^3.3.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^44.5.1",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.11.0"
   },
   "build": {
     "appId": "com.xsalmon.shellby",

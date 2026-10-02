@@ -18,7 +18,7 @@ class GitHubApi {
       body: body ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();
-    let data = null;
+    let data;
     try { data = text ? JSON.parse(text) : null; } catch { data = null; }
     if (!res.ok) {
       const err = new Error(data?.message || `GitHub answered ${res.status}`);

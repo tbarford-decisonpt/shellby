@@ -3,7 +3,7 @@
    same pixel data as everything else; main saves it and copies it to the clipboard. */
 'use strict';
 (function () {
-  const { h, api, state, $ } = SB;
+  const { api, state, $ } = SB;
   const W = 1200, H = 630;
   const C = {
     abyss: '#061316', reef: '#11232a', line: '#214049', sand: '#f3e6cc', sandDim: '#b3a892',
