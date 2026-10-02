@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('shellby', {
   bootstrap: invoke('app:bootstrap'),
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
+  locateClaude: invoke('claude:locate'), // when the search missed it (unusual install)
 
   // tabs + tasks
   newTab: invoke('tab:new'),

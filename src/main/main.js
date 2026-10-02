@@ -10,7 +10,7 @@ const { randomUUID } = require('crypto');
 const { Config, MODES } = require('./config');
 const { History } = require('./history');
 const { SessionManager } = require('./sessions');
-const { checkStatus, findClaude, run: runCli } = require('./claude-cli');
+const { checkStatus, findClaude, verifyClaude, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
 const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
@@ -116,6 +116,8 @@ const ISOLATED = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
 const statusFile = () => (ISOLATED ? path.join(app.getPath('userData'), 'shellby-status.txt') : statusLine.STATUS_FILE);
 const claudeSettings = () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-settings.json') : statusLine.settingsPath());
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
+// A CLI the user pointed at by hand, when the usual places didn't have it.
+const claudePath = () => config?.get('claudePath') || null;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci;
 let critter, panel, tray;
@@ -518,7 +520,7 @@ function createManager() {
   manager = new SessionManager({
     argsPrefix: FAKE_CLI ? [FAKE_CLI] : [],
     history,
-    getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude()),
+    getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude(process.env, claudePath())),
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
     getEnv: () => github?.claudeEnv() || {},
@@ -848,7 +850,7 @@ function createShop() {
     pluginsRoot: path.join(os.homedir(), '.claude', 'plugins'),
     run: async (args, timeout) => {
       // The exe is looked up per call: Claude Code may be installed after Shellby starts.
-      const exe = claudeStatus?.exe || findClaude();
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
       if (!exe) return { ok: false, notInstalled: true, stdout: '', stderr: '' };
       try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
       return runCli(exe, args, timeout, { cwd });
@@ -1368,7 +1370,7 @@ function registerIpc() {
   ipcMain.on('panel:minimize', () => panel.minimize());
 
   ipcMain.handle('app:bootstrap', async () => {
-    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus();
+    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() });
     const demoHome = 'C:\\Users\\you';
     // Restore the tabs that were open last time (idle until you send something).
     if (!CAPTURE && !manager.tabs.size) {
@@ -1402,9 +1404,33 @@ function registerIpc() {
       startView: (() => { const v = startView; startView = null; return v; })(),
     };
   });
-  ipcMain.handle('claude:status', async () => (claudeStatus = await checkStatus()));
+  ipcMain.handle('claude:status', async () => (claudeStatus = await checkStatus({ configured: claudePath() })));
+  // "Find it myself…": for installs in places the search can't guess — a
+  // portable copy, another drive, a company image. The file is run once to prove
+  // it really is Claude Code before the path is kept, so a wrong pick is
+  // answered here rather than becoming a task that won't start.
+  ipcMain.handle('claude:locate', async () => {
+    const r = await dialog.showOpenDialog(panel, {
+      title: 'Where is Claude Code?',
+      defaultPath: claudePath() || path.join(os.homedir(), '.local', 'bin'),
+      properties: ['openFile'],
+      filters: [{ name: 'Claude Code', extensions: ['exe', 'cmd', 'bat'] }, { name: 'Any file', extensions: ['*'] }],
+      buttonLabel: 'Use this',
+    });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, cancelled: true, status: claudeStatus };
+    const check = await verifyClaude(r.filePaths[0]);
+    if (!check.ok) {
+      log.warn('rejected a hand-picked Claude Code', `${r.filePaths[0]}: ${check.error}`);
+      return { ok: false, error: check.error, status: claudeStatus };
+    }
+    config.set({ claudePath: check.exe });
+    log.info('Claude Code set by hand', `${check.exe} (v${check.version})`);
+    claudeStatus = await checkStatus({ configured: check.exe });
+    refreshStatusLine();
+    return { ok: true, status: claudeStatus };
+  });
   ipcMain.handle('claude:login', () => {
-    const exe = claudeStatus?.exe || findClaude();
+    const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
     if (!exe) return false;
     // Opens its own console window; the CLI walks the user through the browser sign-in.
     require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
@@ -2138,7 +2164,7 @@ app.whenReady().then(() => {
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
-  checkStatus().then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; startScheduler(); });
+  checkStatus({ configured: claudePath() }).then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; startScheduler(); });
 
   const reclamp = () => {
     const c = clampToDisplays(critter.getBounds(), workAreas());

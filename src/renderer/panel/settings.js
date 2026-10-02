@@ -254,8 +254,14 @@
     const signedIn = installed && s.loggedIn;
     $('steps').replaceChildren(
       step(1, installed, 'Install Claude Code',
-        installed ? `Found v${s.version || '?'}` : ['Run ', h('code', { text: 'npm install -g @anthropic-ai/claude-code' }), ' in a terminal, or use the native installer.'],
-        [h('button', { class: 'btn', type: 'button', onclick: () => api.openExternal('https://docs.claude.com/en/docs/claude-code/setup') }, 'Install guide'), recheck()]),
+        installed
+          ? `Found v${s.version || '?'}${s.picked ? ' where you pointed' : ''}`
+          : ['Run ', h('code', { text: 'npm install -g @anthropic-ai/claude-code' }), ' in a terminal, or use the native installer.'],
+        [h('button', { class: 'btn', type: 'button', onclick: () => api.openExternal('https://docs.claude.com/en/docs/claude-code/setup') }, 'Install guide'),
+         recheck(),
+         // Already installed somewhere Shellby can't guess (portable copy,
+         // another drive, a locked-down company image)? Point at it.
+         h('button', { class: 'btn ghost', type: 'button', title: 'If it is already installed somewhere unusual', onclick: locateClaude }, 'Find it myself…')]),
       step(2, signedIn && !s.warning, 'Sign in with your Claude account',
         signedIn
           ? (s.warning ? h('span', { class: 'warn', text: s.warning }) : `${s.email || 'Signed in'} · ${s.subscriptionType ? s.subscriptionType.toUpperCase() + ' plan' : 'claude.ai'}`)
@@ -276,6 +282,15 @@
     state.status = await api.claudeStatus();
     renderOnboarding();
     SB.toast(state.status.loggedIn ? 'All set!' : state.status.installed ? 'Not signed in yet.' : 'Claude Code not found yet.');
+  }
+  // The file picker runs the chosen program once to check it really is Claude
+  // Code, so the answer to a wrong pick arrives immediately.
+  async function locateClaude() {
+    const r = await api.locateClaude();
+    if (r.cancelled) return;
+    if (r.status) state.status = r.status;
+    renderOnboarding();
+    SB.toast(r.ok ? `Found Claude Code v${r.status?.version || '?'}.` : r.error || "That isn't Claude Code.", { ms: r.ok ? 3000 : 6000 });
   }
   $('letsGoBtn').addEventListener('click', async () => {
     const r = await api.setSettings({ onboarded: true, crabOnly: false });

@@ -15,7 +15,7 @@ test('a line is written to memory and to the file', () => {
   const dir = tmp();
   const log = new Log(dir, { now: at(5) });
   log.info('started', 'version 0.18.0');
-  assert.match(log.recent()[0], /^2026-01-02 03:04:05 info  started — version 0\.18\.0$/);
+  assert.match(log.recent()[0], /^2026-01-02 03:04:05 info {2}started — version 0\.18\.0$/);
   assert.match(fs.readFileSync(path.join(dir, 'shellby.log'), 'utf8'), /started — version 0\.18\.0/);
 });
 
