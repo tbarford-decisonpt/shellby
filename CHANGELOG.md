@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.0: Shift+Tab switches mode
+
+### New
+- **Shift+Tab switches the permission mode,** just like in Claude Code. Press it in the message box to step through **Ask → Smart → Auto-edit → Plan** and back round. The chip and the hint under the box change as you go, and the new mode applies to every open conversation. **Autonomous** isn't in the loop on purpose: holding a key down should never land on the one mode that never asks. Pick it from the chip or Settings as before.
+
 ## 0.22.2
 
 ### Fixed
