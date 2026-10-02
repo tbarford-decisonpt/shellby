@@ -13,7 +13,7 @@ const os = require('os');
 const path = require('path');
 const {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
-  isOnPath, pathWith, pathWithout, parseTaskRequest,
+  isOnPath, pathWith, pathWithout, parseTaskRequest, settingChangeArgs,
 } = require('../src/main/clipath');
 const { parseArgs, MODES, MAX_PROMPT, EXIT } = require('../src/cli/shellby');
 
@@ -113,6 +113,14 @@ test('the shims call the copy next to themselves, not a baked-in app path', () =
   assert.match(shShim(), /"\$@"/, 'quoted, so a task with spaces survives');
   assert.match(ps1Shim(), /@args/);
   assert.ok(cmdShim().includes('\r\n'), 'CRLF: a .cmd with LF endings misbehaves');
+});
+
+test('a PATH change is announced, so Start-menu terminals see it without signing out', () => {
+  const args = settingChangeArgs();
+  assert.deepEqual(args.slice(0, 3), ['-NoProfile', '-NonInteractive', '-EncodedCommand']);
+  const script = Buffer.from(args[3], 'base64').toString('utf16le');
+  assert.match(script, /SendMessageTimeout\(\[IntPtr\]0xffff, 0x1A,/, 'WM_SETTINGCHANGE to every window');
+  assert.match(script, /'Environment'/);
 });
 
 // ------------------------------------------------------------------ arguments

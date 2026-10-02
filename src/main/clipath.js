@@ -114,6 +114,23 @@ function pathWithout(pathValue, dir) {
   return kept.join(';');
 }
 
+/**
+ * PowerShell that tells Windows the user environment changed. `reg add` writes
+ * PATH but announces nothing, so Explorer keeps its old copy and every terminal
+ * opened from the Start menu says "'shellby' is not recognized" until sign-out.
+ * This is the WM_SETTINGCHANGE broadcast setx and the Environment Variables
+ * dialog send. Returned as -EncodedCommand args so nothing needs quoting.
+ */
+function settingChangeArgs() {
+  const script = [
+    "Add-Type -Namespace Shellby -Name Env -MemberDefinition '[DllImport(\"user32.dll\", CharSet=CharSet.Unicode)] public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, string l, uint f, uint t, out UIntPtr r);'",
+    '$r = [UIntPtr]::Zero',
+    // HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG, 5 s per window at most
+    "[void][Shellby.Env]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$r)",
+  ].join('; ');
+  return ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')];
+}
+
 /** Where the command lives, given Electron's app.getPath('userData') neighbours. */
 const binDir = localAppData => require('path').join(localAppData, 'Shellby', BIN_DIR_NAME);
 const tokenPath = userData => require('path').join(userData, TOKEN_FILE);
@@ -140,6 +157,6 @@ function parseTaskRequest(body, { modes, maxPrompt = 4000, isDir = () => true } 
 
 module.exports = {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
-  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, parseTaskRequest,
+  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, parseTaskRequest, settingChangeArgs,
   BIN_DIR_NAME, TOKEN_FILE,
 };

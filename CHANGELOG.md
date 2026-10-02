@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.4
+
+### Fixed
+- After **Add to my PATH**, a new Command Prompt opened from the Start menu still said "'shellby' is not recognized" until you signed out. Shellby now tells Windows the PATH changed, so the next terminal you open has it.
+
 ## 0.20.3
 
 ### Fixed

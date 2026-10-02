@@ -1025,6 +1025,9 @@ async function setUserPath(value) {
   const r = await runCli('reg', ['add', 'HKCU\\Environment', '/v', 'Path', '/t', 'REG_EXPAND_SZ', '/d', value, '/f'], 8000);
   return !!r.ok;
 }
+  // Tell Explorer, so a new terminal from the Start menu sees it. Best effort:
+  // the PATH is already written, and signing out would pick it up regardless.
+  if (r.ok) await runCli('powershell.exe', clipath.settingChangeArgs(), 15000);
 
 async function addToUserPath(dir) {
   // A dev or test run has its own profile; it must not edit the PATH the real
