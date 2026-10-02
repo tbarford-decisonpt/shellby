@@ -576,7 +576,19 @@
     return 'Always allow';
   }
 
-  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: 'att', title: f },
+  // Pictures get a thumbnail, fetched once per path (main reads the file; the
+  // panel's CSP only loads images from data:).
+  const thumbs = new Map();
+  const isPicture = f => /\.(png|jpe?g|gif|webp)$/i.test(f);
+  const thumbImg = f => {
+    const img = h('img', { class: 'att-thumb', alt: '' });
+    if (!thumbs.has(f)) thumbs.set(f, api.attachThumb(f).catch(() => null));
+    thumbs.get(f).then(url => { if (url) img.src = url; else img.remove(); });
+    return img;
+  };
+
+  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}`, title: f },
+    isPicture(f) ? thumbImg(f) : null,
     h('span', { text: SB.basename(f) }),
     onRemove ? h('button', { type: 'button', 'aria-label': `Remove ${SB.basename(f)}`, onclick: () => onRemove(i) }, '×') : null));
 

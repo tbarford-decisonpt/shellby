@@ -303,7 +303,7 @@
     tab.busy = true;
     tab.saved = true;
     tab.statusText = 'Working…';
-    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || 'Attached files';
+    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
     return true;
@@ -453,8 +453,31 @@
     e.preventDefault();
     dragDepth = 0;
     document.body.classList.remove('dropping');
-    const paths = api.pathsForFiles(e.dataTransfer.files);
+    attachFrom(e.dataTransfer.files);
+  });
+
+  // A picture with no file behind it (a snip, an image out of a browser) is saved
+  // by main first, so everything attached ends up as a path.
+  async function attachFrom(files) {
+    const { paths, error } = await api.attachFiles([...files]); // a FileList doesn't cross the bridge; an array of Files does
+    if (error) SB.toast(error);
     if (paths.length) { SB.setView('chat'); SB.addAttachments(paths); }
+  }
+
+  // Ctrl+V a Win+Shift+S snip (or files copied in Explorer) straight into the
+  // composer. Anything that also carries text (a cell out of Excel brings a
+  // picture of itself along) pastes as text, the way it always did.
+  input.addEventListener('paste', e => {
+    const data = e.clipboardData;
+    if (!data?.files.length || data.getData('text/plain')) return;
+    e.preventDefault();
+    attachFrom(data.files);
+  });
+
+  $('attachBtn').addEventListener('click', async () => {
+    const paths = await api.pickFiles();
+    if (paths.length) SB.addAttachments(paths);
+    else input.focus();
   });
 
   // ------------------------------------------------------------ slash menu (skills + commands)

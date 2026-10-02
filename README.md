@@ -106,7 +106,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
 - **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, counts down, holds back the notifications that can wait, and takes a break with you when time's up.
 - **He listens along:** when something's playing he puts his headphones on, with the odd *"good one"*. Read from Windows itself, so there's no account and nothing leaves your PC.
-- **Drop files on him** to hand them to a task. **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
+- **Drop files on him** to hand them to a task, or **paste a screenshot** (Win+Shift+S, then Ctrl+V) straight into the box: Claude sees the picture itself. **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
 
 <details>
 <summary><b>How much he talks, and when he doesn't</b></summary>

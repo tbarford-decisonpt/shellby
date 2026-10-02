@@ -54,6 +54,7 @@ const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
+const attach = require('./attachments');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -967,11 +968,20 @@ function externalView() {
   return { ...(external ? external.summary : { sessions: [], status: 'off' }), enabled: !!config.get('externalSessions') };
 }
 
-function composePrompt(text, files) {
-  let prompt = text || 'Take a look at the attached files.';
-  if (files.length) prompt += `\n\nAttached files (dropped onto Shellby):\n${files.map(f => `- ${f}`).join('\n')}`;
-  return prompt;
+// Pictures go inline as image blocks; everything attached is listed by path too.
+// See attachments.js.
+const shotsDir = () => path.join(app.getPath('userData'), 'screenshots');
+const composePrompt = (text, files) => attach.composeContent(text, files, f => attach.loadForClaude(f, { nativeImage }));
+
+// The clipboard's picture (a Win+Shift+S snip) as a new task: from the crab's menu.
+function taskFromClipboard() {
+  const saved = attach.saveNative(clipboard.readImage(), shotsDir());
+  if (saved.error) return notify('No screenshot', `${saved.error} Press Win+Shift+S to snip one.`);
+  stat('files-dropped');
+  showPanel();
+  send(panel, 'panel:attach', [saved.path]);
 }
+const clipboardHasImage = () => { try { return clipboard.availableFormats().some(t => t.startsWith('image/')); } catch { return false; } };
 
 // ================================================================ driving the crab
 
@@ -1967,6 +1977,23 @@ function registerIpc() {
     send(panel, 'panel:attach', files);
   });
 
+  // ---- pictures and files for the composer (see attachments.js)
+  // A pasted snip, or a picture dropped with no file behind it: saved, then attached by path.
+  ipcMain.handle('attach:image', (_e, bytes) => {
+    if (!(bytes instanceof Uint8Array)) return { error: 'That clipboard item is empty.' };
+    const r = attach.saveImage(bytes, shotsDir(), { nativeImage });
+    if (r.path) stat('files-dropped');
+    return r;
+  });
+  ipcMain.handle('attach:thumb', (_e, file) => (isStr(file) ? attach.thumbnail(file, { nativeImage }) : null));
+  ipcMain.handle('attach:pick', async () => {
+    const r = await dialog.showOpenDialog(panel, {
+      title: 'Attach files', properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'All files', extensions: ['*'] }, { name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+    });
+    return r.canceled ? [] : r.filePaths.slice(0, 20);
+  });
+
   // ---- panel lifecycle
   ipcMain.on('panel:hide', () => panel.hide());
   ipcMain.on('panel:minimize', () => panel.minimize());
@@ -2071,7 +2098,9 @@ function registerIpc() {
     if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
     try {
       if (!isStr(tabId) || !manager.tabs.has(tabId)) tabId = openTab({ tabId: isStr(tabId) ? tabId : undefined }).id;
-      manager.send(tabId, composePrompt(text, files), { kind: 'user', text, attachments: files });
+      // Nothing typed: the conversation is named for what was attached.
+      const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';
+      manager.send(tabId, composePrompt(text, files), { kind: 'user', text, attachments: files, title });
       wake();
       return { ok: true, tabId };
     } catch (err) {
@@ -2764,6 +2793,7 @@ function buildMenu() {
   return Menu.buildFromTemplate([
     { label: 'Open Shellby', click: () => showPanel() },
     claude && { label: 'New conversation', click: () => { showPanel(); send(panel, 'tab:new-request'); } },
+    claude && clipboardHasImage() && { label: 'Task from screenshot', click: taskFromClipboard },
     { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
     claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
     claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
@@ -2903,6 +2933,7 @@ app.whenReady().then(() => {
   // files nothing lists; see History.sweep().
   const swept = history.sweep();
   if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
+  attach.prune(path.join(userData, 'screenshots'));
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),

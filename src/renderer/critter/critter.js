@@ -351,11 +351,12 @@ const setDropping = on => {
 window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) setDropping(true); });
 window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; setDropping(false); } });
 window.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-window.addEventListener('drop', e => {
+window.addEventListener('drop', async e => {
   e.preventDefault();
   dragDepth = 0;
   setDropping(false);
-  const paths = window.shellby.pathsForFiles(e.dataTransfer.files);
+  // A picture with no file behind it (dragged out of a browser) is saved first.
+  const { paths } = await window.shellby.attachFiles([...e.dataTransfer.files]);
   if (paths.length) api.drop(paths);
 });
 
