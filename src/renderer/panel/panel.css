@@ -147,12 +147,27 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .menu-item.branch-info > span:last-child { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .mi-branch { font: 600 11.5px var(--font-mono); font-stretch: 88%; color: var(--glass); overflow-wrap: anywhere; }
 
-.usage { margin-left: auto; display: flex; gap: 10px; }
+.usage { margin-left: auto; display: flex; gap: 10px; padding: 3px 5px; border: 0; border-radius: 6px; background: none; color: inherit; cursor: pointer; }
+.usage:hover, .usage:focus-visible, .usage[aria-expanded="true"] { background: var(--reef-2); outline: none; }
 .meter { display: flex; align-items: center; gap: 5px; color: var(--sand-faint); font: 600 10.5px var(--font-mono); }
 .meter-track { width: 44px; height: 5px; border-radius: 3px; background: var(--reef-2); overflow: hidden; }
 .meter-fill { display: block; height: 100%; width: 100%; background: var(--glass); border-radius: inherit; transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease-out); }
 .meter.warn .meter-fill { background: var(--amber); }
 .meter.hot .meter-fill { background: var(--danger); }
+
+/* ================================================================ usage breakdown */
+.usage-menu { min-width: 280px; }
+.usage-by { display: flex; gap: 4px; padding: 3px 3px 4px; }
+.usage-by-btn { flex: 1; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--sand-dim); font: 600 11.5px var(--font-body); cursor: pointer; }
+.usage-by-btn:hover, .usage-by-btn:focus-visible { color: var(--sand); outline: none; border-color: var(--sand-faint); }
+.usage-by-btn.on { background: var(--reef-2); color: var(--sand); }
+.usage-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px 34px; align-items: center; gap: 8px; padding: 3px 9px; font-size: 12.5px; }
+.usage-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-row.kind-rest .usage-name { color: var(--sand-dim); }
+.usage-bar { height: 5px; border-radius: 3px; background: var(--reef-2); overflow: hidden; }
+.usage-bar-fill { display: block; height: 100%; background: var(--glass); border-radius: inherit; transform-origin: left; }
+.usage-share { text-align: right; color: var(--sand-dim); font: 600 10.5px var(--font-mono); }
+.usage-empty { padding: 3px 9px 5px; color: var(--sand-faint); font-size: 12px; line-height: 1.35; }
 
 /* ================================================================ popovers */
 .popover {
