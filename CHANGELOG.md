@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.1: tidier health warnings
+
+### Fixed
+- **Health warnings fit their cards.** In the Health view, a **very high** warning no longer wraps onto two lines and swells into a blob, and labels like **GPU temp** stay on one line, so the readings line up across cards again. When the cards are narrow, a critical warning just says **high**. It stays solid red and pulsing, so it doesn't look like the amber warning.
+
 ## 0.25.0: while you were away
 
 ### New

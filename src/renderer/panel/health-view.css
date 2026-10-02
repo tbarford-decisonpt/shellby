@@ -69,13 +69,14 @@ body[data-view="health"] .view-health {
   padding: 9px 10px 8px 12px; border-radius: var(--r);
   background: var(--reef); border: 1px solid var(--line-soft);
   overflow: hidden;
+  container-type: inline-size;
 }
 .hl-gauge::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--lvl); opacity: .85; }
 .hl-gauge.lvl-warn { --lvl: var(--amber); background: color-mix(in srgb, var(--amber) 7%, var(--reef)); border-color: color-mix(in srgb, var(--amber) 30%, transparent); }
 .hl-gauge.lvl-critical { --lvl: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--reef)); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .hl-gauge.missing { --lvl: var(--sand-faint); }
 .hl-gauge header { display: flex; align-items: center; gap: 6px; min-height: 16px; }
-.hl-glabel { font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.hl-glabel { min-width: 0; font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hl-value { font: 500 25px/1.15 var(--font-mono); font-stretch: 88%; color: var(--sand); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .hl-value small { font-size: 12px; color: var(--sand-dim); margin-left: 2px; letter-spacing: 0; }
 .lvl-warn .hl-value, .lvl-critical .hl-value { color: var(--lvl); }
@@ -86,7 +87,11 @@ body[data-view="health"] .view-health {
 .hl-spark-line { fill: none; stroke: var(--lvl); stroke-width: 1.5; stroke-linejoin: round; }
 .hl-spark-area { fill: color-mix(in srgb, var(--lvl) 16%, transparent); }
 .hl-spark-warn { stroke: var(--amber); stroke-width: .6; stroke-dasharray: 2 2; opacity: .7; vector-effect: non-scaling-stroke; }
-.hl-pill { font: 700 9px/15px var(--font-mono); padding: 0 6px; border-radius: 99px; text-transform: uppercase; letter-spacing: .05em; margin-left: auto; }
+/* Level pills never wrap; in narrow (3-column) cards the critical one drops
+   "very", since its solid, pulsing fill already sets it apart from a warning. */
+.hl-pill, .hl-watch { flex: none; white-space: nowrap; }
+.hl-pill { font: 700 9px/16px var(--font-mono); padding: 0 7px; border-radius: 99px; text-transform: uppercase; letter-spacing: .05em; margin-left: auto; }
+@container (max-width: 180px) { .hl-pill-very { display: none; } }
 .hl-pill.warn { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber); }
 .hl-pill.critical { background: var(--danger); color: #fff; animation: hl-pulse 1s ease-in-out infinite; }
 .hl-watch { font: 600 9px/15px var(--font-mono); padding: 0 6px; border-radius: 99px; margin-left: auto; color: var(--amber); border: 1px dashed color-mix(in srgb, var(--amber) 50%, transparent); }
