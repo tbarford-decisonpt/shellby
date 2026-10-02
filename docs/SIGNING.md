@@ -7,6 +7,34 @@ Unsigned Windows apps get the SmartScreen "Windows protected your PC" warning. S
 - **It does:** puts a verified publisher name on the installer and app ("Verified publisher: …" instead of "Unknown publisher"), proves the file wasn't changed after it was built, and lets SmartScreen build up **reputation** for that publisher. Once there's enough reputation, the warning goes away for every future release. Unsigned builds start over at zero reputation with every new version, because SmartScreen tracks them by file hash.
 - **It doesn't:** remove the warning instantly. Even signed apps from new publishers can show it until enough people have installed them. EV certificates used to skip this, but Microsoft stopped giving them special treatment in 2024.
 
+## Free stopgaps (no certificate)
+
+Neither of these is a substitute for signing, but both are free and both cut down how
+often anyone meets the warning.
+
+### Ask Microsoft to review the file
+
+Microsoft takes false-positive reports from developers at
+[the Security Intelligence submission form](https://www.microsoft.com/wdsi/filesubmission)
+— choose **Software developer** and submit the installer, noting that SmartScreen is
+flagging it. If the analysis comes back clean, the block is lifted for that file.
+
+The catch is that this is keyed to the **file hash**, so it has to be redone for every
+release, and there's no API — it's a manual form each time. That's precisely the
+treadmill signing gets you off of.
+
+### Publish to winget
+
+SmartScreen's dialog is triggered by
+[Mark-of-the-Web](https://learn.microsoft.com/windows/win32/shell/fa-mark-of-the-web),
+the tag a *browser* puts on a downloaded file. `winget` downloads with its own HTTP
+client and usually doesn't set it, so `winget install x-salmon.Shellby` typically never
+shows the dialog at all, and `winget` verifies the SHA-256 from its manifest instead.
+Manifests and submission steps are in [../packaging/winget](../packaging/winget).
+
+This doesn't help people who download from the Releases page, and it doesn't touch the
+UAC "Unknown publisher" line.
+
 ## Recommended: Azure Artifact Signing
 
 [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/) (formerly Trusted Signing) is Microsoft's own signing service. It costs about **$10/month** (Basic tier), keys live in Microsoft's HSMs so there's no USB token to lose, and electron-builder supports it directly. Individual developers in the US and Canada can sign up with a government ID; organizations need a few years of verifiable history.

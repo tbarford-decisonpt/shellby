@@ -84,3 +84,46 @@ jobs:
       - name: Publish release
         shell: bash
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+
+      # Keep the winget package in step with the release, so
+      # `winget install x-salmon.Shellby` isn't stuck on an old version.
+      #
+      # Opt-in and deliberately last: it hashes the published installer URL,
+      # which only resolves once the release is out of draft. Set the
+      # WINGET_TOKEN secret to turn it on — a *classic* PAT with the
+      # public_repo scope (fine-grained tokens aren't supported). The package
+      # must already exist in microsoft/winget-pkgs; the first submission is
+      # manual. See packaging/winget/README.md.
+      #
+      # wingetcreate.exe ships framework-dependent against net9.0-windows, so
+      # the runtime is installed rather than assumed from the runner image.
+      - name: Set up .NET for wingetcreate
+        if: ${{ secrets.WINGET_TOKEN != '' }}
+        continue-on-error: true
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.0.x'
+
+      # continue-on-error: the release is already published by this point, and
+      # a winget hiccup shouldn't flag the release as failed. The PR can always
+      # be opened by hand.
+      - name: Update winget manifest
+        if: ${{ secrets.WINGET_TOKEN != '' }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          # Passing --token on the command line risks it being logged; the tool
+          # reads this variable instead.
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          $url = "https://github.com/x-salmon/shellby/releases/download/$tag/Shellby-Setup-$version.exe"
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update x-salmon.Shellby `
+            --version $version `
+            --urls "$url|x64" `
+            --release-date (Get-Date -Format 'yyyy-MM-dd') `
+            --release-notes-url "https://github.com/x-salmon/shellby/releases/tag/$tag" `
+            --submit `
+            --no-open

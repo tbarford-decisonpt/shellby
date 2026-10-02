@@ -27,3 +27,5 @@ Every end-to-end and maintenance script, and a map of the code, is in [docs/DEVE
 
 1. Bump `version` in `package.json` and commit.
 2. Tag `vX.Y.Z` and push the tag. The release workflow tests, builds and publishes to GitHub Releases, and installed copies update themselves.
+3. While releases are unsigned, submit the new `Shellby-Setup-X.Y.Z.exe` to [Microsoft's file submission form](https://www.microsoft.com/wdsi/filesubmission) as a **software developer**. SmartScreen tracks unsigned builds by file hash, so this has to be redone every release until signing is set up — see [docs/SIGNING.md](docs/SIGNING.md).
+4. winget updates itself from the release workflow once the `WINGET_TOKEN` secret is set and the package is live in `microsoft/winget-pkgs`. The very first submission is manual — see [packaging/winget](packaging/winget).
