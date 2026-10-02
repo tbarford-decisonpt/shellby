@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.19.0: steadier on his feet
 
 ### Updating is a button now
 - **Settings → About tells you where you stand:** the version you're on, whether a new one is waiting, and a progress bar while it downloads. When it has landed, **Restart and update** installs it and brings Shellby back — no more closing him twice to find out there was an update at all.
