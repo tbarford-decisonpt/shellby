@@ -1,4 +1,5 @@
-/* Shellby panel — Toolbox: everything Claude Code can use, and what Shellby just learned. */
+/* Shellby panel — Toolbox: everything Claude Code can use, and what Shellby just learned.
+   The Hooks and Memory tabs live in toolbox-setup.js. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -44,10 +45,13 @@
   function render() {
     const tb = state.toolbox;
     const list = $('toolList');
+    const setup = SB.toolboxSetup;
+    setup.refresh(); // hooks and memory: rescanned when stale, re-renders when it lands
     // counts
     document.querySelectorAll('#toolTabs [data-kind]').forEach(b => {
-      b.querySelector('.n').textContent = tb ? tb[listKey[b.dataset.kind]].length : '';
-      b.setAttribute('aria-selected', String(b.dataset.kind === kind));
+      const k = b.dataset.kind;
+      b.querySelector('.n').textContent = setup.owns(k) ? setup.count(k) : tb ? tb[listKey[k]].length : '';
+      b.setAttribute('aria-selected', String(k === kind));
     });
     // recently learned
     const recent = (state.learned || []).filter(l => Date.now() - l.at < NEW_FOR_MS).slice(0, 6);
@@ -57,8 +61,10 @@
       h('div', { class: 'pinned-chips' }, recent.map(l => SB.toolChip(l))));
     $('toolboxBadge').hidden = true;
 
-    if (!tb) { list.replaceChildren(h('li', { class: 'history-empty', text: 'Scanning…' })); return; }
     const q = $('toolSearch').value.trim().toLowerCase();
+    if (setup.owns(kind)) { $('setupPane').hidden = false; setup.render(kind, q); return; }
+    setup.hide();
+    if (!tb) { list.replaceChildren(h('li', { class: 'history-empty', text: 'Scanning…' })); return; }
     const items = tb[listKey[kind]]
       .filter(t => !q || t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
       .sort((a, b) => (isNew(b) - isNew(a)) || (isPinned(b) - isPinned(a)) || a.name.localeCompare(b.name));
@@ -77,7 +83,11 @@
 
   document.querySelectorAll('#toolTabs [data-kind]').forEach(b => b.addEventListener('click', () => { kind = b.dataset.kind; render(); }));
   $('toolSearch').addEventListener('input', render);
-  $('rescanBtn').addEventListener('click', async () => { state.toolbox = await api.rescanToolbox(); render(); SB.toast('Toolbox rescanned'); });
+  $('rescanBtn').addEventListener('click', async () => {
+    [state.toolbox] = await Promise.all([api.rescanToolbox(), SB.toolboxSetup.reload()]);
+    render();
+    SB.toast('Toolbox rescanned');
+  });
 
   SB.onLearned = (trick) => {
     state.learned = [{ ...trick, at: Date.now() }, ...(state.learned || []).filter(l => !(l.kind === trick.kind && l.name === trick.name))];

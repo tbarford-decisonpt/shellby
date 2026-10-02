@@ -93,6 +93,13 @@ contextBridge.exposeInMainWorld('shellby', {
   rescanToolbox: invoke('toolbox:rescan'),
   pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
   revealTool: fire('toolbox:reveal'),
+  // hooks and CLAUDE.md memory (every write is re-checked in main; hook changes ask in the confirm window)
+  getClaudeSetup: invoke('setup:get'),
+  readMemory: invoke('setup:read-memory'),
+  writeMemory: (path, text, mtimeMs) => ipcRenderer.invoke('setup:write-memory', { path, text, mtimeMs }),
+  saveHook: (scope, hook, at = null, fp = null) => ipcRenderer.invoke('setup:save-hook', { scope, hook, at, fp }),
+  removeHook: (scope, at, fp) => ipcRenderer.invoke('setup:remove-hook', { scope, at, fp }),
+  revealSetupFile: fire('setup:reveal'),
 
   // skill shop (Claude Code plugin marketplaces)
   shopList: invoke('shop:list'),
@@ -233,6 +240,7 @@ contextBridge.exposeInMainWorld('shellby', {
   saveRoutine: invoke('routines:save'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
+  usageBreakdown: invoke('usage:breakdown'),
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),

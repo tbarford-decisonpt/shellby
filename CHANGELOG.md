@@ -1,9 +1,20 @@
 # Changelog
 
-## 0.25.1: tidier health warnings
+## 0.27.1: tidier health warnings
 
 ### Fixed
 - **Health warnings fit their cards.** In the Health view, a **very high** warning no longer wraps onto two lines and swells into a blob, and labels like **GPU temp** stay on one line, so the readings line up across cards again. When the cards are narrow, a critical warning just says **high**. It stays solid red and pulsing, so it doesn't look like the amber warning.
+
+## 0.27.0: hooks and memory in the Toolbox
+
+### New
+- **Toolbox → Hooks.** Every hook Claude Code will run, in one list: yours (`~/.claude/settings.json`), the project's (shared and just-you) and the ones your plugins bring. Add a hook, edit one or remove it right there: pick when it runs, which tools it's for and the command. Each change asks first in the isolated confirmation window, shows the exact command and where it's saved, and keeps a backup of the settings file. Plugin hooks are listed but left to the plugin.
+- **Toolbox → Memory.** The `CLAUDE.md` files that load for the folder you're in: yours, the project's, `CLAUDE.local.md`, your and the project's `.claude/rules/`, and any `CLAUDE.md` in the folders above. Open one in a plain editor, or create yours or the project's if it isn't there yet. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves. If the file changed somewhere else since you opened it, Shellby won't save over it and offers to reload. Windows line endings stay as they were.
+
+## 0.26.0: who used it all
+
+### New
+- **See what used up your limits.** Click the **5h / 7d** meters to see what filled each window: every tab and routine with its share, or switch to **Projects** to see it by folder. A conversation working in its own copy counts toward the project it came from. Each call is weighed by the model it used, since a limit fills faster on Opus than on Haiku. Only what Shellby ran is listed. Claude Code used elsewhere (a terminal, claude.ai) fills the meters too, and the breakdown says so. The tally stays on your PC and keeps just over a week.
 
 ## 0.25.0: while you were away
 

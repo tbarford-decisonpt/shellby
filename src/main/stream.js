@@ -69,6 +69,15 @@ function usageFrom(ev) {
   return { kind: 'usage', status: info.status || null, fiveHour: win(w.five_hour), sevenDay: win(w.seven_day) };
 }
 
+// What one API call cost, for the usage-by-project ledger (spend.js). Claude Code
+// sends one assistant event per content block, each repeating the message's id
+// and usage, so callers count each id once (session.js).
+function spendFrom(ev) {
+  const m = ev?.type === 'assistant' ? ev.message : null;
+  if (!m || typeof m.id !== 'string' || !m.usage || typeof m.usage !== 'object') return null;
+  return { messageId: m.id, model: typeof m.model === 'string' ? m.model : null, usage: m.usage };
+}
+
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const AGENT_TOOLS = new Set(['Agent', 'Task']);
 
@@ -206,4 +215,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS };
+module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS };

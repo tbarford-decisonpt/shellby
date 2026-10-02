@@ -392,4 +392,4 @@ class ToolboxWatcher extends EventEmitter {
   }
 }
 
-module.exports = { scanToolbox, parseFrontmatter, mergeInit, ToolboxWatcher };
+module.exports = { scanToolbox, parseFrontmatter, mergeInit, ToolboxWatcher, walkMd, samePath };

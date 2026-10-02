@@ -43,6 +43,7 @@ class SessionManager extends EventEmitter {
     this.tabs.set(tabId, tab);
 
     session.on('item', item => this.onItem(tab, item));
+    session.on('spend', s => this.emit('spend', tab.id, s, tab));
     session.on('busy', () => this.changed());
     session.on('crew', () => this.changed());
     session.on('exit', () => this.changed());

@@ -132,7 +132,7 @@
       { icon: '🏆', title: 'Shellby: trophies & XP', sub: 'Level, XP, streaks and trophies', keys: 'level achievements streak', run: go('trophies') },
       claude() && { icon: '💬', title: 'Chat', sub: 'Give Shellby a task', keys: 'home task conversation', run: go('chat') },
       claude() && { icon: '➕', title: 'New conversation', sub: 'Ctrl+T', keys: 'tab chat', run: () => { SB.setView('chat'); SB.newTab(); } },
-      claude() && { icon: '🧰', title: 'Toolbox', sub: 'Skills, agents, commands and MCP servers', keys: 'tools mcp', run: go('toolbox') },
+      claude() && { icon: '🧰', title: 'Toolbox', sub: 'Skills, agents, commands, MCP servers, hooks and memory', keys: 'tools mcp hooks memory claude.md', run: go('toolbox') },
       claude() && { icon: '🛒', title: 'Skill Shop', sub: 'Install skills from plugin marketplaces', keys: 'get more plugins install marketplace', run: () => SB.openShop() },
       claude() && { icon: '⏰', title: 'Routines', sub: 'Tasks that run on a schedule', keys: 'schedule recurring cron', run: go('routines') },
       claude() && { icon: '⏰', title: 'New routine', sub: 'Schedule a recurring task', keys: 'schedule add', run: () => { SB.setView('routines'); $('newRoutineBtn').click(); } },
