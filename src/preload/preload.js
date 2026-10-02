@@ -34,6 +34,24 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
   pathsForFiles: files => Array.from(files || []).map(f => { try { return webUtils.getPathForFile(f); } catch { return ''; } }).filter(Boolean),
+  // The same, for a drop or a paste that may hold a picture with no file behind
+  // it (a Win+Shift+S snip, an image dragged out of a browser): main saves those
+  // first. Resolves to { paths, error } — error is the last thing that failed.
+  attachFiles: async files => {
+    const paths = [];
+    let error = null;
+    for (const f of Array.from(files || []).slice(0, 20)) {
+      let p = '';
+      try { p = webUtils.getPathForFile(f); } catch { /* not on disk */ }
+      if (p) { paths.push(p); continue; }
+      if (!/^image\//.test(f.type)) continue;
+      const r = await ipcRenderer.invoke('attach:image', new Uint8Array(await f.arrayBuffer()));
+      if (r?.path) paths.push(r.path); else error = r?.error || 'Couldn’t attach that picture.';
+    }
+    return { paths, error };
+  },
+  attachThumb: invoke('attach:thumb'),
+  pickFiles: invoke('attach:pick'),
 
   bootstrap: invoke('app:bootstrap'),
   claudeStatus: invoke('claude:status'),

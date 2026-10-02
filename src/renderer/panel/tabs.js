@@ -303,7 +303,7 @@
     tab.busy = true;
     tab.saved = true;
     tab.statusText = 'Working…';
-    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || 'Attached files';
+    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
     return true;
@@ -401,6 +401,7 @@
   input.addEventListener('keydown', e => {
     if (slashKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
+    if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); SB.cycleMode(); return; }
     // Up in an empty box pulls back the last queued message, like Claude Code.
     const tab = SB.activeTab();
     if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); }
@@ -453,8 +454,31 @@
     e.preventDefault();
     dragDepth = 0;
     document.body.classList.remove('dropping');
-    const paths = api.pathsForFiles(e.dataTransfer.files);
+    attachFrom(e.dataTransfer.files);
+  });
+
+  // A picture with no file behind it (a snip, an image out of a browser) is saved
+  // by main first, so everything attached ends up as a path.
+  async function attachFrom(files) {
+    const { paths, error } = await api.attachFiles([...files]); // a FileList doesn't cross the bridge; an array of Files does
+    if (error) SB.toast(error);
     if (paths.length) { SB.setView('chat'); SB.addAttachments(paths); }
+  }
+
+  // Ctrl+V a Win+Shift+S snip (or files copied in Explorer) straight into the
+  // composer. Anything that also carries text (a cell out of Excel brings a
+  // picture of itself along) pastes as text, the way it always did.
+  input.addEventListener('paste', e => {
+    const data = e.clipboardData;
+    if (!data?.files.length || data.getData('text/plain')) return;
+    e.preventDefault();
+    attachFrom(data.files);
+  });
+
+  $('attachBtn').addEventListener('click', async () => {
+    const paths = await api.pickFiles();
+    if (paths.length) SB.addAttachments(paths);
+    else input.focus();
   });
 
   // ------------------------------------------------------------ slash menu (skills + commands)
@@ -552,6 +576,16 @@
     SB.applyMode(state.settings.mode);
     if (state.view === 'settings') SB.views.settings.render();
     if (!quiet) SB.toast(`Mode: ${SB.MODES.find(x => x.id === state.settings.mode).title} (all open conversations)`);
+  };
+
+  // Shift+Tab in the composer steps through the modes, like Claude Code. Autonomous
+  // stays out of the loop: holding a key down should never land on "never asks".
+  // The chip flips before the save so quick presses build on each other.
+  const CYCLE = SB.MODES.map(m => m.id).filter(id => id !== 'autonomous');
+  SB.cycleMode = () => {
+    const next = CYCLE[(CYCLE.indexOf(document.body.dataset.mode) + 1) % CYCLE.length];
+    SB.applyMode(next);
+    return SB.chooseMode(next);
   };
 
   $('modeChip').addEventListener('click', () => SB.openMenu($('modeMenu'), $('modeChip'), () => SB.MODES.map(m =>

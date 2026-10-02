@@ -377,7 +377,8 @@
   };
   $('rgbEnabled').addEventListener('change', e => (e.target.checked
     ? rgbBusy('starting', () => api.setRgb({ enabled: true }))
-    : api.setRgb({ enabled: false }).then(renderRgb)));
+    // Off hides the status line, so a failed hand-back is said out loud.
+    : api.setRgb({ enabled: false }).then(v => { renderRgb(v); if (v.error) SB.toast(v.error, { ms: 6000 }); })));
   $('rgbTest').addEventListener('click', () => rgbBusy('starting', api.testRgb));
   $('rgbInstall').addEventListener('click', () => rgbBusy(null, api.installOpenRgb));
 

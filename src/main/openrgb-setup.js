@@ -62,6 +62,20 @@ function launchOpenRgb(exe, port, { spawn = childProcess.spawn } = {}) {
   }
 }
 
+/**
+ * Is any OpenRGB.exe running, whoever started it? A slow first scan, another
+ * Shellby, or the user's own shortcut all count: each extra copy binds the
+ * same port and fights the others over SMBus, so devices answer whichever copy
+ * they like and colours land half-applied.
+ */
+function openRgbRunning({ execFile = childProcess.execFile } = {}) {
+  return new Promise(resolve => {
+    execFile('tasklist', ['/FI', 'IMAGENAME eq OpenRGB.exe', '/NH', '/FO', 'CSV'], { windowsHide: true, timeout: 5000 }, (err, stdout) => {
+      resolve(!err && /"OpenRGB\.exe"/i.test(String(stdout || '')));
+    });
+  });
+}
+
 const INSTALL_ARGS = [
   'install', '--id', WINGET_ID, '--exact', '--source', 'winget', '--silent',
   '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity',
@@ -93,13 +107,14 @@ function installOpenRgb({ execFile = childProcess.execFile } = {}) {
  *   probe: () => Promise<{ ok }>
  *   -> { ok, started? } | { ok: false, missing: true } | { ok: false, error }
  */
-async function ensureRunning({ probe, port = DEFAULT_PORT, find = findOpenRgb, launch = launchOpenRgb, isStarting = stillStarting, wait = ms => new Promise(r => setTimeout(r, ms)), tries = 90, everyMs = 1000 }) {
+async function ensureRunning({ probe, port = DEFAULT_PORT, find = findOpenRgb, launch = launchOpenRgb, isStarting = stillStarting, isRunning = openRgbRunning, wait = ms => new Promise(r => setTimeout(r, ms)), tries = 90, everyMs = 1000 }) {
   const first = await probe();
   if (first.ok) return first;
   const exe = find();
   if (!exe) return { ok: false, missing: true, error: 'OpenRGB isn\'t installed yet.' };
-  // Ours is still scanning: wait for it rather than start a rival.
-  if (!isStarting() && !launch(exe, port)) return { ok: false, error: "Couldn't start OpenRGB." };
+  // A copy is already up (ours still scanning, or anyone's): wait for it rather than start a rival.
+  const running = isStarting() || await isRunning();
+  if (!running && !launch(exe, port)) return { ok: false, error: "Couldn't start OpenRGB." };
   // It scans every controller before the server opens: seconds for USB, a minute or more over SMBus.
   for (let i = 0; i < tries; i++) {
     await wait(everyMs);
@@ -109,4 +124,4 @@ async function ensureRunning({ probe, port = DEFAULT_PORT, find = findOpenRgb, l
   return { ok: false, error: 'OpenRGB is running (its icon is in the tray, under ^) but its SDK server hasn\'t answered. If it\'s still finding devices, give it a minute and test again; otherwise open it from the tray and turn on Settings → SDK Server.' };
 }
 
-module.exports = { WINGET_ID, INSTALL_ARGS, candidates, findOpenRgb, launchArgs, launchOpenRgb, installOutcome, installOpenRgb, ensureRunning };
+module.exports = { WINGET_ID, INSTALL_ARGS, candidates, findOpenRgb, launchArgs, launchOpenRgb, installOutcome, installOpenRgb, openRgbRunning, ensureRunning };
