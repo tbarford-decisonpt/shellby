@@ -23,7 +23,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm test
+      # The release is the one build real people install: the UI checks run here
+      # too, not just on pull requests.
+      - run: npm run e2e:ci
 
       # Create the draft release first. electron-builder uploads installer,
       # portable, blockmap and latest.yml in parallel, and if none exists yet
