@@ -166,10 +166,13 @@ class ClaudeSession extends EventEmitter {
   // it to give a tab its own worktree (which can change cwd, so the process
   // starts after it) and to snapshot the folder for the turn's diff. The tab is
   // busy from the moment it's sent, so typing more still queues.
-  send(text, ready = null) {
+  //
+  // content: the prompt, or a list of blocks when pictures go with it (see
+  // attachments.js composeContent).
+  send(content, ready = null) {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
     this.setBusy(true);
-    const message = { type: 'user', message: { role: 'user', content: text } };
+    const message = { type: 'user', message: { role: 'user', content } };
     if (!ready) {
       this.start();
       return this.write(message);

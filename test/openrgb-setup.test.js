@@ -82,7 +82,7 @@ test('installed but not running: it starts OpenRGB and waits for the port', asyn
   let launchedWith;
   const r = await setup.ensureRunning({
     probe: async () => (++probes >= 4 ? { ok: true, devices: [{ name: 'Keyboard' }] } : { ok: false, error: 'ECONNREFUSED' }),
-    port: 6742, find: () => 'C:\\OpenRGB.exe', isStarting: () => false, launch: (exe, port) => { launchedWith = [exe, port]; return true; }, wait: noWait,
+    port: 6742, find: () => 'C:\\OpenRGB.exe', isStarting: () => false, isRunning: async () => false, launch: (exe, port) => { launchedWith = [exe, port]; return true; }, wait: noWait,
   });
   assert.equal(r.ok, true);
   assert.equal(r.started, true);
@@ -104,7 +104,24 @@ test('not installed: it says so instead of launching anything', async () => {
 });
 
 test('started but the server never answers: it points at the SDK setting', async () => {
-  const r = await setup.ensureRunning({ probe: async () => ({ ok: false }), find: () => 'x', isStarting: () => false, launch: () => true, wait: noWait, tries: 3 });
+  const r = await setup.ensureRunning({ probe: async () => ({ ok: false }), find: () => 'x', isStarting: () => false, isRunning: async () => false, launch: () => true, wait: noWait, tries: 3 });
   assert.equal(r.ok, false);
   assert.match(r.error, /SDK Server/);
+});
+
+test('OpenRGB already open but not answering yet: it waits for that copy instead of starting another', async () => {
+  let n = 0;
+  const r = await setup.ensureRunning({
+    probe: async () => ({ ok: ++n >= 3 }),
+    find: () => 'x', isStarting: () => false, isRunning: async () => true,
+    launch: () => assert.fail('launched a second OpenRGB'), wait: noWait,
+  });
+  assert.equal(r.ok, true);
+});
+
+test('openRgbRunning reads tasklist, and an error counts as not running', async () => {
+  const run = out => setup.openRgbRunning({ execFile: (cmd, args, opts, cb) => { assert.equal(cmd, 'tasklist'); cb(null, out); } });
+  assert.equal(await run('"OpenRGB.exe","30672","Console","1","90,000 K"\r\n'), true);
+  assert.equal(await run('INFO: No tasks are running which match the specified criteria.\r\n'), false);
+  assert.equal(await setup.openRgbRunning({ execFile: (c, a, o, cb) => cb(new Error('nope')) }), false);
 });

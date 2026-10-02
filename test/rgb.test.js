@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const net = require('net');
 const {
   OpenRgbClient, colorFor, encodePacket, decodeHeader,
-  encodeUpdateLeds, parseControllerData, packColor,
+  encodeUpdateLeds, encodeUpdateMode, parseControllerData, packColor,
   PACKET, OUR_PROTOCOL, HEADER_SIZE,
 } = require('../src/main/rgb');
 
@@ -68,7 +68,7 @@ test('an UPDATELEDS payload carries its own size, the count, then one colour eac
 
 // Serialise a controller the way OpenRGB does, so the parser is tested against
 // something built independently of it rather than against its own output.
-function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2, numZones = 1, version = OUR_PROTOCOL } = {}) {
+function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2, numZones = 1, version = OUR_PROTOCOL, activeMode = 0, colorMode = 1, colors } = {}) {
   const parts = [];
   const u16 = v => { const b = Buffer.alloc(2); b.writeUInt16LE(v, 0); parts.push(b); };
   const u32 = v => { const b = Buffer.alloc(4); b.writeUInt32LE(v, 0); parts.push(b); };
@@ -85,7 +85,7 @@ function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2
   str('HID: /dev/x');  // location
 
   u16(numModes);
-  u32(0);              // active mode
+  u32(activeMode);     // active mode
   for (let i = 0; i < numModes; i++) {
     str(`Mode ${i}`);
     i32(-1);           // value
@@ -96,7 +96,7 @@ function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2
     u32(50);           // speed
     if (version >= 3) u32(100);               // brightness
     u32(0);            // direction
-    u32(1);            // color mode
+    u32(colorMode);    // color mode
     u16(1); u32(0x00112233);                  // one mode colour
   }
 
@@ -111,7 +111,7 @@ function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2
   u16(numLeds);
   for (let i = 0; i < numLeds; i++) { str(`LED ${i}`); u32(0); }
   u16(numLeds);
-  for (let i = 0; i < numLeds; i++) u32(0);
+  for (let i = 0; i < numLeds; i++) u32(colors ? colors[i] : 0);
 
   const out = Buffer.concat(parts);
   out.writeUInt32LE(out.length, 0);
@@ -120,7 +120,8 @@ function buildControllerData({ name = 'Fake Keyboard', numLeds = 3, numModes = 2
 
 test('parseControllerData walks the struct and finds the name and LED count', () => {
   const data = buildControllerData({ name: 'Corsair K95', numLeds: 110, numModes: 7, numZones: 3 });
-  assert.deepEqual(parseControllerData(data, 3), { name: 'Corsair K95', numLeds: 110 });
+  const { name, numLeds } = parseControllerData(data, 3);
+  assert.deepEqual({ name, numLeds }, { name: 'Corsair K95', numLeds: 110 });
 });
 
 test('parseControllerData handles the older protocols with different mode fields', () => {
@@ -128,7 +129,8 @@ test('parseControllerData handles the older protocols with different mode fields
   // everything after the modes.
   for (const version of [0, 1, 2, 3]) {
     const data = buildControllerData({ name: `v${version}`, numLeds: 8, version });
-    assert.deepEqual(parseControllerData(data, version), { name: `v${version}`, numLeds: 8 }, `protocol ${version}`);
+    const { name, numLeds } = parseControllerData(data, version);
+    assert.deepEqual({ name, numLeds }, { name: `v${version}`, numLeds: 8 }, `protocol ${version}`);
   }
 });
 
@@ -357,4 +359,80 @@ test('a burst of mood changes does not open a pile of connections', async t => {
   assert.equal(rgb.seen.filter(p => p.packetId === PACKET.SET_CLIENT_NAME).length, 3);
   const updates = rgb.seen.filter(p => p.packetId === PACKET.RGBCONTROLLER_UPDATELEDS);
   assert.deepEqual([...updates.at(-1).data.subarray(6, 10)], [0, 0, 1, 0], 'the last colour asked for is the one left on');
+});
+
+// ------------------------------------------------------------------ handing the lighting back
+
+test('parseControllerData keeps the active mode exactly as sent, and per-LED colours with it', () => {
+  const data = buildControllerData({ numLeds: 2, numModes: 3, activeMode: 1, colors: [0x0000ff, 0x00ff00] });
+  const { saved } = parseControllerData(data, 3);
+  assert.equal(saved.mode, 1);
+  assert.deepEqual(saved.colors, [0x0000ff, 0x00ff00]);
+  // The bytes are mode 1's struct, name first, ready for UPDATEMODE.
+  const bytes = Buffer.from(saved.modeBytes, 'base64');
+  assert.equal(bytes.toString('utf8', 2, 2 + bytes.readUInt16LE(0) - 1), 'Mode 1');
+});
+
+test('a hardware effect keeps its mode but not LED colours, which it would paint over', () => {
+  const { saved } = parseControllerData(buildControllerData({ colorMode: 2 }), 3);
+  assert.equal(saved.colors, null);
+  assert.ok(saved.modeBytes.length > 0);
+});
+
+test('the real Corsair DDR4 reply yields a mode to put back', () => {
+  const data = require('fs').readFileSync(require('path').join(__dirname, 'fixtures', 'openrgb-corsair-dram-v3.bin'));
+  const { saved } = parseControllerData(data, 3);
+  assert.ok(saved && saved.mode >= 0 && saved.modeBytes, 'found the active mode');
+});
+
+test('UPDATEMODE is its own size, the index, then the mode bytes untouched', () => {
+  const data = encodeUpdateMode(4, Buffer.from([9, 8, 7]).toString('base64'));
+  assert.equal(data.readUInt32LE(0), data.length);
+  assert.equal(data.readInt32LE(4), 4);
+  assert.deepEqual([...data.subarray(8)], [9, 8, 7]);
+});
+
+test('restore hands each device its own mode and colours back, and skips a device that changed', async t => {
+  const before = [
+    { name: 'RAM', numLeds: 2, activeMode: 1, colors: [0x0000ff, 0x00ff00] },
+    { name: 'GPU', numLeds: 1, activeMode: 0, colorMode: 2 },
+  ];
+  const rgb = await fakeOpenRgb({ devices: before });
+  t.after(() => rgb.server.close());
+  const client = new OpenRgbClient({ port: rgb.port });
+
+  const painted = await client.setAll({ r: 255, g: 122, b: 92 });
+  assert.equal(painted.ok, true, painted.error);
+  const saved = painted.devices.map(({ id, name, saved }) => ({ id, name, saved }));
+  assert.equal(client.devices[0].saved, undefined, 'the snapshot is not sent to the panel');
+
+  const restored = await client.restore(saved);
+  assert.equal(restored.ok, true, restored.error);
+  await rgb.until(seen => seen.filter(p => p.packetId === PACKET.RGBCONTROLLER_UPDATEMODE).length === 2, 'both modes to come back');
+
+  const modes = rgb.seen.filter(p => p.packetId === PACKET.RGBCONTROLLER_UPDATEMODE);
+  assert.deepEqual(modes.map(p => [p.deviceId, p.data.readInt32LE(4)]), [[0, 1], [1, 0]]);
+  // The mode bytes go back exactly as they were read.
+  assert.equal(modes[0].data.subarray(8).toString('base64'), saved[0].saved.modeBytes);
+  // RAM was per-LED: its own colours return after its mode. GPU ran an effect: no colours.
+  const ledsAfter = rgb.seen.slice(rgb.seen.indexOf(modes[0])).filter(p => p.packetId === PACKET.RGBCONTROLLER_UPDATELEDS);
+  assert.deepEqual(ledsAfter.map(p => p.deviceId), [0]);
+  assert.deepEqual([...ledsAfter[0].data.subarray(6, 14)], [0xff, 0, 0, 0, 0, 0xff, 0, 0]);
+});
+
+test('restore leaves alone a device that is no longer the one it saved', async t => {
+  const rgb = await fakeOpenRgb({ devices: [{ name: 'Keyboard', numLeds: 2 }] });
+  t.after(() => rgb.server.close());
+  const client = new OpenRgbClient({ port: rgb.port });
+  const { devices } = await client.probe();
+  const saved = [{ id: 0, name: 'RAM', saved: { mode: 0, modeBytes: 'AAAA', colors: null } }];
+  const r = await client.restore(saved);
+  assert.equal(r.ok, true, r.error);
+  assert.equal(devices[0].name, 'Keyboard');
+  assert.equal(rgb.seen.some(p => p.packetId === PACKET.RGBCONTROLLER_UPDATEMODE), false, "the RAM's mode never reached the keyboard");
+});
+
+test('restore with nothing saved does not even connect', async () => {
+  const r = await new OpenRgbClient({ port: 1 }).restore(null);
+  assert.equal(r.ok, true);
 });

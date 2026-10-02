@@ -44,6 +44,7 @@
     $('loginToggle').disabled = !state.packaged;
     $('loginNote').hidden = state.packaged;
     $('notifyToggle').checked = !!state.settings.notifications;
+    $('recapToggle').checked = state.settings.recap !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     $('worktreeToggle').checked = !!state.settings.worktrees;
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
@@ -81,6 +82,7 @@
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
+  $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
   $('reloadSkinsBtn').addEventListener('click', async () => { state.skins = await api.reloadSkins(); renderSkins(); SB.toast(`${state.skins.length} skins loaded`); });
   $('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));
@@ -375,7 +377,8 @@
   };
   $('rgbEnabled').addEventListener('change', e => (e.target.checked
     ? rgbBusy('starting', () => api.setRgb({ enabled: true }))
-    : api.setRgb({ enabled: false }).then(renderRgb)));
+    // Off hides the status line, so a failed hand-back is said out loud.
+    : api.setRgb({ enabled: false }).then(v => { renderRgb(v); if (v.error) SB.toast(v.error, { ms: 6000 }); })));
   $('rgbTest').addEventListener('click', () => rgbBusy('starting', api.testRgb));
   $('rgbInstall').addEventListener('click', () => rgbBusy(null, api.installOpenRgb));
 
