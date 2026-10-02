@@ -155,7 +155,8 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **A bar along the bottom:** Shellby, Chat, Toolbox, Routines, Health and History, labeled, with the current screen lit up.
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings has section links that stay on screen as you scroll.
-- **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter, resumable history, a tray menu, notifications, auto-updates and [custom skins](docs/SKINS.md).
+- **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter, resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).
+- **Updates are a button:** **Settings → About** shows what version he's on and whether a new one is waiting, with **Restart and update** when it has downloaded. The tray menu has the same button, and he checks on his own in the background.
 
 ## 🔒 You stay in control
 

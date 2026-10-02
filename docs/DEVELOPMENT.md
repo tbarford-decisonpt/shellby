@@ -43,6 +43,7 @@ npm start
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
 | `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
 | `node scripts/e2e-voice.js` | His voice and his little habits with the fake CLI: Quiet says nothing at all, Normal puts words in his bubble (and clears them), the bubble never clips or resizes his window, he remarks on a test run and a push, each idle habit plays, he keeps quiet on guard, a health warning outranks him, and he's the same crab after a restart |
+| `node scripts/e2e-updates.js` | The update button with a scripted updater (`SHELLBY_FAKE_UPDATE=1`, `=fail` or `=current`): the download and its progress, "Restart and update" and the dot on the gear, the toast, the route the tray and the notification take, and a failed check offering another go |
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, the badge on Health in the bottom bar, screenshots |
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
@@ -110,6 +111,7 @@ src/main/        Electron main process
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
+  updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), and the service tying them together
   streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Updating is a button now
+- **Settings → About tells you where you stand:** the version you're on, whether a new one is waiting, and a progress bar while it downloads. When it has landed, **Restart and update** installs it and brings Shellby back — no more closing him twice to find out there was an update at all.
+- **Check for updates** is there too, for when you don't want to wait for the six-hourly check. A failed check says why (offline, rate-limited) instead of going quiet.
+- **The same button is in the tray menu**, so you never have to open the panel for it, and a dot on the ⚙ gear says an update is waiting from whatever screen you're on. The "update ready" notification now takes you straight to it.
+- Quitting Shellby still installs a downloaded update, exactly as before.
+
 ### When something goes wrong
 - **Report a problem**, in his right-click menu, opens a GitHub issue with the facts already filled in: his version, your Windows build, whether Claude Code was found, and the last lines of his log. Your home folder is shortened to `~` and anything token-shaped is cut out before you ever see it, and nothing is sent anywhere until you've read it and pressed submit.
 - **He keeps a log** now, in `logs/` inside his data folder. Until now a crash took him off the desktop with nothing written down at all.

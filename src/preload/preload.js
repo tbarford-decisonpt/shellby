@@ -166,6 +166,10 @@ contextBridge.exposeInMainWorld('shellby', {
   copyCard: invoke('card:copy'),
   revealCard: fire('card:reveal'),
 
+  // updates
+  checkUpdates: invoke('updates:check'),
+  installUpdate: invoke('updates:install'),
+
   // routines
   listRoutines: invoke('routines:list'),
   saveRoutine: invoke('routines:save'),
@@ -190,6 +194,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onView: on('panel:view'),
   onSkin: on('skin'),
   onCalm: on('panel:calm'), // unfocused or locked: pause the decorative animation
-  onUpdateReady: on('update-ready'),
+  onUpdates: on('updates'),
+  onJump: on('panel:jump'),
   onDemo: on('demo'),
 });

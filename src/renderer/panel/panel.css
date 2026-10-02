@@ -513,6 +513,15 @@ select.field option { background: var(--reef); }
 .facts dt { color: var(--sand-faint); }
 .facts dd { margin: 0; font-family: var(--font-mono); font-size: 11.5px; font-stretch: 88%; overflow: hidden; text-overflow: ellipsis; }
 
+/* the update row under the version facts */
+.update { margin: 0 0 12px; padding: 10px 11px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
+.update.ready { border-color: var(--glass); }
+.update-head { display: flex; align-items: center; gap: 10px; }
+.update-head .ext-status { flex: 1; min-width: 0; margin: 0 !important; }
+.update-head .slim-btn { flex: none; }
+.update-bar { height: 4px; margin-top: 9px; border-radius: 2px; background: var(--reef-3); overflow: hidden; }
+.update-bar i { display: block; height: 100%; border-radius: 2px; background: var(--glass); transition: width .3s linear; }
+
 /* ================================================================ history */
 .history-list { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 5px; }
 .history-item { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); transition: border-color .15s; }

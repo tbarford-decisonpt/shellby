@@ -40,6 +40,7 @@ const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
 const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
+const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -119,7 +120,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -281,8 +282,6 @@ function watchIdleCost() {
   for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
   for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
 }
-
-
 
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
@@ -1438,6 +1437,7 @@ function registerIpc() {
       cwd: CAPTURE ? `${demoHome}\\Downloads` : currentCwd(),
       home: CAPTURE ? demoHome : os.homedir(),
       packaged: app.isPackaged,
+      updates: updateView(),
       registryUrl: registryUrl(),
       startView: (() => { const v = startView; startView = null; return v; })(),
     };
@@ -1814,6 +1814,10 @@ function registerIpc() {
     return statusLineView();
   });
 
+  // ---- updates
+  ipcMain.handle('updates:check', () => (updates ? updates.check() : updateView()));
+  ipcMain.handle('updates:install', () => !!updates?.install());
+
   // ---- XP and levels
   ipcMain.handle('xp:get', () => xpView());
 
@@ -2026,6 +2030,17 @@ function setFolder(dir) {
 
 // ================================================================ tray + menu
 
+// One line in the tray for whatever the updater is up to: the fastest route to
+// "restart and update" without opening the panel at all.
+function updateMenuItem() {
+  const view = updateView();
+  const label = updateLabel(view);
+  if (!label) return null;
+  if (view.state === 'ready') return { label, click: () => updates.install() };
+  if (view.state === 'downloading') return { label, enabled: false };
+  return { label, enabled: view.state !== 'checking', click: () => { updates.check(); showUpdateSetting(); } };
+}
+
 function buildMenu() {
   const agg = manager?.aggregate;
   const claude = !config.get('crabOnly'); // just-the-crab mode has no tasks, toolbox or routines
@@ -2039,6 +2054,7 @@ function buildMenu() {
     focusMenu(),
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
+    updateMenuItem(),
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
     { label: 'Reset position', click: resetCritterPos },
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
@@ -2113,22 +2129,50 @@ function quit() {
 // ================================================================ updates
 
 function setupUpdates() {
-  if (!app.isPackaged) return;
-  try {
-    const { autoUpdater } = require('electron-updater');
-    autoUpdater.logger = null;
-    autoUpdater.autoInstallOnAppQuit = true;
-    // Offline, no releases yet, rate-limited: none of it matters to the user.
-    autoUpdater.on('error', err => console.warn('[shellby] update check failed:', err.message.split('\n')[0]));
-    autoUpdater.on('update-downloaded', info => {
-      send(panel, 'update-ready', info.version);
-      notify('Shellby update ready', `Version ${info.version} installs when you quit Shellby.`);
-    });
-    autoUpdater.checkForUpdates().catch(() => {});
-    setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
-  } catch (e) {
-    console.warn('[shellby] updater unavailable:', e.message);
+  // Dev runs can walk the whole sequence without a release behind it:
+  // SHELLBY_FAKE_UPDATE=1 (or =fail, =current) npm start
+  const fake = !app.isPackaged && process.env.SHELLBY_FAKE_UPDATE;
+  let updater = fake ? fakeUpdater({ mode: fake === '1' ? 'ok' : fake }) : null;
+  if (app.isPackaged) {
+    try {
+      ({ autoUpdater: updater } = require('electron-updater'));
+      updater.logger = null;
+      updater.autoInstallOnAppQuit = true; // quitting still installs whatever he already fetched
+    } catch (e) {
+      console.warn('[shellby] updater unavailable:', e.message);
+    }
   }
+  updates = new Updates({
+    updater,
+    version: app.getVersion(),
+    prepare: () => { app.isQuitting = true; manager?.closeAll(); },
+  });
+  updates.on('changed', view => {
+    // Offline, no releases yet, rate-limited: it goes to the log and to the
+    // Settings row, never to a dialog you have to dismiss.
+    if (view.state === 'error') console.warn('[shellby] update check failed:', view.error);
+    send(panel, 'updates', view);
+  });
+  updates.on('ready', view => notify(
+    'Shellby update ready',
+    `Version ${view.version} is downloaded. Click to install it now, or it installs when you quit.`,
+    showUpdateSetting,
+  ));
+  updates.start();
+}
+
+const updateView = () => {
+  if (updates) return updates.view();
+  const off = { state: 'off', version: null, percent: 0, error: null, checkedAt: null, current: app.getVersion(), busy: false };
+  // Screenshots show the row as installed users mostly see it, not as a dev run.
+  return CAPTURE ? { ...off, state: 'current', checkedAt: Date.now() } : off;
+};
+
+/** Settings, scrolled to the update button: where the tray item and the notification both point. */
+function showUpdateSetting() {
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'settings');
+  send(panel, 'panel:jump', 'About');
 }
 
 // ================================================================ boot

@@ -80,6 +80,58 @@
   $('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));
   $('dataBtn').addEventListener('click', () => api.openDataFolder());
 
+  // ------------------------------------------------------------ updates
+
+  const UPDATE_STATUS = {
+    checking: () => 'Looking for a new version…',
+    downloading: u => `Downloading ${u.version ? `v${u.version}` : 'the update'}…`,
+    ready: u => `Version ${u.version} is downloaded and ready.`,
+    current: u => `You're on the latest version${u.checkedAt ? `, checked ${SB.relTime(u.checkedAt)}` : ''}.`,
+    error: u => u.error || "Couldn't check for updates.",
+    idle: () => 'Shellby updates himself from GitHub Releases.',
+    off: () => 'Updates run in the installed app.',
+  };
+  const UPDATE_BUTTON = { checking: () => 'Checking…', downloading: u => `${u.percent}%`, ready: () => 'Restart and update' };
+
+  function renderUpdates() {
+    const u = state.updates;
+    const ready = u?.state === 'ready';
+    // The gear carries the news from any screen, so this part runs even when
+    // Settings is nowhere in sight.
+    $('updateDot').hidden = !ready;
+    $('settingsBtn').title = ready ? `Settings — update ${u.version} is ready` : 'Settings';
+    const row = $('updateRow');
+    row.hidden = !u;
+    if (!u) return;
+    row.classList.toggle('ready', ready);
+    const status = $('updateStatus');
+    status.textContent = (UPDATE_STATUS[u.state] || UPDATE_STATUS.idle)(u);
+    status.classList.toggle('bad', u.state === 'error');
+    status.classList.toggle('ok', ready);
+    const btn = $('updateBtn');
+    // A dev run (npm start) has no updater at all; a button there would lie.
+    btn.hidden = u.state === 'off';
+    btn.textContent = (UPDATE_BUTTON[u.state] || (() => 'Check for updates'))(u);
+    btn.classList.toggle('primary', ready);
+    btn.classList.toggle('ghost', !ready);
+    btn.disabled = !!u.busy;
+    $('updateBar').hidden = u.state !== 'downloading';
+    $('updateBar').firstElementChild.style.width = `${u.percent}%`;
+  }
+  SB.renderUpdates = renderUpdates;
+
+  $('updateBtn').addEventListener('click', async () => {
+    const u = state.updates || {};
+    if (u.state === 'ready') return void api.installUpdate();
+    // Optimistic, so the button reacts before the network does; the live
+    // 'updates' events in boot.js correct it either way.
+    state.updates = { ...u, state: 'checking', error: null, busy: true };
+    renderUpdates();
+    const after = await api.checkUpdates();
+    if (after.state === 'current') SB.toast(`v${after.current} is the latest version.`);
+    if (after.state === 'error') SB.toast(`Couldn't check for updates: ${after.error}`, { ms: 5000 });
+  });
+
   // hotkey recorder
   const hotkeyBtn = $('hotkeyBtn');
   let recording = false;
@@ -188,7 +240,7 @@
     if (v.state !== 'ours' && was === 'ours') SB.toast('Removed from your status line.');
   });
 
-  SB.views.settings = { render: () => { renderSettings(); api.getExternal().then(renderExternal); api.getStatusLine().then(renderStatusLine); api.getPlugin().then(renderPlugin); } };
+  SB.views.settings = { render: () => { renderSettings(); renderUpdates(); api.getExternal().then(renderExternal); api.getStatusLine().then(renderStatusLine); api.getPlugin().then(renderPlugin); } };
 
   // ------------------------------------------------------------ history
 

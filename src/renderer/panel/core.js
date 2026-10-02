@@ -7,7 +7,7 @@ const SB = window.SB = {
   Sprite: window.ShellbySprite,
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
-    view: 'chat', version: '', packaged: false,
+    view: 'chat', version: '', packaged: false, updates: null,
     toolbox: null, pinned: [], learned: [], routines: [],
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,

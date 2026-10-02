@@ -46,15 +46,6 @@
   });
   api.onFocusInput(() => { if (state.view === 'chat') $('input').focus(); });
   api.onView(v => SB.setView(v));
-  api.onSkin(({ skin, outfit }) => {
-    state.skin = skin;
-    state.outfit = outfit;
-    SB.renderCrabs();
-    for (const tab of state.tabs.values()) for (const lane of tab.lanes.values()) lane.el.querySelector('.lane-crab')?.replaceChildren(SB.helperSprite(lane.index));
-    if (state.view === 'settings') SB.renderSkins();
-    if (state.view === 'wardrobe') SB.views.wardrobe.render();
-    SB.refreshHealthCrab?.();
-  });
   // Nobody is looking: pause what's only there to be looked at. `deep` (the
   // screen is locked) stops the lot; otherwise the spinners and progress that
   // say work is happening keep going. See watchIdleCost in main.js.
@@ -76,7 +67,16 @@
   api.onUnlocked(e => SB.onUnlocked(e));
   api.onCollected(items => SB.onCollected(items));
   api.onPackInstalled(r => SB.onPackInstalled(r));
-  api.onUpdateReady(v => SB.toast(`Update ${v} will install when you quit.`, { ms: 6000 }));
+  api.onUpdates(view => {
+    const wasReady = state.updates?.state === 'ready';
+    state.updates = view;
+    SB.renderUpdates();
+    // Say it once, when it lands, with the restart a click away.
+    if (view.state === 'ready' && !wasReady) {
+      SB.toast(`Update ${view.version} is ready.`, { ms: 8000, action: 'Restart and update', onAction: () => api.installUpdate() });
+    }
+  });
+  api.onJump(nav => SB.jumpToSettingByName(nav));
   // `npm run screenshots` drives the UI with scripted data (see src/main/capture.js).
   api.onDemo(demo => {
     for (const tab of state.tabs.values()) tab.destroy();
@@ -107,8 +107,9 @@
     Object.assign(state, {
       settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,
       home: b.home, version: b.version, packaged: b.packaged, cwd: b.cwd, registryUrl: b.registryUrl,
-      toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines,
+      toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates,
     });
+    SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);
     SB.applyCrabOnly();
