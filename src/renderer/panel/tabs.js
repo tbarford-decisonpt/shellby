@@ -432,7 +432,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden) return SB.closeMenus();
+      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden || !$('usageMenu').hidden) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return api.hide();
@@ -693,6 +693,40 @@
     set($('meter5h'), u.fiveHour, '5-hour');
     set($('meter7d'), u.sevenDay, 'Weekly');
   };
+
+  // Who used it: each window's split by tab and routine, or by project (src/main/spend.js).
+  let usageBy = 'task';
+  const pctText = share => (share >= 0.995 ? '100%' : share < 0.01 ? '<1%' : `${Math.round(share * 100)}%`);
+
+  function usageRows(windows) {
+    const toggle = h('div', { class: 'usage-by', role: 'group', 'aria-label': 'Group by' },
+      ...[['task', 'Tabs & routines'], ['project', 'Projects']].map(([by, text]) => h('button', {
+        type: 'button', class: `usage-by-btn${usageBy === by ? ' on' : ''}`, 'aria-pressed': String(usageBy === by), text,
+        onclick: () => { usageBy = by; $('usageMenu').replaceChildren(...usageRows(windows)); $('usageMenu').querySelector('.usage-by-btn.on')?.focus(); },
+      })));
+    const sections = windows.map(w => {
+      const rows = usageBy === 'project' ? w.projects : w.tasks;
+      const head = h('div', { class: 'menu-label', text: `${w.name}${w.pct != null ? ` · ${w.pct}% used` : ''}` });
+      if (!rows.length) return [head, h('div', { class: 'usage-empty', text: 'Nothing Shellby ran in this window yet.' })];
+      return [head, ...rows.map(r => h('div', { class: `usage-row kind-${r.kind}`, title: r.detail ? SB.tildify(r.detail) : r.label },
+        h('span', { class: 'usage-name', text: r.kind === 'routine' ? `⟳ ${r.label}` : r.label }),
+        h('span', { class: 'usage-bar' }, h('span', { class: 'usage-bar-fill', style: `transform: scaleX(${r.share})` })),
+        h('span', { class: 'usage-share', text: pctText(r.share) })))];
+    });
+    return [toggle, ...sections.flat(), h('div', { class: 'menu-sep' }),
+      h('div', { class: 'usage-empty', text: 'Shares of what Shellby ran. Claude used elsewhere fills the meters too.' })];
+  }
+
+  let usageLoading = false;
+  $('usage').addEventListener('click', async () => {
+    const menu = $('usageMenu');
+    if (!menu.hidden) return SB.closeMenus();
+    if (usageLoading) return; // a second click while it loads would open and shut it at once
+    usageLoading = true;
+    const windows = await api.usageBreakdown().catch(() => []);
+    usageLoading = false;
+    SB.openMenu(menu, $('usage'), () => usageRows(windows));
+  });
 
   // The plan's usage limit: Shellby naps until it resets, then says so (src/main/limits.js).
   api.onLimit(e => {

@@ -43,6 +43,7 @@ const DEFAULTS = {
   syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
   autonomousAcknowledged: false,
   lastUsage: null,
+  spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
   openTabs: [],       // history ids of conversations open as tabs
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
   learnedTricks: [],  // recently discovered skills/agents/commands

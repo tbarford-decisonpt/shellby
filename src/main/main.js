@@ -41,6 +41,7 @@ const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
+const spend = require('./spend');
 const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
@@ -583,6 +584,8 @@ function createManager() {
       await beginTurn(tab);
     },
   });
+
+  manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
 
   manager.on('item', (tabId, item, tab) => {
     if (item.kind === 'usage') {
@@ -1605,6 +1608,60 @@ function onUsage(u) {
   }
 }
 
+// ---- who used it (spend.js): the meters' breakdown by tab, routine and project
+
+let spendLedger = null;
+let spendSaveTimer = null;
+
+function spendSource(tab) {
+  const dir = tab.worktree?.originalCwd || tab.session?.cwd || '';
+  const full = dir ? path.resolve(dir) : null;
+  const pk = full?.toLowerCase() || null;
+  const project = !full ? null : pk === path.resolve(os.homedir()).toLowerCase() ? 'Home folder' : path.basename(full);
+  if (tab.routineId) {
+    // A routine renamed or deleted mid-run still counts as that routine.
+    const routine = routines().find(r => r.id === tab.routineId);
+    return { key: `r:${tab.routineId}`, kind: 'routine', label: routine?.name || tab.title.replace(/^⟳\s*/, ''), project, pk };
+  }
+  return { key: `t:${tab.id}`, kind: 'tab', label: tab.title, project, pk };
+}
+
+function onSpend(s, tab) {
+  spendLedger ??= spend.normalize(config.get('spendLedger'));
+  spendLedger = spend.record(spendLedger, spendSource(tab), s.weight, Date.now());
+  // Calls come in bursts; one write when they settle is plenty.
+  if (!spendSaveTimer) spendSaveTimer = setTimeout(saveSpend, 5000);
+}
+
+function saveSpend() {
+  clearTimeout(spendSaveTimer);
+  spendSaveTimer = null;
+  if (spendLedger) config.set({ spendLedger });
+}
+
+// Settings as the panel sees them: the ledger stays in main (usageBreakdown).
+function panelSettings() {
+  const { spendLedger: _ledger, ...rest } = config.data;
+  return rest;
+}
+
+function usageBreakdown() {
+  spendLedger ??= spend.normalize(config.get('spendLedger'));
+  const u = config.get('lastUsage') || {};
+  const now = Date.now();
+  return Object.keys(spend.WINDOW_MS).map(window => {
+    const resetsAt = u[window]?.resetsAt;
+    const since = spend.windowStart(window, resetsAt, now);
+    // A reading from before the last reset says nothing about this window.
+    const current = Number.isFinite(resetsAt) && resetsAt > now;
+    return {
+      window, name: limits.windowName(window), pct: current ? u[window].pct ?? null : null,
+      tasks: spend.breakdown(spendLedger, since, 'task'),
+      projects: spend.breakdown(spendLedger, since, 'project'),
+    };
+  });
+}
+
 function scheduleLimit() {
   clearTimeout(limitTimer);
   const w = limitWait();
@@ -1983,7 +2040,7 @@ function registerIpc() {
     }
     return {
       version: app.getVersion(),
-      settings: CAPTURE ? { ...config.data, onboarded: true, mode: 'ask', recentFolders: [], lastUsage: null } : config.data,
+      settings: CAPTURE ? { ...panelSettings(), onboarded: true, mode: 'ask', recentFolders: [], lastUsage: null } : panelSettings(),
       status: claudeStatus,
       skin: activeSkin(),
       skins: allSkins(),
@@ -2216,7 +2273,7 @@ function registerIpc() {
       critter.setBounds({ x: b.x + b.width - width, y: b.y + b.height - size.height, width, height: size.height });
       broadcastSkin();
     }
-    return { settings: config.data, hotkeyError };
+    return { settings: panelSettings(), hotkeyError };
   });
   ipcMain.handle('folder:pick', async () => {
     const r = await dialog.showOpenDialog(panel, { title: 'Where should Shellby work?', defaultPath: currentCwd(), properties: ['openDirectory'] });
@@ -2320,6 +2377,7 @@ function registerIpc() {
   });
 
   // ---- routines
+  ipcMain.handle('usage:breakdown', () => usageBreakdown());
   ipcMain.handle('routines:list', () => routinesView());
   ipcMain.handle('routines:save', (_e, input) => {
     const existing = routines().find(r => r.id === input?.id);
@@ -2742,7 +2800,7 @@ function setFolder(dir) {
   config.set({ cwd: dir });
   config.addRecentFolder(dir);
   toolbox?.rescan();
-  return { cwd: dir, settings: config.data };
+  return { cwd: dir, settings: panelSettings() };
 }
 
 // ================================================================ tray + menu
@@ -3009,6 +3067,7 @@ app.on('will-quit', () => {
   statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
   globalShortcut.unregisterAll();
   scheduler?.stop();
+  if (config) saveSpend();
   toolbox?.stop();
   health?.stop();
   external?.stop();

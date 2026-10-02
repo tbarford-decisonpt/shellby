@@ -19,7 +19,9 @@ let pending = null;   // { requestId, onAnswer }
 let slow = null;
 
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
-const text = t => out({ type: 'assistant', message: { content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
+let messages = 0;
+// Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
+const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
 
 readline.createInterface({ input: process.stdin }).on('line', line => {

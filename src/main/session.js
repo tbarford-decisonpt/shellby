@@ -5,7 +5,8 @@ const { spawn, execFile } = require('child_process');
 const readline = require('readline');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
-const { parseLine } = require('./stream');
+const { parseLine, spendFrom } = require('./stream');
+const { weightOf } = require('./spend');
 const { subscriptionEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
@@ -25,6 +26,7 @@ class ClaudeSession extends EventEmitter {
     this.interrupting = false;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
+    this.counted = new Map();      // message id -> weight already reported as 'spend'
   }
 
   buildArgs() {
@@ -56,6 +58,7 @@ class ClaudeSession extends EventEmitter {
         this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
       }
       for (const item of items) this.handle(item);
+      this.countSpend(spendFrom(event));
     });
     proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
     proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
@@ -108,6 +111,21 @@ class ClaudeSession extends EventEmitter {
         return;
     }
     this.emit('item', item);
+  }
+
+  // What each API call cost, for the usage-by-project ledger (spend.js). One
+  // call arrives as several events repeating its usage, so only growth past
+  // what was already reported counts. Kept off the 'item' stream so it never
+  // lands in the transcript.
+  countSpend(s) {
+    if (!s) return;
+    const weight = weightOf(s.usage, s.model);
+    const before = this.counted.get(s.messageId) || 0;
+    if (weight <= before) return;
+    this.counted.delete(s.messageId);
+    this.counted.set(s.messageId, weight);
+    if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
+    this.emit('spend', { messageId: s.messageId, weight: weight - before });
   }
 
   // Keeps a live map of subagents so permission prompts can be attributed and

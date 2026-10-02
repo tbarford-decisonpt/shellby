@@ -214,6 +214,7 @@ contextBridge.exposeInMainWorld('shellby', {
   saveRoutine: invoke('routines:save'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
+  usageBreakdown: invoke('usage:breakdown'),
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
