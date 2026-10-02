@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### When something goes wrong
+- **Report a problem**, in his right-click menu, opens a GitHub issue with the facts already filled in: his version, your Windows build, whether Claude Code was found, and the last lines of his log. Your home folder is shortened to `~` and anything token-shaped is cut out before you ever see it, and nothing is sent anywhere until you've read it and pressed submit.
+- **He keeps a log** now, in `logs/` inside his data folder. Until now a crash took him off the desktop with nothing written down at all.
+- **A stray error no longer makes him disappear.** He carries on, says so once, and writes it down.
+
+### Kinder to your battery
+- **He stops animating when you aren't looking.** The drifting light and his breathing stop while the panel isn't the window in front, and everything in both windows stops while your screen is locked — together, about half of what he costs when idle. Spinners and progress carry on, so a task that's still running still looks like one.
+
+### Claude Code in an unusual place
+- **Find it myself…** in setup, for when Shellby can't find Claude Code where it normally lives: a portable copy, another drive, a locked-down work PC. He runs the file once to check it really is Claude Code before keeping it, so a wrong pick tells you straight away instead of becoming a task that won't start.
+
+### Fixed
+- **A crash can no longer empty your conversation list.** The index of past conversations was written in place, so losing power partway through left a half-written file — which reads as empty and took every conversation out of History with it. It goes through a temp file and a rename now, the way settings always have. A half-written last line in a transcript is skipped rather than discarding the rest of it.
+- **Old transcripts no longer pile up for ever.** History keeps 200 conversations, but the ones that fell off the end left their transcripts in the data folder with nothing listing them and nothing able to delete them. They go with their entry now, and any left behind by older builds are cleared on the next start.
+- **A full or locked disk can't take him down mid-task.** Antivirus holding a file, a cloud-synced folder, a disk with nothing left: writing a transcript line is allowed to fail quietly and go to the log, instead of throwing in the middle of a running task.
+- **A very long conversation stays quick.** An overnight run with thousands of steps kept every one of them on screen for the life of the window. The oldest are hidden now, with a line saying how many — and the whole conversation is still in History.
+
+### Under the hood
+- The ten end-to-end checks that need no Claude account now run in CI, so the panel and the desktop crab are covered by something other than a person remembering to run them. ESLint runs there too.
+- `scripts/idle-cost.js` measures what he costs while doing nothing, per process, with the numbers written down in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#what-he-costs-when-idle).
+
+
 ## 0.18.0: he has a voice
 
 ### New
