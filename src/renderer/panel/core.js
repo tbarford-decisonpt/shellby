@@ -155,6 +155,13 @@ SB.renderMarkdownInto = (el, text) => {
   return el;
 };
 
+// Links are inert <a data-href> (the window blocks navigation and popups), in
+// rendered markdown and in panel.html alike; main only opens https.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-href]');
+  if (a) { e.preventDefault(); SB.api.openExternal(a.dataset.href); }
+});
+
 // ------------------------------------------------------------------ views
 
 SB.views = {};  // name -> { render?() }

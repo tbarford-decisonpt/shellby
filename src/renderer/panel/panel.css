@@ -261,7 +261,9 @@ body:not([data-home]) .msg.assistant::before,
 .msg.assistant ul, .msg.assistant ol { margin: .2em 0 .7em; padding-left: 1.3em; }
 .msg.assistant li { margin: .15em 0; }
 .msg.assistant li::marker { color: var(--coral); }
-.msg.assistant a { color: var(--glass); text-underline-offset: 2px; }
+/* every link in the panel: rendered markdown (chat, plans, helper summaries) and panel.html */
+a[data-href] { color: var(--glass); text-underline-offset: 2px; }
+a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .msg.assistant code { background: var(--reef-2); padding: 1px 5px; border-radius: 4px; }
 .msg.assistant pre {
   margin: .4em 0 .8em; padding: 10px 12px; overflow-x: auto;

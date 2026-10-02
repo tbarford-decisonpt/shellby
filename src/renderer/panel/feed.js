@@ -37,11 +37,7 @@
       this.trimmedNotice = null;
       this.el = h('section', { class: 'feed', role: 'tabpanel', 'aria-live': 'polite', dataset: { tab: id } });
       this.empty = SB.$('emptyTemplate').content.firstElementChild.cloneNode(true);
-      this.el.append(this.empty);
-      this.el.addEventListener('click', e => {
-        const a = e.target.closest('a[data-href]');
-        if (a) { e.preventDefault(); api.openExternal(a.dataset.href); }
-      });
+      this.el.append(this.empty); // its links open through core.js's a[data-href] handler
       this.renderEmpty();
 
       // Keep the newest message in view. `stuck` = you're at the bottom; the

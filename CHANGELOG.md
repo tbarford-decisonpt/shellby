@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.1
+
+### Fixed
+- The **OpenRGB** link in Settings was dark blue, hard to read and did nothing when clicked. It now matches the sea-glass links in chat and opens openrgb.org in your browser. Links in a helper's summary got the same color fix.
+
 ## 0.20.0: he gets out more
 
 ### Claude can drive him now
