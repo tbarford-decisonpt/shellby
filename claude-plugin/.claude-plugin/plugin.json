@@ -5,6 +5,6 @@
   "author": { "name": "x-salmon" },
   "homepage": "https://github.com/x-salmon/shellby",
   "repository": "https://github.com/x-salmon/shellby",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "keywords": ["desktop", "pet", "companion", "notifications", "windows", "hooks"]
 }

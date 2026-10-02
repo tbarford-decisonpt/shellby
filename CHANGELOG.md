@@ -27,6 +27,10 @@
 - The eleven end-to-end checks that need no Claude account now run in CI, so the panel and the desktop crab are covered by something other than a person remembering to run them. ESLint runs there too.
 - `scripts/idle-cost.js` measures what he costs while doing nothing, per process, with the numbers written down in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#what-he-costs-when-idle).
 
+### Open source, properly
+- **He's GPL-3.0 now**, up from MIT. Nothing changes if you just use him, and he's still free and still yours to read and change. The difference is for anyone handing out a changed version: it has to stay open under the same licence, so fixes come back to everyone instead of vanishing into a closed-source app. Everything up to and including 0.18.0 stays MIT.
+- **The name and the crab are reserved**, in the new [TRADEMARK.md](TRADEMARK.md). Fork the code all you like — give your crab its own name, so nobody downloads a fork thinking it's this one.
+- **Pull requests now say what licence they land under**, in [CONTRIBUTING.md](CONTRIBUTING.md), so the project can keep being licensed as a whole.
 
 ## 0.18.0: he has a voice
 
