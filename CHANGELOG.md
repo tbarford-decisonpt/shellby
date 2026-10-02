@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.0: hooks and memory in the Toolbox
+
+### New
+- **Toolbox → Hooks.** Every hook Claude Code will run, in one list: yours (`~/.claude/settings.json`), the project's (shared and just-you) and the ones your plugins bring. Add a hook, edit one or remove it right there: pick when it runs, which tools it's for and the command. Each change asks first in the isolated confirmation window, shows the exact command and where it's saved, and keeps a backup of the settings file. Plugin hooks are listed but left to the plugin.
+- **Toolbox → Memory.** The `CLAUDE.md` files that load for the folder you're in: yours, the project's, `CLAUDE.local.md`, your and the project's `.claude/rules/`, and any `CLAUDE.md` in the folders above. Open one in a plain editor, or create yours or the project's if it isn't there yet. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves. If the file changed somewhere else since you opened it, Shellby won't save over it and offers to reload. Windows line endings stay as they were.
+
 ## 0.22.2
 
 ### Fixed

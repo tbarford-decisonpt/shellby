@@ -194,4 +194,4 @@ function writeJson(file, obj) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { PLUGIN_ID, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };
+module.exports = { writeJson, PLUGIN_ID, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };

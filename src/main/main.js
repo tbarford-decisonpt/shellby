@@ -15,7 +15,8 @@ const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = requ
 const { loadSkins } = require('./skins');
 const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
-const { ToolboxWatcher } = require('./toolbox');
+const { ToolboxWatcher, samePath } = require('./toolbox');
+const claudeSetup = require('./claude-setup');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
@@ -1419,6 +1420,81 @@ function createToolbox() {
   toolbox.start();
 }
 
+// ================================================================ hooks and memory
+
+// Isolated dev/test runs get a pretend home, and only folders inside it count as
+// projects, so they never read above it or edit the real ~/.claude or a real repo.
+const setupHome = () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-home') : os.homedir());
+const setupCwd = () => {
+  const c = currentCwd();
+  // Working in the home folder means "no project": say so with the same home.
+  if (samePath(c, os.homedir())) return setupHome();
+  const rel = path.relative(setupHome(), c);
+  const insideHome = !rel.startsWith('..') && !path.isAbsolute(rel);
+  return ISOLATED && !insideHome ? setupHome() : c;
+};
+const setupWhere = () => ({ home: setupHome(), cwd: setupCwd(), ceiling: ISOLATED ? setupHome() : null });
+const setupView = () => claudeSetup.scanSetup({ ...setupWhere(), plugins: toolbox?.plugins() || [] });
+const HOOK_WHERE = { user: 'your settings, so every project', project: "this project's shared settings", local: 'your own settings for this project' };
+const isAt = at => !!at && typeof at === 'object' && isStr(at.event) && Number.isInteger(at.group) && Number.isInteger(at.hook);
+// The confirm window wraps text and folds runs of spaces, so spell long runs out:
+// padding can't push the end of a command out of sight.
+const showCommand = c => c.replace(/ {3,}/g, m => ` [${m.length} spaces] `);
+let hookAsking = false; // one hook question at a time, so a flood of them can't be clicked through
+
+// Hooks run programs on their own in every session, so each change is asked in
+// the isolated confirm window, never decided by the panel. The panel names a
+// scope (user / project / local), never a path; `at`+`fp` pin the hook it saw.
+async function confirmAndChangeHook({ scope, at, fp, hook: input } = {}, remove = false) {
+  const fail = error => ({ ok: false, error, setup: setupView() });
+  if (hookAsking) return fail('Answer the open question about a hook first.');
+  const target = claudeSetup.settingsFiles(setupWhere()).find(f => f.scope === scope);
+  if (!target) return fail("Shellby can't save hooks there.");
+  const editing = isAt(at) && isStr(fp);
+  if (remove && !editing) return fail('Pick a hook to remove.');
+  const existing = editing ? setupView().hooks.find(h => h.source === scope && h.fp === fp) : null;
+  if (editing && !existing) return { ...fail('That hook changed on disk since this list was made. Rescan and try again.'), conflict: true };
+  // Only command hooks are edited here (prompt and http hooks can only be removed).
+  if (editing && !remove && !existing.editable) return fail("Shellby can't edit that kind of hook. Open the file to change it.");
+  let hook = existing;
+  if (!remove) {
+    const v = claudeSetup.validateHook(input);
+    if (v.error) return fail(v.error);
+    hook = v.hook;
+  }
+
+  const when = claudeSetup.HOOK_EVENTS.find(e => e.name === hook.event)?.when || `on ${hook.event}`;
+  const matching = hook.matcher ? ` (matching ${hook.matcher})` : '';
+  const [title, label] = remove ? ['Remove this hook?', 'Remove it'] : editing ? ['Change this hook?', 'Save it'] : ['Add this hook?', 'Add it'];
+  // New commands are short and one line (validateHook), so the whole thing is shown.
+  // One being removed may be anything already in the file: shown in part, which is enough to recognise it.
+  const shown = remove && hook.command.length > 400 ? `${showCommand(hook.command.slice(0, 400))}… (+${hook.command.length - 400} more characters)` : showCommand(hook.command);
+  hookAsking = true;
+  let response;
+  try {
+    response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '🪝', danger: !remove, title,
+      message: remove
+        ? `Claude Code will stop running this ${when}${matching}.`
+        : `Claude Code will run this ${when}${matching}, in every session that reads ${HOOK_WHERE[scope]}.`,
+      detail: `${shown}\n\nIn ${target.file.replace(os.homedir(), '~')}`,
+      note: remove
+        ? 'A backup of the file is kept beside it.'
+        : "Hooks run with your Windows account's permissions and don't ask first. Only add commands you understand. A backup of the file is kept beside it.",
+      buttons: [{ label, style: remove ? 'primary' : 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+  } finally { hookAsking = false; }
+  if (response !== 0) return { ok: false, cancelled: true, setup: setupView() };
+
+  const change = remove ? s => claudeSetup.withoutHook(s, at)
+    : editing ? s => claudeSetup.replaceHook(s, at, hook)
+      : s => claudeSetup.withHook(s, hook);
+  let r;
+  try { r = claudeSetup.changeHooks(target.file, change, editing ? { at, fp } : null); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
+  if (r.ok) stat(remove ? 'hook-removed' : 'hook-saved');
+  return { ...r, setup: setupView() };
+}
+
 // ================================================================ skill shop
 
 function createShop() {
@@ -2305,6 +2381,31 @@ function registerIpc() {
     // Only reveal files the toolbox itself reported (never arbitrary paths from the renderer).
     const known = toolbox.current && ['skills', 'agents', 'commands'].some(k => toolbox.current[k].some(t => t.path === p));
     if (known) shell.showItemInFolder(p);
+  });
+
+  // ---- hooks and memory (Toolbox → Hooks / Memory)
+  // Memory paths are only ever ones a fresh scan lists, so the panel can't aim a write anywhere else.
+  const knownMemory = p => isStr(p) && claudeSetup.scanMemory(setupWhere()).find(m => samePath(m.path, p));
+  ipcMain.handle('setup:get', () => setupView());
+  ipcMain.handle('setup:read-memory', (_e, p) => {
+    const m = knownMemory(p);
+    return m ? claudeSetup.readMemory(m.path) : { ok: false, error: "Shellby doesn't edit that file." };
+  });
+  ipcMain.handle('setup:write-memory', (_e, { path: p, text, mtimeMs } = {}) => {
+    const m = knownMemory(p);
+    if (!m || typeof text !== 'string' || !Number.isFinite(mtimeMs)) return { ok: false, error: "Shellby doesn't edit that file." };
+    let r;
+    try { r = claudeSetup.writeMemory(m.path, text, mtimeMs); } catch { r = { ok: false, error: "Couldn't save that file." }; }
+    if (r.ok) stat('memory-saved');
+    return { ...r, setup: setupView() };
+  });
+  ipcMain.handle('setup:save-hook', (_e, req) => confirmAndChangeHook(req || {}, false));
+  ipcMain.handle('setup:remove-hook', (_e, req) => confirmAndChangeHook(req || {}, true));
+  ipcMain.on('setup:reveal', (_e, p) => {
+    if (!isStr(p)) return;
+    const s = setupView();
+    const hit = [...s.memory.filter(m => m.exists), ...s.hooks].find(x => samePath(x.path, p));
+    if (hit) shell.showItemInFolder(hit.path);
   });
 
   // ---- skill shop (Claude Code plugin marketplaces)

@@ -27,6 +27,7 @@ const SUITE = [
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names
+  'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode
 ];
