@@ -282,31 +282,6 @@ function watchIdleCost() {
   for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
 }
 
-// The critter window grows to the left to make room for helper crabs, keeping
-// Shellby himself anchored in place.
-function setCrewSlots(n) {
-  n = Math.min(n, MAX_CREW_SHOWN);
-  if (n === crewShown) return;
-  const apply = slots => {
-    const b = critter.getBounds();
-    const base = critterBaseSize();
-    const width = base.width + crewExtra(slots);
-    crewShown = slots;
-    critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
-  };
-  clearTimeout(shrinkTimer);
-  motion?.stop(); // a throw or stroll would put back the old left edge
-  if (n > crewShown) apply(n);
-  else shrinkTimer = setTimeout(() => apply(n), 1100); // let helpers walk home first
-}
-
-function saveCritterPos() {
-  const b = critter.getBounds();
-  const c = clampToDisplays(b, workAreas());
-  if (c.x !== b.x || c.y !== b.y) placeCritter(c.x, c.y);
-  // Persist Shellby's own spot, not the crew-widened window's left edge.
-  config.set({ critterPos: { x: c.x + crewExtra(), y: c.y } });
-}
 
 
 // The critter window grows to the left to make room for helper crabs, keeping

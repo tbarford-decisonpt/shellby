@@ -27,6 +27,10 @@ jobs:
       - run: npm test
       # The release is the one build real people install: the UI checks run here
       # too, not just on pull requests.
+      # npm ci on a clean runner doesn't always leave Electron's binary behind
+      # (it's a postinstall download, not a package file), and these checks launch
+      # the real app. Idempotent: it exits immediately when the binary is there.
+      - run: node node_modules/electron/install.js
       - run: npm run e2e:ci
 
       # Create the draft release first. electron-builder uploads installer,
