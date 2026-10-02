@@ -556,15 +556,15 @@
       <p class="small muted ext-lede">Shellby can send a line to your phone when he needs permission, when a long task finishes, when your usage limit resets, or when something is overheating. One pasted address — no account, no app to install, and nothing goes through a server of ours.</p>
       <label class="toggle"><input type="checkbox" id="chEnabled"><span class="switch"></span>Send me these when I'm not at the desk</label>
       <div class="ch-body" id="chBody" hidden>
-        <label class="field"><span>Where</span>
-          <select id="chProvider"></select>
+        <label class="field-label"><span>Where</span>
+          <select class="field" id="chProvider"></select>
         </label>
         <p class="small muted" id="chHint"></p>
-        <label class="field"><span id="chTargetLabel">Topic</span>
-          <input type="text" id="chTarget" spellcheck="false" autocomplete="off">
+        <label class="field-label"><span id="chTargetLabel">Topic</span>
+          <input type="text" class="field" id="chTarget" spellcheck="false" autocomplete="off">
         </label>
-        <label class="field" id="chSecretField" hidden><span id="chSecretLabel">Token</span>
-          <input type="password" id="chSecret" spellcheck="false" autocomplete="off" placeholder="unchanged">
+        <label class="field-label" id="chSecretField" hidden><span id="chSecretLabel">Token</span>
+          <input type="password" class="field" id="chSecret" spellcheck="false" autocomplete="off" placeholder="unchanged">
         </label>
         <p class="small muted">Which ones:</p>
         <div class="ch-events" id="chEvents"></div>

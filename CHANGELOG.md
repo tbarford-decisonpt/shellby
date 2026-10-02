@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.2
+
+### Fixed
+- The **Where**, topic and token boxes under **Settings → Tell me when I'm away** were plain white Windows controls. They now look like every other field in Shellby.
+
 ## 0.20.1
 
 ### Fixed
