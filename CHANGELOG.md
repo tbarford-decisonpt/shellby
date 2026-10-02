@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.2
+
+### Fixed
+- **A tab's own copy started in the right subfolder only when Windows spelled the path out in full.** Under a shortened folder name (like `C:\Users\RUNNER~1\`), a conversation started in a subfolder of a git project landed at the top of its copy instead. Shellby now asks git where the folder sits in the project rather than comparing the two spellings. This failed the checks for 0.22.0 and 0.22.1, so neither was published. 0.22.2 is the first release with everything from both.
+
 ## 0.22.1: the lights come on for slow boards
 
 ### Fixed

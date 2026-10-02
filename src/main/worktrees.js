@@ -31,6 +31,10 @@ function git(cwd, args, { timeout = 30000 } = {}) {
   });
 }
 
+// The full spelling of a path that exists (8.3 short names expanded), or the
+// path as given if it doesn't yet.
+const longPath = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+
 const firstLine = s => String(s || '').trim().split('\n').filter(Boolean).pop() || '';
 
 /** A branch name from a task's title: "Fix the login bug!" -> "shellby/fix-the-login-bug-1a2b3c". Pure. */
@@ -47,11 +51,15 @@ function branchName(title, suffix = crypto.randomBytes(3).toString('hex')) {
  */
 async function create(dir, { home, title }) {
   if (typeof dir !== 'string' || !path.isAbsolute(dir) || !fs.existsSync(dir)) return null;
-  const top = await git(dir, ['rev-parse', '--show-toplevel'], { timeout: 5000 });
-  if (!top.ok || !top.out.trim()) return null;
-  const root = path.resolve(top.out.trim());
+  // Where the folder sits inside the repo, in git's own words: comparing paths
+  // here would trip over 8.3 short names (C:\Users\RUNNER~1\...) that git
+  // has already expanded.
+  const top = await git(dir, ['rev-parse', '--show-toplevel', '--show-prefix'], { timeout: 5000 });
+  const [topLine, prefix = ''] = top.ok ? top.out.split(/\r?\n/) : [];
+  if (!topLine?.trim()) return null;
+  const root = path.resolve(topLine.trim());
   // A tab that already works inside a worktree of ours gets no copy of a copy.
-  if ((root + path.sep).toLowerCase().startsWith(path.resolve(home).toLowerCase() + path.sep)) return null;
+  if ((longPath(root) + path.sep).toLowerCase().startsWith(longPath(home).toLowerCase() + path.sep)) return null;
   const head = await git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000 });
   if (!head.ok) return { ok: false, error: 'That repository has no commits yet, so there is nothing to copy.' };
   const base = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
@@ -64,8 +72,8 @@ async function create(dir, { home, title }) {
   fs.mkdirSync(path.dirname(wt), { recursive: true });
   const add = await git(root, ['worktree', 'add', '-b', branch, wt, 'HEAD'], { timeout: 120000 });
   if (!add.ok) return { ok: false, error: firstLine(add.error) || "git couldn't make the copy." };
-  const rel = path.relative(root, path.resolve(dir));
-  const cwd = rel && !rel.startsWith('..') ? path.join(wt, rel) : wt;
+  const rel = prefix.trim().replace(/\/$/, '');
+  const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
   return { ok: true, worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base: base.out.trim(), root, originalCwd: path.resolve(dir) } };
 }
 
