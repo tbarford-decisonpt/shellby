@@ -31,6 +31,7 @@ const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
 const { CritterMotion } = require('./motion');
+const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt } = require('./gitinfo');
@@ -50,6 +51,10 @@ const BASE_PX = 4;                 // screen pixels per sprite pixel at scale 1
 const PANEL_DEFAULT = { width: 460, height: 700 };
 const MAX_CREW_SHOWN = 5;          // helper crabs drawn on the desktop
 const SLEEP_AFTER_MS = 3 * 60 * 1000;
+// A task running this long earns a "bear with me" (dev/e2e may shorten it).
+const LONG_TASK_MS = Number(!process.env.SHELLBY_LONG_TASK_MS ? 0 : process.env.SHELLBY_LONG_TASK_MS) || 3 * 60 * 1000;
+const CREW_WORTH_MENTIONING = 3;         // helpers out before he remarks on the crowd
+const IDLE_BIT_CHANCE = 0.25;            // ...of each idle tick becoming a little habit
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
 const CARD_MAX_BYTES = 8 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -91,6 +96,9 @@ let crewShown = 0;                 // helper slots currently allotted in the cri
 let shrinkTimer = null;
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let motion = null;                 // throws and strolls (see motion.js)
+let said = null;                   // { text, occasion, until } — the line in his bubble (see voice.js)
+let longTaskTimer = null;          // a task still running after LONG_TASK_MS gets a "still going…"
+const fileTouches = new Map();     // file path -> times written this run, for his "this file again?"
 let healthMood = null;
 let levelUpAt = 1;
 let lastXp = null;                 // { amount, at } for the status line's "+25 XP"
@@ -184,12 +192,20 @@ function createMotion() {
       sendToBottom(critter);
     },
   });
-  // Now and then an idle, awake Shellby takes a few steps near his spot.
+  // Now and then an idle, awake Shellby takes a few steps near his spot, or
+  // finds something to do with his claws, or says something to nobody.
   setInterval(() => {
-    if (CAPTURE || config.get('wander') === false || motion.busy || dragging || crewShown) return;
-    if (lastStatus.state !== 'idle' || focus.guarding(config.get('focus'), Date.now()) || Math.random() > 0.35) return;
-    const home = config.get('critterPos');
-    if (home) motion.stroll(home.x - crewExtra());
+    if (CAPTURE || motion.busy || dragging || crewShown) return;
+    if (lastStatus.state !== 'idle' || focus.guarding(config.get('focus'), Date.now())) return;
+    // A stroll moves his window; the little habits don't, so 'wander' only
+    // governs the strolling, as it always has.
+    if (config.get('wander') !== false && Math.random() < 0.35) {
+      const home = config.get('critterPos');
+      if (home) return void motion.stroll(home.x - crewExtra());
+    }
+    if (voice.chatterOf(config.get('chatter')) === 'quiet' || Math.random() > IDLE_BIT_CHANCE) return;
+    send(critter, 'critter:bit', { bit: voice.pickBit(voice.normalize(config.get('voice')).seed) });
+    speak('idle');
   }, 15000);
 }
 
@@ -323,8 +339,67 @@ function broadcastWardrobe() {
 
 function flashState(state, ms = 7000) {
   flash = { state, until: Date.now() + ms };
+  // Every mood he already had, now with something to say. A trick he taught
+  // himself and a new trophy are rare enough to jump the cooldowns; 'levelup'
+  // and the molt have no lines at all, because the bubble is already busy
+  // showing the level and the new shell.
+  speak(state, { force: state === 'learned' || state === 'unlocked' });
   refreshCritter();
   setTimeout(refreshCritter, ms + 50);
+}
+
+// ---------------------------------------------------------------- his voice
+
+// He reacts to what the work actually is, not just that work is happening: a
+// test run, a big write, the third visit to one file. The file tally is kept
+// here so voice.js stays pure.
+function onToolSpoken(item) {
+  if (CAPTURE || !config) return;
+  let touches = 0;
+  if (item.filePath) {
+    touches = (fileTouches.get(item.filePath) || 0) + 1;
+    fileTouches.set(item.filePath, touches);
+    if (fileTouches.size > 400) fileTouches.delete(fileTouches.keys().next().value);
+  }
+  const occasion = voice.occasionForTool(item.name, { command: item.detail, chars: item.writeChars || 0, touches });
+  if (occasion) speak(occasion);
+}
+
+// Shellby says something, if he has something to say and this is the moment for
+// it (see voice.js for the cooldowns). Held back while he guards your focus,
+// exactly like a notification that can wait, and never during screenshots.
+function speak(occasion, { force = false } = {}) {
+  if (CAPTURE || !config || !critter) return null;
+  if (focus.guarding(config.get('focus'), Date.now())) return null;
+  const now = Date.now();
+  const r = voice.say(config.get('voice'), occasion, now, { chatter: config.get('chatter'), force });
+  if (!r) return null;
+  config.set({ voice: r.state });
+  said = { text: r.text, occasion: r.occasion, until: r.until };
+  chirp(r.occasion);
+  refreshCritter();
+  setTimeout(refreshCritter, r.until - now + 50); // clear the bubble when it runs out
+  return said;
+}
+
+// A little blip, synthesized in the renderer (no audio files). Off by default,
+// and silent while he's on guard.
+function chirp(occasion) {
+  if (CAPTURE || !config?.get('sounds')) return;
+  if (focus.guarding(config.get('focus'), Date.now())) return;
+  send(critter, 'critter:chirp', { occasion });
+}
+
+// His seed (which decides his temperament) is made once, on first run. The gap
+// since he last ran is what tells him you've been away.
+function wakeVoice() {
+  if (CAPTURE || !config) return;
+  const now = Date.now();
+  const state = voice.normalize(config.get('voice'));
+  const seed = state.seed || randomUUID();
+  config.set({ voice: { ...state, seed, lastRunAt: now } });
+  const occasion = voice.absenceOccasion(state.lastRunAt, now) || voice.timeOccasion(now);
+  if (occasion) setTimeout(() => speak(occasion, { force: true }), 2500); // let him settle onto the desktop first
 }
 
 // Rolls every tab up into one mood: asking > working > flash > idle/sleeping.
@@ -345,6 +420,7 @@ function refreshCritter() {
   else if (limited && healthMood?.level !== 'critical') state = 'sleeping'; // naps until the limit resets
   else if (Date.now() - lastActivity > SLEEP_AFTER_MS && healthMood?.level !== 'critical') state = 'sleeping';
 
+  if (said && said.until <= Date.now()) said = null;
   send(critter, 'critter:state', {
     state,
     busy: agg.busy,
@@ -355,10 +431,26 @@ function refreshCritter() {
     ci: { failing: ci?.view().failing || 0 },
     focus: focusState(),
     limit: limited ? { resetsAt: limited.resetsAt } : null,
+    say: said,
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
+  const was = lastStatus;
   lastStatus = { state, busy: agg.busy, crew: agg.crew.length };
   refreshStatusLine();
+
+  // Remarks that belong to a change, not a state. lastStatus is already updated,
+  // so the refresh that speaking triggers can't fire these a second time.
+  if (agg.crew.length >= CREW_WORTH_MENTIONING) speak('crew');
+  if (state === 'working' && was.state !== 'working') {
+    speak('working');
+    // Armed when the task starts, never re-armed: a busy task refreshes this
+    // many times a second, and resetting the clock here would mean the one
+    // remark meant for a long task could only ever fire for a silent one.
+    clearTimeout(longTaskTimer);
+    longTaskTimer = setTimeout(() => { if (lastStatus.state === 'working') speak('longTask'); }, LONG_TASK_MS);
+  } else if (state !== 'working' && was.state === 'working') {
+    clearTimeout(longTaskTimer);
+  }
 
   clearTimeout(sleepTimer);
   if (state === 'idle') sleepTimer = setTimeout(refreshCritter, SLEEP_AFTER_MS - (Date.now() - lastActivity) + 100);
@@ -424,11 +516,15 @@ function createManager() {
       pendingCommands.set(item.id, { command: item.detail, project: dir && path.resolve(dir) !== path.resolve(os.homedir()) ? path.basename(dir) : null });
       if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
     }
+    if (item.kind === 'tool') onToolSpoken(item);
     if (item.kind === 'tool_result' && pendingCommands.has(item.id)) {
       const c = pendingCommands.get(item.id);
       pendingCommands.delete(item.id);
       const kind = !item.isError && classifyCommand(c.command);
-      if (kind) awardXp(kind, { project: c.project });
+      if (kind) {
+        awardXp(kind, { project: c.project });
+        speak(voice.occasionForCommand(kind));
+      }
     }
   });
   manager.on('tabs', summary => {
@@ -1352,7 +1448,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -1377,7 +1473,8 @@ function registerIpc() {
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds']) if (k in allowed) allowed[k] = !!allowed[k];
+    if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
     let hotkeyError = null;
@@ -1389,6 +1486,8 @@ function registerIpc() {
       }
     }
     config.set(allowed);
+    // Asked to hush, he stops mid-line rather than finishing it.
+    if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
     if ('mode' in allowed) manager.setMode(allowed.mode);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
     if ('skin' in allowed) broadcastSkin();
@@ -1619,8 +1718,16 @@ function registerIpc() {
   // ---- XP and levels
   ipcMain.handle('xp:get', () => xpView());
 
-  // Dev/e2e only: throw him, send him for a stroll, finish a focus session now.
+  // Dev/e2e only: throw him, send him for a stroll, finish a focus session now,
+  // make him say something or do one of his idle habits.
   if (!app.isPackaged && process.env.SHELLBY_MOTION_TEST === '1') {
+    ipcMain.handle('dev:say', (_e, occasion) => speak(String(occasion || ''), { force: true }));
+    ipcMain.handle('dev:bit', (_e, bit) => {
+      const chosen = voice.BITS.includes(bit) ? bit : voice.pickBit(voice.normalize(config.get('voice')).seed);
+      send(critter, 'critter:bit', { bit: chosen });
+      return chosen;
+    });
+    ipcMain.handle('dev:temperament', () => voice.temperamentOf(voice.normalize(config.get('voice')).seed));
     ipcMain.handle('dev:throw', (_e, { vx = 0, vy = 0 } = {}) => {
       const t = Date.now();
       return motion.release([{ x: 0, y: 0, t: t - 50 }, { x: vx * 0.05, y: vy * 0.05, t }]);
@@ -1966,6 +2073,9 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', reclamp);
 
   if (!config.get('onboarded')) showPanel({ focusInput: false });
+
+  // Says good morning, or notices you've been away for a few days.
+  wakeVoice();
 
   // A gallery link that launched us (or arrived while booting) runs now.
   booted = true;

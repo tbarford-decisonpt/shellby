@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { toItems, parseLine, describeTool } = require('../src/main/stream');
+const { toItems, parseLine, describeTool, writeChars } = require('../src/main/stream');
 
 test('init event yields the session id; hook chatter is dropped', () => {
   assert.deepEqual(toItems({ type: 'system', subtype: 'hook_started' }), []);
@@ -90,4 +90,31 @@ test('parseLine tolerates blank and non-JSON lines', () => {
   assert.equal(event, null);
   assert.equal(items[0].kind, 'log');
   assert.equal(parseLine('{"type":"result","is_error":false}').items[0].kind, 'result');
+});
+
+test('write tools carry the path and how much they write', () => {
+  const [item] = toItems({
+    type: 'assistant',
+    message: { content: [{ type: 'tool_use', id: 't1', name: 'Write', input: { file_path: 'a.js', content: 'hello' } }] },
+  });
+  assert.equal(item.filePath, 'a.js');
+  assert.equal(item.writeChars, 5);
+  // Non-write tools carry neither.
+  const [read] = toItems({
+    type: 'assistant',
+    message: { content: [{ type: 'tool_use', id: 't2', name: 'Read', input: { file_path: 'a.js' } }] },
+  });
+  assert.equal(read.filePath, undefined);
+  assert.equal(read.writeChars, undefined);
+});
+
+test('writeChars reads each write tool, and MultiEdit sums its edits', () => {
+  assert.equal(writeChars('Write', { content: 'abc' }), 3);
+  assert.equal(writeChars('Edit', { new_string: 'abcd' }), 4);
+  assert.equal(writeChars('NotebookEdit', { new_source: 'ab' }), 2);
+  assert.equal(writeChars('MultiEdit', { edits: [{ new_string: 'ab' }, { new_string: 'cde' }] }), 5);
+  assert.equal(writeChars('MultiEdit', { edits: 'nonsense' }), 0);
+  assert.equal(writeChars('Write', { content: 42 }), 0);
+  assert.equal(writeChars('Read', { file_path: 'a' }), 0);
+  assert.equal(writeChars('Write', null), 0);
 });

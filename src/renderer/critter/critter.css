@@ -306,3 +306,56 @@ html, body {
 .state-refreshed #bubble { background: #ffd23f; color: #3d2a00; animation: pulse .5s ease-in-out 4; }
 .state-refreshed #bubble::after { border-top-color: #ffd23f; }
 @keyframes stretch { 0% { transform: scale(1, .8) translateY(3px); } 50% { transform: scale(.94, 1.14) translateY(-3px); } 100% { transform: none; } }
+
+/* ---------- his own voice: words instead of a single glyph (src/main/voice.js) ----------
+   Words get a smaller face and may wrap to a second line. The bubble grows down
+   from its fixed top-left, so it never reaches the crab and the window never
+   has to resize. */
+.saying #bubble {
+  height: auto; min-height: 26px; max-width: 150px;
+  padding: 4px 8px;
+  font: 700 12px/1.25 "Pixelify Sans", monospace;
+  white-space: normal; text-align: center;
+  place-items: center;
+}
+/* The working bubble animates "..." after its text; a line of his own doesn't
+   need it, and some of them already end in an ellipsis. */
+.saying.state-working #bubbleText::after { content: none; animation: none; }
+
+/* ---------- idle habits: what he does with his claws when nothing's happening
+   (which one comes from src/main/voice.js; an unknown one simply does nothing) ---------- */
+body[class*="bit-"].state-idle #sprite { animation: none; }
+
+/* digs a little hole in your wallpaper */
+body.bit-dig .part-claw { animation: dig-claw .42s ease-in-out infinite; }
+body.bit-dig .part-body, body.bit-dig .part-shell { animation: dig-bob .42s ease-in-out infinite; }
+body.bit-dig [class*="part-legs"] { animation: leg .3s steps(1) infinite; }
+@keyframes dig-claw { 0%, 100% { transform: rotate(8deg) translateY(0); } 50% { transform: rotate(-26deg) translateY(3px); } }
+@keyframes dig-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1px); } }
+
+/* buffs his own shell, which he is quietly proud of */
+body.bit-polish .part-claw { animation: polish-claw .6s ease-in-out infinite; }
+body.bit-polish .part-shell { animation: polish-shine 1.2s ease-in-out infinite; }
+@keyframes polish-claw { 0%, 100% { transform: rotate(-30deg) translate(-2px, -4px); } 50% { transform: rotate(-44deg) translate(-5px, -6px); } }
+@keyframes polish-shine { 0%, 100% { filter: none; } 50% { filter: brightness(1.22); } }
+
+/* leans out and has a look at what you're up to */
+body.bit-peek .part-stalks, body.bit-peek .part-eyes { animation: peek-look 2.6s ease-in-out infinite; }
+body.bit-peek .part-body, body.bit-peek .part-shell { animation: peek-lean 2.6s ease-in-out infinite; }
+@keyframes peek-look { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-2px) translateY(-1px); } 65% { transform: translateX(2px) translateY(-1px); } }
+@keyframes peek-lean { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-4deg); } 65% { transform: rotate(4deg); } }
+
+/* a proper stretch, claws up */
+body.bit-stretch #sprite { animation: bit-stretch 2.6s cubic-bezier(.3, 1.3, .5, 1); }
+body.bit-stretch .part-claw { animation: bit-stretch-claw 2.6s ease-in-out; }
+body.bit-stretch .part-eyes { animation: none; transform: scaleY(.5); }
+@keyframes bit-stretch { 0%, 100% { transform: none; } 35% { transform: scale(1.04, 1.12) translateY(-4px); } 70% { transform: scale(1, .96) translateY(1px); } }
+@keyframes bit-stretch-claw { 0%, 100% { transform: none; } 35% { transform: rotate(-62deg) translateY(-3px); } }
+
+/* gives up and lies down for a moment */
+body.bit-flop #sprite { animation: flop 2.6s ease-in-out; }
+body.bit-flop .part-eyes { animation: flop-eyes 2.6s steps(1); }
+body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
+@keyframes flop { 0%, 100% { transform: none; } 25%, 75% { transform: rotate(-9deg) translateY(2px); } }
+@keyframes flop-eyes { 0%, 100% { transform: scaleY(1); } 20%, 80% { transform: scaleY(.1); } }
+@keyframes flop-claw { 0%, 100% { transform: none; } 25%, 75% { transform: rotate(14deg) translateY(2px); } }

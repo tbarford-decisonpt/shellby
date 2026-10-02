@@ -38,6 +38,8 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 - **On the wallpaper layer:** behind every window, and still there after <kbd>Win</kbd>+<kbd>D</kbd>.
 - **Shows you what's happening:** he scuttles while Claude works, raises a claw when it needs you, celebrates when it's done and naps when it's quiet.
+- **He has a voice:** a few words of his own in his bubble, about the work he's actually doing — *"fingers crossed"* at a test run, *"all green!"* when it passes, *"this file again?"* on the third visit. He says good morning, notices when you've been away, and mutters to himself when it's quiet. Dial him from **Quiet** to **Chatty** in **Settings → Look**, and he always hushes while guarding your focus.
+- **Little habits:** left alone he digs at your wallpaper, buffs his shell, peeks at what you're doing, stretches or flops over. Your crab also has one of four temperaments, picked once and kept, which colours what he says and what he gets up to.
 - **Drop files on him** to hand them to a task.
 - **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
 - **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, holds back the notifications that can wait, and takes a break with you when time's up.

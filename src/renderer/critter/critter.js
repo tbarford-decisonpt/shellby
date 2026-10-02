@@ -20,6 +20,7 @@ let health = null;
 let ciFailing = 0; // pull requests with red CI (src/main/github/ci.js)
 let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
+let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
 // The sign he holds up while CI is red.
 document.getElementById('ciSign').append(window.ShellbySprite.grid([
   'KKKKKKKK', 'KrrwwrrK', 'KwrrrrwK', 'KwwrrwwK', 'KwrrrrwK', 'KrrwwrrK', 'KKKKKKKK', '...pp...', '...pp...',
@@ -141,9 +142,13 @@ function bubbleFor() {
   if (limit && state === 'sleeping') return `⏳ ${timeLeft(limit.resetsAt)}`;
   if (focusing && state === 'idle') return `${focusing.phase === 'break' ? 'break ' : ''}${minutesLeft()}`;
   if (ciFailing && state === 'idle') return ciFailing > 1 ? `CI ✗${ciFailing}` : 'CI ✗';
+  // His own voice comes last of the things that mean something, and still beats
+  // the bare mood glyph it replaces.
+  if (saying()) return say.text;
   return BUBBLES[state] ?? '';
 }
-const bubbleOn = () => state in BUBBLES || (health && HEALTH_BUBBLE_STATES.has(state)) || ((ciFailing > 0 || !!focusing) && state === 'idle') || (!!limit && state === 'sleeping');
+const saying = () => !!say && say.until > Date.now();
+const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((ciFailing > 0 || !!focusing) && state === 'idle') || (!!limit && state === 'sleeping');
 const timeLeft = t => {
   const ms = Math.max(0, t - Date.now());
   if (ms >= 3600000) return `${Math.floor(ms / 3600000)}h${String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0')}`;
@@ -159,7 +164,7 @@ function paintBody() {
   document.body.className = [
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
-    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', ...flags,
+    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', ...flags,
   ].filter(Boolean).join(' ');
   bubbleText.textContent = dropping ? 'drop it!' : bubbleFor();
 }
@@ -170,6 +175,7 @@ api.onState(msg => {
   level = msg.level || level;
   ciFailing = msg.ci?.failing || 0;
   limit = msg.limit || null;
+  say = msg.say || null;
   const wasGuarding = focusing?.phase === 'focus';
   focusing = msg.focus || null;
   if (wasGuarding !== (focusing?.phase === 'focus')) drawSelf();
@@ -271,5 +277,27 @@ window.addEventListener('drop', e => {
 // (So does the usage-limit countdown while he naps.) A file held over him keeps "drop it!".
 setInterval(() => {
   if (molt || document.body.classList.contains('dropping')) return;
+  // A line that has run out takes the bubble down with it, without waiting for
+  // the next state push.
+  if (say && !saying()) { say = null; paintBody(); return; }
   if ((focusing && state === 'idle') || (limit && state === 'sleeping')) bubbleText.textContent = bubbleFor();
 }, 1000);
+
+// ---- idle habits: he digs, polishes his shell, peeks about, flops over.
+// Which habit it is comes from main (src/main/voice.js); the animation is one
+// class per habit in critter.css, so an unknown one simply does nothing.
+const BIT_MS = 2600;
+let bitTimer = null;
+let bit = null;
+api.onBit(msg => {
+  if (typeof msg?.bit !== 'string' || !/^[a-z]{2,12}$/.test(msg.bit)) return;
+  clearTimeout(bitTimer);
+  if (bit) flags.delete(`bit-${bit}`);
+  bit = msg.bit;
+  flags.add(`bit-${bit}`);
+  paintBody();
+  bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, BIT_MS);
+});
+
+// ---- a little chirp when he speaks (off by default; see chirp.js)
+api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));

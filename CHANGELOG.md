@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.18.0: he has a voice
+
+### New
+- **He says things.** The bubble that used to hold a single mark now holds a few words of his own: *"on it"* while he works, *"nailed it"* when it lands, *"uh oh"* when it doesn't. He never quotes Claude; the lines are all his.
+- **He reacts to what the work actually is,** not just that work is happening. A test run gets *"fingers crossed"* and passing tests *"all green!"*; a push that lands gets *"shipped it"*; a big write gets *"phew"*; the third visit to the same file gets *"this file again?"*. Three helpers out and he mentions the crowd; a task still going after three minutes gets *"bear with me"*.
+- **He notices the time and your absence.** A *"morning"* first thing, *"you too?"* in the small hours, and *"you're back!"* when Shellby hasn't run for a few days.
+- **Little habits when he's idle.** He digs a hole in your wallpaper, buffs his shell, leans out to peek at what you're doing, has a proper stretch, or flops over for a moment. They're separate from his strolls, which **Settings → Look → stroll** still governs.
+- **Your crab has a temperament.** Every install picks one of four — chipper, fussy, cocky or sleepy — from a seed made on first run, so it never changes on you. It adds lines of its own (a cocky crab says *"obviously"*) and shifts which idle habits he favours (a sleepy one flops more).
+- **A chirp when he speaks,** synthesized on the spot rather than shipped as audio files. **Off by default**, under **Settings → Look → Chirp when he speaks**.
+
+### How talkative he is
+**Settings → Look → Personality** has three settings, and **Normal** is the default:
+- **Quiet** is exactly the Shellby you had before: a single mark in the bubble, never a word.
+- **Normal** lets him say a few words about what he's up to, with at least 40 seconds between any two lines.
+- **Chatty** shortens that to 12 seconds and lets him mutter to himself when nothing's happening.
+
+He never speaks while he's guarding your focus, he never repeats a line while another one is unused, and anything that matters — a health warning, a red build, a countdown — still takes the bubble back off him.
+
+### Install and packaging
+- **winget manifests** for `winget install x-salmon.Shellby`, in [packaging/winget](packaging/winget). `winget` fetches with its own HTTP client, so it usually skips the SmartScreen dialog entirely, and it checks the installer's SHA-256 from the manifest. The first submission to `microsoft/winget-pkgs` is manual; every release after that is updated by the release workflow when a `WINGET_TOKEN` secret is set.
+- **Two free stopgaps for SmartScreen** written up in [docs/SIGNING.md](docs/SIGNING.md): submitting each build to Microsoft's file-submission form, and publishing to winget. Neither replaces code signing, and both are explained alongside what they don't fix.
+
 ## 0.17.0: Shellby's own life
 
 ### New

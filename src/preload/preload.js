@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onXp: on('critter:xp'),
     onMolt: on('critter:molt'),
     onMotion: on('critter:motion'),
+    onBit: on('critter:bit'),
+    onChirp: on('critter:chirp'),
     pet: fire('critter:pet'),
   },
 
@@ -123,7 +125,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onStreaks: on('streaks'),
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions

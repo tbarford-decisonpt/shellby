@@ -80,12 +80,23 @@ function writtenPath(name, input) {
   return typeof p === 'string' ? p : null;
 }
 
+/** How much text a write tool is about to put on disk (0 for anything else). */
+function writeChars(name, input) {
+  if (!WRITE_TOOLS.has(name) || !input) return 0;
+  if (name === 'MultiEdit') {
+    const edits = Array.isArray(input.edits) ? input.edits : [];
+    return edits.reduce((n, e) => n + String(e?.new_string ?? '').length, 0);
+  }
+  const text = input.content ?? input.new_string ?? input.new_source;
+  return typeof text === 'string' ? text.length : 0;
+}
+
 function toolItem(b, sub) {
   const input = b.input || {};
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
   const fp = writtenPath(b.name, input);
-  if (fp) item.filePath = fp;
+  if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); }
   if (AGENT_TOOLS.has(b.name)) {
     item.agent = {
       type: typeof input.subagent_type === 'string' ? input.subagent_type : 'general-purpose',
@@ -195,4 +206,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, WRITE_TOOLS, AGENT_TOOLS };
+module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS };
