@@ -22,6 +22,7 @@
       title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy,
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
       unread: !!summary.unread, saved: summary.saved ?? tab.saved, routineId: summary.routineId ?? tab.routineId,
+      worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
     });
     return tab;
   };
@@ -36,7 +37,7 @@
     input.value = tab.draft || '';
     autosize();
     renderAttachments();
-    applyFolderLabel(tab.cwd || state.cwd);
+    applyFolderLabel(tab.cwd || state.cwd, tab);
     syncBusyUi();
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
@@ -93,6 +94,8 @@
       if (next) SB.activate(next); else SB.newTab();
     }
     syncBusyUi();
+    const active = SB.activeTab();
+    if (active) applyFolderLabel(active.cwd || state.cwd, active); // a first message can move it into its own copy
     SB.renderTabStrip();
   };
 
@@ -429,7 +432,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden) return SB.closeMenus();
+      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return api.hide();
@@ -558,9 +561,18 @@
 
   // ------------------------------------------------------------ folder chip
 
-  function applyFolderLabel(cwd) {
-    $('folderLabel').textContent = SB.shortPath(cwd);
-    $('folderChip').title = `Working folder: ${cwd}`;
+  // A tab in its own copy (worktrees.js) still shows the project you know,
+  // with the branch beside it, rather than a path inside Shellby's folder.
+  function applyFolderLabel(cwd, tab = null) {
+    const w = tab?.worktree;
+    const shown = w?.originalCwd || cwd;
+    $('folderLabel').textContent = SB.shortPath(shown);
+    $('folderChip').title = w ? `Working folder: ${shown}\nThis conversation works in its own copy: ${cwd}` : `Working folder: ${cwd}`;
+    $('branchChip').hidden = !w;
+    if (w) {
+      $('branchLabel').textContent = w.branch.replace(/^shellby\//, '');
+      $('branchChip').title = `Its own copy, on branch ${w.branch} (from ${w.base})`;
+    }
   }
   SB.applyFolderLabel = applyFolderLabel;
 
@@ -598,6 +610,71 @@
       ...recents.map(d => h('button', { class: 'menu-item path', title: d, onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.setFolder(d)); } }, SB.tildify(d))),
     ];
   }));
+
+  // ------------------------------------------------------------ its own copy (worktrees.js)
+
+  $('branchChip').addEventListener('click', () => {
+    const tab = SB.activeTab();
+    const w = tab?.worktree;
+    if (!w) return;
+    const status = h('span', { class: 'mi-sub', text: 'Looking at the copy…' });
+    api.worktreeStatus(tab.id).then(s => {
+      if (!s?.ok) { status.textContent = s?.error || ''; return; }
+      const bits = [];
+      if (s.ahead) bits.push(`${s.ahead} commit${s.ahead === 1 ? '' : 's'}`);
+      if (s.uncommitted) bits.push(`${s.uncommitted} uncommitted file${s.uncommitted === 1 ? '' : 's'}`);
+      status.textContent = (bits.length ? `${bits.join(' and ')} not in ${w.base} yet.` : 'Nothing new in it yet.')
+        + (s.ignored?.length ? ` Ignored files (${s.ignored.slice(0, 3).join(', ')}${s.ignored.length > 3 ? '…' : ''}) go with the copy.` : '');
+    });
+    SB.openMenu($('branchMenu'), $('branchChip'), () => [
+      h('div', { class: 'menu-label', text: 'This conversation works in its own copy' }),
+      h('div', { class: 'menu-item branch-info' },
+        h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
+        h('span', {}, h('div', { class: 'mi-branch', text: w.branch }), h('div', { class: 'mi-sub', text: `from ${w.base}` }), status)),
+      h('div', { class: 'menu-sep' }),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
+        h('span', { class: 'mi-check', text: '↩' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home' }), h('div', { class: 'mi-sub', text: `Commit what's left, merge into ${w.base}, tidy the copy away` }))),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
+        h('span', { class: 'mi-check', text: '✕' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
+    ]);
+  });
+
+  async function bringHome(tab) {
+    if (tab.busy) return SB.toast('Let him finish first.');
+    SB.toast('Bringing it home…', { ms: 8000 });
+    const r = await api.bringWorktreeHome(tab.id);
+    if (r?.ok) {
+      await SB.closeTab(tab.id);
+      SB.toast(r.merged ? `Merged ${r.commits} commit${r.commits === 1 ? '' : 's'} into ${r.base}. The conversation is in History.` : 'Nothing new to merge, so the copy was just tidied away.', { ms: 6000 });
+      return;
+    }
+    if (r?.conflict) {
+      // Nothing was merged; the copy's own branch is the safe place to sort it out.
+      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
+        SB.activate(tab.id);
+        SB.send(`Merge ${tab.worktree.base} into this branch (git merge ${tab.worktree.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
+      } });
+      return;
+    }
+    SB.toast(r?.error || "Couldn't bring it home.", { ms: 8000 });
+  }
+
+  let discardArmed = null;
+  async function throwAway(tab) {
+    if (discardArmed !== tab.id) {
+      discardArmed = tab.id;
+      setTimeout(() => { if (discardArmed === tab.id) discardArmed = null; }, 6000);
+      SB.toast('Throw away everything this copy did? Its branch is deleted too.', { ms: 6000, action: 'Throw it away', onAction: () => throwAway(tab) });
+      return;
+    }
+    discardArmed = null;
+    const r = await api.discardWorktree(tab.id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't remove the copy.", { ms: 8000 });
+    await SB.closeTab(tab.id);
+    SB.toast('Thrown away. The conversation is still in History.');
+  }
 
   // ------------------------------------------------------------ usage meter
 

@@ -139,6 +139,13 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .folder-chip:hover { background: var(--reef); color: var(--sand); }
 .folder-chip svg { width: 14px; height: 14px; flex: none; }
 #folderLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.branch-chip { margin-left: -8px; color: var(--glass); }
+.branch-chip:hover { color: var(--glass); }
+#branchLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+.menu-item.branch-info { cursor: default; }
+.menu-item.branch-info:hover { background: none; }
+.menu-item.branch-info > span:last-child { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.mi-branch { font: 600 11.5px var(--font-mono); font-stretch: 88%; color: var(--glass); overflow-wrap: anywhere; }
 
 .usage { margin-left: auto; display: flex; gap: 10px; }
 .meter { display: flex; align-items: center; gap: 5px; color: var(--sand-faint); font: 600 10.5px var(--font-mono); }
@@ -334,6 +341,61 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* what a turn changed: the files, their diffs, and Undo */
+.changes {
+  margin: 4px 0 12px 16px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--reef);
+  animation: rise .2s var(--ease-out);
+}
+.changes > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 11px; font-size: 12.5px; color: var(--sand);
+}
+.changes > summary::-webkit-details-marker { display: none; }
+.changes > summary:hover { color: var(--sand); background: var(--line-soft); border-radius: var(--r); }
+.changes[open] > summary { border-bottom: 1px solid var(--line-soft); border-radius: var(--r) var(--r) 0 0; }
+.chg-icon { flex: none; width: 14px; font: 700 12px var(--font-mono); color: var(--glass); text-align: center; }
+.chg-title { font-weight: 700; }
+.chg-add, .chg-del { flex: none; font: 11px var(--font-mono); font-stretch: 85%; }
+.chg-add { color: var(--glass); }
+.chg-del { color: var(--coral); }
+.changes.undone { border-style: dashed; opacity: .75; }
+.changes.undone .chg-icon { color: var(--sand-faint); }
+.chg-files { list-style: none; margin: 0; padding: 4px 0; }
+.chg-file {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 3px 11px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12px; color: var(--sand-dim); text-align: left;
+}
+.chg-file:hover, .chg-file[aria-expanded="true"] { background: var(--line-soft); color: var(--sand); }
+.chg-file:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.chg-badge {
+  flex: none; width: 16px; border-radius: 3px; text-align: center;
+  font: 700 10px/16px var(--font-mono); color: var(--abyss); background: var(--sand-dim);
+}
+.chg-badge.s-A { background: var(--glass); }
+.chg-badge.s-D { background: var(--coral); }
+.chg-badge.s-M { background: var(--amber); }
+.chg-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font: 11.5px var(--font-mono); font-stretch: 88%; }
+.chg-bin { flex: none; font-size: 11px; color: var(--sand-faint); }
+.chg-diff { padding: 2px 11px 8px; }
+.chg-diff .warn { color: var(--amber); }
+.chg-more { margin: 0; padding: 0 11px 6px; }
+.chg-actions { display: flex; align-items: center; gap: 10px; padding: 6px 11px 9px; border-top: 1px solid var(--line-soft); }
+.chg-actions .btn.deny { border-color: var(--coral); color: var(--coral); }
+.diff {
+  margin: 0; max-height: 360px; overflow: auto;
+  background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+  font: 11px/1.55 var(--font-mono); font-stretch: 85%; color: var(--sand-dim);
+}
+.diff .dl { display: block; padding: 0 10px; white-space: pre; min-width: max-content; }
+.diff .dl.add { background: rgba(127, 214, 194, .12); color: #c9f2e7; }
+.diff .dl.del { background: rgba(255, 122, 92, .12); color: #ffc9bb; }
+.diff .dl.hunk { color: var(--glass); background: var(--line-soft); margin-top: 2px; }
+.diff .dl.meta { color: var(--sand-faint); font-style: italic; }
+
 /* approval card: Shellby holds up a sign */
 .ask {
   position: relative;
@@ -412,7 +474,17 @@ body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation:
 .composer { padding: 8px 12px 10px; border-top: 1px solid var(--line-soft); background: linear-gradient(rgba(7, 16, 18, 0), var(--abyss)); }
 .status { display: flex; align-items: center; gap: 9px; margin: 0 2px 8px; font-size: 12.5px; color: var(--sand-dim); min-width: 0; }
 .status-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.status-crab { width: 10px; height: 10px; flex: none; background: var(--coral); animation: scuttle .5s steps(2) infinite; box-shadow: 0 0 10px rgba(255, 122, 92, .6); }
+/* The working mark is the same mini shell as his gutter mark (--home-mark, set
+   by boot.js), scuttling. drop-shadow, not box-shadow, so the glow follows the
+   shell's outline instead of haloing its square box. Plain coral square until
+   the panel knows which shell he is in. */
+.status-crab {
+  width: 12px; height: 12px; flex: none;
+  background: var(--home-mark) center / contain no-repeat;
+  filter: drop-shadow(0 0 4px rgba(255, 122, 92, .6));
+  animation: scuttle .5s steps(2) infinite;
+}
+body:not([data-home]) .status-crab { width: 10px; height: 10px; background: var(--coral); }
 @keyframes scuttle { 0% { transform: translateX(0) } 100% { transform: translateX(4px) } }
 .stop-btn {
   display: inline-flex; align-items: center; gap: 6px;

@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld('shellby', {
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
+  changesDiff: invoke('changes:diff'),
+  undoChanges: invoke('changes:undo'),
+  worktreeStatus: invoke('worktree:status'),
+  bringWorktreeHome: invoke('worktree:home'),
+  discardWorktree: invoke('worktree:discard'),
 
   // history
   listSessions: invoke('session:list'),

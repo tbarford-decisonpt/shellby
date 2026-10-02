@@ -29,6 +29,9 @@ const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const crabtools = require('./crabtools');
 const clipath = require('./clipath');
 const channels = require('./channels');
+const { RemoteAnswers, deskOnlyReason } = require('./replies');
+const changes = require('./changes');
+const worktrees = require('./worktrees');
 const { ObsServer } = require('./obs');
 const { OpenRgbClient, colorFor } = require('./rgb');
 const openRgbSetup = require('./openrgb-setup');
@@ -130,7 +133,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 const claudePath = () => config?.get('claudePath') || null;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates;
-let obsServer, rgbClient, media, channelSecret;
+let obsServer, rgbClient, media, channelSecret, remote;
 let nowPlaying = null;        // { title, artist, app, playing } from the Windows media session
 let critter, panel, tray;
 let claudeStatus = null;
@@ -570,6 +573,15 @@ function createManager() {
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
     getEnv: () => github?.claudeEnv() || {},
+    prepareTurn: async tab => {
+      try {
+        await ensureWorktree(tab);
+      } catch (err) {
+        log.info(`worktree: ${err.message}`);
+        manager.note(tab.id, { kind: 'error', text: `Couldn't make this conversation its own copy, so it works in your checkout: ${err.message}` });
+      }
+      await beginTurn(tab);
+    },
   });
 
   manager.on('item', (tabId, item, tab) => {
@@ -584,6 +596,7 @@ function createManager() {
       return; // toolbox lists are large; the panel doesn't need them per tab
     }
     send(panel, 'tab:item', { tabId, item });
+    if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
@@ -614,6 +627,94 @@ function createManager() {
     if (s && agg.crew.length > s.maxCrew) stat('crew-size', { n: agg.crew.length });
     if (s && agg.busy > s.maxParallel) stat('parallel', { n: agg.busy });
   });
+}
+
+// ================================================================ what each turn changed (changes.js)
+
+// tabId -> the folder as it was when the turn began
+const turnStarts = new Map();
+// A big repo's first snapshot can take a while. Past this the turn goes ahead
+// without one rather than keep you waiting, and simply has no diff.
+const SNAPSHOT_WAIT_MS = 10000;
+
+function beginTurn(tab) {
+  turnStarts.delete(tab.id);
+  const cwd = tab.session?.cwd;
+  if (!cwd || CAPTURE) return null;
+  let late = false;
+  const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, snap); });
+  return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(); }, SNAPSHOT_WAIT_MS))]);
+}
+
+async function endTurn(tabId) {
+  const start = turnStarts.get(tabId);
+  turnStarts.delete(tabId);
+  if (!start) return;
+  try {
+    const summary = await changes.summarize(start, await changes.snapshot(start.root));
+    if (summary) manager.note(tabId, { kind: 'changes', ...summary });
+  } catch (err) {
+    log.info(`changes: ${err.message}`);
+  }
+}
+
+// ================================================================ a copy of the repo per tab (worktrees.js)
+
+const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
+
+// Before a tab's very first message: with the setting on and the folder in a
+// git repo, it moves into a copy of its own. Resumed conversations, and tabs
+// that have already started, stay where they are.
+function ensureWorktree(tab) {
+  // A turn stopped while its copy was being made, then sent again, waits for
+  // the same copy rather than making a second one.
+  if (!tab.worktreePending) tab.worktreePending = makeWorktree(tab).finally(() => { tab.worktreePending = null; });
+  return tab.worktreePending;
+}
+
+async function makeWorktree(tab) {
+  if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.worktree || tab.session.proc || tab.session.sessionId) return;
+  const made = await worktrees.create(tab.session.cwd, { home: worktreeHome(), title: tab.title });
+  if (!manager.tabs.has(tab.id)) { // closed while the copy was being made
+    if (made?.ok) worktrees.remove(made.worktree, { force: true });
+    return;
+  }
+  if (!made) return; // not a git repo: nothing to copy
+  if (!made.ok) {
+    manager.note(tab.id, { kind: 'error', text: `Working in your own checkout: ${made.error}` });
+    return;
+  }
+  tab.worktree = made.worktree;
+  tab.session.cwd = made.worktree.cwd;
+  history.update(tab.id, { cwd: made.worktree.cwd, worktree: made.worktree });
+  log.info(`worktree: ${made.worktree.branch} for ${path.basename(made.worktree.root)}`);
+  manager.changed();
+}
+
+// Done with the copy: the tab closes (its process has to be gone before
+// Windows lets the folder go), and its History entry points home again.
+async function retireWorktree(tabId, w, { force }) {
+  remote?.settleTab(tabId);
+  await manager.closeAndWait(tabId);
+  routineTabs.delete(tabId);
+  turnStarts.delete(tabId);
+  const removed = await worktrees.remove(w, { force });
+  // The conversation was Claude's in the copy's folder, and can't be resumed
+  // from another one: History keeps the transcript and starts afresh there.
+  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null });
+  return removed;
+}
+
+// What the renderer hands back about a diff block, and nothing else. It has to
+// be a change main reported in that tab's transcript (and, for one file's diff,
+// one of its files): the renderer can't point git at any repo or tree it likes.
+function changeRef(r) {
+  const tabId = isStr(r?.tabId) ? r.tabId : null;
+  if (!tabId) return null;
+  const reported = history.load(tabId).find(i => i.kind === 'changes' && i.root === r.root && i.before === r.before && i.after === r.after);
+  if (!reported) return null;
+  if (r.file != null && !reported.files?.some(f => f.path === r.file)) return null;
+  return { tabId, root: reported.root, before: reported.before, after: reported.after, ...(r.file != null ? { file: r.file } : {}) };
 }
 
 // ================================================================ streaks and nudges
@@ -744,7 +845,7 @@ function stat(event, payload) {
 
 function onPermission(tabId, item, tab) {
   wake();
-  tellChannel({ kind: 'asking', project: tab.title, message: `${item.label || ''} ${item.detail || ''}`.trim() });
+  askOnPhone(tabId, item, tab);
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
   if (item.toolName === 'AskUserQuestion') {
@@ -755,6 +856,7 @@ function onPermission(tabId, item, tab) {
 }
 
 function onResult(tabId, item, tab) {
+  endTurn(tabId);
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
@@ -765,7 +867,7 @@ function onResult(tabId, item, tab) {
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
     stat('task-completed');
     awardXp('task', { label: tab.title });
-    recordWork(tab.session?.cwd);
+    recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
   }
   if (!item.interrupted) {
     tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
@@ -807,7 +909,9 @@ function startTask(prompt, title, { mode = null, cwd = null } = {}) {
   if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
   try {
     const tabId = randomUUID();
-    openTab({ tabId, title, mode, ...(cwd ? { cwd } : {}) });
+    // His own errands work in your real checkout: a copy would start from the
+    // last commit, and "look over my changes" is about what isn't committed yet.
+    openTab({ tabId, title, mode, ...(cwd ? { cwd } : {}) }).noCopy = true;
     manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
     wake();
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
@@ -1071,16 +1175,63 @@ function saveChannelSecret(secret) {
   if (safeStorage.isEncryptionAvailable()) config.set({ channelSecret: safeStorage.encryptString(secret).toString('base64') });
 }
 
-/** Send one event, if the user asked for that kind. Never throws, never waits. */
-function tellChannel(event) {
-  if (!config) return;
+/**
+ * Send one event, if the user asked for that kind. Never throws, never waits.
+ * onSent(result, message) hears how it went, when it went at all.
+ */
+function tellChannel(event, onSent = () => {}) {
+  if (!config) return false;
   const settings = channelSettings();
-  if (!channels.shouldSend(event, settings, { focused: focus.guarding(config.get('focus'), Date.now()) })) return;
+  if (!channels.shouldSend(event, settings, { focused: focus.guarding(config.get('focus'), Date.now()) })) return false;
   const built = channels.buildRequest(settings, channelSecret, event);
-  if (built.error) { log.info(`channel: ${built.error}`); return; }
+  if (built.error) { log.info(`channel: ${built.error}`); return false; }
   channels.deliver(built.request)
-    .then(r => { if (!r.ok) log.info(`channel: ${r.error}`); })
-    .catch(() => {});
+    .then(r => { if (!r.ok) log.info(`channel: ${r.error}`); onSent(r, built.message); })
+    .catch(() => onSent({ ok: false }, built.message));
+  return true;
+}
+
+// A permission prompt goes to the phone, with Allow / Deny on it when you've
+// said it may and the prompt is one the phone is allowed to answer (replies.js).
+function askOnPhone(tabId, item, tab) {
+  const event = { kind: 'asking', project: tab.title, message: `${item.label || ''} ${item.detail || ''}`.trim() };
+  const settings = channelSettings();
+  if (!settings.replies || channels.replyProblem(settings, { hasSecret: !!channelSecret })) return tellChannel(event);
+  const deskOnly = deskOnlyReason(item);
+  if (deskOnly) return tellChannel({ ...event, deskOnly });
+  const nonce = remote.register({ tabId, requestId: item.requestId, provider: settings.provider });
+  const went = tellChannel({ ...event, reply: { nonce } }, (r, m) => {
+    if (r.ok) remote.sent(nonce, { data: r.data, text: `${m.emoji} ${m.title}\n${m.body}` });
+    else remote.forget(nonce);
+  });
+  if (!went) remote.forget(nonce);
+  return went;
+}
+
+// The one way a permission prompt gets answered, from the card or the phone.
+function answerPermission(tabId, requestId, decision, { message, answers, via } = {}) {
+  const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
+  if (pending) {
+    stat('permission-answered');
+    if (decision !== 'deny' && pending.runsCreated?.length) stat('created-script-approved');
+    if (decision !== 'deny' && pending.toolName === 'ExitPlanMode') stat('plan-approved');
+  }
+  return manager.respond(tabId, requestId, decision, message, answers, via);
+}
+
+function createRemote() {
+  remote = new RemoteAnswers({
+    getChannel: () => ({ settings: channelSettings(), secret: channelSecret }),
+    // Belt and braces: replies.js already refuses these, but the phone never
+    // gets to answer anything the card would have warned about.
+    onAnswer: (tabId, requestId, decision) => {
+      const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
+      if (!pending || deskOnlyReason(pending) || !['allow', 'deny'].includes(decision)) return false;
+      log.info(`replies: ${decision} from the phone for ${pending.toolName}`);
+      return answerPermission(tabId, requestId, decision, { via: 'phone' });
+    },
+    log: m => log.info(`replies: ${m}`),
+  });
 }
 
 function channelsView() {
@@ -1904,6 +2055,7 @@ function registerIpc() {
     manager.interrupt(tabId);
     manager.close(tabId);
     routineTabs.delete(tabId);
+    remote?.settleTab(tabId);
     return true;
   });
   // Dragging a tab along the strip. The order lives in the manager, and the
@@ -1929,17 +2081,62 @@ function registerIpc() {
   ipcMain.on('task:stop', (_e, tabId) => { if (isStr(tabId)) manager.interrupt(tabId); });
   ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
     if (!isStr(tabId) || !isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
-    const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
-    if (pending) {
-      stat('permission-answered');
-      if (decision !== 'deny' && pending.runsCreated?.length) stat('created-script-approved');
-      if (decision !== 'deny' && pending.toolName === 'ExitPlanMode') stat('plan-approved');
-    }
     // AskUserQuestion answers: a small plain object of question -> answer strings.
     const clean = answers && typeof answers === 'object' && !Array.isArray(answers)
       ? Object.fromEntries(Object.entries(answers).slice(0, 10).filter(([q, a]) => isStr(q) && typeof a === 'string'))
       : undefined;
-    return manager.respond(tabId, requestId, decision, typeof message === 'string' ? message.slice(0, 500) : undefined, clean);
+    return answerPermission(tabId, requestId, decision, { message: typeof message === 'string' ? message.slice(0, 500) : undefined, answers: clean });
+  });
+
+  // ---- what a turn changed
+  ipcMain.handle('changes:diff', (_e, raw) => {
+    const ref = changeRef(raw);
+    return ref ? changes.patchFor(ref) : { error: "That isn't a change from this conversation." };
+  });
+  ipcMain.handle('changes:undo', async (_e, raw) => {
+    const ref = changeRef(raw);
+    if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
+    if (manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
+    const r = await changes.undo(ref);
+    if (r.ok) manager.note(ref.tabId, { kind: 'undone', after: ref.after, restored: r.restored });
+    return r;
+  });
+
+  // ---- a copy of the repo per tab
+  // Only a copy in Shellby's own folder: a History entry edited by hand can't
+  // point "Throw it away" at some other worktree of yours.
+  const worktreeOf = tabId => {
+    const w = isStr(tabId) ? manager.tabs.get(tabId)?.worktree : null;
+    const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
+    return w && typeof w.path === 'string' && path.resolve(w.path).toLowerCase().startsWith(home) ? w : null;
+  };
+  const retiring = new Set(); // tabs mid bring-home or throw-away: a double click is one
+  ipcMain.handle('worktree:status', (_e, tabId) => {
+    const w = worktreeOf(tabId);
+    return w ? worktrees.status(w) : { ok: false, error: 'That conversation has no copy of its own.' };
+  });
+  ipcMain.handle('worktree:home', async (_e, tabId) => {
+    const w = worktreeOf(tabId);
+    if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
+    if (manager.isBusy(tabId)) return { ok: false, error: 'Let him finish first.' };
+    if (retiring.has(tabId)) return { ok: false, error: 'Already on it.' };
+    retiring.add(tabId);
+    try {
+      const merged = await worktrees.bringHome(w, { message: `Shellby: ${manager.tabs.get(tabId)?.title || 'work from a tab'}` });
+      if (!merged.ok) return merged;
+      const removed = await retireWorktree(tabId, w, { force: false });
+      recordWork(w.originalCwd);
+      return { ...merged, base: w.base, tidied: removed.ok };
+    } finally {
+      retiring.delete(tabId);
+    }
+  });
+  ipcMain.handle('worktree:discard', async (_e, tabId) => {
+    const w = worktreeOf(tabId);
+    if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
+    if (retiring.has(tabId)) return { ok: false, error: 'Already on it.' };
+    retiring.add(tabId);
+    try { return await retireWorktree(tabId, w, { force: true }); } finally { retiring.delete(tabId); }
   });
 
   // ---- history
@@ -1968,7 +2165,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -1993,7 +2190,7 @@ function registerIpc() {
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
@@ -2766,6 +2963,7 @@ app.whenReady().then(() => {
   createCrabApi();
   createCi();
   channelSecret = loadChannelSecret();
+  createRemote();
   createObs();
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
@@ -2819,5 +3017,6 @@ app.on('will-quit', () => {
   clearTimeout(focusTimer);
   clearInterval(focusTick);
   clearTimeout(limitTimer);
+  remote?.stop();
 });
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

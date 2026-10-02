@@ -66,6 +66,7 @@ class ClaudeSession extends EventEmitter {
     proc.on('close', code => {
       const wasBusy = this.busy;
       this.proc = null;
+      this.waiting = null;
       this.cancelPending();
       let crewChanged = false;
       for (const [id, t] of this.tasks) {
@@ -143,16 +144,31 @@ class ClaudeSession extends EventEmitter {
     if (this.proc?.stdin.writable) this.proc.stdin.write(JSON.stringify(obj) + '\n');
   }
 
-  send(text) {
+  // ready: a promise to wait for before Claude sees the message. main.js uses
+  // it to give a tab its own worktree (which can change cwd, so the process
+  // starts after it) and to snapshot the folder for the turn's diff. The tab is
+  // busy from the moment it's sent, so typing more still queues.
+  send(text, ready = null) {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
-    this.start();
     this.setBusy(true);
-    this.write({ type: 'user', message: { role: 'user', content: text } });
+    const message = { type: 'user', message: { role: 'user', content: text } };
+    if (!ready) {
+      this.start();
+      return this.write(message);
+    }
+    const waiting = (this.waiting = {});
+    Promise.resolve(ready).catch(() => {}).then(() => {
+      if (this.waiting !== waiting) return; // stopped before it went
+      this.waiting = null;
+      this.start();
+      this.write(message);
+    });
   }
 
   // decision: 'allow' | 'always' | 'deny'. answers: AskUserQuestion's
-  // { [question text]: chosen label(s) or the user's own words }.
-  respond(requestId, decision, message, answers) {
+  // { [question text]: chosen label(s) or the user's own words }. via: 'phone'
+  // when it was answered from a notification (replies.js), so the card says so.
+  respond(requestId, decision, message, answers, via) {
     const item = this.pending.get(requestId);
     if (!item) return false;
     this.pending.delete(requestId);
@@ -171,7 +187,7 @@ class ClaudeSession extends EventEmitter {
       if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
     }
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
-    this.emit('item', { kind: 'decision', requestId, decision, toolName: item.toolName });
+    this.emit('item', { kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' ? { via } : {}) });
     return true;
   }
 
@@ -181,6 +197,13 @@ class ClaudeSession extends EventEmitter {
   }
 
   interrupt() {
+    if (this.busy && this.waiting) {
+      // Claude never saw it, so there's nothing to interrupt: the turn just ends.
+      this.waiting = null;
+      this.setBusy(false);
+      this.emit('item', { kind: 'result', ok: false, interrupted: true, error: null, durationMs: 0 });
+      return;
+    }
     if (!this.proc || !this.busy) return;
     this.interrupting = true;
     for (const id of [...this.pending.keys()]) this.respond(id, 'deny', 'Interrupted by the user.');
@@ -204,6 +227,7 @@ class ClaudeSession extends EventEmitter {
   }
 
   close() {
+    this.waiting = null; // a turn still waiting to go never goes
     if (!this.proc) return;
     const proc = this.proc;
     try { proc.stdin.end(); } catch { /* ignore */ }

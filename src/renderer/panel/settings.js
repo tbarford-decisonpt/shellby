@@ -45,6 +45,7 @@
     $('loginNote').hidden = state.packaged;
     $('notifyToggle').checked = !!state.settings.notifications;
     $('wanderToggle').checked = state.settings.wander !== false;
+    $('worktreeToggle').checked = !!state.settings.worktrees;
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
     const st = state.status || {};
@@ -71,6 +72,11 @@
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
   $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; });
+  $('worktreeToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ worktrees: e.target.checked });
+    state.settings = r.settings;
+    SB.toast(e.target.checked ? 'New conversations in a git project will get their own copy.' : 'New conversations will work in your checkout again.');
+  });
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
@@ -258,6 +264,10 @@
     $('chSecretLabel').textContent = provider.secretLabel || 'Token';
     $('chSecret').placeholder = v.hasSecret ? 'saved — type to replace' : '';
     $('chWhileFocused').checked = !!v.whileFocused;
+    $('chRepliesRow').hidden = !v.canReply;
+    $('chReplies').checked = !!v.replies;
+    $('chRepliesHint').classList.toggle('warn', !!v.replyProblem);
+    $('chRepliesHint').textContent = v.replyProblem || 'Anyone who can read these notifications can answer them, so keep the topic or bot to yourself. Only your own private chat with the bot counts. Questions, plans, "Always allow", long commands and anything the card would warn you about still wait for you at the desk.';
     $('chQr').hidden = !v.qr;
     if (v.qr && $('chQrCanvas').dataset.url !== v.subscribeUrl) { drawQr(v.qr); $('chQrCanvas').dataset.url = v.subscribeUrl; }
     $('chFindRow').hidden = !provider.findsTarget;
@@ -273,6 +283,7 @@
   $('chProvider').addEventListener('change', async e => renderChannels(await api.setChannels({ provider: e.target.value })));
   $('chTarget').addEventListener('change', async e => renderChannels(await api.setChannels({ target: e.target.value })));
   $('chWhileFocused').addEventListener('change', async e => renderChannels(await api.setChannels({ whileFocused: e.target.checked })));
+  $('chReplies').addEventListener('change', async e => renderChannels(await api.setChannels({ replies: e.target.checked })));
   $('chSecret').addEventListener('change', async e => {
     const typed = e.target.value;
     e.target.value = '';

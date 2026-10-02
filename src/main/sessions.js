@@ -8,9 +8,11 @@ const MAX_TABS = 8;
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
-  constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}) }) {
+  // prepareTurn(tab): an optional promise each turn waits for before Claude
+  // sees it (main.js snapshots the folder, for the turn's diff).
+  constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}), prepareTurn = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix, getEnv });
+    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix, getEnv, prepareTurn });
     this.tabs = new Map();
   }
 
@@ -36,6 +38,7 @@ class SessionManager extends EventEmitter {
       saved: !!historyEntry,       // has a history entry (created on first send)
       outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
       unread: false,
+      worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
     };
     this.tabs.set(tabId, tab);
 
@@ -71,12 +74,19 @@ class SessionManager extends EventEmitter {
     }
     this.history.append(tab.id, userItem);
     tab.outcome = null;
-    tab.session.send(prompt);
+    tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();
   }
 
-  respond(tabId, requestId, decision, message, answers) {
-    return this.tabs.get(tabId)?.session.respond(requestId, decision, message, answers) || false;
+  // Something main.js worked out about a tab (what its last turn changed):
+  // kept in the transcript and shown just like the CLI's own items.
+  note(tabId, item) {
+    const tab = this.tabs.get(tabId);
+    if (tab) this.onItem(tab, item);
+  }
+
+  respond(tabId, requestId, decision, message, answers, via) {
+    return this.tabs.get(tabId)?.session.respond(requestId, decision, message, answers, via) || false;
   }
 
   interrupt(tabId) { this.tabs.get(tabId)?.session.interrupt(); }
@@ -113,6 +123,17 @@ class SessionManager extends EventEmitter {
     this.changed();
   }
 
+  /** Close a tab and wait until its CLI process has really gone (up to timeoutMs). */
+  closeAndWait(tabId, timeoutMs = 8000) {
+    const proc = this.tabs.get(tabId)?.session.proc;
+    this.close(tabId);
+    if (!proc || proc.exitCode !== null) return Promise.resolve();
+    return new Promise(resolve => {
+      const timer = setTimeout(resolve, timeoutMs);
+      proc.once('close', () => { clearTimeout(timer); resolve(); });
+    });
+  }
+
   closeAll() { for (const id of [...this.tabs.keys()]) this.close(id); }
 
   setMode(mode) {
@@ -132,6 +153,7 @@ class SessionManager extends EventEmitter {
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved,
+      worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
     }));
   }
 

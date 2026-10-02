@@ -138,3 +138,52 @@ test('a crash mid-turn surfaces an error and clears busy', async () => {
   assert.match(err.text, /exited|code 3/);
   assert.equal(s.busy, false);
 });
+
+// ---- waiting for main.js before Claude sees a message (worktree + snapshot)
+
+test('a turn can wait for something first, and starts in the folder it settles on', async () => {
+  const { s, items } = makeSession();
+  let release;
+  const ready = new Promise(r => { release = r; });
+  s.send('after the wait', ready);
+  assert.equal(s.busy, true, 'busy at once, so typing more still queues');
+  assert.equal(s.proc, null, 'no process until it is ready');
+  assert.throws(() => s.send('another'), /still working/);
+  s.cwd = os.homedir(); // e.g. moved into a worktree while waiting
+  release();
+  await waitFor(s, i => i.kind === 'result');
+  assert.deepEqual(texts(items), ['echo: after the wait (mode=default)']);
+  s.close();
+});
+
+test('stopping a turn that is still waiting ends it without Claude ever seeing it', async () => {
+  const { s, items } = makeSession();
+  let release;
+  s.send('never sent', new Promise(r => { release = r; }));
+  s.interrupt();
+  assert.equal(s.busy, false);
+  const result = items.find(i => i.kind === 'result');
+  assert.equal(result.interrupted, true);
+  release();
+  await new Promise(r => setTimeout(r, 50));
+  assert.equal(s.proc, null, 'nothing started after the stop');
+  assert.deepEqual(texts(items), []);
+});
+
+test('closing a tab while its first message waits means it never goes', async () => {
+  const { s } = makeSession();
+  let release;
+  s.send('never', new Promise(r => { release = r; }));
+  s.close();
+  release();
+  await new Promise(r => setTimeout(r, 50));
+  assert.equal(s.proc, null, 'no Claude process for a closed tab');
+});
+
+test('a wait that fails still sends the turn', async () => {
+  const { s, items } = makeSession();
+  s.send('anyway', Promise.reject(new Error('snapshot failed')));
+  await waitFor(s, i => i.kind === 'result');
+  assert.deepEqual(texts(items), ['echo: anyway (mode=default)']);
+  s.close();
+});

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.0: answer from your phone, see what changed
+
+### New
+- **Allow or Deny from your phone.** With Telegram or ntfy set up under **Settings → Tell me when I'm away**, turn on **Let me answer Allow or Deny from my phone** and the permission notification gets the two buttons. Telegram uses inline buttons in your chat with the bot; ntfy's buttons answer on a second topic beside yours. Nothing goes through a server of ours. Each prompt carries its own single-use code that expires after 30 minutes, and the card on your desktop says **Allowed from your phone** when you do. Only your own private chat with the bot can answer, and on ntfy the topic has to be one nobody will guess (like the one Shellby picks) or the server needs a token. Questions, plans, **Always allow**, commands too long to read on a phone, and anything the desktop card would warn you about still wait for you at the desk. Answering at the desk takes the buttons off the phone.
+- **See what every turn changed.** In a git project each turn now ends with a **± files changed** block: every file it touched, with lines added and removed. Click a file for its diff. **Undo** (press it twice) puts those files back the way they were before the turn, and refuses if any of them changed again since. It sees everything the turn did, including files written by scripts and installs, not just Claude's own edits. Your staging area, branches and stash are never touched.
+- **A copy of the project for each tab (optional).** **Settings → Working folder → Give each new conversation its own copy of a git project** gives each new tab its own git worktree on its own branch, starting from your last commit, so two tabs in one repo stop stepping on each other. The branch shows next to the folder. **Bring it home** commits what's left, merges it into the branch it came from and removes the copy; **Throw it away** deletes it unmerged. A merge that would clash is backed out completely, with an offer to have him sort it out on his own branch. Routines and his own errands (like **Look over my changes**) still work in your real checkout.
+
 ## 0.21.3: a fresh coat for the README
 
 ### Fixed

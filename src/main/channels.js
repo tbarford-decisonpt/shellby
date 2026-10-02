@@ -43,7 +43,11 @@ const CHANNEL_DEFAULTS = Object.freeze({
   events: Object.freeze(Object.fromEntries(EVENT_NAMES.map(e => [e, EVENTS[e].default]))),
   minSeconds: 60,      // don't buzz your pocket for a task that took four seconds
   whileFocused: false, // Guard my focus holds these back too, unless you say otherwise
+  replies: false,      // Allow / Deny buttons on the phone (replies.js); Telegram and ntfy only
 });
+
+// The providers that can carry an answer back without a server of ours.
+const REPLY_PROVIDERS = new Set(['telegram', 'ntfy']);
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -72,6 +76,8 @@ const PROVIDERS = {
       };
       if (m.url) headers.Click = m.url;
       if (secret) headers.Authorization = `Bearer ${secret}`;
+      const replyUrl = m.reply && ntfyReplyUrl(target);
+      if (replyUrl) headers.Actions = ntfyActions(replyUrl, m.reply.nonce);
       return { url: ntfyUrl(target), method: 'POST', headers, body: m.body };
     },
   },
@@ -119,6 +125,7 @@ const PROVIDERS = {
           parse_mode: 'MarkdownV2',
           disable_notification: m.priority === 'low',
           link_preview_options: { is_disabled: true },
+          ...(m.reply ? { reply_markup: telegramMarkup(m.reply.nonce) } : {}),
         }),
       };
     },
@@ -215,6 +222,30 @@ function localOrHttps(raw) {
     || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
 }
 
+/**
+ * Where ntfy's buttons publish the answer: a second topic beside yours, so the
+ * notifications you subscribed to never fill up with "allow:..." messages.
+ * Topics top out at 64 characters, so a long one is shortened to make room.
+ */
+function ntfyReplyUrl(target) {
+  const url = ntfyUrl(target);
+  if (!url) return null;
+  const at = url.lastIndexOf('/');
+  return `${url.slice(0, at + 1)}${url.slice(at + 1).slice(0, 58)}-reply`;
+}
+
+/** ntfy's Actions header: two buttons that publish the answer to the reply topic. */
+function ntfyActions(replyUrl, nonce) {
+  // Commas and semicolons separate fields and actions, so neither can appear
+  // in a value; the nonce alphabet (base64url) has neither.
+  const button = (label, word) => `http, ${label}, ${replyUrl}, method=POST, body=${word}:${nonce}, clear=true`;
+  return `${button('Allow', 'allow')}; ${button('Deny', 'deny')}`;
+}
+
+function telegramMarkup(nonce) {
+  return { inline_keyboard: [[{ text: '✅ Allow', callback_data: `a:${nonce}` }, { text: '✋ Deny', callback_data: `d:${nonce}` }]] };
+}
+
 // Header values must be latin-1; a task title can hold anything.
 const encodeHeader = s => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=`);
 
@@ -276,6 +307,7 @@ function normalizeChannelSettings(current, patch = {}) {
 
   if ('enabled' in patch) next.enabled = !!patch.enabled;
   if ('whileFocused' in patch) next.whileFocused = !!patch.whileFocused;
+  if ('replies' in patch) next.replies = !!patch.replies;
   if ('provider' in patch && PROVIDER_NAMES.includes(patch.provider) && patch.provider !== base.provider) {
     next.provider = patch.provider;
     // One provider's target means nothing to another, and can be dangerous: a
@@ -342,15 +374,21 @@ function describeEvent(event) {
   const e = event && typeof event === 'object' ? event : {};
   const project = clip(e.project, 60);
   const at = Number.isFinite(e.at) ? e.at : Date.now();
-  const base = { event: e.kind, project, at, priority: EVENTS[e.kind]?.priority || 'normal', tags: [], emoji: EMOJI[e.kind] || '🦀', url: clip(e.url, 300) || null };
+  const base = { event: e.kind, project, at, priority: EVENTS[e.kind]?.priority || 'normal', tags: [], emoji: EMOJI[e.kind] || '🦀', url: clip(e.url, 300) || null, reply: null };
 
   switch (e.kind) {
-    case 'asking':
+    case 'asking': {
+      // Buttons only on a prompt, and only with a nonce of the right shape: it
+      // goes into a header and a callback, and is the whole of the answer's proof.
+      const reply = typeof e.reply?.nonce === 'string' && /^[A-Za-z0-9_-]{22}$/.test(e.reply.nonce) ? { nonce: e.reply.nonce } : null;
+      const deskOnly = !reply && clip(e.deskOnly, 80);
+      const asked = clip(e.message, deskOnly ? MAX_BODY - 81 : MAX_BODY) || 'A task is waiting for your permission.';
       return {
-        ...base, tags: ['crab', 'warning'],
+        ...base, tags: ['crab', 'warning'], reply,
         title: project ? `Shellby needs you in ${project}` : 'Shellby needs you',
-        body: clip(e.message, MAX_BODY) || 'A task is waiting for your permission.',
+        body: deskOnly ? `${asked}\n${deskOnly}` : asked,
       };
+    }
     case 'done':
       return {
         ...base, tags: ['crab', 'white_check_mark'],
@@ -428,7 +466,15 @@ async function deliver(request, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fe
       signal: ctrl.signal,
       redirect: 'error',       // a webhook that redirects is not one we follow
     });
-    if (res.ok) return { ok: true };
+    if (res.ok) {
+      // Telegram says which message it made, which replies.js needs to take the
+      // buttons off it later. Nobody else's reply is worth reading.
+      let data;
+      if (/^https:\/\/api\.telegram\.org\//.test(request.url) && typeof res.json === 'function') {
+        try { data = await res.json(); } catch { /* no body */ }
+      }
+      return data ? { ok: true, data } : { ok: true };
+    }
     // The body often says exactly what's wrong ("user key is invalid"), which is
     // worth showing; it can also be a megabyte of HTML, so it is capped.
     let detail = '';
@@ -441,6 +487,22 @@ async function deliver(request, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fe
   }
 }
 
+/**
+ * Can Allow / Deny ride on these notifications? -> error string | null.
+ * On ntfy, whoever can read the topic can press the buttons, so the topic has
+ * to be one nobody will guess (like the one Shellby picks), or the server has
+ * to want a token.
+ */
+function replyProblem(settings, { hasSecret = false } = {}) {
+  const s = normalizeChannelSettings(settings);
+  if (!REPLY_PROVIDERS.has(s.provider)) return `${PROVIDERS[s.provider]?.label || 'That'} can't carry an answer back. Telegram and ntfy can.`;
+  if (s.provider === 'ntfy' && !hasSecret) {
+    const topic = (ntfyUrl(s.target) || '').split('/').pop() || '';
+    if (topic.length < 20) return 'Answering from the phone needs a topic nobody will guess (20 characters or more, like the one Shellby picks), or an access token.';
+  }
+  return null;
+}
+
 /** What the renderer is allowed to see: never the secret, only whether there is one. */
 function view(settings, { hasSecret = false } = {}) {
   const s = normalizeChannelSettings(settings);
@@ -448,6 +510,8 @@ function view(settings, { hasSecret = false } = {}) {
     ...s,
     hasSecret,
     problem: checkSettings(s, { hasSecret }),
+    canReply: REPLY_PROVIDERS.has(s.provider),
+    replyProblem: s.replies ? replyProblem(s, { hasSecret }) : null,
     // What a phone opens to subscribe; Settings shows it as a QR code.
     subscribeUrl: s.provider === 'ntfy' ? ntfyUrl(s.target) : null,
     providers: PROVIDER_NAMES.map(name => ({
@@ -466,6 +530,6 @@ function view(settings, { hasSecret = false } = {}) {
 module.exports = {
   PROVIDERS, PROVIDER_NAMES, EVENTS, EVENT_NAMES, PRIORITIES, CHANNEL_DEFAULTS,
   normalizeChannelSettings, checkSettings, shouldSend, composeMessage,
-  buildRequest, deliver, view, ntfyUrl, localOrHttps, duration,
-  randomTopic, chatFromUpdates, findTelegramChat,
+  buildRequest, deliver, view, ntfyUrl, ntfyReplyUrl, ntfyActions, telegramMarkup, localOrHttps, duration,
+  randomTopic, chatFromUpdates, findTelegramChat, REPLY_PROVIDERS, replyProblem,
 };

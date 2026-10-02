@@ -204,6 +204,8 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 
 - **Helper crabs:** each subagent gets its own lane in the panel and its own crab on your desktop.
 - **Parallel tabs,** each its own Claude Code process. Keep typing while he works and your messages queue up. Drag tabs into the order you like, and they come back that way.
+- **See what every turn changed:** in a git project, each turn ends with a **± files changed** block. Open a file for its diff, or press **Undo** twice to put the files back the way they were before that turn. It catches everything, including what a script or `npm install` did, and it never touches your staging area. Undo refuses if a file has changed again since, so it can't eat later work.
+- **A copy of the project for each tab (optional):** **Settings → Working folder → Give each new conversation its own copy** puts each new tab in a git worktree on its own branch, so two tabs in one repo stop stepping on each other. The branch shows next to the folder; **Bring it home** commits what's left, merges it into the branch it came from and tidies the copy away. If the merge would clash, nothing is merged, and he can sort it out on his own branch.
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use. When he writes himself a new one, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
 - **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
@@ -256,6 +258,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 </table>
 
 - **📱 Tell me when I'm away:** a permission prompt, a finished run, a reset usage limit, a red build or an overheating GPU can reach your phone. **ntfy** is one QR scan with no account; **Telegram** finds your chat by itself; **Pushover**, a **Discord** or **Slack** webhook, or your own endpoint work too. Nothing goes through a server of ours, a four-second task doesn't buzz your pocket, and **Guard my focus** holds them back unless you say otherwise.
+- **📲 Answer from your phone (optional):** with Telegram or ntfy, **Let me answer Allow or Deny from my phone** puts the two buttons on the notification. Each prompt gets its own single-use code that expires after 30 minutes. Only your private chat with the bot counts, and an ntfy topic has to be one nobody will guess. Questions, plans, **Always allow**, long commands, and anything the card would warn you about still wait for you at the desk.
 - **🎥 On a stream:** **Settings → On a stream** serves him as an OBS browser source on a transparent background — the same crab, outfit and animations, reacting live in the corner. It's the critter's own stylesheet behind it, on 127.0.0.1 only.
 - **💡 Desk lighting:** through [OpenRGB](https://openrgb.org), coral while he works, amber when he needs you, red when a build goes red or something overheats. **Install OpenRGB for me** does it with winget after you confirm, and he starts it in the tray whenever the lighting is on.
 - **✅ CI on your pull requests:** sign in with GitHub and when a build goes red he holds up a ✗ sign, when it's fixed he dances, and a review request makes him raise a claw. **Ask Shellby why** reads the failing logs and explains them without changing anything.

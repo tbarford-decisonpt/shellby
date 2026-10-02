@@ -205,8 +205,8 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu']) SB.$(id).hidden = true;
-  for (const id of ['modeChip', 'folderChip']) SB.$(id).setAttribute('aria-expanded', 'false');
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeChip', 'folderChip', 'branchChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
 };
 

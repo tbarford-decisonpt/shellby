@@ -7,6 +7,7 @@
 //   "crash"      -> exits with code 3 mid-turn
 //   "wait <ms>"  -> replies "echo: ..." after a delay
 //   "fail"       -> ends the turn with an error
+//   "edit <file> <words>" -> writes <words> into <file> in its working folder
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -52,6 +53,15 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
   if (content === 'crash') { process.exit(3); }
+  // "edit <file> <words...>" -> writes <words> into <file> in the working folder,
+  // the way a real turn changes code (for the turn's diff and worktrees)
+  if (content.startsWith('edit ')) {
+    const [, file, ...words] = content.split(' ');
+    require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`);
+    text(`edited ${file}`);
+    result(true);
+    return;
+  }
   // "limit <seconds>" -> the plan's 5-hour limit is reached and resets in <seconds>
   if (content.startsWith('limit')) {
     const resetsAt = Math.round(Date.now() / 1000) + (parseInt(content.split(' ')[1], 10) || 60);
