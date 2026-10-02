@@ -1,17 +1,16 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: x-salmon.Shellby
-PackageVersion: 0.17.0
+PackageVersion: 0.18.0
 MinimumOSVersion: 10.0.0.0
 InstallerType: nullsoft
 Scope: user
 UpgradeBehavior: install
-ReleaseDate: "2026-10-01"
+ReleaseDate: "2026-10-02"
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/x-salmon/shellby/releases/download/v0.17.0/Shellby-Setup-0.17.0.exe
-    InstallerSha256: 84DD824FCBC6F94DECAEF4518E9389E1A602698E71236007CC286255EBD5E1CB
+    InstallerUrl: https://github.com/x-salmon/shellby/releases/download/v0.18.0/Shellby-Setup-0.18.0.exe
+    InstallerSha256: 493897A8EE7640BB93CD80D391952F314F4814EF5BAF3778086F9A93F3EA32A9
     AppsAndFeaturesEntries:
       - ProductCode: d01bce7a-6b6a-53c0-9edc-a2fd643590df
-        UpgradeBehavior: install
 ManifestType: installer
 ManifestVersion: 1.6.0
