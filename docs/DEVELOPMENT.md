@@ -53,6 +53,7 @@ npm start
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `npm run screenshots` | Re-render the README screenshots (with fake account details) |
 | `npm run reel` | Record the README demo GIF: a scripted task, helper crabs and a trophy, played through the real UI (needs Python + Pillow; `pip install imageio-ffmpeg` adds the MP4) |
+| `python scripts/make-banners.py` | Compose the README banner and crab lineups from the crabs `npm run screenshots` just captured (needs Pillow) |
 | `npm run icons` | Regenerate the app icons from the classic skin (needs Python + Pillow) |
 | `npm run dist` | Build the NSIS installer and portable exe into `dist/` |
 

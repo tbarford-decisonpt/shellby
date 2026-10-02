@@ -77,6 +77,7 @@ html, body {
   box-shadow: 0 1px 0 rgba(0,0,0,.35); cursor: pointer;
   animation: bg-breathe 2.4s ease-in-out infinite;
 }
+#bgBadge[hidden] { display: none; } /* display:flex above would otherwise beat the attribute */
 #bgBadge:hover { filter: brightness(1.08); }
 #bgBadge:focus-visible { outline: 2px dashed var(--glass); outline-offset: 3px; }
 #bgBadge::before { content: "⚙"; font-size: 12px; animation: bg-turn 3.6s linear infinite; }
@@ -153,6 +154,9 @@ html, body {
   transition: opacity .18s, transform .3s cubic-bezier(.3,1.7,.5,1);
   pointer-events: none;
 }
+/* Pixelify's fi ligature reads as "A" ("Angers crossed"). Set on the text itself,
+   because every font: shorthand on #bubble below would reset it. */
+#bubbleText { font-variant-ligatures: none; }
 #bubble::after {
   content: ""; position: absolute; left: 8px; bottom: -5px;
   border: 5px solid transparent; border-top-color: var(--sand); border-bottom: 0;

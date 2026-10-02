@@ -1,20 +1,20 @@
 <div align="center">
 
-# Shellby
+<img src="docs/banner.png" width="100%" alt="Shellby: a pixel hermit crab for your Windows desktop who gets things done with Claude Code. Three crabs stand on the sand: one in a tide-pool outfit, one with headphones and a boombox saying 'good one', and a big one saying 'fingers crossed'.">
 
 [![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE)
 
-**A pixel hermit crab who lives on your Windows desktop and gets things done with Claude Code.**
-
 Give him a task and he scuttles off, sends out helper crabs and builds his own tools,<br>
 all on **your own Claude Pro or Max plan**. No API keys, no per-token billing.<br>
-No Claude? He's still a desk pet who watches your PC, dresses up and earns trophies.
+No Claude? He's still a desk pet who talks, watches your PC, dresses up and earns trophies.
 
-**[Download for Windows](https://github.com/x-salmon/shellby/releases/latest)** · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
+
+[What's new](#whats-new) · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
-<img src="docs/shellby-demo.gif" width="860" alt="Shellby demo: typing a task, three helper crabs scuttling out to work in parallel lanes and walking home, then a trophy unlocking and Shellby wearing a party hat">
+<img src="docs/shellby-demo.gif" width="860" alt="Shellby demo: typing a task, Shellby saying 'claws out', three helper crabs scuttling out to work in parallel lanes while he says 'all claws in', walking home, 'nailed it', then a trophy unlocking and Shellby wearing a party hat">
 
 <sub>Give him a task, watch the helper crabs go, earn outfits. ([MP4 version](docs/shellby-demo.mp4))</sub>
 
@@ -30,38 +30,112 @@ No Claude? He's still a desk pet who watches your PC, dresses up and earns troph
 
 Windows may show a SmartScreen warning the first time; [Install](#install) explains it, along with the Claude Code setup.
 
-## 🦀 He lives on your desktop
-
-<p align="center">
-<img src="docs/critter-working.png" width="110" alt="working"> <img src="docs/critter-asking.png" width="110" alt="asking"> <img src="docs/critter-learned.png" width="110" alt="learned a new trick"> <img src="docs/critter-success.png" width="110" alt="done"> <img src="docs/critter-sleeping.png" width="110" alt="sleeping">
-</p>
-
-- **On the wallpaper layer:** behind every window, and still there after <kbd>Win</kbd>+<kbd>D</kbd>.
-- **Shows you what's happening:** he scuttles while Claude works, raises a claw when it needs you, celebrates when it's done and naps when it's quiet.
-- **He has a voice:** a few words of his own in his bubble, about the work he's actually doing — *"fingers crossed"* at a test run, *"all green!"* when it passes, *"this file again?"* on the third visit. He says good morning, notices when you've been away, and mutters to himself when it's quiet. Dial him from **Quiet** to **Chatty** in **Settings → Look**, and he always hushes while guarding your focus.
-- **Little habits:** left alone he digs at your wallpaper, buffs his shell, peeks at what you're doing, stretches or flops over. Your crab also has one of four temperaments, picked once and kept, which colours what he says and what he gets up to.
-- **Drop files on him** to hand them to a task.
-- **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
-- **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, holds back the notifications that can wait, and takes a break with you when time's up.
-- **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
-
-## 🎩 Dress him up
-
-<p align="center">
-<img src="docs/critter-halloween.png" width="150" alt="Shellby in a witch hat with a pumpkin pail and bat wings, bats orbiting"> <img src="docs/critter-winter.png" width="150" alt="Shellby in a Santa hat and striped scarf with a candy cane in the snow"> <img src="docs/critter-wizard.png" width="150" alt="Shellby in a wizard hat holding a coffee mug, sparkles around him">
-</p>
-
-- **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each one is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
-- **102 accessories and 17 effects** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw.
-- **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep.
-- **26 trophies**, a few of them secret, unlock outfits as you use him. Or flip **Unlock everything**.
-- **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
-- **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
+## What's new
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshot-wardrobe.png" alt="Shellby's screen: Outfits during Spooky Season"></td>
-<td width="50%"><img src="docs/screenshot-trophies.png" alt="Trophies and XP with level, streak and rewards"></td>
+<td width="33%" valign="top">
+
+**🗣️ He has a voice** · 0.18<br>
+<sub>A few words of his own about the work he's actually doing: *"fingers crossed"* at a test run, *"this file again?"* on the third visit. Four temperaments, Quiet to Chatty.</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**🐚 Shellby's own life** · 0.17<br>
+<sub>He grows into new shells as he levels, molting on your desktop. Pet him, throw him, and let him guard your focus in a helmet.</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**⌨️ A `shellby` command** · 0.20<br>
+<sub><code>shellby do "tidy my Downloads"</code> from any terminal, and an MCP server so Claude can talk through him on purpose.</sub>
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**📱 Your phone, in one scan** · 0.21<br>
+<sub>A permission prompt, a finished run or a red build can reach your phone. ntfy is one QR code; Telegram finds your chat by itself.</sub>
+
+</td>
+<td valign="top">
+
+**🎧 He listens along** · 0.20<br>
+<sub>Spotify, a browser tab, anything in the volume flyout: he puts his headphones on and has the odd word about it.</sub>
+
+</td>
+<td valign="top">
+
+**🎥 On stream, 💡 on your desk** · 0.20<br>
+<sub>An OBS browser source with a transparent background, and OpenRGB lighting that follows his mood. Shellby installs OpenRGB for you.</sub>
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🦀 Eleven more packs** · 0.20<br>
+<sub>Head-to-tail sets, crabs that aren't the classic shape, and the quiet seasons filled in. 105 accessories, 18 effects, 16 crabs.</sub>
+
+</td>
+<td valign="top">
+
+**🛡️ A security read** · 0.20<br>
+<sub>The shield next to a project sends your unpushed work for a read-only review, worst first. He changes nothing.</sub>
+
+</td>
+<td valign="top">
+
+**🔄 Updating is a button** · 0.19<br>
+<sub><b>Restart and update</b> in Settings and the tray, <b>Report a problem</b> with the facts filled in, and kinder to your battery.</sub>
+
+</td>
+</tr>
+</table>
+
+## 🦀 He lives on your desktop
+
+<p align="center"><img src="docs/lineup-life.png" width="860" alt="Five Shellbys: one saying 'fingers crossed', one in a focus helmet with 18 minutes left, one holding up a red CI sign, one sweating at 83 degrees, and one asleep in his shell"></p>
+
+- **On the wallpaper layer:** behind every window, and still there after <kbd>Win</kbd>+<kbd>D</kbd>.
+- **Shows you what's happening:** he scuttles while Claude works, raises a claw when it needs you, celebrates when it's done and naps when it's quiet.
+- **He has a voice:** a few words of his own in his bubble, about the work he's actually doing — *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push, *"this file again?"* on the third visit. He says good morning, notices when you've been away, and mutters to himself when it's quiet. He never quotes Claude; the lines are all his.
+- **A temperament of his own:** chipper, fussy, cocky or sleepy, picked once from your install and kept. It adds lines (a cocky crab says *"obviously"*) and colours his idle habits: digging at your wallpaper, buffing his shell, peeking at what you're doing, stretching, flopping over.
+- **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
+- **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, counts down, holds back the notifications that can wait, and takes a break with you when time's up.
+- **He listens along:** when something's playing he puts his headphones on, with the odd *"good one"*. Read from Windows itself, so there's no account and nothing leaves your PC.
+- **Drop files on him** to hand them to a task. **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
+
+<details>
+<summary><b>How much he talks, and when he doesn't</b></summary>
+
+- **Settings → Look → Personality:** **Quiet** is a single mark in the bubble and never a word. **Normal** (the default) leaves at least 40 seconds between lines. **Chatty** shortens that to 12 seconds and lets him mutter when nothing's happening.
+- He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters — a health warning, a red build, a countdown — takes the bubble back off him.
+- **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
+- **Usage limit reached?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
+
+</details>
+
+## 🎩 Dress him up
+
+<p align="center"><img src="docs/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
+
+- **105 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
+- **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
+- **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
+- **26 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
+- **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
+- **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
+
+<p align="center"><img src="docs/lineup-crabs.png" width="700" alt="Five crab species: the classic, a fiddler with one enormous claw, a coconut crab, a pale porcelain crab, and a long-legged spider crab"></p>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshot-wardrobe.png" alt="Shellby's screen: Outfits, with slots for hat, face, neck, claw, shell and effect"></td>
+<td width="50%"><img src="docs/screenshot-trophies.png" alt="Trophies and XP with level, streak, focus and rewards"></td>
 </tr>
 </table>
 
@@ -70,14 +144,13 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 - **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), pushes (+40), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop, and hourly caps stop a test loop from farming it. Level-ups get their own celebration.
 - **Trophies & XP:** click the yellow level badge next to him in the title bar to see his level, an XP log and your streak.
-- **Trophy examples:** finish 10 tasks for a hard hat, send out your first helper for a captain's hat, let him run a script he built himself for a wrench, finish a task after midnight for a nightcap, free up a full drive for a broom. Unlocks celebrate on your desktop with confetti.
+- **Trophy examples:** finish 10 tasks for a hard hat, send out your first helper for a captain's hat, finish a task after midnight for a nightcap, free up a full drive for a broom. Trophies hand out two or three things each, and unlocks celebrate on your desktop with confetti.
 - **Streaks and nudges:** finish a Claude task on consecutive days for a 🔥 streak (it's in the status line too). Shellby remembers the git repos you work in, and when one goes quiet you get a nudge: *"You haven't committed to 3d-rack in 5 days 🐚"*. **Pick it up** opens a tab there with a "where did we leave off?" prompt. At most one nudge a day, only in the daytime, and each project can be muted.
-- **Seasons in detail:** he gives the season back if you change his look. Seasonal items are collectibles, so be around while the season is on to keep them.
 - **Helper crabs wear matching hats,** and every crab in the app is dressed the same way.
 - **Outfit codes:** paste someone's code into **Wear a code…** and Shellby previews it on your crab, then puts it on. Locked items show which trophy unlocks them, and items from packs you don't have come with a **Get pack** button. Codes are typo-proof and need no server.
 - **Crab card:** **📸 Share** on Shellby's screen makes a card with Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`. Sharing one earns a trophy too.
 
-<p align="center"><img src="docs/crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, titled Fleet Admiral, 12 tasks done, 7 of 22 trophies, 31 helper crabs sent"></p>
+<p align="center"><img src="docs/crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, his title, tasks done, trophies and helper crabs sent"></p>
 
 </details>
 
@@ -89,7 +162,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 
 - **Install in one click:** every item is previewed on a live Shellby, and the app shows exactly what a pack contains before it installs.
 - **Safe by design:** packs are pixel art and settings in JSON, so they can't run code, and each download is checked against the gallery's SHA-256.
-- **Make your own** in [Pack Studio](https://x-salmon.github.io/shellby-packs/studio.html), then share it with a pull request on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). The format is in [docs/ADDONS.md](docs/ADDONS.md) ([JSON Schema](docs/addon.schema.json)).
+- **Make your own** in [Pack Studio](https://x-salmon.github.io/shellby-packs/studio.html), then publish it from the app (Shellby forks the gallery and opens the pull request) or by hand on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). The format is in [docs/ADDONS.md](docs/ADDONS.md) ([JSON Schema](docs/addon.schema.json)).
 
 ## 🩺 He watches your PC
 
@@ -97,9 +170,10 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 <img src="docs/critter-hot.png" width="150" alt="Shellby sweating and fanning himself with his claw, a speech bubble reading 83 degrees"> <img src="docs/critter-dizzy.png" width="150" alt="Shellby with stars circling his eyes because memory is nearly full"> <img src="docs/critter-stuffed.png" width="150" alt="Shellby with boxes, papers and a floppy disk jammed into his shell because a drive is full">
 </p>
 
-- **Live vitals:** GPU and CPU temperature and load, memory, and every drive, with 10-minute sparklines.
-- **His mood follows your hardware:** he sweats past 80°C, gets dizzy when memory fills up, and overstuffs his shell when a drive is full.
-- **One notification per problem,** and another when it's fixed. You set the thresholds.
+- **Live vitals:** GPU and CPU temperature and load, memory, and every drive, with 10-minute sparklines. NVIDIA, AMD and Intel cards all get their load, memory, power and fan gauges.
+- **Drive temperatures, case fans and the battery** too, and a drive cooking itself gets its own warning — an NVMe throttles around 75°C and nothing else tells you.
+- **What Docker, WSL and the package caches are sitting on.** On a developer's PC these are usually the biggest things on the drive. He says when there are tens of gigabytes to reclaim, and **Ask Shellby** comes back with what's safe to clear and the exact command. He never prunes or deletes anything himself.
+- **His mood follows your hardware:** he sweats past 80°C, gets dizzy when memory fills up, and overstuffs his shell when a drive is full. One notification per problem, and another when it's fixed. You set the thresholds.
 - **"Ask Shellby why"** runs a read-only Claude task that finds the cause and reports back.
 
 <p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
@@ -108,7 +182,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 <summary><b>How Health works</b></summary>
 
 - Everything is read locally, with no admin rights needed. NVIDIA GPUs work out of the box through `nvidia-smi`.
-- **CPU temperature** comes from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'s local web server, because Windows won't give it to normal apps. The Health view walks you through the setup.
+- **CPU temperature and the rest** come from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'s local web server, because Windows won't give them to normal apps. **HWiNFO** works too, through its Remote Sensor Monitor. The Health view walks you through the setup.
 - Readings must stay over the line for about 20 seconds, so a loading-screen spike doesn't count. Past 88°C he pants under a heat shimmer, and it wakes him up if he's asleep.
 - "Ask Shellby why" never deletes or kills anything. You can also turn the desktop reactions off and keep only the dashboard.
 - More in [docs/HEALTH.md](docs/HEALTH.md).
@@ -129,13 +203,13 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 </table>
 
 - **Helper crabs:** each subagent gets its own lane in the panel and its own crab on your desktop.
-- **Parallel tabs,** each its own Claude Code process. Keep typing while he works and your messages queue up.
+- **Parallel tabs,** each its own Claude Code process. Keep typing while he works and your messages queue up. Drag tabs into the order you like, and they come back that way.
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use. When he writes himself a new one, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
 - **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
 - **Look over my changes:** the shield next to a project in **Trophies** sends the work you haven't pushed yet for a read-only security read. He reports what looks risky, worst first, and changes nothing — and he won't tell you you're secure.
-- **Hit your usage limit?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
-- **Works everywhere you use Claude Code:** with the plugin he reacts to your terminal and VS Code sessions too, and shows up in Claude Code's status line.
+- **Chats you can tick off:** a ✓ on every row in History marks a conversation done, so the twenty you've finished with stop burying the two you haven't. Nothing is deleted, and sending it something new un-ticks it.
+- **Works everywhere you use Claude Code:** with the plugin he reacts to your terminal and editor sessions too — *"shellby in Cursor"*, VS Code, Windsurf, Zed, JetBrains, Windows Terminal — and shows up in Claude Code's status line.
 
 <details>
 <summary><b>The details</b></summary>
@@ -144,12 +218,47 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Crew view:** each helper's lane shows its task, live activity, tool count, tokens and time. Click a helper crab on the desktop to jump to its conversation. When a helper needs permission, the card shows up in its lane, labelled with which crab is asking.
 - **Status line:** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on in **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and restores your old status line if you remove it), or run `/shellby:statusline`. In the classic cmd.exe console, which can't draw emoji, it switches to a plain-text line.
 - **Queue:** Enter queues a message while he's busy, and it's sent when the current turn finishes. Click a queued message (or press <kbd>↑</kbd>) to edit it. Stopping hands the queue back to you instead of firing it.
-- **Tabs:** build a tool in one tab while you use it in another. The desktop crab shows how many are running. <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd> and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> work like a browser, and so does dragging one along the strip to reorder it — the order you leave them in is the order they come back in. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PageUp</kbd>/<kbd>PageDown</kbd> moves one without the mouse.
+- **Tabs:** build a tool in one tab while you use it in another. <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd> and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> work like a browser, and so does dragging one along the strip. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PageUp</kbd>/<kbd>PageDown</kbd> moves one without the mouse.
 - **Toolbox:** MCP servers show their connection status. New skills and agents are tagged **new** and can be pinned as one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
 - **Skill Shop:** **Toolbox → Get more** lists every plugin in your marketplaces, most popular first. Add marketplaces from GitHub, and every install asks first in an isolated confirmation window. It uses Claude Code's own plugin system, so whatever you install works in your terminal and editor too.
 - **Routines:** each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up.
+- **Claude Code somewhere unusual?** **Find it myself…** in setup takes a portable copy or another drive, and checks the file really is Claude Code before keeping it.
 
 </details>
+
+## 🌊 He gets out more
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### ⌨️ From any terminal
+
+```powershell
+shellby do "tidy my Downloads"   # a task, in this folder
+shellby say "all green"          # a line in his bubble
+shellby status                   # him, and how this PC is doing
+```
+
+**Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**
+
+### 🤖 Claude can drive him
+
+The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks**: spending your subscription isn't something a local port gets to do.
+
+</td>
+<td width="50%" valign="top">
+
+<img src="docs/screenshot-away.png" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked">
+
+</td>
+</tr>
+</table>
+
+- **📱 Tell me when I'm away:** a permission prompt, a finished run, a reset usage limit, a red build or an overheating GPU can reach your phone. **ntfy** is one QR scan with no account; **Telegram** finds your chat by itself; **Pushover**, a **Discord** or **Slack** webhook, or your own endpoint work too. Nothing goes through a server of ours, a four-second task doesn't buzz your pocket, and **Guard my focus** holds them back unless you say otherwise.
+- **🎥 On a stream:** **Settings → On a stream** serves him as an OBS browser source on a transparent background — the same crab, outfit and animations, reacting live in the corner. It's the critter's own stylesheet behind it, on 127.0.0.1 only.
+- **💡 Desk lighting:** through [OpenRGB](https://openrgb.org), coral while he works, amber when he needs you, red when a build goes red or something overheats. **Install OpenRGB for me** does it with winget after you confirm, and he starts it in the tray whenever the lighting is on.
+- **✅ CI on your pull requests:** sign in with GitHub and when a build goes red he holds up a ✗ sign, when it's fixed he dances, and a review request makes him raise a claw. **Ask Shellby why** reads the failing logs and explains them without changing anything.
 
 ## 🧭 Easy to get around
 
@@ -157,7 +266,9 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings has section links that stay on screen as you scroll.
 - **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter, resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).
-- **Updates are a button:** **Settings → About** shows what version he's on and whether a new one is waiting, with **Restart and update** when it has downloaded. The tray menu has the same button, and he checks on his own in the background.
+- **Updates are a button:** **Settings → About** shows what version he's on and whether a new one is waiting, with **Restart and update** when it has downloaded. The tray menu has the same button, and a dot on the ⚙ gear tells you from any screen.
+- **Something wrong?** **Report a problem** in his right-click menu opens a GitHub issue with his version, your Windows build and the last lines of his log already filled in — your home folder shortened to `~` and anything token-shaped cut out — and nothing is sent until you press submit.
+- **Kind to your battery:** he stops animating when you aren't looking, and everything stops while your screen is locked.
 
 ## 🔒 You stay in control
 
@@ -171,15 +282,16 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 Sign in with a short code you approve on github.com, with no password typed into Shellby. GitHub is only asked for what the features you turn on need:
 
 - **Sync between PCs:** trophies, collected items, XP, streak days, outfit and color, through a private gist. Syncing only ever adds progress.
-- **Watch CI on your pull requests:** when a build goes red he holds up a ✗ sign, when it's fixed he dances, and a review request makes him raise a claw. **Ask Shellby why** reads the failing logs and explains them without changing anything. Needs nothing beyond the sign-in for public repos; private ones need "Let Claude tasks push" too.
+- **Watch CI on your pull requests**, as above. Public repos need nothing beyond the sign-in; private ones need "Let Claude tasks push" too.
 - **Publish your Wardrobe packs** to the community gallery: Shellby forks it and opens the pull request for you.
 - **Let Claude tasks push:** Shellby's tabs get your sign-in for `git push`/`pull`, `gh` and the official GitHub plugin. Off by default, with a warning before it's turned on.
+- **…including changes to CI workflows:** its own switch, off by default, because a workflow runs on GitHub's machines with your repository's secrets. It can't be granted by a first sign-in.
 
 Your name and avatar show in Settings and on your crab card. The sign-in is encrypted by Windows and never stored in settings.json.
 
 ## Install
 
-**Just the crab:** download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest), run it, and pick **Just the crab**. That's it: Health, the Wardrobe, trophies and crab cards, no account. You can add Claude Code later from Settings.
+**Just the crab:** download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest), run it, and pick **Just the crab**. That's it: Health, the Wardrobe, his voice, trophies and crab cards, no account. You can add Claude Code later from Settings.
 
 **Crab + Claude Code:**
 
@@ -196,7 +308,7 @@ Your name and avatar show in Settings and on your crab card. The sign-in is encr
 > - **To install anyway:** click **More info → Run anyway**.
 > - **To check you got the real file:** every release is built by [GitHub Actions](https://github.com/x-salmon/shellby/actions/workflows/release.yml) from the tagged commit, and each one lists SHA-256 checksums in `SHA256SUMS.txt`. Compare them with `Get-FileHash .\Shellby-Setup-x.y.z.exe`, or build from source (below).
 
-**Requirements:** Windows 10 or 11 (x64), Claude Code 2.1+, and a Claude Pro or Max plan.
+**Requirements:** Windows 10 or 11 (x64). For the Claude side: Claude Code 2.1+ and a Claude Pro or Max plan.
 
 ## How it works
 
@@ -207,6 +319,8 @@ flowchart LR
     M -- "stdin: user turns,<br/>permission answers, interrupt, mode" --> CLI["claude -p<br/>stream-json"]
     CLI -- "stdout: events,<br/>can_use_tool requests, usage" --> M
     CLI --> S[("Your Claude<br/>subscription")]
+    T["⌨️ shellby CLI ·<br/>🔌 plugin hooks + MCP"] -- "127.0.0.1" --> M
+    M -. "OBS overlay · OpenRGB ·<br/>phone notifications" .-> O["Out in the world"]
 ```
 
 Shellby doesn't talk to any AI API itself. Each conversation is one long-lived Claude Code process:
@@ -239,21 +353,29 @@ claude -p --input-format stream-json --output-format stream-json --verbose
 | **Smart** | ✅ | auto* | auto* | Claude Code's `auto` mode: a safety classifier approves routine steps and blocks risky ones. |
 | **Auto-edit** | ✅ | ✅ | asks | |
 | **Plan only** | ✅ | ✗ | ✗ | Shellby proposes a plan card, and nothing changes until you approve. |
-| **Autonomous** | ✅ | ✅ | ✅ | `bypassPermissions`. Behind an explicit warning, never the default. |
+| **Autonomous** | ✅ | ✅ | ✅ | `bypassPermissions`. Behind an explicit warning, never the default, and never reachable from the `shellby` command. |
 
 Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply in every mode.
 
 ## Build from source
 
-`git clone`, `npm install`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+`git clone`, `npm install`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel` and `python scripts/make-banners.py`.
 
 ## Privacy
 
-Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is Claude Code talking to Anthropic, the updater checking GitHub Releases, community pack downloads you ask for, GitHub (only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests), and Health asking LibreHardwareMonitor for sensor readings on `127.0.0.1`. That last one never leaves your PC. See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
+Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is:
+
+- Claude Code talking to Anthropic, and the updater checking GitHub Releases.
+- Community pack downloads you ask for.
+- GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests.
+- Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
+- Things that never leave your PC: LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
+
+See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
 ## Contributing
 
-Skins, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Skins, packs, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

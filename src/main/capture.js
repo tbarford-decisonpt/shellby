@@ -90,7 +90,7 @@ async function shot(win, file) {
   console.log('wrote', path.relative(process.cwd(), file));
 }
 
-async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health }) {
+async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin }) {
   const out = path.join(ROOT, 'docs');
   fs.mkdirSync(out, { recursive: true });
   const base = { toolbox: DEMO_TOOLBOX, routines: DEMO_ROUTINES, learned: LEARNED, pinned: PINNED, usage: DEMO_USAGE };
@@ -210,10 +210,75 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     const card = await panel.webContents.executeJavaScript('SB.crabCard.render().then(r => r.canvas.toDataURL("image/png"))');
     fs.writeFileSync(path.join(out, 'crab-card.png'), Buffer.from(card.split(',')[1], 'base64'));
     console.log('wrote', path.relative(process.cwd(), path.join(out, 'crab-card.png')));
+
+    await captureLife({ critter, panel, send, out, wardrobe, config, broadcastSkin, base });
   } catch (e) {
     console.error('capture failed:', e);
   }
   app.exit(0);
+}
+
+// The things he does on his own (0.17+): talking, guarding focus, red CI,
+// listening along, the head-to-tail sets, other crab species, grown shells,
+// and the Settings sections that reach beyond the PC.
+async function captureLife({ critter, panel, send, out, wardrobe, config, broadcastSkin, base }) {
+  const idle = { state: 'idle', busy: 0, crew: [], moreCrew: 0, background: 0 };
+  const pose = async (file, state, ms = 1400) => {
+    send(critter, 'critter:state', { ...idle, ...state });
+    await wait(ms);
+    await shot(critter, path.join(out, `critter-${file}.png`));
+  };
+  const say = text => ({ text, occasion: 'demo', until: Date.now() + 60e3 });
+  const bare = { hat: null, face: null, neck: null, held: null, shell: null, effect: null };
+  const wear = async look => {
+    const r = wardrobe.setOutfit({ ...bare, ...look });
+    if (!r.ok) throw new Error(`couldn't wear ${JSON.stringify(look)}: ${r.error}`);
+    await wait(500);
+  };
+
+  await wear({});
+  await pose('voice', { state: 'working', busy: 1, say: say('fingers crossed') });
+  await pose('focus', { focus: { phase: 'focus', endsAt: Date.now() + 18 * 60e3, minutes: 25 } });
+  await pose('ci', { ci: { failing: 1 }, say: say('build is red') });
+
+  await wear({ hat: 'headphones', held: 'boombox', effect: 'music-notes' });
+  await pose('music', { say: say('good one') });
+
+  const sets = {
+    'dev-desk': { hat: 'keycap', face: 'sticky-note', neck: 'greenbar', held: 'rubber-duck', shell: 'hard-drive', effect: 'cursors' },
+    'tide-pool': { hat: 'starfish', face: 'dive-mask', neck: 'puka-shells', held: 'kelp-frond', shell: 'barnacles', effect: 'bubbles' },
+    'on-call': { hat: 'beacon', face: 'face-shield', neck: 'pager', held: 'fire-extinguisher', shell: 'high-vis', effect: 'embers' },
+  };
+  for (const [name, look] of Object.entries(sets)) {
+    await wear(look);
+    await pose(`set-${name}`, {});
+  }
+
+  // Other crabs, bare, so the shape is what you see.
+  await wear({});
+  for (const id of ['fiddler', 'coconut', 'porcelain', 'spider']) {
+    config.set({ skin: id });
+    broadcastSkin();
+    await pose(`species-${id}`, {}, 1200);
+  }
+  config.set({ skin: 'classic' });
+
+  // The Golden Conch, at level 20.
+  config.set({ xp: { ...(config.get('xp') || {}), total: 1e6 }, home: { worn: 'golden-conch', seen: ['snail', 'tin-can', 'teacup', 'toy-brick', 'golden-conch'] } });
+  broadcastSkin();
+  await pose('conch', { state: 'success' });
+  config.set({ home: { worn: 'home', seen: [] } });
+  broadcastSkin();
+
+  // Settings: phone notifications in one QR scan.
+  send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'settings' });
+  await wait(900);
+  const js = code => panel.webContents.executeJavaScript(code);
+  await js("document.getElementById('chEnabled').click()");
+  await wait(1400);
+  await js("document.getElementById('channelsGroup').scrollIntoView({ block: 'start' })");
+  await wait(500);
+  await shot(panel, path.join(out, 'screenshot-away.png'));
 }
 
 const FAKE_STATUS = {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.3: a fresh coat for the README
+
+### Fixed
+- **A "⚙ 0" badge sat on every crab** in the top-left corner, even with nothing left running in the background. It now only shows up when there's actually something to see.
+- **"fingers crossed" read as "Angers crossed"** in his speech bubble: the pixel font joins "fi" into one glyph that looks like an "A". Every "fi" in his bubble is spelled out now — *"this file again?"* included.
+
+### Docs
+- **The README is rebuilt around everything since 0.17:** his voice, the shells he grows into, the `shellby` command and MCP server, phone notifications, the OBS overlay, desk lighting, the new packs and crabs, the security read and tickable chats. A **What's new** grid sits near the top.
+- **New pictures, all rendered from the real app:** a banner, lineups of the head-to-tail sets, the new crab species and his moods, the phone-notification QR screen, refreshed screenshots, and a new demo reel in which he talks while he works. `python scripts/make-banners.py` rebuilds the composites after `npm run screenshots`.
+
 ## 0.21.2
 
 ### Releases

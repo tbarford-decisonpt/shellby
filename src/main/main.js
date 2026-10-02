@@ -2756,7 +2756,7 @@ app.whenReady().then(() => {
   watchIdleCost();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
-  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
+  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });
 
   createToolbox();
   createShop();
