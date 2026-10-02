@@ -17,9 +17,13 @@ function subscriptionEnv(base = process.env) {
   return env;
 }
 
-function candidatePaths(env = process.env) {
+// configured: a path the user picked in Settings when the search below missed
+// (unusual installs, a portable copy, a drive we'd never guess). It's tried
+// first, but it is not trusted to exist — findClaude still checks.
+function candidatePaths(env = process.env, configured = null) {
   const list = [];
   if (env.SHELLBY_CLAUDE_PATH) list.push(env.SHELLBY_CLAUDE_PATH);
+  if (typeof configured === 'string' && configured) list.push(configured);
   if (env.APPDATA) list.push(path.join(env.APPDATA, 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe'));
   if (env.USERPROFILE) list.push(path.join(env.USERPROFILE, '.local', 'bin', 'claude.exe'));
   if (env.LOCALAPPDATA) list.push(path.join(env.LOCALAPPDATA, 'Programs', 'claude', 'claude.exe'));
@@ -29,19 +33,45 @@ function candidatePaths(env = process.env) {
   return list;
 }
 
-function findClaude(env = process.env) {
-  return candidatePaths(env).find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
+function findClaude(env = process.env, configured = null) {
+  return candidatePaths(env, configured).find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
+}
+
+/**
+ * Is this file actually the Claude Code CLI? Used before saving a path the user
+ * picked by hand, so "I chose the wrong exe" is answered then and there rather
+ * than becoming a task that won't start.
+ * @returns {Promise<{ ok: true, exe: string, version: string|null } | { ok: false, error: string }>}
+ */
+async function verifyClaude(file) {
+  if (typeof file !== 'string' || !file) return { ok: false, error: 'No file chosen.' };
+  try { if (!fs.statSync(file).isFile()) return { ok: false, error: "That's a folder, not the Claude Code program." }; } catch { return { ok: false, error: "That file isn't there any more." }; }
+  const ver = await run(file, ['--version'], 20000);
+  const version = (ver.stdout.match(/\d+\.\d+\.\d+/) || [null])[0];
+  if (!ver.ok || !version) {
+    return { ok: false, error: `That doesn't look like Claude Code — ${path.basename(file)} didn't report a version.` };
+  }
+  return { ok: true, exe: file, version };
 }
 
 // opts.cwd: where the CLI runs (it resolves relative arguments there).
+// Always resolves: a file Windows refuses to execute at all (a .txt chosen in
+// the file picker, say) makes execFile throw synchronously with EFTYPE rather
+// than calling back, and that used to escape as a rejected promise.
 function run(exe, args, timeout = 15000, { cwd } = {}) {
   return new Promise(resolve => {
     let timedOut = false;
-    // Plugin catalogs can be several MB of JSON; the 1 MB default would truncate them.
-    const child = execFile(exe, args, { env: subscriptionEnv(), windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
-      clearTimeout(timer);
-      resolve({ ok: !err && !timedOut, stdout: String(stdout || ''), stderr: String(stderr || ''), err: err || (timedOut ? new Error('timed out') : null), timedOut });
-    });
+    let child;
+    try {
+      // Plugin catalogs can be several MB of JSON; the 1 MB default would truncate them.
+      child = execFile(exe, args, { env: subscriptionEnv(), windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+        clearTimeout(timer);
+        resolve({ ok: !err && !timedOut, stdout: String(stdout || ''), stderr: String(stderr || ''), err: err || (timedOut ? new Error('timed out') : null), timedOut });
+      });
+    } catch (err) {
+      resolve({ ok: false, stdout: '', stderr: '', err, timedOut: false });
+      return;
+    }
     // Our own timeout: kill the whole tree while claude is still alive (a plugin
     // install may be running git; execFile's timeout would only kill claude.exe).
     const timer = setTimeout(() => {
@@ -55,9 +85,10 @@ function run(exe, args, timeout = 15000, { cwd } = {}) {
   });
 }
 
-// { installed, exe, version, loggedIn, authMethod, subscriptionType, email, warning }
-async function checkStatus() {
-  const exe = findClaude();
+// { installed, exe, version, loggedIn, authMethod, subscriptionType, email, warning, picked }
+// configured: the path the user chose in Settings, if any (see candidatePaths).
+async function checkStatus({ configured = null } = {}) {
+  const exe = findClaude(process.env, configured);
   if (!exe) return { installed: false };
   const ver = await run(exe, ['--version']);
   const version = (ver.stdout.match(/\d+\.\d+\.\d+/) || [null])[0];
@@ -66,6 +97,7 @@ async function checkStatus() {
   try { info = JSON.parse(auth.stdout); } catch { /* not logged in or old CLI */ }
   const status = {
     installed: true, exe, version,
+    picked: !!configured && exe === configured, // Settings shows where it came from
     loggedIn: !!info.loggedIn,
     authMethod: info.authMethod || null,
     subscriptionType: info.subscriptionType || null,
@@ -77,4 +109,4 @@ async function checkStatus() {
   return status;
 }
 
-module.exports = { findClaude, checkStatus, subscriptionEnv, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, verifyClaude, checkStatus, subscriptionEnv, candidatePaths, run, BILLING_ENV };

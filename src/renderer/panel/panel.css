@@ -334,6 +334,32 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 }
 .meta::before, .meta::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
 .meta.bad { color: var(--danger); }
+/* ---------------------------------------------------------------- idle cost
+   An open panel spends most of a core on animation (scripts/idle-cost.js), and
+   most of that while nobody is watching. `calm` (the window isn't focused)
+   pauses only what's decorative: the drifting light and the breathing crab.
+   Anything that reports work — spinners, lane crabs, the busy brand — keeps
+   going, because a stopped spinner reads as a hung task. `calm-deep` (the screen
+   is locked) stops everything, since there is nothing to read at all.
+   `animation: none`, not `animation-play-state: paused`: a paused animation keeps
+   its compositing alive and costs exactly as much as a running one (measured).
+   Removing it does free the work, at the price of snapping back to the base
+   position — which nobody is looking at, by definition. */
+body.calm .caustics,
+body.calm .empty-crab svg,
+body.calm .hello-crab svg,
+body.calm .hl-sprite,
+body.calm .stage-crab svg { animation: none; }
+body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation: none !important; }
+
+/* The oldest blocks of a very long conversation are dropped from the DOM; this
+   says so, and stays at the top of the feed. */
+.feed-trimmed {
+  margin: 0 16px 14px; padding: 7px 11px; border-radius: var(--r-sm);
+  background: var(--glass-dim); border: 1px dashed var(--line);
+  color: var(--sand-dim); font-size: 11.5px; text-align: center;
+}
+
 .error-block {
   margin: 0 0 14px 16px; padding: 9px 12px; border-radius: var(--r-sm);
   background: rgba(255, 90, 74, .1); border: 1px solid rgba(255, 90, 74, .4); color: #ffc2bb;
@@ -486,6 +512,15 @@ select.field option { background: var(--reef); }
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 12px; font-size: 12.5px; }
 .facts dt { color: var(--sand-faint); }
 .facts dd { margin: 0; font-family: var(--font-mono); font-size: 11.5px; font-stretch: 88%; overflow: hidden; text-overflow: ellipsis; }
+
+/* the update row under the version facts */
+.update { margin: 0 0 12px; padding: 10px 11px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
+.update.ready { border-color: var(--glass); }
+.update-head { display: flex; align-items: center; gap: 10px; }
+.update-head .ext-status { flex: 1; min-width: 0; margin: 0 !important; }
+.update-head .slim-btn { flex: none; }
+.update-bar { height: 4px; margin-top: 9px; border-radius: 2px; background: var(--reef-3); overflow: hidden; }
+.update-bar i { display: block; height: 100%; border-radius: 2px; background: var(--glass); transition: width .3s linear; }
 
 /* ================================================================ history */
 .history-list { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 5px; }

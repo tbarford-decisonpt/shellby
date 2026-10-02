@@ -5,7 +5,6 @@ const koffi = require('koffi');
 const { execSync } = require('child_process');
 
 const user32 = koffi.load('user32.dll');
-const HWND = 'intptr_t';
 const EnumProc = koffi.proto('bool __stdcall EnumProc(intptr_t hwnd, intptr_t lParam)');
 const EnumWindows = user32.func('bool __stdcall EnumWindows(EnumProc *cb, intptr_t lParam)');
 const IsWindowVisible = user32.func('bool __stdcall IsWindowVisible(intptr_t hwnd)');
@@ -16,7 +15,7 @@ const GetWindow = user32.func('intptr_t __stdcall GetWindow(intptr_t hwnd, uint3
 const GetWindowLongW = user32.func('int32_t __stdcall GetWindowLongW(intptr_t hwnd, int idx)');
 const FindWindowW = user32.func('intptr_t __stdcall FindWindowW(str16 cls, str16 title)');
 const FindWindowExW = user32.func('intptr_t __stdcall FindWindowExW(intptr_t parent, intptr_t after, str16 cls, str16 title)');
-const RECT = koffi.struct('RECT', { left: 'int', top: 'int', right: 'int', bottom: 'int' });
+koffi.struct('RECT', { left: 'int', top: 'int', right: 'int', bottom: 'int' });
 const GetWindowRect = user32.func('bool __stdcall GetWindowRect(intptr_t hwnd, _Out_ RECT *r)');
 
 const str = (fn, h) => { const b = new Uint16Array(256); const n = fn(h, b, 256); return String.fromCharCode(...b.slice(0, n)); };

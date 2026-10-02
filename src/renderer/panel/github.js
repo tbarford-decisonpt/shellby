@@ -6,7 +6,7 @@
   const wanted = new Set(['sync']); // what a sign-in asks for (signed out)
 
   const ago = t => (t ? SB.relTime(t) : 'not yet');
-  const TOGGLES = [['sync', 'ghSync'], ['ci', 'ghCi'], ['publish', 'ghPublish'], ['claude', 'ghClaude']];
+  const TOGGLES = [['sync', 'ghSync'], ['ci', 'ghCi'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
 
   function render(v) {
     if (!v) return;
@@ -23,14 +23,21 @@
     }
 
     // Toggles: signed in → the real state; signed out → what to ask for.
+    const claudeOn = signedIn && v.features.claude.on && v.features.claude.granted;
     for (const [f, id] of TOGGLES) {
       const el = $(id);
       el.checked = signedIn ? v.features[f].on && v.features[f].granted : wanted.has(f);
-      el.disabled = !!v.flow || (f === 'claude' && !signedIn);
+      // Pushing workflow files is only meaningful once tasks can push at all.
+      el.disabled = !!v.flow || (f === 'claude' && !signedIn) || (f === 'workflows' && !claudeOn);
     }
     $('ghClaudeNote').textContent = signedIn
       ? 'Shellby tabs get your GitHub sign-in (git push, gh). Claude Code in your terminal is unchanged.'
       : 'Sign in first. Shellby asks again before turning this on.';
+    $('ghWorkflowsNote').textContent = !claudeOn
+      ? 'Needs "Let Claude tasks push" first.'
+      : v.features.workflows.on && v.features.workflows.granted
+        ? 'Pushes that touch .github/workflows will go through. A workflow runs with your repository\'s secrets, so keep an eye on tasks that edit one.'
+        : 'Without this, GitHub refuses any push that changes a file in .github/workflows — even a one-line fix.';
 
     const syncOn = signedIn && v.features.sync.on && v.features.sync.granted;
     $('ghSyncRow').hidden = !syncOn;

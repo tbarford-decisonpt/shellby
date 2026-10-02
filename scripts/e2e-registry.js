@@ -4,7 +4,7 @@
 // The native "Install pack?" dialog is read and clicked with Windows UI Automation.
 // Isolated profiles (SHELLBY_USER_DATA): your real Shellby is untouched.
 //   node scripts/e2e-registry.js [pack-id]
-const { spawn, execFile } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

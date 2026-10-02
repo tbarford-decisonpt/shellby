@@ -49,6 +49,13 @@
   let jumpingTo = null;
   settingsView.addEventListener('scrollend', () => { jumpingTo = null; markCurrent(); });
 
+  // main.js points here by section name (the tray's update item, the "update
+  // ready" notification).
+  SB.jumpToSettingByName = name => {
+    const group = [...settingsView.querySelectorAll('.setting-group[data-nav]')].find(g => g.dataset.nav === name);
+    if (group) SB.jumpToSetting(group);
+  };
+
   SB.jumpToSetting = group => {
     if (state.view !== 'settings') SB.setView('settings');
     requestAnimationFrame(() => {

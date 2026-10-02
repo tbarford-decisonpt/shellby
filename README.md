@@ -2,7 +2,7 @@
 
 # Shellby
 
-[![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![MIT license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE)
 
 **A pixel hermit crab who lives on your Windows desktop and gets things done with Claude Code.**
 
@@ -155,7 +155,8 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **A bar along the bottom:** Shellby, Chat, Toolbox, Routines, Health and History, labeled, with the current screen lit up.
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings has section links that stay on screen as you scroll.
-- **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter, resumable history, a tray menu, notifications, auto-updates and [custom skins](docs/SKINS.md).
+- **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter, resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).
+- **Updates are a button:** **Settings → About** shows what version he's on and whether a new one is waiting, with **Restart and update** when it has downloaded. The tray menu has the same button, and he checks on his own in the background.
 
 ## 🔒 You stay in control
 
@@ -253,10 +254,18 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 
 Skins, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## License
+
+Shellby is free software under the [GPL-3.0](LICENSE). Read him, change him, share him, build on him. The one condition: if you hand out a changed version, it stays open under the same licence, so fixes find their way back to everyone instead of disappearing into a closed-source app.
+
+The name **Shellby** and the crab as a mascot aren't part of that licence. Fork the code all you want — just give your crab its own name, so nobody downloads yours thinking it's this one. [TRADEMARK.md](TRADEMARK.md) spells out what's reserved and what's fair game.
+
+Copyright stays with x-salmon, so there may one day be paid extras alongside the free crab. The app in this repository stays GPL-3.0 and free.
+
 ## Disclaimer
 
 Shellby is an independent open-source project. It is **not affiliated with, endorsed by, or sponsored by Anthropic**. "Claude" and "Claude Code" are trademarks of Anthropic, PBC. Shellby only automates the official Claude Code CLI you install and sign in to yourself, and your use of it is subject to [Anthropic's terms](https://www.anthropic.com/legal/consumer-terms).
 
 Shellby acts on your real files with your real permissions. Read what you approve, and keep backups.
 
-<sub>MIT licensed. The bundled fonts, Pixelify Sans, Atkinson Hyperlegible and Martian Mono, are under the SIL Open Font License 1.1 (see [assets/fonts](assets/fonts)).</sub>
+<sub>GPL-3.0 licensed, see [LICENSE](LICENSE) and [TRADEMARK.md](TRADEMARK.md). The bundled fonts, Pixelify Sans, Atkinson Hyperlegible and Martian Mono, are under the SIL Open Font License 1.1 (see [assets/fonts](assets/fonts)).</sub>

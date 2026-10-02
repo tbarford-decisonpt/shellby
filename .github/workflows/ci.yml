@@ -15,4 +15,25 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm test
+
+  # The only automated coverage the renderer and main's wiring get: each check
+  # launches the real app and drives it over CDP with the fake Claude CLI. Its
+  # own job, so a renderer regression and a failing unit test surface together
+  # rather than one hiding behind the other.
+  e2e:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # npm ci on a clean runner doesn't always leave Electron's binary behind
+      # (it's a postinstall download, not a package file), and these checks launch
+      # the real app. Idempotent: it exits immediately when the binary is there.
+      - run: node node_modules/electron/install.js
+      - run: npm run e2e:ci

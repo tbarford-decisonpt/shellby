@@ -24,6 +24,7 @@ const DEFAULTS = {
   openAtLogin: false,
   notifications: true,
   model: '', // '' -> Claude Code's default
+  claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
   onboarded: false,
   crabOnly: false,
   wander: true,      // idle strolls near his spot (see motion.js)

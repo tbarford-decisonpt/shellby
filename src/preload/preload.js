@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     pet: fire('critter:pet'),
   },
 
@@ -36,6 +37,7 @@ contextBridge.exposeInMainWorld('shellby', {
   bootstrap: invoke('app:bootstrap'),
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
+  locateClaude: invoke('claude:locate'), // when the search missed it (unusual install)
 
   // tabs + tasks
   newTab: invoke('tab:new'),
@@ -164,6 +166,10 @@ contextBridge.exposeInMainWorld('shellby', {
   copyCard: invoke('card:copy'),
   revealCard: fire('card:reveal'),
 
+  // updates
+  checkUpdates: invoke('updates:check'),
+  installUpdate: invoke('updates:install'),
+
   // routines
   listRoutines: invoke('routines:list'),
   saveRoutine: invoke('routines:save'),
@@ -187,6 +193,8 @@ contextBridge.exposeInMainWorld('shellby', {
   onFocusInput: on('panel:focus-input'),
   onView: on('panel:view'),
   onSkin: on('skin'),
-  onUpdateReady: on('update-ready'),
+  onCalm: on('panel:calm'), // unfocused or locked: pause the decorative animation
+  onUpdates: on('updates'),
+  onJump: on('panel:jump'),
   onDemo: on('demo'),
 });

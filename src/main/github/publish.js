@@ -31,7 +31,7 @@ async function ensureFork(gh, upstream, { sleep, waitMs = FORK_WAIT_MS }) {
   if (!name) throw new Error("GitHub didn't make a copy (fork) of the gallery.");
   for (let waited = 0; ; waited += 2000) {
     try { await gh.get(`/repos/${enc(name)}`); return name; } catch (e) {
-      if (e.status !== 404 || waited >= waitMs) throw new Error('GitHub is still making your copy of the gallery. Try again in a minute.');
+      if (e.status !== 404 || waited >= waitMs) throw new Error('GitHub is still making your copy of the gallery. Try again in a minute.', { cause: e });
     }
     await sleep(2000);
   }

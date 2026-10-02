@@ -10,7 +10,7 @@ const { randomUUID } = require('crypto');
 const { Config, MODES } = require('./config');
 const { History } = require('./history');
 const { SessionManager } = require('./sessions');
-const { checkStatus, findClaude, run: runCli } = require('./claude-cli');
+const { checkStatus, findClaude, verifyClaude, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
 const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
@@ -40,6 +40,8 @@ const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
 const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
+const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
+const { Log } = require('./log');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -67,6 +69,33 @@ if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_
   app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-capture-')));
 }
 const captureClock = { now: null };
+
+// ---------------------------------------------------------------- the log
+// Shellby runs all day with no console attached, so until now a crash left
+// nothing behind: he simply vanished off the desktop. The log lives in the
+// profile folder (so dev and test runs keep their own) and is scrubbed of the
+// home directory and anything token-shaped, because its last lines are what
+// "Report a problem" offers to paste into an issue. See log.js.
+const log = new Log(path.join(app.getPath('userData'), 'logs'), { home: os.homedir() });
+log.info(`Shellby ${app.getVersion()} starting`, `${process.platform} ${os.release()}, electron ${process.versions.electron}`);
+
+// Keeping him alive through a stray throw is the right trade for a desk pet:
+// vanishing mid-task tells the user nothing and loses the conversation. It is
+// written down, and he says so once, rather than being swallowed.
+let snags = 0;
+function snag(what, detail) {
+  log.error(what, detail);
+  // No config yet means this is a crash during startup, before there's anywhere
+  // to show it (and notify() would throw from inside the handler).
+  if (++snags > 3 || !config) return; // a loop must not become a storm of toasts
+  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem);
+}
+process.on('uncaughtException', err => snag('uncaught exception', err));
+process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
+// A window or a helper process dying: the panel going blank used to be the only
+// sign, and nothing at all when it was the critter.
+app.on('render-process-gone', (_e, _wc, details) => snag('a window died', `${details.reason} (exit code ${details.exitCode})`));
+app.on('child-process-gone', (_e, details) => log.error('a child process died', `${details.type}: ${details.reason}`));
 // Dev/e2e only: drive the app with the fake CLI from test/fixtures (no Claude account, no usage).
 const FAKE_CLI = !app.isPackaged && process.env.SHELLBY_FAKE_CLAUDE ? path.resolve(process.env.SHELLBY_FAKE_CLAUDE) : null; // screenshot runs can pretend it's Halloween
 
@@ -88,8 +117,10 @@ const ISOLATED = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
 const statusFile = () => (ISOLATED ? path.join(app.getPath('userData'), 'shellby-status.txt') : statusLine.STATUS_FILE);
 const claudeSettings = () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-settings.json') : statusLine.settingsPath());
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
+// A CLI the user pointed at by hand, when the usual places didn't have it.
+const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates;
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -228,6 +259,28 @@ function createCritter() {
   });
   critter.on('blur', () => sendToBottom(critter));
   critter.on('resize', () => setImmediate(keepCritterSize));
+}
+
+// ---------------------------------------------------------------- idle cost
+// An open panel costs about three quarters of a core, nearly all of it CSS
+// animation on pixel sprites (scripts/idle-cost.js measures it). Most of that is
+// spent while nobody is looking: the panel left open behind an editor, or the
+// screen locked. So the decorative animations — the drifting caustics and the
+// breathing crab, never the spinners or progress — are paused when the panel
+// isn't focused, and everything in both windows stops while the screen is locked
+// or the machine is suspended.
+let calmReason = null; // 'blur' | 'locked' | null
+function setCalm(reason) {
+  if (calmReason === reason) return;
+  calmReason = reason;
+  send(panel, 'panel:calm', { calm: !!reason, deep: reason === 'locked' });
+  send(critter, 'critter:calm', { calm: reason === 'locked' }); // he is visible whenever the screen is
+}
+function watchIdleCost() {
+  panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
+  panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
+  for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
+  for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
 }
 
 // The critter window grows to the left to make room for helper crabs, keeping
@@ -490,7 +543,7 @@ function createManager() {
   manager = new SessionManager({
     argsPrefix: FAKE_CLI ? [FAKE_CLI] : [],
     history,
-    getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude()),
+    getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude(process.env, claudePath())),
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
     getEnv: () => github?.claudeEnv() || {},
@@ -820,7 +873,7 @@ function createShop() {
     pluginsRoot: path.join(os.homedir(), '.claude', 'plugins'),
     run: async (args, timeout) => {
       // The exe is looked up per call: Claude Code may be installed after Shellby starts.
-      const exe = claudeStatus?.exe || findClaude();
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
       if (!exe) return { ok: false, notInstalled: true, stdout: '', stderr: '' };
       try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
       return runCli(exe, args, timeout, { cwd });
@@ -1151,6 +1204,20 @@ async function confirmGitHubFeature(feature, on) {
     });
     if (response !== 0) return { ok: false, canceled: true, view: github.view() };
   }
+  // A workflow file decides what runs in CI, on GitHub's machines, with whatever
+  // secrets the repository holds. GitHub keeps it behind its own scope for that
+  // reason, and so does Shellby.
+  if (feature === 'workflows' && on) {
+    const response = await askOnce({
+      icon: '⚙️', danger: true,
+      title: 'Let Claude tasks change your CI workflows?',
+      message: 'Tasks will be able to push changes to .github/workflows — the files that decide what GitHub runs on every push.',
+      detail: 'A workflow runs on GitHub with access to that repository\'s secrets, so a task that edits one can make them run anything, in any repo you can push to. Without this, pushes that touch a workflow file are refused by GitHub.',
+      note: 'Needs "Let Claude tasks push" as well. Shellby will ask GitHub for the extra permission, which means signing in again.',
+      buttons: [{ label: 'Allow', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
   const r = await github.setFeature(feature, on);
   return { ...r, view: github.view() };
 }
@@ -1340,7 +1407,7 @@ function registerIpc() {
   ipcMain.on('panel:minimize', () => panel.minimize());
 
   ipcMain.handle('app:bootstrap', async () => {
-    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus();
+    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() });
     const demoHome = 'C:\\Users\\you';
     // Restore the tabs that were open last time (idle until you send something).
     if (!CAPTURE && !manager.tabs.size) {
@@ -1370,13 +1437,42 @@ function registerIpc() {
       cwd: CAPTURE ? `${demoHome}\\Downloads` : currentCwd(),
       home: CAPTURE ? demoHome : os.homedir(),
       packaged: app.isPackaged,
+      updates: updateView(),
       registryUrl: registryUrl(),
       startView: (() => { const v = startView; startView = null; return v; })(),
     };
   });
-  ipcMain.handle('claude:status', async () => (claudeStatus = await checkStatus()));
+  // FAKE_CLI here too, like the bootstrap and startup paths: without it, a dev or
+  // e2e run driving the fake CLI had its faked status replaced by a real check the
+  // first time the panel asked, so the same run behaved differently depending on
+  // whether the machine happened to have Claude Code installed.
+  ipcMain.handle('claude:status', async () => (claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() })));
+  // "Find it myself…": for installs in places the search can't guess — a
+  // portable copy, another drive, a company image. The file is run once to prove
+  // it really is Claude Code before the path is kept, so a wrong pick is
+  // answered here rather than becoming a task that won't start.
+  ipcMain.handle('claude:locate', async () => {
+    const r = await dialog.showOpenDialog(panel, {
+      title: 'Where is Claude Code?',
+      defaultPath: claudePath() || path.join(os.homedir(), '.local', 'bin'),
+      properties: ['openFile'],
+      filters: [{ name: 'Claude Code', extensions: ['exe', 'cmd', 'bat'] }, { name: 'Any file', extensions: ['*'] }],
+      buttonLabel: 'Use this',
+    });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, cancelled: true, status: claudeStatus };
+    const check = await verifyClaude(r.filePaths[0]);
+    if (!check.ok) {
+      log.warn('rejected a hand-picked Claude Code', `${r.filePaths[0]}: ${check.error}`);
+      return { ok: false, error: check.error, status: claudeStatus };
+    }
+    config.set({ claudePath: check.exe });
+    log.info('Claude Code set by hand', `${check.exe} (v${check.version})`);
+    claudeStatus = await checkStatus({ configured: check.exe });
+    refreshStatusLine();
+    return { ok: true, status: claudeStatus };
+  });
   ipcMain.handle('claude:login', () => {
-    const exe = claudeStatus?.exe || findClaude();
+    const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
     if (!exe) return false;
     // Opens its own console window; the CLI walks the user through the browser sign-in.
     require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
@@ -1645,10 +1741,13 @@ function registerIpc() {
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'publish', 'claude', 'ci']);
+  const FEATURE_NAMES = new Set(['sync', 'publish', 'claude', 'ci', 'workflows']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && f !== 'claude') : [];
+    // claude and workflows are never granted by a first sign-in: each has its own
+    // confirmation, so they can only be turned on deliberately afterwards.
+    const GUARDED = new Set(['claude', 'workflows']);
+    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await github.signIn(list);
     return { ...r, view: github.view() };
   });
@@ -1714,6 +1813,10 @@ function registerIpc() {
     try { statusLine.removeStatusLine(config.get('statusLinePrevious'), claudeSettings()); config.set({ statusLinePrevious: null }); } catch { /* left as is */ }
     return statusLineView();
   });
+
+  // ---- updates
+  ipcMain.handle('updates:check', () => (updates ? updates.check() : updateView()));
+  ipcMain.handle('updates:install', () => !!updates?.install());
 
   // ---- XP and levels
   ipcMain.handle('xp:get', () => xpView());
@@ -1927,6 +2030,17 @@ function setFolder(dir) {
 
 // ================================================================ tray + menu
 
+// One line in the tray for whatever the updater is up to: the fastest route to
+// "restart and update" without opening the panel at all.
+function updateMenuItem() {
+  const view = updateView();
+  const label = updateLabel(view);
+  if (!label) return null;
+  if (view.state === 'ready') return { label, click: () => updates.install() };
+  if (view.state === 'downloading') return { label, enabled: false };
+  return { label, enabled: view.state !== 'checking', click: () => { updates.check(); showUpdateSetting(); } };
+}
+
 function buildMenu() {
   const agg = manager?.aggregate;
   const claude = !config.get('crabOnly'); // just-the-crab mode has no tasks, toolbox or routines
@@ -1940,12 +2054,55 @@ function buildMenu() {
     focusMenu(),
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
+    updateMenuItem(),
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
     { label: 'Reset position', click: resetCritterPos },
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
+    { label: 'Report a problem…', click: reportProblem },
     { type: 'separator' },
     { label: 'Quit Shellby', click: quit },
   ].filter(Boolean));
+}
+
+// Open a new GitHub issue with the facts already filled in: version, Windows
+// build, whether Claude Code was found, and the tail of the log (already scrubbed
+// of the home directory and anything token-shaped). It opens in the browser as a
+// draft, so nothing is sent anywhere until the user reads it and presses submit.
+const ISSUES_URL = 'https://github.com/x-salmon/shellby/issues/new';
+const MAX_URL = 7000; // GitHub starts dropping very long query strings
+
+function reportProblem() {
+  const lines = log.recent(40);
+  const body = [
+    '<!-- What were you doing when it went wrong? -->',
+    '',
+    '',
+    '### Shellby',
+    `- Version: ${app.getVersion()}${app.isPackaged ? '' : ' (dev build)'}`,
+    `- Windows: ${os.release()} (${process.arch})`,
+    `- Electron: ${process.versions.electron}`,
+    `- Claude Code: ${claudeStatus?.installed ? `${claudeStatus.version || 'found'}${claudeStatus.loggedIn ? ', signed in' : ', not signed in'}` : 'not found'}`,
+    `- Mode: ${config?.get('crabOnly') ? 'just the crab' : config?.get('mode') || 'unknown'}`,
+    '',
+    '### Log',
+    'The last lines before reporting. Paths are shortened to `~` and anything',
+    'token-shaped is cut; please still skim it before submitting.',
+    '',
+    '```',
+    ...(lines.length ? lines : ['(nothing logged this run)']),
+    '```',
+  ].join('\n');
+
+  const url = `${ISSUES_URL}?labels=bug&body=${encodeURIComponent(body)}`;
+  // Too long for a URL: open a blank issue and leave the details on the
+  // clipboard instead of silently truncating the thing they need to paste.
+  if (url.length > MAX_URL) {
+    clipboard.writeText(body);
+    notify('Report copied', 'The details are on your clipboard — paste them into the issue.');
+    shell.openExternal(`${ISSUES_URL}?labels=bug`);
+    return;
+  }
+  shell.openExternal(url);
 }
 
 function focusMenu() {
@@ -1972,22 +2129,50 @@ function quit() {
 // ================================================================ updates
 
 function setupUpdates() {
-  if (!app.isPackaged) return;
-  try {
-    const { autoUpdater } = require('electron-updater');
-    autoUpdater.logger = null;
-    autoUpdater.autoInstallOnAppQuit = true;
-    // Offline, no releases yet, rate-limited: none of it matters to the user.
-    autoUpdater.on('error', err => console.warn('[shellby] update check failed:', err.message.split('\n')[0]));
-    autoUpdater.on('update-downloaded', info => {
-      send(panel, 'update-ready', info.version);
-      notify('Shellby update ready', `Version ${info.version} installs when you quit Shellby.`);
-    });
-    autoUpdater.checkForUpdates().catch(() => {});
-    setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
-  } catch (e) {
-    console.warn('[shellby] updater unavailable:', e.message);
+  // Dev runs can walk the whole sequence without a release behind it:
+  // SHELLBY_FAKE_UPDATE=1 (or =fail, =current) npm start
+  const fake = !app.isPackaged && process.env.SHELLBY_FAKE_UPDATE;
+  let updater = fake ? fakeUpdater({ mode: fake === '1' ? 'ok' : fake }) : null;
+  if (app.isPackaged) {
+    try {
+      ({ autoUpdater: updater } = require('electron-updater'));
+      updater.logger = null;
+      updater.autoInstallOnAppQuit = true; // quitting still installs whatever he already fetched
+    } catch (e) {
+      console.warn('[shellby] updater unavailable:', e.message);
+    }
   }
+  updates = new Updates({
+    updater,
+    version: app.getVersion(),
+    prepare: () => { app.isQuitting = true; manager?.closeAll(); },
+  });
+  updates.on('changed', view => {
+    // Offline, no releases yet, rate-limited: it goes to the log and to the
+    // Settings row, never to a dialog you have to dismiss.
+    if (view.state === 'error') console.warn('[shellby] update check failed:', view.error);
+    send(panel, 'updates', view);
+  });
+  updates.on('ready', view => notify(
+    'Shellby update ready',
+    `Version ${view.version} is downloaded. Click to install it now, or it installs when you quit.`,
+    showUpdateSetting,
+  ));
+  updates.start();
+}
+
+const updateView = () => {
+  if (updates) return updates.view();
+  const off = { state: 'off', version: null, percent: 0, error: null, checkedAt: null, current: app.getVersion(), busy: false };
+  // Screenshots show the row as installed users mostly see it, not as a dev run.
+  return CAPTURE ? { ...off, state: 'current', checkedAt: Date.now() } : off;
+};
+
+/** Settings, scrolled to the update button: where the tray item and the notification both point. */
+function showUpdateSetting() {
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'settings');
+  send(panel, 'panel:jump', 'About');
 }
 
 // ================================================================ boot
@@ -1995,7 +2180,12 @@ function setupUpdates() {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
-  history = new History(path.join(userData, 'sessions'));
+  history = new History(path.join(userData, 'sessions'), { onError: (what, err) => log.error(`history: ${what}`, err) });
+  // Transcripts orphaned by an older build (which trimmed the index without
+  // deleting them) or by an interrupted delete. Cheap, and it only ever removes
+  // files nothing lists; see History.sweep().
+  const swept = history.sweep();
+  if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),
@@ -2043,6 +2233,7 @@ app.whenReady().then(() => {
   createCritter();
   createMotion();
   createPanel();
+  watchIdleCost();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
@@ -2063,7 +2254,7 @@ app.whenReady().then(() => {
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
-  checkStatus().then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; startScheduler(); });
+  checkStatus({ configured: claudePath() }).then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; startScheduler(); });
 
   const reclamp = () => {
     const c = clampToDisplays(critter.getBounds(), workAreas());

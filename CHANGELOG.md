@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.19.0: steadier on his feet
+
+### Updating is a button now
+- **Settings → About tells you where you stand:** the version you're on, whether a new one is waiting, and a progress bar while it downloads. When it has landed, **Restart and update** installs it and brings Shellby back — no more closing him twice to find out there was an update at all.
+- **Check for updates** is there too, for when you don't want to wait for the six-hourly check. A failed check says why (offline, rate-limited) instead of going quiet.
+- **The same button is in the tray menu**, so you never have to open the panel for it, and a dot on the ⚙ gear says an update is waiting from whatever screen you're on. The "update ready" notification now takes you straight to it.
+- Quitting Shellby still installs a downloaded update, exactly as before.
+
+### When something goes wrong
+- **Report a problem**, in his right-click menu, opens a GitHub issue with the facts already filled in: his version, your Windows build, whether Claude Code was found, and the last lines of his log. Your home folder is shortened to `~` and anything token-shaped is cut out before you ever see it, and nothing is sent anywhere until you've read it and pressed submit.
+- **He keeps a log** now, in `logs/` inside his data folder. Until now a crash took him off the desktop with nothing written down at all.
+- **A stray error no longer makes him disappear.** He carries on, says so once, and writes it down.
+
+### Kinder to your battery
+- **He stops animating when you aren't looking.** The drifting light and his breathing stop while the panel isn't the window in front, and everything in both windows stops while your screen is locked — together, about half of what he costs when idle. Spinners and progress carry on, so a task that's still running still looks like one.
+
+### Tasks can fix your CI now
+- **"…including changes to CI workflows"**, under **Settings → GitHub**. `repo` access was never enough to push a file in `.github/workflows` — GitHub refuses those pushes without a scope of their own — so "Shellby, fix my failing build" got all the way to the push and then failed. Turning this on asks GitHub for that permission.
+- It's **off by default and its own decision**, not folded into "Let Claude tasks push", because a workflow is what runs on GitHub's machines with your repository's secrets. Shellby spells that out before asking, and it can't be granted by a first sign-in.
+
+### Claude Code in an unusual place
+- **Find it myself…** in setup, for when Shellby can't find Claude Code where it normally lives: a portable copy, another drive, a locked-down work PC. He runs the file once to check it really is Claude Code before keeping it, so a wrong pick tells you straight away instead of becoming a task that won't start.
+
+### Fixed
+- **A crash can no longer empty your conversation list.** The index of past conversations was written in place, so losing power partway through left a half-written file — which reads as empty and took every conversation out of History with it. It goes through a temp file and a rename now, the way settings always have. A half-written last line in a transcript is skipped rather than discarding the rest of it.
+- **Old transcripts no longer pile up for ever.** History keeps 200 conversations, but the ones that fell off the end left their transcripts in the data folder with nothing listing them and nothing able to delete them. They go with their entry now, and any left behind by older builds are cleared on the next start.
+- **A full or locked disk can't take him down mid-task.** Antivirus holding a file, a cloud-synced folder, a disk with nothing left: writing a transcript line is allowed to fail quietly and go to the log, instead of throwing in the middle of a running task.
+- **A very long conversation stays quick.** An overnight run with thousands of steps kept every one of them on screen for the life of the window. The oldest are hidden now, with a line saying how many — and the whole conversation is still in History.
+
+### Under the hood
+- The twelve end-to-end checks that need no Claude account now run in CI, so the panel and the desktop crab are covered by something other than a person remembering to run them. ESLint runs there too.
+- `scripts/idle-cost.js` measures what he costs while doing nothing, per process, with the numbers written down in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#what-he-costs-when-idle).
+
+### Open source, properly
+- **He's GPL-3.0 now**, up from MIT. Nothing changes if you just use him, and he's still free and still yours to read and change. The difference is for anyone handing out a changed version: it has to stay open under the same licence, so fixes come back to everyone instead of vanishing into a closed-source app. Everything up to and including 0.18.0 stays MIT.
+- **The name and the crab are reserved**, in the new [TRADEMARK.md](TRADEMARK.md). Fork the code all you like — give your crab its own name, so nobody downloads a fork thinking it's this one.
+- **Pull requests now say what licence they land under**, in [CONTRIBUTING.md](CONTRIBUTING.md), so the project can keep being licensed as a whole.
+
 ## 0.18.0: he has a voice
 
 ### New
