@@ -12,6 +12,10 @@ jobs:
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # `secrets` is not one of the contexts allowed in an `if:` expression, so
+      # the winget steps below test this instead. Reading it here is what lets
+      # them stay opt-in.
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -98,7 +102,7 @@ jobs:
       # wingetcreate.exe ships framework-dependent against net9.0-windows, so
       # the runtime is installed rather than assumed from the runner image.
       - name: Set up .NET for wingetcreate
-        if: ${{ secrets.WINGET_TOKEN != '' }}
+        if: ${{ env.WINGET_TOKEN != '' }}
         continue-on-error: true
         uses: actions/setup-dotnet@v5
         with:
@@ -108,13 +112,13 @@ jobs:
       # a winget hiccup shouldn't flag the release as failed. The PR can always
       # be opened by hand.
       - name: Update winget manifest
-        if: ${{ secrets.WINGET_TOKEN != '' }}
+        if: ${{ env.WINGET_TOKEN != '' }}
         continue-on-error: true
         shell: pwsh
         env:
           # Passing --token on the command line risks it being logged; the tool
           # reads this variable instead.
-          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          WINGET_CREATE_GITHUB_TOKEN: ${{ env.WINGET_TOKEN }}
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag.TrimStart('v')
