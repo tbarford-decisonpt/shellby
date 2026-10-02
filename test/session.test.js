@@ -187,3 +187,47 @@ test('a wait that fails still sends the turn', async () => {
   assert.deepEqual(texts(items), ['echo: anyway (mode=default)']);
   s.close();
 });
+
+test('beforeWork sees a change before it happens, and can hold it back', async () => {
+  const dir = require('fs').mkdtempSync(path.join(os.tmpdir(), 'shellby-gate-'));
+  try {
+    const { s, items } = makeSession({ cwd: dir });
+    const seen = [];
+    s.beforeWork = input => {
+      seen.push(input.tool_name);
+      return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'not yet' } };
+    };
+    s.send('edit a.txt hi');
+    await waitFor(s, i => i.kind === 'result');
+    assert.deepEqual(seen, ['Write']);
+    assert.equal(require('fs').existsSync(path.join(dir, 'a.txt')), false, 'held back');
+    assert.deepEqual(texts(items), ['Branch: add-greeting']);
+
+    // Held busy while main.js moves it, a stop() is not a crash; the next turn
+    // starts a fresh process, without the hook.
+    s.beforeWork = null;
+    s.setBusy(true);
+    await s.stop();
+    assert.ok(!items.some(i => i.kind === 'error'));
+    assert.equal(s.busy, true);
+    s.setBusy(false);
+    s.send('edit a.txt hi');
+    await waitFor(s, i => i.kind === 'result' && texts(items).length === 2);
+    assert.equal(require('fs').readFileSync(path.join(dir, 'a.txt'), 'utf8'), 'hi\n');
+    await s.stop(); // its folder can't go while it's working there
+  } finally { require('fs').rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a turn that ends with work still running in the background says what it is waiting on', () => {
+  const { s, items } = makeSession();
+  s.handle({ kind: 'task', phase: 'started', taskId: 'b1', description: 'Run full e2e suite' });
+  s.handle({ kind: 'task', phase: 'started', taskId: 'b2', description: 'Lint' });
+  s.handle({ kind: 'task', phase: 'done', taskId: 'b2', status: 'completed' });
+  s.handle({ kind: 'result', ok: true, durationMs: 1000, turns: 9 });
+  assert.deepEqual(items.find(i => i.kind === 'result').waiting, ['Run full e2e suite']);
+
+  // Once it reports back, the next turn's result has nothing left to wait on.
+  s.handle({ kind: 'task', phase: 'done', taskId: 'b1', status: 'completed' });
+  s.handle({ kind: 'result', ok: true, durationMs: 1000, turns: 1 });
+  assert.equal(items.filter(i => i.kind === 'result')[1].waiting, undefined);
+});

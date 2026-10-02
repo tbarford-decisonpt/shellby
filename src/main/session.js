@@ -5,10 +5,15 @@ const { spawn, execFile } = require('child_process');
 const readline = require('readline');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
-const { parseLine } = require('./stream');
+const { parseLine, spendFrom } = require('./stream');
+const { weightOf } = require('./spend');
 const { subscriptionEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
+
+// The tools that can change files, for the beforeWork hook.
+const WORK_TOOLS = 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell';
+const WORK_HOOK = 'shellby-before-work';
 
 const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
 
@@ -22,9 +27,14 @@ class ClaudeSession extends EventEmitter {
     this.busy = false;
     this.sessionId = resumeId;
     this.pending = new Map(); // requestId -> permission item
+    // beforeWork(hookInput) -> hook output: set by main.js while a conversation
+    // in a git project has no copy of its own yet. It sees every tool call that
+    // could change files before it runs, and can hold it back (worktrees.js).
+    this.beforeWork = null;
     this.interrupting = false;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
+    this.counted = new Map();      // message id -> weight already reported as 'spend'
   }
 
   buildArgs() {
@@ -48,14 +58,23 @@ class ClaudeSession extends EventEmitter {
     });
     this.proc = proc;
     let stderr = '';
+    if (this.beforeWork) {
+      this.write({ type: 'control_request', request_id: randomUUID(), request: {
+        subtype: 'initialize',
+        hooks: { PreToolUse: [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }] },
+      } });
+    }
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
       const { event, items } = parseLine(line);
-      if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
+      if (event?.type === 'control_request' && event.request?.subtype === 'hook_callback' && event.request.callback_id === WORK_HOOK) {
+        this.answerHook(event.request_id, event.request.input);
+      } else if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
         // Unknown host callbacks (hooks, MCP bridging): answer so the CLI never hangs.
         this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
       }
       for (const item of items) this.handle(item);
+      this.countSpend(spendFrom(event));
     });
     proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
     proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
@@ -64,7 +83,9 @@ class ClaudeSession extends EventEmitter {
       this.emit('item', { kind: 'error', text: `Couldn't start Claude Code: ${err.message}` });
     });
     proc.on('close', code => {
-      const wasBusy = this.busy;
+      // A stop() asked for isn't a crash, and the tab stays busy for whoever asked.
+      const wasBusy = this.busy && !this.stopping;
+      this.stopping = false;
       this.proc = null;
       this.waiting = null;
       this.cancelPending();
@@ -100,6 +121,12 @@ class ClaudeSession extends EventEmitter {
         if (item.sessionId) this.sessionId = item.sessionId;
         if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
         this.interrupting = false;
+        // A command that outran its timeout (or was backgrounded on purpose)
+        // is still going: the turn ended, but the work isn't done.
+        if (item.ok && !item.interrupted) {
+          const waiting = this.runningCrew().map(t => t.description || 'a background task');
+          if (waiting.length) item.waiting = waiting;
+        }
         // Background subagents can outlive the turn, so pending prompts stay open;
         // only interrupt/exit cancel them. Clear busy before emitting so listeners
         // reacting to the result can send a follow-up.
@@ -108,6 +135,21 @@ class ClaudeSession extends EventEmitter {
         return;
     }
     this.emit('item', item);
+  }
+
+  // What each API call cost, for the usage-by-project ledger (spend.js). One
+  // call arrives as several events repeating its usage, so only growth past
+  // what was already reported counts. Kept off the 'item' stream so it never
+  // lands in the transcript.
+  countSpend(s) {
+    if (!s) return;
+    const weight = weightOf(s.usage, s.model);
+    const before = this.counted.get(s.messageId) || 0;
+    if (weight <= before) return;
+    this.counted.delete(s.messageId);
+    this.counted.set(s.messageId, weight);
+    if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
+    this.emit('spend', { messageId: s.messageId, weight: weight - before });
   }
 
   // Keeps a live map of subagents so permission prompts can be attributed and
@@ -221,6 +263,24 @@ class ClaudeSession extends EventEmitter {
     if (this.proc) {
       this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'set_permission_mode', mode: CLI_MODE[mode] } });
     }
+  }
+
+  async answerHook(requestId, input) {
+    let response = {};
+    try { response = (await this.beforeWork?.(input || {})) || {}; } catch { /* let the tool run */ }
+    this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
+  }
+
+  /** End the process (not the conversation) and wait until it's gone. The next send() resumes it. */
+  stop(timeoutMs = 8000) {
+    const proc = this.proc;
+    if (!proc || proc.exitCode !== null) return Promise.resolve();
+    this.stopping = true;
+    this.close();
+    return new Promise(resolve => {
+      const timer = setTimeout(resolve, timeoutMs);
+      proc.once('close', () => { clearTimeout(timer); resolve(); });
+    });
   }
 
   kill() {

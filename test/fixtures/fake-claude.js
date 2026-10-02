@@ -17,9 +17,12 @@ let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-
 let turn = 0;
 let pending = null;   // { requestId, onAnswer }
 let slow = null;
+let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
 
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
-const text = t => out({ type: 'assistant', message: { content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
+let messages = 0;
+// Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
+const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
 
 readline.createInterface({ input: process.stdin }).on('line', line => {
@@ -38,6 +41,9 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       if (slow) { clearTimeout(slow); slow = null; }
       out({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] } });
       result(false);
+    } else if (sub === 'initialize') {
+      workHooks = msg.request.hooks?.PreToolUse?.flatMap(m => m.hookCallbackIds) || [];
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
@@ -57,12 +63,27 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   if (content === 'crash') { process.exit(3); }
   // "edit <file> <words...>" -> writes <words> into <file> in the working folder,
-  // the way a real turn changes code (for the turn's diff and worktrees)
+  // the way a real turn changes code (for the turn's diff and worktrees). A
+  // registered PreToolUse hook is asked first; held back, it answers
+  // "Branch: add-greeting" instead.
   if (content.startsWith('edit ')) {
     const [, file, ...words] = content.split(' ');
-    require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`);
-    text(`edited ${file}`);
-    result(true);
+    const write = () => {
+      require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`);
+      text(`edited ${file}`);
+      result(true);
+    };
+    if (!workHooks.length) return write();
+    const requestId = `req-hook-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'hook_callback', callback_id: workHooks[0], input: { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: file, content: words.join(' ') } } } });
+    pending = {
+      requestId,
+      onAnswer: r => {
+        if (r?.hookSpecificOutput?.permissionDecision !== 'deny') return write();
+        text('Branch: add-greeting');
+        result(true);
+      },
+    };
     return;
   }
   // "limit <seconds>" -> the plan's 5-hour limit is reached and resets in <seconds>

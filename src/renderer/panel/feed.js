@@ -152,6 +152,12 @@
         case 'result': return this.renderResult(item);
         case 'changes': return this.renderChanges(item);
         case 'undone': return this.markUndone(item);
+        case 'moved': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
+          `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})`));
+        case 'home': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
+          `Brought home: ${item.commits} commit${item.commits === 1 ? '' : 's'} merged into ${item.base}`));
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
       }
     }
@@ -393,8 +399,11 @@
 
     renderResult(item) {
       for (const el of this.tools.values()) if (el.classList.contains('pending')) el.classList.replace('pending', item.ok ? 'ok' : 'err');
-      const label = item.interrupted ? 'stopped' : item.ok ? 'done' : 'ended with an error';
-      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}`, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
+      const waiting = item.ok && !item.interrupted && item.waiting?.length
+        ? `waiting on ${item.waiting.length === 1 ? item.waiting[0] : `${item.waiting.length} background tasks`}`
+        : null;
+      const label = item.interrupted ? 'stopped' : waiting || (item.ok ? 'done' : 'ended with an error');
+      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
       if (!item.ok && !item.interrupted && item.error) this.append(h('div', { class: 'error-block', text: item.error }));
       if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }

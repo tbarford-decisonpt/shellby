@@ -66,15 +66,16 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11M4.5 10.5c0-3 7-2.5 7-6.5M11.5 2.5v1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="4.5" cy="12.6" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="11.5" cy="3.2" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       <span id="branchLabel">own copy</span>
     </button>
-    <div class="usage" id="usage" hidden>
-      <div class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></div>
-      <div class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></div>
-    </div>
+    <button type="button" class="usage" id="usage" aria-haspopup="menu" aria-label="Usage limits: see what used them" hidden>
+      <span class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></span>
+      <span class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></span>
+    </button>
   </div>
 
   <div class="popover" id="modeMenu" role="menu" hidden></div>
   <div class="popover" id="folderMenu" role="menu" hidden></div>
   <div class="popover" id="branchMenu" role="menu" hidden></div>
+  <div class="popover usage-menu" id="usageMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -463,8 +464,8 @@
       <h3>Working folder</h3>
       <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
       <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
-      <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give each new conversation its own copy of a git project</label>
-      <p class="muted small">Tabs in the same repository stop stepping on each other. Each copy is a git worktree on its own branch, starting from your last commit; your own checkout and anything uncommitted in it stay as they are. When it's done, <b>Bring it home</b> merges the branch back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
+      <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give a conversation its own copy of a git project when it starts changing things</label>
+      <p class="muted small">Tabs in the same repository stop stepping on each other. Questions stay in your checkout; the first time a conversation goes to change a file, it moves into a copy on a branch named for the work. Each copy is a git worktree on its own branch, starting from your last commit; your own checkout and anything uncommitted in it stay as they are. <b>Bring it home</b> merges the branch back and the conversation carries on; <b>Bring it home and finish</b> also tidies the copy away. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
     </section>
 
     <section class="setting-group" data-nav="Look">
