@@ -95,7 +95,7 @@
     }
     syncBusyUi();
     const active = SB.activeTab();
-    if (active) applyFolderLabel(active.cwd || state.cwd, active); // a first message can move it into its own copy
+    if (active) applyFolderLabel(active.cwd || state.cwd, active); // its first change can move it into its own copy
     SB.renderTabStrip();
   };
 
@@ -645,20 +645,28 @@
       h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
         h('span', { class: 'mi-check', text: '↩' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home' }), h('div', { class: 'mi-sub', text: `Commit what's left, merge into ${w.base}, tidy the copy away` }))),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home' }), h('div', { class: 'mi-sub', text: `Commit what's left and merge into ${w.base}. The conversation carries on` }))),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
+        h('span', { class: 'mi-check', text: '✓' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs stay in History' }))),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
         h('span', { class: 'mi-check', text: '✕' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
     ]);
   });
 
-  async function bringHome(tab) {
+  async function bringHome(tab, { finish = false } = {}) {
     if (tab.busy) return SB.toast('Let him finish first.');
     SB.toast('Bringing it home…', { ms: 8000 });
-    const r = await api.bringWorktreeHome(tab.id);
+    const r = await api.bringWorktreeHome(tab.id, { finish });
+    const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.`;
+    if (r?.ok && r.kept) {
+      SB.toast(r.merged ? `${merged} Carry on here and bring it home again any time.` : `Nothing new to merge; ${r.base} already has all of it.`, { ms: 6000 });
+      return;
+    }
     if (r?.ok) {
       await SB.closeTab(tab.id);
-      SB.toast(r.merged ? `Merged ${r.commits} commit${r.commits === 1 ? '' : 's'} into ${r.base}. The conversation is in History.` : 'Nothing new to merge, so the copy was just tidied away.', { ms: 6000 });
+      SB.toast(r.merged ? `${merged} The conversation is in History.` : 'Nothing new to merge, so the copy was just tidied away.', { ms: 6000 });
       return;
     }
     if (r?.conflict) {

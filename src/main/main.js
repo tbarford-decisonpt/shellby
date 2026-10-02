@@ -574,12 +574,8 @@ function createManager() {
     getModel: () => config.get('model'),
     getEnv: () => github?.claudeEnv() || {},
     prepareTurn: async tab => {
-      try {
-        await ensureWorktree(tab);
-      } catch (err) {
-        log.info(`worktree: ${err.message}`);
-        manager.note(tab.id, { kind: 'error', text: `Couldn't make this conversation its own copy, so it works in your checkout: ${err.message}` });
-      }
+      tab.lastReply = null;
+      await armCopy(tab);
       await beginTurn(tab);
     },
   });
@@ -596,6 +592,7 @@ function createManager() {
       return; // toolbox lists are large; the panel doesn't need them per tab
     }
     send(panel, 'tab:item', { tabId, item });
+    if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
     if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
@@ -662,33 +659,80 @@ async function endTurn(tabId) {
 
 const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 
-// Before a tab's very first message: with the setting on and the folder in a
-// git repo, it moves into a copy of its own. Resumed conversations, and tabs
-// that have already started, stay where they are.
-function ensureWorktree(tab) {
-  // A turn stopped while its copy was being made, then sent again, waits for
-  // the same copy rather than making a second one.
-  if (!tab.worktreePending) tab.worktreePending = makeWorktree(tab).finally(() => { tab.worktreePending = null; });
-  return tab.worktreePending;
+// A conversation in a git project starts in your checkout, and moves into a
+// copy of its own (worktrees.js) the first time it goes to change something:
+// a question makes no branch, and by then Claude knows enough to name one.
+//
+// armCopy, before each turn: while the tab has no copy, a hook on the tools
+// that change files sees each call first. The first real change is held back,
+// Claude is asked for a branch name, and when that turn ends moveIntoCopy makes
+// the copy, carries the conversation across and lets Claude carry on there.
+async function armCopy(tab) {
+  if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.worktree) {
+    tab.session.beforeWork = null;
+    return;
+  }
+  if (tab.session.beforeWork) return;
+  const root = await changes.rootOf(tab.session.cwd);
+  const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
+  // Not a repo, already one of our copies, or a conversation that has already
+  // changed files here: it stays where it is.
+  if (!root || (path.resolve(root) + path.sep).toLowerCase().startsWith(home)) return;
+  if (tab.saved && history.load(tab.id).some(i => i.kind === 'changes')) return;
+  tab.session.beforeWork = input => {
+    if (tab.worktree || tab.noCopy || !config.get('worktrees')) return {};
+    if (!worktrees.startsWork(input.tool_name, input.tool_input)) return {};
+    tab.copyWanted = true;
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: NAME_THE_BRANCH } };
+  };
 }
 
-async function makeWorktree(tab) {
-  if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.worktree || tab.session.proc || tab.session.sessionId) return;
-  const made = await worktrees.create(tab.session.cwd, { home: worktreeHome(), title: tab.title });
+const NAME_THE_BRANCH = 'Not yet: before anything changes, Shellby moves this conversation into its own copy of the repository, on a new branch. '
+  + 'Run no more tools this turn. Reply with one line, "Branch: <name>", where <name> is 2 to 5 lowercase words joined by hyphens that say what this work is '
+  + '(for example "Branch: fix-login-redirect"). You will carry on from where you were, in the copy.';
+
+const claudeConfigDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+
+async function moveIntoCopy(tab) {
+  tab.copyWanted = false;
+  const session = tab.session;
+  const from = session.cwd;
+  // Busy throughout, so a message typed meanwhile waits for the move.
+  session.setBusy(true);
+  const carryOn = text => {
+    session.setBusy(false);
+    if (!manager.tabs.has(tab.id)) return;
+    try { session.send(text, manager.prepareTurn(tab)); } catch (err) { log.info(`worktree: ${err.message}`); }
+  };
+  const stayHere = why => {
+    tab.noCopy = true;
+    manager.note(tab.id, { kind: 'error', text: `Working in your checkout: ${why}` });
+    carryOn('Shellby could not make a copy, so this conversation stays in this folder. Carry on with what you were about to do, here.');
+  };
+
+  const made = await worktrees.create(from, { home: worktreeHome(), title: worktrees.suggestedName(tab.lastReply) || tab.title });
   if (!manager.tabs.has(tab.id)) { // closed while the copy was being made
     if (made?.ok) worktrees.remove(made.worktree, { force: true });
     return;
   }
-  if (!made) return; // not a git repo: nothing to copy
-  if (!made.ok) {
-    manager.note(tab.id, { kind: 'error', text: `Working in your own checkout: ${made.error}` });
-    return;
+  if (!made?.ok) return stayHere(made?.error || 'this folder is not in a git repository.');
+  const w = made.worktree;
+  await session.stop();
+  if (!worktrees.carryTranscript({ configDir: claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
+    await worktrees.remove(w, { force: true });
+    return stayHere("Claude Code's record of this conversation couldn't be carried into the copy.");
   }
-  tab.worktree = made.worktree;
-  tab.session.cwd = made.worktree.cwd;
-  history.update(tab.id, { cwd: made.worktree.cwd, worktree: made.worktree });
-  log.info(`worktree: ${made.worktree.branch} for ${path.basename(made.worktree.root)}`);
+  tab.worktree = w;
+  session.cwd = w.cwd;
+  session.beforeWork = null;
+  history.update(tab.id, { cwd: w.cwd, worktree: w });
+  log.info(`worktree: ${w.branch} for ${path.basename(w.root)}`);
+  manager.note(tab.id, { kind: 'moved', branch: w.branch, base: w.base });
   manager.changed();
+  carryOn(`Shellby has moved this conversation into its own copy of the repository, at ${w.path}, on branch ${w.branch}, started from ${w.base} at its last commit. `
+    + `Work there from now on: the project that was at ${w.root} is at ${w.path} in this copy, so use paths under it. `
+    + "It has every committed file; anything uncommitted or ignored in the original (node_modules, build output) isn't in it. "
+    + 'Carry on with what you were about to do.');
 }
 
 // Done with the copy: the tab closes (its process has to be gone before
@@ -701,20 +745,30 @@ async function retireWorktree(tabId, w, { force }) {
   const removed = await worktrees.remove(w, { force });
   // The conversation was Claude's in the copy's folder, and can't be resumed
   // from another one: History keeps the transcript and starts afresh there.
-  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null });
+  // The copy's diffs were snapshots in the repository's shared object store,
+  // so they still read from your checkout once the folder is gone.
+  const copies = (history.get(tabId)?.copies || []).filter(c => c.path !== w.path);
+  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null, copies: [...copies, { path: w.path, root: w.root }] });
   return removed;
 }
 
 // What the renderer hands back about a diff block, and nothing else. It has to
 // be a change main reported in that tab's transcript (and, for one file's diff,
 // one of its files): the renderer can't point git at any repo or tree it likes.
+// A change made in a copy that has since been tidied away reads from the repo
+// the copy came from (retired: there's no copy left to undo it in).
 function changeRef(r) {
   const tabId = isStr(r?.tabId) ? r.tabId : null;
   if (!tabId) return null;
   const reported = history.load(tabId).find(i => i.kind === 'changes' && i.root === r.root && i.before === r.before && i.after === r.after);
   if (!reported) return null;
   if (r.file != null && !reported.files?.some(f => f.path === r.file)) return null;
-  return { tabId, root: reported.root, before: reported.before, after: reported.after, ...(r.file != null ? { file: r.file } : {}) };
+  const same = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+  const copy = !fs.existsSync(reported.root) && (history.get(tabId)?.copies || []).find(c => isStr(c?.path) && isStr(c?.root) && same(c.path, reported.root));
+  return {
+    tabId, root: copy ? copy.root : reported.root, before: reported.before, after: reported.after,
+    ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file } : {}),
+  };
 }
 
 // ================================================================ streaks and nudges
@@ -857,6 +911,10 @@ function onPermission(tabId, item, tab) {
 
 function onResult(tabId, item, tab) {
   endTurn(tabId);
+  if (tab.copyWanted) {
+    if (!item.interrupted) return moveIntoCopy(tab);
+    tab.copyWanted = false;
+  }
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
@@ -2096,6 +2154,7 @@ function registerIpc() {
   ipcMain.handle('changes:undo', async (_e, raw) => {
     const ref = changeRef(raw);
     if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
+    if (ref.retired) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
     if (manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
     const r = await changes.undo(ref);
     if (r.ok) manager.note(ref.tabId, { kind: 'undone', after: ref.after, restored: r.restored });
@@ -2115,7 +2174,10 @@ function registerIpc() {
     const w = worktreeOf(tabId);
     return w ? worktrees.status(w) : { ok: false, error: 'That conversation has no copy of its own.' };
   });
-  ipcMain.handle('worktree:home', async (_e, tabId) => {
+  // Bringing it home merges and keeps the conversation going in its copy, so
+  // you can carry on and bring it home again. finish: also tidy the copy away
+  // (the tab closes; the conversation stays in History).
+  ipcMain.handle('worktree:home', async (_e, tabId, opts) => {
     const w = worktreeOf(tabId);
     if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
     if (manager.isBusy(tabId)) return { ok: false, error: 'Let him finish first.' };
@@ -2124,8 +2186,12 @@ function registerIpc() {
     try {
       const merged = await worktrees.bringHome(w, { message: `Shellby: ${manager.tabs.get(tabId)?.title || 'work from a tab'}` });
       if (!merged.ok) return merged;
-      const removed = await retireWorktree(tabId, w, { force: false });
       recordWork(w.originalCwd);
+      if (!opts?.finish) {
+        if (merged.merged) manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
+        return { ...merged, base: w.base, kept: true };
+      }
+      const removed = await retireWorktree(tabId, w, { force: false });
       return { ...merged, base: w.base, tidied: removed.ok };
     } finally {
       retiring.delete(tabId);

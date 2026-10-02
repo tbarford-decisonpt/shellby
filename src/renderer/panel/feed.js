@@ -152,6 +152,12 @@
         case 'result': return this.renderResult(item);
         case 'changes': return this.renderChanges(item);
         case 'undone': return this.markUndone(item);
+        case 'moved': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
+          `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})`));
+        case 'home': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
+          `Brought home: ${item.commits} commit${item.commits === 1 ? '' : 's'} merged into ${item.base}`));
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
       }
     }

@@ -85,6 +85,29 @@ test('bring it home: commits what was left, merges into the base, then tidies up
   } finally { t.done(); }
 });
 
+test('a copy can be brought home more than once, and its diffs outlive it', async () => {
+  const t = setup();
+  try {
+    const changes = require('../src/main/changes');
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Twice' });
+    const before = await changes.snapshot(w.path);
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'first\n');
+    const after = await changes.snapshot(w.path);
+    assert.deepEqual(await worktrees.bringHome(w, { message: 'one' }), { ok: true, merged: true, commits: 1 });
+
+    // The conversation carries on in the same copy, and the next round lands too.
+    fs.writeFileSync(path.join(w.path, 'd.txt'), 'second\n');
+    assert.deepEqual(await worktrees.bringHome(w, { message: 'two' }), { ok: true, merged: true, commits: 1 });
+    assert.equal(fs.readFileSync(path.join(t.dir, 'd.txt'), 'utf8'), 'second\n');
+    assert.deepEqual(await worktrees.bringHome(w, { message: 'three' }), { ok: true, merged: false, commits: 0 });
+
+    // Once the copy is gone, a turn's snapshots still read from your checkout.
+    assert.deepEqual(await worktrees.remove(w), { ok: true });
+    const r = await changes.patchFor({ root: t.dir, before: before.tree, after: after.tree, file: 'c.txt' });
+    assert.match(r.patch, /\+first/);
+  } finally { t.done(); }
+});
+
 test('a clash with the base is backed out, leaving your checkout as it was', async () => {
   const t = setup();
   try {
@@ -125,4 +148,50 @@ test('throw it away deletes the copy and its unmerged branch', async () => {
     assert.equal(t.g(t.dir, 'branch', '--list', w.branch), '');
     assert.equal(fs.existsSync(path.join(t.dir, 'e.txt')), false);
   } finally { t.done(); }
+});
+
+test('only a change to files starts the work: reading and looking around do not', () => {
+  for (const tool of ['Edit', 'Write', 'MultiEdit', 'NotebookEdit']) assert.equal(worktrees.startsWork(tool, {}), true, tool);
+  for (const tool of ['Read', 'Grep', 'Glob', 'WebFetch', 'Task']) assert.equal(worktrees.startsWork(tool, {}), false, tool);
+  const looks = [
+    'git status', 'git log --oneline -5', 'git -C ../x diff HEAD~1', 'git --no-pager show HEAD', 'git branch -a', 'git branch',
+    'ls -la src', 'cat package.json | grep version', 'rg "TODO" src 2>/dev/null', 'find . -name "*.js" | wc -l', 'node --version',
+    'Get-ChildItem src', 'git status 2>&1', 'cd src && ls', "sed -n '1,20p' a.js", 'git tag -l', 'git remote -v',
+  ];
+  for (const c of looks) assert.equal(worktrees.startsWork('Bash', { command: c }), false, c);
+  const works = [
+    'npm install', 'npm test', 'git commit -am x', 'git checkout -b x', 'git branch new-one', 'git tag v1', 'rm -rf dist',
+    'echo hi > a.txt', 'cat a >> b', 'sed -i s/a/b/ x.js', 'find . -delete', 'ls && touch x', 'echo $(rm x)', 'sort -o out in',
+    'node script.js', 'git stash', 'Set-Content a.txt hi', 'prettier --write .', '',
+  ];
+  for (const c of works) assert.equal(worktrees.startsWork('PowerShell', { command: c }), true, c);
+});
+
+test('the branch name comes from what Claude called the work', () => {
+  assert.equal(worktrees.suggestedName('Branch: fix-login-redirect'), 'fix-login-redirect');
+  assert.equal(worktrees.suggestedName('Sure.\n\n**Branch:** `Add-Dark_Mode`'), 'add-dark-mode');
+  assert.equal(worktrees.suggestedName('branch: shellby/tidy-up'), 'tidy-up');
+  assert.equal(worktrees.suggestedName('I will edit the file now.'), null);
+  assert.equal(worktrees.suggestedName(null), null);
+  assert.match(worktrees.branchName(worktrees.suggestedName('Branch: fix-login-redirect'), 'abc123'), /^shellby\/fix-login-redirect-abc123$/);
+});
+
+test('the conversation is carried into the copy\'s project folder so it can be resumed there', () => {
+  const config = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cfg-'));
+  try {
+    const from = path.resolve('/work/My Repo/src');
+    const to = path.resolve('/copies/abc123/My Repo/src');
+    assert.equal(worktrees.projectDirName(from).includes(' '), false);
+    const src = path.join(config, 'projects', worktrees.projectDirName(from));
+    fs.mkdirSync(path.join(src, 'sess-0001', 'subagents'), { recursive: true });
+    fs.writeFileSync(path.join(src, 'sess-0001.jsonl'), '{"x":1}\n');
+    fs.writeFileSync(path.join(src, 'sess-0001', 'subagents', 'a.jsonl'), '{}\n');
+    assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: 'sess-0001', from, to }), true);
+    const dst = path.join(config, 'projects', worktrees.projectDirName(to));
+    assert.equal(fs.readFileSync(path.join(dst, 'sess-0001.jsonl'), 'utf8'), '{"x":1}\n');
+    assert.ok(fs.existsSync(path.join(dst, 'sess-0001', 'subagents', 'a.jsonl')));
+    assert.ok(fs.existsSync(path.join(src, 'sess-0001.jsonl')), 'the original stays');
+    assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: 'missing-1', from, to }), false);
+    assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: '../../etc', from, to }), false);
+  } finally { fs.rmSync(config, { recursive: true, force: true }); }
 });

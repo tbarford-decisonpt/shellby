@@ -363,6 +363,8 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .chg-del { color: var(--coral); }
 .changes.undone { border-style: dashed; opacity: .75; }
 .changes.undone .chg-icon { color: var(--sand-faint); }
+/* a conversation moving into its copy, or brought home from it */
+.home-mark { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 12px 16px; padding: 4px 11px; font-size: 12px; color: var(--sand-dim); border-left: 2px solid var(--glass); }
 .chg-files { list-style: none; margin: 0; padding: 4px 0; }
 .chg-file {
   display: flex; align-items: baseline; gap: 8px; width: 100%;
