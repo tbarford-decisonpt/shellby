@@ -197,7 +197,10 @@
       h('time', { text: SB.relTime(b.at) }))));
   }
   $('bgClear').addEventListener('click', async () => renderExternal(await api.clearBackground()));
-  $('externalToggle').addEventListener('change', async e => renderExternal(await api.setExternal(e.target.checked)));
+  $('externalToggle').addEventListener('change', async e => {
+    renderExternal(await api.setExternal(e.target.checked));
+    renderCli(await api.getCli());
+  });
 
   // ---------------------------------------------------------------- the shellby command
   function renderCli(v) {
@@ -205,10 +208,12 @@
     $('cliBtn').textContent = on ? 'Remove it' : 'Add to my PATH';
     $('cliBtn').classList.toggle('danger', on);
     $('cliBtn').disabled = !v.available;
+    const ready = on && v.listening;
     $('cliStatus').textContent = !v.available ? 'Windows only for now.'
-      : on ? `Ready. Open a new terminal and try: shellby do "tidy my Downloads"`
-        : '';
-    $('cliStatus').className = `small ext-status ${on ? 'ok' : ''}`;
+      : ready ? `Ready. Open a new terminal and try: shellby do "tidy my Downloads"`
+        : on ? 'Turn on "React to Claude Code sessions outside Shellby" above; the command talks to him through it.'
+          : '';
+    $('cliStatus').className = `small ext-status ${ready ? 'ok' : ''}`;
   }
   $('cliBtn').addEventListener('click', async () => {
     const before = await api.getCli();

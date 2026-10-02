@@ -939,7 +939,10 @@ function crabStatusView() {
 // ================================================================ the shellby command
 
 const cliTokenPath = () => clipath.tokenPath(app.getPath('userData'));
-const cliBinDir = () => clipath.binDir(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'));
+// An isolated dev/test run keeps its copy of the command inside its own profile:
+// e2e-integrations installs and removes it, and must not delete the real one.
+const cliBinDir = () => clipath.binDir(ISOLATED ? app.getPath('userData')
+  : process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'));
 
 function cliSettings() {
   const raw = config.get('cli');
@@ -1040,7 +1043,8 @@ async function removeFromUserPath(dir) {
 }
 
 function cliView() {
-  return { ...cliSettings(), dir: cliBinDir(), available: process.platform === 'win32' };
+  // The command reaches him over the sessions port; with that off it can't.
+  return { ...cliSettings(), dir: cliBinDir(), available: process.platform === 'win32', listening: !!config.get('externalSessions') };
 }
 
 // ================================================================ telling you elsewhere

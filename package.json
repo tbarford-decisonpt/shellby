@@ -1,7 +1,7 @@
 {
   "name": "shellby",
   "productName": "Shellby",
-  "version": "0.20.2",
+  "version": "0.20.3",
   "description": "A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you, on your own Claude subscription.",
   "main": "src/main/main.js",
   "author": "x-salmon",
@@ -35,7 +35,8 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
-    "koffi": "^3.3.2"
+    "koffi": "^3.3.2",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

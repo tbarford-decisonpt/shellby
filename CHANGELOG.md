@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.3
+
+### Fixed
+- **`shellby` could go missing right after you added it.** Settings said it was ready, but cmd answered "'shellby' is not recognized". A test run of Shellby on the same PC was deleting the real command along with its own copy. Test runs now keep theirs to themselves.
+- The **`shellby` command** card no longer says "Ready" while **React to Claude Code sessions outside Shellby** is off. The command reaches him through that, so the card now tells you to turn it on.
+
 ## 0.20.2
 
 ### Fixed
