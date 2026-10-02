@@ -1442,7 +1442,11 @@ function registerIpc() {
       startView: (() => { const v = startView; startView = null; return v; })(),
     };
   });
-  ipcMain.handle('claude:status', async () => (claudeStatus = await checkStatus({ configured: claudePath() })));
+  // FAKE_CLI here too, like the bootstrap and startup paths: without it, a dev or
+  // e2e run driving the fake CLI had its faked status replaced by a real check the
+  // first time the panel asked, so the same run behaved differently depending on
+  // whether the machine happened to have Claude Code installed.
+  ipcMain.handle('claude:status', async () => (claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() })));
   // "Find it myself…": for installs in places the search can't guess — a
   // portable copy, another drive, a company image. The file is run once to prove
   // it really is Claude Code before the path is kept, so a wrong pick is

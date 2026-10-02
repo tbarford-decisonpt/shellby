@@ -13,7 +13,9 @@ const PORT = 9342;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: process.env.SHELLBY_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')) } });
+  // The fake CLI stands in for Claude Code so onboarding is satisfied and there is
+  // a chat tab to close, on a machine with Claude Code installed or without one.
+  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: process.env.SHELLBY_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')), SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js') } });
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
   try {
@@ -90,7 +92,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
         // block 'start' on content near the bottom: the view can't scroll that far,
         // so the browser tries to scroll the page itself to make up the difference.
         deep.scrollIntoView({ block: 'start' });
-        return JSON.stringify({ page: document.scrollingElement.scrollTop + document.body.scrollTop, bar: document.querySelector('.titlebar').getBoundingClientRect().top });
+        // The title bar sits just inside the body's 1px border, so its top is that
+        // border width — which is 1 at 100% display scaling and 0.8 at 125%.
+        // Measure the offset from where it belongs, not from the viewport, or this
+        // silently becomes a test of the monitor it was written on.
+        const border = parseFloat(getComputedStyle(document.body).borderTopWidth) || 0;
+        return JSON.stringify({ page: document.scrollingElement.scrollTop + document.body.scrollTop, bar: document.querySelector('.titlebar').getBoundingClientRect().top - border });
       })()`));
       check(r2.page === 0 && Math.abs(r2.bar) < 1, `${view}: page never scrolls, title bar stays at top (page=${r2.page}, bar=${r2.bar})`);
     }

@@ -23,7 +23,13 @@ const SCENARIOS = [
 ];
 
 async function launch(scenario) {
-  const env = { ...process.env, SHELLBY_FAKE_HEALTH: scenario, SHELLBY_USER_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')) };
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
+  // Quiet: the scenarios with no health mood assert an empty bubble, and one of
+  // his own lines ("morning", an idle mutter) lands in the same bubble. Whether
+  // one was due by the time we looked depended on how fast the machine booted
+  // him, which made this pass here and fail on a slower CI runner.
+  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ chatter: 'quiet' }, null, 2));
+  const env = { ...process.env, SHELLBY_FAKE_HEALTH: scenario, SHELLBY_USER_DATA: profile };
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env });
   let list = [];
   for (let i = 0; i < 40 && !(list.some(t => t.url.endsWith('panel.html')) && list.some(t => t.url.endsWith('critter.html'))); i++) {
