@@ -49,6 +49,12 @@ const DEFAULTS = {
   routines: [],       // see routines.js
   health: null,       // health monitor settings (see health/service.js); null -> defaults
   healthLog: [],      // recent health alerts, newest first
+  channels: null,     // where to send "he needs you" when you're away (see channels.js)
+  obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)
+  rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
+  nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
+  cli: null,          // { installed }: the `shellby` command (see clipath.js)
+  channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)
 };
 
 class Config {

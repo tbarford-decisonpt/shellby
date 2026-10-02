@@ -166,6 +166,33 @@ contextBridge.exposeInMainWorld('shellby', {
   onHealth: on('health'),
   onHealthLog: on('health:log'),
 
+  // telling you when you're away
+  getChannels: invoke('channels:get'),
+  setChannels: invoke('channels:set'),
+  setChannelSecret: invoke('channels:secret'),
+  testChannel: invoke('channels:test'),
+
+  // the browser source for a stream
+  getObs: invoke('obs:get'),
+  setObs: invoke('obs:set'),
+  onObs: on('obs'),
+
+  // his mood on the desk lighting
+  getRgb: invoke('rgb:get'),
+  setRgb: invoke('rgb:set'),
+  testRgb: invoke('rgb:test'),
+
+  // listening along
+  getNowPlaying: invoke('nowplaying:get'),
+  setNowPlaying: invoke('nowplaying:set'),
+  onNowPlaying: on('nowplaying'),
+
+  // the shellby command
+  getCli: invoke('cli:get'),
+  installCli: invoke('cli:install'),
+  removeCli: invoke('cli:remove'),
+  revealCli: fire('cli:reveal'),
+
   // shareable crab card
   saveCard: invoke('card:save'),
   copyCard: invoke('card:copy'),

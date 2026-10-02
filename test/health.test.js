@@ -26,7 +26,10 @@ function run(seq, make = gpu) {
 test('thresholds are clamped to safe ranges and default when missing', () => {
   assert.deepEqual(normalizeThresholds(null), { ...T });
   assert.deepEqual(normalizeThresholds({ gpuWarn: 500, cpuWarn: '70', ramWarn: -3, diskWarnGb: 'x' }),
-    { gpuWarn: 100, cpuWarn: 70, ramWarn: 70, diskWarnGb: 50 });
+    { gpuWarn: 100, cpuWarn: 70, ramWarn: 70, diskWarnGb: 50, storageWarn: 70, reclaimWarnGb: 40 });
+  // A drive temperature and the reclaimable pile have their own lines.
+  assert.equal(normalizeThresholds({ storageWarn: 200 }).storageWarn, 95);
+  assert.equal(normalizeThresholds({ reclaimWarnGb: 1 }).reclaimWarnGb, 5);
 });
 
 test('disk limits: big drives warn at the GB floor, small drives at 10%', () => {
@@ -431,6 +434,9 @@ test('service: notification cooldowns per check (warn 30 min, critical 10 min, e
 
 test('service: settings are validated and clamped', () => {
   const s = normalizeHealthSettings({ enabled: true }, { enabled: 0, moods: 'yes', lhmPort: 80, gpuWarn: 9999, junk: 1 });
-  assert.deepEqual(s, { enabled: false, moods: true, notify: true, lhmPort: 8085, gpuWarn: 100, cpuWarn: 85, ramWarn: 90, diskWarnGb: 50 });
+  assert.deepEqual(s, {
+    enabled: false, moods: true, notify: true, lhmPort: 8085, space: true,
+    gpuWarn: 100, cpuWarn: 85, ramWarn: 90, diskWarnGb: 50, storageWarn: 70, reclaimWarnGb: 40,
+  });
   assert.equal(normalizeHealthSettings(null, { lhmPort: 9000 }).lhmPort, 9000);
 });

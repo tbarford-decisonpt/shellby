@@ -24,6 +24,8 @@ function createFakeSensors(name = 'calm') {
     hasNvidia: true,
     lhmPort: 8085,
     setLhmPort() {},
+    setHwinfoPort() {},
+    async readHwinfo() { return null; },
     setScenario(n) { if (SCENARIOS[n]) scenario = n; },
     get scenario() { return scenario; },
     async readNvidia() {

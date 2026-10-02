@@ -13,6 +13,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
+// hwinfo.js reuses the helpers below, so it is required where it is used rather
+// than here: requiring it at load time would be a cycle, and one of the two
+// modules would see the other half-built.
 
 const NVIDIA_QUERY = 'index,name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw';
 const LHM_DEFAULT_PORT = 8085;
@@ -264,6 +267,7 @@ function createSensors({ platform = process.platform } = {}) {
   const nvidiaSmi = platform === 'win32' ? findNvidiaSmi() : null;
   let lastCpus = os.cpus();
   let lhmPort = LHM_DEFAULT_PORT;
+  let hwinfoPort = require('./hwinfo').DEFAULT_PORT;
   let drives = null;
   let drivesAt = 0;
 
@@ -284,6 +288,15 @@ function createSensors({ platform = process.platform } = {}) {
       if (!got || got.error) return got;
       return parseLhm(got.json);
     },
+
+    // HWiNFO, through Remote Sensor Monitor, for the people who run that
+    // instead. Same snapshot shape, so the monitor can't tell them apart.
+    async readHwinfo() {
+      return require('./hwinfo').read(hwinfoPort);
+    },
+
+    setHwinfoPort(p) { hwinfoPort = p; },
+    get hwinfoPort() { return hwinfoPort; },
 
     readCpuLoad() {
       const cur = os.cpus();

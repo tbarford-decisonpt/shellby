@@ -40,7 +40,8 @@ class HealthMonitor extends EventEmitter {
     this.disks = null;
     this.disksAt = -Infinity;     // never read yet
     this.lhm = { state: 'unknown', nextTryAt: 0 };  // 'ok' | 'off' | 'auth' | 'unknown'
-    this.sources = { nvidia: !!sensors.hasNvidia, lhm: 'unknown' };
+    this.app = null;              // which sensor app answered: 'lhm' | 'hwinfo' | null
+    this.sources = { nvidia: !!sensors.hasNvidia, lhm: 'unknown', app: null };
   }
 
   start() {
@@ -85,7 +86,7 @@ class HealthMonitor extends EventEmitter {
       const at = this.now();
       const [nvidiaRead, lhm, disks] = await Promise.all([
         this.sensors.readNvidia(),
-        at >= this.lhm.nextTryAt ? this.sensors.readLhm() : Promise.resolve(undefined),
+        at >= this.lhm.nextTryAt ? this.readSensorApp() : Promise.resolve(undefined),
         at - this.disksAt >= DISK_EVERY_MS ? this.sensors.readDisks(at) : Promise.resolve(undefined),
       ]);
       if (epoch !== this.epoch) return this.latest;
@@ -93,7 +94,11 @@ class HealthMonitor extends EventEmitter {
       if (lhm !== undefined) this.applyLhm(lhm, at);
       if (disks !== undefined) { this.disks = disks; this.disksAt = at; }
       const sample = this.compose(at, nvidia, this.lhm.data, this.sensors.readCpuLoad(), this.sensors.readMemory(), this.disks);
-      this.sources = { nvidia: !!nvidia, lhm: this.lhm.state, cpuTemp: sample.cpu.temp != null, gpuTemp: sample.gpus.some(g => g.temp != null) };
+      this.sources = {
+        nvidia: !!nvidia, lhm: this.lhm.state, app: this.app,
+        cpuTemp: sample.cpu.temp != null, gpuTemp: sample.gpus.some(g => g.temp != null),
+        storage: sample.storage.length > 0, fans: sample.fans.length > 0, battery: !!sample.battery,
+      };
       this.latest = sample;
       this.remember(sample);
       this.evaluate(sample, at);
@@ -103,6 +108,19 @@ class HealthMonitor extends EventEmitter {
       console.warn('[shellby] health poll failed:', e.message);
       return this.latest;
     }
+  }
+
+  /**
+   * LibreHardwareMonitor, or HWiNFO if that isn't the one running. Both return
+   * the same snapshot shape, so nothing downstream has to care which answered.
+   */
+  async readSensorApp() {
+    const lhm = await this.sensors.readLhm();
+    if (lhm && !lhm.error) { this.app = 'lhm'; return lhm; }
+    const hw = await this.sensors.readHwinfo?.();
+    if (hw && !hw.error) { this.app = 'hwinfo'; return hw; }
+    this.app = null;
+    return lhm ?? hw ?? null;   // keep an auth error, so the view can explain it
   }
 
   // A busy GPU can make nvidia-smi time out once in a while. Reuse the last good
@@ -133,10 +151,13 @@ class HealthMonitor extends EventEmitter {
       .map((g, i) => ({ ...g, index: i }));
     return {
       at,
-      cpu: { load: cpuLoad, temp: lhm?.cpu?.temp ?? null, name: lhm?.cpu?.name || null },
+      cpu: { load: cpuLoad, temp: lhm?.cpu?.temp ?? null, name: lhm?.cpu?.name || null, power: lhm?.cpu?.power ?? null },
       gpus,
       ram: memory,
       disks: disks || [],
+      storage: lhm?.storage || [],
+      fans: lhm?.fans || [],
+      battery: lhm?.battery || null,
     };
   }
 
@@ -159,6 +180,9 @@ class HealthMonitor extends EventEmitter {
       if (g.temp != null) out.push({ id: `gpu-temp:${i}`, kind: 'gpu-temp', label: many ? `GPU ${i + 1}` : 'GPU', model: g.name, value: g.temp, unit: '°C' });
     });
     if (s.cpu.temp != null) out.push({ id: 'cpu-temp', kind: 'cpu-temp', label: 'CPU', model: s.cpu.name, value: s.cpu.temp, unit: '°C' });
+    s.storage.forEach((d, i) => {
+      if (d.temp != null) out.push({ id: `storage-temp:${i}`, kind: 'storage-temp', label: s.storage.length > 1 ? `Drive ${i + 1}` : 'Drive', model: d.name, value: d.temp, unit: '°C' });
+    });
     if (s.ram) out.push({ id: 'ram', kind: 'ram', label: 'Memory', value: s.ram.pct, unit: '%', used: s.ram.used, total: s.ram.total });
     for (const d of s.disks) {
       out.push({ id: `disk:${d.id}`, kind: 'disk', label: `Drive ${d.id}`, drive: d.id, value: d.free / GB, unit: 'GB', total: d.total });

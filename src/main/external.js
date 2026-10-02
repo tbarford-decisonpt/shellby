@@ -13,6 +13,7 @@ const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { classifyCommand } = require('./xp');
+const { clientOf, describeClient } = require('./clients');
 
 const DEFAULT_PORT = 47913;
 const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file contents
@@ -52,7 +53,7 @@ function programOf(command) {
  * notable things that happened). evt is Claude Code's hook JSON.
  *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }]
  */
-function applyHookEvent(sessions, evt, now) {
+function applyHookEvent(sessions, evt, now, client = null) {
   const next = new Map(sessions);
   const effects = [];
   const name = typeof evt?.hook_event_name === 'string' ? evt.hook_event_name : '';
@@ -61,6 +62,9 @@ function applyHookEvent(sessions, evt, now) {
   const prev = next.get(id);
   const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, helpers: 0, tools: 0, bg: [], startedAt: now };
   if (evt.cwd) s.project = projectOf(evt.cwd);
+  // The hook sends this on every event; keep the last one that named an app, so
+  // a session doesn't lose its label to one event that arrived without it.
+  if (client?.label) s.client = client;
   s.lastAt = now;
 
   switch (name) {
@@ -149,7 +153,7 @@ function summarize(sessions) {
   const list = [...sessions.values()];
   const busy = list.filter(s => s.state === 'working' || s.state === 'asking');
   const state = list.some(s => s.state === 'asking') ? 'asking' : busy.length ? 'working' : 'idle';
-  const crew = busy.flatMap(s => Array.from({ length: s.helpers }, (_, i) => ({ id: `ext-${s.id}-${i}`, tabId: null, label: s.project, type: 'Claude Code' })));
+  const crew = busy.flatMap(s => Array.from({ length: s.helpers }, (_, i) => ({ id: `ext-${s.id}-${i}`, tabId: null, label: s.project, type: s.client?.label || 'Claude Code' })));
   // Backgrounded commands nobody has accounted for, newest first. These are the
   // reason the crab doesn't just go idle when a turn ends.
   const background = list
@@ -157,19 +161,28 @@ function summarize(sessions) {
     .sort((a, b) => b.at - a.at);
   return {
     state, busy: busy.length, crew, background,
-    sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(s => ({ project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt })),
+    sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(s => ({
+      project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt,
+      client: s.client?.label || null, clientKind: s.client?.kind || null,
+      where: describeClient(s.project, s.client),
+    })),
   };
 }
 
+// What this port answers. /v1/hook is the plugin's hooks; /v1/crab is the MCP
+// server driving the critter; /v1/cli is the `shellby` command.
+const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli'];
+
 /**
- * Is this request one of our hooks? Requires POST /v1/hook, our header, JSON,
- * and no Origin: browsers always send Origin on cross-site POSTs (and can't add
- * custom headers without a CORS preflight we never answer), so a web page
- * can't feed the crab fake events.
+ * Is this one of ours? Requires POST to a known route, our header, JSON, and no
+ * Origin: browsers always send Origin on cross-site POSTs (and can't add custom
+ * headers without a CORS preflight we never answer), so a web page can't feed
+ * the crab fake events or start a task.
  */
 function acceptable(req) {
   return req.method === 'POST'
-    && req.url === '/v1/hook'
+    // Exact, so a query string is not a way to reach a route by another name.
+    && ROUTES.includes(req.url)
     && req.headers['x-shellby'] === '1'
     && /^application\/json\b/i.test(req.headers['content-type'] || '')
     && !req.headers.origin;
@@ -185,6 +198,10 @@ class ExternalSessions extends EventEmitter {
     this.server = null;
     this.status = 'off'; // 'off' | 'listening' | 'busy' | 'error'
     this.timer = null;
+    // Set by main.js. Until they are, those routes answer 404, which is exactly
+    // what a newer plugin talking to an older Shellby should see.
+    this.onCrab = null;
+    this.onCli = null;
   }
 
   /** "I checked, they're done": drops every remembered background command. */
@@ -254,10 +271,12 @@ class ExternalSessions extends EventEmitter {
   }
 
   handle(req, res) {
-    if (!acceptable(req)) { res.writeHead(req.url === '/v1/hook' ? 403 : 404).end(); req.resume(); return; }
+    const route = req.url;
+    if (!acceptable(req)) { res.writeHead(ROUTES.includes(route) ? 403 : 404).end(); req.resume(); return; }
     // Shellby's own Claude Code processes carry SHELLBY_OWNED=1 into the hook's
-    // environment; their tabs already drive the crab.
-    if (req.headers['x-shellby-owned'] === '1') { res.writeHead(204).end(); req.resume(); return; }
+    // environment; their tabs already drive the crab. (Only hooks: a task
+    // Shellby started may still legitimately drive the crab over MCP.)
+    if (route === '/v1/hook' && req.headers['x-shellby-owned'] === '1') { res.writeHead(204).end(); req.resume(); return; }
     let size = 0;
     const chunks = [];
     req.on('data', c => {
@@ -267,15 +286,44 @@ class ExternalSessions extends EventEmitter {
     });
     req.on('end', () => {
       if (size > MAX_BODY) return;
-      res.writeHead(204).end(); // empty body: nothing for Claude Code to read as hook output
-      let evt;
-      try { evt = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return; }
-      this.ingest(evt);
+      const body = Buffer.concat(chunks).toString('utf8');
+      if (route === '/v1/hook') {
+        res.writeHead(204).end(); // empty body: nothing for Claude Code to read as hook output
+        let evt;
+        try { evt = JSON.parse(body); } catch { return; }
+        this.ingest(evt, req.headers);
+        return;
+      }
+      this.answer(route, body, req.headers, res);
     });
   }
 
-  ingest(evt) {
-    const { sessions, effects } = applyHookEvent(this.sessions, evt, this.now());
+  /**
+   * /v1/crab and /v1/cli. Both reply with JSON, because unlike a hook there is
+   * someone waiting to hear what happened. main.js supplies the handlers; with
+   * none set the route is simply not there, which is what an older Shellby
+   * looks like to a newer plugin.
+   */
+  answer(route, body, headers, res) {
+    const reply = (status, payload) => {
+      const text = JSON.stringify(payload);
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) }).end(text);
+    };
+    const handler = route === '/v1/crab' ? this.onCrab : this.onCli;
+    if (!handler) { reply(404, { error: 'Not enabled.' }); return; }
+    let payload;
+    try { payload = JSON.parse(body); } catch { reply(400, { error: 'That was not JSON.' }); return; }
+    Promise.resolve()
+      .then(() => handler(payload, { token: typeof headers['x-shellby-token'] === 'string' ? headers['x-shellby-token'] : '' }))
+      .then(result => reply(result?.status || (result?.ok === false ? 400 : 200), result?.ok === false ? { error: result.error } : { text: result?.text || 'Done.' }))
+      .catch(() => reply(500, { error: 'Shellby could not do that.' }));
+  }
+
+  ingest(evt, headers = {}) {
+    // Which app the session is running in, worked out by the hook (see
+    // claude-plugin/hooks/notify.sh) and named in clients.js.
+    const client = clientOf({ host: headers['x-shellby-host'], entry: headers['x-shellby-entry'] });
+    const { sessions, effects } = applyHookEvent(this.sessions, evt, this.now(), client);
     this.update(sessions);
     for (const e of effects) this.emit(e.type, e);
   }
@@ -290,4 +338,4 @@ class ExternalSessions extends EventEmitter {
   get summary() { return { ...summarize(this.sessions), status: this.status, port: this.port }; }
 }
 
-module.exports = { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT };
+module.exports = { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT, ROUTES };

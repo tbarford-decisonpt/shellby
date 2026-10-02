@@ -26,6 +26,12 @@ const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, 
 const { itemHash } = require('./wardrobe/codes');
 const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
+const crabtools = require('./crabtools');
+const clipath = require('./clipath');
+const channels = require('./channels');
+const { ObsServer } = require('./obs');
+const { OpenRgbClient, colorFor } = require('./rgb');
+const { MediaWatcher, trackRemark } = require('./media');
 const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
@@ -122,6 +128,8 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 const claudePath = () => config?.get('claudePath') || null;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates;
+let obsServer, rgbClient, media, channelSecret;
+let nowPlaying = null;        // { title, artist, app, playing } from the Windows media session
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -368,7 +376,12 @@ function activeSkin() {
 function outfit() {
   const o = wardrobe ? wardrobe.render() : { accessories: [], effect: null, confetti: null, crewAccessories: [] };
   const helmet = wardrobe?.item('guard-helmet'); // worn while he guards your focus
-  return { ...o, home: shells.renderShell(shells.wornShell(config?.get('home'), currentLevel())), focusHelmet: helmet ? publicItem(helmet) : null };
+  return {
+    ...o,
+    home: shells.renderShell(shells.wornShell(config?.get('home'), currentLevel())),
+    focusHelmet: helmet ? publicItem(helmet) : null,
+    musicHeadphones: musicHeadphones(),
+  };
 }
 
 const currentLevel = () => levelFor(config?.get('xp')?.total || 0).level;
@@ -494,6 +507,9 @@ function refreshCritter() {
   const was = lastStatus;
   lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
   refreshStatusLine();
+  // Whatever the crab is doing, the stream and the desk lighting follow it.
+  obsServer?.broadcast(obsState());
+  paintLights();
 
   // Remarks that belong to a change, not a state. lastStatus is already updated,
   // so the refresh that speaking triggers can't fire these a second time.
@@ -725,6 +741,7 @@ function stat(event, payload) {
 
 function onPermission(tabId, item, tab) {
   wake();
+  tellChannel({ kind: 'asking', project: tab.title, message: `${item.label || ''} ${item.detail || ''}`.trim() });
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
   if (item.toolName === 'AskUserQuestion') {
@@ -746,6 +763,9 @@ function onResult(tabId, item, tab) {
     stat('task-completed');
     awardXp('task', { label: tab.title });
     recordWork(tab.session?.cwd);
+  }
+  if (!item.interrupted) {
+    tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
   }
   if (item.interrupted || (panel.isVisible() && panel.isFocused())) return;
   const secs = Math.round((item.durationMs || 0) / 1000);
@@ -805,7 +825,10 @@ function createHealth() {
   const envFake = !app.isPackaged && FAKE_SCENARIOS.includes(process.env.SHELLBY_FAKE_HEALTH) ? process.env.SHELLBY_FAKE_HEALTH : null;
   health = new HealthService({
     config, send, stat, startTask, showHealth,
-    notify: (title, body, onClick) => notify(title, body, onClick, { urgent: true }),
+    notify: (title, body, onClick) => {
+      tellChannel({ kind: 'health', title, body });
+      notify(title, body, onClick, { urgent: true });
+    },
     getPanel: () => panel,
     fakeScenario: CAPTURE ? 'calm' : envFake,
     onMood: mood => { healthMood = mood; refreshCritter(); },
@@ -822,13 +845,14 @@ function createExternal() {
   external.on('command-ok', e => awardXp(e.kind, { project: e.project }));
   external.on('turn-done', e => {
     awardXp('task', { project: e.project });
+    tellChannel({ kind: 'done', project: e.project, tools: e.tools });
     recordWork(e.cwd);
     flashState('success');
     const fx = outfit().effect;
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
     stat('task-completed');
   });
-  external.on('asking', () => wake());
+  external.on('asking', e => { wake(); tellChannel({ kind: 'asking', project: e.project, message: e.message }); });
   if (config.get('externalSessions')) external.start();
 }
 
@@ -840,6 +864,318 @@ function composePrompt(text, files) {
   let prompt = text || 'Take a look at the attached files.';
   if (files.length) prompt += `\n\nAttached files (dropped onto Shellby):\n${files.map(f => `- ${f}`).join('\n')}`;
   return prompt;
+}
+
+// ================================================================ driving the crab
+
+// The MCP server (claude-plugin/mcp/server.js) and the `shellby` command post
+// here through the hooks port. Everything they ask for is checked again on this
+// side: that port is reachable by anything running on this PC.
+function createCrabApi() {
+  external.onCrab = body => applyCrabIntent(body);
+  external.onCli = (body, { token }) => runCliRequest(body, token);
+}
+
+/**
+ * Put a line in his bubble that didn't come from voice.js (an MCP `say`, a
+ * track that just started). Held back while he guards your focus, exactly like
+ * one of his own remarks.
+ */
+function sayText(text, occasion, ms = 9000) {
+  if (CAPTURE || !config || !critter) return false;
+  if (focus.guarding(config.get('focus'), Date.now())) return false;
+  said = { text: String(text).slice(0, 120), occasion, until: Date.now() + ms };
+  chirp(occasion);
+  refreshCritter();
+  setTimeout(refreshCritter, ms + 50);
+  return true;
+}
+
+function applyCrabIntent(body) {
+  const checked = crabtools.parseRequest(body);
+  if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
+  const intent = checked.intent;
+
+  if (intent.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+
+  if (intent.action === 'wear') {
+    const items = wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
+    const match = crabtools.matchItem(intent.item, items);
+    if (match.item) {
+      const r = wardrobe.setOutfit({ [match.item.slot]: match.item.id });
+      if (!r.ok) return { ok: false, error: r.error, status: 400 };
+    }
+    return { text: crabtools.wearReply(match, intent.item) };
+  }
+
+  // say and celebrate both put something in his bubble. They go through the
+  // same gate his own remarks do, so "guard my focus" still means quiet.
+  wake();
+  if (intent.action === 'celebrate') {
+    flashState('success');
+    const fx = outfit().confetti;
+    if (fx) send(critter, 'critter:burst', fx);
+  }
+  if (intent.text) sayText(intent.text, 'mcp');
+  return { text: crabtools.ackReply(intent) };
+}
+
+/** Everything `status` reports, gathered from the parts that own it. */
+function crabStatusView() {
+  const v = xpView();
+  const own = manager?.aggregate || { state: 'idle', busy: 0 };
+  const ext = external?.summary || { state: 'idle', busy: 0 };
+  return {
+    level: v.level, title: v.title, xp: v.xp,
+    state: own.state === 'asking' || ext.state === 'asking' ? 'asking' : own.state === 'working' || ext.state === 'working' ? 'working' : 'idle',
+    busy: own.busy + ext.busy,
+    mood: healthMood,
+    sample: health?.monitor?.latest || null,
+    limit: limitWait(),
+    focus: focusState(),
+  };
+}
+
+// ================================================================ the shellby command
+
+const cliTokenPath = () => clipath.tokenPath(app.getPath('userData'));
+const cliBinDir = () => clipath.binDir(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'));
+
+function cliSettings() {
+  const raw = config.get('cli');
+  return { installed: !!(raw && raw.installed) };
+}
+
+/** The token the command authenticates with, made on first install. */
+function readCliToken() {
+  try { return fs.readFileSync(cliTokenPath(), 'utf8').trim() || null; } catch { return null; }
+}
+
+/**
+ * A `shellby do` from a terminal. The token keeps out web pages and other
+ * accounts; it does not pretend to keep out the user's own programs, which is
+ * why the task still shows up as a task they can see and stop.
+ */
+function runCliRequest(body, token) {
+  if (!cliSettings().installed) return { ok: false, error: 'The shellby command is turned off.', status: 403 };
+  const expected = readCliToken();
+  if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
+
+  if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+  const checked = clipath.parseTaskRequest(body, { modes: MODES.filter(m => m !== 'autonomous'), isDir: d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } } });
+  if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
+
+  const { prompt, cwd, mode } = checked.task;
+  const r = startTask(prompt, 'From the terminal', { mode, cwd });
+  if (!r.ok) return { ok: false, error: r.error || 'Shellby could not start that.', status: 400 };
+  showPanel({ focusInput: false, tabId: r.tabId });
+  wake();
+  return { text: 'Shellby is on it.' };
+}
+
+/** Write the command, its shims and its token, and put the folder on PATH. */
+async function installCli() {
+  const dir = cliBinDir();
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(path.join(__dirname, '..', 'cli', 'shellby.js'), path.join(dir, 'shellby.js'));
+    fs.writeFileSync(path.join(dir, 'cli-version.json'), JSON.stringify({ version: app.getVersion() }));
+    fs.writeFileSync(path.join(dir, 'shellby.cmd'), clipath.cmdShim());
+    fs.writeFileSync(path.join(dir, 'shellby'), clipath.shShim());
+    fs.writeFileSync(path.join(dir, 'shellby.ps1'), clipath.ps1Shim());
+    if (!readCliToken()) fs.writeFileSync(cliTokenPath(), clipath.newToken(), { mode: 0o600 });
+    const onPath = await addToUserPath(dir);
+    config.set({ cli: { installed: true } });
+    return { ok: true, dir, onPath };
+  } catch (e) {
+    return { ok: false, error: `Couldn't set it up: ${e.message}` };
+  }
+}
+
+async function removeCli() {
+  const dir = cliBinDir();
+  try {
+    await removeFromUserPath(dir);
+    for (const f of ['shellby.js', 'shellby.cmd', 'shellby', 'shellby.ps1', 'cli-version.json']) {
+      fs.rmSync(path.join(dir, f), { force: true });
+    }
+    fs.rmSync(cliTokenPath(), { force: true });   // a fresh install gets a fresh token
+    config.set({ cli: { installed: false } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// HKCU only: no admin rights, and the machine PATH is never touched.
+function userPath() {
+  return new Promise(resolve => {
+    runCli('reg', ['query', 'HKCU\\Environment', '/v', 'Path'], 5000).then(r => {
+      const m = r.ok && /\sPath\s+REG_(?:EXPAND_)?SZ\s+(.*)/i.exec(r.stdout || '');
+      resolve(m ? m[1].trim() : '');
+    }).catch(() => resolve(''));
+  });
+}
+
+async function setUserPath(value) {
+  // setx truncates past 1024 characters, so the value goes in through reg.
+  const r = await runCli('reg', ['add', 'HKCU\\Environment', '/v', 'Path', '/t', 'REG_EXPAND_SZ', '/d', value, '/f'], 8000);
+  return !!r.ok;
+}
+
+async function addToUserPath(dir) {
+  // A dev or test run has its own profile; it must not edit the PATH the real
+  // installed Shellby (and the person using this PC) depends on.
+  if (process.platform !== 'win32' || ISOLATED) return false;
+  const current = await userPath();
+  if (clipath.isOnPath(current, dir)) return true;
+  return setUserPath(clipath.pathWith(current, dir));
+}
+
+async function removeFromUserPath(dir) {
+  if (process.platform !== 'win32' || ISOLATED) return false;
+  const current = await userPath();
+  if (!clipath.isOnPath(current, dir)) return true;
+  return setUserPath(clipath.pathWithout(current, dir));
+}
+
+function cliView() {
+  return { ...cliSettings(), dir: cliBinDir(), available: process.platform === 'win32' };
+}
+
+// ================================================================ telling you elsewhere
+
+const channelSettings = () => channels.normalizeChannelSettings(config.get('channels'));
+
+function loadChannelSecret() {
+  const raw = config.get('channelSecret');
+  if (!raw || !safeStorage.isEncryptionAvailable()) return '';
+  try { return safeStorage.decryptString(Buffer.from(raw, 'base64')); } catch { return ''; }
+}
+
+function saveChannelSecret(secret) {
+  if (!secret) { config.set({ channelSecret: null }); channelSecret = ''; return; }
+  channelSecret = secret;
+  // Encrypted by Windows, exactly like the GitHub token: never in settings.json
+  // in the clear.
+  if (safeStorage.isEncryptionAvailable()) config.set({ channelSecret: safeStorage.encryptString(secret).toString('base64') });
+}
+
+/** Send one event, if the user asked for that kind. Never throws, never waits. */
+function tellChannel(event) {
+  if (!config) return;
+  const settings = channelSettings();
+  if (!channels.shouldSend(event, settings, { focused: focus.guarding(config.get('focus'), Date.now()) })) return;
+  const built = channels.buildRequest(settings, channelSecret, event);
+  if (built.error) { log.info(`channel: ${built.error}`); return; }
+  channels.deliver(built.request)
+    .then(r => { if (!r.ok) log.info(`channel: ${r.error}`); })
+    .catch(() => {});
+}
+
+function channelsView() {
+  return channels.view(channelSettings(), { hasSecret: !!channelSecret });
+}
+
+// ================================================================ on a stream
+
+function obsSettings() {
+  const raw = config.get('obs');
+  const port = Number(raw?.port);
+  return { enabled: !!raw?.enabled, port: Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : 47914 };
+}
+
+function createObs() {
+  obsServer = new ObsServer({
+    srcDir: path.join(__dirname, '..'),
+    assetsDir: path.join(ROOT, 'assets'),
+    port: obsSettings().port,
+    getState: obsState,
+  });
+  obsServer.on('status', v => send(panel, 'obs', { ...v, ...obsSettings() }));
+  obsServer.on('viewers', () => send(panel, 'obs', obsView()));
+  if (obsSettings().enabled) obsServer.start();
+}
+
+// What the browser source draws: the same skin, outfit and state the desktop
+// critter is given.
+function obsState() {
+  if (!config) return null;
+  const own = manager?.aggregate || { state: 'idle', busy: 0, crew: [] };
+  const ext = external?.summary || { state: 'idle', busy: 0, crew: [] };
+  return {
+    skin: activeSkin(),
+    outfit: outfit(),
+    px: px(),
+    state: lastStatus.state,
+    busy: own.busy + ext.busy,
+    crew: [...own.crew, ...ext.crew].slice(0, MAX_CREW_SHOWN),
+    say: said,
+  };
+}
+
+const obsView = () => ({ ...(obsServer ? obsServer.view() : { status: 'off', viewers: 0 }), ...obsSettings() });
+
+// ================================================================ the desk lighting
+
+function rgbSettings() {
+  const raw = config.get('rgb');
+  const port = Number(raw?.port);
+  return { enabled: !!raw?.enabled, port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : 6742 };
+}
+
+function createRgb() {
+  rgbClient = new OpenRgbClient({ port: rgbSettings().port });
+}
+
+let lastRgbColor = '';
+function paintLights() {
+  if (!rgbClient || !rgbSettings().enabled) return;
+  const color = colorFor({ state: lastStatus.state, mood: healthMood?.mood, ciFailing: ci?.view().failing || 0 });
+  if (!color) return;
+  const key = `${color.r},${color.g},${color.b}`;
+  if (key === lastRgbColor) return;      // the crab refreshes many times a second
+  lastRgbColor = key;
+  rgbClient.setAll(color).then(r => { if (!r.ok) log.info(`rgb: ${r.error}`); }).catch(() => {});
+}
+
+const rgbView = () => ({ ...rgbSettings(), devices: rgbClient?.devices || null, error: rgbClient?.lastError || null });
+
+// ================================================================ listening along
+
+function mediaSettings() {
+  const raw = config.get('nowPlaying');
+  return {
+    enabled: !!raw?.enabled,
+    headphones: raw?.headphones !== false,   // on by default once the feature is
+    remarks: raw?.remarks !== false,
+  };
+}
+
+function createMedia() {
+  media = new MediaWatcher();
+  media.on('track', track => {
+    nowPlaying = track;
+    // The headphones go on and come off with the music, like the focus helmet.
+    broadcastSkin();
+    refreshCritter();
+    send(panel, 'nowplaying', mediaView());
+    if (track?.playing && mediaSettings().remarks) {
+      const remark = trackRemark(track);
+      if (remark) sayText(remark.text, 'music');
+    }
+  });
+  media.on('status', () => send(panel, 'nowplaying', mediaView()));
+  if (mediaSettings().enabled) media.start();
+}
+
+const mediaView = () => ({ ...mediaSettings(), ...(media ? media.view() : { status: 'off', available: process.platform === 'win32', track: null }) });
+
+/** The headphones he puts on by himself while something is playing. */
+function musicHeadphones() {
+  if (!nowPlaying?.playing || !mediaSettings().enabled || !mediaSettings().headphones) return null;
+  const item = wardrobe?.item('headphones');
+  return item ? publicItem(item) : null;
 }
 
 // ================================================================ toolbox
@@ -1071,6 +1407,7 @@ function checkLimit() {
   const name = limits.windowName(limits.normalize(raw).window);
   lastActivity = Date.now();
   flashState('refreshed', 6500);
+  tellChannel({ kind: 'limit' });
   send(panel, 'limit', { phase: 'reset', name });
   notify(`Your ${name} Claude limit just reset`, "Shellby's awake and ready. Anything you queued can go now.", () => showPanel());
 }
@@ -1174,10 +1511,12 @@ function onCiEvent({ type, pr }) {
   const open = () => openGitHubUrl(pr.url);
   if (type === 'failed') {
     flashState('error', 5000);
+    tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
     notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open);
   } else if (type === 'fixed') {
     stat('ci-fixed');
     flashState('cheer', 6500);
+    tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });
     send(critter, 'critter:burst', outfit().confetti);
     notify(`Back to green: ${where}`, `${pr.title}. Every check passes now.`.slice(0, 160), open);
   } else if (type === 'passed') {
@@ -1915,6 +2254,79 @@ function registerIpc() {
   ipcMain.handle('health:clear-log', () => { config.set({ healthLog: [] }); return health.view(); });
   ipcMain.on('health:viewed', () => stat('health-viewed'));
 
+  // ---- telling you when you're away (channels.js)
+  ipcMain.handle('channels:get', () => channelsView());
+  ipcMain.handle('channels:set', (_e, patch) => {
+    config.set({ channels: channels.normalizeChannelSettings(channelSettings(), patch && typeof patch === 'object' ? patch : {}) });
+    return channelsView();
+  });
+  ipcMain.handle('channels:secret', (_e, secret) => {
+    saveChannelSecret(typeof secret === 'string' ? secret.trim().slice(0, 400) : '');
+    return channelsView();
+  });
+  ipcMain.handle('channels:test', async () => {
+    const built = channels.buildRequest(channelSettings(), channelSecret,
+      { kind: 'done', project: 'Shellby', tools: 0, seconds: 0, at: Date.now() });
+    if (built.error) return { ok: false, error: built.error };
+    return channels.deliver(built.request);
+  });
+
+  // ---- the browser source (obs.js)
+  ipcMain.handle('obs:get', () => obsView());
+  ipcMain.handle('obs:set', (_e, patch) => {
+    const prev = obsSettings();
+    const next = { ...prev };
+    if (patch && 'enabled' in patch) next.enabled = !!patch.enabled;
+    if (patch && 'port' in patch) {
+      const n = Number(patch.port);
+      if (Number.isInteger(n) && n >= 1024 && n <= 65535) next.port = n;
+    }
+    config.set({ obs: next });
+    if (obsServer && (next.port !== prev.port || !next.enabled)) obsServer.stop();
+    if (next.enabled) { obsServer.port = next.port; obsServer.start(); }
+    return obsView();
+  });
+
+  // ---- the desk lighting (rgb.js)
+  ipcMain.handle('rgb:get', () => rgbView());
+  ipcMain.handle('rgb:set', (_e, patch) => {
+    const next = { ...rgbSettings() };
+    if (patch && 'enabled' in patch) next.enabled = !!patch.enabled;
+    if (patch && 'port' in patch) {
+      const n = Number(patch.port);
+      if (Number.isInteger(n) && n >= 1 && n <= 65535) next.port = n;
+    }
+    config.set({ rgb: next });
+    rgbClient = new OpenRgbClient({ port: next.port });
+    lastRgbColor = '';
+    if (next.enabled) paintLights();
+    return rgbView();
+  });
+  ipcMain.handle('rgb:test', async () => {
+    const probe = await rgbClient.probe();
+    if (probe.ok) { lastRgbColor = ''; paintLights(); }
+    return { ...probe, ...rgbView() };
+  });
+
+  // ---- listening along (media.js)
+  ipcMain.handle('nowplaying:get', () => mediaView());
+  ipcMain.handle('nowplaying:set', (_e, patch) => {
+    const next = { ...mediaSettings() };
+    for (const k of ['enabled', 'headphones', 'remarks']) if (patch && k in patch) next[k] = !!patch[k];
+    config.set({ nowPlaying: next });
+    if (next.enabled && media.status === 'off') media.start();
+    if (!next.enabled && media.status !== 'off') { media.stop(); nowPlaying = null; }
+    broadcastSkin();
+    return mediaView();
+  });
+
+  // ---- the shellby command (clipath.js)
+  ipcMain.handle('cli:get', () => cliView());
+  ipcMain.handle('cli:install', async () => ({ ...(await installCli()), ...cliView() }));
+  ipcMain.handle('cli:remove', async () => ({ ...(await removeCli()), ...cliView() }));
+  ipcMain.on('cli:reveal', () => { try { shell.openPath(cliBinDir()); } catch { /* nothing to show */ } });
+
+
   // ---- shareable crab card: the renderer draws it; main checks it's a PNG,
   // picks the path itself, saves it and puts it on the clipboard.
   let lastCard = null;
@@ -2277,7 +2689,12 @@ app.whenReady().then(() => {
   createTray();
   health.start();
   createExternal();
+  createCrabApi();
   createCi();
+  channelSecret = loadChannelSecret();
+  createObs();
+  createRgb();
+  createMedia();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
   // Timers don't run while the PC sleeps: catch up on wake.

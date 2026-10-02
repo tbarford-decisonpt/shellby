@@ -70,6 +70,8 @@ function drawSelf() {
   let accessories = molt?.shell === 'none' ? outfit.accessories.filter(a => a.slot !== 'shell') : outfit.accessories;
   // On guard: the helmet goes on instead of whatever hat he wears.
   if (focusing?.phase === 'focus' && outfit.focusHelmet) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.focusHelmet];
+  // Something is playing: headphones on, unless he's already wearing the helmet.
+  else if (outfit.musicHeadphones) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.musicHeadphones];
   // Red CI wants the claw he carries things in: his own held item is in the air
   // (see throwHeld) and the sign goes in once he has let go of it.
   if (tossed || holdingSign()) accessories = accessories.filter(a => a.slot !== 'held');
