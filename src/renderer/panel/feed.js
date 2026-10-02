@@ -393,8 +393,11 @@
 
     renderResult(item) {
       for (const el of this.tools.values()) if (el.classList.contains('pending')) el.classList.replace('pending', item.ok ? 'ok' : 'err');
-      const label = item.interrupted ? 'stopped' : item.ok ? 'done' : 'ended with an error';
-      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}`, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
+      const waiting = item.ok && !item.interrupted && item.waiting?.length
+        ? `waiting on ${item.waiting.length === 1 ? item.waiting[0] : `${item.waiting.length} background tasks`}`
+        : null;
+      const label = item.interrupted ? 'stopped' : waiting || (item.ok ? 'done' : 'ended with an error');
+      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
       if (!item.ok && !item.interrupted && item.error) this.append(h('div', { class: 'error-block', text: item.error }));
       if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }

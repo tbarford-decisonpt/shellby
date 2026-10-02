@@ -187,3 +187,17 @@ test('a wait that fails still sends the turn', async () => {
   assert.deepEqual(texts(items), ['echo: anyway (mode=default)']);
   s.close();
 });
+
+test('a turn that ends with work still running in the background says what it is waiting on', () => {
+  const { s, items } = makeSession();
+  s.handle({ kind: 'task', phase: 'started', taskId: 'b1', description: 'Run full e2e suite' });
+  s.handle({ kind: 'task', phase: 'started', taskId: 'b2', description: 'Lint' });
+  s.handle({ kind: 'task', phase: 'done', taskId: 'b2', status: 'completed' });
+  s.handle({ kind: 'result', ok: true, durationMs: 1000, turns: 9 });
+  assert.deepEqual(items.find(i => i.kind === 'result').waiting, ['Run full e2e suite']);
+
+  // Once it reports back, the next turn's result has nothing left to wait on.
+  s.handle({ kind: 'task', phase: 'done', taskId: 'b1', status: 'completed' });
+  s.handle({ kind: 'result', ok: true, durationMs: 1000, turns: 1 });
+  assert.equal(items.filter(i => i.kind === 'result')[1].waiting, undefined);
+});

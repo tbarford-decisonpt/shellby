@@ -438,6 +438,7 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 }
 .meta::before, .meta::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
 .meta.bad { color: var(--danger); }
+.meta.waiting { color: var(--amber); }
 /* ---------------------------------------------------------------- idle cost
    An open panel spends most of a core on animation (scripts/idle-cost.js), and
    most of that while nobody is watching. `calm` (the window isn't focused)

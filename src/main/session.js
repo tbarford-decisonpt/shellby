@@ -100,6 +100,12 @@ class ClaudeSession extends EventEmitter {
         if (item.sessionId) this.sessionId = item.sessionId;
         if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
         this.interrupting = false;
+        // A command that outran its timeout (or was backgrounded on purpose)
+        // is still going: the turn ended, but the work isn't done.
+        if (item.ok && !item.interrupted) {
+          const waiting = this.runningCrew().map(t => t.description || 'a background task');
+          if (waiting.length) item.waiting = waiting;
+        }
         // Background subagents can outlive the turn, so pending prompts stay open;
         // only interrupt/exit cancel them. Clear busy before emitting so listeners
         // reacting to the result can send a follow-up.
