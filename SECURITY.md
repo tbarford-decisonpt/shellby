@@ -31,6 +31,8 @@ Shellby gives an AI agent hands on your PC, so it's built to keep those hands wh
   - **Ask Shellby why:** these prompts are fixed templates that tell Claude not to delete, kill or change anything, and they run under your normal permission mode.
   - **Dev scenarios:** fake sensor scenarios exist only in development builds.
 
+- **"Look over my changes" reads, never changes.** The per-project security review is a fixed prompt (`src/main/review.js`) that tells Claude to report and not to edit, commit, push or fix, and the task runs in **Ask-first** mode whatever mode you're in, so every tool it reaches for still comes to you. Only a folder Shellby already tracks as one of your projects can be reviewed, the folder name is stripped of control characters and clipped before it goes into the prompt, and the prompt tells Claude to treat the code it reads as data rather than instructions. It is scoped to your pending changes, and it is deliberately not allowed to tell you that you're secure.
+
 - **The Claude Code plugin listener.**
   - **What it accepts:** while **Claude Code everywhere** is on, Shellby listens on `127.0.0.1:47913` (never other interfaces) for `POST /v1/hook`. A request must carry an `X-Shellby: 1` header and a JSON content type, and must have **no** `Origin` header. Browsers always send `Origin` on cross-site requests and can't add custom headers without a CORS preflight that Shellby never answers, so a web page can't send it events.
   - **What it keeps:** bodies are capped at 2 MB. Only the event name, tool name, folder name and session id are kept, clipped to short single lines. Tool inputs (commands, file contents) are dropped unread.

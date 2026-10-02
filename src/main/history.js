@@ -65,6 +65,19 @@ class History {
     this.saveIndex();
   }
 
+  /**
+   * Tick a conversation off, or put it back. Deliberately not update(): ticking
+   * something off is not work on it, and bumping updatedAt would relabel a chat
+   * from last Tuesday as "just now" in the History list.
+   */
+  setDone(id, done) {
+    const e = this.get(id);
+    if (!e) return null;
+    if (done) e.done = true; else delete e.done;
+    this.saveIndex();
+    return e;
+  }
+
   append(id, item) {
     if (!PERSISTED.has(item.kind)) return;
     if (item.kind === 'task' && (item.phase === 'progress' || item.phase === 'updated')) return; // start + finish are enough to replay

@@ -157,6 +157,51 @@ test('SessionManager runs tabs in parallel and rolls up state for the critter', 
   }
 });
 
+test('sending to a conversation you marked done puts it back on the list', async () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    mgr.open({ tabId: 'tab-done', cwd: os.tmpdir() });
+    let answered = false;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'result') answered = true; });
+    mgr.send('tab-done', 'hello there', { kind: 'user', text: 'hello there' });
+    await until(mgr, () => answered); // a busy session refuses the next send
+    history.setDone('tab-done', true);
+    mgr.send('tab-done', 'one more thing', { kind: 'user', text: 'one more thing' });
+    assert.equal(history.get('tab-done').done, undefined, 'more work means it is not done');
+  } finally {
+    mgr.closeAll();
+  }
+});
+
+// The tab order is the strip's order and the order tabs come back in next launch
+// (main.js writes `summary` to config on every change), so it's worth pinning down.
+test('a tab can be moved anywhere in the strip, and nowhere it would be a no-op', () => {
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'ask', getModel: () => '' });
+  const order = () => [...mgr.tabs.keys()].join('');
+  for (const id of ['a', 'b', 'c', 'd']) mgr.open({ tabId: id, cwd: os.tmpdir() });
+
+  assert.equal(mgr.reorder('d', 'a'), true, 'd moves to the front');
+  assert.equal(order(), 'dabc');
+  assert.equal(mgr.reorder('d', null), true, 'null means the end');
+  assert.equal(order(), 'abcd');
+  assert.equal(mgr.reorder('b', 'd'), true, 'and in between');
+  assert.equal(order(), 'acbd');
+
+  // Each of these would rebuild the Map and push an update for nothing.
+  assert.equal(mgr.reorder('b', 'd'), false, 'already in front of d');
+  assert.equal(mgr.reorder('d', null), false, 'already last');
+  assert.equal(mgr.reorder('b', 'b'), false, 'in front of itself');
+  assert.equal(mgr.reorder('b', 'gone'), false, 'unknown neighbour');
+  assert.equal(mgr.reorder('gone', 'a'), false, 'unknown tab');
+  assert.equal(order(), 'acbd', 'none of which moved anything');
+
+  // The sessions have to come along with their ids, not just the labels.
+  assert.deepEqual(mgr.summary.map(t => t.id), ['a', 'c', 'b', 'd']);
+  for (const [id, tab] of mgr.tabs) assert.equal(tab.id, id, `${id} kept its own tab`);
+  mgr.closeAll();
+});
+
 test('SessionManager enforces the tab limit and pins routine modes', () => {
   const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'ask', getModel: () => '' });
   for (let i = 0; i < MAX_TABS; i++) mgr.open({ tabId: `t${i}`, cwd: os.tmpdir() });

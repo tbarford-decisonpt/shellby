@@ -37,7 +37,7 @@
       </button>
       <button type="button" data-view-btn="settings" class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
         <i class="dot-badge" id="updateDot" hidden></i>
-        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 16 16"><path d="M6.56 1.76A6.4 6.4 0 0 1 9.44 1.76L9.8 3.55A4.8 4.8 0 0 1 10.96 4.22L12.68 3.64A6.4 6.4 0 0 1 14.12 6.13L12.75 7.33A4.8 4.8 0 0 1 12.75 8.67L14.12 9.87A6.4 6.4 0 0 1 12.68 12.36L10.96 11.78A4.8 4.8 0 0 1 9.8 12.45L9.44 14.24A6.4 6.4 0 0 1 6.56 14.24L6.2 12.45A4.8 4.8 0 0 1 5.04 11.78L3.32 12.36A6.4 6.4 0 0 1 1.88 9.87L3.25 8.67A4.8 4.8 0 0 1 3.25 7.33L1.88 6.13A6.4 6.4 0 0 1 3.32 3.64L5.04 4.22A4.8 4.8 0 0 1 6.2 3.55Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
       <span class="sep"></span>
       <button type="button" id="minBtn" class="icon-btn" title="Minimize" aria-label="Minimize">
@@ -399,7 +399,7 @@
     </section>
     <section class="focus-card" id="focusCard" aria-label="Focus">
       <div class="focus-head">
-        <span class="focus-badge" aria-hidden="true">🛡️</span>
+        <span class="focus-badge" aria-hidden="true">⛑️</span>
         <div class="focus-titles">
           <p class="xp-eyebrow focus-eyebrow">Focus</p>
           <h3 id="focusTitle">Guard my focus</h3>
@@ -419,6 +419,12 @@
       <h2>History</h2>
     </div>
     <input type="search" id="historySearch" class="field" placeholder="Search conversations…" aria-label="Search conversations">
+    <!-- Hidden until you've ticked something off: nothing to filter before that. -->
+    <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" hidden>
+      <button type="button" role="tab" data-filter="todo" aria-selected="true">Not done <span class="n"></span></button>
+      <button type="button" role="tab" data-filter="done" aria-selected="false">Done <span class="n"></span></button>
+      <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
+    </div>
     <ul class="history-list" id="historyList"></ul>
     <p class="muted small history-note">Stored only on this PC. To clear it, open <b>Settings → About → Data folder</b>.</p>
   </main>
@@ -518,6 +524,14 @@
       <label class="toggle"><input type="checkbox" id="externalToggle"><span class="switch"></span>React to Claude Code sessions outside Shellby</label>
       <p class="small ext-status" id="externalStatus"></p>
       <ul class="ext-sessions" id="externalList"></ul>
+      <div class="bg-left" id="bgLeft" hidden>
+        <div class="bg-head">
+          <b>Left running</b>
+          <button type="button" class="btn ghost slim-btn" id="bgClear">I've checked</button>
+        </div>
+        <p class="small muted">Commands a turn put in the background. Shellby hears when they start, never when they stop, so these are worth a look rather than a promise.</p>
+        <ul class="bg-list" id="bgList"></ul>
+      </div>
       <div class="sl-card" id="slCard">
         <div class="sl-head">
           <b>Status line</b>
@@ -731,6 +745,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../shared/sprite.js"></script>
+<script src="../shared/minishell.js"></script>
 <script src="../shared/markdown.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>

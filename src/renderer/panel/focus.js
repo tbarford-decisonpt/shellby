@@ -42,7 +42,7 @@
 
   async function start(minutes) {
     apply(await api.startFocus(minutes));
-    SB.toast(`Guarding your focus for ${minutes} minutes 🛡️`);
+    SB.toast(`Guarding your focus for ${minutes} minutes ⛑️`);
   }
   async function stop() { apply(await api.stopFocus()); }
 
@@ -55,8 +55,8 @@
   // Ctrl+K: start a session, or stop the one that's running.
   SB.focusCommands = () => {
     const v = state.focus;
-    if (v?.phase) return [{ icon: '🛡️', title: v.phase === 'focus' ? 'Stop guarding my focus' : 'Skip the break', sub: `${clock(v.endsAt - Date.now())} left`, keys: 'focus pomodoro timer stop', run: stop }];
-    return (v?.lengths || [25]).map(m => ({ icon: '🛡️', title: `Guard my focus for ${m} minutes`, sub: 'Helmet on, notifications held back', keys: 'focus pomodoro timer deep work', run: () => start(m) }));
+    if (v?.phase) return [{ icon: '⛑️', title: v.phase === 'focus' ? 'Stop guarding my focus' : 'Skip the break', sub: `${clock(v.endsAt - Date.now())} left`, keys: 'focus pomodoro timer stop', run: stop }];
+    return (v?.lengths || [25]).map(m => ({ icon: '⛑️', title: `Guard my focus for ${m} minutes`, sub: 'Helmet on, notifications held back', keys: 'focus pomodoro timer deep work', run: () => start(m) }));
   };
 
   api.onFocus(apply);

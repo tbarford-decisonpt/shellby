@@ -182,8 +182,21 @@
   function conversationEntries() {
     if (!claude()) return [];
     return (state.sessions || []).map(s => ({
-      group: 'Conversations', icon: '💬', title: s.title, sub: `${SB.relTime(s.updatedAt)} · ${SB.shortPath(s.cwd, 30)}`, keys: s.cwd || '',
+      group: 'Conversations', icon: '💬', title: s.title, sub: `${SB.relTime(s.updatedAt)} · ${SB.shortPath(s.cwd, 30)}${s.done ? ' · done' : ''}`, keys: s.cwd || '',
       run: async () => { SB.setView('chat'); await SB.openHistory(s.id); },
+    }));
+  }
+
+  // Reordering the tab strip without a pointer — the drag gesture's keyboard twin,
+  // and the only way there is for anyone who can't drag.
+  function tabEntries() {
+    if (!claude() || state.tabs.size < 2 || !state.tabs.has(state.activeTab)) return [];
+    const here = state.tabs.get(state.activeTab).title;
+    return [[-1, 'left', 'PageUp'], [1, 'right', 'PageDown']].map(([step, where, key]) => ({
+      group: 'Conversations', icon: step < 0 ? '⬅️' : '➡️',
+      title: `Move this conversation ${where}`, sub: `${here} · Ctrl+Shift+${key}`,
+      keys: 'tab strip reorder order move drag position',
+      run: () => { SB.setView('chat'); SB.nudgeTab(state.activeTab, step); },
     }));
   }
 
@@ -206,7 +219,7 @@
     const q = raw.trim().toLowerCase();
     if (!q) return [...screenEntries(), ...settingEntries()];
     const words = q.split(/\s+/);
-    return [...screenEntries(), ...focusEntries(), ...settingEntries(), ...modeEntries(), ...conversationEntries(), ...toolEntries()]
+    return [...screenEntries(), ...focusEntries(), ...settingEntries(), ...modeEntries(), ...tabEntries(), ...conversationEntries(), ...toolEntries()]
       .map(entry => ({ entry, s: score(entry, q, words) }))
       .filter(x => x.s >= 0)
       .sort((a, b) => a.s - b.s || GROUP_RANK[a.entry.group] - GROUP_RANK[b.entry.group])

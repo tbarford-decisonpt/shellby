@@ -35,6 +35,7 @@ const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt } = require('./gitinfo');
+const { reviewPrompt } = require('./review');
 const { FAKE_SCENARIOS } = require('./health/fake');
 const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
@@ -133,7 +134,7 @@ const fileTouches = new Map();     // file path -> times written this run, for h
 let healthMood = null;
 let levelUpAt = 1;
 let lastXp = null;                 // { amount, at } for the status line's "+25 XP"
-let lastStatus = { state: 'idle', busy: 0, crew: 0 };                 // level shown in the critter's level-up bubble             // { mood, level, text } from the health monitor, or null
+let lastStatus = { state: 'idle', busy: 0, crew: 0, background: 0 };                 // level shown in the critter's level-up bubble             // { mood, level, text } from the health monitor, or null
 let lastActivity = Date.now();
 let dragging = false;              // the user is dragging him around
 let sleepTimer = null;
@@ -459,12 +460,14 @@ function wakeVoice() {
 function refreshCritter() {
   if (!manager || !critter) return;
   const own = manager.aggregate;
-  const ext = external?.summary || { state: 'idle', busy: 0, crew: [] };
+  const ext = external?.summary || { state: 'idle', busy: 0, crew: [], background: [] };
   // Shellby's own tabs plus Claude Code sessions elsewhere: asking > working > idle.
   const agg = {
     state: own.state === 'asking' || ext.state === 'asking' ? 'asking' : own.state === 'working' || ext.state === 'working' ? 'working' : own.state,
     busy: own.busy + ext.busy,
     crew: [...own.crew, ...ext.crew],
+    // Commands a turn backgrounded and walked away from (src/main/external.js).
+    background: ext.background || [],
   };
   let state = agg.state;
   const limited = limitWait();
@@ -482,13 +485,14 @@ function refreshCritter() {
     health: healthMood,
     level: levelUpAt,
     ci: { failing: ci?.view().failing || 0 },
+    background: agg.background.length,
     focus: focusState(),
     limit: limited ? { resetsAt: limited.resetsAt } : null,
     say: said,
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
   const was = lastStatus;
-  lastStatus = { state, busy: agg.busy, crew: agg.crew.length };
+  lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
   refreshStatusLine();
 
   // Remarks that belong to a change, not a state. lastStatus is already updated,
@@ -774,12 +778,13 @@ function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null
 }
 
 // A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
-// in its own tab in the foreground, in the current permission mode.
-function startTask(prompt, title, { mode = null } = {}) {
+// in its own tab in the foreground, in the current permission mode. opts.cwd
+// runs it somewhere other than the current folder (a project review).
+function startTask(prompt, title, { mode = null, cwd = null } = {}) {
   if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
   try {
     const tabId = randomUUID();
-    openTab({ tabId, title, mode });
+    openTab({ tabId, title, mode, ...(cwd ? { cwd } : {}) });
     manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
     wake();
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
@@ -1393,6 +1398,12 @@ function registerIpc() {
   ipcMain.on('critter:reset-position', () => resetCritterPos());
   ipcMain.on('critter:click', () => { wake(); togglePanel(); sendToBottom(critter); });
   ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) showPanel({ focusInput: false, tabId }); });
+  // The badge for background work: straight to the list that says what it was.
+  ipcMain.on('critter:bg-click', () => {
+    showPanel({ focusInput: false });
+    send(panel, 'panel:view', 'settings');
+    send(panel, 'panel:jump', 'Everywhere');
+  });
   ipcMain.on('critter:menu', () => buildMenu().popup({ window: critter }));
   ipcMain.on('critter:drop', (_e, paths) => {
     const files = (Array.isArray(paths) ? paths : []).filter(isStr).slice(0, 20);
@@ -1492,6 +1503,10 @@ function registerIpc() {
     routineTabs.delete(tabId);
     return true;
   });
+  // Dragging a tab along the strip. The order lives in the manager, and the
+  // `tabs` listener above writes it back to `openTabs`, so it survives a restart.
+  ipcMain.handle('tab:reorder', (_e, { tabId, beforeId } = {}) =>
+    isStr(tabId) && manager.reorder(tabId, isStr(beforeId) ? beforeId : null));
   ipcMain.on('tab:seen', (_e, tabId) => { if (isStr(tabId)) manager.markRead(tabId); });
 
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
@@ -1538,6 +1553,12 @@ function registerIpc() {
     if (!isStr(id)) return history.list();
     manager.close(id);
     history.remove(id);
+    return history.list();
+  });
+  // Both of these answer with the fresh list, so the renderer redraws History
+  // from one round trip instead of guessing what changed.
+  ipcMain.handle('session:done', (_e, { id, done } = {}) => {
+    if (isStr(id)) history.setDone(id, !!done);
     return history.list();
   });
 
@@ -1612,6 +1633,7 @@ function registerIpc() {
 
   // ---- wardrobe
   ipcMain.handle('wardrobe:view', () => wardrobe.view());
+  ipcMain.handle('external:clear-background', () => { external?.clearBackground(); return externalView(); });
   ipcMain.handle('wardrobe:set-outfit', (_e, patch) => ({ ...wardrobe.setOutfit(patch && typeof patch === 'object' ? patch : {}), view: wardrobe.view() }));
   ipcMain.handle('wardrobe:wear-season', () => ({ ...wardrobe.wearSeason(), view: wardrobe.view() }));
   ipcMain.handle('wardrobe:randomize', () => ({ ...wardrobe.randomize(), view: wardrobe.view() }));
@@ -1733,6 +1755,18 @@ function registerIpc() {
     const s = streaks.normalize(config.get('streaks'));
     const p = isStr(key) && s.projects[key];
     if (p) send(panel, 'tab:new-in', { cwd: key, draft: `Where did we leave off in ${p.name}? Summarize what changed recently, what's unfinished, and suggest the next step.` });
+  });
+  // "Look over my changes": a read-only security review of what's pending in one
+  // project, in that project's own folder. Only a folder Shellby already tracks
+  // is accepted, and the task runs in Ask-first mode whatever mode you're in, so
+  // a review can't change anything without you.
+  ipcMain.handle('review:start', (_e, key) => {
+    const s = streaks.normalize(config.get('streaks'));
+    const p = isStr(key) && s.projects[key];
+    if (!p || !fs.existsSync(key)) return { ok: false, error: "Shellby can't find that folder any more." };
+    const r = startTask(reviewPrompt(p.name), `Look over ${p.name}`, { mode: 'ask', cwd: key });
+    if (r.ok) showPanel({ focusInput: false, tabId: r.tabId });
+    return r;
   });
 
   // ---- Claude Code status line

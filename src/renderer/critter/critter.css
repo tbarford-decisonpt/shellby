@@ -67,6 +67,22 @@ html, body {
 }
 #count.on { transform: scale(1); }
 
+/* ---------- something a turn left running in the background ---------- */
+/* He can be idle and still have a server of yours running, so this stays up
+   until you say you've checked (see renderBackground in panel/settings.js). */
+#bgBadge {
+  position: absolute; left: 6px; top: 6px; height: 20px; padding: 0 7px;
+  border: 0; border-radius: 10px; display: flex; align-items: center; gap: 4px;
+  font: 700 11px "Martian Mono", monospace; color: #3d2a00; background: #ffd23f;
+  box-shadow: 0 1px 0 rgba(0,0,0,.35); cursor: pointer;
+  animation: bg-breathe 2.4s ease-in-out infinite;
+}
+#bgBadge:hover { filter: brightness(1.08); }
+#bgBadge:focus-visible { outline: 2px dashed var(--glass); outline-offset: 3px; }
+#bgBadge::before { content: "⚙"; font-size: 12px; animation: bg-turn 3.6s linear infinite; }
+@keyframes bg-turn { to { transform: rotate(360deg); } }
+@keyframes bg-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+
 #crab {
   position: absolute; left: 50%; bottom: 18px;
   transform: translateX(-50%);
@@ -262,18 +278,38 @@ html, body {
 .walking .part-eyes, .walking .part-stalks { animation: look 2s steps(1) infinite; }
 
 /* ---------- CI is red on one of your pull requests: worried, holding up a sign ---------- */
-#ciSign {
-  position: absolute; left: calc(var(--px) * 18); top: calc(var(--px) * -6);
-  width: calc(var(--px) * 8); height: calc(var(--px) * 9);
-  display: none; pointer-events: none; transform-origin: 50% 100%;
-}
-#ciSign svg { display: block; width: 100%; height: 100%; }
-.ci-red.state-idle #ciSign, .ci-red.state-working #ciSign { display: block; animation: sign-bob 1.4s ease-in-out infinite; }
-.ci-red.state-idle .part-claw { transform: rotate(-40deg) translate(1px, -2px); animation: none; }
+/* The sign is a held accessory (see CI_SIGN in critter.js), so it shares the
+   claw's group and pivot: one rotation sways arm and placard together. */
+.ci-red.state-idle:not(.tossing) .part-claw, .ci-red.state-working:not(.tossing) .part-claw { animation: sign-bob 1.6s ease-in-out infinite; }
 .ci-red.state-idle .part-eyes { transform: scaleY(.75) translateY(1px); }
 .ci-red.state-idle #bubble { background: #ff5a4a; color: #fff; font-size: 12px; }
 .ci-red.state-idle #bubble::after { border-top-color: #ff5a4a; }
-@keyframes sign-bob { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) translateY(-2px); } }
+@keyframes sign-bob { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(3deg); } }
+
+/* Whatever he was carrying, mid-air: the claw flings it clear and reaches the
+   sign on the way back down, then catches it again once the build is green. */
+#toss { position: absolute; pointer-events: none; }
+#toss svg { display: block; }
+#toss.toss-out { animation: toss-out .62s cubic-bezier(.25, .6, .5, 1) forwards; }
+#toss.toss-in { animation: toss-in .52s cubic-bezier(.3, 1.4, .5, 1); }
+/* The claw snaps the throw, watches it go, then settles where sign-bob starts. */
+.tossing .part-claw { animation: toss-throw .56s ease-out forwards; }
+@keyframes toss-out {
+  0% { transform: none; opacity: 1; }
+  50% { transform: translate(calc(var(--px) * 1), calc(var(--px) * -7)) rotate(230deg); opacity: 1; }
+  100% { transform: translate(calc(var(--px) * 3), calc(var(--px) * -10)) rotate(450deg); opacity: 0; }
+}
+@keyframes toss-in {
+  0% { transform: translate(calc(var(--px) * 4), calc(var(--px) * -9)) rotate(-200deg); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes toss-throw {
+  0% { transform: none; }
+  20% { transform: rotate(-46deg); }
+  55% { transform: rotate(-30deg); }
+  100% { transform: rotate(-4deg); }
+}
 
 /* ---------- cheer: a red build went green, so he dances ---------- */
 .state-cheer #sprite { animation: dance .5s ease-in-out infinite; }

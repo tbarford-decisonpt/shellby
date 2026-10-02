@@ -5,6 +5,8 @@
 //
 // Only the event name, tool name, folder name and session id are kept. Tool
 // inputs (commands, file contents) arrive in the payload and are dropped unread.
+// The one exception is a backgrounded command, where the program it runs ('node',
+// 'npm') is kept so Shellby can say what was left running -- never its arguments.
 const http = require('http');
 const fs = require('fs');
 const os = require('os');
@@ -17,6 +19,10 @@ const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file cont
 const WORKING_STALE_MS = 15 * 60 * 1000; // no events for this long: assume it went quiet
 const FORGET_MS = 2 * 60 * 60 * 1000;    // ...and forget it after this
 const HELPER_TOOLS = new Set(['Task', 'Agent']);
+const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
+const STOP_TOOLS = new Set(['KillShell', 'TaskStop']); // the model stopped one itself
+const MAX_BG = 8;                        // more than anyone leaves running on purpose
+const BG_FORGET_MS = 30 * 60 * 1000;     // long enough to notice, short enough not to haunt
 const MAX_SESSIONS = 64;                 // nobody runs more; a flood of fake ids evicts the oldest
 const MAX_CONNECTIONS = 16;
 const ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -27,6 +33,19 @@ const markerPath = port => path.join(os.tmpdir(), `shellby-hooks-${port}`);
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, n);
 const projectOf = cwd => clip(path.basename(String(cwd || '').replace(/[\\/]+$/, '')) || 'Claude Code', 60);
+
+// Just the program a backgrounded command runs ('node', 'npm'), never its
+// arguments: enough to say what is still going, nothing carrying a path, a flag
+// or a secret. A leading `cd somewhere &&` is stepped over to reach the real one.
+function programOf(command) {
+  for (const part of String(command ?? '').split(/&&|\|\||;/)) {
+    const first = part.trim().split(/\s+/)[0] || '';
+    const base = first.replace(/^.*[\\/]/, '').replace(/\.(exe|cmd|bat|sh|ps1)$/i, '');
+    if (!base || base === 'cd' || base === 'set' || base === 'export') continue;
+    return /^[A-Za-z0-9._-]{1,24}$/.test(base) ? base : 'a command';
+  }
+  return 'a command';
+}
 
 /**
  * Apply one hook event to the sessions map (pure: returns a new map and the
@@ -40,7 +59,7 @@ function applyHookEvent(sessions, evt, now) {
   const id = typeof evt?.session_id === 'string' && ID_RE.test(evt.session_id) ? evt.session_id : null;
   if (!id || !name) return { sessions: next, effects };
   const prev = next.get(id);
-  const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, helpers: 0, tools: 0, startedAt: now };
+  const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, helpers: 0, tools: 0, bg: [], startedAt: now };
   if (evt.cwd) s.project = projectOf(evt.cwd);
   s.lastAt = now;
 
@@ -56,6 +75,13 @@ function applyHookEvent(sessions, evt, now) {
       s.tool = clip(evt.tool_name, 40) || null;
       s.tools += 1;
       if (HELPER_TOOLS.has(evt.tool_name)) s.helpers = Math.min(s.helpers + 1, 12);
+      // A backgrounded command outlives the turn that started it, so it is
+      // remembered past Stop -- that is the whole point of tracking it.
+      if (SHELL_TOOLS.has(evt.tool_name) && evt.tool_input?.run_in_background === true) {
+        s.bg = [...(s.bg || []), { program: programOf(evt.tool_input?.command), at: now }].slice(-MAX_BG);
+      } else if (STOP_TOOLS.has(evt.tool_name)) {
+        s.bg = (s.bg || []).slice(1); // which one it stopped we can't tell: assume the oldest
+      }
       break;
     }
     case 'PostToolUse': {
@@ -85,6 +111,7 @@ function applyHookEvent(sessions, evt, now) {
     case 'Stop': {
       const worked = s.state === 'working' || s.state === 'asking';
       if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null });
+      // s.bg deliberately survives: whatever it backgrounded is still out there.
       s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0;
       break;
     }
@@ -109,7 +136,10 @@ function expire(sessions, now) {
   const next = new Map();
   for (const [id, s] of sessions) {
     if (now - s.lastAt > FORGET_MS) continue;
-    next.set(id, now - s.lastAt > WORKING_STALE_MS && s.state !== 'idle' ? { ...s, state: 'idle', tool: null, helpers: 0 } : s);
+    const quiet = now - s.lastAt > WORKING_STALE_MS && s.state !== 'idle';
+    const base = quiet ? { ...s, state: 'idle', tool: null, helpers: 0 } : s;
+    const bg = (base.bg || []).filter(b => now - b.at < BG_FORGET_MS);
+    next.set(id, bg.length === (base.bg || []).length ? base : { ...base, bg });
   }
   return next;
 }
@@ -120,8 +150,13 @@ function summarize(sessions) {
   const busy = list.filter(s => s.state === 'working' || s.state === 'asking');
   const state = list.some(s => s.state === 'asking') ? 'asking' : busy.length ? 'working' : 'idle';
   const crew = busy.flatMap(s => Array.from({ length: s.helpers }, (_, i) => ({ id: `ext-${s.id}-${i}`, tabId: null, label: s.project, type: 'Claude Code' })));
+  // Backgrounded commands nobody has accounted for, newest first. These are the
+  // reason the crab doesn't just go idle when a turn ends.
+  const background = list
+    .flatMap(s => (s.bg || []).map(b => ({ project: s.project, program: b.program, at: b.at })))
+    .sort((a, b) => b.at - a.at);
   return {
-    state, busy: busy.length, crew,
+    state, busy: busy.length, crew, background,
     sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(s => ({ project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt })),
   };
 }
@@ -150,6 +185,19 @@ class ExternalSessions extends EventEmitter {
     this.server = null;
     this.status = 'off'; // 'off' | 'listening' | 'busy' | 'error'
     this.timer = null;
+  }
+
+  /** "I checked, they're done": drops every remembered background command. */
+  clearBackground() {
+    let hit = false;
+    const next = new Map();
+    for (const [id, se] of this.sessions) {
+      if (se.bg?.length) { hit = true; next.set(id, { ...se, bg: [] }); } else next.set(id, se);
+    }
+    if (!hit) return false;
+    this.sessions = next;
+    this.emit('changed', this.summary);
+    return true;
   }
 
   start() {
@@ -242,4 +290,4 @@ class ExternalSessions extends EventEmitter {
   get summary() { return { ...summarize(this.sessions), status: this.status, port: this.port }; }
 }
 
-module.exports = { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, DEFAULT_PORT };
+module.exports = { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT };

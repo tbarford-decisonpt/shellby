@@ -1,0 +1,141 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "on-call",
+  "name": "On Call",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "For the crab carrying the pager. A beacon, a respirator, high-vis, an extinguisher, and embers drifting up from whatever just caught fire.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "beacon",
+      "name": "Beacon",
+      "description": "Something is on fire. He is on it.",
+      "slot": "hat",
+      "rarity": "rare",
+      "pivot": [2, 3],
+      "palette": { "r": "#ff6b6b", "R": "#e63946", "k": "#2b2d42" },
+      "pixels": [
+        ".rrr.",
+        "rRRRr",
+        "rRRRr",
+        "kkkkk"
+      ]
+    },
+    {
+      "id": "face-shield",
+      "name": "Face Shield",
+      "description": "Twenty-five permissions answered. Between him and the sparks.",
+      "slot": "face",
+      "pivot": [4, 0],
+      "palette": { "k": "#2b2d42", "a": "#ffb703" },
+      "pixels": [
+        "kkkkkkkkk",
+        "kaaaaaaak",
+        ".kkkkkkk."
+      ],
+      "unlock": { "achievement": "careful" }
+    },
+    {
+      "id": "pager",
+      "name": "Pager",
+      "description": "It went off at 3 AM and he answered.",
+      "slot": "neck",
+      "rarity": "rare",
+      "unlock": { "achievement": "clockwork" },
+      "pivot": [2, 0],
+      "palette": { "k": "#2b2d42", "K": "#4a4e69", "c": "#8ac926" },
+      "pixels": [
+        "k.....k.",
+        ".k...k..",
+        "..kkk...",
+        ".KKKK...",
+        ".KccK...",
+        ".KKKK..."
+      ]
+    },
+    {
+      "id": "fire-extinguisher",
+      "name": "Fire Extinguisher",
+      "description": "Brought the temperature back down.",
+      "slot": "held",
+      "rarity": "epic",
+      "unlock": { "achievement": "keep-your-cool" },
+      "pivot": [1, 6],
+      "palette": { "r": "#c1121f", "w": "#f8f9fa", "k": "#2b2d42" },
+      "pixels": [
+        ".k.",
+        "kkk",
+        "rrr",
+        "rwr",
+        "rrr",
+        ".r."
+      ]
+    },
+    {
+      "id": "high-vis",
+      "name": "High-Vis",
+      "description": "Three helpers at once. Everyone stays visible.",
+      "slot": "shell",
+      "pivot": [3, 2],
+      "palette": { "y": "#ccff33", "w": "#f8f9fa" },
+      "pixels": [
+        ".yyyyy.",
+        "wwwwwww",
+        ".yyyyy."
+      ],
+      "unlock": { "achievement": "all-hands" }
+    }
+  ],
+  "effects": [
+    {
+      "id": "embers",
+      "name": "Embers",
+      "description": "Still warm. Keep an eye on it.",
+      "motion": "rise",
+      "count": 12,
+      "speed": 1.2,
+      "rarity": "rare",
+      "sprites": [
+        {
+          "palette": { "e": "#ff6b35" },
+          "pixels": [
+            "e"
+          ]
+        },
+        {
+          "palette": { "E": "#ffd23f" },
+          "pixels": [
+            "E"
+          ]
+        },
+        {
+          "palette": { "e": "#d00000" },
+          "pixels": [
+            ".e",
+            "e."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "alerts",
+      "name": "Alerts",
+      "description": "Acknowledged. All of them.",
+      "motion": "twinkle",
+      "count": 5,
+      "speed": 1,
+      "sprites": [
+        {
+          "palette": { "r": "#ffd23f", "k": "#2b2d42" },
+          "pixels": [
+            ".r.",
+            "rkr",
+            "rrr"
+          ]
+        }
+      ]
+    }
+  ]
+}

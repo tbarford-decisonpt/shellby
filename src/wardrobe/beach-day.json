@@ -1,0 +1,161 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "beach-day",
+  "name": "Beach Day",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Summer collectibles. A sun hat, zinc, a lei, a popsicle, a surfboard and a parasol — claim them while Summer is running.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "sun-hat",
+      "name": "Sun Hat",
+      "description": "Summer collectible. Shade travels with him.",
+      "slot": "hat",
+      "rarity": "rare",
+      "unlock": { "season": "summer" },
+      "pivot": [4, 2],
+      "palette": { "t": "#e9c46a", "T": "#bc8a3c", "r": "#e63946" },
+      "pixels": [
+        "...ttt...",
+        "..trrrt..",
+        "TtttttttT"
+      ]
+    },
+    {
+      "id": "beach-shades",
+      "name": "Beach Shades",
+      "description": "Summer collectible. Mirrored, so you cannot tell where he is looking.",
+      "slot": "face",
+      "unlock": { "season": "summer" },
+      "pivot": [4, 0],
+      "palette": { "w": "#f8f9fa", "O": "#ff8c42", "P": "#ff5c8a" },
+      "pixels": [
+        "wwwwwwwww",
+        ".wOw.wPw.",
+        ".www.www."
+      ]
+    },
+    {
+      "id": "lei",
+      "name": "Lei",
+      "description": "Summer collectible. Welcome to the tide pool.",
+      "slot": "neck",
+      "rarity": "rare",
+      "unlock": { "season": "summer" },
+      "pivot": [3, 0],
+      "palette": { "p": "#ff8fab", "f": "#ffd23f", "g": "#52b788" },
+      "pixels": [
+        "pfgpfgpf",
+        "..fpf..."
+      ]
+    },
+    {
+      "id": "popsicle",
+      "name": "Popsicle",
+      "description": "Summer collectible. Melting faster than he can eat it.",
+      "slot": "held",
+      "unlock": { "season": "summer" },
+      "pivot": [1, 6],
+      "palette": { "p": "#4cc9f0", "w": "#a8ecd9", "t": "#c89f6a" },
+      "pixels": [
+        "ppp",
+        "pwp",
+        "ppp",
+        "ppp",
+        ".t.",
+        ".t."
+      ]
+    },
+    {
+      "id": "surfboard",
+      "name": "Surfboard",
+      "description": "Summer collectible. Waiting on a set.",
+      "slot": "shell",
+      "rarity": "epic",
+      "unlock": { "season": "summer" },
+      "pivot": [1, 7],
+      "palette": { "w": "#f8f9fa", "r": "#e63946" },
+      "pixels": [
+        ".w.",
+        "www",
+        "wrw",
+        "www",
+        "wrw",
+        "www",
+        ".w."
+      ]
+    },
+    {
+      "id": "parasol",
+      "name": "Parasol",
+      "description": "Summer collectible. Shade, permanently installed.",
+      "slot": "shell",
+      "rarity": "rare",
+      "unlock": { "season": "summer" },
+      "pivot": [3, 6],
+      "palette": { "r": "#e63946", "w": "#f8f9fa", "k": "#8d5524" },
+      "pixels": [
+        "..rwr..",
+        ".rwrwr.",
+        "rwrwrwr",
+        "...k...",
+        "...k...",
+        "...k..."
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "sunbeams",
+      "name": "Sunbeams",
+      "description": "Summer collectible. High noon on the desktop.",
+      "motion": "twinkle",
+      "count": 7,
+      "speed": 0.8,
+      "rarity": "rare",
+      "unlock": { "season": "summer" },
+      "sprites": [
+        {
+          "palette": { "y": "#ffd23f", "Y": "#fff4e4" },
+          "pixels": [
+            ".y.",
+            "yYy",
+            ".y."
+          ]
+        },
+        {
+          "palette": { "y": "#ffd23f" },
+          "pixels": [
+            "y"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sand",
+      "name": "Blowing Sand",
+      "description": "Summer collectible. It gets everywhere.",
+      "motion": "fall",
+      "count": 16,
+      "speed": 1.4,
+      "unlock": { "season": "summer" },
+      "sprites": [
+        {
+          "palette": { "s": "#e9c46a" },
+          "pixels": [
+            "s"
+          ]
+        },
+        {
+          "palette": { "s": "#d9b85c" },
+          "pixels": [
+            ".s",
+            "s."
+          ]
+        }
+      ]
+    }
+  ]
+}

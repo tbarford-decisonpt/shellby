@@ -1,0 +1,140 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "dev-desk",
+  "name": "Dev Desk",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "One item per slot, so the whole set can be worn at once: keycap, sticky note, greenbar paper, rubber duck and a hard drive. Plus cursors and bugs.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "keycap",
+      "name": "Keycap",
+      "description": "Ten tasks in. The board has a gap now.",
+      "slot": "hat",
+      "pivot": [3, 3],
+      "palette": { "s": "#cfd8dc", "W": "#f8f9fa", "K": "#2b2d42", "k": "#8d99ae" },
+      "pixels": [
+        ".sssss.",
+        "sWWWWWs",
+        "sWWKWWs",
+        "kkkkkkk"
+      ],
+      "unlock": { "achievement": "ten-tasks" }
+    },
+    {
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "description": "Whatever it said, it was important.",
+      "slot": "face",
+      "pivot": [2, 0],
+      "palette": { "y": "#ffe066", "Y": "#e6c84f", "K": "#8d99ae" },
+      "pixels": [
+        "yyyyy",
+        "yKKKy",
+        "yKK.y",
+        "YYYYY"
+      ]
+    },
+    {
+      "id": "greenbar",
+      "name": "Greenbar Paper",
+      "description": "Tractor-feed, still warm from the printer.",
+      "slot": "neck",
+      "pivot": [3, 0],
+      "palette": { "w": "#f8f9fa", "g": "#b7e4c7" },
+      "pixels": [
+        "wwwwwwww",
+        "gggggggg",
+        ".....ww.",
+        ".....gg."
+      ]
+    },
+    {
+      "id": "rubber-duck",
+      "name": "Rubber Duck",
+      "description": "Ran a script he wrote. Explain the bug to him, out loud.",
+      "slot": "held",
+      "rarity": "epic",
+      "pivot": [2, 5],
+      "palette": { "y": "#ffd23f", "o": "#f77f00", "K": "#1b1b1f" },
+      "pixels": [
+        ".yyy.",
+        "yKyoo",
+        ".yyy.",
+        "yyyyy",
+        ".yyy."
+      ],
+      "unlock": { "achievement": "tinkerer" }
+    },
+    {
+      "id": "hard-drive",
+      "name": "Hard Drive",
+      "description": "Spinning rust, carried with respect.",
+      "slot": "shell",
+      "rarity": "rare",
+      "pivot": [3, 4],
+      "palette": { "s": "#8d99ae", "W": "#cfd8dc", "K": "#2b2d42" },
+      "pixels": [
+        "KssssK",
+        "sWWWWs",
+        "sWWWWs",
+        "KssssK"
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "cursors",
+      "name": "Cursors",
+      "description": "Three conversations at once, all of them blinking.",
+      "motion": "twinkle",
+      "count": 5,
+      "speed": 0.8,
+      "rarity": "rare",
+      "sprites": [
+        {
+          "palette": { "c": "#3ddc68" },
+          "pixels": [
+            "cc",
+            "cc",
+            "cc",
+            "cc"
+          ]
+        },
+        {
+          "palette": { "c": "#3ddc68" },
+          "pixels": [
+            "cc"
+          ]
+        }
+      ],
+      "unlock": { "achievement": "multitasker" }
+    },
+    {
+      "id": "bugs",
+      "name": "Bugs",
+      "description": "They were here the whole time.",
+      "motion": "float",
+      "count": 6,
+      "speed": 0.7,
+      "sprites": [
+        {
+          "palette": { "k": "#1b1b1f", "K": "#c1121f" },
+          "pixels": [
+            "kKk",
+            "kKk"
+          ]
+        },
+        {
+          "palette": { "k": "#1b1b1f", "K": "#8d99ae" },
+          "pixels": [
+            "K.K",
+            ".k."
+          ]
+        }
+      ]
+    }
+  ]
+}

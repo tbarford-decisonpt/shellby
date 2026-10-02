@@ -5,6 +5,7 @@ const SB = window.SB = {
   api: window.shellby,
   md: window.ShellbyMarkdown,
   Sprite: window.ShellbySprite,
+  MiniShell: window.ShellbyMiniShell,
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
@@ -129,6 +130,7 @@ SB.ICONS = {
   play: 'M5 3.5v9l7-4.5z',
   edit: 'M10.5 2.8l2.7 2.7-7.4 7.4H3.1v-2.7z',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',
+  shield: 'M8 2.6L3.4 4.3v4c0 2.5 1.8 4.3 4.6 5.3 2.8-1 4.6-2.8 4.6-5.3v-4z',
 };
 
 // Shellby as he's dressed right now (fit: the view box frames the whole outfit).

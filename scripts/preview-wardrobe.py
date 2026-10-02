@@ -54,7 +54,7 @@ def main():
     pack = json.loads(pack_path.read_text(encoding="utf-8"))
     skin = json.loads((ROOT / "src" / "skins" / f"{skin_id}.json").read_text(encoding="utf-8"))
     anchors = {**DEFAULT_ANCHORS, **{k: tuple(v) for k, v in (skin.get("anchors") or {}).items()}}
-    items = pack["accessories"]
+    items = pack.get("accessories") or []
     by_id = {a["id"]: a for a in items}
 
     tiles = [(a["id"], [a]) for a in items]

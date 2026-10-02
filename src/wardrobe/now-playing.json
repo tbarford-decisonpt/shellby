@@ -1,0 +1,125 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "now-playing",
+  "name": "Now Playing",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "A boombox, a record and a mic for listening along, plus notes drifting up while something plays. The headphones he puts on by himself are the base pack's.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "boombox",
+      "name": "Boombox",
+      "description": "Heavier than he is. Worth it.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [
+        4,
+        6
+      ],
+      "palette": {
+        "K": "#2b2d42",
+        "k": "#4a4e69",
+        "s": "#cfd8dc",
+        "y": "#ffe066",
+        "c": "#ff7a5c"
+      },
+      "pixels": [
+        ".k.....k.",
+        ".kkkkkkk.",
+        "KKKKKKKKK",
+        "KsKyyyKsK",
+        "KsKKKKKsK",
+        "KcKKKKKcK",
+        "KKKKKKKKK"
+      ]
+    },
+    {
+      "id": "vinyl",
+      "name": "Vinyl Record",
+      "description": "Rides on the shell. Mind the scratches.",
+      "slot": "shell",
+      "pivot": [
+        3,
+        3
+      ],
+      "palette": {
+        "K": "#1b1d2a",
+        "k": "#4a4e69",
+        "c": "#ff7a5c",
+        "w": "#cfd8dc"
+      },
+      "pixels": [
+        "..www..",
+        ".wKKKw.",
+        "wKcccKw",
+        "wKc.cKw",
+        "wKcccKw",
+        ".wKKKw.",
+        "..www.."
+      ]
+    },
+    {
+      "id": "microphone",
+      "name": "Microphone",
+      "description": "He knows this one.",
+      "slot": "held",
+      "pivot": [
+        2,
+        7
+      ],
+      "palette": {
+        "K": "#2b2d42",
+        "s": "#cfd8dc",
+        "k": "#4a4e69"
+      },
+      "pixels": [
+        ".KKK.",
+        "KsKsK",
+        "KKsKK",
+        "KsKsK",
+        ".KKK.",
+        "..k..",
+        "..k..",
+        ".KKK."
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "music-notes",
+      "name": "Music Notes",
+      "description": "Notes drifting up while something plays.",
+      "motion": "float",
+      "count": 4,
+      "speed": 0.7,
+      "sprites": [
+        {
+          "palette": {
+            "c": "#ff7a5c"
+          },
+          "pixels": [
+            ".cc",
+            ".c.",
+            ".c.",
+            "cc.",
+            "cc."
+          ]
+        },
+        {
+          "palette": {
+            "c": "#7fd6c2"
+          },
+          "pixels": [
+            ".cccc",
+            ".c..c",
+            ".c..c",
+            "cc.cc",
+            "cc.cc"
+          ]
+        }
+      ]
+    }
+  ]
+}

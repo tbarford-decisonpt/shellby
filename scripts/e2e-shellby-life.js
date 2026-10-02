@@ -64,6 +64,10 @@ async function connect(url) {
     const body = () => critter.ev('document.body.className');
     const bubble = () => critter.ev("document.getElementById('bubbleText').textContent");
     const shellHas = color => critter.ev(`!!document.querySelector('#sprite .part-shell rect[fill="${color}"]')`);
+    // The CI sign is a held item grouped with the claw, so this also proves it moves with his arm.
+    const SIGN = `!!document.querySelector('#sprite .part-claw.acc-held rect[fill="#a0693a"]')`;
+    const FLAG = `!!document.querySelector('#sprite .acc-held rect[fill="#2dc653"]')`;
+    const signUp = () => critter.ev(SIGN);
     await wait(3000);
     // Record every body class the critter shows, so short beats aren't missed.
     await critter.ev("window.__cls = new Set(); new MutationObserver(() => document.body.className.split(' ').forEach(c => window.__cls.add(c))).observe(document.body, { attributes: true, attributeFilter: ['class'] }); true");
@@ -172,7 +176,7 @@ async function connect(url) {
     await panel.ev('shellby.pollCi()');
     check(await until(critter, "document.body.classList.contains('ci-red')", 3000), 'red CI: he worries');
     await until(critter, "document.body.classList.contains('state-idle')", 9000); // any celebration from signing in passes
-    check(await critter.ev("getComputedStyle(document.getElementById('ciSign')).display === 'block'"), '...and holds up a sign');
+    check(await until(critter, SIGN, 9000), '...and holds up a sign, gripped in his claw');
     check(await bubble() === 'CI ✗', 'bubble: CI ✗');
     await critter.shot('9-ci-red');
     check(await until(panel, "document.querySelectorAll('#ghCiList .gh-ci-pr.ci-failing').length === 1"), 'Settings lists the failing pull request');
@@ -188,10 +192,27 @@ async function connect(url) {
     await until(critter, "document.body.classList.contains('state-idle')", 9000);
     await panel.ev('shellby.pollCi()');
     check(await until(critter, "document.body.classList.contains('state-cheer')", 3000), 'fixed: he dances');
-    check(!(await body()).includes('ci-red'), 'the sign goes away');
+    check(!(await body()).includes('ci-red') && !(await signUp()), 'the sign goes away');
     await wait(400);
     await critter.shot('11-ci-cheer');
     check(await until(panel, "shellby.wardrobeView().then(v => v.achievements.find(a => a.id === 'green-light').done)", 4000), 'Green Light trophy');
+
+    // ...and that trophy hands him something to carry, so the next red build has
+    // to make room: he throws it up with an "uh oh" and the sign takes the claw.
+    await until(critter, "document.body.classList.contains('state-idle')", 9000);
+    check((await panel.ev("shellby.setOutfit({ held: 'green-flag' })")).ok, 'the trophy unlocks the green flag');
+    check(await until(critter, FLAG, 3000), '...and he carries it');
+    mock.setCi([{ repo: 'crabfan/reef', number: 3, title: 'Teach Shellby to molt', conclusion: 'failure', sha: '3' }]);
+    await panel.ev('shellby.pollCi()');
+    check(await until(critter, "window.__cls.has('tossing')", 4000), 'red again: uh oh, he throws the flag up in the air');
+    check(await until(critter, SIGN, 9000), '...and the sign takes that claw');
+    check(!(await critter.ev(FLAG)), '...with the flag nowhere on him');
+    await critter.shot('9b-ci-toss');
+    mock.setCi([{ repo: 'crabfan/reef', number: 3, title: 'Teach Shellby to molt', conclusion: 'success', sha: '4' }]);
+    await panel.ev('shellby.pollCi()');
+    await until(critter, "document.body.classList.contains('state-idle')", 12000);
+    check(await until(critter, FLAG, 4000) && !(await signUp()), 'green again: the flag drops back into his claw');
+    await panel.ev("shellby.setOutfit({ held: null })");
 
     mock.setCi(mock.state.ci.prs, [{ repo: 'crabfan/tide', number: 9, title: 'Tidy the tests' }]);
     await panel.ev('shellby.pollCi()');

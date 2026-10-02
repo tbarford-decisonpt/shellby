@@ -9,11 +9,11 @@
     ['⬆️', 'Pushes code', 40],
     ['✅', 'Tests pass', 25],
     ['🏆', 'Earns a trophy', 20],
-    ['🛡️', 'Finishes a focus session', 15],
+    ['⛑️', 'Finishes a focus session', 15],
     ['🦀', 'Finishes a task', 10],
     ['☀️', 'Each day you use him', 5],
   ];
-  const KIND_ICON = { trick: '🧠', deploy: '🚀', ship: '⬆️', tests: '✅', trophy: '🏆', task: '🦀', day: '☀️', focus: '🛡️' };
+  const KIND_ICON = { trick: '🧠', deploy: '🚀', ship: '⬆️', tests: '✅', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️' };
 
   function apply(v) {
     if (!v) return;

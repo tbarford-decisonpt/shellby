@@ -6,6 +6,8 @@
 
   // ------------------------------------------------------------ tabs
 
+  let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
+
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
 
   SB.ensureTab = (summary) => {
@@ -43,6 +45,38 @@
     if (state.view !== 'chat') SB.setView('chat'); else input.focus();
   };
 
+  // state.tabs' order is the order the strip shows. Reordered in place, never
+  // replaced: boot.js and settings.js hold on to the Map itself.
+  function orderTabs(ids) {
+    const order = ids.map(id => [id, state.tabs.get(id)]);
+    state.tabs.clear();
+    for (const [id, tab] of order) state.tabs.set(id, tab);
+  }
+
+  // Move a tab in front of `beforeId` (null = the end of the strip). Main keeps
+  // the same order and writes it to disk, so a reorder outlives the session.
+  SB.moveTab = (tabId, beforeId = null) => {
+    if (!state.tabs.has(tabId)) return false;
+    const was = [...state.tabs.keys()];
+    const rest = was.filter(id => id !== tabId);
+    const at = beforeId === null ? rest.length : rest.indexOf(beforeId);
+    if (at < 0) return false;                                 // unknown neighbour, or itself
+    rest.splice(at, 0, tabId);
+    if (rest.every((id, i) => id === was[i])) return false;    // already sitting there
+    orderTabs(rest);
+    SB.renderTabStrip();
+    api.moveTab(tabId, beforeId);
+    return true;
+  };
+
+  // One place left or right, for the keyboard and the palette.
+  SB.nudgeTab = (tabId, step) => {
+    const ids = [...state.tabs.keys()];
+    const to = ids.indexOf(tabId) + step;
+    if (to < 0 || to >= ids.length) return false;
+    return SB.moveTab(tabId, ids.filter(id => id !== tabId)[to] ?? null);
+  };
+
   SB.syncTabs = (summaries) => {
     const ids = new Set(summaries.map(s => s.id));
     for (const s of summaries) SB.ensureTab(s);
@@ -50,6 +84,10 @@
     // main process no longer knows about once they've been reported at least once.
     for (const [id, tab] of state.tabs) if (!ids.has(id) && tab.reported) { tab.destroy(); state.tabs.delete(id); }
     for (const s of summaries) { const t = state.tabs.get(s.id); if (t) t.reported = true; }
+    // Main owns the order; a tab created here that isn't in the snapshot yet waits
+    // at the end. A drag in progress wins, so a background tab reporting progress
+    // mid-drag can't snap the strip back from under the pointer.
+    if (!drag) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
       const next = [...state.tabs.keys()].pop();
       if (next) SB.activate(next); else SB.newTab();
@@ -117,10 +155,12 @@
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
       const btn = h('div', {
-        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}`,
+        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
         role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1', title: t.title,
+        'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
+        onpointerdown: e => dragStart(e, t.id),
         onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); },
       },
       tabIcon(t),
@@ -128,13 +168,92 @@
       h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'));
       return btn;
     }));
-    strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Not while dragging: following the active tab would fight the strip's own
+    // scrolling as the dragged tab is pulled past the edge.
+    if (!drag) strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     // Title bar shows total running count at a glance.
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
   };
   $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   $('newTabBtn').addEventListener('click', () => SB.newTab());
+
+  // ------------------------------------------------------------ drag to reorder
+
+  // The strip reorders live as the pointer crosses a neighbour's midpoint, and the
+  // dragged tab keeps its place in the flow (just lifted). Nothing is positioned by
+  // hand, so there's nothing to re-apply when a working tab redraws the strip
+  // mid-drag — and pointermove/up are on the window, so replacing the tab's element
+  // underneath the pointer doesn't cut the drag short.
+  const EDGE = 26;            // px from a strip edge where dragging starts scrolling it
+  const SLOP = 5;             // px of movement before a click becomes a drag
+
+  function dragStart(e, tabId) {
+    if (e.button !== 0 || e.target.closest('.tab-x') || state.tabs.size < 2) return;
+    drag = { id: tabId, startX: e.clientX, x: e.clientX, moved: false };
+    window.addEventListener('pointermove', dragMove);
+    window.addEventListener('pointerup', dragEnd);
+    window.addEventListener('pointercancel', dragEnd);
+  }
+
+  function dragMove(e) {
+    if (!drag) return;
+    drag.x = e.clientX;
+    // A click that wobbles a few pixels is still a click.
+    if (!drag.moved && Math.abs(e.clientX - drag.startX) < SLOP) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      document.body.classList.add('reordering');
+      lift();
+      requestAnimationFrame(edgeScroll);
+    }
+    SB.moveTab(drag.id, dropBefore(drag.x));
+  }
+
+  function dragEnd() {
+    const moved = drag?.moved;
+    drag = null;
+    window.removeEventListener('pointermove', dragMove);
+    window.removeEventListener('pointerup', dragEnd);
+    window.removeEventListener('pointercancel', dragEnd);
+    if (!moved) return;
+    document.body.classList.remove('reordering');
+    lift();
+    // The click that follows this pointerup is left alone on purpose: you grabbed
+    // that tab, so ending up in its conversation is what you asked for. That also
+    // means not redrawing the strip here — replacing the element the pointer came
+    // up on would lose the click.
+  }
+
+  // Marks the dragged tab in place, so starting and ending a drag don't have to
+  // redraw the strip. A redraw in between re-applies it from `drag` itself.
+  function lift() {
+    for (const el of $('tabs').children) el.classList.toggle('dragging', !!drag?.moved && el.dataset.tabId === drag.id);
+  }
+
+  // The tab to land in front of: the first whose midpoint is still right of the
+  // pointer. Nothing means past them all, i.e. the end of the strip.
+  function dropBefore(clientX) {
+    for (const el of $('tabs').children) {
+      const r = el.getBoundingClientRect();
+      if (clientX < r.left + r.width / 2) return el.dataset.tabId;
+    }
+    return null;
+  }
+
+  // Eight conversations don't fit at the default width, so holding a tab against
+  // either edge scrolls the strip until the slot you want comes into view.
+  function edgeScroll() {
+    if (!drag?.moved) return;
+    const strip = $('tabs');
+    const r = strip.getBoundingClientRect();
+    const dx = drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
+    if (dx) {
+      strip.scrollLeft += dx;
+      SB.moveTab(drag.id, dropBefore(drag.x));
+    }
+    requestAnimationFrame(edgeScroll);
+  }
 
   // ------------------------------------------------------------ busy / status
 
@@ -295,6 +414,13 @@
     const tab = SB.activeTab();
     if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); SB.newTab(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTab(tab.id); return; }
+    // Reordering from the keyboard, where a browser puts it too — and the only way
+    // to do it without a pointer.
+    if (e.ctrlKey && e.shiftKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+      e.preventDefault();
+      if (tab) SB.nudgeTab(tab.id, e.key === 'PageUp' ? -1 : 1);
+      return;
+    }
     if (e.ctrlKey && e.key === 'Tab') {
       e.preventDefault();
       const ids = [...state.tabs.keys()];

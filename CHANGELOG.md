@@ -8,6 +8,14 @@
 - **The same button is in the tray menu**, so you never have to open the panel for it, and a dot on the ⚙ gear says an update is waiting from whatever screen you're on. The "update ready" notification now takes you straight to it.
 - Quitting Shellby still installs a downloaded update, exactly as before.
 
+### Eleven more packs to wear
+- **The empty slots are filled in.** His shell had three things you could put on it and his face had four, so there are now ten things for the shell — a backpack, a satellite dish, a bonsai — nine for the face, and seven for his neck. Two of the face items ride his eyes, so they scan along with him while he reads.
+- **Sets that dress him head to tail:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each one covers every slot, so you can wear the whole thing at once.
+- **The quiet seasons got their due.** Summer, autumn and Valentine's had two items each. They have ten, ten and nine now — a parasol, a wheat sheaf, cupid wings — and the look he puts on when a season opens actually uses them. Valentine's used to hand him a rose and leave it there; now he turns up in heart antennae, a blush and a pair of cupid wings. Seasonal items are still only collectable while their season is running, so be around for it.
+- **Ten new crabs:** four that aren't the classic shape at all — a fiddler with one enormous claw, a crab that outgrew its shell, a flat one, and one that's mostly legs — and six recolours for a themed desktop, including a monochrome one and a pale one for light wallpapers.
+- **Most of it is earned, not handed to you.** Twenty-two of the new pieces hang off trophies you already have: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together, the starfish once you've petted him twenty-five times. Trophies hand out two or three things each now instead of one.
+- All of it is in the app, so it's there the moment you update — nothing to download, nothing to turn on. The wardrobe holds 119 things to wear and 12 crabs, and 91 of them are still waiting on a trophy or a season.
+
 ### When something goes wrong
 - **Report a problem**, in his right-click menu, opens a GitHub issue with the facts already filled in: his version, your Windows build, whether Claude Code was found, and the last lines of his log. Your home folder is shortened to `~` and anything token-shaped is cut out before you ever see it, and nothing is sent anywhere until you've read it and pressed submit.
 - **He keeps a log** now, in `logs/` inside his data folder. Until now a crash took him off the desktop with nothing written down at all.
@@ -20,8 +28,24 @@
 - **"…including changes to CI workflows"**, under **Settings → GitHub**. `repo` access was never enough to push a file in `.github/workflows` — GitHub refuses those pushes without a scope of their own — so "Shellby, fix my failing build" got all the way to the push and then failed. Turning this on asks GitHub for that permission.
 - It's **off by default and its own decision**, not folded into "Let Claude tasks push", because a workflow is what runs on GitHub's machines with your repository's secrets. Shellby spells that out before asking, and it can't be granted by a first sign-in.
 
+### He can look over your changes
+- **The shield next to a project in Trophies** hands the work you haven't pushed yet to Claude for a security read: your uncommitted changes, plus the commits on this branch that aren't on the default one. He comes back with a list — file, line, what someone could do with it, and the smallest fix — worst first.
+- **He reads and reports, and changes nothing.** The prompt tells Claude not to edit, commit, push or fix, and the task runs in **Ask-first** mode whatever mode you're in, so every tool it reaches for still comes to you. Only a folder he already knows as one of your projects can be reviewed.
+- **He won't give you a clean bill of health.** Finding nothing, he says what he looked at and what still wants a human: it's one read of one diff, not an audit. There's no trophy or XP for a clean result either, so there's nothing to farm.
+- **A focus session wears a helmet now.** ⛑️ replaces the shield on the Focus card, in Claude Code's status line and on the Deep Focus trophy — which is what Shellby actually puts on while he guards you anyway. The shield moved to the review.
+
 ### Claude Code in an unusual place
 - **Find it myself…** in setup, for when Shellby can't find Claude Code where it normally lives: a portable copy, another drive, a locked-down work PC. He runs the file once to check it really is Claude Code before keeping it, so a wrong pick tells you straight away instead of becoming a task that won't start.
+
+### Chats you can tick off
+- **A ✓ on every row in History** marks that conversation done. The list shows what isn't done by default, so the twenty you've finished with stop burying the two you haven't — and **Not done / Done / All** appears above the list once you've ticked anything, with a count on each.
+- **Nothing is deleted or hidden for good.** A done chat still opens, still searches, and still turns up in the command palette. Ticking one brings up an **Undo**, and sending it something new marks it not done again on its own — you're clearly not finished with it.
+- It's kept with the rest of your history, on your PC, so it's still there next time he starts.
+
+### Tabs you can put in order
+- **Drag a tab along the strip** to move it. The ones you cross slide out of the way as you go, and if the strip is too full to show where you're heading, holding the tab against either edge scrolls it along. Let go and that's where it stays.
+- **The order comes back with the tabs.** It's the same order he reopens your conversations in, so the one you keep returning to can sit on the left instead of wherever it happened to open.
+- **Ctrl+Shift+PageUp / PageDown** moves the tab you're in one place over, for when dragging isn't an option. Ctrl+K knows how to do it too.
 
 ### Fixed
 - **A crash can no longer empty your conversation list.** The index of past conversations was written in place, so losing power partway through left a half-written file — which reads as empty and took every conversation out of History with it. It goes through a temp file and a rename now, the way settings always have. A half-written last line in a transcript is skipped rather than discarding the rest of it.

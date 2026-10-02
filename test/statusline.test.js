@@ -81,6 +81,13 @@ test('a streak of 2+ days shows as a flame', () => {
   assert.doesNotMatch(plain(formatStatus({ state: 'idle', xp, streak: 1, now: 0 })), /🔥/);
 });
 
+test('background work a turn walked away from shows even while he is idle', () => {
+  assert.equal(plain(formatStatus({ state: 'idle', background: 0, now: 0 })), '🦀 Shellby', 'nothing left running, nothing said');
+  assert.equal(plain(formatStatus({ state: 'idle', background: 1, now: 0 })), '🦀 Shellby · ⚙ 1 left running');
+  assert.equal(plain(formatStatus({ state: 'idle', background: 3, now: 0 })), '🦀 Shellby · ⚙ 3 left running');
+  assert.equal(plain(formatPlain({ state: 'idle', background: 3, now: 0 })), 'Shellby | 3 left running', 'and in a console with no emoji');
+});
+
 test('unknown state falls back to idle; output is one line', () => {
   const line = formatStatus({ state: 'whatever', xp, now: 0 });
   assert.match(plain(line), /^🦀 Shellby/);
@@ -143,7 +150,7 @@ test("settings: never clobber what we can't read, or a statusLine changed since"
 test('focus sessions, red CI and the new moods show in both lines', () => {
   const now = 1_000_000;
   const focusing = { state: 'idle', xp, focus: { phase: 'focus', endsAt: now + 17.5 * 60000 }, ci: 2, now };
-  assert.equal(plain(formatStatus(focusing)), '🦀 Shellby · Lv 5 Claw Coder ▰▰▰▱▱ · 🛡️ focus 18m · ❌ CI ×2');
+  assert.equal(plain(formatStatus(focusing)), '🦀 Shellby · Lv 5 Claw Coder ▰▰▰▱▱ · ⛑️ focus 18m · ❌ CI ×2');
   assert.equal(plain(formatPlain(focusing)), 'Shellby | Lv 5 Claw Coder [###--] | focus 18m | CI failing x2');
   assert.match(plain(formatStatus({ state: 'idle', focus: { phase: 'break', endsAt: now + 20000 }, now })), /☕ break 1m$/);
   assert.match(plain(formatStatus({ state: 'cheer', now })), /^🦀💃 Shellby/);

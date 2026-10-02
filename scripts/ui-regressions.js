@@ -2,6 +2,7 @@
 //  1. closing the last tab leaves exactly ONE blank tab (was: two)
 //  2. hovering a titled button shows the themed tooltip, not the OS one
 //  3. the title bar fits at every width in every mode (see titlebar-fit.js)
+//  4. dragging a tab along the strip reorders it, and main keeps the new order
 //   node scripts/ui-regressions.js
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -105,6 +106,61 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     // 4. critter helpers have no native titles
     const titles = await critter.ev("document.querySelectorAll('[title]').length");
     check(titles === 0, `critter has no native-tooltip titles (${titles})`);
+
+    // 5. drag a tab along the strip, with real mouse input through the compositor
+    await panel.ev("SB.setView('chat')");
+    await panel.ev(`(async () => {
+      for (const id of [...SB.state.tabs.keys()].slice(1)) await SB.closeTab(id);
+      // Straight through api.newTab: SB.newTab() reuses a blank tab, so it can
+      // only ever give us the one we already have.
+      for (let i = 0; i < 3; i++) { const r = await SB.api.newTab(); SB.ensureTab({ id: r.tabId, cwd: SB.state.cwd }); }
+      SB.renderTabStrip();
+    })()`);
+    await wait(900);
+    const strip = () => panel.ev("JSON.stringify([...document.querySelectorAll('#tabs .tab')].map(el => el.dataset.tabId))").then(JSON.parse);
+    const boxes = () => panel.ev("JSON.stringify([...document.querySelectorAll('#tabs .tab')].map(el => el.getBoundingClientRect()))").then(JSON.parse);
+    const before = await strip();
+    check(before.length === 4 && before.every(Boolean), `four tabs to shuffle, each tagged with its id (${before.length})`);
+
+    const b = await boxes();
+    const y = b[0].y + b[0].height / 2;
+    const from = b[0].x + b[0].width / 2;
+    const to = b[3].x + b[3].width * 0.9;    // past the last tab's midpoint
+    await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from, y, button: 'left', buttons: 1, clickCount: 1 });
+    for (let i = 1; i <= 8; i++) {
+      await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from + (to - from) * (i / 8), y, button: 'left', buttons: 1 });
+      await wait(40);
+    }
+    const mid = await strip();
+    check(mid.at(-1) === before[0], `the dragged tab follows the pointer to the end (${mid.at(-1) === before[0]})`);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to, y, button: 'left', buttons: 0, clickCount: 1 });
+    await wait(400);
+    const dropped = await strip();
+    check(
+      dropped.join() === [...before.slice(1), before[0]].join(),
+      `dropped where it was let go: ${before.join()} -> ${dropped.join()}`,
+    );
+    check(await panel.ev('SB.state.activeTab') === before[0], 'and you end up in the conversation you grabbed');
+    check(await panel.ev("!document.body.classList.contains('reordering') && !document.querySelector('#tabs .dragging')"), 'no drag styling left behind');
+
+    // Main has to have taken the same order, or it would snap back on the next
+    // update from it — and `openTabs` would come back wrong next launch.
+    await panel.ev('SB.api.newTab()');
+    await wait(900);
+    const afterSync = await strip();
+    check(afterSync.slice(0, 4).join() === dropped.join(), `main kept the new order (${afterSync.slice(0, 4).join()})`);
+
+    // The keyboard path, which is the only one without a pointer.
+    await panel.ev("SB.activate(SB.state.tabs.keys().next().value)");
+    const first = await panel.ev('SB.state.activeTab');
+    await panel.ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', ctrlKey: true, shiftKey: true, bubbles: true }))");
+    await wait(300);
+    const nudged = await strip();
+    check(nudged[1] === first, `Ctrl+Shift+PageDown moves it one place right (${nudged.indexOf(first)})`);
+    await panel.ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', ctrlKey: true, shiftKey: true, bubbles: true }))");
+    await wait(300);
+    check((await strip())[0] === first, 'and PageUp puts it back');
+
     panel.ws.close(); critter.ws.close();
   } catch (e) {
     console.error('failed:', e.message);

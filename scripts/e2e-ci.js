@@ -21,7 +21,9 @@ const SUITE = [
   'e2e-voice',        // what he says, his idle habits, and what outranks him
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
+  'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
+  'e2e-background',   // work a turn left running: the badge, the list, clearing it
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode

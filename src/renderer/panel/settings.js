@@ -184,7 +184,19 @@
       h('span', { class: 'ext-state', text: s.state === 'working' && s.tool ? `working · ${s.tool}` : STATE_TEXT[s.state] || s.state }),
       s.helpers ? h('span', { class: 'ext-helpers', text: `${s.helpers} helper${s.helpers === 1 ? '' : 's'}` }) : null,
       h('time', { text: SB.relTime(s.lastAt) }))));
+    renderBackground(v.background || []);
   }
+
+  // Background commands a turn walked away from: what, where, and how long ago.
+  function renderBackground(list) {
+    $('bgLeft').hidden = !list.length;
+    $('bgList').replaceChildren(...list.map(b => h('li', { class: 'bg-item' },
+      h('span', { class: 'bg-dot', 'aria-hidden': 'true' }),
+      h('b', { text: b.program }),
+      h('span', { class: 'bg-where', text: b.project }),
+      h('time', { text: SB.relTime(b.at) }))));
+  }
+  $('bgClear').addEventListener('click', async () => renderExternal(await api.clearBackground()));
   $('externalToggle').addEventListener('change', async e => renderExternal(await api.setExternal(e.target.checked)));
   document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
     api.copyText($(b.dataset.copy).textContent);
@@ -244,24 +256,57 @@
 
   // ------------------------------------------------------------ history
 
+  // Which bucket the list shows. 'todo' hides what you've marked done, which is
+  // the point of marking it; the filter row only appears once something is done,
+  // so it's never in the way for anyone who doesn't use this.
+  let historyFilter = 'todo';
+  const inBucket = (s, f) => f === 'all' || (f === 'done' ? !!s.done : !s.done);
+
   function renderHistory() {
     const q = $('historySearch').value.trim().toLowerCase();
-    const list = state.sessions.filter(s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
+    const found = state.sessions.filter(s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
+    const anyDone = state.sessions.some(s => s.done);
+    if (!anyDone) historyFilter = 'todo';
+    $('historyTabs').hidden = !anyDone;
+    for (const b of $('historyTabs').querySelectorAll('[data-filter]')) {
+      // Counted over the search results, so a tab never promises rows the search has hidden.
+      b.querySelector('.n').textContent = found.filter(s => inBucket(s, b.dataset.filter)).length;
+      b.setAttribute('aria-selected', String(b.dataset.filter === historyFilter));
+    }
+    // Sort is stable, so All keeps its order within each half and only sinks the done ones.
+    const list = found.filter(s => inBucket(s, historyFilter)).sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
     const ul = $('historyList');
     if (!list.length) {
-      ul.replaceChildren(h('li', { class: 'history-empty', text: q ? 'No matches.' : 'No conversations yet. Give Shellby a task!' }));
+      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) }));
       return;
     }
-    ul.replaceChildren(...list.map(s => h('li', { class: `history-item${state.tabs.has(s.id) ? ' current' : ''}` },
+    ul.replaceChildren(...list.map(historyRow));
+  }
+
+  function historyEmpty(q) {
+    if (q) return 'No matches.';
+    if (!state.sessions.length) return 'No conversations yet. Give Shellby a task!';
+    return historyFilter === 'done' ? 'Nothing marked done yet.' : 'Everything here is done.';
+  }
+
+  function historyRow(s) {
+    const open = state.tabs.has(s.id);
+    const tick = s.done ? 'Mark as not done' : 'Mark as done';
+    return h('li', { class: `history-item${open ? ' current' : ''}${s.done ? ' done' : ''}` },
       h('button', { class: 'history-open', type: 'button', onclick: () => SB.openHistory(s.id) },
         h('div', { class: 'h-title' }, s.lastOutcome === 'error' ? h('span', { class: 'h-dot err', title: 'Ended with an error' }) : null, s.title),
         h('div', { class: 'h-meta' },
           h('span', { text: SB.relTime(s.updatedAt) }),
           h('span', { text: SB.shortPath(s.cwd, 30) }),
-          state.tabs.has(s.id) ? h('span', { class: 'h-open', text: 'open' }) : null)),
-      h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'))));
+          s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
+          open ? h('span', { class: 'h-open', text: 'open' }) : null)),
+      h('button', { class: 'history-tick', type: 'button', title: tick, 'aria-pressed': String(!!s.done), 'aria-label': `${tick}: ${s.title}`, onclick: () => markDone(s.id, !s.done) }, '✓'),
+      h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'));
   }
   $('historySearch').addEventListener('input', renderHistory);
+  for (const b of $('historyTabs').querySelectorAll('[data-filter]')) {
+    b.addEventListener('click', () => { historyFilter = b.dataset.filter; renderHistory(); });
+  }
 
   SB.openHistory = async (id) => {
     if (state.tabs.has(id)) { SB.activate(id); return; }
@@ -274,6 +319,14 @@
     SB.activate(r.tabId);
     SB.toast('Picked up where you left off');
   };
+
+  // A row ticked off leaves the default list straight away, so the toast says
+  // where it went and offers the way back.
+  async function markDone(id, done) {
+    state.sessions = await api.setSessionDone(id, done);
+    renderHistory();
+    if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
+  }
 
   async function deleteHistory(id) {
     state.sessions = await api.deleteSession(id);

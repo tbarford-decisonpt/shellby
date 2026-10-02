@@ -1,0 +1,150 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "theme-crabs",
+  "name": "Theme Crabs",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Six recolours of the classic crab for people who theme their desktop: amber CRT, cool nordic, plum, paper, monochrome and synthwave.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "skins": [
+    {
+      "id": "amber",
+      "name": "Amber",
+      "author": "x-salmon",
+      "description": "Amber monitor crab, burned into the glass.",
+      "palette": { "S": "#3a2a0a", "s": "#7a5a12", "h": "#c9942a", "b": "#ffb000", "B": "#b37800", "c": "#ffc94d", "C": "#b37800", "k": "#b37800", "e": "#1a1200", "w": "#fff0c4", "l": "#b37800" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora",
+      "author": "x-salmon",
+      "description": "Cold blues, like a night sky over ice.",
+      "palette": { "S": "#2e3440", "s": "#4c566a", "h": "#81a1c1", "b": "#88c0d0", "B": "#5e81ac", "c": "#a3d6cf", "C": "#5e81ac", "k": "#5e81ac", "e": "#242933", "w": "#eceff4", "l": "#5e81ac" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "plum",
+      "name": "Plum",
+      "author": "x-salmon",
+      "description": "Deep purple shell, candy-pink crab.",
+      "palette": { "S": "#2d1b3d", "s": "#5a3370", "h": "#9d6bb5", "b": "#ff85c0", "B": "#c44f94", "c": "#ffa8d4", "C": "#c44f94", "k": "#c44f94", "e": "#1a0f24", "w": "#fdf0f7", "l": "#c44f94" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "parchment",
+      "name": "Parchment",
+      "author": "x-salmon",
+      "description": "Sepia ink on old paper, for light wallpapers.",
+      "palette": { "S": "#9c8e6e", "s": "#d8cba8", "h": "#f5efe0", "b": "#a68a64", "B": "#6b5540", "c": "#c4a87d", "C": "#6b5540", "k": "#6b5540", "e": "#2b2316", "w": "#fffdf5", "l": "#6b5540" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "tintype",
+      "name": "Tintype",
+      "author": "x-salmon",
+      "description": "No colour at all. Just a very old photograph.",
+      "palette": { "S": "#2b2b2b", "s": "#5c5c5c", "h": "#9c9c9c", "b": "#cfcfcf", "B": "#8a8a8a", "c": "#e8e8e8", "C": "#8a8a8a", "k": "#6e6e6e", "e": "#141414", "w": "#ffffff", "l": "#6e6e6e" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "vapor",
+      "name": "Vapor",
+      "author": "x-salmon",
+      "description": "Magenta and cyan, lit from somewhere off screen.",
+      "palette": { "S": "#221046", "s": "#4a1a7a", "h": "#7b2fbe", "b": "#ff2e97", "B": "#b3006b", "c": "#00e5ff", "C": "#0098b3", "k": "#b3006b", "e": "#12001f", "w": "#f8f0ff", "l": "#b3006b" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    }
+  ]
+}

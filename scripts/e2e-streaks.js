@@ -2,6 +2,7 @@
 // the fake CLI and a REAL throwaway git repo whose last commit is 6 days old.
 // A task in it starts a streak and registers the project; a nudge fires
 // ("You haven't committed to … in 6 days"); "Pick it up" opens a tab there.
+// "Look over my changes" then reviews it: its own tab, in the repo, Ask-first.
 //   node scripts/e2e-streaks.js [screenshot.png]
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
@@ -85,6 +86,19 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await ev('window.__nudges') === 1, `only one nudge per project per day (${await ev('window.__nudges')})`);
     v = await ev(`shellby.muteProject(${JSON.stringify(proj.key)}, true)`);
     check(v.projects[0].muted === true, 'a project can be muted');
+
+    // 5. "Look over my changes": a read-only review of that project. The app is
+    //    put on Accept edits first, because the review is meant to pin itself to
+    //    Ask-first whatever mode you are in (the fake CLI echoes the mode it got).
+    check(await ev("shellby.setSettings({ mode: 'acceptEdits' }).then(r => r.settings.mode === 'acceptEdits')"), 'the app is on Accept edits');
+    check(await ev("shellby.reviewProject('not-a-project').then(r => r.ok === false)"), 'a folder Shellby does not track is refused');
+    const tabsNow = await ev('SB.state.tabs.size');
+    await ev("document.querySelector('#streakProjects .sp-review').click()");
+    check(await until(`SB.state.tabs.size === ${tabsNow + 1}`), 'the review opens its own tab');
+    check(await ev('/^Look over /.test(SB.activeTab().title)'), `the tab is titled after the project (${await ev('SB.activeTab().title')})`);
+    check(await ev('SB.activeTab().cwd').then(c => c && c.toLowerCase() === repo.toLowerCase()), 'the review runs in that project, not the current folder');
+    check(await until('/not an audit/.test(document.body.textContent)'), 'the prompt it sent is the read-only one, and refuses to call you secure');
+    check(await until('/mode=default/.test(document.body.textContent)'), 'it runs Ask-first even though the app is on Accept edits');
   } catch (e) {
     check(false, e.message);
   } finally {

@@ -1,0 +1,169 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "shell-cargo",
+  "name": "Shell Cargo",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Ten things to strap to a hermit crab's shell. Every one rocks with him while he naps.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "backpack",
+      "name": "Backpack",
+      "description": "Took a file off your hands. Packed for a long task.",
+      "slot": "shell",
+      "pivot": [2, 4],
+      "palette": { "p": "#6b4a2f", "P": "#9c6b3f", "y": "#e9c46a" },
+      "pixels": [
+        ".ppp.",
+        "pPPPp",
+        "pyPyp",
+        ".PPP."
+      ],
+      "unlock": { "achievement": "special-delivery" }
+    },
+    {
+      "id": "satellite-dish",
+      "name": "Satellite Dish",
+      "description": "Listening for the reset.",
+      "slot": "shell",
+      "rarity": "rare",
+      "pivot": [2, 5],
+      "palette": { "s": "#edf2f4", "S": "#8d99ae", "k": "#2b2d42" },
+      "pixels": [
+        ".sss.",
+        "s...s",
+        ".sSs.",
+        "..k..",
+        "..k.."
+      ]
+    },
+    {
+      "id": "antenna",
+      "name": "Antenna",
+      "description": "Two bars. Good enough.",
+      "slot": "shell",
+      "pivot": [1, 5],
+      "palette": { "k": "#2b2d42", "r": "#ef476f" },
+      "pixels": [
+        ".r.",
+        ".k.",
+        ".k.",
+        ".k.",
+        "kkk"
+      ]
+    },
+    {
+      "id": "cactus-pot",
+      "name": "Potted Cactus",
+      "description": "Low maintenance. Like him.",
+      "slot": "shell",
+      "rarity": "rare",
+      "pivot": [2, 6],
+      "palette": { "f": "#ff8fab", "G": "#52b788", "t": "#c1663f", "T": "#8c4a2b" },
+      "pixels": [
+        "..f..",
+        ".G.G.",
+        ".GGG.",
+        "..G..",
+        ".ttt.",
+        ".TTT."
+      ]
+    },
+    {
+      "id": "book-stack",
+      "name": "Stack of Books",
+      "description": "His first new trick. He read up on it first.",
+      "slot": "shell",
+      "pivot": [2, 3],
+      "palette": { "r": "#c1121f", "b": "#277da1", "y": "#e9c46a", "w": "#f8f9fa" },
+      "pixels": [
+        "rrrrw",
+        "bbbbw",
+        "yyyyw"
+      ],
+      "unlock": { "achievement": "toolmaker" }
+    },
+    {
+      "id": "terrarium",
+      "name": "Terrarium",
+      "description": "A tiny world, carried carefully.",
+      "slot": "shell",
+      "rarity": "epic",
+      "pivot": [2, 5],
+      "palette": { "s": "#e8f1f2", "S": "#8d99ae", "G": "#52b788" },
+      "pixels": [
+        ".sss.",
+        "s...s",
+        "s.G.s",
+        "sGGGs",
+        "SSSSS"
+      ]
+    },
+    {
+      "id": "tiny-sail",
+      "name": "Tiny Sail",
+      "description": "Twenty-five helpers sent out. Catching the wind.",
+      "slot": "shell",
+      "rarity": "rare",
+      "pivot": [0, 6],
+      "palette": { "m": "#8d5524", "w": "#f8f9fa", "b": "#277da1" },
+      "pixels": [
+        "mw...",
+        "mww..",
+        "mwww.",
+        "mwwwb",
+        "m....",
+        "m...."
+      ],
+      "unlock": { "achievement": "fleet" }
+    },
+    {
+      "id": "solar-panel",
+      "name": "Solar Panel",
+      "description": "Runs on sunlight and your Max plan.",
+      "slot": "shell",
+      "rarity": "rare",
+      "pivot": [3, 4],
+      "palette": { "k": "#2b2d42", "b": "#1d3557", "c": "#457b9d" },
+      "pixels": [
+        "bcbcbc",
+        "bcbcbc",
+        "..k...",
+        "..k..."
+      ]
+    },
+    {
+      "id": "toadstool",
+      "name": "Toadstool",
+      "description": "Made room on a full drive. Something grew there.",
+      "slot": "shell",
+      "pivot": [2, 4],
+      "palette": { "R": "#c1121f", "w": "#f8f9fa", "s": "#f1e3d3" },
+      "pixels": [
+        ".RRR.",
+        "RwRwR",
+        ".sss.",
+        "..s.."
+      ],
+      "unlock": { "achievement": "spring-cleaning" }
+    },
+    {
+      "id": "bonsai",
+      "name": "Bonsai",
+      "description": "Five tricks learned. Pruned over many quiet afternoons.",
+      "slot": "shell",
+      "rarity": "epic",
+      "pivot": [2, 4],
+      "palette": { "G": "#52b788", "g": "#2d6a4f", "t": "#8d5524", "p": "#c1663f" },
+      "pixels": [
+        "GGGGG",
+        ".GgG.",
+        "..t..",
+        ".ppp."
+      ],
+      "unlock": { "achievement": "inventor" }
+    }
+  ]
+}

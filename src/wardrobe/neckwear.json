@@ -1,0 +1,124 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "neckwear",
+  "name": "Neckwear",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Seven things to hang around a crab's neck: a conference lanyard, a tie, dog tags, a whistle, a medal, pearls and a patch cable.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "lanyard",
+      "name": "Lanyard",
+      "description": "HELLO MY NAME IS Shellby.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [2, 0],
+      "palette": { "k": "#2b2d42", "K": "#4cc9f0", "w": "#f8f9fa" },
+      "pixels": [
+        "k.....k.",
+        "k.....k.",
+        ".k...k..",
+        "..kkk...",
+        ".KKKKK..",
+        ".wwwww..",
+        ".wwwww.."
+      ]
+    },
+    {
+      "id": "necktie",
+      "name": "Necktie",
+      "description": "Dressed for the stakeholder call.",
+      "slot": "neck",
+      "pivot": [2, 0],
+      "palette": { "k": "#3a0ca3", "T": "#4361ee" },
+      "pixels": [
+        ".kkk.",
+        ".TTT.",
+        ".TTT.",
+        ".TTT.",
+        "..T.."
+      ]
+    },
+    {
+      "id": "dog-tag",
+      "name": "Dog Tag",
+      "description": "Twenty-five tasks. Name, rank and shell size.",
+      "slot": "neck",
+      "pivot": [2, 0],
+      "palette": { "k": "#8d99ae", "s": "#cfd8dc" },
+      "pixels": [
+        "k.....k.",
+        ".k...k..",
+        "..kkk...",
+        "..sss...",
+        "..sss...",
+        "..sss..."
+      ],
+      "unlock": { "achievement": "quarter-century" }
+    },
+    {
+      "id": "whistle",
+      "name": "Whistle",
+      "description": "Your first helper. Someone has to call them home.",
+      "slot": "neck",
+      "pivot": [2, 0],
+      "palette": { "k": "#2b2d42", "y": "#e9c46a", "Y": "#bc8a3c" },
+      "pixels": [
+        "k.....k.",
+        ".k...k..",
+        "..kkk...",
+        ".yyyY...",
+        "..yY...."
+      ],
+      "unlock": { "achievement": "crew-boss" }
+    },
+    {
+      "id": "medal",
+      "name": "Medal",
+      "description": "A hundred tasks. First place, field of one.",
+      "slot": "neck",
+      "rarity": "epic",
+      "pivot": [2, 0],
+      "palette": { "r": "#e63946", "y": "#ffd23f", "Y": "#bc8a3c", "s": "#fff4e4" },
+      "pixels": [
+        "r.....r.",
+        ".r...r..",
+        "..rrr...",
+        ".yYYYy..",
+        ".yYsYy..",
+        "..yyy..."
+      ],
+      "unlock": { "achievement": "centurion" }
+    },
+    {
+      "id": "pearls",
+      "name": "Pearls",
+      "description": "Shared your crab card. Dressed for the occasion.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [3, 0],
+      "palette": { "P": "#f8f9fa", "w": "#e0cdb4" },
+      "pixels": [
+        "PwPwPwPw",
+        "..wPw..."
+      ],
+      "unlock": { "achievement": "show-off" }
+    },
+    {
+      "id": "patch-cable",
+      "name": "Patch Cable",
+      "description": "Wrapped twice, plugged into nothing.",
+      "slot": "neck",
+      "pivot": [3, 0],
+      "palette": { "b": "#1d3557", "c": "#457b9d", "w": "#f8f9fa", "y": "#e9c46a" },
+      "pixels": [
+        "bcbcbcbc",
+        "cbcbcbcb",
+        ".....wy.",
+        ".....wy."
+      ]
+    }
+  ]
+}

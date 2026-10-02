@@ -3,6 +3,7 @@ const spriteHost = document.getElementById('sprite');
 const bubbleText = document.getElementById('bubbleText');
 const crewHost = document.getElementById('crew');
 const countEl = document.getElementById('count');
+const bgBadge = document.getElementById('bgBadge');
 const api = window.shellby.critter;
 
 const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★', levelup: 'LV', molting: '', petted: '♥', cheer: 'green!', refreshed: 'ready!' };
@@ -21,10 +22,27 @@ let ciFailing = 0; // pull requests with red CI (src/main/github/ci.js)
 let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
 let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
-// The sign he holds up while CI is red.
-document.getElementById('ciSign').append(window.ShellbySprite.grid([
-  'KKKKKKKK', 'KrrwwrrK', 'KwrrrrwK', 'KwwrrwwK', 'KwrrrrwK', 'KrrwwrrK', 'KKKKKKKK', '...pp...', '...pp...',
-], { K: '#3d2a00', w: '#fff4e4', r: '#e63946', p: '#a0693a' }));
+// The sign he holds up while CI is red. It goes in the held slot like any other
+// prop, so the post lands in the claw pinch and the whole thing swings with his
+// arm instead of hanging in the air beside it.
+const CI_SIGN = {
+  slot: 'held', anchor: 'claw', follows: 'claw', pivot: [2, 9],
+  palette: { K: '#3d2a00', w: '#fff4e4', r: '#e63946', p: '#a0693a' },
+  pixels: [
+    'KKKKKKKK', 'KrrwwrrK', 'KwrrrrwK', 'KwwrrwwK', 'KwrrrrwK', 'KrrwwrrK', 'KKKKKKKK',
+    '.pp.....', '.pp.....', '.pp.....',
+  ],
+};
+const TOSS_MS = 620;  // how long what he was carrying stays in the air
+const GRAB_MS = 560;  // ...and when the sign takes its place, once it is clear
+const CATCH_MS = 520; // the drop back down once the build is green
+let tossed = false;   // his own held item is out of his claw, from throw to catch
+let flinging = false; // mid-throw: he has not got a claw on the sign yet
+// He only holds the sign up on his feet: a nap, a molt or a throw has his claws busy.
+const settled = () => state === 'idle' || state === 'working';
+const holdingSign = () => ciFailing > 0 && !flinging && settled();
+// Everything his claw can be carrying, so that a change of load triggers a redraw.
+const clawLoad = () => (holdingSign() ? 'sign' : tossed ? 'empty' : 'own');
 const healthFx = window.ShellbyHealthFx.mount(document.getElementById('healthFx'), document.getElementById('self'));
 const helpers = new Map(); // task id -> element
 
@@ -52,6 +70,10 @@ function drawSelf() {
   let accessories = molt?.shell === 'none' ? outfit.accessories.filter(a => a.slot !== 'shell') : outfit.accessories;
   // On guard: the helmet goes on instead of whatever hat he wears.
   if (focusing?.phase === 'focus' && outfit.focusHelmet) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.focusHelmet];
+  // Red CI wants the claw he carries things in: his own held item is in the air
+  // (see throwHeld) and the sign goes in once he has let go of it.
+  if (tossed || holdingSign()) accessories = accessories.filter(a => a.slot !== 'held');
+  if (holdingSign()) accessories = [...accessories, CI_SIGN];
   spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell }));
 }
 
@@ -77,6 +99,51 @@ api.onMolt(({ from, to, ms = 5200 }) => {
   }, ms),
   ];
 });
+
+// Uh oh: a red build needs the claw he carries things in, so whatever is in it
+// goes up in the air, the sign takes its place, and it drops back down once the
+// build is green and he has stopped celebrating.
+const tossHost = document.getElementById('toss');
+let tossTimers = [];
+const heldItem = () => (outfit.accessories || []).find(a => a.slot === 'held') || null;
+
+// Puts the item where his claw was holding it and lets `cls` fly it from there.
+function flyItem(item, cls, ms, done) {
+  tossTimers.forEach(clearTimeout);
+  const [cx, cy] = skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw;
+  tossHost.replaceChildren(window.ShellbySprite.grid(item.pixels, item.palette, { px }));
+  tossHost.style.left = `${(cx - item.pivot[0]) * px}px`;
+  tossHost.style.top = `${(cy - item.pivot[1]) * px}px`;
+  tossHost.className = cls;
+  tossTimers = [setTimeout(() => {
+    tossHost.className = '';
+    tossHost.replaceChildren();
+    done?.();
+  }, ms)];
+}
+
+function throwHeld() {
+  const item = heldItem();
+  tossed = true;
+  flinging = true;
+  flags.add('tossing');
+  flyItem(item, 'toss-out', TOSS_MS);
+  // flyItem resets the timer list, so the sign's cue is queued after it.
+  tossTimers.push(setTimeout(() => {
+    flinging = false;
+    flags.delete('tossing');
+    drawSelf();
+    paintBody();
+  }, GRAB_MS));
+}
+
+function catchHeld() {
+  const item = heldItem();
+  flinging = false;
+  // `tossed` stays set until it lands, so his claw reads as empty until then.
+  if (!item) { tossed = false; drawSelf(); return; }
+  flyItem(item, 'toss-in', CATCH_MS, () => { tossed = false; drawSelf(); });
+}
 
 // "+25 XP" rises out of Shellby whenever he earns XP.
 const xpHost = document.getElementById('xpFloat');
@@ -170,6 +237,7 @@ function paintBody() {
 }
 
 api.onState(msg => {
+  const wasLoad = clawLoad();
   state = msg.state;
   health = msg.health || null;
   level = msg.level || level;
@@ -178,9 +246,21 @@ api.onState(msg => {
   say = msg.say || null;
   const wasGuarding = focusing?.phase === 'focus';
   focusing = msg.focus || null;
-  if (wasGuarding !== (focusing?.phase === 'focus')) drawSelf();
+  // The throw waits for him to settle, so that it runs into the sign going up
+  // rather than happening somewhere behind the 'error' flash a red build sets off.
+  if (ciFailing > 0 && !tossed && settled() && heldItem()) throwHeld();
+  if (!ciFailing && tossed && settled()) catchHeld();
+  if (wasGuarding !== (focusing?.phase === 'focus') || wasLoad !== clawLoad()) drawSelf();
   healthFx.set(health?.mood);
   paintBody();
+  // Work a turn backgrounded and never came back to. It outlasts his moods, so
+  // it is the one thing on him that stays up while he is idle or asleep.
+  const bg = msg.background || 0;
+  bgBadge.hidden = !bg;
+  bgBadge.textContent = String(bg);
+  // No title attribute: a native tooltip over the transparent pet window looks
+  // like the OS barged in (scripts/ui-regressions.js guards this).
+  bgBadge.setAttribute('aria-label', `${bg} background command${bg === 1 ? '' : 's'} left running. Click to see them.`);
   countEl.textContent = msg.busy;
   countEl.classList.toggle('on', msg.busy > 1);
   countEl.setAttribute('aria-label', `${msg.busy} conversations running`);
@@ -190,6 +270,7 @@ api.onState(msg => {
 // ---- click vs drag (pointer capture keeps drags alive past the window edge)
 let down = null;
 let dragging = false;
+bgBadge.addEventListener('click', () => api.bgClick());
 crab.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   crab.setPointerCapture(e.pointerId);
