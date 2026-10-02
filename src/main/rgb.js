@@ -311,7 +311,7 @@ class OpenRgbClient extends EventEmitter {
         devices.push({ id, ...info });
         each(session, id, info);
       }
-      this.devices = devices.map(({ saved, ...d }) => d);
+      this.devices = devices.map(({ saved: _saved, ...d }) => d);
       this.lastError = null;
       return { ok: true, devices };
     } catch (e) {
@@ -331,7 +331,7 @@ class OpenRgbClient extends EventEmitter {
       const count = await session.controllerCount();
       const devices = [];
       for (let id = 0; id < Math.min(count, MAX_DEVICES); id++) {
-        const { saved, ...info } = await session.controller(id, version);
+        const { saved: _saved, ...info } = await session.controller(id, version);
         devices.push({ id, ...info });
       }
       this.devices = devices;
