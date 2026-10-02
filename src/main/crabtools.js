@@ -1,0 +1,165 @@
+// The app side of "Claude drives the crab" (claude-plugin/mcp/server.js).
+//
+// The MCP server validates its own tool calls, but it is not the only thing
+// that can reach the port it posts to, so everything is checked again here.
+// What arrives is treated as hostile: a name, a length, a known action, or it
+// is refused.
+//
+// Nothing in this file touches the critter or the wardrobe. It turns a request
+// into a checked intent and a sentence to answer with, and main.js supplies the
+// effects. That keeps it pure, so it is all unit-tested.
+
+const MAX_TEXT = 120;
+const MAX_ITEM = 60;
+const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status'];
+
+// Flattened to one line and capped: this ends up in a speech bubble on the
+// desktop, so no newlines, no control characters, nothing unbounded.
+const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+
+/**
+ * A POSTed { action, args } -> a checked intent, or an error to answer with.
+ *   { ok: true, intent: { action, ... } } | { ok: false, error }
+ */
+function parseRequest(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'Expected a JSON object.' };
+  const action = typeof body.action === 'string' ? body.action : '';
+  if (!ACTIONS.includes(action)) return { ok: false, error: `Unknown action: ${clip(action, 40) || '(none)'}` };
+  const args = body.args && typeof body.args === 'object' && !Array.isArray(body.args) ? body.args : {};
+
+  switch (action) {
+    case 'say': {
+      const text = clip(args.text, MAX_TEXT);
+      if (!text) return { ok: false, error: 'Nothing to say.' };
+      return { ok: true, intent: { action, text, mood: MOODS.includes(args.mood) ? args.mood : 'happy' } };
+    }
+    case 'celebrate':
+      return { ok: true, intent: { action, reason: clip(args.reason, MAX_TEXT) } };
+    case 'wear': {
+      const item = clip(args.item, MAX_ITEM);
+      if (!item) return { ok: false, error: 'No accessory named.' };
+      return { ok: true, intent: { action, item } };
+    }
+    default:
+      return { ok: true, intent: { action } };
+  }
+}
+
+/**
+ * Find the accessory someone meant. Claude passes a human name ("party hat"),
+ * not Shellby's internal id, so: exact id, then exact name, then every word of
+ * the request appearing in the name, then a loose contains. Only items the user
+ * has actually unlocked can win.
+ *   items: [{ id, name, slot, owned }]
+ *   -> { item } | { suggestions: [name] }
+ */
+function matchItem(query, items) {
+  const list = (Array.isArray(items) ? items : []).filter(i => i && typeof i.name === 'string');
+  const q = clip(query, MAX_ITEM).toLowerCase();
+  const owned = list.filter(i => i.owned);
+  const norm = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const nq = norm(q);
+  // No name is not a match for everything: `words.every` on an empty list is
+  // true, which would otherwise dress him at random.
+  if (!nq) return { suggestions: [] };
+
+  const exact = owned.find(i => String(i.id).toLowerCase() === q || norm(i.name) === nq);
+  if (exact) return { item: exact };
+
+  const words = nq.split(' ').filter(Boolean);
+  const allWords = owned.filter(i => words.every(w => norm(i.name).includes(w)));
+  if (allWords.length === 1) return { item: allWords[0] };
+  // Several hats match "hat": prefer the shortest name, which is the plainest one.
+  if (allWords.length > 1) return { item: allWords.sort((a, b) => a.name.length - b.name.length)[0] };
+
+  const loose = owned.filter(i => norm(i.name).includes(nq) || nq.includes(norm(i.name)));
+  if (loose.length) return { item: loose.sort((a, b) => a.name.length - b.name.length)[0] };
+
+  // Nothing owned matched. If it exists but is locked, say so rather than
+  // pretending it isn't a thing.
+  const locked = list.find(i => !i.owned && (norm(i.name) === nq || words.length && words.every(w => norm(i.name).includes(w))));
+  if (locked) return { suggestions: [], locked: locked.name };
+  return { suggestions: nearest(nq, owned).slice(0, 4) };
+}
+
+// The owned items sharing the most words with the request, best first.
+function nearest(nq, owned) {
+  const words = new Set(nq.split(' ').filter(Boolean));
+  return owned
+    .map(i => {
+      const theirs = String(i.name).toLowerCase().split(/\s+/);
+      return { name: i.name, score: theirs.filter(w => words.has(w)).length };
+    })
+    .filter(x => x.score > 0)
+    // Ties broken by name, so the same request always suggests the same things.
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .map(x => x.name);
+}
+
+/** The sentence the MCP server reads back after a `wear`. */
+function wearReply(match, item) {
+  if (match.item) return `Shellby is wearing the ${match.item.name} now.`;
+  if (match.locked) return `Shellby has not unlocked the ${match.locked} yet, so he can't put it on.`;
+  if (match.suggestions?.length) return `No "${item}" in his wardrobe. He does have: ${match.suggestions.join(', ')}.`;
+  return `No "${item}" in his wardrobe.`;
+}
+
+/**
+ * The status line Claude gets back: the crab, then the machine. One short
+ * paragraph, because it is going into a model's context on every call.
+ *   view: { level, title, xp, state, busy, mood, health, sample, limit, focus }
+ */
+function statusReply(view = {}) {
+  const parts = [];
+  const lvl = view.level ? `Level ${view.level}${view.title ? ` ${view.title}` : ''}` : null;
+  if (lvl) parts.push(Number.isFinite(view.xp) ? `${lvl}, ${view.xp} XP` : lvl);
+
+  if (view.limit?.resetsAt) parts.push(`napping until the usage limit resets at ${timeOf(view.limit.resetsAt)}`);
+  else if (view.busy > 0) parts.push(`${view.busy} task${view.busy === 1 ? '' : 's'} running`);
+  else if (view.state === 'asking') parts.push('waiting on a permission prompt');
+  else parts.push('idle');
+
+  if (view.focus?.phase === 'focus') parts.push('guarding the user\'s focus');
+
+  const machine = [];
+  const s = view.sample;
+  const temp = v => `${Math.round(v)}°C`;
+  if (s?.cpu?.temp != null) machine.push(`CPU ${temp(s.cpu.temp)}`);
+  if (s?.cpu?.load != null) machine.push(`CPU load ${Math.round(s.cpu.load)}%`);
+  const gpu = s?.gpus?.[0];
+  if (gpu?.temp != null) machine.push(`GPU ${temp(gpu.temp)}${gpu.load != null ? ` at ${Math.round(gpu.load)}%` : ''}`);
+  if (s?.ram?.pct != null) machine.push(`memory ${Math.round(s.ram.pct)}% used`);
+  const tight = (s?.disks || []).filter(d => d.free / 1024 ** 3 < 50);
+  if (tight.length) machine.push(`${tight.map(d => `${d.id} ${(d.free / 1024 ** 3).toFixed(0)} GB free`).join(', ')}`);
+
+  const lines = [`Shellby: ${parts.join(', ')}.`];
+  if (machine.length) lines.push(`This PC: ${machine.join(', ')}.`);
+  if (view.mood) lines.push(`He is ${MOOD_WORDS[view.mood.mood] || view.mood.mood} (${view.mood.text}).`);
+  if (!machine.length && !view.mood) lines.push('Health monitoring is off, so no readings for this PC.');
+  return lines.join(' ');
+}
+
+const MOOD_WORDS = {
+  hot: 'sweating, something is running hot',
+  scorching: 'panting, something is overheating',
+  dizzy: 'dizzy, memory is nearly full',
+  stuffed: 'overstuffed, a drive is nearly full',
+};
+
+function timeOf(ms) {
+  const d = new Date(ms);
+  return Number.isFinite(d.getTime()) ? d.toTimeString().slice(0, 5) : 'soon';
+}
+
+/** The sentence for a `say` or `celebrate` that went through. */
+function ackReply(intent) {
+  if (intent.action === 'say') return `Shellby said it.`;
+  if (intent.action === 'celebrate') return intent.reason ? `Shellby is celebrating: ${intent.reason}` : 'Shellby is celebrating.';
+  return 'Done.';
+}
+
+module.exports = {
+  parseRequest, matchItem, wearReply, statusReply, ackReply,
+  ACTIONS, MOODS, MAX_TEXT, MAX_ITEM,
+};
