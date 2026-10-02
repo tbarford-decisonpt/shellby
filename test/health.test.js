@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   step, moodFor, describe, askPrompt, normalizeThresholds, limitsFor, targetLevel, DEFAULT_THRESHOLDS, formatGb,
 } = require('../src/main/health/rules');
-const { parseNvidiaSmi, parseLhm, cpuPercent, parseDriveList, cleanName } = require('../src/main/health/sensors');
+const { parseNvidiaSmi, parseLhm, parseSensorValue, sensorKind, cpuPercent, parseDriveList, cleanName } = require('../src/main/health/sensors');
 const { HealthMonitor } = require('../src/main/health/monitor');
 const { HealthService, normalizeHealthSettings } = require('../src/main/health/service');
 
@@ -138,24 +138,68 @@ const LHM_TREE = {
       { id: 2, Text: 'ASUS PRIME X570-P', ImageURL: 'images_icon/mainboard.png', Children: [
         { id: 3, Text: 'Nuvoton NCT6798D', ImageURL: 'images_icon/chip.png', Children: [
           { id: 4, Text: 'Temperatures', ImageURL: 'images_icon/temperature.png', Children: [
-            { id: 5, Text: 'CPU', Value: '41.0 °C', SensorId: '/lpc/nct6798d/0/temperature/1', Type: 'Temperature', Children: [] }] }] }] },
+            { id: 5, Text: 'CPU', Value: '41.0 °C', SensorId: '/lpc/nct6798d/0/temperature/1', Type: 'Temperature', Children: [] }] },
+          { id: 6, Text: 'Fans', ImageURL: 'images_icon/fan.png', Children: [
+            { id: 7, Text: 'CPU Fan', Value: '1243 RPM', SensorId: '/lpc/nct6798d/0/fan/0', Type: 'Fan', Children: [] },
+            { id: 8, Text: 'Fan #2', Value: '0 RPM', SensorId: '/lpc/nct6798d/0/fan/1', Type: 'Fan', Children: [] }] }] }] },
       { id: 10, Text: 'AMD Ryzen 9 3950X', ImageURL: 'images_icon/cpu.png', HardwareId: '/amdcpu/0', Children: [
         { id: 11, Text: 'Voltages', ImageURL: 'images_icon/voltage.png', Children: [
           { id: 12, Text: 'Core (SVI2 TFN)', Value: '1.394 V', SensorId: '/amdcpu/0/voltage/0', Type: 'Voltage', Children: [] }] },
         { id: 13, Text: 'Temperatures', ImageURL: 'images_icon/temperature.png', Children: [
           { id: 14, Text: 'CCD #1 (Tdie)', Value: '58.3 °C', SensorId: '/amdcpu/0/temperature/3', Type: 'Temperature', Children: [] },
-          { id: 15, Text: 'Core (Tctl/Tdie)', Value: '62,4 °C', SensorId: '/amdcpu/0/temperature/2', Type: 'Temperature', Children: [] }] }] },
+          { id: 15, Text: 'Core (Tctl/Tdie)', Value: '62,4 °C', SensorId: '/amdcpu/0/temperature/2', Type: 'Temperature', Children: [] }] },
+        { id: 16, Text: 'Powers', ImageURL: 'images_icon/power.png', Children: [
+          { id: 17, Text: 'Package', Value: '88.5 W', SensorId: '/amdcpu/0/power/0', Type: 'Power', Children: [] },
+          { id: 18, Text: 'Core #1', Value: '4.1 W', SensorId: '/amdcpu/0/power/1', Type: 'Power', Children: [] }] }] },
       { id: 20, Text: 'AMD Radeon RX 6800', ImageURL: 'images_icon/ati.png', HardwareId: '/gpu-amd/0', Children: [
         { id: 21, Text: 'Temperatures', ImageURL: 'images_icon/temperature.png', Children: [
           { id: 22, Text: 'GPU Hot Spot', Value: '71.0 °C', Children: [] },
-          { id: 23, Text: 'GPU Core', Value: '63.0 °C', Children: [] }] }] }] }],
+          { id: 23, Text: 'GPU Core', Value: '63.0 °C', Children: [] }] },
+        { id: 24, Text: 'Load', ImageURL: 'images_icon/load.png', Children: [
+          { id: 25, Text: 'GPU Core', Value: '97 %', SensorId: '/gpu-amd/0/load/0', Type: 'Load', Children: [] },
+          { id: 26, Text: 'GPU Memory', Value: '41 %', SensorId: '/gpu-amd/0/load/1', Type: 'Load', Children: [] }] },
+        { id: 27, Text: 'Data', ImageURL: 'images_icon/data.png', Children: [
+          { id: 28, Text: 'GPU Memory Used', Value: '6821 MB', SensorId: '/gpu-amd/0/smalldata/0', Type: 'SmallData', Children: [] },
+          { id: 29, Text: 'GPU Memory Total', Value: '16384 MB', SensorId: '/gpu-amd/0/smalldata/1', Type: 'SmallData', Children: [] }] },
+        { id: 30, Text: 'Powers', ImageURL: 'images_icon/power.png', Children: [
+          { id: 31, Text: 'GPU Package', Value: '203.0 W', SensorId: '/gpu-amd/0/power/0', Type: 'Power', Children: [] }] },
+        { id: 32, Text: 'Fans', ImageURL: 'images_icon/fan.png', Children: [
+          { id: 33, Text: 'GPU Fan', Value: '1890 RPM', SensorId: '/gpu-amd/0/fan/0', Type: 'Fan', Children: [] }] }] },
+      { id: 40, Text: 'Samsung SSD 990 PRO 2TB', ImageURL: 'images_icon/nvme.png', HardwareId: '/nvme/0', Children: [
+        { id: 41, Text: 'Temperatures', Children: [
+          { id: 42, Text: 'Temperature', Value: '52.0 °C', SensorId: '/nvme/0/temperature/0', Type: 'Temperature', Children: [] }] },
+        { id: 43, Text: 'Levels', Children: [
+          { id: 44, Text: 'Remaining Life', Value: '97 %', SensorId: '/nvme/0/level/0', Type: 'Level', Children: [] }] }] },
+      { id: 50, Text: 'BAT1', ImageURL: 'images_icon/battery.png', HardwareId: '/battery/0', Children: [
+        { id: 51, Text: 'Levels', Children: [
+          { id: 52, Text: 'Charge Level', Value: '74 %', SensorId: '/battery/0/level/0', Type: 'Level', Children: [] },
+          { id: 53, Text: 'Degradation Level', Value: '11.5 %', SensorId: '/battery/0/level/1', Type: 'Level', Children: [] }] },
+        { id: 54, Text: 'Powers', Children: [
+          { id: 55, Text: 'Discharge Rate', Value: '18.2 W', SensorId: '/battery/0/power/1', Type: 'Power', Children: [] }] }] }] }],
 };
 
 test('parseLhm picks Tctl/Tdie for the CPU and the core temp for GPUs', () => {
   const r = parseLhm(LHM_TREE);
-  assert.deepEqual(r.cpu, { name: 'AMD Ryzen 9 3950X', temp: 62.4, sensor: 'Core (Tctl/Tdie)' });
+  assert.deepEqual(r.cpu, { name: 'AMD Ryzen 9 3950X', temp: 62.4, sensor: 'Core (Tctl/Tdie)', power: 88.5 });
   assert.equal(r.gpus.length, 1);
-  assert.deepEqual(r.gpus[0], { index: 0, name: 'AMD Radeon RX 6800', vendor: 'amd', temp: 63, hotspot: 71 });
+  assert.deepEqual(r.gpus[0], {
+    index: 0, name: 'AMD Radeon RX 6800', vendor: 'amd', temp: 63, hotspot: 71,
+    load: 97, memUsed: 6821, memTotal: 16384, power: 203, fan: 1890,
+  });
+});
+
+test('parseLhm reads drive temps, fans and the battery', () => {
+  const r = parseLhm(LHM_TREE);
+  assert.deepEqual(r.storage, [{ name: 'Samsung SSD 990 PRO 2TB', temp: 52, life: 97 }]);
+  // Board fans first, then the GPU's. A stopped fan still reports (0 RPM is the news).
+  assert.deepEqual(r.fans, [{ name: 'CPU Fan', rpm: 1243 }, { name: 'Fan #2', rpm: 0 }, { name: 'GPU Fan', rpm: 1890 }]);
+  // Running on battery: a negative rate, and health is the inverse of degradation.
+  assert.deepEqual(r.battery, { name: 'BAT1', level: 74, health: 88.5, rate: -18.2 });
+});
+
+test('parseLhm ignores the board temp sensor that is also called CPU', () => {
+  // The SuperIO chip reports a 41°C socket temp; the real CPU package is 62.4°C.
+  assert.equal(parseLhm(LHM_TREE).cpu.temp, 62.4);
 });
 
 test('parseLhm falls back to the hottest CPU sensor and survives junk', () => {
@@ -163,8 +207,43 @@ test('parseLhm falls back to the hottest CPU sensor and survives junk', () => {
     { Text: 'CPU Core #1', Value: '55 °C', Type: 'Temperature', Children: [] },
     { Text: 'CPU Core #2', Value: '61 °C', Type: 'Temperature', Children: [] }] }] };
   assert.equal(parseLhm(intel).cpu.temp, 61);
-  assert.deepEqual(parseLhm(null), { cpu: null, gpus: [] });
-  assert.deepEqual(parseLhm({ Children: 'nope' }), { cpu: null, gpus: [] });
+  const empty = { cpu: null, gpus: [], storage: [], fans: [], battery: null };
+  assert.deepEqual(parseLhm(null), empty);
+  assert.deepEqual(parseLhm({ Children: 'nope' }), empty);
+});
+
+test('parseLhm works on old builds with no Type or SensorId, only headings', () => {
+  // OpenHardwareMonitor and LHM before 0.8 look like this.
+  const old = { Text: 'PC', Children: [
+    { Text: 'Intel Core i5', ImageURL: 'images_icon/cpu.png', Children: [
+      { Text: 'Temperatures', Children: [{ Text: 'CPU Package', Value: '70 °C', Children: [] }] },
+      { Text: 'Powers', Children: [{ Text: 'CPU Package', Value: '45 W', Children: [] }] }] },
+    { Text: 'NVIDIA GeForce GTX 1060', ImageURL: 'images_icon/nvidia.png', Children: [
+      { Text: 'Temperatures', Children: [{ Text: 'GPU Core', Value: '66 °C', Children: [] }] },
+      { Text: 'Load', Children: [{ Text: 'GPU Core', Value: '88 %', Children: [] }] },
+      { Text: 'Fans', Children: [{ Text: 'GPU', Value: '1400 RPM', Children: [] }] }] }] };
+  const r = parseLhm(old);
+  assert.equal(r.cpu.temp, 70);
+  assert.equal(r.cpu.power, 45);
+  assert.deepEqual({ load: r.gpus[0].load, fan: r.gpus[0].fan }, { load: 88, fan: 1400 });
+});
+
+test('parseSensorValue splits the number from the unit, including comma decimals', () => {
+  assert.deepEqual(parseSensorValue('63.0 °C'), { value: 63, unit: '°C' });
+  assert.deepEqual(parseSensorValue('62,4 °C'), { value: 62.4, unit: '°C' });
+  assert.deepEqual(parseSensorValue('1243 RPM'), { value: 1243, unit: 'RPM' });
+  assert.deepEqual(parseSensorValue('16384 MB'), { value: 16384, unit: 'MB' });
+  assert.deepEqual(parseSensorValue('41 %'), { value: 41, unit: '%' });
+  assert.equal(parseSensorValue('n/a'), null);
+  assert.equal(parseSensorValue(null), null);
+});
+
+test('sensorKind reads Type, then the SensorId path, then the heading', () => {
+  assert.equal(sensorKind({ Type: 'SmallData' }, 'Data'), 'data');
+  assert.equal(sensorKind({ SensorId: '/amdcpu/0/temperature/2' }, 'Whatever'), 'temperature');
+  assert.equal(sensorKind({}, 'Fans'), 'fan');
+  assert.equal(sensorKind({}, 'Temperatures'), 'temperature');
+  assert.equal(sensorKind({}, ''), '');
 });
 
 test('cpuPercent from os.cpus() deltas', () => {

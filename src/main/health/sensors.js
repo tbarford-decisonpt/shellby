@@ -43,6 +43,12 @@ function parseNvidiaSmi(text) {
 // Preferred CPU temperature sensors, best first (AMD then Intel naming).
 const CPU_TEMP_NAMES = [/^core \(tctl\/tdie\)$/i, /^cpu package$/i, /^tctl$/i, /^tdie$/i, /^core \(tctl\)$/i, /^package$/i, /^core average$/i];
 const GPU_TEMP_NAMES = [/^gpu core$/i, /^gpu$/i, /^core$/i];
+// Whole-chip power, best first: AMD reports "Package" or "PPT", Intel "CPU Package".
+const CPU_POWER_NAMES = [/^cpu package$/i, /^package$/i, /^ppt$/i, /^cpu ppt$/i];
+const GPU_POWER_NAMES = [/^gpu package$/i, /^gpu power$/i, /^gpu total$/i, /^gpu ppt$/i, /^package$/i, /^gpu core$/i];
+const GPU_LOAD_NAMES = [/^gpu core$/i, /^gpu total$/i, /^d3d 3d$/i];
+const GPU_MEM_USED_NAMES = [/^gpu memory used$/i, /^d3d dedicated memory used$/i, /^gpu memory dedicated$/i];
+const GPU_MEM_TOTAL_NAMES = [/^gpu memory total$/i];
 
 function hardwareKind(node) {
   const id = String(node.HardwareId || '').toLowerCase();
@@ -51,14 +57,38 @@ function hardwareKind(node) {
   if (id.startsWith('/gpu-nvidia') || img.endsWith('/nvidia.png')) return 'gpu-nvidia';
   if (id.startsWith('/gpu-amd') || img.endsWith('/ati.png') || img.endsWith('/amd.png')) return 'gpu-amd';
   if (id.startsWith('/gpu-intel') || img.endsWith('/intel.png')) return 'gpu-intel';
+  if (/^\/(nvme|hdd|ssd|storage)/.test(id) || /\/(hdd|ssd|nvme)\.png$/.test(img)) return 'storage';
+  if (id.startsWith('/battery') || img.endsWith('/battery.png')) return 'battery';
+  // The SuperIO chip (and the board it sits on) is where the case fans are.
+  if (id.startsWith('/lpc/') || id.startsWith('/mainboard') || img.endsWith('/mainboard.png') || img.endsWith('/chip.png')) return 'board';
   return null;
 }
 
-function isTemperature(node, groupText) {
-  if (node.Type) return /^temperature$/i.test(node.Type);
-  if (node.SensorId) return /\/temperature\//i.test(node.SensorId);
-  return /temperature/i.test(groupText || '') && /°\s*C$/i.test(String(node.Value || '').trim());
+/**
+ * Which group of readings a leaf node belongs to: 'temperature', 'load', 'fan',
+ * 'power', 'data', 'level', ... Newer LibreHardwareMonitor builds say so in
+ * `Type`, slightly older ones only in the `SensorId` path, and the oldest just
+ * file the sensors under a heading ("Temperatures", "Fans").
+ */
+function sensorKind(node, groupText) {
+  const fromPath = String(node.SensorId || '').match(/\/([a-z]+)\/\d+$/i);
+  const raw = node.Type || (fromPath && fromPath[1]) || groupText || '';
+  const k = String(raw).toLowerCase().replace(/[^a-z]/g, '').replace(/s$/, '');
+  return k === 'smalldata' ? 'data' : k;
 }
+
+// "63.0 °C" -> { value: 63, unit: '°C' }, "4115 MB" -> { value: 4115, unit: 'MB' }.
+// LHM localises the decimal separator, so "62,4 °C" has to work too.
+function parseSensorValue(raw) {
+  const text = String(raw ?? '').trim();
+  const value = num(text);
+  if (value == null) return null;
+  const unit = (text.match(/[^\d\s.,+-]+.*$/) || [''])[0].trim().slice(0, 8);
+  return { value, unit };
+}
+
+// Memory sizes arrive as MB on GPUs and GB on drives; normalise to MB.
+const toMb = s => (s == null ? null : /^GB$/i.test(s.unit) ? s.value * 1024 : s.value);
 
 function pickBy(sensors, preferences) {
   for (const re of preferences) {
@@ -68,37 +98,98 @@ function pickBy(sensors, preferences) {
   return null;
 }
 
+const valueOf = s => (s ? s.value : null);
+const plausibleTemp = v => v != null && v > -50 && v < 150;
+
+// The naming preferences above, shared with the other sensor apps Shellby can
+// read (see hwinfo.js) so every source picks the same sensor for the same gauge.
+const NAME_PREFS = Object.freeze({
+  cpuTemp: CPU_TEMP_NAMES, gpuTemp: GPU_TEMP_NAMES,
+  cpuPower: CPU_POWER_NAMES, gpuPower: GPU_POWER_NAMES, gpuLoad: GPU_LOAD_NAMES,
+  gpuMemUsed: GPU_MEM_USED_NAMES, gpuMemTotal: GPU_MEM_TOTAL_NAMES,
+});
+
 /**
- * LibreHardwareMonitor's /data.json tree -> { cpu: { name, temp }, gpus: [...] }.
+ * LibreHardwareMonitor's /data.json tree -> everything Shellby shows:
+ *   { cpu, gpus: [...], storage: [...], fans: [...], battery }
  * Works with and without the SensorId/Type fields (older versions lack them).
  */
 function parseLhm(tree) {
-  const hardware = []; // { kind, name, temps: [{ name, value }] }
+  const hardware = []; // { kind, name, sensors: { [sensorKind]: [{ name, value, unit }] } }
   (function walk(node, hw, group) {
     if (!node || typeof node !== 'object') return;
     const kind = hardwareKind(node);
-    if (kind) { hw = { kind, name: cleanName(node.Text), temps: [] }; hardware.push(hw); }
+    if (kind) { hw = { kind, name: cleanName(node.Text), sensors: {} }; hardware.push(hw); }
     const children = Array.isArray(node.Children) ? node.Children : [];
-    if (hw && !children.length && isTemperature(node, group)) {
-      const value = num(node.Value);
-      if (value != null && value > -50 && value < 150) hw.temps.push({ name: cleanName(node.Text), value });
+    if (hw && !children.length) {
+      const parsed = parseSensorValue(node.Value);
+      const sk = parsed && sensorKind(node, group);
+      if (sk) (hw.sensors[sk] ||= []).push({ name: cleanName(node.Text), ...parsed });
     }
     for (const c of children) walk(c, hw, children.length && !kind ? node.Text : group);
   })(tree, null, null);
 
-  const cpuHw = hardware.find(h => h.kind === 'cpu' && h.temps.length);
+  const temps = hw => (hw.sensors.temperature || []).filter(t => plausibleTemp(t.value));
+  const of = (hw, kind) => hw.sensors[kind] || [];
+
+  const cpuHw = hardware.find(h => h.kind === 'cpu' && temps(h).length);
   let cpu = null;
   if (cpuHw) {
-    const chosen = pickBy(cpuHw.temps, CPU_TEMP_NAMES)
-      || cpuHw.temps.reduce((a, b) => (b.value > a.value ? b : a));
-    cpu = { name: cpuHw.name, temp: chosen.value, sensor: chosen.name };
+    const list = temps(cpuHw);
+    const chosen = pickBy(list, CPU_TEMP_NAMES) || list.reduce((a, b) => (b.value > a.value ? b : a));
+    cpu = {
+      name: cpuHw.name, temp: chosen.value, sensor: chosen.name,
+      power: valueOf(pickBy(of(cpuHw, 'power'), CPU_POWER_NAMES)),
+    };
   }
-  const gpus = hardware.filter(h => h.kind.startsWith('gpu') && h.temps.length).map((h, i) => {
-    const core = pickBy(h.temps, GPU_TEMP_NAMES) || h.temps[0];
-    const hot = h.temps.find(t => /hot ?spot/i.test(t.name));
-    return { index: i, name: h.name, vendor: h.kind.slice(4), temp: core.value, hotspot: hot ? hot.value : null };
+
+  const gpus = hardware.filter(h => h.kind.startsWith('gpu') && temps(h).length).map((h, i) => {
+    const list = temps(h);
+    const core = pickBy(list, GPU_TEMP_NAMES) || list[0];
+    const hot = list.find(t => /hot ?spot/i.test(t.name));
+    const fan = of(h, 'fan')[0];
+    return {
+      index: i, name: h.name, vendor: h.kind.slice(4),
+      temp: core.value, hotspot: hot ? hot.value : null,
+      load: valueOf(pickBy(of(h, 'load'), GPU_LOAD_NAMES)),
+      memUsed: toMb(pickBy(of(h, 'data'), GPU_MEM_USED_NAMES)),
+      memTotal: toMb(pickBy(of(h, 'data'), GPU_MEM_TOTAL_NAMES)),
+      power: valueOf(pickBy(of(h, 'power'), GPU_POWER_NAMES)),
+      fan: fan ? Math.round(fan.value) : null,
+    };
   });
-  return { cpu, gpus };
+
+  const storage = hardware.filter(h => h.kind === 'storage' && temps(h).length).map(h => ({
+    name: h.name,
+    temp: temps(h)[0].value,
+    life: valueOf(of(h, 'level').find(s => /remaining life/i.test(s.name))),
+  }));
+
+  // Case and CPU fans (the board's), then whatever the GPUs reported.
+  const fans = [
+    ...hardware.filter(h => h.kind === 'board' || h.kind === 'cpu').flatMap(h => of(h, 'fan')),
+    ...hardware.filter(h => h.kind.startsWith('gpu')).flatMap(h => of(h, 'fan')),
+  ].filter(f => f.value >= 0 && f.value < 30000).map(f => ({ name: f.name, rpm: Math.round(f.value) })).slice(0, 12);
+
+  const batHw = hardware.find(h => h.kind === 'battery');
+  let battery = null;
+  if (batHw) {
+    const level = valueOf(of(batHw, 'level').find(s => /charge level/i.test(s.name)));
+    const degraded = valueOf(of(batHw, 'level').find(s => /degradation/i.test(s.name)));
+    // Anchored: "Discharge Rate" contains "charge rate".
+    const charge = valueOf(of(batHw, 'power').find(s => /^charge rate/i.test(s.name)));
+    const discharge = valueOf(of(batHw, 'power').find(s => /^discharge rate/i.test(s.name)));
+    if (level != null || charge != null || discharge != null) {
+      battery = {
+        name: batHw.name, level,
+        health: degraded == null ? null : Math.round((100 - degraded) * 10) / 10,
+        // One signed figure: charging is positive, running down is negative.
+        rate: charge ? charge : discharge ? -discharge : 0,
+      };
+    }
+  }
+
+  return { cpu, gpus, storage, fans, battery };
 }
 
 /** CPU busy % between two os.cpus() snapshots. */
@@ -132,6 +223,33 @@ function run(file, args, timeout = 4000) {
   });
 }
 
+/**
+ * GET a small JSON document from a sensor app on this PC.
+ *   { json } on success, { error: 'auth' } if it wants a password, null otherwise.
+ * The port is user-set, so the body is capped while it streams in, not after.
+ */
+async function fetchLocalJson(url, { timeoutMs = LHM_TIMEOUT_MS, maxBytes = LHM_MAX_BYTES } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (res.status === 401) return { error: 'auth' };
+    if (!res.ok || !res.body) return null;
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of res.body) {
+      size += chunk.length;
+      if (size > maxBytes) { ctrl.abort(); return null; }
+      chunks.push(chunk);
+    }
+    return { json: JSON.parse(Buffer.concat(chunks).toString('utf8')) };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function findNvidiaSmi(env = process.env) {
   const sys = path.join(env.SystemRoot || 'C:\\Windows', 'System32', 'nvidia-smi.exe');
   const legacy = path.join(env.ProgramFiles || 'C:\\Program Files', 'NVIDIA Corporation', 'NVSMI', 'nvidia-smi.exe');
@@ -162,26 +280,9 @@ function createSensors({ platform = process.platform } = {}) {
     },
 
     async readLhm() {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), LHM_TIMEOUT_MS);
-      try {
-        const res = await fetch(`http://127.0.0.1:${lhmPort}/data.json`, { signal: ctrl.signal });
-        if (res.status === 401) return { error: 'auth' };
-        if (!res.ok || !res.body) return null;
-        // The port is user-set, so cap the body while it streams in, not after.
-        const chunks = [];
-        let size = 0;
-        for await (const chunk of res.body) {
-          size += chunk.length;
-          if (size > LHM_MAX_BYTES) { ctrl.abort(); return null; }
-          chunks.push(chunk);
-        }
-        return parseLhm(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      } catch {
-        return null;
-      } finally {
-        clearTimeout(timer);
-      }
+      const got = await fetchLocalJson(`http://127.0.0.1:${lhmPort}/data.json`);
+      if (!got || got.error) return got;
+      return parseLhm(got.json);
     },
 
     readCpuLoad() {
@@ -216,4 +317,8 @@ function createSensors({ platform = process.platform } = {}) {
   };
 }
 
-module.exports = { cleanName, parseNvidiaSmi, parseLhm, cpuPercent, parseDriveList, createSensors, findNvidiaSmi, LHM_DEFAULT_PORT };
+module.exports = {
+  cleanName, parseNvidiaSmi, parseLhm, parseSensorValue, sensorKind, cpuPercent, parseDriveList,
+  createSensors, findNvidiaSmi, fetchLocalJson, pickBy, plausibleTemp, NAME_PREFS,
+  LHM_DEFAULT_PORT, LHM_TIMEOUT_MS, LHM_MAX_BYTES,
+};
