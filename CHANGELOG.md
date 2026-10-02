@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.0: while you were away
+
+### New
+- **A recap when you come back.** Step away for an hour or more (or lock the PC) and, when you're back, a short digest waits above the box: what finished, what failed, and what's waiting on you, whether that's a question or a permission prompt in Shellby or in Claude Code elsewhere. It also shows roughly how much of your 5-hour usage window went while you were out, split by conversation. Click a row to open that conversation, even one whose tab you've closed. If the panel isn't in front, a notification sums it up and Shellby says hello. The usage split is approximate: Claude Code only reports how full the window is, so each rise is put down to whichever conversation reported it, and Claude Code running outside Shellby fills the same window. Turn it off under **Settings → System**.
+
 ## 0.22.2
 
 ### Fixed

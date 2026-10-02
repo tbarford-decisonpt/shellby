@@ -137,6 +137,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onStreaks: on('streaks'),
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
+  devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
   dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
@@ -224,6 +225,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),
   onUsage: on('usage'),
+  onRecap: on('recap'), // back after an hour away: what happened (see recap.js)
   onLimit: on('limit'),
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),

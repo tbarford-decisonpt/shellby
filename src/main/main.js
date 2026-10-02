@@ -41,6 +41,7 @@ const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
+const recap = require('./recap');
 const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
@@ -295,6 +296,65 @@ function watchIdleCost() {
   panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
   for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
   for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
+}
+
+// ---------------------------------------------------------------- while you were away (recap.js)
+// What finished, failed and used the window is noted as it happens; whether
+// you're at the keyboard comes from Windows' idle time, read once a minute and
+// on lock, unlock, sleep and wake.
+const AWAY_POLL_MS = 60 * 1000;
+// Dev/e2e only: the idle readings come from dev:away instead of Windows.
+const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
+let recapLog = [];
+let away = { since: null };
+
+function noteRecap(event) {
+  if (event) recapLog = recap.record(recapLog, event, Date.now());
+}
+
+function checkAway({ locked = false, idleMs = null } = {}) {
+  if (CAPTURE || !config) return;
+  if (idleMs === null) {
+    if (RECAP_TEST) return;
+    try {
+      idleMs = powerMonitor.getSystemIdleTime() * 1000;
+      // Asked each time rather than tracked from events: a nudge of the mouse
+      // on the lock screen, or a wake nobody is there for, still reads as locked.
+      locked = locked || powerMonitor.getSystemIdleState(60) === 'locked';
+    } catch { return; }
+  }
+  const r = recap.watch(away, { now: Date.now(), idleMs, locked });
+  away = r.state;
+  if (r.back) welcomeBack(r.back);
+}
+
+function watchAway() {
+  if (CAPTURE) return;
+  for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkAway({ locked: true }));
+  for (const here of ['unlock-screen', 'resume']) powerMonitor.on(here, () => checkAway());
+  setInterval(checkAway, AWAY_POLL_MS);
+}
+
+// Prompts open right now, in Shellby's tabs and in Claude Code elsewhere.
+function waitingOnYou() {
+  const kindOf = items => (items.some(i => i.toolName === 'AskUserQuestion') ? 'question' : items.some(i => i.toolName === 'ExitPlanMode') ? 'plan' : 'approval');
+  const own = [...(manager?.tabs.values() || [])]
+    .filter(t => t.session.pending.size)
+    .map(t => ({ tabId: t.id, title: t.title, what: kindOf([...t.session.pending.values()]) }));
+  const elsewhere = (external?.summary.sessions || [])
+    .filter(s => s.state === 'asking')
+    .map(s => ({ tabId: null, title: s.where || s.project, what: 'approval', external: true }));
+  return [...own, ...elsewhere];
+}
+
+function welcomeBack({ since, until }) {
+  if (config.get('recap') === false || !panel || panel.isDestroyed()) return;
+  const digest = recap.build(recapLog, { since, until, waiting: waitingOnYou(), limit: limitWait() });
+  if (!digest) return;
+  send(panel, 'recap', digest);
+  speak('back', { force: true });
+  if (panel.isVisible() && panel.isFocused()) return;
+  notify(`While you were away (${recap.awayFor(digest.awayMs)})`, recap.headline(digest), () => showPanel({ focusInput: false }));
 }
 
 // The critter window grows to the left to make room for helper crabs, keeping
@@ -587,6 +647,7 @@ function createManager() {
   manager.on('item', (tabId, item, tab) => {
     if (item.kind === 'usage') {
       config.set({ lastUsage: { ...item, at: Date.now() } });
+      noteRecap(recap.usageEvent(tabId, tab.title, item));
       send(panel, 'usage', item);
       onUsage(item);
       return;
@@ -861,6 +922,7 @@ function onResult(tabId, item, tab) {
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
   }
+  noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
   if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
   if (item.ok && !item.interrupted) {
     const fx = outfit().effect;
@@ -2165,7 +2227,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -2190,7 +2252,7 @@ function registerIpc() {
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
@@ -2339,6 +2401,7 @@ function registerIpc() {
   // ---- streaks and nudges
   ipcMain.handle('streaks:get', () => streaksView());
   if (NUDGE_TEST) ipcMain.handle('dev:check-nudges', () => checkNudges());
+  if (RECAP_TEST) ipcMain.handle('dev:away', (_e, r = {}) => checkAway({ idleMs: Number(r.idleMs) || 0, locked: !!r.locked }));
   ipcMain.handle('streaks:set', (_e, patch = {}) => {
     const s = streaks.normalize(config.get('streaks'));
     const next = { ...s };
@@ -2951,6 +3014,7 @@ app.whenReady().then(() => {
   createMotion();
   createPanel();
   watchIdleCost();
+  watchAway();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });

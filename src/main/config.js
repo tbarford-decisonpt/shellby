@@ -23,6 +23,7 @@ const DEFAULTS = {
   critterScale: 1,
   openAtLogin: false,
   notifications: true,
+  recap: true,        // a digest of what happened when you come back after an hour away (see recap.js)
   model: '', // '' -> Claude Code's default
   claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
   onboarded: false,
