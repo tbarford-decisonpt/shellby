@@ -36,6 +36,7 @@ const PACKET = {
   SET_CLIENT_NAME: 50,
   RGBCONTROLLER_UPDATELEDS: 1050,
   RGBCONTROLLER_SETCUSTOMMODE: 1053,
+  RGBCONTROLLER_UPDATEMODE: 1101,
 };
 
 // ------------------------------------------------------------------ the wire
@@ -97,13 +98,21 @@ function reader(buf) {
   };
 }
 
+const MODE_COLORS_PER_LED = 1;
+
 /**
- * REQUEST_CONTROLLER_DATA's reply -> { name, numLeds }.
+ * REQUEST_CONTROLLER_DATA's reply -> { name, numLeds, saved }.
  *
  * Everything before the LED count is variable length, so the whole struct has to
  * be walked even though only two fields are wanted. Laid out as OpenRGB
  * serialises it; `version` is the negotiated protocol, which decides whether the
  * mode struct carries the brightness fields.
+ *
+ * `saved` is how the device was before we touched it: the active mode's bytes
+ * exactly as OpenRGB sent them (UPDATEMODE takes the same layout back), and the
+ * LED colours if that mode is a per-LED one. Switching the lighting off hands
+ * these back, so the room returns to the user's colours rather than staying
+ * on Shellby's last one (or whatever a device falls back to out of direct mode).
  */
 function parseControllerData(buf, version = OUR_PROTOCOL) {
   const r = reader(buf);
@@ -117,9 +126,11 @@ function parseControllerData(buf, version = OUR_PROTOCOL) {
   r.string();         // location
 
   const numModes = r.u16();
-  r.u32();            // active mode
+  const activeMode = r.i32();
   if (numModes > 4096) throw new Error(`implausible mode count ${numModes}`);
+  let mode = null;
   for (let i = 0; i < numModes; i++) {
+    const start = r.offset;
     r.string();       // mode name
     r.i32();          // value
     r.u32();          // flags
@@ -131,9 +142,10 @@ function parseControllerData(buf, version = OUR_PROTOCOL) {
     r.u32();          // speed
     if (version >= 3) r.u32();                // brightness
     r.u32();          // direction
-    r.u32();          // color_mode
+    const colorMode = r.u32();
     const modeColors = r.u16();
     r.skip(modeColors * 4);
+    if (i === activeMode) mode = { index: i, colorMode, bytes: buf.toString('base64', start, r.offset) };
   }
 
   const numZones = r.u16();
@@ -150,7 +162,42 @@ function parseControllerData(buf, version = OUR_PROTOCOL) {
 
   const numLeds = r.u16();
   if (numLeds > MAX_LEDS) throw new Error(`implausible LED count ${numLeds}`);
-  return { name, numLeds };
+  return { name, numLeds, saved: mode && { mode: mode.index, modeBytes: mode.bytes, colors: mode.colorMode === MODE_COLORS_PER_LED ? ledColors(r, numLeds) : null } };
+}
+
+/**
+ * The colour array after the LED names. Only wanted for a restore, so a short
+ * struct here costs the colours rather than the whole device.
+ */
+function ledColors(r, numLeds) {
+  try {
+    for (let i = 0; i < numLeds; i++) { r.string(); r.u32(); }   // LED name, value
+    const count = r.u16();
+    if (count !== numLeds) return null;
+    const words = [];
+    for (let i = 0; i < count; i++) words.push(r.u32());
+    return words;
+  } catch {
+    return null;
+  }
+}
+
+/** UPDATEMODE: its own size, the mode index, then the mode struct as OpenRGB serialised it. */
+function encodeUpdateMode(index, modeBase64) {
+  const modeBytes = Buffer.from(modeBase64, 'base64');
+  const head = Buffer.alloc(8);
+  head.writeUInt32LE(8 + modeBytes.length, 0);
+  head.writeInt32LE(index, 4);
+  return Buffer.concat([head, modeBytes]);
+}
+
+/** UPDATELEDS with each LED's own colour word, as read back from the device. */
+function encodeLedWords(words) {
+  const data = Buffer.alloc(4 + 2 + words.length * 4);
+  data.writeUInt32LE(data.length, 0);
+  data.writeUInt16LE(words.length, 4);
+  words.forEach((w, i) => data.writeUInt32LE(w >>> 0, 6 + i * 4));
+  return data;
 }
 
 /** The UPDATELEDS payload: every LED on one device set to the same colour. */
@@ -208,15 +255,51 @@ class OpenRgbClient extends EventEmitter {
   }
 
   /** Paint every device. Resolves { ok, devices } | { ok: false, error }. */
-  async setAll(color) {
-    if (!color) return { ok: false, error: 'No colour to set.' };
-    // One conversation at a time: a burst of mood changes must not open five.
-    if (this.busy) { try { await this.busy; } catch { /* its own caller hears it */ } }
-    this.busy = this._setAll(color).finally(() => { this.busy = null; });
+  /**
+   * Paint every device. Resolves { ok, devices } | { ok: false, error }; each
+   * device carries `saved`, how it was just before this paint.
+   */
+  setAll(color) {
+    if (!color) return Promise.resolve({ ok: false, error: 'No colour to set.' });
+    return this.oneAtATime(() => this.talk((session, id, info) => {
+      if (!info.numLeds) return;
+      // Custom (direct) mode first, or the device keeps running its own
+      // effect and ignores the colours we send.
+      session.send(id, PACKET.RGBCONTROLLER_SETCUSTOMMODE);
+      session.send(id, PACKET.RGBCONTROLLER_UPDATELEDS, encodeUpdateLeds(info.numLeds, color));
+    }));
+  }
+
+  /**
+   * Put devices back how setAll found them: their own mode, and their own
+   * colours if that mode is per-LED. `saved` is [{ id, name, saved }] from an
+   * earlier setAll. A device is only touched if the same one is still at that
+   * id, so a replugged keyboard doesn't get the RAM's mode.
+   */
+  restore(saved) {
+    const byId = new Map((saved || []).filter(d => d?.saved?.modeBytes).map(d => [d.id, d]));
+    if (!byId.size) return Promise.resolve({ ok: true, devices: this.devices || [] });
+    return this.oneAtATime(() => this.talk((session, id, info) => {
+      const was = byId.get(id);
+      if (!was || was.name !== info.name) return;
+      session.send(id, PACKET.RGBCONTROLLER_UPDATEMODE, encodeUpdateMode(was.saved.mode, was.saved.modeBytes));
+      const colors = was.saved.colors;
+      if (Array.isArray(colors) && colors.length === info.numLeds) {
+        session.send(id, PACKET.RGBCONTROLLER_UPDATELEDS, encodeLedWords(colors));
+      }
+    }));
+  }
+
+  // One conversation at a time: a burst of mood changes must not open five,
+  // and a restore must not interleave with a paint.
+  async oneAtATime(run) {
+    while (this.busy) { try { await this.busy; } catch { /* its own caller hears it */ } }
+    this.busy = run().finally(() => { this.busy = null; });
     return this.busy;
   }
 
-  async _setAll(color) {
+  /** Connect, read every device, and let `each` send it whatever it needs. */
+  async talk(each) {
     let session;
     try {
       session = await this.connect();
@@ -226,13 +309,9 @@ class OpenRgbClient extends EventEmitter {
       for (let id = 0; id < Math.min(count, MAX_DEVICES); id++) {
         const info = await session.controller(id, version);
         devices.push({ id, ...info });
-        if (!info.numLeds) continue;
-        // Custom (direct) mode first, or the device keeps running its own
-        // effect and ignores the colours we send.
-        session.send(id, PACKET.RGBCONTROLLER_SETCUSTOMMODE);
-        session.send(id, PACKET.RGBCONTROLLER_UPDATELEDS, encodeUpdateLeds(info.numLeds, color));
+        each(session, id, info);
       }
-      this.devices = devices;
+      this.devices = devices.map(({ saved, ...d }) => d);
       this.lastError = null;
       return { ok: true, devices };
     } catch (e) {
@@ -252,7 +331,8 @@ class OpenRgbClient extends EventEmitter {
       const count = await session.controllerCount();
       const devices = [];
       for (let id = 0; id < Math.min(count, MAX_DEVICES); id++) {
-        devices.push({ id, ...(await session.controller(id, version)) });
+        const { saved, ...info } = await session.controller(id, version);
+        devices.push({ id, ...info });
       }
       this.devices = devices;
       this.lastError = null;
@@ -361,6 +441,6 @@ const short = e => String(e?.message || e).replace(/[\u0000-\u001f\u007f]+/g, ' 
 
 module.exports = {
   OpenRgbClient, colorFor, encodePacket, decodeHeader, encodeString,
-  encodeUpdateLeds, parseControllerData, packColor,
+  encodeUpdateLeds, encodeUpdateMode, encodeLedWords, parseControllerData, packColor,
   PACKET, DEFAULT_PORT, OUR_PROTOCOL, HEADER_SIZE, MAGIC,
 };
