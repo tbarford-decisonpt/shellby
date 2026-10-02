@@ -3,6 +3,10 @@
 (function () {
   const { h, api, state } = SB;
 
+  // Top-level blocks kept in one conversation's feed. Past this the oldest are
+  // dropped (see Tab.trim); the transcript on disk is never touched.
+  const MAX_BLOCKS = 400;
+
   const SUGGESTIONS = [
     'Tidy my Downloads folder into subfolders by file type',
     "What's eating the most disk space on C:?",
@@ -29,6 +33,8 @@
       this.asks = new Map();      // requestId -> card
       this.lanes = new Map();     // Agent tool_use_id -> lane
       this.taskLane = new Map();  // task_id -> Agent tool_use_id
+      this.trimmed = 0;           // blocks dropped off the top (see trim())
+      this.trimmedNotice = null;
       this.el = h('section', { class: 'feed', role: 'tabpanel', 'aria-live': 'polite', dataset: { tab: id } });
       this.empty = SB.$('emptyTemplate').content.firstElementChild.cloneNode(true);
       this.el.append(this.empty);
@@ -77,8 +83,47 @@
       const host = (parent && this.lanes.get(parent)?.body) || this.el;
       const follow = this.stuck || this.distanceFromEnd() < 140;
       host.append(el);
+      if (host === this.el) this.trim();
       if (follow && this.isActive) this.scrollToEnd();
       return el;
+    }
+
+    // An overnight autonomous run can produce thousands of blocks, and the panel
+    // is never closed, so the oldest ones are dropped once there are more than a
+    // long scroll of history above you. The full transcript stays on disk, and
+    // reopening the conversation from History replays it.
+    trim() {
+      let over = this.el.children.length - MAX_BLOCKS;
+      if (over <= 0) return;
+      for (const el of [...this.el.children]) {
+        if (over <= 0) break;
+        if (el === this.empty || el === this.trimmedNotice) continue;
+        this.forget(el);
+        el.remove();
+        this.trimmed++;
+        over--;
+      }
+      this.showTrimmed();
+    }
+
+    // Drop the maps' references to a block that's gone, so a long conversation
+    // doesn't keep every tool and lane it ever showed.
+    forget(el) {
+      const toolId = el.dataset?.toolId;
+      if (toolId) this.tools.delete(toolId);
+      const laneId = el.dataset?.laneId;
+      if (laneId) {
+        this.lanes.delete(laneId);
+        for (const [taskId, useId] of this.taskLane) if (useId === laneId) this.taskLane.delete(taskId);
+      }
+    }
+
+    showTrimmed() {
+      if (!this.trimmedNotice) {
+        this.trimmedNotice = h('div', { class: 'feed-trimmed' });
+        this.el.prepend(this.trimmedNotice);
+      }
+      this.trimmedNotice.textContent = `${this.trimmed.toLocaleString()} earlier ${this.trimmed === 1 ? 'step' : 'steps'} hidden — the full conversation is in History.`;
     }
 
     get isActive() { return state.activeTab === this.id; }
@@ -125,6 +170,7 @@
           h('span', { class: 't-state' }),
           h('span', { class: 't-label', text: item.label }),
           h('span', { class: 't-detail', text: item.detail, title: item.detail })));
+      el.dataset.toolId = item.id; // so trim() can forget it with the element
       this.tools.set(item.id, el);
       this.append(el, item.parent);
       if (!replay && !item.sub) this.setStatus(`${item.label} ${item.detail}`.trim());
@@ -146,6 +192,7 @@
     renderLane(item, replay) {
       const index = this.lanes.size;
       const lane = new Lane(item, index);
+      lane.el.dataset.laneId = item.id; // so trim() can forget it with the element
       this.lanes.set(item.id, lane);
       this.append(lane.el, item.parent);
       if (!replay) this.setStatus(`Sent a helper: ${item.agent.description || item.agent.type}`);
@@ -236,7 +283,7 @@
       const chosen = qs.map(() => new Set());
       const other = qs.map(() => '');
       const instant = qs.length === 1 && !qs[0].multiSelect;
-      let card;
+      let card = null; // built below; the handlers above only read it once it is
 
       const answerText = i => [...chosen[i], ...(other[i].trim() ? [other[i].trim()] : [])].join(', ');
       const ready = () => qs.every((_, i) => answerText(i));
