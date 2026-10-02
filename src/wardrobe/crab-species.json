@@ -1,0 +1,110 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "crab-species",
+  "name": "Crab Species",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Four crabs that are not the classic shape: a giant fiddler claw, an outgrown shell, a flattened body and long legs. Anchors move with them.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "skins": [
+    {
+      "id": "fiddler",
+      "name": "Fiddler",
+      "author": "x-salmon",
+      "description": "One claw does all the talking.",
+      "palette": { "S": "#1d5f5a", "s": "#3fb8a3", "h": "#a8ecd9", "b": "#e8a33d", "B": "#b06f16", "c": "#ffe08a", "C": "#c98a1e", "k": "#b06f16", "e": "#16201f", "w": "#fff4e4", "l": "#b06f16" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k.CC.",
+        "..SshSsssSshSbbbbcCCCC",
+        ".SshSshhsSshSbbbbcccCC",
+        ".SshSshSsSshSbbbbcccCC",
+        ".SshSssSSshsSbbbBcccCC",
+        ".SsshSSsshhsSbbbBcccC.",
+        "..SsshhhhhsSbbbbBBC...",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ],
+      "anchors": { "claw": [20, 3] }
+    },
+    {
+      "id": "coconut",
+      "name": "Coconut Crab",
+      "author": "x-salmon",
+      "description": "Outgrew the shell years ago and kept going.",
+      "palette": { "S": "#4a3b6b", "s": "#7a6aa3", "h": "#b3a8d6", "b": "#5a7fd6", "B": "#36529c", "c": "#a8c0f7", "C": "#2e4487", "k": "#36529c", "e": "#11131f", "w": "#fff4e4", "l": "#36529c" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "........SS...ew.ew....",
+        "......SSssS..ee.ee....",
+        ".....SsshhsS..k..k....",
+        "....SshSSShsS.k..k.cc.",
+        "....SshsssShSbbbbbcccc",
+        "...SshShhsShSbbbbbbccc",
+        "...SshSsSsShSbbbbbbbcc",
+        "...SshSSSshsSbbbbbbbbC",
+        "....SshhhhsSbbbbbbbbbC",
+        ".....SssssSbbbbbBBBCC.",
+        "......SSSSSBBBBBBBB...",
+        ".......SS...ll.ll.ll..",
+        "...........l..l..l...."
+      ],
+      "anchors": { "shellTop": [9, 0] }
+    },
+    {
+      "id": "porcelain",
+      "name": "Porcelain Crab",
+      "author": "x-salmon",
+      "description": "Small, flat, and faster than he looks.",
+      "palette": { "S": "#8a4f6d", "s": "#c77da0", "h": "#f2c4d8", "b": "#f5e6d3", "B": "#c9a98a", "c": "#f2c4d8", "C": "#c77da0", "k": "#c9a98a", "e": "#2b1a24", "w": "#ffffff", "l": "#c9a98a" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......................",
+        "......................",
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb.cc",
+        ".SshSshhsSshSbbbbbBccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ],
+      "anchors": { "head": [15, 1], "face": [15, 2], "neck": [15, 6], "claw": [21, 6], "shellTop": [7, 2] }
+    },
+    {
+      "id": "spider",
+      "name": "Spider Crab",
+      "author": "x-salmon",
+      "description": "Mostly legs. He gets there eventually.",
+      "palette": { "S": "#5c4a2b", "s": "#9c7f4a", "h": "#d6bb7f", "b": "#b5654a", "B": "#7d3f2c", "c": "#e8a085", "C": "#5e2d1f", "k": "#7d3f2c", "e": "#1f140f", "w": "#fff4e4", "l": "#7d3f2c" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "...l.SSSS...l..l...l..",
+        "...l........l..l...l..",
+        "..l.........l..l....l.",
+        "..l........l....l...l.",
+        ".l.........l....l....l"
+      ]
+    }
+  ]
+}

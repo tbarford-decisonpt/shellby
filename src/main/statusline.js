@@ -38,7 +38,7 @@ function bar(progress, n = 5) {
 
 /**
  * One status line.
- *   s: { state, busy, crew, health: { mood, text, id }|null, xp: { level, title, progress }|null,
+ *   s: { state, busy, crew, background, health: { mood, text, id }|null, xp: { level, title, progress }|null,
  *        lastXp: { amount, at }|null, now }
  */
 function formatStatus(s) {
@@ -58,8 +58,11 @@ function formatStatus(s) {
     parts.push(`${h.color}${h.icon} ${healthLabel(s.health)}${C.reset}`);
   }
   if (s.limit) parts.push(`${C.amber}⏳ limit · back in ${limitLeft(s)}${C.reset}`);
-  if (s.focus?.phase) parts.push(`${C.glass}${s.focus.phase === 'focus' ? '🛡️ focus' : '☕ break'} ${focusLeft(s)}${C.reset}`);
+  if (s.focus?.phase) parts.push(`${C.glass}${s.focus.phase === 'focus' ? '⛑️ focus' : '☕ break'} ${focusLeft(s)}${C.reset}`);
   if (s.ci > 0) parts.push(`${C.red}❌ CI${s.ci > 1 ? ` ×${s.ci}` : ''}${C.reset}`);
+  // Commands a turn backgrounded and never accounted for. Shellby is told when
+  // they start, never when they finish, so this says 'left running', not 'running'.
+  if (s.background > 0) parts.push(`${C.amber}⚙ ${s.background} left running${C.reset}`);
   if (s.lastXp && s.now - s.lastXp.at < 15000) parts.push(`${C.gold}+${s.lastXp.amount} XP${C.reset}`);
   return parts.join(` ${C.dim}·${C.reset} `);
 }
@@ -87,6 +90,7 @@ function formatPlain(s) {
   if (s.limit) parts.push(`${C.amber}limit, back in ${limitLeft(s)}${C.reset}`);
   if (s.focus?.phase) parts.push(`${C.glass}${s.focus.phase} ${focusLeft(s)}${C.reset}`);
   if (s.ci > 0) parts.push(`${C.red}CI failing${s.ci > 1 ? ` x${s.ci}` : ''}${C.reset}`);
+  if (s.background > 0) parts.push(`${C.amber}${s.background} left running${C.reset}`);
   if (s.lastXp && s.now - s.lastXp.at < 15000) parts.push(`${C.gold}+${s.lastXp.amount} XP${C.reset}`);
   return parts.join(` ${C.dim}|${C.reset} `).replace(/[^\x00-\x7f]/g, '');
 }

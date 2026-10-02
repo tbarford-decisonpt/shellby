@@ -57,6 +57,19 @@ body.crab-only [data-view-btn="history"] { display: none !important; }
 .ext-session.working .ext-dot { background: var(--coral); animation: hl-pulse 1s ease-in-out infinite; }
 .ext-session.asking .ext-dot { background: var(--amber); }
 
+/* Settings: background commands a turn walked away from */
+.bg-left { margin-top: 10px; padding: 9px 11px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
+.bg-head { display: flex; align-items: center; gap: 8px; }
+.bg-head b { font-size: 13.5px; color: var(--amber); }
+.bg-head .slim-btn { margin-left: auto; height: 26px; }
+.bg-left p { margin: 4px 0 7px !important; }
+.bg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bg-item { display: grid; grid-template-columns: 8px auto 1fr auto; gap: 8px; align-items: center; padding: 5px 9px; border-radius: var(--r-sm); background: rgba(0, 0, 0, .18); font-size: 12.5px; }
+.bg-item b { font: 700 12.5px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bg-where { color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bg-item time { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
+.bg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); animation: hl-pulse 1.6s ease-in-out infinite; }
+
 /* Settings: Claude Code status line */
 .sl-card { margin-top: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
 .sl-head { display: flex; align-items: center; gap: 8px; }

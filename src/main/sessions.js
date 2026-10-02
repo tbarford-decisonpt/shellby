@@ -65,6 +65,9 @@ class SessionManager extends EventEmitter {
       this.history.create({ id: tab.id, title: userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
       tab.title = this.history.get(tab.id).title;
       tab.saved = true;
+    } else if (this.history.get(tab.id)?.done) {
+      // You've just given it more to do, so it plainly isn't done any more.
+      this.history.setDone(tab.id, false);
     }
     this.history.append(tab.id, userItem);
     tab.outcome = null;
@@ -81,6 +84,24 @@ class SessionManager extends EventEmitter {
   markRead(tabId) {
     const tab = this.tabs.get(tabId);
     if (tab && tab.unread) { tab.unread = false; this.changed(); }
+  }
+
+  // The Map's order is the order the tab strip shows, and main.js persists it as
+  // `openTabs`, so a reorder here is also what comes back next launch. `beforeId`
+  // is the tab to land in front of; null means the end of the strip.
+  reorder(tabId, beforeId = null) {
+    if (!this.tabs.has(tabId)) return false;
+    const was = [...this.tabs.keys()];
+    const rest = was.filter(id => id !== tabId);
+    const at = beforeId === null ? rest.length : rest.indexOf(beforeId);
+    if (at < 0) return false;                                  // unknown neighbour, or itself
+    rest.splice(at, 0, tabId);
+    if (rest.every((id, i) => id === was[i])) return false;     // already sitting there
+    const order = rest.map(id => [id, this.tabs.get(id)]);
+    this.tabs.clear();
+    for (const [id, tab] of order) this.tabs.set(id, tab);
+    this.changed();
+    return true;
   }
 
   close(tabId) {

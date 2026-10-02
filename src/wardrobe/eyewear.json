@@ -1,0 +1,138 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "eyewear",
+  "name": "Eyewear",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Nine things for the face slot, including two that ride the eyes themselves so they track his scan while he works.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "eyepatch",
+      "name": "Eyepatch",
+      "description": "Lost an argument with a merge conflict.",
+      "slot": "face",
+      "pivot": [4, 1],
+      "palette": { "k": "#3a3a3a", "K": "#1b1b1f" },
+      "pixels": [
+        "kkkkkkkkk",
+        ".....KKK.",
+        ".....KKK."
+      ]
+    },
+    {
+      "id": "vr-visor",
+      "name": "VR Visor",
+      "description": "He's in there somewhere.",
+      "slot": "face",
+      "rarity": "rare",
+      "pivot": [4, 0],
+      "palette": { "s": "#4a4e69", "K": "#22223b", "c": "#4cc9f0" },
+      "pixels": [
+        "sKKKKKKs.",
+        "sKccccKs.",
+        ".KKKKKK.."
+      ]
+    },
+    {
+      "id": "welding-mask",
+      "name": "Welding Mask",
+      "description": "Five focus sessions. Sparks are part of the process.",
+      "slot": "face",
+      "rarity": "rare",
+      "pivot": [4, 0],
+      "palette": { "k": "#2b2d42", "K": "#3f4238", "c": "#8ac926" },
+      "pixels": [
+        "kkkkkkkkk",
+        "KcccccccK",
+        "KKKKKKKKK"
+      ],
+      "unlock": { "achievement": "deep-focus" }
+    },
+    {
+      "id": "3d-glasses",
+      "name": "3D Glasses",
+      "description": "Everything has depth now, including the stack trace.",
+      "slot": "face",
+      "pivot": [4, 0],
+      "palette": { "w": "#f1e3d3", "r": "#e63946", "c": "#4cc9f0" },
+      "pixels": [
+        "wwwwwwwww",
+        ".wrw.wcw.",
+        ".www.www."
+      ]
+    },
+    {
+      "id": "reading-glasses",
+      "name": "Reading Glasses",
+      "description": "Approved a plan. For the long diffs.",
+      "slot": "face",
+      "pivot": [4, 0],
+      "palette": { "g": "#8d99ae", "K": "#c9c9c9" },
+      "pixels": [
+        ".ggg.ggg.",
+        "g..ggg..g",
+        ".ggg.ggg.",
+        "K.......K"
+      ],
+      "unlock": { "achievement": "planner" }
+    },
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "description": "It builds now. Mostly.",
+      "slot": "face",
+      "pivot": [4, 0],
+      "palette": { "t": "#f8f0e3", "T": "#e0cdb4" },
+      "pixels": [
+        ".ttttt...",
+        ".tTTTt...",
+        ".ttttt..."
+      ]
+    },
+    {
+      "id": "sleep-mask",
+      "name": "Sleep Mask",
+      "description": "Finished after midnight. Do not wake until the reset.",
+      "slot": "face",
+      "rarity": "rare",
+      "pivot": [4, 0],
+      "palette": { "P": "#5a189a", "p": "#3c096c", "w": "#e0aaff" },
+      "pixels": [
+        "PPPPPPPPP",
+        "PwwPPwwPP",
+        "ppppppppp"
+      ],
+      "unlock": { "achievement": "night-owl" }
+    },
+    {
+      "id": "scanner-visor",
+      "name": "Scanner Visor",
+      "description": "Looked at your vitals. Reading every line, twice.",
+      "slot": "face",
+      "follows": "eyes",
+      "rarity": "epic",
+      "pivot": [4, 0],
+      "palette": { "K": "#2b2d42", "r": "#ef233c" },
+      "pixels": [
+        "KKKKKKKKK",
+        ".rrrrrrr."
+      ],
+      "unlock": { "achievement": "check-up" }
+    },
+    {
+      "id": "eye-black",
+      "name": "Eye Black",
+      "description": "Up and working before eight. Game face.",
+      "slot": "face",
+      "follows": "eyes",
+      "pivot": [4, -1],
+      "palette": { "K": "#1b1b1f" },
+      "pixels": [
+        "..KK.KK.."
+      ],
+      "unlock": { "achievement": "early-bird" }
+    }
+  ]
+}

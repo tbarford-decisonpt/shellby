@@ -48,6 +48,13 @@
 }
 .tab:hover .tab-x, .tab.active .tab-x, .tab-x:focus-visible { opacity: 1; }
 .tab-x:hover { background: var(--reef-3); color: var(--sand); }
+/* Dragging a tab along the strip. The × goes away for the duration so letting go
+   over one can't close the conversation you were only moving, and the tooltip with
+   it: the tabs are sliding under the pointer, so it would be pointing at nothing. */
+body.reordering .tab { cursor: grabbing; }
+body.reordering .tab-x { opacity: 0; pointer-events: none; }
+body.reordering .tip { display: none; }
+.tab.dragging { background: var(--reef-2); color: var(--sand); opacity: .6; }
 .tab-add {
   flex: none; width: 28px; height: 28px; margin-bottom: 2px; border: 0; border-radius: var(--r-sm);
   background: none; color: var(--sand-dim); display: grid; place-items: center;
@@ -222,6 +229,7 @@
 .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .h-dot.err { background: var(--danger); }
 .h-open { color: var(--glass); }
+.h-done { color: var(--glass); }
 
 /* toast with action */
 .toast { display: flex; align-items: center; gap: 10px; }

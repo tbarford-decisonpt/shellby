@@ -1,17 +1,17 @@
 // Seasonal events. Each season is a yearly window of [month, day] dates
 // (inclusive, local time) that may wrap the new year. While a season is active
 // its items can be unlocked ({"unlock": {"season": "<id>"}}) and its outfit is
-// suggested. Outfit values are item keys in the built-in pack.
+// suggested. Outfit values are item keys from the built-in packs in src/wardrobe.
 
 const freeze = s => Object.freeze({ ...s, start: Object.freeze(s.start), end: Object.freeze(s.end), outfit: Object.freeze(s.outfit) });
 
 const SEASONS = Object.freeze([
   { id: 'halloween', name: 'Spooky Season', emoji: '🎃', start: [10, 1], end: [11, 2], priority: 3, outfit: { hat: 'witch-hat', held: 'pumpkin-pail', shell: 'bat-wings', effect: 'bats' } },
   { id: 'winter', name: 'Winter Holidays', emoji: '❄️', start: [12, 1], end: [1, 7], priority: 3, outfit: { hat: 'santa-hat', neck: 'striped-scarf', held: 'candy-cane', effect: 'snow' } },
-  { id: 'valentine', name: 'Valentine’s', emoji: '💘', start: [2, 7], end: [2, 15], priority: 3, outfit: { held: 'rose', effect: 'hearts' } },
+  { id: 'valentine', name: 'Valentine’s', emoji: '💘', start: [2, 7], end: [2, 15], priority: 3, outfit: { hat: 'heart-antennae', face: 'blush', held: 'rose', shell: 'cupid-wings', effect: 'hearts' } },
   { id: 'spring', name: 'Spring', emoji: '🌱', start: [3, 20], end: [5, 31], priority: 1, outfit: { hat: 'flower-crown', shell: 'sprout' } },
-  { id: 'summer', name: 'Summer', emoji: '☀️', start: [6, 21], end: [8, 31], priority: 1, outfit: { face: 'sunglasses', held: 'ice-cream', effect: 'fireflies' } },
-  { id: 'autumn', name: 'Autumn', emoji: '🍂', start: [9, 15], end: [11, 30], priority: 2, outfit: { neck: 'autumn-scarf', effect: 'leaves' } },
+  { id: 'summer', name: 'Summer', emoji: '☀️', start: [6, 21], end: [8, 31], priority: 1, outfit: { hat: 'sun-hat', face: 'beach-shades', neck: 'lei', held: 'ice-cream', effect: 'fireflies' } },
+  { id: 'autumn', name: 'Autumn', emoji: '🍂', start: [9, 15], end: [11, 30], priority: 2, outfit: { hat: 'acorn-cap', neck: 'autumn-scarf', shell: 'wheat-sheaf', effect: 'leaves' } },
 ].map(freeze));
 
 const KNOWN_SEASONS = new Set(SEASONS.map(s => s.id));

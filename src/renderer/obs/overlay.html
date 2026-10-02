@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Served over http from 127.0.0.1, so 'self' covers everything it loads.
+     connect-src allows the EventSource it listens to for state. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'">
+<title>Shellby overlay</title>
+<link rel="stylesheet" href="/shared/fonts.css">
+<link rel="stylesheet" href="/shared/effects.css">
+<link rel="stylesheet" href="/critter/critter.css">
+<link rel="stylesheet" href="/shared/health.css">
+<link rel="stylesheet" href="/obs/overlay.css">
+</head>
+<!-- The same ids and the same state-* body class the desktop critter uses, so
+     critter.css animates this crab exactly like the real one. -->
+<body class="state-idle">
+  <div id="stage">
+    <div id="crew" aria-live="polite"></div>
+    <div id="self">
+      <div id="fx"></div>
+      <div id="bubble" aria-hidden="true"><span id="bubbleText"></span></div>
+      <div id="count" aria-hidden="true"></div>
+      <div id="xpFloat" aria-hidden="true"></div>
+      <div id="hearts" aria-hidden="true"></div>
+      <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
+      <div id="crab">
+        <div id="sprite"></div>
+        <div id="healthFx" class="hfx-layer"></div>
+        <div id="toss" aria-hidden="true"></div>
+      </div>
+      <div id="shadow"></div>
+    </div>
+  </div>
+  <p id="waiting">Waiting for Shellby…</p>
+<script src="/shared/sprite.js"></script>
+<script src="/shared/effects.js"></script>
+<script src="/obs/overlay.js"></script>
+</body>
+</html>

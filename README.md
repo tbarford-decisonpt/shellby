@@ -52,7 +52,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 </p>
 
 - **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each one is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
-- **41 accessories and 7 effects** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw.
+- **102 accessories and 17 effects** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep.
 - **26 trophies**, a few of them secret, unlock outfits as you use him. Or flip **Unlock everything**.
 - **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
@@ -133,6 +133,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use. When he writes himself a new one, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
 - **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
+- **Look over my changes:** the shield next to a project in **Trophies** sends the work you haven't pushed yet for a read-only security read. He reports what looks risky, worst first, and changes nothing — and he won't tell you you're secure.
 - **Hit your usage limit?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
 - **Works everywhere you use Claude Code:** with the plugin he reacts to your terminal and VS Code sessions too, and shows up in Claude Code's status line.
 
@@ -143,7 +144,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Crew view:** each helper's lane shows its task, live activity, tool count, tokens and time. Click a helper crab on the desktop to jump to its conversation. When a helper needs permission, the card shows up in its lane, labelled with which crab is asking.
 - **Status line:** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on in **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and restores your old status line if you remove it), or run `/shellby:statusline`. In the classic cmd.exe console, which can't draw emoji, it switches to a plain-text line.
 - **Queue:** Enter queues a message while he's busy, and it's sent when the current turn finishes. Click a queued message (or press <kbd>↑</kbd>) to edit it. Stopping hands the queue back to you instead of firing it.
-- **Tabs:** build a tool in one tab while you use it in another. The desktop crab shows how many are running. <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd> and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> work like a browser.
+- **Tabs:** build a tool in one tab while you use it in another. The desktop crab shows how many are running. <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd> and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> work like a browser, and so does dragging one along the strip to reorder it — the order you leave them in is the order they come back in. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PageUp</kbd>/<kbd>PageDown</kbd> moves one without the mouse.
 - **Toolbox:** MCP servers show their connection status. New skills and agents are tagged **new** and can be pinned as one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
 - **Skill Shop:** **Toolbox → Get more** lists every plugin in your marketplaces, most popular first. Add marketplaces from GitHub, and every install asks first in an isolated confirmation window. It uses Claude Code's own plugin system, so whatever you install works in your terminal and editor too.
 - **Routines:** each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up.

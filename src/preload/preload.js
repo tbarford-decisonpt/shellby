@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('shellby', {
     dragEnd: fire('critter:drag-end'),
     click: fire('critter:click'),
     crewClick: fire('critter:crew-click'),
+    bgClick: fire('critter:bg-click'),
     menu: fire('critter:menu'),
     drop: fire('critter:drop'),
     onState: on('critter:state'),
@@ -42,6 +43,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // tabs + tasks
   newTab: invoke('tab:new'),
   closeTab: invoke('tab:close'),
+  moveTab: (tabId, beforeId) => ipcRenderer.invoke('tab:reorder', { tabId, beforeId }),
   seenTab: fire('tab:seen'),
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
@@ -51,6 +53,7 @@ contextBridge.exposeInMainWorld('shellby', {
   listSessions: invoke('session:list'),
   openSession: invoke('session:open'),
   deleteSession: invoke('session:delete'),
+  setSessionDone: (id, done) => ipcRenderer.invoke('session:done', { id, done }),
 
   // settings
   setSettings: invoke('settings:set'),
@@ -78,6 +81,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // wardrobe
   wardrobeView: invoke('wardrobe:view'),
   setOutfit: invoke('wardrobe:set-outfit'),
+  clearBackground: invoke('external:clear-background'),
   wearSeason: invoke('wardrobe:wear-season'),
   randomizeOutfit: invoke('wardrobe:randomize'),
   setWardrobeOptions: invoke('wardrobe:options'),
@@ -124,6 +128,7 @@ contextBridge.exposeInMainWorld('shellby', {
   setStreaks: invoke('streaks:set'),
   muteProject: (key, muted) => ipcRenderer.invoke('streaks:mute', { key, muted }),
   openProject: fire('streaks:open'),
+  reviewProject: invoke('review:start'),
   onStreaks: on('streaks'),
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
@@ -160,6 +165,33 @@ contextBridge.exposeInMainWorld('shellby', {
   healthViewed: fire('health:viewed'),
   onHealth: on('health'),
   onHealthLog: on('health:log'),
+
+  // telling you when you're away
+  getChannels: invoke('channels:get'),
+  setChannels: invoke('channels:set'),
+  setChannelSecret: invoke('channels:secret'),
+  testChannel: invoke('channels:test'),
+
+  // the browser source for a stream
+  getObs: invoke('obs:get'),
+  setObs: invoke('obs:set'),
+  onObs: on('obs'),
+
+  // his mood on the desk lighting
+  getRgb: invoke('rgb:get'),
+  setRgb: invoke('rgb:set'),
+  testRgb: invoke('rgb:test'),
+
+  // listening along
+  getNowPlaying: invoke('nowplaying:get'),
+  setNowPlaying: invoke('nowplaying:set'),
+  onNowPlaying: on('nowplaying'),
+
+  // the shellby command
+  getCli: invoke('cli:get'),
+  installCli: invoke('cli:install'),
+  removeCli: invoke('cli:remove'),
+  revealCli: fire('cli:reveal'),
 
   // shareable crab card
   saveCard: invoke('card:save'),

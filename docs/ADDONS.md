@@ -40,6 +40,8 @@ Packs hold **data only**: pixels, colours and a few settings. There is no code, 
 2. Open **Wardrobe → Install pack…** (**Shellby** in the bar at the bottom of the panel, or tray → Wardrobe) and pick the file. Shellby copies it to `%APPDATA%\Shellby\wardrobe\my-first-pack.json`.
 3. Open the Wardrobe and put the beanie on. To try a change, edit the file in `%APPDATA%\Shellby\wardrobe\` and hit **Reload** in the Wardrobe's packs section. You can also just drop the `.json` file onto the Wardrobe.
 
+Shellby's own packs in [`src/wardrobe/`](../src/wardrobe/) use this exact format, so they work as examples: `shell-cargo` for the shell slot, `dev-desk` for a set that spans every slot, `crab-species` for skins that move their anchors.
+
 If something is wrong, the Wardrobe lists the pack with its warnings, for example `skipped accessory beanie: bad slot "head"`. The rest of the pack still loads.
 
 ## The pack file

@@ -397,13 +397,19 @@ test('addon schema is valid JSON and mirrors the validator enums', () => {
 const BASE = path.join(__dirname, '..', 'src', 'wardrobe', 'base.pack.json');
 test('built-in pack validates cleanly and provides every reward and season outfit item', { skip: !fs.existsSync(BASE) && 'src/wardrobe/base.pack.json not created yet' }, () => {
   const json = JSON.parse(fs.readFileSync(BASE, 'utf8'));
-  const { pack: p, errors, warnings } = validatePack(json, { source: 'builtin', knownAchievements: ach.KNOWN_ACHIEVEMENTS, knownSeasons: seasons.KNOWN_SEASONS });
+  const { errors, warnings } = validatePack(json, { source: 'builtin', knownAchievements: ach.KNOWN_ACHIEVEMENTS, knownSeasons: seasons.KNOWN_SEASONS });
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
-  const accessories = new Map(p.accessories.map(a => [a.key, a]));
-  const effects = new Map(p.effects.map(e => [e.key, e]));
+  // Rewards and season outfits may point at any built-in pack, not just this one.
+  const all = loadCatalog({
+    builtinDir: path.dirname(BASE),
+    knownAchievements: ach.KNOWN_ACHIEVEMENTS,
+    knownSeasons: seasons.KNOWN_SEASONS,
+  });
+  const accessories = all.accessories;
+  const effects = all.effects;
   for (const a of ach.ACHIEVEMENTS) {
-    for (const r of a.rewards) assert.ok(accessories.has(r) || effects.has(r), `${a.id} reward ${r} missing from base pack`);
+    for (const r of a.rewards) assert.ok(accessories.has(r) || effects.has(r), `${a.id} reward ${r} missing from the built-in packs`);
   }
   for (const s of seasons.SEASONS) {
     for (const [slot, key] of Object.entries(s.outfit)) {

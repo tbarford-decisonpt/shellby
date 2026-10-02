@@ -16,6 +16,23 @@
     return s.replace(/\u0000(\d+)\u0000/g, (_m, i) => `<code>${codes[i]}</code>`);
   }
 
+  // ---- GFM tables
+  // Alignment leaves as data-align rather than a style attribute: the panel's
+  // CSP is `style-src 'self'`, so an inline style would be dropped on the floor.
+  const PIPE = /(?<!\\)\|/;
+
+  // A row's cells: split on unescaped pipes, less the optional outer pair.
+  const cells = row => row.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '')
+    .split(PIPE).map(c => c.trim().replace(/\\\|/g, '|'));
+
+  // The `|:---|---:|` row as its per-column alignment, or null if that is not
+  // what this line is (left is the default, so it stays unmarked).
+  const alignments = row => {
+    const cs = cells(row);
+    if (!cs.length || !cs.every(c => /^:?-+:?$/.test(c))) return null;
+    return cs.map(c => (c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : null));
+  };
+
   function render(src) {
     const text = esc(String(src ?? '').replace(/\r\n?/g, '\n'));
     const lines = text.split('\n');
@@ -50,6 +67,25 @@
         if (!list) list = { type, items: [] };
         list.items.push((ul || ol)[1]);
         continue;
+      }
+      // A table, if a delimiter row sits under this one with the same number of
+      // cells. Insisting the counts match keeps prose that happens to contain a
+      // pipe as prose.
+      if (PIPE.test(line)) {
+        const head = cells(line);
+        const align = alignments(lines[i + 1] ?? '');
+        if (align && align.length === head.length) {
+          flushPara(); flushList();
+          const cell = (tag, text, a) => `<${tag}${a ? ` data-align="${a}"` : ''}>${inline(text)}</${tag}>`;
+          const body = [];
+          for (i += 2; i < lines.length && !/^\s*$/.test(lines[i]) && PIPE.test(lines[i]); i++) {
+            const row = cells(lines[i]);
+            body.push(`<tr>${head.map((_, c) => cell('td', row[c] ?? '', align[c])).join('')}</tr>`);
+          }
+          i--; // the loop's own i++ lands us on the line that ended the table
+          out.push(`<div class="md-table"><table><thead><tr>${head.map((t, c) => cell('th', t, align[c])).join('')}</tr></thead>${body.length ? `<tbody>${body.join('')}</tbody>` : ''}</table></div>`);
+          continue;
+        }
       }
       if (/^\s*$/.test(line)) { flushPara(); flushList(); continue; }
       if (/^\s*(---|\*\*\*)\s*$/.test(line)) { flushPara(); flushList(); out.push('<hr>'); continue; }

@@ -10,6 +10,8 @@ const DEFAULT_THRESHOLDS = Object.freeze({
   cpuWarn: 85,    // °C (Ryzen/Intel desktop chips run 80-90 under load; Tjmax is ~95-100)
   ramWarn: 90,    // % used
   diskWarnGb: 50, // GB free (small drives warn at 10% instead, whichever is lower)
+  storageWarn: 70,    // °C (an NVMe throttles itself somewhere around 75-80)
+  reclaimWarnGb: 40,  // GB of Docker layers and package caches sitting there
 });
 
 // Settings the user can change, with the range each may take.
@@ -18,6 +20,8 @@ const THRESHOLD_LIMITS = Object.freeze({
   cpuWarn: [60, 105],
   ramWarn: [70, 98],
   diskWarnGb: [1, 1000],
+  storageWarn: [50, 95],
+  reclaimWarnGb: [5, 500],
 });
 
 const TEMP_CRITICAL_ABOVE_WARN = 8;  // °C
@@ -51,10 +55,15 @@ function normalizeThresholds(raw) {
 function limitsFor(reading, t) {
   switch (reading.kind) {
     case 'gpu-temp':
-    case 'cpu-temp': {
-      const warn = reading.kind === 'gpu-temp' ? t.gpuWarn : t.cpuWarn;
+    case 'cpu-temp':
+    case 'storage-temp': {
+      const warn = reading.kind === 'gpu-temp' ? t.gpuWarn : reading.kind === 'storage-temp' ? t.storageWarn : t.cpuWarn;
       return { warn, critical: warn + TEMP_CRITICAL_ABOVE_WARN, margin: TIMING.temp.margin, higherIsWorse: true };
     }
+    // Reclaimable space: there is no hysteresis worth having, and it only moves
+    // when something is pruned, so it reacts like a disk does.
+    case 'reclaim':
+      return { warn: t.reclaimWarnGb, critical: t.reclaimWarnGb * 2, margin: TIMING.disk.margin, higherIsWorse: true };
     case 'ram':
       return { warn: t.ramWarn, critical: Math.min(99, t.ramWarn + RAM_CRITICAL_ABOVE_WARN), margin: TIMING.ram.margin, higherIsWorse: true };
     case 'disk': {
@@ -69,7 +78,7 @@ function limitsFor(reading, t) {
   }
 }
 
-const timingFor = (kind, timing = TIMING) => (kind === 'ram' ? timing.ram : kind === 'disk' ? timing.disk : timing.temp);
+const timingFor = (kind, timing = TIMING) => (kind === 'ram' ? timing.ram : kind === 'disk' || kind === 'reclaim' ? timing.disk : timing.temp);
 
 /**
  * The level a reading points at right now, with hysteresis: once warned, the
@@ -131,17 +140,20 @@ function moodFor(checks) {
   const worst = kinds => list
     .filter(c => kinds.includes(c.reading.kind))
     .sort((a, b) => rank(b.level) - rank(a.level) || severity(b.reading) - severity(a.reading))[0];
-  const temp = worst(['gpu-temp', 'cpu-temp']);
+  const temp = worst(['gpu-temp', 'cpu-temp', 'storage-temp']);
   if (temp) return { mood: temp.level === 'critical' ? 'scorching' : 'hot', level: temp.level, id: temp.reading.id, text: `${Math.round(temp.reading.value)}°` };
   const ram = worst(['ram']);
   if (ram) return { mood: 'dizzy', level: ram.level, id: ram.reading.id, text: `${Math.round(ram.reading.value)}%` };
   const disk = worst(['disk']);
   if (disk) return { mood: 'stuffed', level: disk.level, id: disk.reading.id, text: `${disk.reading.drive || ''} ${formatGb(disk.reading.value)}`.trim() };
+  const reclaim = worst(['reclaim']);
+  if (reclaim) return { mood: 'stuffed', level: reclaim.level, id: reclaim.reading.id, text: formatGb(reclaim.reading.value) };
   return null;
 }
 
 // Tie-break between checks at the same level: hotter / fuller wins.
 function severity(r) { return r.kind === 'disk' ? -r.value : r.value; }
+
 
 function formatGb(gb) {
   if (!Number.isFinite(gb)) return '?';
@@ -156,7 +168,15 @@ function describe(change, thresholds) {
   const r = change.reading;
   const lim = limitsFor(r, t);
   const up = rank(change.to) > rank(change.from);
-  if (r.kind === 'gpu-temp' || r.kind === 'cpu-temp') {
+  if (r.kind === 'reclaim') {
+    const amount = formatGb(r.value);
+    if (!up) return { title: 'That freed up some space', body: `${amount} left to reclaim.` };
+    return {
+      title: `${amount} is sitting there to reclaim`,
+      body: `${r.sources?.length ? `Mostly ${r.sources.join(', ')}. ` : ''}Ask Shellby and he'll tell you what's safe to clear.`,
+    };
+  }
+  if (r.kind === 'gpu-temp' || r.kind === 'cpu-temp' || r.kind === 'storage-temp') {
     const v = `${Math.round(r.value)}°C`;
     if (!up) return { title: `${r.label} cooled down`, body: `Back to ${v}. Shellby can stop sweating.` };
     return change.to === 'critical'
@@ -184,6 +204,16 @@ function askPrompt(reading, thresholds) {
   const t = normalizeThresholds(thresholds);
   const lim = limitsFor(reading, t);
   switch (reading.kind) {
+    case 'storage-temp':
+      return [
+        `My drive${reading.model ? ` (${reading.model})` : ''} is at ${Math.round(reading.value)}°C. Shellby warns me at ${lim.warn}°C.`,
+        '',
+        '1. Tell me whether that is actually a problem for this drive, using its rated limits, and whether it will be throttling itself.',
+        '2. Find out what has been reading or writing to it heavily right now.',
+        '3. Suggest what would help (airflow over the M.2, a heatsink, moving a busy folder), most likely first.',
+        '',
+        "Don't change any settings or move any files. Just report back.",
+      ].join('\n');
     case 'gpu-temp':
     case 'cpu-temp': {
       const part = reading.kind === 'gpu-temp' ? 'GPU' : 'CPU';

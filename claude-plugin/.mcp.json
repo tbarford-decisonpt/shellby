@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shellby": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.js"],
+      "description": "Drive the Shellby desktop crab: make him say something, celebrate, dress up, or report how the PC is doing."
+    }
+  }
+}

@@ -1,0 +1,145 @@
+// Putting the `shellby` command on the user's PATH, and the token that lets it
+// start tasks (see src/cli/shellby.js).
+//
+// Shellby copies the CLI into %LOCALAPPDATA%\Shellby\bin next to a small shim,
+// and adds that one folder to the user's PATH. Nothing is written to the machine
+// PATH, nothing needs admin rights, and removing it puts the PATH back exactly
+// as it was.
+//
+// Everything here is pure string work, so the PATH edit -- the one thing in
+// Shellby that would really annoy someone if it went wrong -- is unit-tested.
+const crypto = require('crypto');
+
+const BIN_DIR_NAME = 'bin';
+const TOKEN_FILE = 'cli-token';
+const TOKEN_BYTES = 32;
+
+/** A fresh CLI token. 256 bits of base64url: not guessable, and one line long. */
+function newToken() {
+  return crypto.randomBytes(TOKEN_BYTES).toString('base64url');
+}
+
+/**
+ * Constant-time compare for the token header. A plain === would leak the token
+ * a character at a time to anything that can time the response.
+ */
+function tokenMatches(expected, given) {
+  if (typeof expected !== 'string' || typeof given !== 'string') return false;
+  if (!expected || expected.length !== given.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(given));
+}
+
+// ------------------------------------------------------------------ the shims
+
+/**
+ * The .cmd that cmd.exe and PowerShell run. It calls the copy of the CLI next to
+ * itself (%~dp0), so the shim never carries a path into the installed app and
+ * keeps working across updates and reinstalls.
+ */
+function cmdShim() {
+  return [
+    '@echo off',
+    'rem Shellby command line. Written by Shellby; delete the folder to remove it.',
+    'setlocal',
+    'node "%~dp0shellby.js" %*',
+    'exit /b %errorlevel%',
+    '',
+  ].join('\r\n');
+}
+
+/** The same for Git Bash, WSL and any other shell that reads a shebang. */
+function shShim() {
+  return [
+    '#!/usr/bin/env bash',
+    '# Shellby command line. Written by Shellby; delete the folder to remove it.',
+    'exec node "$(dirname "$0")/shellby.js" "$@"',
+    '',
+  ].join('\n');
+}
+
+/** A PowerShell shim, so `shellby` also works when a profile prefers .ps1. */
+function ps1Shim() {
+  return [
+    '# Shellby command line. Written by Shellby; delete the folder to remove it.',
+    'node "$PSScriptRoot\\shellby.js" @args',
+    'exit $LASTEXITCODE',
+    '',
+  ].join('\r\n');
+}
+
+// ------------------------------------------------------------------ PATH maths
+
+// PATH entries are compared without case (Windows), without a trailing slash,
+// and without the quotes some installers leave behind.
+function normalizeEntry(entry) {
+  return String(entry ?? '')
+    .trim()
+    .replace(/^"(.*)"$/, '$1')
+    .replace(/[\\/]+$/, '')
+    .replace(/\//g, '\\')
+    .toLowerCase();
+}
+
+const split = pathValue => String(pathValue ?? '').split(';');
+
+/** Is this folder already on the PATH? */
+function isOnPath(pathValue, dir) {
+  const want = normalizeEntry(dir);
+  return !!want && split(pathValue).some(e => normalizeEntry(e) === want);
+}
+
+/**
+ * PATH with the folder added, or the value unchanged if it's already there.
+ * Appended rather than prepended: Shellby's command must never shadow something
+ * the user already has.
+ */
+function pathWith(pathValue, dir) {
+  const current = String(pathValue ?? '');
+  if (!dir || isOnPath(current, dir)) return current;
+  if (!current.trim()) return dir;
+  // Keep a single trailing semicolon from turning into an empty entry.
+  return `${current.replace(/;+$/, '')};${dir}`;
+}
+
+/** PATH with the folder removed, leaving everything else exactly as it was. */
+function pathWithout(pathValue, dir) {
+  const want = normalizeEntry(dir);
+  const parts = split(pathValue);
+  const kept = parts.filter((e, i) => {
+    if (normalizeEntry(e) === want) return false;
+    // A trailing empty segment was a trailing semicolon; keep it only if it
+    // was there before we touched anything.
+    return !(e === '' && i === parts.length - 1 && parts.length > 1);
+  });
+  return kept.join(';');
+}
+
+/** Where the command lives, given Electron's app.getPath('userData') neighbours. */
+const binDir = localAppData => require('path').join(localAppData, 'Shellby', BIN_DIR_NAME);
+const tokenPath = userData => require('path').join(userData, TOKEN_FILE);
+
+/**
+ * What a `shellby do` request is allowed to ask for. The CLI already checks
+ * these, but the CLI is not the only thing that can reach the port.
+ *   { ok: true, task: { prompt, cwd, mode } } | { ok: false, error }
+ */
+function parseTaskRequest(body, { modes, maxPrompt = 4000, isDir = () => true } = {}) {
+  if (!body || typeof body !== 'object' || body.action !== 'task') return { ok: false, error: 'Expected a task.' };
+  const args = body.args && typeof body.args === 'object' ? body.args : {};
+  const prompt = typeof args.prompt === 'string' ? args.prompt.replace(/\u0000/g, '').trim() : '';
+  if (!prompt) return { ok: false, error: 'No task given.' };
+  if (prompt.length > maxPrompt) return { ok: false, error: 'That task is too long.' };
+  const cwd = typeof args.cwd === 'string' ? args.cwd : '';
+  if (!cwd || !isDir(cwd)) return { ok: false, error: 'That folder does not exist.' };
+  // A mode is optional; an unknown one is refused rather than quietly ignored,
+  // and "autonomous" is never reachable from a terminal.
+  const allowed = Array.isArray(modes) ? modes : ['ask', 'smart', 'acceptEdits', 'plan'];
+  if (args.mode != null && !allowed.includes(args.mode)) return { ok: false, error: 'Unknown permission mode.' };
+  return { ok: true, task: { prompt, cwd, mode: args.mode ?? null } };
+}
+
+module.exports = {
+  newToken, tokenMatches, cmdShim, shShim, ps1Shim,
+  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, parseTaskRequest,
+  BIN_DIR_NAME, TOKEN_FILE,
+};

@@ -1,7 +1,7 @@
 {
   "name": "shellby",
   "productName": "Shellby",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you, on your own Claude subscription.",
   "main": "src/main/main.js",
   "author": "x-salmon",
@@ -24,6 +24,9 @@
     "test": "node --test --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",
     "e2e:ci": "node scripts/e2e-ci.js",
+    "packs": "node scripts/validate-packs.js",
+    "packs:format": "node scripts/format-packs.js",
+    "packs:sheet": "python scripts/preview-packs.py",
     "icons": "python scripts/make-icons.py",
     "screenshots": "electron . --capture-screenshots",
     "reel": "electron . --capture-screenshots --reel && python scripts/make-reel.py",

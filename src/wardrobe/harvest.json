@@ -1,0 +1,149 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "harvest",
+  "name": "Harvest",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Autumn collectibles. An acorn cap, a flat cap, fogged specs, a cable-knit cowl, a rake, an acorn and a wheat sheaf, with low mist.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "acorn-cap",
+      "name": "Acorn Cap",
+      "description": "Autumn collectible. It fit, so he kept it.",
+      "slot": "hat",
+      "rarity": "rare",
+      "unlock": { "season": "autumn" },
+      "pivot": [3, 3],
+      "palette": { "t": "#8d5524", "T": "#6b4a2f" },
+      "pixels": [
+        "...t...",
+        ".TTTTT.",
+        "TtTtTtT",
+        "TTTTTTT"
+      ]
+    },
+    {
+      "id": "flat-cap",
+      "name": "Flat Cap",
+      "description": "Autumn collectible. Tweed, for the long walk.",
+      "slot": "hat",
+      "unlock": { "season": "autumn" },
+      "pivot": [4, 2],
+      "palette": { "T": "#7f6a53", "t": "#5c4d3c" },
+      "pixels": [
+        "..TTTT...",
+        ".TTTTTTTt",
+        ".ttttttt."
+      ]
+    },
+    {
+      "id": "fogged-glasses",
+      "name": "Fogged Glasses",
+      "description": "Autumn collectible. Came in from the cold.",
+      "slot": "face",
+      "unlock": { "season": "autumn" },
+      "pivot": [4, 0],
+      "palette": { "g": "#8d99ae", "W": "#e8f1f2" },
+      "pixels": [
+        "ggggggggg",
+        ".gWWgWWg.",
+        ".ggg.ggg."
+      ]
+    },
+    {
+      "id": "cable-knit",
+      "name": "Cable-Knit Cowl",
+      "description": "Autumn collectible. Someone knitted this for him.",
+      "slot": "neck",
+      "rarity": "rare",
+      "unlock": { "season": "autumn" },
+      "pivot": [3, 0],
+      "palette": { "n": "#9c6644", "N": "#7f5539" },
+      "pixels": [
+        ".nnnnnn.",
+        "nNnnNnNn",
+        "nnNnnNnn",
+        ".nnnnnn."
+      ]
+    },
+    {
+      "id": "rake",
+      "name": "Rake",
+      "description": "Autumn collectible. The leaves keep winning.",
+      "slot": "held",
+      "unlock": { "season": "autumn" },
+      "pivot": [2, 6],
+      "palette": { "h": "#8d5524", "r": "#8d99ae" },
+      "pixels": [
+        "..h..",
+        "..h..",
+        "..h..",
+        "..h..",
+        "rrrrr",
+        "r.r.r"
+      ]
+    },
+    {
+      "id": "acorn",
+      "name": "Acorn",
+      "description": "Autumn collectible. Saved for later. Much later.",
+      "slot": "held",
+      "unlock": { "season": "autumn" },
+      "pivot": [1, 4],
+      "palette": { "k": "#5c4033", "T": "#6b4a2f", "t": "#c68642" },
+      "pixels": [
+        ".k.",
+        "TTT",
+        "ttt",
+        ".t."
+      ]
+    },
+    {
+      "id": "wheat-sheaf",
+      "name": "Wheat Sheaf",
+      "description": "Autumn collectible. The harvest came in.",
+      "slot": "shell",
+      "rarity": "epic",
+      "unlock": { "season": "autumn" },
+      "pivot": [2, 6],
+      "palette": { "y": "#e9c46a", "Y": "#bc8a3c" },
+      "pixels": [
+        "y.y.y",
+        "YyYyY",
+        "yYyYy",
+        ".YYY.",
+        "..Y..",
+        "..Y.."
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "mist",
+      "name": "Low Mist",
+      "description": "Autumn collectible. The morning has not burned off yet.",
+      "motion": "float",
+      "count": 8,
+      "speed": 0.4,
+      "rarity": "rare",
+      "unlock": { "season": "autumn" },
+      "sprites": [
+        {
+          "palette": { "m": "#cfd8dc" },
+          "pixels": [
+            "mmm"
+          ]
+        },
+        {
+          "palette": { "m": "#b8c4c9" },
+          "pixels": [
+            "mm.",
+            ".mm"
+          ]
+        }
+      ]
+    }
+  ]
+}

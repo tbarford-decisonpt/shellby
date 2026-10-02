@@ -237,11 +237,22 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
   white-space: pre-wrap; word-wrap: break-word;
 }
 .msg.user .att-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
-.msg.assistant { position: relative; padding-left: 16px; word-wrap: break-word; }
+.msg.assistant { position: relative; padding-left: 18px; word-wrap: break-word; }
+/* His mark in the gutter is a mini of the shell he lives in right now: boot.js
+   hands the art over as --home-mark (see shared/minishell.js), so a molt
+   re-marks the feed. Sub-replies and crew lanes keep the plain tick — a shell
+   on every line of a long run is noise, and so is the mark before the panel
+   knows which shell he is in. */
 .msg.assistant::before {
-  content: ""; position: absolute; left: 0; top: .5em;
-  width: 6px; height: 6px; background: var(--coral);
-  box-shadow: 0 0 0 2px var(--coral-dim);
+  content: ""; position: absolute; left: 0; top: .24em;
+  width: 12px; height: 12px;
+  background: var(--home-mark) center / contain no-repeat;
+}
+body:not([data-home]) .msg.assistant::before,
+.msg.assistant.sub::before,
+.lane-body .msg.assistant::before {
+  top: .5em; width: 6px; height: 6px;
+  background: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim);
 }
 .msg.assistant.sub { opacity: .8; font-size: 13px; margin-left: 14px; }
 .msg.assistant p { margin: 0 0 .6em; }
@@ -258,6 +269,35 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 }
 .msg.assistant pre code { background: none; padding: 0; font-size: 11.5px; line-height: 1.6; }
 .msg.assistant hr { border: 0; border-top: 1px dashed var(--line); margin: 1em 0; }
+
+/* Tables — how he summarises a change set. The panel is 460px by default, so
+   cells wrap to fit it and the box only scrolls sideways if a table is genuinely
+   too wide for that. Alignment comes off data-align because the CSP is
+   `style-src 'self'` and an inline style would never apply (shared/markdown.js). */
+.msg.assistant .md-table {
+  margin: .4em 0 .8em; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.msg.assistant table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.msg.assistant th, .msg.assistant td {
+  padding: 5px 9px; text-align: left; vertical-align: top;
+  border-bottom: 1px solid var(--line-soft);
+  /* `anywhere` (not break-word) so a long path shrinks the column instead of
+     pushing the table into a sideways scroll. */
+  overflow-wrap: anywhere;
+}
+.msg.assistant thead th {
+  background: var(--reef-2); color: var(--glass);
+  font-weight: 600; white-space: nowrap;
+}
+.msg.assistant tbody tr:last-child td { border-bottom: 0; }
+.msg.assistant tbody tr:nth-child(even) td { background: var(--line-soft); }
+/* In a cell the chip background is noise and its padding is width the panel
+   does not have — the monospace face already reads as code, and the room buys
+   fewer mid-path line breaks. */
+.msg.assistant th code, .msg.assistant td code { background: none; padding: 0; }
+.msg.assistant [data-align="center"] { text-align: center; }
+.msg.assistant [data-align="right"] { text-align: right; }
 
 /* the tide log: tool calls */
 .tool {
@@ -534,6 +574,12 @@ select.field option { background: var(--reef); }
 .history-del:hover { color: var(--danger); background: rgba(255, 90, 74, .08); }
 .history-empty { text-align: center; color: var(--sand-faint); padding: 30px 0; font-size: 13px; }
 .history-note { text-align: center; }
+.history-tabs { margin-top: 8px; }
+/* Ticked off: quieter, but never so quiet you can't read it (see .h-done for the chip). */
+.history-item.done .h-title { color: var(--sand-dim); font-weight: 600; }
+.history-tick { border: 0; background: none; color: var(--sand-faint); padding: 0 11px; font-size: 13px; }
+.history-tick:hover { color: var(--glass); background: var(--glass-dim); }
+.history-tick[aria-pressed="true"] { color: var(--glass); }
 
 /* ================================================================ onboarding */
 .hello { text-align: center; padding: 10px 6px 4px; }

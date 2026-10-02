@@ -1,0 +1,33 @@
+/* The overlay's own layer, on top of critter.css.
+   Deliberately tiny: critter.css already sets html/body to full height with a
+   transparent background and lays the crab out at the right of the stage with
+   the crew lane to his left. Overriding any of that is how you end up with the
+   crab positioned off screen. */
+
+html, body {
+  /* critter.css already does this; !important so a custom CSS block in OBS's
+     browser source can't put a background behind him by accident. */
+  background: transparent !important;
+}
+
+/* On the desktop he is a button you drag and right-click; on a stream he is a
+   picture. The element is a <div> here, so there is no button chrome to undo. */
+#crab { cursor: default; }
+
+/* Until the first state arrives there is nothing to draw, so say so rather than
+   showing an empty scene. Gone for good once the crab appears. */
+#waiting {
+  position: fixed;
+  inset: 8px auto auto 8px;
+  margin: 0;
+  font: 500 13px/1.4 "Atkinson Hyperlegible", system-ui, sans-serif;
+  color: #fff;
+  text-shadow: 0 1px 3px #000, 0 0 10px #000;
+  opacity: 0.85;
+}
+body.connected #waiting { display: none; }
+
+/* The crab is the point, so he keeps moving; the decorative layers don't. */
+@media (prefers-reduced-motion: reduce) {
+  #fx, #zzz { display: none; }
+}

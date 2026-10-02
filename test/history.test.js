@@ -110,6 +110,25 @@ test('hand-edited junk in the index is dropped entry by entry', () => {
   assert.equal(h.indexIntact, true);
 });
 
+test('marking a conversation done survives a restart and leaves its timestamps alone', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'a', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  const { updatedAt } = h.get('a');
+
+  h.setDone('a', true);
+  assert.equal(h.get('a').done, true);
+  // Ticking it off is not activity: a chat from last week must not say "just now".
+  assert.equal(h.get('a').updatedAt, updatedAt);
+  // The flag is part of the index, not a separate file to lose.
+  assert.equal(new History(dir).get('a').done, true);
+
+  h.setDone('a', false);
+  assert.equal('done' in h.get('a'), false, 'un-ticking clears the field rather than storing false');
+  assert.equal(new History(dir).get('a').done, undefined);
+  assert.equal(h.setDone('nobody', true), null);
+});
+
 test('size() reports what the transcripts take up', () => {
   const dir = tmp();
   const h = new History(dir);

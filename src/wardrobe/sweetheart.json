@@ -1,0 +1,137 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "sweetheart",
+  "name": "Sweetheart",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Valentine collectibles. Heart antennae, a blush that rides his eyes, a choker, chocolates, a letter, cupid wings and falling petals.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "heart-antennae",
+      "name": "Heart Antennae",
+      "description": "Valentine collectible. They bob when he does.",
+      "slot": "hat",
+      "rarity": "rare",
+      "unlock": { "season": "valentine" },
+      "pivot": [3, 3],
+      "palette": { "p": "#ff5c8a", "k": "#2b2d42" },
+      "pixels": [
+        "pp...pp",
+        "pp...pp",
+        ".k...k.",
+        "..k.k.."
+      ]
+    },
+    {
+      "id": "blush",
+      "name": "Blush",
+      "description": "Valentine collectible. Someone said something nice.",
+      "slot": "face",
+      "follows": "eyes",
+      "unlock": { "season": "valentine" },
+      "pivot": [4, -1],
+      "palette": { "p": "#ff8fab" },
+      "pixels": [
+        ".pp...pp."
+      ]
+    },
+    {
+      "id": "heart-choker",
+      "name": "Heart Choker",
+      "description": "Valentine collectible. Worn high and proud.",
+      "slot": "neck",
+      "rarity": "rare",
+      "unlock": { "season": "valentine" },
+      "pivot": [3, 0],
+      "palette": { "K": "#7a1236", "p": "#ff5c8a" },
+      "pixels": [
+        "KKKKKKKK",
+        "...pp...",
+        "...pp..."
+      ]
+    },
+    {
+      "id": "chocolate-box",
+      "name": "Box of Chocolates",
+      "description": "Valentine collectible. The good ones went first.",
+      "slot": "held",
+      "rarity": "rare",
+      "unlock": { "season": "valentine" },
+      "pivot": [2, 4],
+      "palette": { "R": "#e63946", "w": "#6b4a2f", "K": "#ff8fab" },
+      "pixels": [
+        "RRRRR",
+        "RwKwR",
+        "RwwwR",
+        ".RRR."
+      ]
+    },
+    {
+      "id": "love-letter",
+      "name": "Love Letter",
+      "description": "Valentine collectible. Sealed, unsent, carried anyway.",
+      "slot": "held",
+      "unlock": { "season": "valentine" },
+      "pivot": [2, 4],
+      "palette": { "w": "#fff4e4", "W": "#e0cdb4", "P": "#e63946" },
+      "pixels": [
+        "wwwww",
+        "wWwWw",
+        "wwPww",
+        "wwwww"
+      ]
+    },
+    {
+      "id": "cupid-wings",
+      "name": "Cupid Wings",
+      "description": "Valentine collectible. Aim is not included.",
+      "slot": "shell",
+      "rarity": "epic",
+      "unlock": { "season": "valentine" },
+      "pivot": [3, 4],
+      "palette": { "w": "#fff4e4", "W": "#e0cdb4" },
+      "pixels": [
+        "w.....w",
+        "Ww...wW",
+        "WWw.wWW",
+        ".WW.WW."
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "petals",
+      "name": "Petals",
+      "description": "Valentine collectible. Someone sent flowers.",
+      "motion": "fall",
+      "count": 12,
+      "speed": 0.6,
+      "rarity": "rare",
+      "unlock": { "season": "valentine" },
+      "sprites": [
+        {
+          "palette": { "p": "#ff8fab" },
+          "pixels": [
+            "p"
+          ]
+        },
+        {
+          "palette": { "p": "#ff5c8a" },
+          "pixels": [
+            "pp",
+            ".p"
+          ]
+        },
+        {
+          "palette": { "p": "#ffb3c8" },
+          "pixels": [
+            ".p",
+            "pp"
+          ]
+        }
+      ]
+    }
+  ]
+}

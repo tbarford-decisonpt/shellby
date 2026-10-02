@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.20.0: he gets out more
+
+### Claude can drive him now
+- **The plugin brings an MCP server with it**, so Claude can put a line in Shellby's bubble on purpose instead of Shellby guessing from hook events. A skill can have him say what it's up to, celebrate when a release actually lands, or put a hat on.
+- **`status` works the other way round:** Claude can ask how the machine is doing — his level, what's running, CPU and GPU temperature, memory, a drive that's filling up — which is worth knowing before kicking off something heavy.
+- **It cannot start tasks.** Anything running on this PC can reach that port, and spending your Claude subscription is not something a local port should be able to do. Shellby's own permission cards are still the only way work begins.
+
+### A `shellby` command
+- **Hand him a task from any terminal:** `shellby do "tidy my Downloads"`, in whatever folder you're standing in. Also `shellby say` and `shellby status`.
+- **Settings → Claude Code everywhere → the shellby command** puts it on your PATH. It's appended, never prepended, so it can't shadow anything you already had, and removing it puts your PATH back exactly as it was.
+- Starting a task needs a token Shellby writes into its own settings folder, so a web page can't do it, and **Autonomous is not reachable from a terminal** at all.
+
+### He can tell you when you're not at the desk
+- **Autonomous mode expects you to walk away**, and walking away meant missing the moment he raised a claw. Now a permission prompt, a finished run, a reset usage limit, a red build or an overheating GPU can reach your phone.
+- **ntfy, Pushover, Telegram, a Discord or Slack webhook, or your own endpoint.** One pasted address, no account, no app to install, and nothing goes through a server of ours. Off until you ask for it, and **Guard my focus holds them back** unless you say otherwise.
+- A task that took four seconds doesn't buzz your pocket; the prompts that need you always get through.
+
+### On a stream
+- **Settings → On a stream** serves him as an OBS browser source on a transparent background: the same crab, the same outfit, the same animations, reacting live in the corner of a stream.
+- It's the critter's own stylesheet and sprite builder behind it, so he can't drift out of sync with the one on your desktop, and it listens on 127.0.0.1 only.
+
+### Your desk lights up with him
+- **Through [OpenRGB](https://openrgb.org):** coral while he works, amber when he needs you, red when a build goes red or something overheats. No account, no cloud, no vendor software.
+- Health beats CI beats what he's doing, so an overheating GPU is what the room shows you.
+
+### He listens along
+- **Shellby notices what's playing** — Spotify, a browser tab, anything in the volume flyout — and **puts his headphones on**, with the odd remark about it. Read from Windows itself, so there's no account and nothing leaves the PC.
+- A **Now Playing** pack comes with it: a boombox, a vinyl record, a microphone, and notes drifting up while it plays.
+
+### He can see more of your PC
+- **AMD and Intel cards get the rest of their gauges.** Load, memory, power and fan speed were only ever read for NVIDIA; now whatever LibreHardwareMonitor knows about your card shows up beside its temperature.
+- **Drive temperatures, case fans and the battery** are read too, and a drive cooking itself gets its own warning — an NVMe throttles somewhere around 75°C and nothing else tells you.
+- **HWiNFO works now**, through its Remote Sensor Monitor, for the people who already run that instead.
+- **What Docker, WSL and the package caches are sitting on.** On a developer's PC these are usually the biggest things on the drive and none of them show up as something you can point at. He'll say when there are tens of gigabytes to reclaim, and **Ask Shellby** comes back with what's safe to clear and the exact command — it never prunes or deletes anything itself.
+
+### He knows which editor you're in
+- Three Claude Code sessions open in three places used to read as three identical "Claude Code" rows. Now it's **"shellby in Cursor"**, or VS Code, Windsurf, Zed, a JetBrains IDE, Windows Terminal and the rest.
+- The hook works it out and sends **one word**: the paths it recognised it from carry your user name, and those stay on your PC.
+
+### Eleven more packs to wear
+- **The empty slots are filled in.** His shell had three things you could put on it and his face had four, so there are now ten things for the shell — a backpack, a satellite dish, a bonsai — nine for the face, and seven for his neck. Two of the face items ride his eyes, so they scan along with him while he reads.
+- **Sets that dress him head to tail:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each one covers every slot, so you can wear the whole thing at once.
+- **The quiet seasons got their due.** Summer, autumn and Valentine's had two items each. They have ten, ten and nine now — a parasol, a wheat sheaf, cupid wings — and the look he puts on when a season opens actually uses them. Valentine's used to hand him a rose and leave it there; now he turns up in heart antennae, a blush and a pair of cupid wings. Seasonal items are still only collectable while their season is running, so be around for it.
+- **Ten new crabs:** four that aren't the classic shape at all — a fiddler with one enormous claw, a crab that outgrew its shell, a flat one, and one that's mostly legs — and six recolours for a themed desktop, including a monochrome one and a pale one for light wallpapers.
+- **Most of it is earned, not handed to you.** Twenty-two of the new pieces hang off trophies you already have: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together, the starfish once you've petted him twenty-five times. Trophies hand out two or three things each now instead of one.
+- All of it is in the app, so it's there the moment you update — nothing to download, nothing to turn on. The wardrobe holds 119 things to wear and 12 crabs, and 91 of them are still waiting on a trophy or a season.
+
+### He can look over your changes
+- **The shield next to a project in Trophies** hands the work you haven't pushed yet to Claude for a security read: your uncommitted changes, plus the commits on this branch that aren't on the default one. He comes back with a list — file, line, what someone could do with it, and the smallest fix — worst first.
+- **He reads and reports, and changes nothing.** The prompt tells Claude not to edit, commit, push or fix, and the task runs in **Ask-first** mode whatever mode you're in, so every tool it reaches for still comes to you. Only a folder he already knows as one of your projects can be reviewed.
+- **He won't give you a clean bill of health.** Finding nothing, he says what he looked at and what still wants a human: it's one read of one diff, not an audit. There's no trophy or XP for a clean result either, so there's nothing to farm.
+- **A focus session wears a helmet now.** ⛑️ replaces the shield on the Focus card, in Claude Code's status line and on the Deep Focus trophy — which is what Shellby actually puts on while he guards you anyway. The shield moved to the review.
+
+### Chats you can tick off
+- **A ✓ on every row in History** marks that conversation done. The list shows what isn't done by default, so the twenty you've finished with stop burying the two you haven't — and **Not done / Done / All** appears above the list once you've ticked anything, with a count on each.
+- **Nothing is deleted or hidden for good.** A done chat still opens, still searches, and still turns up in the command palette. Ticking one brings up an **Undo**, and sending it something new marks it not done again on its own — you're clearly not finished with it.
+- It's kept with the rest of your history, on your PC, so it's still there next time he starts.
+
+### Tabs you can put in order
+- **Drag a tab along the strip** to move it. The ones you cross slide out of the way as you go, and if the strip is too full to show where you're heading, holding the tab against either edge scrolls it along. Let go and that's where it stays.
+- **The order comes back with the tabs.** It's the same order he reopens your conversations in, so the one you keep returning to can sit on the left instead of wherever it happened to open.
+- **Ctrl+Shift+PageUp / PageDown** moves the tab you're in one place over, for when dragging isn't an option. Ctrl+K knows how to do it too.
+
 ## 0.19.0: steadier on his feet
 
 ### Updating is a button now

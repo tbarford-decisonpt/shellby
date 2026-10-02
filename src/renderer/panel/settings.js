@@ -184,8 +184,140 @@
       h('span', { class: 'ext-state', text: s.state === 'working' && s.tool ? `working · ${s.tool}` : STATE_TEXT[s.state] || s.state }),
       s.helpers ? h('span', { class: 'ext-helpers', text: `${s.helpers} helper${s.helpers === 1 ? '' : 's'}` }) : null,
       h('time', { text: SB.relTime(s.lastAt) }))));
+    renderBackground(v.background || []);
   }
+
+  // Background commands a turn walked away from: what, where, and how long ago.
+  function renderBackground(list) {
+    $('bgLeft').hidden = !list.length;
+    $('bgList').replaceChildren(...list.map(b => h('li', { class: 'bg-item' },
+      h('span', { class: 'bg-dot', 'aria-hidden': 'true' }),
+      h('b', { text: b.program }),
+      h('span', { class: 'bg-where', text: b.project }),
+      h('time', { text: SB.relTime(b.at) }))));
+  }
+  $('bgClear').addEventListener('click', async () => renderExternal(await api.clearBackground()));
   $('externalToggle').addEventListener('change', async e => renderExternal(await api.setExternal(e.target.checked)));
+
+  // ---------------------------------------------------------------- the shellby command
+  function renderCli(v) {
+    const on = !!v.installed;
+    $('cliBtn').textContent = on ? 'Remove it' : 'Add to my PATH';
+    $('cliBtn').classList.toggle('danger', on);
+    $('cliBtn').disabled = !v.available;
+    $('cliStatus').textContent = !v.available ? 'Windows only for now.'
+      : on ? `Ready. Open a new terminal and try: shellby do "tidy my Downloads"`
+        : '';
+    $('cliStatus').className = `small ext-status ${on ? 'ok' : ''}`;
+  }
+  $('cliBtn').addEventListener('click', async () => {
+    const before = await api.getCli();
+    $('cliBtn').disabled = true;
+    const r = before.installed ? await api.removeCli() : await api.installCli();
+    renderCli(r);
+    if (r.ok === false) SB.toast(r.error || "That didn't work.");
+    else if (!before.installed) SB.toast('Added. Open a new terminal for it to show up.');
+  });
+
+  // ---------------------------------------------------------------- telling you elsewhere
+  let channels = null;
+  function renderChannels(v) {
+    channels = v;
+    $('chEnabled').checked = !!v.enabled;
+    $('chBody').hidden = !v.enabled;
+    const provider = v.providers.find(p => p.name === v.provider) || v.providers[0];
+    if ($('chProvider').children.length !== v.providers.length) {
+      $('chProvider').replaceChildren(...v.providers.map(p => h('option', { value: p.name, text: p.label })));
+    }
+    $('chProvider').value = v.provider;
+    $('chHint').textContent = provider.hint;
+    $('chTargetLabel').textContent = provider.targetLabel;
+    if (document.activeElement !== $('chTarget')) $('chTarget').value = v.target || '';
+    $('chSecretField').hidden = provider.secret === 'no';
+    $('chSecretLabel').textContent = provider.secretLabel || 'Token';
+    $('chSecret').placeholder = v.hasSecret ? 'saved — type to replace' : '';
+    $('chWhileFocused').checked = !!v.whileFocused;
+    $('chEvents').replaceChildren(...Object.entries(v.eventLabels).map(([key, label]) => h('label', { class: 'toggle' },
+      h('input', { type: 'checkbox', 'data-event': key, ...(v.events[key] ? { checked: 'checked' } : {}) }),
+      h('span', { class: 'switch' }),
+      document.createTextNode(label))));
+    $('chStatus').textContent = v.problem || '';
+    $('chStatus').className = `small ext-status ${v.problem ? 'warn' : ''}`;
+    $('chTest').disabled = !!v.problem;
+  }
+  $('chEnabled').addEventListener('change', async e => renderChannels(await api.setChannels({ enabled: e.target.checked })));
+  $('chProvider').addEventListener('change', async e => renderChannels(await api.setChannels({ provider: e.target.value })));
+  $('chTarget').addEventListener('change', async e => renderChannels(await api.setChannels({ target: e.target.value })));
+  $('chWhileFocused').addEventListener('change', async e => renderChannels(await api.setChannels({ whileFocused: e.target.checked })));
+  $('chSecret').addEventListener('change', async e => {
+    const typed = e.target.value;
+    e.target.value = '';
+    if (typed) renderChannels(await api.setChannelSecret(typed));
+  });
+  $('chEvents').addEventListener('change', async e => {
+    const key = e.target.dataset?.event;
+    if (key) renderChannels(await api.setChannels({ events: { ...channels.events, [key]: e.target.checked } }));
+  });
+  $('chTest').addEventListener('click', async () => {
+    $('chTest').disabled = true;
+    const r = await api.testChannel();
+    $('chStatus').textContent = r.ok ? 'Sent. Check your phone.' : `Didn't go: ${r.error}`;
+    $('chStatus').className = `small ext-status ${r.ok ? 'ok' : 'warn'}`;
+    $('chTest').disabled = false;
+  });
+
+  // ---------------------------------------------------------------- on a stream
+  function renderObs(v) {
+    $('obsEnabled').checked = !!v.enabled;
+    $('obsBody').hidden = !v.enabled;
+    $('obsUrl').textContent = v.url || `http://127.0.0.1:${v.port}/`;
+    const viewers = v.viewers || 0;
+    $('obsStatus').textContent = v.status === 'listening'
+      ? (viewers ? `${viewers} source${viewers === 1 ? '' : 's'} connected.` : 'Waiting for OBS to connect.')
+      : v.status === 'busy' ? `Another app is using port ${v.port}.` : '';
+    $('obsStatus').className = `small ext-status ${v.status === 'listening' ? 'ok' : v.status === 'busy' ? 'warn' : ''}`;
+  }
+  $('obsEnabled').addEventListener('change', async e => renderObs(await api.setObs({ enabled: e.target.checked })));
+
+  // ---------------------------------------------------------------- desk lighting
+  function renderRgb(v) {
+    $('rgbEnabled').checked = !!v.enabled;
+    $('rgbBody').hidden = !v.enabled;
+    const devices = v.devices || [];
+    $('rgbStatus').textContent = v.error ? v.error : devices.length ? `${devices.length} device${devices.length === 1 ? '' : 's'}.` : '';
+    $('rgbStatus').className = `small ext-status ${v.error ? 'warn' : devices.length ? 'ok' : ''}`;
+    $('rgbList').replaceChildren(...devices.map(d => h('li', { class: 'ext-session' },
+      h('b', { text: d.name }),
+      h('span', { class: 'ext-state', text: `${d.numLeds} LED${d.numLeds === 1 ? '' : 's'}` }))));
+  }
+  $('rgbEnabled').addEventListener('change', async e => renderRgb(await api.setRgb({ enabled: e.target.checked })));
+  $('rgbTest').addEventListener('click', async () => {
+    $('rgbTest').disabled = true;
+    renderRgb(await api.testRgb());
+    $('rgbTest').disabled = false;
+  });
+
+  // ---------------------------------------------------------------- listening along
+  function renderNowPlaying(v) {
+    $('npEnabled').checked = !!v.enabled;
+    $('npEnabled').disabled = !v.available;
+    $('npBody').hidden = !v.enabled;
+    $('npHeadphones').checked = v.headphones !== false;
+    $('npRemarks').checked = v.remarks !== false;
+    const t = v.track;
+    $('npStatus').textContent = !v.available ? 'Windows only.'
+      : v.status === 'unavailable' ? "Windows isn't answering about media here."
+        : t ? `${t.playing ? '♪ ' : 'Paused: '}${[t.title, t.artist].filter(Boolean).join(' — ')}${t.app ? ` (${t.app})` : ''}`
+          : 'Nothing playing.';
+    $('npStatus').className = `small ext-status ${t?.playing ? 'ok' : ''}`;
+  }
+  const setNp = patch => api.setNowPlaying(patch).then(renderNowPlaying);
+  $('npEnabled').addEventListener('change', e => setNp({ enabled: e.target.checked }));
+  $('npHeadphones').addEventListener('change', e => setNp({ headphones: e.target.checked }));
+  $('npRemarks').addEventListener('change', e => setNp({ remarks: e.target.checked }));
+  api.onNowPlaying(v => { if (state.view === 'settings') renderNowPlaying(v); });
+  api.onObs(v => { if (state.view === 'settings') renderObs(v); });
+
   document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
     api.copyText($(b.dataset.copy).textContent);
     SB.toast('Copied. Paste it into Claude Code.');
@@ -240,28 +372,73 @@
     if (v.state !== 'ours' && was === 'ours') SB.toast('Removed from your status line.');
   });
 
-  SB.views.settings = { render: () => { renderSettings(); renderUpdates(); api.getExternal().then(renderExternal); api.getStatusLine().then(renderStatusLine); api.getPlugin().then(renderPlugin); } };
+  SB.views.settings = {
+    render: () => {
+      renderSettings(); renderUpdates();
+      api.getExternal().then(renderExternal);
+      api.getStatusLine().then(renderStatusLine);
+      api.getPlugin().then(renderPlugin);
+      api.getCli().then(renderCli);
+      api.getChannels().then(renderChannels);
+      api.getObs().then(renderObs);
+      api.getRgb().then(renderRgb);
+      api.getNowPlaying().then(renderNowPlaying);
+    },
+  };
 
   // ------------------------------------------------------------ history
 
+  // Which bucket the list shows. 'todo' hides what you've marked done, which is
+  // the point of marking it; the filter row only appears once something is done,
+  // so it's never in the way for anyone who doesn't use this.
+  let historyFilter = 'todo';
+  const inBucket = (s, f) => f === 'all' || (f === 'done' ? !!s.done : !s.done);
+
   function renderHistory() {
     const q = $('historySearch').value.trim().toLowerCase();
-    const list = state.sessions.filter(s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
+    const found = state.sessions.filter(s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
+    const anyDone = state.sessions.some(s => s.done);
+    if (!anyDone) historyFilter = 'todo';
+    $('historyTabs').hidden = !anyDone;
+    for (const b of $('historyTabs').querySelectorAll('[data-filter]')) {
+      // Counted over the search results, so a tab never promises rows the search has hidden.
+      b.querySelector('.n').textContent = found.filter(s => inBucket(s, b.dataset.filter)).length;
+      b.setAttribute('aria-selected', String(b.dataset.filter === historyFilter));
+    }
+    // Sort is stable, so All keeps its order within each half and only sinks the done ones.
+    const list = found.filter(s => inBucket(s, historyFilter)).sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
     const ul = $('historyList');
     if (!list.length) {
-      ul.replaceChildren(h('li', { class: 'history-empty', text: q ? 'No matches.' : 'No conversations yet. Give Shellby a task!' }));
+      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) }));
       return;
     }
-    ul.replaceChildren(...list.map(s => h('li', { class: `history-item${state.tabs.has(s.id) ? ' current' : ''}` },
+    ul.replaceChildren(...list.map(historyRow));
+  }
+
+  function historyEmpty(q) {
+    if (q) return 'No matches.';
+    if (!state.sessions.length) return 'No conversations yet. Give Shellby a task!';
+    return historyFilter === 'done' ? 'Nothing marked done yet.' : 'Everything here is done.';
+  }
+
+  function historyRow(s) {
+    const open = state.tabs.has(s.id);
+    const tick = s.done ? 'Mark as not done' : 'Mark as done';
+    return h('li', { class: `history-item${open ? ' current' : ''}${s.done ? ' done' : ''}` },
       h('button', { class: 'history-open', type: 'button', onclick: () => SB.openHistory(s.id) },
         h('div', { class: 'h-title' }, s.lastOutcome === 'error' ? h('span', { class: 'h-dot err', title: 'Ended with an error' }) : null, s.title),
         h('div', { class: 'h-meta' },
           h('span', { text: SB.relTime(s.updatedAt) }),
           h('span', { text: SB.shortPath(s.cwd, 30) }),
-          state.tabs.has(s.id) ? h('span', { class: 'h-open', text: 'open' }) : null)),
-      h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'))));
+          s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
+          open ? h('span', { class: 'h-open', text: 'open' }) : null)),
+      h('button', { class: 'history-tick', type: 'button', title: tick, 'aria-pressed': String(!!s.done), 'aria-label': `${tick}: ${s.title}`, onclick: () => markDone(s.id, !s.done) }, '✓'),
+      h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'));
   }
   $('historySearch').addEventListener('input', renderHistory);
+  for (const b of $('historyTabs').querySelectorAll('[data-filter]')) {
+    b.addEventListener('click', () => { historyFilter = b.dataset.filter; renderHistory(); });
+  }
 
   SB.openHistory = async (id) => {
     if (state.tabs.has(id)) { SB.activate(id); return; }
@@ -274,6 +451,14 @@
     SB.activate(r.tabId);
     SB.toast('Picked up where you left off');
   };
+
+  // A row ticked off leaves the default list straight away, so the toast says
+  // where it went and offers the way back.
+  async function markDone(id, done) {
+    state.sessions = await api.setSessionDone(id, done);
+    renderHistory();
+    if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
+  }
 
   async function deleteHistory(id) {
     state.sessions = await api.deleteSession(id);
