@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.1: nobody gets left at the edge
+
+### Fixed
+- Helper crabs no longer get cut off when they spawn. One that arrived just as another finished was pushed past the edge of Shellby's window, and one that arrived just after could stay clipped until the crew changed again.
+
 ## 0.21.0: he sets it up himself
 
 ### New

@@ -298,6 +298,8 @@ function watchIdleCost() {
 // Shellby himself anchored in place.
 function setCrewSlots(n) {
   n = Math.min(n, MAX_CREW_SHOWN);
+  // A shrink still pending from a moment ago would cut off whoever just arrived.
+  clearTimeout(shrinkTimer);
   if (n === crewShown) return;
   const apply = slots => {
     const b = critter.getBounds();
@@ -306,7 +308,6 @@ function setCrewSlots(n) {
     crewShown = slots;
     critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
   };
-  clearTimeout(shrinkTimer);
   motion?.stop(); // a throw or stroll would put back the old left edge
   if (n > crewShown) apply(n);
   else shrinkTimer = setTimeout(() => apply(n), 1100); // let helpers walk home first

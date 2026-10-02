@@ -169,6 +169,9 @@ function renderCrew(crew, more) {
   // Helpers whose task finished walk back into Shellby, then disappear.
   for (const [id, el] of helpers) {
     if (!live.has(id) && !el.classList.contains('leaving')) {
+      // Out of the row where it stands, so a helper arriving in the same moment
+      // takes its slot instead of being pushed past the window's left edge.
+      el.style.left = `${el.offsetLeft}px`;
       el.classList.add('leaving');
       setTimeout(() => { el.remove(); helpers.delete(id); }, 900);
     }

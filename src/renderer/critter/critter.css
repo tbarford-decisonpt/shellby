@@ -49,7 +49,7 @@ html, body {
 /* stagger neighbouring labels so they never overlap */
 .helper:nth-child(even) .tag { bottom: calc(100% + 26px); }
 .helper:hover .tag { z-index: 2; }
-.helper.leaving { animation: helper-out .9s ease-in forwards; pointer-events: none; }
+.helper.leaving { position: absolute; bottom: 0; animation: helper-out .9s ease-in forwards; pointer-events: none; }
 .more {
   align-self: center; padding: 2px 7px; border-radius: 99px;
   font: 700 11px "Pixelify Sans", monospace; color: var(--ink); background: var(--glass);
