@@ -19,7 +19,7 @@ npm start
 | `npm start` | Run in development |
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
-| `npm run e2e:ci` | The eleven end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
+| `npm run e2e:ci` | The twelve end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
