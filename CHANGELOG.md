@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28.0: Claude can tidy your memory
+
+### New
+- **Ask Claude to review your memory.** Toolbox → Memory has a **Review with Claude** button, and each open `CLAUDE.md` has an **Ask Claude** button next to Save. Either one starts a task asking Claude to look the files over and suggest what to tighten, add or cut, and to show you the changes before making them. It's filled into the box but not sent, so you can say what you want changed first. If the `claude-md-management` plugin is installed, the task uses its `/claude-md-improver` skill. Without it, Claude still does the review from a plain prompt. If you have the file open with unsaved changes and Claude edits it too, saving won't overwrite Claude's version and offers to reload.
+
 ## 0.27.1: tidier health warnings
 
 ### Fixed
