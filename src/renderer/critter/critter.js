@@ -301,3 +301,9 @@ api.onBit(msg => {
 
 // ---- a little chirp when he speaks (off by default; see chirp.js)
 api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
+
+// ---- the screen is locked (or the machine is suspending): stop animating.
+// He is on the wallpaper, so he animates all day; while the screen is off there
+// is nothing to see and it is pure drain. Paused, not stopped, so unlocking
+// picks up mid-breath. See watchIdleCost in src/main/main.js.
+api.onCalm(msg => document.body.classList.toggle('calm-deep', !!msg?.calm));

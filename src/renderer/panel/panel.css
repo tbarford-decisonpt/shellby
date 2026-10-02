@@ -334,6 +334,24 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 }
 .meta::before, .meta::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
 .meta.bad { color: var(--danger); }
+/* ---------------------------------------------------------------- idle cost
+   An open panel spends most of a core on animation (scripts/idle-cost.js), and
+   most of that while nobody is watching. `calm` (the window isn't focused)
+   pauses only what's decorative: the drifting light and the breathing crab.
+   Anything that reports work — spinners, lane crabs, the busy brand — keeps
+   going, because a stopped spinner reads as a hung task. `calm-deep` (the screen
+   is locked) stops everything, since there is nothing to read at all.
+   `animation: none`, not `animation-play-state: paused`: a paused animation keeps
+   its compositing alive and costs exactly as much as a running one (measured).
+   Removing it does free the work, at the price of snapping back to the base
+   position — which nobody is looking at, by definition. */
+body.calm .caustics,
+body.calm .empty-crab svg,
+body.calm .hello-crab svg,
+body.calm .hl-sprite,
+body.calm .stage-crab svg { animation: none; }
+body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation: none !important; }
+
 /* The oldest blocks of a very long conversation are dropped from the DOM; this
    says so, and stays at the top of the feed. */
 .feed-trimmed {

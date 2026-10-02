@@ -359,3 +359,7 @@ body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
 @keyframes flop { 0%, 100% { transform: none; } 25%, 75% { transform: rotate(-9deg) translateY(2px); } }
 @keyframes flop-eyes { 0%, 100% { transform: scaleY(1); } 20%, 80% { transform: scaleY(.1); } }
 @keyframes flop-claw { 0%, 100% { transform: none; } 25%, 75% { transform: rotate(14deg) translateY(2px); } }
+
+/* Screen locked or machine suspending: nothing to look at, so stop drawing.
+   See scripts/idle-cost.js for what this is worth. */
+body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation: none !important; }

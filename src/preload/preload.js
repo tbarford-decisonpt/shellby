@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     pet: fire('critter:pet'),
   },
 
@@ -188,6 +189,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onFocusInput: on('panel:focus-input'),
   onView: on('panel:view'),
   onSkin: on('skin'),
+  onCalm: on('panel:calm'), // unfocused or locked: pause the decorative animation
   onUpdateReady: on('update-ready'),
   onDemo: on('demo'),
 });

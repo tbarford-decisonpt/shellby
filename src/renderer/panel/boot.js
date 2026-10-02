@@ -55,6 +55,22 @@
     if (state.view === 'wardrobe') SB.views.wardrobe.render();
     SB.refreshHealthCrab?.();
   });
+  // Nobody is looking: pause what's only there to be looked at. `deep` (the
+  // screen is locked) stops the lot; otherwise the spinners and progress that
+  // say work is happening keep going. See watchIdleCost in main.js.
+  api.onCalm(({ calm, deep }) => {
+    document.body.classList.toggle('calm', !!calm);
+    document.body.classList.toggle('calm-deep', !!deep);
+  });
+  api.onSkin(({ skin, outfit }) => {
+    state.skin = skin;
+    state.outfit = outfit;
+    SB.renderCrabs();
+    for (const tab of state.tabs.values()) for (const lane of tab.lanes.values()) lane.el.querySelector('.lane-crab')?.replaceChildren(SB.helperSprite(lane.index));
+    if (state.view === 'settings') SB.renderSkins();
+    if (state.view === 'wardrobe') SB.views.wardrobe.render();
+    SB.refreshHealthCrab?.();
+  });
   api.onWardrobe(view => SB.applyWardrobe(view));
   api.onHomes(view => SB.applyHomes(view));
   api.onUnlocked(e => SB.onUnlocked(e));

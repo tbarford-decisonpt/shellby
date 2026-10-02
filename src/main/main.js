@@ -260,6 +260,55 @@ function createCritter() {
   critter.on('resize', () => setImmediate(keepCritterSize));
 }
 
+// ---------------------------------------------------------------- idle cost
+// An open panel costs about three quarters of a core, nearly all of it CSS
+// animation on pixel sprites (scripts/idle-cost.js measures it). Most of that is
+// spent while nobody is looking: the panel left open behind an editor, or the
+// screen locked. So the decorative animations — the drifting caustics and the
+// breathing crab, never the spinners or progress — are paused when the panel
+// isn't focused, and everything in both windows stops while the screen is locked
+// or the machine is suspended.
+let calmReason = null; // 'blur' | 'locked' | null
+function setCalm(reason) {
+  if (calmReason === reason) return;
+  calmReason = reason;
+  send(panel, 'panel:calm', { calm: !!reason, deep: reason === 'locked' });
+  send(critter, 'critter:calm', { calm: reason === 'locked' }); // he is visible whenever the screen is
+}
+function watchIdleCost() {
+  panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
+  panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
+  for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
+  for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
+}
+
+// The critter window grows to the left to make room for helper crabs, keeping
+// Shellby himself anchored in place.
+function setCrewSlots(n) {
+  n = Math.min(n, MAX_CREW_SHOWN);
+  if (n === crewShown) return;
+  const apply = slots => {
+    const b = critter.getBounds();
+    const base = critterBaseSize();
+    const width = base.width + crewExtra(slots);
+    crewShown = slots;
+    critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
+  };
+  clearTimeout(shrinkTimer);
+  motion?.stop(); // a throw or stroll would put back the old left edge
+  if (n > crewShown) apply(n);
+  else shrinkTimer = setTimeout(() => apply(n), 1100); // let helpers walk home first
+}
+
+function saveCritterPos() {
+  const b = critter.getBounds();
+  const c = clampToDisplays(b, workAreas());
+  if (c.x !== b.x || c.y !== b.y) placeCritter(c.x, c.y);
+  // Persist Shellby's own spot, not the crew-widened window's left edge.
+  config.set({ critterPos: { x: c.x + crewExtra(), y: c.y } });
+}
+
+
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
 function setCrewSlots(n) {
@@ -2144,6 +2193,7 @@ app.whenReady().then(() => {
   createCritter();
   createMotion();
   createPanel();
+  watchIdleCost();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health });
