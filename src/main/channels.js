@@ -1,0 +1,411 @@
+// Telling you about it when you're not at the desk.
+//
+// Autonomous mode is the one part of Shellby that expects you to walk away, and
+// until now walking away meant missing the moment he raised a claw. One pasted
+// URL or token here and a permission prompt, a finished run, a red build or an
+// overheating GPU reaches your phone.
+//
+// Deliberately webhook-shaped: a URL and at most a token, no OAuth, no app to
+// register, no server of ours in the middle. ntfy, Pushover, Telegram, a Discord
+// or Slack webhook, or your own endpoint.
+//
+// buildRequest() and composeMessage() are pure, so every provider's exact
+// request is unit-tested without touching the network. Credentials are passed in
+// rather than read here: main.js keeps them in Windows' encrypted store, the
+// same way it keeps the GitHub token, and they never reach settings.json.
+
+const DEFAULT_TIMEOUT_MS = 8000;
+const MAX_TITLE = 100;
+const MAX_BODY = 500;
+
+// What Shellby can tell you about, and whether it's on by default. "asking" is
+// the one that matters when you've walked away, so it leads.
+const EVENTS = Object.freeze({
+  asking: { label: 'He needs permission', default: true, priority: 'high' },
+  done: { label: 'A task finished', default: true, priority: 'normal' },
+  limit: { label: 'Usage limit reached, and when it resets', default: true, priority: 'normal' },
+  health: { label: 'Something is overheating or filling up', default: false, priority: 'high' },
+  ci: { label: 'A build goes red or green', default: false, priority: 'normal' },
+});
+
+const EVENT_NAMES = Object.keys(EVENTS);
+const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+
+const CHANNEL_DEFAULTS = Object.freeze({
+  enabled: false,
+  provider: 'ntfy',
+  target: '',          // the topic, chat id, or URL -- what it means depends on the provider
+  events: Object.freeze(Object.fromEntries(EVENT_NAMES.map(e => [e, EVENTS[e].default]))),
+  minSeconds: 60,      // don't buzz your pocket for a task that took four seconds
+  whileFocused: false, // Guard my focus holds these back too, unless you say otherwise
+});
+
+const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+
+// ------------------------------------------------------------------ providers
+
+/**
+ * Each provider says what it needs and how to build its request.
+ *   target: what the user pastes in, and how to check it
+ *   secret: whether a token is also needed (kept in the encrypted store)
+ *   build(target, secret, message) -> { url, method, headers, body }
+ */
+const PROVIDERS = {
+  ntfy: {
+    label: 'ntfy',
+    targetLabel: 'Topic or full topic URL',
+    hint: 'A topic name like shellby-a7f3b2, or your own server\'s URL. Pick something nobody will guess: anyone who knows the topic can read it.',
+    secret: 'optional',
+    secretLabel: 'Access token (only if your server needs one)',
+    checkTarget: t => (ntfyUrl(t) ? null : 'That needs to be a topic name, or an https:// URL to one.'),
+    build(target, secret, m) {
+      const headers = {
+        'Content-Type': 'text/plain; charset=utf-8',
+        Title: encodeHeader(m.title),
+        Priority: String({ low: 2, normal: 3, high: 4, urgent: 5 }[m.priority] ?? 3),
+        Tags: m.tags.join(','),
+      };
+      if (m.url) headers.Click = m.url;
+      if (secret) headers.Authorization = `Bearer ${secret}`;
+      return { url: ntfyUrl(target), method: 'POST', headers, body: m.body };
+    },
+  },
+
+  pushover: {
+    label: 'Pushover',
+    targetLabel: 'Your user key',
+    hint: 'From pushover.net, plus an application token for Shellby.',
+    secret: 'required',
+    secretLabel: 'Application token',
+    checkTarget: t => (/^[A-Za-z0-9]{20,40}$/.test(clip(t, 40)) ? null : 'A Pushover user key is 30 letters and digits.'),
+    build(target, secret, m) {
+      const form = new URLSearchParams({
+        token: secret,
+        user: clip(target, 40),
+        title: m.title,
+        message: m.body,
+        priority: String({ low: -1, normal: 0, high: 1, urgent: 1 }[m.priority] ?? 0),
+      });
+      if (m.url) { form.set('url', m.url); form.set('url_title', 'Open'); }
+      return {
+        url: 'https://api.pushover.net/1/messages.json',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      };
+    },
+  },
+
+  telegram: {
+    label: 'Telegram',
+    targetLabel: 'Chat id',
+    hint: 'Make a bot with @BotFather, send it a message, and use your chat id. The bot token goes below.',
+    secret: 'required',
+    secretLabel: 'Bot token',
+    checkTarget: t => (/^-?\d{1,20}$/.test(clip(t, 24)) ? null : 'A Telegram chat id is a number (negative for a group).'),
+    build(target, secret, m) {
+      return {
+        url: `https://api.telegram.org/bot${encodeURIComponent(secret)}/sendMessage`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: clip(target, 24),
+          text: `${m.emoji} *${escapeMarkdown(m.title)}*\n${escapeMarkdown(m.body)}`,
+          parse_mode: 'MarkdownV2',
+          disable_notification: m.priority === 'low',
+          link_preview_options: { is_disabled: true },
+        }),
+      };
+    },
+  },
+
+  discord: {
+    label: 'Discord',
+    targetLabel: 'Webhook URL',
+    hint: 'Channel settings, Integrations, New Webhook, then copy the URL.',
+    secret: 'no',
+    checkTarget: t => (/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//.test(clip(t, 300)) ? null : 'That does not look like a Discord webhook URL.'),
+    build(target, _secret, m) {
+      return {
+        url: clip(target, 300),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // allowed_mentions: a task title can't make Shellby ping @everyone.
+        body: JSON.stringify({
+          content: `${m.emoji} **${m.title}**\n${m.body}${m.url ? `\n${m.url}` : ''}`,
+          allowed_mentions: { parse: [] },
+        }),
+      };
+    },
+  },
+
+  slack: {
+    label: 'Slack',
+    targetLabel: 'Incoming webhook URL',
+    hint: 'From a Slack app with Incoming Webhooks turned on.',
+    secret: 'no',
+    checkTarget: t => (/^https:\/\/hooks\.slack\.com\//.test(clip(t, 300)) ? null : 'That does not look like a Slack webhook URL.'),
+    build(target, _secret, m) {
+      return {
+        url: clip(target, 300),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: `${m.emoji} *${m.title}* — ${m.body}`,
+          ...(m.url ? { blocks: undefined } : {}),
+        }),
+      };
+    },
+  },
+
+  webhook: {
+    label: 'My own endpoint',
+    targetLabel: 'URL to POST to',
+    hint: 'Shellby POSTs JSON: event, title, body, project, priority and when it happened.',
+    secret: 'optional',
+    secretLabel: 'Bearer token (sent as Authorization, if you need one)',
+    checkTarget: t => (localOrHttps(clip(t, 300)) ? null : 'That needs to be an https:// URL (http:// is allowed for your own machine or LAN).'),
+    build(target, secret, m) {
+      const headers = { 'Content-Type': 'application/json', 'User-Agent': 'Shellby' };
+      if (secret) headers.Authorization = `Bearer ${secret}`;
+      return {
+        url: clip(target, 300),
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          event: m.event, title: m.title, body: m.body,
+          project: m.project || null, priority: m.priority, at: m.at,
+          ...(m.url ? { url: m.url } : {}),
+        }),
+      };
+    },
+  },
+};
+
+const PROVIDER_NAMES = Object.keys(PROVIDERS);
+
+/** A bare ntfy topic or a full URL -> the URL to POST to, or null. */
+function ntfyUrl(target) {
+  const t = clip(target, 300);
+  if (/^[A-Za-z0-9_-]{3,64}$/.test(t)) return `https://ntfy.sh/${t}`;
+  if (!localOrHttps(t)) return null;
+  try {
+    const u = new URL(t);
+    // A server URL with no topic path is not somewhere to publish.
+    return /^\/[A-Za-z0-9_-]{1,64}\/?$/.test(u.pathname) ? u.toString().replace(/\/$/, '') : null;
+  } catch { return null; }
+}
+
+/**
+ * https anywhere, or http only to this PC and private networks: a token posted
+ * over plain http to the open internet would be readable in transit.
+ */
+function localOrHttps(raw) {
+  let u;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.protocol === 'https:') return true;
+  if (u.protocol !== 'http:') return false;
+  const h = u.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.endsWith('.local')
+    || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+}
+
+// Header values must be latin-1; a task title can hold anything.
+const encodeHeader = s => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=`);
+
+// Telegram's MarkdownV2 needs every one of these escaped, or it rejects the whole message.
+const escapeMarkdown = s => String(s).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, c => `\\${c}`);
+
+// ------------------------------------------------------------------ settings
+
+/** Validate a settings patch on top of the current settings. */
+function normalizeChannelSettings(current, patch = {}) {
+  const base = { ...CHANNEL_DEFAULTS, ...(current && typeof current === 'object' ? current : {}) };
+  const next = { ...base, events: { ...CHANNEL_DEFAULTS.events, ...(base.events || {}) } };
+
+  if ('enabled' in patch) next.enabled = !!patch.enabled;
+  if ('whileFocused' in patch) next.whileFocused = !!patch.whileFocused;
+  if ('provider' in patch && PROVIDER_NAMES.includes(patch.provider)) next.provider = patch.provider;
+  if ('target' in patch) next.target = clip(patch.target, 300);
+  if ('minSeconds' in patch) {
+    const n = Number(patch.minSeconds);
+    next.minSeconds = Number.isFinite(n) ? Math.min(3600, Math.max(0, Math.round(n))) : base.minSeconds;
+  }
+  if (patch.events && typeof patch.events === 'object') {
+    for (const e of EVENT_NAMES) if (e in patch.events) next.events[e] = !!patch.events[e];
+  }
+  return next;
+}
+
+/** Is this configured enough to send anything? Returns an error string or null. */
+function checkSettings(settings, { hasSecret = false } = {}) {
+  const s = normalizeChannelSettings(settings);
+  const p = PROVIDERS[s.provider];
+  if (!p) return 'Pick where to send them.';
+  if (!s.target) return `${p.label} needs ${p.targetLabel.toLowerCase()}.`;
+  const bad = p.checkTarget(s.target);
+  if (bad) return bad;
+  if (p.secret === 'required' && !hasSecret) return `${p.label} needs ${p.secretLabel.toLowerCase()}.`;
+  return null;
+}
+
+/**
+ * Should this event go out?
+ *   event: { kind, seconds? }
+ *   { focused }: a focus session is on, and holds everything but the urgent
+ */
+function shouldSend(event, settings, { focused = false } = {}) {
+  const s = normalizeChannelSettings(settings);
+  if (!s.enabled) return false;
+  const kind = event?.kind;
+  if (!EVENT_NAMES.includes(kind) || !s.events[kind]) return false;
+  if (focused && !s.whileFocused && EVENTS[kind].priority !== 'high') return false;
+  // A task that took no time at all is not news; the "he needs you" prompts and
+  // the alerts are never held back for being quick.
+  if (kind === 'done' && Number.isFinite(event.seconds) && event.seconds < s.minSeconds) return false;
+  return true;
+}
+
+// ------------------------------------------------------------------ messages
+
+const EMOJI = { asking: '🦀', done: '✅', limit: '😴', health: '🥵', ci: '🔴' };
+
+/**
+ * One event -> what every provider sends.
+ *   event: { kind, project?, message?, tools?, seconds?, title?, body?, url?, at? }
+ */
+function composeMessage(event) {
+  const m = describeEvent(event);
+  // Some providers put the message in the body (ntfy) and some in a field next
+  // to the title. An empty body would arrive as a blank notification on the
+  // first kind, so the title stands in for it.
+  return { ...m, title: m.title || 'Shellby', body: m.body || m.title || 'Shellby' };
+}
+
+function describeEvent(event) {
+  const e = event && typeof event === 'object' ? event : {};
+  const project = clip(e.project, 60);
+  const at = Number.isFinite(e.at) ? e.at : Date.now();
+  const base = { event: e.kind, project, at, priority: EVENTS[e.kind]?.priority || 'normal', tags: [], emoji: EMOJI[e.kind] || '🦀', url: clip(e.url, 300) || null };
+
+  switch (e.kind) {
+    case 'asking':
+      return {
+        ...base, tags: ['crab', 'warning'],
+        title: project ? `Shellby needs you in ${project}` : 'Shellby needs you',
+        body: clip(e.message, MAX_BODY) || 'A task is waiting for your permission.',
+      };
+    case 'done':
+      return {
+        ...base, tags: ['crab', 'white_check_mark'],
+        title: project ? `Finished in ${project}` : 'Shellby finished',
+        body: clip([e.tools ? `${e.tools} tool${e.tools === 1 ? '' : 's'}` : '', duration(e.seconds)].filter(Boolean).join(' · '), MAX_BODY)
+          || 'The task is done.',
+      };
+    case 'limit':
+      return {
+        ...base, tags: ['crab', 'sleeping'],
+        title: e.resetsAt ? 'Usage limit reached' : 'Your usage limit has reset',
+        body: e.resetsAt ? `Shellby is napping until ${timeOf(e.resetsAt)}.` : 'Shellby is awake again and ready to go.',
+      };
+    case 'health':
+      return {
+        ...base, tags: ['crab', 'fire'],
+        title: clip(e.title, MAX_TITLE) || 'Something needs a look',
+        body: clip(e.body, MAX_BODY) || '',
+      };
+    case 'ci':
+      return {
+        ...base, tags: ['crab', e.passing ? 'white_check_mark' : 'red_circle'],
+        emoji: e.passing ? '✅' : '🔴',
+        title: e.passing ? `Build fixed: ${project || 'your pull request'}` : `Build failed: ${project || 'your pull request'}`,
+        body: clip(e.body, MAX_BODY) || (e.passing ? 'It went green again.' : 'CI went red.'),
+      };
+    default:
+      return { ...base, title: clip(e.title, MAX_TITLE) || 'Shellby', body: clip(e.body, MAX_BODY) || '' };
+  }
+}
+
+function duration(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const m = Math.floor(seconds / 60);
+  if (m < 60) return `${m}m ${Math.round(seconds % 60)}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+function timeOf(ms) {
+  const d = new Date(ms);
+  return Number.isFinite(d.getTime()) ? d.toTimeString().slice(0, 5) : 'soon';
+}
+
+// ------------------------------------------------------------------ sending
+
+/**
+ * The exact request for one event, or an error.
+ *   { request: { url, method, headers, body } } | { error }
+ */
+function buildRequest(settings, secret, event) {
+  const s = normalizeChannelSettings(settings);
+  const problem = checkSettings(s, { hasSecret: !!secret });
+  if (problem) return { error: problem };
+  const message = composeMessage(event);
+  if (!message.title) return { error: 'Nothing to say.' };
+  const request = PROVIDERS[s.provider].build(s.target, secret || '', message);
+  if (!request.url) return { error: 'That target is not somewhere Shellby can post.' };
+  return { request, message };
+}
+
+/**
+ * Actually send it. One attempt: a notification that arrives late is worse than
+ * one that doesn't, and the next event will try again anyway.
+ *   -> { ok: true } | { ok: false, error }
+ */
+async function deliver(request, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: request.body,
+      signal: ctrl.signal,
+      redirect: 'error',       // a webhook that redirects is not one we follow
+    });
+    if (res.ok) return { ok: true };
+    // The body often says exactly what's wrong ("user key is invalid"), which is
+    // worth showing; it can also be a megabyte of HTML, so it is capped.
+    let detail = '';
+    try { detail = clip(await res.text(), 160); } catch { /* no body */ }
+    return { ok: false, error: `${res.status}${detail ? `: ${detail}` : ''}` };
+  } catch (e) {
+    return { ok: false, error: e?.name === 'AbortError' ? 'timed out' : clip(e?.message, 120) || 'failed' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** What the renderer is allowed to see: never the secret, only whether there is one. */
+function view(settings, { hasSecret = false } = {}) {
+  const s = normalizeChannelSettings(settings);
+  return {
+    ...s,
+    hasSecret,
+    problem: checkSettings(s, { hasSecret }),
+    providers: PROVIDER_NAMES.map(name => ({
+      name,
+      label: PROVIDERS[name].label,
+      targetLabel: PROVIDERS[name].targetLabel,
+      hint: PROVIDERS[name].hint,
+      secret: PROVIDERS[name].secret,
+      secretLabel: PROVIDERS[name].secretLabel || null,
+    })),
+    eventLabels: Object.fromEntries(EVENT_NAMES.map(e => [e, EVENTS[e].label])),
+  };
+}
+
+module.exports = {
+  PROVIDERS, PROVIDER_NAMES, EVENTS, EVENT_NAMES, PRIORITIES, CHANNEL_DEFAULTS,
+  normalizeChannelSettings, checkSettings, shouldSend, composeMessage,
+  buildRequest, deliver, view, ntfyUrl, localOrHttps, duration,
+};
