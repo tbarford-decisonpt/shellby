@@ -7,6 +7,13 @@ on:
 permissions:
   contents: write
 
+# One release run per tag. If a tag is moved and pushed again, the run for the
+# old commit is cancelled instead of racing the new one (in 0.21.1 the stale run
+# published an empty release as "latest").
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     runs-on: windows-latest
@@ -22,6 +29,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Before spending 20 minutes building: the tag matches package.json, still
+      # points at this commit, and has no published release that electron-builder
+      # would quietly skip uploading to. See scripts/release-guard.js.
+      - name: Check the tag before building
+        run: node scripts/release-guard.js preflight
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -92,7 +104,11 @@ jobs:
           }
 
       # Publish only once every file is attached, so auto-update never sees a
-      # release without latest.yml.
+      # release without latest.yml: the guard checks the draft has the
+      # installer, portable, blockmap, checksums and a latest.yml for this
+      # version, and that the tag hasn't moved while this run was building.
+      - name: Check the draft before publishing
+        run: node scripts/release-guard.js verify
       - name: Publish release
         shell: bash
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest

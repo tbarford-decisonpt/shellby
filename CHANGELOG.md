@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.2
+
+### Releases
+- **A release can't go out wrong any more.** 0.21.1 was briefly published empty, which broke "Check for updates" with a missing latest.yml. The release build now stops before building if the tag doesn't match the version, has moved to another commit, or already has a published release. Before publishing, it checks the installer, portable build, blockmap, checksums and a latest.yml for that exact version are all there. If a tag is pushed again, the older run is cancelled instead of racing it.
+
 ## 0.21.1: nobody gets left at the edge
 
 ### Fixed
