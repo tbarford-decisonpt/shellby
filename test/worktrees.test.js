@@ -195,3 +195,133 @@ test('the conversation is carried into the copy\'s project folder so it can be r
     assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: '../../etc', from, to }), false);
   } finally { fs.rmSync(config, { recursive: true, force: true }); }
 });
+
+// ---- sending it to GitHub: a bare repo in the temp folder stands in for origin.
+
+function withRemote(t) {
+  const bare = path.join(t.base, 'origin.git');
+  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare], { windowsHide: true });
+  t.g(t.dir, 'remote', 'add', 'origin', bare);
+  t.g(t.dir, 'push', '-q', '-u', 'origin', 'main');
+  // Someone else's clone, to move origin on behind your back.
+  const other = path.join(t.base, 'other');
+  execFileSync('git', ['clone', '-q', bare, other], { windowsHide: true });
+  t.g(other, 'config', 'user.email', 'o@example.com');
+  t.g(other, 'config', 'user.name', 'O');
+  t.g(other, 'config', 'core.autocrlf', 'false');
+  const theirs = (file, text) => {
+    fs.writeFileSync(path.join(other, file), text);
+    t.g(other, 'add', '-A');
+    t.g(other, 'commit', '-qm', `theirs ${file}`);
+    t.g(other, 'push', '-q');
+  };
+  return { bare, theirs, remoteLog: () => t.g(bare, 'log', '--format=%s', 'main') };
+}
+
+test('push sends what was brought home, and status counts it first', async () => {
+  const t = setup();
+  try {
+    const o = withRemote(t);
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Ship it' });
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'c\n');
+    await worktrees.bringHome(w, { message: 'Shellby: Ship it' });
+    const s = await worktrees.remoteStatus(t.dir);
+    assert.equal(s.ok, true);
+    assert.equal(s.upstream, 'origin/main');
+    assert.deepEqual([s.ahead, s.behind], [1, 0], 'a fast-forward: just the commit');
+    assert.deepEqual(await worktrees.pushBase(t.dir, { base: 'main' }), { ok: true, branch: 'main', remote: 'origin', pushed: 1, pulled: 0 });
+    assert.match(o.remoteLog(), /Shellby: Ship it/);
+    assert.deepEqual(await worktrees.pushBase(t.dir), { ok: true, branch: 'main', remote: 'origin', pushed: 0, pulled: 0 }, 'nothing left to push');
+  } finally { t.done(); }
+});
+
+test('push takes in what origin has first, with a merge, and never forces', async () => {
+  const t = setup();
+  try {
+    const o = withRemote(t);
+    o.theirs('theirs.txt', 'theirs\n');
+    fs.writeFileSync(path.join(t.dir, 'mine.txt'), 'mine\n');
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'mine');
+    const before = await worktrees.remoteStatus(t.dir, { fetch: true });
+    assert.deepEqual([before.ahead, before.behind], [1, 1]);
+    const r = await worktrees.pushBase(t.dir);
+    assert.equal(r.ok, true);
+    assert.equal(r.pulled, 1);
+    assert.equal(r.pushed, 2, 'yours and the merge');
+    const log = o.remoteLog();
+    assert.match(log, /theirs theirs\.txt/, 'their commit survives');
+    assert.match(log, /^mine$/m);
+    assert.equal(fs.readFileSync(path.join(t.dir, 'theirs.txt'), 'utf8'), 'theirs\n');
+  } finally { t.done(); }
+});
+
+test('a clash with origin is backed out and nothing is pushed', async () => {
+  const t = setup();
+  try {
+    const o = withRemote(t);
+    o.theirs('a.txt', 'from them\n');
+    fs.writeFileSync(path.join(t.dir, 'a.txt'), 'from you\n');
+    t.g(t.dir, 'commit', '-qam', 'mine');
+    const r = await worktrees.pushBase(t.dir);
+    assert.equal(r.ok, false);
+    assert.equal(r.conflict, true);
+    assert.equal(fs.readFileSync(path.join(t.dir, 'a.txt'), 'utf8'), 'from you\n');
+    assert.equal(t.g(t.dir, 'status', '--porcelain'), '', 'no half-finished merge left behind');
+    assert.doesNotMatch(o.remoteLog(), /^mine$/m);
+  } finally { t.done(); }
+});
+
+test('push refuses with no remote, or off its base; with origin but no upstream it sets one', async () => {
+  const t = setup();
+  try {
+    const none = await worktrees.pushBase(t.dir);
+    assert.equal(none.ok, false);
+    assert.match(none.error, /no remote/);
+    const bare = path.join(t.base, 'origin.git');
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare], { windowsHide: true });
+    t.g(t.dir, 'remote', 'add', 'origin', bare);
+    const off = await worktrees.pushBase(t.dir, { base: 'release' });
+    assert.match(off.error, /on main.*release/);
+    assert.deepEqual(await worktrees.pushBase(t.dir), { ok: true, branch: 'main', remote: 'origin', pushed: 1, pulled: 0 });
+    assert.equal(t.g(t.dir, 'rev-parse', '--abbrev-ref', 'main@{upstream}'), 'origin/main');
+  } finally { t.done(); }
+});
+
+test('a pre-push hook that says no is shown in its own words', async () => {
+  const t = setup();
+  try {
+    withRemote(t);
+    fs.writeFileSync(path.join(t.dir, 'x.txt'), 'x\n');
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'x');
+    fs.writeFileSync(path.join(t.dir, '.git', 'hooks', 'pre-push'), '#!/bin/sh\necho "tests failed: 3 of 40" >&2\nexit 1\n', { mode: 0o755 });
+    const r = await worktrees.pushBase(t.dir);
+    assert.equal(r.ok, false);
+    assert.match(r.detail, /tests failed: 3 of 40/);
+    assert.match(r.error, /origin didn't take the push/);
+  } finally { t.done(); }
+});
+
+test('bring them all home: each lands in turn, other bases are skipped, a clash stops the sweep', async () => {
+  const t = setup();
+  try {
+    const one = (await worktrees.create(t.dir, { home: t.home, title: 'One' })).worktree;
+    const two = (await worktrees.create(t.dir, { home: t.home, title: 'Two' })).worktree;
+    const clash = (await worktrees.create(t.dir, { home: t.home, title: 'Clash' })).worktree;
+    const after = (await worktrees.create(t.dir, { home: t.home, title: 'After' })).worktree;
+    fs.writeFileSync(path.join(one.path, 'one.txt'), '1\n');
+    fs.writeFileSync(path.join(two.path, 'two.txt'), '2\n');
+    fs.writeFileSync(path.join(clash.path, 'one.txt'), 'not 1\n');
+    fs.writeFileSync(path.join(after.path, 'after.txt'), 'a\n');
+    const elsewhere = { ...two, base: 'release' };
+
+    const r = await worktrees.bringAllHome([one, elsewhere, two, clash, after], { messageFor: w => `Shellby: ${w.branch}` });
+    assert.equal(r.ok, false);
+    assert.equal(r.stopped, clash.branch);
+    assert.deepEqual(r.results.map(x => [x.ok, !!x.skipped, !!x.conflict]), [[true, false, false], [false, true, false], [true, false, false], [false, false, true]]);
+    assert.equal(fs.readFileSync(path.join(t.dir, 'two.txt'), 'utf8'), '2\n', 'the ones before the clash stay merged');
+    assert.equal(fs.existsSync(path.join(t.dir, 'after.txt')), false, 'nothing after it');
+    assert.equal(t.g(t.dir, 'status', '--porcelain'), '');
+  } finally { t.done(); }
+});

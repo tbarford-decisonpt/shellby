@@ -72,6 +72,9 @@ contextBridge.exposeInMainWorld('shellby', {
   worktreeStatus: invoke('worktree:status'),
   bringWorktreeHome: invoke('worktree:home'),
   discardWorktree: invoke('worktree:discard'),
+  repoStatus: invoke('repo:status'),
+  pushRepo: invoke('repo:push'),
+  bringAllHome: invoke('repo:home-all'),
 
   // history
   listSessions: invoke('session:list'),

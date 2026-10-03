@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.33.0: off to GitHub
+
+### New
+- **Push from the folder menu.** In a git project, the folder menu has a **This repository** section with **Push main** (or whichever branch you're on). It says how many commits would go and how many the remote has that you don't, for example *14 commits to push · 2 to take in from origin first*. It shows the figures from the last fetch straight away, then checks with the remote. Pressing it fetches, merges in the remote's work (a merge, never a rebase, so your "Bring home" merges stay as they are), then pushes. It never force-pushes. If the remote's work clashes with yours, the merge is backed out, nothing is pushed, and he can sort it out on his branch. If a pre-push hook says no, its own words are written into the conversation. A branch with no upstream is pushed to `origin` under the same name and starts tracking it. The conversation notes each push, and a push earns ship XP like a `git push` he runs himself.
+- **Bring it home and push.** The branch menu has a third way home: merge the copy into its branch, then push that branch. If the push doesn't go through, the merge stays and the copy is kept, so you can push again from the folder menu.
+- **Bring all home.** When copies of the repository have work that isn't in your branch yet, from open tabs or conversations in History, the folder menu offers to merge them all, one at a time. A copy that started from another branch is left alone, and so is a tab that's still working. The first clash stops it: the copies merged before it stay merged, and if that conversation is open he can sort it out. **Bring all home and push** then pushes the lot.
+- Neither runs while a conversation is working in your checkout itself, since a merge from the remote would land under its feet.
+
 ## 0.32.0: getting crowded in here
 
 ### New

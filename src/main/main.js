@@ -2476,14 +2476,109 @@ function registerIpc() {
       const merged = await worktrees.bringHome(w, { message: `Shellby: ${manager.tabs.get(tabId)?.title || 'work from a tab'}` });
       if (!merged.ok) return merged;
       recordWork(w.originalCwd);
-      if (!opts?.finish) {
-        if (merged.merged) manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
-        return { ...merged, base: w.base, kept: true };
-      }
+      if (merged.merged) manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
+      // And on to GitHub. A push that fails leaves the merge where it is: the
+      // copy stays, so the push can be tried again from the folder menu.
+      const pushed = opts?.push ? await pushHome(w.root, { base: w.base, tabId }) : null;
+      if (pushed && !pushed.ok) return { ...merged, base: w.base, kept: true, push: pushed };
+      if (!opts?.finish) return { ...merged, base: w.base, kept: true, push: pushed };
       const removed = await retireWorktree(tabId, w, { force: false });
-      return { ...merged, base: w.base, tidied: removed.ok };
+      return { ...merged, base: w.base, tidied: removed.ok, push: pushed };
     } finally {
       retiring.delete(tabId);
+    }
+  });
+
+  // ---- the repository as a whole: push it, and bring every copy home
+  //
+  // Both act on your checkout, so neither runs while a conversation is
+  // working in it (a merge from the remote would land under its feet).
+  const sameDir = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+  const repoOf = async tabId => {
+    const tab = isStr(tabId) ? manager.tabs.get(tabId) : null;
+    if (tab?.worktree) return worktreeOf(tabId)?.root || null;
+    const root = await changes.rootOf(tab?.session?.cwd || config.get('cwd'));
+    const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
+    return root && !(path.resolve(root) + path.sep).toLowerCase().startsWith(home) ? root : null;
+  };
+  const busyInCheckout = root => [...manager.tabs.values()].some(t => !t.worktree && t.session?.busy && t.session.cwd
+    && (path.resolve(t.session.cwd) + path.sep).toLowerCase().startsWith(path.resolve(root).toLowerCase() + path.sep));
+  // Every copy of this repository with a record Shellby trusts: open tabs (not
+  // mid-turn, not mid bring-home) and conversations in History that still have one.
+  const copiesOf = root => {
+    const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
+    const ours = w => w && typeof w.path === 'string' && typeof w.root === 'string'
+      && path.resolve(w.path).toLowerCase().startsWith(home) && sameDir(w.root, root) && !worktrees.checkWorktree(w);
+    const open = [...manager.tabs.entries()].filter(([, t]) => ours(t.worktree)).map(([id, t]) => ({ id, w: t.worktree, title: t.title, busy: !!t.session?.busy || retiring.has(id) }));
+    const shut = history.list().filter(e => !manager.tabs.has(e.id) && ours(e.worktree)).map(e => ({ id: e.id, w: e.worktree, title: e.title, busy: false }));
+    const seen = new Set();
+    return [...open, ...shut].filter(c => !seen.has(c.w.branch) && seen.add(c.w.branch));
+  };
+  let repoBusy = false;
+  async function pushHome(root, { base, tabId } = {}) {
+    if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
+    const r = await worktrees.pushBase(root, { base });
+    if (r.ok && r.pushed) {
+      awardXp('ship', { project: path.basename(root) });
+      if (tabId) manager.note(tabId, { kind: 'pushed', branch: r.branch, remote: r.remote, commits: r.pushed, pulled: r.pulled });
+    }
+    if (!r.ok) {
+      log.info(`push: ${r.error}`);
+      // What a pre-push hook said goes in the conversation, where it can be read in full.
+      if (r.detail && tabId) manager.note(tabId, { kind: 'error', text: `${r.error}
+
+${r.detail}` });
+    }
+    return r;
+  }
+
+  ipcMain.handle('repo:status', async (_e, tabId, opts) => {
+    const root = await repoOf(tabId);
+    if (!root) return { ok: false, error: 'Not a git repository.' };
+    const [s, copies] = await Promise.all([
+      worktrees.remoteStatus(root, { fetch: !!opts?.fetch }),
+      Promise.all(copiesOf(root).map(async c => ({ ...c, s: await worktrees.status(c.w) }))),
+    ]);
+    const waiting = copies.filter(c => c.s.ok && (c.s.ahead || c.s.uncommitted));
+    return { ...s, root, name: path.basename(root), copies: waiting.length, copiesBusy: waiting.filter(c => c.busy).length };
+  });
+  ipcMain.handle('repo:push', async (_e, tabId) => {
+    const root = await repoOf(tabId);
+    if (!root) return { ok: false, error: 'Not a git repository.' };
+    if (repoBusy) return { ok: false, error: 'Already on it.' };
+    repoBusy = true;
+    try { return await pushHome(root, { tabId }); } finally { repoBusy = false; }
+  });
+  ipcMain.handle('repo:home-all', async (_e, tabId, opts) => {
+    const root = await repoOf(tabId);
+    if (!root) return { ok: false, error: 'Not a git repository.' };
+    if (repoBusy) return { ok: false, error: 'Already on it.' };
+    if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
+    const list = copiesOf(root).filter(c => !c.busy);
+    const busy = copiesOf(root).length - list.length;
+    repoBusy = true;
+    for (const c of list) retiring.add(c.id);
+    try {
+      const titles = new Map(list.map(c => [c.w.branch, c.title]));
+      const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => `Shellby: ${titles.get(w.branch) || 'work from a tab'}` });
+      for (const x of r.results) {
+        const c = list.find(l => l.w.branch === x.branch);
+        if (x.ok && x.merged && c && manager.tabs.has(c.id)) manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });
+      }
+      const merged = r.results.filter(x => x.ok && x.merged);
+      if (merged.length) recordWork(root);
+      const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
+      const out = {
+        ok: r.ok, root, busy,
+        merged: merged.length, commits: merged.reduce((n, x) => n + x.commits, 0),
+        skipped: r.results.filter(x => x.skipped).length,
+        stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: manager.tabs.has(clash.id) ? clash.id : null, base: clash.w.base, error: r.results.at(-1).error, conflict: !!r.results.at(-1).conflict } : null,
+      };
+      if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
+      return out;
+    } finally {
+      for (const c of list) retiring.delete(c.id);
+      repoBusy = false;
     }
   });
   ipcMain.handle('worktree:discard', async (_e, tabId) => {

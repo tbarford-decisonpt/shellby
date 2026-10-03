@@ -654,8 +654,106 @@ ${contextText(t.context)}` : t.title,
       h('button', { class: 'menu-item', onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.pickFolder()); } }, h('span', { class: 'mi-check', text: '+' }), h('span', { class: 'mi-title', text: 'Choose folder…' })),
       recents.length ? h('div', { class: 'menu-label', text: 'Recent' }) : null,
       ...recents.map(d => h('button', { class: 'menu-item path', title: d, onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.setFolder(d)); } }, SB.tildify(d))),
+      ...repoItems(tab),
     ];
   }));
+
+  // ------------------------------------------------------------ the repository: push it, bring every copy home
+
+  const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
+
+  // Filled in as the status comes back: first as of the last fetch, then
+  // again once the remote has been asked.
+  function repoItems(tab) {
+    const sep = h('div', { class: 'menu-sep', hidden: true });
+    const label = h('div', { class: 'menu-label', text: 'This repository', hidden: true });
+    const pushTitle = h('div', { class: 'mi-title', text: 'Push' });
+    const pushSub = h('div', { class: 'mi-sub' });
+    const pushBtn = h('button', { class: 'menu-item', hidden: true, disabled: true, onclick: () => { SB.closeMenus(); pushRepo(tab); } },
+      h('span', { class: 'mi-check', text: '⇡' }), h('span', {}, pushTitle, pushSub));
+    const homeSub = h('div', { class: 'mi-sub' });
+    const homeBtn = h('button', { class: 'menu-item', hidden: true, onclick: () => { SB.closeMenus(); bringAll(tab); } },
+      h('span', { class: 'mi-check', text: '↩' }), h('span', {}, h('div', { class: 'mi-title', text: 'Bring all home' }), homeSub));
+    const bothSub = h('div', { class: 'mi-sub' });
+    const bothBtn = h('button', { class: 'menu-item', hidden: true, onclick: () => { SB.closeMenus(); bringAll(tab, { push: true }); } },
+      h('span', { class: 'mi-check', text: '⇈' }), h('span', {}, h('div', { class: 'mi-title', text: 'Bring all home and push' }), bothSub));
+
+    const show = s => {
+      if (!s?.ok) return; // not a repository, or not on a branch: nothing to offer
+      sep.hidden = label.hidden = pushBtn.hidden = false;
+      pushTitle.textContent = `Push ${s.branch}`;
+      const checking = s.fetched || !s.remote ? '' : ' (checking…)';
+      const bits = [];
+      if (s.ahead) bits.push(`${plural(s.ahead, 'commit')} to push`);
+      if (s.behind) bits.push(`${s.behind} to take in from ${s.remote} first`);
+      pushSub.textContent = !s.remote ? 'No remote to push to.' : bits.length ? `${bits.join(' · ')}${checking}` : `Up to date with ${s.upstream}${checking}`;
+      pushBtn.disabled = !s.remote || (!s.ahead && !s.behind);
+
+      homeBtn.hidden = bothBtn.hidden = !s.copies;
+      const ready = s.copies - s.copiesBusy;
+      const busy = s.copiesBusy ? `; ${s.copiesBusy} still working, left for later` : '';
+      homeSub.textContent = `${plural(s.copies, 'copy', 'copies')} with work not in ${s.branch} yet${busy}. Merged one at a time`;
+      bothSub.textContent = s.remote ? `Then push ${s.branch} to ${s.remote}` : 'No remote to push to.';
+      homeBtn.disabled = !ready;
+      bothBtn.disabled = !ready || !s.remote;
+    };
+    api.repoStatus(tab?.id).then(s => {
+      show(s);
+      if (s?.ok && s.remote) api.repoStatus(tab?.id, { fetch: true }).then(f => show(f?.ok ? f : { ...s, fetched: true }));
+    });
+    return [sep, label, pushBtn, homeBtn, bothBtn];
+  }
+
+  function pushNews(r) {
+    if (r.pushed) return `Pushed ${plural(r.pushed, 'commit')} to ${r.remote}/${r.branch}${r.pulled ? `, after taking in ${r.pulled} from ${r.remote}` : ''}.`;
+    if (r.pulled) return `Took in ${plural(r.pulled, 'commit')} from ${r.remote}; nothing of yours to push.`;
+    return `${r.branch} is already up to date with ${r.remote}.`;
+  }
+
+  // A push that fails: a clash can be handed to Claude; a hook's refusal is
+  // written into the conversation by main, in full.
+  function pushTrouble(tab, r) {
+    if (r?.conflict && tab) {
+      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
+        SB.activate(tab.id);
+        SB.send(`Run git fetch, then merge ${r.upstream} into this branch (git merge ${r.upstream}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready${tab.worktree ? ' to bring home and push' : ' to push'}.`);
+      } });
+      return;
+    }
+    SB.toast(`${r?.error || "Couldn't push."}${r?.detail ? ' What git said is in the conversation.' : ''}`, { ms: 10000 });
+  }
+
+  async function pushRepo(tab) {
+    SB.toast('Pushing…', { ms: 30000 });
+    const r = await api.pushRepo(tab?.id);
+    if (r?.ok) return SB.toast(pushNews(r), { ms: 6000 });
+    pushTrouble(tab, r);
+  }
+
+  async function bringAll(tab, { push = false } = {}) {
+    SB.toast(push ? 'Bringing them all home, then pushing…' : 'Bringing them all home…', { ms: 30000 });
+    const r = await api.bringAllHome(tab?.id, { push });
+    if (!r || (r.error && !r.results && !r.stopped && r.merged === undefined)) return SB.toast(r?.error || "Couldn't bring them home.", { ms: 8000 });
+    const bits = [r.merged ? `Merged ${plural(r.merged, 'copy', 'copies')} (${plural(r.commits, 'commit')}).` : 'Nothing new to merge.'];
+    if (r.skipped) bits.push(`${r.skipped} started from another branch and ${r.skipped === 1 ? 'was' : 'were'} left alone.`);
+    if (r.busy) bits.push(`${r.busy} still working, left for later.`);
+    const s = r.stopped;
+    if (s) {
+      const open = s.tabId && state.tabs.get(s.tabId);
+      bits.push(s.conflict ? `"${s.title || s.branch}" clashes with ${s.base}, so it stopped there.` : `Stopped at "${s.title || s.branch}": ${s.error}`);
+      if (s.conflict && open) {
+        return SB.toast(bits.join(' '), { ms: 14000, action: 'Ask him to sort it out', onAction: () => {
+          SB.activate(open.id);
+          SB.send(`Merge ${s.base} into this branch (git merge ${s.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
+        } });
+      }
+      if (s.conflict) bits.push('Open it from History to sort it out.');
+      return SB.toast(bits.join(' '), { ms: 14000 });
+    }
+    if (r.push && !r.push.ok) { SB.toast(bits.join(' '), { ms: 5000 }); return pushTrouble(tab, r.push); }
+    if (r.push) bits.push(pushNews(r.push));
+    SB.toast(bits.join(' '), { ms: 8000 });
+  }
 
   // ------------------------------------------------------------ its own copy (worktrees.js)
 
@@ -681,6 +779,9 @@ ${contextText(t.context)}` : t.title,
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
         h('span', { class: 'mi-check', text: '↩' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home' }), h('div', { class: 'mi-sub', text: `Commit what's left and merge into ${w.base}. The conversation carries on` }))),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { push: true }); } },
+        h('span', { class: 'mi-check', text: '⇡' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and push' }), h('div', { class: 'mi-sub', text: `Merge into ${w.base}, then push ${w.base} to its remote. The conversation carries on` }))),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
         h('span', { class: 'mi-check', text: '✓' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs stay in History' }))),
@@ -690,11 +791,16 @@ ${contextText(t.context)}` : t.title,
     ]);
   });
 
-  async function bringHome(tab, { finish = false } = {}) {
+  async function bringHome(tab, { finish = false, push = false } = {}) {
     if (tab.busy) return SB.toast('Let him finish first.');
-    SB.toast('Bringing it home…', { ms: 8000 });
-    const r = await api.bringWorktreeHome(tab.id, { finish });
+    SB.toast(push ? 'Bringing it home, then pushing…' : 'Bringing it home…', { ms: push ? 30000 : 8000 });
+    const r = await api.bringWorktreeHome(tab.id, { finish, push });
     const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.`;
+    if (r?.ok && r.push) {
+      if (r.push.ok) return SB.toast(`${r.merged ? `${merged} ` : ''}${pushNews(r.push)}`, { ms: 7000 });
+      if (r.merged) SB.toast(`${merged} The push didn't go through, so it's only on this computer for now.`, { ms: 5000 });
+      return pushTrouble(tab, r.push);
+    }
     if (r?.ok && r.kept) {
       SB.toast(r.merged ? `${merged} Carry on here and bring it home again any time.` : `Nothing new to merge; ${r.base} already has all of it.`, { ms: 6000 });
       return;

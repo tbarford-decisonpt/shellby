@@ -194,6 +194,8 @@ body:not([data-view="chat"]) .subbar { display: none; }
   border: 0; background: none; text-align: left; padding: 8px 9px; border-radius: var(--r-sm);
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--reef-2); outline: none; }
+.menu-item:disabled { cursor: default; opacity: .55; }
+.menu-item:disabled:hover { background: none; }
 .menu-item .mi-title { font-weight: 700; font-size: 13px; }
 .menu-item .mi-sub { color: var(--sand-dim); font-size: 12px; line-height: 1.35; }
 .menu-item .mi-check { width: 14px; flex: none; color: var(--glass); font-weight: 700; }
