@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.57.0: time on each project
+
+### New
+- **Time on each project.** **History → Time** keeps track of how long you spend on each project, so a timesheet or an invoice is a click away. Shellby works it out from what he already sees: an editor or terminal showing a project's folder, the project's page on GitHub or GitLab, Claude working in it, and git moving in it (a commit, a checkout, a pull). Your terminal and the docs you're reading count for the project you were just in. The clock stops when you're away from the keyboard (after 5 minutes, or what you choose) or the screen is locked. It's off until you turn it on.
+- **Clients and rates.** Give each project a client and an hourly rate, mark it billable or not, and round each day to the nearest (or next) 6, 10, 15, 30 or 60 minutes. The page shows the period's hours and what they come to, a bar for each day, and each project's days with your commits on them.
+- **Time by hand.** Add a meeting or take off a break on any day, with a note for the invoice. Each day has quick −15 and +15 buttons and its own note.
+- **From your commits.** Days you committed but weren't keeping time can be filled in from the commits, the way git-hours estimates them, and they're marked as estimates wherever they show.
+- **Timesheets.** **Save PDF** makes a clean timesheet for a client, one project or everything: each day's hours and what it was for (its note, or else your commit messages), the rate and the total. **Save CSV** gives one row per project per day for a spreadsheet or your invoicing tool, and **Copy as text** is ready to paste into an email. They're saved to `Documents\Shellby Timesheets`.
+- **From the terminal.** `shellby time last-week` prints the same summary (`today`, `week`, `last-week`, `month` or `last-month`, and `--git` to fill in from commits).
+
+### Privacy
+- Everything stays on this PC and is never synced. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes. Only a code host's page counts in a browser, so a web page can't put time on your invoice by naming a project in its title.
+- Commit messages can't sneak into a timesheet as anything but text: no HTML, no spreadsheet formulas, no terminal escapes or invisible characters.
+
 ## 0.55.0: a life of his own
 
 ### New
