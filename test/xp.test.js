@@ -187,7 +187,7 @@ test('daily bounties: progress, completion XP and the clear-all bonus land in th
   while (!pickFor(dayKey(t)).some(id => id.startsWith('focus'))) t += DAY;
   const ids = pickFor(dayKey(t));
   let s = markRed(null, 'p1', t);
-  const events = [['focus'], ['focus'], ['tests', 'p1'], ['tests', 'p2'], ['tests', 'p3'], ['deploy']];
+  const events = [['focus'], ['focus'], ['tests', 'p1'], ['tests', 'p2'], ['tests', 'p3'], ['deploy'], ['deps', 'p1']];
   for (let i = 0; i < 30; i++) events.push(['task']);
   for (let i = 0; i < 3; i++) events.push(['ship', `p${i}`]);
   let bountyXp = 0;

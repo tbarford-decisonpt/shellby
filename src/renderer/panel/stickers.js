@@ -152,6 +152,19 @@
       h('span', { class: 'st-name', text: w.name }))));
   }
 
+  // Its last dependency checkup (checkup.js), in a line.
+  function depsText(d) {
+    if (!d) return '🧼 Dependencies never checked. A clean audit earns this sticker the Fresh mark.';
+    const a = d.audit, o = d.outdated;
+    const parts = [];
+    if (a?.status === 'clean') parts.push(d.fresh ? '🧼 Fresh: no known vulnerabilities' : 'No known vulnerabilities, but it’s been a while');
+    else if (a?.status === 'issues') parts.push(`⚠️ ${a.count ? plural(a.count, 'known vulnerability', 'known vulnerabilities') : 'Known vulnerabilities'}`);
+    if (o?.status === 'issues') parts.push(o.count ? `${plural(o.count, 'outdated package')}` : 'some packages outdated');
+    else if (o?.status === 'clean') parts.push('everything up to date');
+    const at = Math.max(a?.at || 0, o?.at || 0);
+    return `${parts.join(' · ') || 'Last checkup couldn’t be read'} · checked ${SB.relTime(at)}`;
+  }
+
   function renderDetail() {
     const p = selected && projectOf(selected);
     const box = $('stDetail');
@@ -177,6 +190,7 @@
         h('p', { class: 'st-when', text: p.from ? `@${p.from}'s crab left it on ${when(p.firstShipAt)}` : `First shipped ${when(p.firstShipAt)} · last ${SB.relTime(p.lastShipAt)}` }),
         p.from ? null : h('p', { class: 'st-stats', text: stats.join(' · ') }),
         weather ? h('p', { class: 'st-weather', text: weather }) : null,
+        p.from ? null : h('p', { class: 'st-deps', text: depsText(p.deps) }),
         p.marks.length ? h('ul', { class: 'st-mark-list', 'aria-label': 'Marks' }, p.marks.map(m => h('li', { title: m.description }, h('span', { 'aria-hidden': 'true', text: m.icon }), m.name))) : null,
         h('div', { class: 'st-actions' },
           placed
@@ -187,7 +201,13 @@
               h('button', { type: 'button', class: 'btn ghost slim-btn', title: 'Mirror it', onclick: () => edit(api.flipSticker(p.id, sh.id)) }, 'Flip'),
             ]
             : h('button', { type: 'button', class: 'btn primary slim-btn', disabled: !sh?.slots.length, onclick: () => hold(p.id) }, sh?.slots.length ? 'Put on shell' : 'No room on this shell'),
-          p.canOpen ? h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => { api.openStickerProject(p.id); SB.setView('chat'); } }, 'Pick up where we left off') : null),
+          p.canOpen ? h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => { api.openStickerProject(p.id); SB.setView('chat'); } }, 'Pick up where we left off') : null,
+          p.canOpen ? h('button', { type: 'button', class: 'btn ghost slim-btn', title: 'Look for outdated and vulnerable packages', onclick: async () => {
+            const res = await api.checkupSticker(p.id);
+            if (!res.ok) return SB.toast(res.error);
+            SB.setView('chat');
+            SB.toast('Press Enter to run the checkup');
+          } }, 'Check dependencies') : null),
         h('label', { class: 'toggle st-hide' },
           h('input', { type: 'checkbox', checked: p.hidden, onchange: async e => apply(await api.hideSticker(p.id, e.target.checked)) }),
           h('span', { class: 'switch' }), 'Keep off my calling card')),

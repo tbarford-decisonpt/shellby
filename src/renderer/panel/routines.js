@@ -6,13 +6,17 @@
   let editing = null;      // routine being edited (null = new)
   let folder = null;       // chosen cwd for the editor (null = default)
 
-  const TEMPLATES = [
-    { name: 'Friday Downloads tidy', prompt: 'Sort my Downloads folder into subfolders by file type (Documents, Images, Archives, Installers, Other). Don\'t delete anything. Finish with a short summary of what moved.', schedule: { type: 'weekly', time: '17:00', days: [5] }, mode: 'acceptEdits' },
-    { name: 'Morning briefing', prompt: 'List the files in my Documents and Desktop that changed in the last 24 hours, grouped by folder, with one line on what each probably is.', schedule: { type: 'daily', time: '08:30' }, mode: 'smart' },
-    { name: 'Disk space watch', prompt: 'Check free space on every drive. If any drive is under 15% free, find the 10 largest folders on it and suggest what could be cleaned up. Don\'t delete anything.', schedule: { type: 'weekly', time: '12:00', days: [1] }, mode: 'smart' },
-  ];
+  // Templates live in main (routine-templates.js), so the dependency checkup's
+  // prompt and the one the Sticker Book uses can't drift apart.
+  let templates = [];
+  api.routineTemplates().then(list => { templates = Array.isArray(list) ? list : []; if (state.view === 'routines') render(); });
 
   const MODE_NAME = { ask: 'Ask first', smart: 'Smart', acceptEdits: 'Auto-edit', plan: 'Plan only', autonomous: 'Autonomous' };
+  const ECO_NAME = { npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', bun: 'Bun', pip: 'Python', cargo: 'Rust', go: 'Go', ruby: 'Ruby', php: 'PHP', dotnet: '.NET', osv: 'OSV' };
+  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+  const templateButton = t => h('button', { class: 'template', type: 'button', onclick: () => openEditor({ ...t, isTemplate: true }) },
+    h('b', {}, t.icon ? `${t.icon} ` : '', t.name), h('span', { text: t.note || t.prompt }));
 
   function statusPill(r) {
     if (r.running) return h('span', { class: 'r-pill running', text: 'running' });
@@ -26,13 +30,16 @@
   function render() {
     const list = $('routineList');
     const routines = state.routines || [];
+    renderDeps();
     if (!routines.length) {
       list.replaceChildren(h('li', { class: 'routine-empty' },
         h('p', {}, 'No routines yet. Start from one of these:'),
-        h('div', { class: 'templates' }, TEMPLATES.map(t => h('button', { class: 'template', type: 'button', onclick: () => openEditor({ ...t, isTemplate: true }) },
-          h('b', { text: t.name }), h('span', { text: t.prompt }))))));
+        h('div', { class: 'templates' }, templates.map(templateButton))));
       return;
     }
+    // The ones you haven't set up yet stay a click away.
+    const have = new Set(routines.map(r => r.name.toLowerCase()));
+    const more = templates.filter(t => !have.has(t.name.toLowerCase()));
     list.replaceChildren(...routines.map(r => h('li', { class: `routine${r.enabled ? '' : ' paused'}` },
       h('label', { class: 'toggle mini', title: r.enabled ? 'Pause' : 'Resume' },
         h('input', { type: 'checkbox', checked: r.enabled, onchange: async e => {
@@ -58,8 +65,47 @@
           state.routines = await api.deleteRoutine(r.id);
           render();
           SB.toast(`Deleted "${r.name}"`);
-        } }, SB.icon(SB.ICONS.trash))))));
+        } }, SB.icon(SB.ICONS.trash))))),
+    ...(more.length ? [h('li', { class: 'routine-more' },
+      h('details', {}, h('summary', { text: `More templates (${more.length})` }), h('div', { class: 'templates' }, more.map(templateButton))))] : []));
   }
+
+  // ------------------------------------------------------------ dependency health
+
+  // What each project's last audit and outdated check found (checkup.js).
+  function depsLine(c) {
+    const bits = [];
+    if (c.audit?.status === 'clean') bits.push(h('span', { class: `dep-pill ${c.fresh ? 'ok' : ''}`, text: c.fresh ? '🧼 Fresh' : 'No known vulnerabilities' }));
+    else if (c.audit?.status === 'issues') bits.push(h('span', { class: 'dep-pill err', text: c.audit.count ? plural(c.audit.count, 'vulnerability', 'vulnerabilities') : 'Vulnerable' }));
+    if (c.outdated?.status === 'issues') bits.push(h('span', { class: 'dep-pill warn', text: c.outdated.count ? `${c.outdated.count} outdated` : 'Outdated' }));
+    else if (c.outdated?.status === 'clean') bits.push(h('span', { class: 'dep-pill ok', text: 'Up to date' }));
+    if (!bits.length) bits.push(h('span', { class: 'dep-pill', text: "Couldn't read the result" }));
+    return bits;
+  }
+
+  function renderDeps() {
+    const list = state.checkups || [];
+    $('depsHealth').hidden = !list.length;
+    if (!list.length) return;
+    const fresh = list.filter(c => c.fresh).length;
+    $('depsSummary').textContent = `${fresh} of ${plural(list.length, 'project')} fresh`;
+    $('depsList').replaceChildren(...list.map(c => {
+      const at = Math.max(c.audit?.at || 0, c.outdated?.at || 0);
+      return h('li', { class: 'dep' },
+        h('div', { class: 'dep-main' },
+          h('div', { class: 'dep-name' }, h('span', { text: c.name }), c.ecosystem ? h('small', { text: ECO_NAME[c.ecosystem] || c.ecosystem }) : null),
+          h('div', { class: 'dep-pills' }, ...depsLine(c), h('time', { title: new Date(at).toLocaleString(), text: `checked ${SB.relTime(at)}` }))),
+        h('button', { class: 'btn ghost slim-btn', type: 'button', title: `Check ${c.name}'s dependencies again`, onclick: async () => {
+          const res = await api.runCheckup(c.key);
+          if (!res.ok) SB.toast(res.error);
+          else { SB.setView('chat'); SB.toast('Press Enter to run the checkup'); }
+        } }, 'Check again'));
+    }));
+  }
+
+  SB.applyCheckups = list => { state.checkups = Array.isArray(list) ? list : []; if (state.view === 'routines') renderDeps(); };
+  api.getCheckups().then(SB.applyCheckups);
+  api.onCheckups(SB.applyCheckups);
 
   // ------------------------------------------------------------ editor
 
@@ -73,6 +119,8 @@
     editing = r && !r.isTemplate ? r : null;
     folder = r?.cwd || null;
     $('routineEditorTitle').textContent = editing ? `Edit “${r.name}”` : 'New routine';
+    $('routineTplNote').hidden = !(r?.isTemplate && r.note);
+    $('routineTplNote').textContent = r?.isTemplate && r.note ? r.note : '';
     const s = r?.schedule || { type: 'daily', time: '09:00' };
     form.elements.name.value = r?.name || '';
     form.elements.prompt.value = r?.prompt || '';

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.50.0: fresh dependencies and your week
+
+### New
+- **Dependency checkup routine.** A new **Dependency checkup** template on the Routines page. Once a week it runs each project's outdated and audit checks (`npm outdated` and `npm audit`, or the pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET equivalent) and finishes with a table of what to update. It never installs or changes anything.
+- **🧼 Fresh.** A dependency audit that comes back clean earns 30 XP (once a day per project, or again straight away when it fixes what the last one found) and the project's sticker its new **Fresh** mark. There's a new bounty for it too: *Pass a dependency audit*.
+- **Dependency health.** The Routines page lists what each project's last checkup found: 🧼 fresh, how many vulnerabilities, how many packages are outdated, and when it was checked, with **Check again**. Each project's page in the Sticker Book shows the same and has a **Check dependencies** button.
+- Shellby reads what a check actually printed, not just how it exited, so `npm audit | tail` or `cargo audit || true` can't pass for a clean audit. Checkups count from routines, from tabs, and from your terminal with the plugin.
+- **Your week.** **Trophies & XP → This week** sums up the last seven days: projects shipped, tests turned green, tasks done, your streak, deploys, releases and clean audits. **📅 Share my week** makes a card in the crab card's style, with the week's stickers on his tank, XP for each day and the projects that shipped. It's copied to your clipboard and saved to `Pictures\Shellby`.
+- On Friday afternoons after a week that shipped something, Shellby says so, and the week card is one click away.
+
+### Changed
+- The routine templates are always a click away under **More templates**, not just when you have no routines yet.
+
 ## 0.49.1: what the README says about billing
 
 ### Fixed

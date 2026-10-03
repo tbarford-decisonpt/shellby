@@ -541,3 +541,18 @@ test('what a command ships: pushes, deploys, releases, but not a draft or a test
   assert.equal(st.shipOf('deploy', 'gh release create v1.0.0 --draft'), null);
   assert.equal(st.shipOf('tests', 'npm test'), null);
 });
+
+test('a mark earned without shipping: only on your own sticker, once, and never a ship', () => {
+  const p = { id: 'abcdefabcdef', name: 'app' };
+  const s = st.recordShip(null, p, 'ship', T0).state;
+  const r = st.addMark(s, p.id, 'deps');
+  assert.equal(r.added, true);
+  assert.deepEqual(r.project.marks, ['deps']);
+  assert.equal(r.project.ships, s.projects[p.id].ships, 'no ship counted');
+  assert.equal(st.addMark(r.state, p.id, 'deps').added, false, 'once');
+  assert.equal(st.addMark(s, '000000000000', 'deps').added, false, 'no sticker, no mark');
+  assert.equal(st.addMark(s, p.id, 'made-up').added, false);
+  const gift = st.receiveGuest(null, 'octocat', { name: 'theirs', tier: 'paper', palette: { a: '#ff0000' }, pixels: ['a'] }, T0);
+  assert.equal(st.addMark(gift.state, gift.project.id, 'deps').added, false, "a friend's sticker isn't yours to mark");
+  assert.ok(st.view(r.state, T0).projects[0].marks.some(m => m.id === 'deps' && m.icon === '🧼'));
+});

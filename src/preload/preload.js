@@ -232,6 +232,13 @@ contextBridge.exposeInMainWorld('shellby', {
   setStickerOptions: invoke('stickers:options'),
   stickersSeen: fire('stickers:seen'),
   openStickerProject: fire('stickers:open'),
+  checkupSticker: invoke('stickers:checkup'),
+  // dependency checkups and the week in review
+  getCheckups: invoke('checkups:get'),
+  runCheckup: invoke('checkups:run'),
+  onCheckups: on('checkups'),
+  getWeek: invoke('week:get'),
+  onWeekReady: on('week:ready'),
   onStickers: on('stickers'),
   onStickerNew: on('stickers:new'),
   onStickerNews: on('stickers:news'), // a tier-up or a new mark on one already earned
@@ -296,6 +303,7 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // routines
   listRoutines: invoke('routines:list'),
+  routineTemplates: invoke('routines:templates'),
   saveRoutine: invoke('routines:save'),
   draftRoutine: invoke('routines:draft'),
   deleteRoutine: invoke('routines:delete'),

@@ -46,6 +46,8 @@ const DEFAULTS = {
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
+  checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
+  weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
   github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here

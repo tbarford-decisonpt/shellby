@@ -14,6 +14,7 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const { classifyCommand } = require('./xp');
 const { shipOf } = require('./stickers');
+const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
 
 const DEFAULT_PORT = 47913;
@@ -52,7 +53,8 @@ function programOf(command) {
 /**
  * Apply one hook event to the sessions map (pure: returns a new map and the
  * notable things that happened). evt is Claude Code's hook JSON.
- *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }]
+ *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }
+ *             | { type: 'command-ok', kind, project } | { type: 'checkup', check, dir, result }]
  */
 function applyHookEvent(sessions, evt, now, client = null) {
   const next = new Map(sessions);
@@ -103,6 +105,17 @@ function applyHookEvent(sessions, evt, now, client = null) {
           effects.push(ship
             ? { type: 'command-ok', kind, project: s.project, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, ship: { kind: ship.kind, version: ship.meta.version ?? null } }
             : { type: 'command-ok', kind, project: s.project });
+        }
+        // A dependency checkup: what it found and where, never the output itself.
+        const check = checkupOf(evt.tool_input?.command);
+        if (check && typeof evt.cwd === 'string') {
+          const out = evt.tool_response && typeof evt.tool_response === 'object'
+            ? [evt.tool_response.stdout, evt.tool_response.stderr].filter(x => typeof x === 'string').join('\n') : '';
+          effects.push({
+            type: 'checkup', check,
+            dir: commandDir(evt.tool_input.command, evt.cwd.slice(0, 400)),
+            result: readCheckup(check, { text: out, isError: false, command: evt.tool_input.command }),
+          });
         }
       }
       break;

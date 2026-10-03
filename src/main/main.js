@@ -44,7 +44,7 @@ const { qrRows } = require('./qr');
 const { MediaWatcher, trackRemark } = require('./media');
 const { Dictation, PushToTalk, holdKeyOf } = require('./dictation');
 const native = require('./native-windows');
-const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween } = require('./xp');
+const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween, normalizeXp } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
@@ -59,6 +59,9 @@ const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
+const checkup = require('./checkup');
+const weekly = require('./weekly');
+const routineTemplates = require('./routine-templates');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
 const { reviewPrompt } = require('./review');
@@ -769,7 +772,7 @@ function createManager() {
     if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
       const dir = tab.session?.cwd || '';
       const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
-      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null });
+      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null });
       if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
     }
     if (item.kind === 'tool') onToolSpoken(item);
@@ -786,6 +789,12 @@ function createManager() {
       // A push, deploy or release ships the project: its sticker (stickers.js).
       const ship = c.dir && stickers.shipOf(kind, c.command);
       if (ship) shipped(c.dir, ship.kind, ship.meta);
+      // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
+      const check = checkup.checkupOf(c.command);
+      if (check && c.cwd) {
+        const result = checkup.readCheckup(check, { text: item.text, isError: item.isError, command: c.command });
+        checkedUp(checkup.commandDir(c.command, c.cwd), check, result);
+      }
     }
   });
   manager.on('tabs', summary => {
@@ -1060,6 +1069,9 @@ function awardXp(kind, meta = {}) {
   if (CAPTURE || !config) return;
   const r = award(config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
   if (r.changed) config.set({ xp: r.state });
+  // The week-in-review counts it even when repetition left it paying nothing.
+  // Shipping is counted where the project is known (recordShipped).
+  if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
   if (!r.gained) { if (r.changed) send(panel, 'xp', xpView()); return; }
   send(critter, 'critter:xp', { amount: r.gained, kind: r.kind });
   for (const b of r.bounties) send(panel, 'xp:bounty', b);
@@ -1228,6 +1240,8 @@ function recordShipped(project, kind, meta) {
     { shell: shellIdOf(shell), slots: shellSpots(activeSkin(), shell).slots.length });
   if (!r.project) return;
   config.set({ stickers: r.state });
+  noteWeek(kind, r.project);
+  if (r.minted) noteWeek('minted', r.project);
   if (r.minted) slapSticker(r.project);
   else stickerNews(r, before);
   send(panel, 'stickers', stickersView());
@@ -1264,6 +1278,101 @@ function stickerNews(r, before) {
   send(panel, 'stickers:news', { id: p.id, name: p.name, tier: r.tierUp && { id: r.tierUp.id, name: r.tierUp.name }, marks: marks.map(m => ({ id: m.id, name: m.name, icon: m.icon })), pressed });
 }
 
+// ================================================================ dependency checkups (checkup.js)
+//
+// Claude ran `npm audit`, `cargo outdated` or the like. Each project's latest
+// result is kept for the Routines page; a clean audit pays XP (once a day per
+// project) and earns the project's sticker its 🧼 Fresh mark.
+
+async function checkedUp(dir, check, result) {
+  if (CAPTURE || !config || !dir || path.resolve(dir) === path.resolve(os.homedir())) return;
+  try {
+    const project = await projectOf(dir);
+    const key = project?.root || dir;
+    const name = project?.name || path.basename(key);
+    const r = checkup.recordCheckup(config.get('checkups'), key, name, check, result, Date.now());
+    if (!r.entry) return;
+    config.set({ checkups: r.state });
+    send(panel, 'checkups', checkupsView());
+    if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
+    if (r.clean && project) freshMark(project);
+    else if (result.status === 'issues' && check.check === 'audit') {
+      sayText(result.count ? `${name}: ${result.count} known ${result.count === 1 ? 'vulnerability' : 'vulnerabilities'}` : `${name} has vulnerable dependencies`, 'sticker', 7000);
+    }
+  } catch (e) {
+    log.error('checkup', e);
+  }
+}
+
+// The project's sticker gets 🧼 Fresh the first time an audit comes back clean.
+function freshMark(project) {
+  const r = stickers.addMark(config.get('stickers'), project.id, 'deps');
+  if (!r.added) return;
+  config.set({ stickers: r.state });
+  broadcastSkin();
+  setTimeout(() => send(critter, 'critter:sticker-glint', { id: project.id }), 120);
+  const mark = stickers.MARKS.find(m => m.id === 'deps');
+  sayText(`${mark.icon} ${r.project.name} is fresh!`, 'sticker', 6000);
+  send(panel, 'stickers:news', { id: project.id, name: r.project.name, tier: null, marks: [{ id: mark.id, name: mark.name, icon: mark.icon }], pressed: false });
+  send(panel, 'stickers', stickersView());
+}
+
+function checkupsView() {
+  return checkup.checkupsView(config.get('checkups'), Date.now());
+}
+
+// Folders the panel may open a tab in: ones Shellby itself has seen you work
+// in (streaks), ship from (a sticker's folder) or check up on. All of them
+// are written by main from git or Claude's own commands, never by the panel.
+function knownFolder(dir) {
+  const want = path.resolve(dir).toLowerCase();
+  const same = k => typeof k === 'string' && path.resolve(k).toLowerCase() === want;
+  return Object.keys(streaks.normalize(config.get('streaks')).projects).some(same)
+    || Object.values(stickerState().projects).some(p => same(p.root))
+    || Object.keys(checkup.normalizeCheckups(config.get('checkups')).projects).some(same);
+}
+
+// Check one project's dependencies now, in a tab of its own (from the Sticker
+// Book or the Routines page's dependency list).
+function runCheckup(dir) {
+  if (config.get('crabOnly')) return { ok: false, error: 'Checkups need Claude Code: Shellby is in just-the-crab mode.' };
+  if (!isStr(dir) || !isFolder(dir)) return { ok: false, error: "That project's folder isn't there any more." };
+  showPanel();
+  // A draft to press Enter on, like the streak nudge: nothing runs until you say so.
+  send(panel, 'tab:new-in', { cwd: dir, draft: routineTemplates.checkupPrompt({ single: true }) });
+  return { ok: true };
+}
+
+// ================================================================ the week in review (weekly.js)
+
+// XP kinds the week-in-review counts (shipping comes from recordShipped instead).
+const WEEK_XP_KINDS = new Set(['fixed', 'tests', 'task', 'deps', 'focus', 'trick']);
+
+function noteWeek(kind, project = null) {
+  if (CAPTURE || !config) return;
+  config.set({ weekly: weekly.recordDay(config.get('weekly'), Date.now(), kind, project && { id: project.id, name: project.name }) });
+}
+
+function weekView() {
+  const now = Date.now();
+  const xp = normalizeXp(config.get('xp'));
+  return weekly.weekSummary(config.get('weekly'), now, {
+    xp, stickers: stickerState(), streak: streaks.streakOf(config.get('streaks'), now), level: levelFor(xp.total),
+  });
+}
+
+// Friday afternoon, a week with something shipped in it: he says so, and the
+// Trophies page has the card ready. Once a week, and never during focus.
+function checkWrapUp() {
+  if (CAPTURE || !config || config.get('crabOnly')) return;
+  const w = weekView();
+  const key = weekly.wrapUpDue(config.get('weekly'), Date.now(), w);
+  if (!key) return;
+  if (!sayText(`What a week: ${w.headline.charAt(0).toLowerCase()}${w.headline.slice(1)}!`, 'sticker', 9000)) return;
+  config.set({ weekly: weekly.markWrapped(config.get('weekly'), key) });
+  send(panel, 'week:ready', w);
+}
+
 // Sticker milestones for the trophies (wardrobe/achievements.js).
 function stickerStats(state) {
   const n = stickers.stats(state);
@@ -1296,9 +1405,15 @@ function stickersView() {
   const v = stickers.view(s, Date.now());
   const roots = new Set(Object.values(s.projects).map(p => (p.root || '').toLowerCase()).filter(Boolean));
   const quiet = streaks.normalize(config.get('streaks')).projects;
+  // Each project's last dependency checkup, by its folder (checkup.js).
+  const checked = new Map(checkupsView().map(c => [c.key.toLowerCase(), c]));
   return {
     ...v,
-    projects: v.projects.map(p => ({ ...p, art: drawSticker(s.projects[p.id]).full })),
+    projects: v.projects.map(p => {
+      const root = s.projects[p.id].root;
+      const c = root && checked.get(root.toLowerCase());
+      return { ...p, art: drawSticker(s.projects[p.id]).full, deps: c ? { fresh: c.fresh, audit: c.audit, outdated: c.outdated } : null };
+    }),
     shells: shellsForBook(s),
     // Projects you work in that haven't shipped yet: silhouettes to earn.
     waiting: Object.entries(quiet).filter(([key]) => !roots.has(key.toLowerCase()))
@@ -1477,6 +1592,7 @@ function createExternal() {
     awardXp(e.kind, { project: e.project });
     if (e.cwd && e.ship) shipped(e.cwd, e.ship.kind, { version: e.ship.version });
   });
+  external.on('checkup', e => checkedUp(e.dir, e.check, e.result));
   external.on('turn-done', e => {
     awardXp('task', { project: e.project });
     tellChannel({ kind: 'done', project: e.project, tools: e.tools });
@@ -3086,7 +3202,7 @@ function registerIpc() {
   // ---- tabs
   ipcMain.handle('tab:new', (_e, opts = {}) => {
     // A folder is only accepted if it's a project Shellby already tracks (e.g. a nudge's "pick up where you left off").
-    const known = isStr(opts?.cwd) && streaks.normalize(config.get('streaks')).projects[opts.cwd] && fs.existsSync(opts.cwd);
+    const known = isStr(opts?.cwd) && knownFolder(opts.cwd) && fs.existsSync(opts.cwd);
     try { return { ok: true, tabId: openTab(known ? { cwd: opts.cwd } : {}).id }; } catch (err) { return { ok: false, error: err.message }; }
   });
   ipcMain.handle('tab:close', (_e, tabId) => {
@@ -3587,6 +3703,7 @@ ${r.detail}` });
   // ---- routines
   ipcMain.handle('usage:breakdown', () => usageBreakdown());
   ipcMain.handle('routines:list', () => routinesView());
+  ipcMain.handle('routines:templates', () => routineTemplates.TEMPLATES);
   ipcMain.handle('routines:save', async (_e, input) => {
     const existing = routines().find(r => r.id === input?.id);
     const { routine, errors } = validateRoutine({ ...existing, ...input }, { allowAutonomous: !!config.get('autonomousAcknowledged') });
@@ -3833,6 +3950,17 @@ ${r.detail}` });
     if (!p?.root || !fs.existsSync(p.root)) return;
     send(panel, 'tab:new-in', { cwd: p.root, draft: `Where did we leave off in ${p.name}? Summarize what changed since we last shipped it, what's unfinished, and suggest the next step.` });
   });
+  // "Check its dependencies", from its page in the Sticker Book.
+  ipcMain.handle('stickers:checkup', (_e, id) => {
+    const p = stickerId(id) && stickerState().projects[id];
+    return p?.root ? runCheckup(p.root) : { ok: false, error: "Shellby doesn't know where that project lives on this PC." };
+  });
+
+  // ---- dependency checkups and the week in review
+  ipcMain.handle('checkups:get', () => checkupsView());
+  // Only a folder already in the list: the renderer can't point this anywhere new.
+  ipcMain.handle('checkups:run', (_e, key) => (isStr(key) && checkupsView().some(c => c.key === key) ? runCheckup(key) : { ok: false, error: 'Unknown project.' }));
+  ipcMain.handle('week:get', () => weekView());
 
   // ---- Claude Code sessions elsewhere
   ipcMain.on('clipboard:text', (_e, text) => { if (isStr(text) && text.length <= 2000) clipboard.writeText(text); });
@@ -3968,14 +4096,14 @@ ${r.detail}` });
     if (isolated) return true;
     try { clipboard.writeImage(img); return true; } catch (e) { log.warn("couldn't copy a crab card", e?.message); return false; }
   };
-  ipcMain.handle('card:save', (_e, bytes) => {
+  ipcMain.handle('card:save', (_e, bytes, kind) => {
     const card = cardImage(bytes);
     if (!card) return { ok: false, error: "That card didn't come out right." };
     try {
       const dir = path.join(isolated ? app.getPath('userData') : app.getPath('pictures'), 'Shellby');
       fs.mkdirSync(dir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-      lastCard = path.join(dir, `shellby-card-${stamp}.png`);
+      lastCard = path.join(dir, `shellby-${kind === 'week' ? 'week' : 'card'}-${stamp}.png`);
       fs.writeFileSync(lastCard, card.buf);
     } catch (e) {
       log.warn("couldn't save a crab card", e?.message);
@@ -4355,6 +4483,8 @@ app.whenReady().then(() => {
   setTimeout(checkNudges, 60 * 1000);
   try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
   setInterval(checkNudges, 60 * 60 * 1000);
+  setTimeout(checkWrapUp, 2 * 60 * 1000);
+  setInterval(checkWrapUp, 30 * 60 * 1000);
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();

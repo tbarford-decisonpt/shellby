@@ -205,6 +205,7 @@
     </form>
     <form class="routine-editor" id="routineEditor" hidden novalidate>
       <h3 id="routineEditorTitle">New routine</h3>
+      <p class="routine-tpl-note" id="routineTplNote" hidden></p>
       <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>
       <label class="field-label">What should Shellby do?
         <textarea class="field area" name="prompt" rows="4" maxlength="8000" placeholder="Sort ~/Downloads into subfolders by type and tell me what moved." required></textarea>
@@ -251,6 +252,14 @@
       </div>
     </form>
     <ul class="routine-list" id="routineList"></ul>
+    <section class="deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
+      <div class="deps-head">
+        <h3 id="depsTitle">Dependency health</h3>
+        <span class="deps-summary" id="depsSummary"></span>
+      </div>
+      <p class="view-lede">What the last <code>npm audit</code>, <code>pip-audit</code>, <code>cargo outdated</code> and the like found in each project. A clean audit keeps a project 🧼 fresh for 30 days.</p>
+      <ul class="deps-list" id="depsList"></ul>
+    </section>
   </main>
 
   <!-- ====================== HEALTH ====================== -->
@@ -448,6 +457,14 @@
       <div class="xp-bounties" id="xpBounties" aria-label="Today's bounties">
         <p class="xp-sub">Today's bounties <span id="xpBountyBonus"></span></p>
         <ul id="xpBountyList"></ul>
+      </div>
+      <div class="xp-week" id="xpWeek" aria-label="This week" hidden>
+        <div class="xp-week-head">
+          <p class="xp-sub">This week <span id="xpWeekRange"></span></p>
+          <button type="button" class="btn slim-btn" data-share-week title="Make a shareable picture of what you shipped this week">📅 Share my week</button>
+        </div>
+        <p class="xp-week-line" id="xpWeekLine"></p>
+        <ul class="xp-week-shipped" id="xpWeekShipped" aria-label="Shipped this week"></ul>
       </div>
       <div class="xp-history">
         <p class="xp-sub">Last 30 days <span id="xpHistoryTotal"></span></p>
@@ -1037,6 +1054,7 @@
 <script src="crabonly.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
+<script src="week-card.js"></script>
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
 <script src="github.js"></script>
