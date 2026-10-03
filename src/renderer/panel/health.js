@@ -11,6 +11,13 @@
   let history = [];
   let fx = null;
   let saveTimer = null;
+  const HOGS_REFRESH_MS = 30 * 1000; // the process list is a ~3 s read; don't add to the heat
+  let hogs = null;                   // { ok, metric, procs } from main
+  let hogsAt = 0;
+  let hogsLoading = false;
+  let hogMetric = null;              // the user's pick; null follows the mood
+  let drawnHogs = null;              // the result the list shows, so 5 s samples don't rebuild it
+  let startup = null;                // { ok, items } from main
 
   const levelOf = id => view?.checks?.[id]?.level || 'ok';
   const pendingOf = id => view?.checks?.[id]?.pending || null;
@@ -223,6 +230,112 @@
     if (document.activeElement !== $('hlPort')) $('hlPort').value = view?.settings?.lhmPort || 8085;
   }
 
+  // ------------------------------------------------------------ what's hogging it
+
+  const HOG_MOODS = new Set(['hot', 'scorching', 'dizzy']);
+  const METRIC_OF = id => (String(id).startsWith('gpu-temp') ? 'gpu' : id === 'cpu-temp' ? 'cpu' : id === 'ram' ? 'mem' : null);
+  const METRIC_LABEL = { cpu: 'CPU', gpu: 'GPU', mem: 'memory' };
+  const size = n => (n >= GB ? gb(n) : `${Math.max(1, Math.round(n / 1024 ** 2))} MB`);
+  const pct = v => `${fmt(v, v > 0 && v < 10 ? 1 : 0)}%`;
+
+  // Only while he sweats or is dizzy: that's when "why?" is the next question.
+  function hogsWanted() {
+    const m = view?.settings?.enabled && view?.mood;
+    return m && HOG_MOODS.has(m.mood) ? METRIC_OF(m.id) : null;
+  }
+
+  function renderHogs() {
+    const auto = hogsWanted();
+    $('hlHogs').hidden = !auto;
+    if (!auto) { hogMetric = null; drawnHogs = null; return; }
+    const metric = hogMetric || auto;
+    const noGpu = hogs?.procs?.length > 0 && hogs.procs.every(p => p.gpu == null);
+    for (const b of $('hlHogsSeg').querySelectorAll('button')) {
+      b.setAttribute('aria-selected', String(b.dataset.metric === metric));
+      b.hidden = b.dataset.metric === 'gpu' && noGpu;
+    }
+    if (hogs?.metric !== metric || Date.now() - hogsAt > HOGS_REFRESH_MS) loadHogs(metric);
+    const list = $('hlHogList');
+    if (!hogs || hogs.metric !== metric) {
+      drawnHogs = null;
+      list.replaceChildren(h('li', { class: 'hl-empty', text: "Looking at what's running…" }));
+      return;
+    }
+    if (drawnHogs === hogs) return;
+    drawnHogs = hogs;
+    if (!hogs.ok) return list.replaceChildren(h('li', { class: 'hl-empty', text: hogs.error }));
+    if (!hogs.procs.length) return list.replaceChildren(h('li', { class: 'hl-empty', text: `Nothing is using much ${METRIC_LABEL[metric]} right now.` }));
+    const ramTotal = view?.sample?.ram?.total || 0;
+    list.replaceChildren(...hogs.procs.map(p => hogRow(p, metric, ramTotal)));
+  }
+
+  function hogRow(p, metric, ramTotal) {
+    const share = metric === 'mem' ? (ramTotal ? p.mem / ramTotal : 0) : p[metric] / 100;
+    const rest = [
+      metric !== 'cpu' && `CPU ${pct(p.cpu)}`,
+      metric !== 'gpu' && p.gpu != null && `GPU ${pct(p.gpu)}`,
+      metric !== 'mem' && size(p.mem),
+    ].filter(Boolean).join(' · ');
+    return h('li', { class: 'hl-hog' },
+      h('div', { class: 'hl-hog-top' },
+        h('b', { class: 'hl-hog-name', text: p.name, title: `${p.name} (process ${p.pid})` }),
+        h('span', { class: 'hl-hog-rest', text: rest }),
+        h('span', { class: 'hl-hog-val', text: metric === 'mem' ? size(p.mem) : pct(p[metric]) })),
+      h('div', { class: 'hl-hog-bar', 'aria-hidden': 'true' }, h('span', { style: `transform: scaleX(${Math.min(1, Math.max(0, share)).toFixed(4)})` })),
+      p.locked
+        ? h('span', { class: 'hl-hog-locked', title: p.locked, text: 'protected' })
+        : h('button', { class: 'hl-hog-end', type: 'button', 'aria-label': `End ${p.name} (process ${p.pid})`, onclick: e => endTask(p, e.currentTarget) }, 'End task'));
+  }
+
+  async function loadHogs(metric) {
+    if (hogsLoading) return;
+    hogsLoading = true;
+    try {
+      hogs = await api.getHogs(metric);
+      hogsAt = Date.now();
+    } finally {
+      hogsLoading = false;
+    }
+    if (state.view === 'health') renderHogs();
+  }
+
+  async function endTask(p, btn) {
+    btn.disabled = true;
+    let r;
+    try { r = await api.endTask(p.pid); } finally { btn.disabled = false; }
+    if (r?.cancelled) return;
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't end that one.");
+    SB.toast(r.gone ? `${p.name} had already closed` : `Ended ${p.name}`);
+    hogsAt = 0;
+    renderHogs();
+  }
+
+  // ------------------------------------------------------------ starts with Windows
+
+  function renderStartup() {
+    const items = startup?.items || [];
+    const on = items.filter(i => !i.off).length;
+    const off = items.length - on;
+    $('hlAskStartup').disabled = !startup?.ok;
+    if (!startup?.ok) {
+      $('hlStartupSum').textContent = startup ? startup.error : 'Reading the startup list…';
+      $('hlStartup').replaceChildren();
+      return;
+    }
+    $('hlStartupSum').textContent = on
+      ? `${on} thing${on === 1 ? '' : 's'} start${on === 1 ? 's' : ''} when you sign in${off ? `, and ${off} you've switched off` : ''}.`
+      : `Nothing starts when you sign in${off ? ` (${off} switched off)` : ''}.`;
+    $('hlStartup').replaceChildren(...items.map(i => h('li', { class: `hl-start${i.off ? ' off' : ''}`, title: i.command },
+      h('span', { class: 'hl-start-name', text: i.name }),
+      i.off ? h('span', { class: 'hl-start-off', text: 'off' }) : null,
+      h('span', { class: 'hl-start-where', text: i.location }))));
+  }
+
+  async function loadStartup() {
+    startup = await api.getStartupApps();
+    if (state.view === 'health') renderStartup();
+  }
+
   // ------------------------------------------------------------ settings + log
 
   function renderSettings() {
@@ -264,6 +377,7 @@
     renderBadge();
     if (state.view !== 'health') return;
     renderHero();
+    renderHogs();
     renderGauges();
     renderDisks();
     renderSources();
@@ -279,6 +393,14 @@
     if (!r?.ok) return SB.toast(r?.error || "Couldn't start that.");
     SB.setView('chat');
     SB.toast('Shellby is looking into it');
+  }
+
+  async function askStartup() {
+    const r = await api.askAboutStartup();
+    if (r?.needsClaude) return SB.claudeUpsell('health');
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't start that.");
+    SB.setView('chat');
+    SB.toast('Shellby is going through your startup list');
   }
 
   async function save(patch) {
@@ -322,6 +444,14 @@
     saveTimer = setTimeout(() => save({ [input.dataset.key]: Number(input.value) }), 500);
   });
   $('hlThresholds').addEventListener('focusout', () => renderSettings());
+  $('hlAskStartup').addEventListener('click', askStartup);
+  $('hlHogsSeg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-metric]');
+    if (!b) return;
+    hogMetric = b.dataset.metric;
+    renderHogs();
+  });
+  $('hlHogsRefresh').addEventListener('click', () => { hogsAt = 0; renderHogs(); });
   $('hlClearLog').addEventListener('click', async () => { view = await api.clearHealthLog(); render(); });
 
   // ------------------------------------------------------------ live updates
@@ -351,6 +481,7 @@
       renderCrab();
       api.healthViewed();
       load();
+      loadStartup();
     },
   };
   SB.refreshHealthCrab = () => { if (state.view === 'health') renderCrab(); };
