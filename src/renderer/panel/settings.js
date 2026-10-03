@@ -624,6 +624,11 @@
     if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
   }
 
+  // For the places that tick a conversation off on their own (bringing a copy
+  // home and tidying it away): their toast points here, so the chat that just
+  // left the default list is one click from where it went.
+  SB.showDoneHistory = () => { historyFilter = 'done'; SB.setView('history'); };
+
   // The row's open button becomes the name field; the rest of the row stays put.
   function renameHistory(s, btn) {
     const row = btn.closest('.history-item');
