@@ -505,6 +505,8 @@ body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation:
 .composer { padding: 8px 12px 10px; border-top: 1px solid var(--line-soft); background: linear-gradient(rgba(7, 16, 18, 0), var(--abyss)); }
 .status { display: flex; align-items: center; gap: 9px; margin: 0 2px 8px; font-size: 12.5px; color: var(--sand-dim); min-width: 0; }
 .status-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-time { flex: none; font: 11.5px var(--font-mono); font-stretch: 88%; font-variant-numeric: tabular-nums; color: var(--sand-dim); opacity: .8; }
+.status-time:empty { display: none; }
 /* The working mark is the same mini shell as his gutter mark (--home-mark, set
    by boot.js), scuttling. drop-shadow, not box-shadow, so the glow follows the
    shell's outline instead of haloing its square box. Plain coral square until

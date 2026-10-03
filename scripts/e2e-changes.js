@@ -117,11 +117,12 @@ const ntfy = http.createServer((req, res) => {
 
     await ev("document.getElementById('branchChip').click()"); await wait(800); await shot('3-branch-menu'); await ev('SB.closeMenus()');
     const tabId = await ev('SB.state.activeTab');
-    const home = await ev(`shellby.bringWorktreeHome(${JSON.stringify(tabId)})`);
+    const home = await ev(`shellby.bringWorktreeHome(${JSON.stringify(tabId)}, { finish: true })`);
     check(home?.ok && home.merged && home.commits === 1 && home.base === 'main', `bring it home merges one commit into main (${JSON.stringify(home)})`);
     check(fs.readFileSync(path.join(repo, 'b.txt'), 'utf8') === 'made in the copy\n', 'the work arrives in your checkout');
     check(git('branch', '--list', 'shellby/*') === '', 'and the copy\'s branch is tidied away');
     check(git('worktree', 'list').split('\n').length === 1, 'as is the copy itself');
+    check(await ev(`shellby.listSessions().then(l => !!l.find(s => s.id === ${JSON.stringify(tabId)})?.done)`), 'and History marks the conversation done');
     await ev(`SB.closeTab(${JSON.stringify(tabId)})`);
 
     // ---- 3. answering from the phone

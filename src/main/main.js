@@ -2545,6 +2545,10 @@ function registerIpc() {
       if (pushed && !pushed.ok) return { ...merged, base: w.base, kept: true, push: pushed };
       if (!opts?.finish) return { ...merged, base: w.base, kept: true, push: pushed };
       const removed = await retireWorktree(tabId, w, { force: false });
+      // Home and the copy tidied away: that conversation's work is finished, so
+      // History ticks it off. Throw away doesn't (discarded isn't done), and
+      // giving it more work later puts it back (sessions.js).
+      history.setDone(tabId, true);
       return { ...merged, base: w.base, tidied: removed.ok, push: pushed };
     } finally {
       retiring.delete(tabId);

@@ -42,6 +42,17 @@ test('runs a turn, captures the session id and reports busy state', async () => 
   s.close();
 });
 
+test('stamps when a turn starts, for the running clock, and clears it after', async () => {
+  const { s } = makeSession();
+  assert.equal(s.busySince, null);
+  const before = Date.now();
+  s.send('hello');
+  assert.ok(s.busySince >= before && s.busySince <= Date.now());
+  await waitFor(s, i => i.kind === 'result');
+  assert.equal(s.busySince, null);
+  s.close();
+});
+
 test('a follow-up can be sent from inside the result handler', async () => {
   const { s, items } = makeSession();
   s.on('item', i => { if (i.kind === 'result' && texts(items).length === 1) s.send('second'); });
