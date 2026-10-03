@@ -640,6 +640,10 @@ function createManager() {
     getEnv: () => github?.claudeEnv() || {},
     prepareTurn: async tab => {
       tab.lastReply = null;
+      // Only the summary turn itself may start a conversation fresh (tab:fresh
+      // sets it after this runs): a summary turn that died without a result
+      // must not take the next ordinary turn with it.
+      tab.freshWanted = false;
       await armCopy(tab);
       await beginTurn(tab);
     },
@@ -983,14 +987,13 @@ function onPermission(tabId, item, tab) {
 
 function onResult(tabId, item, tab) {
   endTurn(tabId);
+  const fresh = tab.freshWanted;
+  tab.freshWanted = false;
   if (tab.copyWanted) {
     if (!item.interrupted) return moveIntoCopy(tab);
     tab.copyWanted = false;
   }
-  if (tab.freshWanted) {
-    tab.freshWanted = false;
-    if (item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
-  }
+  if (fresh && item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
@@ -1028,6 +1031,8 @@ async function startFresh(tab, summary) {
   if (!manager.tabs.has(tab.id)) return;
   session.sessionId = null;
   session.setContext(0);
+  // Until the new conversation reports its id, reopening the tab starts it afresh rather than resuming the old one.
+  history.update(tab.id, { claudeSessionId: null, context: null });
   manager.note(tab.id, { kind: 'fresh' });
   session.setBusy(false);
   try { session.send(ctx.handoffPrompt(summary), manager.prepareTurn(tab)); } catch (err) { log.info(`fresh start: ${err.message}`); }
@@ -2413,12 +2418,11 @@ function registerIpc() {
     if (!tab?.saved) return { ok: false, error: 'That conversation has nothing to sum up yet.' };
     if (tab.session.busy) return { ok: false, error: 'Let him finish first.' };
     try {
-      tab.freshWanted = true;
       manager.send(tabId, ctx.HANDOFF_ASK, { kind: 'user', text: 'Start fresh with a summary' });
+      tab.freshWanted = true; // after send: its prepareTurn clears the flag
       wake();
       return { ok: true, text: 'Start fresh with a summary' };
     } catch (err) {
-      tab.freshWanted = false;
       return { ok: false, error: err.message };
     }
   });

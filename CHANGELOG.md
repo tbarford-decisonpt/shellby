@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.0: getting crowded in here
+
+### New
+- **See how full each conversation is.** A thin bar under each tab fills as the conversation uses up Claude's context window. It turns amber past 80% and red past 95%. The **ctx** chip next to the folder shows the active tab's exact figure, for example *86% full · 172k of 200k tokens*. Click it to make room. The window size comes from Claude Code itself, so models with a 1M-token window are measured against 1M.
+- **Compact, or start fresh with a summary.** Once a conversation passes 80%, Shellby says it's getting crowded, and a strip above the box offers two ways out. **Compact** runs Claude Code's `/compact`: Claude sums up the conversation so far and carries on in the room that frees up. **Start fresh with a summary** has Claude write a handoff note (the goal, what's done, what's left, decisions and the files that matter), then starts a brand-new conversation in the same tab and hands it the note. The tab keeps its own copy of the repo and its History entry. Both actions are in the chip's menu at any time, and the strip can be dismissed until the conversation fills up again. The transcript marks each compaction (Claude Code's automatic ones too) and each fresh start.
+
 ## 0.29.0: every model
 
 ### New
