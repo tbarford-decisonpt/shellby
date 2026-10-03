@@ -24,6 +24,7 @@
 //     turn left them, and an empty box.
 //
 // All pure. See test/branch.test.js.
+const os = require('os');
 const path = require('path');
 const { onlyLooks } = require('./worktrees');
 
@@ -70,7 +71,8 @@ function plan(items, { turnId, at = 'before' } = {}) {
   // can be after the next message went in: they go by their tag.
   const tail = list.slice(cut).filter(i => tagged(i) && keptTurns.has(i.turnId));
   // ...and the ones after the cut that belong to later turns stay behind.
-  const own = kept.filter(i => !tagged(i) || keptTurns.has(i.turnId));
+  // The original's notes of its other branches are the original's, not this one's.
+  const own = kept.filter(i => (!tagged(i) || keptTurns.has(i.turnId)) && i.kind !== 'branched-off');
 
   // A fresh start ('fresh') began a new Claude conversation: nothing before it
   // can be resumed into.
@@ -157,16 +159,42 @@ const inside = (child, parent) => {
   return c === p || c.startsWith(p.endsWith(path.sep) ? p : p + path.sep);
 };
 
-// Every way a shell might spell a Windows folder: C:\x\y, C:/x/y, /c/x/y.
-function spellings(dir) {
+// Every way a shell might spell a Windows folder: C:\x\y, C:/x/y, /c/x/y,
+// C:\\x\\y inside a script's string, and ~/x, $HOME\x, %USERPROFILE%\x when
+// it's under your home folder. Lower case: commands are compared that way.
+function spellings(dir, home = os.homedir()) {
   const back = path.resolve(dir).toLowerCase();
   const fwd = back.replace(/\\/g, '/');
   const m = /^([a-z]):\/(.*)$/.exec(fwd);
-  return [back, fwd, ...(m ? [`/${m[1]}/${m[2]}`] : [])];
+  const out = [back, fwd, back.replace(/\\/g, '\\\\'), ...(m ? [`/${m[1]}/${m[2]}`, `/mnt/${m[1]}/${m[2]}`, `/cygdrive/${m[1]}/${m[2]}`] : [])];
+  const h = path.resolve(home || '/').toLowerCase();
+  if (home && back.startsWith(h + path.sep)) {
+    const rest = back.slice(h.length + 1);
+    const restFwd = rest.replace(/\\/g, '/');
+    for (const prefix of ['~', '$home', '${home}', '%userprofile%', '$env:userprofile']) out.push(`${prefix}\\${rest}`, `${prefix}/${restFwd}`);
+  }
+  return [...new Set(out)];
 }
 
-/** The folders a branch must keep out of: its original's, minus any that hold its own copy. Pure. */
-function makeFence(paths, home) {
+// Does this text name one of the fenced folders (as a whole name: C:\proj, not C:\project)?
+function names(text, fence) {
+  const t = String(text || '').toLowerCase();
+  return fence.paths.some(p => spellings(p).some(s => {
+    let at = t.indexOf(s);
+    while (at >= 0) {
+      const after = t[at + s.length];
+      if (after === undefined || /[\\/\s"'`;|&),]/.test(after)) return true;
+      at = t.indexOf(s, at + 1);
+    }
+    return false;
+  }));
+}
+
+/**
+ * The folders (and the git branch) a branch must keep out of: its original's,
+ * minus any that hold its own copy. Pure.
+ */
+function makeFence(paths, home, refs = []) {
   const seen = new Set();
   const out = [];
   for (const p of paths || []) {
@@ -175,37 +203,70 @@ function makeFence(paths, home) {
     const key = norm(p);
     if (!seen.has(key)) { seen.add(key); out.push(path.resolve(p)); }
   }
-  return out.length && home ? { paths: out, home: path.resolve(home) } : null;
+  const branches = [...new Set((refs || []).filter(r => typeof r === 'string' && /^shellby\/[a-z0-9-]+$/.test(r)))];
+  return out.length && home ? { paths: out, home: path.resolve(home), ...(branches.length ? { refs: branches } : {}) } : null;
+}
+
+const COPIES = /^(cp|copy|xcopy|robocopy|rsync|copy-item|cpi)$/;
+// Commands that change the folder the rest of a chain runs in.
+const MOVES = /^(cd|chdir|pushd|set-location|sl|push-location)$/;
+// git commands that move, rename or delete a branch.
+const REF_CHANGES = /\bgit(\.exe)?\s+(-\S+\s+)*(branch|update-ref|push|symbolic-ref|replace)\b/;
+const SWITCH = /^(-|\/[a-z?]{1,4}(:\S*)?$)/i;
+const unquote = w => w.replace(/^["']|["']$/g, '');
+
+// A copy whose destination isn't the original: bringing something across from
+// it (a .env, node_modules) into the branch's own copy.
+function copiesIn(segment, fence) {
+  const words = segment.trim().split(/\s+/).filter(Boolean).map(unquote);
+  const name = path.basename(words[0] || '').toLowerCase().replace(/\.exe$/, '');
+  if (!COPIES.test(name)) return false;
+  const named = words.findIndex(w => /^-dest(ination)?$/i.test(w));
+  const dest = named > 0 ? words[named + 1]
+    : name === 'robocopy' ? words[2]
+      : [...words.slice(1)].reverse().find(w => !SWITCH.test(w));
+  return !!dest && !names(dest, fence);
 }
 
 /**
  * Would this tool call change the original's files? (PreToolUse hook input.)
- * -> the reason to give Claude, or null to let it run. Commands that only look
- * may read the original: comparing with it is fair. Pure.
+ * -> the reason to give Claude, or null to let it run. Pure.
+ *
+ * A guard against Claude's own confusion (its memory is full of the original's
+ * paths), not a sandbox: a script can still reach anywhere. So it stays out of
+ * the way of what's fair: commands that only look may read the original, a
+ * copy may bring files across from it, and edits in its own copy always go.
  */
 function fenceDenies(fence, toolName, input) {
   if (!fence?.paths?.length || !fence.home) return null;
   const why = `That folder belongs to the conversation this one was branched from, and a branch never changes it. `
-    + `This branch works in its own copy at ${fence.home}: make the change under that path instead.`;
+    + `This branch works in its own copy at ${fence.home}: make the change under that path instead `
+    + '(copying files from the original into this copy is fine).';
   if (EDITS.has(toolName)) {
     const file = input?.file_path || input?.notebook_path;
+    // A relative path is relative to the branch's own folder.
     if (typeof file !== 'string' || !path.isAbsolute(file)) return null;
     return fence.paths.some(p => inside(file, p)) && !inside(file, fence.home) ? why : null;
   }
   if (SHELLS.has(toolName)) {
-    const cmd = String(input?.command || '').toLowerCase();
-    if (!cmd || onlyLooks(input.command)) return null;
-    const mentions = fence.paths.some(p => spellings(p).some(s => {
-      let at = cmd.indexOf(s);
-      while (at >= 0) {
-        // A whole folder name, not the start of a longer one (C:\proj vs C:\project).
-        const after = cmd[at + s.length];
-        if (after === undefined || /[\\/\s"'`;|&)]/.test(after)) return true;
-        at = cmd.indexOf(s, at + 1);
+    const cmd = String(input?.command || '');
+    if (!cmd.trim() || onlyLooks(cmd)) return null;
+    const refs = fence.refs || [];
+    // Where the chain is working: after `cd <the original>`, the rest of it
+    // runs there, whether or not it names the folder again.
+    let there = false;
+    for (const segment of cmd.split(/&&|\|\||[;|\n]/)) {
+      if (!segment.trim()) continue;
+      const first = segment.trim().split(/\s+/)[0].toLowerCase();
+      if (MOVES.test(first)) { there = names(segment, fence); continue; }
+      if (onlyLooks(segment)) continue;
+      const lower = segment.toLowerCase();
+      if (there || (names(segment, fence) && !copiesIn(segment, fence))) return why;
+      // Moving or deleting the original's branch. Merging it in is fine.
+      if (refs.some(r => lower.includes(r)) && REF_CHANGES.test(lower)) {
+        return `${refs.join(', ')} is the branch of the conversation this one was branched from, and a branch never changes it. This one works on its own branch.`;
       }
-      return false;
-    }));
-    return mentions ? why : null;
+    }
   }
   return null;
 }
@@ -246,4 +307,4 @@ function family(entries, id) {
     .sort((a, b) => a.depth - b.depth || (a.createdAt || 0) - (b.createdAt || 0));
 }
 
-module.exports = { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, MARK };
+module.exports = { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, spellings, MARK };

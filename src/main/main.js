@@ -784,8 +784,9 @@ const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 // the copy, carries the conversation across and lets Claude carry on there.
 async function armCopy(tab) {
   // A branch (branch.js) already has its copy, but Claude remembers the
-  // original's paths: the same hook keeps its changes out of them.
-  if (tab.fence && !CAPTURE) {
+  // original's paths: the same hook keeps its changes out of them. Only while
+  // that copy is the one it works in: once it's gone, so is the fence.
+  if (tab.fence && tab.worktree && !CAPTURE && path.resolve(tab.fence.home || '').toLowerCase() === path.resolve(tab.worktree.path).toLowerCase()) {
     tab.session.beforeWork = input => {
       const why = branch.fenceDenies(tab.fence, input.tool_name, input.tool_input);
       return why ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: why } } : {};
@@ -872,7 +873,9 @@ async function retireWorktree(tabId, w, { force }) {
   // The copy's diffs were snapshots in the repository's shared object store,
   // so they still read from your checkout once the folder is gone.
   const copies = (history.get(tabId)?.copies || []).filter(c => c.path !== w.path);
-  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null, copies: [...copies, { path: w.path, root: w.root }] });
+  // A branch's fence and note were about its copy (branch.js): with the copy
+  // gone it works in your checkout like any conversation, so they go too.
+  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null, fence: null, preamble: null, copies: [...copies, { path: w.path, root: w.root }] });
   return removed;
 }
 

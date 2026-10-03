@@ -97,9 +97,10 @@ async function snapshot(dir) {
  * do: they share one object store, so a snapshot of one diffs against the other)?
  */
 async function sameRepo(a, b) {
+  // Relative to the folder when git says so (and every git does, before 2.31's --path-format).
   const common = async dir => {
-    const r = await git(dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { timeout: 5000 });
-    return r.ok && r.out.trim() ? path.resolve(r.out.trim()).toLowerCase() : null;
+    const r = await git(dir, ['rev-parse', '--git-common-dir'], { timeout: 5000 });
+    return r.ok && r.out.trim() ? path.resolve(dir, r.out.trim()).toLowerCase() : null;
   };
   const [x, y] = await Promise.all([common(a), common(b)]);
   return !!x && x === y;

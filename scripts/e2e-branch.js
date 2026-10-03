@@ -203,6 +203,8 @@ git('commit', '-qm', 'init');
     check(git('worktree', 'list').split('\n').length === 1, '...and every copy');
     check(await until('SB.state.tabs.size <= 1', 10000), 'their tabs closed');
     check(!!(await entry(original)) && !!(await entry(tryB)), 'the conversations are all still in History');
+    const [ka, kb] = [await entry(tryA), await entry(tryB)];
+    check(!ka.fence && !kb.fence && !ka.worktree && !kb.worktree, 'their fences went with their copies, so reopening one works normally');
   } catch (err) {
     console.error(err);
     fails++;

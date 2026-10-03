@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family } = require('../src/main/branch');
+const { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, spellings } = require('../src/main/branch');
 
 const T = c => c.repeat(40);
 const user = (turnId, text, extra = {}) => ({ kind: 'user', turnId, text, t: 1000, ...extra });
@@ -173,6 +173,9 @@ test('the fence stops commands that would change the original, however they spel
   assert.ok(fenceDenies(fence, 'Bash', { command: 'rm -rf /c/Users/me/proj/dist' }));
   assert.ok(fenceDenies(fence, 'PowerShell', { command: 'Remove-Item "C:/Users/me/proj/x.txt"' }));
   assert.ok(fenceDenies(fence, 'Bash', { command: 'cp a.txt C:\\Users\\me\\proj' }), 'the folder itself, at the end');
+  assert.ok(fenceDenies(fence, 'PowerShell', { command: 'Set-Location C:\\Users\\me\\proj; git commit -am x' }), 'whatever runs after moving into it');
+  assert.equal(fenceDenies(fence, 'Bash', { command: 'cd C:\\Users\\me\\proj && git status' }), null, 'looking there is still fine');
+  assert.equal(fenceDenies(fence, 'Bash', { command: `cd C:\\Users\\me\\proj; cd ${COPY} && npm install` }), null, 'and moving back out ends it');
 });
 
 test('the fence lets commands only look at the original, and ignores lookalikes', () => {
@@ -211,4 +214,41 @@ test('family: a deleted original leaves its branches as their own family, and a 
   assert.deepEqual(family(orphans, 'c').map(e => e.id), ['b', 'c']);
   const loop = [{ id: 'a', branchOf: { id: 'b' } }, { id: 'b', branchOf: { id: 'a' } }];
   assert.equal(family(loop, 'a').length, 2);
+});
+
+test("the fence lets files be copied from the original into the branch's copy, never the other way", () => {
+  const orig = f => path.join(ORIGINAL, f);
+  assert.equal(fenceDenies(fence, 'Bash', { command: `cp ${orig('.env.local')} .` }), null, 'a missing .env brought across');
+  assert.equal(fenceDenies(fence, 'PowerShell', { command: `Copy-Item -Path "${orig('.env')}" -Destination "${path.join(COPY, '.env')}"` }), null);
+  assert.equal(fenceDenies(fence, 'Bash', { command: `robocopy ${orig('node_modules')} node_modules /E /NFL` }), null);
+  assert.ok(fenceDenies(fence, 'Bash', { command: `cp new.txt ${orig('new.txt')}` }), 'into the original is not');
+  assert.ok(fenceDenies(fence, 'PowerShell', { command: `Copy-Item -Path a.txt -Destination ${ORIGINAL}` }));
+  assert.ok(fenceDenies(fence, 'Bash', { command: `cp ${orig('.env')} . && rm -rf ${orig('dist')}` }), 'each part of a chain is judged on its own');
+});
+
+test('the fence knows the other ways a script spells the folder', () => {
+  const home = path.join('C:\\', 'Users', 'me');
+  const s = spellings(ORIGINAL, home);
+  const forms = [String.raw`c:\users\me\proj`, 'c:/users/me/proj', '/c/users/me/proj', '/mnt/c/users/me/proj', String.raw`c:\\users\\me\\proj`,
+    '~/proj', String.raw`~\proj`, '$home/proj', String.raw`%userprofile%\proj`, String.raw`$env:userprofile\proj`];
+  for (const form of forms) assert.ok(s.includes(form), form);
+  assert.ok(!spellings(path.join('D:\\', 'elsewhere'), home).some(x => x.startsWith('~')), 'only folders under home get ~ forms');
+  const script = String.raw`node -e "require('fs').writeFileSync('C:\\Users\\me\\proj\\x', 1)"`;
+  assert.ok(fenceDenies(fence, 'Bash', { command: script }), 'doubled backslashes in a script string');
+});
+
+test("the fence keeps the original's git branch from being moved or deleted, but lets it be merged in", () => {
+  const f = makeFence([ORIGINAL], COPY, ['shellby/fix-login-1a2b3c', 'main', '--force']);
+  assert.deepEqual(f.refs, ['shellby/fix-login-1a2b3c'], "only Shellby's own branches, never yours");
+  assert.match(fenceDenies(f, 'Bash', { command: 'git branch -D shellby/fix-login-1a2b3c' }), /branch of the conversation/);
+  assert.ok(fenceDenies(f, 'Bash', { command: 'git push origin --delete shellby/fix-login-1a2b3c' }));
+  assert.ok(fenceDenies(f, 'Bash', { command: 'git update-ref refs/heads/shellby/fix-login-1a2b3c HEAD' }));
+  assert.equal(fenceDenies(f, 'Bash', { command: 'git merge shellby/fix-login-1a2b3c' }), null, 'taking the other try\'s work in is fine');
+  assert.equal(fenceDenies(f, 'Bash', { command: 'git log shellby/fix-login-1a2b3c' }), null);
+  assert.equal(fenceDenies(f, 'Bash', { command: 'git branch -D shellby/my-own-try-9f9f9f' }), null);
+});
+
+test("a branch doesn't inherit the original's notes of its other branches", () => {
+  const items = [user('t1', 'a'), result('u1'), { kind: 'branched-off', to: 'other' }, user('t2', 'b'), result('u2')];
+  assert.ok(!plan(items, { turnId: 't2', at: 'after' }).items.some(i => i.kind === 'branched-off'));
 });

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.41.0: try again from any turn
+
+### New
+- **Try again from here.** Hover one of your messages and press the fork next to ↶. **Change it and try again** opens a new tab that remembers the conversation up to just before that message, with your message back in the box to change. **Run it again in a new tab** sends it again straight away, so you get a second take to compare. The original tab carries on exactly as it was. `/branch` does the same from the box, and the rewind menu has **Try it in a new tab instead** for when you'd rather not lose anything.
+- **Branch from here.** Under any finished reply, **branch** opens a new tab that carries on from that point, so you can take the conversation two ways at once.
+- **Each try gets its own copy of the files, as they were then.** In a git project, a branch works in its own copy of the repository on its own branch. The copy starts with the files exactly as they were at that moment of the conversation, uncommitted and untracked work included, even if the original has changed them since. The two tries never touch each other's files. If git has tidied away the files from that point, Shellby asks before using the files as they are now. In a folder that isn't a git project, the two tabs share it, and both say so.
+- **Claude knows where it is.** Before a branch's first message, Claude is told it's in a new copy and where, and Shellby keeps its edits out of the original's folder and away from the original's branch. Copying files across from the original, like a missing `.env`, is still fine.
+- **Compare two tries, then keep one.** A branch's chip lists the other tries at the same thing. **Compare with…** shows, file by file, what this one has that the other doesn't, with each file's diff a click away. **Keep this one** brings it home and throws away the other tries' copies. It asks first, listing each one and what it would lose, and does nothing if one of them starts working while you decide. If bringing it home clashes, nothing is thrown away. Every conversation stays in History.
+- Each new tab says where it came from, with a link back. The original notes where each try went, and a branch's tab shows ⑂ before its name.
+
+### Fixed
+- The quoted message at the top of the rewind menu shows on one line again, not one word per line.
+
 ## 0.40.0: visiting crabs
 
 ### New

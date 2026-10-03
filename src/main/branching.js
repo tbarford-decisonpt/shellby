@@ -9,6 +9,7 @@
 //
 // Every step that makes something (a copy, a History entry, a tab) is undone
 // if a later one fails, so a branch either opens whole or not at all.
+const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const branch = require('./branch');
@@ -48,6 +49,9 @@ function register(deps) {
     if (manager.tabs.size >= deps.MAX_TABS) return { ok: false, error: `Shellby can run up to ${deps.MAX_TABS} conversations at once. Close one first, then branch.` };
     if (manager.tabs.get(tabId)?.rewinding) return { ok: false, error: 'Rewinding: try again in a moment.' };
     busyBranching.add(tabId);
+    // Rewind (parity.js) waits while this reads the transcript it would cut.
+    const source = manager.tabs.get(tabId);
+    if (source) source.branching = true;
     try {
       return await makeBranch({ tabId, turnId, at: at === 'after' ? 'after' : 'before', send: !!send });
     } catch (err) {
@@ -55,6 +59,7 @@ function register(deps) {
       return { ok: false, error: `Couldn't make the branch: ${err.message}` };
     } finally {
       busyBranching.delete(tabId);
+      if (source) source.branching = false;
     }
   });
 
@@ -83,7 +88,14 @@ function register(deps) {
     if (made.cancelled) return { ok: false, cancelled: true, error: 'Not branched.' };
     const { copy, shared, filesNow } = made;
     const cwd = copy ? copy.cwd : sourceCwd;
-    const undoCopy = () => (copy ? worktrees.remove(copy, { force: true }) : Promise.resolve());
+    // Claude Code's record, carried to where the copy's conversation is
+    // resumed from. Put back as it was if the branch doesn't happen after all.
+    const carried = sessionFile ? path.join(configDir, 'projects', worktrees.projectDirName(cwd), path.basename(sessionFile)) : null;
+    const hadCarried = !!carried && fs.existsSync(carried);
+    const undoCopy = async () => {
+      if (carried && !hadCarried) { try { fs.rmSync(carried, { force: true }); } catch { /* best effort */ } }
+      if (copy) await worktrees.remove(copy, { force: true });
+    };
 
     if (sessionFile && !worktrees.copySession({ configDir, file: sessionFile, to: cwd })) {
       await undoCopy();
@@ -103,7 +115,8 @@ function register(deps) {
     };
     const items = [...branch.reroot(p.items, copyRoot), marker];
     const fence = copy
-      ? branch.makeFence([entry.worktree?.path, entry.worktree?.root, made.repoRoot, ...(entry.fence?.paths || [])].filter(Boolean), copy.path)
+      ? branch.makeFence([entry.worktree?.path, entry.worktree?.root, made.repoRoot, ...(entry.fence?.paths || [])].filter(Boolean), copy.path,
+        [entry.worktree?.branch, ...(entry.fence?.refs || [])])
       : null;
     try {
       history.create({ id: newId, title: branch.branchTitle(sourceTitle), cwd, mode: entry.mode, routineId: null });
@@ -124,7 +137,8 @@ function register(deps) {
 
     // The original says where its branch went, so you can find it again.
     const off = { t: Date.now(), kind: 'branched-off', to: newId, title: branch.branchTitle(sourceTitle), at, turnId, text: snippet(msg), ...(copy ? { branch: copy.branch } : {}) };
-    if (tab) manager.note(tabId, off); else history.append(tabId, off);
+    // Asked now, not when it began: the original may have closed while it was made.
+    if (manager.tabs.has(tabId)) manager.note(tabId, off); else history.append(tabId, off);
 
     // "Run it again": the same message goes straight away, so two takes run side by side.
     let sent = false;
@@ -287,16 +301,24 @@ function register(deps) {
     const tab = isStr(tabId) ? manager.tabs.get(tabId) : null;
     if (!tab) return { ok: false, error: 'That conversation is closed.' };
     if (tab.session.busy) return { ok: false, error: 'Let him finish first.' };
-    const others = branch.family(history.list(), tabId)
+    const othersNow = () => branch.family(history.list(), tabId)
       .filter(e => e.id !== tabId)
       .map(e => ({ id: e.id, title: manager.tabs.get(e.id)?.title || e.title, w: manager.tabs.get(e.id)?.worktree || e.worktree, busy: !!manager.tabs.get(e.id)?.session.busy }))
       .filter(o => ours(o.w));
+    const others = othersNow();
     const working = others.find(o => o.busy);
     if (working) return { ok: false, error: `"${working.title}" is still working. Let it finish (or stop it) first.` };
     const mine = ours(tab.worktree) ? tab.worktree : null;
     if (!mine && !others.length) return { ok: false, error: 'There are no other tries with copies to throw away.' };
 
-    const list = others.map(o => `• ${o.title} (${o.w.branch})`).join('\n');
+    // What each would lose, so "thrown away" is never a surprise.
+    const lose = async w => {
+      const s = await worktrees.status(w);
+      if (!s.ok) return '';
+      const bits = [s.ahead ? `${s.ahead} commit${s.ahead === 1 ? '' : 's'}` : null, s.uncommitted ? `${s.uncommitted} uncommitted file${s.uncommitted === 1 ? '' : 's'}` : null].filter(Boolean);
+      return bits.length ? `: ${bits.join(', ')}` : ': nothing new';
+    };
+    const list = (await Promise.all(others.map(async o => `• ${o.title} (${o.w.branch})${await lose(o.w)}`))).join('\n');
     const r = await deps.ask({
       icon: '⑂', title: 'Keep this one?',
       message: mine
@@ -306,6 +328,13 @@ function register(deps) {
       buttons: [{ label: 'Keep this one', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
     });
     if (r !== 0) return { ok: false, cancelled: true };
+    // Anything could have happened while the question was open: a try that
+    // started working, or one that appeared, is never thrown away unasked.
+    const now = othersNow();
+    const changed = now.find(o => o.busy) || now.find(o => !others.some(x => x.id === o.id));
+    if (changed || tab.session.busy || !manager.tabs.has(tabId)) {
+      return { ok: false, error: changed ? `"${changed.title}" changed while you were deciding, so nothing was done. Try again.` : 'This one started working while you were deciding, so nothing was done.' };
+    }
 
     // Home first: if it clashes, nothing has been thrown away.
     let home = null;

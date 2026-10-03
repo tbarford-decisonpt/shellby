@@ -68,6 +68,11 @@ class SessionManager extends EventEmitter {
   onItem(tab, item) {
     // A rewind's fork exists once Claude Code reports its id: from then on it's an ordinary resume.
     if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId, resumeAt: null });
+    if (item.kind === 'init' && tab.preambleSent) {
+      tab.preamble = null;
+      tab.preambleSent = false;
+      if (tab.saved) this.history.update(tab.id, { preamble: null });
+    }
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
@@ -93,10 +98,12 @@ class SessionManager extends EventEmitter {
     this.history.append(tab.id, userItem);
     tab.turnId = userItem.turnId; // the turn now starting, for what main.js notes about it (its diff)
     tab.outcome = null;
-    if (tab.preamble) {
+    // The note goes with the first real message (a /command must still start
+    // with its slash), and is only forgotten once Claude has started with it:
+    // if the process never starts, the next message takes it instead.
+    if (tab.preamble && !(typeof prompt === 'string' && prompt.trimStart().startsWith('/'))) {
       prompt = withPreamble(prompt, tab.preamble);
-      tab.preamble = null;
-      this.history.update(tab.id, { preamble: null });
+      tab.preambleSent = true;
     }
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();

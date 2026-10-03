@@ -250,10 +250,13 @@ async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, o
     await remove({ path: wt, root: repoRoot, branch, base }, { force: true });
     return { ok: false, error: `Couldn't put the files back as they were: ${firstLine((index || files).error)}` };
   }
-  const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
+  // The tab's folder inside the copy, unless a link would lead it out of it.
+  const sub = rel ? path.join(wt, ...rel.split('/')) : wt;
+  const real = longPath(sub);
+  const cwd = fs.existsSync(sub) && (real + path.sep).toLowerCase().startsWith(longPath(wt).toLowerCase() + path.sep) ? sub : wt;
   return {
     ok: true,
-    worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base, root: path.resolve(repoRoot), originalCwd: path.resolve(originalCwd || repoRoot) },
+    worktree: { path: wt, cwd, branch, base, root: path.resolve(repoRoot), originalCwd: path.resolve(originalCwd || repoRoot) },
   };
 }
 
