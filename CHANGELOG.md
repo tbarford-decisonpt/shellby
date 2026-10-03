@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.39.0: visiting crabs
+
+### New
+- **Friends' crabs come to visit.** Turn on **Visiting crabs** in Settings → Connections → GitHub and add friends by their GitHub username. Now and then, when Shellby is idle and not guarding your focus, a friend's crab strolls onto your desktop next to him for a few minutes, in their own outfit, colors and shell, with their name above it. Shellby says who dropped by. Want company now? Press **Invite over**.
+- **They hang out.** A few times during a visit the two crabs do something together: a dance with notes floating up, a party with confetti and jumping, a claw-bump high five, or a little duet. Shellby says something to match. If a task starts or you're in a focus session, they skip it.
+- **A guestbook with souvenirs.** Every visit signs your guestbook, and the visitor leaves a keepsake: sea glass, a sand dollar, a pearl, a bottle cap and more. Which one depends on who came and on which day, so regulars bring a mix.
+- **Waves.** Send a friend a wave ("loves the outfit", "go ship it!", "go to bed!" and a few more) and it pops up in their crab's bubble and their Waves list. These are fixed lines, so nobody can make your crab say anything else, and only friends you added get through.
+- **Two new trophies.** *Open House* (a friend's crab drops by) unlocks Sea Glass and a Friendship Cord. *Pen Pals* (wave 5 times) unlocks a Message in a Bottle.
+- **How it works, and what's public.** There's no Shellby server. Your crab gets a small public *calling card* gist with its look and level under your GitHub username, and nothing else: no stats, projects or history. Waves are comments on that gist. Shellby asks before putting the card up, a first sign-in never turns this on, and switching it off or signing out deletes the card.
+
 ## 0.38.0: Claude sets up routines
 
 ### New

@@ -691,6 +691,20 @@
           <p class="small ext-status" id="ghSyncStatus"></p>
           <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
         </div>
+        <label class="toggle"><input type="checkbox" id="ghFriends"><span class="switch"></span>Visiting crabs: friends' crabs drop by, leave souvenirs and wave (a public calling card gist)</label>
+        <div class="gh-friends" id="ghFriendsRow" hidden>
+          <div class="gh-ci-head"><p class="small ext-status" id="frStatus"></p><button type="button" class="btn ghost slim-btn" id="frRefresh">Check now</button></div>
+          <form class="fr-add" id="frAddForm">
+            <input type="text" class="field" id="frAddInput" placeholder="Friend's GitHub username" aria-label="Friend's GitHub username" spellcheck="false" autocomplete="off" maxlength="60">
+            <button type="submit" class="btn slim-btn" id="frAdd">Add friend</button>
+          </form>
+          <ul class="fr-list" id="frList" aria-label="Friends"></ul>
+          <h4 class="fr-head" id="frInboxHead" hidden>Waves</h4>
+          <ul class="fr-inbox" id="frInbox"></ul>
+          <h4 class="fr-head">Guestbook</h4>
+          <div class="fr-souvenirs" id="frSouvenirs" aria-label="Souvenirs"></div>
+          <ul class="fr-guestbook" id="frGuestbook"></ul>
+        </div>
         <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
         <div class="gh-ci" id="ghCiRow" hidden>
           <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
@@ -918,6 +932,7 @@
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
 <script src="github.js"></script>
+<script src="friends.js"></script>
 <script src="nav.js"></script>
 <script src="boot.js"></script>
 </body>

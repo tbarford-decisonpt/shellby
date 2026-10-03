@@ -38,3 +38,27 @@
 .gh-ci-tag { flex: none; font-size: 11px; color: var(--sand-dim); opacity: .8; }
 .gh-ci-pr .slim-btn { flex: none; height: 26px; }
 @media (prefers-reduced-motion: reduce) { .ci-pending .gh-ci-dot { animation: none; } }
+
+/* Visiting crabs */
+.gh-friends { margin: -2px 0 10px 46px; }
+.gh-friends .gh-ci-head { margin-bottom: 6px; }
+.fr-add { display: flex; gap: 8px; margin-bottom: 8px; }
+.fr-add .field { flex: 1; min-width: 0; }
+.fr-list, .fr-inbox, .fr-guestbook { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fr-friend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
+.fr-crab { flex: none; width: 48px; height: 30px; }
+.fr-crab-none { display: grid; place-items: center; border-radius: var(--r); border: 1px dashed var(--line); color: var(--sand-dim); font: 600 13px "Martian Mono", monospace; }
+.fr-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fr-who b, .fr-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* actions on their own line, under the name: the panel is too narrow for one row */
+.fr-actions { flex: 1 0 100%; display: flex; align-items: center; gap: 4px; padding-left: 58px; }
+.fr-actions .slim-btn { height: 26px; }
+.fr-wave { flex: 1; min-width: 0; height: 26px; padding: 0 6px; font-size: 12px; }
+.fr-remove { width: 26px; padding: 0; margin-left: 4px; }
+.fr-head { margin: 12px 0 6px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--sand-dim); }
+.fr-inbox li, .fr-guestbook li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.fr-souvenirs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.fr-souvenirs p { margin: 0 !important; }
+.fr-souvenir { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
+.fr-souvenir i { position: absolute; right: 2px; bottom: 0; font: 600 9px "Martian Mono", monospace; font-style: normal; color: var(--sand-dim); }
+.fr-keepsake { flex: none; }
