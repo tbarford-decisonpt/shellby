@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.0: Haunted Shell
+
+### New
+- **Haunted Shell, a new Spooky Season pack.** Eight things to wear: a jack-o'-lantern, cat ears, a costume mask, a vampire collar, a dripping candle, a caramel apple, a cobweb and a little ghost buddy who floats over his shell. Three effects: dangling spiders, will-o'-wisps and a burst of candy corn. Two new crabs: **Skeleton** and **Pumpkin Patch**.
+- Like every seasonal item, they're yours to keep if Shellby is running while Spooky Season is on (October 1 to November 2). It's on now.
+
 ## 0.47.0: say it
 
 ### New
