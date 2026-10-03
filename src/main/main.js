@@ -8,6 +8,7 @@ const os = require('os');
 const { randomUUID } = require('crypto');
 
 const { Config, MODES } = require('./config');
+const { MODELS, isModel } = require('./models');
 const { History } = require('./history');
 const { SessionManager } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, run: runCli } = require('./claude-cli');
@@ -44,6 +45,7 @@ const focus = require('./focus');
 const limits = require('./limits');
 const spend = require('./spend');
 const recap = require('./recap');
+const ctx = require('./context');
 const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
@@ -638,12 +640,20 @@ function createManager() {
     getEnv: () => github?.claudeEnv() || {},
     prepareTurn: async tab => {
       tab.lastReply = null;
+      // Only the summary turn itself may start a conversation fresh (tab:fresh
+      // sets it after this runs): a summary turn that died without a result
+      // must not take the next ordinary turn with it.
+      tab.freshWanted = false;
       await armCopy(tab);
       await beginTurn(tab);
     },
   });
 
   manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
+  // A conversation past the crowded mark: he says so, and the panel offers to make room.
+  manager.on('context', (_tabId, now, before, tab) => {
+    if (ctx.crossed(before, now) && !tab.routineId) sayText('Getting crowded in here.', 'crowded');
+  });
 
   manager.on('item', (tabId, item, tab) => {
     if (item.kind === 'usage') {
@@ -977,10 +987,13 @@ function onPermission(tabId, item, tab) {
 
 function onResult(tabId, item, tab) {
   endTurn(tabId);
+  const fresh = tab.freshWanted;
+  tab.freshWanted = false;
   if (tab.copyWanted) {
     if (!item.interrupted) return moveIntoCopy(tab);
     tab.copyWanted = false;
   }
+  if (fresh && item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
@@ -1006,6 +1019,23 @@ function onResult(tabId, item, tab) {
   notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
     item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
     () => showPanel({ tabId }));
+}
+
+// "Start fresh with a summary": the summary turn has ended, so the same tab
+// begins a new Claude conversation (no --resume) with the summary as its first
+// message. The tab keeps its copy, its History entry and its transcript.
+async function startFresh(tab, summary) {
+  const session = tab.session;
+  session.setBusy(true); // a message typed meanwhile waits for the new conversation
+  await session.stop();
+  if (!manager.tabs.has(tab.id)) return;
+  session.sessionId = null;
+  session.setContext(0);
+  // Until the new conversation reports its id, reopening the tab starts it afresh rather than resuming the old one.
+  history.update(tab.id, { claudeSessionId: null, context: null });
+  manager.note(tab.id, { kind: 'fresh' });
+  session.setBusy(false);
+  try { session.send(ctx.handoffPrompt(summary), manager.prepareTurn(tab)); } catch (err) { log.info(`fresh start: ${err.message}`); }
 }
 
 // While Shellby guards your focus, notifications that can wait are held back
@@ -2304,6 +2334,7 @@ function registerIpc() {
       cwd: CAPTURE ? `${demoHome}\\Downloads` : currentCwd(),
       home: CAPTURE ? demoHome : os.homedir(),
       packaged: app.isPackaged,
+      models: MODELS,
       updates: updateView(),
       registryUrl: registryUrl(),
       startView: (() => { const v = startView; startView = null; return v; })(),
@@ -2383,6 +2414,20 @@ function registerIpc() {
     }
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (isStr(tabId)) manager.interrupt(tabId); });
+  // A crowded conversation: Claude writes a summary, then onResult starts it fresh.
+  ipcMain.handle('tab:fresh', (_e, tabId) => {
+    const tab = isStr(tabId) && manager.tabs.get(tabId);
+    if (!tab?.saved) return { ok: false, error: 'That conversation has nothing to sum up yet.' };
+    if (tab.session.busy) return { ok: false, error: 'Let him finish first.' };
+    try {
+      manager.send(tabId, ctx.HANDOFF_ASK, { kind: 'user', text: 'Start fresh with a summary' });
+      tab.freshWanted = true; // after send: its prepareTurn clears the flag
+      wake();
+      return { ok: true, text: 'Start fresh with a summary' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
   ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
     if (!isStr(tabId) || !isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
     // AskUserQuestion answers: a small plain object of question -> answer strings.
@@ -2433,14 +2478,109 @@ function registerIpc() {
       const merged = await worktrees.bringHome(w, { message: `Shellby: ${manager.tabs.get(tabId)?.title || 'work from a tab'}` });
       if (!merged.ok) return merged;
       recordWork(w.originalCwd);
-      if (!opts?.finish) {
-        if (merged.merged) manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
-        return { ...merged, base: w.base, kept: true };
-      }
+      if (merged.merged) manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
+      // And on to GitHub. A push that fails leaves the merge where it is: the
+      // copy stays, so the push can be tried again from the folder menu.
+      const pushed = opts?.push ? await pushHome(w.root, { base: w.base, tabId }) : null;
+      if (pushed && !pushed.ok) return { ...merged, base: w.base, kept: true, push: pushed };
+      if (!opts?.finish) return { ...merged, base: w.base, kept: true, push: pushed };
       const removed = await retireWorktree(tabId, w, { force: false });
-      return { ...merged, base: w.base, tidied: removed.ok };
+      return { ...merged, base: w.base, tidied: removed.ok, push: pushed };
     } finally {
       retiring.delete(tabId);
+    }
+  });
+
+  // ---- the repository as a whole: push it, and bring every copy home
+  //
+  // Both act on your checkout, so neither runs while a conversation is
+  // working in it (a merge from the remote would land under its feet).
+  const sameDir = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+  const repoOf = async tabId => {
+    const tab = isStr(tabId) ? manager.tabs.get(tabId) : null;
+    if (tab?.worktree) return worktreeOf(tabId)?.root || null;
+    const root = await changes.rootOf(tab?.session?.cwd || config.get('cwd'));
+    const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
+    return root && !(path.resolve(root) + path.sep).toLowerCase().startsWith(home) ? root : null;
+  };
+  const busyInCheckout = root => [...manager.tabs.values()].some(t => !t.worktree && t.session?.busy && t.session.cwd
+    && (path.resolve(t.session.cwd) + path.sep).toLowerCase().startsWith(path.resolve(root).toLowerCase() + path.sep));
+  // Every copy of this repository with a record Shellby trusts: open tabs (not
+  // mid-turn, not mid bring-home) and conversations in History that still have one.
+  const copiesOf = root => {
+    const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
+    const ours = w => w && typeof w.path === 'string' && typeof w.root === 'string'
+      && path.resolve(w.path).toLowerCase().startsWith(home) && sameDir(w.root, root) && !worktrees.checkWorktree(w);
+    const open = [...manager.tabs.entries()].filter(([, t]) => ours(t.worktree)).map(([id, t]) => ({ id, w: t.worktree, title: t.title, busy: !!t.session?.busy || retiring.has(id) }));
+    const shut = history.list().filter(e => !manager.tabs.has(e.id) && ours(e.worktree)).map(e => ({ id: e.id, w: e.worktree, title: e.title, busy: false }));
+    const seen = new Set();
+    return [...open, ...shut].filter(c => !seen.has(c.w.branch) && seen.add(c.w.branch));
+  };
+  let repoBusy = false;
+  async function pushHome(root, { base, tabId } = {}) {
+    if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
+    const r = await worktrees.pushBase(root, { base });
+    if (r.ok && r.pushed) {
+      awardXp('ship', { project: path.basename(root) });
+      if (tabId) manager.note(tabId, { kind: 'pushed', branch: r.branch, remote: r.remote, commits: r.pushed, pulled: r.pulled });
+    }
+    if (!r.ok) {
+      log.info(`push: ${r.error}`);
+      // What a pre-push hook said goes in the conversation, where it can be read in full.
+      if (r.detail && tabId) manager.note(tabId, { kind: 'error', text: `${r.error}
+
+${r.detail}` });
+    }
+    return r;
+  }
+
+  ipcMain.handle('repo:status', async (_e, tabId, opts) => {
+    const root = await repoOf(tabId);
+    if (!root) return { ok: false, error: 'Not a git repository.' };
+    const [s, copies] = await Promise.all([
+      worktrees.remoteStatus(root, { fetch: !!opts?.fetch }),
+      Promise.all(copiesOf(root).map(async c => ({ ...c, s: await worktrees.status(c.w) }))),
+    ]);
+    const waiting = copies.filter(c => c.s.ok && (c.s.ahead || c.s.uncommitted));
+    return { ...s, root, name: path.basename(root), copies: waiting.length, copiesBusy: waiting.filter(c => c.busy).length };
+  });
+  ipcMain.handle('repo:push', async (_e, tabId) => {
+    const root = await repoOf(tabId);
+    if (!root) return { ok: false, error: 'Not a git repository.' };
+    if (repoBusy) return { ok: false, error: 'Already on it.' };
+    repoBusy = true;
+    try { return await pushHome(root, { tabId }); } finally { repoBusy = false; }
+  });
+  ipcMain.handle('repo:home-all', async (_e, tabId, opts) => {
+    const root = await repoOf(tabId);
+    if (!root) return { ok: false, error: 'Not a git repository.' };
+    if (repoBusy) return { ok: false, error: 'Already on it.' };
+    if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
+    const list = copiesOf(root).filter(c => !c.busy);
+    const busy = copiesOf(root).length - list.length;
+    repoBusy = true;
+    for (const c of list) retiring.add(c.id);
+    try {
+      const titles = new Map(list.map(c => [c.w.branch, c.title]));
+      const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => `Shellby: ${titles.get(w.branch) || 'work from a tab'}` });
+      for (const x of r.results) {
+        const c = list.find(l => l.w.branch === x.branch);
+        if (x.ok && x.merged && c && manager.tabs.has(c.id)) manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });
+      }
+      const merged = r.results.filter(x => x.ok && x.merged);
+      if (merged.length) recordWork(root);
+      const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
+      const out = {
+        ok: r.ok, root, busy,
+        merged: merged.length, commits: merged.reduce((n, x) => n + x.commits, 0),
+        skipped: r.results.filter(x => x.skipped).length,
+        stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: manager.tabs.has(clash.id) ? clash.id : null, base: clash.w.base, error: r.results.at(-1).error, conflict: !!r.results.at(-1).conflict } : null,
+      };
+      if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
+      return out;
+    } finally {
+      for (const c of list) retiring.delete(c.id);
+      repoBusy = false;
     }
   });
   ipcMain.handle('worktree:discard', async (_e, tabId) => {
@@ -2473,6 +2613,14 @@ function registerIpc() {
     if (isStr(id)) history.setDone(id, !!done);
     return history.list();
   });
+  // From the tab strip or a History row. An open tab goes through the manager so
+  // its strip, notifications and (if not yet sent anything) first save agree.
+  ipcMain.handle('session:rename', (_e, { id, title } = {}) => {
+    if (isStr(id) && isStr(title)) {
+      if (manager.tabs.has(id)) manager.rename(id, title); else history.rename(id, title);
+    }
+    return history.list();
+  });
 
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
@@ -2501,7 +2649,7 @@ function registerIpc() {
     if (allowed.mode === 'autonomous' && !config.get('autonomousAcknowledged') && allowed.autonomousAcknowledged !== true) delete allowed.mode;
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
-    if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
+    if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
@@ -2955,6 +3103,10 @@ function registerIpc() {
     const img = isPng ? nativeImage.createFromBuffer(buf) : null;
     return img && !img.isEmpty() ? { buf, img } : null;
   };
+  const copyCard = img => {
+    if (isolated) return true;
+    try { clipboard.writeImage(img); return true; } catch (e) { log.warn("couldn't copy a crab card", e?.message); return false; }
+  };
   ipcMain.handle('card:save', (_e, bytes) => {
     const card = cardImage(bytes);
     if (!card) return { ok: false, error: "That card didn't come out right." };
@@ -2964,17 +3116,20 @@ function registerIpc() {
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
       lastCard = path.join(dir, `shellby-card-${stamp}.png`);
       fs.writeFileSync(lastCard, card.buf);
-      if (!isolated) clipboard.writeImage(card.img);
-      stat('card-shared');
-      return { ok: true, name: path.join('Pictures', 'Shellby', path.basename(lastCard)) };
-    } catch {
+    } catch (e) {
+      log.warn("couldn't save a crab card", e?.message);
       return { ok: false, error: "Couldn't save the card to Pictures." };
     }
+    stat('card-shared');
+    // The file is the save; the clipboard is a bonus. Another app holding the
+    // clipboard (clipboard history, a screenshot tool) mustn't turn a saved
+    // card into a "couldn't save" — the sheet's Copy button can try again.
+    const copied = copyCard(card.img);
+    return { ok: true, copied, name: path.join('Pictures', 'Shellby', path.basename(lastCard)) };
   });
   ipcMain.handle('card:copy', (_e, bytes) => {
     const card = cardImage(bytes);
-    if (card && !isolated) clipboard.writeImage(card.img);
-    return { ok: !!card };
+    return { ok: !!card && copyCard(card.img) };
   });
   ipcMain.on('card:reveal', () => { if (lastCard && fs.existsSync(lastCard)) shell.showItemInFolder(lastCard); });
 

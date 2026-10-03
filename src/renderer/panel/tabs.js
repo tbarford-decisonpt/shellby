@@ -7,6 +7,7 @@
   // ------------------------------------------------------------ tabs
 
   let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
+  let renaming = null;  // the tab whose name is being edited in the strip (see "rename")
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
 
@@ -21,8 +22,9 @@
     Object.assign(tab, {
       title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy,
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
-      unread: !!summary.unread, saved: summary.saved ?? tab.saved, routineId: summary.routineId ?? tab.routineId,
+      unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
+      context: summary.context !== undefined ? summary.context : tab.context || null,
     });
     return tab;
   };
@@ -38,6 +40,7 @@
     autosize();
     renderAttachments();
     applyFolderLabel(tab.cwd || state.cwd, tab);
+    syncContextUi();
     syncBusyUi();
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
@@ -96,6 +99,7 @@
     syncBusyUi();
     const active = SB.activeTab();
     if (active) applyFolderLabel(active.cwd || state.cwd, active); // its first change can move it into its own copy
+    syncContextUi();
     SB.renderTabStrip();
   };
 
@@ -155,20 +159,25 @@
 
   SB.renderTabStrip = () => {
     const strip = $('tabs');
+    // Redrawing would throw away the name being typed; finishing the edit redraws.
+    if (renaming && strip.querySelector('.title-edit')) return;
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
       const btn = h('div', {
         class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
-        role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1', title: t.title,
+        role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
+        title: t.context ? `${t.title}
+${contextText(t.context)}` : t.title,
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
         onpointerdown: e => dragStart(e, t.id),
-        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); },
+        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); else if (e.key === 'F2') { e.preventDefault(); SB.renameTab(t.id); } },
       },
       tabIcon(t),
-      h('span', { class: 'tab-title', text: t.isEmpty && !t.saved ? 'New task' : t.title }),
-      h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'));
+      h('span', { class: 'tab-title', text: shownTitle(t) }),
+      h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
+      t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
       return btn;
     }));
     // Not while dragging: following the active tab would fight the strip's own
@@ -178,6 +187,66 @@
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
   };
+  const shownTitle = t => t.isEmpty && !t.saved && !t.named ? 'New task' : t.title;
+
+  // ------------------------------------------------------------ rename
+
+  // Double-click a tab (or F2 on it) to name it. Watched on the strip rather than
+  // with dblclick on the tab, because the first click activates the tab, which
+  // redraws the strip, and the second click lands on a different element.
+  const DOUBLE_MS = 400;
+  let lastClick = null;
+  $('tabs').addEventListener('click', e => {
+    const el = e.target.closest('.tab');
+    if (!el || e.target.closest('.tab-x, .title-edit')) return;
+    const id = el.dataset.tabId;
+    const again = lastClick && lastClick.id === id && e.timeStamp - lastClick.at < DOUBLE_MS;
+    lastClick = again ? null : { id, at: e.timeStamp };
+    if (again) SB.renameTab(id);
+  });
+
+  SB.renameTab = (tabId) => {
+    const tab = state.tabs.get(tabId);
+    const el = [...$('tabs').children].find(c => c.dataset.tabId === tabId)?.querySelector('.tab-title');
+    if (!tab || !el || renaming) return;
+    renaming = tabId;
+    SB.editTitle(el, shownTitle(tab), async title => {
+      renaming = null;
+      if (title) {
+        tab.title = title;
+        if (!tab.saved) tab.named = true;
+        state.sessions = await api.renameSession(tabId, title);
+      }
+      SB.renderTabStrip();
+      if (state.view === 'history') SB.views.history.redraw?.();
+    });
+  };
+
+  // Swaps `el` for a text field holding `current`. Enter or leaving the field
+  // saves, Escape doesn't; done(name) gets the new name, or null for no change.
+  SB.editTitle = (el, current, done) => {
+    const field = h('input', { class: 'title-edit', type: 'text', maxlength: 70, spellcheck: 'false', 'aria-label': 'Conversation name' });
+    field.value = current;
+    let over = false;
+    const finish = save => {
+      if (over) return;
+      over = true;
+      const name = field.value.replace(/\s+/g, ' ').trim();
+      done(save && name && name !== current ? name : null);
+    };
+    field.addEventListener('keydown', e => {
+      e.stopPropagation(); // Escape, Ctrl+W and friends belong to the field while it's open
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    field.addEventListener('blur', () => finish(true));
+    // Not a click on the tab or row underneath, and not the start of a drag.
+    for (const type of ['click', 'pointerdown', 'auxclick']) field.addEventListener(type, e => e.stopPropagation());
+    el.replaceWith(field);
+    field.focus();
+    field.select();
+  };
+
   $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   $('newTabBtn').addEventListener('click', () => SB.newTab());
 
@@ -303,7 +372,7 @@
     tab.busy = true;
     tab.saved = true;
     tab.statusText = 'Working…';
-    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
+    if (tab.title === 'New task' && !tab.named) tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
     return true;
@@ -433,7 +502,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden || !$('usageMenu').hidden) return SB.closeMenus();
+      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden || !$('ctxMenu').hidden || !$('usageMenu').hidden) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return api.hide();
@@ -572,6 +641,7 @@
   SB.chooseMode = async (mode, { quiet = false } = {}) => {
     if (mode === 'autonomous' && !state.settings.autonomousAcknowledged) {
       SB.setView('settings');
+      SB.showSettingsTab('claude');
       $('autonomousConfirm').hidden = false;
       $('autonomousConfirm').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
@@ -647,8 +717,106 @@
       h('button', { class: 'menu-item', onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.pickFolder()); } }, h('span', { class: 'mi-check', text: '+' }), h('span', { class: 'mi-title', text: 'Choose folder…' })),
       recents.length ? h('div', { class: 'menu-label', text: 'Recent' }) : null,
       ...recents.map(d => h('button', { class: 'menu-item path', title: d, onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.setFolder(d)); } }, SB.tildify(d))),
+      ...repoItems(tab),
     ];
   }));
+
+  // ------------------------------------------------------------ the repository: push it, bring every copy home
+
+  const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
+
+  // Filled in as the status comes back: first as of the last fetch, then
+  // again once the remote has been asked.
+  function repoItems(tab) {
+    const sep = h('div', { class: 'menu-sep', hidden: true });
+    const label = h('div', { class: 'menu-label', text: 'This repository', hidden: true });
+    const pushTitle = h('div', { class: 'mi-title', text: 'Push' });
+    const pushSub = h('div', { class: 'mi-sub' });
+    const pushBtn = h('button', { class: 'menu-item', hidden: true, disabled: true, onclick: () => { SB.closeMenus(); pushRepo(tab); } },
+      h('span', { class: 'mi-check', text: '⇡' }), h('span', {}, pushTitle, pushSub));
+    const homeSub = h('div', { class: 'mi-sub' });
+    const homeBtn = h('button', { class: 'menu-item', hidden: true, onclick: () => { SB.closeMenus(); bringAll(tab); } },
+      h('span', { class: 'mi-check', text: '↩' }), h('span', {}, h('div', { class: 'mi-title', text: 'Bring all home' }), homeSub));
+    const bothSub = h('div', { class: 'mi-sub' });
+    const bothBtn = h('button', { class: 'menu-item', hidden: true, onclick: () => { SB.closeMenus(); bringAll(tab, { push: true }); } },
+      h('span', { class: 'mi-check', text: '⇈' }), h('span', {}, h('div', { class: 'mi-title', text: 'Bring all home and push' }), bothSub));
+
+    const show = s => {
+      if (!s?.ok) return; // not a repository, or not on a branch: nothing to offer
+      sep.hidden = label.hidden = pushBtn.hidden = false;
+      pushTitle.textContent = `Push ${s.branch}`;
+      const checking = s.fetched || !s.remote ? '' : ' (checking…)';
+      const bits = [];
+      if (s.ahead) bits.push(`${plural(s.ahead, 'commit')} to push`);
+      if (s.behind) bits.push(`${s.behind} to take in from ${s.remote} first`);
+      pushSub.textContent = !s.remote ? 'No remote to push to.' : bits.length ? `${bits.join(' · ')}${checking}` : `Up to date with ${s.upstream}${checking}`;
+      pushBtn.disabled = !s.remote || (!s.ahead && !s.behind);
+
+      homeBtn.hidden = bothBtn.hidden = !s.copies;
+      const ready = s.copies - s.copiesBusy;
+      const busy = s.copiesBusy ? `; ${s.copiesBusy} still working, left for later` : '';
+      homeSub.textContent = `${plural(s.copies, 'copy', 'copies')} with work not in ${s.branch} yet${busy}. Merged one at a time`;
+      bothSub.textContent = s.remote ? `Then push ${s.branch} to ${s.remote}` : 'No remote to push to.';
+      homeBtn.disabled = !ready;
+      bothBtn.disabled = !ready || !s.remote;
+    };
+    api.repoStatus(tab?.id).then(s => {
+      show(s);
+      if (s?.ok && s.remote) api.repoStatus(tab?.id, { fetch: true }).then(f => show(f?.ok ? f : { ...s, fetched: true }));
+    });
+    return [sep, label, pushBtn, homeBtn, bothBtn];
+  }
+
+  function pushNews(r) {
+    if (r.pushed) return `Pushed ${plural(r.pushed, 'commit')} to ${r.remote}/${r.branch}${r.pulled ? `, after taking in ${r.pulled} from ${r.remote}` : ''}.`;
+    if (r.pulled) return `Took in ${plural(r.pulled, 'commit')} from ${r.remote}; nothing of yours to push.`;
+    return `${r.branch} is already up to date with ${r.remote}.`;
+  }
+
+  // A push that fails: a clash can be handed to Claude; a hook's refusal is
+  // written into the conversation by main, in full.
+  function pushTrouble(tab, r) {
+    if (r?.conflict && tab) {
+      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
+        SB.activate(tab.id);
+        SB.send(`Run git fetch, then merge ${r.upstream} into this branch (git merge ${r.upstream}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready${tab.worktree ? ' to bring home and push' : ' to push'}.`);
+      } });
+      return;
+    }
+    SB.toast(`${r?.error || "Couldn't push."}${r?.detail ? ' What git said is in the conversation.' : ''}`, { ms: 10000 });
+  }
+
+  async function pushRepo(tab) {
+    SB.toast('Pushing…', { ms: 30000 });
+    const r = await api.pushRepo(tab?.id);
+    if (r?.ok) return SB.toast(pushNews(r), { ms: 6000 });
+    pushTrouble(tab, r);
+  }
+
+  async function bringAll(tab, { push = false } = {}) {
+    SB.toast(push ? 'Bringing them all home, then pushing…' : 'Bringing them all home…', { ms: 30000 });
+    const r = await api.bringAllHome(tab?.id, { push });
+    if (!r || (r.error && !r.results && !r.stopped && r.merged === undefined)) return SB.toast(r?.error || "Couldn't bring them home.", { ms: 8000 });
+    const bits = [r.merged ? `Merged ${plural(r.merged, 'copy', 'copies')} (${plural(r.commits, 'commit')}).` : 'Nothing new to merge.'];
+    if (r.skipped) bits.push(`${r.skipped} started from another branch and ${r.skipped === 1 ? 'was' : 'were'} left alone.`);
+    if (r.busy) bits.push(`${r.busy} still working, left for later.`);
+    const s = r.stopped;
+    if (s) {
+      const open = s.tabId && state.tabs.get(s.tabId);
+      bits.push(s.conflict ? `"${s.title || s.branch}" clashes with ${s.base}, so it stopped there.` : `Stopped at "${s.title || s.branch}": ${s.error}`);
+      if (s.conflict && open) {
+        return SB.toast(bits.join(' '), { ms: 14000, action: 'Ask him to sort it out', onAction: () => {
+          SB.activate(open.id);
+          SB.send(`Merge ${s.base} into this branch (git merge ${s.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
+        } });
+      }
+      if (s.conflict) bits.push('Open it from History to sort it out.');
+      return SB.toast(bits.join(' '), { ms: 14000 });
+    }
+    if (r.push && !r.push.ok) { SB.toast(bits.join(' '), { ms: 5000 }); return pushTrouble(tab, r.push); }
+    if (r.push) bits.push(pushNews(r.push));
+    SB.toast(bits.join(' '), { ms: 8000 });
+  }
 
   // ------------------------------------------------------------ its own copy (worktrees.js)
 
@@ -674,6 +842,9 @@
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
         h('span', { class: 'mi-check', text: '↩' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home' }), h('div', { class: 'mi-sub', text: `Commit what's left and merge into ${w.base}. The conversation carries on` }))),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { push: true }); } },
+        h('span', { class: 'mi-check', text: '⇡' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and push' }), h('div', { class: 'mi-sub', text: `Merge into ${w.base}, then push ${w.base} to its remote. The conversation carries on` }))),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
         h('span', { class: 'mi-check', text: '✓' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs stay in History' }))),
@@ -683,11 +854,16 @@
     ]);
   });
 
-  async function bringHome(tab, { finish = false } = {}) {
+  async function bringHome(tab, { finish = false, push = false } = {}) {
     if (tab.busy) return SB.toast('Let him finish first.');
-    SB.toast('Bringing it home…', { ms: 8000 });
-    const r = await api.bringWorktreeHome(tab.id, { finish });
+    SB.toast(push ? 'Bringing it home, then pushing…' : 'Bringing it home…', { ms: push ? 30000 : 8000 });
+    const r = await api.bringWorktreeHome(tab.id, { finish, push });
     const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.`;
+    if (r?.ok && r.push) {
+      if (r.push.ok) return SB.toast(`${r.merged ? `${merged} ` : ''}${pushNews(r.push)}`, { ms: 7000 });
+      if (r.merged) SB.toast(`${merged} The push didn't go through, so it's only on this computer for now.`, { ms: 5000 });
+      return pushTrouble(tab, r.push);
+    }
     if (r?.ok && r.kept) {
       SB.toast(r.merged ? `${merged} Carry on here and bring it home again any time.` : `Nothing new to merge; ${r.base} already has all of it.`, { ms: 6000 });
       return;
@@ -722,6 +898,74 @@
     await SB.closeTab(tab.id);
     SB.toast('Thrown away. The conversation is still in History.');
   }
+
+  // ------------------------------------------------------------ how full each conversation is
+
+  // Past CROWDED (src/main/context.js) he says so, and the composer offers to
+  // make room. Dismissing it holds until the tab drops back under the mark.
+  const CROWDED = 80;
+  const contextLevel = c => (c.pct >= 95 ? 'hot' : c.pct >= CROWDED ? 'warn' : '');
+  const contextText = c => `Context ${c.pct}% full · ${SB.compact(c.tokens)} of ${SB.compact(c.window)} tokens`;
+
+  function syncContextUi() {
+    const tab = SB.activeTab();
+    const c = tab?.context;
+    const chip = $('ctxChip');
+    chip.hidden = !c;
+    if (c) {
+      chip.className = `ctx-chip ${contextLevel(c)}`;
+      chip.querySelector('.meter-fill').style.transform = `scaleX(${c.pct / 100})`;
+      $('ctxLabel').textContent = `${c.pct}%`;
+      chip.title = contextText(c);
+      chip.setAttribute('aria-label', `${contextText(c)}: make room`);
+    }
+    if (tab && (!c || c.pct < CROWDED)) tab.crowdDismissed = false;
+    const box = $('crowded');
+    const show = !!c && c.pct >= CROWDED && !tab.crowdDismissed;
+    box.hidden = !show;
+    if (!show) { box.replaceChildren(); return; }
+    box.replaceChildren(
+      h('span', { class: 'crowded-text', text: `Getting crowded: ${c.pct}% full.` }),
+      h('button', { class: 'btn slim-btn', type: 'button', onclick: () => compact(tab) }, 'Compact'),
+      h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => startFresh(tab) }, 'Start fresh with a summary'),
+      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = true; syncContextUi(); } },
+        SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
+  }
+  SB.syncContextUi = syncContextUi;
+
+  // Claude Code's own /compact: it sums the conversation up in place and carries on.
+  function compact(tab) {
+    if (tab.busy) return SB.toast('Let him finish first.');
+    SB.activate(tab.id);
+    SB.send('/compact');
+  }
+
+  // Claude writes a handoff summary, then the tab starts a new conversation with it.
+  async function startFresh(tab) {
+    if (tab.busy) return SB.toast('Let him finish first.');
+    const r = await api.freshTab(tab.id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't start fresh.");
+    tab.render({ kind: 'user', text: r.text });
+    tab.busy = true;
+    tab.statusText = 'Writing a summary…';
+    if (tab.isActive) syncBusyUi();
+    SB.renderTabStrip();
+  }
+
+  $('ctxChip').addEventListener('click', () => {
+    const tab = SB.activeTab();
+    const c = tab?.context;
+    if (!c) return;
+    SB.openMenu($('ctxMenu'), $('ctxChip'), () => [
+      h('div', { class: 'menu-label', text: contextText(c) }),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); compact(tab); } },
+        h('span', { class: 'mi-check', text: '⇣' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Compact' }), h('div', { class: 'mi-sub', text: 'Claude sums up the conversation so far and carries on in the room it frees' }))),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); startFresh(tab); } },
+        h('span', { class: 'mi-check', text: '↻' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Start fresh with a summary' }), h('div', { class: 'mi-sub', text: 'Claude writes a handoff note, then a new conversation picks it up in this tab' }))),
+    ]);
+  });
 
   // ------------------------------------------------------------ usage meter
 

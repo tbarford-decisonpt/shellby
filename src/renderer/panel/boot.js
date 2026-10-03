@@ -116,7 +116,7 @@
     const b = await api.bootstrap();
     Object.assign(state, {
       settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,
-      home: b.home, version: b.version, packaged: b.packaged, cwd: b.cwd, registryUrl: b.registryUrl,
+      home: b.home, version: b.version, packaged: b.packaged, models: b.models, cwd: b.cwd, registryUrl: b.registryUrl,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates,
     });
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear

@@ -152,6 +152,11 @@ function toItems(ev) {
         }];
       }
       if (/^task_(started|progress|updated|notification)$/.test(ev.subtype)) return [taskItem(ev)];
+      // /compact, or Claude Code doing it by itself when the window is nearly full.
+      if (ev.subtype === 'compact_boundary') {
+        const m = ev.compact_metadata || {};
+        return [{ kind: 'compacted', trigger: m.trigger === 'auto' ? 'auto' : 'manual', preTokens: Number.isFinite(m.pre_tokens) ? m.pre_tokens : null }];
+      }
       return [];
     case 'assistant': {
       const out = [];

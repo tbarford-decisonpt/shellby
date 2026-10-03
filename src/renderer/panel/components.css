@@ -42,12 +42,26 @@
 .tab.unread .tab-title { color: var(--sand); font-weight: 700; }
 .tab.asking { box-shadow: inset 0 2px 0 var(--amber); }
 .tab-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A tab or History row being renamed in place (SB.editTitle). */
+.title-edit {
+  flex: 1; min-width: 0; height: 22px; padding: 0 6px; border: 1px solid var(--glass); border-radius: 5px;
+  background: var(--abyss); color: var(--sand); font: inherit; outline: none;
+}
 .tab-x {
   flex: none; width: 20px; height: 20px; border: 0; border-radius: 5px; background: none;
   color: var(--sand-faint); font-size: 15px; line-height: 1; opacity: 0; transition: opacity .12s;
 }
 .tab:hover .tab-x, .tab.active .tab-x, .tab-x:focus-visible { opacity: 1; }
 .tab-x:hover { background: var(--reef-3); color: var(--sand); }
+/* How full the conversation's context is: a hairline along the tab's foot. */
+.tab-ctx {
+  position: absolute; left: 8px; right: 8px; bottom: 1px; height: 2px; border-radius: 1px;
+  background: var(--glass); opacity: .55; pointer-events: none;
+  transform: scaleX(var(--fill, 0)); transform-origin: left; transition: transform .6s var(--ease-out);
+}
+.tab.active .tab-ctx { opacity: .9; }
+.tab-ctx.warn { background: var(--amber); opacity: .9; }
+.tab-ctx.hot { background: var(--danger); opacity: 1; }
 /* Dragging a tab along the strip. The × goes away for the duration so letting go
    over one can't close the conversation you were only moving, and the tooltip with
    it: the tabs are sliding under the pointer, so it would be pointing at nothing. */
@@ -300,6 +314,14 @@ body.reordering .tip { display: none; }
 .queue-x { width: 24px; height: 24px; }
 .queue-paused { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--amber); }
 .queue-paused .slim-btn { height: 26px; margin-left: auto; }
+/* A crowded conversation: make room, or not now. */
+.crowded {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 4px 4px 4px 10px;
+  border-radius: var(--r-sm); background: var(--reef); border: 1px solid var(--line);
+  border-left: 2px solid var(--amber); font-size: 12px; animation: fadein .18s var(--ease-out);
+}
+.crowded-text { flex: 1; min-width: 0; color: var(--amber); }
+.crowded .slim-btn { height: 26px; flex: none; }
 .send-btn.queueing { background: var(--reef-3); color: var(--glass); box-shadow: none; }
 
 /* ================================================================ Claude's questions (AskUserQuestion) */

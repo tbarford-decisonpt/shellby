@@ -30,6 +30,21 @@
   }
   SB.renderSkins = renderSkins;
 
+  // Grouped by family, from the list main.js accepts (src/main/models.js). A
+  // saved model that has since left the list still shows, rather than a blank.
+  function renderModels() {
+    const current = state.settings.model || '';
+    const models = state.models || [];
+    const groups = [...new Set(models.map(m => m.group))];
+    const known = current === '' || models.some(m => m.id === current);
+    $('modelSelect').replaceChildren(
+      h('option', { value: '', text: 'Claude Code default' }),
+      ...groups.map(g => h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => h('option', { value: m.id, text: m.label })))),
+      known ? null : h('option', { value: current, text: current }),
+    );
+    $('modelSelect').value = current;
+  }
+
   function renderSettings() {
     SB.renderModeCards($('modeCards'));
     $('autonomousConfirm').hidden = true;
@@ -39,7 +54,7 @@
     $('scaleSelect').value = String(state.settings.critterScale || 1);
     $('hotkeyBtn').textContent = SB.prettyAccel(state.settings.hotkey) || 'None';
     $('hotkeyMsg').textContent = '';
-    $('modelSelect').value = state.settings.model || '';
+    renderModels();
     $('loginToggle').checked = !!state.settings.openAtLogin;
     $('loginToggle').disabled = !state.packaged;
     $('loginNote').hidden = state.packaged;
@@ -107,6 +122,7 @@
     // The gear carries the news from any screen, so this part runs even when
     // Settings is nowhere in sight.
     $('updateDot').hidden = !ready;
+    $('updateTabDot').hidden = !ready;
     $('settingsBtn').title = ready ? `Settings — update ${u.version} is ready` : 'Settings';
     const row = $('updateRow');
     row.hidden = !u;
@@ -517,6 +533,7 @@
           h('span', { text: SB.shortPath(s.cwd, 30) }),
           s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
           open ? h('span', { class: 'h-open', text: 'open' }) : null)),
+      h('button', { class: 'history-rename', type: 'button', title: 'Rename', 'aria-label': `Rename ${s.title}`, onclick: e => renameHistory(s, e.currentTarget) }, '✎'),
       h('button', { class: 'history-tick', type: 'button', title: tick, 'aria-pressed': String(!!s.done), 'aria-label': `${tick}: ${s.title}`, onclick: () => markDone(s.id, !s.done) }, '✓'),
       h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'));
   }
@@ -545,6 +562,19 @@
     if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
   }
 
+  // The row's open button becomes the name field; the rest of the row stays put.
+  function renameHistory(s, btn) {
+    const row = btn.closest('.history-item');
+    SB.editTitle(row.querySelector('.history-open'), s.title, async title => {
+      if (title) {
+        state.sessions = await api.renameSession(s.id, title);
+        const tab = state.tabs.get(s.id);
+        if (tab) { tab.title = title; SB.renderTabStrip(); }
+      }
+      renderHistory();
+    });
+  }
+
   async function deleteHistory(id) {
     state.sessions = await api.deleteSession(id);
     const tab = state.tabs.get(id);
@@ -552,7 +582,7 @@
     renderHistory();
   }
 
-  SB.views.history = { render: async () => { state.sessions = await api.listSessions(); renderHistory(); } };
+  SB.views.history = { render: async () => { state.sessions = await api.listSessions(); renderHistory(); }, redraw: () => renderHistory() };
 
   // ------------------------------------------------------------ onboarding
 

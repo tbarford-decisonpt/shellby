@@ -158,6 +158,15 @@
         case 'home': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
           `Brought home: ${item.commits} commit${item.commits === 1 ? '' : 's'} merged into ${item.base}`));
+        case 'pushed': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇡' }),
+          `Pushed ${item.branch} to ${item.remote}: ${item.commits} commit${item.commits === 1 ? '' : 's'}${item.pulled ? `, after taking in ${item.pulled} from ${item.remote}` : ''}`));
+        case 'compacted': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇣' }),
+          `${item.trigger === 'auto' ? 'Claude Code compacted the conversation to make room' : 'Compacted the conversation'}${item.preTokens ? ` (it was ${SB.compact(item.preTokens)} tokens)` : ''}`));
+        case 'fresh': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↻' }),
+          'Started fresh: a new conversation picks up from the summary above'));
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
       }
     }

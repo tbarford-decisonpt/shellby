@@ -7,6 +7,7 @@ const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
 const { weightOf } = require('./spend');
+const ctx = require('./context');
 const { subscriptionEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
@@ -20,9 +21,13 @@ const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how the
 class ClaudeSession extends EventEmitter {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
   // extraEnv: () => {} of variables to add when the process starts (GitHub access).
-  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [], extraEnv = () => ({}) }) {
+  // context: the last reading of how full it is ({ tokens, window }), so a
+  // resumed conversation shows its meter before it next speaks.
+  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [], extraEnv = () => ({}), context = null }) {
     super();
     Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix, extraEnv });
+    this.context = ctx.view(context?.tokens, context?.window);
+    this.windows = null;           // { model: contextWindow } as Claude Code last reported it
     this.proc = null;
     this.busy = false;
     this.sessionId = resumeId;
@@ -75,6 +80,7 @@ class ClaudeSession extends EventEmitter {
       }
       for (const item of items) this.handle(item);
       this.countSpend(spendFrom(event));
+      this.measure(event);
     });
     proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
     proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
@@ -150,6 +156,30 @@ class ClaudeSession extends EventEmitter {
     this.counted.set(s.messageId, weight);
     if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
     this.emit('spend', { messageId: s.messageId, weight: weight - before });
+  }
+
+  // How full the context window is, from each main-thread reply's token counts.
+  // Emitted as 'context', off the transcript like spend.
+  measure(event) {
+    const windows = ctx.windowsFrom(event);
+    if (windows) {
+      this.windows = windows;
+      if (this.context) this.setContext(this.context.tokens, this.lastModel);
+      return;
+    }
+    if (event?.type === 'system' && event.subtype === 'compact_boundary') return this.setContext(0);
+    const t = ctx.tokensFrom(event);
+    if (!t) return;
+    this.lastModel = t.model || this.lastModel;
+    this.setContext(t.tokens, this.lastModel);
+  }
+
+  setContext(tokens, model = this.lastModel) {
+    const next = ctx.view(tokens, ctx.windowFor(model, this.windows, this.model));
+    const before = this.context;
+    if (before?.tokens === next?.tokens && before?.window === next?.window) return;
+    this.context = next;
+    this.emit('context', next, before);
   }
 
   // Keeps a live map of subagents so permission prompts can be attributed and

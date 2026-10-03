@@ -65,18 +65,23 @@ contextBridge.exposeInMainWorld('shellby', {
   seenTab: fire('tab:seen'),
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
+  freshTab: invoke('tab:fresh'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
   worktreeStatus: invoke('worktree:status'),
   bringWorktreeHome: invoke('worktree:home'),
   discardWorktree: invoke('worktree:discard'),
+  repoStatus: invoke('repo:status'),
+  pushRepo: invoke('repo:push'),
+  bringAllHome: invoke('repo:home-all'),
 
   // history
   listSessions: invoke('session:list'),
   openSession: invoke('session:open'),
   deleteSession: invoke('session:delete'),
   setSessionDone: (id, done) => ipcRenderer.invoke('session:done', { id, done }),
+  renameSession: (id, title) => ipcRenderer.invoke('session:rename', { id, title }),
 
   // settings
   setSettings: invoke('settings:set'),

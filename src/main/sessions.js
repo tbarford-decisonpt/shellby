@@ -3,6 +3,7 @@
 // up into one state for the desktop critter.
 const { EventEmitter } = require('events');
 const { ClaudeSession } = require('./session');
+const { cleanTitle } = require('./history');
 
 const MAX_TABS = 8;
 const TAB_ID = /^[\w-]{1,64}$/;
@@ -30,12 +31,14 @@ class SessionManager extends EventEmitter {
       model: this.getModel() || null,
       resumeId: historyEntry?.claudeSessionId || null,
       extraEnv: () => this.getEnv(),
+      context: historyEntry?.context || null,
     });
     const tab = {
       id: tabId, session, routineId,
       pinnedMode: !!mode,          // routines keep their own mode
       title: historyEntry?.title || title || 'New task',
       saved: !!historyEntry,       // has a history entry (created on first send)
+      named: false,                // renamed before its first send: keep that name
       outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
       unread: false,
       worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
@@ -44,6 +47,7 @@ class SessionManager extends EventEmitter {
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
+    session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
     session.on('crew', () => this.changed());
     session.on('exit', () => this.changed());
@@ -56,7 +60,7 @@ class SessionManager extends EventEmitter {
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
-      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome });
+      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
     }
     if (tab.saved) this.history.append(tab.id, item);
     this.emit('item', tab.id, item, tab);
@@ -66,7 +70,7 @@ class SessionManager extends EventEmitter {
   send(tabId, prompt, userItem) {
     const tab = this.require(tabId);
     if (!tab.saved) {
-      this.history.create({ id: tab.id, title: userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
+      this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
       tab.title = this.history.get(tab.id).title;
       tab.saved = true;
     } else if (this.history.get(tab.id)?.done) {
@@ -77,6 +81,18 @@ class SessionManager extends EventEmitter {
     tab.outcome = null;
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();
+  }
+
+  // A name of your own for an open tab. One not yet sent anything has no History
+  // entry to hold it, so `named` stops the first message from replacing it.
+  rename(tabId, title) {
+    const tab = this.tabs.get(tabId);
+    const t = cleanTitle(title);
+    if (!tab || !t) return false;
+    tab.title = t;
+    if (tab.saved) this.history.rename(tab.id, t); else tab.named = true;
+    this.changed();
+    return true;
   }
 
   // Something main.js worked out about a tab (what its last turn changed):
@@ -153,7 +169,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
-      outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved,
+      outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved, named: t.named, context: t.session.context,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
     }));
   }

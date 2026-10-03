@@ -17,6 +17,8 @@ Nothing here needs administrator rights, and nothing leaves your PC.
 
 ### Setting up CPU temperature
 
+The quick way: press **Let Claude set it up** in the Health view. It fills in a task asking Claude to install LibreHardwareMonitor, switch on its web server on your port and start it as administrator (you accept the Windows prompt). It isn't sent until you press Enter, so you can read it first. Claude asks before making LHM start with Windows. To do it by hand:
+
 1. Install LibreHardwareMonitor: `winget install LibreHardwareMonitor.LibreHardwareMonitor`, or download it from its [releases page](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest).
 2. Run it **as administrator**. It needs that to read the CPU's sensors. Shellby doesn't, because it only reads what LHM publishes.
 3. In LHM, turn on **Options → Remote Web Server → Run**. The default port is `8085`. If you change it, set the same port in Shellby's Health view.

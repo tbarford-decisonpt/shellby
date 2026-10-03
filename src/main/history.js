@@ -5,7 +5,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'moved']);
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'compacted', 'fresh']);
 
 // How many conversations the index remembers. Transcripts past this are deleted
 // with their entry, rather than being left in the folder with nothing listing them.
@@ -74,6 +74,19 @@ class History {
     const e = this.get(id);
     if (!e) return null;
     if (done) e.done = true; else delete e.done;
+    this.saveIndex();
+    return e;
+  }
+
+  /**
+   * Give a conversation a name of your own. Not update(), for the same reason as
+   * setDone(): naming a chat isn't work on it. A blank name changes nothing.
+   */
+  rename(id, title) {
+    const e = this.get(id);
+    const t = cleanTitle(title);
+    if (!e || !t) return null;
+    e.title = t;
     this.saveIndex();
     return e;
   }
@@ -174,8 +187,13 @@ function readIndex(file) {
 }
 
 function titleFrom(text) {
-  const t = String(text || 'New task').replace(/\s+/g, ' ').trim();
+  return cleanTitle(text) || 'New task';
+}
+
+// One line, at most 70 characters; '' when there's nothing left after trimming.
+function cleanTitle(text) {
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim();
   return t.length > 70 ? t.slice(0, 67) + '…' : t;
 }
 
-module.exports = { History, titleFrom, MAX_ENTRIES };
+module.exports = { History, titleFrom, cleanTitle, MAX_ENTRIES };
