@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.36.0: Claude sets up routines
+
+### New
+- **Ask Claude for a routine.** In any Claude Code session with the Shellby plugin, including Shellby's own tabs, say what you want done and when ("every weekday at 8:30, list what changed in my Documents") and Claude sets up the routine for you. Shellby opens his confirmation window with the name, the schedule, the folder, the mode and the whole prompt, and saves it only if you press **Add routine**. Claude is told whether you said yes, and the new routine appears in **Routines** straight away, where you can pause, edit or delete it as usual.
+- **Change one by asking.** Claude can also see your routines, so "move my morning briefing to 9" changes the existing one rather than adding a second. The window says **Change a routine?**, and the routine keeps its history and stays paused if you'd paused it.
+- Claude can't pick **Autonomous** for a routine, and can't turn one on without your yes. Prompts it writes are capped at 1,000 characters and 20 lines, with runs of blank lines squeezed out, so the window can always show every word. The folder and mode are listed above the prompt, where a long prompt can't push them away. Only one routine question is open at a time, and after you say no, Claude has to wait a moment before asking again.
+- Long details in Shellby's confirmation windows now scroll, so the buttons always stay in view.
+- The plugin is now version 1.3.0. Update it in Claude Code to get the two new tools.
+
 ## 0.35.0: what's hogging it
 
 ### New

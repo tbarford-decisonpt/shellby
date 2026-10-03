@@ -1175,6 +1175,12 @@ function applyCrabIntent(body) {
 
   if (intent.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
 
+  if (intent.action === 'list_routines' || intent.action === 'add_routine') {
+    if (config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };
+    if (intent.action === 'list_routines') return { text: crabtools.routinesReply(routinesView()) };
+    return proposeRoutine(intent.routine);
+  }
+
   if (intent.action === 'wear') {
     const items = wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
     const match = crabtools.matchItem(intent.item, items);
@@ -2192,6 +2198,60 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     notify(`Routine "${r.name}" couldn't start`, err.message);
     return { ok: false, error: err.message };
   }
+}
+
+const MAX_ROUTINES = 50;
+const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } };
+const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// One routine question at a time, so a chatty session can't stack dialogs, and
+// a quiet spell after a no, so anything on the port can't keep asking.
+const ROUTINE_COOLDOWN_MS = 30 * 1000;
+let routineAsking = false;
+let routineDeclinedAt = 0;
+
+/**
+ * An `add_routine` from Claude (MCP). A routine spends the user's subscription
+ * on a schedule, and anything on this PC can reach the port it came in on, so
+ * it is only saved once the user says yes in the isolated confirm window. A
+ * routine with the same name is changed in place, keeping its history and
+ * whether it's paused.
+ */
+async function proposeRoutine(routine) {
+  if (routineAsking) return { ok: false, error: 'Shellby is already asking the user about a routine. Wait for that answer first.', status: 409 };
+  if (Date.now() - routineDeclinedAt < ROUTINE_COOLDOWN_MS) return { ok: false, error: 'The user just turned down a routine. Talk it over with them before proposing another.', status: 429 };
+  if (routine.cwd && !isFolder(routine.cwd)) return { ok: false, error: `That folder doesn't exist: ${routine.cwd}`, status: 400 };
+  const replacing = routines().find(r => sameName(r.name, routine.name)) || null;
+  if (!replacing && routines().length >= MAX_ROUTINES) return { ok: false, error: `The user already has ${MAX_ROUTINES} routines, which is the limit.`, status: 400 };
+
+  routineAsking = true;
+  let response;
+  try {
+    wake();
+    response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '⟳',
+      ...crabtools.routineQuestion(routine, { replacing, defaultFolder: currentCwd() }),
+      buttons: [{ label: replacing ? 'Change it' : 'Add routine', style: 'primary' }, { label: 'No thanks' }], defaultId: 0, cancelId: 1,
+    });
+  } finally { routineAsking = false; }
+  if (response !== 0) {
+    routineDeclinedAt = Date.now();
+    return { text: crabtools.routineReply(routine, { added: false, replaced: !!replacing }) };
+  }
+
+  // The list may have changed while the dialog was up. The yes was to adding,
+  // or to changing one particular routine: anything else needs asking again.
+  const current = routines().find(r => sameName(r.name, routine.name));
+  if ((current?.id || null) !== (replacing?.id || null)) {
+    return { ok: false, error: "The user's routines changed while they were deciding, so nothing was saved. Check list_routines and try again.", status: 409 };
+  }
+  const saved = current
+    ? { ...routine, id: current.id, createdAt: current.createdAt, lastRunAt: current.lastRunAt, lastStatus: current.lastStatus, enabled: current.enabled }
+    : routine;
+  if (!current && routines().length >= MAX_ROUTINES) return { ok: false, error: `The user already has ${MAX_ROUTINES} routines, which is the limit.`, status: 400 };
+  saveRoutines(current ? routines().map(r => (r.id === current.id ? saved : r)) : [...routines(), saved]);
+  sayText(current ? `Updated the "${saved.name}" routine.` : `New routine: ${saved.name}.`, 'mcp');
+  return { text: crabtools.routineReply(saved, { added: true, replaced: !!current, next: nextRun(saved, Date.now()) }) };
 }
 
 function startScheduler() {

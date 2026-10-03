@@ -252,6 +252,8 @@ shellby status                   # him, and how this PC is doing
 
 The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks**: spending your subscription isn't something a local port gets to do.
 
+**Claude can set up routines for you, too.** Say "every weekday at 8:30, summarise what changed in my Documents" in any Claude Code session and Claude writes the routine with `add_routine` (and checks your existing ones with `list_routines`). Shellby then shows you the whole thing in his own confirmation window: the name, schedule, folder, mode and every word of the prompt. **Nothing is saved until you say yes there**, and Autonomous is never on offer.
+
 </td>
 <td width="50%" valign="top">
 

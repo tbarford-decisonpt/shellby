@@ -6,6 +6,7 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 - **Needs permission:** he raises his claw when Claude needs your OK.
 - **Turn finished:** he celebrates, and it counts toward his trophies.
 - **Subagents:** helper crabs go out for them, labeled with the project.
+- **Routines:** ask Claude to do something on a schedule ("every Friday at 5, tidy my Downloads") and it sets up a Shellby routine with the `add_routine` tool. Shellby shows you the whole routine and only saves it if you say yes.
 
 ## Install
 

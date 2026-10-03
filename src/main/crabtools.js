@@ -9,10 +9,19 @@
 // into a checked intent and a sentence to answer with, and main.js supplies the
 // effects. That keeps it pure, so it is all unit-tested.
 
+const { validateRoutine, describeSchedule } = require('./routines');
+
 const MAX_TEXT = 120;
 const MAX_ITEM = 60;
+// A routine Claude proposes is shown in full in the confirm window, so it can't
+// hide a tail there; the panel's own editor allows longer ones.
+const MAX_ROUTINE_PROMPT = 1000;
+const MAX_ROUTINE_LINES = 20;
+// Control characters (bar tab and newline) and the bidi overrides that can make
+// text read differently from what it says.
+const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
-const ACTIONS = ['say', 'celebrate', 'wear', 'status'];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines'];
 
 // Flattened to one line and capped: this ends up in a speech bubble on the
 // desktop, so no newlines, no control characters, nothing unbounded.
@@ -41,9 +50,80 @@ function parseRequest(body) {
       if (!item) return { ok: false, error: 'No accessory named.' };
       return { ok: true, intent: { action, item } };
     }
+    case 'add_routine':
+      return parseRoutine(args);
     default:
       return { ok: true, intent: { action } };
   }
+}
+
+/**
+ * An `add_routine` -> a validated routine, or an error Claude can act on. Only
+ * the fields Claude may choose are passed through: never an id, never enabled,
+ * never Autonomous. Whether it's saved at all is the user's call (main.js asks).
+ */
+function parseRoutine(args) {
+  // Blank-line runs collapse, so padding can't scroll the real instruction out
+  // of the confirm window's sight.
+  const prompt = typeof args.prompt === 'string'
+    ? args.prompt.replace(/\r\n?/g, '\n').replace(UNSAFE, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+    : '';
+  if (prompt.length > MAX_ROUTINE_PROMPT) return { ok: false, error: `Keep the routine's prompt under ${MAX_ROUTINE_PROMPT} characters.` };
+  if (prompt.split('\n').length > MAX_ROUTINE_LINES) return { ok: false, error: `Keep the routine's prompt under ${MAX_ROUTINE_LINES} lines.` };
+  if (typeof args.folder === 'string' && (args.folder.match(UNSAFE) || []).length) return { ok: false, error: 'That folder name has characters Shellby won\'t show.' };
+  const s = args.schedule && typeof args.schedule === 'object' && !Array.isArray(args.schedule) ? args.schedule : null;
+  const { routine, errors } = validateRoutine({
+    name: typeof args.name === 'string' ? args.name.replace(UNSAFE, ' ') : args.name,
+    prompt,
+    cwd: args.folder,
+    mode: args.mode,
+    catchUp: typeof args.catchUp === 'boolean' ? args.catchUp : undefined,
+    schedule: s && { type: s.type, time: s.time, days: s.days, everyHours: s.everyHours },
+  }, { allowAutonomous: false });
+  if (!routine) return { ok: false, error: errors.join(' ') };
+  return { ok: true, intent: { action: 'add_routine', routine } };
+}
+
+const MODE_NAMES = { ask: 'Ask first', smart: 'Smart', acceptEdits: 'Auto-edit', plan: 'Plan only', autonomous: 'Autonomous' };
+
+/** The confirm window's text for a routine Claude proposed. `replacing` is the one it would overwrite. */
+function routineQuestion(routine, { replacing = null, defaultFolder = '' } = {}) {
+  return {
+    title: replacing ? 'Change a routine?' : 'Add a routine?',
+    message: replacing
+      ? `Claude wants to change "${replacing.name}": ${describeSchedule(routine.schedule)}.`
+      : `Claude wants to add "${routine.name}": ${describeSchedule(routine.schedule)}.`,
+    // Folder and mode first: they're the facts a long prompt must not push away.
+    detail: `Folder: ${routine.cwd || `${defaultFolder} (default)`}\nMode: ${MODE_NAMES[routine.mode] || routine.mode}\n\n${routine.prompt}`,
+    note: 'Each run is a Claude Code task on your subscription. You can pause, edit or delete it in Routines.',
+  };
+}
+
+/** The sentence Claude reads back once the user has answered. */
+function routineReply(routine, { added, replaced = false, next = null }) {
+  if (!added) return `The user decided not to ${replaced ? 'change' : 'add'} the "${routine.name}" routine. Nothing was saved.`;
+  const when = describeSchedule(routine.schedule);
+  const nextText = Number.isFinite(next) ? ` Next run: ${new Date(next).toLocaleString()}.` : '';
+  return `${replaced ? 'Changed' : 'Added'} the "${routine.name}" routine (${when}).${nextText} The user can pause, edit or delete it from Shellby's Routines page.`;
+}
+
+/**
+ * What `list_routines` reads back. Short per routine, because it goes into a
+ * model's context: enough to avoid a duplicate or change the right one.
+ * Prompts and folders are included on purpose: changing a routine means
+ * sending it back whole, and anything that can reach the port runs as the user
+ * and could read them from Shellby's settings file anyway.
+ *   view: [{ name, prompt, cwd, mode, enabled, scheduleText, next, lastStatus }]
+ */
+function routinesReply(view) {
+  const list = Array.isArray(view) ? view : [];
+  if (!list.length) return 'The user has no routines yet.';
+  const lines = list.map(r => {
+    const bits = [r.scheduleText, r.enabled ? null : 'paused', MODE_NAMES[r.mode] || r.mode, r.cwd ? `in ${r.cwd}` : null,
+      r.lastStatus ? `last run ${r.lastStatus}` : null].filter(Boolean);
+    return `- "${r.name}" (${bits.join(', ')}): ${clip(r.prompt, 160)}`;
+  });
+  return `${list.length} routine${list.length === 1 ? '' : 's'}:\n${lines.join('\n')}`;
 }
 
 /**
@@ -161,5 +241,6 @@ function ackReply(intent) {
 
 module.exports = {
   parseRequest, matchItem, wearReply, statusReply, ackReply,
-  ACTIONS, MOODS, MAX_TEXT, MAX_ITEM,
+  routineQuestion, routineReply, routinesReply,
+  ACTIONS, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
 };

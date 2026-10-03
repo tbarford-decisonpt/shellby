@@ -1,6 +1,6 @@
 {
   "name": "shellby",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Shellby, the pixel hermit crab on your desktop, reacts to every Claude Code session on your PC: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. Claude can also drive him on purpose, and ask him how the PC is doing. Needs the Shellby desktop app.",
   "author": { "name": "x-salmon" },
   "homepage": "https://github.com/x-salmon/shellby",
