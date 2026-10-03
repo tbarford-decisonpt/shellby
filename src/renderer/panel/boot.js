@@ -36,9 +36,13 @@
     if (item.kind === 'decision' || item.kind === 'result') SB.syncBusyUi();
   });
   api.onTabs(summaries => SB.syncTabs(summaries));
-  api.onTabOpened(({ tabId, entry, items, background }) => {
-    const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy: true });
+  api.onTabOpened(({ tabId, entry, items, background, busy = true, draft = '', attachments = [] }) => {
+    const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy });
     for (const item of items || []) tab.render(item, { replay: true });
+    // A branch from before a message opens with it back in the box (branching.js).
+    if (draft) tab.draft = draft;
+    for (const f of attachments) if (typeof f === 'string' && !tab.attachments.includes(f)) tab.attachments.push(f);
+    tab.cancelOpenAsks?.();
     if (!background || !state.activeTab) SB.activate(tabId);
     else SB.renderTabStrip();
   });

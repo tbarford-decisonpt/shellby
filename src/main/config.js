@@ -32,6 +32,9 @@ const DEFAULTS = {
   onboarded: false,
   crabOnly: false,
   wander: true,      // idle strolls near his spot (see motion.js)
+  perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
+  perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
+  perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)

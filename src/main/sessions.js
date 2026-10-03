@@ -46,6 +46,12 @@ class SessionManager extends EventEmitter {
       outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
       unread: false,
       worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
+      // A branch of another conversation (branch.js): where it came from, the
+      // folders it must keep out of, and what Claude is told before its first
+      // message (where it is now). All kept in History so a restart keeps them.
+      branchOf: historyEntry?.branchOf || null,
+      fence: historyEntry?.fence || null,
+      preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
     };
     this.tabs.set(tabId, tab);
 
@@ -62,6 +68,11 @@ class SessionManager extends EventEmitter {
   onItem(tab, item) {
     // A rewind's fork exists once Claude Code reports its id: from then on it's an ordinary resume.
     if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId, resumeAt: null });
+    if (item.kind === 'init' && tab.preambleSent) {
+      tab.preamble = null;
+      tab.preambleSent = false;
+      if (tab.saved) this.history.update(tab.id, { preamble: null });
+    }
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
@@ -87,6 +98,13 @@ class SessionManager extends EventEmitter {
     this.history.append(tab.id, userItem);
     tab.turnId = userItem.turnId; // the turn now starting, for what main.js notes about it (its diff)
     tab.outcome = null;
+    // The note goes with the first real message (a /command must still start
+    // with its slash), and is only forgotten once Claude has started with it:
+    // if the process never starts, the next message takes it instead.
+    if (tab.preamble && !(typeof prompt === 'string' && prompt.trimStart().startsWith('/'))) {
+      prompt = withPreamble(prompt, tab.preamble);
+      tab.preambleSent = true;
+    }
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();
     return userItem.turnId;
@@ -184,6 +202,7 @@ class SessionManager extends EventEmitter {
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved, named: t.named, context: t.session.context,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
+      branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
     }));
   }
 
@@ -212,4 +231,10 @@ class SessionManager extends EventEmitter {
   }
 }
 
-module.exports = { SessionManager, MAX_TABS };
+// A note for Claude ahead of what you typed, as a block of its own so your
+// words reach it exactly as you wrote them (a prompt, or blocks when pictures go with it).
+function withPreamble(prompt, preamble) {
+  return [{ type: 'text', text: preamble }, ...(Array.isArray(prompt) ? prompt : [{ type: 'text', text: String(prompt) }])];
+}
+
+module.exports = { SessionManager, MAX_TABS, withPreamble };

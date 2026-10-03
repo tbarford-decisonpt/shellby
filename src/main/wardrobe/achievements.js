@@ -33,6 +33,13 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'open-house', name: 'Open House', icon: '🏡', description: "A friend's crab drops by", stat: 'visitorsHosted', goal: 1, rewards: ['sea-glass', 'friendship-bracelet'] },
   { id: 'pen-pals', name: 'Pen Pals', icon: '💌', description: 'Wave to friends 5 times', stat: 'wavesSent', goal: 5, rewards: ['message-bottle'] },
   { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag'] },
+  // Up on your windows (src/main/perch.js).
+  { id: 'window-sill', name: 'Window Sill', icon: '🪟', description: 'Shellby climbs up onto one of your windows', stat: 'perchesMade', goal: 1, rewards: ['spyglass'] },
+  { id: 'hang-on', name: 'Hang On!', icon: '🎢', description: 'Drag a window 2,000 px with Shellby riding it', stat: 'longestRide', goal: 2000, rewards: ['racing-goggles'] },
+  { id: 'rodeo', name: 'Rodeo', icon: '🤠', description: 'Shake Shellby off a window 10 times', stat: 'timesShaken', goal: 10, rewards: ['cowboy-hat'], hidden: true },
+  { id: 'leap-of-faith', name: 'Leap of Faith', icon: '🪂', description: 'Shellby falls off one window and lands on another', stat: 'windowLeaps', goal: 1, rewards: ['parachute'], hidden: true },
+  { id: 'trapeze', name: 'Trapeze', icon: '🎪', description: 'Throw Shellby onto a window and he catches the title bar', stat: 'windowCatches', goal: 1, rewards: ['ringmaster-collar'], hidden: true },
+  // Shell stickers (src/main/stickers.js).
   { id: 'tagged', name: 'Tagged', icon: '🏷️', description: 'Ship a project and earn its sticker', stat: 'stickersEarned', goal: 1, rewards: ['sticker-sheet'] },
   { id: 'sticker-bomb', name: 'Sticker Bomb', icon: '🎨', description: 'Ship 10 different projects', stat: 'stickersEarned', goal: 10, rewards: ['paint-can'] },
   { id: 'shiny', name: 'Shiny', icon: '✨', description: 'Ship one project often enough that its sticker goes holo', stat: 'holoStickers', goal: 1, rewards: ['holo-visor'] },
@@ -47,6 +54,7 @@ const COUNTERS = [
   'tasksCompleted', 'helpersSpawned', 'maxCrew', 'tricksLearned', 'createdScriptsRun', 'routinesRun',
   'nightTasks', 'earlyTasks', 'maxParallel', 'permissionsAnswered', 'plansApproved', 'filesDropped',
   'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed', 'visitorsHosted', 'wavesSent',
+  'perchesMade', 'timesShaken', 'windowLeaps', 'windowCatches', 'longestRide',
   'stickersEarned', 'holoStickers', 'majorReleases', 'stickeredShells', 'friendStickers',
 ];
 const MAX_DAYS = 400;
@@ -71,10 +79,14 @@ const INCREMENTS = {
   'ci-fixed': 'buildsFixed',
   'visitor-hosted': 'visitorsHosted',
   'wave-sent': 'wavesSent',
+  perched: 'perchesMade',
+  shaken: 'timesShaken',
+  'window-leap': 'windowLeaps',
+  'caught-on-window': 'windowCatches',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
-  'crew-size': 'maxCrew', parallel: 'maxParallel',
+  'crew-size': 'maxCrew', parallel: 'maxParallel', ride: 'longestRide',
   // Shell stickers (src/main/stickers.js) report their totals.
   'stickers-earned': 'stickersEarned', 'holo-stickers': 'holoStickers', 'one-point-oh': 'majorReleases', 'stickered-shells': 'stickeredShells', 'friend-stickers': 'friendStickers',
 };

@@ -215,6 +215,7 @@
 
   SB.LOCAL_COMMANDS = [
     { name: 'rewind', kind: 'shellby', description: 'Go back to an earlier message: the conversation, the code, or both (Esc Esc)' },
+    { name: 'branch', kind: 'shellby', description: 'Try again from an earlier message in a new tab, with its own copy of the files. This one stays as it is' },
     { name: 'export', kind: 'shellby', description: 'Save this conversation as Markdown (/export clipboard copies it)' },
     { name: 'effort', kind: 'shellby', description: 'How hard Claude thinks: low, medium, high, xhigh, max or auto' },
     { name: 'permissions', kind: 'shellby', description: 'The allow, ask and deny rules Claude Code follows' },
@@ -225,6 +226,7 @@
 
   const LOCAL = {
     rewind: (tab) => SB.openRewind(tab),
+    branch: (tab) => SB.openBranch(tab),
     export: async (tab, arg) => {
       if (!tab.saved) return SB.toast('Send it something first: there is nothing to export yet.');
       const to = /^clip/i.test(arg) ? 'clipboard' : 'file';
@@ -328,6 +330,11 @@
       option('💬', 'Conversation only', older || 'Forget everything after it. Files stay as they are now', { conversation: true, code: false }, p.conversation),
       option('⎌', 'Code only', p.code ? `Put the files back; the conversation carries on` : 'No files changed after it', { conversation: false, code: true }, p.code > 0),
       h('div', { class: 'menu-sep' }),
+      // The way back that loses nothing: this conversation and its files stay as they are.
+      h('button', { class: 'menu-item', disabled: !p.conversation, onclick: () => { SB.closeMenus(); doBranch(tab, p.turnId, 'before'); } },
+        h('span', { class: 'mi-check', text: '⑂' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Try it in a new tab instead' }), h('div', { class: 'mi-sub', text: older || 'Keeps this conversation and its files exactly as they are' }))),
+      h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => SB.closeMenus() }, h('span', { class: 'mi-check', text: '' }), h('span', { class: 'mi-title', text: 'Never mind' })),
     ]);
   }
@@ -351,6 +358,66 @@
       SB.syncBusyUi();
     } else if (!tab.draft) tab.draft = r.text || '';
     SB.toast(`Rewound.${files} Your message is back in the box.`, { ms: 6000 });
+  }
+
+  // ------------------------------------------------------------ branch (branching.js)
+  //
+  // Rewind's other half: instead of taking this conversation back, open a new
+  // tab that remembers it up to a point, in its own copy of the files as they
+  // were then. This one carries on untouched, so two tries can run side by side.
+
+  // A conversation's name as a link that opens it (from History if it's closed).
+  SB.historyLink = (id, text) => h('button', { class: 'link-btn', type: 'button', onclick: () => SB.openHistory(id) }, text);
+
+  // turnId: the message to branch at (none: pick one, newest first).
+  // at: 'before' the message (try it again) or 'after' its reply (carry on from there).
+  SB.openBranch = async (tab, turnId = null, at = 'before') => {
+    if (!tab) return;
+    if (!tab.saved) return SB.toast('Send it something first: there is nothing to branch yet.');
+    const { points = [] } = await api.rewindPoints(tab.id).catch(() => ({}));
+    if (!points.length) return SB.toast('Nothing to branch from yet.');
+    const chosen = turnId && points.find(p => p.turnId === turnId);
+    if (chosen) return branchOptions(tab, chosen, at);
+    openAboveBox(() => [
+      h('div', { class: 'menu-label', text: 'Try again in a new tab from just before…' }),
+      ...points.slice(0, 30).map(p => h('button', { class: 'menu-item rewind-point', disabled: !p.conversation, onclick: () => branchOptions(tab, p, 'before') },
+        h('span', { class: 'mi-check', text: '⑂' }),
+        h('span', {},
+          h('div', { class: 'mi-title rewind-text', text: p.text || '(no text)' }),
+          h('div', { class: 'mi-sub', text: p.conversation ? (p.at ? SB.ago?.(p.at) || new Date(p.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '') : 'From before Shellby could branch conversations' })))),
+    ]);
+  };
+
+  function branchOptions(tab, p, at) {
+    const option = (glyph, title, sub, run, enabled = true) => h('button', { class: 'menu-item', disabled: !enabled, onclick: () => { SB.closeMenus(); run(); } },
+      h('span', { class: 'mi-check', text: glyph }), h('span', {}, h('div', { class: 'mi-title', text: title }), h('div', { class: 'mi-sub', text: sub })));
+    const older = p.conversation ? null : 'From before Shellby could branch conversations';
+    const files = tab.worktree || tab.cwd ? 'its own copy of the files as they were then' : 'the files';
+    SB.closeMenus();
+    openAboveBox(() => [
+      h('div', { class: 'menu-label', text: at === 'after' ? 'Branch after the reply to' : 'Try again from just before' }),
+      h('div', { class: 'menu-item path rewind-quote', text: p.text || '(no text)' }),
+      h('div', { class: 'menu-sep' }),
+      ...(at === 'after'
+        ? [option('⑂', 'Branch from here', older || `A new tab that carries on from this reply, with ${files}`, () => doBranch(tab, p.turnId, 'after'), p.conversation)]
+        : [
+          option('✎', 'Change it and try again', older || `A new tab from just before this message, with ${files}. Your message waits in the box`, () => doBranch(tab, p.turnId, 'before'), p.conversation),
+          option('↻', 'Run it again in a new tab', older || 'The same message, sent again straight away: two takes side by side', () => doBranch(tab, p.turnId, 'before', { send: true }), p.conversation),
+        ]),
+      h('div', { class: 'small muted menu-note', text: 'This conversation and its files stay exactly as they are.' }),
+      h('div', { class: 'menu-sep' }),
+      h('button', { class: 'menu-item', onclick: () => SB.closeMenus() }, h('span', { class: 'mi-check', text: '' }), h('span', { class: 'mi-title', text: 'Never mind' })),
+    ]);
+  }
+
+  async function doBranch(tab, turnId, at, { send = false } = {}) {
+    SB.toast('Making a branch…', { ms: 20000 });
+    const r = await api.branch(tab.id, turnId, { at, send });
+    if (!r?.ok) return r?.cancelled ? SB.toast('Not branched.') : SB.toast(r?.error || "Couldn't make the branch.", { ms: 9000 });
+    // The new tab has opened itself (boot.js onTabOpened).
+    const where = r.branch ? `its own copy on ${r.branch}` : 'the same folder as the original';
+    const note = r.filesNow ? ' The files are as they are now: the ones from then had been tidied away.' : r.approx ? ' The files are as near to then as Shellby can tell.' : '';
+    SB.toast(r.sent ? `Running it again in ${where}.${note}` : at === 'before' ? `Branched into ${where}. Change your message and send it.${note}` : `Branched into ${where}. Carry on from there.${note}`, { ms: 7000 });
   }
 
   // Esc twice in an empty box (not working), within a moment: the rewind

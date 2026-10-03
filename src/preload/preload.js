@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onSticker: on('critter:sticker'), // a project shipped for the first time: slap its sticker on (src/main/stickers.js)
     onStickerGlint: on('critter:sticker-glint'), // ...or one already on his shell catches the light
     pet: fire('critter:pet'),
+    hit: fire('critter:hit'),           // the pointer is over him (perched, the rest of his window lets clicks through)
+    onPerch: on('critter:perch'),       // up on a window, or back down (src/main/perching.js)
   },
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
@@ -77,6 +79,12 @@ contextBridge.exposeInMainWorld('shellby', {
   rewindPoints: invoke('rewind:points'),
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
+  // trying again from any turn, in a new tab (branching.js)
+  branch: (tabId, turnId, opts) => ipcRenderer.invoke('branch:run', { tabId, turnId, ...opts }),
+  branchFamily: invoke('branch:family'),
+  compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
+  compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
+  keepBranch: invoke('branch:keep'),
   listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
@@ -194,7 +202,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions

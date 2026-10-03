@@ -1,11 +1,11 @@
 # Shell Stickers: every repo you ship leaves a mark on his shell
 
-> Status: **built, all four phases, in 0.41.0.** The plan below is kept as written;
+> Status: **built, all four phases, in 0.44.0.** The plan below is kept as written;
 > where the build differs, it's listed here.
 
 ## What changed from the plan
 
-- **One release, not four.** Phases 1–4 all ship in 0.41.0.
+- **One release, not four.** Phases 1–4 all ship in 0.44.0.
 - **The calling card shows nothing about stickers by default** (the plan said "art").
   0.40.0 told everyone who turned on Visiting crabs that the card holds no projects, so
   sharing anything now needs a choice in the Sticker Book: **Nothing** (default),

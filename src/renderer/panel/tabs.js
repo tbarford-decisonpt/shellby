@@ -24,6 +24,7 @@
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
       unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
+      branchOf: summary.branchOf !== undefined ? summary.branchOf : tab.branchOf || null,
       context: summary.context !== undefined ? summary.context : tab.context || null,
     });
     return tab;
@@ -166,8 +167,7 @@
       const btn = h('div', {
         class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
         role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
-        title: t.context ? `${t.title}
-${contextText(t.context)}` : t.title,
+        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
@@ -850,10 +850,13 @@ ${contextText(t.context)}` : t.title,
 
   // ------------------------------------------------------------ its own copy (worktrees.js)
 
-  $('branchChip').addEventListener('click', () => {
+  $('branchChip').addEventListener('click', async () => {
     const tab = SB.activeTab();
     const w = tab?.worktree;
     if (!w) return;
+    // Other tries at the same thing (branching.js): compare with them, or keep this one.
+    const family = $('branchMenu').hidden ? await api.branchFamily(tab.id).catch(() => []) : [];
+    const others = family.filter(f => !f.current);
     const status = h('span', { class: 'mi-sub', text: 'Looking at the copy…' });
     api.worktreeStatus(tab.id).then(s => {
       if (!s?.ok) { status.textContent = s?.error || ''; return; }
@@ -881,8 +884,50 @@ ${contextText(t.context)}` : t.title,
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
         h('span', { class: 'mi-check', text: '✕' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
+      ...(others.length ? [
+        h('div', { class: 'menu-sep' }),
+        h('div', { class: 'menu-label', text: `Other tries at this (${others.length})` }),
+        ...others.slice(0, 7).map(o => h('button', { class: 'menu-item branch-family', onclick: () => { SB.closeMenus(); compareWith(tab, o); } },
+          h('span', { class: 'mi-check', text: '⇄' }),
+          h('span', {}, h('div', { class: 'mi-title', text: `Compare with "${o.title}"` }),
+            h('div', { class: 'mi-sub', text: [o.depth === 0 ? 'the original' : o.at === 'after' ? 'branched after a reply' : 'branched before a message', o.copy ? o.copy.branch : 'in your checkout', o.busy ? 'working' : o.open ? 'open' : 'in History'].join(' · ') })))),
+        others.some(o => o.copy)
+          ? h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); keepThisOne(tab); } },
+            h('span', { class: 'mi-check', text: '★' }),
+            h('span', {}, h('div', { class: 'mi-title', text: 'Keep this one' }), h('div', { class: 'mi-sub', text: `Bring it home into ${w.base}, and throw away the other tries' copies` })))
+          : null,
+      ] : []),
     ]);
   });
+
+  // What this try has that the other doesn't, file by file, into the feed.
+  async function compareWith(tab, other) {
+    SB.toast(`Comparing with "${other.title}"…`, { ms: 8000 });
+    const r = await api.compareBranches(tab.id, other.id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't compare them.", { ms: 8000 });
+    SB.toast(r.same ? 'Exactly the same files.' : `${plural(r.files.length + (r.more || 0), 'file')} differ: see below.`);
+    tab.renderCompare(other, r);
+  }
+
+  async function keepThisOne(tab) {
+    if (tab.busy) return SB.toast('Let him finish first.');
+    const r = await api.keepBranch(tab.id);
+    if (r?.cancelled) return;
+    if (!r?.ok) {
+      if (r?.conflict) {
+        return SB.toast(`${r.error} Nothing was thrown away.`, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
+          SB.activate(tab.id);
+          SB.send(`Merge ${tab.worktree.base} into this branch (git merge ${tab.worktree.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
+        } });
+      }
+      return SB.toast(r?.error || "Couldn't keep it.", { ms: 8000 });
+    }
+    const home = r.home ? (r.home.merged ? `Merged ${plural(r.home.commits, 'commit')} into ${r.base}.` : `${r.base} already had all of it.`) : '';
+    const gone = r.discarded ? ` Threw away ${plural(r.discarded, 'other try', 'other tries')}.` : '';
+    const failed = r.failed?.length ? ` Couldn't remove ${r.failed.join(', ')}.` : '';
+    if (r.home?.tidied) await SB.closeTab(tab.id);
+    SB.toast(`${home}${gone}${failed} The conversations stay in History.`.trim(), { ms: 8000 });
+  }
 
   async function bringHome(tab, { finish = false, push = false } = {}) {
     if (tab.busy) return SB.toast('Let him finish first.');

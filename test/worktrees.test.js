@@ -325,3 +325,114 @@ test('bring them all home: each lands in turn, other bases are skipped, a clash 
     assert.equal(t.g(t.dir, 'status', '--porcelain'), '');
   } finally { t.done(); }
 });
+
+// ------------------------------------------------------------ a copy from a moment in a conversation (branch.js)
+
+const changes = require('../src/main/changes');
+
+test('createAt rebuilds the folder exactly as a snapshot had it, on top of the commit of the time', async () => {
+  const t = setup();
+  try {
+    // The moment: a.txt edited, src/b.txt deleted, a new untracked file.
+    fs.writeFileSync(path.join(t.dir, 'a.txt'), 'two\n');
+    fs.rmSync(path.join(t.dir, 'src', 'b.txt'));
+    fs.writeFileSync(path.join(t.dir, 'src', 'new.txt'), 'new\n');
+    const then = await changes.snapshot(t.dir);
+    assert.match(then.head, /^[0-9a-f]{40}$/, 'the snapshot knows the commit');
+    // Later: committed on, more edits. None of it belongs in the branch.
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'later');
+    fs.writeFileSync(path.join(t.dir, 'later.txt'), 'later\n');
+
+    const made = await worktrees.createAt({ repoRoot: t.dir, base: 'main', head: then.head, tree: then.tree, prefix: 'src', home: t.home, slug: 'tidy up', originalCwd: path.join(t.dir, 'src') });
+    assert.equal(made.ok, true, made.error);
+    const w = made.worktree;
+    assert.match(w.branch, /^shellby\/tidy-up-[0-9a-f]{6}$/);
+    assert.equal(w.cwd, path.join(w.path, 'src'));
+    assert.equal(w.base, 'main');
+    assert.equal(w.originalCwd, path.join(t.dir, 'src'));
+    assert.equal(fs.readFileSync(path.join(w.path, 'a.txt'), 'utf8'), 'two\n');
+    assert.ok(!fs.existsSync(path.join(w.path, 'src', 'b.txt')), 'what was deleted then is deleted');
+    assert.ok(fs.existsSync(path.join(w.path, 'src', 'new.txt')), 'what was untracked then is there');
+    assert.ok(!fs.existsSync(path.join(w.path, 'later.txt')), 'nothing from after');
+    assert.equal(t.g(w.path, 'rev-parse', 'HEAD'), then.head, 'on the commit of the time');
+    assert.deepEqual(t.g(w.path, 'status', '--porcelain').split('\n').map(s => s.trim()).sort(), ['?? src/new.txt', 'D src/b.txt', 'M a.txt'], 'the uncommitted work is uncommitted again');
+    assert.equal((await changes.snapshot(w.path)).tree, then.tree, 'the very same tree');
+    assert.equal(fs.readFileSync(path.join(t.dir, 'later.txt'), 'utf8'), 'later\n', 'your checkout untouched');
+
+    // And it comes home like any other copy.
+    const home = await worktrees.bringHome(w, { message: 'branch' });
+    assert.equal(home.ok, true, home.error);
+    await worktrees.remove(w);
+  } finally {
+    t.done();
+  }
+});
+
+test('createAt says so when git has tidied the snapshot away, and refuses what it cannot trust', async () => {
+  const t = setup();
+  try {
+    const head = t.g(t.dir, 'rev-parse', 'HEAD');
+    const gone = await worktrees.createAt({ repoRoot: t.dir, base: 'main', head, tree: 'f'.repeat(40), home: t.home, slug: 'x' });
+    assert.equal(gone.ok, false);
+    assert.equal(gone.gone, true);
+    assert.ok(!fs.existsSync(t.home) || !fs.readdirSync(t.home).length, 'no copy left behind');
+    const tree = t.g(t.dir, 'rev-parse', 'HEAD^{tree}');
+    assert.equal((await worktrees.createAt({ repoRoot: t.dir, base: '--force', head, tree, home: t.home, slug: 'x' })).ok, false);
+    assert.equal((await worktrees.createAt({ repoRoot: t.dir, base: 'main', head: 'HEAD', tree, home: t.home, slug: 'x' })).ok, false);
+    assert.equal((await worktrees.createAt({ repoRoot: t.dir, base: 'main', head, tree, prefix: '../out', home: t.home, slug: 'x' })).ok, false);
+    assert.equal((await worktrees.createAt({ repoRoot: path.join(t.base, 'nope'), base: 'main', head, tree, home: t.home, slug: 'x' })).ok, false);
+  } finally {
+    t.done();
+  }
+});
+
+test('startingPoint: where the original copy started, or what the checkout has now', async () => {
+  const t = setup();
+  try {
+    const first = t.g(t.dir, 'rev-parse', 'HEAD');
+    assert.equal(await worktrees.startingPoint({ repoRoot: t.dir }), first);
+    const made = await worktrees.create(t.dir, { home: t.home, title: 'work' });
+    fs.writeFileSync(path.join(made.worktree.path, 'w.txt'), 'w\n');
+    t.g(made.worktree.path, 'add', '-A');
+    t.g(made.worktree.path, 'commit', '-qm', 'in the copy');
+    fs.writeFileSync(path.join(t.dir, 'm.txt'), 'm\n');
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'on main');
+    assert.equal(await worktrees.startingPoint({ repoRoot: t.dir, worktree: made.worktree }), first);
+    await worktrees.remove(made.worktree, { force: true });
+  } finally {
+    t.done();
+  }
+});
+
+test('findSession looks where it was asked first, then finds the newest anywhere; copySession carries it', () => {
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cfg-'));
+  try {
+    const id = '0123abcd-0000-4000-8000-000000000000';
+    const put = (dir, text) => {
+      const d = path.join(configDir, 'projects', worktrees.projectDirName(dir));
+      fs.mkdirSync(d, { recursive: true });
+      fs.writeFileSync(path.join(d, `${id}.jsonl`), text);
+      return path.join(d, `${id}.jsonl`);
+    };
+    const old = put('C:\\proj', 'old');
+    const newer = put('C:\\copy\\proj', 'newer');
+    fs.utimesSync(old, new Date(1000), new Date(1000));
+    assert.equal(worktrees.findSession({ configDir, sessionId: id }), newer);
+    assert.equal(worktrees.findSession({ configDir, sessionId: id, prefer: ['C:\\proj'] }), old);
+    assert.equal(worktrees.findSession({ configDir, sessionId: 'missing-session-id' }), null);
+    assert.equal(worktrees.findSession({ configDir, sessionId: '../../etc' }), null);
+
+    fs.mkdirSync(path.join(path.dirname(newer), id, 'subagents'), { recursive: true });
+    fs.writeFileSync(path.join(path.dirname(newer), id, 'subagents', 'a.jsonl'), 'sub');
+    assert.equal(worktrees.copySession({ configDir, file: newer, to: 'C:\\branch\\proj' }), true);
+    const there = path.join(configDir, 'projects', worktrees.projectDirName('C:\\branch\\proj'));
+    assert.equal(fs.readFileSync(path.join(there, `${id}.jsonl`), 'utf8'), 'newer');
+    assert.ok(fs.existsSync(path.join(there, id, 'subagents', 'a.jsonl')), 'its subagents come too');
+    assert.equal(worktrees.copySession({ configDir, file: newer, to: 'C:\\copy\\proj' }), true, 'already there is fine');
+    assert.equal(worktrees.copySession({ configDir, file: path.join(configDir, 'x.txt'), to: 'C:\\b' }), false);
+  } finally {
+    fs.rmSync(configDir, { recursive: true, force: true });
+  }
+});
