@@ -1,9 +1,14 @@
 # Changelog
 
-## 0.47.2: old news
+## 0.47.3: old news
 
 ### Fixed
 - **The same "new skill" every time Shellby started.** When Claude Code had two versions of a plugin cached and one had a skill the other didn't, Shellby announced that skill as newly learned once per launch, and gave him the XP for it each time. A plugin update isn't a trick he taught himself, so it's no longer announced. A skill that really is new still gets its celebration, once.
+
+## 0.47.2: he knows his own name
+
+### Fixed
+- **Shellby underlined his own name.** Typing "Shellby" (or "Shellby's") got the red squiggle as if it were a typo. He knows how to spell it now, with no need to add it to the dictionary yourself.
 
 ## 0.47.1: the newest update, not the first one
 

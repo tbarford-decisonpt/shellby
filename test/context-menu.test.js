@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { contextTemplate, MAX_SUGGESTIONS } = require('../src/main/context-menu');
+const { contextTemplate, attachContextMenu, KNOWN_WORDS, MAX_SUGGESTIONS } = require('../src/main/context-menu');
 
 const flags = { canCut: true, canCopy: true, canPaste: true, canSelectAll: true };
 
@@ -23,11 +23,18 @@ test('misspelled word offers suggestions that replace it', () => {
 
 test('add to dictionary adds the word to the session', () => {
   const wc = fakeWc();
-  const items = contextTemplate({ misspelledWord: 'Shellby', dictionarySuggestions: [], isEditable: true, editFlags: flags }, wc);
+  const items = contextTemplate({ misspelledWord: 'Zorbly', dictionarySuggestions: [], isEditable: true, editFlags: flags }, wc);
   assert.strictEqual(items[0].label, 'No suggestions');
   assert.strictEqual(items[0].enabled, false);
   items.find(i => i.label.startsWith('Add')).click();
-  assert.deepStrictEqual(wc.calls, [['add', 'Shellby']]);
+  assert.deepStrictEqual(wc.calls, [['add', 'Zorbly']]);
+});
+
+test('attaching the menu teaches the session Shellby\'s own name', () => {
+  const wc = fakeWc();
+  attachContextMenu({ webContents: { ...wc, on: () => {} } }, {});
+  assert.ok(KNOWN_WORDS.includes('Shellby'));
+  assert.deepStrictEqual(wc.calls, KNOWN_WORDS.map(w => ['add', w]));
 });
 
 test('suggestions are capped', () => {
