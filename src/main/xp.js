@@ -16,6 +16,7 @@ const AWARDS = Object.freeze({
   deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes' },
   fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green' },
   ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)' },
+  deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean' },
   tests: { xp: 25, perHour: 6, label: 'Tests passed', way: 'Tests pass' },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },

@@ -4,8 +4,8 @@
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', tests: '✅', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯' };
-  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', ship: 'Pushes', tests: 'Tests', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties' };
+  const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯' };
+  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties' };
   const UNLOCK_NAME = { shell: 'shell', title: 'title', rank: '' };
   const fmt = n => Number(n || 0).toLocaleString();
   const shortDay = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };

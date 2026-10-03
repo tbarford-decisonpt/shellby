@@ -45,13 +45,16 @@ const { qrRows } = require('./qr');
 const { MediaWatcher, trackRemark } = require('./media');
 const { Dictation, PushToTalk, holdKeyOf } = require('./dictation');
 const native = require('./native-windows');
-const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween } = require('./xp');
+const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween, normalizeXp } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
+const toast = require('./toast');
 const limits = require('./limits');
 const spend = require('./spend');
 const recap = require('./recap');
 const leaving = require('./leaving');
+const forecast = require('./forecast');
+const held = require('./held');
 const ctx = require('./context');
 const { CritterMotion } = require('./motion');
 const { createPerching } = require('./perching');
@@ -61,6 +64,9 @@ const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
+const checkup = require('./checkup');
+const weekly = require('./weekly');
+const routineTemplates = require('./routine-templates');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
 const { reviewPrompt } = require('./review');
@@ -130,7 +136,7 @@ function snag(what, detail) {
   // No config yet means this is a crash during startup, before there's anywhere
   // to show it (and notify() would throw from inside the handler).
   if (++snags > 3 || !config) return; // a loop must not become a storm of toasts
-  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem);
+  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem, { tone: 'problem', action: 'Report it' });
 }
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
@@ -871,6 +877,7 @@ function createManager() {
       noteRecap(recap.usageEvent(tabId, tab.title, item));
       send(panel, 'usage', item);
       onUsage(item);
+      refreshOutlook();
       return;
     }
     if (item.kind === 'init') {
@@ -888,7 +895,7 @@ function createManager() {
     if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
       const dir = tab.session?.cwd || '';
       const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
-      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null });
+      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null });
       if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
     }
     if (item.kind === 'tool') onToolSpoken(item);
@@ -905,6 +912,12 @@ function createManager() {
       // A push, deploy or release ships the project: its sticker (stickers.js).
       const ship = c.dir && stickers.shipOf(kind, c.command);
       if (ship) shipped(c.dir, ship.kind, ship.meta);
+      // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
+      const check = checkup.checkupOf(c.command);
+      if (check && c.cwd) {
+        const result = checkup.readCheckup(check, { text: item.text, isError: item.isError, command: c.command });
+        checkedUp(checkup.commandDir(c.command, c.cwd), check, result);
+      }
     }
   });
   manager.on('tabs', summary => {
@@ -1180,6 +1193,9 @@ function awardXp(kind, meta = {}) {
   if (CAPTURE || !config) return;
   const r = award(config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
   if (r.changed) config.set({ xp: r.state });
+  // The week-in-review counts it even when repetition left it paying nothing.
+  // Shipping is counted where the project is known (recordShipped).
+  if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
   if (!r.gained) { if (r.changed) send(panel, 'xp', xpView()); return; }
   send(critter, 'critter:xp', { amount: r.gained, kind: r.kind });
   for (const b of r.bounties) send(panel, 'xp:bounty', b);
@@ -1200,7 +1216,7 @@ function awardXp(kind, meta = {}) {
   send(panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
   if (!(panel?.isVisible() && panel.isFocused())) {
     const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
-    notify(`Level up! Shellby is level ${r.after.level}`, body, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); });
+    notify(`Level up! Shellby is level ${r.after.level}`, body, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate' });
   }
 }
 
@@ -1349,6 +1365,8 @@ function recordShipped(project, kind, meta) {
   workflows?.event('shipped', { kind: kind === 'ship' ? 'push' : kind, project: project.name || '', version: meta?.version || null });
   if (!r.project) return;
   config.set({ stickers: r.state });
+  noteWeek(kind, r.project);
+  if (r.minted) noteWeek('minted', r.project);
   if (r.minted) slapSticker(r.project);
   else stickerNews(r, before);
   send(panel, 'stickers', stickersView());
@@ -1368,7 +1386,7 @@ function slapSticker(p) {
   if (view) send(panel, 'stickers:new', view);
   if (!(panel?.isVisible() && panel.isFocused())) {
     notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); });
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
   }
 }
 
@@ -1383,6 +1401,101 @@ function stickerNews(r, before) {
   const line = r.tierUp ? `${p.name} went ${r.tierUp.name.toLowerCase()}!` : pressed ? `${p.name}, good as new` : `${marks[0].icon} ${p.name}`;
   sayText(line, 'sticker', 6000);
   send(panel, 'stickers:news', { id: p.id, name: p.name, tier: r.tierUp && { id: r.tierUp.id, name: r.tierUp.name }, marks: marks.map(m => ({ id: m.id, name: m.name, icon: m.icon })), pressed });
+}
+
+// ================================================================ dependency checkups (checkup.js)
+//
+// Claude ran `npm audit`, `cargo outdated` or the like. Each project's latest
+// result is kept for the Routines page; a clean audit pays XP (once a day per
+// project) and earns the project's sticker its 🧼 Fresh mark.
+
+async function checkedUp(dir, check, result) {
+  if (CAPTURE || !config || !dir || path.resolve(dir) === path.resolve(os.homedir())) return;
+  try {
+    const project = await projectOf(dir);
+    const key = project?.root || dir;
+    const name = project?.name || path.basename(key);
+    const r = checkup.recordCheckup(config.get('checkups'), key, name, check, result, Date.now());
+    if (!r.entry) return;
+    config.set({ checkups: r.state });
+    send(panel, 'checkups', checkupsView());
+    if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
+    if (r.clean && project) freshMark(project);
+    else if (result.status === 'issues' && check.check === 'audit') {
+      sayText(result.count ? `${name}: ${result.count} known ${result.count === 1 ? 'vulnerability' : 'vulnerabilities'}` : `${name} has vulnerable dependencies`, 'sticker', 7000);
+    }
+  } catch (e) {
+    log.error('checkup', e);
+  }
+}
+
+// The project's sticker gets 🧼 Fresh the first time an audit comes back clean.
+function freshMark(project) {
+  const r = stickers.addMark(config.get('stickers'), project.id, 'deps');
+  if (!r.added) return;
+  config.set({ stickers: r.state });
+  broadcastSkin();
+  setTimeout(() => send(critter, 'critter:sticker-glint', { id: project.id }), 120);
+  const mark = stickers.MARKS.find(m => m.id === 'deps');
+  sayText(`${mark.icon} ${r.project.name} is fresh!`, 'sticker', 6000);
+  send(panel, 'stickers:news', { id: project.id, name: r.project.name, tier: null, marks: [{ id: mark.id, name: mark.name, icon: mark.icon }], pressed: false });
+  send(panel, 'stickers', stickersView());
+}
+
+function checkupsView() {
+  return checkup.checkupsView(config.get('checkups'), Date.now());
+}
+
+// Folders the panel may open a tab in: ones Shellby itself has seen you work
+// in (streaks), ship from (a sticker's folder) or check up on. All of them
+// are written by main from git or Claude's own commands, never by the panel.
+function knownFolder(dir) {
+  const want = path.resolve(dir).toLowerCase();
+  const same = k => typeof k === 'string' && path.resolve(k).toLowerCase() === want;
+  return Object.keys(streaks.normalize(config.get('streaks')).projects).some(same)
+    || Object.values(stickerState().projects).some(p => same(p.root))
+    || Object.keys(checkup.normalizeCheckups(config.get('checkups')).projects).some(same);
+}
+
+// Check one project's dependencies now, in a tab of its own (from the Sticker
+// Book or the Routines page's dependency list).
+function runCheckup(dir) {
+  if (config.get('crabOnly')) return { ok: false, error: 'Checkups need Claude Code: Shellby is in just-the-crab mode.' };
+  if (!isStr(dir) || !isFolder(dir)) return { ok: false, error: "That project's folder isn't there any more." };
+  showPanel();
+  // A draft to press Enter on, like the streak nudge: nothing runs until you say so.
+  send(panel, 'tab:new-in', { cwd: dir, draft: routineTemplates.checkupPrompt({ single: true }) });
+  return { ok: true };
+}
+
+// ================================================================ the week in review (weekly.js)
+
+// XP kinds the week-in-review counts (shipping comes from recordShipped instead).
+const WEEK_XP_KINDS = new Set(['fixed', 'tests', 'task', 'deps', 'focus', 'trick']);
+
+function noteWeek(kind, project = null) {
+  if (CAPTURE || !config) return;
+  config.set({ weekly: weekly.recordDay(config.get('weekly'), Date.now(), kind, project && { id: project.id, name: project.name }) });
+}
+
+function weekView() {
+  const now = Date.now();
+  const xp = normalizeXp(config.get('xp'));
+  return weekly.weekSummary(config.get('weekly'), now, {
+    xp, stickers: stickerState(), streak: streaks.streakOf(config.get('streaks'), now), level: levelFor(xp.total),
+  });
+}
+
+// Friday afternoon, a week with something shipped in it: he says so, and the
+// Trophies page has the card ready. Once a week, and never during focus.
+function checkWrapUp() {
+  if (CAPTURE || !config || config.get('crabOnly')) return;
+  const w = weekView();
+  const key = weekly.wrapUpDue(config.get('weekly'), Date.now(), w);
+  if (!key) return;
+  if (!sayText(`What a week: ${w.headline.charAt(0).toLowerCase()}${w.headline.slice(1)}!`, 'sticker', 9000)) return;
+  config.set({ weekly: weekly.markWrapped(config.get('weekly'), key) });
+  send(panel, 'week:ready', w);
 }
 
 // Sticker milestones for the trophies (wardrobe/achievements.js).
@@ -1417,9 +1530,15 @@ function stickersView() {
   const v = stickers.view(s, Date.now());
   const roots = new Set(Object.values(s.projects).map(p => (p.root || '').toLowerCase()).filter(Boolean));
   const quiet = streaks.normalize(config.get('streaks')).projects;
+  // Each project's last dependency checkup, by its folder (checkup.js).
+  const checked = new Map(checkupsView().map(c => [c.key.toLowerCase(), c]));
   return {
     ...v,
-    projects: v.projects.map(p => ({ ...p, art: drawSticker(s.projects[p.id]).full })),
+    projects: v.projects.map(p => {
+      const root = s.projects[p.id].root;
+      const c = root && checked.get(root.toLowerCase());
+      return { ...p, art: drawSticker(s.projects[p.id]).full, deps: c ? { fresh: c.fresh, audit: c.audit, outdated: c.outdated } : null };
+    }),
     shells: shellsForBook(s),
     // Projects you work in that haven't shipped yet: silhouettes to earn.
     waiting: Object.entries(quiet).filter(([key]) => !roots.has(key.toLowerCase()))
@@ -1458,10 +1577,10 @@ function onPermission(tabId, item, tab) {
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
   if (item.toolName === 'AskUserQuestion') {
-    notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true });
+    notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Answer' });
     return;
   }
-  notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true });
+  notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
 }
 
 function onResult(tabId, item, tab) {
@@ -1508,7 +1627,7 @@ function onResult(tabId, item, tab) {
   }
   notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
     item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
-    () => showPanel({ tabId }));
+    () => showPanel({ tabId }), { tone: item.ok ? 'default' : 'problem' });
 }
 
 // "Start fresh with a summary": the summary turn has ended, so the same tab
@@ -1532,7 +1651,10 @@ async function startFresh(tab, summary) {
 // and summed up afterwards. Urgent ones (a task waiting for your OK, a health
 // alert) still come through.
 let heldNotices = [];
-function notify(title, body, onClick, { urgent = false } = {}) {
+let toastArt; // undefined until the first notification, null if it couldn't be copied
+// tone picks the banner (toast.TONES); urgent ones default to 'alert'. action
+// adds a button that does what clicking the notification does.
+function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null } = {}) {
   if (!urgent && config && focus.guarding(config.get('focus'), Date.now())) {
     heldNotices = [...heldNotices, title].slice(-20);
     return;
@@ -1542,8 +1664,17 @@ function notify(title, body, onClick, { urgent = false } = {}) {
   // (Electron's default page). SHELLBY_ALLOW_NOTIFY=1 opts a dev run back in.
   if (CAPTURE || (!app.isPackaged && process.env.SHELLBY_ALLOW_NOTIFY !== '1')) return;
   if (!config.get('notifications') || !Notification.isSupported()) return;
-  const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
+  const plain = () => {
+    const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
+    if (onClick) n.on('click', onClick);
+    n.show();
+  };
+  if (toastArt === undefined) toastArt = toast.prepareArt(path.join(ROOT, 'assets', 'toast'), path.join(app.getPath('userData'), 'toast-art'));
+  if (!toastArt) return plain();
+  const n = new Notification({ toastXml: toast.xml({ title: title.slice(0, 80), body, tone, action: onClick ? action : null, artDir: toastArt }) });
   if (onClick) n.on('click', onClick);
+  // If Windows ever turns the Shellby look down, say it plainly instead.
+  n.once('failed', (_e, error) => { log.info(`themed notification failed: ${error}`); plain(); });
   n.show();
 }
 
@@ -1565,6 +1696,30 @@ function startTask(prompt, title, { mode = null, cwd = null } = {}) {
     wake();
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
     return { ok: true, tabId };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// A message of yours into an open tab: what you type (task:send), or one held
+// for after the usage reset (releaseMessage). Returns { ok, tabId, turnId,
+// item } or { ok: false, error }.
+function sendToTab(tabId, text, files) {
+  if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
+  try {
+    const tab = manager.tabs.get(tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    // Nothing typed: the conversation is named for what was attached.
+    const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';
+    // Commands you ran with ! since your last message go to Claude with this one.
+    const ran = shellCmd.contextFor(tab.shellRuns);
+    tab.shellRuns = [];
+    // !! sends a message that starts with !; Up brings it back as typed, still !!.
+    const said = text.startsWith('!!') ? text.slice(1) : text;
+    const turnId = manager.send(tabId, composePrompt(ran + said, files), { kind: 'user', text: said, attachments: files, title });
+    rememberPrompt(text);
+    wake();
+    return { ok: true, tabId, turnId, item: { kind: 'user', text: said, attachments: files, turnId } };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -1605,6 +1760,7 @@ function createExternal() {
     awardXp(e.kind, { project: e.project });
     if (e.cwd && e.ship) shipped(e.cwd, e.ship.kind, { version: e.ship.version });
   });
+  external.on('checkup', e => checkedUp(e.dir, e.check, e.result));
   external.on('turn-done', e => {
     awardXp('task', { project: e.project });
     tellChannel({ kind: 'done', project: e.project, tools: e.tools });
@@ -2209,7 +2365,7 @@ function createToolbox() {
     const noun = { skill: 'skill', agent: 'helper agent', command: 'command' }[trick.kind];
     if (!(panel.isVisible() && panel.isFocused())) {
       notify(`Shellby learned a new ${noun}`, `${trick.name}${trick.description ? `: ${trick.description}` : ''}`.slice(0, 160),
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); }, { tone: 'celebrate' });
     }
   });
   toolbox.start();
@@ -2549,6 +2705,7 @@ function checkLimit() {
   if (st === 'waiting') return scheduleLimit();
   config.set({ limitWait: null });
   refreshCritter();
+  sendOutlook();
   if (st !== 'reset') return;
   const name = limits.windowName(limits.normalize(raw).window);
   lastActivity = Date.now();
@@ -2556,6 +2713,221 @@ function checkLimit() {
   tellChannel({ kind: 'limit' });
   send(panel, 'limit', { phase: 'reset', name });
   notify(`Your ${name} Claude limit just reset`, "Shellby's awake and ready. Anything you queued can go now.", () => showPanel());
+}
+
+// ---- the forecast (forecast.js), and what's held for after the reset (held.js)
+
+// Dev/e2e only: 5-hour readings from dev:usage, backdated so a pace builds up
+// without an hour's wait, and held work going a second after the reset.
+const FORECAST_TEST = !app.isPackaged && process.env.SHELLBY_FORECAST_TEST === '1';
+// Held work goes a minute after the reset, so the server has rolled over too.
+const HELD_GRACE_MS = FORECAST_TEST ? 1000 : 60 * 1000;
+const HELD_STAGGER_MS = 5000;          // one after another, not all at once
+const HELD_BUSY_RETRY_MS = 60 * 1000;  // its conversation is still working: try again shortly
+const HELD_SETTLE_MS = 45 * 1000;      // how long to wait for word on the window between held messages
+const OUTLOOK_TICK_MS = 60 * 1000;     // a forecast goes stale with no new readings
+let heldTimer = null;
+let releasing = false;
+let lastOutlook = '';
+
+const heldList = () => held.normalize(config.get('held'), Date.now());
+const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 10 * 60 * 1000;
+
+function saveHeld(list) {
+  config.set({ held: list });
+  scheduleHeld();
+  sendOutlook();
+  send(panel, 'routines', routinesView()); // routines show their own "after the reset"
+}
+
+// When "after the reset" is: the limit you're held at, else the 5-hour window's
+// next reset as last reported. null until Claude Code has said.
+function resetTarget(now = Date.now()) {
+  const w = limitWait();
+  if (w) return w.resetsAt;
+  const r = config.get('lastUsage')?.fiveHour?.resetsAt;
+  return Number.isFinite(r) && r > now ? r : null;
+}
+
+// Everything the panel shows about where the window's heading and what's waiting on it.
+function outlookView() {
+  const now = Date.now();
+  const o = forecast.outlook(recapLog, now);
+  const w = limitWait();
+  const resetAt = resetTarget(now);
+  const warn = !!o?.warn && config.get('forecast') !== false && !w;
+  return {
+    pace: o ? { pct: o.pct, perHour: o.perHour, hitAt: o.hitAt, hitText: clockTime(o.hitAt), resetsAt: o.resetsAt, warn } : null,
+    warning: warn ? { text: forecast.message(o, now, clockTime), resetsAt: o.resetsAt } : null,
+    limit: w ? { window: w.window, name: limits.windowName(w.window), resetsAt: w.resetsAt, at: clockTime(w.resetsAt) } : null,
+    resetAt, resetText: resetAt ? clockTime(resetAt) : null,
+    held: heldList().map(h => ({
+      id: h.id, kind: h.kind, at: h.at, atText: clockTime(h.at),
+      ...(h.kind === 'message' ? { tabId: h.tabId, text: h.text, attachments: h.attachments } : { routineId: h.routineId, name: h.name }),
+    })),
+  };
+}
+
+function sendOutlook() {
+  if (!config) return;
+  const view = outlookView();
+  lastOutlook = JSON.stringify(view);
+  send(panel, 'outlook', view);
+}
+
+// A new reading: show the forecast, and the first time a window's pace says
+// it'll run out before the reset, say so (once per window).
+function refreshOutlook() {
+  sendOutlook();
+  if (config.get('forecast') === false || limitWait()) return;
+  const now = Date.now();
+  const o = forecast.outlook(recapLog, now);
+  if (!o?.warn || sameReset(config.get('forecastWarned'), o.resetsAt)) return;
+  config.set({ forecastWarned: o.resetsAt });
+  log.info('Usage forecast', `${o.pct}% at ${o.perHour}%/h: full ~${new Date(o.hitAt).toISOString()}, resets ${new Date(o.resetsAt).toISOString()}`);
+  sayText(`At this pace we run dry around ${clockTime(o.hitAt)}.`, 'forecast');
+  if (panel?.isVisible() && panel.isFocused()) return; // the panel's banner says it
+  notify('Heading for your 5-hour limit', `${forecast.message(o, now, clockTime)} You can hold work for after the reset.`, () => showPanel());
+}
+
+// The forecast lapses when readings stop, and the reset passes: keep the panel current.
+function watchOutlook() {
+  setInterval(() => {
+    if (!config || !panel || panel.isDestroyed()) return;
+    const view = outlookView();
+    const json = JSON.stringify(view);
+    if (json !== lastOutlook) { lastOutlook = json; send(panel, 'outlook', view); }
+  }, OUTLOOK_TICK_MS).unref?.();
+}
+
+/** Hold a message or a routine run for after the reset. raw: { kind, ... } from held.js. */
+function holdForReset(raw) {
+  const at = resetTarget();
+  if (!at) return { ok: false, error: "Shellby doesn't know when your window resets yet. He finds out with your next message." };
+  const res = held.hold(heldList(), { ...raw, at: at + HELD_GRACE_MS }, Date.now());
+  if (res.error) return { ok: false, error: res.error };
+  const added = res.list.length > heldList().length;
+  if (added) saveHeld(res.list);
+  return { ok: true, id: res.item.id, at: res.item.at, atText: clockTime(res.item.at), added };
+}
+
+function scheduleHeld() {
+  clearTimeout(heldTimer);
+  const at = held.next(heldList());
+  if (at === null) return;
+  heldTimer = setTimeout(() => releaseHeld().catch(err => log.warn('Held release failed', err.message)), Math.min(Math.max(0, at - Date.now()), 2 ** 31 - 1));
+}
+
+// After a held message goes, wait to hear how the window looks (a usage
+// reading, or the limit) before the next: if the reset wasn't the one that
+// mattered (the weekly window is full too), the rest mustn't all go and fail.
+async function heardSince(t) {
+  for (let waited = 0; waited < HELD_SETTLE_MS; waited += 500) {
+    if (!config || limitWait() || (config.get('lastUsage')?.at || 0) > t) return;
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
+// Due: send what's held, one at a time. Still limited (a reset later than
+// expected, or the weekly window): wait for that reset instead.
+async function releaseHeld() {
+  if (releasing || !config) return;
+  const ready = held.due(heldList(), Date.now());
+  if (!ready.length) return scheduleHeld();
+  const w = limitWait();
+  if (w) return saveHeld(held.defer(heldList(), ready.map(h => h.id), w.resetsAt + HELD_GRACE_MS));
+  releasing = true;
+  const went = [];
+  try {
+    for (const [i, h] of ready.entries()) {
+      if (i) {
+        if (went.length && went[went.length - 1].kind === 'message') await heardSince(went[went.length - 1].sentAt);
+        await new Promise(r => setTimeout(r, HELD_STAGGER_MS));
+      }
+      if (!config) return; // quitting
+      if (!heldList().some(x => x.id === h.id)) continue; // cancelled in the meantime
+      if (limitWait()) break; // limited again: the next pass moves the rest to that reset
+      let outcome;
+      try {
+        outcome = h.kind === 'routine' ? releaseRoutine(h) : releaseMessage(h);
+      } catch (err) {
+        // Dropped rather than left due: a failure that repeats would retry forever.
+        log.warn('Held item failed', err.message);
+        outcome = 'failed';
+      }
+      const list = heldList();
+      config.set({ held: outcome === 'retry' ? held.defer(list, [h.id], Date.now() + HELD_BUSY_RETRY_MS) : held.without(list, h.id) });
+      sendOutlook(); // its chip goes now, not when the whole batch is done
+      if (outcome === 'sent') went.push({ ...h, sentAt: Date.now() });
+    }
+  } finally {
+    releasing = false;
+    if (config) saveHeld(heldList());
+  }
+  if (!went.length) return;
+  const what = held.summary(went);
+  log.info('Held work released', what);
+  notify('Your usage window reset', `Shellby sent ${what}.`, () => showPanel());
+}
+
+function releaseRoutine(h) {
+  const r = routines().find(x => x.id === h.routineId);
+  if (!r) return 'dropped'; // deleted while it waited
+  // Held only because it came due at the limit, then paused: it stays paused.
+  if (h.auto && !r.enabled) return 'dropped';
+  const res = runRoutine(r, { reason: 'after-reset' });
+  if (res.ok) return 'sent';
+  if (res.skipped) notify(`Routine "${r.name}" didn't run`, res.error);
+  return 'failed';
+}
+
+// Back to its conversation, reopened from History if it was closed. If it
+// can't go, it lands back in that conversation's box rather than vanishing.
+function releaseMessage(h) {
+  const open = manager.tabs.get(h.tabId);
+  if (open?.session.busy) return 'retry';
+  if (!open) {
+    try {
+      reopenForHeld(h);
+    } catch (err) {
+      notify("A held message couldn't be sent", `${err.message} It was: ${h.text.slice(0, 140)}`);
+      return 'failed';
+    }
+  }
+  const r = sendToTab(h.tabId, h.text, h.attachments);
+  if (!open) {
+    send(panel, 'tab:opened', {
+      tabId: h.tabId, entry: history.get(h.tabId), items: history.load(h.tabId), background: true, busy: r.ok,
+      ...(r.ok ? {} : { draft: h.text, attachments: h.attachments }),
+    });
+  } else if (r.ok) send(panel, 'tab:sent', { tabId: h.tabId, item: r.item });
+  else send(panel, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
+  if (!r.ok) notify("A held message couldn't be sent", `${r.error} It's back in its conversation's box.`, () => showPanel());
+  return r.ok ? 'sent' : 'failed';
+}
+
+// The conversation a held message belongs to, open again under its own id:
+// from History, or (never sent anything yet) as a fresh tab in its folder.
+function reopenForHeld(h) {
+  const entry = history.get(h.tabId);
+  makeRoomForRoutine();
+  return openTab(entry
+    ? { tabId: h.tabId, historyEntry: entry }
+    : { tabId: h.tabId, cwd: h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd(), title: h.title });
+}
+
+// A scheduled routine that comes due while you're at your limit would only
+// fail: it waits for the reset instead, and says so the first time.
+function runOrHoldRoutine(r, reason) {
+  const w = limitWait();
+  if (!w) return runRoutine(r, { reason });
+  const res = holdForReset({ kind: 'routine', routineId: r.id, name: r.name, auto: true });
+  if (!res.ok) return { ok: false, skipped: true, error: res.error };
+  if (res.added) {
+    log.info('Routine held for the reset', r.name);
+    notify(`Routine "${r.name}" will run after the reset`, `You're at your ${limits.windowName(w.window)} limit. It runs at ${res.atText}.`, () => showPanel({ focusInput: false }));
+  }
+  return { ok: true, held: true };
 }
 
 // ================================================================ focus sessions
@@ -2618,7 +2990,7 @@ function advanceFocus() {
     recordFocusDay();
     if (!events.includes('break-done')) flashState('success', 5000);
     deliverHeld('Focus done');
-    notify(`Focus done! ${before.minutes} minutes guarded`, `Take ${before.breakMinutes} minutes. Shellby will tell you when the break is over.`, showFocusCard);
+    notify(`Focus done! ${before.minutes} minutes guarded`, `Take ${before.breakMinutes} minutes. Shellby will tell you when the break is over.`, showFocusCard, { tone: 'celebrate' });
   }
   if (events.includes('break-done') && events.length === 1) {
     notify("Break's over", 'Ready for another round? Right-click Shellby to start one.', showFocusCard);
@@ -2687,7 +3059,7 @@ function stickerSwap(v) {
   send(panel, 'stickers:new', gifted);
   if (!(panel?.isVisible() && panel.isFocused())) {
     notify(`@${v.login} left a sticker`, `Their ${gift.name} sticker is in your Sticker Book. Put it on his shell if you like.`,
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); });
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
   }
 }
 
@@ -2749,13 +3121,13 @@ function onCiEvent({ type, pr }) {
   if (type === 'failed') {
     flashState('error', 5000);
     tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
-    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open);
+    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open, { tone: 'problem' });
   } else if (type === 'fixed') {
     stat('ci-fixed');
     flashState('cheer', 6500);
     tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });
     send(critter, 'critter:burst', outfit().confetti);
-    notify(`Back to green: ${where}`, `${pr.title}. Every check passes now.`.slice(0, 160), open);
+    notify(`Back to green: ${where}`, `${pr.title}. Every check passes now.`.slice(0, 160), open, { tone: 'celebrate' });
   } else if (type === 'passed') {
     flashState('success', 4000);
   } else if (type === 'review') {
@@ -2889,7 +3261,14 @@ function routinesView() {
   return routines().map(r => ({
     ...r, next: nextRun(r, now), scheduleText: describeSchedule(r.schedule),
     running: [...routineTabs.entries()].some(([tabId, id]) => id === r.id && manager.isBusy(tabId)),
+    held: heldFor(r.id),
   }));
+}
+
+// A run of this routine waiting for the usage reset: { id, at, atText } or null.
+function heldFor(routineId) {
+  const h = heldList().find(x => x.kind === 'routine' && x.routineId === routineId);
+  return h ? { id: h.id, at: h.at, atText: clockTime(h.at) } : null;
 }
 
 function saveRoutines(list) {
@@ -2930,7 +3309,7 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true });
     return { ok: true, tabId };
   } catch (err) {
-    notify(`Routine "${r.name}" couldn't start`, err.message);
+    notify(`Routine "${r.name}" couldn't start`, err.message, null, { tone: 'problem' });
     return { ok: false, error: err.message };
   }
 }
@@ -3020,16 +3399,18 @@ function startScheduler() {
   scheduler.on('due', r => {
     // A start that fails outright (runRoutine catch) already said so; a skip
     // (signed out, last run still going) would otherwise vanish without a word.
-    const res = runRoutine(r);
+    const res = runOrHoldRoutine(r, 'scheduled');
     if (!res.ok && res.skipped) {
       log.info('Routine skipped', `${r.name}: ${res.error}`);
-      notify(`Routine "${r.name}" didn't run`, res.error);
+      notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
     }
   });
   scheduler.start();
   // Catch up on slots missed while the PC was off, staggered so they don't stampede.
   const missed = routines().filter(r => missedOnStartup(r, Date.now()));
-  missed.forEach((r, i) => setTimeout(() => runRoutine(r, { reason: 'catch-up' }), 8000 + i * 5000));
+  missed.forEach((r, i) => setTimeout(() => runOrHoldRoutine(r, 'catch-up'), 8000 + i * 5000));
+  // Anything held for a reset that came while Shellby was closed goes now.
+  scheduleHeld();
 }
 
 // ================================================================ workflows
@@ -3233,6 +3614,11 @@ function registerIpc() {
         const entry = history.get(id);
         if (entry) { try { openTab({ tabId: id, historyEntry: entry }); } catch { /* limit reached */ } }
       }
+      // A message held for the reset keeps its tab open, so it can still be
+      // seen and cancelled (one typed into a tab never sent anything isn't in openTabs).
+      for (const h of heldList()) {
+        if (h.kind === 'message' && !manager.tabs.has(h.tabId)) { try { reopenForHeld(h); } catch { /* limit reached */ } }
+      }
     }
     return {
       version: app.getVersion(),
@@ -3253,6 +3639,7 @@ function registerIpc() {
       pinned: pinnedTools(),
       learned: CAPTURE ? [] : config.get('learnedTricks') || [],
       routines: CAPTURE ? [] : routinesView(),
+      outlook: CAPTURE ? null : outlookView(),
       cwd: CAPTURE ? `${demoHome}\\Downloads` : currentCwd(),
       home: CAPTURE ? demoHome : os.homedir(),
       packaged: app.isPackaged,
@@ -3303,11 +3690,14 @@ function registerIpc() {
   // ---- tabs
   ipcMain.handle('tab:new', (_e, opts = {}) => {
     // A folder is only accepted if it's a project Shellby already tracks (e.g. a nudge's "pick up where you left off").
-    const known = isStr(opts?.cwd) && streaks.normalize(config.get('streaks')).projects[opts.cwd] && fs.existsSync(opts.cwd);
+    const known = isStr(opts?.cwd) && knownFolder(opts.cwd) && fs.existsSync(opts.cwd);
     try { return { ok: true, tabId: openTab(known ? { cwd: opts.cwd } : {}).id }; } catch (err) { return { ok: false, error: err.message }; }
   });
   ipcMain.handle('tab:close', (_e, tabId) => {
     if (!isStr(tabId)) return false;
+    // Its held messages go with it, the way its queue does.
+    const list = heldList();
+    if (list.some(h => h.kind === 'message' && h.tabId === tabId)) saveHeld(list.filter(h => !(h.kind === 'message' && h.tabId === tabId)));
     manager.interrupt(tabId);
     manager.close(tabId);
     routineTabs.delete(tabId);
@@ -3325,24 +3715,13 @@ function registerIpc() {
     text = String(text || '').trim().slice(0, 50000);
     const files = (Array.isArray(attachments) ? attachments : []).filter(isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
-    if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
     try {
-      if (!isStr(tabId) || !manager.tabs.has(tabId)) tabId = openTab({ tabId: isStr(tabId) ? tabId : undefined }).id;
-      // Nothing typed: the conversation is named for what was attached.
-      const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';
-      // Commands you ran with ! since your last message go to Claude with this one.
-      const tab = manager.tabs.get(tabId);
-      const ran = shellCmd.contextFor(tab.shellRuns);
-      tab.shellRuns = [];
-      // !! sends a message that starts with !; Up brings it back as typed, still !!.
-      const said = text.startsWith('!!') ? text.slice(1) : text;
-      const turnId = manager.send(tabId, composePrompt(ran + said, files), { kind: 'user', text: said, attachments: files, title });
-      rememberPrompt(text);
-      wake();
-      return { ok: true, tabId, turnId };
+      if (claudeStatus?.installed && claudeStatus?.loggedIn && (!isStr(tabId) || !manager.tabs.has(tabId))) tabId = openTab({ tabId: isStr(tabId) ? tabId : undefined }).id;
     } catch (err) {
       return { ok: false, error: err.message };
     }
+    const r = sendToTab(tabId, text, files);
+    return r.ok ? { ok: true, tabId: r.tabId, turnId: r.turnId } : r;
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (isStr(tabId)) manager.interrupt(tabId); });
   // A crowded conversation: Claude writes a summary, then onResult starts it fresh.
@@ -3582,7 +3961,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -3622,7 +4001,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'leaveGuard', 'planOnly', 'pushToTalk']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -3653,6 +4032,7 @@ ${r.detail}` });
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
     if ('mode' in allowed) manager.setMode(allowed.mode);
+    if ('forecast' in allowed) sendOutlook();
     if ('effort' in allowed) manager.setEffort(allowed.effort);
     if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
@@ -3805,6 +4185,7 @@ ${r.detail}` });
   // ---- routines
   ipcMain.handle('usage:breakdown', () => usageBreakdown());
   ipcMain.handle('routines:list', () => routinesView());
+  ipcMain.handle('routines:templates', () => routineTemplates.TEMPLATES);
   ipcMain.handle('routines:save', async (_e, input) => {
     const existing = routines().find(r => r.id === input?.id);
     const { routine, errors } = validateRoutine({ ...existing, ...input }, { allowAutonomous: !!config.get('autonomousAcknowledged') });
@@ -3829,15 +4210,54 @@ ${r.detail}` });
   });
   ipcMain.handle('routines:draft', (_e, text) => draftRoutine(text));
   registerWorkflowIpc(ipcMain);
-  ipcMain.handle('routines:delete', (_e, id) => { saveRoutines(routines().filter(r => r.id !== id)); return routinesView(); });
+  ipcMain.handle('routines:delete', (_e, id) => {
+    saveRoutines(routines().filter(r => r.id !== id));
+    const list = heldList();
+    if (list.some(h => h.kind === 'routine' && h.routineId === id)) saveHeld(list.filter(h => !(h.kind === 'routine' && h.routineId === id)));
+    return routinesView();
+  });
   ipcMain.handle('routines:run', (_e, id) => {
     const r = routines().find(x => x.id === id);
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
+  // ---- usage forecast, and work held for after the reset
+  ipcMain.handle('outlook:get', () => outlookView());
+  ipcMain.handle('held:add', (_e, input = {}) => {
+    if (config.get('crabOnly')) return { ok: false, error: 'That needs Claude Code.' };
+    if (input?.kind === 'routine') {
+      const r = routines().find(x => x.id === input.routineId);
+      return r ? holdForReset({ kind: 'routine', routineId: r.id, name: r.name }) : { ok: false, error: 'Routine not found.' };
+    }
+    if (input?.kind !== 'message') return { ok: false, error: "There's nothing to hold." };
+    const tab = isStr(input.tabId) && manager.tabs.get(input.tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    const text = String(input.text || '').trim().slice(0, 50000);
+    const files = (Array.isArray(input.attachments) ? input.attachments : []).filter(isStr).slice(0, 20);
+    return holdForReset({ kind: 'message', tabId: tab.id, cwd: tab.session.cwd, title: tab.title, text, attachments: files });
+  });
+  // Answers with what was held, so a message can go back in the box to edit.
+  ipcMain.handle('held:cancel', (_e, id) => {
+    const list = heldList();
+    const h = isStr(id) && list.find(x => x.id === id);
+    if (!h) return { ok: false };
+    saveHeld(held.without(list, id));
+    return { ok: true, item: h };
+  });
+
   // ---- streaks and nudges
   ipcMain.handle('streaks:get', () => streaksView());
   if (NUDGE_TEST) ipcMain.handle('dev:check-nudges', () => checkNudges());
+  if (FORECAST_TEST) ipcMain.handle('dev:usage', (_e, r = {}) => {
+    const item = { kind: 'usage', status: r.status === 'rejected' ? 'rejected' : 'allowed', fiveHour: { pct: Number(r.pct), resetsAt: Number(r.resetsAt) }, sevenDay: null };
+    const event = recap.usageEvent('dev', 'Dev', item);
+    if (event) recapLog = recap.record(recapLog, { ...event, t: Date.now() - (Number(r.minsAgo) || 0) * 60 * 1000 }, Date.now());
+    config.set({ lastUsage: { ...item, at: Date.now() } });
+    send(panel, 'usage', item);
+    onUsage(item);
+    refreshOutlook();
+    return outlookView();
+  });
   if (RECAP_TEST) ipcMain.handle('dev:away', (_e, r = {}) => checkAway({ idleMs: Number(r.idleMs) || 0, locked: !!r.locked }));
   ipcMain.handle('streaks:set', (_e, patch = {}) => {
     const s = streaks.normalize(config.get('streaks'));
@@ -4052,6 +4472,17 @@ ${r.detail}` });
     if (!p?.root || !fs.existsSync(p.root)) return;
     send(panel, 'tab:new-in', { cwd: p.root, draft: `Where did we leave off in ${p.name}? Summarize what changed since we last shipped it, what's unfinished, and suggest the next step.` });
   });
+  // "Check its dependencies", from its page in the Sticker Book.
+  ipcMain.handle('stickers:checkup', (_e, id) => {
+    const p = stickerId(id) && stickerState().projects[id];
+    return p?.root ? runCheckup(p.root) : { ok: false, error: "Shellby doesn't know where that project lives on this PC." };
+  });
+
+  // ---- dependency checkups and the week in review
+  ipcMain.handle('checkups:get', () => checkupsView());
+  // Only a folder already in the list: the renderer can't point this anywhere new.
+  ipcMain.handle('checkups:run', (_e, key) => (isStr(key) && checkupsView().some(c => c.key === key) ? runCheckup(key) : { ok: false, error: 'Unknown project.' }));
+  ipcMain.handle('week:get', () => weekView());
 
   // ---- Claude Code sessions elsewhere
   ipcMain.on('clipboard:text', (_e, text) => { if (isStr(text) && text.length <= 2000) clipboard.writeText(text); });
@@ -4187,14 +4618,14 @@ ${r.detail}` });
     if (isolated) return true;
     try { clipboard.writeImage(img); return true; } catch (e) { log.warn("couldn't copy a crab card", e?.message); return false; }
   };
-  ipcMain.handle('card:save', (_e, bytes) => {
+  ipcMain.handle('card:save', (_e, bytes, kind) => {
     const card = cardImage(bytes);
     if (!card) return { ok: false, error: "That card didn't come out right." };
     try {
       const dir = path.join(isolated ? app.getPath('userData') : app.getPath('pictures'), 'Shellby');
       fs.mkdirSync(dir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-      lastCard = path.join(dir, `shellby-card-${stamp}.png`);
+      lastCard = path.join(dir, `shellby-${kind === 'week' ? 'week' : 'card'}-${stamp}.png`);
       fs.writeFileSync(lastCard, card.buf);
     } catch (e) {
       log.warn("couldn't save a crab card", e?.message);
@@ -4511,7 +4942,7 @@ app.whenReady().then(() => {
     send(panel, 'wardrobe', wardrobe.view());
     if (!(panel?.isVisible() && panel.isFocused())) {
       notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate' });
     }
   });
   wardrobe.on('collected', items => {
@@ -4581,10 +5012,13 @@ app.whenReady().then(() => {
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
   // Timers don't run while the PC sleeps: catch up on wake.
-  powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); });
+  powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); if (scheduler) scheduleHeld(); });
+  watchOutlook();
   setTimeout(checkNudges, 60 * 1000);
   try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
   setInterval(checkNudges, 60 * 60 * 1000);
+  setTimeout(checkWrapUp, 2 * 60 * 1000);
+  setInterval(checkWrapUp, 30 * 60 * 1000);
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();

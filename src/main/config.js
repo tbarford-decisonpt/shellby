@@ -45,8 +45,13 @@ const DEFAULTS = {
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
   focus: null,       // the focus session in progress (see focus.js)
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
+  forecast: true,    // warn when you're on pace to fill the 5-hour window before it resets (see forecast.js)
+  forecastWarned: null, // the reset time of the window last warned about, so each window warns once
+  held: [],          // messages and routines waiting for the usage window to reset (see held.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
+  checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
+  weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
   github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here

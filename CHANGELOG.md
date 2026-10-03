@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.51.0: is it safe to leave?
+## 0.54.0: is it safe to leave?
 
 ### New
 - **Is it safe to leave?** In his menu (right-click him or the tray icon). Shellby checks the projects you've worked in over the last two weeks and tells you what only exists on this PC or is still going: commits no remote has (and on which branches), files nobody committed, including in Shellby's own copies, stashes, Claude still working or waiting on you, and commands left running in the background. *"2 projects have unpushed work."* **Tidy up** opens a conversation in that project with a ready-to-send prompt to commit and push it; nothing is sent until you press Enter.
@@ -8,6 +8,33 @@
 - **Shutdowns and sign-outs wait.** If you shut down, restart or sign out with unpushed or uncommitted work, or while Claude is mid-task or waiting on you, Windows shows Shellby holding it up with the reason, and **Shut down anyway** still works. Stashes and background commands are listed by the check but never hold up a shutdown, and neither do installers or critical shutdowns. Turn it off under **Settings → System**.
 - A project git can't read is shown as **couldn't be checked**, never as safe.
 - The menu item says what the last check found, so a glance is often enough.
+## 0.53.0: fresh dependencies and your week
+
+### New
+- **Dependency checkup routine.** A new **Dependency checkup** template on the Routines page. Once a week it runs each project's outdated and audit checks (`npm outdated` and `npm audit`, or the pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET equivalent) and finishes with a table of what to update. It never installs or changes anything.
+- **🧼 Fresh.** A dependency audit that comes back clean earns 30 XP (once a day per project, or again straight away when it fixes what the last one found) and the project's sticker its new **Fresh** mark. There's a new bounty for it too: *Pass a dependency audit*.
+- **Dependency health.** The Routines page lists what each project's last checkup found: 🧼 fresh, how many vulnerabilities, how many packages are outdated, and when it was checked, with **Check again**. Each project's page in the Sticker Book shows the same and has a **Check dependencies** button.
+- Shellby reads what a check actually printed, not just how it exited, so `npm audit | tail` or `cargo audit || true` can't pass for a clean audit. Checkups count from routines, from tabs, and from your terminal with the plugin.
+- **Your week.** **Trophies & XP → This week** sums up the last seven days: projects shipped, tests turned green, tasks done, your streak, deploys, releases and clean audits. **📅 Share my week** makes a card in the crab card's style, with the week's stickers on his tank, XP for each day and the projects that shipped. It's copied to your clipboard and saved to `Pictures\Shellby`.
+- On Friday afternoons after a week that shipped something, Shellby says so, and the week card is one click away.
+
+### Changed
+- The routine templates are always a click away under **More templates**, not just when you have no routines yet.
+
+## 0.52.0: run it after the reset
+
+### New
+- **A heads-up before you hit your 5-hour limit.** Shellby watches how fast your 5-hour window is filling. When your pace says it'll fill before it resets, he tells you: *At this pace you'll hit your 5-hour limit around 3:40 PM. It resets at 4:15 PM.* The warning shows above the box, as a notification if the panel isn't in front, and once per window. The 5-hour meter's tooltip says when it'll fill at this pace. The pace comes from the last hour of readings, so Claude Code you use outside Shellby counts too. Turn it off under **Settings → System**.
+- **Run this after the reset.** Near your limit or at it, **Send after the reset** (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>) holds what you've typed until the window resets, then sends it in that conversation. **Hold N queued** does the same for your queue, and so does the paused queue when a turn hits the limit. Held messages wait with your queued ones, showing the time they'll go: click one to edit it, ✕ to drop it. If one can't go, it lands back in its box rather than vanishing.
+- **Routines can wait for the reset too.** On the Routines page, the clock button runs a routine once your usage resets. A scheduled routine that comes due while you're at your limit now waits for the reset instead of failing.
+- Held work survives a restart or an update, and goes a minute after the reset, one at a time.
+
+## 0.51.0: notifications that look like Shellby
+
+### New
+- **Shellby's Windows notifications wear his colours.** Each one has the crab in the corner and a banner across the top in the panel's deep-sea colours. The banner matches the news: confetti for a level-up, a sticker, a trophy or CI back to green; a speech bubble when he needs your OK or has a question; a little rain cloud when something failed.
+- **A button when there's something to do.** "Review" when he needs your OK, "Answer" when he has a question, "Report it" when he hit a snag.
+- They're still real Windows notifications, so they stay in the notification centre and Do Not Disturb still holds them back. If Windows ever won't show the new look, you get the plain notification instead.
 
 ## 0.50.0: workflows
 
@@ -27,6 +54,7 @@
 - Values from outside, like a pull request's title, a web page or a file, can't turn into code. A command gets them as environment variables, never in its text. Claude gets them marked as data, not instructions. A web address gets them encoded, and a file path refuses one that would leave its folder.
 - At most 4 runs go at once, and a workflow that starts more than 60 times in an hour is paused, with a notification saying so.
 - What you said yes to is signed with a key Windows keeps encrypted. A risky workflow added to Shellby's settings file any other way is paused until you save it again (which asks). Workflows can't write into Shellby's own folder, Claude Code's setup, your Startup folder, PowerShell profiles or git hooks, and can't call Shellby's own local port.
+
 ## 0.49.1: what the README says about billing
 
 ### Fixed

@@ -36,7 +36,7 @@ class WorkflowService {
    *   config, dataDir, home, manager, maxTabs,
    *   openTab({ tabId, cwd, mode, workflowRunId, title }), closeTab(tabId),
    *   currentCwd(), claudeReady() -> bool, allowAutonomous() -> bool,
-   *   confirm(spec) -> Promise<button index>, notify(title, body, onClick, { urgent }),
+   *   confirm(spec) -> Promise<button index>, notify(title, body, onClick, { urgent, tone, action }),
    *   tellPhone(event), say(text), showWorkflows(runId?), toPanel(channel, payload),
    *   runCommand(cwd, command, { timeoutMs, signal }), runClaude(args, timeoutMs, { input }) -> { stdout, timedOut, ... },
    *   copy(text), crypto: { available, encrypt, decrypt }, webhookPort() -> number | null,
@@ -464,7 +464,7 @@ class WorkflowService {
       if (tab && !tab.session.busy) tab.session.stop().catch(() => {});
     }
     if (!run.child && rec.status === 'error') {
-      this.deps.notify(`Workflow failed: ${rec.workflowName}`, (rec.error || 'Click to see what happened.').slice(0, 200), () => this.deps.showWorkflows(rec.id));
+      this.deps.notify(`Workflow failed: ${rec.workflowName}`, (rec.error || 'Click to see what happened.').slice(0, 200), () => this.deps.showWorkflows(rec.id), { tone: 'problem' });
     }
     if (!run.child && ['ok', 'error'].includes(rec.status)) {
       this.event('workflow', { name: rec.workflowName, status: rec.status, runId: rec.id, vars: rec.vars, chain: (rec.trigger?.type === 'workflow' ? (rec.trigger.data?.chain || 0) : 0) + 1 });
@@ -603,7 +603,7 @@ class WorkflowService {
       if (signal?.aborted) { reject(fx.abortError()); return; }
       this.asks.set(id, { resolve, choices });
       signal?.addEventListener('abort', () => { this.asks.delete(id); reject(fx.abortError()); }, { once: true });
-      this.deps.notify(`${workflow} needs you`, question.slice(0, 200), () => this.deps.showWorkflows(run.record.id), { urgent: true });
+      this.deps.notify(`${workflow} needs you`, question.slice(0, 200), () => this.deps.showWorkflows(run.record.id), { urgent: true, action: 'Answer' });
       this.deps.tellPhone({ kind: 'asking', project: workflow, message: question, deskOnly: 'Answer it on the Automate page.' });
       this.pushView();
     });
