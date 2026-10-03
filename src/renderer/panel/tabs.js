@@ -172,6 +172,7 @@
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
         onpointerdown: e => dragStart(e, t.id),
+        oncontextmenu: e => { e.preventDefault(); openTabMenu(t.id, e.currentTarget); },
         onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); else if (e.key === 'F2') { e.preventDefault(); SB.renameTab(t.id); } },
       },
       tabIcon(t),
@@ -221,6 +222,16 @@
       if (state.view === 'history') SB.views.history.redraw?.();
     });
   };
+
+  // Right-click a tab (or Shift+F10 on it) for the same things, spelled out.
+  function openTabMenu(tabId, anchor) {
+    SB.openMenu($('tabMenu'), anchor, () => [
+      h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.renameTab(tabId); } },
+        h('span', { class: 'mi-check', text: '✎' }), h('span', { class: 'mi-title', text: 'Rename  (F2)' })),
+      h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.closeTab(tabId); } },
+        h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: 'Close  (Ctrl+W)' })),
+    ]);
+  }
 
   // Swaps `el` for a text field holding `current`. Enter or leaving the field
   // saves, Escape doesn't; done(name) gets the new name, or null for no change.
@@ -526,7 +537,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
+      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       // Esc twice, like the terminal: back to an earlier message (composer.js).
       if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
