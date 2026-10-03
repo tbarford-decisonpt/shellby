@@ -146,6 +146,23 @@ test('parseArgs reads the options for "do"', () => {
   assert.equal(parseArgs(['do', '--', '-q', 'is', 'part', 'of', 'it']).prompt, '-q is part of it');
 });
 
+test('parseArgs reads a snippet as the first word of "do"', () => {
+  assert.deepEqual(parseArgs(['do', '@review']),
+    { cmd: 'do', quiet: false, dir: null, mode: null, prompt: '', snippet: 'review' });
+  assert.deepEqual(parseArgs(['do', '-m', 'plan', '@tests', 'src/app.js']),
+    { cmd: 'do', quiet: false, dir: null, mode: 'plan', prompt: 'src/app.js', snippet: 'tests' });
+  // File mentions for Claude are left alone: a dot, a slash or a capital means it's not a snippet.
+  for (const word of ['@src/app.js', '@README.md', '@Makefile', '@']) {
+    const r = parseArgs(['do', word, 'explain']);
+    assert.equal(r.snippet, undefined, word);
+    assert.equal(r.prompt, `${word} explain`);
+  }
+  // Only the first word: an @name later on is part of the task.
+  assert.equal(parseArgs(['do', 'ask', '@review']).snippet, undefined);
+  assert.deepEqual(parseArgs(['snippets']), { cmd: 'snippets' });
+  assert.match(parseArgs(['snippets', 'x']).error, /takes nothing/);
+});
+
 test('parseArgs refuses what it cannot act on', () => {
   assert.match(parseArgs(['do']).error, /What should he do/);
   assert.match(parseArgs(['say']).error, /Say what/);
@@ -223,7 +240,7 @@ test('parseFlowRequest checks a flow request the way run_workflow does', () => {
 
 test('parseTaskRequest checks the task before anything is started', () => {
   const ok = parseTaskRequest({ action: 'task', args: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan' } });
-  assert.deepEqual(ok, { ok: true, task: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan' } });
+  assert.deepEqual(ok, { ok: true, task: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan', snippet: null } });
   assert.equal(parseTaskRequest({ action: 'task', args: { prompt: 'x', cwd: 'C:\\x' } }).task.mode, null);
 
   for (const body of [
@@ -239,6 +256,16 @@ test('parseTaskRequest checks the task before anything is started', () => {
   // A folder that isn't there is refused, which is what the app will check.
   assert.equal(parseTaskRequest({ action: 'task', args: { prompt: 'x', cwd: 'C:\\nope' } }, { isDir: () => false }).ok, false);
   assert.equal(parseTaskRequest({ action: 'task', args: { prompt: 'a\u0000b', cwd: 'C:\\x' } }).task.prompt, 'ab');
+});
+
+test('parseTaskRequest takes a snippet, with or without words to go with it', () => {
+  const bare = parseTaskRequest({ action: 'task', args: { snippet: 'review', cwd: 'C:\\x' } });
+  assert.deepEqual(bare, { ok: true, task: { prompt: '', cwd: 'C:\\x', mode: null, snippet: 'review' } });
+  assert.equal(parseTaskRequest({ action: 'task', args: { snippet: 'tests', prompt: 'src/a.js', cwd: 'C:\\x' } }).task.prompt, 'src/a.js');
+  // The port isn't only the CLI's: a name is checked the same way here.
+  for (const snippet of ['', 'Review', '../x', 'a b', 'x'.repeat(33), 7, {}, ['review']]) {
+    assert.equal(parseTaskRequest({ action: 'task', args: { snippet, prompt: 'x', cwd: 'C:\\x' } }).ok, false, JSON.stringify(snippet));
+  }
 });
 
 // ------------------------------------------------------------------ end to end
@@ -310,6 +337,34 @@ test('the CLI prints the status, and says nothing on --quiet', async t => {
   const quiet = await runCli(['do', '-q', 'something'], { port, tmp, env: { SHELLBY_TOKEN: 't' } });
   assert.equal(quiet.code, EXIT.ok, quiet.stderr);
   assert.equal(quiet.stdout, '', '--quiet prints nothing when it worked');
+});
+
+test('the CLI sends a snippet by name, and lists them', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => {
+    seen.push(req);
+    if (req.body.args?.snippet === 'nope') { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'No snippet called @nope.' })); }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ text: req.body.action === 'snippets' ? 'Your snippets: @review' : 'Shellby is on it.' }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+  const env = { SHELLBY_TOKEN: 't' };
+
+  const r = await runCli(['do', '@tests', 'src/app.js'], { port, tmp, env });
+  assert.equal(r.code, EXIT.ok, r.stderr);
+  assert.deepEqual(seen[0].body.args, { prompt: 'src/app.js', cwd: process.cwd(), mode: null, snippet: 'tests' });
+
+  const list = await runCli(['snippets'], { port, tmp, env });
+  assert.equal(list.code, EXIT.ok, list.stderr);
+  assert.deepEqual(seen[1].body, { action: 'snippets' });
+  assert.match(list.stdout, /@review/);
+
+  const missing = await runCli(['do', '@nope'], { port, tmp, env });
+  assert.equal(missing.code, EXIT.error);
+  assert.match(missing.stderr, /No snippet called @nope/);
 });
 
 test('with Shellby closed the CLI says so and exits 3, without waiting', async () => {

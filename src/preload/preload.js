@@ -118,6 +118,10 @@ contextBridge.exposeInMainWorld('shellby', {
   rescanToolbox: invoke('toolbox:rescan'),
   pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
   revealTool: fire('toolbox:reveal'),
+  // prompt snippets: /name in the box, @name from a terminal
+  saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
+  removeSnippet: invoke('snippets:remove'),
+  expandSnippet: invoke('snippets:expand'),
   // hooks and CLAUDE.md memory (every write is re-checked in main; hook changes ask in the confirm window)
   getClaudeSetup: invoke('setup:get'),
   readMemory: invoke('setup:read-memory'),
@@ -377,6 +381,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabSent: on('tab:sent'), // a held message went out after the reset
   onHeldReturned: on('held:returned'), // one that couldn't, back to its box
   onToolbox: on('toolbox'),
+  onSnippets: on('snippets'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
   onWorkflows: on('workflows'),

@@ -453,6 +453,17 @@
     const attachments = [...tab.attachments];
     // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
     if (!attachments.length && SB.runLocal?.(text, tab)) { clearComposer(tab); return; }
+    // /review and the rest of your snippets: Claude gets the prompt they stand for,
+    // filled in before it can be queued, so editing the snippet can't change it later.
+    if (SB.isSnippetCall?.(text)) {
+      // A second Enter while main fills it in would send it twice.
+      if (tab.expanding) return;
+      tab.expanding = true;
+      let r;
+      try { r = await api.expandSnippet(text); } finally { tab.expanding = false; }
+      if (r && !r.ok) { SB.toast(r.error); return; }
+      if (r) text = r.prompt;
+    }
     if (tab.busy) {
       tab.queue.push({ text, attachments });
       clearComposer(tab);
@@ -640,8 +651,10 @@
 
   function slashCandidates(q) {
     const tb = state.toolbox || { skills: [], commands: [] };
-    // Shellby's own commands come first, so a skill with the same name can't hide them.
-    const all = [...(SB.LOCAL_COMMANDS || []), ...tb.skills.map(t => ({ ...t, kind: 'skill' })), ...tb.commands.map(t => ({ ...t, kind: 'command' }))];
+    // Shellby's own commands come first, so a skill with the same name can't hide
+    // them; then your snippets, which run instead of a skill or command they share a name with.
+    const snips = (state.snippets || []).map(s => ({ name: s.name, kind: 'snippet', description: s.summary }));
+    const all = [...(SB.LOCAL_COMMANDS || []), ...snips, ...tb.skills.map(t => ({ ...t, kind: 'skill' })), ...tb.commands.map(t => ({ ...t, kind: 'command' }))];
     const seen = new Set();
     const pinned = new Set((state.pinned || []).map(p => `${p.kind}:${p.name}`));
     return all
@@ -709,6 +722,7 @@
   };
 
   SB.useTool = (t) => {
+    if (t.kind === 'snippet') return SB.runSnippet(t.name);
     const prefix = t.kind === 'agent' ? `Use the ${t.name} agent to ` : `/${t.name} `;
     SB.prefill(prefix + input.value.replace(/^\/\S*\s*/, ''));
   };

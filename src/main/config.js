@@ -67,6 +67,7 @@ const DEFAULTS = {
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
   openTabs: [],       // history ids of conversations open as tabs
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
+  snippets: null,     // [{ name, text }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters
   learnedTricks: [],  // recently discovered skills/agents/commands
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on

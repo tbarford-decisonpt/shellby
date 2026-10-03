@@ -38,6 +38,7 @@ const SUITE = [
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
+  'e2e-snippets',     // prompt snippets: the Toolbox tab, /name in the box, pinned chips, shellby do @name
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook

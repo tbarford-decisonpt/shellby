@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.58.0: prompt snippets
+
+### New
+- **Prompt snippets.** Save the things you ask Claude for again and again, like "review my diff" or "write tests for this file", under a short name in **Toolbox → Snippets**. Then type `/review` in the box, or run `shellby do @review` in any terminal, and Claude gets the whole prompt.
+- **Fill in the blank.** Put `$ARGUMENTS` in a snippet and whatever you type after its name goes there: `/tests src/app.js`, or `shellby do @tests src/app.js`. Without it, anything you add goes on the end. A snippet that needs something says so instead of sending half a prompt.
+- **In the slash menu.** Your snippets come up as you type `/`, marked as snippets, right after Shellby's own commands. One that shares a name with a skill or command runs instead of it in the box, and the Toolbox tells you so.
+- **One click.** Pin a snippet and it's a chip on the start screen. Clicking it sends it, or puts it in the box if it needs something. Whatever you'd already typed goes with it.
+- **Keep what worked.** `/snippets save <name>` saves the last thing you sent as a snippet.
+- **From the terminal.** `shellby snippets` lists yours, and an `@name` that isn't one tells you the ones there are. `@src/app.js`, `@README.md` and anything else with a dot, a slash or a capital is still a file for Claude, as before.
+- You start with five you can edit or delete: **review**, **tests**, **explain**, **commit** and **pr**.
+
 ## 0.57.0: time on each project
 
 ### New

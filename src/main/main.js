@@ -35,6 +35,7 @@ const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const crabtools = require('./crabtools');
 const clipath = require('./clipath');
+const snippets = require('./snippets');
 const channels = require('./channels');
 const { RemoteAnswers, deskOnlyReason } = require('./replies');
 const changes = require('./changes');
@@ -1974,6 +1975,7 @@ function runCliRequest(body, token) {
   if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
 
   if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+  if (body?.action === 'snippets') return { text: snippets.cliText(snippetList()) };
   // Your hours are yours: behind the token, unlike status.
   if (body?.action === 'time') {
     const range = ['today', 'week', 'last-week', 'month', 'last-month'].includes(body.range) ? body.range : 'week';
@@ -1990,8 +1992,15 @@ function runCliRequest(body, token) {
   const checked = clipath.parseTaskRequest(body, { modes: MODES.filter(m => m !== 'autonomous'), isDir: d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } } });
   if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
 
-  const { prompt, cwd, mode } = checked.task;
-  const r = startTask(prompt, 'From the terminal', { mode, cwd });
+  const { cwd, mode, snippet } = checked.task;
+  let { prompt } = checked.task;
+  if (snippet) {
+    const x = expandSnippet(snippet, prompt, { sigil: '@', max: 4000 });
+    if (!x) return { ok: false, error: snippets.unknownText(snippet, snippetList()), status: 404 };
+    if (!x.ok) return { ok: false, error: x.error, status: 400 };
+    prompt = x.prompt;
+  }
+  const r = startTask(prompt, snippet ? `@${snippet} from the terminal` : 'From the terminal', { mode, cwd });
   if (!r.ok) return { ok: false, error: r.error || 'Shellby could not start that.', status: 400 };
   showPanel({ focusInput: false, tabId: r.tabId });
   wake();
@@ -3417,8 +3426,41 @@ async function confirmAndAddMarketplace(input) {
   return { ...r, view: shop.view() };
 }
 
+// Snippets pin to the start screen like skills do, as long as they still exist.
 function pinnedTools() {
-  return (config.get('pinnedTools') || []).filter(p => p && TRICKS_KIND.has(p.kind) && typeof p.name === 'string');
+  const names = new Set(snippetList().map(s => s.name));
+  return (config.get('pinnedTools') || []).filter(p => p && typeof p.name === 'string'
+    && (TRICKS_KIND.has(p.kind) || (p.kind === 'snippet' && names.has(p.name))));
+}
+
+// ================================================================ prompt snippets
+
+const PANEL_MAX_TEXT = 50000; // the longest message the box sends (task:send)
+
+function snippetList() { return snippets.normalize(config.get('snippets')); }
+
+/** Save the list and tell the panel. A rename or delete carries its pin along. */
+function setSnippets(list, renamed = null) {
+  const pins = (config.get('pinnedTools') || []).flatMap(p => {
+    if (p?.kind !== 'snippet') return [p];
+    const name = renamed && p.name === renamed.from ? renamed.to : p.name;
+    return list.some(s => s.name === name) ? [{ kind: 'snippet', name }] : [];
+  });
+  config.set({ snippets: list, pinnedTools: pins });
+  const view = { snippets: snippets.view(list), pinned: pinnedTools() };
+  send(panel, 'snippets', view);
+  return view;
+}
+
+/**
+ * A snippet, filled in and ready to send: /review from the panel, @review from a
+ * terminal. null when there's no snippet by that name.
+ */
+function expandSnippet(name, args, { sigil = '/', max } = {}) {
+  const list = snippetList();
+  const s = snippets.find(list, name);
+  if (!s) return null;
+  return snippets.expand(s, args, { sigil, max });
 }
 
 // ================================================================ routines
@@ -3892,6 +3934,7 @@ function registerIpc() {
       tabItems: Object.fromEntries(manager.summary.map(t => [t.id, history.load(t.id)])),
       toolbox: CAPTURE ? null : toolbox.current,
       pinned: pinnedTools(),
+      snippets: snippets.view(snippetList()),
       learned: CAPTURE ? [] : config.get('learnedTricks') || [],
       routines: CAPTURE ? [] : routinesView(),
       outlook: CAPTURE ? null : outlookView(),
@@ -3967,7 +4010,7 @@ function registerIpc() {
   ipcMain.on('tab:seen', (_e, tabId) => { if (isStr(tabId)) manager.markRead(tabId); });
 
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
-    text = String(text || '').trim().slice(0, 50000);
+    text = String(text || '').trim().slice(0, PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
     try {
@@ -4389,10 +4432,26 @@ ${r.detail}` });
   ipcMain.handle('toolbox:get', () => toolbox.current);
   ipcMain.handle('toolbox:rescan', () => { toolbox.rescan(); return toolbox.current; });
   ipcMain.handle('toolbox:pin', (_e, { kind, name, pinned } = {}) => {
-    if (!TRICKS_KIND.has(kind) || !isStr(name)) return pinnedTools();
+    if (!(TRICKS_KIND.has(kind) || kind === 'snippet') || !isStr(name)) return pinnedTools();
+    if (kind === 'snippet' && pinned && !snippets.find(snippetList(), name)) return pinnedTools();
     const rest = pinnedTools().filter(p => !(p.kind === kind && p.name === name));
     config.set({ pinnedTools: pinned ? [...rest, { kind, name }].slice(-12) : rest });
     return pinnedTools();
+  });
+  // ---- prompt snippets (Toolbox → Snippets, /name in the box)
+  ipcMain.handle('snippets:save', (_e, { snippet, was } = {}) => {
+    const list = snippetList();
+    const r = snippets.save(list, snippet, typeof was === 'string' ? was : null);
+    if (!r.ok) return r;
+    const from = snippets.normalizeName(was);
+    return { ok: true, name: r.name, ...setSnippets(r.list, from && from !== r.name ? { from, to: r.name } : null) };
+  });
+  ipcMain.handle('snippets:remove', (_e, name) => setSnippets(snippets.remove(snippetList(), isStr(name) ? name : '')));
+  // "/review the auth module" -> the prompt to send. null: not a snippet, send it as it is.
+  ipcMain.handle('snippets:expand', (_e, text) => {
+    // Not isStr: a pasted file after /tests can be long. task:send's own limit applies.
+    const call = snippets.parseShortcut(typeof text === 'string' ? text.slice(0, PANEL_MAX_TEXT) : '', '/');
+    return call ? expandSnippet(call.name, call.args, { max: PANEL_MAX_TEXT }) : null;
   });
   ipcMain.on('toolbox:reveal', (_e, p) => {
     // Only reveal files the toolbox itself reported (never arbitrary paths from the renderer).

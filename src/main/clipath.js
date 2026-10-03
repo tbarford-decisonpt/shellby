@@ -10,6 +10,7 @@
 // Shellby that would really annoy someone if it went wrong -- is unit-tested.
 const crypto = require('crypto');
 const { parseWorkflowCall } = require('./crabtools');
+const { NAME: SNIPPET_NAME } = require('./snippets');
 
 const BIN_DIR_NAME = 'bin';
 const TOKEN_FILE = 'cli-token';
@@ -139,13 +140,17 @@ const tokenPath = userData => require('path').join(userData, TOKEN_FILE);
 /**
  * What a `shellby do` request is allowed to ask for. The CLI already checks
  * these, but the CLI is not the only thing that can reach the port.
- *   { ok: true, task: { prompt, cwd, mode } } | { ok: false, error }
+ * A task can name one of the user's snippets (`shellby do @review`), and then
+ * its prompt is only what goes with it, and may be empty.
+ *   { ok: true, task: { prompt, cwd, mode, snippet } } | { ok: false, error }
  */
 function parseTaskRequest(body, { modes, maxPrompt = 4000, isDir = () => true } = {}) {
   if (!body || typeof body !== 'object' || body.action !== 'task') return { ok: false, error: 'Expected a task.' };
   const args = body.args && typeof body.args === 'object' ? body.args : {};
   const prompt = typeof args.prompt === 'string' ? args.prompt.replace(/\u0000/g, '').trim() : '';
-  if (!prompt) return { ok: false, error: 'No task given.' };
+  if (args.snippet != null && (typeof args.snippet !== 'string' || !SNIPPET_NAME.test(args.snippet))) return { ok: false, error: 'That is not a snippet name.' };
+  const snippet = args.snippet ?? null;
+  if (!prompt && !snippet) return { ok: false, error: 'No task given.' };
   if (prompt.length > maxPrompt) return { ok: false, error: 'That task is too long.' };
   const cwd = typeof args.cwd === 'string' ? args.cwd : '';
   if (!cwd || !isDir(cwd)) return { ok: false, error: 'That folder does not exist.' };
@@ -153,7 +158,7 @@ function parseTaskRequest(body, { modes, maxPrompt = 4000, isDir = () => true } 
   // and "autonomous" is never reachable from a terminal.
   const allowed = Array.isArray(modes) ? modes : ['ask', 'smart', 'acceptEdits', 'plan'];
   if (args.mode != null && !allowed.includes(args.mode)) return { ok: false, error: 'Unknown permission mode.' };
-  return { ok: true, task: { prompt, cwd, mode: args.mode ?? null } };
+  return { ok: true, task: { prompt, cwd, mode: args.mode ?? null, snippet } };
 }
 
 /**
