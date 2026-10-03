@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.46.0: describe a routine
+
+### New
+- **Just describe it.** The Routines page has a new box: type what you want done and when ("every weekday at 8:30, list what changed in my Documents") and press **Draft it**. Claude fills in the routine form for you (name, schedule, prompt, permission mode and, if you named one, the folder), and you check it over and press **Save routine**. Nothing is saved until you do.
+- It works without the Shellby plugin, uses no tools and doesn't add anything to your History. It's one short call to Claude's fastest model, and Autonomous is never picked for you.
+
 ## 0.45.0: your sign-in, your call
 
 ### Changed

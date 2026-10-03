@@ -194,6 +194,14 @@
       <button type="button" class="btn primary slim-btn" id="newRoutineBtn">New routine</button>
     </div>
     <p class="view-lede">Tasks Shellby runs on a schedule while your PC is on. Each run opens its own tab, and if it needs you, you'll get a notification.</p>
+    <form class="routine-ask" id="routineAsk" novalidate>
+      <label class="field-label" for="routineAskText">Or just describe it</label>
+      <div class="row">
+        <input class="field" id="routineAskText" name="text" maxlength="500" autocomplete="off" placeholder="Every weekday at 8:30, list what changed in my Documents">
+        <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
+      </div>
+      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check. Nothing is saved until you press Save.</p>
+    </form>
     <form class="routine-editor" id="routineEditor" hidden novalidate>
       <h3 id="routineEditorTitle">New routine</h3>
       <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>

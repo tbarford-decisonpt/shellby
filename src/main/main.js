@@ -19,6 +19,7 @@ const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
+const routineDraft = require('./routine-draft');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
 const { attachContextMenu } = require('./context-menu');
@@ -2703,6 +2704,32 @@ async function proposeRoutine(routine) {
   return { text: crabtools.routineReply(saved, { added: true, replaced: !!current, next: nextRun(saved, Date.now()) }) };
 }
 
+/**
+ * "Describe it" on the Routines page: Claude fills in the editor from a
+ * sentence. Only a draft comes back; the user saves it from the editor, so no
+ * confirm window is needed. One at a time, since each is a (small) Claude call.
+ */
+let routineDrafting = false;
+async function draftRoutine(text) {
+  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
+  const checked = routineDraft.checkDescription(text);
+  if (!checked.ok) return checked;
+  if (routineDrafting) return { ok: false, error: 'Already drafting one. Give it a moment.' };
+  const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+  if (!exe) return { ok: false, error: 'Claude Code isn\'t installed yet. Set it up in Settings first.' };
+  routineDrafting = true;
+  try {
+    const res = await runCli(exe, routineDraft.draftArgs(checked.text, { home: os.homedir(), defaultFolder: currentCwd() }),
+      routineDraft.DRAFT_TIMEOUT_MS, { cwd: os.homedir() });
+    if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
+    if (!res.stdout.trim()) {
+      log.warn('Routine draft failed', res.stderr.trim().split('\n').slice(-3).join(' ') || res.err?.message);
+      return { ok: false, error: 'Claude Code didn\'t answer. Check it\'s signed in, in Settings.' };
+    }
+    return routineDraft.parseDraft(res.stdout, { folderOk: isFolder });
+  } finally { routineDrafting = false; }
+}
+
 function startScheduler() {
   scheduler = new Scheduler({ getRoutines: routines });
   scheduler.on('due', r => runRoutine(r));
@@ -3389,6 +3416,7 @@ ${r.detail}` });
     saveRoutines(list);
     return { ok: true, routine, routines: routinesView() };
   });
+  ipcMain.handle('routines:draft', (_e, text) => draftRoutine(text));
   ipcMain.handle('routines:delete', (_e, id) => { saveRoutines(routines().filter(r => r.id !== id)); return routinesView(); });
   ipcMain.handle('routines:run', (_e, id) => {
     const r = routines().find(x => x.id === id);

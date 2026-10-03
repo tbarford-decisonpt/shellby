@@ -296,6 +296,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // routines
   listRoutines: invoke('routines:list'),
   saveRoutine: invoke('routines:save'),
+  draftRoutine: invoke('routines:draft'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
   usageBreakdown: invoke('usage:breakdown'),

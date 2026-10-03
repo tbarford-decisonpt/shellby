@@ -119,6 +119,39 @@
     const saved = state.routines.find(r => r.id === res.routine.id);
     SB.toast(`Saved. Next run ${SB.untilTime(saved?.next)}`);
   });
+  // ------------------------------------------------------------ describe it
+
+  // Claude only fills in the editor; the routine is saved by the Save button,
+  // so what you see there is exactly what runs.
+  const ask = $('routineAsk');
+  const ASK_NOTE = $('routineAskNote').textContent;
+  function askNote(text, err = false) {
+    $('routineAskNote').textContent = text;
+    $('routineAskNote').classList.toggle('err', err);
+  }
+  ask.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (ask.classList.contains('busy')) return;
+    const text = $('routineAskText').value.trim();
+    if (!text) { askNote('Say what you want done and when.', true); $('routineAskText').focus(); return; }
+    ask.classList.add('busy');
+    $('routineAskBtn').disabled = true;
+    askNote('Claude is drafting it…');
+    try {
+      const res = await api.draftRoutine(text);
+      if (!res.ok) { askNote(res.error, true); return; }
+      $('routineAskText').value = '';
+      askNote(ASK_NOTE);
+      openEditor({ ...res.draft, isTemplate: true });
+      SB.toast('Drafted. Check it over, then press Save.');
+    } catch {
+      askNote('Couldn\'t reach Claude. Try again.', true);
+    } finally {
+      ask.classList.remove('busy');
+      $('routineAskBtn').disabled = false;
+    }
+  });
+
   $('routineCancel').addEventListener('click', closeEditor);
   $('newRoutineBtn').addEventListener('click', () => openEditor());
   $('routineFolderBtn').addEventListener('click', async () => {
