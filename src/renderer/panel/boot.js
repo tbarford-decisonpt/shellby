@@ -53,6 +53,9 @@
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
   api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });
+  api.onWorkflows(view => SB.applyWorkflows(view));
+  api.onWorkflowRun(summary => SB.onWorkflowRun(summary));
+  api.onWorkflowOpen(runId => SB.views.workflows.openRun(runId));
   api.onAttach(files => {
     if (SB.isCrabOnly()) return SB.claudeUpsell('files');
     if (state.view !== 'onboarding') SB.setView('chat');

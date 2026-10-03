@@ -12,8 +12,9 @@
 // It can make the crab react and it can read his status. It cannot start Claude
 // Code tasks: anything on this PC can reach this server, and spending someone's
 // Claude subscription is not a thing a local port should be able to do. It can
-// propose a routine (a task on a schedule), but the app only saves one after
-// the user says yes in a window this server has no way to click.
+// propose a routine or a workflow, but the app only saves one after the user
+// says yes in a window this server has no way to click. And it can start a
+// workflow only if the user gave that workflow the "Claude Code" trigger.
 'use strict';
 
 const fs = require('fs');
@@ -23,8 +24,10 @@ const http = require('http');
 
 const PORT = Number(process.env.SHELLBY_PORT) || 47913;
 const TIMEOUT_MS = 2500;
-// add_routine waits while the user reads the confirm window.
+// add_routine and add_workflow wait while the user reads the confirm window.
 const ASK_TIMEOUT_MS = 5 * 60 * 1000;
+// run_workflow answers once the run has started, which can take a moment.
+const RUN_TIMEOUT_MS = 15 * 1000;
 const NAME = 'shellby';
 const VERSION = '1.0.0';
 // Newest first. The client's version is echoed back when we know it, which is
@@ -35,6 +38,66 @@ const MAX_TEXT = 120;   // a speech bubble, not a paragraph
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
 const MAX_ROUTINE_PROMPT = 1000;
 const ROUTINE_MODES = ['ask', 'smart', 'acceptEdits', 'plan'];
+const MAX_WORKFLOW_NAME = 60;
+const MAX_WORKFLOW_INPUTS = 10;
+const MAX_INPUT_VALUE = 2000;
+const MAX_WORKFLOW_BYTES = 64 * 1024;
+const INPUT_KEY = '^[a-z][a-z0-9_]{0,31}$';
+
+// The tests check this passes the app's own validator.
+const WORKFLOW_EXAMPLE = {
+  name: 'Morning PR digest',
+  when: [{ type: 'schedule', schedule: { type: 'daily', time: '08:30' } }, { type: 'claude' }],
+  inputs: [{ name: 'repo', default: 'me/app' }],
+  steps: [
+    {
+      id: 'look', type: 'claude', mode: 'plan',
+      prompt: 'Which open PRs in {{ inputs.repo }} need my review?',
+      output: { count: { type: 'number', description: 'how many' }, summary: { type: 'string', description: 'one line per PR' } },
+    },
+    { type: 'tell', if: 'look.count > 0', to: 'notification', title: 'PRs to review', text: '{{ look.summary }}' },
+  ],
+};
+
+// The workflow format, for add_workflow. Long on purpose: Claude has to write a
+// correct workflow from this alone. Kept in step with docs/plans/workflows.md.
+const WORKFLOW_FORMAT = [
+  'A Shellby workflow: triggers start a list of steps, and steps pass data to each other.',
+  '',
+  'Top level: { name (1-60 chars, required), description?, enabled? (default true), cwd? (absolute folder the steps work in), concurrency?: "skip"|"queue" (a trigger while a run is going), inputs?: [{ name, label?, default?, required? }] (at most 10), when?: [trigger] (at most 8; every workflow can also be run by hand), steps: [step] (1-60 in all, nested at most 4 deep) }.',
+  'Input names, step ids, output field names and set value names: lowercase letters, digits and _, starting with a letter, at most 32.',
+  '',
+  'Triggers, { type, ... } -> what trigger.* holds:',
+  '- schedule { schedule: { type: "daily", time: "HH:MM" } | { type: "weekly", time, days: [0-6, 0 = Sunday] } | { type: "interval", everyHours: 1-168 } | { type: "minutes", every: 5-1440 } } -> at',
+  '- ci { on: failed|fixed|passed|merged|review|any, repo?: "owner/name" } -> event, repo, number, title, url, branch, failing[]',
+  '- shipped { kind: push|deploy|release|merge|any, project? } -> kind, project, version',
+  '- task { outcome: ok|error|any } (a Shellby task finished) -> title, outcome, folder, error',
+  '- health {} (something overheats or fills up) -> title, body',
+  '- folder { path (absolute), pattern?: "*.pdf", events: added|changed|any } -> folder, files[]',
+  '- workflow { name (another workflow), status: ok|error|any } -> name, status, runId, vars',
+  '- startup {}',
+  '- webhook {} (Shellby generates the token)',
+  '- claude {} (lets Claude Code start it with run_workflow) -> the inputs passed',
+  '',
+  'Steps: { type, id?, label?, if?: condition (false -> skipped), retry?: { times: 0-5, delaySec: 1-3600 }, timeoutMin?: 1-720, continueOnError?: true, ... } -> what <id>.* holds:',
+  '- claude { prompt (up to 8000), mode: ask|smart|acceptEdits|plan (default smart; never autonomous), model?, cwd?, fresh?: true (new conversation; otherwise all Claude steps in a run share one), output?: { field: { type: string|number|boolean|list|object, description } } (at most 20) } -> reply, tabId, and each output field as typed data',
+  '- run { command (PowerShell, up to 4000), cwd?, allowFail? } -> output, code, ok',
+  '- http { method: GET|POST|PUT|PATCH|DELETE|HEAD, url (http/https), headers?: { name: value }, body?, allowFail? } -> status, ok, body, json',
+  '- ask { question (up to 300), choices?: 2-4 (default Continue/Stop; Stop ends the run) } -> choice',
+  '- tell { to: notification|phone|crab|file, text (up to 1000), title?, path (absolute; file only) } -> sent',
+  '- set { values: { name: template } } -> vars.name',
+  '- if { test: condition, then: [steps], else: [steps] }',
+  '- each { over: "{{ some.list }}", as?: name (default item), max?: 1-100 (default 25), steps: [steps] } -> count',
+  '- wait { seconds: 1-604800 }',
+  '- file { action: read|write|append, path (absolute), content? } -> text (read) or path',
+  '- workflow { name (another workflow), inputs?: { name: template } } -> status, vars',
+  '- stop { status: ok|error, message? } ends the run',
+  '',
+  'Templates: {{ path }} or {{ path | filter }} in any text field. Paths: trigger.*, inputs.<name>, vars.<name>, <stepId>.<field> (or steps.<stepId>.<field>), the each item (item.* or its "as" name) and loop.index, run.id, run.started, now, today, and secrets.NAME (only in run commands and http url/headers/body). Filters: json, upper, lower, trim, length, first, last, join ", ", default "x", lines, slice 0 200. Values go in as data: quoted in commands, marked as data in prompts.',
+  'Conditions (if, test): == != > >= < <= contains, and, or, not, parentheses, literals "text" 12 true false null; a bare path is tested for truthiness. E.g. check.count > 0 and not (inputs.dry == "yes").',
+  '',
+  `Example: ${JSON.stringify(WORKFLOW_EXAMPLE)}`,
+].join('\n');
 
 // ------------------------------------------------------------------ the tools
 
@@ -119,11 +182,58 @@ const TOOLS = [
     description: 'The routines the user has set up in Shellby: name, schedule, mode, folder, whether it is paused, and how the last run went. Check this before add_routine to avoid a duplicate, or to change an existing one by reusing its name.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
+  {
+    name: 'list_workflows',
+    title: 'List Shellby workflows',
+    description: 'The workflows the user has in Shellby: name, description, triggers, whether it is paused and how the last run went. Says which ones you may start with run_workflow (those with the "Claude Code" trigger) and what inputs they take. Check this before add_workflow to avoid a duplicate, or to replace one by reusing its name.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'run_workflow',
+    title: 'Run a Shellby workflow',
+    description: 'Run one of the user\'s Shellby workflows that allows being started by Claude Code (it has the "Claude Code" trigger; list_workflows says which and what inputs they take). Returns once the run has started, not when it finishes; the user follows it in Shellby.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: MAX_WORKFLOW_NAME, description: 'The workflow\'s name, as list_workflows gives it.' },
+        inputs: {
+          type: 'object',
+          description: 'Values for the workflow\'s inputs, by input name. All values are text.',
+          propertyNames: { pattern: INPUT_KEY },
+          additionalProperties: { type: 'string', maxLength: MAX_INPUT_VALUE },
+          maxProperties: MAX_WORKFLOW_INPUTS,
+        },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'add_workflow',
+    title: 'Propose a Shellby workflow',
+    description: 'Propose a workflow for Shellby: triggers (a schedule, a failing build, a file landing in a folder, ...) that start a list of steps (Claude, PowerShell commands, web requests, questions, notifications, loops, ...). Shellby shows the user everything it would do in a confirmation window and saves it only if they approve; the result says which, or lists what to fix. A workflow with the same name as an existing one replaces it (call list_workflows first). Autonomous mode is never allowed from here. Write Claude step prompts as complete instructions, and prefer non-destructive steps. The workflow argument describes the format.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workflow: { type: 'object', description: WORKFLOW_FORMAT },
+      },
+      required: ['workflow'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 // ------------------------------------------------------------------ transport
 
 const markerPath = () => path.join(os.tmpdir(), `shellby-hooks-${PORT}`);
+
+// How long each action may take, and what a timeout means for it.
+const TIMEOUTS = { add_routine: ASK_TIMEOUT_MS, add_workflow: ASK_TIMEOUT_MS, run_workflow: RUN_TIMEOUT_MS };
+const TIMEOUT_TEXT = {
+  add_routine: 'The user has not answered Shellby\'s question about the routine yet. If they say yes later it is still saved; check with list_routines.',
+  add_workflow: 'The user has not answered Shellby\'s question about the workflow yet. If they say yes later it is still saved; check with list_workflows.',
+  run_workflow: 'Shellby did not confirm the run in time. It may still have started; list_workflows shows the last run.',
+};
 
 /** Is the app listening? The marker file means a quick no instead of a slow one. */
 function appIsRunning() {
@@ -171,9 +281,7 @@ function callApp(action, args, timeoutMs = TIMEOUT_MS) {
     });
     req.on('timeout', () => {
       req.destroy();
-      resolve({ ok: false, error: action === 'add_routine'
-        ? 'The user has not answered Shellby\'s question about the routine yet. If they say yes later it is still saved; check with list_routines.'
-        : 'Shellby did not answer in time.' });
+      resolve({ ok: false, error: TIMEOUT_TEXT[action] || 'Shellby did not answer in time.' });
     });
     req.on('error', () => resolve({ ok: false, error: 'Could not reach Shellby on this PC.' }));
     req.end(body);
@@ -224,6 +332,31 @@ function toAction(name, raw) {
     }
     case 'list_routines':
       return { action: 'list_routines', args: {} };
+    case 'list_workflows':
+      return { action: 'list_workflows', args: {} };
+    case 'run_workflow': {
+      const name = clip(args.name, MAX_WORKFLOW_NAME);
+      if (!name) return { error: 'run_workflow needs the name of a workflow.' };
+      if (args.inputs === undefined || args.inputs === null) return { action: 'run_workflow', args: { name } };
+      if (typeof args.inputs !== 'object' || Array.isArray(args.inputs)) return { error: 'inputs must be an object of input names and text values.' };
+      const keys = Object.keys(args.inputs);
+      if (keys.length > MAX_WORKFLOW_INPUTS) return { error: `At most ${MAX_WORKFLOW_INPUTS} inputs.` };
+      const inputs = {};
+      for (const k of keys) {
+        if (!new RegExp(INPUT_KEY).test(k)) return { error: `"${clip(k, 32)}" can't be an input name: use lowercase letters, digits and _.` };
+        const v = args.inputs[k];
+        if (!['string', 'number', 'boolean'].includes(typeof v)) return { error: `Input "${k}" must be text.` };
+        if (String(v).length > MAX_INPUT_VALUE) return { error: `Input "${k}" is longer than ${MAX_INPUT_VALUE} characters.` };
+        inputs[k] = String(v);
+      }
+      return { action: 'run_workflow', args: { name, inputs } };
+    }
+    case 'add_workflow': {
+      const wf = args.workflow;
+      if (!wf || typeof wf !== 'object' || Array.isArray(wf)) return { error: 'add_workflow needs a workflow object.' };
+      if (Buffer.byteLength(JSON.stringify(wf), 'utf8') > MAX_WORKFLOW_BYTES) return { error: `Keep the workflow under ${MAX_WORKFLOW_BYTES / 1024} KB.` };
+      return { action: 'add_workflow', args: { workflow: wf } };
+    }
     default:
       return { error: `Unknown tool: ${clip(name, 40)}` };
   }
@@ -247,7 +380,7 @@ async function handle(msg) {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: {} },
         serverInfo: { name: NAME, version: VERSION },
-        instructions: 'Shellby is the pixel hermit crab on this user\'s desktop. Use `say` to keep them posted while you work, `celebrate` when something real lands, and `status` to check the machine before heavy jobs. When the user wants something done on a schedule, `add_routine` sets it up in Shellby (they confirm it there).',
+        instructions: 'Shellby is the pixel hermit crab on this user\'s desktop. Use `say` to keep them posted while you work, `celebrate` when something real lands, and `status` to check the machine before heavy jobs. When the user wants something done on a schedule, `add_routine` sets it up in Shellby (they confirm it there). For anything with several steps or other triggers (a failing build, a file arriving), `add_workflow` proposes a workflow; `list_workflows` and `run_workflow` start the ones the user lets Claude Code run.',
       });
       return;
     }
@@ -263,7 +396,7 @@ async function handle(msg) {
     case 'tools/call': {
       const { action, args, error } = toAction(params?.name, params?.arguments);
       if (error) { textResult(id, error, true); return; }
-      const answer = await callApp(action, args, action === 'add_routine' ? ASK_TIMEOUT_MS : TIMEOUT_MS);
+      const answer = await callApp(action, args, TIMEOUTS[action] || TIMEOUT_MS);
       textResult(id, answer.ok ? answer.text : answer.error, !answer.ok);
       return;
     }
@@ -300,4 +433,7 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { TOOLS, toAction, PROTOCOL_VERSIONS, MOODS, MAX_TEXT, MAX_ROUTINE_PROMPT, ROUTINE_MODES };
+module.exports = {
+  TOOLS, toAction, PROTOCOL_VERSIONS, MOODS, MAX_TEXT, MAX_ROUTINE_PROMPT, ROUTINE_MODES,
+  MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY, WORKFLOW_EXAMPLE,
+};

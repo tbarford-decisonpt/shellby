@@ -1,11 +1,30 @@
 # Changelog
 
-## 0.50.0: notifications that look like Shellby
+## 0.51.0: notifications that look like Shellby
 
 ### New
 - **Shellby's Windows notifications wear his colours.** Each one has the crab in the corner and a banner across the top in the panel's deep-sea colours. The banner matches the news: confetti for a level-up, a sticker, a trophy or CI back to green; a speech bubble when he needs your OK or has a question; a little rain cloud when something failed.
 - **A button when there's something to do.** "Review" when he needs your OK, "Answer" when he has a question, "Report it" when he hit a snag.
 - They're still real Windows notifications, so they stay in the notification centre and Do Not Disturb still holds them back. If Windows ever won't show the new look, you get the plain notification instead.
+
+## 0.50.0: workflows
+
+### New
+- **Workflows.** Something happens and Shellby runs a list of steps. It can start on a schedule (down to every 5 minutes), when a pull request goes red or green, when you push, deploy or release, when a task finishes, when a file lands in a folder, when another workflow finishes, when Shellby starts, when a script calls its web hook, or when Claude Code asks. The steps can be Claude, a PowerShell command, a web request, reading or writing a file, a question for you, or a message to your notifications, your phone or the crab. There's also **If**, **For each**, **Wait**, **Set values**, **Run another workflow** and **Stop**. They're on the new **Automate** page (the bottom bar, <kbd>Ctrl</kbd>+<kbd>4</kbd>), next to Routines. [Everything they can do](docs/WORKFLOWS.md).
+- **Claude hands back real data.** Give a Claude step output fields (`fixable` true or false, a list of `files`, a `cause`) and it returns them as values, so the next step can branch on what Claude found or go through what it listed. All the Claude steps in a run share one conversation, so later ones know what earlier ones learned.
+- **Describe it.** Type what should happen, like "when a pull request goes red, find out why, and if it's simple fix it and ask me before pushing", and Claude writes the workflow. It opens in the editor for you to check, and nothing is saved until you press Save.
+- **Six templates** to start from: a red build fixer that asks before it pushes, a morning brief to your phone, a site watch, a downloads sorter, release notes for every release, and a disk space guard.
+- **Runs you can follow and fix.** Each run shows every step's status, time, output and error. Answer a waiting question right there, stop a run, or **retry from the failed step** without redoing what already worked. **Fix with Claude** reads the failed run and proposes a corrected workflow in the editor. A run waiting on you or on a timer carries on after a restart.
+- **Secrets.** Keep API keys under **Automate → Secrets** and use them as `{{ secrets.NAME }}` in commands and web requests. They're encrypted by Windows, never shown again, and blanked out of everything a run records.
+- **From Claude Code and the terminal.** With the plugin, Claude can propose a workflow (`add_workflow`), see yours (`list_workflows`), and start one you gave the **Claude Code** trigger (`run_workflow`). `shellby flow list` and `shellby flow run <name> key=value` do the same from any terminal. Any program on this PC can start a workflow through its web hook address.
+- **Share them.** **Export** copies a workflow as text, and **Import** opens one someone shared in the editor.
+- Phone notifications have a new kind, **A workflow sends you a message**, on by default, for a workflow's own "tell me on my phone" step.
+
+### Safety
+- Saving a workflow that can act without asking shows Shellby's confirmation window, listing every command, prompt, web address and file it could act on, in full. It asks again when any of those change. A workflow Claude proposes is always confirmed, never gets Autonomous, and is refused if it's too long to show in full.
+- Values from outside, like a pull request's title, a web page or a file, can't turn into code. A command gets them as environment variables, never in its text. Claude gets them marked as data, not instructions. A web address gets them encoded, and a file path refuses one that would leave its folder.
+- At most 4 runs go at once, and a workflow that starts more than 60 times in an hour is paused, with a notification saying so.
+- What you said yes to is signed with a key Windows keeps encrypted. A risky workflow added to Shellby's settings file any other way is paused until you save it again (which asks). Workflows can't write into Shellby's own folder, Claude Code's setup, your Startup folder, PowerShell profiles or git hooks, and can't call Shellby's own local port.
 
 ## 0.49.1: what the README says about billing
 

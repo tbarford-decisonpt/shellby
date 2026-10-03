@@ -21,6 +21,7 @@ const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const routineDraft = require('./routine-draft');
+const { WorkflowService } = require('./workflows/service');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
 const { attachContextMenu } = require('./context-menu');
@@ -162,6 +163,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 const claudePath = () => config?.get('claudePath') || null;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates, friends;
+let workflows = null;              // the Automate page's engine (workflows/service.js)
 let parityIpc = null;
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
@@ -745,7 +747,7 @@ function createManager() {
   manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
   // A conversation past the crowded mark: he says so, and the panel offers to make room.
   manager.on('context', (_tabId, now, before, tab) => {
-    if (ctx.crossed(before, now) && !tab.routineId) sayText('Getting crowded in here.', 'crowded');
+    if (ctx.crossed(before, now) && !tab.routineId && !tab.workflowRunId) sayText('Getting crowded in here.', 'crowded');
   });
 
   manager.on('item', (tabId, item, tab) => {
@@ -762,6 +764,7 @@ function createManager() {
       return; // toolbox lists are large; the panel doesn't need them per tab
     }
     send(panel, 'tab:item', { tabId, item });
+    workflows?.onTabItem(tabId, item);
     if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
     if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
     if (item.kind === 'permission') onPermission(tabId, item, tab);
@@ -791,7 +794,7 @@ function createManager() {
   });
   manager.on('tabs', summary => {
     send(panel, 'tabs', summary);
-    const saved = summary.filter(t => t.saved && !t.routineId).map(t => t.id);
+    const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
     if (!CAPTURE) config.set({ openTabs: saved });
   });
   manager.on('aggregate', agg => {
@@ -873,7 +876,7 @@ async function armCopy(tab) {
     };
     return;
   }
-  if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.worktree) {
+  if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.workflowRunId || tab.worktree) {
     tab.session.beforeWork = null;
     return;
   }
@@ -1227,6 +1230,7 @@ function recordShipped(project, kind, meta) {
   const before = stickers.normalize(state).projects[project.id] || null;
   const r = stickers.recordShip(state, project, kind, Date.now(), meta,
     { shell: shellIdOf(shell), slots: shellSpots(activeSkin(), shell).slots.length });
+  workflows?.event('shipped', { kind: kind === 'ship' ? 'push' : kind, project: project.name || '', version: meta?.version || null });
   if (!r.project) return;
   config.set({ stickers: r.state });
   if (r.minted) slapSticker(r.project);
@@ -1363,6 +1367,12 @@ function onResult(tabId, item, tab) {
     if (!item.waiting?.length) tab.session.stop().catch(() => {});
   }
   noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
+  // A workflow's Claude step: the workflow carries on and says what it wants
+  // said, so no "finished" toast or phone ping for each step.
+  const inWorkflow = !!tab.workflowRunId;
+  if (!inWorkflow && !item.interrupted) {
+    workflows?.event('task', { title: tab.title, outcome: item.ok ? 'ok' : 'error', folder: tab.worktree?.originalCwd || tab.session?.cwd || '', error: item.error || null });
+  }
   if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
   if (item.ok && !item.interrupted) {
     const fx = outfit().effect;
@@ -1371,10 +1381,10 @@ function onResult(tabId, item, tab) {
     awardXp('task', { label: tab.title });
     recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
   }
-  if (!item.interrupted) {
+  if (!item.interrupted && !inWorkflow) {
     tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
   }
-  if (item.interrupted || (panel.isVisible() && panel.isFocused())) return;
+  if (item.interrupted || inWorkflow || (panel.isVisible() && panel.isFocused())) return;
   const secs = Math.round((item.durationMs || 0) / 1000);
   if (item.ok && item.waiting?.length) {
     notify(`Shellby is waiting: ${tab.title}`, `Still running in the background: ${item.waiting.join(', ').slice(0, 120)}`, () => showPanel({ tabId }));
@@ -1433,8 +1443,8 @@ function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' 
   n.show();
 }
 
-function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null, mode = null, routineId = null, title = null } = {}) {
-  return manager.open({ tabId, cwd, historyEntry, mode, routineId, title });
+function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null } = {}) {
+  return manager.open({ tabId, cwd, historyEntry, mode, routineId, workflowRunId, title });
 }
 
 // A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
@@ -1470,6 +1480,7 @@ function createHealth() {
     notify: (title, body, onClick) => {
       tellChannel({ kind: 'health', title, body });
       notify(title, body, onClick, { urgent: true });
+      workflows?.event('health', { title, body });
     },
     getPanel: () => panel,
     confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
@@ -1560,6 +1571,14 @@ function applyCrabIntent(body) {
     return proposeRoutine(intent.routine);
   }
 
+  if (['list_workflows', 'run_workflow', 'add_workflow'].includes(intent.action)) {
+    if (config.get('crabOnly') || !workflows) return { ok: false, error: 'Workflows are off: Shellby is in just-the-crab mode.', status: 403 };
+    if (intent.action === 'list_workflows') return { text: crabtools.workflowsReply(workflows.claudeList()) };
+    if (intent.action === 'run_workflow') return workflows.runFromClaude(intent.name, intent.inputs, 'claude');
+    wake();
+    return workflows.proposeFromClaude(intent.workflow);
+  }
+
   if (intent.action === 'wear') {
     const items = wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
     const match = crabtools.matchItem(intent.item, items);
@@ -1627,6 +1646,13 @@ function runCliRequest(body, token) {
   if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
 
   if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+  if (body?.action === 'flow-list' || body?.action === 'flow-run') {
+    if (config.get('crabOnly') || !workflows) return { ok: false, error: 'Workflows are off: Shellby is in just-the-crab mode.', status: 403 };
+    const flow = clipath.parseFlowRequest(body);
+    if (!flow.ok) return { ok: false, error: flow.error, status: 400 };
+    if (flow.request.action === 'flow-list') return { text: crabtools.workflowsReply(workflows.claudeList()) };
+    return workflows.runFromClaude(flow.request.name, flow.request.inputs, 'terminal');
+  }
   const checked = clipath.parseTaskRequest(body, { modes: MODES.filter(m => m !== 'autonomous'), isDir: d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } } });
   if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
 
@@ -2362,6 +2388,11 @@ function spendSource(tab) {
     const routine = routines().find(r => r.id === tab.routineId);
     return { key: `r:${tab.routineId}`, kind: 'routine', label: routine?.name || tab.title.replace(/^⟳\s*/, ''), project, pk };
   }
+  if (tab.workflowRunId) {
+    // Counted per workflow, not per run, so an hourly one is one line on the meter.
+    const name = tab.title.replace(/^⚡\s*/, '');
+    return { key: `w:${name.toLowerCase()}`, kind: 'workflow', label: name, project, pk };
+  }
   return { key: `t:${tab.id}`, kind: 'tab', label: tab.title, project, pk };
 }
 
@@ -2609,6 +2640,7 @@ function createFriends() {
 function onCiEvent({ type, pr }) {
   if (!pr) return;
   const where = `${pr.repo}#${pr.number}`;
+  workflows?.event('ci', { event: type, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
   const open = () => openGitHubUrl(pr.url);
   if (type === 'failed') {
     flashState('error', 5000);
@@ -2896,6 +2928,74 @@ function startScheduler() {
   missed.forEach((r, i) => setTimeout(() => runRoutine(r, { reason: 'catch-up' }), 8000 + i * 5000));
 }
 
+// ================================================================ workflows
+
+// The Automate page (workflows/service.js). Everything Shellby-specific a run
+// needs comes in through these few functions; the engine itself knows nothing
+// of Electron.
+function createWorkflows() {
+  workflows = new WorkflowService({
+    config, home: os.homedir(), manager, maxTabs: MAX_TABS,
+    dataDir: path.join(app.getPath('userData'), 'workflows'),
+    isOff: () => !!config.get('crabOnly'),
+    openTab: opts => openTab(opts),
+    closeTab: tabId => { manager.close(tabId); workflows.onTabClosed(tabId); },
+    currentCwd,
+    claudeReady: () => !config.get('crabOnly') && !!claudeStatus?.installed && !!claudeStatus?.loggedIn,
+    allowAutonomous: () => !!config.get('autonomousAcknowledged'),
+    confirm: spec => { wake(); return confirm.ask(panel, { ...dialogLook(), ...spec }); },
+    notify: (title, body, onClick, opts) => notify(title, body, onClick, opts),
+    tellPhone: event => tellChannel(event),
+    say: text => sayText(text, 'workflow'),
+    showWorkflows: runId => {
+      showPanel({ focusInput: false });
+      if (runId) send(panel, 'workflows:open-run', runId); else send(panel, 'panel:view', 'workflows');
+    },
+    toPanel: (channel, payload) => send(panel, channel, payload),
+    runCommand: (cwd, command, opts) => shellCmd.run(cwd, command, opts),
+    runClaude: (args, timeoutMs, opts) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
+      return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
+    },
+    copy: text => clipboard.writeText(text),
+    crypto: {
+      available: () => safeStorage.isEncryptionAvailable(),
+      encrypt: text => safeStorage.encryptString(text),
+      decrypt: buf => safeStorage.decryptString(buf),
+    },
+    webhookPort: () => (external?.status === 'listening' ? external.port : null),
+    // Shellby's own profile: settings, run records, the approval key. Never a workflow's to write.
+    forbiddenDirs: () => [app.getPath('userData')],
+    log: { info: (...a) => log.info(...a), warn: (...a) => log.warn(...a) },
+  });
+  workflows.start();
+  if (external) external.onFlow = body => (config.get('crabOnly') ? { ok: false, error: 'Workflows are off.', status: 403 } : workflows.webhook(body));
+}
+
+function registerWorkflowIpc(ipcMain) {
+  const isId = v => typeof v === 'string' && v.length > 0 && v.length <= 80;
+  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  const off = { ok: false, error: 'Workflows are off in just-the-crab mode.' };
+  const ready = () => !!workflows && !config.get('crabOnly');
+  ipcMain.handle('workflows:list', () => (workflows ? workflows.view() : null));
+  ipcMain.handle('workflows:validate', (_e, def) => (workflows ? workflows.validate(def) : off));
+  ipcMain.handle('workflows:save', (_e, def) => (ready() && isObj(def) ? workflows.save(def, { source: 'panel' }) : { ok: false, errors: [{ path: '', message: off.error }] }));
+  ipcMain.handle('workflows:delete', (_e, id) => (workflows && isId(id) ? workflows.remove(id) : null));
+  ipcMain.handle('workflows:run', (_e, id, inputs) => (ready() && isId(id) ? workflows.runManual(id, isObj(inputs) ? inputs : {}) : off));
+  ipcMain.handle('workflows:draft', (_e, text) => (ready() ? workflows.draft(text) : off));
+  ipcMain.handle('workflows:repair', (_e, runId) => (ready() && isId(runId) ? workflows.repair(runId) : off));
+  ipcMain.handle('workflows:import', (_e, text) => (workflows ? workflows.importText(text) : off));
+  ipcMain.handle('workflows:export', (_e, id) => (workflows && isId(id) ? workflows.exportText(id) : off));
+  ipcMain.handle('workflows:runs', (_e, id) => (workflows ? workflows.listRuns(isId(id) ? id : null) : []));
+  ipcMain.handle('workflows:run-get', (_e, runId) => (workflows && isId(runId) ? workflows.getRun(runId) : null));
+  ipcMain.handle('workflows:run-stop', (_e, runId) => (workflows && isId(runId) ? workflows.stopRun(runId) : off));
+  ipcMain.handle('workflows:run-resume', (_e, runId) => (ready() && isId(runId) ? workflows.resumeRun(runId) : off));
+  ipcMain.handle('workflows:run-answer', (_e, runId, key, choice) => (workflows && isId(runId) && typeof key === 'string' && typeof choice === 'string' ? workflows.answer(runId, key, choice) : off));
+  ipcMain.handle('workflows:secret-set', (_e, name, value) => (workflows ? workflows.setSecret(name, value) : off));
+  ipcMain.handle('workflows:secret-delete', (_e, name) => (workflows && typeof name === 'string' ? workflows.deleteSecret(name) : null));
+}
+
 // ================================================================ settings side effects
 
 function applyHotkey(accel, previous) {
@@ -3107,6 +3207,7 @@ function registerIpc() {
     manager.interrupt(tabId);
     manager.close(tabId);
     routineTabs.delete(tabId);
+    workflows?.onTabClosed(tabId);
     remote?.settleTab(tabId);
     return true;
   });
@@ -3623,6 +3724,7 @@ ${r.detail}` });
     return { ok: true, routine, routines: routinesView() };
   });
   ipcMain.handle('routines:draft', (_e, text) => draftRoutine(text));
+  registerWorkflowIpc(ipcMain);
   ipcMain.handle('routines:delete', (_e, id) => { saveRoutines(routines().filter(r => r.id !== id)); return routinesView(); });
   ipcMain.handle('routines:run', (_e, id) => {
     const r = routines().find(x => x.id === id);
@@ -4142,6 +4244,7 @@ function buildMenu() {
     claude && clipboardHasImage() && { label: 'Task from screenshot', click: taskFromClipboard },
     { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
     claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
+    claude && { label: 'Workflows', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'workflows'); } },
     claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
     { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
     focusMenu(),
@@ -4345,6 +4448,7 @@ app.whenReady().then(() => {
   health.start();
   createExternal();
   createCrabApi();
+  createWorkflows();
   createCi();
   createFriends();
   channelSecret = loadChannelSecret();
@@ -4417,4 +4521,5 @@ app.on('will-quit', () => {
 });
 // close() gives a process 3 s to finish on its own, which Shellby quitting never
 // waits for: one mid-task would carry on editing with no window to show it.
-app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll({ kill: true }); });
+// Workflows freeze first: a run cut off by quitting is resumable, not failed.
+app.on('before-quit', () => { app.isQuitting = true; workflows?.shutdown(); manager?.closeAll({ kill: true }); });

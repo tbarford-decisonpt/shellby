@@ -10,6 +10,7 @@ const SB = window.SB = {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
     toolbox: null, pinned: [], learned: [], routines: [],
+    workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
   },
@@ -177,9 +178,10 @@ document.addEventListener('click', e => {
 
 SB.views = {};  // name -> { render?() }
 
-// Which navigation item a screen lives under (Trophies is a tab of the Shellby screen),
-// and which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe' };
+// Which navigation item a screen lives under (Trophies is a tab of the Shellby screen,
+// Routines sits beside Workflows under Automate), and which screens sit one level
+// down, so Back/Esc go up to their parent.
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe', routines: 'workflows' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
@@ -216,7 +218,7 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu']) SB.$(id).hidden = true;
   for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();

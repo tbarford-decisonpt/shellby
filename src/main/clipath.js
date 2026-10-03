@@ -9,6 +9,7 @@
 // Everything here is pure string work, so the PATH edit -- the one thing in
 // Shellby that would really annoy someone if it went wrong -- is unit-tested.
 const crypto = require('crypto');
+const { parseWorkflowCall } = require('./crabtools');
 
 const BIN_DIR_NAME = 'bin';
 const TOKEN_FILE = 'cli-token';
@@ -155,8 +156,23 @@ function parseTaskRequest(body, { modes, maxPrompt = 4000, isDir = () => true } 
   return { ok: true, task: { prompt, cwd, mode: args.mode ?? null } };
 }
 
+/**
+ * A `shellby flow list` or `shellby flow run <name> [key=value ...]`. The name
+ * and inputs get exactly the checks MCP's run_workflow gets (crabtools).
+ *   { ok: true, request: { action: 'flow-list' } | { action: 'flow-run', name, inputs } }
+ *   | { ok: false, error }
+ */
+function parseFlowRequest(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'Expected a workflow request.' };
+  if (body.action === 'flow-list') return { ok: true, request: { action: 'flow-list' } };
+  if (body.action !== 'flow-run') return { ok: false, error: 'Expected a workflow request.' };
+  const call = parseWorkflowCall(body.name, body.inputs);
+  if (!call.ok) return { ok: false, error: call.error };
+  return { ok: true, request: { action: 'flow-run', name: call.name, inputs: call.inputs } };
+}
+
 module.exports = {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
-  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, parseTaskRequest, settingChangeArgs,
+  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, parseTaskRequest, parseFlowRequest, settingChangeArgs,
   BIN_DIR_NAME, TOKEN_FILE,
 };
