@@ -30,6 +30,21 @@
   }
   SB.renderSkins = renderSkins;
 
+  // Grouped by family, from the list main.js accepts (src/main/models.js). A
+  // saved model that has since left the list still shows, rather than a blank.
+  function renderModels() {
+    const current = state.settings.model || '';
+    const models = state.models || [];
+    const groups = [...new Set(models.map(m => m.group))];
+    const known = current === '' || models.some(m => m.id === current);
+    $('modelSelect').replaceChildren(
+      h('option', { value: '', text: 'Claude Code default' }),
+      ...groups.map(g => h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => h('option', { value: m.id, text: m.label })))),
+      known ? null : h('option', { value: current, text: current }),
+    );
+    $('modelSelect').value = current;
+  }
+
   function renderSettings() {
     SB.renderModeCards($('modeCards'));
     $('autonomousConfirm').hidden = true;
@@ -39,7 +54,7 @@
     $('scaleSelect').value = String(state.settings.critterScale || 1);
     $('hotkeyBtn').textContent = SB.prettyAccel(state.settings.hotkey) || 'None';
     $('hotkeyMsg').textContent = '';
-    $('modelSelect').value = state.settings.model || '';
+    renderModels();
     $('loginToggle').checked = !!state.settings.openAtLogin;
     $('loginToggle').disabled = !state.packaged;
     $('loginNote').hidden = state.packaged;

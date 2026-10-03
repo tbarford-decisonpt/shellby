@@ -8,6 +8,7 @@ const os = require('os');
 const { randomUUID } = require('crypto');
 
 const { Config, MODES } = require('./config');
+const { MODELS, isModel } = require('./models');
 const { History } = require('./history');
 const { SessionManager } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, run: runCli } = require('./claude-cli');
@@ -2326,6 +2327,7 @@ function registerIpc() {
       cwd: CAPTURE ? `${demoHome}\\Downloads` : currentCwd(),
       home: CAPTURE ? demoHome : os.homedir(),
       packaged: app.isPackaged,
+      models: MODELS,
       updates: updateView(),
       registryUrl: registryUrl(),
       startView: (() => { const v = startView; startView = null; return v; })(),
@@ -2538,7 +2540,7 @@ function registerIpc() {
     if (allowed.mode === 'autonomous' && !config.get('autonomousAcknowledged') && allowed.autonomousAcknowledged !== true) delete allowed.mode;
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
-    if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
+    if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
