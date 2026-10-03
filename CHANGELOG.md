@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.29.0: Claude sets up CPU temperature
+
+### New
+- **Let Claude set up LibreHardwareMonitor.** When CPU temperature isn't available, the Health view's setup card has a **Let Claude set it up** button. It fills in a task asking Claude to install LibreHardwareMonitor with winget, turn on its web server on the port Shellby uses (no password), start it minimized as administrator and check that Shellby can reach it. You accept the Windows admin prompt yourself. The task isn't sent until you press Enter, and Claude asks before making LHM start with Windows. The manual steps are still there. In just-the-crab mode the button explains what Claude Code would add.
+
 ## 0.28.0: Claude can tidy your memory
 
 ### New
