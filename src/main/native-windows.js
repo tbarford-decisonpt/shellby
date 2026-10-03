@@ -28,6 +28,7 @@ function load() {
       GetWindow: user32.func('intptr_t __stdcall GetWindow(intptr_t hwnd, uint32_t cmd)'),
       RegisterWindowMessageW: user32.func('uint32_t __stdcall RegisterWindowMessageW(str16 name)'),
       GetForegroundWindow: user32.func('intptr_t __stdcall GetForegroundWindow()'),
+      GetAsyncKeyState: user32.func('int16_t __stdcall GetAsyncKeyState(int vk)'),
       SetForegroundWindow: user32.func('bool __stdcall SetForegroundWindow(intptr_t hwnd)'),
       IsWindow: user32.func('bool __stdcall IsWindow(intptr_t hwnd)'),
       IsWindowVisible: user32.func('bool __stdcall IsWindowVisible(intptr_t hwnd)'),
@@ -178,6 +179,8 @@ function describe(h) {
 
 const foreground = () => safe(a => a.GetForegroundWindow(), 0);
 const isWindow = h => safe(a => !!h && a.IsWindow(h), false);
+// Is this key held right now, whichever app has focus? (push-to-talk, see dictation.js)
+const keyDown = vk => safe(a => (a.GetAsyncKeyState(vk) & 0x8000) !== 0, false);
 const isVisible = h => safe(a => a.IsWindowVisible(h), false);
 const ownerOf = h => safe(a => a.GetWindow(h, GW_OWNER), 0);
 
@@ -256,6 +259,6 @@ const dpiAware = () => safe(a => a.SetProcessDpiAwarenessContext(-4 /* PER_MONIT
 const move = (h, x, y) => safe(a => a.SetWindowPos(h, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | 0x4 /* NOZORDER */), false);
 
 module.exports = {
-  load, available, hwndOf, topLevelWindows, describe, quick, foreground, isWindow, isVisible, ownerOf,
+  load, available, hwndOf, topLevelWindows, describe, quick, foreground, isWindow, keyDown, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
 };

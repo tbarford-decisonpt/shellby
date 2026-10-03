@@ -59,6 +59,11 @@
     SB.addAttachments(files);
   });
   api.onFocusInput(() => { if (state.view === 'chat') $('input').focus(); });
+  // Push-to-talk: added after whatever's already typed, and not sent.
+  api.onDictated(text => {
+    const typed = $('input').value.trimEnd();
+    SB.prefill(typed ? `${typed} ${text}` : text);
+  });
   api.onView(v => SB.setView(v));
   // Nobody is looking: pause what's only there to be looked at. `deep` (the
   // screen is locked) stops the lot; otherwise the spinners and progress that

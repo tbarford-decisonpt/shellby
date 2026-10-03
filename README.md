@@ -213,6 +213,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 </table>
 
 - **Helper crabs:** each subagent gets its own lane in the panel and its own crab on your desktop.
+- **Say it instead (push-to-talk):** turn on **Settings → Shortcut → Hold it to dictate a task**, then hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say what you need. He shows *listening…* while you hold it, and when you let go your words are waiting in the box to read and send. A tap still opens Shellby as before. Windows' own speech recognition does the listening, on your PC, with nothing to install or sign up for.
 - **Parallel tabs,** each its own Claude Code process. Keep typing while he works and your messages queue up. Drag tabs into the order you like, and they come back that way.
 - **See what every turn changed:** in a git project, each turn ends with a **± files changed** block. Open a file for its diff, or press **Undo** twice to put the files back the way they were before that turn. It catches everything, including what a script or `npm install` did, and it never touches your staging area. Undo refuses if a file has changed again since, so it can't eat later work.
 - **A copy of the project for each tab (optional):** **Settings → Working folder → Give each new conversation its own copy** puts each new tab in a git worktree on its own branch, so two tabs in one repo stop stepping on each other. The branch shows next to the folder; **Bring it home** commits what's left, merges it into the branch it came from and tidies the copy away. If the merge would clash, nothing is merged, and he can sort it out on his own branch. **Bring it home and push** goes on to send the branch to its remote, and the folder menu has **Push** and **Bring all home** for the whole repository (see below).
@@ -393,7 +394,7 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 - Community pack downloads you ask for.
 - GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests, and with Visiting crabs on, your public calling card and your friends' cards.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
-- Things that never leave your PC: LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
+- Things that never leave your PC: push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 

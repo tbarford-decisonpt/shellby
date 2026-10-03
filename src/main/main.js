@@ -41,6 +41,8 @@ const { OpenRgbClient, colorFor } = require('./rgb');
 const openRgbSetup = require('./openrgb-setup');
 const { qrRows } = require('./qr');
 const { MediaWatcher, trackRemark } = require('./media');
+const { Dictation, PushToTalk, holdKeyOf } = require('./dictation');
+const native = require('./native-windows');
 const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
@@ -158,6 +160,7 @@ let parityIpc = null;
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
 let nowPlaying = null;        // { title, artist, app, playing } from the Windows media session
+let dictation = null, ptt = null; // push-to-talk: hold the hotkey and say the task (see dictation.js)
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
@@ -1914,6 +1917,62 @@ function createMedia() {
   if (mediaSettings().enabled) media.start();
 }
 
+// ---------------------------------------------------------------- push-to-talk
+
+// Tap the hotkey: the panel, as ever. Hold it (with push-to-talk on): he
+// listens, and what you said is in the box when you let go. See dictation.js.
+function createDictation() {
+  // SHELLBY_DICTATION_WAV: a recording in place of the microphone (scripts/e2e-push-to-talk.js).
+  dictation = new Dictation({ wav: process.env.SHELLBY_DICTATION_WAV || null });
+  // This press got the mic, so its result (or "didn't catch that") will follow.
+  // A press that didn't (the last one is still finishing) leaves that one alone:
+  // tapping to open the panel straight after speaking mustn't throw the words away.
+  let heard = false;
+  dictation.on('result', ({ text, error }) => onDictated(text, error));
+  dictation.on('error', message => log.warn('Dictation', message));
+  dictation.on('log', line => log.info(`dictation: ${line}`));
+  ptt = new PushToTalk({
+    isDown: () => native.keyDown(holdKeyOf(config.get('hotkey'))),
+    onPress: () => { heard = dictation.begin(); },
+    onTap: () => { if (heard) dictation.cancel(); togglePanel(); },
+    onHold: () => showListening(true),
+    onRelease: () => {
+      showListening(false);
+      if (heard) dictation.finish();
+      else if (!dictation.busy) onDictated('', dictation.lastError);
+    },
+  });
+  if (pushToTalkOn()) dictation.warm();
+}
+
+const pushToTalkOn = () => !!config.get('pushToTalk') && !config.get('crabOnly');
+
+function onHotkey() {
+  // A key we can't watch for the release (or no koffi) can still be tapped.
+  if (!pushToTalkOn() || !ptt || holdKeyOf(config.get('hotkey')) == null || !native.available()) return togglePanel();
+  ptt.press();
+}
+
+// His bubble says he's listening for as long as the key is down. Not held back
+// by focus guard like his own remarks: you asked, so you get the answer.
+const LISTENING = 'listening…';
+function showListening(on) {
+  if (on) said = { text: LISTENING, occasion: 'listening', until: Date.now() + 10 * 60 * 1000 };
+  else if (said?.occasion === 'listening') said = null;
+  refreshCritter();
+}
+
+function onDictated(text, error = null) {
+  if (!text) {
+    // The why is in the log and on the Settings switch; the bubble only has room for the gist.
+    sayText(error ? "can't hear you" : "didn't catch that", 'listening', 4000);
+    return;
+  }
+  // Not sent: it goes in the box, after anything already typed there, to read first.
+  showPanel({ focusInput: false });
+  send(panel, 'panel:dictated', text);
+}
+
 const mediaView = () => ({ ...mediaSettings(), ...(media ? media.view() : { status: 'off', available: process.platform === 'win32', track: null }) });
 
 /** The headphones he puts on by himself while something is playing. */
@@ -2744,7 +2803,7 @@ function startScheduler() {
 function applyHotkey(accel, previous) {
   if (previous) { try { globalShortcut.unregister(previous); } catch { /* ignore */ } }
   if (!accel) return true;
-  try { return globalShortcut.register(accel, togglePanel); } catch { return false; }
+  try { return globalShortcut.register(accel, onHotkey); } catch { return false; }
 }
 
 function applyLoginItem(open) {
@@ -3213,7 +3272,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle', 'planOnly']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle', 'planOnly', 'pushToTalk']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -3240,7 +3299,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'planOnly']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'planOnly', 'pushToTalk']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -3260,7 +3319,14 @@ ${r.detail}` });
         delete allowed.hotkey;
       }
     }
+    // Push-to-talk only goes on once Windows has shown it can listen.
+    let pushToTalkError = null;
+    if (allowed.pushToTalk && !config.get('pushToTalk')) {
+      const r = await dictation.warm();
+      if (!r.ok) { pushToTalkError = r.error; delete allowed.pushToTalk; }
+    }
     config.set(allowed);
+    if (allowed.pushToTalk === false) { ptt?.reset(); showListening(false); dictation?.stop(); }
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
     if ('mode' in allowed) manager.setMode(allowed.mode);
@@ -3276,7 +3342,7 @@ ${r.detail}` });
       critter.setBounds({ x: b.x + b.width - width, y: b.y + b.height - size.height, width, height: size.height });
       broadcastSkin();
     }
-    return { settings: panelSettings(), hotkeyError };
+    return { settings: panelSettings(), hotkeyError, pushToTalkError };
   });
   ipcMain.handle('folder:pick', async () => {
     const r = await dialog.showOpenDialog(panel, { title: 'Where should Shellby work?', defaultPath: currentCwd(), properties: ['openDirectory'] });
@@ -4131,6 +4197,7 @@ app.whenReady().then(() => {
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
   createMedia();
+  createDictation();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
   // Timers don't run while the PC sleeps: catch up on wake.
@@ -4183,5 +4250,6 @@ app.on('will-quit', () => {
   clearInterval(focusTick);
   clearTimeout(limitTimer);
   remote?.stop();
+  dictation?.stop();
 });
 app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });

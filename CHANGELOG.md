@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.47.0: say it
+
+### New
+- **Push-to-talk.** Hold the Shellby shortcut (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> unless you changed it) and say the task. He shows *listening…* while you hold it, and when you let go your words are in the box, after anything you'd already typed. Nothing is sent until you press Enter, so you can read it over first. A quick tap still opens and closes Shellby, exactly as before.
+- **Nothing extra to install.** Windows' own speech recognition does the listening, on your PC: no account, no service, and the audio never leaves your machine. The microphone is only open while you hold the shortcut.
+- Turn it on in **Settings → Shortcut → Hold it to dictate a task**. It's off until you do. If Windows has no speech recognizer for your language, or desktop apps can't use the microphone, the switch stays off and says what to change in Windows Settings.
+
 ## 0.46.0: describe a routine
 
 ### New

@@ -83,6 +83,7 @@
     $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}.` : '';
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    $('pushToTalkToggle').checked = !!state.settings.pushToTalk;
     const st = state.status || {};
     const facts = [
       ['Shellby', `v${state.version}`],
@@ -146,6 +147,16 @@
   });
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
+  // Turning it on starts Windows' recognizer first, which can take a second or two.
+  $('pushToTalkToggle').addEventListener('change', async e => {
+    const box = e.target;
+    box.disabled = true;
+    const r = await api.setSettings({ pushToTalk: box.checked });
+    box.disabled = false;
+    state.settings = r.settings;
+    box.checked = !!state.settings.pushToTalk;
+    if (r.pushToTalkError) $('hotkeyMsg').textContent = r.pushToTalkError;
+  });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });

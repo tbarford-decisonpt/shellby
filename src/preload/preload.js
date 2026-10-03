@@ -317,6 +317,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onRoutines: on('routines'),
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
+  onDictated: on('panel:dictated'), // push-to-talk: what you said, for the box (see dictation.js)
   onView: on('panel:view'),
   onSkin: on('skin'),
   onCalm: on('panel:calm'), // unfocused or locked: pause the decorative animation

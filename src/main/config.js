@@ -18,6 +18,7 @@ const DEFAULTS = {
   cwd: null, // null -> home dir
   recentFolders: [],
   hotkey: 'Control+Alt+Space',
+  pushToTalk: false, // hold the hotkey to dictate a task with Windows speech recognition (see dictation.js)
   skin: 'classic',
   critterPos: null,
   critterScale: 1,
