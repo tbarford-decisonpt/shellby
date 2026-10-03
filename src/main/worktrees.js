@@ -123,20 +123,59 @@ function suggestedName(text) {
  * carry on in the copy. -> true | false
  */
 const projectDirName = dir => path.resolve(dir).replace(/[^a-zA-Z0-9]/g, '-');
+const SESSION_ID = /^[\w-]{8,64}$/;
 function carryTranscript({ configDir, sessionId, from, to }) {
-  if (!/^[\w-]{8,64}$/.test(sessionId || '')) return false;
-  const src = path.join(configDir, 'projects', projectDirName(from));
+  if (!SESSION_ID.test(sessionId || '')) return false;
+  return copySession({ configDir, file: path.join(configDir, 'projects', projectDirName(from), `${sessionId}.jsonl`), to });
+}
+
+/**
+ * Copy one of Claude Code's conversation files (and the folder of subagent
+ * transcripts and large tool results beside it) to where Claude Code looks
+ * for conversations in `to`. Leaves one that's already there alone. -> true | false
+ */
+function copySession({ configDir, file, to }) {
+  const id = path.basename(String(file || ''), '.jsonl');
+  if (!SESSION_ID.test(id) || !String(file).endsWith('.jsonl')) return false;
+  const src = path.dirname(file);
   const dst = path.join(configDir, 'projects', projectDirName(to));
   try {
-    if (!fs.existsSync(path.join(src, `${sessionId}.jsonl`))) return false;
+    if (!fs.existsSync(file)) return false;
+    if (path.resolve(src).toLowerCase() === path.resolve(dst).toLowerCase()) return true;
     fs.mkdirSync(dst, { recursive: true });
-    fs.copyFileSync(path.join(src, `${sessionId}.jsonl`), path.join(dst, `${sessionId}.jsonl`));
-    // Subagent transcripts and large tool results live beside it.
-    if (fs.existsSync(path.join(src, sessionId))) fs.cpSync(path.join(src, sessionId), path.join(dst, sessionId), { recursive: true });
+    fs.copyFileSync(file, path.join(dst, `${id}.jsonl`));
+    if (fs.existsSync(path.join(src, id))) fs.cpSync(path.join(src, id), path.join(dst, id), { recursive: true });
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Where Claude Code keeps a conversation: under the folder it was in when it
+ * was written, which may not be where its tab is now (it moved into a copy,
+ * or the copy was brought home since). `prefer`: folders to look in first.
+ * Otherwise the newest copy anywhere. -> path | null
+ */
+function findSession({ configDir, sessionId, prefer = [] }) {
+  if (!SESSION_ID.test(sessionId || '')) return null;
+  const projects = path.join(configDir, 'projects');
+  for (const dir of prefer) {
+    if (typeof dir !== 'string' || !dir) continue;
+    const f = path.join(projects, projectDirName(dir), `${sessionId}.jsonl`);
+    if (fs.existsSync(f)) return f;
+  }
+  let best = null;
+  let names;
+  try { names = fs.readdirSync(projects); } catch { return null; }
+  for (const name of names) {
+    const f = path.join(projects, name, `${sessionId}.jsonl`);
+    try {
+      const at = fs.statSync(f).mtimeMs;
+      if (!best || at > best.at) best = { f, at };
+    } catch { /* not in this one */ }
+  }
+  return best?.f || null;
 }
 
 /**
@@ -171,6 +210,71 @@ async function create(dir, { home, title }) {
   const rel = prefix.trim().replace(/\/$/, '');
   const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
   return { ok: true, worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base: base.out.trim(), root, originalCwd: path.resolve(dir) } };
+}
+
+const OBJECT = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
+
+/**
+ * A copy of the repository as it was at one moment of a conversation, for a
+ * branch (branch.js). Checked out at `head` (the commit that was checked out
+ * then), with the files made exactly `tree` (a snapshot from changes.js:
+ * uncommitted and untracked work included). What differs from `head` shows as
+ * uncommitted, just as it was, so "Bring it home" works the same as for any copy.
+ *   repoRoot: the repository itself (never one of our copies: git worktrees share it)
+ *   base: the branch to bring it home to. prefix: the tab's folder inside the repo.
+ * -> { ok: true, worktree } | { ok: false, error, gone? }
+ */
+async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, originalCwd }) {
+  if (typeof repoRoot !== 'string' || !path.isAbsolute(repoRoot) || !fs.existsSync(repoRoot)) return { ok: false, error: 'That repository has moved.' };
+  if (!OBJECT.test(tree || '') || !OBJECT.test(head || '')) return { ok: false, error: "That point in the conversation has no snapshot to start from." };
+  if (typeof base !== 'string' || !REF.test(base)) return { ok: false, error: 'There is no branch to bring it home to.' };
+  const rel = String(prefix || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (rel.split('/').includes('..')) return { ok: false, error: 'That folder is outside the repository.' };
+  // Snapshots aren't referenced by any branch, so git tidies them away in time.
+  const [hasTree, hasHead] = await Promise.all([
+    git(repoRoot, ['cat-file', '-e', `${tree}^{tree}`], { timeout: 5000 }),
+    git(repoRoot, ['cat-file', '-e', `${head}^{commit}`], { timeout: 5000 }),
+  ]);
+  if (!hasTree.ok || !hasHead.ok) return { ok: false, gone: true, error: 'git has tidied away the files from that point since.' };
+
+  const branch = branchName(slug);
+  const wt = path.join(home, branch.slice(-6), path.basename(repoRoot));
+  fs.mkdirSync(path.dirname(wt), { recursive: true });
+  const add = await git(repoRoot, ['worktree', 'add', '-b', branch, wt, head], { timeout: 120000 });
+  if (!add.ok) return { ok: false, error: firstLine(add.error) || "git couldn't make the copy." };
+  // The files as the snapshot has them (deletions too), then the index back
+  // on `head`: the difference is uncommitted work, as it was at the time.
+  const files = await git(wt, ['read-tree', '-u', '--reset', tree], { timeout: 120000 });
+  const index = files.ok && await git(wt, ['reset', '-q'], { timeout: 60000 });
+  if (!index?.ok) {
+    await remove({ path: wt, root: repoRoot, branch, base }, { force: true });
+    return { ok: false, error: `Couldn't put the files back as they were: ${firstLine((index || files).error)}` };
+  }
+  const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
+  return {
+    ok: true,
+    worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base, root: path.resolve(repoRoot), originalCwd: path.resolve(originalCwd || repoRoot) },
+  };
+}
+
+/**
+ * Where a copy should start when the snapshot didn't say which commit was
+ * checked out (transcripts from before it did): where the original's own copy
+ * started, or what your checkout has now. -> sha | null
+ */
+async function startingPoint({ repoRoot, worktree }) {
+  const r = worktree && !checkWorktree(worktree)
+    ? await git(repoRoot, ['merge-base', worktree.base, worktree.branch], { timeout: 10000 })
+    : await git(repoRoot, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000 });
+  const sha = r.ok ? r.out.trim() : '';
+  return OBJECT.test(sha) ? sha : null;
+}
+
+/** The branch a checkout is on, or null (detached, or not a repo). */
+async function branchOf(root) {
+  const r = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
+  const b = r.ok ? r.out.trim() : '';
+  return REF.test(b) ? b : null;
 }
 
 /** Checks a worktree record that came back from history or the renderer. -> error | null */
@@ -396,7 +500,7 @@ async function bringAllHome(list, { messageFor = () => 'Work from Shellby' } = {
 }
 
 module.exports = {
-  create, status, bringHome, remove, branchName, checkWorktree, BRANCH,
+  create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, checkWorktree, BRANCH,
   remoteStatus, pushBase, bringAllHome, upstreamOf,
-  startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript,
+  startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
 };

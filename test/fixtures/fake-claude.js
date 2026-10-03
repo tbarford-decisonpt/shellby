@@ -8,6 +8,7 @@
 //   "wait <ms>"  -> replies "echo: ..." after a delay
 //   "fail"       -> ends the turn with an error
 //   "edit <file> <words>" -> writes <words> into <file> in its working folder
+//   "editabs <path> <words>" -> writes to that absolute path, if a work hook allows it
 //   "big <tokens>" -> a reply whose call used <tokens> of a 200k window
 //   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
 //   "args"       -> replies with the command line it was started with (JSON)
@@ -66,14 +67,46 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (msg.type !== 'user') return;
   turn++;
   // A message with pictures in it is a list of blocks: the text is in the text one(s).
-  const blocks = Array.isArray(msg.message.content) ? msg.message.content : null;
+  // A note from Shellby about where a branch now is comes first, as a block of
+  // its own: it's acknowledged on its own line, and the message itself is what
+  // the behaviours below act on.
+  let blocks = Array.isArray(msg.message.content) ? msg.message.content : null;
+  const note = blocks?.[0]?.type === 'text' && blocks.length > 1 && blocks[0].text.startsWith('Shellby has branched') ? blocks[0].text : null;
+  if (note) blocks = blocks.slice(1);
   const content = blocks ? blocks.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.message.content);
   const images = blocks ? blocks.filter(b => b.type === 'image') : [];
+  // Like the real CLI, keep the conversation where it would be resumed from
+  // (only when told where: CLAUDE_CONFIG_DIR), so branching can find it.
+  if (process.env.CLAUDE_CONFIG_DIR) {
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.join(process.env.CLAUDE_CONFIG_DIR, 'projects', path.resolve(process.cwd()).replace(/[^a-zA-Z0-9]/g, '-'));
+    try { fs.mkdirSync(dir, { recursive: true }); fs.appendFileSync(path.join(dir, `${sessionId}.jsonl`), `${JSON.stringify({ sessionId, text: content })}\n`); } catch { /* best effort */ }
+  }
   out({ type: 'system', subtype: 'hook_started' });
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
+  if (note) text(`noted: ${note}`);
   if (content === 'crash') { process.exit(3); }
+  // "editabs <absolute path> <words...>" -> a Write to that exact path, asked of
+  // a registered PreToolUse hook first (a branch's fence); refused, it says why.
+  if (content.startsWith('editabs ')) {
+    const [, file, ...words] = content.split(' ');
+    const write = () => { require('fs').writeFileSync(file, `${words.join(' ')}\n`); text(`wrote ${file}`); result(true); };
+    if (!workHooks.length) return write();
+    const requestId = `req-hook-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'hook_callback', callback_id: workHooks[0], input: { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: file, content: words.join(' ') } } } });
+    pending = {
+      requestId,
+      onAnswer: r => {
+        if (r?.hookSpecificOutput?.permissionDecision !== 'deny') return write();
+        text(`fenced: ${r.hookSpecificOutput.permissionDecisionReason}`);
+        result(true);
+      },
+    };
+    return;
+  }
   // "edit <file> <words...>" -> writes <words> into <file> in the working folder,
   // the way a real turn changes code (for the turn's diff and worktrees). A
   // registered PreToolUse hook is asked first; held back, it answers

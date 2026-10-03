@@ -10,7 +10,7 @@ const { randomUUID } = require('crypto');
 const { Config, MODES } = require('./config');
 const { MODELS, isModel } = require('./models');
 const { History } = require('./history');
-const { SessionManager } = require('./sessions');
+const { SessionManager, MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
@@ -64,6 +64,8 @@ const shellCmd = require('./shellcmd');
 const outputStyles = require('./outputstyles');
 const { EFFORTS } = require('./session');
 const parity = require('./parity');
+const branching = require('./branching');
+const branch = require('./branch');
 const fileIndex = require('./fileindex');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -746,10 +748,15 @@ async function noteTurnChanges(tabId) {
   if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
   if (!start) return;
   try {
-    const summary = await changes.summarize(start, await changes.snapshot(start.root));
+    const end = await changes.snapshot(start.root);
+    const summary = await changes.summarize(start, end);
     // Tagged with its turn: the diff is worked out after the turn ends, by which
     // time the next message may already be in the transcript (rewind.js).
-    if (summary) manager.note(tabId, { kind: 'changes', ...summary, ...(start.turnId ? { turnId: start.turnId } : {}) });
+    const turn = start.turnId ? { turnId: start.turnId } : {};
+    if (summary) manager.note(tabId, { kind: 'changes', ...summary, ...turn });
+    // Where the files stood at both ends of the turn, changed or not: a branch
+    // from any turn starts its copy from exactly there (branch.js). Not shown.
+    if (end && end.root === start.root) manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });
   } catch (err) {
     log.info(`changes: ${err.message}`);
   }
@@ -768,6 +775,15 @@ const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 // Claude is asked for a branch name, and when that turn ends moveIntoCopy makes
 // the copy, carries the conversation across and lets Claude carry on there.
 async function armCopy(tab) {
+  // A branch (branch.js) already has its copy, but Claude remembers the
+  // original's paths: the same hook keeps its changes out of them.
+  if (tab.fence && !CAPTURE) {
+    tab.session.beforeWork = input => {
+      const why = branch.fenceDenies(tab.fence, input.tool_name, input.tool_input);
+      return why ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: why } } : {};
+    };
+    return;
+  }
   if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.worktree) {
     tab.session.beforeWork = null;
     return;
@@ -2573,7 +2589,8 @@ function registerIpc() {
   // Bringing it home merges and keeps the conversation going in its copy, so
   // you can carry on and bring it home again. finish: also tidy the copy away
   // (the tab closes; the conversation stays in History).
-  ipcMain.handle('worktree:home', async (_e, tabId, opts) => {
+  ipcMain.handle('worktree:home', (_e, tabId, opts) => bringTabHome(tabId, opts));
+  async function bringTabHome(tabId, opts) {
     const w = worktreeOf(tabId);
     if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
     if (manager.isBusy(tabId)) return { ok: false, error: 'Let him finish first.' };
@@ -2598,7 +2615,7 @@ function registerIpc() {
     } finally {
       retiring.delete(tabId);
     }
-  });
+  }
 
   // ---- the repository as a whole: push it, and bring every copy home
   //
@@ -2698,6 +2715,26 @@ ${r.detail}` });
     if (retiring.has(tabId)) return { ok: false, error: 'Already on it.' };
     retiring.add(tabId);
     try { return await retireWorktree(tabId, w, { force: true }); } finally { retiring.delete(tabId); }
+  });
+
+  // ---- branching a conversation from any turn (branching.js)
+  let branchAsking = false; // one question at a time, so a flood of them can't be clicked through
+  branching.register({
+    ipcMain, manager, history, MAX_TABS, log, stat, wake, composePrompt, openTab, send,
+    panel: () => panel, worktreeHome, claudeConfigDir,
+    turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
+    turnStart: tabId => turnStarts.get(tabId) || null,
+    ask: async spec => {
+      if (branchAsking) return null;
+      branchAsking = true;
+      try { return await confirm.ask(panel, { ...dialogLook(), ...spec }); } finally { branchAsking = false; }
+    },
+    bringHome: bringTabHome,
+    retire: async (id, w, opts) => {
+      if (retiring.has(id)) return { ok: false, error: 'Already on it.' };
+      retiring.add(id);
+      try { return await retireWorktree(id, w, opts); } finally { retiring.delete(id); }
+    },
   });
 
   // ---- history

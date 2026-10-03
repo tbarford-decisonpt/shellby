@@ -73,6 +73,12 @@ contextBridge.exposeInMainWorld('shellby', {
   rewindPoints: invoke('rewind:points'),
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
+  // trying again from any turn, in a new tab (branching.js)
+  branch: (tabId, turnId, opts) => ipcRenderer.invoke('branch:run', { tabId, turnId, ...opts }),
+  branchFamily: invoke('branch:family'),
+  compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
+  compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
+  keepBranch: invoke('branch:keep'),
   listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
