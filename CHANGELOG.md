@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.2: he knows his own name
+
+### Fixed
+- **Shellby underlined his own name.** Typing "Shellby" (or "Shellby's") got the red squiggle as if it were a typo. He knows how to spell it now, with no need to add it to the dictionary yourself.
+
 ## 0.47.1: the newest update, not the first one
 
 ### Fixed
