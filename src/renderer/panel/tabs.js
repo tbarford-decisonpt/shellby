@@ -572,6 +572,7 @@
   SB.chooseMode = async (mode, { quiet = false } = {}) => {
     if (mode === 'autonomous' && !state.settings.autonomousAcknowledged) {
       SB.setView('settings');
+      SB.showSettingsTab('claude');
       $('autonomousConfirm').hidden = false;
       $('autonomousConfirm').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;

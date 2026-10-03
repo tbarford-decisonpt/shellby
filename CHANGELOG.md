@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.0: Settings in four tabs
+
+### New
+- **Settings is split into four tabs** instead of one long page: **Shellby** (his look, music, desk lighting, streaming), **Claude** (Claude Code, permission mode, model, working folder, Claude Code everywhere), **Connections** (notifications on your phone, GitHub) and **General** (startup, the shortcut, updates and About). Settings reopens on whichever tab you last looked at. The first time, it opens on Claude, or on Shellby in just-the-crab mode. The arrow keys move between tabs.
+- **Nothing is hidden from search.** <kbd>Ctrl</kbd>+<kbd>K</kbd> still finds every setting and shows which tab it's on. Picking one opens that tab, scrolls there and briefly lights up the section. The tray's update item and the "update ready" notification land in the right place the same way.
+- When an update is ready, the **General** tab gets the same dot as the gear.
+
+### Changed
+- **Shortcut & model** is split in two: the shortcut that opens Shellby is under **General**, and the model is under **Claude**.
+
 ## 0.28.0: Claude can tidy your memory
 
 ### New

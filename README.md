@@ -269,7 +269,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 
 - **A bar along the bottom:** Shellby, Chat, Toolbox, Routines, Health and History, labeled, with the current screen lit up.
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
-- **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings has section links that stay on screen as you scroll.
+- **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings is split into four tabs (Shellby, Claude, Connections, General), with <kbd>Ctrl</kbd>+<kbd>K</kbd> finding any setting wherever it lives.
 - **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter (click it to see which tabs, routines and projects used it up), resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).
 - **Updates are a button:** **Settings → About** shows what version he's on and whether a new one is waiting, with **Restart and update** when it has downloaded. The tray menu has the same button, and a dot on the ⚙ gear tells you from any screen.
 - **Something wrong?** **Report a problem** in his right-click menu opens a GitHub issue with his version, your Windows build and the last lines of his log already filled in — your home folder shortened to `~` and anything token-shaped cut out — and nothing is sent until you press submit.
