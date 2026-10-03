@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.1: visiting crabs, released
+
+### Fixed
+- **0.40.0 never made it out.** Its release build stopped at an end-to-end check that hadn't learned about the new Visiting crabs toggle. The check knows about it now, and everything in 0.40.0 below ships in this version.
+
 ## 0.40.0: visiting crabs
 
 ### New
