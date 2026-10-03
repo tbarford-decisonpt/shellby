@@ -4,6 +4,15 @@
 
 const MAX_SUGGESTIONS = 5;
 
+// Words Shellby should never underline, starting with his own name. Custom
+// words get none of the dictionary's suffix rules, so the possessive is listed too.
+const KNOWN_WORDS = ['Shellby', "Shellby's"];
+
+// The dictionary belongs to the session and persists, so re-adding is harmless.
+function teachKnownWords(session) {
+  for (const word of KNOWN_WORDS) session.addWordToSpellCheckerDictionary(word);
+}
+
 // Pure: turns Electron's context-menu params into a Menu template. `wc` is the
 // webContents the click came from.
 function contextTemplate(params, wc) {
@@ -35,10 +44,11 @@ function contextTemplate(params, wc) {
 }
 
 function attachContextMenu(win, Menu) {
+  teachKnownWords(win.webContents.session);
   win.webContents.on('context-menu', (_e, params) => {
     const template = contextTemplate(params, win.webContents);
     if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
   });
 }
 
-module.exports = { contextTemplate, attachContextMenu, MAX_SUGGESTIONS };
+module.exports = { contextTemplate, attachContextMenu, teachKnownWords, KNOWN_WORDS, MAX_SUGGESTIONS };

@@ -324,7 +324,7 @@ function register(deps) {
       message: mine
         ? `"${tab.title}" comes home into ${mine.base}${others.length ? `, and ${others.length === 1 ? 'the other try is' : `the ${others.length} other tries are`} thrown away` : ''}.`
         : `This one already works in your checkout. ${others.length === 1 ? 'The other try is' : `The ${others.length} other tries are`} thrown away.`,
-      detail: others.length ? `Thrown away, copies and branches deleted without merging:\n${list}\n\nTheir conversations stay in History.` : 'Its copy is tidied away after; the conversation stays in History.',
+      detail: others.length ? `Thrown away, copies and branches deleted without merging:\n${list}\n\nTheir conversations stay in History.` : 'Its copy is tidied away after, and the conversation moves to Done in History.',
       buttons: [{ label: 'Keep this one', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
     });
     if (r !== 0) return { ok: false, cancelled: true };

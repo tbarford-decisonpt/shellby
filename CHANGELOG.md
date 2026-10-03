@@ -6,6 +6,21 @@
 - **Haunted Shell, a new Spooky Season pack.** Eight things to wear: a jack-o'-lantern, cat ears, a costume mask, a vampire collar, a dripping candle, a caramel apple, a cobweb and a little ghost buddy who floats over his shell. Three effects: dangling spiders, will-o'-wisps and a burst of candy corn. Two new crabs: **Skeleton** and **Pumpkin Patch**.
 - Like every seasonal item, they're yours to keep if Shellby is running while Spooky Season is on (October 1 to November 2). It's on now.
 
+## 0.47.3: old news
+
+### Fixed
+- **The same "new skill" every time Shellby started.** When Claude Code had two versions of a plugin cached and one had a skill the other didn't, Shellby announced that skill as newly learned once per launch, and gave him the XP for it each time. A plugin update isn't a trick he taught himself, so it's no longer announced. A skill that really is new still gets its celebration, once.
+
+## 0.47.2: he knows his own name
+
+### Fixed
+- **Shellby underlined his own name.** Typing "Shellby" (or "Shellby's") got the red squiggle as if it were a typo. He knows how to spell it now, with no need to add it to the dictionary yourself.
+
+## 0.47.1: the newest update, not the first one
+
+### Fixed
+- **An update waiting to install hid any newer one.** Once Shellby had downloaded an update, he stopped checking, so a release that came out after it meant restarting to install the first, then restarting again for the second. He keeps checking now, and if something newer lands he downloads it and **Restart and update** installs that instead. If a check fails meanwhile, the update already downloaded stays ready to install.
+
 ## 0.47.0: say it
 
 ### New

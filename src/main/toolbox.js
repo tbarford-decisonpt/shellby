@@ -172,6 +172,12 @@ function samePath(a, b) {
   return norm(a) === norm(b);
 }
 
+function isInside(file, dir) {
+  if (typeof file !== 'string' || !file) return false;
+  const rel = path.relative(dir, file);
+  return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
 function scanToolbox({ home, cwd, plugins = [] } = {}) {
   const roots = [];
   for (const p of Array.isArray(plugins) ? plugins : []) {
@@ -327,13 +333,17 @@ class ToolboxWatcher extends EventEmitter {
     // Diff against everything seen, not just the last scan: items can flicker
     // (a plugin reported at two cached versions, a skill deleted and put back).
     const announce = !initial && prev;
-    // A plugin we've never scanned before isn't a "new trick" item by item.
-    const knownPlugins = new Set(prevPlugins.split('|').filter(Boolean).map(s => s.slice(0, s.indexOf('='))));
+    // A plugin dir we've never scanned before isn't a "new trick" item by item.
+    // That includes a known plugin at another cached version: sessions can
+    // report 0.2.2 and 0.2.6 side by side, and what 0.2.6 adds is an update,
+    // not something Claude wrote itself. (seen is lost on restart, so keying on
+    // the plugin name alone re-announced those on every launch.)
+    const knownDirs = prevPlugins.split('|').filter(Boolean).map(s => s.slice(s.indexOf('=') + 1));
     for (const t of [...scan.skills, ...scan.agents, ...scan.commands]) {
       if (this.seen.has(key(t))) continue;
       this.seen.add(key(t));
       if (!announce || t.source === 'cli') continue;
-      if (t.source.startsWith('plugin:') && !knownPlugins.has(t.source.slice(7))) continue;
+      if (t.source.startsWith('plugin:') && !knownDirs.some(d => isInside(t.path, d))) continue;
       this.emit('learned', { kind: t.kind, name: t.name, description: t.description, path: t.path, source: t.source });
     }
     const sig = signature(this.merged);
