@@ -10,6 +10,8 @@
 //   "edit <file> <words>" -> writes <words> into <file> in its working folder
 //   "big <tokens>" -> a reply whose call used <tokens> of a 200k window
 //   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
+//   "args"       -> replies with the command line it was started with (JSON)
+//   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -20,11 +22,12 @@ let turn = 0;
 let pending = null;   // { requestId, onAnswer }
 let slow = null;
 let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
+let effort = args.includes('--effort') ? args[args.indexOf('--effort') + 1] : '';
 
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
 let messages = 0;
 // Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
-const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
+const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId, uuid: `uuid-${sessionId}-${messages}` });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
 
 readline.createInterface({ input: process.stdin }).on('line', line => {
@@ -49,6 +52,13 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
+    } else if (sub === 'apply_flag_settings') {
+      effort = msg.request.settings?.effortLevel || '';
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
+    } else if (sub === 'mcp_status') {
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mcpServers: [{ name: 'github', status: 'connected' }, { name: 'broken', status: 'failed' }] } } });
+    } else {
+      out({ type: 'control_response', response: { subtype: 'error', request_id: msg.request_id, error: `Unsupported: ${sub}` } });
     }
     return;
   }
@@ -112,6 +122,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   // "look ..." -> says how many pictures came with the message, and what kind
   if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
+  if (content === 'args') { text(JSON.stringify(args)); result(true); return; }
+  if (content === 'effort') { text(`effort:${effort || 'default'}`); result(true); return; }
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
   if (content.startsWith('wait ')) {

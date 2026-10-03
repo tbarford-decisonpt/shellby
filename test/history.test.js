@@ -153,3 +153,25 @@ test('size() reports what the transcripts take up', () => {
   h.append('a', { kind: 'user', text: 'hi' });
   assert.ok(h.size() > 0);
 });
+
+test('rewrite replaces a transcript whole (for rewind), and leaves no temp file', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'c1', title: 'x', cwd: dir, mode: 'ask' });
+  for (const text of ['one', 'two', 'three']) h.append('c1', { kind: 'user', text });
+  const kept = h.load('c1').slice(0, 1);
+  assert.equal(h.rewrite('c1', [...kept, { kind: 'rewound' }]), true);
+  assert.deepEqual(h.load('c1').map(i => i.text || i.kind), ['one', 'rewound']);
+  assert.ok(!fs.readdirSync(dir).some(f => f.endsWith('.tmp')));
+  assert.equal(h.rewrite('c1', []), true);
+  assert.deepEqual(h.load('c1'), []);
+});
+
+test('! commands and rewinds are kept in the transcript', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'c2', title: 'x', cwd: dir, mode: 'ask' });
+  h.append('c2', { kind: 'shell', command: 'git status', output: 'clean', code: 0 });
+  h.append('c2', { kind: 'rewound', conversation: true });
+  assert.deepEqual(h.load('c2').map(i => i.kind), ['shell', 'rewound']);
+});

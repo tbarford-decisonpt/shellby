@@ -1,11 +1,12 @@
-/* Shellby panel — Toolbox → Hooks and Memory: the hooks in Claude Code's settings
+/* Shellby panel — Toolbox → Hooks, Rules and Memory: the hooks in Claude Code's
+   settings, its allow / ask / deny permission rules (/permissions in the terminal),
    and the CLAUDE.md files that load for this folder, each with a small editor.
    The main process re-checks every write, and hook changes ask in the confirm window. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
   const STALE_MS = 5000;
-  const KINDS = new Set(['hook', 'memory']);
+  const KINDS = new Set(['hook', 'rule', 'memory']);
   let loading = null;
   let lastTry = 0;
   // One open editor per tab, so opening one never throws away the other's unsaved text.
@@ -47,6 +48,7 @@
   const count = k => {
     const s = state.setup;
     if (!s) return '';
+    if (k === 'rule') return s.permissions?.rules.length || 0;
     return k === 'hook' ? s.hooks.length : s.memory.filter(m => m.exists).length;
   };
 
@@ -301,6 +303,79 @@
     list.replaceChildren(...(items.length ? items.map(memoryRow) : [h('li', { class: 'history-empty', text: 'No matches.' })]));
   }
 
+  // ================================================================ permission rules
+
+  const LISTS = {
+    allow: { label: 'Allow', sub: 'runs without asking' },
+    ask: { label: 'Ask', sub: 'always asks first' },
+    deny: { label: 'Deny', sub: 'never runs' },
+  };
+  let ruleDraft = { scope: null, list: 'allow', rule: '', error: '' };
+
+  function ruleRow(r) {
+    return h('li', { class: 'rule-row' },
+      h('span', { class: `rule-pill l-${r.list}`, text: r.list, title: LISTS[r.list].sub }),
+      h('code', { text: r.rule, title: r.rule }),
+      h('span', { class: 'src-pill', text: SOURCE[r.scope] || r.scope, title: r.path }),
+      h('button', {
+        class: 'icon-btn', type: 'button', title: 'Remove this rule', 'aria-label': `Remove the rule ${r.rule}`,
+        onclick: async () => {
+          const res = await call(() => api.removeRule(r.scope, r.list, r.rule));
+          if (res.ok) SB.toast('Rule removed');
+          else if (!res.cancelled) SB.toast(res.error || "Couldn't remove that rule");
+          rerender();
+        },
+      }, h('span', { text: '✕' })),
+      folderBtn(r.path));
+  }
+
+  function ruleForm() {
+    const s = state.setup;
+    const scopes = s.permissions.files.filter(f => f.state !== 'unreadable').map(f => f.scope);
+    const d = ruleDraft;
+    if (!scopes.includes(d.scope)) d.scope = scopes.includes('local') ? 'local' : scopes[0];
+    const list = h('select', { class: 'field slim', 'aria-label': 'Kind of rule' }, Object.entries(LISTS).map(([k, v]) => h('option', { value: k, text: v.label })));
+    list.value = d.list;
+    list.addEventListener('change', () => { d.list = list.value; });
+    const where = h('select', { class: 'field slim', 'aria-label': 'Where it is saved' }, scopes.map(k => h('option', { value: k, text: WHERE[k] })));
+    where.value = d.scope;
+    where.addEventListener('change', () => { d.scope = where.value; });
+    const rule = h('input', { class: 'field mono slim', type: 'text', spellcheck: 'false', placeholder: 'Bash(npm run test:*)  ·  Edit(src/**)  ·  WebFetch(domain:github.com)', 'aria-label': 'Rule' });
+    rule.value = d.rule;
+    rule.addEventListener('input', () => { d.rule = rule.value; });
+    const status = h('p', { class: `setup-status${d.error ? ' err' : ''}`, role: 'status', text: d.error });
+    const add = async () => {
+      const r = await call(() => api.saveRule(d.scope, d.list, d.rule));
+      if (r.ok) { ruleDraft = { scope: d.scope, list: d.list, rule: '', error: '' }; SB.toast('Rule saved. New conversations follow it.'); }
+      else if (!r.cancelled) d.error = r.error || "Couldn't save that rule.";
+      rerender();
+    };
+    rule.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    return h('div', {},
+      h('div', { class: 'rule-form' }, list, where, rule, h('button', { class: 'btn primary slim-btn', type: 'button', onclick: add }, 'Add')),
+      status);
+  }
+
+  function renderRules(q) {
+    const s = state.setup;
+    const pane = $('setupPane');
+    const list = $('toolList');
+    pane.hidden = false;
+    list.hidden = false;
+    pane.dataset.mounted = 'rule';
+    const modes = s.permissions.files.filter(f => f.defaultMode).map(f => `${WHERE[f.scope]}: starts in ${f.defaultMode}`);
+    pane.replaceChildren(
+      h('div', { class: 'setup-intro' },
+        h('p', { text: 'Rules Claude Code follows before your permission mode: deny wins, then ask, then allow. Adding an allow rule, or taking away an ask or deny, asks you first.' }),
+        modes.length ? h('p', { class: 'muted small', text: modes.join(' · ') }) : null),
+      ruleForm());
+    const rows = (s.permissions.rules || []).filter(r => !q || r.rule.toLowerCase().includes(q) || r.list.includes(q));
+    const order = { deny: 0, ask: 1, allow: 2 };
+    rows.sort((a, b) => order[a.list] - order[b.list] || a.rule.localeCompare(b.rule));
+    list.replaceChildren(...(rows.length ? [h('li', {}, h('ul', { class: 'rule-list' }, rows.map(ruleRow)))]
+      : [h('li', { class: 'history-empty', text: q ? 'No matches.' : 'No rules yet. Claude asks according to your permission mode.' })]));
+  }
+
   // ================================================================ entry points (called from toolbox.js)
 
   function render(kind, q) {
@@ -312,6 +387,7 @@
       return;
     }
     if (kind === 'hook') renderHooks(q);
+    else if (kind === 'rule') renderRules(q);
     else renderMemory(q);
   }
 

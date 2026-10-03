@@ -45,6 +45,19 @@
     $('modelSelect').value = current;
   }
 
+  // Claude Code's own styles plus any in an output-styles folder (src/main/outputstyles.js).
+  async function renderStyles() {
+    const styles = await api.listStyles().catch(() => []);
+    const current = state.settings.outputStyle || '';
+    const sel = $('styleSelect');
+    const known = !current || styles.some(s => s.name === current);
+    sel.replaceChildren(...styles.map(s => h('option', { value: s.name, text: s.source === 'built-in' ? s.title : `${s.title} (${s.source === 'user' ? 'yours' : 'this project'})`, title: s.description })),
+      known ? null : h('option', { value: current, text: `${current} (not found)` }));
+    sel.value = current;
+    const chosen = styles.find(s => s.name === current);
+    $('styleNote').textContent = `${chosen?.description ? `${chosen.description} ` : ''}Applies to new conversations.`;
+  }
+
   function renderSettings() {
     SB.renderModeCards($('modeCards'));
     $('autonomousConfirm').hidden = true;
@@ -55,6 +68,7 @@
     $('hotkeyBtn').textContent = SB.prettyAccel(state.settings.hotkey) || 'None';
     $('hotkeyMsg').textContent = '';
     renderModels();
+    renderStyles();
     $('loginToggle').checked = !!state.settings.openAtLogin;
     $('loginToggle').disabled = !state.packaged;
     $('loginNote').hidden = state.packaged;
@@ -86,6 +100,12 @@
   $('changeFolderBtn').addEventListener('click', async () => { await SB.folderChanged(await api.pickFolder()); renderSettings(); });
   $('resetPosBtn').addEventListener('click', () => { api.resetCritterPosition(); SB.toast('Shellby is back in the bottom-right corner of your main screen.'); });
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });
+  $('styleSelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ outputStyle: e.target.value });
+    state.settings = r.settings;
+    renderStyles();
+    SB.toast('Output style applies to new conversations.');
+  });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
   $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; });
   $('worktreeToggle').addEventListener('change', async e => {

@@ -348,7 +348,8 @@ ${contextText(t.context)}` : t.title,
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
   }
-  input.addEventListener('input', () => { autosize(); updateSlash(); });
+  input.addEventListener('input', () => { autosize(); updateSlash(); SB.composerInput?.(); });
+  SB.autosize = autosize;
 
   function renderAttachments() {
     const tab = SB.activeTab();
@@ -368,7 +369,9 @@ ${contextText(t.context)}` : t.title,
   async function sendNow(tab, text, attachments) {
     const r = await api.sendTask(tab.id, text, attachments);
     if (!r.ok) { SB.toast(r.error); return false; }
-    tab.render({ kind: 'user', text, attachments });
+    // !! is how a message that starts with ! reaches Claude; it shows (and is sent) with one.
+    tab.render({ kind: 'user', text: text.startsWith('!!') ? text.slice(1) : text, attachments, turnId: r.turnId });
+    SB.notePrompt?.(text);
     tab.busy = true;
     tab.saved = true;
     tab.statusText = 'Working…';
@@ -383,7 +386,10 @@ ${contextText(t.context)}` : t.title,
     tab.attachments = [];
     renderAttachments();
     autosize();
+    SB.composerInput?.();
   }
+  SB.clearComposer = clearComposer;
+  SB.renderAttachments = renderAttachments;
 
   SB.send = async (text) => {
     const tab = SB.activeTab();
@@ -391,6 +397,8 @@ ${contextText(t.context)}` : t.title,
     text = (text ?? input.value).trim();
     if (!text && !tab.attachments.length) return;
     const attachments = [...tab.attachments];
+    // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
+    if (!attachments.length && SB.runLocal?.(text, tab)) { clearComposer(tab); return; }
     if (tab.busy) {
       tab.queue.push({ text, attachments });
       clearComposer(tab);
@@ -468,12 +476,15 @@ ${contextText(t.context)}` : t.title,
 
   $('form').addEventListener('submit', e => { e.preventDefault(); SB.send(); });
   input.addEventListener('keydown', e => {
+    if (SB.pickKeydown?.(e)) return;
     if (slashKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
     if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); SB.cycleMode(); return; }
     // Up in an empty box pulls back the last queued message, like Claude Code.
     const tab = SB.activeTab();
-    if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); }
+    if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); return; }
+    // Otherwise Up and Down walk back through what you've sent before.
+    SB.historyKeydown?.(e);
   });
   $('stopBtn').addEventListener('click', stop);
   function stop() {
@@ -502,8 +513,10 @@ ${contextText(t.context)}` : t.title,
       return;
     }
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden || !$('ctxMenu').hidden || !$('usageMenu').hidden) return SB.closeMenus();
+      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
+      // Esc twice, like the terminal: back to an earlier message (composer.js).
+      if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return api.hide();
     }
@@ -556,9 +569,9 @@ ${contextText(t.context)}` : t.title,
   let slashIndex = 0;
 
   function slashCandidates(q) {
-    const tb = state.toolbox;
-    if (!tb) return [];
-    const all = [...tb.skills.map(t => ({ ...t, kind: 'skill' })), ...tb.commands.map(t => ({ ...t, kind: 'command' }))];
+    const tb = state.toolbox || { skills: [], commands: [] };
+    // Shellby's own commands come first, so a skill with the same name can't hide them.
+    const all = [...(SB.LOCAL_COMMANDS || []), ...tb.skills.map(t => ({ ...t, kind: 'skill' })), ...tb.commands.map(t => ({ ...t, kind: 'command' }))];
     const seen = new Set();
     const pinned = new Set((state.pinned || []).map(p => `${p.kind}:${p.name}`));
     return all
@@ -609,6 +622,8 @@ ${contextText(t.context)}` : t.title,
       renderSlash();
       return true;
     }
+    // Typed out in full, Enter runs it, like the terminal; otherwise it completes the name.
+    if (e.key === 'Enter' && input.value.trim().toLowerCase() === `/${slashItems[slashIndex]?.name}`.toLowerCase()) { SB.hideSlash(); return false; }
     if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickSlash(slashIndex); return true; }
     return false;
   }

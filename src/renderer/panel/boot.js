@@ -122,6 +122,7 @@
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);
+    SB.applyEffort?.();
     SB.applyCrabOnly();
     SB.applyUsage(state.settings.lastUsage);
     if (b.homes) SB.applyHomes(b.homes);

@@ -251,3 +251,84 @@ test('a resumed conversation starts with its last reading', () => {
   const s = new ClaudeSession({ exe: process.execPath, cwd: os.tmpdir(), mode: 'ask', context: { tokens: 90000, window: 200000, pct: 45 } });
   assert.deepEqual(s.context, { tokens: 90000, window: 200000, pct: 45 });
 });
+
+// ---- the terminal's conveniences: effort, output style, control requests, rewind
+
+const lastText = items => texts(items).at(-1);
+
+test('effort and output style go on the command line when set, and not otherwise', async () => {
+  const { s, items } = makeSession({ effort: 'high', outputStyle: 'Explanatory' });
+  s.send('args');
+  await waitFor(s, i => i.kind === 'result');
+  const args = JSON.parse(lastText(items));
+  assert.deepEqual(args.slice(args.indexOf('--effort'), args.indexOf('--effort') + 2), ['--effort', 'high']);
+  assert.equal(JSON.parse(args[args.indexOf('--settings') + 1]).outputStyle, 'Explanatory');
+  s.close();
+
+  const plain = makeSession({ effort: 'bogus' });
+  plain.s.send('args');
+  await waitFor(plain.s, i => i.kind === 'result');
+  const bare = JSON.parse(lastText(plain.items));
+  assert.ok(!bare.includes('--effort') && !bare.includes('--settings'));
+  plain.s.close();
+});
+
+test('setEffort reaches a running conversation before its next turn', async () => {
+  const { s, items } = makeSession();
+  s.send('effort');
+  await waitFor(s, i => i.kind === 'result');
+  assert.equal(lastText(items), 'effort:default');
+  s.setEffort('max');
+  s.send('effort');
+  await waitFor(s, i => i.kind === 'result' && texts(items).length === 2);
+  assert.equal(lastText(items), 'effort:max');
+  s.close();
+});
+
+test('request: answers come back by id; errors and a stopped CLI never hang', async () => {
+  const { s } = makeSession();
+  assert.equal((await s.request('mcp_status')).ok, false, 'no process yet');
+  s.send('hello');
+  await waitFor(s, i => i.kind === 'result');
+  const r = await s.request('mcp_status');
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.response.mcpServers.map(x => x.name), ['github', 'broken']);
+  const no = await s.request('made_up_request');
+  assert.equal(no.ok, false);
+  assert.match(no.error, /Unsupported/);
+  s.close();
+});
+
+test('each result carries where its turn ends, and rewindTo resumes only that far, as a fork', async () => {
+  const { s } = makeSession();
+  s.send('one');
+  const first = await waitFor(s, i => i.kind === 'result');
+  assert.match(first.anchor, /^uuid-fake-session-1-/);
+  await s.rewindTo(first.anchor);
+  assert.equal(s.proc, null, 'the process is stopped');
+  assert.ok(s.buildArgs().includes(`--resume-session-at=${first.anchor}`));
+  assert.ok(s.buildArgs().includes('--fork-session'));
+  s.send('two');
+  await waitFor(s, i => i.kind === 'init');
+  assert.ok(!s.buildArgs().includes('--fork-session'), 'once the fork exists it is resumed as usual');
+  await waitFor(s, i => i.kind === 'result');
+  s.close();
+});
+
+test('rewindTo(null) starts the conversation over', async () => {
+  const { s } = makeSession();
+  s.send('one');
+  await waitFor(s, i => i.kind === 'result');
+  await s.rewindTo(null);
+  assert.equal(s.sessionId, null);
+  assert.ok(!s.buildArgs().includes('--resume'));
+  s.close();
+});
+
+test('a rewind saved in History is honoured when the conversation is reopened', () => {
+  const s = new ClaudeSession({ exe: 'x', cwd: os.tmpdir(), mode: 'ask', resumeId: 'sess-1', resumeAt: 'uuid-9' });
+  assert.ok(s.buildArgs().includes('--resume-session-at=uuid-9'));
+  assert.ok(s.buildArgs().includes('--fork-session'));
+  const fresh = new ClaudeSession({ exe: 'x', cwd: os.tmpdir(), mode: 'ask', resumeAt: 'uuid-9' });
+  assert.ok(!fresh.buildArgs().some(a => a.startsWith('--resume')), 'nothing to resume into, so no rewind point either');
+});

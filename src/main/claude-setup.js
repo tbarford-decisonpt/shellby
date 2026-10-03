@@ -20,6 +20,8 @@ const MAX_PARENTS = 12;          // CLAUDE.md files above the project folder
 const MAX_COMMAND = 1000;      // the confirm window shows all of it, so it can't hide a tail
 const MAX_MATCHER = 200;
 const MAX_TIMEOUT = 3600;
+// Anything that would break a line, so what a confirm window shows is all there is.
+const CONTROL_CHARS = /[\u0000-\u001f\u007f\u2028\u2029]/;
 
 // Claude Code's hook events, in the order a session meets them. `matcher` says
 // whether the event filters on something (a tool name, how a session started).
@@ -141,7 +143,7 @@ function validateHook(input) {
   if (!command) return { error: 'The hook needs a command to run.' };
   if (command.length > MAX_COMMAND) return { error: `Keep the command under ${MAX_COMMAND} characters. For more, put it in a script and run that.` };
   // One line, no control characters: what the confirm window shows is exactly what runs.
-  if (/[\u0000-\u001f\u007f\u2028\u2029]/.test(command)) return { error: 'Keep the command on one line. For more, put it in a script and run that.' };
+  if (CONTROL_CHARS.test(command)) return { error: 'Keep the command on one line. For more, put it in a script and run that.' };
   const matcher = EVENT.get(event).matcher ? str(i.matcher).trim() : '';
   if (matcher.length > MAX_MATCHER) return { error: 'That matcher is too long.' };
   let timeout = null;
@@ -211,6 +213,69 @@ function changeHooks(named, change, expect = null) {
   if (str(s.raw).trim() && !fs.existsSync(`${file}.shellby-backup`)) fs.writeFileSync(`${file}.shellby-backup`, s.raw);
   writeJson(file, next);
   return { ok: true };
+}
+
+// ---- permission rules (what /permissions shows in the terminal)
+
+// allow: never asks. ask: always asks, even when a mode wouldn't. deny: never
+// lets it run. Claude Code checks deny first, then ask, then allow.
+const RULE_LISTS = ['allow', 'ask', 'deny'];
+const MAX_RULE = 500;
+const MAX_RULE_ROWS = 1000;
+
+// Tool, Tool(specifier) or an MCP name: Bash(npm run test:*), Read(./.env),
+// WebFetch(domain:example.com), mcp__github, mcp__github__create_issue.
+const RULE = /^[A-Za-z][\w-]*(\(.+\))?$/s;
+
+function scanPermissions({ home, cwd } = {}) {
+  const rules = [];
+  const files = [];
+  for (const { scope, file } of settingsFiles({ home, cwd })) {
+    const s = readSettings(file);
+    const perms = s.state === 'ok' && isObj(s.data.permissions) ? s.data.permissions : {};
+    files.push({ scope, path: file, state: s.state, defaultMode: str(perms.defaultMode) || null });
+    for (const list of RULE_LISTS) {
+      const arr = Array.isArray(perms[list]) ? perms[list] : [];
+      for (const rule of arr) {
+        if (typeof rule !== 'string' || rules.length >= MAX_RULE_ROWS) continue;
+        rules.push({ scope, path: file, list, rule: rule.slice(0, MAX_RULE) });
+      }
+    }
+  }
+  return { rules, files };
+}
+
+/** Checks a rule from the panel. { list, rule } or { error }. */
+function validateRule(list, rule) {
+  if (!RULE_LISTS.includes(list)) return { error: 'Pick allow, ask or deny.' };
+  const r = str(rule).trim();
+  if (!r) return { error: 'Type a rule, like Bash(npm run test:*) or Read(./secrets/**).' };
+  if (r.length > MAX_RULE) return { error: 'That rule is too long.' };
+  if (CONTROL_CHARS.test(r)) return { error: 'Keep the rule on one line.' };
+  if (!RULE.test(r)) return { error: 'A rule is a tool name, maybe with what it applies to in brackets: Bash(git push:*), Edit(src/**), WebFetch(domain:github.com).' };
+  return { list, rule: r };
+}
+
+function withRule(settings, list, rule) {
+  const perms = isObj(settings.permissions) ? settings.permissions : {};
+  const arr = Array.isArray(perms[list]) ? perms[list] : [];
+  if (arr.includes(rule)) return settings;
+  return { ...settings, permissions: { ...perms, [list]: [...arr, rule] } };
+}
+
+function withoutRule(settings, list, rule) {
+  const perms = isObj(settings.permissions) ? settings.permissions : null;
+  if (!perms || !Array.isArray(perms[list]) || !perms[list].includes(rule)) return settings;
+  const left = perms[list].filter(r => r !== rule);
+  const { [list]: _gone, ...others } = perms;
+  const next = left.length ? { ...others, [list]: left } : others;
+  const { permissions: _old, ...rest } = settings;
+  return Object.keys(next).length ? { ...rest, permissions: next } : rest;
+}
+
+/** Same as changeHooks, for any change to a settings file (permissions included). */
+function changeSettings(named, change) {
+  return changeHooks(named, change, null);
 }
 
 // ---- memory (CLAUDE.md)
@@ -307,6 +372,7 @@ function scanSetup({ home, cwd, plugins, ceiling } = {}) {
   const { hooks, files } = scanHooks({ home, cwd, plugins });
   return {
     hooks, settings: files, memory: scanMemory({ home, cwd, ceiling }),
+    permissions: scanPermissions({ home, cwd }),
     events: HOOK_EVENTS, scannedAt: Date.now(),
   };
 }
@@ -314,5 +380,6 @@ function scanSetup({ home, cwd, plugins, ceiling } = {}) {
 module.exports = {
   HOOK_EVENTS, SCOPES, scanSetup, scanHooks, scanMemory, settingsFiles,
   validateHook, withHook, withoutHook, replaceHook, changeHooks,
+  RULE_LISTS, scanPermissions, validateRule, withRule, withoutRule, changeSettings,
   readMemory, writeMemory,
 };

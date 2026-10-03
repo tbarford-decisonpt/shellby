@@ -62,6 +62,15 @@
   }
 
   SB.showSettingsTab = tab => showTab(tab);
+  // /model, /output-style: the setting itself, in view and focused.
+  SB.showSetting = id => {
+    const el = $(id);
+    const group = el?.closest('.setting-group');
+    if (!el || !group) return;
+    SB.setView('settings');
+    showTab(tabOf(group));
+    requestAnimationFrame(() => { group.scrollIntoView({ block: 'center' }); el.focus(); });
+  };
   for (const b of tabs) b.addEventListener('click', () => showTab(b.dataset.tab));
   // Arrow keys walk the tabs, the usual way for a tab list.
   $('settingsTabs').addEventListener('keydown', e => {

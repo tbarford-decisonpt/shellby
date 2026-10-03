@@ -1,0 +1,59 @@
+/* Shellby panel — the terminal conveniences in the message box (composer.js),
+   and the Permissions and MCP panes of the Toolbox (toolbox-setup.js). */
+
+/* ================================================================ effort chip */
+.effort-chip { margin-left: 2px; }
+.effort-chip.on { color: var(--amber); }
+.effort-chip.on:hover { color: var(--amber); }
+
+/* ================================================================ @ files and Ctrl+R */
+.k-shellby { --k: var(--amber); }
+.pick-item { grid-template-columns: 14px minmax(0, 1fr) auto; }
+.pick-glyph { font: 700 11px var(--font-mono); color: var(--sand-faint); text-align: center; }
+.pick-item .slash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.pick-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--sand); }
+.pick-head, .pick-empty { padding: 5px 9px 6px; font: 600 10.5px var(--font-mono); letter-spacing: .03em; color: var(--sand-faint); }
+.pick-empty { font-weight: 500; }
+
+/* ================================================================ ! shell mode */
+.composer.shell-mode #input { font-family: var(--font-mono); font-stretch: 88%; }
+.composer.shell-mode .input-row { box-shadow: 0 0 0 1px var(--amber); }
+.composer.shell-mode #sendHint { color: var(--amber); }
+.shell-run > summary .t-label { color: var(--amber); }
+.shell-run .shell-code { flex: none; margin-left: auto; font: 600 10px var(--font-mono); color: var(--danger); }
+
+/* ================================================================ rewind */
+.msg.user { position: relative; }
+.msg-rewind {
+  position: absolute; left: -30px; top: 6px;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--sand-faint); font-size: 14px; line-height: 24px;
+  opacity: 0; transition: opacity .12s;
+}
+.msg-rewind::before { content: "↶"; } /* drawn, not text: the message's text stays exactly what you sent */
+.msg.user:hover .msg-rewind, .msg-rewind:focus-visible { opacity: 1; }
+.msg-rewind:hover { background: var(--reef); color: var(--sand); }
+.rewind-menu { max-width: min(420px, calc(100vw - 24px)); max-height: 60vh; overflow-y: auto; }
+.rewind-text { font-weight: 600; font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.rewind-quote { white-space: pre-wrap; max-height: 5.6em; overflow: hidden; font-family: inherit; font-size: 12px; }
+.menu-item:disabled { opacity: .45; cursor: default; }
+.menu-item:disabled:hover { background: none; }
+
+/* ================================================================ Toolbox: permission rules */
+.rule-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
+.rule-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--reef); }
+.rule-row code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--sand); }
+.rule-pill { flex: none; font: 600 9px/15px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; border-radius: 4px; background: var(--reef-3); }
+.rule-pill.l-allow { color: var(--glass); }
+.rule-pill.l-ask { color: var(--amber); }
+.rule-pill.l-deny { color: var(--danger); }
+.rule-form { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 4px 0 10px; }
+.rule-form .field { min-width: 0; }
+
+/* ================================================================ Toolbox: MCP servers */
+.mcp-form { display: grid; gap: 6px; margin: 6px 0 12px; padding: 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
+.mcp-form .row2 { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+.mcp-form textarea { min-height: 44px; resize: vertical; font: 11.5px var(--font-mono); }
+.mcp-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.mcp-bar .muted { flex: 1; min-width: 160px; }
+.rule-form input.field { width: 100%; }

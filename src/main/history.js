@@ -5,7 +5,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'compacted', 'fresh']);
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'compacted', 'fresh', 'rewound', 'shell']);
 
 // How many conversations the index remembers. Transcripts past this are deleted
 // with their entry, rather than being left in the folder with nothing listing them.
@@ -111,6 +111,25 @@ class History {
         .map(l => { try { return JSON.parse(l); } catch { return null; } })
         .filter(Boolean); // a half-written last line (power loss mid-append) drops, the rest still replays
     } catch { return []; }
+  }
+
+  /**
+   * Replace a transcript with `items` (already-loaded records, kept as they
+   * are). Used by rewind, which cuts a conversation back to an earlier message.
+   * Written the way the index is: a temp file and a rename, never half a file.
+   */
+  rewrite(id, items) {
+    const file = this.file(id);
+    const tmp = `${file}.tmp`;
+    try {
+      fs.writeFileSync(tmp, items.map(i => JSON.stringify(i)).join('\n') + (items.length ? '\n' : ''));
+      fs.renameSync(tmp, file);
+      return true;
+    } catch (e) {
+      this.onError('transcript rewrite', e);
+      try { fs.rmSync(tmp, { force: true }); } catch { /* best effort */ }
+      return false;
+    }
   }
 
   remove(id) {

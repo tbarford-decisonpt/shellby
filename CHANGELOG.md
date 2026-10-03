@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.35.0: everything the terminal does
+
+### New
+- **Rewind to an earlier message.** Press <kbd>Esc</kbd> twice in an empty box, type `/rewind`, or hover one of your messages and press ↶. Pick a message and choose **Conversation and code**, **Conversation only** or **Code only**. The conversation goes back to just before that message, as if the rest never happened, and your message comes back into the box to change and send again. The code goes back with Shellby's own record of each turn, so changes made by scripts and installs are undone too, not just Claude's edits. The code goes back newest turn first. If a file changed again since and can't go back, it stops there and says which, and the conversation is left as it was. The old version of the conversation isn't lost: Claude Code keeps it, and Shellby carries on from a copy. Messages sent before this version can have their code put back, but not the conversation.
+- **`!` runs a command yourself.** Start a message with `!` (for example `!git status`) and Shellby runs it in PowerShell in the conversation's folder. The output shows in the conversation, and Claude gets the command and its output along with your next message, without spending a turn on it. The first time, Shellby asks in the confirmation window. To send Claude a message that starts with `!`, type `!!`.
+- **`@` mentions files.** Type `@` and start typing a file or folder name: a list of matches from the project comes up, the way it does in the terminal. <kbd>Tab</kbd> or <kbd>Enter</kbd> puts it in. Picking a folder keeps the list open inside it. Paths with spaces are quoted for you. Claude Code reads the file itself when the message goes.
+- **Up and Ctrl+R bring back what you've sent.** In the box, <kbd>↑</kbd> and <kbd>↓</kbd> step through your last 100 messages, across every conversation. They're kept in their own file in Shellby's data folder, and anything that looks like it carries a key or password is left out. <kbd>Ctrl</kbd>+<kbd>R</kbd> searches them: type to narrow it down, <kbd>Ctrl</kbd>+<kbd>R</kbd> again for older matches, <kbd>Enter</kbd> to use one, <kbd>Esc</kbd> to go back to what you had. <kbd>↑</kbd> in an empty box still takes back a queued message first.
+- **Effort.** A new chip next to the folder sets how hard Claude thinks: Auto, Low, Medium, High, Extra high or Max. It applies to every open conversation straight away, from the next message. `/effort high` does the same from the box.
+- **Output style.** **Settings → Claude → Model** has an **Output style** picker: Default, Explanatory (explains its choices as it goes), Learning (leaves small pieces for you to write), and any styles you or the project keep in an `output-styles` folder. It applies to new conversations.
+- **Toolbox → Rules.** The allow, ask and deny rules Claude Code follows, from your settings and the project's, in one list (what `/permissions` shows in the terminal). Add one, like `Bash(npm run test:*)` or `Read(./.env)`, or remove one. Adding an allow rule, or removing an ask or deny rule, asks you first in the confirmation window. A backup of the settings file is kept.
+- **Toolbox → MCP can change things now.** **Add server** adds one that runs a program or connects to a URL, for just you here, the project, or you everywhere, after you confirm. Each server has **Turn off** / **Turn on** and **Reconnect** (when it has failed), which act on every open conversation that's running, and ✕ to remove it. **Refresh** asks a running conversation for the latest statuses.
+- **`/export`** saves the conversation as a Markdown file. `/export clipboard` copies it instead.
+- **Shellby's own commands in the `/` menu:** `/rewind`, `/export`, `/effort`, `/permissions`, `/mcp`, `/model` and `/output-style`. Typing a command out in full and pressing <kbd>Enter</kbd> runs it, instead of completing its name.
+
 ## 0.34.0: call it what you like
 
 ### New

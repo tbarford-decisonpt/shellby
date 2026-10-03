@@ -2,6 +2,7 @@
 // the manager persists transcripts, tracks per-tab status and rolls everything
 // up into one state for the desktop critter.
 const { EventEmitter } = require('events');
+const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 
@@ -11,9 +12,9 @@ const TAB_ID = /^[\w-]{1,64}$/;
 class SessionManager extends EventEmitter {
   // prepareTurn(tab): an optional promise each turn waits for before Claude
   // sees it (main.js snapshots the folder, for the turn's diff).
-  constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}), prepareTurn = null }) {
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix, getEnv, prepareTurn });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn });
     this.tabs = new Map();
   }
 
@@ -29,7 +30,10 @@ class SessionManager extends EventEmitter {
       cwd: historyEntry?.cwd || cwd,
       mode: mode || this.getMode(),
       model: this.getModel() || null,
+      effort: this.getEffort() || '',
+      outputStyle: this.getOutputStyle() || '',
       resumeId: historyEntry?.claudeSessionId || null,
+      resumeAt: historyEntry?.resumeAt || null,
       extraEnv: () => this.getEnv(),
       context: historyEntry?.context || null,
     });
@@ -56,7 +60,8 @@ class SessionManager extends EventEmitter {
   }
 
   onItem(tab, item) {
-    if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId });
+    // A rewind's fork exists once Claude Code reports its id: from then on it's an ordinary resume.
+    if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId, resumeAt: null });
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
@@ -77,10 +82,14 @@ class SessionManager extends EventEmitter {
       // You've just given it more to do, so it plainly isn't done any more.
       this.history.setDone(tab.id, false);
     }
+    // Each message you send gets an id of its own, so it can be rewound to later.
+    userItem = { ...userItem, turnId: userItem.turnId || randomUUID() };
     this.history.append(tab.id, userItem);
+    tab.turnId = userItem.turnId; // the turn now starting, for what main.js notes about it (its diff)
     tab.outcome = null;
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();
+    return userItem.turnId;
   }
 
   // A name of your own for an open tab. One not yet sent anything has no History
@@ -155,6 +164,10 @@ class SessionManager extends EventEmitter {
 
   setMode(mode) {
     for (const tab of this.tabs.values()) if (!tab.pinnedMode) tab.session.setMode(mode);
+  }
+
+  setEffort(effort) {
+    for (const tab of this.tabs.values()) tab.session.setEffort(effort);
   }
 
   require(tabId) {
