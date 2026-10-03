@@ -176,7 +176,8 @@ function projectIssues(p) {
 
 /**
  * The answer. projects: from check(). running: what main.js sees right now:
- * { working: [title], waiting: [title], background: [{ program, project }] }.
+ * { working: [title], waiting: [title], background: [{ program, project }],
+ *   servers: [{ project, port }] (dev servers Shellby runs, devservers/service.js) }.
  * Returns { safe, hold, headline, lines: [string], counts }.
  *
  * safe: nothing at all to mention. hold: worth holding up a shutdown for, which
@@ -193,6 +194,7 @@ function verdict(projects = [], running = {}) {
     working: (running.working || []).length,
     waiting: (running.waiting || []).length,
     background: (running.background || []).length,
+    servers: (running.servers || []).length,
     unreadable: projects.length - ok.length,
   };
   const has = (n, verb) => `${plural(n, 'project')} ${n === 1 ? 'has' : 'have'} ${verb}`;
@@ -203,6 +205,7 @@ function verdict(projects = [], running = {}) {
     counts.working && `Claude is still working in ${plural(counts.working, 'conversation')}`,
     counts.waiting && `${plural(counts.waiting, 'conversation')} waiting on you`,
     counts.background && `${plural(counts.background, 'command')} still running in the background`,
+    counts.servers && `${plural(counts.servers, 'dev server')} still running`,
     counts.unreadable && `${plural(counts.unreadable, 'project')} couldn't be checked`,
   ].filter(Boolean);
 
@@ -214,6 +217,7 @@ function verdict(projects = [], running = {}) {
   for (const t of running.working || []) out.push(`Still working: ${t}`);
   for (const t of running.waiting || []) out.push(`Waiting on you: ${t}`);
   for (const b of running.background || []) out.push(`In the background: ${b.program}${b.project ? ` in ${b.project}` : ''}`);
+  for (const s of running.servers || []) out.push(`Dev server: ${s.project}${s.port ? ` on :${s.port}` : ''}`);
   for (const p of projects.filter(x => !x.ok)) out.push(`Couldn't check ${p.name}`);
 
   const safe = !parts.length;
@@ -226,4 +230,4 @@ function verdict(projects = [], running = {}) {
   };
 }
 
-module.exports = { check, probe, mainRoot, verdict, parseWorktrees, parseStatus, MAX_PROJECTS };
+module.exports = { check, probe, mainRoot, verdict, parseWorktrees, parseStatus, git, okDir, MAX_PROJECTS };

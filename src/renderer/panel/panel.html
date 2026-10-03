@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="workflows.css">
 <link rel="stylesheet" href="time.css">
+<link rel="stylesheet" href="projects.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -772,6 +773,79 @@
     <p class="muted small history-note">Kept only on this PC, never synced or sent anywhere.</p>
   </main>
 
+  <!-- ====================== PROJECTS (projects.js) ====================== -->
+  <main class="view view-projects" id="projectsView">
+    <div class="view-head">
+      <h2>Projects</h2>
+      <button type="button" class="btn ghost slim-btn" id="pjRefresh">Refresh</button>
+    </div>
+
+    <!-- The list -->
+    <div id="pjListScreen">
+      <p class="view-lede">Your repositories, here and on GitHub, and the dev servers in them. Start one, and Shellby watches it: if it crashes he holds up a sign.</p>
+      <!-- Shown while servers run: what happens to them when Shellby quits. -->
+      <section class="pj-quit" id="pjQuit" aria-labelledby="pjQuitTitle" hidden>
+        <p class="pj-quit-title" id="pjQuitTitle">When Shellby quits</p>
+        <div class="pj-quit-choices">
+          <label class="pj-radio"><input type="radio" name="pjOnQuit" value="keep"> Leave dev servers running</label>
+          <label class="pj-radio"><input type="radio" name="pjOnQuit" value="stop"> Stop them</label>
+        </div>
+        <button type="button" class="btn ghost slim-btn" id="pjStopAll">Stop all now</button>
+      </section>
+      <div class="pj-tools">
+        <input type="search" id="pjSearch" class="field" placeholder="Search projects…" aria-label="Search projects">
+        <div class="seg pj-filter" id="pjFilter" role="tablist" aria-label="Show projects" data-roving>
+          <button type="button" role="tab" data-filter="all" aria-selected="true">All</button>
+          <button type="button" role="tab" data-filter="local" aria-selected="false">On this PC</button>
+          <button type="button" role="tab" data-filter="running" aria-selected="false">Running</button>
+          <button type="button" role="tab" data-filter="github" aria-selected="false">GitHub only</button>
+        </div>
+      </div>
+      <ul class="pj-list" id="pjProjects" aria-live="polite"></ul>
+      <p class="pj-empty muted" id="pjEmpty" hidden></p>
+      <div class="row wrap pj-add">
+        <button type="button" class="btn slim-btn" id="pjAdd">Add a repo…</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScan">Scan a folder…</button>
+      </div>
+      <p class="muted small" id="pjGitHubNote"></p>
+    </div>
+
+    <!-- One project -->
+    <div id="pjDetailScreen" hidden></div>
+
+    <!-- Scan a folder: pick which of the repos it found to add -->
+    <section class="pj-sheet" id="pjScanSheet" aria-labelledby="pjScanTitle" hidden>
+      <h3 id="pjScanTitle">Add repositories</h3>
+      <p class="muted small" id="pjScanLede"></p>
+      <ul class="pj-checks" id="pjScanList"></ul>
+      <div class="row wrap">
+        <button type="button" class="btn primary slim-btn" id="pjScanAdd" disabled>Add selected</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScanAll">Select all</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScanCancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- Clone a GitHub repository into a folder you choose -->
+    <section class="pj-sheet" id="pjCloneSheet" aria-labelledby="pjCloneTitle" hidden>
+      <h3 id="pjCloneTitle">Clone</h3>
+      <p class="muted small">Nothing is downloaded until you've chosen where it goes. Nothing is installed or run afterwards.</p>
+      <p class="field-label">Where</p>
+      <div class="row wrap">
+        <code class="path" id="pjCloneWhere">No folder chosen</code>
+        <button type="button" class="btn slim-btn" id="pjCloneChoose">Choose folder…</button>
+        <button type="button" class="btn ghost slim-btn" id="pjCloneAgain" hidden></button>
+      </div>
+      <p class="muted small" id="pjCloneDest"></p>
+      <div class="pj-progress" id="pjCloneProgress" hidden><span class="pj-progress-bar" id="pjCloneBar"></span></div>
+      <p class="muted small" id="pjCloneStatus" role="status"></p>
+      <p class="form-errors" id="pjCloneError" role="alert" hidden></p>
+      <div class="row wrap">
+        <button type="button" class="btn primary slim-btn" id="pjCloneGo" disabled>Clone</button>
+        <button type="button" class="btn ghost slim-btn" id="pjCloneCancel">Cancel</button>
+      </div>
+    </section>
+  </main>
+
   <!-- ====================== SETTINGS ====================== -->
   <main class="view view-settings" id="settingsView">
     <div class="view-head">
@@ -915,6 +989,20 @@
         <p class="muted small">Tabs in the same repository stop stepping on each other. Questions stay in your checkout; the first time a conversation goes to change a file, it moves into a copy on a branch named for the work. Each copy is a git worktree on its own branch, starting from your last commit; your own checkout and anything uncommitted in it stay as they are. <b>Bring it home</b> merges the branch back and the conversation carries on; <b>Bring it home and finish</b> also tidies the copy away. <b>Bring it home and push</b> sends it to the remote as well, and the folder menu can <b>Push</b> your branch or <b>Bring all home</b> at once. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
       </section>
 
+      <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
+        <h3>Dev servers</h3>
+        <p class="muted small">The servers you start from the Projects page. Shellby watches each one and holds up a sign if it crashes.</p>
+        <p class="field-label" id="setOnQuitLabel">When Shellby quits</p>
+        <div class="pj-quit-choices" role="group" aria-labelledby="setOnQuitLabel">
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="keep"> Leave dev servers running</label>
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="stop"> Stop them</label>
+        </div>
+        <p class="muted small">Left running, they carry on after Shellby closes, and Shellby picks them back up, log and all, when it starts again.</p>
+        <label class="toggle"><input type="checkbox" id="srvCrabToggle"><span class="switch"></span>Show running servers on the crab (":5173")</label>
+        <label class="toggle"><input type="checkbox" id="srvSignToggle"><span class="switch"></span>Hold up a sign when one crashes</label>
+        <label class="toggle"><input type="checkbox" id="srvToastToggle"><span class="switch"></span>Notify me when one crashes</label>
+      </section>
+
       <section class="setting-group" id="externalGroup" data-nav="Everywhere">
         <h3>Claude Code everywhere</h3>
         <p class="small muted ext-lede">Shellby can react to Claude Code in your terminal or editor too: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. That needs the Shellby plugin in Claude Code on this PC.</p>
@@ -1032,6 +1120,7 @@
           <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
           <ul class="gh-ci-list" id="ghCiList"></ul>
         </div>
+        <label class="toggle"><input type="checkbox" id="ghProjects"><span class="switch"></span>Show my repositories on the Projects page (public ones need nothing more; private ones need "Let Claude tasks push")</label>
         <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
         <label class="toggle"><input type="checkbox" id="ghClaude"><span class="switch"></span>Let Claude tasks push code and open pull requests</label>
         <p class="small muted gh-note" id="ghClaudeNote"></p>
@@ -1156,6 +1245,11 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span>History</span>
     </button>
+    <button type="button" class="dock-btn" data-view-btn="projects" aria-keyshortcuts="Control+7">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.3c0-.6.5-1.1 1.1-1.1h3.2l1.4 1.6h5.2c.6 0 1.1.5 1.1 1.1v6.3c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>Projects</span>
+      <i class="dot-badge" id="projectsBadge" hidden></i>
+    </button>
   </nav>
 
   <!-- ====================== JUMP ANYWHERE (Ctrl+K) ====================== -->
@@ -1268,6 +1362,7 @@
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
 <script src="time.js"></script>
+<script src="projects.js"></script>
 <script src="github.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>

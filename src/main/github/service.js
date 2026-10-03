@@ -6,7 +6,7 @@ const { scopesFor, covers, startDeviceFlow, pollForToken, CLIENT_ID } = require(
 const { GitHubApi } = require('./api');
 const { syncNow } = require('./sync');
 
-const FEATURES = ['profile', 'sync', 'friends', 'publish', 'claude', 'ci', 'workflows'];
+const FEATURES = ['profile', 'sync', 'friends', 'publish', 'claude', 'ci', 'workflows', 'projects'];
 const SYNC_EVERY_MS = 15 * 60 * 1000;
 const SYNC_SOON_MS = 20 * 1000;          // after a local change worth sharing
 const AVATAR_MAX_BYTES = 200 * 1024;

@@ -95,6 +95,20 @@ html, body {
 @keyframes bg-turn { to { transform: rotate(360deg); } }
 @keyframes bg-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 
+/* ---------- your dev servers: ":5173" while one's up, red when one crashed ---------- */
+#srvPill {
+  position: absolute; right: 6px; top: 6px; height: 20px; padding: 0 7px;
+  border: 0; border-radius: 10px; display: flex; align-items: center; gap: 5px;
+  font: 700 11px "Martian Mono", monospace; color: #06201b; background: var(--glass);
+  box-shadow: 0 1px 0 rgba(0,0,0,.35); cursor: pointer;
+}
+#srvPill[hidden] { display: none; }
+#srvPill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+#srvPill.down { color: #fff4e4; background: #e63946; animation: bg-breathe 1.6s ease-in-out infinite; }
+#srvPill:hover { filter: brightness(1.08); }
+#srvPill:focus-visible { outline: 2px dashed var(--glass); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { #srvPill.down { animation: none; } }
+
 #crab {
   position: absolute; left: 50%; bottom: 18px;
   transform: translateX(-50%);

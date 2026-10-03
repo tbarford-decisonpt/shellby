@@ -140,6 +140,7 @@
       { icon: '📈', title: 'Health', sub: 'Temperatures, memory and drives', keys: 'gpu cpu ram disk temperature vitals', run: go('health') },
       claude() && { icon: '🗂️', title: 'History', sub: 'Past conversations', keys: 'sessions old', run: go('history') },
       { icon: '⏱️', title: 'Time', sub: 'Hours on each project, timesheets and invoices', keys: 'time tracking hours timesheet invoice billing clients rate freelance', run: go('time') },
+      claude() && { icon: '📁', title: 'Projects', sub: 'Your repos and their dev servers', keys: 'projects repos repositories github clone dev server vite next npm run localhost port', run: go('projects') },
       { icon: '⚙️', title: 'Settings', sub: 'Everything else', keys: 'preferences options', run: go('settings') },
     ].filter(Boolean).map(e => ({ ...e, group: 'Screens' }));
   }

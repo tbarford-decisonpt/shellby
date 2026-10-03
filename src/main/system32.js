@@ -10,4 +10,5 @@ module.exports = {
   POWERSHELL: path.join(SYSTEM32, 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
   REG: path.join(SYSTEM32, 'reg.exe'),
   TASKKILL: path.join(SYSTEM32, 'taskkill.exe'),
+  CMD: path.join(SYSTEM32, 'cmd.exe'),
 };

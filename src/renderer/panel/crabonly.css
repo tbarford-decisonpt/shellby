@@ -20,7 +20,7 @@
 /* ---------- just the crab: no chat, no permission modes, no Claude-only views ---------- */
 body.crab-only .tabstrip, body.crab-only .subbar, body.crab-only .mode-chip,
 body.crab-only [data-view-btn="chat"], body.crab-only [data-view-btn="toolbox"], body.crab-only [data-view-btn="routines"],
-body.crab-only [data-view-btn="workflows"],
+body.crab-only [data-view-btn="workflows"], body.crab-only [data-view-btn="projects"],
 body.crab-only [data-view-btn="history"] { display: none !important; }
 
 /* Health's "give him a brain" card */

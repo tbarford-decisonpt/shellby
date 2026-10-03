@@ -56,6 +56,7 @@ const OCCASIONS = Object.freeze({
   web: { every: 6 * MINUTE, ttl: 5 * SECOND, only: 'chatty' },
   crew: { every: 4 * MINUTE, ttl: 6 * SECOND },
   longTask: { every: 8 * MINUTE, ttl: 6 * SECOND },
+  serverDown: { every: 2 * MINUTE, ttl: 7 * SECOND }, // a dev server fell over (devservers/service.js)
 
   // --- he's on your wallpaper all day; he may as well notice
   morning: { every: 20 * HOUR, ttl: 8 * SECOND },
@@ -110,6 +111,7 @@ const LINES = Object.freeze({
   web: ['surfacing…', 'back in a tick', 'off to look'],
   crew: ['all claws in', "it's crowded", 'the lads'],
   longTask: ['still going…', 'bear with me', 'nearly'],
+  serverDown: ['your server tipped over', 'server down!', 'it fell over'],
   morning: ['morning', "you're up", 'morning!'],
   latenight: ['you too?', 'late one', 'still up?'],
   back: ["you're back!", 'missed you', 'where were you?'],

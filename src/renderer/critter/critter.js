@@ -19,6 +19,8 @@ let px = 4;
 let state = 'idle';
 let health = null;
 let ciFailing = 0; // pull requests with red CI (src/main/github/ci.js)
+let servers = null; // { up, upPort, down }: your dev servers (src/main/devservers/service.js)
+const serversDown = () => servers?.down || 0;
 let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
 let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
@@ -45,6 +47,15 @@ const CALL_SIGN = {
     '..pp.....', '..pp.....', '..pp.....',
   ],
 };
+// ...and the one he holds up when a dev server crashed: a pulled plug.
+const SERVER_SIGN = {
+  slot: 'held', anchor: 'claw', follows: 'claw', pivot: [2, 9],
+  palette: { K: '#3d2a00', w: '#fff4e4', r: '#e63946', y: '#ffd23f', p: '#a0693a' },
+  pixels: [
+    'KKKKKKKK', 'KrrrwrrK', 'KrrwwwrK', 'KrrrwrrK', 'KryrrrrK', 'KrryrrrK', 'KKKKKKKK',
+    '.pp.....', '.pp.....', '.pp.....',
+  ],
+};
 const TOSS_MS = 620;  // how long what he was carrying stays in the air
 const GRAB_MS = 560;  // ...and when the sign takes its place, once it is clear
 const CATCH_MS = 520; // the drop back down once the build is green
@@ -52,9 +63,14 @@ let tossed = false;   // his own held item is out of his claw, from throw to cat
 let flinging = false; // mid-throw: he has not got a claw on the sign yet
 // He only holds the sign up on his feet: a nap, a molt or a throw has his claws busy.
 const settled = () => state === 'idle' || state === 'working';
-const holdingSign = () => (ciFailing > 0 || onCall) && !flinging && settled();
+// Something worth putting his own things down for: red CI or a crashed server.
+const wantsSign = () => ciFailing > 0 || serversDown() > 0;
+const holdingSign = () => (wantsSign() || onCall) && !flinging && settled();
+// Which sign, most urgent first: CI, then a server, then the call.
+const signKind = () => (ciFailing > 0 ? 'ci' : serversDown() > 0 ? 'server' : 'call');
+const SIGNS = { ci: CI_SIGN, server: SERVER_SIGN, call: CALL_SIGN };
 // Everything his claw can be carrying, so that a change of load triggers a redraw.
-const clawLoad = () => (holdingSign() ? (ciFailing > 0 ? 'ci' : 'call') : tossed ? 'empty' : 'own');
+const clawLoad = () => (holdingSign() ? signKind() : tossed ? 'empty' : 'own');
 const healthFx = window.ShellbyHealthFx.mount(document.getElementById('healthFx'), document.getElementById('self'));
 const helpers = new Map(); // task id -> element
 
@@ -90,7 +106,7 @@ function drawSelf() {
   // A scene's prop or a find to show off takes its slot for a moment.
   for (const [slot, item] of overrides) accessories = [...accessories.filter(a => a.slot !== slot), item];
   if (tossed || holdingSign() || slap?.holding) accessories = accessories.filter(a => a.slot !== 'held');
-  if (holdingSign()) accessories = [...accessories, ciFailing > 0 ? CI_SIGN : CALL_SIGN];
+  if (holdingSign()) accessories = [...accessories, SIGNS[signKind()]];
   if (slap?.holding) accessories = [...accessories, slap.held];
   spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell, stickers: stickersFor(shell) }));
 }
@@ -332,6 +348,7 @@ function bubbleFor() {
   if (limit && state === 'sleeping') return `⏳ ${timeLeft(limit.resetsAt)}`;
   if (focusing && state === 'idle') return `${focusing.phase === 'break' ? 'break ' : ''}${minutesLeft()}`;
   if (ciFailing && state === 'idle') return ciFailing > 1 ? `CI ✗${ciFailing}` : 'CI ✗';
+  if (serversDown() && state === 'idle') return 'server ✗';
   if (onCall && state === 'idle') return '🤫';
   // His own voice comes last of the things that mean something, and still beats
   // the bare mood glyph it replaces.
@@ -339,7 +356,7 @@ function bubbleFor() {
   return BUBBLES[state] ?? '';
 }
 const saying = () => !!say && say.until > Date.now();
-const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((ciFailing > 0 || !!focusing || onCall) && state === 'idle') || (!!limit && state === 'sleeping');
+const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((wantsSign() || !!focusing || onCall) && state === 'idle') || (!!limit && state === 'sleeping');
 const timeLeft = t => {
   const ms = Math.max(0, t - Date.now());
   if (ms >= 3600000) return `${Math.floor(ms / 3600000)}h${String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0')}`;
@@ -366,6 +383,7 @@ api.onState(msg => {
   health = msg.health || null;
   level = msg.level || level;
   ciFailing = msg.ci?.failing || 0;
+  servers = msg.servers || null;
   limit = msg.limit || null;
   say = msg.say || null;
   onCall = !!msg.call;
@@ -373,8 +391,8 @@ api.onState(msg => {
   focusing = msg.focus || null;
   // The throw waits for him to settle, so that it runs into the sign going up
   // rather than happening somewhere behind the 'error' flash a red build sets off.
-  if (ciFailing > 0 && !tossed && settled() && heldItem()) throwHeld();
-  if (!ciFailing && tossed && settled()) catchHeld();
+  if (wantsSign() && !tossed && settled() && heldItem()) throwHeld();
+  if (!wantsSign() && tossed && settled()) catchHeld();
   if (wasGuarding !== (focusing?.phase === 'focus') || wasLoad !== clawLoad()) drawSelf();
   healthFx.set(health?.mood);
   paintBody();
@@ -386,6 +404,7 @@ api.onState(msg => {
   // No title attribute: a native tooltip over the transparent pet window looks
   // like the OS barged in (scripts/ui-regressions.js guards this).
   bgBadge.setAttribute('aria-label', `${bg} background command${bg === 1 ? '' : 's'} left running. Click to see them.`);
+  renderServers();
   countEl.textContent = msg.busy;
   countEl.classList.toggle('on', msg.busy > 1);
   countEl.setAttribute('aria-label', `${msg.busy} conversations running`);
@@ -396,6 +415,24 @@ api.onState(msg => {
 let down = null;
 let dragging = false;
 bgBadge.addEventListener('click', () => api.bgClick());
+
+// Your dev servers: ":5173" while one is up, red when one fell over. Like the
+// background badge, it stays up whatever his mood (he can nap with a server
+// running). Asleep, only a crash shows.
+const srvPill = document.getElementById('srvPill');
+function renderServers() {
+  const down = serversDown();
+  const up = servers?.up || 0;
+  const show = down > 0 || (up > 0 && state !== 'sleeping');
+  srvPill.hidden = !show;
+  if (!show) return;
+  srvPill.classList.toggle('down', down > 0);
+  srvPill.textContent = down > 0 ? (down > 1 ? `${down} down` : 'down') : up === 1 && servers.upPort ? `:${servers.upPort}` : `${up} up`;
+  srvPill.setAttribute('aria-label', down > 0
+    ? `${down} dev server${down === 1 ? '' : 's'} crashed. Click to see the error.`
+    : up === 1 && servers.upPort ? `Dev server running on port ${servers.upPort}. Click to see it.` : `${up} dev servers running. Click to see them.`);
+}
+srvPill.addEventListener('click', () => api.serversClick());
 crab.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   crab.setPointerCapture(e.pointerId);
@@ -563,7 +600,7 @@ api.onPerch(msg => {
   paintBody();
 });
 document.addEventListener('mousemove', e => {
-  if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, .helper'));
+  if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
 });
 document.addEventListener('mouseleave', () => { if (perched) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });

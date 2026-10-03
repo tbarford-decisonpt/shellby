@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.58.0: projects and their dev servers
+
+### New
+- **Projects.** A new page in the dock (**Ctrl+7**) lists your projects: the repos Shellby has seen you work in, plus any you add. **Add a repo…** takes one folder; **Scan a folder…** looks through a folder you pick and lists the repos in it for you to tick, adding nothing by itself. Sign in to GitHub and turn on **Show my repositories** to see those too: public ones need no extra permission, and private ones appear only if Claude tasks may already push. A clone and its GitHub repository are one project, however many clones you have.
+- **A project's page** shows each clone's branch and whether it has uncommitted or unpushed work, with **Open folder**, **New conversation here** and **Open on GitHub**. **Remove from Projects** only takes it off the list; the folder is never touched.
+- **Dev servers.** Each clone's dev scripts (`dev`, `start`, `serve`, `preview`, `watch`) are listed with the framework they start, and **Start** runs one with the project's own package manager (npm, pnpm, Yarn or Bun). Shellby reads where it's serving, so the card says **Up on :5173** with an **Open** button, and a little `:5173` pill sits by the crab. The log is a click away.
+- **When one crashes** he puts down what he was holding and raises a red sign, the pill turns red, and a notification says what died. The server's card shows the error lines marked in its log and an **Ask Claude to fix it?** sheet with exactly what would be sent: the last 50 lines it printed (with the first error pulled in from further up if it's there), secrets blanked out, and a note of your own if you add one. Nothing goes to Claude until you press **Send to Claude**. When Claude's done, the card offers **Restart**, and so does a notification if you're elsewhere. A server that keeps crashing gets one "keeps crashing" notification, not one per crash.
+- **Servers keep running when Shellby quits**, and Shellby picks them back up, log and all, when it starts again. A server that ended while Shellby was closed shows on its card, without a notification for something that happened hours ago. To stop them on quit instead, choose **Stop them**: it's right above your running servers on the Projects page, in **Settings → Claude → Dev servers**, and offered the first time you quit with servers running. The tray menu has **Stop all dev servers** whenever any are running.
+- **Clone.** A GitHub repository that isn't on this PC has a **Clone…** button. Nothing is downloaded until you've chosen where it goes, every time (the last folder is offered, never filled in), it won't clone over a folder that's already there, and nothing is installed or run afterwards. **Install** is a separate button for when you're ready.
+- **Is it safe to leave?** lists your running dev servers too.
+
+### Safety
+- Only a script's name ever reaches a command line, and only a plain one (letters, digits and `:._-`): a `package.json` can't slip a second command in. The package manager is one of four, chosen by the lockfile, and Windows' own programs are found by their full paths.
+- A server's output is untrusted text. It is shown as text, redacted before it's shown or sent, and reaches Claude fenced and labelled as output, never as instructions, and only from the card you're looking at.
+- Shellby only stops a server it started, and checks the process's start time first, so a reused process id is never mistaken for it. A server can't fool it into thinking it has stopped by printing what Shellby's own exit line looks like.
+- A project folder can't swap in its own `npm.cmd` or `node.exe`: programs are never run from the project folder itself.
+- **Send to Claude** sends exactly the text on the card: if it changed after you read it (it crashed again, say), nothing is sent and the card shows the new text.
+- Before an update installs, running servers are stopped and then started again by the new version, so none is left running unwatched.
+- The panel can only name folders the Projects page listed, and servers by id: never a path or a command.
+
 ## 0.57.0: time on each project
 
 ### New

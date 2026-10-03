@@ -1,0 +1,133 @@
+/* Shellby panel — Projects and their dev servers (projects.js).
+   Colour carries status and nothing else: glass is up, amber is on its way,
+   danger is down. Everything else stays in the reef's quiet greys. */
+
+body[data-view="projects"] .view-projects {
+  display: block; overflow-y: auto; padding: 14px 16px 20px;
+  animation: fadein .18s var(--ease-out);
+}
+.view-projects {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.view-projects .view-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.view-projects .link-btn,
+#devServersGroup .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--glass); text-decoration: underline dotted; cursor: pointer; }
+.view-projects .link-btn:hover,
+.view-projects .link-btn:focus-visible { color: var(--sand); }
+
+/* ---------- when Shellby quits: right above the servers it's about ---------- */
+.pj-quit {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 12px;
+  margin: 0 0 12px; padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid color-mix(in srgb, var(--glass) 35%, transparent);
+  background: var(--glass-dim);
+}
+.pj-quit-title { grid-column: 1 / -1; margin: 0; font: 600 10.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--glass); }
+.pj-quit-choices { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.pj-radio { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; padding: 3px 0; }
+.pj-radio input { accent-color: var(--glass); margin: 0; }
+#devServersGroup .pj-quit-choices { margin: 2px 0 4px; }
+
+/* ---------- the list ---------- */
+.pj-tools { display: grid; gap: 8px; margin-bottom: 10px; }
+.pj-filter button { flex: 1; }
+.pj-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.pj-row {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); color: var(--sand);
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.pj-row:hover { border-color: color-mix(in srgb, var(--glass) 50%, var(--line)); background: var(--reef-2); }
+.pj-row:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.pj-row-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.pj-row-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; }
+.pj-row-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-row-where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
+.pj-row-where.off { color: var(--sand-faint); font-style: italic; }
+.pj-tag {
+  flex: none; font: 600 9.5px/16px var(--font-mono); padding: 0 6px; border-radius: 99px;
+  background: var(--abyss); border: 1px solid var(--line-soft); color: var(--sand-faint);
+}
+.pj-pill { flex: none; font: 700 11px/20px var(--font-mono); padding: 0 8px; border-radius: 99px; }
+.pj-pill.up { background: var(--glass-dim); color: var(--glass); }
+.pj-pill.down { background: color-mix(in srgb, var(--danger) 22%, transparent); color: #ffb3ad; }
+.pj-empty { margin: 10px 2px; font-size: 13px; line-height: 1.5; }
+.pj-add { margin: 12px 0 6px; }
+
+/* ---------- one project ---------- */
+.pj-detail-head { display: grid; justify-items: start; gap: 4px; margin-bottom: 12px; }
+.pj-detail-name { margin: 6px 0 0; font: 600 20px var(--font-pixel); }
+.pj-repo { font: 11.5px var(--font-mono); }
+.pj-clone { margin-bottom: 12px; padding: 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); }
+.pj-clone-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pj-clone-head .path { flex: 1 1 100%; font: 11px var(--font-mono); }
+.pj-facts { margin: 8px 0 0; }
+.pj-detail-foot { margin-top: 4px; }
+
+/* ---------- servers ---------- */
+.pj-servers { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line-soft); }
+.pj-servers .row-label { margin-bottom: 6px; }
+.pj-scripts { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.pj-script { display: flex; align-items: center; gap: 9px; padding: 6px 4px 6px 8px; border-radius: var(--r-sm); }
+.pj-script:hover { background: var(--reef-2); }
+.pj-script-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.pj-script-name code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px var(--font-mono); color: var(--sand); }
+.pj-more { margin-top: 6px; }
+.pj-more summary { cursor: pointer; font-size: 12px; color: var(--sand-dim); padding: 4px 0; }
+.pj-install { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--abyss); border: 1px solid var(--line-soft); }
+
+.pj-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--sand-faint); }
+.pj-dot.off { background: transparent; border: 1.5px solid var(--sand-faint); }
+.pj-dot.up { background: var(--glass); box-shadow: 0 0 0 3px var(--glass-dim); }
+.pj-dot.starting { background: var(--amber); animation: pj-blink 1.1s ease-in-out infinite; }
+.pj-dot.crashed, .pj-dot.failed { background: var(--danger); }
+@keyframes pj-blink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .pj-dot.starting { animation: none; } }
+
+/* A server's card: its status, its buttons, and (when open) its log. */
+.pj-card { list-style: none; padding: 9px 10px; border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--abyss); }
+.pj-card.up { border-color: color-mix(in srgb, var(--glass) 30%, var(--line-soft)); }
+.pj-card.crashed, .pj-card.failed { border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
+/* The command on top, its status under it: both get the whole width. */
+.pj-card-head { display: grid; grid-template-columns: 9px minmax(0, 1fr); align-items: center; column-gap: 9px; row-gap: 3px; }
+.pj-status { grid-column: 2; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
+.pj-card.up .pj-status { color: var(--glass); }
+.pj-card.crashed .pj-status, .pj-card.failed .pj-status { color: #ffb3ad; }
+.pj-card-actions { margin-top: 8px; gap: 4px; }
+.pj-fixed { margin: 8px 0 0; font-size: 13px; color: var(--glass); }
+
+.pj-log-wrap { margin-top: 8px; display: grid; gap: 4px; justify-items: start; }
+.pj-log, .pj-prompt {
+  width: 100%; box-sizing: border-box; margin: 0; max-height: 220px; overflow: auto; padding: 8px 10px;
+  border-radius: var(--r-sm); background: #050c0d; border: 1px solid var(--line-soft);
+  font: 11px/1.5 var(--font-mono); color: var(--sand-dim); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.pj-log .err { color: #ffb3ad; background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.pj-log:focus-visible, .pj-prompt:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+
+/* ---------- the approval sheet: what goes to Claude, shown before it goes ---------- */
+.pj-approve {
+  margin-top: 10px; padding: 10px; border-radius: var(--r-sm);
+  border: 1px dashed color-mix(in srgb, var(--coral) 50%, transparent);
+  background: color-mix(in srgb, var(--coral) 6%, var(--abyss));
+  display: grid; gap: 8px;
+}
+.pj-approve-title { margin: 0; font-weight: 700; font-size: 13.5px; }
+.pj-approve p.muted { margin: 0; }
+.pj-prompt { max-height: 180px; color: var(--sand); }
+.pj-note { width: 100%; box-sizing: border-box; resize: vertical; min-height: 44px; font-size: 12.5px; }
+.pj-where { line-height: 1.5; }
+
+/* ---------- scan and clone sheets ---------- */
+.pj-sheet { display: grid; gap: 10px; }
+.pj-sheet[hidden] { display: none; }
+.pj-sheet h3 { margin: 0; }
+.pj-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 360px; overflow: auto; }
+.pj-check { display: flex; align-items: flex-start; gap: 9px; padding: 7px 8px; border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--reef); cursor: pointer; }
+.pj-check input { margin-top: 3px; accent-color: var(--glass); }
+.pj-check > span { min-width: 0; display: grid; gap: 1px; }
+.pj-check-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px var(--font-mono); color: var(--sand-faint); }
+.pj-progress { height: 6px; border-radius: 99px; background: var(--abyss); overflow: hidden; }
+.pj-progress[hidden] { display: none; }
+.pj-progress-bar { display: block; height: 100%; width: 0; background: var(--glass); transition: width .2s ease-out; }

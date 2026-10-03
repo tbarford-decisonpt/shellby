@@ -20,6 +20,10 @@ const FEATURE_SCOPES = Object.freeze({
   // with `repo`. Kept separate from `claude` on purpose: a workflow decides what
   // runs in CI, where the repository's secrets are, so it is its own decision.
   workflows: ['workflow'],
+  // Your repositories on the Projects page (projects/github.js). Public ones
+  // need nothing more; private ones show only if `repo` is already granted
+  // for something else. Never a reason to ask for more.
+  projects: [],
 });
 
 /** The scopes needed for a set of features (repo covers public_repo). */
