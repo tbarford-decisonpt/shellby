@@ -36,8 +36,8 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <tr>
 <td width="33%" valign="top">
 
-**🗣️ He has a voice** · 0.18<br>
-<sub>A few words of his own about the work he's actually doing: *"fingers crossed"* at a test run, *"this file again?"* on the third visit. Four temperaments, Quiet to Chatty.</sub>
+**⚡ Workflows** · 0.50<br>
+<sub>A red build, a release, a new file or the clock starts a list of steps: Claude (handing back real data), commands, web requests, questions for you. Describe one and Claude writes it. [How](docs/WORKFLOWS.md)</sub>
 
 </td>
 <td width="33%" valign="top">
@@ -116,6 +116,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters — a health warning, a red build, a countdown — takes the bubble back off him.
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
 - **Usage limit reached?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
+- **Heading for it?** When your pace says you'll fill the 5-hour window before it resets, he says when: *at this pace you'll hit your 5-hour limit around 3:40 PM. It resets at 4:15 PM.* Hold a message (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>), your queue or a routine for after the reset, and it goes by itself, even after a restart. Routines that come due while you're at the limit wait for the reset instead of failing.
 
 </details>
 
@@ -224,7 +225,8 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Push to GitHub from the folder menu:** in a git project the folder menu shows how far your branch is ahead of and behind its remote. **Push** fetches, merges in anything the remote has that you don't (a merge, never a rebase), then pushes. It never force-pushes. If the remote's work clashes with yours, nothing is merged or pushed, and he can sort it out. If a pre-push hook refuses, what it said is written into the conversation. **Bring all home** merges every copy with work waiting into your branch, one at a time, and stops at the first one that clashes. **Bring all home and push** then pushes.
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use, plus the hooks and `CLAUDE.md` memory files that set it up, with an editor for each. When he writes himself a new tool, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
-- **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
+- **Workflows (Automate):** something happens (a schedule, a red build, a release, a file landing in a folder, a script calling a web hook, Claude Code asking) and Shellby runs a list of steps: Claude, PowerShell commands, web requests, files, a question for you, a message to your phone. Claude steps can hand back typed fields (`fixable: true`, a list of files) that drive an **If** or a **For each** later on. **Describe one** in a sentence and Claude writes it for you to check, or start from a template: a red build fixer that asks before it pushes, a morning brief, a site watch, a downloads sorter, release notes, a disk guard. Runs survive a restart, a failed one **retries from the failed step**, and **Fix with Claude** reads the failure and proposes the fix. [Everything workflows can do](docs/WORKFLOWS.md).
+- **Routines** run a single task on a schedule, like "every Friday at 5, tidy Downloads". They're next to Workflows on the Automate page.
 - **Look over my changes:** the shield next to a project in **Trophies** sends the work you haven't pushed yet for a read-only security read. He reports what looks risky, worst first, and changes nothing — and he won't tell you you're secure.
 - **Chats you can tick off:** a ✓ on every row in History marks a conversation done, so the twenty you've finished with stop burying the two you haven't. Nothing is deleted, and sending it something new un-ticks it.
 - **Works everywhere you use Claude Code:** with the plugin he reacts to your terminal and editor sessions too — *"shellby in Cursor"*, VS Code, Windsurf, Zed, JetBrains, Windows Terminal — and shows up in Claude Code's status line.
@@ -261,13 +263,16 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 shellby do "tidy my Downloads"   # a task, in this folder
 shellby say "all green"          # a line in his bubble
 shellby status                   # him, and how this PC is doing
+shellby flow run "Release notes" version=1.2.0   # start a workflow that allows it
 ```
 
 **Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**
 
 ### 🤖 Claude can drive him
 
-The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks**: spending your subscription isn't something a local port gets to do.
+The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks of its own**: spending your subscription isn't something a local port gets to do. The one exception is a workflow you gave the **Claude Code** trigger yourself, which `run_workflow` can start.
+
+**Claude can build workflows, too.** `add_workflow` proposes one (Claude knows the whole format) and `list_workflows` shows what you have. Shellby's confirmation window shows what it would do without asking, in full: every command, every prompt Claude would act on, every web address. Nothing is saved until you say yes, and Autonomous is never on offer.
 
 **Claude can set up routines for you, too.** Say "every weekday at 8:30, summarise what changed in my Documents" in any Claude Code session and Claude writes the routine with `add_routine` (and checks your existing ones with `list_routines`). Shellby then shows you the whole thing in his own confirmation window: the name, schedule, folder, mode and every word of the prompt. **Nothing is saved until you say yes there**, and Autonomous is never on offer. No plugin? Type the same sentence into **Routines → Draft it** and Claude fills in the form instead.
 
@@ -289,7 +294,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 
 ## 🧭 Easy to get around
 
-- **A bar along the bottom:** Shellby, Chat, Toolbox, Routines, Health and History, labeled, with the current screen lit up.
+- **A bar along the bottom:** Shellby, Chat, Toolbox, Automate (workflows and routines), Health and History, labeled, with the current screen lit up.
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings is split into four tabs (Shellby, Claude, Connections, General), with <kbd>Ctrl</kbd>+<kbd>K</kbd> finding any setting wherever it lives.
 - **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter (click it to see which tabs, routines and projects used it up), resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).

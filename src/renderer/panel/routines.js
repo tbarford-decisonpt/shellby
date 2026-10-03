@@ -20,6 +20,11 @@
 
   function statusPill(r) {
     if (r.running) return h('span', { class: 'r-pill running', text: 'running' });
+    // Waiting for the usage window to reset (src/main/held.js): click to run it on schedule instead.
+    if (r.held) return h('button', { class: 'r-pill held', type: 'button', title: 'Held for after your usage resets. Click to cancel.', 'aria-label': `Don't run ${r.name} after the reset`, onclick: async () => {
+      await api.cancelHeld(r.held.id);
+      SB.toast(`"${r.name}" won't run after the reset.`);
+    } }, `after reset · ${r.held.atText}`);
     if (r.lastStatus === 'ok') return h('span', { class: 'r-pill ok', text: `ran ${SB.relTime(r.lastRunAt)}` });
     if (r.lastStatus === 'error') return h('span', { class: 'r-pill err', text: `failed ${SB.relTime(r.lastRunAt)}` });
     if (r.lastStatus === 'stopped') return h('span', { class: 'r-pill', text: `stopped ${SB.relTime(r.lastRunAt)}` });
@@ -60,6 +65,11 @@
           SB.toast(res.ok ? `Started "${r.name}"` : res.error);
           if (res.ok) SB.setView('chat');
         } }, SB.icon(SB.ICONS.play, { width: 1.5 })),
+        // Near or at the usage limit: one run once it resets, rather than now.
+        state.outlook?.resetAt && !r.held ? h('button', { class: 'icon-btn', type: 'button', title: `Run after the reset (${state.outlook.resetText})`, 'aria-label': `Run ${r.name} after the usage reset`, onclick: async () => {
+          const res = await api.holdForReset({ kind: 'routine', routineId: r.id });
+          SB.toast(res.ok ? `"${r.name}" runs at ${res.atText}, once your usage resets.` : res.error);
+        } }, SB.icon(SB.ICONS.clock, { width: 1.4 })) : null,
         h('button', { class: 'icon-btn', type: 'button', title: 'Edit', 'aria-label': `Edit ${r.name}`, onclick: () => openEditor(r) }, SB.icon(SB.ICONS.edit)),
         h('button', { class: 'icon-btn danger-hover', type: 'button', title: 'Delete', 'aria-label': `Delete ${r.name}`, onclick: async () => {
           state.routines = await api.deleteRoutine(r.id);

@@ -13,6 +13,7 @@
 //   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
 //   "args"       -> replies with the command line it was started with (JSON)
 //   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
+//   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -182,6 +183,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "... FAKE_JSON:{...}" anywhere -> replies with that object in a ```json
+  // block, the way a workflow's Claude step asks for its output fields.
+  const fakeJson = /FAKE_JSON:(\{[^\n]*\})/.exec(content);
+  if (fakeJson) { text(`Here you go.\n\`\`\`json\n${fakeJson[1]}\n\`\`\``); result(true); return; }
   // "look ..." -> says how many pictures came with the message, and what kind
   if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access

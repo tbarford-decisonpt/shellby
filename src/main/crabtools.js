@@ -21,7 +21,17 @@ const MAX_ROUTINE_LINES = 20;
 // text read differently from what it says.
 const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
-const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines'];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow'];
+
+// Workflows. The full check of a proposed workflow is schema.js's
+// validateWorkflow in main; this only bounds what is handed to it.
+const MAX_WORKFLOW_NAME = 60;
+const MAX_WORKFLOW_INPUTS = 10;
+const MAX_INPUT_VALUE = 2000;
+const MAX_WORKFLOW_BYTES = 64 * 1024;
+// Same shape as an input name in a workflow (schema.js ID). `__proto__` can't
+// match it, so an input object can never reach a prototype.
+const INPUT_KEY = /^[a-z][a-z0-9_]{0,31}$/;
 
 // Flattened to one line and capped: this ends up in a speech bubble on the
 // desktop, so no newlines, no control characters, nothing unbounded.
@@ -52,6 +62,13 @@ function parseRequest(body) {
     }
     case 'add_routine':
       return parseRoutine(args);
+    case 'run_workflow': {
+      const call = parseWorkflowCall(args.name, args.inputs);
+      if (!call.ok) return call;
+      return { ok: true, intent: { action, name: call.name, inputs: call.inputs } };
+    }
+    case 'add_workflow':
+      return parseWorkflowProposal(args.workflow);
     default:
       return { ok: true, intent: { action } };
   }
@@ -82,6 +99,49 @@ function parseRoutine(args) {
   }, { allowAutonomous: false });
   if (!routine) return { ok: false, error: errors.join(' ') };
   return { ok: true, intent: { action: 'add_routine', routine } };
+}
+
+const isPlainObject = v => !!v && typeof v === 'object' && !Array.isArray(v)
+  && [Object.prototype, null].includes(Object.getPrototypeOf(v));
+
+/**
+ * Which workflow to run, and with what. Shared by `run_workflow` (MCP) and
+ * `shellby flow run` (clipath.parseFlowRequest), so both doors check the same.
+ * Whether that workflow exists and lets Claude start it is main's question.
+ *   -> { ok: true, name, inputs } | { ok: false, error }
+ */
+function parseWorkflowCall(rawName, rawInputs) {
+  if (typeof rawName !== 'string') return { ok: false, error: 'Name the workflow to run.' };
+  const name = clip(rawName.replace(UNSAFE, ''), MAX_WORKFLOW_NAME);
+  if (!name) return { ok: false, error: 'Name the workflow to run.' };
+
+  const inputs = {};
+  if (rawInputs === undefined || rawInputs === null) return { ok: true, name, inputs };
+  if (!isPlainObject(rawInputs)) return { ok: false, error: 'Inputs must be a set of names and values.' };
+  const keys = Object.keys(rawInputs);
+  if (keys.length > MAX_WORKFLOW_INPUTS) return { ok: false, error: `At most ${MAX_WORKFLOW_INPUTS} inputs.` };
+  for (const key of keys) {
+    if (!INPUT_KEY.test(key)) return { ok: false, error: `"${clip(key.replace(UNSAFE, ''), 32)}" can't be an input name: use lowercase letters, digits and _.` };
+    const raw = rawInputs[key];
+    const ok = typeof raw === 'string' || typeof raw === 'boolean' || (typeof raw === 'number' && Number.isFinite(raw));
+    if (!ok) return { ok: false, error: `Input "${key}" must be text.` };
+    const value = String(raw).replace(/\r\n?/g, '\n').replace(UNSAFE, '');
+    if (value.length > MAX_INPUT_VALUE) return { ok: false, error: `Input "${key}" is longer than ${MAX_INPUT_VALUE} characters.` };
+    inputs[key] = value;
+  }
+  return { ok: true, name, inputs };
+}
+
+/**
+ * An `add_workflow` -> the proposal, bounded in size only. main runs it through
+ * schema.js's validateWorkflow (never allowing Autonomous) and asks the user.
+ */
+function parseWorkflowProposal(workflow) {
+  if (!isPlainObject(workflow)) return { ok: false, error: 'add_workflow needs a workflow object.' };
+  let size;
+  try { size = Buffer.byteLength(JSON.stringify(workflow), 'utf8'); } catch { return { ok: false, error: 'That workflow could not be read.' }; }
+  if (size > MAX_WORKFLOW_BYTES) return { ok: false, error: `Keep the workflow under ${MAX_WORKFLOW_BYTES / 1024} KB.` };
+  return { ok: true, intent: { action: 'add_workflow', workflow } };
 }
 
 const MODE_NAMES = { ask: 'Ask first', smart: 'Smart', acceptEdits: 'Auto-edit', plan: 'Plan only', autonomous: 'Autonomous' };
@@ -124,6 +184,43 @@ function routinesReply(view) {
     return `- "${r.name}" (${bits.join(', ')}): ${clip(r.prompt, 160)}`;
   });
   return `${list.length} routine${list.length === 1 ? '' : 's'}:\n${lines.join('\n')}`;
+}
+
+/**
+ * What `list_workflows` (and `shellby flow list`) reads back: the ones Claude
+ * may start first, with their inputs, then the rest by name.
+ *   list: [{ name, description, enabled, triggers: [text], inputs: [{ name, label, required }],
+ *            claudeCanRun, lastRun: { status, startedAt } | null }]
+ */
+function workflowsReply(list) {
+  const all = (Array.isArray(list) ? list : []).filter(w => w && typeof w === 'object');
+  if (!all.length) return 'The user has no workflows yet. add_workflow can propose one.';
+  const line = w => {
+    const bits = [
+      ...(Array.isArray(w.triggers) ? w.triggers.map(t => clip(t, 80)).filter(Boolean).slice(0, 8) : []),
+      w.enabled === false ? 'paused' : null,
+      w.lastRun?.status ? `last run ${clip(w.lastRun.status, 20)}` : null,
+    ].filter(Boolean);
+    const desc = clip(w.description, 160);
+    return `- "${clip(w.name, MAX_WORKFLOW_NAME)}"${bits.length ? ` (${bits.join(', ')})` : ''}${desc ? `: ${desc}` : ''}`;
+  };
+  const inputsOf = w => {
+    const inputs = (Array.isArray(w.inputs) ? w.inputs : []).filter(i => i && typeof i.name === 'string');
+    if (!inputs.length) return '';
+    return `\n  inputs: ${inputs.map(i => {
+      const label = clip(i.label, 80);
+      const extra = [label && label !== i.name ? label : null, i.required ? 'required' : null].filter(Boolean);
+      return `${clip(i.name, 32)}${extra.length ? ` (${extra.join(', ')})` : ''}`;
+    }).join('; ')}`;
+  };
+
+  const mine = all.filter(w => w.claudeCanRun === true);
+  const rest = all.filter(w => w.claudeCanRun !== true);
+  const parts = [`${all.length} workflow${all.length === 1 ? '' : 's'}.`];
+  if (mine.length) parts.push(`You can start ${mine.length === 1 ? 'this one' : 'these'} with run_workflow:\n${mine.map(w => line(w) + inputsOf(w)).join('\n')}`);
+  else parts.push('None of them can be started by Claude Code (that needs the "Claude Code" trigger).');
+  if (rest.length) parts.push(`${mine.length ? 'The user can run the rest' : 'The user can run them'} from Shellby's Automate page:\n${rest.map(line).join('\n')}`);
+  return parts.join('\n');
 }
 
 /**
@@ -242,5 +339,7 @@ function ackReply(intent) {
 module.exports = {
   parseRequest, matchItem, wearReply, statusReply, ackReply,
   routineQuestion, routineReply, routinesReply,
+  parseWorkflowCall, workflowsReply,
   ACTIONS, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
+  MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY,
 };

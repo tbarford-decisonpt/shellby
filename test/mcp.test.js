@@ -14,7 +14,9 @@ const path = require('path');
 const {
   parseRequest, matchItem, wearReply, statusReply, ackReply, ACTIONS, MAX_TEXT,
   routineQuestion, routineReply, routinesReply, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
+  workflowsReply, parseWorkflowCall, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES,
 } = require('../src/main/crabtools');
+const { validateWorkflow } = require('../src/main/workflows/schema');
 
 const SERVER = path.join(__dirname, '..', 'claude-plugin', 'mcp', 'server.js');
 const GB = 1024 ** 3;
@@ -79,7 +81,8 @@ test('an unknown protocol version gets ours, rather than an error', async () => 
 test('tools/list describes every tool with a schema', async () => {
   const { replies } = await talk([INIT, { jsonrpc: '2.0', id: 2, method: 'tools/list' }]);
   const tools = replies[1].result.tools;
-  assert.deepEqual(tools.map(t => t.name).sort(), ['add_routine', 'celebrate', 'list_routines', 'say', 'status', 'wear']);
+  assert.deepEqual(tools.map(t => t.name).sort(),
+    ['add_routine', 'add_workflow', 'celebrate', 'list_routines', 'list_workflows', 'run_workflow', 'say', 'status', 'wear']);
   for (const t of tools) {
     assert.ok(t.description.length > 40, `${t.name} explains itself`);
     assert.equal(t.inputSchema.type, 'object');
@@ -383,6 +386,164 @@ test('the server checks add_routine before it reaches the app', () => {
   assert.ok(!('junk' in ok.args));
 });
 
+// ------------------------------------------------------------------ workflows
+
+test('list_workflows needs nothing and takes nothing', () => {
+  assert.deepEqual(parseRequest({ action: 'list_workflows' }), { ok: true, intent: { action: 'list_workflows' } });
+  assert.deepEqual(parseRequest({ action: 'list_workflows', args: { anything: 1 } }), { ok: true, intent: { action: 'list_workflows' } });
+});
+
+test('run_workflow names one workflow and passes text inputs', () => {
+  assert.deepEqual(parseRequest({ action: 'run_workflow', args: { name: '  Red   build\nfixer ' } }),
+    { ok: true, intent: { action: 'run_workflow', name: 'Red build fixer', inputs: {} } });
+  const r = parseRequest({ action: 'run_workflow', args: { name: 'Deploy', inputs: { branch: 'main', retries: 3, dry_run: false, notes: 'a\r\nb\tc' } } });
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual(r.intent.inputs, { branch: 'main', retries: '3', dry_run: 'false', notes: 'a\nb\tc' });
+  assert.equal(parseRequest({ action: 'run_workflow', args: { name: 'x'.repeat(200) } }).intent.name.length, 60, 'long names are clipped');
+  assert.equal(parseRequest({ action: 'run_workflow', args: { name: 'D', inputs: null } }).ok, true);
+});
+
+test('run_workflow strips control and bidi characters', () => {
+  const r = parseRequest({ action: 'run_workflow', args: { name: 'Fix‮ yadot', inputs: { note: 'ok\u0007⁦ then‏ go\u0000' } } });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.intent.name, 'Fix yadot');
+  assert.equal(r.intent.inputs.note, 'ok then go');
+});
+
+test('run_workflow refuses hostile or malformed calls', () => {
+  const many = Object.fromEntries(Array.from({ length: MAX_WORKFLOW_INPUTS + 1 }, (_, i) => [`k${i}`, 'v']));
+  const bad = [
+    {}, { name: '' }, { name: '   ' }, { name: 42 }, { name: ['Deploy'] }, { name: { toString: () => 'Deploy' } }, { name: '‮\u0000' },
+    { name: 'D', inputs: 'branch=main' }, { name: 'D', inputs: ['main'] }, { name: 'D', inputs: 5 },
+    { name: 'D', inputs: JSON.parse('{"__proto__": {"polluted": "yes"}}') },
+    { name: 'D', inputs: { Branch: 'x' } }, { name: 'D', inputs: { '1st': 'x' } }, { name: 'D', inputs: { 'a-b': 'x' } },
+    { name: 'D', inputs: { ['a'.repeat(33)]: 'x' } }, { name: 'D', inputs: { '': 'x' } },
+    { name: 'D', inputs: { a: { nested: true } } }, { name: 'D', inputs: { a: ['x'] } }, { name: 'D', inputs: { a: null } },
+    { name: 'D', inputs: { a: Infinity } },
+    { name: 'D', inputs: { a: 'x'.repeat(MAX_INPUT_VALUE + 1) } },
+    { name: 'D', inputs: many },
+    { name: 'D', inputs: new Map([['a', 'b']]) },
+  ];
+  for (const args of bad) {
+    const r = parseRequest({ action: 'run_workflow', args });
+    assert.equal(r.ok, false, `${JSON.stringify(args)?.slice(0, 80)}`);
+    assert.ok(r.error.length > 4);
+  }
+  assert.equal({}.polluted, undefined, 'nothing reached Object.prototype');
+  // Exactly at the limits is fine.
+  const edge = Object.fromEntries(Array.from({ length: MAX_WORKFLOW_INPUTS }, (_, i) => [`k${i}`, 'x'.repeat(MAX_INPUT_VALUE)]));
+  assert.equal(parseRequest({ action: 'run_workflow', args: { name: 'D', inputs: edge } }).ok, true);
+  // A key that names an Object.prototype member is only ever an own property.
+  const c = parseWorkflowCall('D', { constructor: 'x' });
+  assert.equal(c.ok, true);
+  assert.ok(Object.prototype.hasOwnProperty.call(c.inputs, 'constructor'));
+  assert.equal(Object.getPrototypeOf(c.inputs), Object.prototype);
+});
+
+test('add_workflow passes a bounded object through untouched', () => {
+  const wf = { name: 'Anything', steps: [{ type: 'tell', text: 'hi' }], extra: { kept: true } };
+  const r = parseRequest({ action: 'add_workflow', args: { workflow: wf } });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.intent.action, 'add_workflow');
+  assert.deepEqual(r.intent.workflow, wf, 'validation is main\'s job (schema.js), not this one');
+  for (const workflow of [undefined, null, 'json', 42, [], [wf], new Date()]) {
+    const bad = parseRequest({ action: 'add_workflow', args: { workflow } });
+    assert.equal(bad.ok, false, String(workflow));
+  }
+  const big = { name: 'Big', steps: [{ type: 'claude', prompt: 'x'.repeat(MAX_WORKFLOW_BYTES) }] };
+  assert.match(parseRequest({ action: 'add_workflow', args: { workflow: big } }).error, /64 KB/);
+  // Bytes, not characters: 30k three-byte characters is over 64 KB.
+  const wide = { name: 'Wide', steps: [{ type: 'claude', prompt: '€'.repeat(30000) }] };
+  assert.equal(parseRequest({ action: 'add_workflow', args: { workflow: wide } }).ok, false);
+});
+
+const FLOWS = [
+  {
+    name: 'Red build fixer', description: 'Looks at a failing build and proposes a fix.', enabled: true,
+    triggers: ['When a build fails', 'When Claude Code asks'], claudeCanRun: true,
+    inputs: [{ name: 'branch', label: 'Branch', required: true }, { name: 'repo', label: 'repo', required: false }],
+    lastRun: { status: 'ok', startedAt: 1 },
+  },
+  { name: 'Downloads tidy', description: '', enabled: false, triggers: ['Every day at 6:00 PM'], inputs: [], claudeCanRun: false, lastRun: null },
+];
+
+test('workflowsReply says which workflows Claude may run, with their inputs', () => {
+  const text = workflowsReply(FLOWS);
+  const lines = text.split('\n');
+  assert.equal(lines[0], '2 workflows.');
+  assert.match(lines[1], /run_workflow/);
+  assert.equal(lines[2], '- "Red build fixer" (When a build fails, When Claude Code asks, last run ok): Looks at a failing build and proposes a fix.');
+  assert.equal(lines[3], '  inputs: branch (Branch, required); repo');
+  assert.match(lines[4], /user can run the rest from Shellby's Automate page/);
+  assert.equal(lines[5], '- "Downloads tidy" (Every day at 6:00 PM, paused)');
+  assert.ok(text.length < 600, 'compact: this goes into a model context');
+});
+
+test('workflowsReply with none, or none Claude may run', () => {
+  assert.match(workflowsReply([]), /no workflows yet.*add_workflow can propose one/);
+  assert.equal(workflowsReply(null), workflowsReply([]));
+  const text = workflowsReply([FLOWS[1]]);
+  assert.match(text, /^1 workflow\./);
+  assert.match(text, /None of them can be started by Claude Code/);
+  assert.match(text, /The user can run them from Shellby's Automate page/);
+  assert.ok(!/run_workflow/.test(text));
+});
+
+test('workflowsReply flattens what it is given', () => {
+  const text = workflowsReply([{ name: 'A\nB', description: `x\n${'y'.repeat(400)}`, triggers: 'nope', inputs: 'nope', claudeCanRun: true }, null]);
+  assert.match(text, /^1 workflow\./);
+  assert.match(text, /- "A B": x y+$/m);
+  assert.ok(text.split('\n').every(l => l.length < 260), 'long descriptions are clipped');
+});
+
+test('the server checks workflow calls before they reach the app', () => {
+  const { toAction, MAX_WORKFLOW_BYTES: serverBytes } = require(SERVER);
+  assert.equal(serverBytes, MAX_WORKFLOW_BYTES);
+  assert.deepEqual(toAction('list_workflows', { junk: 1 }), { action: 'list_workflows', args: {} });
+  assert.deepEqual(toAction('run_workflow', { name: ' Deploy ', junk: 1 }), { action: 'run_workflow', args: { name: 'Deploy' } });
+  assert.deepEqual(toAction('run_workflow', { name: 'Deploy', inputs: { n: 2, on: true } }).args.inputs, { n: '2', on: 'true' });
+  assert.match(toAction('run_workflow', {}).error, /needs the name/);
+  assert.match(toAction('run_workflow', { name: 'D', inputs: [] }).error, /inputs must be an object/);
+  assert.match(toAction('run_workflow', { name: 'D', inputs: { 'Bad-Key': 'x' } }).error, /can't be an input name/);
+  assert.match(toAction('run_workflow', { name: 'D', inputs: { a: {} } }).error, /must be text/);
+  assert.match(toAction('add_workflow', {}).error, /needs a workflow object/);
+  assert.match(toAction('add_workflow', { workflow: [] }).error, /needs a workflow object/);
+  assert.match(toAction('add_workflow', { workflow: { name: 'x', blob: 'x'.repeat(MAX_WORKFLOW_BYTES) } }).error, /64 KB/);
+  const wf = { name: 'W', steps: [] };
+  assert.equal(toAction('add_workflow', { workflow: wf, extra: 1 }).args.workflow, wf);
+});
+
+test('add_workflow teaches the whole format, and its example is a valid workflow', () => {
+  const { TOOLS, WORKFLOW_EXAMPLE } = require(SERVER);
+  const tool = TOOLS.find(t => t.name === 'add_workflow');
+  assert.deepEqual(tool.inputSchema.required, ['workflow']);
+  assert.equal(tool.inputSchema.properties.workflow.type, 'object');
+  assert.match(tool.description, /confirmation window/);
+  assert.match(tool.description, /Autonomous mode is never allowed/);
+  assert.match(tool.description, /same name .* replaces it/);
+  const format = tool.inputSchema.properties.workflow.description;
+  const { STEP_TYPES, TRIGGER_TYPES } = require('../src/main/workflows/schema');
+  for (const type of [...STEP_TYPES, ...TRIGGER_TYPES]) assert.match(format, new RegExp(`- ${type} [{(]`), `describes ${type}`);
+  for (const path of ['trigger.', 'inputs.', 'vars.', 'loop.index', 'now', 'today', 'secrets.NAME', 'output?']) assert.ok(format.includes(path), path);
+  const checked = validateWorkflow(WORKFLOW_EXAMPLE, { allowAutonomous: false });
+  assert.equal(checked.ok, true, JSON.stringify(checked.errors));
+  assert.ok(format.includes(JSON.stringify(WORKFLOW_EXAMPLE)));
+  const run = TOOLS.find(t => t.name === 'run_workflow');
+  assert.match(run.description, /Claude Code/);
+  assert.match(run.description, /started, not when it finishes/);
+});
+
+test('a workflow tool call with no Shellby running is a tool error', async () => {
+  const { replies } = await talk([INIT,
+    { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'run_workflow', arguments: { name: 'Deploy' } } },
+    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'run_workflow', arguments: {} } }]);
+  const byId = id => replies.find(r => r.id === id).result;
+  assert.match(byId(2).content[0].text, /Shellby is not running/);
+  assert.match(byId(3).content[0].text, /needs the name/);
+  assert.equal(byId(2).isError, true);
+  assert.equal(byId(3).isError, true);
+});
+
 // ------------------------------------------------------------------ the two sides
 
 test('the plugin\'s tools and the app\'s actions are the same set', () => {
@@ -401,6 +562,9 @@ test('the plugin\'s tools and the app\'s actions are the same set', () => {
     const sample = {
       say: { text: 'hi' }, celebrate: {}, wear: { item: 'Party Hat' }, status: {}, list_routines: {},
       add_routine: { name: 'Tidy', prompt: 'Tidy Downloads.', schedule: { type: 'weekly', time: '17:00', days: [5] }, mode: 'acceptEdits' },
+      list_workflows: {},
+      run_workflow: { name: 'Red build fixer', inputs: { branch: 'main', retries: 2 } },
+      add_workflow: { workflow: server.WORKFLOW_EXAMPLE },
     }[t.name];
     const { action, args, error } = toAction(t.name, sample);
     assert.equal(error, undefined, `${t.name}: ${error}`);

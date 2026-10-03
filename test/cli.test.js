@@ -13,9 +13,10 @@ const os = require('os');
 const path = require('path');
 const {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
-  isOnPath, pathWith, pathWithout, parseTaskRequest, settingChangeArgs,
+  isOnPath, pathWith, pathWithout, parseTaskRequest, parseFlowRequest, settingChangeArgs,
 } = require('../src/main/clipath');
-const { parseArgs, MODES, MAX_PROMPT, EXIT } = require('../src/cli/shellby');
+const { parseArgs, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME } = require('../src/cli/shellby');
+const crabtools = require('../src/main/crabtools');
 
 const CLI = path.join(__dirname, '..', 'src', 'cli', 'shellby.js');
 
@@ -156,7 +157,69 @@ test('parseArgs refuses what it cannot act on', () => {
   assert.match(parseArgs(['do', 'x'.repeat(MAX_PROMPT + 1)]).error, /longer than/);
 });
 
+test('parseArgs reads "flow list" and "flow run"', () => {
+  assert.deepEqual(parseArgs(['flow', 'list']), { cmd: 'flow-list' });
+  assert.deepEqual(parseArgs(['flow', 'run', 'Deploy']), { cmd: 'flow-run', name: 'Deploy', inputs: {} });
+  // Several words before the first key=value are the name; a quoted name arrives as one word.
+  assert.deepEqual(parseArgs(['flow', 'run', 'Red', 'build', 'fixer', 'branch=main', 'note=a b=c', 'empty=']),
+    { cmd: 'flow-run', name: 'Red build fixer', inputs: { branch: 'main', note: 'a b=c', empty: '' } });
+  assert.deepEqual(parseArgs(['flow', 'run', 'Red build fixer', 'branch=main']),
+    { cmd: 'flow-run', name: 'Red build fixer', inputs: { branch: 'main' } });
+});
+
+test('parseArgs refuses bad "flow" arguments', () => {
+  for (const [argv, re] of [
+    [['flow'], /Usage: shellby flow/],
+    [['flow', 'delete', 'x'], /Unknown flow command: delete/],
+    [['flow', 'list', 'extra'], /Usage/],
+    [['flow', 'run'], /Which workflow/],
+    [['flow', 'run', 'branch=main'], /Which workflow/],
+    [['flow', 'run', 'Deploy', 'Branch=main'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', '__proto__=x'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', '=x'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', 'my-key=x'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', 'a=1', 'stray'], /Expected key=value/],
+    [['flow', 'run', 'Deploy', 'a=1', 'a=2'], /given twice/],
+    [['flow', 'run', 'Deploy', `a=${'x'.repeat(MAX_INPUT_VALUE + 1)}`], /longer than/],
+    [['flow', 'run', 'Deploy', ...Array.from({ length: MAX_INPUTS + 1 }, (_, i) => `k${i}=v`)], /At most/],
+    [['flow', 'run', 'x'.repeat(MAX_FLOW_NAME + 1)], /at most 60/],
+  ]) {
+    const r = parseArgs(argv);
+    assert.match(r.error || '', re, JSON.stringify(argv).slice(0, 80));
+  }
+});
+
+test('the CLI and the app agree on what an input name is', () => {
+  assert.equal(INPUT_KEY.source, crabtools.INPUT_KEY.source);
+  assert.equal(MAX_INPUTS, crabtools.MAX_WORKFLOW_INPUTS);
+  assert.equal(MAX_INPUT_VALUE, crabtools.MAX_INPUT_VALUE);
+  assert.equal(MAX_FLOW_NAME, crabtools.MAX_WORKFLOW_NAME);
+});
+
 // ------------------------------------------------------------------ the server side
+
+test('parseFlowRequest checks a flow request the way run_workflow does', () => {
+  assert.deepEqual(parseFlowRequest({ action: 'flow-list' }), { ok: true, request: { action: 'flow-list' } });
+  assert.deepEqual(parseFlowRequest({ action: 'flow-run', name: ' Deploy‮ ', inputs: { branch: 'main', n: 2 } }),
+    { ok: true, request: { action: 'flow-run', name: 'Deploy', inputs: { branch: 'main', n: '2' } } });
+  assert.deepEqual(parseFlowRequest({ action: 'flow-run', name: 'Deploy' }).request.inputs, {});
+  for (const body of [
+    null, 'flow-list', [], {}, { action: 'task' }, { action: 'flow-delete', name: 'x' },
+    { action: 'flow-run' }, { action: 'flow-run', name: '' }, { action: 'flow-run', name: 7 },
+    { action: 'flow-run', name: 'D', inputs: [] },
+    { action: 'flow-run', name: 'D', inputs: JSON.parse('{"__proto__": {"x": 1}}') },
+    { action: 'flow-run', name: 'D', inputs: { 'Bad Key': 'x' } },
+    { action: 'flow-run', name: 'D', inputs: { a: { b: 1 } } },
+    { action: 'flow-run', name: 'D', inputs: { a: 'x'.repeat(MAX_INPUT_VALUE + 1) } },
+  ]) {
+    const r = parseFlowRequest(body);
+    assert.equal(r.ok, false, JSON.stringify(body));
+    assert.ok(r.error.length > 4);
+  }
+  // Same rules, same answers: one helper behind both doors.
+  const args = { name: 'D', inputs: { k: 'v⁦' } };
+  assert.deepEqual(parseFlowRequest({ action: 'flow-run', ...args }).request.inputs, crabtools.parseRequest({ action: 'run_workflow', args }).intent.inputs);
+});
 
 test('parseTaskRequest checks the task before anything is started', () => {
   const ok = parseTaskRequest({ action: 'task', args: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan' } });
@@ -262,6 +325,45 @@ test('with Shellby closed the CLI says so and exits 3, without waiting', async (
   }
 });
 
+test('the CLI lists and runs workflows over /v1/cli with the token', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => {
+    seen.push(req);
+    if (req.body.action === 'flow-run' && req.body.name === 'Locked') {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '"Locked" doesn\'t have the Claude Code trigger.' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ text: req.body.action === 'flow-list' ? '2 workflows.' : 'Started "Red build fixer".' }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  const list = await runCli(['flow', 'list'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(list.code, EXIT.ok, list.stderr);
+  assert.match(list.stdout, /2 workflows\./);
+  assert.deepEqual(seen[0].body, { action: 'flow-list' });
+  assert.equal(seen[0].url, '/v1/cli');
+  assert.equal(seen[0].headers['x-shellby-token'], 'tok');
+
+  const run = await runCli(['flow', 'run', 'Red', 'build', 'fixer', 'branch=main'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(run.code, EXIT.ok, run.stderr);
+  assert.match(run.stdout, /Started "Red build fixer"\./);
+  assert.deepEqual(seen[1].body, { action: 'flow-run', name: 'Red build fixer', inputs: { branch: 'main' } });
+
+  // A refusal that says why is passed on, not blamed on the token.
+  const locked = await runCli(['flow', 'run', 'Locked'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(locked.code, EXIT.denied);
+  assert.match(locked.stderr, /doesn't have the Claude Code trigger/);
+
+  const bad = await runCli(['flow', 'run', 'Deploy', 'Bad=x'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(bad.code, EXIT.usage);
+  assert.equal(seen.length, 3, 'a usage error never reaches Shellby');
+});
+
 test('a refused token is reported as something the user can fix', async t => {
   const server = await stubShellby((_req, res) => { res.writeHead(401).end('{}'); });
   const port = server.address().port;
@@ -293,6 +395,7 @@ test('help and version work with no Shellby running at all', async () => {
     const help = await runCli(['help'], { port: 1, tmp });
     assert.equal(help.code, EXIT.ok);
     assert.match(help.stdout, /shellby do <task\.\.\.>/);
+    assert.match(help.stdout, /shellby flow run <name\.\.\.> \[key=value \.\.\.\]/);
     const version = await runCli(['version'], { port: 1, tmp });
     assert.equal(version.code, EXIT.ok);
     assert.match(version.stdout, /^shellby /);

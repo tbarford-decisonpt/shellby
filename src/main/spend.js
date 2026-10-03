@@ -19,7 +19,7 @@ const TOP = 6;                       // rows before the rest become "Everything 
 const RATES = [[/haiku/i, 1], [/sonnet/i, 3], [/opus|fable/i, 5]];
 const DEFAULT_RATE = 3;
 
-const KINDS = new Set(['tab', 'routine']);
+const KINDS = new Set(['tab', 'routine', 'workflow']);
 const num = v => (Number.isFinite(v) && v > 0 ? v : 0);
 const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, n) : '');
 

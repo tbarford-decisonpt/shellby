@@ -202,6 +202,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
+  devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
   dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
@@ -309,6 +310,28 @@ contextBridge.exposeInMainWorld('shellby', {
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
   usageBreakdown: invoke('usage:breakdown'),
+  // usage forecast, and work held for after the reset (forecast.js, held.js)
+  getOutlook: invoke('outlook:get'),
+  holdForReset: invoke('held:add'),
+  cancelHeld: invoke('held:cancel'),
+
+  // workflows (docs/plans/workflows.md)
+  listWorkflows: invoke('workflows:list'),
+  validateWorkflow: invoke('workflows:validate'),
+  saveWorkflow: invoke('workflows:save'),
+  deleteWorkflow: invoke('workflows:delete'),
+  runWorkflow: invoke('workflows:run'),
+  draftWorkflow: invoke('workflows:draft'),
+  repairWorkflow: invoke('workflows:repair'),
+  importWorkflow: invoke('workflows:import'),
+  exportWorkflow: invoke('workflows:export'),
+  listRuns: invoke('workflows:runs'),
+  getRun: invoke('workflows:run-get'),
+  stopRun: invoke('workflows:run-stop'),
+  resumeRun: invoke('workflows:run-resume'),
+  answerRun: invoke('workflows:run-answer'),
+  setWorkflowSecret: invoke('workflows:secret-set'),
+  deleteWorkflowSecret: invoke('workflows:secret-delete'),
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
@@ -321,9 +344,15 @@ contextBridge.exposeInMainWorld('shellby', {
   onUsage: on('usage'),
   onRecap: on('recap'), // back after an hour away: what happened (see recap.js)
   onLimit: on('limit'),
+  onOutlook: on('outlook'),
+  onTabSent: on('tab:sent'), // a held message went out after the reset
+  onHeldReturned: on('held:returned'), // one that couldn't, back to its box
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
+  onWorkflows: on('workflows'),
+  onWorkflowRun: on('workflows:run-changed'),
+  onWorkflowOpen: on('workflows:open-run'), // a notification about a run was clicked
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
   onDictated: on('panel:dictated'), // push-to-talk: what you said, for the box (see dictation.js)

@@ -10,6 +10,7 @@ const SB = window.SB = {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
     toolbox: null, pinned: [], learned: [], routines: [],
+    workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
   },
@@ -140,6 +141,7 @@ SB.ICONS = {
   edit: 'M10.5 2.8l2.7 2.7-7.4 7.4H3.1v-2.7z',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',
   shield: 'M8 2.6L3.4 4.3v4c0 2.5 1.8 4.3 4.6 5.3 2.8-1 4.6-2.8 4.6-5.3v-4z',
+  clock: 'M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11zM8 5v3.2l2.1 1.3',
 };
 
 // Shellby as he's dressed right now (fit: the view box frames the whole outfit).
@@ -177,9 +179,10 @@ document.addEventListener('click', e => {
 
 SB.views = {};  // name -> { render?() }
 
-// Which navigation item a screen lives under (Trophies is a tab of the Shellby screen),
-// and which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe' };
+// Which navigation item a screen lives under (Trophies is a tab of the Shellby screen,
+// Routines sits beside Workflows under Automate), and which screens sit one level
+// down, so Back/Esc go up to their parent.
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe', routines: 'workflows' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
@@ -216,7 +219,7 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu']) SB.$(id).hidden = true;
   for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();

@@ -191,8 +191,9 @@ function summarize(sessions) {
 }
 
 // What this port answers. /v1/hook is the plugin's hooks; /v1/crab is the MCP
-// server driving the critter; /v1/cli is the `shellby` command.
-const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli'];
+// server driving the critter; /v1/cli is the `shellby` command; /v1/flow is a
+// workflow's web hook (its token is in the body, workflows/triggers.js).
+const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli', '/v1/flow'];
 
 /**
  * Is this one of ours? Requires POST to a known route, our header, JSON, and no
@@ -237,6 +238,7 @@ class ExternalSessions extends EventEmitter {
     // what a newer plugin talking to an older Shellby should see.
     this.onCrab = null;
     this.onCli = null;
+    this.onFlow = null;
   }
 
   /** "I checked, they're done": drops every remembered background command. */
@@ -334,7 +336,7 @@ class ExternalSessions extends EventEmitter {
   }
 
   /**
-   * /v1/crab and /v1/cli. Both reply with JSON, because unlike a hook there is
+   * /v1/crab, /v1/cli and /v1/flow. All reply with JSON, because unlike a hook there is
    * someone waiting to hear what happened. main.js supplies the handlers; with
    * none set the route is simply not there, which is what an older Shellby
    * looks like to a newer plugin.
@@ -344,7 +346,7 @@ class ExternalSessions extends EventEmitter {
       const text = JSON.stringify(payload);
       res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) }).end(text);
     };
-    const handler = route === '/v1/crab' ? this.onCrab : this.onCli;
+    const handler = route === '/v1/crab' ? this.onCrab : route === '/v1/flow' ? this.onFlow : this.onCli;
     if (!handler) { reply(404, { error: 'Not enabled.' }); return; }
     let payload;
     try { payload = JSON.parse(body); } catch { reply(400, { error: 'That was not JSON.' }); return; }
