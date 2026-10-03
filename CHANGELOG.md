@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.41.0: seen it
+
+### New
+- **Hover a new item to mark it seen.** In the Wardrobe, moving the mouse over an item with a **new** badge (or tabbing to it) counts as seeing it: the badge fades and the dots on its tab and on the Shellby button go out when nothing new is left. Just opening a tab no longer clears every badge in it unseen.
+- **Mark all seen.** While anything in the Wardrobe is new, a **Mark all seen** button next to Outfits clears every badge at once, homes included.
+- **Unlock cards count as seeing the rewards.** Closing a trophy or level-up card yourself (✕, **Wear it**, **Share** or <kbd>Esc</kbd>) marks what it unlocked as seen, so those items don't show as new again in the Wardrobe. A card you let time out leaves them new, in case you were away.
+- **Dismiss all.** When more unlock cards are waiting behind the one showing, it says **Dismiss all (3)**. One click closes them all and marks all their rewards seen.
+
 ## 0.40.0: visiting crabs
 
 ### New

@@ -40,6 +40,22 @@ test('finishing a task unlocks rewards, marks them new and emits a celebration',
   assert.deepEqual(w.record('crew-size', { n: 0 }), []); // no change -> nothing written
 });
 
+test('marking items seen clears just those new badges, and it sticks', () => {
+  const { w, dir } = make(d(2026, 6, 10));
+  w.record('task-completed');
+  const isNew = (wd, key) => wd.view().effects.concat(wd.view().accessories).find(i => i.key === key).isNew;
+  assert.equal(isNew(w, 'party-hat'), true);
+  assert.equal(isNew(w, 'confetti'), true);
+  w.markSeen(['party-hat', 'not-an-item']);
+  assert.equal(isNew(w, 'party-hat'), false);
+  assert.equal(isNew(w, 'confetti'), true);
+  const again = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => d(2026, 6, 10) });
+  again.load();
+  assert.equal(isNew(again, 'party-hat'), false);
+  w.markSeen(['confetti']);
+  assert.deepEqual(w.data.newItems, []);
+});
+
 test('locked items cannot be equipped; wrong slots are rejected', () => {
   const { w } = make(d(2026, 6, 10));
   assert.equal(w.setOutfit({ hat: 'crown' }).ok, false);

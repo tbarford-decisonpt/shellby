@@ -85,13 +85,22 @@
     else if (item.sprites) { const sp = bigSprite(item); art = SB.Sprite.grid(sp.pixels, sp.palette); }
     else art = SB.Sprite.grid(item.pixels, item.palette);
     const tipLines = [item.name, item.description, locked ? lockText(locked) : null, item.rarity && item.rarity !== 'common' ? RARITY[item.rarity] : null].filter(Boolean);
+    // Hovering (or tabbing to) a new item is looking at it: the pill fades out.
+    const look = e => {
+      tryOn = { slot, key };
+      renderStage();
+      if (!item.isNew || locked) return;
+      acknowledge([key]);
+      e.currentTarget.classList.remove('is-new');
+      e.currentTarget.querySelector('.new-pill')?.classList.add('leaving');
+    };
     return h('button', {
-      type: 'button', role: 'option', 'aria-selected': String(equipped),
+      type: 'button', role: 'option', 'aria-selected': String(equipped), dataset: { key },
       class: `wd-tile rarity-${item.rarity || 'common'}${equipped ? ' on' : ''}${locked ? ' locked' : ''}${item.isNew ? ' is-new' : ''}`,
       title: tipLines.join('\n'),
-      onmouseenter: () => { tryOn = { slot, key }; renderStage(); },
+      onmouseenter: look,
       onmouseleave: () => { tryOn = null; renderStage(); },
-      onfocus: () => { tryOn = { slot, key }; renderStage(); },
+      onfocus: look,
       onblur: () => { tryOn = null; renderStage(); },
       onclick: () => equip(item, key, equipped),
     },
@@ -115,15 +124,8 @@
     const order = { common: 0, rare: 1, epic: 2, legendary: 3 };
     const sorted = [...items].sort((a, b) => (!!a.locked - !!b.locked) || (order[a.rarity] ?? 0) - (order[b.rarity] ?? 0));
     grid.replaceChildren(...[none, ...sorted.map(tile)].filter(Boolean));
-    document.querySelectorAll('#wdSlots [data-slot]').forEach(b => {
-      b.setAttribute('aria-selected', String(b.dataset.slot === slot));
-      const fresh = itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked);
-      b.classList.toggle('has-new', fresh);
-    });
-    // Seen: new badges clear once their tab has been opened.
-    const seen = items.filter(i => i.isNew && !i.locked).map(i => i.key);
-    if (seen.length && slot === 'home') api.homesSeen(seen);
-    else if (seen.length) api.markSeen(seen);
+    document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.slot === slot)));
+    refreshBadge();
   }
 
   // The shell he hatched with: always there, first in the Homes tab.
@@ -210,10 +212,34 @@
   }
   SB.applyWardrobe = applyView;
 
+  const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...homes()].filter(i => i.isNew && !i.locked);
   const refreshBadge = () => {
-    const w = wd();
-    $('wardrobeBadge').hidden = ![...(w?.accessories || []), ...(w?.effects || []), ...homes()].some(i => i.isNew && !i.locked);
+    const fresh = freshItems().length > 0;
+    $('wardrobeBadge').hidden = !fresh;
+    $('markSeenBtn').hidden = !fresh;
+    document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.classList.toggle('has-new', itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked)));
   };
+
+  // Acknowledge new items (by key; homes by shell id): hovering one, "Mark all
+  // seen", or closing the card that announced them. Clears here at once, then
+  // tells main so it sticks.
+  function acknowledge(keys) {
+    const fresh = new Set(keys);
+    const w = wd();
+    const items = [...(w?.accessories || []), ...(w?.effects || [])].filter(i => i.isNew && fresh.has(i.key)).map(i => i.key);
+    const shells = (state.homes?.shells || []).filter(s => s.isNew && fresh.has(s.id)).map(s => s.id);
+    if (items.length) {
+      const clear = i => (fresh.has(i.key) ? { ...i, isNew: false } : i);
+      state.wardrobe = { ...w, accessories: w.accessories.map(clear), effects: w.effects.map(clear) };
+      api.markSeen(items);
+    }
+    if (shells.length) {
+      state.homes = { ...state.homes, shells: state.homes.shells.map(s => (fresh.has(s.id) ? { ...s, isNew: false } : s)) };
+      api.homesSeen(shells);
+    }
+    if (items.length || shells.length) refreshBadge();
+  }
+  SB.acknowledge = acknowledge;
   function applyHomes(view) {
     if (!view) return;
     state.homes = view;
@@ -253,6 +279,10 @@
     renderStage();
   }));
   $('randomizeBtn').addEventListener('click', async () => { const r = await api.randomizeOutfit(); applyView(r.view); });
+  $('markSeenBtn').addEventListener('click', () => {
+    acknowledge(freshItems().map(i => i.key));
+    if (state.view === 'wardrobe') renderGrid();
+  });
   $('brandBtn').addEventListener('click', () => SB.setView('wardrobe'));
   $('brandLevel').addEventListener('click', () => SB.setView('trophies'));
   document.querySelectorAll('.shellby-tabs [data-goto]').forEach(b => b.addEventListener('click', () => SB.setView(b.dataset.goto)));
