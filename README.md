@@ -399,13 +399,13 @@ Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply i
 
 ## Privacy
 
-Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The only network traffic is:
+Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\sessions`, and Shellby has no telemetry and no servers. The [privacy policy](PRIVACY.md) lists every connection he makes and what goes over it. In short:
 
 - Claude Code talking to Anthropic, and the updater checking GitHub Releases.
-- Community pack downloads you ask for.
-- GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests, and with Visiting crabs on, your public calling card and your friends' cards.
+- GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your pull requests, and with Visiting crabs on, your public calling card and your friends' cards.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
-- Things that never leave your PC: push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
+- Things you ask for: community packs, plugins and MCP servers, `git` fetches and pushes, and workflow web requests.
+- Things that never leave your PC: push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), your PC's health readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
@@ -422,7 +422,7 @@ Only Shellby's own installer and portable exe are signed, and only when GitHub A
 
 Everyone in these roles uses two-factor authentication on GitHub and SignPath.
 
-**Privacy:** what Shellby sends over the network, and when, is listed under [Privacy](#privacy). It sends nothing else, and has no telemetry.
+**Privacy:** see the [privacy policy](PRIVACY.md) for everything Shellby sends over the network, and when. It has no telemetry.
 
 ## Contributing
 

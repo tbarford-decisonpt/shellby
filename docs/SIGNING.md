@@ -53,7 +53,7 @@ These are SignPath Foundation's [conditions](https://signpath.org/terms). Shellb
 - The [code signing policy](../README.md#code-signing-policy) stays in the README, listing who can change code, review it and approve signing.
 - Everyone in those roles uses **two-factor authentication** on both GitHub and SignPath.
 - Only Shellby's own files built from this repo get signed. Nothing proprietary goes into the build.
-- What Shellby sends over the network stays documented ([Privacy](../README.md#privacy)), and it keeps an uninstaller.
+- What Shellby sends over the network stays documented in the [privacy policy](../PRIVACY.md), and it keeps an uninstaller.
 
 ### One-time setup
 
