@@ -681,6 +681,12 @@
       <h2>History</h2>
     </div>
     <input type="search" id="historySearch" class="field" placeholder="Search conversations…" aria-label="Search conversations">
+    <!-- Shown in place of the filter row while you're looking at Recently deleted. -->
+    <div class="history-bin-bar" id="historyBinBar" hidden>
+      <button type="button" class="btn ghost" id="historyBinBack">← Conversations</button>
+      <span class="muted small">Deleted chats go for good after 30 days.</span>
+      <button type="button" class="btn ghost deny" id="historyBinEmpty">Empty bin</button>
+    </div>
     <!-- Hidden until you've ticked something off: nothing to filter before that. -->
     <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" data-roving hidden>
       <button type="button" role="tab" data-filter="todo" aria-selected="true">Not done <span class="n"></span></button>
@@ -688,6 +694,7 @@
       <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
     </div>
     <ul class="history-list" id="historyList"></ul>
+    <button type="button" class="btn ghost history-bin-open" id="historyBinOpen" hidden>Recently deleted <span class="n"></span></button>
     <p class="muted small history-note">Stored only on this PC. To clear it, open <b>Settings → About → Data folder</b>.</p>
   </main>
 
