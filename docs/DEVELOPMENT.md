@@ -52,6 +52,8 @@ npm start
 | `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
 | `node scripts/idle-cost.js [seconds] [--unfocused]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
+| `node scripts/e2e-perch.js [dir]` | Perching against a real Notepad (needs a desktop, so not in CI): the hop up, ownership and click-through, riding a slow drag, shaken off dizzy, the window closing under him, the walk home, Hop down. Screenshots each beat. If a fullscreen window covers his screen, give him another: `SHELLBY_E2E_HOME=x,y` (DIPs) |
+| `npx electron scripts/perch-probe.js` | The Win32 behaviour perching rests on: an owned window above a window of another process, surviving that window closing or crashing, hiding with it when it minimizes |
 | `npm run screenshots` | Re-render the README screenshots (with fake account details) |
 | `npm run reel` | Record the README demo GIF: a scripted task, helper crabs and a trophy, played through the real UI (needs Python + Pillow; `pip install imageio-ffmpeg` adds the MP4) |
 | `python scripts/make-banners.py` | Compose the README banner and crab lineups from the crabs `npm run screenshots` just captured (needs Pillow) |

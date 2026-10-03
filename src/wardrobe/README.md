@@ -23,14 +23,15 @@ key community packs get. Two packs in here must therefore never use the same ite
 | `beach-day.json` | 6 accessories, 2 effects | Summer had 2 items. |
 | `harvest.json` | 7 accessories, 1 effect | Autumn had 2 items. |
 | `sweetheart.json` | 6 accessories, 1 effect | Valentine had 2 items. |
+| `high-places.json` | 5 accessories | One per slot, all from the window-perching trophies (`window-sill`, `hang-on`, `rodeo`, `leap-of-faith`, `trapeze`). |
 | `crab-species.json` | 4 skins | Reshaped crabs. Three move their `anchors` so accessories still land correctly. |
 | `theme-crabs.json` | 6 skins | Recolours for themed desktops. |
 
-Totals: **102 accessories, 17 effects, 12 skins.**
+Totals: **110 accessories, 18 effects, 12 skins** (as `npm run packs` counts them).
 
 ## Unlocks
 
-Of the 119 accessories and effects, **28 are available on day one, 52 come from trophies and
+Of the 128 accessories and effects, **32 are available on day one, 57 come from trophies and
 39 are seasonal** — so the wardrobe reads as a collection rather than a pile. The day-one set
 exists to fill the slots that used to be empty (`face`, `neck` and `shell` had 4, 5 and 3
 items, all of them locked); hats and held items stay mostly earned, the way the base pack

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.40.0: up on your windows
+
+### New
+- **Shellby climbs onto your windows.** Every so often, when he's idle, he looks up at the window you're using, crouches, and hops up onto its title bar, with a somersault if it's a long way. He lands in a puff of dust and makes himself at home: he walks along the bar, sits on the edge swinging his legs, and leans over to see what you're doing. After a few minutes he hops back down to his spot. It works the same in **Just the crab**, no Claude needed.
+- **Drag the window and he rides it.** He grips the bar, leans back into the wind and holds on, with a little bounce when you stop. Keep going and he starts enjoying himself.
+- **Shake it and he's off.** A hard yank, a fast drag that stops dead, or a good shake flings him off, spinning. Shake it properly and he lands dizzy, with stars going round his head.
+- **Close the window under him** and he hangs in the air for a beat, legs still going, looks down, and the ! goes up. Then he drops, flailing. If there's another window below, he lands on that one; if not, he lands on the taskbar and walks home. Minimizing does the same. Maximizing pops him off with a boing.
+- **Throw him at a title bar and he catches it.** Drop him onto one while dragging and he sits there too. Picked up, he's above every window, so you can see where he's going.
+- **He's well behaved up there.** He stays clear of the minimize, maximize and close buttons and the app icon, never climbs onto fullscreen games or presentations, and lets clicks through to the title bar around him. He comes down by himself when a fullscreen app takes over his screen, or when helpers need room beside him. Windows won't let him sit on apps running as administrator, so he slides straight off those and leaves them alone for a while.
+- **Right-click him on a window** for **Hop down**, or **Not on Spotify** (whatever app it is) to keep him off it for good. When he's on the desktop, **Climb onto a window** sends him up straight away.
+- **Settings → Shellby → Climbing onto your windows:** Never, Sometimes (the default) or Often. The apps he's been told to stay off are listed underneath, and you can take them back off the list. Turning strolling off keeps him off your windows too.
+- **His temperament shows.** A cocky crab climbs most and a fussy one least, and a sleepy one stays longest (and naps). He has things to say about all of it: "nice view", "wheee", "rude!", "oh no", "the room spins".
+- **Five new trophies, each with an outfit:** Window Sill (a spyglass), Hang On! (racing goggles, for riding a window 2,000 px), and three secret ones that bring a cowboy hat, a parachute and a ringmaster's collar.
+
 ## 0.39.0: everything the terminal does
 
 ### New

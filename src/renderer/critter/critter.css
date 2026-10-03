@@ -400,6 +400,196 @@ body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
 @keyframes flop-eyes { 0%, 100% { transform: scaleY(1); } 20%, 80% { transform: scaleY(.1); } }
 @keyframes flop-claw { 0%, 100% { transform: none; } 25%, 75% { transform: rotate(14deg) translateY(2px); } }
 
+/* ================================================================ up on your windows
+   Every beat of a perch (src/main/perching.js), in the order you see them:
+   he eyes the window up, crouches, hops (a somersault if it's far), lands in
+   a puff of dust, sits, walks the bar, grips while you drag it, leans into
+   the wind, whoops, gets flung off, or hangs in the air a beat when it
+   vanishes, then falls flailing and lands dizzy.
+   --dir is which way he's headed (1 right, -1 left); --lean and --wind come
+   from how fast the window under him is moving.
+   On .part-* (inside the sprite's SVG) 1px is one sprite cell, not a screen
+   pixel, so those offsets are small literals; var(--px) is for HTML layers. */
+:root { --dir: 1; --lean: 0deg; --wind: 0; --wdir: 1; --hop-ms: 700ms; }
+#shadow { transition: opacity .18s, width .25s, bottom .25s; }
+
+/* he looks up at it, leaning back a little to see */
+.eyeing #sprite { transform-origin: 50% 100%; animation: eye-up .65s cubic-bezier(.3, 1.3, .5, 1) forwards; }
+.eyeing .part-eyes { transform: translateY(-1px) scaleY(1.2); }
+.eyeing .part-claw { transform: rotate(-12deg); }
+@keyframes eye-up {
+  0% { transform: none; }
+  45% { transform: rotate(calc(var(--dir) * -5deg)) translateY(-1px); }
+  70% { transform: rotate(calc(var(--dir) * -4deg)) translateY(-2px) scale(1.02, 1.04); }
+  100% { transform: rotate(calc(var(--dir) * -6deg)) scale(1.03, .97); }
+}
+
+/* winds up: squashes down, legs splayed, claws back */
+.crouch #sprite { transform-origin: 50% 100%; animation: crouch .26s cubic-bezier(.4, 0, .6, 1) forwards; }
+.crouch [class*="part-legs"] { transform: scaleX(1.25) translateY(-.5px); }
+.crouch .part-claw { transform: rotate(28deg); }
+.crouch .part-eyes { transform: scaleY(.6); }
+@keyframes crouch { to { transform: scale(1.2, .7) rotate(calc(var(--dir) * 4deg)); } }
+
+/* in the air: stretched on take-off, round at the top, stretched again for
+   the landing; legs tucked, claws up, eyes wide, and a trail behind him */
+.hopping #sprite {
+  transform-origin: 50% 60%;
+  animation: hop-air var(--hop-ms) linear forwards;
+  filter: drop-shadow(calc(var(--dir) * -7px) 5px 0 rgba(243, 230, 204, .22)) drop-shadow(calc(var(--dir) * -14px) 10px 0 rgba(243, 230, 204, .1));
+}
+.hop-flip #sprite { animation: hop-flip var(--hop-ms) cubic-bezier(.45, .05, .55, .95) forwards; }
+.hopping [class*="part-legs"] { transform: translateY(-1px) scaleY(.55); }
+.hopping .part-claw { transform: rotate(-42deg) translateY(-2px); }
+.hopping .part-eyes { transform: scaleY(1.35); }
+.hopping #shadow, .flying #shadow, .coyote #shadow { opacity: 0; }
+@keyframes hop-air {
+  0% { transform: scale(.8, 1.32) rotate(calc(var(--dir) * -9deg)); }
+  20% { transform: scale(.94, 1.1) rotate(calc(var(--dir) * -5deg)); }
+  50% { transform: scale(1.05, .95) rotate(0deg); }
+  82% { transform: scale(.95, 1.08) rotate(calc(var(--dir) * 7deg)); }
+  100% { transform: scale(.88, 1.14) rotate(calc(var(--dir) * 4deg)); }
+}
+@keyframes hop-flip {
+  0% { transform: scale(.8, 1.32) rotate(0deg); }
+  14% { transform: scale(.95, 1.05) rotate(calc(var(--dir) * -20deg)); }
+  72% { transform: scale(.92, .92) rotate(calc(var(--dir) * 360deg)); }
+  100% { transform: scale(.9, 1.12) rotate(calc(var(--dir) * 360deg)); }
+}
+
+/* touchdown: the squash is the throw's own (.landed), plus a puff of dust */
+#dust { position: absolute; left: 50%; bottom: 16px; width: 0; height: 0; pointer-events: none; }
+#dust i {
+  position: absolute; left: 0; top: 0;
+  width: calc(var(--px) * 1.5); height: calc(var(--px) * 1.5);
+  background: rgba(243, 230, 204, .9); box-shadow: 0 1px 0 rgba(0, 0, 0, .2);
+  animation: puff .62s cubic-bezier(.15, .7, .3, 1) both;
+}
+@keyframes puff {
+  0% { transform: translate(-50%, 0) scale(1.1); opacity: .95; }
+  100% { transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(.25); opacity: 0; }
+}
+
+/* sitting up there: a crisper shadow on the title bar under him */
+.on-perch #shadow { bottom: 15px; width: calc(var(--px) * 14); height: calc(var(--px) * 1.2); background: radial-gradient(closest-side, rgba(0, 0, 0, .5), transparent); }
+
+/* hanging on while you drag it: low and wide, claws dug in, legs scrabbling,
+   leaning back against the way it's going */
+.cling #sprite { transform-origin: 50% 100%; animation: none; transform: rotate(var(--lean)) scale(1.08, .86); transition: transform .12s ease-out; }
+.cling .part-claw { animation: none; transform: rotate(32deg); }
+.cling [class*="part-legs"] { animation: leg .08s steps(1) infinite; }
+.cling .part-eyes { animation: none; transform: scaleY(.55); }
+.cling.windy .part-eyes { transform: scaleY(.2); }
+
+/* ...and the wind streaming past him */
+#wind {
+  position: absolute; left: 50%; bottom: calc(18px + var(--px) * 3);
+  width: calc(var(--px) * 26); height: calc(var(--px) * 9);
+  transform: translateX(-50%) scaleX(var(--wdir)); pointer-events: none; opacity: 0; transition: opacity .15s;
+}
+.windy #wind { opacity: var(--wind); }
+#wind i {
+  position: absolute; left: 30%; height: 2px; width: 45%; border-radius: 1px;
+  background: linear-gradient(to left, rgba(255, 255, 255, .9), transparent);
+  animation: gust .3s linear infinite;
+}
+#wind i:nth-child(1) { top: 8%; }
+#wind i:nth-child(2) { top: 46%; width: 30%; animation-delay: -.1s; }
+#wind i:nth-child(3) { top: 84%; width: 38%; animation-delay: -.2s; }
+@keyframes gust { from { transform: translateX(40%); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(-130%); opacity: 0; } }
+
+/* he's enjoying this: one claw up and waving, happy eyes */
+.wheee .part-claw { transform-origin: 0% 50%; animation: wave .22s ease-in-out infinite; }
+.wheee .part-eyes { transform: scaleY(.3); }
+
+/* the bar shrank out from under him: legs going like the clappers */
+.scramble #sprite { transform-origin: 50% 100%; animation: scramble .18s ease-in-out infinite; }
+.scramble [class*="part-legs"] { animation: leg .06s steps(1) infinite; }
+.scramble .part-eyes { transform: scaleY(1.4); }
+@keyframes scramble { 50% { transform: translateY(-2px) rotate(calc(var(--dir) * 4deg)); } }
+
+/* the window's gone and he hasn't noticed: legs still walking on nothing, a
+   look down, then the eyes go wide, the claws shoot up and the "!" pops */
+.coyote #sprite { animation: coyote-hover .42s ease-in-out forwards; }
+.coyote [class*="part-legs"] { animation: leg .06s steps(1) infinite; }
+.coyote .part-eyes { animation: coyote-look .42s steps(1) forwards; }
+.coyote .part-claw { animation: coyote-claw .42s cubic-bezier(.3, 1.6, .5, 1) forwards; }
+.coyote #alert { animation: alert-pop .4s cubic-bezier(.3, 1.8, .5, 1) .18s forwards; }
+@keyframes coyote-hover { 0%, 55% { transform: none; } 70% { transform: translateY(-3px) scale(.96, 1.06); } 100% { transform: translateY(-2px); } }
+@keyframes coyote-look {
+  0% { transform: translateY(1px); }
+  55% { transform: translateY(1px) scaleY(.8); }
+  60%, 100% { transform: translateY(-1px) scaleY(1.6); }
+}
+@keyframes coyote-claw { 0%, 55% { transform: none; } 100% { transform: rotate(-75deg) translateY(-3px); } }
+#alert {
+  position: absolute; left: 50%; bottom: calc(18px + var(--px) * 14 + 6px);
+  font: 700 22px/1 "Pixelify Sans", monospace; color: #ffd23f;
+  text-shadow: 0 2px 0 #3d2a00, 0 0 8px rgba(255, 210, 63, .6);
+  opacity: 0; transform: translateX(-50%) scale(.2); pointer-events: none;
+}
+@keyframes alert-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(.2) rotate(-20deg); }
+  60% { opacity: 1; transform: translateX(-50%) scale(1.4) rotate(8deg); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+}
+
+/* falling (the window went): no tidy tumble, a flail */
+.fly-fall #sprite { animation: flail .3s ease-in-out infinite; }
+.fly-fall .part-claw { animation: flail-claw .14s steps(1) infinite; }
+.fly-fall [class*="part-legs"] { animation: leg .07s steps(1) infinite; }
+.fly-fall .part-eyes { transform: scaleY(1.6); }
+@keyframes flail { 0%, 100% { transform: rotate(-11deg); } 50% { transform: rotate(11deg) translateY(-2px); } }
+@keyframes flail-claw { 0% { transform: rotate(-65deg); } 50% { transform: rotate(-20deg); } }
+
+/* flung off (shaken, yanked, or the window stopped dead): a fast spin with a trail */
+.fly-fling #sprite {
+  animation: tumble .3s linear infinite;
+  filter: drop-shadow(calc(var(--dir) * -8px) 0 0 rgba(243, 230, 204, .28)) drop-shadow(calc(var(--dir) * -16px) 0 0 rgba(243, 230, 204, .12));
+}
+.fly-fling .part-eyes { transform: scaleY(1.5); }
+
+/* popped off (the window was maximized under him): boing, then tumble */
+.fly-pop #sprite { animation: pop-boing .45s cubic-bezier(.3, 1.6, .5, 1), tumble .45s linear .45s infinite; }
+@keyframes pop-boing { 0% { transform: scale(1.5, .45); } 45% { transform: scale(.7, 1.45); } 100% { transform: none; } }
+
+/* dizzy: stars round his head, a woozy sway, eyes that won't focus */
+/* over his eyes (column 15 of the 22-wide crab, so 4 cells right of centre), in front of him */
+#stars { position: absolute; z-index: 3; left: calc(50% + var(--px) * 4); bottom: calc(18px + var(--px) * 14); width: 0; height: 0; pointer-events: none; opacity: 0; transition: opacity .25s; }
+.dizzy #stars { opacity: 1; }
+#stars i {
+  position: absolute; font: 700 14px/1 "Pixelify Sans", monospace; font-style: normal; color: #ffd23f;
+  text-shadow: 0 1px 0 #3d2a00;
+  offset-path: path('M -24 0 A 24 7 0 1 0 24 0 A 24 7 0 1 0 -24 0'); offset-rotate: 0deg;
+  animation: orbit 1.1s linear infinite;
+}
+#stars i:nth-child(2) { animation-delay: -.37s; color: #fff4e4; }
+#stars i:nth-child(3) { animation-delay: -.73s; }
+@keyframes orbit { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+.dizzy #sprite { animation: woozy 1.2s ease-in-out infinite; }
+.dizzy .part-eyes { animation: dizzy-eyes .5s steps(2) infinite; }
+.dizzy .part-claw { animation: none; transform: rotate(18deg) translateY(2px); }
+@keyframes woozy { 0%, 100% { transform: rotate(-6deg) translateX(-1px); } 50% { transform: rotate(6deg) translateX(1px); } }
+@keyframes dizzy-eyes { 0% { transform: scaleY(.25); } 50% { transform: scaleX(.6) scaleY(1.25); } }
+
+/* walking the bar (or the floor) the other way: lean into it */
+.walk-left #sprite { animation-direction: reverse; }
+
+/* up there, he sits on the edge with his legs dangling over the title bar... */
+body.bit-sit #sprite { animation: none; transform: translateY(calc(var(--px) * 1.5)); transition: transform .4s cubic-bezier(.3, 1.4, .5, 1); }
+body.bit-sit .part-legs-a { transform-origin: 50% 0%; animation: dangle 1.1s ease-in-out infinite; }
+body.bit-sit .part-legs-b { transform-origin: 50% 0%; animation: dangle 1.1s ease-in-out -.55s infinite; }
+body.bit-sit .part-eyes { animation: blink 3.4s steps(1) infinite; }
+body.bit-sit .part-claw { transform: rotate(12deg) translateY(1px); }
+@keyframes dangle { 0%, 100% { transform: translateY(1px) rotate(16deg); } 50% { transform: translateY(1px) rotate(-16deg); } }
+
+/* ...or leans right over and has a good look down at what you're doing */
+/* (.state-idle too, to outrank the rule above that stills #sprite for every habit) */
+body.bit-peer.state-idle #sprite, body.bit-peer #sprite { transform-origin: 50% 100%; animation: peer 3s ease-in-out; }
+body.bit-peer .part-eyes, body.bit-peer .part-stalks { animation: peer-eyes 3s ease-in-out; }
+@keyframes peer { 0%, 100% { transform: none; } 25%, 75% { transform: rotate(calc(var(--dir) * 10deg)) translateY(2px); } }
+@keyframes peer-eyes { 0%, 100% { transform: none; } 25%, 75% { transform: translateY(1px); } }
+
 /* Screen locked or machine suspending: nothing to look at, so stop drawing.
    See scripts/idle-cost.js for what this is worth. */
 body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation: none !important; }
