@@ -14,6 +14,7 @@ const view = ({ claude, workflows }) => JSON.stringify({
   features: {
     profile: { on: true, granted: true },
     sync: { on: true, granted: true },
+    friends: { on: false, granted: false },
     publish: { on: false, granted: false },
     ci: { on: false, granted: false },
     claude: { on: claude, granted: claude },
