@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.50.0: notifications that look like Shellby
+
+### New
+- **Shellby's Windows notifications wear his colours.** Each one has the crab in the corner and a banner across the top in the panel's deep-sea colours. The banner matches the news: confetti for a level-up, a sticker, a trophy or CI back to green; a speech bubble when he needs your OK or has a question; a little rain cloud when something failed.
+- **A button when there's something to do.** "Review" when he needs your OK, "Answer" when he has a question, "Report it" when he hit a snag.
+- They're still real Windows notifications, so they stay in the notification centre and Do Not Disturb still holds them back. If Windows ever won't show the new look, you get the plain notification instead.
+
 ## 0.49.1: what the README says about billing
 
 ### Fixed

@@ -47,6 +47,7 @@ const native = require('./native-windows');
 const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
+const toast = require('./toast');
 const limits = require('./limits');
 const spend = require('./spend');
 const recap = require('./recap');
@@ -128,7 +129,7 @@ function snag(what, detail) {
   // No config yet means this is a crash during startup, before there's anywhere
   // to show it (and notify() would throw from inside the handler).
   if (++snags > 3 || !config) return; // a loop must not become a storm of toasts
-  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem);
+  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem, { tone: 'problem', action: 'Report it' });
 }
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
@@ -1080,7 +1081,7 @@ function awardXp(kind, meta = {}) {
   send(panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
   if (!(panel?.isVisible() && panel.isFocused())) {
     const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
-    notify(`Level up! Shellby is level ${r.after.level}`, body, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); });
+    notify(`Level up! Shellby is level ${r.after.level}`, body, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate' });
   }
 }
 
@@ -1247,7 +1248,7 @@ function slapSticker(p) {
   if (view) send(panel, 'stickers:new', view);
   if (!(panel?.isVisible() && panel.isFocused())) {
     notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); });
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
   }
 }
 
@@ -1337,10 +1338,10 @@ function onPermission(tabId, item, tab) {
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
   if (item.toolName === 'AskUserQuestion') {
-    notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true });
+    notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Answer' });
     return;
   }
-  notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true });
+  notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
 }
 
 function onResult(tabId, item, tab) {
@@ -1381,7 +1382,7 @@ function onResult(tabId, item, tab) {
   }
   notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
     item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
-    () => showPanel({ tabId }));
+    () => showPanel({ tabId }), { tone: item.ok ? 'default' : 'problem' });
 }
 
 // "Start fresh with a summary": the summary turn has ended, so the same tab
@@ -1405,7 +1406,10 @@ async function startFresh(tab, summary) {
 // and summed up afterwards. Urgent ones (a task waiting for your OK, a health
 // alert) still come through.
 let heldNotices = [];
-function notify(title, body, onClick, { urgent = false } = {}) {
+let toastArt; // undefined until the first notification, null if it couldn't be copied
+// tone picks the banner (toast.TONES); urgent ones default to 'alert'. action
+// adds a button that does what clicking the notification does.
+function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null } = {}) {
   if (!urgent && config && focus.guarding(config.get('focus'), Date.now())) {
     heldNotices = [...heldNotices, title].slice(-20);
     return;
@@ -1415,8 +1419,17 @@ function notify(title, body, onClick, { urgent = false } = {}) {
   // (Electron's default page). SHELLBY_ALLOW_NOTIFY=1 opts a dev run back in.
   if (CAPTURE || (!app.isPackaged && process.env.SHELLBY_ALLOW_NOTIFY !== '1')) return;
   if (!config.get('notifications') || !Notification.isSupported()) return;
-  const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
+  const plain = () => {
+    const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
+    if (onClick) n.on('click', onClick);
+    n.show();
+  };
+  if (toastArt === undefined) toastArt = toast.prepareArt(path.join(ROOT, 'assets', 'toast'), path.join(app.getPath('userData'), 'toast-art'));
+  if (!toastArt) return plain();
+  const n = new Notification({ toastXml: toast.xml({ title: title.slice(0, 80), body, tone, action: onClick ? action : null, artDir: toastArt }) });
   if (onClick) n.on('click', onClick);
+  // If Windows ever turns the Shellby look down, say it plainly instead.
+  n.once('failed', (_e, error) => { log.info(`themed notification failed: ${error}`); plain(); });
   n.show();
 }
 
@@ -2066,7 +2079,7 @@ function createToolbox() {
     const noun = { skill: 'skill', agent: 'helper agent', command: 'command' }[trick.kind];
     if (!(panel.isVisible() && panel.isFocused())) {
       notify(`Shellby learned a new ${noun}`, `${trick.name}${trick.description ? `: ${trick.description}` : ''}`.slice(0, 160),
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); }, { tone: 'celebrate' });
     }
   });
   toolbox.start();
@@ -2470,7 +2483,7 @@ function advanceFocus() {
     recordFocusDay();
     if (!events.includes('break-done')) flashState('success', 5000);
     deliverHeld('Focus done');
-    notify(`Focus done! ${before.minutes} minutes guarded`, `Take ${before.breakMinutes} minutes. Shellby will tell you when the break is over.`, showFocusCard);
+    notify(`Focus done! ${before.minutes} minutes guarded`, `Take ${before.breakMinutes} minutes. Shellby will tell you when the break is over.`, showFocusCard, { tone: 'celebrate' });
   }
   if (events.includes('break-done') && events.length === 1) {
     notify("Break's over", 'Ready for another round? Right-click Shellby to start one.', showFocusCard);
@@ -2539,7 +2552,7 @@ function stickerSwap(v) {
   send(panel, 'stickers:new', gifted);
   if (!(panel?.isVisible() && panel.isFocused())) {
     notify(`@${v.login} left a sticker`, `Their ${gift.name} sticker is in your Sticker Book. Put it on his shell if you like.`,
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); });
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
   }
 }
 
@@ -2600,13 +2613,13 @@ function onCiEvent({ type, pr }) {
   if (type === 'failed') {
     flashState('error', 5000);
     tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
-    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open);
+    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open, { tone: 'problem' });
   } else if (type === 'fixed') {
     stat('ci-fixed');
     flashState('cheer', 6500);
     tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });
     send(critter, 'critter:burst', outfit().confetti);
-    notify(`Back to green: ${where}`, `${pr.title}. Every check passes now.`.slice(0, 160), open);
+    notify(`Back to green: ${where}`, `${pr.title}. Every check passes now.`.slice(0, 160), open, { tone: 'celebrate' });
   } else if (type === 'passed') {
     flashState('success', 4000);
   } else if (type === 'review') {
@@ -2781,7 +2794,7 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true });
     return { ok: true, tabId };
   } catch (err) {
-    notify(`Routine "${r.name}" couldn't start`, err.message);
+    notify(`Routine "${r.name}" couldn't start`, err.message, null, { tone: 'problem' });
     return { ok: false, error: err.message };
   }
 }
@@ -2874,7 +2887,7 @@ function startScheduler() {
     const res = runRoutine(r);
     if (!res.ok && res.skipped) {
       log.info('Routine skipped', `${r.name}: ${res.error}`);
-      notify(`Routine "${r.name}" didn't run`, res.error);
+      notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
     }
   });
   scheduler.start();
@@ -4283,7 +4296,7 @@ app.whenReady().then(() => {
     send(panel, 'wardrobe', wardrobe.view());
     if (!(panel?.isVisible() && panel.isFocused())) {
       notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate' });
     }
   });
   wardrobe.on('collected', items => {
