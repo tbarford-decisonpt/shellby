@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.1: your sign-in, your call, released
+
+### Fixed
+- **0.45.0 never made it out.** Its release build stopped at a sticker check that compared two spellings of the same temp folder (the build machine's short `RUNNER~1` name against the full one Git reports). The check now compares like with like, and everything in 0.45.0 and the four versions before it (0.41.0 to 0.44.0) ships in this version.
+
 ## 0.45.0: your sign-in, your call
 
 ### Changed

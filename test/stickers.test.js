@@ -423,7 +423,9 @@ test('a worktree counts as the repository it came from, and the remote names the
   const { execFileSync } = require('child_process');
   const os = require('os');
   const gitinfo = require('../src/main/gitinfo');
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-st-')));
+  // .native expands 8.3 short names (CI's temp is C:\Users\RUNNER~1\...), so the
+  // folder matches the long path git reports and the path-based ids agree.
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-st-')));
   const g = (cwd, ...args) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', windowsHide: true }).trim();
   try {
     const dir = path.join(base, 'my-folder');
