@@ -1066,6 +1066,8 @@ function createHealth() {
       notify(title, body, onClick, { urgent: true });
     },
     getPanel: () => panel,
+    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
+    selfPids: () => app.getAppMetrics().map(m => m.pid),
     fakeScenario: CAPTURE ? 'calm' : envFake,
     onMood: mood => { healthMood = mood; refreshCritter(); },
   });
@@ -2849,6 +2851,10 @@ function registerIpc() {
   ipcMain.handle('health:set', (_e, patch) => health.setSettings(patch && typeof patch === 'object' ? patch : {}));
   ipcMain.handle('health:recheck', () => health.recheck());
   ipcMain.handle('health:ask', (_e, checkId) => (isStr(checkId) ? health.ask(checkId) : { ok: false, error: 'Unknown reading.' }));
+  ipcMain.handle('health:hogs', (_e, metric) => health.hogs(isStr(metric) ? metric : null));
+  ipcMain.handle('health:end-task', (_e, pid) => health.endTask(Number.isInteger(pid) ? pid : null));
+  ipcMain.handle('health:startup', (_e, force) => health.startupItems({ force: force === true }));
+  ipcMain.handle('health:ask-startup', () => health.askStartup());
   ipcMain.handle('health:clear-log', () => { config.set({ healthLog: [] }); return health.view(); });
   ipcMain.on('health:viewed', () => stat('health-viewed'));
 

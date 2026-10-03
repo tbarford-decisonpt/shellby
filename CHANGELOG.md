@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.29.0: what's hogging it
+
+### New
+- **What's hogging it.** When Shellby sweats or gets dizzy, the Health view lists the busiest processes right under the warning, so "your GPU is at 84°C" comes with the reason. It's sorted by whatever explains the warning (GPU use, CPU use or memory), and you can switch between them. Each one has an **End task** button that asks first, in the separate confirmation window, showing what you're about to close and what it's using. Windows' own processes and Shellby himself can't be ended from here. If the process closes while the question is open, Shellby won't end whatever took its place.
+- **Starts with Windows.** The Health view lists everything that launches when you sign in, with the ones you've switched off in Task Manager crossed out. **Ask Shellby which ones I need** starts a read-only task that explains each one, also checks scheduled tasks and services that start on their own, and gives you a table of what to keep, what to switch off and how. It doesn't switch anything off itself, and it always runs in **Ask** mode, so anything Claude wants to run asks you first.
+
 ## 0.28.0: Claude can tidy your memory
 
 ### New

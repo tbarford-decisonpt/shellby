@@ -1,0 +1,173 @@
+// What's hogging it: the processes behind a hot GPU, a hot CPU or full memory,
+// so "your GPU is at 84°C" comes with "and this is why". Ending one is the only
+// thing in Health that changes anything, so it's guarded twice: main only ends
+// a process it just listed, and only after the isolated confirm window says yes.
+//
+// Parsers are pure (and tested); the reader does the I/O and never throws.
+const os = require('os');
+const path = require('path');
+const { execFile } = require('child_process');
+const { cleanName } = require('./sensors');
+
+const READ_TIMEOUT_MS = 12000;     // the perf-counter query takes ~3 s on a busy PC
+const TOP_N = 8;
+const METRICS = Object.freeze(['cpu', 'gpu', 'mem']);
+
+// Ending these takes Windows down, logs you out, or can't be done without admin
+// anyway. explorer is on the list because ending it looks like a crash.
+const PROTECTED = new Set([
+  'system', 'idle', 'registry', 'secure system', 'memory compression', 'smss', 'csrss', 'wininit',
+  'winlogon', 'services', 'lsass', 'lsaiso', 'svchost', 'dwm', 'fontdrvhost', 'sihost', 'ctfmon',
+  'audiodg', 'spoolsv', 'explorer', 'msmpeng', 'nissrv', 'securityhealthservice', 'wudfhost', 'shellby',
+  'lsm', 'wmiprvse', 'taskhostw', 'startmenuexperiencehost', 'shellexperiencehost', 'searchhost', 'textinputhost',
+]);
+
+// ------------------------------------------------------------------ parsers
+
+const asList = v => (Array.isArray(v) ? v : v == null ? [] : [v]);
+const int = v => (Number.isInteger(Number(v)) ? Number(v) : null);
+
+/**
+ * GPU engine instances ("pid_1234_luid_..._eng_0_engtype_3D") -> Map(pid -> %).
+ * Like Task Manager: add up each engine type, then take the busiest type.
+ */
+function parseGpuEngines(rows) {
+  const byPid = new Map();
+  for (const r of asList(rows)) {
+    const m = /^pid_(\d+)_.*_engtype_(.+)$/i.exec(String(r?.Name || ''));
+    const pct = Number(r?.UtilizationPercentage);
+    if (!m || !Number.isFinite(pct) || pct <= 0) continue;
+    const pid = Number(m[1]);
+    const types = byPid.get(pid) || new Map();
+    types.set(m[2], (types.get(m[2]) || 0) + pct);
+    byPid.set(pid, types);
+  }
+  const out = new Map();
+  for (const [pid, types] of byPid) out.set(pid, Math.min(100, Math.max(...types.values())));
+  return out;
+}
+
+/**
+ * The reader's JSON ({ procs, gpu }) -> [{ pid, name, cpu, mem, gpu }].
+ * cpu is a share of the whole machine (the counter is per core, so it's divided
+ * by `cores`); mem is private working set in bytes, which is what Task Manager
+ * shows; gpu is null when Windows has no GPU counters.
+ */
+function parseProcesses(text, cores = os.cpus().length) {
+  let data;
+  try { data = JSON.parse(String(text || '').trim() || '{}'); } catch { return []; }
+  const hasGpu = data?.gpu != null;
+  const gpu = parseGpuEngines(data?.gpu);
+  const n = Math.max(1, Number(cores) || 1);
+  const out = [];
+  for (const p of asList(data?.procs)) {
+    const pid = int(p?.IDProcess);
+    if (!pid || pid <= 4) continue;  // Idle, System
+    const name = cleanName(String(p?.Name || '').replace(/#\d+$/, ''));
+    if (!name || /^_total$/i.test(name)) continue;
+    const cpu = Number(p?.PercentProcessorTime);
+    const mem = Number(p?.WorkingSetPrivate);
+    out.push({
+      pid, name,
+      cpu: Number.isFinite(cpu) ? Math.min(100, Math.round((cpu / n) * 10) / 10) : 0,
+      mem: Number.isFinite(mem) && mem > 0 ? mem : 0,
+      gpu: hasGpu ? gpu.get(pid) ?? 0 : null,
+    });
+  }
+  return out;
+}
+
+/** The busiest `n` by one metric, ignoring the ones doing nothing at all. */
+function topBy(procs, metric, n = TOP_N) {
+  const key = METRICS.includes(metric) ? metric : 'cpu';
+  return procs
+    .filter(p => Number(p[key]) > 0)
+    .sort((a, b) => b[key] - a[key] || a.pid - b.pid)
+    .slice(0, n);
+}
+
+/** Which metric explains a mood: the GPU's heat, the CPU's, or memory. */
+function metricFor(checkId) {
+  const id = String(checkId || '');
+  if (id.startsWith('gpu-temp')) return 'gpu';
+  if (id === 'cpu-temp') return 'cpu';
+  if (id === 'ram') return 'mem';
+  return null;
+}
+
+// Shellby's own executable: "Shellby" when installed, "electron" in a dev run.
+const SELF_NAME = path.basename(process.execPath, '.exe').toLowerCase();
+
+/**
+ * Why a process can't be ended from Shellby, or null if it can. `selfPids` is
+ * every process of Shellby's own (main, renderers, GPU), from app.getAppMetrics().
+ */
+function protectedReason(proc, selfPids = [process.pid, process.ppid], selfName = SELF_NAME) {
+  if (!proc) return 'That process is gone.';
+  if (selfPids.includes(proc.pid) || proc.name.toLowerCase() === selfName) return "That's Shellby himself.";
+  if (PROTECTED.has(proc.name.toLowerCase())) return 'Windows needs that one to keep running.';
+  return null;
+}
+
+/** `tasklist /FI "PID eq N" /NH /FO CSV` -> the image name without ".exe", or null. */
+function parseTasklistName(text, pid) {
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const cells = [...line.matchAll(/"((?:[^"]|"")*)"/g)].map(m => m[1]);
+    if (cells.length >= 2 && Number(cells[1]) === pid) return cleanName(cells[0].replace(/\.exe$/i, ''));
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ reader
+
+const system32 = () => path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+
+function run(file, args, timeout) {
+  return new Promise(resolve => {
+    execFile(file, args, { timeout, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+      (err, stdout) => resolve(err && !stdout ? null : String(stdout || '')));
+  });
+}
+
+const PROCESS_SCRIPT = [
+  "$p = Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -Filter 'IDProcess > 4' | Select-Object IDProcess,Name,PercentProcessorTime,WorkingSetPrivate",
+  // $null when Windows has no GPU counters, so that reads as "unknown", not 0%.
+  '$g = $null; try { $g = @(Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction Stop | Where-Object { $_.UtilizationPercentage -gt 0 } | Select-Object Name,UtilizationPercentage) } catch { }',
+  '@{ procs = @($p); gpu = $g } | ConvertTo-Json -Compress -Depth 3',
+].join('; ');
+
+/**
+ * The real process reader. read() resolves to [{ pid, name, cpu, mem, gpu }]
+ * or null; nameOf(pid) to the name running at that PID now, null if nothing
+ * is, or undefined if Windows couldn't be asked; end(pid) to { ok, error? }.
+ */
+function createProcessReader({ platform = process.platform } = {}) {
+  return {
+    async read() {
+      if (platform !== 'win32') return null;
+      // Absolute path: never pick up a powershell.exe from PATH or the working dir.
+      const ps = path.join(system32(), 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      const out = await run(ps, ['-NoProfile', '-NonInteractive', '-Command', PROCESS_SCRIPT], READ_TIMEOUT_MS);
+      return out ? parseProcesses(out) : null;
+    },
+    async nameOf(pid) {
+      const out = await run(path.join(system32(), 'tasklist.exe'), ['/FI', `PID eq ${pid}`, '/NH', '/FO', 'CSV'], 4000);
+      return out == null ? undefined : parseTasklistName(out, pid);
+    },
+    async end(pid) {
+      try {
+        process.kill(pid);  // TerminateProcess on Windows: what Task Manager's End task does
+        return { ok: true };
+      } catch (err) {
+        if (err.code === 'ESRCH') return { ok: true };  // closed on its own in the meantime
+        if (err.code === 'EPERM') return { ok: false, error: "Windows wouldn't let Shellby end that one. It's probably running as administrator." };
+        return { ok: false, error: err.message };
+      }
+    },
+  };
+}
+
+module.exports = {
+  parseGpuEngines, parseProcesses, topBy, metricFor, protectedReason, parseTasklistName,
+  createProcessReader, METRICS, TOP_N,
+};
