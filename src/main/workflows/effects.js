@@ -43,8 +43,29 @@ async function readFile(p, signal) {
   return fs.promises.readFile(file, 'utf8');
 }
 
-async function writeFile(p, content, { append = false, signal } = {}) {
+// Places a workflow may not write to: Shellby's own data (settings, run
+// records), Claude Code's setup (hooks, settings, skills), what Windows starts
+// at sign-in, PowerShell profiles and git hooks. Each is a way to turn one
+// written file into code that runs later. `extra` adds the profile folder.
+function forbiddenWrite(file, { home = require('os').homedir(), extra = [] } = {}) {
+  const f = path.resolve(file).toLowerCase();
+  const under = dir => { const d = path.resolve(dir).toLowerCase(); return f === d || f.startsWith(d + path.sep); };
+  const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+  const dirs = [
+    ...extra,
+    path.join(home, '.claude'),
+    path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'),
+    path.join(process.env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'StartUp'),
+    path.join(home, 'Documents', 'WindowsPowerShell'),
+    path.join(home, 'Documents', 'PowerShell'),
+  ];
+  if (dirs.some(under)) return true;
+  return f.split(/[\\/]/).some((part, i, all) => part === '.git' && all[i + 1] === 'hooks');
+}
+
+async function writeFile(p, content, { append = false, signal, forbidden = [] } = {}) {
   const file = safePath(p);
+  if (forbiddenWrite(file, { extra: forbidden })) throw new Error(`Workflows can't write to ${file}: it's somewhere a file could run as code later.`);
   const dir = path.dirname(file);
   const st = await fs.promises.stat(dir).catch(() => null);
   if (!st || !st.isDirectory()) throw new Error(`The folder ${dir} doesn't exist.`);
@@ -53,10 +74,20 @@ async function writeFile(p, content, { append = false, signal } = {}) {
 }
 
 /** A bounded web request. -> { status, body } */
-async function http({ method, url, headers = {}, body, timeoutMs = 60000, signal, fetchImpl = fetch }) {
+// Shellby's own local port takes MCP calls, commands and web hooks: a workflow
+// request (or a redirect) reaching it could start things nobody approved.
+function ownPort(u, blockedPorts) {
+  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const local = host === 'localhost' || host.endsWith('.localhost') || host === '::1' || /^127\./.test(host) || host === '0.0.0.0';
+  const port = Number(u.port || (u.protocol === 'https:' ? 443 : 80));
+  return local && blockedPorts.includes(port);
+}
+
+async function http({ method, url, headers = {}, body, timeoutMs = 60000, signal, fetchImpl = fetch, blockedPorts = [] }) {
   let u;
   try { u = new URL(url); } catch { throw new Error('That isn\'t a web address.'); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Only http:// and https:// addresses can be called.');
+  if (ownPort(u, blockedPorts)) throw new Error('Workflows can\'t call Shellby\'s own local port.');
   const timeout = AbortSignal.timeout(timeoutMs);
   const both = signal ? AbortSignal.any([signal, timeout]) : timeout;
   let current = u.href;
@@ -77,7 +108,12 @@ async function http({ method, url, headers = {}, body, timeoutMs = 60000, signal
       const next = new URL(loc, current);
       if (next.protocol !== 'http:' && next.protocol !== 'https:') throw new Error('It redirected somewhere that isn\'t a web address.');
       if (from.protocol === 'https:' && next.protocol === 'http:') throw new Error('It redirected from https to plain http, so Shellby stopped.');
-      if (next.origin !== from.origin) hopHeaders = {};
+      if (ownPort(next, blockedPorts)) throw new Error('It redirected to Shellby\'s own local port, so Shellby stopped.');
+      if (next.origin !== from.origin) {
+        // What was sent was meant for the first site: its headers and body don't follow.
+        hopHeaders = {};
+        if (hopBody !== undefined && (res.status === 307 || res.status === 308)) throw new Error('It redirected the request, body and all, to another site, so Shellby stopped.');
+      }
       // As browsers do: 303 always, and 301/302 for a POST, carry on as a GET with no body.
       if (res.status === 303 || ((res.status === 301 || res.status === 302) && hopMethod === 'POST')) {
         hopMethod = hopMethod === 'HEAD' ? 'HEAD' : 'GET';
@@ -131,17 +167,27 @@ async function readCapped(res) {
  * `reply` is Claude's last message of the turn, `text` all of them (the
  * structured block may be in either). Stopping interrupts the turn.
  */
+const turns = new Map(); // tabId -> settle(), for a tab closed mid-turn
+const STOP_GRACE_MS = 15000;
+
+/** The tab was closed: a turn still waiting in it ends now (closing a tab sends no result). */
+function tabClosed(tabId) { turns.get(tabId)?.({ ok: false, tabId, reply: '', text: '', error: 'Its conversation was closed.' }); }
+
 function claudeTurn(manager, tabId, prompt, userItem, signal) {
   return new Promise((resolve, reject) => {
     const texts = [];
     let settled = false;
+    let grace = null;
     const finish = value => {
       if (settled) return;
       settled = true;
+      clearTimeout(grace);
+      if (turns.get(tabId) === finish) turns.delete(tabId);
       manager.off('item', onItem);
       signal?.removeEventListener('abort', onAbort);
       resolve(value);
     };
+    turns.set(tabId, finish);
     function onItem(id, item) {
       if (id !== tabId) return;
       if (item.kind === 'text' && !item.sub) texts.push(item.text);
@@ -155,8 +201,14 @@ function claudeTurn(manager, tabId, prompt, userItem, signal) {
       // The process died mid-turn: there's an error item and no result.
       if (item.kind === 'error') setImmediate(() => { if (!manager.isBusy(tabId)) finish({ ok: false, tabId, reply: '', text: '', error: item.text || 'Claude Code stopped.' }); });
     }
-    function onAbort() { manager.interrupt(tabId); }
-    if (signal?.aborted) { reject(abortError()); return; }
+    // Stop interrupts the turn; if no result comes back (the process is stuck), it ends anyway.
+    function onAbort() {
+      manager.interrupt(tabId);
+      grace = setTimeout(() => finish({ ok: false, tabId, reply: '', text: '', error: 'Stopped.' }), STOP_GRACE_MS);
+      grace.unref?.();
+    }
+    if (signal?.aborted) { turns.delete(tabId); reject(abortError()); return; }
+    if (!manager.tabs?.has?.(tabId) && manager.tabs) { finish({ ok: false, tabId, reply: '', text: '', error: 'Its conversation was closed.' }); return; }
     manager.on('item', onItem);
     signal?.addEventListener('abort', onAbort, { once: true });
     try {
@@ -167,4 +219,4 @@ function claudeTurn(manager, tabId, prompt, userItem, signal) {
   });
 }
 
-module.exports = { sleep, safePath, readFile, writeFile, http, claudeTurn, abortError, MAX_READ, MAX_RESPONSE };
+module.exports = { sleep, safePath, readFile, writeFile, forbiddenWrite, http, claudeTurn, tabClosed, abortError, MAX_READ, MAX_RESPONSE };

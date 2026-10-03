@@ -2938,6 +2938,8 @@ function createWorkflows() {
       decrypt: buf => safeStorage.decryptString(buf),
     },
     webhookPort: () => (external?.status === 'listening' ? external.port : null),
+    // Shellby's own profile: settings, run records, the approval key. Never a workflow's to write.
+    forbiddenDirs: () => [app.getPath('userData')],
     log: { info: (...a) => log.info(...a), warn: (...a) => log.warn(...a) },
   });
   workflows.start();

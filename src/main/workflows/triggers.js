@@ -68,10 +68,19 @@ function byWebhook(workflows, token) {
 
 /** "*.pdf, report-??.csv" -> a test for a file name (case-insensitive). Empty matches everything. */
 function patternTest(pattern) {
-  const parts = String(pattern || '').split(',').map(p => p.trim()).filter(Boolean);
+  const parts = String(pattern || '').split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
   if (!parts.length) return () => true;
-  const res = parts.map(p => new RegExp(`^${p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i'));
-  return name => res.some(re => re.test(name));
+  return name => { const n = String(name).toLowerCase(); return parts.some(p => wildcard(p, n)); };
+}
+
+// * and ? matching in linear time (no regex, so no backtracking on a hostile file name).
+function wildcard(p, s) {
+  let i = 0, j = 0, star = -1, mark = 0;
+  while (j < s.length) {
+    if (i < p.length && (p[i] === '?' || p[i] === s[j])) { i++; j++; } else if (i < p.length && p[i] === '*') { star = i++; mark = j; } else if (star >= 0) { i = star + 1; j = ++mark; } else return false;
+  }
+  while (i < p.length && p[i] === '*') i++;
+  return i === p.length;
 }
 
 /** The soonest scheduled start of a workflow after `from`, or null. */

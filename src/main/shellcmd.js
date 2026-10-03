@@ -22,9 +22,12 @@ const MAX_COMMAND = 4000;
  */
 // signal: an AbortSignal that ends the command (and everything it started) early.
 // env: extra environment variables (a workflow passes its values this way, never in the command text).
-function run(cwd, command, { timeoutMs = TIMEOUT_MS, signal = null, env = null } = {}) {
+// maxCommand: refuse (rather than cut short) a longer command; a workflow's
+// commands are refused, since running half of one is worse than not running it.
+function run(cwd, command, { timeoutMs = TIMEOUT_MS, signal = null, env = null, maxCommand = null } = {}) {
   const started = Date.now();
-  const cmd = String(command || '').slice(0, MAX_COMMAND);
+  if (maxCommand && String(command || '').length > maxCommand) return Promise.resolve({ command: String(command).slice(0, 200), output: `The command is too long (over ${maxCommand} characters).`, code: -1, timedOut: false, ms: 0 });
+  const cmd = String(command || '').slice(0, maxCommand || MAX_COMMAND);
   return new Promise(resolve => {
     let output = '';
     let over = false;

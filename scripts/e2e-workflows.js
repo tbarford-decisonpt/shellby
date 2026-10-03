@@ -91,9 +91,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(run1.ok, 'it runs');
     const r1 = await waitRun(run1.runId, ['ok', 'error']);
     check(r1?.status === 'ok', `the run finishes ok (${r1?.status}: ${r1?.error || ''})`);
-    check(r1?.steps?.s0?.output?.fixable === true && r1?.steps?.s0?.output?.cause === 'a typo', 'Claude handed back typed fields');
+    check(r1?.steps?.look?.output?.fixable === true && r1?.steps?.look?.output?.cause === 'a typo', 'Claude handed back typed fields');
     check(r1?.vars?.verdict === 'fix a typo', `the If took the right branch (${r1?.vars?.verdict})`);
-    check(!!r1?.steps?.s0?.output?.tabId && await ev('/⚡ Triage/.test(document.body.textContent)'), 'its Claude step ran in a ⚡ tab');
+    check(!!r1?.steps?.look?.output?.tabId && await ev('/⚡ Triage/.test(document.body.textContent)'), 'its Claude step ran in a ⚡ tab');
 
     // 3. A risky save asks in the confirmation window: No keeps nothing, Yes saves.
     const risky = { name: 'Run it', cwd: work, steps: [{ id: 'cmd', type: 'run', command: 'Write-Output "hi {{ inputs.who }}"' }, { id: 'q', type: 'ask', question: 'Carry on?' }, { type: 'run', command: 'Write-Output after' }], inputs: [{ name: 'who', default: 'there' }] };
@@ -110,17 +110,17 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const run2 = JSON.parse(await ev(`shellby.runWorkflow(${JSON.stringify(riskySaved.workflow.id)}, { who: 'Jo' }).then(r => JSON.stringify(r))`));
     const r2 = await waitRun(run2.runId, ['waiting', 'error']);
     check(r2?.status === 'waiting', `the run waits for an answer (${r2?.status})`);
-    check((r2?.steps?.s0?.output?.output || '').trim() === 'hi Jo', `the input reached the command as text (${JSON.stringify(r2?.steps?.s0?.output?.output)})`);
+    check((r2?.steps?.cmd?.output?.output || '').trim() === 'hi Jo', `the input reached the command as text (${JSON.stringify(r2?.steps?.cmd?.output?.output)})`);
     await ev(`shellby.stopRun(${JSON.stringify(run2.runId)})`);
     const stopped = await waitRun(run2.runId, ['stopped']);
     check(stopped?.status === 'stopped', 'Stop stops it');
     check(JSON.parse(await ev(`shellby.resumeRun(${JSON.stringify(run2.runId)}).then(r => JSON.stringify(r))`)).ok, 'Resume picks it up');
     await waitRun(run2.runId, ['waiting']);
-    const answered = JSON.parse(await ev(`shellby.answerRun(${JSON.stringify(run2.runId)}, 's1', 'Continue').then(r => JSON.stringify(r))`));
+    const answered = JSON.parse(await ev(`shellby.answerRun(${JSON.stringify(run2.runId)}, 'q', 'Continue').then(r => JSON.stringify(r))`));
     check(answered.ok, 'the answer is taken');
     const r2b = await waitRun(run2.runId, ['ok', 'error']);
     check(r2b?.status === 'ok', `it finishes after the answer (${r2b?.status}: ${r2b?.error || ''})`);
-    check(r2b?.steps?.s0?.attempts === 1, 'the first command did not run twice');
+    check(r2b?.steps?.cmd?.attempts === 1, 'the first command did not run twice');
 
     // 5. A web hook on the plugin's local port.
     const hooked = { name: 'Hooked', when: [{ type: 'webhook' }], inputs: [{ name: 'msg' }], steps: [{ type: 'set', values: { got: '{{ inputs.msg }}' } }] };

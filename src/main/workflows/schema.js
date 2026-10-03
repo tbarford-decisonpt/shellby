@@ -34,13 +34,13 @@ const CONTAINERS = { if: ['then', 'else'], each: ['steps'] };
 // Where a secret may be used: only places that go to a command or a request,
 // never into a prompt, a message or a file.
 const SECRET_FIELDS = { run: ['command'], http: ['url', 'headers', 'body'] };
-const UNSAFE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f‪-‮⁦-⁩]/g;
+const UNSAFE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2069\ufeff]/g;
 
 // ---------------------------------------------------------------- helpers
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const line = (v, max) => (typeof v === 'string' ? v.replace(UNSAFE, '').replace(/\s+/g, ' ').trim().slice(0, max + 1) : '');
-const block = v => (typeof v === 'string' ? v.replace(UNSAFE, '').replace(/\r\n/g, '\n').trim() : '');
+const block = v => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').replace(UNSAFE, '').trim() : '');
 
 function absPath(v) {
   const p = typeof v === 'string' ? v.trim() : '';
@@ -158,7 +158,8 @@ function checkCommon(s, at, err) {
     const p = expr.parseCondition(s.if);
     if (!p.ok) err(`${at}.if`, p.error); else out.if = String(s.if).trim();
   }
-  if (s.retry !== undefined && s.retry !== null) {
+  if (s.retry !== undefined && s.retry !== null && (s.type === 'if' || s.type === 'each')) err(`${at}.retry`, 'Give the steps inside a retry instead');
+  else if (s.retry !== undefined && s.retry !== null) {
     const times = s.retry.times ?? 0;
     const delaySec = s.retry.delaySec ?? 30;
     if (!intIn(times, 0, LIMITS.retries)) err(`${at}.retry.times`, `Retry 0-${LIMITS.retries} times`);
@@ -166,7 +167,8 @@ function checkCommon(s, at, err) {
     else if (times > 0) out.retry = { times, delaySec };
   }
   if (s.timeoutMin !== undefined && s.timeoutMin !== null) {
-    if (!intIn(s.timeoutMin, 1, LIMITS.timeoutMin)) err(`${at}.timeoutMin`, `Time limit is 1-${LIMITS.timeoutMin} minutes`);
+    if (s.type === 'if' || s.type === 'each') err(`${at}.timeoutMin`, 'Give the steps inside a time limit instead');
+    else if (!intIn(s.timeoutMin, 1, LIMITS.timeoutMin)) err(`${at}.timeoutMin`, `Time limit is 1-${LIMITS.timeoutMin} minutes`);
     else out.timeoutMin = s.timeoutMin;
   }
   if (s.continueOnError === true) out.continueOnError = true;
@@ -402,12 +404,15 @@ function checkRefs(wf, err) {
   const dupes = new Set();
   walkSteps(wf.steps, s => { if (ids.has(s.id)) dupes.add(s.id); ids.add(s.id); });
   for (const d of dupes) err('steps', `Two steps are called “${d}”`);
+  // A loop's name for each item can't also be a step's name: one would hide the other.
+  walkSteps(wf.steps, (s, at) => { if (s.type === 'each' && ids.has(s.as)) err(`${at}.as`, `“${s.as}” is already a step's name`); });
+  if (wf.cwd && expr.hasTemplate(wf.cwd)) err('cwd', 'The default folder can\'t use {{ values }}: give the step its own folder instead');
   const inputNames = new Set(wf.inputs.map(i => i.name));
 
   walkSteps(wf.steps, (s, at, scope) => {
     const fields = [];
     const add = (key, value, kind = 'template') => { if (typeof value === 'string' && value) fields.push({ key, value, kind }); };
-    for (const k of ['prompt', 'command', 'url', 'body', 'question', 'text', 'title', 'path', 'content', 'over']) add(k, s[k]);
+    for (const k of ['prompt', 'command', 'url', 'body', 'question', 'text', 'title', 'message', 'path', 'content', 'over', 'cwd']) add(k, s[k]);
     for (const [k, v] of Object.entries(s.headers || {})) add(`headers.${k}`, v);
     for (const [k, v] of Object.entries(s.values || {})) add(`values.${k}`, v);
     for (const [k, v] of Object.entries(s.inputs || {})) add(`inputs.${k}`, v);
@@ -415,6 +420,7 @@ function checkRefs(wf, err) {
     add('test', s.test, 'condition');
     const allowed = SECRET_FIELDS[s.type] || [];
     for (const f of fields) {
+      if (f.kind !== 'condition') { const p = expr.parseTemplate(f.value); if (!p.ok) { err(`${at}.${f.key}`, p.error); continue; } }
       const refs = f.kind === 'condition' ? expr.conditionRefs(f.value) : expr.templateRefs(f.value);
       for (const segs of refs) {
         const head = segs[0];
@@ -530,8 +536,8 @@ function riskDetail(wf) {
     if (s.type === 'claude' && MODE[s.mode]) blocks.push(`▸ ${name}: Claude in ${MODE[s.mode]} mode, in ${s.cwd || wf.cwd || 'your current folder'}\n${s.prompt}`);
     if (s.type === 'run') blocks.push(`▸ ${name}: runs in ${s.cwd || wf.cwd || 'your current folder'}\n${s.command}`);
     if (s.type === 'http') {
-      const headers = Object.keys(s.headers || {});
-      blocks.push(`▸ ${name}: ${s.method} ${s.url}${headers.length ? `\nHeaders: ${headers.join(', ')}` : ''}${s.body ? `\nBody:\n${s.body}` : ''}`);
+      const headers = Object.entries(s.headers || {}).map(([k, v]) => `${k}: ${v}`);
+      blocks.push(`▸ ${name}: ${s.method} ${s.url}${headers.length ? `\nHeaders:\n${headers.join('\n')}` : ''}${s.body ? `\nBody:\n${s.body}` : ''}`);
     }
     if (s.type === 'file' && s.action !== 'read') blocks.push(`▸ ${name}: ${s.action === 'write' ? 'writes' : 'adds to'} ${s.path}${s.content ? `\n${s.content}` : ''}`);
     if (s.type === 'tell' && s.to === 'file') blocks.push(`▸ ${name}: adds a line to ${s.path}`);

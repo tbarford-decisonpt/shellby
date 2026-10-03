@@ -1843,7 +1843,7 @@
       h('dl', {}, Object.entries(obj).flatMap(([k, v]) => [h('dt', { class: 'wf-mono', text: k }), h('dd', { text: typeof v === 'string' ? v : pretty(v) })])));
   }
 
-  // Keys are paths: s0, s1.then.s0, s2.each3.s1. Indent by depth, and head each
+  // Keys are paths of step ids: look, pick.then.fix, files.each3.move. Indent by depth, and head each
   // loop pass with its number.
   function timeline(r) {
     const order = (r.order || Object.keys(r.steps || {})).filter(k => r.steps?.[k]);

@@ -124,7 +124,7 @@ A run record (`<userData>/workflows/runs/<id>.json`):
 }
 ```
 
-Step keys are paths: `s0`, `s2.then.s1`, `s3.each4.s0`.
+Step keys are paths of step ids (unique in a workflow), not positions: `diagnose`, `check.then.fix`, `files.each4.move`. A step added or moved between a failure and a retry can't inherit another's result.
 
 **Replay.** The engine runs a workflow from the top every time. A step whose key
 is already recorded `ok` returns its recorded output without running again. So:

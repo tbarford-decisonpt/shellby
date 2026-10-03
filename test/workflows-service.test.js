@@ -139,7 +139,7 @@ test('Claude steps share one conversation and get typed fields back', async () =
   const r = svc.runManual(workflow.id);
   await until(() => svc.getRun(r.runId)?.status === 'ok');
   const rec = svc.getRun(r.runId);
-  assert.equal(rec.steps.s0.output.count, 3);
+  assert.equal(rec.steps.look.output.count, 3);
   assert.equal(manager.sent[0].tabId, manager.sent[1].tabId);
   assert.notEqual(manager.sent[2].tabId, manager.sent[0].tabId);
   assert.match(manager.sent[1].prompt, /Now act on «3»/);
@@ -207,11 +207,11 @@ test('asks wait for an answer; a wrong answer is refused', async () => {
   await until(() => svc.getRun(r.runId)?.status === 'waiting');
   assert.equal(svc.listRuns()[0].waiting.question, 'Ship it?');
   assert.equal(calls.phone[0].kind, 'asking');
-  assert.equal(svc.answer(r.runId, 's0', 'Maybe').ok, false);
-  assert.equal(svc.answer(r.runId, 's0', 'Hold').ok, true);
+  assert.equal((await svc.answer(r.runId, 'q', 'Maybe')).ok, false);
+  assert.equal((await svc.answer(r.runId, 'q', 'Hold')).ok, true);
   await until(() => svc.getRun(r.runId)?.status === 'ok');
   assert.deepEqual(calls.say, ['Hold']);
-  assert.equal(svc.answer(r.runId, 's0', 'Hold').ok, false);
+  assert.equal((await svc.answer(r.runId, 'q', 'Hold')).ok, false);
 });
 
 test('stop, then resume from where it stopped', async () => {
@@ -242,7 +242,7 @@ test('after a restart: running runs are interrupted, waiting ones carry on', asy
     assert.equal(second.getRun('run-crashed').status, 'interrupted');
     await until(() => second.active.has(r.runId));
     await until(() => second.getRun(r.runId)?.status === 'waiting');
-    assert.equal(second.answer(r.runId, 's0', 'Continue').ok, true);
+    assert.equal((await second.answer(r.runId, 'ask1', 'Continue')).ok, true);
     await until(() => second.getRun(r.runId)?.status === 'ok');
   } finally {
     global.setTimeout = realSetTimeout;
@@ -284,7 +284,7 @@ test('the confirmation shows risky steps in full, and refuses a proposal too lon
   const detail = calls.confirm[0].detail;
   assert.ok(detail.includes('Remove-Item C:\\important -Recurse'), 'the end of a long command is shown');
   assert.match(detail, /POST https:\/\/api\.x\.com\/a/);
-  assert.match(detail, /Headers: Authorization/);
+  assert.match(detail, /Authorization: Bearer \{\{ secrets\.TOKEN \}\}/);
   assert.match(detail, /Uses these secrets: TOKEN/);
   const huge = { name: 'Huge', steps: Array.from({ length: 4 }, (_, i) => ({ type: 'run', command: `Write-Output ${i} ${'x'.repeat(3500)}` })) };
   const r = await svc.proposeFromClaude(huge);

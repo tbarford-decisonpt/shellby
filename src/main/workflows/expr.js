@@ -3,7 +3,7 @@
 // user text: a workflow file is untrusted input, and so is everything a run
 // reads back (a webhook body, a PR title, Claude's reply).
 
-const MAX_TEMPLATE = 20000;
+const MAX_TEMPLATE = 120000;   // above the longest field (an http body)
 const MAX_SUBSTITUTIONS = 100;
 const MAX_RENDERED = 200000;
 const MAX_CONDITION = 1000;
@@ -121,6 +121,21 @@ function applyFilter(value, name, args) {
 
 // ---------------------------------------------------------------- templates
 
+// "a | join " | " | upper" -> ['a ', ' join " | " ', ' upper']: a | inside quotes is text.
+function splitPipes(text) {
+  const out = [];
+  let cur = '';
+  let quote = null;
+  for (const c of text) {
+    if (quote) { if (c === quote) quote = null; cur += c; continue; }
+    if (c === '"' || c === "'") { quote = c; cur += c; continue; }
+    if (c === '|') { out.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
 /**
  * "Hi {{ a.b | upper }}" -> parts: ['Hi ', { path, segs, filters }], or an error.
  * Parsed once and checked by schema.js, so a bad template is caught on save.
@@ -139,7 +154,7 @@ function parseTemplate(text) {
     if (close < 0) return { ok: false, error: 'A {{ has no matching }}' };
     if (++subs > MAX_SUBSTITUTIONS) return { ok: false, error: `Too many {{ }} values (over ${MAX_SUBSTITUTIONS})` };
     const inner = s.slice(open + 2, close);
-    const [head, ...pipes] = inner.split('|');
+    const [head, ...pipes] = splitPipes(inner);
     const segs = parsePath(head);
     if (!segs) return { ok: false, error: `“${head.trim().slice(0, 40)}” isn't a value Shellby knows how to read` };
     const filters = [];

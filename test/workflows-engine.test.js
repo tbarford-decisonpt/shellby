@@ -49,7 +49,7 @@ test('steps run in order and pass data along', async () => {
   assert.deepEqual(calls.map(c => c[0]), ['run', 'tell']);
   assert.equal(calls[1][1].text, 'got out (0)');
   assert.deepEqual(r.vars, { msg: 'got out', n: 0 });
-  assert.deepEqual(r.order, ['s0', 's1', 's2']);
+  assert.deepEqual(r.order, ['find', 'set1', 'tell1']);
 });
 
 test('a failing command fails the run, unless allowed', async () => {
@@ -58,7 +58,7 @@ test('a failing command fails the run, unless allowed', async () => {
   const r = await runIt(w, effects);
   assert.equal(r.status, 'error');
   assert.match(r.error, /run1: The command failed \(exit code 2\):\nline1\nboom/);
-  assert.equal(r.steps.s0.status, 'error');
+  assert.equal(r.steps.run1.status, 'error');
   assert.equal(calls.length, 1);
 
   const allowed = wf([{ id: 'r', type: 'run', command: 'bad', allowFail: true }, { type: 'tell', text: 'code {{ r.code }} ok={{ r.ok }}' }]);
@@ -78,7 +78,7 @@ test('retries wait between tries and give up after the last', async () => {
   const { effects, calls } = fx({ run: () => ({ output: '', code: ++n < 3 ? 1 : 0 }) });
   const r = await runIt(w, effects);
   assert.equal(r.status, 'ok');
-  assert.equal(r.steps.s0.attempts, 3);
+  assert.equal(r.steps.run1.attempts, 3);
   assert.deepEqual(calls.filter(c => c[0] === 'sleep').map(c => c[1]), [3000, 3000]);
 });
 
@@ -92,9 +92,9 @@ test('if picks a branch, each loops with the item and index', async () => {
   const r = await runIt(w, effects);
   assert.equal(r.status, 'ok');
   assert.deepEqual(calls.filter(c => c[0] === 'tell').map(c => c[1].text), ['not fixable', '1/2 a', '2/2 b']);
-  assert.deepEqual(r.steps.s1.output, { branch: 'else' });
-  assert.deepEqual(r.steps.s2.output, { count: 2, total: 2 });
-  assert.ok(r.steps['s2.each1.s0']);
+  assert.deepEqual(r.steps.if1.output, { branch: 'else' });
+  assert.deepEqual(r.steps.each1.output, { count: 2, total: 2 });
+  assert.ok(r.steps['each1.each1.tell3']);
 });
 
 test('a Claude step that forgets its fields is asked once more', async () => {
@@ -127,7 +127,7 @@ test('ask: default choices stop the run on Stop; custom choices are output', asy
   const stopper = fx({ ask: () => 'Stop' });
   const r = await runIt(w, stopper.effects);
   assert.equal(r.status, 'stopped');
-  assert.equal(r.steps.s0.output.choice, 'Stop');
+  assert.equal(r.steps.ask1.output.choice, 'Stop');
   assert.equal(stopper.calls.some(c => c[0] === 'tell'), false);
 
   const pick = wf([{ id: 'q', type: 'ask', question: 'Which?', choices: ['Red', 'Blue'] }, { type: 'tell', text: '{{ q.choice }}' }]);
@@ -157,8 +157,8 @@ test('replay: recorded steps are not run again', async () => {
   const rec = await runIt(w, first.effects);
   assert.equal(rec.status, 'error');
   // Retry from the failed step: drop the failure, replay.
-  delete rec.steps.s1;
-  rec.order = rec.order.filter(k => k !== 's1');
+  delete rec.steps.b;
+  rec.order = rec.order.filter(k => k !== 'b');
   const second = fx();
   const again = await runIt(w, second.effects, rec);
   assert.equal(again.status, 'ok');
@@ -174,7 +174,7 @@ test('replay through loops and branches skips finished work', async () => {
   const first = fx({ run: a => ({ output: '', code: shell(a) === 'do b' ? 1 : 0 }) });
   const rec = await runIt(w, first.effects);
   assert.equal(rec.status, 'error');
-  assert.equal(rec.steps.s1.status, 'error');
+  assert.equal(rec.steps.each1.status, 'error');
   for (const k of Object.keys(rec.steps)) if (rec.steps[k].status === 'error') delete rec.steps[k];
   const second = fx();
   assert.equal((await runIt(w, second.effects, rec)).status, 'ok');
@@ -187,10 +187,10 @@ test('a wait records when it ends, and a replay only waits what is left', async 
   const { effects, calls } = fx();
   const rec = record();
   await new Engine({ workflow: w, record: rec, effects, now: () => now }).run();
-  assert.equal(rec.steps.s0.waitUntil, 1_060_000);
+  assert.equal(rec.steps.wait1.waitUntil, 1_060_000);
   assert.deepEqual(calls.filter(c => c[0] === 'sleep').map(c => c[1]), [60000]);
 
-  const rec2 = record({ steps: { s0: { key: 's0', id: 'wait1', type: 'wait', status: 'running', waitUntil: 1_060_000, attempts: 1 } }, order: ['s0'] });
+  const rec2 = record({ steps: { wait1: { key: 'wait1', id: 'wait1', type: 'wait', status: 'running', waitUntil: 1_060_000, attempts: 1 } }, order: ['wait1'] });
   now = 1_045_000;
   const again = fx();
   await new Engine({ workflow: w, record: rec2, effects: again.effects, now: () => now }).run();
@@ -227,7 +227,7 @@ test('stop steps end the run with their status', async () => {
   const r = await runIt(w, effects);
   assert.equal(r.status, 'error');
   assert.equal(r.error, 'nope: T');
-  assert.deepEqual(r.steps.s0.output, { branch: 'then' });
+  assert.deepEqual(r.steps.if1.output, { branch: 'then' });
   assert.equal(calls.length, 0);
 });
 
