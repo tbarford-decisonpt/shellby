@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.58.1: getting ready to sign
+
+### Changed
+- **Releases can now be signed for free through SignPath Foundation**, the code-signing programme for open-source projects. Once Shellby's application is approved, the installer and portable exe will be signed and Windows should stop showing the "Windows protected your PC" warning. Until then nothing changes: releases are unsigned, and **More info → Run anyway** still gets you past it. Who can sign what is written up in the README's new [code signing policy](README.md#code-signing-policy); setup is in [docs/SIGNING.md](docs/SIGNING.md).
+- **A privacy policy.** [PRIVACY.md](PRIVACY.md) lists every connection Shellby makes, what goes over it, when, and how to turn it off, plus what's stored on your PC and how to delete it. Nothing about what Shellby does has changed; the README's shorter list had left a few out, like workflow web requests, `git fetch`, and plugin installs.
+
+## 0.58.0: prompt snippets
+
+### New
+- **Prompt snippets.** Save the things you ask Claude for again and again, like "review my diff" or "write tests for this file", under a short name in **Toolbox → Snippets**. Then type `/review` in the box, or run `shellby do @review` in any terminal, and Claude gets the whole prompt.
+- **Fill in the blank.** Put `$ARGUMENTS` in a snippet and whatever you type after its name goes there: `/tests src/app.js`, or `shellby do @tests src/app.js`. Without it, anything you add goes on the end. A snippet that needs something says so instead of sending half a prompt.
+- **In the slash menu.** Your snippets come up as you type `/`, marked as snippets, right after Shellby's own commands. One that shares a name with a skill or command runs instead of it in the box, and the Toolbox tells you so.
+- **One click.** Pin a snippet and it's a chip on the start screen. Clicking it sends it, or puts it in the box if it needs something. Whatever you'd already typed goes with it.
+- **Keep what worked.** `/snippets save <name>` saves the last thing you sent as a snippet.
+- **From the terminal.** `shellby snippets` lists yours, and an `@name` that isn't one tells you the ones there are. `@src/app.js`, `@README.md` and anything else with a dot, a slash or a capital is still a file for Claude, as before.
+- You start with five you can edit or delete: **review**, **tests**, **explain**, **commit** and **pr**.
+
 ## 0.57.0: time on each project
 
 ### New

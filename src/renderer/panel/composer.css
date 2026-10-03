@@ -86,3 +86,10 @@
 .mcp-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
 .mcp-bar .muted { flex: 1; min-width: 160px; }
 .rule-form input.field { width: 100%; }
+
+/* ================================================================ Toolbox: prompt snippets */
+.k-snippet { --k: #d7a8ff; }
+.snip-form textarea { min-height: 96px; font: 12.5px/1.45 var(--font-body); }
+.snip-foot { display: flex; align-items: center; gap: 8px; }
+.snippet-row .tool-desc { white-space: pre-line; }
+.snip-note { margin: 3px 0 0; font-size: 11.5px; color: var(--amber); }

@@ -10,6 +10,7 @@ const SB = window.SB = {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
     toolbox: null, pinned: [], learned: [], routines: [],
+    snippets: [],         // saved prompts: /name in the box, @name from a terminal (toolbox.js)
     workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
