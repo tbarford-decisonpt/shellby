@@ -513,6 +513,19 @@
         </div>
         <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
         <div class="row wrap">
+          <label class="inline-label" for="perchSelect">Climbing onto your windows
+            <select id="perchSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+        </div>
+        <div class="perch-ignore" id="perchIgnoreRow" hidden>
+          <span class="small muted">He stays off:</span>
+          <span id="perchIgnoreList"></span>
+        </div>
+        <div class="row wrap">
           <label class="inline-label" for="chatterSelect">Personality
             <select id="chatterSelect" class="field slim">
               <option value="quiet">Quiet</option>
@@ -523,7 +536,7 @@
           <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
         </div>
         <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble. Normal lets him say a few words about what he's up to; Chatty lets him mutter to himself as well. He always keeps quiet while he's guarding your focus.</p>
-        <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying.</p>
+        <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
       </section>
 
       <section class="setting-group" id="musicGroup" data-nav="Music">

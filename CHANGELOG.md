@@ -1,12 +1,39 @@
 # Changelog
 
-## 0.41.0: seen it
+## 0.43.0: seen it
 
 ### New
 - **Hover a new item to mark it seen.** In the Wardrobe, moving the mouse over an item with a **new** badge (or tabbing to it) counts as seeing it: the badge fades and the dots on its tab and on the Shellby button go out when nothing new is left. Just opening a tab no longer clears every badge in it unseen.
 - **Mark all seen.** While anything in the Wardrobe is new, a **Mark all seen** button next to Outfits clears every badge at once, homes included.
 - **Unlock cards count as seeing the rewards.** Closing a trophy or level-up card yourself (✕, **Wear it**, **Share** or <kbd>Esc</kbd>) marks what it unlocked as seen, so those items don't show as new again in the Wardrobe. A card you let time out leaves them new, in case you were away.
 - **Dismiss all.** When more unlock cards are waiting behind the one showing, it says **Dismiss all (3)**. One click closes them all and marks all their rewards seen.
+
+## 0.42.0: try again from any turn
+
+### New
+- **Try again from here.** Hover one of your messages and press the fork next to ↶. **Change it and try again** opens a new tab that remembers the conversation up to just before that message, with your message back in the box to change. **Run it again in a new tab** sends it again straight away, so you get a second take to compare. The original tab carries on exactly as it was. `/branch` does the same from the box, and the rewind menu has **Try it in a new tab instead** for when you'd rather not lose anything.
+- **Branch from here.** Under any finished reply, **branch** opens a new tab that carries on from that point, so you can take the conversation two ways at once.
+- **Each try gets its own copy of the files, as they were then.** In a git project, a branch works in its own copy of the repository on its own branch. The copy starts with the files exactly as they were at that moment of the conversation, uncommitted and untracked work included, even if the original has changed them since. The two tries never touch each other's files. If git has tidied away the files from that point, Shellby asks before using the files as they are now. In a folder that isn't a git project, the two tabs share it, and both say so.
+- **Claude knows where it is.** Before a branch's first message, Claude is told it's in a new copy and where, and Shellby keeps its edits out of the original's folder and away from the original's branch. Copying files across from the original, like a missing `.env`, is still fine.
+- **Compare two tries, then keep one.** A branch's chip lists the other tries at the same thing. **Compare with…** shows, file by file, what this one has that the other doesn't, with each file's diff a click away. **Keep this one** brings it home and throws away the other tries' copies. It asks first, listing each one and what it would lose, and does nothing if one of them starts working while you decide. If bringing it home clashes, nothing is thrown away. Every conversation stays in History.
+- Each new tab says where it came from, with a link back. The original notes where each try went, and a branch's tab shows ⑂ before its name.
+
+### Fixed
+- The quoted message at the top of the rewind menu shows on one line again, not one word per line.
+
+## 0.41.0: up on your windows
+
+### New
+- **Shellby climbs onto your windows.** Every so often, when he's idle, he looks up at the window you're using, crouches, and hops up onto its title bar, with a somersault if it's a long way. He lands in a puff of dust and makes himself at home: he walks along the bar, sits on the edge swinging his legs, and leans over to see what you're doing. After a few minutes he hops back down to his spot. It works the same in **Just the crab**, no Claude needed.
+- **Drag the window and he rides it.** He grips the bar, leans back into the wind and holds on, with a little bounce when you stop. Keep going and he starts enjoying himself.
+- **Shake it and he's off.** A hard yank, a fast drag that stops dead, or a good shake flings him off, spinning. Shake it properly and he lands dizzy, with stars going round his head.
+- **Close the window under him** and he hangs in the air for a beat, legs still going, looks down, and the ! goes up. Then he drops, flailing. If there's another window below, he lands on that one; if not, he lands on the taskbar and walks home. Minimizing does the same. Maximizing pops him off with a boing.
+- **Throw him at a title bar and he catches it.** Drop him onto one while dragging and he sits there too. Picked up, he's above every window, so you can see where he's going.
+- **He's well behaved up there.** He stays clear of the minimize, maximize and close buttons and the app icon, never climbs onto fullscreen games or presentations, and lets clicks through to the title bar around him. He comes down by himself when a fullscreen app takes over his screen, or when helpers or a visiting friend's crab need room beside him. Windows won't let him sit on apps running as administrator, so he slides straight off those and leaves them alone for a while.
+- **Right-click him on a window** for **Hop down**, or **Not on Spotify** (whatever app it is) to keep him off it for good. When he's on the desktop, **Climb onto a window** sends him up straight away.
+- **Settings → Shellby → Climbing onto your windows:** Never, Sometimes (the default) or Often. The apps he's been told to stay off are listed underneath, and you can take them back off the list. Turning strolling off keeps him off your windows too.
+- **His temperament shows.** A cocky crab climbs most and a fussy one least, and a sleepy one stays longest (and naps). He has things to say about all of it: "nice view", "wheee", "rude!", "oh no", "the room spins".
+- **Five new trophies, each with an outfit:** Window Sill (a spyglass), Hang On! (racing goggles, for riding a window 2,000 px), and three secret ones that bring a cowboy hat, a parachute and a ringmaster's collar.
 
 ## 0.40.0: visiting crabs
 

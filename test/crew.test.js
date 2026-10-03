@@ -237,3 +237,34 @@ test('SessionManager enforces the tab limit and pins routine modes', () => {
   assert.equal(r.session.mode, 'smart');
   mgr.closeAll();
 });
+
+test("a branch's note goes ahead of its first real message, once, and never in front of a /command", async () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    history.create({ id: 'branch-tab', title: '⑂ Try', cwd: os.tmpdir(), mode: 'ask' });
+    history.update('branch-tab', { preamble: 'Shellby has branched this conversation into a new tab.' });
+    mgr.open({ tabId: 'branch-tab', cwd: os.tmpdir(), historyEntry: history.get('branch-tab') });
+    const texts = [];
+    let results = 0;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'text') texts.push(item.text); if (item.kind === 'result') results++; });
+
+    mgr.send('branch-tab', '/compact', { kind: 'user', text: '/compact' });
+    await until(mgr, () => results === 1);
+    assert.ok(!texts.some(t => t.startsWith('noted:')), 'a /command goes as typed, without the note');
+    assert.ok(history.get('branch-tab').preamble, '...and the note waits for a real message');
+
+    mgr.send('branch-tab', 'hello', { kind: 'user', text: 'hello' });
+    await until(mgr, () => results === 2);
+    assert.ok(texts.includes('noted: Shellby has branched this conversation into a new tab.'), 'the note goes as a block of its own');
+    assert.ok(texts.some(t => t.startsWith('echo: hello')), 'the message itself is exactly what was typed');
+    assert.equal(history.get('branch-tab').preamble, null, 'once Claude has started with it, it is forgotten');
+
+    const before = texts.length;
+    mgr.send('branch-tab', 'again', { kind: 'user', text: 'again' });
+    await until(mgr, () => results === 3);
+    assert.ok(!texts.slice(before).some(t => t.startsWith('noted:')), 'only once');
+  } finally {
+    mgr.closeAll();
+  }
+});
