@@ -97,7 +97,7 @@
       e.currentTarget.querySelector('.new-pill')?.classList.add('leaving');
     };
     return h('button', {
-      type: 'button', role: 'option', 'aria-selected': String(equipped), dataset: { key },
+      type: 'button', role: 'option', 'aria-selected': String(equipped), 'aria-disabled': locked ? 'true' : null, dataset: { key },
       class: `wd-tile rarity-${item.rarity || 'common'}${equipped ? ' on' : ''}${locked ? ' locked' : ''}${item.isNew ? ' is-new' : ''}`,
       title: tipLines.join('\n'),
       onmouseenter: look,
@@ -116,10 +116,13 @@
   function renderGrid() {
     const items = itemsFor(slot);
     const grid = $('wdGrid');
+    const bare = !wd().outfit[slot];
     const none = slot === 'skin' ? null : slot === 'home' ? ownShellTile() : h('button', {
-      type: 'button', role: 'option', class: `wd-tile none${!wd().outfit[slot] ? ' on' : ''}`, title: `No ${SLOT_LABEL[slot]}`,
+      type: 'button', role: 'option', 'aria-selected': String(bare), dataset: { key: '' }, class: `wd-tile none${bare ? ' on' : ''}`, title: `No ${SLOT_LABEL[slot]}`,
       onmouseenter: () => { tryOn = { slot, key: null }; renderStage(); },
       onmouseleave: () => { tryOn = null; renderStage(); },
+      onfocus: () => { tryOn = { slot, key: null }; renderStage(); },
+      onblur: () => { tryOn = null; renderStage(); },
       onclick: () => equip(null, null, false),
     }, h('span', { class: 'wd-art none-art', text: '∅' }), h('span', { class: 'wd-name', text: 'None' }));
     // Unlocked first, then by rarity; locked items stay visible as goals.
@@ -134,7 +137,7 @@
   function ownShellTile() {
     const on = (state.homes?.worn || HOME) === HOME;
     return h('button', {
-      type: 'button', role: 'option', 'aria-selected': String(on), class: `wd-tile${on ? ' on' : ''}`, title: ['His own shell', 'The one he hatched with.'].join('\n'),
+      type: 'button', role: 'option', 'aria-selected': String(on), dataset: { key: HOME }, class: `wd-tile${on ? ' on' : ''}`, title: ['His own shell', 'The one he hatched with.'].join('\n'),
       onmouseenter: () => { tryOn = { slot, key: HOME }; renderStage(); },
       onmouseleave: () => { tryOn = null; renderStage(); },
       onfocus: () => { tryOn = { slot, key: HOME }; renderStage(); },
@@ -278,7 +281,10 @@
   document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.addEventListener('click', () => { slot = b.dataset.slot; tryOn = null; renderGrid(); renderStage(); }));
   document.querySelectorAll('.stage-moods [data-mood]').forEach(b => b.addEventListener('click', () => {
     mood = b.dataset.mood;
-    document.querySelectorAll('.stage-moods [data-mood]').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.stage-moods [data-mood]').forEach(x => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-pressed', String(x === b));
+    });
     renderStage();
   }));
   $('randomizeBtn').addEventListener('click', async () => { const r = await api.randomizeOutfit(); applyView(r.view); });

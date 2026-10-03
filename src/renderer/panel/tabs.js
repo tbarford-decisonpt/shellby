@@ -158,10 +158,28 @@
     return null;
   }
 
+  // The strip is one Tab stop: arrow keys, Home and End walk the conversations.
+  function tabKey(e, id) {
+    if (e.target !== e.currentTarget) return; // its × button handles its own keys
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); return SB.activate(id); }
+    if (e.key === 'F2') { e.preventDefault(); return SB.renameTab(id); }
+    const ids = [...state.tabs.keys()];
+    const i = ids.indexOf(id);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: ids.length - 1 }[e.key];
+    if (next === undefined || e.ctrlKey || e.altKey || e.shiftKey) return;
+    e.preventDefault();
+    const to = ids[(next + ids.length) % ids.length];
+    SB.activate(to);
+    [...$('tabs').querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === to)?.focus();
+  }
+
   SB.renderTabStrip = () => {
     const strip = $('tabs');
     // Redrawing would throw away the name being typed; finishing the edit redraws.
     if (renaming && strip.querySelector('.title-edit')) return;
+    // A busy tab redraws the strip as it streams; keep the keyboard on the tab (or ×) it was on.
+    const focused = strip.contains(document.activeElement) ? document.activeElement : null;
+    const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
       const btn = h('div', {
@@ -172,14 +190,19 @@
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
         onpointerdown: e => dragStart(e, t.id),
-        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); else if (e.key === 'F2') { e.preventDefault(); SB.renameTab(t.id); } },
+        onkeydown: e => tabKey(e, t.id),
       },
       tabIcon(t),
       h('span', { class: 'tab-title', text: shownTitle(t) }),
-      h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
+      // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
+      h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
       t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
       return btn;
     }));
+    if (keep?.id) {
+      const tab = [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === keep.id);
+      (keep.x ? tab?.querySelector('.tab-x') : tab)?.focus({ preventScroll: true });
+    }
     // Not while dragging: following the active tab would fight the strip's own
     // scrolling as the dragged tab is pulled past the edge.
     if (!drag) strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
