@@ -21,6 +21,7 @@ const claudeSetup = require('./claude-setup');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
+const { attachContextMenu } = require('./context-menu');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
@@ -411,6 +412,7 @@ function createPanel() {
     show: false, frame: false, backgroundColor: '#0c1719', title: 'Shellby', icon: ICON, webPreferences,
   });
   secureWindow(panel);
+  attachContextMenu(panel, Menu);
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
   panel.on('resized', () => { const [width, height] = panel.getSize(); config.set({ panelSize: { width, height } }); });
