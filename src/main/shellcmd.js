@@ -9,6 +9,9 @@
 // process tree goes if it runs over.
 const { spawn, execFile } = require('child_process');
 const { StringDecoder } = require('string_decoder');
+// By full path: the working folder is the project, and a powershell.exe in a
+// cloned repository would otherwise run instead.
+const { POWERSHELL, TASKKILL } = require('./system32');
 
 const TIMEOUT_MS = 2 * 60 * 1000;
 const MAX_OUTPUT = 30000;        // kept, shown and sent to Claude
@@ -36,7 +39,7 @@ function run(cwd, command, { timeoutMs = TIMEOUT_MS } = {}) {
     let child;
     try {
       // UTF-8 output, so non-ASCII file names and messages come back intact.
-      child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+      child = spawn(POWERSHELL, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
         `[Console]::OutputEncoding=[Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; ${cmd}`], {
         cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -48,7 +51,7 @@ function run(cwd, command, { timeoutMs = TIMEOUT_MS } = {}) {
     child.stderr.on('data', keeper());
     const timer = setTimeout(() => {
       timedOut = true;
-      execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+      execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
     }, timeoutMs);
     child.on('error', e => { output += e.message; });
     child.on('close', code => {

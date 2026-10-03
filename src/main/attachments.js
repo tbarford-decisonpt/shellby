@@ -21,6 +21,12 @@ const KEEP_DAYS = 30;
 
 const imageType = file => IMAGE_TYPES[path.extname(String(file)).toLowerCase()] || null;
 
+// A file on this PC. Not a network share (\\server\share or //server/share)
+// nor a device path (\\?\, \\.\): just opening a share makes Windows sign in
+// to that server with your account, so a path handed over by a renderer must
+// never go there.
+const isLocalPath = file => typeof file === 'string' && !/^[\\/]{2}/.test(file);
+
 // Shrink to MAX_EDGE on the long side, never up.
 function fit(img, maxEdge = MAX_EDGE) {
   const { width, height } = img.getSize();
@@ -68,7 +74,7 @@ function saveNative(img, dir, now = new Date()) {
  */
 function loadForClaude(file, { nativeImage, readFile = fs.readFileSync, statSize = f => fs.statSync(f).size }) {
   const type = imageType(file);
-  if (!type) return null;
+  if (!type || !isLocalPath(file)) return null;
   try {
     if (statSize(file) > MAX_INPUT_BYTES) return null;
     const raw = readFile(file);
@@ -111,7 +117,7 @@ function composeContent(text, files, load) {
 
 /** A small data: URL for a chip (the panel only loads images from itself or data:). */
 function thumbnail(file, { nativeImage, statSize = f => fs.statSync(f).size }) {
-  if (!imageType(file)) return null;
+  if (!imageType(file) || !isLocalPath(file)) return null;
   try {
     if (statSize(file) > MAX_INPUT_BYTES) return null;
     const img = nativeImage.createFromPath(file);
@@ -137,6 +143,6 @@ function prune(dir, now = Date.now()) {
 }
 
 module.exports = {
-  imageType, fit, saveImage, saveNative, loadForClaude, composeContent, thumbnail, prune,
+  imageType, isLocalPath, fit, saveImage, saveNative, loadForClaude, composeContent, thumbnail, prune,
   MAX_EDGE, MAX_INLINE_BYTES, MAX_INLINE_IMAGES, MAX_INPUT_BYTES,
 };

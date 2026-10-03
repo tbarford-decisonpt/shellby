@@ -21,7 +21,7 @@ const cache = new Map(); // cwd -> { at, entries: Promise<string[]> }
 
 function gitFiles(cwd) {
   return new Promise(resolve => {
-    execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
+    execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
       windowsHide: true, timeout: 10000, maxBuffer: 32 * 1024 * 1024, encoding: 'utf8',
       env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
     }, (err, out) => resolve(err ? null : out.split('\0').filter(Boolean).slice(0, MAX_FILES)));

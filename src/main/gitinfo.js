@@ -12,7 +12,8 @@ const LS_FILES_MAX = 5000;
 
 function git(args, timeout = 5000, maxBuffer = 64 * 1024) {
   return new Promise(resolve => {
-    execFile('git', args, { windowsHide: true, timeout, maxBuffer }, (err, stdout) => resolve(err ? null : String(stdout).trim()));
+    // fsmonitor off: a repository's config must not choose a program for us to run.
+    execFile('git', ['-c', 'core.fsmonitor=false', ...args], { windowsHide: true, timeout, maxBuffer }, (err, stdout) => resolve(err ? null : String(stdout).trim()));
   });
 }
 

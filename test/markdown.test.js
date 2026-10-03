@@ -16,7 +16,7 @@ test('escapes HTML inside code spans and fences', () => {
 });
 
 test('only https links become (inert) anchors', () => {
-  assert.match(render('[docs](https://example.com/a?b=1&c=2)'), /<a data-href="https:\/\/example.com\/a\?b=1&amp;c=2" href="#">docs<\/a>/);
+  assert.match(render('[docs](https://example.com/a?b=1&c=2)'), /<a data-href="https:\/\/example.com\/a\?b=1&amp;c=2" href="#" title="https:\/\/example.com\/a\?b=1&amp;c=2">docs<\/a>/);
   assert.ok(!render('[x](javascript:alert(1))').includes('<a'));
   assert.ok(!render('[x](http://insecure.test)').includes('<a'));
   assert.ok(!render('[x](https://a.test" onmouseover="bad)').includes('onmouseover="'));
@@ -64,7 +64,7 @@ test('alignment rides on data-align, never an inline style (CSP forbids them)', 
 test('cells render inline markdown and escape HTML', () => {
   const out = render('| What | Where |\n|---|---|\n| **bold** `code` | [docs](https://example.com) |\n| <img src=x> | *em* |');
   assert.match(out, /<td><strong>bold<\/strong> <code>code<\/code><\/td>/);
-  assert.match(out, /<td><a data-href="https:\/\/example.com" href="#">docs<\/a><\/td>/);
+  assert.match(out, /<td><a data-href="https:\/\/example.com" href="#" title="https:\/\/example.com">docs<\/a><\/td>/);
   assert.match(out, /<td>&lt;img src=x&gt;<\/td>/);
   assert.ok(!out.includes('<img'));
 });

@@ -150,8 +150,12 @@ test("Shellby's own Claude processes are marked so the plugin ignores them", () 
 // ------------------------------------------------------------------ the listener
 
 test('acceptable(): only our hook requests, never a browser', () => {
-  const req = (h, extra = {}) => ({ method: 'POST', url: '/v1/hook', headers: { 'x-shellby': '1', 'content-type': 'application/json', ...h }, ...extra });
+  const req = (h, extra = {}) => ({ method: 'POST', url: '/v1/hook', headers: { host: '127.0.0.1:47913', 'x-shellby': '1', 'content-type': 'application/json', ...h }, ...extra });
   assert.equal(acceptable(req({})), true);
+  assert.equal(acceptable(req({ host: 'localhost:47913' })), true);
+  // DNS rebinding: the page's own name arrives as Host.
+  assert.equal(acceptable(req({ host: 'evil.example:47913' })), false);
+  assert.equal(acceptable(req({ host: undefined })), false);
   assert.equal(acceptable(req({ origin: 'https://evil.example' })), false);
   assert.equal(acceptable(req({ 'x-shellby': undefined })), false);
   assert.equal(acceptable(req({ 'content-type': 'text/plain' })), false);

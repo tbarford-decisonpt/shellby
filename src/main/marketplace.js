@@ -199,7 +199,8 @@ function normalizeSource(input) {
   try {
     const u = new URL(s);
     if (u.protocol !== 'https:' || u.username || u.password || u.port) return null;
-    const host = u.hostname.replace(/^\[|\]$/g, '');
+    // "localhost." is localhost: a trailing dot must not slip past the names below.
+    const host = u.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '');
     // Defence in depth only: this is a name check, not a DNS check, so a public
     // name that resolves to a private address gets through. The CLI does the fetch.
     if (net.isIP(host) || !host.includes('.') || /(^|\.)(localhost|local|internal|lan|home|corp)$/i.test(host)) return null;

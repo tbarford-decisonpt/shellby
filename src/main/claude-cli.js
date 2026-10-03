@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
+const { TASKKILL } = require('./system32');
 
 // Env vars that would route the CLI to API-key billing or another provider.
 // Claude Code gets them as set: how it signs in is the user's call, not ours.
@@ -81,12 +82,15 @@ function run(exe, args, timeout = 15000, { cwd } = {}) {
       resolve({ ok: false, stdout: '', stderr: '', err, timedOut: false });
       return;
     }
+    // Nothing is ever typed in, and `claude -p` waits for stdin to end before
+    // it starts when stdin isn't a terminal.
+    try { child.stdin?.end(); } catch { /* already gone */ }
     // Our own timeout: kill the whole tree while claude is still alive (a plugin
     // install may be running git; execFile's timeout would only kill claude.exe).
     const timer = setTimeout(() => {
       timedOut = true;
       if (process.platform === 'win32' && child.pid) {
-        execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+        execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
       } else {
         child.kill('SIGKILL');
       }

@@ -23,9 +23,17 @@ const path = require('path');
 
 const BRANCH = /^shellby\/[a-z0-9-]{1,40}-[0-9a-f]{6}$/;
 
+// For the commits Shellby makes of Claude's work, and the merge that brings
+// them home: no hooks. Claude can edit a tracked hook (.husky/pre-commit) in
+// Auto-edit without a prompt, and git would then run it with your rights when
+// you click. A push stays yours: its hooks run as from a terminal.
+const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
+
+// fsmonitor off: a repository's own config could name a program to run on
+// every status (one Shellby never asked for).
 function git(cwd, args, { timeout = 30000 } = {}) {
   return new Promise(resolve => {
-    execFile('git', ['-C', cwd, ...args], {
+    execFile('git', ['-C', cwd, '-c', 'core.fsmonitor=false', ...args], {
       windowsHide: true, timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', GIT_MERGE_AUTOEDIT: 'no' },
     }, (err, stdout, stderr) => resolve(err
@@ -324,7 +332,7 @@ async function bringHome(w, { message }) {
   const dirty = await git(w.path, ['status', '--porcelain'], { timeout: 15000 });
   if (dirty.ok && dirty.out.trim()) {
     const add = await git(w.path, ['add', '-A']);
-    const commit = add.ok && await git(w.path, ['commit', '-q', '-m', String(message || 'Work from Shellby').slice(0, 200)]);
+    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', String(message || 'Work from Shellby').slice(0, 200)]);
     if (!commit?.ok) return { ok: false, error: `Couldn't commit the copy's changes: ${firstLine(commit?.error || add.error)}` };
   }
 
@@ -335,7 +343,7 @@ async function bringHome(w, { message }) {
     if (!on.ok || on.out.trim() !== w.base) {
       return { ok: false, error: `Your checkout is on ${on.out.trim() || 'no branch'} now. Switch back to ${w.base} to bring this home.` };
     }
-    const merge = await git(w.root, ['merge', '--no-edit', '-m', `Bring home ${w.branch}`, w.branch], { timeout: 60000 });
+    const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', `Bring home ${w.branch}`, w.branch], { timeout: 60000 });
     if (!merge.ok) {
       const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
       if (conflict) await git(w.root, ['merge', '--abort'], { timeout: 15000 });

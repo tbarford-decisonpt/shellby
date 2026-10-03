@@ -2,6 +2,7 @@
 // stdin/stdout. Permission prompts, interrupts and mode switches go over the same
 // control protocol the Claude Agent SDK uses, so no API key is ever involved.
 const { spawn, execFile } = require('child_process');
+const { TASKKILL } = require('./system32'); // by full path: Claude runs in project folders
 const readline = require('readline');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
@@ -388,7 +389,7 @@ class ClaudeSession extends EventEmitter {
   kill() {
     if (!this.proc) return;
     // /T takes down the whole tree: claude plus any shells or tools it spawned.
-    execFile('taskkill', ['/PID', String(this.proc.pid), '/T', '/F'], { windowsHide: true }, () => {});
+    execFile(TASKKILL, ['/PID', String(this.proc.pid), '/T', '/F'], { windowsHide: true }, () => {});
   }
 
   close() {

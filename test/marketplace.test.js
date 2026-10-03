@@ -158,6 +158,12 @@ test('isGithubRepo: real owner/repo shapes only', () => {
   for (const bad of ['a/..', 'a/.', 'a/x.git', '-a/b', 'a/b/c', 'a', 'Documents/', null]) assert.equal(isGithubRepo(bad), false, String(bad));
 });
 
+test('normalizeSource: a trailing dot is the same local name', () => {
+  for (const s of ['https://localhost./x', 'https://foo.local./', 'https://metadata.google.internal./', 'https://printer.lan../', 'https://a.localhost./']) {
+    assert.equal(normalizeSource(s), null, s);
+  }
+});
+
 test('normalizeSource: GitHub repos and public https only', () => {
   assert.equal(normalizeSource('anthropics/skills'), 'anthropics/skills');
   assert.equal(normalizeSource(' https://github.com/anthropics/skills.git '), 'anthropics/skills');

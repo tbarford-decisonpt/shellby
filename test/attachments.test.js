@@ -163,3 +163,17 @@ test('Claude Code receives the picture blocks in the stream-json message', async
     s.close();
   }
 });
+
+test('network shares and device paths are never opened for a thumbnail or for Claude', () => {
+  let touched = 0;
+  const nativeImage = { createFromPath: () => { touched++; return { isEmpty: () => true }; }, createFromBuffer: () => { touched++; return { isEmpty: () => true }; } };
+  const statSize = () => { touched++; return 10; };
+  const readFile = () => { touched++; return Buffer.alloc(10); };
+  for (const p of ['\\\\attacker\\share\\x.png', '//attacker/share/x.png', '\\\\?\\C:\\x.png', '\\\\.\\pipe\\x.png']) {
+    assert.equal(attach.isLocalPath(p), false, p);
+    assert.equal(attach.thumbnail(p, { nativeImage, statSize }), null, p);
+    assert.equal(attach.loadForClaude(p, { nativeImage, readFile, statSize }), null, p);
+  }
+  assert.equal(touched, 0, 'not even a stat: that alone reaches the server');
+  assert.equal(attach.isLocalPath('C:\\Users\\me\\x.png'), true);
+});

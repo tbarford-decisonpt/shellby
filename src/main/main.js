@@ -1,11 +1,12 @@
 const {
-  app, BrowserWindow, ipcMain, screen, Menu, Tray, shell, dialog,
+  app, BrowserWindow, ipcMain: electronIpcMain, screen, Menu, Tray, shell, dialog,
   globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { randomUUID } = require('crypto');
+const crypto = require('crypto');
+const { randomUUID } = crypto;
 
 const { Config, MODES } = require('./config');
 const { MODELS, isModel } = require('./models');
@@ -72,6 +73,8 @@ const shellCmd = require('./shellcmd');
 const outputStyles = require('./outputstyles');
 const { EFFORTS } = require('./session');
 const parity = require('./parity');
+const { guardIpc, windowPolicy } = require('./ipc-guard');
+const system32 = require('./system32');
 const branching = require('./branching');
 const branch = require('./branch');
 const fileIndex = require('./fileindex');
@@ -79,6 +82,8 @@ const fileIndex = require('./fileindex');
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
+// The crab's window gets a bridge of its own, much smaller (ipc-guard.js).
+const CRITTER_PRELOAD = path.join(__dirname, '..', 'preload', 'critter-preload.js');
 const ICON = path.join(ROOT, 'assets', 'icon.png');
 const CAPTURE = process.argv.includes('--capture-screenshots');
 
@@ -183,6 +188,7 @@ let pendingLink = null;
 let startView = null;              // view the panel should open on at boot (e.g. a deep link wants the Wardrobe)            // a shellby:// link that arrived before boot finished
 let linkBusy = false;              // one registry install at a time
 const routineTabs = new Map();     // tabId -> routine id (for lastStatus bookkeeping)
+let autonomousOkThisRun = false;   // switching into Autonomous was confirmed since Shellby started (settings:set)
 
 // ================================================================ windows
 
@@ -340,7 +346,7 @@ function createCritter() {
     ...size, x: pos.x, y: pos.y,
     frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
     alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
-    title: 'Shellby', icon: ICON, webPreferences,
+    title: 'Shellby', icon: ICON, webPreferences: { ...webPreferences, preload: CRITTER_PRELOAD },
   });
   secureWindow(critter);
   critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));
@@ -1332,6 +1338,11 @@ function onResult(tabId, item, tab) {
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
+    // Nobody is typing into a routine's tab, so its idle process just holds
+    // memory until morning. The conversation stays: a reply resumes it. Not
+    // after a good turn that left something running in the background (a
+    // failed turn's leftovers go with it).
+    if (!item.waiting?.length) tab.session.stop().catch(() => {});
   }
   noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
   if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
@@ -1634,7 +1645,7 @@ async function removeCli() {
 // HKCU only: no admin rights, and the machine PATH is never touched.
 function userPath() {
   return new Promise(resolve => {
-    runCli('reg', ['query', 'HKCU\\Environment', '/v', 'Path'], 5000).then(r => {
+    runCli(system32.REG, ['query', 'HKCU\\Environment', '/v', 'Path'], 5000).then(r => {
       const m = r.ok && /\sPath\s+REG_(?:EXPAND_)?SZ\s+(.*)/i.exec(r.stdout || '');
       resolve(m ? m[1].trim() : '');
     }).catch(() => resolve(''));
@@ -1643,10 +1654,10 @@ function userPath() {
 
 async function setUserPath(value) {
   // setx truncates past 1024 characters, so the value goes in through reg.
-  const r = await runCli('reg', ['add', 'HKCU\\Environment', '/v', 'Path', '/t', 'REG_EXPAND_SZ', '/d', value, '/f'], 8000);
+  const r = await runCli(system32.REG, ['add', 'HKCU\\Environment', '/v', 'Path', '/t', 'REG_EXPAND_SZ', '/d', value, '/f'], 8000);
   // Tell Explorer, so a new terminal from the Start menu sees it. Best effort:
   // the PATH is already written, and signing out would pick it up regardless.
-  if (r.ok) await runCli('powershell.exe', clipath.settingChangeArgs(), 15000);
+  if (r.ok) await runCli(system32.POWERSHELL, clipath.settingChangeArgs(), 15000);
   return !!r.ok;
 }
 
@@ -1675,6 +1686,44 @@ function cliView() {
 
 const channelSettings = () => channels.normalizeChannelSettings(config.get('channels'));
 
+// Where things go, as one string: the place, whether it may answer, and which
+// token (hashed) sends them. Nothing goes out unless you said yes to exactly
+// this in the confirmation window, so a panel that changes any part of it
+// (another topic, a bot of someone else's, replies on) can't quietly get your
+// permission prompts, let alone answer them.
+function channelPlace(s = channelSettings(), secret = channelSecret) {
+  const key = secret ? crypto.createHash('sha256').update(secret).digest('hex').slice(0, 16) : '';
+  return `${s.provider}|${s.target}|${s.replies ? 'replies' : 'tell'}|${key}`;
+}
+const channelConfirmed = (s = channelSettings()) => config.get('channelsConfirmed') === channelPlace(s);
+
+/**
+ * After any change: a destination you haven't confirmed is asked about, or
+ * switched off. testing: asked for the Test button, which works while it's off
+ * (a no then leaves it as it was). Resolves whether it's confirmed now.
+ */
+async function confirmChannelPlace({ testing = false } = {}) {
+  const s = channelSettings();
+  if ((!s.enabled && !testing) || !s.target || channelConfirmed(s)) return channelConfirmed(s);
+  // From here on the startup grandfathering (0.46.1) never applies: a question
+  // left open when Shellby quit must not count as a yes next time.
+  if (config.get('channelsConfirmed') == null) config.set({ channelsConfirmed: '' });
+  const label = channels.PROVIDERS[s.provider]?.label || s.provider;
+  const response = await confirm.ask(panel, {
+    ...dialogLook(), icon: '📱', danger: s.replies,
+    title: 'Send notifications here?',
+    message: `${label}: ${s.target}`.slice(0, 200),
+    detail: s.replies
+      ? 'Shellby will send what he is doing there, including his permission prompts, and take Allow or Deny answers back from it.'
+      : 'Shellby will send what he is doing there, including what his permission prompts ask.',
+    note: 'Only say yes if you set this up yourself.',
+    buttons: [{ label: 'Send them there', ...(s.replies ? { style: 'danger' } : {}) }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+  });
+  if (response === 0) { config.set({ channelsConfirmed: channelPlace(s) }); return true; }
+  if (!testing) config.set({ channels: { ...s, enabled: false } });
+  return false;
+}
+
 function loadChannelSecret() {
   const raw = config.get('channelSecret');
   if (!raw || !safeStorage.isEncryptionAvailable()) return '';
@@ -1697,6 +1746,7 @@ function tellChannel(event, onSent = () => {}) {
   if (!config) return false;
   const settings = channelSettings();
   if (!channels.shouldSend(event, settings, { focused: focus.guarding(config.get('focus'), Date.now()) })) return false;
+  if (!channelConfirmed(settings)) { log.info('channel: destination not confirmed, nothing sent'); return false; }
   const built = channels.buildRequest(settings, channelSecret, event);
   if (built.error) { log.info(`channel: ${built.error}`); return false; }
   channels.deliver(built.request)
@@ -2629,11 +2679,24 @@ function updateRoutine(id, patch) {
   saveRoutines(routines().map(r => (r.id === id ? { ...r, ...patch } : r)));
 }
 
+// An hourly routine opens a tab every run; left alone they'd fill every slot
+// overnight and the next run (and any tab of yours) couldn't open. At the cap,
+// the oldest finished routine tab closes. History keeps its transcript.
+function makeRoomForRoutine() {
+  if (manager.tabs.size < MAX_TABS) return;
+  const done = [...routineTabs.keys()].find(id => manager.tabs.has(id) && !manager.isBusy(id));
+  if (!done) return;
+  manager.close(done);
+  routineTabs.delete(done);
+  remote?.settleTab(done);
+}
+
 function runRoutine(r, { reason = 'scheduled' } = {}) {
   const busyTab = [...routineTabs.entries()].find(([tabId, id]) => id === r.id && manager.isBusy(tabId));
-  if (busyTab) return { ok: false, error: `"${r.name}" is still running from last time.` };
-  if (!claudeStatus?.loggedIn) return { ok: false, error: 'Claude Code is not signed in.' };
+  if (busyTab) return { ok: false, skipped: true, error: `"${r.name}" is still running from last time.` };
+  if (!claudeStatus?.loggedIn) return { ok: false, skipped: true, error: 'Claude Code is not signed in.' };
   try {
+    makeRoomForRoutine();
     const tabId = randomUUID();
     const cwd = r.cwd && fs.existsSync(r.cwd) ? r.cwd : currentCwd();
     openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}` });
@@ -2732,7 +2795,15 @@ async function draftRoutine(text) {
 
 function startScheduler() {
   scheduler = new Scheduler({ getRoutines: routines });
-  scheduler.on('due', r => runRoutine(r));
+  scheduler.on('due', r => {
+    // A start that fails outright (runRoutine catch) already said so; a skip
+    // (signed out, last run still going) would otherwise vanish without a word.
+    const res = runRoutine(r);
+    if (!res.ok && res.skipped) {
+      log.info('Routine skipped', `${r.name}: ${res.error}`);
+      notify(`Routine "${r.name}" didn't run`, res.error);
+    }
+  });
   scheduler.start();
   // Catch up on slots missed while the PC was off, staggered so they don't stampede.
   const missed = routines().filter(r => missedOnStartup(r, Date.now()));
@@ -2766,6 +2837,12 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 function rememberPrompt(text) { parityIpc?.rememberPrompt(text); }
 
 function registerIpc() {
+  // Every handler below (and parity's and branching's) checks which window is
+  // asking: the crab's gets only its own channels, other windows nothing.
+  const ipcMain = guardIpc(electronIpcMain, windowPolicy(() => ({
+    panel: panel && !panel.isDestroyed() ? panel.webContents : null,
+    critter: critter && !critter.isDestroyed() ? critter.webContents : null,
+  })), { onRefused: channel => log.warn('IPC refused', channel) });
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
@@ -2909,7 +2986,8 @@ function registerIpc() {
       title: 'Where is Claude Code?',
       defaultPath: claudePath() || path.join(os.homedir(), '.local', 'bin'),
       properties: ['openFile'],
-      filters: [{ name: 'Claude Code', extensions: ['exe', 'cmd', 'bat'] }, { name: 'Any file', extensions: ['*'] }],
+      // .exe only: a .cmd or .bat can't be started without a shell, which Shellby never uses.
+      filters: [{ name: 'Claude Code', extensions: ['exe'] }, { name: 'Any file', extensions: ['*'] }],
       buttonLabel: 'Use this',
     });
     if (r.canceled || !r.filePaths[0]) return { ok: false, cancelled: true, status: claudeStatus };
@@ -3228,6 +3306,19 @@ ${r.detail}` });
         buttons: [{ label: 'Enable Autonomous', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
       });
       if (response !== 0) { delete allowed.autonomousAcknowledged; if (allowed.mode === 'autonomous') delete allowed.mode; }
+      else autonomousOkThisRun = true;
+    }
+    // After that, switching into it still asks once each time Shellby runs: the
+    // panel alone can't flip a later session to no-prompts.
+    if (allowed.mode === 'autonomous' && config.get('mode') !== 'autonomous' && config.get('autonomousAcknowledged') && !autonomousOkThisRun) {
+      const response = await confirm.ask(panel, {
+        ...dialogLook(), icon: '⚠️', danger: true,
+        title: 'Switch to Autonomous?',
+        message: 'Shellby and his helpers will act without asking until you switch back.',
+        note: 'Shellby asks this once each time he starts.',
+        buttons: [{ label: 'Switch to Autonomous', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+      if (response === 0) autonomousOkThisRun = true; else delete allowed.mode;
     }
     if ('mode' in allowed && !MODES.includes(allowed.mode)) delete allowed.mode;
     if ('skin' in allowed) {
@@ -3282,7 +3373,15 @@ ${r.detail}` });
     const r = await dialog.showOpenDialog(panel, { title: 'Where should Shellby work?', defaultPath: currentCwd(), properties: ['openDirectory'] });
     return r.canceled || !r.filePaths[0] ? null : setFolder(r.filePaths[0]);
   });
-  ipcMain.handle('folder:set', (_e, dir) => (isStr(dir) && fs.existsSync(dir) ? setFolder(dir) : null));
+  // Only one of your recent folders (the menu's list): a new one comes through
+  // the folder picker. The panel can't point Claude at any folder it names.
+  // (A development run with its own profile takes any folder: the e2e scripts
+  // set up throwaway repositories that way.)
+  ipcMain.handle('folder:set', (_e, dir) => {
+    const recent = isStr(dir) && (ISOLATED ? (attach.isLocalPath(dir) && dir)
+      : (config.get('recentFolders') || []).find(d => d.toLowerCase() === dir.toLowerCase()));
+    return recent && fs.existsSync(recent) ? setFolder(recent) : null;
+  });
   ipcMain.handle('folder:pick-any', async () => {
     const r = await dialog.showOpenDialog(panel, { title: 'Choose a folder', defaultPath: currentCwd(), properties: ['openDirectory'] });
     return r.canceled ? null : r.filePaths[0] || null;
@@ -3309,6 +3408,7 @@ ${r.detail}` });
     // Only .json files under the size cap, and never echo parse errors: V8's
     // messages quote file contents, which would let a renderer peek at any file.
     if (!/\.json$/i.test(file)) return { ok: false, errors: ['Packs are .json files.'] };
+    if (!attach.isLocalPath(file)) return { ok: false, errors: ['Packs install from a file on this PC.'] };
     try { if (fs.statSync(file).size > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] }; } catch { return { ok: false, errors: ['File not found.'] }; }
     let text;
     try { text = fs.readFileSync(file, 'utf8'); } catch { return { ok: false, errors: ['File not found.'] }; }
@@ -3407,10 +3507,23 @@ ${r.detail}` });
   // ---- routines
   ipcMain.handle('usage:breakdown', () => usageBreakdown());
   ipcMain.handle('routines:list', () => routinesView());
-  ipcMain.handle('routines:save', (_e, input) => {
+  ipcMain.handle('routines:save', async (_e, input) => {
     const existing = routines().find(r => r.id === input?.id);
     const { routine, errors } = validateRoutine({ ...existing, ...input }, { allowAutonomous: !!config.get('autonomousAcknowledged') });
     if (!routine) return { ok: false, errors };
+    // A routine runs unattended. One that may act without a prompt for every
+    // step (Smart, Auto-edit, Autonomous) is confirmed in the isolated window
+    // whenever what it does, where, or how freely changes.
+    const unattended = !['ask', 'plan'].includes(routine.mode);
+    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]);
+    if (unattended && changed) {
+      const response = await confirm.ask(panel, {
+        ...dialogLook(), icon: '⟳', danger: routine.mode === 'autonomous',
+        ...crabtools.routineQuestion(routine, { replacing: existing || null, defaultFolder: currentCwd(), own: true }),
+        buttons: [{ label: existing ? 'Save changes' : 'Add routine', style: routine.mode === 'autonomous' ? 'danger' : 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+      if (response !== 0) return { ok: false, cancelled: true, errors: ['Not saved.'] };
+    }
     const list = existing ? routines().map(r => (r.id === routine.id ? routine : r)) : [...routines(), routine];
     if (list.length > 50) return { ok: false, errors: ['That is a lot of routines. Delete some first (limit 50).'] };
     saveRoutines(list);
@@ -3664,28 +3777,40 @@ ${r.detail}` });
 
   // ---- telling you when you're away (channels.js)
   ipcMain.handle('channels:get', () => channelsView());
-  ipcMain.handle('channels:set', (_e, patch) => {
+  ipcMain.handle('channels:set', async (_e, patch) => {
     const next = channels.normalizeChannelSettings(channelSettings(), patch && typeof patch === 'object' ? patch : {});
     // ntfy needs nothing but a topic, so Shellby picks one nobody will guess
     // instead of asking you to invent it.
-    if (next.enabled && next.provider === 'ntfy' && !next.target) next.target = channels.randomTopic();
+    // A topic Shellby made up himself, with no answering back, needs no
+    // question: nobody but him could have chosen it.
+    if (next.enabled && next.provider === 'ntfy' && !next.target) {
+      next.target = channels.randomTopic();
+      if (!next.replies) config.set({ channelsConfirmed: channelPlace(next) });
+    }
     config.set({ channels: next });
+    await confirmChannelPlace();
     return channelsView();
   });
   ipcMain.handle('channels:findChat', async () => {
     if (channelSettings().provider !== 'telegram') return { ...channelsView(), found: { error: 'That only works for Telegram.' } };
     const found = await channels.findTelegramChat(channelSecret);
-    if (found.chatId) config.set({ channels: channels.normalizeChannelSettings(channelSettings(), { target: found.chatId }) });
+    if (found.chatId) {
+      config.set({ channels: channels.normalizeChannelSettings(channelSettings(), { target: found.chatId }) });
+      await confirmChannelPlace();
+    }
     return { ...channelsView(), found };
   });
-  ipcMain.handle('channels:secret', (_e, secret) => {
+  ipcMain.handle('channels:secret', async (_e, secret) => {
     saveChannelSecret(typeof secret === 'string' ? secret.trim().slice(0, 400) : '');
+    await confirmChannelPlace();
     return channelsView();
   });
   ipcMain.handle('channels:test', async () => {
     const built = channels.buildRequest(channelSettings(), channelSecret,
       { kind: 'done', project: 'Shellby', tools: 0, seconds: 0, at: Date.now() });
     if (built.error) return { ok: false, error: built.error };
+    // Even a test only goes somewhere you've said yes to.
+    if (!(await confirmChannelPlace({ testing: true }))) return { ok: false, error: 'Not sent: that destination isn\'t confirmed.' };
     return channels.deliver(built.request);
   });
 
@@ -4101,6 +4226,8 @@ app.whenReady().then(() => {
 
   // Renderers never need camera, mic, geolocation etc.
   electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+  // ...nor do they get to find out they might (the check behind permissions.query).
+  electronSession.defaultSession.setPermissionCheckHandler(() => false);
 
   // The README reel shows Shellby big: he's the star.
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
@@ -4126,7 +4253,14 @@ app.whenReady().then(() => {
   createCi();
   createFriends();
   channelSecret = loadChannelSecret();
+  // Set up before destinations needed confirming (0.46.1): what you already
+  // had running counts as said yes to, so an update doesn't silence it.
+  if (config.get('channelsConfirmed') == null && channelSettings().enabled) config.set({ channelsConfirmed: channelPlace() });
   createRemote();
+  // On, but not to anywhere you said yes to (a question still open when Shellby
+  // quit, or a token Windows can no longer read back): ask now rather than
+  // stay silently "on" and send nothing.
+  confirmChannelPlace().catch(e => log.warn('channel confirm failed', e.message));
   createObs();
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
@@ -4184,4 +4318,6 @@ app.on('will-quit', () => {
   clearTimeout(limitTimer);
   remote?.stop();
 });
-app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll(); });
+// close() gives a process 3 s to finish on its own, which Shellby quitting never
+// waits for: one mid-task would carry on editing with no window to show it.
+app.on('before-quit', () => { app.isQuitting = true; manager?.closeAll({ kill: true }); });

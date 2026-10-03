@@ -32,7 +32,7 @@ const MAX_PATCH = 400 * 1024;                   // one file's diff, as text
 
 function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer = 8 * 1024 * 1024 } = {}) {
   return new Promise(resolve => {
-    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', ...args], {
+    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
       windowsHide: true, timeout, maxBuffer, encoding: 'utf8',
       // Literal pathspecs: a file a turn named "*.js" or ":(top)x" means that file, not every match.
       env: { ...process.env, ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' },

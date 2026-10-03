@@ -84,6 +84,11 @@ test('plain http is only allowed to this PC and private networks', () => {
   // A token over plain http to the open internet is readable in transit.
   assert.equal(localOrHttps('http://example.com/hook'), false);
   assert.equal(localOrHttps('http://172.32.0.1/hook'), false, '172.32 is not private');
+  // The ranges are addresses, not name prefixes: these are public names.
+  assert.equal(localOrHttps('http://10.evil.example/hook'), false);
+  assert.equal(localOrHttps('http://192.168.evil.example/hook'), false);
+  assert.equal(localOrHttps('http://172.16.evil.example/hook'), false);
+  assert.equal(localOrHttps('http://[::1]:8080/hook'), true);
   assert.equal(localOrHttps('ftp://example.com'), false);
   assert.equal(localOrHttps('file:///C:/x'), false);
   assert.equal(localOrHttps('javascript:alert(1)'), false);

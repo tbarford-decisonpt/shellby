@@ -436,3 +436,33 @@ test('findSession looks where it was asked first, then finds the newest anywhere
     fs.rmSync(configDir, { recursive: true, force: true });
   }
 });
+
+test('bring it home runs none of the repository\'s hooks (Claude may have edited them)', async () => {
+  const t = setup();
+  const ran = path.join(t.base, 'hook-ran.txt');
+  try {
+    // Tracked hooks, the way husky does it: a file Claude can edit without a prompt.
+    fs.mkdirSync(path.join(t.dir, '.githooks'));
+    const hook = `#!/bin/sh\necho "$0" >> "${ran.replace(/\\/g, '/')}"\n`;
+    for (const h of ['pre-commit', 'commit-msg', 'post-commit', 'pre-merge-commit', 'post-merge']) {
+      fs.writeFileSync(path.join(t.dir, '.githooks', h), hook, { mode: 0o755 });
+    }
+    t.g(t.dir, 'config', 'core.hooksPath', '.githooks');
+    t.g(t.dir, '-c', 'core.hooksPath=/dev/null', 'add', '-A');
+    t.g(t.dir, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'hooks');
+    // The base moves on too, so bringing it home is a real merge commit.
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Hooks' });
+    fs.writeFileSync(path.join(t.dir, 'base.txt'), 'base\n');
+    t.g(t.dir, '-c', 'core.hooksPath=/dev/null', 'add', '-A');
+    t.g(t.dir, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'base');
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'new\n');
+    const r = await worktrees.bringHome(w, { message: 'Shellby: Hooks' });
+    assert.deepEqual(r, { ok: true, merged: true, commits: 1 });
+    assert.equal(fs.existsSync(ran), false, fs.existsSync(ran) ? fs.readFileSync(ran, 'utf8') : '');
+    // ...and they are real hooks: an ordinary commit runs them.
+    fs.writeFileSync(path.join(t.dir, 'd.txt'), 'd\n');
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'by hand');
+    assert.equal(fs.existsSync(ran), true, 'the control: hooks do run outside Shellby');
+  } finally { t.done(); }
+});
