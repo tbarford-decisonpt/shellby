@@ -82,3 +82,140 @@ test('CritterMotion strolls and can be interrupted', () => {
   assert.equal(m.stop(), 'stroll');
   assert.equal(m.busy, false);
 });
+
+// A CritterMotion on a fake clock: tick() runs one frame.
+function rigMotion(start = { x: 500, y: 400 }, extra = {}) {
+  let pos = { ...start };
+  let tick = null;
+  const clock = { t: 0 };
+  const states = [];
+  const settled = [];
+  const interrupted = [];
+  const m = new CritterMotion({
+    getPos: () => pos, place: (x, y) => { pos = { x, y }; }, box: () => BOX,
+    onState: (s, info) => states.push([s, info]), onSettled: (k, info) => settled.push([k, info]),
+    onInterrupted: k => interrupted.push(k),
+    setTimer: fn => { tick = fn; return 1; }, clearTimer: () => { tick = null; }, now: () => clock.t,
+    ...extra,
+  });
+  const run = (n = 1, ms = 16) => { for (let i = 0; i < n && tick; i++) { clock.t += ms; tick(); } };
+  return { m, run, get pos() { return pos; }, states, settled, interrupted, clock, get ticking() { return !!tick; } };
+}
+
+test('a falling crab catches a ledge in his path, and says which', () => {
+  const r = rigMotion({ x: 500, y: 100 }, { ledges: () => [{ id: 77, x1: 400, x2: 700, y: 300 }] });
+  r.m.launch({ vx: 0, vy: 0 }, { style: 'fall', why: 'fell' });
+  r.run(200);
+  assert.equal(r.pos.y, 300, 'stopped on the ledge, not the floor');
+  const [kind, info] = r.settled.at(-1);
+  assert.equal(kind, 'flight');
+  assert.equal(info.ledge, 77);
+  assert.equal(info.why, 'fell');
+});
+
+test('stepFlight: a ledge only catches him on the way down, and only over it', () => {
+  const box = { ...BOX, ledges: [{ id: 1, x1: 400, x2: 700, y: 300 }] };
+  const up = stepFlight({ x: 500, y: 310, vx: 0, vy: -900 }, 16, box);
+  assert.equal(up.ledge, null, 'rising through it');
+  const beside = stepFlight({ x: 800, y: 295, vx: 0, vy: 900 }, 16, box);
+  assert.equal(beside.ledge, null, 'not over it');
+  const onto = stepFlight({ x: 500, y: 295, vx: 0, vy: 900 }, 16, box);
+  assert.equal(onto.ledge, 1);
+  assert.equal(onto.body.y, 300);
+  assert.equal(onto.landed, true);
+});
+
+test('a hop crouches, arcs, follows a moving target and lands on it', () => {
+  const r = rigMotion({ x: 500, y: 900 });
+  let target = { x: 300, y: 300 };
+  let landed = false;
+  const path = (from, to, u) => ({ x: Math.round(from.x + (to.x - from.x) * u), y: Math.round(from.y + (to.y - from.y) * u - 200 * u * (1 - u)) });
+  assert.equal(r.m.hop(() => target, { path, ms: 500, crouchMs: 100, onLand: () => { landed = true; } }), true);
+  assert.equal(r.states[0][0], 'crouch');
+  r.run(5);
+  assert.equal(r.pos.x, 500, 'still crouched');
+  r.run(10);
+  assert.ok(r.states.some(([s]) => s === 'hopping'));
+  target = { x: 350, y: 320 }; // the window moved mid-hop
+  r.run(60);
+  assert.equal(landed, true);
+  assert.deepEqual(r.pos, { x: 350, y: 320 });
+  assert.deepEqual(r.settled.at(-1), ['hop', undefined]);
+  assert.equal(r.m.busy, false);
+});
+
+test('a hop whose target vanishes mid-air turns into a fall', () => {
+  const r = rigMotion({ x: 500, y: 700 });
+  let target = { x: 300, y: 300 };
+  const path = (from, to, u) => ({ x: Math.round(from.x + (to.x - from.x) * u), y: Math.round(from.y + (to.y - from.y) * u) });
+  r.m.hop(() => target, { path, ms: 600, crouchMs: 0 });
+  r.run(10);
+  target = null;
+  r.run(1);
+  assert.equal(r.m.kind, 'flight');
+  r.run(400);
+  const [, info] = r.settled.at(-1);
+  assert.equal(info.why, 'missed');
+  assert.equal(r.pos.y, BOX.floorY);
+});
+
+test('ride hands every frame to its step, moves only on change, and can launch', () => {
+  const r = rigMotion({ x: 100, y: 100 });
+  let places = 0;
+  const m = new CritterMotion({
+    getPos: () => r.pos, place: () => { places++; }, box: () => BOX,
+    setTimer: fn => { r.tickFn = fn; return 1; }, clearTimer: () => { r.tickFn = null; }, now: () => r.clock.t,
+  });
+  let n = 0;
+  m.ride(() => {
+    n++;
+    if (n < 5) return { place: { x: 100, y: 100 } }; // where he already is
+    if (n < 8) return { place: { x: 100 + n, y: 100 } };
+    return { launch: { vx: 0, vy: -100, style: 'fling', why: 'flung', dizzy: true } };
+  });
+  for (let i = 0; i < 9 && r.tickFn; i++) { r.clock.t += 16; r.tickFn(); }
+  assert.equal(places >= 3, true);
+  assert.ok(places < 8, 'no moves to where he already is');
+  assert.equal(m.kind, 'flight');
+});
+
+test('stop() mid-ride tells whoever started it; halt() does not', () => {
+  const r = rigMotion();
+  r.m.ride(() => null);
+  assert.equal(r.m.stop(), 'ride');
+  assert.deepEqual(r.interrupted, ['ride']);
+  r.m.ride(() => null);
+  r.m.halt();
+  assert.deepEqual(r.interrupted, ['ride'], 'halt is the move ending itself');
+});
+
+test('walkTo walks at the speed asked and reports its own kind', () => {
+  const r = rigMotion({ x: 100, y: 700 });
+  assert.equal(r.m.walkTo(400, 100, { kind: 'walk-home' }), true);
+  assert.equal(r.m.walkTo(200), false, 'one move at a time');
+  r.run(20, 50);
+  assert.ok(r.pos.x > 150 && r.pos.x < 300, `about 100 DIP/s: ${r.pos.x}`);
+  r.run(100, 50);
+  assert.equal(r.pos.x, 400);
+  assert.deepEqual(r.settled.at(-1), ['walk-home', undefined]);
+  assert.equal(r.m.walkTo(400), false, 'already there');
+});
+
+test('a calm ride slows to a few frames a second, and speeds up the moment it is not', () => {
+  const periods = [];
+  let tick = null, t = 0;
+  const m = new CritterMotion({
+    getPos: () => ({ x: 0, y: 0 }), place: () => {}, box: () => BOX,
+    setTimer: (fn, every) => { tick = fn; periods.push(every); return periods.length; }, clearTimer: () => { tick = null; }, now: () => t,
+  });
+  let calm = true;
+  m.ride(() => ({ calm }));
+  t += 16; tick();
+  assert.deepEqual(periods, [16, 100], 'settled: slows down');
+  t += 100; tick();
+  assert.equal(periods.length, 2, 'stays slow while calm');
+  calm = false;
+  t += 100; tick();
+  assert.deepEqual(periods, [16, 100, 16], 'the window moved: full speed again');
+  assert.equal(m.kind, 'ride');
+});

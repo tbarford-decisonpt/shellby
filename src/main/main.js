@@ -10,17 +10,18 @@ const { randomUUID } = require('crypto');
 const { Config, MODES } = require('./config');
 const { MODELS, isModel } = require('./models');
 const { History } = require('./history');
-const { SessionManager } = require('./sessions');
+const { SessionManager, MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
-const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
+const { keepOnDesktop, sendToBottom, pin: pinToDesktop } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
+const { attachContextMenu } = require('./context-menu');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
@@ -47,6 +48,8 @@ const spend = require('./spend');
 const recap = require('./recap');
 const ctx = require('./context');
 const { CritterMotion } = require('./motion');
+const { createPerching } = require('./perching');
+const { SETTINGS: PERCH_SETTINGS } = require('./perch');
 const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
@@ -65,6 +68,8 @@ const shellCmd = require('./shellcmd');
 const outputStyles = require('./outputstyles');
 const { EFFORTS } = require('./session');
 const parity = require('./parity');
+const branching = require('./branching');
+const branch = require('./branch');
 const fileIndex = require('./fileindex');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -157,6 +162,7 @@ let guestShown = false;            // room allotted for a friend's visiting crab
 let visitor = null;                // { login, look, until }: a friend's crab dropped by (see friends.js)
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let motion = null;                 // throws and strolls (see motion.js)
+let perching = null;               // up on your windows (see perching.js)
 let said = null;                   // { text, occasion, until } — the line in his bubble (see voice.js)
 let longTaskTimer = null;          // a task still running after LONG_TASK_MS gets a "still going…"
 const fileTouches = new Map();     // file path -> times written this run, for his "this file again?"
@@ -222,7 +228,14 @@ function resetCritterPos() {
   const p = defaultCritterPos(critterBaseSize());
   placeCritter(p.x - crewExtra(), p.y);
   config.set({ critterPos: p });
-  sendToBottom(critter);
+  settleCritter();
+}
+
+// Back down on the desktop layer, unless he's up on a window (or in the air on
+// his way to one), where he stays put. See perching.js.
+function settleCritter() {
+  if (perching) perching.home();
+  else sendToBottom(critter);
 }
 
 function defaultCritterPos(size) {
@@ -244,27 +257,70 @@ function motionBox() {
   return { minX: wa.x, maxX: wa.x + wa.width - b.width, minY: wa.y, floorY: wa.y + wa.height - b.height };
 }
 
+// What perching needs from here: his size and spot, the motion engine, and his
+// voice, stats and renderer.
+function createPerchingFor() {
+  perching = createPerching({
+    critter: () => critter,
+    motion: () => motion,
+    screen,
+    config,
+    capture: CAPTURE,
+    geo: () => {
+      const s = critterSize();
+      // Feet sit 18 DIP above the window's bottom edge (#crab in critter.css).
+      return { width: s.width, height: s.height, foot: 18, half: 11 * px(), headroom: s.height - 18 };
+    },
+    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
+    place: (x, y) => placeCritter(x, y),
+    box: motionBox,
+    homePos: () => {
+      const p = config.get('critterPos') || defaultCritterPos(critterBaseSize());
+      return { x: p.x - crewExtra(), y: p.y };
+    },
+    pin: () => (CAPTURE ? sendToBottom(critter) : pinToDesktop(critter)),
+    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
+    speak: (occasion, opts) => speak(occasion, opts),
+    stat,
+    toRenderer: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
+    perchView: view => send(critter, 'critter:perch', view),
+    bit: (bit, ms) => send(critter, 'critter:bit', { bit, ms }),
+    refresh: () => refreshCritter(),
+    dragging: () => dragging,
+    crew: () => crewShown + (guestShown ? 1 : 0), // helpers or a visitor beside him: he stays down
+  });
+}
+
 function createMotion() {
   motion = new CritterMotion({
     getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
     place: (x, y) => placeCritter(x, y),
     box: motionBox,
+    ledges: () => perching?.flightLedges() || [],
     onState: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
-    onSettled: kind => {
+    onSettled: (kind, info) => {
+      if (perching?.onSettled(kind, info)) return;
       if (kind === 'flight') { saveCritterPos(); stat('thrown'); }
-      sendToBottom(critter);
+      settleCritter();
     },
+    onInterrupted: kind => perching?.onInterrupted(kind),
   });
-  // Now and then an idle, awake Shellby takes a few steps near his spot, or
-  // finds something to do with his claws, or says something to nobody.
+  createPerchingFor();
+  // Now and then an idle, awake Shellby takes a few steps near his spot, hops
+  // up onto one of your windows, finds something to do with his claws, or says
+  // something to nobody. Up on a window, his life has its own rhythm.
   setInterval(() => {
-    if (CAPTURE || motion.busy || dragging || crewShown || guestShown) return;
-    if (lastStatus.state !== 'idle' || focus.guarding(config.get('focus'), Date.now())) return;
+    if (CAPTURE || dragging) return;
+    const idle = lastStatus.state === 'idle';
+    const guarding = focus.guarding(config.get('focus'), Date.now());
+    if (perching.isUp()) return void perching.idleTick({ idle, guarding, quiet: voice.chatterOf(config.get('chatter')) === 'quiet' });
+    if (motion.busy || crewShown || guestShown || !idle || guarding) return;
     // A stroll moves his window; the little habits don't, so 'wander' only
-    // governs the strolling, as it always has.
-    if (config.get('wander') !== false && Math.random() < 0.35) {
+    // governs the strolling (and the climbing), as it always has.
+    if (config.get('wander') !== false) {
+      if (perching.maybeGoUp()) return;
       const home = config.get('critterPos');
-      if (home) return void motion.stroll(home.x - crewExtra());
+      if (home && Math.random() < 0.35) return void motion.stroll(home.x - crewExtra());
     }
     if (voice.chatterOf(config.get('chatter')) === 'quiet' || Math.random() > IDLE_BIT_CHANCE) return;
     send(critter, 'critter:bit', { bit: voice.pickBit(voice.normalize(config.get('voice')).seed) });
@@ -287,9 +343,9 @@ function createCritter() {
   critter.once('ready-to-show', () => {
     keepCritterSize(); // created on a scaled monitor, Windows may have rounded it
     critter.showInactive();
-    if (!CAPTURE) keepOnDesktop(critter);
+    if (!CAPTURE) keepOnDesktop(critter, { isAway: () => !!perching?.isAway() });
   });
-  critter.on('blur', () => sendToBottom(critter));
+  critter.on('blur', () => sendToBottom(critter)); // a no-op while he's up on a window
   critter.on('resize', () => setImmediate(keepCritterSize));
 }
 
@@ -381,6 +437,9 @@ function setCrewSlots(n, guest = !!visitor) {
   // A shrink still pending from a moment ago would cut off whoever just arrived.
   clearTimeout(shrinkTimer);
   if (n === crewShown && guest === guestShown) return;
+  // Helpers and a visiting crab line up on the floor beside him, so he comes
+  // down off any window first. The refresh after he lands brings them out.
+  if ((n > crewShown || (guest && !guestShown)) && perching?.isAway()) { perching.leave('crew'); return; }
   const apply = (slots, g) => {
     const b = critter.getBounds();
     const base = critterBaseSize();
@@ -411,6 +470,7 @@ function createPanel() {
     show: false, frame: false, backgroundColor: '#0c1719', title: 'Shellby', icon: ICON, webPreferences,
   });
   secureWindow(panel);
+  attachContextMenu(panel, Menu);
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
   panel.on('resized', () => { const [width, height] = panel.getSize(); config.set({ panelSize: { width, height } }); });
@@ -754,10 +814,15 @@ async function noteTurnChanges(tabId) {
   if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
   if (!start) return;
   try {
-    const summary = await changes.summarize(start, await changes.snapshot(start.root));
+    const end = await changes.snapshot(start.root);
+    const summary = await changes.summarize(start, end);
     // Tagged with its turn: the diff is worked out after the turn ends, by which
     // time the next message may already be in the transcript (rewind.js).
-    if (summary) manager.note(tabId, { kind: 'changes', ...summary, ...(start.turnId ? { turnId: start.turnId } : {}) });
+    const turn = start.turnId ? { turnId: start.turnId } : {};
+    if (summary) manager.note(tabId, { kind: 'changes', ...summary, ...turn });
+    // Where the files stood at both ends of the turn, changed or not: a branch
+    // from any turn starts its copy from exactly there (branch.js). Not shown.
+    if (end && end.root === start.root) manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });
   } catch (err) {
     log.info(`changes: ${err.message}`);
   }
@@ -776,6 +841,16 @@ const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 // Claude is asked for a branch name, and when that turn ends moveIntoCopy makes
 // the copy, carries the conversation across and lets Claude carry on there.
 async function armCopy(tab) {
+  // A branch (branch.js) already has its copy, but Claude remembers the
+  // original's paths: the same hook keeps its changes out of them. Only while
+  // that copy is the one it works in: once it's gone, so is the fence.
+  if (tab.fence && tab.worktree && !CAPTURE && path.resolve(tab.fence.home || '').toLowerCase() === path.resolve(tab.worktree.path).toLowerCase()) {
+    tab.session.beforeWork = input => {
+      const why = branch.fenceDenies(tab.fence, input.tool_name, input.tool_input);
+      return why ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: why } } : {};
+    };
+    return;
+  }
   if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.worktree) {
     tab.session.beforeWork = null;
     return;
@@ -856,7 +931,9 @@ async function retireWorktree(tabId, w, { force }) {
   // The copy's diffs were snapshots in the repository's shared object store,
   // so they still read from your checkout once the folder is gone.
   const copies = (history.get(tabId)?.copies || []).filter(c => c.path !== w.path);
-  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null, copies: [...copies, { path: w.path, root: w.root }] });
+  // A branch's fence and note were about its copy (branch.js): with the copy
+  // gone it works in your checkout like any conversation, so they go too.
+  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null, fence: null, preamble: null, copies: [...copies, { path: w.path, root: w.root }] });
   return removed;
 }
 
@@ -2421,6 +2498,7 @@ function registerIpc() {
   let samples = [];
   ipcMain.on('critter:drag-start', () => {
     motion?.stop();
+    perching?.grabbed(); // in your hand he's above every window, so you can see where he'll go
     const c = screen.getCursorScreenPoint();
     const [x, y] = critter.getPosition();
     grab = { dx: c.x - x, dy: c.y - y };
@@ -2439,9 +2517,12 @@ function registerIpc() {
     dragging = false;
     const c = screen.getCursorScreenPoint();
     if (motion?.release([...samples, { x: c.x, y: c.y, t: Date.now() }])) return; // he lands, then saves
+    if (perching?.dropped()) return; // put down on a title bar: he perches there, and home stays home
     saveCritterPos();
-    sendToBottom(critter);
+    settleCritter();
   });
+  // Perched, his window lets the mouse through except over the crab himself.
+  ipcMain.on('critter:hit', (_e, over) => perching?.hover(!!over));
   // Rubbing the mouse back and forth over him (see critter.js).
   let lastPet = 0;
   ipcMain.on('critter:pet', () => {
@@ -2451,7 +2532,7 @@ function registerIpc() {
     if (['idle', 'sleeping'].includes(lastStatus.state)) { lastActivity = Date.now(); flashState('petted', 2600); }
   });
   ipcMain.on('critter:reset-position', () => resetCritterPos());
-  ipcMain.on('critter:click', () => { wake(); togglePanel(); sendToBottom(critter); });
+  ipcMain.on('critter:click', () => { wake(); togglePanel(); sendToBottom(critter); }); // sendToBottom leaves a perched crab be
   ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) showPanel({ focusInput: false, tabId }); });
   // The badge for background work: straight to the list that says what it was.
   ipcMain.on('critter:bg-click', () => {
@@ -2661,7 +2742,8 @@ function registerIpc() {
   // Bringing it home merges and keeps the conversation going in its copy, so
   // you can carry on and bring it home again. finish: also tidy the copy away
   // (the tab closes; the conversation stays in History).
-  ipcMain.handle('worktree:home', async (_e, tabId, opts) => {
+  ipcMain.handle('worktree:home', (_e, tabId, opts) => bringTabHome(tabId, opts));
+  async function bringTabHome(tabId, opts) {
     const w = worktreeOf(tabId);
     if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
     if (manager.isBusy(tabId)) return { ok: false, error: 'Let him finish first.' };
@@ -2686,7 +2768,7 @@ function registerIpc() {
     } finally {
       retiring.delete(tabId);
     }
-  });
+  }
 
   // ---- the repository as a whole: push it, and bring every copy home
   //
@@ -2788,6 +2870,26 @@ ${r.detail}` });
     try { return await retireWorktree(tabId, w, { force: true }); } finally { retiring.delete(tabId); }
   });
 
+  // ---- branching a conversation from any turn (branching.js)
+  let branchAsking = false; // one question at a time, so a flood of them can't be clicked through
+  branching.register({
+    ipcMain, manager, history, MAX_TABS, log, stat, wake, composePrompt, openTab, send,
+    panel: () => panel, worktreeHome, claudeConfigDir,
+    turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
+    turnStart: tabId => turnStarts.get(tabId) || null,
+    ask: async spec => {
+      if (branchAsking) return null;
+      branchAsking = true;
+      try { return await confirm.ask(panel, { ...dialogLook(), ...spec }); } finally { branchAsking = false; }
+    },
+    bringHome: bringTabHome,
+    retire: async (id, w, opts) => {
+      if (retiring.has(id)) return { ok: false, error: 'Already on it.' };
+      retiring.add(id);
+      try { return await retireWorktree(id, w, opts); } finally { retiring.delete(id); }
+    },
+  });
+
   // ---- history
   ipcMain.handle('session:list', () => history.list());
   ipcMain.handle('session:open', (_e, id) => {
@@ -2822,7 +2924,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle', 'planOnly']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle', 'planOnly']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -2851,7 +2953,15 @@ ${r.detail}` });
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
     for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'planOnly']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
-    if (allowed.wander === false) motion?.stop();
+    if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
+    // The only edit the panel makes to this list is taking an app back off it.
+    if ('perchIgnore' in allowed) {
+      const was = new Set(config.get('perchIgnore') || []);
+      allowed.perchIgnore = Array.isArray(allowed.perchIgnore) ? allowed.perchIgnore.filter(x => isStr(x) && was.has(x)) : [...was];
+    }
+    // Told to stay down, he hops down off any window rather than freezing up there.
+    if (allowed.wander === false || allowed.perch === 'off') perching?.leave('off');
+    if (allowed.wander === false && !perching?.isAway()) motion?.stop();
     const prevHotkey = config.get('hotkey');
     let hotkeyError = null;
     if ('hotkey' in allowed && allowed.hotkey !== prevHotkey) {
@@ -3178,6 +3288,12 @@ ${r.detail}` });
       return focusView();
     });
     ipcMain.handle('dev:critter-pos', () => critter.getBounds());
+    // Perching: go up on a given window now (no dice roll, no look-up), see where he is, or hop down.
+    ipcMain.handle('dev:perch', (_e, { hwnd = null, leave = false } = {}) => {
+      if (leave) return perching.leave('asked');
+      return perching.tryGoUp({ hwnd: Number.isInteger(hwnd) ? hwnd : null, eye: false, any: !hwnd });
+    });
+    ipcMain.handle('dev:perch-state', (_e, { debug = false } = {}) => ({ ...perching.view(), bounds: critter.getBounds(), motion: motion.kind, ...(debug ? { debug: perching.debug() } : {}) }));
   }
 
   // ---- focus sessions
@@ -3490,6 +3606,7 @@ function buildMenu() {
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
     updateMenuItem(),
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
+    ...(perching?.menuItems() || []),
     { label: 'Reset position', click: resetCritterPos },
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
     { label: 'Report a problem…', click: reportProblem },

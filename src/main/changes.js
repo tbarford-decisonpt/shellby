@@ -50,13 +50,19 @@ async function rootOf(dir) {
 
 /**
  * The working folder as a tree, untracked files included (minus ignored ones,
- * and minus anything enormous). -> { root, tree } | null
+ * and minus anything enormous). head: the commit checked out at the time (null
+ * in a repo with no commits), so a branch can start a copy from exactly here
+ * (branch.js). -> { root, tree, head } | null
  */
 async function snapshot(dir) {
   const root = await rootOf(dir);
   if (!root) return null;
-  const idx = await git(root, ['rev-parse', '--git-path', 'index'], { timeout: 5000 });
+  const [idx, at] = await Promise.all([
+    git(root, ['rev-parse', '--git-path', 'index'], { timeout: 5000 }),
+    git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000 }),
+  ]);
   if (!idx.ok) return null;
+  const head = at.ok && TREE.test(at.out.trim()) ? at.out.trim() : null;
   const realIndex = path.resolve(root, idx.out.trim());
   const tmp = path.join(os.tmpdir(), `shellby-index-${crypto.randomBytes(6).toString('hex')}`);
   try {
@@ -78,12 +84,26 @@ async function snapshot(dir) {
     }
     const tree = await git(root, ['write-tree'], { env });
     const t = tree.ok && tree.out.trim();
-    return t && TREE.test(t) ? { root, tree: t } : null;
+    return t && TREE.test(t) ? { root, tree: t, head } : null;
   } catch {
     return null;
   } finally {
     try { fs.rmSync(tmp, { force: true }); } catch { /* temp dir */ }
   }
+}
+
+/**
+ * Do two folders belong to the same repository (a checkout and its worktrees
+ * do: they share one object store, so a snapshot of one diffs against the other)?
+ */
+async function sameRepo(a, b) {
+  // Relative to the folder when git says so (and every git does, before 2.31's --path-format).
+  const common = async dir => {
+    const r = await git(dir, ['rev-parse', '--git-common-dir'], { timeout: 5000 });
+    return r.ok && r.out.trim() ? path.resolve(dir, r.out.trim()).toLowerCase() : null;
+  };
+  const [x, y] = await Promise.all([common(a), common(b)]);
+  return !!x && x === y;
 }
 
 /** `git diff -z --numstat` + `--name-status` -> [{ path, status, added, removed, binary }]. Pure. */
@@ -184,4 +204,4 @@ async function undo(ref) {
   return { ok: true, restored: turn.length };
 }
 
-module.exports = { snapshot, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, TREE };
+module.exports = { snapshot, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

@@ -20,6 +20,7 @@ const SUITE = [
   'e2e-feed-cap',     // a very long conversation stops growing the DOM
   'e2e-questions',    // Claude's multiple-choice questions
   'e2e-xp',           // XP, levels, the desktop float and the level-up
+  'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
@@ -34,6 +35,7 @@ const SUITE = [
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
+  'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode
 ];

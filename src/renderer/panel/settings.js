@@ -75,6 +75,7 @@
     $('notifyToggle').checked = !!state.settings.notifications;
     $('recapToggle').checked = state.settings.recap !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
+    renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
     $('planOnlyToggle').checked = !!state.settings.planOnly;
     const billing = state.status?.billingEnv || [];
@@ -91,6 +92,24 @@
       ['Billing', st.authMethod === 'claude.ai' ? 'Claude subscription ✓' : (st.authMethod || '—')],
     ];
     $('facts').replaceChildren(...facts.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v, title: v })]));
+  }
+
+  // Climbing onto windows lives under strolling: with strolling off he stays
+  // put, so the choice is shown but can't be changed.
+  function renderPerch() {
+    const s = state.settings;
+    $('perchSelect').value = ['off', 'sometimes', 'often'].includes(s.perch) ? s.perch : 'sometimes';
+    $('perchSelect').disabled = s.wander === false;
+    const ignored = Array.isArray(s.perchIgnore) ? s.perchIgnore : [];
+    $('perchIgnoreRow').hidden = !ignored.length;
+    $('perchIgnoreList').replaceChildren(...ignored.map(exe => h('button', {
+      type: 'button', class: 'perch-app', 'aria-label': `Let him climb onto ${exe} again`,
+      onclick: async () => {
+        const r = await api.setSettings({ perchIgnore: ignored.filter(x => x !== exe) });
+        state.settings = r.settings;
+        renderPerch();
+      },
+    }, exe.replace(/\.exe$/i, ''), h('span', { class: 'x', 'aria-hidden': 'true', text: '✕' }))));
   }
 
   $('autonomousYes').addEventListener('click', async () => {
@@ -111,7 +130,8 @@
     SB.toast('Output style applies to new conversations.');
   });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
-  $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; });
+  $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; renderPerch(); });
+  $('perchSelect').addEventListener('change', async e => { const r = await api.setSettings({ perch: e.target.value }); state.settings = r.settings; renderPerch(); });
   $('worktreeToggle').addEventListener('change', async e => {
     const r = await api.setSettings({ worktrees: e.target.checked });
     state.settings = r.settings;

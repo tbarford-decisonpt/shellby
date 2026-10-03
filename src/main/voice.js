@@ -64,6 +64,15 @@ const OCCASIONS = Object.freeze({
 
   // --- nothing happening
   idle: { every: 9 * MINUTE, ttl: 6 * SECOND, only: 'chatty' },
+
+  // --- up on your windows (see perch.js)
+  perch: { every: 3 * MINUTE, ttl: 5 * SECOND },
+  ride: { every: 2 * MINUTE, ttl: 4 * SECOND },
+  shaken: { every: 30 * SECOND, ttl: 4 * SECOND },
+  dropped: { every: 30 * SECOND, ttl: 4 * SECOND },
+  dizzy: { every: MINUTE, ttl: 5 * SECOND },
+  pop: { every: MINUTE, ttl: 4 * SECOND },
+  caught: { every: 30 * SECOND, ttl: 5 * SECOND },
 });
 
 // His lines. Short, dry, and his own. Every pool needs at least three or the
@@ -89,6 +98,13 @@ const LINES = Object.freeze({
   latenight: ['you too?', 'late one', 'still up?'],
   back: ["you're back!", 'missed you', 'where were you?'],
   idle: ['all quiet', "tide's out", 'anything?', 'hm', 'nice day'],
+  perch: ['nice view', 'comfy up here', 'my spot now', "what's this one?"],
+  ride: ['wheee', 'steady!', 'faster!', 'whoa'],
+  shaken: ['rude!', 'HEY', 'oof', 'was that needed?'],
+  dropped: ['oh no', '…huh', 'where did it go?', 'not again'],
+  dizzy: ['the room spins', 'whoa…', 'which way is up'],
+  pop: ['boing!', 'squashed!', 'okay okay'],
+  caught: ['caught it!', 'stuck the landing', 'ta-da'],
 });
 
 // A crab is a crab, but yours is a particular one. The temperament comes from
@@ -99,18 +115,22 @@ const FLAVOR = Object.freeze({
   chipper: {
     working: ['love this bit'], success: ['yay!'], error: ['we go again'],
     passed: ['knew it!'], morning: ['bright and early'], idle: ['lovely day', 'what next?'],
+    ride: ['again! again!'], perch: ['hello up here!'],
   },
   fussy: {
     working: ['carefully now'], success: ['tidy'], error: ['I knew it'],
     bigWrite: ['too much'], sameFile: ['again? really?'], idle: ['dusty in here'],
+    perch: ['dusty up here'], shaken: ['how undignified'],
   },
   cocky: {
     working: ['watch this'], success: ['easy', 'obviously'], error: ['not my fault'],
     passed: ['never doubted it'], push: ["you're welcome"], idle: ['bored'],
+    shaken: ['meant to do that'], caught: ['obviously'],
   },
   sleepy: {
     working: ['yawn… on it'], success: ['…done'], error: ['ugh'],
     longTask: ['so long…'], latenight: ['bedtime'], idle: ['nap time?', 'quiet…'],
+    perch: ['good nap spot'], dropped: ['was asleep…'],
   },
 });
 

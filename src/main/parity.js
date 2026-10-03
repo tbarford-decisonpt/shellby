@@ -142,6 +142,7 @@ function register(deps) {
     if (tab.session.busy) return { ok: false, error: 'Let him finish first (or press Stop), then rewind.' };
     if (tab.shellRunning) return { ok: false, error: 'A ! command is still running. Rewind when it has finished.' };
     if (tab.rewinding) return { ok: false, error: 'Already rewinding.' };
+    if (tab.branching) return { ok: false, error: 'Making a branch of this one: try again in a moment.' };
     if (!conversation && !code) return { ok: false, error: 'Pick the conversation, the code, or both.' };
     tab.rewinding = true;
     try { return await doRewind(tab, turnId, { conversation, code }); } finally { tab.rewinding = false; }

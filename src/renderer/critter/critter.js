@@ -328,17 +328,124 @@ function hearts() {
   }
 }
 
-// ---- thrown, landing, strolling (main moves the window; see src/main/motion.js)
-const MOTION_FLAGS = ['flying', 'fly-left', 'landed', 'walking'];
+// ---- on the move: thrown, landing, strolling, and up on your windows. Main
+// moves the window (src/main/motion.js, perching.js); this is how he looks
+// while it does: one body class per beat, all of it in critter.css.
+const MOTION_FLAGS = [
+  'flying', 'fly-left', 'fly-fall', 'fly-fling', 'fly-pop', 'landed', 'walking', 'walk-left',
+  'eyeing', 'crouch', 'hopping', 'hop-flip', 'cling', 'scramble', 'coyote', 'wheee', 'windy',
+];
+const FLY_STYLES = new Set(['fall', 'fling', 'pop']); // 'tumble' is the plain throw
+const DIZZY_MS = 2600;
+const WHEEE_MS = 1800;
+const root = document.documentElement.style;
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || 0));
 let landedTimer = null;
-api.onMotion(({ kind, vx = 0 }) => {
+let dizzyTimer = null;
+let wheeeTimer = null;
+const dustHost = document.getElementById('dust');
+
+// Which way he's going, for anything that leans, flips or trails behind him.
+const setDir = v => root.setProperty('--dir', v < 0 ? '-1' : '1');
+
+// Riding a window that's moving: lean back against it, and the faster it goes
+// the harder the wind streams past.
+function setLean(vx) {
+  const v = clampN(vx, -4000, 4000);
+  const wind = clampN(Math.abs(v) / 1400, 0, 1);
+  root.setProperty('--lean', `${clampN(-v / 90, -16, 16).toFixed(1)}deg`);
+  root.setProperty('--wind', wind.toFixed(2));
+  root.setProperty('--wdir', v < 0 ? '-1' : '1');
+  if (wind > 0.15) flags.add('windy'); else flags.delete('windy');
+}
+
+// A puff of dust where his feet touch down.
+function puff(n = 7) {
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('i');
+    const side = i % 2 ? 1 : -1;
+    const spread = 6 + (i * 37 % 19);
+    el.style.setProperty('--dx', `${side * spread * 1.6}px`);
+    el.style.setProperty('--dy', `${-4 - (i * 23 % 11)}px`);
+    el.style.animationDelay = `${i * 12}ms`;
+    dustHost.append(el);
+    setTimeout(() => el.remove(), 800);
+  }
+}
+
+function dizzy(ms = DIZZY_MS) {
+  clearTimeout(dizzyTimer);
+  flags.add('dizzy');
+  paintBody();
+  dizzyTimer = setTimeout(() => { flags.delete('dizzy'); paintBody(); }, clampN(ms, 600, 6000));
+}
+
+// A move takes over his body, so whatever little habit he was in the middle of stops.
+function endBit() {
+  clearTimeout(bitTimer);
+  if (bit) flags.delete(`bit-${bit}`);
+  bit = null;
+}
+
+api.onMotion(msg => {
+  const { kind, vx = 0 } = msg || {};
+  // Beats that layer on top of whatever he's doing rather than replacing it.
+  if (kind === 'lean') { setLean(vx); paintBody(); return; }
+  if (kind === 'dizzy') { dizzy(msg.ms); return; }
+  if (kind === 'wheee') {
+    clearTimeout(wheeeTimer);
+    flags.add('wheee');
+    wheeeTimer = setTimeout(() => { flags.delete('wheee'); paintBody(); }, WHEEE_MS);
+    paintBody();
+    return;
+  }
   for (const f of MOTION_FLAGS) flags.delete(f);
   clearTimeout(landedTimer);
-  if (kind === 'flying') { flags.add('flying'); if (vx < 0) flags.add('fly-left'); }
-  if (kind === 'walking') flags.add('walking');
-  if (kind === 'landed') { flags.add('landed'); landedTimer = setTimeout(() => { flags.delete('landed'); paintBody(); }, 700); }
+  if (kind !== 'perched' && kind !== null) endBit();
+  if (kind !== 'cling') setLean(0);
+  if (kind === 'flying') {
+    flags.add('flying');
+    if (vx < 0) flags.add('fly-left');
+    if (FLY_STYLES.has(msg.style)) flags.add(`fly-${msg.style}`);
+    setDir(vx);
+  }
+  if (kind === 'walking') { flags.add('walking'); if (msg.dir < 0) flags.add('walk-left'); setDir(msg.dir); }
+  if (kind === 'eyeing') { flags.add('eyeing'); setDir(msg.dx); }
+  if (kind === 'crouch') { flags.add('crouch'); setDir(vx); }
+  if (kind === 'hopping') {
+    flags.add('hopping');
+    if (msg.flip) flags.add('hop-flip');
+    root.setProperty('--hop-ms', `${clampN(msg.ms, 200, 2000)}ms`);
+    setDir(vx);
+  }
+  if (kind === 'landed') {
+    flags.add('landed');
+    puff();
+    landedTimer = setTimeout(() => { flags.delete('landed'); paintBody(); }, 700);
+    if (msg.dizzy) dizzy();
+  }
+  if (kind === 'cling') flags.add('cling');
+  if (kind === 'scramble') flags.add('scramble');
+  if (kind === 'coyote') flags.add('coyote');
   paintBody();
 });
+
+// ---- up on a window. Perched, everything but the crab himself lets the mouse
+// through to the title bar under him, so main needs to know when the pointer
+// is over him (the moves are forwarded even while the window ignores clicks).
+let perched = false;
+let overMe = false;
+const setOver = over => { if (over !== overMe) { overMe = over; api.hit(over); } };
+api.onPerch(msg => {
+  perched = !!msg?.up;
+  if (perched) flags.add('on-perch'); else flags.delete('on-perch');
+  if (!perched) overMe = false;
+  paintBody();
+});
+document.addEventListener('mousemove', e => {
+  if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, .helper'));
+});
+document.addEventListener('mouseleave', () => { if (perched) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });
 
 // ---- drop files onto Shellby to attach them to a task
@@ -370,20 +477,21 @@ setInterval(() => {
   if ((focusing && state === 'idle') || (limit && state === 'sleeping')) bubbleText.textContent = bubbleFor();
 }, 1000);
 
-// ---- idle habits: he digs, polishes his shell, peeks about, flops over.
-// Which habit it is comes from main (src/main/voice.js); the animation is one
-// class per habit in critter.css, so an unknown one simply does nothing.
+// ---- idle habits: he digs, polishes his shell, peeks about, flops over, and
+// up on a window, sits on the edge or peers down over it. Which habit it is
+// comes from main (src/main/voice.js, perching.js); the animation is one class
+// per habit in critter.css, so an unknown one simply does nothing.
 const BIT_MS = 2600;
 let bitTimer = null;
 let bit = null;
 api.onBit(msg => {
   if (typeof msg?.bit !== 'string' || !/^[a-z]{2,12}$/.test(msg.bit)) return;
-  clearTimeout(bitTimer);
-  if (bit) flags.delete(`bit-${bit}`);
+  endBit();
   bit = msg.bit;
   flags.add(`bit-${bit}`);
   paintBody();
-  bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, BIT_MS);
+  const ms = Number.isFinite(msg.ms) ? clampN(msg.ms, 800, 10000) : BIT_MS;
+  bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, ms);
 });
 
 // ---- a little chirp when he speaks (off by default; see chirp.js)

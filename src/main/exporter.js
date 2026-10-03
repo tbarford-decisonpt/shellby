@@ -45,6 +45,7 @@ function toMarkdown(entry, items) {
       case 'compacted': out.push('', '*— conversation compacted —*', ''); break;
       case 'fresh': out.push('', '*— started fresh from the summary above —*', ''); break;
       case 'rewound': out.push('', `*— rewound to an earlier message —*`, ''); break;
+      case 'branched': out.push('', `*— branched from “${String(i.fromTitle || 'another conversation').replace(/\s+/g, ' ')}”${i.branch ? ` on ${i.branch}` : ''} —*`, ''); break;
       case 'error': out.push('', `> ⚠ ${String(i.text || '').split('\n')[0]}`, ''); break;
     }
   }

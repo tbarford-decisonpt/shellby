@@ -7,6 +7,11 @@
   // dropped (see Tab.trim); the transcript on disk is never touched.
   const MAX_BLOCKS = 400;
 
+  // A fork: one line that splits in two (try again from here, in a new tab).
+  // Drawn rather than the ⑂ character, which most fonts render tiny and faint.
+  const FORK = 'M5 4.5v7M6.5 3a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0M6.5 13a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0M12.5 5a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0M11 6.5c0 2.5-6 2-6 5';
+  SB.forkIcon = () => SB.icon(FORK, { width: 1.3 });
+
   const SUGGESTIONS = [
     'Tidy my Downloads folder into subfolders by file type',
     "What's eating the most disk space on C:?",
@@ -172,9 +177,53 @@
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↶' }),
           item.conversation === false ? `Rewound the code: put ${item.restored || 0} file${item.restored === 1 ? '' : 's'} back`
             : `Rewound to an earlier message${item.code && item.restored ? `, and put ${item.restored} file${item.restored === 1 ? '' : 's'} back` : ''}`));
+        case 'branched': return this.renderBranched(item);
+        case 'branched-off': return this.renderBranchedOff(item);
+        case 'checkpoint': return; // where the files stood, for branching: nothing to show
         case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
       }
+    }
+
+    // ------------------------------------------------------------ branches (branching.js)
+    // Where this conversation came from, at the top of a branch.
+    renderBranched(item) {
+      const where = item.at === 'after' ? `after its reply to "${item.text}"` : `just before "${item.text}"`;
+      const files = item.shared ? 'It shares the original\'s folder, so changes either makes, the other sees.'
+        : item.filesNow ? `Its own copy on ${item.branch}, with the files as they were in the original when it branched.`
+          : item.branch ? `Its own copy on ${item.branch}, with the files exactly as they were then${item.approx ? ' (as near as Shellby can tell)' : ''}.`
+            : '';
+      this.append(h('div', { class: 'home-mark branch-mark' },
+        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
+        h('span', {},
+          'Branched from ', SB.historyLink(item.from, item.fromTitle || 'another conversation'), ` ${where}. `,
+          files, ' The original carries on by itself.')));
+    }
+
+    // In the original: where a branch of it went.
+    renderBranchedOff(item) {
+      const where = item.at === 'after' ? `from after the reply to "${item.text}"` : `from just before "${item.text}"`;
+      this.append(h('div', { class: 'home-mark branch-mark' },
+        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
+        h('span', {}, 'Tried again in ', SB.historyLink(item.to, 'another tab'), ` ${where}${item.branch ? ` (${item.branch})` : ''}. This conversation is as it was.`)));
+    }
+
+    // Two tries side by side: what this one has that the other doesn't, now.
+    // Not kept in the transcript; compare again for a fresh look.
+    renderCompare(other, r) {
+      const head = r.same ? `Same files as "${other.title}"` : `${r.files.length + (r.more || 0)} file${r.files.length + (r.more || 0) === 1 ? '' : 's'} differ from "${other.title}"`;
+      const el = h('details', { class: 'changes compare', open: !r.same && r.files.length <= 8 },
+        h('summary', {},
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇄' }),
+          h('span', { class: 'chg-title', text: head }),
+          r.same ? null : h('span', { class: 'chg-add', text: `+${r.added}` }),
+          r.same ? null : h('span', { class: 'chg-del', text: `−${r.removed}` })),
+        r.same ? h('p', { class: 'small muted', text: 'Both copies have exactly the same files right now.' }) : null,
+        r.same ? null : h('ul', { class: 'chg-files' }, r.files.map(f => this.changeRow(f, null, file => api.compareDiff(this.id, other.id, file)))),
+        r.more ? h('p', { class: 'small muted chg-more', text: `…and ${r.more} more.` }) : null,
+        r.same ? null : h('p', { class: 'small muted', text: `+ is what this one has, − is what "${other.title}" has instead.` }));
+      this.stuck = true;
+      this.append(el);
     }
 
     // ------------------------------------------------------------ ! commands you ran yourself
@@ -216,9 +265,12 @@
 
     renderUser(item) {
       const routine = item.routine ? h('div', { class: 'routine-tag' }, '⟳ ', item.routine.name, item.routine.reason === 'catch-up' ? ' · catch-up run' : '') : null;
-      // Messages sent since rewind came in carry an id, and a way back to just before them.
+      // Messages sent since rewind came in carry an id, and a way back to just
+      // before them: in this tab (rewind), or in a new one that leaves this be (branch).
+      this.lastTurnId = item.turnId || null;
       const back = item.turnId ? h('button', { class: 'msg-rewind', type: 'button', title: 'Rewind to just before this message', 'aria-label': 'Rewind to just before this message', onclick: () => SB.openRewind(this, item.turnId) }) : null;
-      this.append(h('div', { class: 'msg user' }, back, routine, item.text || '',
+      const fork = item.turnId ? h('button', { class: 'msg-branch', type: 'button', title: 'Try again from here, in a new tab', 'aria-label': 'Try again from here, in a new tab', onclick: () => SB.openBranch(this, item.turnId, 'before') }, SB.forkIcon()) : null;
+      this.append(h('div', { class: 'msg user' }, back, fork, routine, item.text || '',
         item.attachments?.length ? h('div', { class: 'att-list' }, SB.attachmentChips(item.attachments)) : null));
     }
 
@@ -457,7 +509,12 @@
         ? `waiting on ${item.waiting.length === 1 ? item.waiting[0] : `${item.waiting.length} background tasks`}`
         : null;
       const label = item.interrupted ? 'stopped' : waiting || (item.ok ? 'done' : 'ended with an error');
-      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null, text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }));
+      // A reply you might want to take somewhere else: a new tab that remembers
+      // everything up to here, with the files as this turn left them.
+      const turnId = this.lastTurnId;
+      const fork = turnId && item.anchor ? h('button', { class: 'meta-branch', type: 'button', title: 'Branch from here: a new tab that carries on from this reply, leaving this one as it is', onclick: () => SB.openBranch(this, turnId, 'after') }, SB.forkIcon(), 'branch') : null;
+      this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null },
+        h('span', { text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }), fork));
       if (!item.ok && !item.interrupted && item.error) this.append(h('div', { class: 'error-block', text: item.error }));
       if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }
@@ -506,7 +563,8 @@
       this.append(el);
     }
 
-    changeRow(f, ref) {
+    // read: how to fetch one file's diff (a turn's, unless a comparison says otherwise).
+    changeRow(f, ref, read = file => api.changesDiff({ tabId: this.id, ...ref, file })) {
       const diff = h('div', { class: 'chg-diff', hidden: true });
       let loaded = false;
       const toggle = h('button', { class: 'chg-file', type: 'button', 'aria-expanded': 'false', title: f.path },
@@ -520,7 +578,7 @@
         if (!open || loaded) return;
         loaded = true;
         diff.replaceChildren(h('p', { class: 'small muted', text: 'Reading the diff…' }));
-        const r = await api.changesDiff({ tabId: this.id, ...ref, file: f.path });
+        const r = await read(f.path);
         if (r?.error) { loaded = false; diff.replaceChildren(h('p', { class: 'small warn', text: r.error })); return; }
         diff.replaceChildren(...[SB.renderDiff(r.patch, { binary: f.binary }), r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
       });
