@@ -22,7 +22,7 @@
   }
 
   const SLOT_LABEL = { hat: 'Hat', face: 'Face', neck: 'Neck', held: 'Held', shell: 'Shell' };
-  const KIND_LABEL = { home: 'Home', sticker: 'Sticker' };
+  const KIND_LABEL = { home: 'Home', sticker: 'Sticker', find: 'Find' };
 
   function card(c) {
     const wearable = (c.rewards || []).filter(r => r.slot || r.motion);

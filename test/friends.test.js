@@ -81,6 +81,15 @@ test('card: a friend\'s card is cleaned, whatever is in it', () => {
   assert.equal('extra' in c, false);
 });
 
+test('card: the temperament and favourite find the crabs chat about are checked too', () => {
+  const ok = cleanCard({ temperament: 'cocky', find: 'black-pearl' });
+  assert.equal(ok.temperament, 'cocky');
+  assert.equal(ok.find, 'black-pearl');
+  const bad = cleanCard({ temperament: '<b>evil</b>', find: '../../etc/passwd' });
+  assert.equal(bad.temperament, null);
+  assert.equal(bad.find, null);
+});
+
 test('card: published as a public gist, found by username, and only believed from its owner', async () => {
   const world = fakeGitHub('alex');
   const id = await publishCard(world.gh, { ...looks(), login: 'alex', updatedAt: 5 }, null);

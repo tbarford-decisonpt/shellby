@@ -37,6 +37,7 @@ npm start
 | `node scripts/e2e-friends.js` | Visiting crabs against a mock GitHub: asked first, a public calling card with only the look, a friend added by username, their crab on the desktop in their outfit, guestbook and souvenir, the Open House trophy, waves both ways (strangers ignored), and the card deleted when it's turned off |
 | `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist, publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
 | `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
+| `node scripts/e2e-forecast.js` | The usage forecast with backdated readings (SHELLBY_FORECAST_TEST): the composer warning and the meter, the setting, Ctrl+Shift+Enter holding a message (edit it back, drop it), then at the limit a held message and a held routine that both go by themselves at the reset |
 | `node scripts/e2e-recap.js` | "While you were away" with fake idle readings: two hours away while one task finishes, one fails and one asks; the recap lists all three, a row opens its conversation, a 20-minute break or the setting turned off says nothing, and the usage block splits the window by conversation |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
 | `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), green again, git push, an outside deploy, desktop "+XP", level-up, Trophies card (next unlock, bounties, 30 days) |
@@ -123,6 +124,8 @@ src/main/        Electron main process
   dictation.js     push-to-talk: tap-or-hold on the hotkey, and Windows' offline speech recognizer in one warm PowerShell
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
+  forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
+  held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), and the service tying them together

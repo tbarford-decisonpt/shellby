@@ -1,6 +1,7 @@
 // XP and levels. Shellby earns XP when tasks finish, tests pass, code ships or
-// deploys, and most of all when he writes himself a new skill or agent; enough
-// XP and he levels up. Turning failing tests green, the first push of the day
+// deploys, and most of all when he writes himself a new skill or agent; and,
+// with or without Claude, when you pet him, play with him, he digs you up a
+// gift or the two of you grow closer. Enough XP and he levels up. Turning failing tests green, the first push of the day
 // to a project, a running streak and coming back after a break all pay extra;
 // doing the same thing over and over pays less and less. Pure: no I/O, no
 // clock (callers pass `now`). See test/xp.test.js.
@@ -11,16 +12,24 @@
 const shells = require('./shells');
 const { progressBounties, bountiesView, CLEAR_ALL_XP } = require('./bounties');
 
+// `claude`: only Claude Code work earns it, so just-the-crab mode leaves it off
+// the list of ways to earn (panel/xp.js).
 const AWARDS = Object.freeze({
-  trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick', way: 'Writes himself a new skill or agent' },
-  deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes' },
-  fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green' },
-  ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)' },
-  tests: { xp: 25, perHour: 6, label: 'Tests passed', way: 'Tests pass' },
+  trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick', way: 'Writes himself a new skill or agent', claude: true },
+  deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes', claude: true },
+  bond: { xp: 50, perHour: 1, label: 'Grew closer', way: 'The two of you grow closer' },
+  fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green', claude: true },
+  ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)', claude: true },
+  deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean', claude: true },
+  treasure: { xp: 30, perHour: 2, label: 'He dug up something rare', way: 'Digs up something rare' },
+  tests: { xp: 25, perHour: 6, label: 'Tests passed', way: 'Tests pass', claude: true },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },
-  task: { xp: 10, perHour: 60, label: 'Finished a task', way: 'Finishes a task' },
+  task: { xp: 10, perHour: 60, label: 'Finished a task', way: 'Finishes a task', claude: true },
+  play: { xp: 10, perHour: 4, label: 'Played a game with him', way: 'Plays hide and seek or fetch with you' },
+  find: { xp: 8, perHour: 4, label: 'He dug you up a gift', way: 'Digs you up a gift' },
   day: { xp: 5, perHour: 1, label: 'Another day together', way: 'Each day you use him' },
+  pet: { xp: 2, perHour: 5, label: 'Petted Shellby', way: 'You pet him' },
 });
 // Log-only kinds: paid by the day's bounties, not by an event.
 const LOG_KINDS = new Set([...Object.keys(AWARDS), 'bounty']);
@@ -321,7 +330,7 @@ function xpSummary(stateIn, now, streak = 0) {
     bounties: bountiesView(s.bounties, today),
     daily: days,
     byKind: Object.entries(s.byKind).map(([kind, xp]) => ({ kind, xp })),
-    ways: Object.entries(AWARDS).map(([kind, a]) => ({ kind, text: a.way, xp: a.xp })),
+    ways: Object.entries(AWARDS).map(([kind, a]) => ({ kind, text: a.way, xp: a.xp, claude: !!a.claude })),
   };
 }
 

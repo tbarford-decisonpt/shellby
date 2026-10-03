@@ -70,9 +70,33 @@ test("'chatty' shortens the gap and the cooldowns; 'normal' holds them", () => {
 });
 
 test("occasions marked chatty-only stay quiet at 'normal'", () => {
-  assert.equal(voice.say(null, 'idle', T0, { chatter: 'normal', rand: first }), null);
-  assert.ok(voice.say(null, 'idle', T0, { chatter: 'chatty', rand: first }));
   assert.equal(voice.say(null, 'searching', T0, { chatter: 'normal', rand: first }), null);
+  assert.ok(voice.say(null, 'searching', T0, { chatter: 'chatty', rand: first }));
+});
+
+test("idle mutters reach 'normal' too, just less often than 'chatty'", () => {
+  const r = voice.say(null, 'idle', T0, { chatter: 'normal', rand: first });
+  assert.ok(r, 'a crab-only user on Normal hears him now and then');
+  assert.equal(voice.say(r.state, 'idle', T0 + 15 * MINUTE, { chatter: 'normal', rand: first }), null);
+  assert.ok(voice.say(r.state, 'idle', T0 + 15 * MINUTE, { chatter: 'chatty', rand: first }));
+  assert.ok(voice.say(r.state, 'idle', T0 + 26 * MINUTE, { chatter: 'normal', rand: first }));
+});
+
+test('a line made elsewhere passes the same rules and must fit', () => {
+  const r = voice.say(null, 'memory', T0, { text: 'remember Chrome?' });
+  assert.equal(r.text, 'remember Chrome?');
+  assert.equal(r.state.said.memory, T0);
+  assert.equal(voice.say(r.state, 'memory', T0 + HOUR, { text: 'remember Edge?' }), null, 'its cooldown holds');
+  assert.equal(voice.say(null, 'memory', T0, { text: 'x'.repeat(voice.MAX_LINE + 1) }), null);
+  assert.equal(voice.say(null, 'memory', T0, { text: '   ' }), null);
+  assert.equal(voice.say(null, 'memory', T0, { text: 'hi', chatter: 'quiet' }), null);
+});
+
+test('every temperament describes itself', () => {
+  for (const t of voice.TEMPERAMENTS) {
+    const info = voice.TEMPERAMENT_INFO[t];
+    assert.ok(info?.name && info.emoji && info.blurb, t);
+  }
 });
 
 test('he never repeats a line while another one is unused', () => {

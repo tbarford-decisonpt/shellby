@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.52.0: dependency watch
+## 0.56.0: dependency watch
 
 ### New
-- **Dependency watch.** Once a week Shellby checks the npm projects you work in for outdated packages and known vulnerabilities, using `npm outdated` and `npm audit`. It's at the foot of the **Routines** page, off until you switch it on, because those commands ask the npm registry about your packages. **Check now** runs it straight away.
+- **Dependency watch.** Once a week Shellby checks the npm projects you work in for outdated packages and known vulnerabilities, using `npm outdated` and `npm audit`. It's on the **Routines** page under Dependency health, off until you switch it on, because those commands ask the npm registry about your packages. **Check now** runs it straight away.
+- Where the **Dependency checkup** routine has Claude look over any kind of project and report, this is Shellby checking your npm projects himself, without Claude, and offering to do the update for you.
 - **Bump & open a PR.** For a project that needs it, one button opens a task in a copy of the project on its own branch. It bumps what's safe, then the major versions one at a time, runs the tests, and opens a pull request listing what changed and what it left alone. If the tests won't pass, it stops and tells you what broke instead of pushing. Your own checkout isn't touched.
 - **Make it a routine.** The same job as a weekly routine for that project, filled in for you to check before you save it.
 - When the weekly check finds something, you get a notification. One with a critical vulnerability gets through even during a focus session.
@@ -11,6 +12,54 @@
 
 ### Safety
 - The check runs inside your projects with no one watching, so a project can't choose what runs. npm and git are found by their full paths, never looked up in the project folder, and there's no shell. A project's `.npmrc` can't swap in its own git, and npm gets none of your environment's tokens or keys, so a project's settings can't quote them and send them somewhere. Package names and versions go to Claude only if they look like real ones, and marked as data, not instructions.
+
+## 0.55.0: a life of his own
+
+### New
+- **Little scenes.** When nothing's happening he gets up to something, a few beats at a time: squints at your cursor, creeps up on it, pounces and misses (*"meant to do that"*); builds a sandcastle and watches it wash away; sneezes, gets the hiccups, blows bubbles, juggles pebbles, nods off, counts grains of sand, swats at a fly. Some only happen at night, at the weekend, in their season or while music plays, and what he says depends on his temperament. 24 in all, and **Shellby → Us** shows which you've caught him in.
+- **He notices your day.** *"gg"* when a game you've been playing ends, *"numbers again?"* after most of an hour in Excel (and his own lines for Word and PowerPoint), *"friday!"* on a Friday afternoon, a lazy line at the weekend, a groan on Monday morning. He only ever knows the *kind* of app in front, from its file name and where it's installed: never a window title or anything in it, and nothing leaves your PC.
+- **Quiet on a call.** While an app has your microphone, he holds up a little "shh" sign, says nothing, stays off your windows, and asks how it went once you hang up. Windows' own record of who's using the microphone tells him; he never listens himself.
+- **Gifts from digging.** Now and then a dig turns something up and he holds it out to you. 38 finds, from sea glass and lost keys to pearls and, very rarely, a gold doubloon, in six sets to complete. Some only turn up in their season or after dark, and two only on special days. Right-click him → **Play → Dig for treasure** every couple of hours, and see them all on the new **Shellby → Finds** shelf. The one you pick as his favourite is what he shows off, and what he brings up when friends visit.
+- **He remembers you.** Petting, playing and keeping him around bring the two of you closer, from *New friends* to *Inseparable*, and every step opens something up. It never goes back down. **Shellby → Us** keeps your story (*"You shook him off Chrome"*), and every so often he brings a moment up. He counts your days together, marks his hatch day each year, and if you tell him your birthday he makes a fuss and digs up something you can't find any other way.
+- **Hide and seek, and fetch.** Right-click him → **Play**. He hides behind one of your windows, peeks out if you're stuck, and wins if you take too long. Or throw him a pebble and he scuttles off after it and brings it back.
+- **Visiting crabs talk.** When a friend's crab drops by, the two of them chat, and the conversation depends on both temperaments, their stickers, how much each has grown and the finds they're proudest of. Your calling card now carries his temperament and favourite find for this.
+- **11 new trophies,** each with something to wear: a sand pail, a metal detector, a treasure chest, a leafy disguise, a tennis ball, a friendship locket and more.
+
+### Changed
+- **He stays awake while you're at your PC.** He used to fall asleep three minutes after his last task even with you sitting right there, so without Claude he was asleep most of the day. Now your own keyboard and mouse keep him up, and he naps when you step away, or now and then because he felt like it.
+- **His eyes follow your cursor.**
+- **Normal mode hears from him.** On the default setting he now mutters to himself now and then when nothing's happening, instead of only on Chatty.
+- **XP without Claude.** Petting him, playing, his finds and growing closer all earn XP, so a crab-only Shellby levels up and earns his outfits too. The Trophies page lists every way to earn it, and only the ones that apply in just-the-crab mode.
+- **His temperament is shown.** Settings → Look, the Us page and his crab card say whether yours is chipper, fussy, cocky or sleepy. A crab-only crab card shows days together and finds instead of tasks and helpers.
+
+## 0.54.0: is it safe to leave?
+
+### New
+- **Is it safe to leave?** In his menu (right-click him or the tray icon). Shellby checks the projects you've worked in over the last two weeks and tells you what only exists on this PC or is still going: commits no remote has (and on which branches), files nobody committed, including in Shellby's own copies, stashes, Claude still working or waiting on you, and commands left running in the background. *"2 projects have unpushed work."* **Tidy up** opens a conversation in that project with a ready-to-send prompt to commit and push it; nothing is sent until you press Enter.
+- **Lock the PC** checks first. All clear, and it locks straight away; anything at risk is listed first, with **Lock anyway**.
+- **Shutdowns and sign-outs wait.** If you shut down, restart or sign out with unpushed or uncommitted work, or while Claude is mid-task or waiting on you, Windows shows Shellby holding it up with the reason, and **Shut down anyway** still works. Stashes and background commands are listed by the check but never hold up a shutdown, and neither do installers or critical shutdowns. Turn it off under **Settings → System**.
+- A project git can't read is shown as **couldn't be checked**, never as safe.
+- The menu item says what the last check found, so a glance is often enough.
+## 0.53.0: fresh dependencies and your week
+
+### New
+- **Dependency checkup routine.** A new **Dependency checkup** template on the Routines page. Once a week it runs each project's outdated and audit checks (`npm outdated` and `npm audit`, or the pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET equivalent) and finishes with a table of what to update. It never installs or changes anything.
+- **🧼 Fresh.** A dependency audit that comes back clean earns 30 XP (once a day per project, or again straight away when it fixes what the last one found) and the project's sticker its new **Fresh** mark. There's a new bounty for it too: *Pass a dependency audit*.
+- **Dependency health.** The Routines page lists what each project's last checkup found: 🧼 fresh, how many vulnerabilities, how many packages are outdated, and when it was checked, with **Check again**. Each project's page in the Sticker Book shows the same and has a **Check dependencies** button.
+- Shellby reads what a check actually printed, not just how it exited, so `npm audit | tail` or `cargo audit || true` can't pass for a clean audit. Checkups count from routines, from tabs, and from your terminal with the plugin.
+- **Your week.** **Trophies & XP → This week** sums up the last seven days: projects shipped, tests turned green, tasks done, your streak, deploys, releases and clean audits. **📅 Share my week** makes a card in the crab card's style, with the week's stickers on his tank, XP for each day and the projects that shipped. It's copied to your clipboard and saved to `Pictures\Shellby`.
+- On Friday afternoons after a week that shipped something, Shellby says so, and the week card is one click away.
+
+### Changed
+- The routine templates are always a click away under **More templates**, not just when you have no routines yet.
+
+## 0.52.0: run it after the reset
+
+### New
+- **A heads-up before you hit your 5-hour limit.** Shellby watches how fast your 5-hour window is filling. When your pace says it'll fill before it resets, he tells you: *At this pace you'll hit your 5-hour limit around 3:40 PM. It resets at 4:15 PM.* The warning shows above the box, as a notification if the panel isn't in front, and once per window. The 5-hour meter's tooltip says when it'll fill at this pace. The pace comes from the last hour of readings, so Claude Code you use outside Shellby counts too. Turn it off under **Settings → System**.
+- **Run this after the reset.** Near your limit or at it, **Send after the reset** (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>) holds what you've typed until the window resets, then sends it in that conversation. **Hold N queued** does the same for your queue, and so does the paused queue when a turn hits the limit. Held messages wait with your queued ones, showing the time they'll go: click one to edit it, ✕ to drop it. If one can't go, it lands back in its box rather than vanishing.
+- **Routines can wait for the reset too.** On the Routines page, the clock button runs a routine once your usage resets. A scheduled routine that comes due while you're at your limit now waits for the reset instead of failing.
+- Held work survives a restart or an update, and goes a minute after the reset, one at a time.
 
 ## 0.51.0: notifications that look like Shellby
 

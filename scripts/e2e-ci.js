@@ -22,6 +22,7 @@ const SUITE = [
   'e2e-xp',           // XP, levels, the desktop float and the level-up
   'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
+  'e2e-life',         // his life between tasks: scenes, gifts, the Finds and Us pages, your day, birthdays, hide and seek, fetch
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
@@ -30,6 +31,7 @@ const SUITE = [
   'e2e-stickers',     // shell stickers: a push earns one, the slap, a release's marks, the Sticker Book's editor, the crab card
   'e2e-stickers-molt', // stickers through a molt: the favourites move house, the old shell keeps the rest
   'e2e-usage-breakdown', // the meters' breakdown by tab, routine and project
+  'e2e-forecast',     // the usage forecast, and messages and routines held for after the reset
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
   'e2e-settings-tabs', // Settings' four tabs: what's on each, the arrow keys, jumps by name

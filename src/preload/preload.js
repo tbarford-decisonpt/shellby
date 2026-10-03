@@ -202,7 +202,8 @@ contextBridge.exposeInMainWorld('shellby', {
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state') }, // SHELLBY_MOTION_TEST only
+  devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), scene: invoke('dev:scene'), life: invoke('dev:life') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions
@@ -221,6 +222,16 @@ contextBridge.exposeInMainWorld('shellby', {
   onLevelUp: on('xp:levelup'),
   onXpBounty: on('xp:bounty'),
 
+  // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
+  getLife: invoke('life:get'),
+  setBirthday: invoke('life:birthday'),
+  setFavouriteFind: invoke('life:favourite'),
+  findsSeen: fire('life:finds-seen'),
+  play: invoke('life:play'),
+  onLife: on('life'),
+  onLifeFound: on('life:found'),   // he dug up a gift
+  onLifeMoment: on('life:moment'), // a day worth marking, a closer bond, a finished set
+
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),
   placeSticker: (id, slot, shell) => ipcRenderer.invoke('stickers:place', { id, slot, shell }),
@@ -232,6 +243,13 @@ contextBridge.exposeInMainWorld('shellby', {
   setStickerOptions: invoke('stickers:options'),
   stickersSeen: fire('stickers:seen'),
   openStickerProject: fire('stickers:open'),
+  checkupSticker: invoke('stickers:checkup'),
+  // dependency checkups and the week in review
+  getCheckups: invoke('checkups:get'),
+  runCheckup: invoke('checkups:run'),
+  onCheckups: on('checkups'),
+  getWeek: invoke('week:get'),
+  onWeekReady: on('week:ready'),
   onStickers: on('stickers'),
   onStickerNew: on('stickers:new'),
   onStickerNews: on('stickers:news'), // a tier-up or a new mark on one already earned
@@ -296,6 +314,7 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // routines
   listRoutines: invoke('routines:list'),
+  routineTemplates: invoke('routines:templates'),
   saveRoutine: invoke('routines:save'),
   draftRoutine: invoke('routines:draft'),
   deleteRoutine: invoke('routines:delete'),
@@ -308,6 +327,10 @@ contextBridge.exposeInMainWorld('shellby', {
   depRoutine: invoke('depwatch:routine'),
   onDepWatch: on('depwatch'),
   usageBreakdown: invoke('usage:breakdown'),
+  // usage forecast, and work held for after the reset (forecast.js, held.js)
+  getOutlook: invoke('outlook:get'),
+  holdForReset: invoke('held:add'),
+  cancelHeld: invoke('held:cancel'),
 
   // workflows (docs/plans/workflows.md)
   listWorkflows: invoke('workflows:list'),
@@ -338,6 +361,9 @@ contextBridge.exposeInMainWorld('shellby', {
   onUsage: on('usage'),
   onRecap: on('recap'), // back after an hour away: what happened (see recap.js)
   onLimit: on('limit'),
+  onOutlook: on('outlook'),
+  onTabSent: on('tab:sent'), // a held message went out after the reset
+  onHeldReturned: on('held:returned'), // one that couldn't, back to its box
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),

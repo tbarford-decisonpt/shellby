@@ -240,7 +240,7 @@ function createPerching(d) {
     d.perchView({ up: true });
     d.motion().ride(rideFrame);
     d.config.set({ perchStats: perch.recordPerch(d.config.get('perchStats'), info.exe) });
-    d.stat('perched');
+    d.stat('perched', { exe: info.exe });
     const leapt = how === 'fall' && flightFrom && flightFrom !== hwnd;
     if (how === 'thrown') d.stat('caught-on-window');
     if (leapt) d.stat('window-leap');
@@ -256,7 +256,7 @@ function createPerching(d) {
     const was = attached;
     attached = null;
     lastEnd = Date.now();
-    d.stat('ride', { n: Math.round(was.ride.distance) });
+    d.stat('ride', { n: Math.round(was.ride.distance), exe: was.exe });
     setClickThrough(false);
     d.perchView({ up: false });
     return was;
@@ -310,7 +310,7 @@ function createPerching(d) {
     floatUp();
     const why = events.find(e => e.startsWith('letgo:')) ? 'flung' : events.includes('pop') ? 'popped' : 'fell';
     if (why === 'flung') {
-      d.stat('shaken');
+      d.stat('shaken', { exe: was?.exe || null });
       if (!release.dizzy) d.speak('shaken');
     }
     if (why === 'popped') d.speak('pop');

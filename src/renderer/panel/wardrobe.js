@@ -220,7 +220,7 @@
   const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...homes()].filter(i => i.isNew && !i.locked);
   const refreshBadge = () => {
     const fresh = freshItems().length > 0;
-    $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length; // new stickers too (stickers.js)
+    $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length && !state.life?.finds?.unseen?.length; // new stickers (stickers.js) and finds (together.js) too
     $('markSeenBtn').hidden = !fresh;
     document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.classList.toggle('has-new', itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked)));
   };
