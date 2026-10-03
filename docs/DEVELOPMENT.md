@@ -37,10 +37,13 @@ npm start
 | `node scripts/e2e-friends.js` | Visiting crabs against a mock GitHub: asked first, a public calling card with only the look, a friend added by username, their crab on the desktop in their outfit, guestbook and souvenir, the Open House trophy, waves both ways (strangers ignored), and the card deleted when it's turned off |
 | `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist, publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
 | `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
+| `node scripts/e2e-forecast.js` | The usage forecast with backdated readings (SHELLBY_FORECAST_TEST): the composer warning and the meter, the setting, Ctrl+Shift+Enter holding a message (edit it back, drop it), then at the limit a held message and a held routine that both go by themselves at the reset |
 | `node scripts/e2e-recap.js` | "While you were away" with fake idle readings: two hours away while one task finishes, one fails and one asks; the recap lists all three, a row opens its conversation, a 20-minute break or the setting turned off says nothing, and the usage block splits the window by conversation |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
-| `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), git push, an outside deploy, desktop "+XP", level-up, Trophies card |
+| `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), green again, git push, an outside deploy, desktop "+XP", level-up, Trophies card (next unlock, bounties, 30 days) |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |
+| `node scripts/e2e-workflows.js` | Workflows with the fake CLI: typed Claude output steering an If, the confirmation window for risky saves, an Ask answered, Stop and Resume, a web hook on the local port |
+| `node scripts/workflows-shots.js [dir]` | Screenshots of the Automate page (list, editor, a waiting run, a failed run) for a visual check |
 | `node scripts/e2e-history-done.js` | The Done tick in History: a ticked conversation leaves the default list, the Not done / Done / All tabs only appear once something is done, Undo puts it back, and sending a done conversation more work un-ticks it |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
@@ -108,16 +111,21 @@ src/main/        Electron main process
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
   routines.js      schedule maths + scheduler for recurring tasks
+  workflows/       the workflow engine (docs/plans/workflows.md): schema, expr (templates and conditions),
+                   engine (replaying interpreter), effects, triggers, store, draft, templates, service
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
-  xp.js            XP and levels: awards, hourly caps, the level curve, and what a shell command means
+  xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
+  bounties.js      the day's three bounties, picked from the date alone
   shells.js        the shells he grows into as he levels up (molting)
   motion.js        throws (release velocity, flight, landing) and idle strolls
   voice.js         what he says and when (pure): line pools, cooldowns, temperament, idle habits
   dictation.js     push-to-talk: tap-or-hold on the hotkey, and Windows' offline speech recognizer in one warm PowerShell
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
+  forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
+  held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), and the service tying them together
@@ -134,7 +142,7 @@ src/main/        Electron main process
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits) · chirp.js (WebAudio blips, no audio files)
-  panel/           core · nav (bottom bar, Ctrl+K) · feed (crew lanes) · tabs · toolbox · shop · routines · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
+  panel/           core · nav (bottom bar, Ctrl+K) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI

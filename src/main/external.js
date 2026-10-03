@@ -14,6 +14,7 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const { classifyCommand } = require('./xp');
 const { shipOf } = require('./stickers');
+const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
 
 const DEFAULT_PORT = 47913;
@@ -52,7 +53,8 @@ function programOf(command) {
 /**
  * Apply one hook event to the sessions map (pure: returns a new map and the
  * notable things that happened). evt is Claude Code's hook JSON.
- *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }]
+ *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }
+ *             | { type: 'command-ok', kind, project } | { type: 'checkup', check, dir, result }]
  */
 function applyHookEvent(sessions, evt, now, client = null) {
   const next = new Map(sessions);
@@ -103,6 +105,17 @@ function applyHookEvent(sessions, evt, now, client = null) {
           effects.push(ship
             ? { type: 'command-ok', kind, project: s.project, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, ship: { kind: ship.kind, version: ship.meta.version ?? null } }
             : { type: 'command-ok', kind, project: s.project });
+        }
+        // A dependency checkup: what it found and where, never the output itself.
+        const check = checkupOf(evt.tool_input?.command);
+        if (check && typeof evt.cwd === 'string') {
+          const out = evt.tool_response && typeof evt.tool_response === 'object'
+            ? [evt.tool_response.stdout, evt.tool_response.stderr].filter(x => typeof x === 'string').join('\n') : '';
+          effects.push({
+            type: 'checkup', check,
+            dir: commandDir(evt.tool_input.command, evt.cwd.slice(0, 400)),
+            result: readCheckup(check, { text: out, isError: false, command: evt.tool_input.command }),
+          });
         }
       }
       break;
@@ -178,8 +191,9 @@ function summarize(sessions) {
 }
 
 // What this port answers. /v1/hook is the plugin's hooks; /v1/crab is the MCP
-// server driving the critter; /v1/cli is the `shellby` command.
-const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli'];
+// server driving the critter; /v1/cli is the `shellby` command; /v1/flow is a
+// workflow's web hook (its token is in the body, workflows/triggers.js).
+const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli', '/v1/flow'];
 
 /**
  * Is this one of ours? Requires POST to a known route, our header, JSON, and no
@@ -224,6 +238,7 @@ class ExternalSessions extends EventEmitter {
     // what a newer plugin talking to an older Shellby should see.
     this.onCrab = null;
     this.onCli = null;
+    this.onFlow = null;
   }
 
   /** "I checked, they're done": drops every remembered background command. */
@@ -321,7 +336,7 @@ class ExternalSessions extends EventEmitter {
   }
 
   /**
-   * /v1/crab and /v1/cli. Both reply with JSON, because unlike a hook there is
+   * /v1/crab, /v1/cli and /v1/flow. All reply with JSON, because unlike a hook there is
    * someone waiting to hear what happened. main.js supplies the handlers; with
    * none set the route is simply not there, which is what an older Shellby
    * looks like to a newer plugin.
@@ -331,7 +346,7 @@ class ExternalSessions extends EventEmitter {
       const text = JSON.stringify(payload);
       res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) }).end(text);
     };
-    const handler = route === '/v1/crab' ? this.onCrab : this.onCli;
+    const handler = route === '/v1/crab' ? this.onCrab : route === '/v1/flow' ? this.onFlow : this.onCli;
     if (!handler) { reply(404, { error: 'Not enabled.' }); return; }
     let payload;
     try { payload = JSON.parse(body); } catch { reply(400, { error: 'That was not JSON.' }); return; }

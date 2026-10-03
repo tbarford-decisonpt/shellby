@@ -53,6 +53,9 @@
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
   api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });
+  api.onWorkflows(view => SB.applyWorkflows(view));
+  api.onWorkflowRun(summary => SB.onWorkflowRun(summary));
+  api.onWorkflowOpen(runId => SB.views.workflows.openRun(runId));
   api.onAttach(files => {
     if (SB.isCrabOnly()) return SB.claudeUpsell('files');
     if (state.view !== 'onboarding') SB.setView('chat');
@@ -128,6 +131,7 @@
       home: b.home, version: b.version, packaged: b.packaged, models: b.models, cwd: b.cwd, registryUrl: b.registryUrl,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates,
     });
+    if (b.outlook) SB.applyOutlook(b.outlook);
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);

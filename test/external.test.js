@@ -250,3 +250,15 @@ test('background work is forgotten after a while, and rolls up newest first', ()
   assert.deepEqual(rolled.background.map(b => `${b.program}@${b.project}`), ['npm@two', 'node@3d-rack'], 'newest first');
   assert.equal(summarize(expire(sessions, 31 * 60 * 1000)).background.length, 0, 'half an hour later it stops nagging');
 });
+
+test('a dependency checkup reports what it found and where, never its output', () => {
+  const out = { stdout: 'up to date, audited 412 packages\n\nfound 0 vulnerabilities\n', stderr: '' };
+  const r = play([ev('UserPromptSubmit'), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'cd web && npm audit' }, tool_response: out })]);
+  assert.equal(r.effects.length, 1);
+  const e = r.effects[0];
+  assert.equal(e.type, 'checkup');
+  assert.deepEqual(e.check, { ecosystem: 'npm', check: 'audit' });
+  assert.deepEqual(e.result, { status: 'clean', count: 0 });
+  assert.ok(e.dir.endsWith('web'));
+  assert.equal(JSON.stringify(r.effects).includes('audited'), false, 'the output stays out of it');
+});

@@ -70,6 +70,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     k = await kinds();
     check(k.filter(x => x === 'tests').length === testsBefore, 'a failing test run earns no tests XP');
 
+    // 2b. ...and the next pass in that project is "green again".
+    await runTask('run npm test');
+    const proj = (await xp()).log.find(e => e.kind === 'tests')?.project;
+    if (proj) check((await kinds()).includes('fixed'), `tests passing after a failure in ${proj} earn "green again" XP`);
+    else console.log('SKIP  green again: the tab is not in a project folder');
+
     // 3. git push.
     await runTask('run git push origin main');
     check((await kinds()).includes('ship'), 'git push earns ship XP');
@@ -100,7 +106,15 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await wait(500);
     check(await panel.ev("document.getElementById('xpLevel').textContent") === String(after.level), 'Trophies shows the level');
     check(await panel.ev("document.querySelectorAll('#xpLog li').length") >= 5, 'Trophies shows the XP log');
+    const unlock = await panel.ev("document.getElementById('xpUnlock').textContent");
+    check(/^Next at level \d+:.+ XP to go$/.test(unlock) && !/Shell shell/.test(unlock), `Trophies shows the next unlock (${unlock})`);
+    check(await panel.ev("document.querySelectorAll('#xpBountyList li').length") === 3, "Trophies shows today's three bounties");
+    check(await panel.ev("document.querySelectorAll('#xpSpark i').length") === 30, 'Trophies shows the last 30 days');
+    check(await panel.ev("document.querySelectorAll('#xpWays li').length") === (await xp()).ways.length, 'the ways to earn come from main');
+    check(/^#[0-9a-f]{6}$/i.test(await panel.ev("getComputedStyle(document.documentElement).getPropertyValue('--rank').trim()")), 'the badge colour follows the rank');
     await panel.send('Page.captureScreenshot', { format: 'png' }).then(s => fs.writeFileSync(path.join(OUT, 'trophies.png'), Buffer.from(s.data, 'base64')));
+    const box = await panel.ev("(r => ({ x: r.x, y: r.y, width: r.width, height: r.height }))((document.getElementById('xpCard').scrollIntoView({ block: 'start' }), document.getElementById('xpCard').getBoundingClientRect()))");
+    await panel.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { ...box, scale: 1 } }).then(s => fs.writeFileSync(path.join(OUT, 'xp-card.png'), Buffer.from(s.data, 'base64')));
   } catch (e) {
     check(false, e.message);
   } finally {

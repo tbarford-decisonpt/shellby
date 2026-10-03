@@ -43,6 +43,7 @@ const MARKS = Object.freeze([
   { id: 'v1', name: 'One-point-oh', icon: '🥇', description: 'Released version 1.0 or later' },
   { id: 'merged', name: 'Merged', icon: '🔀', description: 'A pull request merged on GitHub' },
   { id: 'green', name: 'Green Light', icon: '🟢', description: 'A pull request went from red to green, then merged' },
+  { id: 'deps', name: 'Fresh', icon: '🧼', description: 'A dependency audit came back clean' },
   { id: 'moon', name: 'Moonlighter', icon: '🌙', description: 'Shipped between midnight and 5 AM', hidden: true },
   { id: 'friday', name: 'Friday Deploy', icon: '💀', description: 'Deployed on a Friday afternoon', hidden: true },
 ].map(m => Object.freeze({ hidden: false, ...m })));
@@ -309,6 +310,19 @@ function recordShip(stateIn, project, kind, now, meta = {}, place = null) {
   const tierUp = !minted && tierFor(p.ships).id !== tierFor(before.ships).id ? tierFor(p.ships) : null;
   const newMarks = p.marks.filter(m => !(before?.marks || []).includes(m));
   return { state: next, project: p, minted, tierUp, newMarks, counted };
+}
+
+/**
+ * A mark earned without shipping (a clean dependency audit earns 🧼 Fresh).
+ * Only a sticker you already have can wear it, and it never counts as a ship.
+ * Returns { state, project, added }.
+ */
+function addMark(stateIn, id, markId) {
+  const s = normalize(stateIn);
+  const p = s.projects[id];
+  if (!p || p.from || !MARK_IDS.has(markId) || p.marks.includes(markId)) return { state: s, project: p || null, added: false };
+  const next = { ...p, marks: [...p.marks, markId] };
+  return { state: { ...s, projects: { ...s.projects, [id]: next } }, project: next, added: true };
 }
 
 // Over the cap: forget friends' gifts, then the least-shipped projects, never one on a shell.
@@ -654,6 +668,6 @@ module.exports = {
   TIERS, MARKS, WEIGHT, KINDS, COUNT_GAP, PEEL_AFTER, FADE_AFTER, MAX_PROJECTS, MAX_PLACED, CARRY, HOME, CARD_MODES,
   normalizeRemote, projectId, normalize, cleanCustom, rekey,
   tierFor, nextTier, weathering, yearsOf, releaseOf, isOnePointOh, shipOf,
-  recordShip, placeAuto, place, remove, restack, flip, arrange, carryOnMolt, setHidden, markSeen, setOptions,
+  recordShip, addMark, placeAuto, place, remove, restack, flip, arrange, carryOnMolt, setHidden, markSeen, setOptions,
   view, projectView, stats, syncable, merge, forCard, cleanCardStickers, pickTrade, receiveGuest, MAX_TRADE, MAX_GUESTS, MAX_GUESTS_EACH,
 };

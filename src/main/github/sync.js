@@ -1,11 +1,12 @@
 // Sync between PCs through one private gist ("shellby-sync.json"): trophies,
 // collected seasonal items, stats, XP, streak days, shell stickers, the outfit
 // and the skin. Merging only ever adds progress (unions and maxima), so a sync
-// can't lose anything on either side; the outfit, skin and sticker layouts
-// follow whichever PC changed them last. The gist is yours but is still
+// can't lose anything on either side. XP is counted per PC and the PCs are
+// added together (xp.js mergeXpCounts), so XP earned on two PCs adds up. The
+// outfit, skin and sticker layouts follow whichever PC changed them last. The gist is yours but is still
 // treated as untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
-const { normalizeXp } = require('../xp');
+const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
 
 const FILE = 'shellby-sync.json';
@@ -27,7 +28,7 @@ function snapshot(get) {
     format: FORMAT,
     wardrobe: { unlocked: w.unlocked, collected: w.collected, outfit: w.outfit, outfitAt: stamps.outfitAt },
     stats: get('stats'),
-    xp: { total: xp.total, log: xp.log, lastDay: xp.lastDay },
+    xp: { total: xp.total, byDevice: xp.byDevice, legacyPending: xp.legacyPending, log: xp.log, lastDay: xp.lastDay },
     days: streaks.days,
     stickers: get('stickers'),
     skin: get('skin'), skinAt: stamps.skinAt,
@@ -40,7 +41,7 @@ function clean(raw) {
   const w = r.wardrobe && typeof r.wardrobe === 'object' ? r.wardrobe : {};
   const outfit = {};
   for (const s of SLOTS) outfit[s] = typeof w.outfit?.[s] === 'string' && KEY_RE.test(w.outfit[s]) ? w.outfit[s] : null;
-  const xp = normalizeXp({ total: r.xp?.total, log: r.xp?.log, lastDay: r.xp?.lastDay });
+  const xp = normalizeXp({ total: r.xp?.total, byDevice: r.xp?.byDevice, log: r.xp?.log, lastDay: r.xp?.lastDay });
   return {
     format: FORMAT,
     wardrobe: {
@@ -50,7 +51,9 @@ function clean(raw) {
       outfitAt: num(w.outfitAt),
     },
     stats: normalizeStats(r.stats),
-    xp: { total: xp.total, log: xp.log, lastDay: xp.lastDay },
+    // An older Shellby writes only a total: it still counts, as a floor (see cleanByDevice).
+    // Another PC's 'local' (XP from before it had its id) never comes across.
+    xp: { total: xp.total, byDevice: cleanByDevice(r.xp?.byDevice, 0, { keepLocal: false }), legacyPending: r.xp?.legacyPending === true, log: xp.log, lastDay: xp.lastDay },
     days: strings(r.days, /^\d{4}-\d{2}-\d{2}$/, 400).sort(),
     // No folders, options or badges: those belong to each PC (stickers.js syncable).
     stickers: stickers.syncable(r.stickers),
@@ -66,7 +69,8 @@ function merge(aIn, bIn) {
   const stats = {};
   for (const k of Object.keys(a.stats)) stats[k] = k === 'activeDays' ? union(a.stats.activeDays, b.stats.activeDays) : Math.max(a.stats[k], b.stats[k] || 0);
   const seen = new Set();
-  const log = [...a.xp.log, ...b.xp.log].sort((x, y) => y.at - x.at).filter(e => { const k = `${e.at}|${e.kind}`; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 40);
+  const counts = mergeXpCounts(a.xp, b.xp);
+  const log = [...a.xp.log, ...b.xp.log].sort((x, y) => y.at - x.at).filter(e => { const k = `${e.at}|${e.kind}|${e.label}`; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 40);
   const newerOutfit = b.wardrobe.outfitAt > a.wardrobe.outfitAt ? b : a;
   const newerSkin = b.skinAt > a.skinAt ? b : a;
   return clean({
@@ -78,7 +82,7 @@ function merge(aIn, bIn) {
       outfitAt: newerOutfit.wardrobe.outfitAt,
     },
     stats,
-    xp: { total: Math.max(a.xp.total, b.xp.total), log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null },
+    xp: { total: counts.total, byDevice: counts.byDevice, log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null },
     days: union(a.days, b.days).sort().slice(-400),
     stickers: stickers.merge(a.stickers, b.stickers),
     skin: newerSkin.skin, skinAt: newerSkin.skinAt,
@@ -95,7 +99,7 @@ function patchFor(merged, get) {
   const patch = {
     wardrobe: { ...w, unlocked: merged.wardrobe.unlocked, collected: merged.wardrobe.collected, outfit: merged.wardrobe.outfit },
     stats: merged.stats,
-    xp: { ...xp, total: merged.xp.total, log: merged.xp.log, lastDay: merged.xp.lastDay },
+    xp: { ...xp, total: merged.xp.total, byDevice: merged.xp.byDevice, legacyPending: false, log: merged.xp.log, lastDay: merged.xp.lastDay },
     streaks: { ...streaks, days: merged.days },
     // Merged into this PC's own, so its folders, options and badges stay.
     stickers: stickers.merge(get('stickers'), merged.stickers),
@@ -128,7 +132,9 @@ async function readGist(gh, id) {
   try { return clean(JSON.parse(f.content || '{}')); } catch { return null; }
 }
 
-const content = snap => JSON.stringify({ ...clean(snap), note: 'Shellby sync: trophies, XP, outfit, streak days and shell stickers. Safe to delete; Shellby makes a new one.' }, null, 1);
+// What's in the gist is settled: nobody else's legacy is pending.
+const settled = snap => { const c = clean(snap); return { ...c, xp: { ...c.xp, legacyPending: false } }; };
+const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days and shell stickers. Safe to delete; Shellby makes a new one.' }, null, 1);
 
 /**
  * One sync: merge local with the gist, apply what changed locally, push what
@@ -140,7 +146,8 @@ async function syncNow(gh, { get, set }) {
   const id = await findGist(gh, get('syncGistId'));
   if (!id) {
     const created = await gh.post('/gists', { public: false, description: 'Shellby sync', files: { [FILE]: { content: content(local) } } });
-    set({ syncGistId: created.id });
+    // This PC's legacy is now the gist's, so it counts in full from here on.
+    set({ syncGistId: created.id, xp: { ...normalizeXp(get('xp')), legacyPending: false } });
     return { gistId: created.id, pulled: false, pushed: true };
   }
   if (id !== get('syncGistId')) set({ syncGistId: id });

@@ -31,6 +31,7 @@ const SUITE = [
   'e2e-stickers',     // shell stickers: a push earns one, the slap, a release's marks, the Sticker Book's editor, the crab card
   'e2e-stickers-molt', // stickers through a molt: the favourites move house, the old shell keeps the rest
   'e2e-usage-breakdown', // the meters' breakdown by tab, routine and project
+  'e2e-forecast',     // the usage forecast, and messages and routines held for after the reset
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
   'e2e-settings-tabs', // Settings' four tabs: what's on each, the arrow keys, jumps by name
@@ -39,6 +40,7 @@ const SUITE = [
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
+  'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode
 ];

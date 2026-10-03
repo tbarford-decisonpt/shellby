@@ -47,6 +47,9 @@ function load() {
       QueryFullProcessImageNameW: kernel32.func('bool __stdcall QueryFullProcessImageNameW(intptr_t h, uint32_t flags, _Out_ uint16_t *buf, _Inout_ uint32_t *size)'),
       SHQueryUserNotificationState: shell32.func('long __stdcall SHQueryUserNotificationState(_Out_ int32_t *state)'),
       SetProcessDpiAwarenessContext: user32.func('bool __stdcall SetProcessDpiAwarenessContext(intptr_t ctx)'),
+      LockWorkStation: user32.func('bool __stdcall LockWorkStation()'),
+      ShutdownBlockReasonCreate: user32.func('bool __stdcall ShutdownBlockReasonCreate(intptr_t hwnd, str16 reason)'),
+      ShutdownBlockReasonDestroy: user32.func('bool __stdcall ShutdownBlockReasonDestroy(intptr_t hwnd)'),
     };
   } catch (e) {
     console.warn('[shellby] window tracking unavailable:', e.message);
@@ -262,8 +265,14 @@ const close = h => safe(a => a.PostMessageW(h, WM_CLOSE, 0, 0), false);
 // scripts call this first to see the same physical pixels Electron does.
 const dpiAware = () => safe(a => a.SetProcessDpiAwarenessContext(-4 /* PER_MONITOR_AWARE_V2 */), false);
 const move = (h, x, y) => safe(a => a.SetWindowPos(h, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | 0x4 /* NOZORDER */), false);
+// "Is it safe to leave?" (leaving.js): lock the screen, and the line Windows
+// shows beside Shellby while he holds up a shutdown or sign-out.
+const lockScreen = () => safe(a => a.LockWorkStation(), false);
+const blockShutdown = (h, reason) => safe(a => a.ShutdownBlockReasonCreate(h, String(reason).slice(0, 250)), false);
+const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 
 module.exports = {
   load, available, hwndOf, topLevelWindows, describe, quick, foreground, isWindow, keyDown, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
+  lockScreen, blockShutdown, unblockShutdown,
 };

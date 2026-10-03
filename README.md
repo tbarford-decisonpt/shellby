@@ -36,19 +36,19 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <tr>
 <td width="33%" valign="top">
 
-**🎭 A life of his own** · 0.48<br>
+**🎭 A life of his own** · 0.55<br>
 <sub>Little scenes when nothing's happening: he pounces on your cursor and misses, builds a sandcastle, gets the hiccups. He notices your day too: <i>"gg"</i> after a game, quiet on a call.</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🐚 Gifts from digging** · 0.48<br>
+**🐚 Gifts from digging** · 0.55<br>
 <sub>He digs at your wallpaper and turns things up: sea glass, a lost key, a pearl, once in a long while a gold doubloon. 38 finds, six sets, a shelf to fill.</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**💞 He remembers you** · 0.48<br>
+**💞 He remembers you** · 0.55<br>
 <sub>A bond that grows, a story of your moments together (<i>"remember Chrome?"</i>), your birthday, hide and seek, fetch, and visiting crabs who chat back.</sub>
 
 </td>
@@ -56,8 +56,8 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <tr>
 <td width="33%" valign="top">
 
-**🗣️ He has a voice** · 0.18<br>
-<sub>A few words of his own about the work he's actually doing: *"fingers crossed"* at a test run, *"this file again?"* on the third visit. Four temperaments, Quiet to Chatty.</sub>
+**⚡ Workflows** · 0.50<br>
+<sub>A red build, a release, a new file or the clock starts a list of steps: Claude (handing back real data), commands, web requests, questions for you. Describe one and Claude writes it. [How](docs/WORKFLOWS.md)</sub>
 
 </td>
 <td width="33%" valign="top">
@@ -118,6 +118,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters — a health warning, a red build, a countdown — takes the bubble back off him.
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
 - **Usage limit reached?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
+- **Heading for it?** When your pace says you'll fill the 5-hour window before it resets, he says when: *at this pace you'll hit your 5-hour limit around 3:40 PM. It resets at 4:15 PM.* Hold a message (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>), your queue or a routine for after the reset, and it goes by itself, even after a restart. Routines that come due while you're at the limit wait for the reset instead of failing.
 
 </details>
 
@@ -137,13 +138,13 @@ None of this needs Claude or an account. It's all on your PC.
 
 <p align="center"><img src="docs/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
-- **130 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **138 accessories, 21 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
 - **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
 - **A sticker for every project you ship:** the first time you push, deploy or release a repo (or a pull request of yours is merged), he holds up a sticker drawn for it and slaps it on his shell. More below.
-- **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
+- **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick, the Golden Conch at level 20, and on up through a Coconut Half, a Lantern Jar, a Diving Helmet, a Crystal Geode and a Treasure Chest to the Rainbow Nautilus at level 99. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
 - **50 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
-- **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
+- **XP and levels,** from Hatchling to Shellby Supreme at level 99, with a new title, badge colour or shell at least every five levels. Writing himself a new skill earns the most.
 - **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
 
 <p align="center"><img src="docs/lineup-crabs.png" width="700" alt="Five crab species: the classic, a fiddler with one enormous claw, a coconut crab, a pale porcelain crab, and a long-legged spider crab"></p>
@@ -158,14 +159,18 @@ None of this needs Claude or an account. It's all on your PC.
 <details>
 <summary><b>XP, trophies, streaks, stickers and outfit codes in detail</b></summary>
 
-- **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), pushes (+40), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop, and hourly caps stop a test loop from farming it. Level-ups get their own celebration.
-- **Trophies & XP:** click the yellow level badge next to him in the title bar to see his level, an XP log and your streak.
+- **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), turning failing tests green (+40), pushes (+40, and +20 for the first push of the day to a project), a clean dependency audit (+30, once a day per project), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop. Doing the same thing over and over within an hour pays half, then a quarter, then nothing, so a test loop can't farm it. Level-ups get their own celebration.
+- **Bonuses:** a streak adds 5% a week (up to +25%), and coming back after three days or more away doubles your next 150 XP.
+- **Daily bounties:** three small goals a day ("Push to 2 different projects", "Turn failing tests green"), the same three on every PC. Each pays XP, and clearing all three pays 50 more.
+- **Trophies & XP:** click the level badge next to him in the title bar to see his level, what the next level unlocks, today's bounties, XP for the last 30 days and by kind, the XP log and your streak. The badge changes colour every ten levels.
+- **Across PCs:** with GitHub sync on, XP earned on each PC adds up.
 - **Trophy examples:** finish 10 tasks for a hard hat, send out your first helper for a captain's hat, finish a task after midnight for a nightcap, free up a full drive for a broom. Trophies hand out two or three things each, and unlocks celebrate on your desktop with confetti.
 - **Streaks and nudges:** finish a Claude task on consecutive days for a 🔥 streak (it's in the status line too). Shellby remembers the git repos you work in, and when one goes quiet you get a nudge: *"You haven't committed to 3d-rack in 5 days 🐚"*. **Pick it up** opens a tab there with a "where did we leave off?" prompt. At most one nudge a day, only in the daytime, and each project can be muted.
 - **Helper crabs wear matching hats,** and every crab in the app is dressed the same way.
 - **Outfit codes:** paste someone's code into **Wear a code…** and Shellby previews it on your crab, then puts it on. Locked items show which trophy unlocks them, and items from packs you don't have come with a **Get pack** button. Codes are typo-proof and need no server.
 - **Crab card:** **📸 Share** on Shellby's screen makes a card with Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`. Sharing one earns a trophy too.
-- **Shell stickers:** every repo you ship leaves a mark on his shell. The sticker is drawn from the repo itself: a shape, a pattern and its first letter, in the colour of the language it's mostly written in, so the same repo gets the same sticker on every PC. Shipping counts from Shellby's tabs, from Claude Code in your terminal (with the plugin), and from pull requests merged on GitHub (with CI on). It gets shinier as you keep shipping: paper, then **vinyl** at 5 ships, **holo** at 15, **foil** at 40. Deploys and releases count double, and a burst of pushes counts once an hour. Leave a project alone for two months and its sticker starts to peel at the corner; the next ship presses it back down. Releases, deploys and merges add little marks (🚀 Live, 🥇 One-point-oh, 🔀 Merged), and there are a couple of secret ones.
+- **Your week:** **Trophies & XP → This week** sums up the last seven days: projects shipped, tests turned green, tasks, deploys, releases, clean audits and your streak. **📅 Share my week** makes a card in the same style, with the week's stickers on his tank, XP for each day and what shipped. On Friday afternoons after a week that shipped something, Shellby says so and the card is a click away. Projects you keep off your calling card stay off it.
+- **Shell stickers:** every repo you ship leaves a mark on his shell. The sticker is drawn from the repo itself: a shape, a pattern and its first letter, in the colour of the language it's mostly written in, so the same repo gets the same sticker on every PC. Shipping counts from Shellby's tabs, from Claude Code in your terminal (with the plugin), and from pull requests merged on GitHub (with CI on). It gets shinier as you keep shipping: paper, then **vinyl** at 5 ships, **holo** at 15, **foil** at 40. Deploys and releases count double, and a burst of pushes counts once an hour. Leave a project alone for two months and its sticker starts to peel at the corner; the next ship presses it back down. Releases, deploys and merges add little marks (🚀 Live, 🥇 One-point-oh, 🔀 Merged), a clean dependency audit adds 🧼 Fresh, and there are a couple of secret ones.
 - **The Sticker Book** (Shellby's screen → **Stickers**) has a page for every project: when it first shipped, how often, its marks, and **Pick up where we left off**. Click a sticker and a spot on his shell to move it (or drag it there), and stack them like a laptop lid. On a spot, <kbd>[</kbd> and <kbd>]</kbd> change which is on top, <kbd>F</kbd> flips one and <kbd>Delete</kbd> peels it off. Projects you've worked in but not shipped wait there as question marks.
 - **Every shell keeps its own stickers.** When he outgrows a shell, his three most-shipped stickers come with him and the rest stay on the old one, so you can move back in any time. A repo can ship its own official sticker as [`.shellby/sticker.json`](docs/ADDONS.md#repo-stickers).
 - **Friends can see them too.** With Visiting crabs on, a friend's crab arrives wearing its stickers. Nothing about yours goes on your public calling card until you choose, in the Sticker Book: **His shell** shares the stickers on his shell as patches of colour (no names or letters), and **Shell and names** adds your three most-shipped, so a friend's visit can leave you one of theirs as a swap.
@@ -234,7 +239,8 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Push to GitHub from the folder menu:** in a git project the folder menu shows how far your branch is ahead of and behind its remote. **Push** fetches, merges in anything the remote has that you don't (a merge, never a rebase), then pushes. It never force-pushes. If the remote's work clashes with yours, nothing is merged or pushed, and he can sort it out. If a pre-push hook refuses, what it said is written into the conversation. **Bring all home** merges every copy with work waiting into your branch, one at a time, and stops at the first one that clashes. **Bring all home and push** then pushes.
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use, plus the hooks and `CLAUDE.md` memory files that set it up, with an editor for each. When he writes himself a new tool, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
-- **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
+- **Workflows (Automate):** something happens (a schedule, a red build, a release, a file landing in a folder, a script calling a web hook, Claude Code asking) and Shellby runs a list of steps: Claude, PowerShell commands, web requests, files, a question for you, a message to your phone. Claude steps can hand back typed fields (`fixable: true`, a list of files) that drive an **If** or a **For each** later on. **Describe one** in a sentence and Claude writes it for you to check, or start from a template: a red build fixer that asks before it pushes, a morning brief, a site watch, a downloads sorter, release notes, a disk guard. Runs survive a restart, a failed one **retries from the failed step**, and **Fix with Claude** reads the failure and proposes the fix. [Everything workflows can do](docs/WORKFLOWS.md).
+- **Routines** run a single task on a schedule, like "every Friday at 5, tidy Downloads". They're next to Workflows on the Automate page.
 - **Look over my changes:** the shield next to a project in **Trophies** sends the work you haven't pushed yet for a read-only security read. He reports what looks risky, worst first, and changes nothing — and he won't tell you you're secure.
 - **Chats you can tick off:** a ✓ on every row in History marks a conversation done, so the twenty you've finished with stop burying the two you haven't. Nothing is deleted, and sending it something new un-ticks it.
 - **Works everywhere you use Claude Code:** with the plugin he reacts to your terminal and editor sessions too — *"shellby in Cursor"*, VS Code, Windsurf, Zed, JetBrains, Windows Terminal — and shows up in Claude Code's status line.
@@ -254,6 +260,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Hooks and memory:** **Toolbox → Hooks** lists every hook in your settings, the project's and your installed plugins', and adds, edits or removes your own. Each change asks first in the isolated confirmation window, shows the exact command and keeps a backup of the settings file. **Toolbox → Memory** opens your `CLAUDE.md`, the project's, `CLAUDE.local.md`, `.claude/rules/` and any `CLAUDE.md` in the folders above, in an editor that won't save over a change made somewhere else.
 - **Skill Shop:** **Toolbox → Get more** lists every plugin in your marketplaces, most popular first. Add marketplaces from GitHub, and every install asks first in an isolated confirmation window. It uses Claude Code's own plugin system, so whatever you install works in your terminal and editor too.
 - **Routines:** each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up. Or just describe one ("every Friday at 5, tidy Downloads") and Claude fills in the form for you to check and save.
+- **Dependency checkups:** the **Dependency checkup** template runs `npm outdated` and `npm audit` (or the pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET equivalent) in every project in a folder, once a week, without changing anything. Shellby reads what each check actually printed, not just how it exited, so a piped or `|| true` run can't pass for clean. It counts whether Claude runs the checks from a routine, from a tab or from your terminal with the plugin. **Routines → Dependency health** lists what each project's last checkup found, a clean audit earns XP and the project's sticker its 🧼 **Fresh** mark, and there's a bounty for it. A project's page in the Sticker Book has **Check dependencies** too.
 - **Claude Code somewhere unusual?** **Find it myself…** in setup takes a portable copy or another drive, and checks the file really is Claude Code before keeping it.
 
 </details>
@@ -270,13 +277,16 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 shellby do "tidy my Downloads"   # a task, in this folder
 shellby say "all green"          # a line in his bubble
 shellby status                   # him, and how this PC is doing
+shellby flow run "Release notes" version=1.2.0   # start a workflow that allows it
 ```
 
 **Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**
 
 ### 🤖 Claude can drive him
 
-The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks**: spending your subscription isn't something a local port gets to do.
+The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks of its own**: spending your subscription isn't something a local port gets to do. The one exception is a workflow you gave the **Claude Code** trigger yourself, which `run_workflow` can start.
+
+**Claude can build workflows, too.** `add_workflow` proposes one (Claude knows the whole format) and `list_workflows` shows what you have. Shellby's confirmation window shows what it would do without asking, in full: every command, every prompt Claude would act on, every web address. Nothing is saved until you say yes, and Autonomous is never on offer.
 
 **Claude can set up routines for you, too.** Say "every weekday at 8:30, summarise what changed in my Documents" in any Claude Code session and Claude writes the routine with `add_routine` (and checks your existing ones with `list_routines`). Shellby then shows you the whole thing in his own confirmation window: the name, schedule, folder, mode and every word of the prompt. **Nothing is saved until you say yes there**, and Autonomous is never on offer. No plugin? Type the same sentence into **Routines → Draft it** and Claude fills in the form instead.
 
@@ -290,6 +300,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 </table>
 
 - **👋 While you were away:** come back after an hour or more and a short recap is waiting above the box: what finished, what failed, what's waiting on you, and roughly how much of your 5-hour usage window each conversation took. Click a row to open that conversation. Turn it off under **Settings → System**.
+- **🧳 Is it safe to leave?** One click in his menu checks the projects you've worked in lately for commits no remote has, uncommitted changes (in Shellby's copies too) and stashes, plus anything Claude is still working on or waiting for: *"2 projects have unpushed work."* **Lock the PC** checks first and locks straight away when it's all clear. A shutdown or sign-out with unpushed or uncommitted work, or with Claude mid-task, is held up with the reason and Windows' **Shut down anyway**. Turn that off under **Settings → System**.
 - **📱 Tell me when I'm away:** a permission prompt, a finished run, a reset usage limit, a red build or an overheating GPU can reach your phone. **ntfy** is one QR scan with no account; **Telegram** finds your chat by itself; **Pushover**, a **Discord** or **Slack** webhook, or your own endpoint work too. Nothing goes through a server of ours, a four-second task doesn't buzz your pocket, and **Guard my focus** holds them back unless you say otherwise.
 - **📲 Answer from your phone (optional):** with Telegram or ntfy, **Let me answer Allow or Deny from my phone** puts the two buttons on the notification. Each prompt gets its own single-use code that expires after 30 minutes. Only your private chat with the bot counts, and an ntfy topic has to be one nobody will guess. Questions, plans, **Always allow**, long commands, and anything the card would warn you about still wait for you at the desk.
 - **🎥 On a stream:** **Settings → On a stream** serves him as an OBS browser source on a transparent background — the same crab, outfit and animations, reacting live in the corner. It's the critter's own stylesheet behind it, on 127.0.0.1 only.
@@ -298,7 +309,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 
 ## 🧭 Easy to get around
 
-- **A bar along the bottom:** Shellby, Chat, Toolbox, Routines, Health and History, labeled, with the current screen lit up.
+- **A bar along the bottom:** Shellby, Chat, Toolbox, Automate (workflows and routines), Health and History, labeled, with the current screen lit up.
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings is split into four tabs (Shellby, Claude, Connections, General), with <kbd>Ctrl</kbd>+<kbd>K</kbd> finding any setting wherever it lives.
 - **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter (click it to see which tabs, routines and projects used it up), resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).
@@ -378,7 +389,7 @@ claude -p --input-format stream-json --output-format stream-json --verbose
 - **Mode changes** mid-conversation send `set_permission_mode`.
 - **Subagents** come through as `task_started` / `task_progress` / `task_notification` system events. Their messages carry `parent_tool_use_id`, the Agent call that spawned them, and their permission prompts carry `agent_id`, which equals the `task_id`. That's all it takes to route every event, prompt and helper crab to the right lane.
 - **The toolbox** merges the skills, agents, commands and MCP servers reported in Claude Code's `init` event with a scan of `~/.claude` and the project's `.claude/`. A file watcher on those folders is how Shellby notices new tricks.
-- **Billing safety:** before spawning the CLI, Shellby strips `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` and the Bedrock/Vertex/Foundry switches from its environment, and onboarding checks `claude auth status` for a `claude.ai` login. Usage counts against your plan's normal limits, exactly as if you'd typed the task into a terminal.
+- **Billing safety:** Shellby never sees your Claude sign-in. You log in to the official, unmodified Claude Code CLI yourself, and Shellby only reads `claude auth status` to show which account and plan it's on. Claude Code gets the environment as it is on your PC, so if `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` or a Bedrock/Vertex/Foundry switch is set, Settings warns that it may bill that instead. **Always use my Claude plan** leaves them all out. Usage counts against your plan's normal limits, exactly as if you'd typed the task into a terminal.
 
 **Staying on the desktop layer:** the critter window is made an *owned window* of the shell's desktop host (the `Progman`/`WorkerW` window that contains `SHELLDLL_DefView`), via [koffi](https://koffi.dev) FFI calls into `user32.dll`. Owned windows share their owner's z-order band, so he sits above your wallpaper and icons and below every app. A `TaskbarCreated` hook re-pins him when Explorer restarts, and a slow watchdog covers anything else.
 

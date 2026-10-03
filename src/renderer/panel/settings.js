@@ -74,6 +74,8 @@
     $('loginNote').hidden = state.packaged;
     $('notifyToggle').checked = !!state.settings.notifications;
     $('recapToggle').checked = state.settings.recap !== false;
+    $('forecastToggle').checked = state.settings.forecast !== false;
+    $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
@@ -164,6 +166,8 @@
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
+  $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
+  $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
   $('reloadSkinsBtn').addEventListener('click', async () => { state.skins = await api.reloadSkins(); renderSkins(); SB.toast(`${state.skins.length} skins loaded`); });
   $('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));
@@ -627,6 +631,11 @@
     renderHistory();
     if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
   }
+
+  // For the places that tick a conversation off on their own (bringing a copy
+  // home and tidying it away): their toast points here, so the chat that just
+  // left the default list is one click from where it went.
+  SB.showDoneHistory = () => { historyFilter = 'done'; SB.setView('history'); };
 
   // The row's open button becomes the name field; the rest of the row stays put.
   function renameHistory(s, btn) {
