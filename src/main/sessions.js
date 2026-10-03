@@ -30,6 +30,7 @@ class SessionManager extends EventEmitter {
       model: this.getModel() || null,
       resumeId: historyEntry?.claudeSessionId || null,
       extraEnv: () => this.getEnv(),
+      context: historyEntry?.context || null,
     });
     const tab = {
       id: tabId, session, routineId,
@@ -44,6 +45,7 @@ class SessionManager extends EventEmitter {
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
+    session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
     session.on('crew', () => this.changed());
     session.on('exit', () => this.changed());
@@ -56,7 +58,7 @@ class SessionManager extends EventEmitter {
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
-      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome });
+      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
     }
     if (tab.saved) this.history.append(tab.id, item);
     this.emit('item', tab.id, item, tab);
@@ -153,7 +155,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
-      outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved,
+      outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved, context: t.session.context,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
     }));
   }

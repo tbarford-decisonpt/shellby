@@ -205,13 +205,13 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'usageMenu']) SB.$(id).hidden = true;
-  for (const id of ['modeChip', 'folderChip', 'branchChip', 'usage']) SB.$(id).setAttribute('aria-expanded', 'false');
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .usage, .slash-menu, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .slash-menu, #input')) SB.closeMenus();
 });
 
 // ------------------------------------------------------------------ page never scrolls

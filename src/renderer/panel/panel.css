@@ -141,6 +141,17 @@ body:not([data-view="chat"]) .subbar { display: none; }
 #folderLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .branch-chip { margin-left: -8px; color: var(--glass); }
 .branch-chip:hover { color: var(--glass); }
+.ctx-chip {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 3px 6px; border-radius: var(--r-sm);
+  color: var(--sand-faint); font: 600 10.5px var(--font-mono); cursor: pointer;
+}
+.ctx-chip:hover, .ctx-chip:focus-visible, .ctx-chip[aria-expanded="true"] { background: var(--reef-2); color: var(--sand); outline: none; }
+.ctx-chip .meter-track { width: 36px; }
+.ctx-chip .meter-label { color: var(--sand-faint); }
+.ctx-chip.warn { color: var(--amber); }
+.ctx-chip.warn .meter-fill { background: var(--amber); }
+.ctx-chip.hot { color: var(--danger); }
+.ctx-chip.hot .meter-fill { background: var(--danger); }
 #branchLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
 .menu-item.branch-info { cursor: default; }
 .menu-item.branch-info:hover { background: none; }

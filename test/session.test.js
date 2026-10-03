@@ -231,3 +231,23 @@ test('a turn that ends with work still running in the background says what it is
   s.handle({ kind: 'result', ok: true, durationMs: 1000, turns: 1 });
   assert.equal(items.filter(i => i.kind === 'result')[1].waiting, undefined);
 });
+
+test('reports how full the context is, and empties it on /compact', async () => {
+  const { s, items } = makeSession();
+  const readings = [];
+  s.on('context', (now, before) => readings.push({ now, before }));
+  s.send('big 170000');
+  await waitFor(s, i => i.kind === 'result');
+  assert.deepEqual(s.context, { tokens: 170000, window: 200000, pct: 85 });
+  assert.equal(readings.at(-1).now.pct, 85);
+  s.send('/compact');
+  await waitFor(s, i => i.kind === 'result' && items.filter(x => x.kind === 'result').length === 2);
+  assert.ok(items.some(i => i.kind === 'compacted' && i.preTokens === 170000));
+  assert.equal(s.context, null);
+  s.close();
+});
+
+test('a resumed conversation starts with its last reading', () => {
+  const s = new ClaudeSession({ exe: process.execPath, cwd: os.tmpdir(), mode: 'ask', context: { tokens: 90000, window: 200000, pct: 45 } });
+  assert.deepEqual(s.context, { tokens: 90000, window: 200000, pct: 45 });
+});

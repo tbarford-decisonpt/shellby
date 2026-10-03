@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('shellby', {
   seenTab: fire('tab:seen'),
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
+  freshTab: invoke('tab:fresh'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),

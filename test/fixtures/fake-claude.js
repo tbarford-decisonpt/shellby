@@ -8,6 +8,8 @@
 //   "wait <ms>"  -> replies "echo: ..." after a delay
 //   "fail"       -> ends the turn with an error
 //   "edit <file> <words>" -> writes <words> into <file> in its working folder
+//   "big <tokens>" -> a reply whose call used <tokens> of a 200k window
+//   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -91,6 +93,19 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const resetsAt = Math.round(Date.now() / 1000) + (parseInt(content.split(' ')[1], 10) || 60);
     out({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', unifiedWindows: { five_hour: { utilization: 1, resetsAt }, seven_day: { utilization: 0.6, resetsAt: resetsAt + 86400 } } } });
     result(false, { result: 'Claude AI usage limit reached' });
+    return;
+  }
+
+  // "big <tokens>" -> the conversation now fills <tokens> of a 200k context window
+  if (content.startsWith('big ')) {
+    const tokens = parseInt(content.split(' ')[1], 10) || 1000;
+    out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: tokens - 110, output_tokens: 100 }, content: [{ type: 'text', text: `big: ${tokens}` }] }, parent_tool_use_id: null, session_id: sessionId });
+    result(true, { modelUsage: { 'claude-sonnet-5-5': { inputTokens: 10, outputTokens: 100, contextWindow: 200000 } } });
+    return;
+  }
+  if (content === '/compact') {
+    out({ type: 'system', subtype: 'compact_boundary', session_id: sessionId, compact_metadata: { trigger: 'manual', pre_tokens: 170000 } });
+    result(true);
     return;
   }
 

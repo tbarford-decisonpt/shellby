@@ -14,6 +14,7 @@ const path = require('path');
 
 const SUITE = [
   'e2e-queue',        // queued messages: queue, edit, drain, stop, error pauses
+  'e2e-context',      // the context meter per tab, the crowded offer, Compact and Start fresh
   'e2e-attachments',  // screenshots as tasks: paste a snip, drop a picture, Claude sees it
   'e2e-feed-scroll',  // your prompt stays visible as the Working bar appears
   'e2e-feed-cap',     // a very long conversation stops growing the DOM

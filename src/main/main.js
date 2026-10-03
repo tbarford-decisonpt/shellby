@@ -44,6 +44,7 @@ const focus = require('./focus');
 const limits = require('./limits');
 const spend = require('./spend');
 const recap = require('./recap');
+const ctx = require('./context');
 const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
@@ -644,6 +645,10 @@ function createManager() {
   });
 
   manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
+  // A conversation past the crowded mark: he says so, and the panel offers to make room.
+  manager.on('context', (_tabId, now, before, tab) => {
+    if (ctx.crossed(before, now) && !tab.routineId) sayText('Getting crowded in here.', 'crowded');
+  });
 
   manager.on('item', (tabId, item, tab) => {
     if (item.kind === 'usage') {
@@ -981,6 +986,10 @@ function onResult(tabId, item, tab) {
     if (!item.interrupted) return moveIntoCopy(tab);
     tab.copyWanted = false;
   }
+  if (tab.freshWanted) {
+    tab.freshWanted = false;
+    if (item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
+  }
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
@@ -1006,6 +1015,21 @@ function onResult(tabId, item, tab) {
   notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
     item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
     () => showPanel({ tabId }));
+}
+
+// "Start fresh with a summary": the summary turn has ended, so the same tab
+// begins a new Claude conversation (no --resume) with the summary as its first
+// message. The tab keeps its copy, its History entry and its transcript.
+async function startFresh(tab, summary) {
+  const session = tab.session;
+  session.setBusy(true); // a message typed meanwhile waits for the new conversation
+  await session.stop();
+  if (!manager.tabs.has(tab.id)) return;
+  session.sessionId = null;
+  session.setContext(0);
+  manager.note(tab.id, { kind: 'fresh' });
+  session.setBusy(false);
+  try { session.send(ctx.handoffPrompt(summary), manager.prepareTurn(tab)); } catch (err) { log.info(`fresh start: ${err.message}`); }
 }
 
 // While Shellby guards your focus, notifications that can wait are held back
@@ -2381,6 +2405,21 @@ function registerIpc() {
     }
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (isStr(tabId)) manager.interrupt(tabId); });
+  // A crowded conversation: Claude writes a summary, then onResult starts it fresh.
+  ipcMain.handle('tab:fresh', (_e, tabId) => {
+    const tab = isStr(tabId) && manager.tabs.get(tabId);
+    if (!tab?.saved) return { ok: false, error: 'That conversation has nothing to sum up yet.' };
+    if (tab.session.busy) return { ok: false, error: 'Let him finish first.' };
+    try {
+      tab.freshWanted = true;
+      manager.send(tabId, ctx.HANDOFF_ASK, { kind: 'user', text: 'Start fresh with a summary' });
+      wake();
+      return { ok: true, text: 'Start fresh with a summary' };
+    } catch (err) {
+      tab.freshWanted = false;
+      return { ok: false, error: err.message };
+    }
+  });
   ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
     if (!isStr(tabId) || !isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
     // AskUserQuestion answers: a small plain object of question -> answer strings.

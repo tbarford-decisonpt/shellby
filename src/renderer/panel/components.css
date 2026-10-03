@@ -48,6 +48,15 @@
 }
 .tab:hover .tab-x, .tab.active .tab-x, .tab-x:focus-visible { opacity: 1; }
 .tab-x:hover { background: var(--reef-3); color: var(--sand); }
+/* How full the conversation's context is: a hairline along the tab's foot. */
+.tab-ctx {
+  position: absolute; left: 8px; right: 8px; bottom: 1px; height: 2px; border-radius: 1px;
+  background: var(--glass); opacity: .55; pointer-events: none;
+  transform: scaleX(var(--fill, 0)); transform-origin: left; transition: transform .6s var(--ease-out);
+}
+.tab.active .tab-ctx { opacity: .9; }
+.tab-ctx.warn { background: var(--amber); opacity: .9; }
+.tab-ctx.hot { background: var(--danger); opacity: 1; }
 /* Dragging a tab along the strip. The × goes away for the duration so letting go
    over one can't close the conversation you were only moving, and the tooltip with
    it: the tabs are sliding under the pointer, so it would be pointing at nothing. */
@@ -300,6 +309,14 @@ body.reordering .tip { display: none; }
 .queue-x { width: 24px; height: 24px; }
 .queue-paused { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--amber); }
 .queue-paused .slim-btn { height: 26px; margin-left: auto; }
+/* A crowded conversation: make room, or not now. */
+.crowded {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 4px 4px 4px 10px;
+  border-radius: var(--r-sm); background: var(--reef); border: 1px solid var(--line);
+  border-left: 2px solid var(--amber); font-size: 12px; animation: fadein .18s var(--ease-out);
+}
+.crowded-text { flex: 1; min-width: 0; color: var(--amber); }
+.crowded .slim-btn { height: 26px; flex: none; }
 .send-btn.queueing { background: var(--reef-3); color: var(--glass); box-shadow: none; }
 
 /* ================================================================ Claude's questions (AskUserQuestion) */

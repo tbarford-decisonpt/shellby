@@ -23,6 +23,7 @@
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
       unread: !!summary.unread, saved: summary.saved ?? tab.saved, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
+      context: summary.context !== undefined ? summary.context : tab.context || null,
     });
     return tab;
   };
@@ -38,6 +39,7 @@
     autosize();
     renderAttachments();
     applyFolderLabel(tab.cwd || state.cwd, tab);
+    syncContextUi();
     syncBusyUi();
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
@@ -96,6 +98,7 @@
     syncBusyUi();
     const active = SB.activeTab();
     if (active) applyFolderLabel(active.cwd || state.cwd, active); // its first change can move it into its own copy
+    syncContextUi();
     SB.renderTabStrip();
   };
 
@@ -159,7 +162,9 @@
       const active = t.id === state.activeTab;
       const btn = h('div', {
         class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
-        role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1', title: t.title,
+        role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
+        title: t.context ? `${t.title}
+${contextText(t.context)}` : t.title,
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
@@ -168,7 +173,8 @@
       },
       tabIcon(t),
       h('span', { class: 'tab-title', text: t.isEmpty && !t.saved ? 'New task' : t.title }),
-      h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'));
+      h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
+      t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
       return btn;
     }));
     // Not while dragging: following the active tab would fight the strip's own
@@ -433,7 +439,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden || !$('usageMenu').hidden) return SB.closeMenus();
+      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('branchMenu').hidden || !$('ctxMenu').hidden || !$('usageMenu').hidden) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return api.hide();
@@ -722,6 +728,74 @@
     await SB.closeTab(tab.id);
     SB.toast('Thrown away. The conversation is still in History.');
   }
+
+  // ------------------------------------------------------------ how full each conversation is
+
+  // Past CROWDED (src/main/context.js) he says so, and the composer offers to
+  // make room. Dismissing it holds until the tab drops back under the mark.
+  const CROWDED = 80;
+  const contextLevel = c => (c.pct >= 95 ? 'hot' : c.pct >= CROWDED ? 'warn' : '');
+  const contextText = c => `Context ${c.pct}% full · ${SB.compact(c.tokens)} of ${SB.compact(c.window)} tokens`;
+
+  function syncContextUi() {
+    const tab = SB.activeTab();
+    const c = tab?.context;
+    const chip = $('ctxChip');
+    chip.hidden = !c;
+    if (c) {
+      chip.className = `ctx-chip ${contextLevel(c)}`;
+      chip.querySelector('.meter-fill').style.transform = `scaleX(${c.pct / 100})`;
+      $('ctxLabel').textContent = `${c.pct}%`;
+      chip.title = contextText(c);
+      chip.setAttribute('aria-label', `${contextText(c)}: make room`);
+    }
+    if (tab && (!c || c.pct < CROWDED)) tab.crowdDismissed = false;
+    const box = $('crowded');
+    const show = !!c && c.pct >= CROWDED && !tab.crowdDismissed;
+    box.hidden = !show;
+    if (!show) { box.replaceChildren(); return; }
+    box.replaceChildren(
+      h('span', { class: 'crowded-text', text: `Getting crowded: ${c.pct}% full.` }),
+      h('button', { class: 'btn slim-btn', type: 'button', onclick: () => compact(tab) }, 'Compact'),
+      h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => startFresh(tab) }, 'Start fresh with a summary'),
+      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = true; syncContextUi(); } },
+        SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
+  }
+  SB.syncContextUi = syncContextUi;
+
+  // Claude Code's own /compact: it sums the conversation up in place and carries on.
+  function compact(tab) {
+    if (tab.busy) return SB.toast('Let him finish first.');
+    SB.activate(tab.id);
+    SB.send('/compact');
+  }
+
+  // Claude writes a handoff summary, then the tab starts a new conversation with it.
+  async function startFresh(tab) {
+    if (tab.busy) return SB.toast('Let him finish first.');
+    const r = await api.freshTab(tab.id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't start fresh.");
+    tab.render({ kind: 'user', text: r.text });
+    tab.busy = true;
+    tab.statusText = 'Writing a summary…';
+    if (tab.isActive) syncBusyUi();
+    SB.renderTabStrip();
+  }
+
+  $('ctxChip').addEventListener('click', () => {
+    const tab = SB.activeTab();
+    const c = tab?.context;
+    if (!c) return;
+    SB.openMenu($('ctxMenu'), $('ctxChip'), () => [
+      h('div', { class: 'menu-label', text: contextText(c) }),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); compact(tab); } },
+        h('span', { class: 'mi-check', text: '⇣' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Compact' }), h('div', { class: 'mi-sub', text: 'Claude sums up the conversation so far and carries on in the room it frees' }))),
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); startFresh(tab); } },
+        h('span', { class: 'mi-check', text: '↻' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Start fresh with a summary' }), h('div', { class: 'mi-sub', text: 'Claude writes a handoff note, then a new conversation picks it up in this tab' }))),
+    ]);
+  });
 
   // ------------------------------------------------------------ usage meter
 
