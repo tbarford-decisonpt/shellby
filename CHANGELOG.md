@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.59.0: flaky test detective
+
+### New
+- **Flaky tests, spotted.** When a test fails and then passes with the code exactly as it was, Shellby notices. He compares the same test command on the same files (uncommitted changes included), so a test that went green because you fixed it never counts. The second time a test does it in a week, he says so: "auth.spec › signs in flaked 2 times this week". Click him while he says it to see the list.
+- **The list.** **Routines → Flaky tests** shows each one, its project and runner, and how often it flaked this week. He reads the failures from what the runner printed, for node's test runner, Jest, Vitest, Mocha, pytest, Go, Rust, Playwright (including its own "flaky" list), RSpec, .NET and PHPUnit.
+- **Fix it.** One button starts a task in a copy of the project on its own branch. Claude finds the cause (timing, shared state, test order, a real network or clock), fixes that rather than adding retries, runs the test 20 times to prove it, and commits. Once the test then goes 20 runs without a flake on the fixed code, it's marked fixed for good, which is worth XP.
+- **Quarantine.** Or have Claude skip just that test, the runner's own way, with a note saying why, without touching its code. Two weeks later he offers to try it again.
+- **Not flaky.** If it was really the world (a server that wasn't up yet), say so and he leaves it be, unless it keeps happening.
+- The week-in-review card counts flaky tests caught and fixed.
+- It's on by default, with a switch in **Settings → System**. It watches tests Claude runs in Shellby's tabs.
+
+### Safety
+- Only test names, counts and hashes are kept, on this PC. Never the output.
+- A test's name comes from the repository, which could be anyone's. In the task's prompt it's quoted and marked as data, after the rules. These tasks never run in Autonomous mode: with Autonomous on, they start in Auto-edit, so Claude asks before running anything. They commit on their own branch and don't push, so you look first.
+- A test run that prints a flood of blank lines can't stall Shellby while he reads it.
+
 ## 0.58.1: getting ready to sign
 
 ### Changed
