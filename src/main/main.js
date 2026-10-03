@@ -2949,6 +2949,10 @@ function registerIpc() {
     const img = isPng ? nativeImage.createFromBuffer(buf) : null;
     return img && !img.isEmpty() ? { buf, img } : null;
   };
+  const copyCard = img => {
+    if (isolated) return true;
+    try { clipboard.writeImage(img); return true; } catch (e) { log.warn("couldn't copy a crab card", e?.message); return false; }
+  };
   ipcMain.handle('card:save', (_e, bytes) => {
     const card = cardImage(bytes);
     if (!card) return { ok: false, error: "That card didn't come out right." };
@@ -2958,17 +2962,20 @@ function registerIpc() {
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
       lastCard = path.join(dir, `shellby-card-${stamp}.png`);
       fs.writeFileSync(lastCard, card.buf);
-      if (!isolated) clipboard.writeImage(card.img);
-      stat('card-shared');
-      return { ok: true, name: path.join('Pictures', 'Shellby', path.basename(lastCard)) };
-    } catch {
+    } catch (e) {
+      log.warn("couldn't save a crab card", e?.message);
       return { ok: false, error: "Couldn't save the card to Pictures." };
     }
+    stat('card-shared');
+    // The file is the save; the clipboard is a bonus. Another app holding the
+    // clipboard (clipboard history, a screenshot tool) mustn't turn a saved
+    // card into a "couldn't save" — the sheet's Copy button can try again.
+    const copied = copyCard(card.img);
+    return { ok: true, copied, name: path.join('Pictures', 'Shellby', path.basename(lastCard)) };
   });
   ipcMain.handle('card:copy', (_e, bytes) => {
     const card = cardImage(bytes);
-    if (card && !isolated) clipboard.writeImage(card.img);
-    return { ok: !!card };
+    return { ok: !!card && copyCard(card.img) };
   });
   ipcMain.on('card:reveal', () => { if (lastCard && fs.existsSync(lastCard)) shell.showItemInFolder(lastCard); });
 
