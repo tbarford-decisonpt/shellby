@@ -676,6 +676,20 @@ select.field option { background: var(--reef); }
 .toggle input:focus-visible + .switch { outline: 2px solid var(--glass); outline-offset: 2px; }
 .toggle input:disabled + .switch { opacity: .4; }
 
+/* apps he's been told to stay off: one pill each, ✕ to let him back on */
+.perch-ignore { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; }
+.perch-ignore #perchIgnoreList { display: contents; }
+.perch-app {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 6px 0 10px;
+  border: 1px solid var(--line); border-radius: 99px; background: var(--reef);
+  font: 600 11.5px var(--font-mono); color: var(--sand); cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.perch-app .x { font-size: 10px; color: var(--sand-dim); transition: color .15s; }
+.perch-app:hover { border-color: var(--coral); }
+.perch-app:hover .x { color: var(--coral); }
+.perch-app:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 12px; font-size: 12.5px; }
 .facts dt { color: var(--sand-faint); }
 .facts dd { margin: 0; font-family: var(--font-mono); font-size: 11.5px; font-stretch: 88%; overflow: hidden; text-overflow: ellipsis; }

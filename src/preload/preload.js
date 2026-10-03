@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
     onTogether: on('critter:together'), // ...and the two of them do something together
     pet: fire('critter:pet'),
+    hit: fire('critter:hit'),           // the pointer is over him (perched, the rest of his window lets clicks through)
+    onPerch: on('critter:perch'),       // up on a window, or back down (src/main/perching.js)
   },
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
@@ -198,7 +200,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions
