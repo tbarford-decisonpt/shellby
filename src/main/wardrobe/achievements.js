@@ -46,6 +46,18 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'liftoff', name: 'Liftoff', icon: '🚀', description: 'Release version 1.0 of something', stat: 'majorReleases', goal: 1, rewards: ['rocket'] },
   { id: 'well-traveled', name: 'Well Traveled', icon: '🧳', description: 'Put stickers on 3 different shells', stat: 'stickeredShells', goal: 3, rewards: ['luggage-tag'] },
   { id: 'swap-meet', name: 'Swap Meet', icon: '🤝', description: "A visiting friend's crab leaves you one of their stickers", stat: 'friendStickers', goal: 1, rewards: ['trade-binder'] },
+  // Just the two of you (src/main/life.js, gifts.js, bond.js, playtime.js). None of these need Claude.
+  { id: 'beachcomber', name: 'Beachcomber', icon: '🐚', description: 'Shellby digs you up his first gift', stat: 'findsMade', goal: 1, rewards: ['sand-pail'] },
+  { id: 'magpie', name: 'Magpie', icon: '🐦', description: 'Shellby digs you up 25 gifts', stat: 'findsMade', goal: 25, rewards: ['metal-detector'] },
+  { id: 'curator', name: 'Curator', icon: '🏛️', description: 'Complete a set of finds on the shelf', stat: 'setsCompleted', goal: 1, rewards: ['treasure-chest'] },
+  { id: 'x-marks', name: 'X Marks the Spot', icon: '🗺️', description: 'Shellby digs up something legendary', stat: 'legendaryFinds', goal: 1, rewards: ['doubloon-medal'], hidden: true },
+  { id: 'best-friends', name: 'Best Friends', icon: '💞', description: 'Become best friends with Shellby', stat: 'bondLevel', goal: 4, rewards: ['friendship-locket'] },
+  { id: 'peekaboo', name: 'Peekaboo', icon: '🙈', description: 'Find Shellby in hide and seek', stat: 'hidesFound', goal: 1, rewards: ['leafy-disguise'] },
+  { id: 'good-arm', name: 'Good Arm', icon: '🎾', description: 'Play fetch with Shellby 10 times', stat: 'fetches', goal: 10, rewards: ['tennis-ball'] },
+  { id: 'player-two', name: 'Player Two', icon: '🎮', description: 'Shellby watches you finish 5 games', stat: 'gamesWatched', goal: 5, rewards: ['game-controller'], hidden: true },
+  { id: 'on-air', name: 'Quiet on Set', icon: '🤫', description: 'Shellby keeps quiet through 5 calls', stat: 'callsHushed', goal: 5, rewards: ['on-air-light'], hidden: true },
+  { id: 'storyteller', name: 'Little Scenes', icon: '🎭', description: 'Catch Shellby in 10 different little scenes', stat: 'scenesSeen', goal: 10, rewards: ['bubble-pipe'] },
+  { id: 'gossip', name: 'Gossip', icon: '💬', description: 'Your crab chats with visiting crabs 5 times', stat: 'banters', goal: 5, rewards: ['tin-can-phone'] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -56,6 +68,7 @@ const COUNTERS = [
   'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed', 'visitorsHosted', 'wavesSent',
   'perchesMade', 'timesShaken', 'windowLeaps', 'windowCatches', 'longestRide',
   'stickersEarned', 'holoStickers', 'majorReleases', 'stickeredShells', 'friendStickers',
+  'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -83,12 +96,22 @@ const INCREMENTS = {
   shaken: 'timesShaken',
   'window-leap': 'windowLeaps',
   'caught-on-window': 'windowCatches',
+  'find-made': 'findsMade',
+  'set-completed': 'setsCompleted',
+  'legendary-find': 'legendaryFinds',
+  'hide-found': 'hidesFound',
+  fetched: 'fetches',
+  'game-watched': 'gamesWatched',
+  'call-hushed': 'callsHushed',
+  banter: 'banters',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
   'crew-size': 'maxCrew', parallel: 'maxParallel', ride: 'longestRide',
   // Shell stickers (src/main/stickers.js) report their totals.
   'stickers-earned': 'stickersEarned', 'holo-stickers': 'holoStickers', 'one-point-oh': 'majorReleases', 'stickered-shells': 'stickeredShells', 'friend-stickers': 'friendStickers',
+  // Bond level and the number of different scenes seen (src/main/life.js) report their totals.
+  'bond-level': 'bondLevel', 'scenes-seen': 'scenesSeen',
 };
 
 function emptyStats() {

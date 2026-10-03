@@ -62,8 +62,24 @@ const OCCASIONS = Object.freeze({
   latenight: { every: 6 * HOUR, ttl: 8 * SECOND },
   back: { every: 20 * HOUR, ttl: 10 * SECOND },
 
-  // --- nothing happening
-  idle: { every: 9 * MINUTE, ttl: 6 * SECOND, only: 'chatty' },
+  // --- your day, not just your code (see surroundings.js). Only ever the kind
+  // of app, never what's in it.
+  gameOver: { every: 30 * MINUTE, ttl: 7 * SECOND },
+  callOver: { every: 20 * MINUTE, ttl: 7 * SECOND },
+  sheetStretch: { every: 3 * HOUR, ttl: 7 * SECOND },
+  docStretch: { every: 3 * HOUR, ttl: 7 * SECOND },
+  slideStretch: { every: 3 * HOUR, ttl: 7 * SECOND },
+  friday: { every: 20 * HOUR, ttl: 8 * SECOND },
+  weekend: { every: 20 * HOUR, ttl: 8 * SECOND },
+  monday: { every: 20 * HOUR, ttl: 8 * SECOND },
+
+  // --- things he digs up (gifts.js) and remembers (bond.js)
+  found: { every: 0, ttl: 7 * SECOND },
+  memory: { every: 3 * HOUR, ttl: 8 * SECOND },
+  milestone: { every: 0, ttl: 10 * SECOND },
+
+  // --- nothing happening. Normal hears it now and then; chatty mutters more.
+  idle: { every: 25 * MINUTE, ttl: 6 * SECOND },
 
   // --- up on your windows (see perch.js)
   perch: { every: 3 * MINUTE, ttl: 5 * SECOND },
@@ -97,6 +113,17 @@ const LINES = Object.freeze({
   morning: ['morning', "you're up", 'morning!'],
   latenight: ['you too?', 'late one', 'still up?'],
   back: ["you're back!", 'missed you', 'where were you?'],
+  gameOver: ['gg', 'did we win?', 'good game?', 'rematch?'],
+  callOver: ['phew, over', "how'd it go?", 'can I talk now?', 'shh no more'],
+  sheetStretch: ['numbers again?', 'cells, cells, cells', 'spreadsheet day?', 'sum it up'],
+  docStretch: ['still writing?', 'big essay?', 'word by word'],
+  slideStretch: ['big presentation?', 'next slide!', 'add a crab slide'],
+  friday: ['friday!', 'nearly weekend', 'home stretch'],
+  weekend: ["it's the weekend", 'lazy day?', 'weekend crab'],
+  monday: ['monday again', 'new week', 'need coffee'],
+  found: ['found something!', 'ooh, look', 'for you!', 'treasure!'],
+  memory: ['remember that?', 'good times', 'us two'],
+  milestone: ['look how far!', 'what a run', 'us two!'],
   idle: ['all quiet', "tide's out", 'anything?', 'hm', 'nice day'],
   perch: ['nice view', 'comfy up here', 'my spot now', "what's this one?"],
   ride: ['wheee', 'steady!', 'faster!', 'whoa'],
@@ -116,22 +143,39 @@ const FLAVOR = Object.freeze({
     working: ['love this bit'], success: ['yay!'], error: ['we go again'],
     passed: ['knew it!'], morning: ['bright and early'], idle: ['lovely day', 'what next?'],
     ride: ['again! again!'], perch: ['hello up here!'],
+    gameOver: ['you were great!'], callOver: ['nice chat?'], weekend: ['adventure day!'],
+    friday: ['woo, friday!'], found: ['look look look!'],
   },
   fussy: {
     working: ['carefully now'], success: ['tidy'], error: ['I knew it'],
     bigWrite: ['too much'], sameFile: ['again? really?'], idle: ['dusty in here'],
     perch: ['dusty up here'], shaken: ['how undignified'],
+    sheetStretch: ['check cell B12'], gameOver: ['enough screen time'], monday: ['mondays. ugh.'],
+    found: ['needs a polish'],
   },
   cocky: {
     working: ['watch this'], success: ['easy', 'obviously'], error: ['not my fault'],
     passed: ['never doubted it'], push: ["you're welcome"], idle: ['bored'],
     shaken: ['meant to do that'], caught: ['obviously'],
+    gameOver: ['I could beat that'], slideStretch: ['I should present'], found: ['you can thank me'],
+    callOver: ['I was quiet. ask.'],
   },
   sleepy: {
     working: ['yawn… on it'], success: ['…done'], error: ['ugh'],
     longTask: ['so long…'], latenight: ['bedtime'], idle: ['nap time?', 'quiet…'],
     perch: ['good nap spot'], dropped: ['was asleep…'],
+    weekend: ['sleep in?'], monday: ['five more minutes'], callOver: ['dozed off, sorry'],
+    found: ['found it napping'],
   },
+});
+
+// What each temperament is like, for the places that show it (Settings, the
+// Us page, his crab card). Short and in his favour.
+const TEMPERAMENT_INFO = Object.freeze({
+  chipper: Object.freeze({ name: 'Chipper', emoji: '🌞', blurb: 'Delighted by everything. Digs a lot and peeks at what you’re doing.' }),
+  fussy: Object.freeze({ name: 'Fussy', emoji: '🧽', blurb: 'Likes things just so. Polishes his shell and notices the dust.' }),
+  cocky: Object.freeze({ name: 'Cocky', emoji: '😎', blurb: 'Never wrong, never worried. Shows off and takes the credit.' }),
+  sleepy: Object.freeze({ name: 'Sleepy', emoji: '💤', blurb: 'In no hurry. Stretches, flops over and naps more than most.' }),
 });
 
 // What he does with his claws when there's nothing to do. The renderer animates
@@ -222,10 +266,12 @@ function poolFor(occasion, temperament) {
  * The line he says for `occasion`, or null when he should keep it to himself.
  * Returns { text, occasion, until, state } — `state` is a new voice state to
  * persist; the old one is never mutated.
- *   opts: { chatter, rand, force } — force skips the cooldowns (a level-up
- *   shouldn't lose its line because he said something 30 seconds ago).
+ *   opts: { chatter, rand, force, text } — force skips the cooldowns (a level-up
+ *   shouldn't lose its line because he said something 30 seconds ago). `text`
+ *   is a line made elsewhere (a memory, a milestone) that still has to pass
+ *   every rule here; it must fit the bubble.
  */
-function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, force = false } = {}) {
+function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, force = false, text = null } = {}) {
   const state = normalize(stateIn);
   const level = chatterOf(chatter);
   const rule = OCCASIONS[occasion];
@@ -237,6 +283,13 @@ function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, f
     if (t - state.lastSpokeAt < GAP[level]) return null;
     const last = state.said[occasion];
     if (last != null && t - last < rule.every * COOLDOWN_SCALE[level]) return null;
+  }
+  if (text != null) {
+    if (typeof text !== 'string' || !text.trim() || text.length > MAX_LINE) return null;
+    return {
+      text, occasion, until: t + rule.ttl,
+      state: { ...state, lastSpokeAt: t, said: { ...state.said, [occasion]: t } },
+    };
   }
   const pool = poolFor(occasion, temperamentOf(state.seed));
   if (!pool.length) return null;
@@ -281,7 +334,7 @@ function pickBit(seed, rand = Math.random) {
 }
 
 module.exports = {
-  CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
+  CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
   normalize, chatterOf, temperamentOf, poolFor, say, timeOccasion, absenceOccasion, pickBit,
   occasionForTool, occasionForCommand,
 };

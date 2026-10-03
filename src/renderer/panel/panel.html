@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="stickers.css">
+<link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -390,8 +391,10 @@
       <h2 class="sr-only">Wardrobe</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
-        <button type="button" data-goto="trophies">Trophies &amp; XP</button>
+        <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
       </nav>
       <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
@@ -453,8 +456,10 @@
       <h2 class="sr-only">Trophies and XP</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
-        <button type="button" aria-current="page" data-goto="trophies">Trophies &amp; XP <span class="n" id="trophyCount"></span></button>
+        <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Make a shareable picture of your Shellby" aria-label="Make a shareable picture of your Shellby">📸</button>
     </div>
@@ -532,8 +537,10 @@
       <h2 class="sr-only">Sticker Book</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
-        <button type="button" data-goto="trophies">Trophies &amp; XP</button>
+        <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
@@ -570,6 +577,86 @@
         <button type="button" role="radio" data-card="names">Shell and names</button>
       </div>
       <p class="muted small st-card-help" id="stCardHelp"></p>
+    </section>
+  </main>
+
+  <!-- ====================== FINDS: what he digs up (together.js, src/main/gifts.js) ====================== -->
+  <main class="view view-finds" id="findsView">
+    <div class="view-head">
+      <h2 class="sr-only">Finds</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
+        <button type="button" data-goto="us">Us</button>
+      </nav>
+    </div>
+    <section class="fd-hero" aria-label="The shelf">
+      <div class="fd-fav" id="fdFav"></div>
+      <div class="fd-hero-text">
+        <p class="xp-eyebrow fd-eyebrow">The shelf</p>
+        <h3 id="fdTotal">Nothing on the shelf yet</h3>
+        <p class="fd-sub">When he's bored he digs at your wallpaper, and now and then he turns something up. Some only show up in their season, after dark, or on a special day.</p>
+        <div class="fd-tools">
+          <button type="button" class="btn primary slim-btn" id="fdDig">Dig for treasure</button>
+          <span class="fd-dig-note muted small" id="fdDigNote"></span>
+        </div>
+      </div>
+    </section>
+    <ul class="fd-sets" id="fdSets" aria-label="Sets"></ul>
+    <section class="fd-detail" id="fdDetail" hidden aria-live="polite"></section>
+    <ul class="fd-grid" id="fdGrid" role="list" aria-label="Every find"></ul>
+  </main>
+
+  <!-- ====================== US: the two of you (together.js, src/main/bond.js, playtime.js) ====================== -->
+  <main class="view view-us" id="usView">
+    <div class="view-head">
+      <h2 class="sr-only">You and Shellby</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="us">Us</button>
+      </nav>
+    </div>
+    <section class="us-hero" id="usHero" aria-label="How close you are"></section>
+    <section class="us-card us-play" aria-label="Play">
+      <h3>Play with him</h3>
+      <p class="muted small">No account or Claude needed. Right-click him on the desktop for these too.</p>
+      <div class="us-play-btns">
+        <button type="button" class="btn slim-btn" data-play="hide">🙈 Hide and seek</button>
+        <button type="button" class="btn slim-btn" data-play="fetch">🎾 Fetch</button>
+        <button type="button" class="btn slim-btn" data-play="dig">⛏️ Dig for treasure</button>
+        <button type="button" class="btn ghost slim-btn" data-play="stop" hidden>Stop</button>
+      </div>
+      <ul class="us-scores" id="usScores"></ul>
+    </section>
+    <section class="us-card us-birthday" aria-label="Your birthday">
+      <h3>Your birthday</h3>
+      <p class="muted small">Tell him and he'll make a fuss on the day, and dig up something you can't find any other way. It stays on this PC.</p>
+      <div class="row wrap us-bd-row">
+        <select class="field slim" id="usBdMonth" aria-label="Month"></select>
+        <select class="field slim" id="usBdDay" aria-label="Day"></select>
+        <button type="button" class="btn slim-btn" id="usBdSave">Save</button>
+        <button type="button" class="btn ghost slim-btn" id="usBdForget" hidden>Forget it</button>
+      </div>
+    </section>
+    <section class="us-card" aria-label="What grows">
+      <h3>As you get closer</h3>
+      <p class="muted small">Pet him, play with him, and just keep him around. It never goes back down: he doesn't sulk.</p>
+      <ul class="us-unlocks" id="usUnlocks"></ul>
+    </section>
+    <section class="us-card" aria-label="His little scenes">
+      <h3 id="usScenesTitle">His little scenes</h3>
+      <p class="muted small">Things he gets up to when nothing's happening. Some only at night, at the weekend, or when you're playing music.</p>
+      <ul class="us-scenes" id="usScenes"></ul>
+    </section>
+    <section class="us-card" aria-label="Our story">
+      <h3>Our story</h3>
+      <p class="muted small">The moments he remembers. Every so often he brings one up.</p>
+      <ol class="us-story" id="usStory"></ol>
     </section>
   </main>
 
@@ -726,7 +813,8 @@
           </label>
           <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
         </div>
-        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble. Normal lets him say a few words about what he's up to; Chatty lets him mutter to himself as well. He always keeps quiet while he's guarding your focus.</p>
+        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
+        <p class="small temper-note" id="temperNote" hidden></p>
         <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
       </section>
 
@@ -963,6 +1051,8 @@
         <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
         <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
         <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
+        <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
+        <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">
@@ -1154,6 +1244,7 @@
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
+<script src="together.js"></script>
 <script src="health.js"></script>
 <script src="card.js"></script>
 <script src="celebrate.js"></script>

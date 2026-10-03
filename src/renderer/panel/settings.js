@@ -75,6 +75,7 @@
     $('notifyToggle').checked = !!state.settings.notifications;
     $('recapToggle').checked = state.settings.recap !== false;
     $('forecastToggle').checked = state.settings.forecast !== false;
+    $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
@@ -84,6 +85,10 @@
     $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}.` : '';
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    // His temperament, picked once from your install and kept (src/main/voice.js).
+    const t = state.life?.temperament;
+    $('temperNote').hidden = !t;
+    if (t) $('temperNote').textContent = `${t.emoji} Your crab is ${t.name.toLowerCase()}. ${t.blurb}`;
     $('pushToTalkToggle').checked = !!state.settings.pushToTalk;
     const st = state.status || {};
     const facts = [
@@ -162,6 +167,7 @@
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
   $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
+  $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
   $('reloadSkinsBtn').addEventListener('click', async () => { state.skins = await api.reloadSkins(); renderSkins(); SB.toast(`${state.skins.length} skins loaded`); });
   $('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));

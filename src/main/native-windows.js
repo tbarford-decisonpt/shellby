@@ -48,6 +48,9 @@ function load() {
       QueryFullProcessImageNameW: kernel32.func('bool __stdcall QueryFullProcessImageNameW(intptr_t h, uint32_t flags, _Out_ uint16_t *buf, _Inout_ uint32_t *size)'),
       SHQueryUserNotificationState: shell32.func('long __stdcall SHQueryUserNotificationState(_Out_ int32_t *state)'),
       SetProcessDpiAwarenessContext: user32.func('bool __stdcall SetProcessDpiAwarenessContext(intptr_t ctx)'),
+      LockWorkStation: user32.func('bool __stdcall LockWorkStation()'),
+      ShutdownBlockReasonCreate: user32.func('bool __stdcall ShutdownBlockReasonCreate(intptr_t hwnd, str16 reason)'),
+      ShutdownBlockReasonDestroy: user32.func('bool __stdcall ShutdownBlockReasonDestroy(intptr_t hwnd)'),
     };
   } catch (e) {
     console.warn('[shellby] window tracking unavailable:', e.message);
@@ -100,26 +103,28 @@ function topLevelWindows() {
   }, []);
 }
 
-const exeCache = new Map(); // pid -> lower-case file name; pids are reused, so it's capped and short-lived
-function exeOf(pid) {
-  if (!pid) return '';
+const exeCache = new Map(); // pid -> { name, full }; pids are reused, so it's capped and short-lived
+function imageOf(pid) {
+  if (!pid) return { name: '', full: '' };
   const hit = exeCache.get(pid);
-  if (hit && Date.now() - hit.at < 60000) return hit.name;
-  const name = safe(a => {
+  if (hit && Date.now() - hit.at < 60000) return hit;
+  const full = safe(a => {
     const h = a.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
     if (!h) return '';
     try {
       const buf = new Uint16Array(1024);
       const size = [1024];
       if (!a.QueryFullProcessImageNameW(h, 0, buf, size)) return '';
-      const full = String.fromCharCode(...buf.slice(0, size[0]));
-      return full.split('\\').pop().toLowerCase();
+      return String.fromCharCode(...buf.slice(0, size[0]));
     } finally { a.CloseHandle(h); }
   }, '');
+  const entry = { name: full.split('\\').pop().toLowerCase(), full, at: Date.now() };
   if (exeCache.size > 200) exeCache.clear();
-  exeCache.set(pid, { name, at: Date.now() });
-  return name;
+  exeCache.set(pid, entry);
+  return entry;
 }
+// The lower-case file name ("chrome.exe").
+const exeOf = pid => imageOf(pid).name;
 
 function frameOf(a, h) {
   const r = {};
@@ -164,6 +169,8 @@ function describe(h) {
       hwnd: h,
       pid: pid[0],
       exe: exeOf(pid[0]),
+      // Where it's installed, so a game can be told by its launcher's folder (surroundings.js).
+      path: imageOf(pid[0]).full,
       cls: str16(a.GetClassNameW, h),
       rect: rectOf(r),
       ...q,
@@ -276,8 +283,14 @@ const close = h => safe(a => a.PostMessageW(h, WM_CLOSE, 0, 0), false);
 // scripts call this first to see the same physical pixels Electron does.
 const dpiAware = () => safe(a => a.SetProcessDpiAwarenessContext(-4 /* PER_MONITOR_AWARE_V2 */), false);
 const move = (h, x, y) => safe(a => a.SetWindowPos(h, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | 0x4 /* NOZORDER */), false);
+// "Is it safe to leave?" (leaving.js): lock the screen, and the line Windows
+// shows beside Shellby while he holds up a shutdown or sign-out.
+const lockScreen = () => safe(a => a.LockWorkStation(), false);
+const blockShutdown = (h, reason) => safe(a => a.ShutdownBlockReasonCreate(h, String(reason).slice(0, 250)), false);
+const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 
 module.exports = {
   load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
+  lockScreen, blockShutdown, unblockShutdown,
 };
