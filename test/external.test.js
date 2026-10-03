@@ -91,10 +91,20 @@ test('summary rolls up several sessions: asking beats working', () => {
 test('successful shell commands report their meaning (tests/ship/deploy), never the text', () => {
   const r = play([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }),
     ev('PostToolUse', { tool_name: 'PowerShell', tool_input: { command: 'vercel --prod' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'ls -la' } })]);
-  assert.deepEqual(r.effects, [{ type: 'command-ok', kind: 'tests', project: '3d-rack' }, { type: 'command-ok', kind: 'deploy', project: '3d-rack' }]);
+  assert.deepEqual(r.effects, [{ type: 'command-ok', kind: 'tests', project: '3d-rack' }, { type: 'command-ok', kind: 'deploy', project: '3d-rack', cwd: ev('x').cwd, ship: { kind: 'deploy', version: null } }]);
   assert.equal(JSON.stringify([...r.sessions.values()]).includes('npm test'), false);
   // A failing command only ever gets PreToolUse (checked against the real CLI), so it earns nothing.
   assert.deepEqual(play([ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } })]).effects, []);
+});
+
+test('a push or release outside Shellby says where, and which version, for its sticker', () => {
+  const r = play([ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'git push origin main' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'gh release create v1.0.0' } })]);
+  assert.deepEqual(r.effects, [
+    { type: 'command-ok', kind: 'ship', project: '3d-rack', cwd: ev('x').cwd, ship: { kind: 'ship', version: null } },
+    { type: 'command-ok', kind: 'deploy', project: '3d-rack', cwd: ev('x').cwd, ship: { kind: 'release', version: '1.0.0' } },
+  ]);
+  const draft = play([ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'gh release create v2.0.0 --draft' } })]);
+  assert.deepEqual(draft.effects, [{ type: 'command-ok', kind: 'deploy', project: '3d-rack' }], 'a draft release ships nothing');
 });
 
 test('a flood of fake session ids stays bounded (oldest evicted)', () => {

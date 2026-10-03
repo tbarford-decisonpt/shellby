@@ -13,6 +13,7 @@ const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { classifyCommand } = require('./xp');
+const { shipOf } = require('./stickers');
 const { clientOf, describeClient } = require('./clients');
 
 const DEFAULT_PORT = 47913;
@@ -95,7 +96,14 @@ function applyHookEvent(sessions, evt, now, client = null) {
       // the meaning leaves this function, never the command itself.
       if (evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell') {
         const kind = classifyCommand(evt.tool_input?.command);
-        if (kind) effects.push({ type: 'command-ok', kind, project: s.project });
+        // A push, deploy or release also ships the project, which earns its
+        // sticker (stickers.js): that needs the folder, and what it shipped.
+        const ship = shipOf(kind, evt.tool_input?.command);
+        if (kind) {
+          effects.push(ship
+            ? { type: 'command-ok', kind, project: s.project, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, ship: { kind: ship.kind, version: ship.meta.version ?? null } }
+            : { type: 'command-ok', kind, project: s.project });
+        }
       }
       break;
     }

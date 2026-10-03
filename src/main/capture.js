@@ -90,6 +90,25 @@ async function shot(win, file) {
   console.log('wrote', path.relative(process.cwd(), file));
 }
 
+// Projects for the sticker shots (stickers.js): a mix of tiers, marks and ages.
+function demoStickers(now) {
+  const DAY = 24 * 3600 * 1000;
+  const list = [
+    ['5b1c0de0a1f2', 'shellby', 'JavaScript', 42, ['live', 'release', 'v1', 'merged'], 300, 0],
+    ['9e3a7c21d4b8', '3d-rack', 'TypeScript', 17, ['live', 'merged', 'green'], 120, 2],
+    ['c47f02e9a5d1', 'rack-builder', 'Python', 6, ['release'], 60, 5],
+    ['0d8e6b13f7a2', 'tidepool', 'Rust', 2, [], 20, 1],
+    ['71a9c3e05b6f', 'kelp-cli', 'Go', 1, ['moon'], 200, 75],
+    ['e2f4a8b6c0d3', 'dotfiles', 'Shell', 3, [], 400, 190],
+  ];
+  const projects = {};
+  for (const [id, name, lang, ships, marks, firstAgo, lastAgo] of list) {
+    projects[id] = { name, lang, ships, marks, firstShipAt: now - firstAgo * DAY, lastShipAt: now - lastAgo * DAY, deploys: marks.includes('live') ? 3 : 0, releases: marks.includes('release') ? 2 : 0, lastVersion: marks.includes('v1') ? '1.2.0' : null };
+  }
+  const home = list.slice(0, 5).map(([id], i) => ({ id, slot: i, z: 5 - i, flip: false, nudge: [0, 0] }));
+  return { projects, layouts: { home }, card: 'art', unseen: [] };
+}
+
 async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin }) {
   const out = path.join(ROOT, 'docs');
   fs.mkdirSync(out, { recursive: true });
@@ -203,6 +222,16 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'wardrobe' });
     await wait(1400);
     await shot(panel, path.join(out, 'screenshot-wardrobe.png'));
+
+    // Shell stickers: a few shipped projects on his own shell, and the Sticker Book.
+    config.set({ stickers: demoStickers(captureClock.now.getTime()) });
+    wardrobe.setOutfit({ hat: null, held: null, face: null, neck: null, shell: null, effect: null });
+    broadcastSkin();
+    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'stickers' });
+    await wait(1600);
+    await shot(panel, path.join(out, 'screenshot-stickers.png'));
+    await shot(critter, path.join(out, 'critter-stickers.png'));
+    wardrobe.setOutfit({ hat: 'wizard-hat', held: 'coffee-mug', effect: 'sparkles' });
 
     // The shareable crab card, with the trophies earned above.
     for (let i = 0; i < 30; i++) wardrobe.record('helper-spawned');

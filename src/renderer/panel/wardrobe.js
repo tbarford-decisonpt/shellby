@@ -60,7 +60,9 @@
     const outfit = outfitWith(tryOn);
     const skin = tryOn?.slot === 'skin' ? state.skins.find(s => s.id === tryOn.key) || state.skin : state.skin;
     const shell = tryOn?.slot === 'home' ? shellFor(tryOn.key) : state.outfit?.home || null;
-    const svg = SB.Sprite.build(skin, { accessories: renderedAccessories(outfit), shell, fit: false });
+    // Stickers belong to the shell (and skin) he's wearing, so trying on another goes bare.
+    const stickers = tryOn?.slot === 'home' || tryOn?.slot === 'skin' ? [] : state.outfit?.stickers || [];
+    const svg = SB.Sprite.build(skin, { accessories: renderedAccessories(outfit), shell, stickers, fit: false });
     $('wdCrab').replaceChildren(svg);
     const stage = $('wdStage');
     stage.className = `stage state-${mood}`;
@@ -215,7 +217,7 @@
   const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...homes()].filter(i => i.isNew && !i.locked);
   const refreshBadge = () => {
     const fresh = freshItems().length > 0;
-    $('wardrobeBadge').hidden = !fresh;
+    $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length; // new stickers too (stickers.js)
     $('markSeenBtn').hidden = !fresh;
     document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.classList.toggle('has-new', itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked)));
   };
@@ -240,6 +242,7 @@
     if (items.length || shells.length) refreshBadge();
   }
   SB.acknowledge = acknowledge;
+  SB.refreshShellbyBadge = refreshBadge;
   function applyHomes(view) {
     if (!view) return;
     state.homes = view;

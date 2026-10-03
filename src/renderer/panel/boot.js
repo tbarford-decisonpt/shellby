@@ -130,6 +130,7 @@
     SB.applyCrabOnly();
     SB.applyUsage(state.settings.lastUsage);
     if (b.homes) SB.applyHomes(b.homes);
+    if (b.stickers) SB.applyStickers(b.stickers);
     if (b.wardrobe) SB.applyWardrobe(b.wardrobe);
     if (b.welcomeTrophies?.length) {
       const names = b.welcomeTrophies.map(t => `${t.icon} ${t.name}`).join(', ');

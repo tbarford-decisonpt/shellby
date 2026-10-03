@@ -26,12 +26,13 @@ key community packs get. Two packs in here must therefore never use the same ite
 | `high-places.json` | 5 accessories | One per slot, all from the window-perching trophies (`window-sill`, `hang-on`, `rodeo`, `leap-of-faith`, `trapeze`). |
 | `crab-species.json` | 4 skins | Reshaped crabs. Three move their `anchors` so accessories still land correctly. |
 | `theme-crabs.json` | 6 skins | Recolours for themed desktops. |
+| `sticker-shop.json` | 6 accessories | Rewards for the shell-sticker trophies (shipping projects, a 1.0, swaps). |
 
-Totals: **113 accessories, 18 effects, 12 skins** (as `npm run packs` counts them).
+Totals: **119 accessories, 18 effects, 12 skins** (as `npm run packs` counts them).
 
 ## Unlocks
 
-Of the 131 accessories and effects, **32 are available on day one, 60 come from trophies and
+Of the 137 accessories and effects, **32 are available on day one, 66 come from trophies and
 39 are seasonal** — so the wardrobe reads as a collection rather than a pile. The day-one set
 exists to fill the slots that used to be empty (`face`, `neck` and `shell` had 4, 5 and 3
 items, all of them locked); hats and held items stay mostly earned, the way the base pack

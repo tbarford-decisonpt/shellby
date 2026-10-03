@@ -6,7 +6,7 @@
   let view = null;
 
   const crab = look => {
-    const svg = window.ShellbySprite.build(look.skin, { px: 2, accessories: look.accessories || [], shell: look.shell || undefined, fit: true });
+    const svg = window.ShellbySprite.build(look.skin, { px: 2, accessories: look.accessories || [], shell: look.shell || undefined, stickers: look.stickers || [], fit: true });
     svg.classList.add('fr-crab');
     return svg;
   };

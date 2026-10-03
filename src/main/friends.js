@@ -287,7 +287,8 @@ class Friends extends EventEmitter {
       guestbook: [{ login: f.login, at, souvenir: souvenir.id }, ...s.guestbook].slice(0, MAX_GUESTBOOK),
     });
     else this.save({ lastVisitAt: at });
-    this.visiting = { login: f.login, card: f.card, until: at + VISIT_MS, souvenir };
+    // `signed`: the first visit in its window, the one that may leave a sticker swap (main.js).
+    this.visiting = { login: f.login, card: f.card, until: at + VISIT_MS, souvenir, signed: signs };
     clearTimeout(this.leaveTimer);
     this.leaveTimer = setTimeout(() => this.leave(), VISIT_MS);
     this.planTogether();

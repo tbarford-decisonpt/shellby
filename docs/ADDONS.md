@@ -234,7 +234,7 @@ Items are available right away unless you add `unlock`. You can use one of these
 
 If an achievement or season id doesn't exist, the item is skipped with a warning. The ids you can use are listed below. They're defined in `src/main/wardrobe/achievements.js` and `src/main/wardrobe/seasons.js`.
 
-**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request).
+**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request), `tagged` (ship a project and earn its sticker), `sticker-bomb` (10 projects shipped), `shiny` (a sticker goes holo), `liftoff` (release a 1.0), `well-traveled` (stickers on 3 shells), `swap-meet` (a visiting friend leaves you a sticker).
 
 **Seasons** (local dates, both ends included):
 
@@ -272,3 +272,29 @@ To ship an update, bump `version` and open another pull request. Keep the same `
 - **Data only.** Packs can't include code, scripts, HTML, or anything that loads from the internet. Shellby ignores everything it doesn't recognise. `homepage` is only shown as a link.
 - **Keep it friendly.** Shellby sits on people's desktops, including at work. Anything hateful, sexual or gory will be removed.
 - **Credit yourself.** Put your name in `author`, bump `version` when you update, and keep the same `id` so updates replace the old copy.
+
+## Repo stickers
+
+Every project Shellby sees you ship earns a sticker on his shell. Normally it's drawn for you from the repo (a shape, a pattern and its first letter, in the colour of its main language). A repo can ship its own official sticker instead, so everyone who works on it gets the same one: commit a file called `.shellby/sticker.json` at the root of the repository.
+
+```json
+{
+  "palette": { "w": "#fffaf0", "k": "#1d3557", "o": "#ff7a5c", "y": "#ffd166" },
+  "pixels": [
+    "..wwwwwwww..",
+    ".wkkkkkkkkw.",
+    "wkooooooookw",
+    "wkoyyyyyyokw",
+    "wkoyookyyokw",
+    "wkoyyyyyyokw",
+    "wkooooooookw",
+    ".wkkkkkkkkw.",
+    "..wwwwwwww.."
+  ],
+  "micro": ["kok", "oyo", "kok"]
+}
+```
+
+- `palette` and `pixels` work as they do in packs (see [Pixels and palettes](#pixels-and-palettes)): up to 16 colours and up to **16×16**. This is the sticker in the Sticker Book and on the crab card. A white border around the shape makes it read as a sticker.
+- `micro` is optional: the **3×3** version that sits on his shell, using the same palette, with no transparent pixels. Without it, Shellby shrinks the big one.
+- Shellby reads the file when the project ships, at most once a day per project, and only if it's under 16 KB. Anything that doesn't check out is ignored and the generated sticker is used instead. Like packs, it's data only.

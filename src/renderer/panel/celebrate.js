@@ -22,6 +22,7 @@
   }
 
   const SLOT_LABEL = { hat: 'Hat', face: 'Face', neck: 'Neck', held: 'Held', shell: 'Shell' };
+  const KIND_LABEL = { home: 'Home', sticker: 'Sticker' };
 
   function card(c) {
     const wearable = (c.rewards || []).filter(r => r.slot || r.motion);
@@ -33,9 +34,10 @@
         c.text ? h('p', { class: 'cel-text', text: c.text }) : null,
         c.rewards?.length ? h('ul', { class: 'cel-rewards' }, c.rewards.map(r => h('li', {},
           thumb(r),
-          h('span', { class: 'cel-rname' }, h('b', { text: r.name }), h('small', { text: r.slot ? SLOT_LABEL[r.slot] || r.slot : r.motion ? 'Effect' : r.kind === 'home' ? 'Home' : 'Colors' }))))) : null,
+          h('span', { class: 'cel-rname' }, h('b', { text: r.name }), h('small', { text: r.slot ? SLOT_LABEL[r.slot] || r.slot : r.motion ? 'Effect' : KIND_LABEL[r.kind] || 'Colors' }))))) : null,
         h('div', { class: 'cel-actions' },
           wearable.length ? h('button', { class: 'btn primary slim-btn', type: 'button', onclick: () => wear(wearable) }, wearable.length > 1 ? 'Wear them' : 'Wear it') : null,
+          c.action ? h('button', { class: 'btn primary slim-btn', type: 'button', onclick: () => { close(); c.action.run(); } }, c.action.label) : null,
           h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => { close(); SB.crabCard?.share(); } }, '📸 Share'),
           h('button', { class: 'btn ghost slim-btn cel-all', type: 'button', onclick: dismissAll }))),
       h('button', { class: 'cel-close icon-btn', type: 'button', 'aria-label': 'Dismiss', onclick: close },
@@ -103,7 +105,7 @@
     setTimeout(() => { el.remove(); if (!queue.length) document.body.classList.remove('celebrating'); show(); }, 220);
   }
 
-  /** c: { icon, title, text, rewards: [public items], eyebrow? } */
+  /** c: { icon, title, text, rewards: [public items], eyebrow?, action?: { label, run } } */
   SB.celebrate = c => { queue.push(c); show(); syncMore(); };
   // Drop any showing or queued cards at once (used by the scripted screenshots).
   SB.clearCelebrations = () => {

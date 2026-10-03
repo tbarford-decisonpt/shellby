@@ -42,8 +42,8 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 </td>
 <td width="33%" valign="top">
 
-**🐚 Shellby's own life** · 0.17<br>
-<sub>He grows into new shells as he levels, molting on your desktop. Pet him, throw him, and let him guard your focus in a helmet.</sub>
+**🏷️ A sticker for everything you ship** · 0.44<br>
+<sub>Push a project for the first time and he slaps its sticker on his shell. Ship it again and it goes vinyl, holo, then foil.</sub>
 
 </td>
 <td width="33%" valign="top">
@@ -123,11 +123,12 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 <p align="center"><img src="docs/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
-- **108 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **119 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
 - **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
+- **A sticker for every project you ship:** the first time you push, deploy or release a repo (or a pull request of yours is merged), he holds up a sticker drawn for it and slaps it on his shell. More below.
 - **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
-- **33 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
+- **39 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
 - **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
 - **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
 
@@ -141,7 +142,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 </table>
 
 <details>
-<summary><b>XP, trophies, streaks and outfit codes in detail</b></summary>
+<summary><b>XP, trophies, streaks, stickers and outfit codes in detail</b></summary>
 
 - **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), pushes (+40), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop, and hourly caps stop a test loop from farming it. Level-ups get their own celebration.
 - **Trophies & XP:** click the yellow level badge next to him in the title bar to see his level, an XP log and your streak.
@@ -150,6 +151,12 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **Helper crabs wear matching hats,** and every crab in the app is dressed the same way.
 - **Outfit codes:** paste someone's code into **Wear a code…** and Shellby previews it on your crab, then puts it on. Locked items show which trophy unlocks them, and items from packs you don't have come with a **Get pack** button. Codes are typo-proof and need no server.
 - **Crab card:** **📸 Share** on Shellby's screen makes a card with Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`. Sharing one earns a trophy too.
+- **Shell stickers:** every repo you ship leaves a mark on his shell. The sticker is drawn from the repo itself: a shape, a pattern and its first letter, in the colour of the language it's mostly written in, so the same repo gets the same sticker on every PC. Shipping counts from Shellby's tabs, from Claude Code in your terminal (with the plugin), and from pull requests merged on GitHub (with CI on). It gets shinier as you keep shipping: paper, then **vinyl** at 5 ships, **holo** at 15, **foil** at 40. Deploys and releases count double, and a burst of pushes counts once an hour. Leave a project alone for two months and its sticker starts to peel at the corner; the next ship presses it back down. Releases, deploys and merges add little marks (🚀 Live, 🥇 One-point-oh, 🔀 Merged), and there are a couple of secret ones.
+- **The Sticker Book** (Shellby's screen → **Stickers**) has a page for every project: when it first shipped, how often, its marks, and **Pick up where we left off**. Click a sticker and a spot on his shell to move it (or drag it there), and stack them like a laptop lid. On a spot, <kbd>[</kbd> and <kbd>]</kbd> change which is on top, <kbd>F</kbd> flips one and <kbd>Delete</kbd> peels it off. Projects you've worked in but not shipped wait there as question marks.
+- **Every shell keeps its own stickers.** When he outgrows a shell, his three most-shipped stickers come with him and the rest stay on the old one, so you can move back in any time. A repo can ship its own official sticker as [`.shellby/sticker.json`](docs/ADDONS.md#repo-stickers).
+- **Friends can see them too.** With Visiting crabs on, a friend's crab arrives wearing its stickers. Nothing about yours goes on your public calling card until you choose, in the Sticker Book: **His shell** shares the stickers on his shell as patches of colour (no names or letters), and **Shell and names** adds your three most-shipped, so a friend's visit can leave you one of theirs as a swap.
+
+<p align="center"><img src="docs/screenshot-stickers.png" width="420" alt="The Sticker Book: Shellby's shell up close with five stickers on it, six projects shipped, and a sticker for each project in foil, holo, vinyl and paper"> <img src="docs/critter-stickers.png" width="200" alt="Shellby on the desktop with stickers on his shell"></p>
 
 <p align="center"><img src="docs/crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, his title, tasks done, trophies and helper crabs sent"></p>
 

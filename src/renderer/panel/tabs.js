@@ -542,14 +542,16 @@
 
   // drag files onto the panel too
   let dragDepth = 0;
-  window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) document.body.classList.add('dropping'); });
-  window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dropping'); } });
+  // Only files: dragging a sticker onto his shell (stickers.js) is not an attachment.
+  const carriesFiles = e => !!e.dataTransfer?.types?.includes('Files');
+  window.addEventListener('dragenter', e => { if (!carriesFiles(e)) return; e.preventDefault(); if (dragDepth++ === 0) document.body.classList.add('dropping'); });
+  window.addEventListener('dragleave', e => { if (!carriesFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dropping'); } });
   window.addEventListener('dragover', e => e.preventDefault());
   window.addEventListener('drop', e => {
     e.preventDefault();
     dragDepth = 0;
     document.body.classList.remove('dropping');
-    attachFrom(e.dataTransfer.files);
+    if (e.dataTransfer.files.length) attachFrom(e.dataTransfer.files);
   });
 
   // A picture with no file behind it (a snip, an image out of a browser) is saved
