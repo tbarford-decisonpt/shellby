@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.50.0: run it after the reset
+
+### New
+- **A heads-up before you hit your 5-hour limit.** Shellby watches how fast your 5-hour window is filling. When your pace says it'll fill before it resets, he tells you: *At this pace you'll hit your 5-hour limit around 3:40 PM. It resets at 4:15 PM.* The warning shows above the box, as a notification if the panel isn't in front, and once per window. The 5-hour meter's tooltip says when it'll fill at this pace. The pace comes from the last hour of readings, so Claude Code you use outside Shellby counts too. Turn it off under **Settings → System**.
+- **Run this after the reset.** Near your limit or at it, **Send after the reset** (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>) holds what you've typed until the window resets, then sends it in that conversation. **Hold N queued** does the same for your queue, and so does the paused queue when a turn hits the limit. Held messages wait with your queued ones, showing the time they'll go: click one to edit it, ✕ to drop it. If one can't go, it lands back in its box rather than vanishing.
+- **Routines can wait for the reset too.** On the Routines page, the clock button runs a routine once your usage resets. A scheduled routine that comes due while you're at your limit now waits for the reset instead of failing.
+- Held work survives a restart or an update, and goes a minute after the reset, one at a time.
+
 ## 0.49.1: what the README says about billing
 
 ### Fixed

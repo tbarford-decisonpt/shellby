@@ -393,8 +393,15 @@
     const r = await api.sendTask(tab.id, text, attachments);
     if (!r.ok) { SB.toast(r.error); return false; }
     // !! is how a message that starts with ! reaches Claude; it shows (and is sent) with one.
-    tab.render({ kind: 'user', text: text.startsWith('!!') ? text.slice(1) : text, attachments, turnId: r.turnId });
+    markSent(tab, text.startsWith('!!') ? text.slice(1) : text, attachments, r.turnId);
     SB.notePrompt?.(text);
+    return true;
+  }
+
+  // A message has gone to Claude: from the box, the queue, or held for the
+  // usage reset and sent by main (boot.js onTabSent).
+  function markSent(tab, text, attachments, turnId) {
+    tab.render({ kind: 'user', text, attachments, turnId });
     tab.busy = true;
     tab.busySince = Date.now();
     tab.saved = true;
@@ -402,8 +409,8 @@
     if (tab.title === 'New task' && !tab.named) tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
-    return true;
   }
+  SB.markSent = markSent;
 
   function clearComposer(tab) {
     input.value = '';
@@ -440,21 +447,28 @@
   function renderQueue() {
     const tab = SB.activeTab();
     const q = tab?.queue || [];
+    // Messages held for after the usage reset come last: they go after these (outlook.js).
+    const later = tab ? SB.heldChips?.(tab) || [] : [];
     const box = $('queued');
-    box.hidden = !q.length;
-    if (!q.length) { box.replaceChildren(); return; }
+    box.hidden = !q.length && !later.length;
+    SB.renderOutlook?.();
+    if (box.hidden) { box.replaceChildren(); return; }
+    const limited = !!state.outlook?.limit;
     box.replaceChildren(...[
-      tab.queuePaused ? h('div', { class: 'queue-paused' },
-        h('span', { text: 'Paused: the last turn ended with an error.' }),
-        h('button', { class: 'btn slim-btn', type: 'button', onclick: () => { tab.queuePaused = false; drain(tab); } }, 'Send next now')) : null,
+      tab.queuePaused && q.length ? h('div', { class: 'queue-paused' },
+        h('span', { text: limited ? "Paused: you're at your usage limit." : 'Paused: the last turn ended with an error.' }),
+        limited ? h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.holdQueue(tab) }, 'Send after the reset') : null,
+        h('button', { class: `btn slim-btn${limited ? ' ghost' : ''}`, type: 'button', onclick: () => { tab.queuePaused = false; drain(tab); } }, 'Send next now')) : null,
       ...q.map((m, i) => h('div', { class: 'queue-item' },
         h('span', { class: 'queue-tag', text: i === 0 ? 'Next' : `#${i + 1}` }),
         h('button', { class: 'queue-text', type: 'button', title: 'Edit (puts it back in the box)', onclick: () => editQueued(tab, i) },
           m.text || `${m.attachments.length} attached file${m.attachments.length === 1 ? '' : 's'}`),
         h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => { tab.queue.splice(i, 1); syncBusyUi(); } },
           SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })))),
+      ...later,
     ].filter(Boolean));
   }
+  SB.renderQueue = renderQueue;
 
   // Pull a queued message back into the box to edit (whatever was typed there is queued in its place).
   function editQueued(tab, i) {
@@ -482,21 +496,28 @@
       const back = tab.queue.map(m => m.text).filter(Boolean).join('\n\n');
       const files = tab.queue.flatMap(m => m.attachments);
       tab.queue = [];
-      if (tab.isActive) {
-        input.value = [input.value.trim(), back].filter(Boolean).join('\n\n');
-        for (const f of files) if (!tab.attachments.includes(f)) tab.attachments.push(f);
-        renderAttachments();
-        autosize();
-        syncBusyUi();
-        SB.toast('Stopped. Your queued messages are back in the box.');
-      } else {
-        tab.draft = [tab.draft, back].filter(Boolean).join('\n\n');
-      }
+      if (handBack(tab, back, files)) SB.toast('Stopped. Your queued messages are back in the box.');
       return;
     }
     if (!result.ok) { tab.queuePaused = true; if (tab.isActive) syncBusyUi(); return; }
     drain(tab);
   };
+
+  // Text going back into a tab's box, after whatever's there: at once for the
+  // tab on screen (true), into its draft for one in the background.
+  function handBack(tab, text, files = []) {
+    for (const f of files) if (!tab.attachments.includes(f)) tab.attachments.push(f);
+    if (!tab.isActive) {
+      tab.draft = [tab.draft, text].filter(Boolean).join('\n\n');
+      return false;
+    }
+    input.value = [input.value.trim(), text].filter(Boolean).join('\n\n');
+    renderAttachments();
+    autosize();
+    syncBusyUi();
+    return true;
+  }
+  SB.handBack = handBack;
 
   $('form').addEventListener('submit', e => { e.preventDefault(); SB.send(); });
   input.addEventListener('keydown', e => {
@@ -1060,21 +1081,27 @@
 
   // ------------------------------------------------------------ usage meter
 
+  let lastUsage = null;
   SB.applyUsage = (u) => {
     if (!u || (!u.fiveHour && !u.sevenDay)) return;
+    lastUsage = u;
     $('usage').hidden = false;
-    const set = (el, win, name) => {
+    const set = (el, win, name, pace = null) => {
       if (!win) { el.hidden = true; return; }
       el.hidden = false;
       el.querySelector('.meter-fill').style.transform = `scaleX(${Math.min(100, win.pct) / 100})`;
-      el.classList.toggle('warn', win.pct >= 70 && win.pct < 90);
+      // On pace to fill before it resets is as worth a glance as nearly full (forecast.js).
+      el.classList.toggle('warn', (win.pct >= 70 || !!pace?.warn) && win.pct < 90);
       el.classList.toggle('hot', win.pct >= 90);
       const reset = win.resetsAt ? ` · resets ${new Date(win.resetsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '';
-      el.title = `${name} usage: ${win.pct}%${reset}`;
+      const fills = pace && pace.hitAt < pace.resetsAt ? ` · at this pace, full around ${pace.hitText}` : '';
+      el.title = `${name} usage: ${win.pct}%${reset}${fills}`;
     };
-    set($('meter5h'), u.fiveHour, '5-hour');
+    set($('meter5h'), u.fiveHour, '5-hour', state.outlook?.pace);
     set($('meter7d'), u.sevenDay, 'Weekly');
   };
+  // A new forecast changes what the 5-hour meter says.
+  SB.refreshUsage = () => SB.applyUsage(lastUsage);
 
   // Who used it: each window's split by tab and routine, or by project (src/main/spend.js).
   let usageBy = 'task';

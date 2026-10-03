@@ -104,6 +104,7 @@
         <button type="button" class="stop-btn" id="stopBtn">Stop <kbd>Esc</kbd></button>
       </div>
       <div class="crowded" id="crowded" role="status" hidden></div>
+      <div class="outlook" id="outlook" role="status" hidden></div>
       <div class="queued" id="queued" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
@@ -841,6 +842,8 @@
         <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
         <label class="toggle"><input type="checkbox" id="recapToggle"><span class="switch"></span>When I'm back after an hour away, sum up what happened</label>
         <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
+        <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
+        <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">
@@ -1034,6 +1037,7 @@
 <script src="card.js"></script>
 <script src="celebrate.js"></script>
 <script src="recap.js"></script>
+<script src="outlook.js"></script>
 <script src="crabonly.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>

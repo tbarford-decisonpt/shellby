@@ -128,6 +128,7 @@
       home: b.home, version: b.version, packaged: b.packaged, models: b.models, cwd: b.cwd, registryUrl: b.registryUrl,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates,
     });
+    if (b.outlook) SB.applyOutlook(b.outlook);
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);

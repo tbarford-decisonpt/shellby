@@ -242,6 +242,8 @@ body.reordering .tip { display: none; }
 .r-pill.ok { background: var(--glass-dim); color: var(--glass); }
 .r-pill.err { background: rgba(255, 90, 74, .15); color: #ff9b8f; }
 .r-pill.running { background: var(--coral-dim); color: var(--coral); animation: blinkdot 1.2s steps(1) infinite; }
+button.r-pill.held { border: 0; cursor: pointer; color: var(--amber); white-space: nowrap; }
+button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: line-through; }
 .routine-empty p { color: var(--sand-dim); font-size: 13px; margin: 4px 0 10px; }
 .templates { display: grid; gap: 7px; }
 .template { display: grid; gap: 3px; text-align: left; padding: 11px 12px; border-radius: var(--r); border: 1px dashed var(--line); background: transparent; transition: border-color .15s, background .15s; }
@@ -329,6 +331,21 @@ body.reordering .tip { display: none; }
 }
 .crowded-text { flex: 1; min-width: 0; color: var(--amber); }
 .crowded .slim-btn { height: 26px; flex: none; }
+/* Usage forecast / at the limit: hold work for after the reset (outlook.js). */
+.outlook {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 8px; row-gap: 4px;
+  margin: 0 0 8px; padding: 4px 4px 4px 10px;
+  border-radius: var(--r-sm); background: var(--reef); border: 1px solid var(--line);
+  border-left: 2px solid var(--amber); font-size: 12px; animation: fadein .18s var(--ease-out);
+}
+.outlook[hidden] { display: none; }
+.outlook > svg { width: 14px; height: 14px; color: var(--amber); }
+.outlook-text { min-width: 0; color: var(--sand); }
+.outlook-actions { grid-column: 2 / 4; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 4px; }
+.outlook-hint { color: var(--sand-dim); font-size: 11px; }
+.outlook .slim-btn { height: 26px; }
+.queue-item.held { border-style: solid; border-color: var(--line); }
+.queue-item.held .queue-tag { color: var(--amber); }
 .send-btn.queueing { background: var(--reef-3); color: var(--glass); box-shadow: none; }
 
 /* ================================================================ Claude's questions (AskUserQuestion) */
