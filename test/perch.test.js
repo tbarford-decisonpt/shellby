@@ -362,3 +362,14 @@ test('judgeRide: a window snapped across the screen in one step does not fling h
   }
   assert.deepEqual(perch.movingRuns(samples, 112), { trailing: 0, longest: 1 });
 });
+
+test('judgeRide: one clean yank is a fling; a yank mid-swing leaves him dizzy', () => {
+  const clean = perch.judgeRide(drag([0, 60, 120, 180, 240, 300]), 80);
+  assert.equal(clean.why, 'yank');
+  assert.equal(clean.dizzy, false);
+  // Swung right, then yanked hard back left.
+  const swung = [0, 40, 80, 120, 20, -80, -180, -280].map((x, i) => ({ x, y: 300, t: i * 16 }));
+  const r = perch.judgeRide(swung, 112);
+  assert.equal(r.off, true);
+  assert.equal(r.dizzy, true);
+});

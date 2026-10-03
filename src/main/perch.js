@@ -235,8 +235,9 @@ function judgeRide(samples, now) {
   // Speed only counts once the window has been moving for a few frames: a
   // snap or a jump is one step, and he just holds on through it.
   const runs = movingRuns(samples, now);
-  // Already swinging it about when the big yank comes: he lands seeing stars.
-  if (speed >= LETGO_SPEED && runs.trailing >= 2) return { off: true, dizzy: swings >= 2, vx: v.vx * 0.85, vy: Math.min(v.vy * 0.85, 0) - 450, why: 'yank' };
+  // Already being swung back and forth when the big yank comes: he lands
+  // seeing stars. One clean yank in one direction is just a fling.
+  if (speed >= LETGO_SPEED && runs.trailing >= 2) return { off: true, dizzy: swings >= 1, vx: v.vx * 0.85, vy: Math.min(v.vy * 0.85, 0) - 450, why: 'yank' };
   // Fast a moment ago, stopped dead now: the window stops, he doesn't. Only a
   // drag in one direction; mid-shake, every swing "stops" for an instant.
   const peak = peakVelocity(samples, now);

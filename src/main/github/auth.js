@@ -12,6 +12,7 @@ const CLIENT_ID = 'Ov23liUNwzgYRhQoado8';
 const FEATURE_SCOPES = Object.freeze({
   profile: ['read:user'],      // name + avatar
   sync: ['gist'],              // private gist with your progress
+  friends: ['gist'],           // public calling card gist; friends' crabs visit and wave
   publish: ['public_repo'],    // fork shellby-packs and open a PR
   claude: ['repo'],            // Claude Code tasks can push and open PRs (private repos too)
   ci: [],                      // watch CI on your pull requests (public repos; private ones ride on `repo`)

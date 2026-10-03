@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
     onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
+    onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
+    onTogether: on('critter:together'), // ...and the two of them do something together
     pet: fire('critter:pet'),
     hit: fire('critter:hit'),           // the pointer is over him (perched, the rest of his window lets clicks through)
     onPerch: on('critter:perch'),       // up on a window, or back down (src/main/perching.js)
@@ -164,6 +166,13 @@ contextBridge.exposeInMainWorld('shellby', {
   onGitHub: on('github'),
   onGitHubSignedIn: on('github:signed-in'),
   onGitHubError: on('github:error'),
+  getFriends: invoke('friends:get'),
+  friendsRefresh: invoke('friends:refresh'),
+  friendsAdd: invoke('friends:add'),
+  friendsRemove: invoke('friends:remove'),
+  friendsInvite: invoke('friends:invite'),
+  friendsWave: invoke('friends:wave'),
+  onFriends: on('friends'),
   getCi: invoke('ci:get'),
   pollCi: invoke('ci:poll'),
   openPr: fire('ci:open'),

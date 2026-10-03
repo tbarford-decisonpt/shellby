@@ -99,14 +99,14 @@ function patchFor(merged, get) {
 
 // ------------------------------------------------------------------ the gist
 
-/** Find (or create) the sync gist; returns its id. */
-async function findGist(gh, knownId) {
+/** Find one of your own gists by the file it holds (the sync gist by default); returns its id or null. */
+async function findGist(gh, knownId, file = FILE) {
   if (knownId) {
     try { await gh.get(`/gists/${encodeURIComponent(knownId)}`); return knownId; } catch (e) { if (e.status !== 404) throw e; }
   }
   for (let page = 1; page <= 5; page++) {
     const list = await gh.get(`/gists?per_page=100&page=${page}`);
-    const hit = (list || []).find(g => g.files && g.files[FILE]);
+    const hit = (list || []).find(g => g.files && g.files[file]);
     if (hit) return hit.id;
     if (!list || list.length < 100) break;
   }
@@ -145,4 +145,4 @@ async function syncNow(gh, { get, set }) {
   return { gistId: id, pulled, pushed };
 }
 
-module.exports = { snapshot, clean, merge, patchFor, syncNow, FILE };
+module.exports = { snapshot, clean, merge, patchFor, syncNow, findGist, FILE };

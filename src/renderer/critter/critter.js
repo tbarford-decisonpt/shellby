@@ -502,3 +502,86 @@ api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
 // is nothing to see and it is pure drain. Paused, not stopped, so unlocking
 // picks up mid-breath. See watchIdleCost in src/main/main.js.
 api.onCalm(msg => document.body.classList.toggle('calm-deep', !!msg?.calm));
+
+// ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
+// him, ahead of any helpers, and walks back off to the left when it's time.
+const VISITOR_SCALE = 0.7; // must match VISITOR_SCALE in src/main/main.js
+let visitorEl = null;
+let visitorLook = null;
+function visitorSprite() {
+  return window.ShellbySprite.build(visitorLook.skin, { px: Math.max(1, px * VISITOR_SCALE), accessories: visitorLook.accessories || [], shell: visitorLook.shell || undefined });
+}
+function visitorLeaves() {
+  endTogether();
+  const el = visitorEl;
+  visitorEl = null;
+  visitorLook = null;
+  if (!el) return;
+  el.style.left = `${el.offsetLeft}px`;
+  el.classList.add('leaving');
+  setTimeout(() => el.remove(), 900);
+}
+api.onVisitor(v => {
+  if (!v?.look?.skin) return visitorLeaves();
+  if (visitorEl?.dataset.login === v.login) return;
+  visitorLeaves();
+  visitorLook = v.look;
+  const el = document.createElement('div');
+  el.className = 'helper visitor';
+  el.dataset.login = v.login;
+  el.setAttribute('aria-label', `@${v.login}'s crab, visiting`);
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = `@${v.login}`;
+  el.append(tag, visitorSprite());
+  crewHost.prepend(el);
+  visitorEl = el;
+});
+// A new size (Settings → Look) redraws the visitor along with everyone else.
+api.onSkin(() => { if (visitorEl && visitorLook) visitorEl.querySelector('svg')?.replaceWith(visitorSprite()); });
+
+// ---- the two of them doing something together: dance, party, high-five, sing.
+// Main picks what and when (src/main/friends.js); the moves are one body class
+// each in critter.css, and the notes and sparks float up from both crabs here.
+const TOGETHER_BITS = { dance: ['♪', '♫'], sing: ['♪', '♫', '♪'], party: ['✦', '★'], highfive: ['✦'] };
+let together = null;
+let togetherTimers = [];
+function endTogether() {
+  togetherTimers.forEach(clearTimeout);
+  togetherTimers = [];
+  if (together) flags.delete(together);
+  together = null;
+  paintBody();
+}
+// A note or spark rising from a point in the window (fixed, so it can sit between the two).
+function floatBit(text, x, y, delay) {
+  const el = document.createElement('span');
+  el.className = 'together-bit';
+  el.textContent = text;
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.animationDelay = `${delay}ms`;
+  document.body.append(el);
+  setTimeout(() => el.remove(), delay + 1600);
+}
+api.onTogether(msg => {
+  const activity = typeof msg?.activity === 'string' && /^[a-z]{2,12}$/.test(msg.activity) ? msg.activity : null;
+  if (!activity || !visitorEl) return;
+  endTogether();
+  together = `together-${activity}`;
+  flags.add(together);
+  paintBody();
+  const me = crab.getBoundingClientRect(), them = visitorEl.getBoundingClientRect();
+  const bits = TOGETHER_BITS[activity] || [];
+  if (activity === 'highfive') {
+    // A spark where they meet, each time the claws touch.
+    const x = (them.right + me.left) / 2, y = me.top + me.height * 0.35;
+    for (const d of [700, 2200, 3700]) floatBit(bits[0], x, y, d);
+  } else {
+    bits.forEach((b, i) => {
+      floatBit(b, me.left + me.width * (0.3 + 0.2 * i), me.top + 4, i * 600);
+      floatBit(bits[(i + 1) % bits.length], them.left + them.width * (0.3 + 0.2 * i), them.top + 4, 300 + i * 600);
+    });
+  }
+  togetherTimers.push(setTimeout(endTogether, Math.min(Math.max(Number(msg.ms) || 5000, 1000), 10000)));
+});

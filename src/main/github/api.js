@@ -32,6 +32,7 @@ class GitHubApi {
   post(path, body) { return this.request('POST', path, body).then(r => r.data); }
   patch(path, body) { return this.request('PATCH', path, body).then(r => r.data); }
   put(path, body) { return this.request('PUT', path, body).then(r => r.data); }
+  delete(path) { return this.request('DELETE', path).then(r => r.data); }
 }
 
 module.exports = { GitHubApi };
