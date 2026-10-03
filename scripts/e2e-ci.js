@@ -26,6 +26,8 @@ const SUITE = [
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
   'e2e-changes',      // a turn's diff and Undo, a worktree per tab, answering from the phone
   'e2e-push',         // Push from the folder menu: take in the remote's work, send yours, a hook's refusal
+  'e2e-stickers',     // shell stickers: a push earns one, the slap, a release's marks, the Sticker Book's editor, the crab card
+  'e2e-stickers-molt', // stickers through a molt: the favourites move house, the old shell keeps the rest
   'e2e-usage-breakdown', // the meters' breakdown by tab, routine and project
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it

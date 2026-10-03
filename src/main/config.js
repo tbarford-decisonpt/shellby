@@ -40,6 +40,7 @@ const DEFAULTS = {
   focus: null,       // the focus session in progress (see focus.js)
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
+  stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
   github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here

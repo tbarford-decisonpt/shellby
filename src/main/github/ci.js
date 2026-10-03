@@ -11,6 +11,7 @@ const POLL_MS = 3 * 60 * 1000;
 const FIRST_POLL_MS = 15 * 1000;
 const MAX_PRS = 10;
 const MAX_REVIEWS = 10;
+const MERGE_TRIES = 3;     // asking whether a closed PR was merged, before giving up
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure', 'action_required']);
 const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
@@ -40,8 +41,10 @@ function verdict(checkRuns = [], statuses = []) {
 /**
  * What changed between two polls. prev/next: { prs: { key: { state, wasFailing } }, reviews: [keys] }.
  * The first poll (prev null) only learns the lay of the land: no events.
- * Returns { events: [{ type: 'failed'|'fixed'|'passed'|'review', key }], memory } where
- * memory carries wasFailing forward (a red build that goes pending, then green, is "fixed").
+ * Returns { events: [{ type: 'failed'|'fixed'|'passed'|'review', key }], memory, gone } where
+ * memory carries wasFailing forward (a red build that goes pending, then green, is "fixed"),
+ * and `fixed` stays set once it has been. gone: open PRs that are no longer open (merged or
+ * closed; the watcher asks which), each with whether it was ever fixed.
  */
 function transitions(prev, next) {
   const memory = {};
@@ -49,14 +52,16 @@ function transitions(prev, next) {
   for (const [key, pr] of Object.entries(next.prs)) {
     const p = prev?.prs?.[key];
     const wasFailing = pr.state === 'failing' || (!!p?.wasFailing && pr.state !== 'passing');
-    memory[key] = { state: pr.state, wasFailing };
+    const fixedNow = !!prev && pr.state === 'passing' && !!p?.wasFailing;
+    memory[key] = { state: pr.state, wasFailing, fixed: !!p?.fixed || fixedNow };
     if (!prev) continue;
     if (pr.state === 'failing' && p?.state !== 'failing') events.push({ type: 'failed', key });
-    else if (pr.state === 'passing' && p?.wasFailing) events.push({ type: 'fixed', key });
+    else if (fixedNow) events.push({ type: 'fixed', key });
     else if (pr.state === 'passing' && p?.state === 'pending') events.push({ type: 'passed', key });
   }
   if (prev) for (const key of next.reviews) if (!prev.reviews.includes(key)) events.push({ type: 'review', key });
-  return { events, memory: { prs: memory, reviews: [...next.reviews] } };
+  const gone = prev ? Object.keys(prev.prs || {}).filter(key => !next.prs[key]).map(key => ({ key, fixed: !!prev.prs[key].fixed, tries: prev.prs[key].tries || 0 })) : [];
+  return { events, memory: { prs: memory, reviews: [...next.reviews] }, gone };
 }
 
 /** "owner/repo#12" for a search hit, or null if it doesn't look like GitHub's. */
@@ -121,14 +126,20 @@ class CiWatcher extends EventEmitter {
         const reviews = (asked?.items || []).map(i => prRef(i, this.api)).filter(Boolean).slice(0, MAX_REVIEWS)
           .map(r => ({ ...r, url: this.url(r.repo, r.number) }));
         if (epoch !== this.epoch) return this.view(); // stopped (signed out, turned off) meanwhile
-        const { events, memory } = transitions(this.memory, {
+        const { events, memory, gone } = transitions(this.memory, {
           prs: Object.fromEntries(prs.map(p => [p.key, { state: p.state }])),
           reviews: reviews.map(r => r.key),
         });
+        // A PR that's no longer open was merged or closed: a merge ships its project.
+        // One GitHub wouldn't tell us about is asked about again next time (a few times).
+        const { merged, retry } = await this.mergedOf(gh, gone.slice(0, MAX_PRS));
+        if (epoch !== this.epoch) return this.view();
+        for (const g of retry) if (g.tries + 1 < MERGE_TRIES) memory.prs[g.key] = { state: 'gone', wasFailing: false, fixed: g.fixed, tries: g.tries + 1 };
         this.memory = memory;
         this.state = { prs, reviews, lastPollAt: this.now(), error: null };
         const find = key => prs.find(p => p.key === key) || reviews.find(r => r.key === key);
         for (const e of events) this.emit('event', { ...e, pr: find(e.key) });
+        for (const pr of merged) this.emit('event', { type: 'merged', key: pr.key, pr });
         this.emit('change', this.view());
       } catch (e) {
         if (epoch !== this.epoch) return this.view();
@@ -142,6 +153,24 @@ class CiWatcher extends EventEmitter {
       return this.view();
     })();
     return this.polling;
+  }
+
+  // Which of the PRs that left the open list were merged (not just closed):
+  // { merged, retry }, retry being the ones GitHub didn't answer for.
+  async mergedOf(gh, gone) {
+    const was = new Map(this.state.prs.map(p => [p.key, p]));
+    const out = [];
+    const retry = [];
+    for (const g of gone) {
+      const m = /^([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})#(\d{1,9})$/.exec(g.key);
+      if (!m || !REPO_RE.test(m[1])) continue;
+      const pull = await gh.get(`/repos/${m[1]}/pulls/${m[2]}`).catch(() => null);
+      if (!pull) { retry.push(g); continue; }
+      if (!pull.merged_at) continue;
+      const number = Number(m[2]);
+      out.push({ key: g.key, repo: m[1], number, title: clip(pull.title, 120) || was.get(g.key)?.title || '', url: this.url(m[1], number), fixed: g.fixed });
+    }
+    return { merged: out, retry };
   }
 
   async check(gh, ref) {

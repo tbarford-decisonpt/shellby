@@ -37,6 +37,9 @@
       code: SB.outfitCode?.() || null,
       hasOutfit: !!(o && Object.values(o).some(Boolean)),
       login: state.github?.signedIn ? state.github.login : null,
+      // Your own shipping (not friends' swaps), minus anything you keep off your card.
+      shipped: (state.stickers?.projects || []).filter(p => !p.from).length,
+      stickers: (state.stickers?.projects || []).filter(p => !p.hidden && !p.from).sort((a, b) => b.ships - a.ships).slice(0, 5),
     };
   }
 
@@ -80,6 +83,7 @@
       .map(f => document.fonts.load(f).catch(() => null)));
     // Fresh numbers: the panel's wardrobe view only refreshes when something unlocks.
     SB.applyWardrobe(await api.wardrobeView());
+    SB.applyStickers?.(await api.getStickers());
     if (!SB.outfitCode?.()) await new Promise(r => setTimeout(r, 50));
     const d = cardData();
     const canvas = document.createElement('canvas');
@@ -148,6 +152,23 @@
         ctx.drawImage(img, Math.round(tank.x + spots[i][0] * tank.w), Math.round(tank.y + spots[i][1] * (sandY - tank.y)));
       }
     }
+
+    // His best stickers, slapped on the tank glass (on top of everything in it).
+    const tilt = [-8, 5, -3, 7, -6];
+    for (let i = 0; i < d.stickers.length; i++) {
+      const art = d.stickers[i].art;
+      const n = Math.max(...art.pixels.map(r => r.length));
+      const k = Math.floor(64 / n);
+      const img = await svgImage(SB.Sprite.grid(art.pixels, art.palette), n * k, art.pixels.length * k);
+      const sx = tank.x + 30 + i * ((tank.w - 60 - n * k) / Math.max(1, 4)), sy = tank.y + 24 + (i % 2) * 14;
+      ctx.save();
+      ctx.translate(sx + (n * k) / 2, sy + (art.pixels.length * k) / 2);
+      ctx.rotate((tilt[i] * Math.PI) / 180);
+      ctx.shadowColor = 'rgba(0,0,0,.4)';
+      ctx.shadowOffsetY = 3;
+      ctx.drawImage(img, -(n * k) / 2, -(art.pixels.length * k) / 2);
+      ctx.restore();
+    }
     ctx.restore();
 
     // ---- right column
@@ -174,7 +195,9 @@
     const tiles = [
       [d.tasks.toLocaleString(), d.tasks === 1 ? 'task done' : 'tasks done', C.coral],
       [`${d.trophies}/${d.trophiesAll}`, 'trophies', C.amber],
-      [d.helpers.toLocaleString(), d.helpers === 1 ? 'helper crab sent' : 'helper crabs sent', C.glass],
+      d.shipped
+        ? [d.shipped.toLocaleString(), d.shipped === 1 ? 'project shipped' : 'projects shipped', C.glass]
+        : [d.helpers.toLocaleString(), d.helpers === 1 ? 'helper crab sent' : 'helper crabs sent', C.glass],
     ];
     const gap = 14, tw = (colW - gap * 2) / 3, ty = 226, th = 128;
     tiles.forEach(([num, label, col], i) => {

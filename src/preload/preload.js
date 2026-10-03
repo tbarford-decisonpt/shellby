@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
     onTogether: on('critter:together'), // ...and the two of them do something together
+    onSticker: on('critter:sticker'), // a project shipped for the first time: slap its sticker on (src/main/stickers.js)
+    onStickerGlint: on('critter:sticker-glint'), // ...or one already on his shell catches the light
     pet: fire('critter:pet'),
   },
 
@@ -209,6 +211,21 @@ contextBridge.exposeInMainWorld('shellby', {
   onHomes: on('homes'),
   onXp: on('xp'),
   onLevelUp: on('xp:levelup'),
+
+  // shell stickers: one per project shipped (stickers.js)
+  getStickers: invoke('stickers:get'),
+  placeSticker: (id, slot, shell) => ipcRenderer.invoke('stickers:place', { id, slot, shell }),
+  removeSticker: (id, shell) => ipcRenderer.invoke('stickers:remove', { id, shell }),
+  restackSticker: (id, dir, shell) => ipcRenderer.invoke('stickers:restack', { id, dir, shell }),
+  flipSticker: (id, shell) => ipcRenderer.invoke('stickers:flip', { id, shell }),
+  arrangeStickers: shell => ipcRenderer.invoke('stickers:arrange', { shell }),
+  hideSticker: (id, hidden) => ipcRenderer.invoke('stickers:hide', { id, hidden }),
+  setStickerOptions: invoke('stickers:options'),
+  stickersSeen: fire('stickers:seen'),
+  openStickerProject: fire('stickers:open'),
+  onStickers: on('stickers'),
+  onStickerNew: on('stickers:new'),
+  onStickerNews: on('stickers:news'), // a tier-up or a new mark on one already earned
 
   // Claude Code sessions elsewhere (plugin hooks)
   getExternal: invoke('external:get'),

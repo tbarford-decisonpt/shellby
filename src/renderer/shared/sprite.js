@@ -100,6 +100,23 @@
     });
     if (home && home !== 'none') paintGrid(home.pixels, home.palette || {}, 0, 0, () => 'shell');
 
+    // Stickers for the projects he's shipped (src/main/stickers.js), already
+    // placed by main in stacking order. They move with the shell, and there's
+    // nowhere to put them while he's between shells.
+    const stickerGroups = [];
+    if (home !== 'none') {
+      for (const st of opts.stickers || []) {
+        if (!st || !Array.isArray(st.pixels) || !st.palette) continue;
+        const name = `sticker-${stickerGroups.length}`;
+        const cls = ['part part-shell sticker', `tier-${st.tier || 'paper'}`, st.weather && st.weather !== 'fresh' ? `weather-${st.weather}` : ''].filter(Boolean).join(' ');
+        paintGrid(st.pixels, st.palette, st.x, st.y, () => name, () => cls);
+        if (groups[name]) {
+          if (st.id) groups[name].dataset.sticker = st.id;
+          stickerGroups.push(name);
+        }
+      }
+    }
+
     // Accessories: each joins the animation of the part it follows (same CSS
     // classes) and is painted above the crab, ordered by slot.
     const SLOT_Z = ['shell', 'neck', 'hat', 'face', 'held'];
@@ -134,9 +151,10 @@
     };
     for (const name of Object.keys(box)) setPivot(groups[name], pivotOf(name));
     for (const { name, follows } of accGroups) setPivot(groups[name], pivotOf(follows) || [(all.x0 + all.x1) / 2, (all.y0 + all.y1) / 2]);
+    for (const name of stickerGroups) setPivot(groups[name], pivotOf('shell'));
 
-    // Paint order: legs behind body, shell on top of body, eyes, then outfit.
-    for (const name of ['legs-a', 'legs-b', 'stalks', 'body', 'claw', 'extra', 'shell', 'eyes']) {
+    // Paint order: legs behind body, shell on top of body, its stickers, eyes, then outfit.
+    for (const name of ['legs-a', 'legs-b', 'stalks', 'body', 'claw', 'extra', 'shell', ...stickerGroups, 'eyes']) {
       if (groups[name]) svg.appendChild(groups[name]);
     }
     for (const { name } of accGroups) svg.appendChild(groups[name]);

@@ -31,7 +31,13 @@ async function connect(url) {
   const mock = await startMockGitHub({ autoApprove: true });
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
   // A friend who already has Visiting crabs on, in a crown and the Teacup shell.
-  const friendCard = JSON.stringify({ format: 1, login: 'reefbuddy', name: 'Reef Buddy', skin: 'classic', home: 'teacup', level: 12, outfit: { hat: 'crown', held: 'coffee-mug' }, updatedAt: Date.now() });
+  // Two stickers on their shell, and one they share by name for swaps (stickers.js forCard).
+  const patch = c => ({ palette: { a: c, b: '#fffaf0' }, pixels: ['bab', 'aaa', 'bab'] });
+  const stickers = {
+    shell: [{ slot: 0, nudge: [0, 0], tier: 'holo', ...patch('#ff006e') }, { slot: 1, nudge: [0, 0], tier: 'paper', ...patch('#3a86ff') }],
+    trade: [{ name: 'coral-reef', tier: 'vinyl', palette: { a: '#ff7a5c', b: '#fffaf0' }, pixels: ['bbbb', 'baab', 'baab', 'bbbb'] }],
+  };
+  const friendCard = JSON.stringify({ format: 1, login: 'reefbuddy', name: 'Reef Buddy', skin: 'classic', home: 'teacup', level: 12, outfit: { hat: 'crown', held: 'coffee-mug' }, stickers, updatedAt: Date.now() });
   const friendGist = mock.othersGist('reefbuddy', { 'shellby-card.json': friendCard });
 
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(GH_TOKEN|GITHUB_TOKEN|GITHUB_PERSONAL_ACCESS_TOKEN|GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+))$/.test(k)));
@@ -88,6 +94,8 @@ async function connect(url) {
     check(card?.public === true, 'the card is a public gist');
     const body = JSON.parse(card.files['shellby-card.json'].content);
     check(body.login === 'crabfan' && 'outfit' in body && !('stats' in body) && !('xp' in body), 'the card holds the look and nothing else');
+    check(body.stickers === null, 'nothing about his stickers goes on it until you choose');
+    await ev("shellby.setStickerOptions({ card: 'names' })"); // so a visit can swap
 
     // 3. Add a friend by username: their crab shows in the list.
     await ev("document.getElementById('frAddInput').value = '@reefbuddy'; document.getElementById('frAddForm').requestSubmit()");
@@ -98,6 +106,7 @@ async function connect(url) {
     await ev("[...document.querySelectorAll('#frList button')].find(b => b.textContent === 'Invite over').click()");
     check(await until(critter.ev, "!!document.querySelector('#crew .visitor svg') && document.querySelector('#crew .visitor .tag').textContent === '@reefbuddy'"), 'the visitor stands on the desktop');
     check(await critter.ev("document.querySelectorAll('#crew .visitor .acc').length >= 2"), 'wearing their own outfit');
+    check(await critter.ev("document.querySelectorAll('#crew .visitor [data-sticker]').length === 2"), 'with the stickers on their shell');
     check(await until(critter.ev, "/reefbuddy dropped by/.test(document.getElementById('bubbleText').textContent)"), 'Shellby says who dropped by');
     check(await until(ev, "/@reefbuddy dropped by and left/.test(document.getElementById('frGuestbook').textContent) && !!document.querySelector('#frSouvenirs .fr-souvenir')"), 'guestbook signed, souvenir kept');
     check(await until(ev, "shellby.wardrobeView().then(v => v.achievements.find(a => a.id === 'open-house').done)", 4000), 'Open House trophy');
@@ -110,7 +119,13 @@ async function connect(url) {
     check(await critter.ev("document.querySelectorAll('.together-bit').length > 0"), 'notes or sparks float up');
     await wait(1200);
     await shot(critter, process.argv[4]);
+
     console.log(`      (${await critter.ev("document.body.className.match(/together-\\w+/)[0]")}: "${await critter.ev("document.getElementById('bubbleText').textContent")}")`);
+
+    // 4c. A friend who shares their stickers' names leaves one: a swap.
+    check(await until(ev, "shellby.getStickers().then(v => v.projects.some(p => p.from === 'reefbuddy' && p.name === 'coral-reef'))", 26000), 'their crab leaves a sticker swap in the book');
+    check(await until(ev, "shellby.wardrobeView().then(v => v.achievements.find(a => a.id === 'swap-meet').done)", 4000), 'Swap Meet trophy');
+    check(await ev("shellby.getStickers().then(v => !v.shells.some(s => s.stickers.length))"), "it waits in the book instead of going on his shell unasked");
 
     // 5. Waving: a comment on their card.
     await ev("[...document.querySelectorAll('#frList select')][0].value = 'outfit'");

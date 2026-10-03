@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.41.0: shell stickers
+
+### New
+- **A sticker for everything you ship.** The first time a project ships, Shellby gets a sticker for it. He holds it up in his claw, turns his shell toward you and slaps it on, with a puff of sand. A project ships when you push it, deploy it or cut a release: from Shellby's tabs, from **Push** in the folder menu, from Claude Code in your terminal (with the Shellby plugin), or when one of your pull requests is merged on GitHub (with CI turned on).
+- **Drawn for each repo.** Every sticker is made from the repo itself: a shape, a pattern and its first letter, in the colour of the language it's mostly written in. The same repo gets the same sticker on every PC. A repo can also ship its own official sticker as `.shellby/sticker.json` ([how](docs/ADDONS.md#repo-stickers)).
+- **They get shinier.** Keep shipping a project and its sticker goes from paper to **vinyl** (5 ships), **holo** (15, it shimmers) and **foil** (40, it glints). Deploys and releases count double, a new release always counts, and a burst of pushes counts once an hour.
+- **Marks.** Deploying adds 🚀 *Live*, a release adds 🏷️ *Released*, a 1.0 adds 🥇 *One-point-oh*, and a merged pull request adds 🔀 *Merged* (🟢 *Green Light* if it went from red to green first). There are a couple of secret ones.
+- **They peel.** A project that hasn't shipped in two months starts to peel at one corner, and after six months its sticker fades. The next ship presses it back down, and he says so.
+- **The Sticker Book** (Shellby's screen → **Stickers**) has a page for every project: when it first shipped, how many times, deploys, releases and its latest version, its marks, and **Pick up where we left off**. Projects you work in that haven't shipped yet wait there as question marks.
+- **Decorate his shell.** In the Sticker Book, pick a sticker and a spot on his shell, or drag it there. Stickers stack like they do on a laptop lid, a pixel off so the one underneath still shows. On a spot, <kbd>[</kbd> and <kbd>]</kbd> change which is on top, <kbd>F</kbd> flips one and <kbd>Delete</kbd> peels it off. **Tidy up** lays them out again with the most shipped in the middle. New stickers go straight on unless you turn that off.
+- **Every shell keeps its own.** When he outgrows a shell, his three most-shipped stickers move house with him and the rest stay on the old one, so moving back into an old shell brings its stickers back. You can decorate any shell you've grown into.
+- **Friends' crabs wear theirs.** With Visiting crabs on, a friend's crab arrives with the stickers on its shell. Nothing about your stickers goes on your public calling card until you choose in the Sticker Book: **His shell** shares them as patches of colour (no names or letters), and **Shell and names** adds your three most-shipped. When you both share names, a visit may leave you one of their stickers as a swap. You can keep any project off your card.
+- **On the crab card.** His best stickers are slapped on the tank glass, and "projects shipped" replaces the helper count once you have some.
+- **Six new trophies:** *Tagged* (your first sticker), *Sticker Bomb* (10 projects), *Shiny* (a holo sticker), *Liftoff* (release a 1.0), *Well Traveled* (stickers on 3 shells) and *Swap Meet* (a friend's crab leaves you one), with a sticker sheet, a spray can, a holo visor, a rocket, a luggage tag and a trade binder to wear.
+- **Synced.** With GitHub sync on, your stickers and where they sit follow you between PCs. Each PC keeps its own folders.
+
 ## 0.40.0: visiting crabs
 
 ### New

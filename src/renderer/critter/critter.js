@@ -6,7 +6,7 @@ const countEl = document.getElementById('count');
 const bgBadge = document.getElementById('bgBadge');
 const api = window.shellby.critter;
 
-const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★', levelup: 'LV', molting: '', petted: '♥', cheer: 'green!', refreshed: 'ready!' };
+const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★', levelup: 'LV', molting: '', petted: '♥', cheer: 'green!', refreshed: 'ready!', stickered: '✦' };
 // Health readings show in the bubble only when nothing more important is.
 const HEALTH_BUBBLE_STATES = new Set(['idle', 'sleeping']);
 // Each helper gets its own shell colour so parallel agents are easy to tell apart.
@@ -62,7 +62,8 @@ api.onSkin(msg => {
 api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
 
 // Shellby himself. While he molts, the molt decides which shell he's in.
-let molt = null; // { shell, bubble } during a molt
+let molt = null; // { shell, bubble, stickers } during a molt
+let slap = null; // { id, holding, held } while a new sticker goes on (see onSticker)
 function drawSelf() {
   if (!skin) return;
   const shell = molt ? molt.shell : outfit.home;
@@ -74,26 +75,37 @@ function drawSelf() {
   else if (outfit.musicHeadphones) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.musicHeadphones];
   // Red CI wants the claw he carries things in: his own held item is in the air
   // (see throwHeld) and the sign goes in once he has let go of it.
-  if (tossed || holdingSign()) accessories = accessories.filter(a => a.slot !== 'held');
+  if (tossed || holdingSign() || slap?.holding) accessories = accessories.filter(a => a.slot !== 'held');
   if (holdingSign()) accessories = [...accessories, CI_SIGN];
-  spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell }));
+  if (slap?.holding) accessories = [...accessories, slap.held];
+  spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell, stickers: stickersFor(shell) }));
+}
+
+// The stickers on his shell (src/main/stickers.js). A molt brings the new
+// shell's own; one he's about to slap on stays off until his claw gets there.
+function stickersFor(shell) {
+  if (shell === 'none') return [];
+  const list = (molt ? molt.stickers : outfit.stickers) || [];
+  return slap ? list.filter(s => s.id !== slap.id) : list;
 }
 
 // A level-up unlocked a new shell: crawl out of the old one, shiver for a
 // moment with no shell at all, then the new one drops onto his back.
 let moltTimers = [];
-api.onMolt(({ from, to, ms = 5200 }) => {
+// The old shell's stickers leave with it; the new one arrives with the ones he
+// carried over (src/main/stickers.js carryOnMolt).
+api.onMolt(({ from, to, ms = 5200, fromStickers = [], toStickers = [] }) => {
   moltTimers.forEach(clearTimeout); // a second level-up mid-molt starts over
   const beat = ms / 5;
-  const step = (cls, shell, bubble) => {
-    molt = { shell, bubble, cls };
+  const step = (cls, shell, bubble, stickers = []) => {
+    molt = { shell, bubble, cls, stickers };
     drawSelf();
     paintBody();
   };
-  step('molt-out', from, '…');
+  step('molt-out', from, '…', fromStickers);
   moltTimers = [
     setTimeout(() => step('molt-bare', 'none', 'eep!'), beat * 1.2),
-    setTimeout(() => step('molt-in', to, 'new home!'), beat * 2.6),
+    setTimeout(() => step('molt-in', to, 'new home!', toStickers), beat * 2.6),
     setTimeout(() => {
     molt = null;
     drawSelf();
@@ -146,6 +158,98 @@ function catchHeld() {
   if (!item) { tossed = false; drawSelf(); return; }
   flyItem(item, 'toss-in', CATCH_MS, () => { tossed = false; drawSelf(); });
 }
+
+// ---- a new sticker (src/main/stickers.js): the first time a project ships,
+// he holds its sticker up in his claw, turns his shell to you and slaps it on,
+// with a little puff of sand. Main says where it goes, in sprite pixels.
+const stickerFly = document.getElementById('stickerFly');
+const sandHost = document.getElementById('sand');
+const SLAP_HOLD_MS = 1300;
+const SLAP_TURN_MS = 450;
+const SLAP_FLY_MS = 380;
+const SLAP_LAND_MS = 900;
+let slapTimers = [];
+
+function endSlap() {
+  slapTimers.forEach(clearTimeout);
+  slapTimers = [];
+  for (const f of ['sticker-hold', 'sticker-turn', 'sticker-land']) flags.delete(f);
+  stickerFly.getAnimations().forEach(a => a.cancel());
+  stickerFly.replaceChildren();
+  slap = null;
+  drawSelf();
+  paintBody();
+}
+
+function sandPuff(at) {
+  const cx = (at.x + 1.5) * px, cy = (at.y + 1.5) * px;
+  for (let i = 0; i < 6; i++) {
+    const el = document.createElement('i');
+    const a = (i / 6) * Math.PI * 2 + 0.4;
+    el.style.left = `${cx}px`;
+    el.style.top = `${cy}px`;
+    el.style.setProperty('--dx', `${Math.cos(a) * px * 3.2}px`);
+    el.style.setProperty('--dy', `${Math.sin(a) * px * 2.4 - px}px`);
+    sandHost.append(el);
+    setTimeout(() => el.remove(), 700);
+  }
+}
+
+// A sticker on his shell catches the light (a tier-up, a new mark, a re-press).
+function glint(id) {
+  const g = typeof id === 'string' && [...spriteHost.querySelectorAll('[data-sticker]')].find(el => el.dataset.sticker === id);
+  if (!g) return;
+  g.classList.remove('glint');
+  void g.getBoundingClientRect(); // restart the animation
+  g.classList.add('glint');
+}
+api.onStickerGlint(msg => glint(msg?.id));
+
+api.onSticker(msg => {
+  if (!skin || typeof msg?.id !== 'string' || !Array.isArray(msg.small?.pixels) || !msg.small.palette) return;
+  if (slap) endSlap();
+  // Without motion it's simply there, which main has already drawn.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const size = msg.small.pixels.length;
+  slap = {
+    id: msg.id, holding: true,
+    held: { slot: 'held', anchor: 'claw', follows: 'claw', pivot: [Math.floor(size / 2), size], pixels: msg.small.pixels, palette: msg.small.palette },
+  };
+  flags.add('sticker-hold');
+  drawSelf();
+  paintBody();
+  const at = msg.at && Number.isFinite(msg.at.x) && Number.isFinite(msg.at.y) ? msg.at : null;
+  const landAt = SLAP_HOLD_MS + SLAP_TURN_MS + SLAP_FLY_MS;
+  slapTimers = [
+    setTimeout(() => { flags.delete('sticker-hold'); flags.add('sticker-turn'); paintBody(); }, SLAP_HOLD_MS),
+    setTimeout(() => {
+      slap.holding = false;
+      drawSelf();
+      if (!at) return; // it went in the Sticker Book, not on the shell
+      const [cx, cy] = skin.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw;
+      const sx = (cx - slap.held.pivot[0]) * px, sy = (cy - slap.held.pivot[1]) * px;
+      stickerFly.replaceChildren(window.ShellbySprite.grid(msg.small.pixels, msg.small.palette, { px }));
+      stickerFly.style.left = `${sx}px`;
+      stickerFly.style.top = `${sy}px`;
+      stickerFly.animate([
+        { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
+        { transform: `translate(${at.x * px - sx}px, ${at.y * px - sy}px) scale(${3 / size}) rotate(-20deg)`, offset: 0.85 },
+        { transform: `translate(${at.x * px - sx}px, ${at.y * px - sy}px) scale(${3 / size}) rotate(0deg)` },
+      ], { duration: SLAP_FLY_MS, easing: 'cubic-bezier(.55, 0, .8, .45)', fill: 'forwards' });
+    }, SLAP_HOLD_MS + SLAP_TURN_MS),
+    setTimeout(() => {
+      stickerFly.getAnimations().forEach(a => a.cancel());
+      stickerFly.replaceChildren();
+      flags.delete('sticker-turn');
+      flags.add('sticker-land');
+      slap = null;
+      drawSelf();
+      paintBody();
+      if (at) { sandPuff(at); glint(msg.id); }
+    }, landAt),
+    setTimeout(endSlap, landAt + SLAP_LAND_MS),
+  ];
+});
 
 // "+25 XP" rises out of Shellby whenever he earns XP.
 const xpHost = document.getElementById('xpFloat');
@@ -401,7 +505,7 @@ const VISITOR_SCALE = 0.7; // must match VISITOR_SCALE in src/main/main.js
 let visitorEl = null;
 let visitorLook = null;
 function visitorSprite() {
-  return window.ShellbySprite.build(visitorLook.skin, { px: Math.max(1, px * VISITOR_SCALE), accessories: visitorLook.accessories || [], shell: visitorLook.shell || undefined });
+  return window.ShellbySprite.build(visitorLook.skin, { px: Math.max(1, px * VISITOR_SCALE), accessories: visitorLook.accessories || [], shell: visitorLook.shell || undefined, stickers: visitorLook.stickers || [] });
 }
 function visitorLeaves() {
   endTogether();

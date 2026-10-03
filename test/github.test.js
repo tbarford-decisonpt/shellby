@@ -99,6 +99,34 @@ test('sync: two PCs meet in one private gist', async () => {
   } finally { await mock.close(); }
 });
 
+test('sync: stickers meet too, and each PC keeps its own folders and badges', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const gh = new GitHubApi({ token: mock.state.token, api: mock.base });
+    const A = 'aaaaaaaaaaaa', B = 'bbbbbbbbbbbb';
+    const one = { firstShipAt: 1000, lastShipAt: 2000, ships: 3, name: 'crab', root: 'C:/pc1/crab', marks: ['live'] };
+    const pc1 = new MemConfig({ stickers: { projects: { [A]: one }, layouts: { home: [{ id: A, slot: 0, z: 1 }] }, layoutsAt: 5, unseen: [A], card: 'off' } });
+    const pc2 = new MemConfig({ stickers: { projects: { [A]: { ...one, ships: 7, root: 'D:/pc2/crab', marks: ['merged'] }, [B]: { firstShipAt: 500, ships: 1, name: 'reef' } } } });
+    const io = c => ({ get: k => c.get(k), set: p => c.set(p) });
+    await syncNow(gh, io(pc1));
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    const s1 = pc1.get('stickers'), s2 = pc2.get('stickers');
+    assert.deepEqual(Object.keys(s1.projects).sort(), [A, B]);
+    assert.equal(s1.projects[A].ships, 7);
+    assert.deepEqual(s1.projects[A].marks.sort(), ['live', 'merged']);
+    assert.equal(s1.projects[A].root, 'C:/pc1/crab', 'pc1 keeps its folder');
+    assert.equal(s2.projects[A].root, 'D:/pc2/crab', 'pc2 keeps its folder');
+    assert.equal(s1.card, 'off', 'options stay on the PC that set them');
+    assert.deepEqual(s1.unseen, [A]);
+    assert.ok(s2.layouts.home?.length, 'the shell layout travelled');
+    const gist = JSON.parse([...mock.state.gists.values()][0].files[FILE].content);
+    assert.ok(!JSON.stringify(gist).includes('pc1'), 'no folders in the gist');
+    const again = await syncNow(gh, io(pc1));
+    assert.deepEqual([again.pulled, again.pushed], [false, false], 'settled: nothing new, nothing written');
+  } finally { await mock.close(); }
+});
+
 test('sync tolerates a hostile gist', async () => {
   const mock = await startMockGitHub();
   try {

@@ -148,7 +148,9 @@ SB.sprite = (skin = SB.state.skin, opts = {}) => {
   if (!skin) return document.createElement('span');
   const accessories = opts.plain ? [] : opts.accessories ?? SB.state.outfit?.accessories ?? [];
   const shell = opts.plain ? null : opts.shell ?? SB.state.outfit?.home ?? null; // the shell he lives in (shells.js)
-  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories, shell });
+  // His stickers belong to the shell he's wearing, so a different shell goes bare.
+  const stickers = opts.plain || opts.shell !== undefined ? opts.stickers || [] : SB.state.outfit?.stickers || [];
+  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories, shell, stickers });
 };
 
 // Helper-crab colours, shared with the desktop critter.
@@ -177,7 +179,7 @@ SB.views = {};  // name -> { render?() }
 
 // Which navigation item a screen lives under (Trophies is a tab of the Shellby screen),
 // and which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe' };
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 

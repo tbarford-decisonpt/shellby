@@ -1,10 +1,12 @@
 // Sync between PCs through one private gist ("shellby-sync.json"): trophies,
-// collected seasonal items, stats, XP, streak days, the outfit and the skin.
-// Merging only ever adds progress (unions and maxima), so a sync can't lose
-// anything on either side; the outfit and skin follow whichever PC changed them
-// last. The gist is yours but is still treated as untrusted input.
+// collected seasonal items, stats, XP, streak days, shell stickers, the outfit
+// and the skin. Merging only ever adds progress (unions and maxima), so a sync
+// can't lose anything on either side; the outfit, skin and sticker layouts
+// follow whichever PC changed them last. The gist is yours but is still
+// treated as untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp } = require('../xp');
+const stickers = require('../stickers');
 
 const FILE = 'shellby-sync.json';
 const FORMAT = 1;
@@ -27,6 +29,7 @@ function snapshot(get) {
     stats: get('stats'),
     xp: { total: xp.total, log: xp.log, lastDay: xp.lastDay },
     days: streaks.days,
+    stickers: get('stickers'),
     skin: get('skin'), skinAt: stamps.skinAt,
   });
 }
@@ -49,6 +52,8 @@ function clean(raw) {
     stats: normalizeStats(r.stats),
     xp: { total: xp.total, log: xp.log, lastDay: xp.lastDay },
     days: strings(r.days, /^\d{4}-\d{2}-\d{2}$/, 400).sort(),
+    // No folders, options or badges: those belong to each PC (stickers.js syncable).
+    stickers: stickers.syncable(r.stickers),
     skin: typeof r.skin === 'string' && /^[a-z0-9][a-z0-9/-]{0,80}$/.test(r.skin) ? r.skin : null,
     skinAt: num(r.skinAt),
   };
@@ -75,6 +80,7 @@ function merge(aIn, bIn) {
     stats,
     xp: { total: Math.max(a.xp.total, b.xp.total), log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null },
     days: union(a.days, b.days).sort().slice(-400),
+    stickers: stickers.merge(a.stickers, b.stickers),
     skin: newerSkin.skin, skinAt: newerSkin.skinAt,
   });
 }
@@ -91,6 +97,8 @@ function patchFor(merged, get) {
     stats: merged.stats,
     xp: { ...xp, total: merged.xp.total, log: merged.xp.log, lastDay: merged.xp.lastDay },
     streaks: { ...streaks, days: merged.days },
+    // Merged into this PC's own, so its folders, options and badges stay.
+    stickers: stickers.merge(get('stickers'), merged.stickers),
     syncStamps: { outfitAt: merged.wardrobe.outfitAt, skinAt: merged.skinAt },
   };
   if (merged.skin) patch.skin = merged.skin;
@@ -120,7 +128,7 @@ async function readGist(gh, id) {
   try { return clean(JSON.parse(f.content || '{}')); } catch { return null; }
 }
 
-const content = snap => JSON.stringify({ ...clean(snap), note: 'Shellby sync: trophies, XP, outfit and streak days. Safe to delete; Shellby makes a new one.' }, null, 1);
+const content = snap => JSON.stringify({ ...clean(snap), note: 'Shellby sync: trophies, XP, outfit, streak days and shell stickers. Safe to delete; Shellby makes a new one.' }, null, 1);
 
 /**
  * One sync: merge local with the gist, apply what changed locally, push what

@@ -1,9 +1,12 @@
 // The calling card: one small public gist ("shellby-card.json") that says how
-// your crab looks (outfit, colors, shell and level) so a friend's Shellby can
-// have him over. Nothing else goes in it: no stats, no projects, no history.
+// your crab looks (outfit, colors, shell, level and the stickers on his shell)
+// so a friend's Shellby can have him over. Nothing else goes in it: no stats,
+// no history. Stickers are only colour patches unless you choose to share their
+// names (stickers.js forCard), and never the projects you've hidden.
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
 const { findGist } = require('./sync');
+const { cleanCardStickers } = require('../stickers');
 
 const CARD_FILE = 'shellby-card.json';
 const FORMAT = 1;
@@ -30,12 +33,13 @@ function cleanCard(raw) {
     home: typeof r.home === 'string' && SHELL_RE.test(r.home) ? r.home : null,
     level,
     outfit,
+    stickers: cleanCardStickers(r.stickers),
     updatedAt: Number.isFinite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0,
   };
 }
 
 /** Just the look, for "did anything change since we last published?" */
-const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit]); };
+const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers]); };
 
 const content = card => JSON.stringify({ ...cleanCard(card), note: "Shellby calling card: how this crab looks, so friends' crabs can visit. Turn off Visiting crabs in Shellby to delete it." }, null, 1);
 

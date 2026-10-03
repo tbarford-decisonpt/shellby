@@ -50,7 +50,10 @@ const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
-const { repoOf, lastCommitAt } = require('./gitinfo');
+const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
+const stickers = require('./stickers');
+const stickerArt = require('./sticker-art');
+const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
 const { reviewPrompt } = require('./review');
 const { FAKE_SCENARIOS } = require('./health/fake');
 const { GitHubService } = require('./github/service');
@@ -462,9 +465,11 @@ function activeSkin() {
 function outfit() {
   const o = wardrobe ? wardrobe.render() : { accessories: [], effect: null, confetti: null, crewAccessories: [] };
   const helmet = wardrobe?.item('guard-helmet'); // worn while he guards your focus
+  const worn = shells.wornShell(config?.get('home'), currentLevel());
   return {
     ...o,
-    home: shells.renderShell(shells.wornShell(config?.get('home'), currentLevel())),
+    home: shells.renderShell(worn),
+    stickers: config ? shellStickers(activeSkin(), worn) : [],
     focusHelmet: helmet ? publicItem(helmet) : null,
     musicHeadphones: musicHeadphones(),
   };
@@ -693,7 +698,8 @@ function createManager() {
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
     if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
       const dir = tab.session?.cwd || '';
-      pendingCommands.set(item.id, { command: item.detail, project: dir && path.resolve(dir) !== path.resolve(os.homedir()) ? path.basename(dir) : null });
+      const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
+      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null });
       if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
     }
     if (item.kind === 'tool') onToolSpoken(item);
@@ -705,6 +711,9 @@ function createManager() {
         awardXp(kind, { project: c.project });
         speak(voice.occasionForCommand(kind));
       }
+      // A push, deploy or release ships the project: its sticker (stickers.js).
+      const ship = c.dir && stickers.shipOf(kind, c.command);
+      if (ship) shipped(c.dir, ship.kind, ship.meta);
     }
   });
   manager.on('tabs', summary => {
@@ -981,22 +990,238 @@ function molt(before, after) {
   const fresh = shells.unlockedBetween(before, after);
   if (!fresh.length || CAPTURE) return null;
   const next = fresh[fresh.length - 1];
-  const from = outfit().home;
+  const was = outfit();
+  const from = was.home;
   const h = shells.normalizeHome(config.get('home'));
-  config.set({ home: { ...h, worn: next.id } });
+  // The old shell keeps its stickers; his favourites come with him (stickers.js).
+  const carried = stickers.carryOnMolt(config.get('stickers'), shellIdOf(wornShellObj()), next.id, shellSpots(activeSkin(), next).slots.length, Date.now());
+  config.set({ home: { ...h, worn: next.id }, stickers: carried });
   flashState('molting', MOLT_MS);
-  send(critter, 'critter:molt', { from, to: shells.renderShell(next), ms: MOLT_MS });
+  send(critter, 'critter:molt', { from, to: shells.renderShell(next), ms: MOLT_MS, fromStickers: was.stickers, toStickers: shellStickers(activeSkin(), next) });
   setTimeout(() => {
     broadcastSkin();
     flashState('levelup', 4000);
     send(critter, 'critter:burst', outfit().confetti);
   }, MOLT_MS);
   send(panel, 'homes', homesView());
+  send(panel, 'stickers', stickersView());
   return next;
 }
 
+// ================================================================ shell stickers (stickers.js)
+//
+// The first time a project ships, Shellby gets a sticker for it and slaps it
+// on his shell; shipping it again makes the sticker better. The drawing is
+// generated from the project (sticker-art.js), so only the counts and where
+// each one sits are stored.
+
+const SLAP_MS = 3200;                // the critter's slap, from holding it up to the squash
+const FACTS_MS = 24 * 60 * 60 * 1000; // a project's language and own sticker, looked up at most daily
+const drawings = new Map();          // look -> drawing (sticker-art.js)
+const projectFacts = new Map();      // repo root -> { lang, custom, at }
+
+const shellIdOf = shell => (shell ? shell.id : stickers.HOME);
+const wornShellObj = () => shells.wornShell(config?.get('home'), currentLevel());
+const stickerState = () => stickers.normalize(config.get('stickers'));
+
+function drawSticker(p) {
+  const key = JSON.stringify([p.id, p.name, p.lang, p.custom]);
+  let d = drawings.get(key);
+  if (!d) {
+    d = stickerArt.draw(p);
+    drawings.set(key, d);
+    if (drawings.size > 400) drawings.delete(drawings.keys().next().value);
+  }
+  return d;
+}
+
+// Where stickers can go on a shell, for whichever skin he's wearing.
+const shellSpots = (skin, shell) => {
+  const mask = shellMask(skin, shell);
+  return { mask, slots: stickerSlots(mask) };
+};
+const covers = (mask, x, y) => {
+  for (let dy = 0; dy < STICKER; dy++) for (let dx = 0; dx < STICKER; dx++) if (!mask[y + dy]?.[x + dx]) return false;
+  return true;
+};
+
+/** The stickers on a shell, placed in sprite pixels and stacked, for sprite.js. */
+function shellStickers(skin, shell, state = stickerState()) {
+  const layout = state.layouts[shellIdOf(shell)] || [];
+  const now = Date.now();
+  return placeStickers(skin, shell, layout.map(e => {
+    const p = state.projects[e.id];
+    const tier = stickers.tierFor(p.ships).id;
+    const weather = stickers.weathering(p, now);
+    return { id: p.id, tier, weather, slot: e.slot, z: e.z, flip: e.flip, nudge: e.nudge, ...stickerArt.onShell(drawSticker(p), { tier, weather, flip: e.flip }) };
+  }));
+}
+
+// Stickers by spot number onto this skin's shell, in sprite pixels: the same
+// spot means the same place on any crab (a visiting friend's too).
+function placeStickers(skin, shell, list) {
+  if (!list.length || !skin) return [];
+  const { mask, slots } = shellSpots(skin, shell);
+  if (!slots.length) return [];
+  return list.map(e => {
+    let [x, y] = slots[e.slot % slots.length];
+    // Shifted a pixel so the one underneath peeks out, unless that would hang off the shell.
+    if (covers(mask, x + e.nudge[0], y + e.nudge[1])) { x += e.nudge[0]; y += e.nudge[1]; }
+    return { ...e, x, y };
+  });
+}
+
+// What the repo itself says about its sticker: its main language, and its own
+// drawing if it ships one (.shellby/sticker.json, validated in stickers.js).
+async function factsOf(root) {
+  const f = projectFacts.get(root);
+  if (f && Date.now() - f.at < FACTS_MS) return f;
+  const [files, custom] = await Promise.all([trackedFiles(root), stickerFile(root)]);
+  const next = { lang: stickerArt.languageOf(files), custom: stickers.cleanCustom(custom), at: Date.now() };
+  projectFacts.set(root, next);
+  if (projectFacts.size > 100) projectFacts.delete(projectFacts.keys().next().value);
+  return next;
+}
+
+/** Something in `dir` shipped: 'ship' | 'deploy' | 'release' | 'merge'. */
+async function shipped(dir, kind, meta = {}) {
+  if (CAPTURE || !config || typeof dir !== 'string' || !dir) return;
+  try {
+    const project = await projectOf(dir);
+    if (!project) return;
+    const facts = await factsOf(project.root);
+    recordShipped({ ...project, lang: facts.lang, custom: facts.custom }, kind, meta);
+  } catch (e) {
+    log.error('sticker', e);
+  }
+}
+
+// A pull request merged on GitHub (ci.js). It's the project's sticker whether
+// or not it's cloned here; if it is (Shellby has seen you work in it), the
+// sticker learns its language and folder from that copy.
+async function shippedMerge(pr) {
+  if (CAPTURE || !config) return;
+  try {
+    const remote = stickers.normalizeRemote(`${githubEndpoints().web}/${pr.repo}`);
+    if (!remote) return;
+    const id = stickers.projectId(remote);
+    const known = stickerState().projects[id];
+    let root = known?.root && fs.existsSync(known.root) ? known.root : null;
+    for (const key of root ? [] : Object.keys(streaks.normalize(config.get('streaks')).projects).slice(0, 50)) {
+      if ((await projectOf(key))?.id === id) { root = key; break; }
+    }
+    if (root) return shipped(root, 'merge', { fixed: !!pr.fixed });
+    recordShipped({ id, name: remote.split('/').pop(), remote }, 'merge', { fixed: !!pr.fixed });
+  } catch (e) {
+    log.error('sticker (merge)', e);
+  }
+}
+
+function recordShipped(project, kind, meta) {
+  const shell = wornShellObj();
+  // Known by its folder until it got a remote: it keeps its sticker under the new id.
+  let state = config.get('stickers');
+  if (project.remote && project.root) state = stickers.rekey(state, stickers.projectId(null, project.root), project.id);
+  const before = stickers.normalize(state).projects[project.id] || null;
+  const r = stickers.recordShip(state, project, kind, Date.now(), meta,
+    { shell: shellIdOf(shell), slots: shellSpots(activeSkin(), shell).slots.length });
+  if (!r.project) return;
+  config.set({ stickers: r.state });
+  if (r.minted) slapSticker(r.project);
+  else stickerNews(r, before);
+  send(panel, 'stickers', stickersView());
+  // A trophy this earns waits for the slap to land, so the two don't talk over each other.
+  setTimeout(() => stickerStats(config.get('stickers')), r.minted ? SLAP_MS + 900 : 0);
+}
+
+// A brand-new sticker: he holds it up, turns his shell to you and slaps it on.
+function slapSticker(p) {
+  const d = drawSticker(p);
+  const placed = shellStickers(activeSkin(), wornShellObj()).find(s => s.id === p.id);
+  flashState('stickered', SLAP_MS + 600);
+  sayText(`shipped ${p.name}!`, 'sticker', SLAP_MS + 1200);
+  send(critter, 'critter:sticker', { id: p.id, small: d.small, at: placed ? { x: placed.x, y: placed.y } : null });
+  broadcastSkin(); // already includes it; the critter keeps it off until the slap lands
+  const view = stickersView().projects.find(x => x.id === p.id);
+  if (view) send(panel, 'stickers:new', view);
+  if (!(panel?.isVisible() && panel.isFocused())) {
+    notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); });
+  }
+}
+
+// One he already had got better: a tier, a mark, or pressed back down after peeling.
+function stickerNews(r, before) {
+  const p = r.project;
+  const pressed = before && stickers.weathering(before, Date.now()) !== 'fresh';
+  if (!r.tierUp && !r.newMarks.length && !pressed) return;
+  broadcastSkin();
+  setTimeout(() => send(critter, 'critter:sticker-glint', { id: p.id }), 120);
+  const marks = stickers.MARKS.filter(m => r.newMarks.includes(m.id));
+  const line = r.tierUp ? `${p.name} went ${r.tierUp.name.toLowerCase()}!` : pressed ? `${p.name}, good as new` : `${marks[0].icon} ${p.name}`;
+  sayText(line, 'sticker', 6000);
+  send(panel, 'stickers:news', { id: p.id, name: p.name, tier: r.tierUp && { id: r.tierUp.id, name: r.tierUp.name }, marks: marks.map(m => ({ id: m.id, name: m.name, icon: m.icon })), pressed });
+}
+
+// Sticker milestones for the trophies (wardrobe/achievements.js).
+function stickerStats(state) {
+  const n = stickers.stats(state);
+  stat('stickers-earned', { n: n.stickers });
+  stat('holo-stickers', { n: n.holo });
+  stat('one-point-oh', { n: n.onePointOh });
+  stat('stickered-shells', { n: n.shells });
+  stat('friend-stickers', { n: n.guests });
+}
+
+// Every shell he can wear, for the Sticker Book's editor: its spots and what's on it.
+function shellsForBook(state) {
+  const skin = activeSkin();
+  const level = currentLevel();
+  const worn = shellIdOf(wornShellObj());
+  const all = [null, ...shells.SHELLS.filter(s => level >= s.level)];
+  return all.map(sh => {
+    const id = shellIdOf(sh);
+    return {
+      id, name: sh ? sh.name : 'His own shell', worn: id === worn,
+      render: shells.renderShell(sh), slots: shellSpots(skin, sh).slots,
+      stickers: shellStickers(skin, sh, state),
+    };
+  });
+}
+
+/** The Sticker Book: every project shipped, its art, and the shells to put them on. */
+function stickersView() {
+  const s = stickerState();
+  const v = stickers.view(s, Date.now());
+  const roots = new Set(Object.values(s.projects).map(p => (p.root || '').toLowerCase()).filter(Boolean));
+  const quiet = streaks.normalize(config.get('streaks')).projects;
+  return {
+    ...v,
+    projects: v.projects.map(p => ({ ...p, art: drawSticker(s.projects[p.id]).full })),
+    shells: shellsForBook(s),
+    // Projects you work in that haven't shipped yet: silhouettes to earn.
+    waiting: Object.entries(quiet).filter(([key]) => !roots.has(key.toLowerCase()))
+      .sort((a, b) => b[1].lastSeen - a[1].lastSeen).slice(0, 12).map(([key, p]) => ({ key, name: p.name })),
+  };
+}
+
+// An edit from the Sticker Book. Only shells he can wear right now can be decorated.
+function editStickers(shell, fn) {
+  const id = isStr(shell) ? shell : shellIdOf(wornShellObj());
+  const sh = id === stickers.HOME ? null : shells.SHELLS.find(s => s.id === id);
+  if (id !== stickers.HOME && (!sh || !shells.unlockedAt(id, currentLevel()))) return { ok: false, error: 'He has to grow into that shell first.', view: stickersView() };
+  const slots = shellSpots(activeSkin(), sh).slots.length;
+  const next = fn(config.get('stickers'), id, slots, Date.now());
+  config.set({ stickers: next });
+  stickerStats(next);
+  broadcastSkin();
+  const view = stickersView();
+  send(panel, 'stickers', view);
+  return { ok: true, view };
+}
+
 // Shell commands seen in Shellby's own tabs, so a successful result can be
-// scored (tests passed, pushed, deployed). tool_use id -> { command, project }.
+// scored (tests passed, pushed, deployed). tool_use id -> { command, project, dir }.
 const pendingCommands = new Map();
 
 // Feed the achievement system; unlocks celebrate via the wardrobe 'unlocked' event.
@@ -1142,7 +1367,10 @@ function createExternal() {
   external = new ExternalSessions({ port });
   external.on('changed', summary => { refreshCritter(); send(panel, 'external', { ...summary, status: external.status, port: external.port, enabled: !!config.get('externalSessions') }); });
   external.on('status', () => send(panel, 'external', externalView()));
-  external.on('command-ok', e => awardXp(e.kind, { project: e.project }));
+  external.on('command-ok', e => {
+    awardXp(e.kind, { project: e.project });
+    if (e.cwd && e.ship) shipped(e.cwd, e.ship.kind, { version: e.ship.version });
+  });
   external.on('turn-done', e => {
     awardXp('task', { project: e.project });
     tellChannel({ kind: 'done', project: e.project, tools: e.tools });
@@ -1859,7 +2087,7 @@ function createGitHub() {
     config,
     store: new TokenStore(path.join(app.getPath('userData'), 'github.bin'), safeStorage),
     ...githubEndpoints(),
-    onSynced: () => { broadcastWardrobe(); send(panel, 'xp', xpView()); send(panel, 'homes', homesView()); refreshStatusLine(); },
+    onSynced: () => { broadcastWardrobe(); send(panel, 'xp', xpView()); send(panel, 'homes', homesView()); send(panel, 'stickers', stickersView()); refreshStatusLine(); },
   });
   github.on('change', v => send(panel, 'github', v));
   github.on('signed-in', v => send(panel, 'github:signed-in', v));
@@ -1872,7 +2100,8 @@ function createGitHub() {
     if ('skin' in patch && patch.skin !== prev.skin) { stamps.skinAt = Date.now(); changed = true; }
     if (patch.wardrobe && JSON.stringify(patch.wardrobe.outfit) !== JSON.stringify(prev.wardrobe?.outfit)) { stamps.outfitAt = Date.now(); changed = true; }
     if (changed) config.set({ syncStamps: stamps });
-    if (changed || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) github?.changedSoon();
+    const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
+    if (changed || stickersMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) github?.changedSoon();
   };
   github.schedule();
   if (github.can('sync')) setTimeout(() => github.sync().catch(() => {}), 30 * 1000);
@@ -2083,10 +2312,35 @@ function lookFor(card) {
   const accessories = ['shell', 'neck', 'hat', 'face', 'held']
     .map(slot => card.outfit[slot] && wardrobe?.catalog.accessories.get(card.outfit[slot]))
     .filter(a => a && SLOT_OK.has(a.slot)).map(publicItem);
-  const home = card.home && shells.SHELLS.find(s => s.id === card.home);
-  return { skin, accessories, shell: shells.renderShell(home || null), level: card.level };
+  const home = card.home && shells.SHELLS.find(s => s.id === card.home) || null;
+  // Their stickers by spot, onto however their crab looks here.
+  const onShell = placeStickers(skin, home, (card.stickers?.shell || []).map((e, i) => ({ ...e, id: `guest-${i}`, weather: 'fresh' })));
+  return { skin, accessories, shell: shells.renderShell(home), level: card.level, stickers: onShell };
 }
 const SLOT_OK = new Set(['shell', 'neck', 'hat', 'face', 'held']);
+
+// A swap: when you both share your stickers by name, a friend's visit leaves
+// one of theirs (stickers.js receiveGuest). It goes in the book; the shell is yours to decide.
+function stickerSwap(v) {
+  if (CAPTURE || !config || !visitor || visitor.login !== v.login) return; // gone already
+  if (stickerState().card !== 'names') return; // a swap goes both ways
+  const gift = stickers.pickTrade(v.card?.stickers?.trade, v.login, Date.now());
+  if (!gift) return;
+  const r = stickers.receiveGuest(config.get('stickers'), v.login, gift, Date.now());
+  if (!r.project) return;
+  config.set({ stickers: r.state });
+  stickerStats(r.state);
+  send(panel, 'stickers', stickersView());
+  if (!r.fresh) return;
+  const gifted = stickersView().projects.find(p => p.id === r.project.id);
+  if (!gifted) return; // made room for itself and lost (stickers.js caps friends' gifts)
+  sayText(`@${v.login} left me a sticker!`, 'visit', 7000);
+  send(panel, 'stickers:new', gifted);
+  if (!(panel?.isVisible() && panel.isFocused())) {
+    notify(`@${v.login} left a sticker`, `Their ${gift.name} sticker is in your Sticker Book. Put it on his shell if you like.`,
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); });
+  }
+}
 
 const friendsView = () => {
   const v = friends.view();
@@ -2103,7 +2357,10 @@ function createFriends() {
     github,
     myCard: () => {
       const worn = shells.wornShell(config.get('home'), currentLevel());
-      return { skin: activeSkin().id, home: worn ? worn.id : null, level: currentLevel(), outfit: wardrobe.effectiveOutfit() };
+      return {
+        skin: activeSkin().id, home: worn ? worn.id : null, level: currentLevel(), outfit: wardrobe.effectiveOutfit(),
+        stickers: stickers.forCard(config.get('stickers'), shellIdOf(worn), Date.now()), // as much as you chose to share
+      };
     },
     // Company only when he's free: not working, not guarding your focus, no helpers out.
     canVisit: () => lastStatus.state === 'idle' && !lastStatus.crew && !focus.guarding(config.get('focus'), Date.now()),
@@ -2120,6 +2377,7 @@ function createFriends() {
     sendVisitor();
     refreshCritter();
     if (v) sayText(`@${v.login} dropped by!`, 'visit', 7000);
+    if (v?.signed) setTimeout(() => stickerSwap(v), 20 * 1000); // once they've said hello
   });
   // The two of them dance, party, high-five or sing (critter.css: body.together-*).
   friends.on('together', t => {
@@ -2153,6 +2411,8 @@ function onCiEvent({ type, pr }) {
   } else if (type === 'review') {
     flashState('asking', 5000);
     notify(`Review requested: ${where}`, pr.title, open);
+  } else if (type === 'merged') {
+    shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
   }
 }
 
@@ -2508,6 +2768,7 @@ function registerIpc() {
       outfit: outfit(),
       xp: xpView(),
       homes: homesView(),
+      stickers: stickersView(),
       wardrobe: wardrobe.view(),
       welcomeTrophies: welcomeTrophies.splice(0),
       sessions: CAPTURE ? [] : history.list(),
@@ -2719,6 +2980,7 @@ function registerIpc() {
     const r = await worktrees.pushBase(root, { base });
     if (r.ok && r.pushed) {
       awardXp('ship', { project: path.basename(root) });
+      shipped(root, 'ship');
       if (tabId) manager.note(tabId, { kind: 'pushed', branch: r.branch, remote: r.remote, commits: r.pushed, pulled: r.pulled });
     }
     if (!r.ok) {
@@ -3190,6 +3452,7 @@ ${r.detail}` });
     if (!isStr(id) || !shells.unlockedAt(id, currentLevel())) return { ok: false, error: 'He has to grow into that shell first.', view: homesView() };
     config.set({ home: { ...shells.normalizeHome(config.get('home')), worn: id } });
     broadcastSkin();
+    send(panel, 'stickers', stickersView());
     return { ok: true, view: homesView() };
   });
   ipcMain.on('homes:seen', (_e, ids) => {
@@ -3197,6 +3460,40 @@ ${r.detail}` });
     const h = shells.normalizeHome(config.get('home'));
     const seen = [...new Set([...h.seen, ...ids.filter(isStr)])];
     if (seen.length !== h.seen.length) config.set({ home: shells.normalizeHome({ ...h, seen }) });
+  });
+
+  // ---- shell stickers (stickers.js)
+  const stickerId = id => (isStr(id) && /^[0-9a-f]{12}$/.test(id) ? id : null);
+  const slotOf = n => (Number.isInteger(n) && n >= 0 && n < 64 ? n : null);
+  ipcMain.handle('stickers:get', () => stickersView());
+  ipcMain.handle('stickers:place', (_e, { id, slot, shell } = {}) => {
+    if (!stickerId(id) || slotOf(slot) === null) return { ok: false, error: 'That sticker or spot is not there.', view: stickersView() };
+    return editStickers(shell, (s, sh, _n, now) => stickers.place(s, sh, id, slot, now));
+  });
+  ipcMain.handle('stickers:remove', (_e, { id, shell } = {}) => (stickerId(id) ? editStickers(shell, (s, sh, _n, now) => stickers.remove(s, sh, id, now)) : { ok: false, view: stickersView() }));
+  ipcMain.handle('stickers:restack', (_e, { id, dir, shell } = {}) => (stickerId(id) && (dir === 'up' || dir === 'down')
+    ? editStickers(shell, (s, sh, _n, now) => stickers.restack(s, sh, id, dir, now)) : { ok: false, view: stickersView() }));
+  ipcMain.handle('stickers:flip', (_e, { id, shell } = {}) => (stickerId(id) ? editStickers(shell, (s, sh, _n, now) => stickers.flip(s, sh, id, now)) : { ok: false, view: stickersView() }));
+  ipcMain.handle('stickers:arrange', (_e, { shell } = {}) => editStickers(shell, (s, sh, n, now) => stickers.arrange(s, sh, n, now)));
+  ipcMain.handle('stickers:hide', (_e, { id, hidden } = {}) => {
+    if (stickerId(id)) config.set({ stickers: stickers.setHidden(config.get('stickers'), id, !!hidden, Date.now()) });
+    return stickersView();
+  });
+  ipcMain.handle('stickers:options', (_e, opts) => {
+    if (opts && typeof opts === 'object') config.set({ stickers: stickers.setOptions(config.get('stickers'), { auto: opts.auto, card: opts.card }) });
+    return stickersView();
+  });
+  ipcMain.on('stickers:seen', (_e, ids) => {
+    if (!Array.isArray(ids)) return;
+    const s = stickerState();
+    const next = stickers.markSeen(s, ids.filter(stickerId));
+    if (next.unseen.length !== s.unseen.length) config.set({ stickers: next });
+  });
+  // "Pick up where we left off" in a project, from its page in the Sticker Book.
+  ipcMain.on('stickers:open', (_e, id) => {
+    const p = stickerId(id) && stickerState().projects[id];
+    if (!p?.root || !fs.existsSync(p.root)) return;
+    send(panel, 'tab:new-in', { cwd: p.root, draft: `Where did we leave off in ${p.name}? Summarize what changed since we last shipped it, what's unfinished, and suggest the next step.` });
   });
 
   // ---- Claude Code sessions elsewhere
