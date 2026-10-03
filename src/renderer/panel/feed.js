@@ -20,6 +20,7 @@
     constructor(id, { title = 'New task', cwd = '', saved = false, routineId = null } = {}) {
       Object.assign(this, { id, title, cwd, saved, routineId });
       this.busy = false;
+      this.busySince = null;      // when the running turn started (main's clock, or ours until it reports)
       this.pending = 0;
       this.crew = 0;
       this.outcome = null;

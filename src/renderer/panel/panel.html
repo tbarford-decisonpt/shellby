@@ -91,6 +91,7 @@
       <div class="status" id="status" hidden>
         <span class="status-crab" aria-hidden="true"></span>
         <span class="status-text" id="statusText">Working…</span>
+        <span class="status-time" id="statusTime" title="How long this prompt has been running"></span>
         <button type="button" class="stop-btn" id="stopBtn">Stop <kbd>Esc</kbd></button>
       </div>
       <div class="crowded" id="crowded" role="status" hidden></div>
@@ -257,11 +258,35 @@
       </div>
     </section>
 
+    <section class="hl-block hl-hogs" id="hlHogs" hidden aria-labelledby="hlHogsTitle">
+      <div class="hl-hogs-head">
+        <h3 class="hl-h" id="hlHogsTitle">What's hogging it</h3>
+        <div class="seg hl-hogs-seg" id="hlHogsSeg" role="tablist" aria-label="Sort by">
+          <button type="button" role="tab" data-metric="gpu">GPU</button>
+          <button type="button" role="tab" data-metric="cpu">CPU</button>
+          <button type="button" role="tab" data-metric="mem">Memory</button>
+        </div>
+        <button type="button" class="btn ghost slim-btn" id="hlHogsRefresh" title="Read the process list again">Refresh</button>
+      </div>
+      <ol class="hl-hogs-list" id="hlHogList" aria-live="polite"></ol>
+      <p class="hl-fine">End task asks first, and won't touch Windows itself or Shellby.</p>
+    </section>
+
     <div class="hl-gauges" id="hlGauges"></div>
 
     <section class="hl-block">
       <h3 class="hl-h">Drives</h3>
       <ul class="hl-disks" id="hlDisks"></ul>
+    </section>
+
+    <section class="hl-block">
+      <h3 class="hl-h">Starts with Windows</h3>
+      <p class="hl-startup-sum" id="hlStartupSum">Reading the startup list…</p>
+      <ul class="hl-startup" id="hlStartup"></ul>
+      <div class="row wrap">
+        <button type="button" class="btn" id="hlAskStartup" disabled>Ask Shellby which ones I need</button>
+      </div>
+      <p class="hl-fine">Shellby only reads the list. The task he starts reports back and doesn't switch anything off.</p>
     </section>
 
     <section class="hl-block">
