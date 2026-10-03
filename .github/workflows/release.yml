@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  # SignPath fetches the unsigned exes from this run's artifacts.
+  actions: read
 
 # One release run per tag. If a tag is moved and pushed again, the run for the
 # old commit is cancelled instead of racing the new one (in 0.21.1 the stale run
@@ -23,6 +25,8 @@ jobs:
       # the winget steps below test this instead. Reading it here is what lets
       # them stay opt-in.
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      # Same trick for SignPath: set means the release is signed by SignPath.
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -54,11 +58,15 @@ jobs:
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" --draft --title "Shellby ${GITHUB_REF_NAME#v}" --notes-file .github/release-notes.md
 
-      # Code signing is opt-in: with Azure Artifact Signing (Trusted Signing)
-      # credentials in the repo's secrets/variables, the installer and the app
-      # are signed; without them the build is unsigned, as before. See
-      # docs/SIGNING.md for the one-time setup.
+      # Code signing is opt-in, through one of two services (docs/SIGNING.md):
+      # - Azure Artifact Signing (Trusted Signing): electron-builder signs the
+      #   installer and the app mid-build and uploads as usual.
+      # - SignPath (free for open source): the build stays local, the steps
+      #   below send the installer and portable exe to SignPath, and the signed
+      #   files are uploaded after.
+      # With neither configured the build is unsigned, as before.
       - name: Build and upload
+        id: build
         shell: bash
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -68,9 +76,23 @@ jobs:
           SIGN_ACCOUNT: ${{ vars.AZURE_SIGN_ACCOUNT }}
           SIGN_PROFILE: ${{ vars.AZURE_SIGN_PROFILE }}
           SIGN_PUBLISHER: ${{ vars.AZURE_SIGN_PUBLISHER }}
+          SIGNPATH_ORG: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
         run: |
+          # The preflight guard already checked the tag is v + package.json's version.
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           args=()
-          if [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$SIGN_ENDPOINT" ] && [ -n "$SIGN_ACCOUNT" ] && [ -n "$SIGN_PROFILE" ] && [ -n "$SIGN_PUBLISHER" ]; then
+          publish=always
+          if [ -n "$SIGN_ENDPOINT" ] && [ -n "$SIGNPATH_ORG" ]; then
+            echo "::error::Both Azure and SignPath signing are configured. Remove one set of variables (see docs/SIGNING.md)."
+            exit 1
+          elif [ -n "$SIGNPATH_ORG" ]; then
+            if [ -z "$SIGNPATH_API_TOKEN" ]; then
+              echo "::error::SIGNPATH_ORGANIZATION_ID is set but the SIGNPATH_API_TOKEN secret isn't."
+              exit 1
+            fi
+            echo "Building for SignPath; the signed files are uploaded after signing."
+            publish=never
+          elif [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$SIGN_ENDPOINT" ] && [ -n "$SIGN_ACCOUNT" ] && [ -n "$SIGN_PROFILE" ] && [ -n "$SIGN_PUBLISHER" ]; then
             echo "Signing with Azure Artifact Signing ($SIGN_PUBLISHER)"
             args=(
               "-c.win.azureSignOptions.endpoint=$SIGN_ENDPOINT"
@@ -81,7 +103,55 @@ jobs:
           else
             echo "::warning::No code signing credentials configured; this release is unsigned (see docs/SIGNING.md)."
           fi
-          npx electron-builder --win --publish always "${args[@]}"
+          npx electron-builder --win --publish "$publish" "${args[@]}"
+
+      # SignPath: hand the two downloadable exes over. Those are what SmartScreen
+      # judges; the app inside the installer never carries a download mark, so
+      # it isn't checked. SignPath pulls the artifact from this run itself, which
+      # is how it knows the files were built here from the tagged source.
+      - name: Collect the exes for SignPath
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        id: unsigned
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-exes
+          path: |
+            dist/Shellby-Setup-*.exe
+            dist/Shellby-Portable-*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      # Waits for someone to approve the request on signpath.io (the email
+      # arrives as this starts), up to an hour.
+      - name: Sign with SignPath
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: signpath/github-action-submit-signing-request@v3
+        timeout-minutes: 70
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'shellby' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.build.outputs.version }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/signed
+
+      # Put the signed exes in place, bring latest.yml and the blockmap in line
+      # with the signed installer (scripts/signed-update-info.js), then attach
+      # everything to the draft, which the Azure/unsigned build did itself.
+      - name: Upload the signed files
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          cp "dist/signed/Shellby-Setup-$v.exe" "dist/signed/Shellby-Portable-$v.exe" dist/
+          node scripts/signed-update-info.js
+          gh release upload "$GITHUB_REF_NAME" --clobber \
+            "dist/Shellby-Setup-$v.exe" "dist/Shellby-Setup-$v.exe.blockmap" \
+            "dist/Shellby-Portable-$v.exe" dist/latest.yml
 
       # Checksums for anyone verifying a download (SmartScreen or not).
       - name: Upload SHA-256 checksums
@@ -94,7 +164,7 @@ jobs:
 
       # When signing is on, fail loudly if the result isn't actually signed.
       - name: Check signatures
-        if: ${{ vars.AZURE_SIGN_ENDPOINT != '' }}
+        if: ${{ vars.AZURE_SIGN_ENDPOINT != '' || vars.SIGNPATH_ORGANIZATION_ID != '' }}
         shell: pwsh
         run: |
           foreach ($f in Get-ChildItem dist\Shellby-*.exe) {

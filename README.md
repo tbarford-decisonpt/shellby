@@ -409,6 +409,21 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+> Shellby is applying for this. Until it's approved, releases are unsigned (see [Install](#install)).
+
+Only Shellby's own installer and portable exe are signed, and only when GitHub Actions builds them from a tagged commit in this repository ([release workflow](.github/workflows/release.yml)). Each signing request is approved by hand.
+
+- **Committers and reviewers:** [x-salmon](https://github.com/x-salmon). Pull requests from anyone else are reviewed before they're merged.
+- **Approvers:** [x-salmon](https://github.com/x-salmon)
+
+Everyone in these roles uses two-factor authentication on GitHub and SignPath.
+
+**Privacy:** what Shellby sends over the network, and when, is listed under [Privacy](#privacy). It sends nothing else, and has no telemetry.
+
 ## Contributing
 
 Skins, packs, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).

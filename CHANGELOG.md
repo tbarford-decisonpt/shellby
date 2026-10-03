@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.54.1: getting ready to sign
+
+### Changed
+- **Releases can now be signed for free through SignPath Foundation**, the code-signing programme for open-source projects. Once Shellby's application is approved, the installer and portable exe will be signed and Windows should stop showing the "Windows protected your PC" warning. Until then nothing changes: releases are unsigned, and **More info → Run anyway** still gets you past it. Who can sign what is written up in the README's new [code signing policy](README.md#code-signing-policy); setup is in [docs/SIGNING.md](docs/SIGNING.md).
+
 ## 0.54.0: is it safe to leave?
 
 ### New
