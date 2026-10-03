@@ -55,6 +55,10 @@ const { CritterMotion } = require('./motion');
 const { createPerching } = require('./perching');
 const { SETTINGS: PERCH_SETTINGS } = require('./perch');
 const voice = require('./voice');
+const gifts = require('./gifts');
+const { createLife } = require('./life');
+const { createPlaytime } = require('./playtime');
+const { activeSeasons } = require('./wardrobe/seasons');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
@@ -67,7 +71,7 @@ const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
 const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
-const { Friends } = require('./friends');
+const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const attach = require('./attachments');
@@ -86,6 +90,7 @@ const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
 // The crab's window gets a bridge of its own, much smaller (ipc-guard.js).
 const CRITTER_PRELOAD = path.join(__dirname, '..', 'preload', 'critter-preload.js');
+const TOY_PRELOAD = path.join(__dirname, '..', 'preload', 'toy-preload.js');
 const ICON = path.join(ROOT, 'assets', 'icon.png');
 const CAPTURE = process.argv.includes('--capture-screenshots');
 
@@ -175,6 +180,8 @@ let visitor = null;                // { login, look, until }: a friend's crab dr
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let motion = null;                 // throws and strolls (see motion.js)
 let perching = null;               // up on your windows (see perching.js)
+let life = null;                   // his life between tasks: scenes, gifts, the bond, your day (see life.js)
+let playtime = null;               // hide and seek, fetch (see playtime.js)
 let said = null;                   // { text, occasion, until } — the line in his bubble (see voice.js)
 let longTaskTimer = null;          // a task still running after LONG_TASK_MS gets a "still going…"
 const fileTouches = new Map();     // file path -> times written this run, for his "this file again?"
@@ -312,6 +319,7 @@ function createMotion() {
     ledges: () => perching?.flightLedges() || [],
     onState: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
     onSettled: (kind, info) => {
+      if (playtime?.onSettled(kind)) return; // a walk to fetch the pebble, or back with it
       if (perching?.onSettled(kind, info)) return;
       if (kind === 'flight') { saveCritterPos(); stat('thrown'); }
       settleCritter();
@@ -323,19 +331,21 @@ function createMotion() {
   // up onto one of your windows, finds something to do with his claws, or says
   // something to nobody. Up on a window, his life has its own rhythm.
   setInterval(() => {
-    if (CAPTURE || dragging) return;
+    if (CAPTURE || dragging || playtime?.busy() || life?.busy()) return;
     const idle = lastStatus.state === 'idle';
     const guarding = focus.guarding(config.get('focus'), Date.now());
     if (perching.isUp()) return void perching.idleTick({ idle, guarding, quiet: voice.chatterOf(config.get('chatter')) === 'quiet' });
     if (motion.busy || crewShown || guestShown || !idle || guarding) return;
     // A stroll moves his window; the little habits don't, so 'wander' only
     // governs the strolling (and the climbing), as it always has.
-    if (config.get('wander') !== false) {
+    if (config.get('wander') !== false && !life?.onCall()) {
       if (perching.maybeGoUp()) return;
       const home = config.get('critterPos');
       if (home && Math.random() < 0.35) return void motion.stroll(home.x - crewExtra());
     }
     if (voice.chatterOf(config.get('chatter')) === 'quiet' || Math.random() > IDLE_BIT_CHANCE) return;
+    // A scene, a habit, maybe a find or a memory (life.js).
+    if (life?.idleBit()) return;
     send(critter, 'critter:bit', { bit: voice.pickBit(voice.normalize(config.get('voice')).seed) });
     speak('idle');
   }, 15000);
@@ -596,11 +606,12 @@ function onToolSpoken(item) {
 // Shellby says something, if he has something to say and this is the moment for
 // it (see voice.js for the cooldowns). Held back while he guards your focus,
 // exactly like a notification that can wait, and never during screenshots.
-function speak(occasion, { force = false } = {}) {
+function speak(occasion, { force = false, text = null } = {}) {
   if (CAPTURE || !config || !critter) return null;
   if (focus.guarding(config.get('focus'), Date.now())) return null;
+  if (life?.hushed()) return null; // you're on a call: not a peep
   const now = Date.now();
-  const r = voice.say(config.get('voice'), occasion, now, { chatter: config.get('chatter'), force });
+  const r = voice.say(config.get('voice'), occasion, now, { chatter: config.get('chatter'), force, text });
   if (!r) return null;
   config.set({ voice: r.state });
   said = { text: r.text, occasion: r.occasion, until: r.until };
@@ -614,7 +625,7 @@ function speak(occasion, { force = false } = {}) {
 // and silent while he's on guard.
 function chirp(occasion) {
   if (CAPTURE || !config?.get('sounds')) return;
-  if (focus.guarding(config.get('focus'), Date.now())) return;
+  if (focus.guarding(config.get('focus'), Date.now()) || life?.hushed()) return;
   send(critter, 'critter:chirp', { occasion });
 }
 
@@ -648,6 +659,7 @@ function refreshCritter() {
   if (state !== 'idle') lastActivity = Date.now();
   else if (flash && flash.until > Date.now()) state = flash.state;
   else if (limited && healthMood?.level !== 'critical') state = 'sleeping'; // naps until the limit resets
+  else if (life?.napping() && healthMood?.level !== 'critical') state = 'sleeping'; // a nap of his own (life.js)
   else if (Date.now() - lastActivity > SLEEP_AFTER_MS && healthMood?.level !== 'critical') state = 'sleeping';
 
   if (said && said.until <= Date.now()) said = null;
@@ -663,6 +675,7 @@ function refreshCritter() {
     focus: focusState(),
     limit: limited ? { resetsAt: limited.resetsAt } : null,
     say: said,
+    call: !!life?.onCall(), // you're on a call: he holds up his "shh" sign
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
   const was = lastStatus;
@@ -675,6 +688,12 @@ function refreshCritter() {
   // Remarks that belong to a change, not a state. lastStatus is already updated,
   // so the refresh that speaking triggers can't fire these a second time.
   if (agg.crew.length >= CREW_WORTH_MENTIONING) speak('crew');
+  // Work (or a question) takes him off whatever he was doing on his own.
+  if ((state === 'working' || state === 'asking') && was.state !== state) {
+    life?.cancel();
+    life?.wake();
+    if (playtime?.busy()) playtime.stop('work time!');
+  }
   if (state === 'working' && was.state !== 'working') {
     speak('working');
     // Armed when the task starts, never re-armed: a busy task refreshes this
@@ -710,6 +729,7 @@ function refreshStatusLine() {
 
 function wake() {
   lastActivity = Date.now();
+  life?.wake(); // ends a nap of his own too (life.js)
   refreshCritter();
 }
 
@@ -1313,7 +1333,9 @@ const pendingCommands = new Map();
 
 // Feed the achievement system; unlocks celebrate via the wardrobe 'unlocked' event.
 function stat(event, payload) {
-  if (!wardrobe || CAPTURE) return;
+  if (CAPTURE) return;
+  try { life?.onStat(event, payload); } catch (e) { log.warn('life stat failed', e.message); }
+  if (!wardrobe) return;
   try { wardrobe.record(event, payload); } catch (e) { console.warn('[shellby] stat failed:', e.message); }
 }
 
@@ -1512,7 +1534,7 @@ function createCrabApi() {
  */
 function sayText(text, occasion, ms = 9000) {
   if (CAPTURE || !config || !critter) return false;
-  if (focus.guarding(config.get('focus'), Date.now())) return false;
+  if (focus.guarding(config.get('focus'), Date.now()) || life?.hushed()) return false;
   said = { text: String(text).slice(0, 120), occasion, until: Date.now() + ms };
   chirp(occasion);
   refreshCritter();
@@ -1971,6 +1993,94 @@ function createMedia() {
 
 // Tap the hotkey: the panel, as ever. Hold it (with push-to-talk on): he
 // listens, and what you said is in the box when you let go. See dictation.js.
+// ================================================================ his life between tasks
+
+// Free to play: not working or asking (a trophy's celebration or a nap doesn't count), nobody else beside him.
+const playerFree = () => !['working', 'asking'].includes(lastStatus.state) && !crewShown && !guestShown && !dragging
+  && !perching?.isAway() && !focus.guarding(config.get('focus'), Date.now());
+
+// Who has the microphone, from Windows' own list (surroundings.js reads it).
+const readMic = key => new Promise((resolve, reject) => {
+  require('child_process').execFile('reg', ['query', key, '/s'], { windowsHide: true, timeout: 5000, maxBuffer: 2 * 1024 * 1024 }, (err, out) => (err ? reject(err) : resolve(String(out))));
+});
+
+function createLifeAndPlay() {
+  const sendCritter = (channel, payload) => send(critter, channel, payload);
+  const burst = () => send(critter, 'critter:burst', outfit().confetti);
+  life = createLife({
+    config, native,
+    enabled: () => !CAPTURE && !!critter && !critter.isDestroyed(),
+    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
+    speak: (occasion, opts) => speak(occasion, opts),
+    say: (text, ms, occasion) => sayText(text, occasion, ms),
+    toCrab: sendCritter,
+    toPanel: (channel, payload) => send(panel, channel, payload),
+    // You're at your PC: he stays up (refreshCritter puts him to sleep SLEEP_AFTER_MS after this).
+    touch: () => { lastActivity = Date.now(); if (lastStatus.state === 'sleeping') refreshCritter(); },
+    refresh: () => refreshCritter(),
+    stat, awardXp, burst,
+    systemIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return null; } },
+    isIdle: () => lastStatus.state === 'idle' && !dragging && !perching?.isUp(),
+    working: () => ['working', 'asking'].includes(lastStatus.state),
+    playing: () => !!playtime?.busy(),
+    guarding: () => focus.guarding(config.get('focus'), Date.now()),
+    music: () => !!nowPlaying?.playing,
+    seasons: () => activeSeasons(new Date()).map(x => x.id),
+    calm: () => calmReason === 'locked',
+    // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.
+    eyePoint: () => {
+      if (!critter || critter.isDestroyed()) return null;
+      const b = critter.getBounds();
+      const self = 22 * px() + 72;
+      return { x: b.x + b.width - self / 2 + 4 * px(), y: b.y + b.height - 18 - 12 * px() };
+    },
+    cursor: () => screen.getCursorScreenPoint(),
+    throws: () => wardrobe?.stats.timesThrown || 0,
+    firstDay: () => { const days = wardrobe?.stats.activeDays || []; return days.length ? new Date(`${days[0]}T12:00:00`).getTime() : null; },
+    readMic,
+    ownExes: () => [process.execPath],
+    bootAt: () => Date.now() - os.uptime() * 1000, // mic sessions older than this are stale (surroundings.js)
+    ownPids: () => [process.pid],
+    leavePerch: () => { if (perching?.isUp()) perching.leave('call'); },
+    playView: () => playtime?.view() || null,
+    log: msg => log.warn(msg),
+  });
+  playtime = createPlaytime({
+    config, native, screen,
+    ownPids: () => [process.pid],
+    isFree: playerFree,
+    prepare: () => { life.cancel(); life.wake(); motion?.stop(); wake(); },
+    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
+    bounds: () => critter.getBounds(),
+    place: (x, y) => placeCritter(x, y),
+    pin: () => pinToDesktop(critter),
+    float: () => native.float(native.hwndOf(critter)),
+    say: (text, ms, occasion) => sayText(text, occasion, ms),
+    toCrab: sendCritter,
+    burst, stat,
+    chirp: () => chirp('play'),
+    onPlayed: (kind, data) => life.played(kind, data),
+    changed: () => send(panel, 'life', life.view()),
+    refresh: () => refreshCritter(),
+    motion: () => motion,
+    motionBox,
+    px,
+    makeWindow: ({ width, height }) => {
+      const w = new BrowserWindow({
+        width, height, frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
+        alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
+        title: 'Shellby’s pebble', icon: ICON, webPreferences: { ...webPreferences, preload: TOY_PRELOAD },
+      });
+      secureWindow(w);
+      w.loadFile(path.join(RENDERER, 'toy', 'toy.html'));
+      return w;
+    },
+    pinWindow: w => pinToDesktop(w),
+    favouriteFind: () => gifts.favourite(config.get('finds')),
+  });
+  life.start();
+}
+
 function createDictation() {
   // SHELLBY_DICTATION_WAV: a recording in place of the microphone (scripts/e2e-push-to-talk.js).
   dictation = new Dictation({ wav: process.env.SHELLBY_DICTATION_WAV || null });
@@ -2547,10 +2657,13 @@ function createFriends() {
       return {
         skin: activeSkin().id, home: worn ? worn.id : null, level: currentLevel(), outfit: wardrobe.effectiveOutfit(),
         stickers: stickers.forCard(config.get('stickers'), shellIdOf(worn), Date.now()), // as much as you chose to share
+        // What his crab and yours talk about when they meet (banter.js).
+        temperament: voice.temperamentOf(voice.normalize(config.get('voice')).seed),
+        find: gifts.favourite(config.get('finds'))?.id || null,
       };
     },
     // Company only when he's free: not working, not guarding your focus, no helpers out.
-    canVisit: () => lastStatus.state === 'idle' && !lastStatus.crew && !focus.guarding(config.get('focus'), Date.now()),
+    canVisit: () => lastStatus.state === 'idle' && !lastStatus.crew && !focus.guarding(config.get('focus'), Date.now()) && !playtime?.busy(),
   });
   // A refresh saves several times; the panel only needs the last one.
   let viewTimer = null;
@@ -2563,8 +2676,12 @@ function createFriends() {
     visitor = v ? { login: v.login, look: lookFor(v.card), until: v.until } : null;
     sendVisitor();
     refreshCritter();
-    if (v) sayText(`@${v.login} dropped by!`, 'visit', 7000);
+    if (v) sayText(`@${v.login} dropped by!`, 'visit', 4000);
     if (v?.signed) setTimeout(() => stickerSwap(v), 20 * 1000); // once they've said hello
+    // ...and then the two of them talk (banter.js, through life.js).
+    const togetherAt = [];
+    for (let at = TOGETHER_FIRST_MS; at < VISIT_MS; at += TOGETHER_EVERY_MS) togetherAt.push(at);
+    life?.visit(v, { visitMs: VISIT_MS, togetherAt, myCard: friends.myCard() });
   });
   // The two of them dance, party, high-five or sing (critter.css: body.together-*).
   friends.on('together', t => {
@@ -2901,6 +3018,7 @@ function registerIpc() {
   const ipcMain = guardIpc(electronIpcMain, windowPolicy(() => ({
     panel: panel && !panel.isDestroyed() ? panel.webContents : null,
     critter: critter && !critter.isDestroyed() ? critter.webContents : null,
+    isToy: wc => !!playtime?.isToy(wc),
   })), { onRefused: channel => log.warn('IPC refused', channel) });
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
@@ -2920,6 +3038,9 @@ function registerIpc() {
   let grab = null;
   let samples = [];
   ipcMain.on('critter:drag-start', () => {
+    life?.cancel();
+    // Mid-game: found if he was hiding, and either way he stays where you put him.
+    playtime?.grabbed();
     motion?.stop();
     perching?.grabbed(); // in your hand he's above every window, so you can see where he'll go
     const c = screen.getCursorScreenPoint();
@@ -2952,10 +3073,31 @@ function registerIpc() {
     if (Date.now() - lastPet < 1500) return;
     lastPet = Date.now();
     stat('petted');
+    life?.onPet();
     if (['idle', 'sleeping'].includes(lastStatus.state)) { lastActivity = Date.now(); flashState('petted', 2600); }
   });
   ipcMain.on('critter:reset-position', () => resetCritterPos());
-  ipcMain.on('critter:click', () => { wake(); togglePanel(); sendToBottom(critter); }); // sendToBottom leaves a perched crab be
+  // ---- his life between tasks: the Us and Finds pages (life.js), and games (playtime.js)
+  ipcMain.handle('life:get', () => life?.view() || null);
+  ipcMain.handle('life:birthday', (_e, bd) => life?.setBirthday(bd && typeof bd === 'object' ? { m: Number(bd.m), d: Number(bd.d) } : null) || null);
+  ipcMain.handle('life:favourite', (_e, id) => life?.setFavourite(typeof id === 'string' ? id.slice(0, 40) : null) || null);
+  ipcMain.on('life:finds-seen', () => life?.findsSeen());
+  ipcMain.handle('life:play', (_e, kind) => {
+    if (!life || !playtime) return { ok: false, error: 'Not ready yet.' };
+    if (kind === 'hide') return playtime.startHide();
+    if (kind === 'fetch') return playtime.startFetch();
+    if (kind === 'dig') return life.digNow() ? { ok: true } : { ok: false, error: 'He dug not long ago. Give the sand a rest.' };
+    if (kind === 'stop') { playtime.stop('aww, ok'); return { ok: true }; }
+    return { ok: false, error: 'Unknown game.' };
+  });
+  // The pebble for fetch: its own window and bridge (toy-preload.js), dragged like he is.
+  ipcMain.on('toy:drag-start', () => playtime?.toyDragStart());
+  ipcMain.on('toy:drag-move', () => playtime?.toyDragMove()); // follows the real cursor, like he does
+  ipcMain.on('toy:drag-end', () => playtime?.toyDragEnd());
+  ipcMain.on('critter:click', () => {
+    if (playtime?.found()) return; // hide and seek: you found him
+    wake(); togglePanel(); sendToBottom(critter); // sendToBottom leaves a perched crab be
+  });
   ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) showPanel({ focusInput: false, tabId }); });
   // The badge for background work: straight to the list that says what it was.
   ipcMain.on('critter:bg-click', () => {
@@ -3746,6 +3888,16 @@ ${r.detail}` });
       return chosen;
     });
     ipcMain.handle('dev:temperament', () => voice.temperamentOf(voice.normalize(config.get('voice')).seed));
+    // His life between tasks (life.js): a scene by id, a dig, a moment of your day, a new day.
+    ipcMain.handle('dev:scene', (_e, id) => life?.playScene(String(id || '')) || null);
+    ipcMain.handle('dev:life', (_e, { what, ...args } = {}) => {
+      if (!life) return null;
+      if (what === 'dig') return life.dig({ manual: true })?.id || null;
+      if (what === 'event') return life.event(args.event), true;
+      if (what === 'day') return life.newDayForTest(), true;
+      if (what === 'call') return life.callForTest(args.on), true;
+      return life.view();
+    });
     ipcMain.handle('dev:throw', (_e, { vx = 0, vy = 0 } = {}) => {
       const t = Date.now();
       return motion.release([{ x: 0, y: 0, t: t - 50 }, { x: vx * 0.05, y: vy * 0.05, t }]);
@@ -4118,6 +4270,7 @@ function buildMenu() {
     claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
     { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
     focusMenu(),
+    playMenu(),
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
     updateMenuItem(),
@@ -4170,6 +4323,12 @@ function reportProblem() {
     return;
   }
   shell.openExternal(url);
+}
+
+// Games and digging (playtime.js, life.js): none of it needs Claude.
+function playMenu() {
+  if (!playtime || !life) return null;
+  return { label: 'Play', submenu: [...playtime.menuItems(), { type: 'separator' }, life.digMenuItem(), { label: 'Finds and memories…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'us'); } }] };
 }
 
 function focusMenu() {
@@ -4331,6 +4490,7 @@ app.whenReady().then(() => {
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
   createMedia();
+  createLifeAndPlay();
   createDictation();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
@@ -4379,6 +4539,8 @@ app.on('will-quit', () => {
   external?.stop();
   github?.stop();
   friends?.stop();
+  life?.stop();
+  playtime?.stop();
   ci?.stop();
   clearTimeout(focusTimer);
   clearInterval(focusTick);

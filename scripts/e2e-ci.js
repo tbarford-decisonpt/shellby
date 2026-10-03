@@ -22,6 +22,7 @@ const SUITE = [
   'e2e-xp',           // XP, levels, the desktop float and the level-up
   'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
+  'e2e-life',         // his life between tasks: scenes, gifts, the Finds and Us pages, your day, birthdays, hide and seek, fetch
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking

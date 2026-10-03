@@ -99,26 +99,28 @@ function topLevelWindows() {
   }, []);
 }
 
-const exeCache = new Map(); // pid -> lower-case file name; pids are reused, so it's capped and short-lived
-function exeOf(pid) {
-  if (!pid) return '';
+const exeCache = new Map(); // pid -> { name, full }; pids are reused, so it's capped and short-lived
+function imageOf(pid) {
+  if (!pid) return { name: '', full: '' };
   const hit = exeCache.get(pid);
-  if (hit && Date.now() - hit.at < 60000) return hit.name;
-  const name = safe(a => {
+  if (hit && Date.now() - hit.at < 60000) return hit;
+  const full = safe(a => {
     const h = a.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
     if (!h) return '';
     try {
       const buf = new Uint16Array(1024);
       const size = [1024];
       if (!a.QueryFullProcessImageNameW(h, 0, buf, size)) return '';
-      const full = String.fromCharCode(...buf.slice(0, size[0]));
-      return full.split('\\').pop().toLowerCase();
+      return String.fromCharCode(...buf.slice(0, size[0]));
     } finally { a.CloseHandle(h); }
   }, '');
+  const entry = { name: full.split('\\').pop().toLowerCase(), full, at: Date.now() };
   if (exeCache.size > 200) exeCache.clear();
-  exeCache.set(pid, { name, at: Date.now() });
-  return name;
+  exeCache.set(pid, entry);
+  return entry;
 }
+// The lower-case file name ("chrome.exe").
+const exeOf = pid => imageOf(pid).name;
 
 function frameOf(a, h) {
   const r = {};
@@ -163,6 +165,8 @@ function describe(h) {
       hwnd: h,
       pid: pid[0],
       exe: exeOf(pid[0]),
+      // Where it's installed, so a game can be told by its launcher's folder (surroundings.js).
+      path: imageOf(pid[0]).full,
       cls: str16(a.GetClassNameW, h),
       rect: rectOf(r),
       ...q,

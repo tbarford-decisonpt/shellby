@@ -25,6 +25,10 @@
     const named = [...(state.outfit?.accessories || []).map(a => a.name), state.outfit?.effect?.name].filter(Boolean);
     return {
       title: top ? top.name : 'Fresh out of the shell',
+      // His temperament, and the Claude-free side of things (together.js / life.js).
+      temperament: state.life?.temperament?.name || null,
+      together: state.life?.bond?.days || 0,
+      finds: state.life?.finds?.total || 0,
       titleIcon: top ? top.icon : '🐚',
       wearing: named,
       tasks: v.stats?.tasksCompleted ?? 0,
@@ -188,16 +192,22 @@
     ctx.fillText(fitText(ctx, `${d.titleIcon} ${d.title}`, colW, ctx.font), x0, 150);
 
     ctx.fillStyle = C.sandDim;
-    const wearing = d.wearing.length ? `Wearing ${d.wearing.join(', ')}` : 'Wearing nothing but a shell';
+    const worn = d.wearing.length ? `wearing ${d.wearing.join(', ')}` : 'wearing nothing but a shell';
+    const wearing = d.temperament ? `A ${d.temperament.toLowerCase()} crab, ${worn}` : worn.replace(/^w/, 'W');
     ctx.fillText(fitText(ctx, wearing, colW, '20px "Atkinson Hyperlegible"'), x0, 188);
 
     // Three stat tiles.
     const tiles = [
-      [d.tasks.toLocaleString(), d.tasks === 1 ? 'task done' : 'tasks done', C.coral],
+      // No tasks yet (just the crab, say): show the days you've had him instead of a zero.
+      d.tasks || !d.together
+        ? [d.tasks.toLocaleString(), d.tasks === 1 ? 'task done' : 'tasks done', C.coral]
+        : [d.together.toLocaleString(), d.together === 1 ? 'day together' : 'days together', C.coral],
       [`${d.trophies}/${d.trophiesAll}`, 'trophies', C.amber],
       d.shipped
         ? [d.shipped.toLocaleString(), d.shipped === 1 ? 'project shipped' : 'projects shipped', C.glass]
-        : [d.helpers.toLocaleString(), d.helpers === 1 ? 'helper crab sent' : 'helper crabs sent', C.glass],
+        : d.helpers || !d.finds
+          ? [d.helpers.toLocaleString(), d.helpers === 1 ? 'helper crab sent' : 'helper crabs sent', C.glass]
+          : [d.finds.toLocaleString(), d.finds === 1 ? 'find dug up' : 'finds dug up', C.glass],
     ];
     const gap = 14, tw = (colW - gap * 2) / 3, ty = 226, th = 128;
     tiles.forEach(([num, label, col], i) => {

@@ -83,6 +83,10 @@
     $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}.` : '';
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    // His temperament, picked once from your install and kept (src/main/voice.js).
+    const t = state.life?.temperament;
+    $('temperNote').hidden = !t;
+    if (t) $('temperNote').textContent = `${t.emoji} Your crab is ${t.name.toLowerCase()}. ${t.blurb}`;
     $('pushToTalkToggle').checked = !!state.settings.pushToTalk;
     const st = state.status || {};
     const facts = [

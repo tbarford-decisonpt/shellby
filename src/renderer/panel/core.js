@@ -179,7 +179,7 @@ SB.views = {};  // name -> { render?() }
 
 // Which navigation item a screen lives under (Trophies is a tab of the Shellby screen),
 // and which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe' };
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe', finds: 'wardrobe', us: 'wardrobe' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 

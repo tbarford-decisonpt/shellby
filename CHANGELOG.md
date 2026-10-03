@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.48.0: a life of his own
+
+### New
+- **Little scenes.** When nothing's happening he gets up to something, a few beats at a time: squints at your cursor, creeps up on it, pounces and misses (*"meant to do that"*); builds a sandcastle and watches it wash away; sneezes, gets the hiccups, blows bubbles, juggles pebbles, nods off, counts grains of sand, swats at a fly. Some only happen at night, at the weekend, in their season or while music plays, and what he says depends on his temperament. 24 in all, and **Shellby → Us** shows which you've caught him in.
+- **He notices your day.** *"gg"* when a game you've been playing ends, *"numbers again?"* after most of an hour in Excel (and his own lines for Word and PowerPoint), *"friday!"* on a Friday afternoon, a lazy line at the weekend, a groan on Monday morning. He only ever knows the *kind* of app in front, from its file name and where it's installed: never a window title or anything in it, and nothing leaves your PC.
+- **Quiet on a call.** While an app has your microphone, he holds up a little "shh" sign, says nothing, stays off your windows, and asks how it went once you hang up. Windows' own record of who's using the microphone tells him; he never listens himself.
+- **Gifts from digging.** Now and then a dig turns something up and he holds it out to you. 38 finds, from sea glass and lost keys to pearls and, very rarely, a gold doubloon, in six sets to complete. Some only turn up in their season or after dark, and two only on special days. Right-click him → **Play → Dig for treasure** every couple of hours, and see them all on the new **Shellby → Finds** shelf. The one you pick as his favourite is what he shows off, and what he brings up when friends visit.
+- **He remembers you.** Petting, playing and keeping him around bring the two of you closer, from *New friends* to *Inseparable*, and every step opens something up. It never goes back down. **Shellby → Us** keeps your story (*"You shook him off Chrome"*), and every so often he brings a moment up. He counts your days together, marks his hatch day each year, and if you tell him your birthday he makes a fuss and digs up something you can't find any other way.
+- **Hide and seek, and fetch.** Right-click him → **Play**. He hides behind one of your windows, peeks out if you're stuck, and wins if you take too long. Or throw him a pebble and he scuttles off after it and brings it back.
+- **Visiting crabs talk.** When a friend's crab drops by, the two of them chat, and the conversation depends on both temperaments, their stickers, how much each has grown and the finds they're proudest of. Your calling card now carries his temperament and favourite find for this.
+- **11 new trophies,** each with something to wear: a sand pail, a metal detector, a treasure chest, a leafy disguise, a tennis ball, a friendship locket and more.
+
+### Changed
+- **He stays awake while you're at your PC.** He used to fall asleep three minutes after his last task even with you sitting right there, so without Claude he was asleep most of the day. Now your own keyboard and mouse keep him up, and he naps when you step away, or now and then because he felt like it.
+- **His eyes follow your cursor.**
+- **Normal mode hears from him.** On the default setting he now mutters to himself now and then when nothing's happening, instead of only on Chatty.
+- **XP without Claude.** Petting him, playing, his finds and growing closer all earn XP, so a crab-only Shellby levels up and earns his outfits too. The Trophies page lists every way to earn it, and only the ones that apply in just-the-crab mode.
+- **His temperament is shown.** Settings → Look, the Us page and his crab card say whether yours is chipper, fussy, cocky or sleepy. A crab-only crab card shows days together and finds instead of tasks and helpers.
+
 ## 0.47.3: old news
 
 ### Fixed

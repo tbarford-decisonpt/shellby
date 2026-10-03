@@ -35,6 +35,16 @@ test('the panel reaches everything, the crab only his own channels, anything els
   assert.equal(allow('task:send', undefined), false);
 });
 
+test("the pebble for fetch can only be dragged; it reaches nothing of the panel's or the crab's", () => {
+  const toy = { id: 4 };
+  const withToy = windowPolicy(() => ({ panel, critter, isToy: wc => wc === toy }));
+  for (const c of ['toy:drag-start', 'toy:drag-move', 'toy:drag-end']) assert.equal(withToy(c, toy), true, c);
+  for (const c of ['task:send', 'critter:click', 'critter:drop', 'attach:image', 'life:play', 'toy:look', 'settings:set']) assert.equal(withToy(c, toy), false, c);
+  assert.equal(withToy('toy:drag-move', critter), false, 'the crab is not the pebble');
+  assert.equal(withToy('toy:drag-move', stranger), false);
+  assert.equal(windowPolicy(() => ({ panel, critter, isToy: () => false }))('toy:drag-move', toy), false, 'a closed pebble is nobody');
+});
+
 test('a closed window is nobody: its old sender reaches nothing', () => {
   const gone = windowPolicy(() => ({ panel: null, critter: null }));
   assert.equal(gone('task:send', panel), false);

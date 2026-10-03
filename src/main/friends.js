@@ -343,4 +343,4 @@ class Friends extends EventEmitter {
   }
 }
 
-module.exports = { Friends, normalize, pickVisitor, pickTogether, TOGETHER, TOGETHER_FIRST_MS, eligible, souvenirFor, SOUVENIRS, VISIT_MS, VISIT_GAP_MS, SAME_FRIEND_GAP_MS, FRESH_MS };
+module.exports = { Friends, normalize, pickVisitor, pickTogether, TOGETHER, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS, eligible, souvenirFor, SOUVENIRS, VISIT_MS, VISIT_GAP_MS, SAME_FRIEND_GAP_MS, FRESH_MS };

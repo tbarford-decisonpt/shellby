@@ -95,6 +95,7 @@ async function connect(url) {
     const body = JSON.parse(card.files['shellby-card.json'].content);
     check(body.login === 'crabfan' && 'outfit' in body && !('stats' in body) && !('xp' in body), 'the card holds the look and nothing else');
     check(body.stickers === null, 'nothing about his stickers goes on it until you choose');
+    check(['chipper', 'fussy', 'cocky', 'sleepy'].includes(body.temperament), `his temperament is on it, for the crabs to chat about (${body.temperament})`);
     await ev("shellby.setStickerOptions({ card: 'names' })"); // so a visit can swap
 
     // 3. Add a friend by username: their crab shows in the list.
@@ -108,6 +109,9 @@ async function connect(url) {
     check(await critter.ev("document.querySelectorAll('#crew .visitor .acc').length >= 2"), 'wearing their own outfit');
     check(await critter.ev("document.querySelectorAll('#crew .visitor [data-sticker]').length === 2"), 'with the stickers on their shell');
     check(await until(critter.ev, "/reefbuddy dropped by/.test(document.getElementById('bubbleText').textContent)"), 'Shellby says who dropped by');
+    // ...and then the two of them talk (src/main/banter.js): his hello, and the visitor's back.
+    check(await until(critter.ev, "document.querySelector('#crew .visitor .vbubble.on')?.textContent.length > 0", 9000), 'the visitor says hello back');
+    console.log(`      (visitor: "${await critter.ev("document.querySelector('#crew .visitor .vbubble').textContent")}")`);
     check(await until(ev, "/@reefbuddy dropped by and left/.test(document.getElementById('frGuestbook').textContent) && !!document.querySelector('#frSouvenirs .fr-souvenir')"), 'guestbook signed, souvenir kept');
     check(await until(ev, "shellby.wardrobeView().then(v => v.achievements.find(a => a.id === 'open-house').done)", 4000), 'Open House trophy');
     await wait(1300); // let the visitor finish walking in

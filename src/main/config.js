@@ -40,6 +40,10 @@ const DEFAULTS = {
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
+  finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
+  bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
+  play: null,        // hide and seek and fetch scores (see play.js)
+  scenesSeen: null,  // which of his little scenes he's done (see scenes.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
   focus: null,       // the focus session in progress (see focus.js)

@@ -1,6 +1,7 @@
 // XP and levels. Shellby earns XP when tasks finish, tests pass, code ships or
-// deploys, and most of all when he writes himself a new skill or agent; enough
-// XP and he levels up. Pure: no I/O, no clock (callers pass `now`). See test/xp.test.js.
+// deploys, and most of all when he writes himself a new skill or agent; and,
+// with or without Claude, when you pet him, play with him, he digs you up a
+// gift or the two of you grow closer. Enough XP and he levels up. Pure: no I/O, no clock (callers pass `now`). See test/xp.test.js.
 
 const AWARDS = Object.freeze({
   task: { xp: 10, perHour: 60, label: 'Finished a task' },
@@ -11,6 +12,12 @@ const AWARDS = Object.freeze({
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy' },
   day: { xp: 5, perHour: 1, label: 'Another day together' },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session' },
+  // Just the two of you: no Claude needed for any of these.
+  pet: { xp: 2, perHour: 5, label: 'Petted Shellby' },
+  play: { xp: 10, perHour: 4, label: 'Played a game with him' },
+  find: { xp: 8, perHour: 4, label: 'He dug you up a gift' },
+  treasure: { xp: 30, perHour: 2, label: 'He dug up something rare' },
+  bond: { xp: 50, perHour: 1, label: 'Grew closer' },
 });
 
 const TITLES = [

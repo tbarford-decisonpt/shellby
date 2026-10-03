@@ -1,7 +1,8 @@
 // The calling card: one small public gist ("shellby-card.json") that says how
 // your crab looks (outfit, colors, shell, level and the stickers on his shell)
-// so a friend's Shellby can have him over. Nothing else goes in it: no stats,
-// no history. Stickers are only colour patches unless you choose to share their
+// so a friend's Shellby can have him over, plus the two things the crabs chat
+// about when they meet (src/main/banter.js): his temperament and the find he's
+// proudest of. Nothing else goes in it: no stats, no history. Stickers are only colour patches unless you choose to share their
 // names (stickers.js forCard), and never the projects you've hidden.
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
@@ -16,6 +17,8 @@ const SLOTS = ['hat', 'face', 'neck', 'held', 'shell', 'effect'];
 const KEY_RE = /^[a-z0-9][a-z0-9/-]{0,80}$/;
 const SHELL_RE = /^[a-z0-9-]{1,40}$/;
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+const TEMPERAMENTS = ['chipper', 'fussy', 'cocky', 'sleepy']; // voice.js TEMPERAMENTS
+const FIND_RE = /^[a-z0-9-]{1,40}$/;                           // a gifts.js FINDS id
 
 const key = v => (typeof v === 'string' && KEY_RE.test(v) ? v : null);
 const sameLogin = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
@@ -34,12 +37,14 @@ function cleanCard(raw) {
     level,
     outfit,
     stickers: cleanCardStickers(r.stickers),
+    temperament: TEMPERAMENTS.includes(r.temperament) ? r.temperament : null,
+    find: typeof r.find === 'string' && FIND_RE.test(r.find) ? r.find : null,
     updatedAt: Number.isFinite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0,
   };
 }
 
 /** Just the look, for "did anything change since we last published?" */
-const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers]); };
+const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find]); };
 
 const content = card => JSON.stringify({ ...cleanCard(card), note: "Shellby calling card: how this crab looks, so friends' crabs can visit. Turn off Visiting crabs in Shellby to delete it." }, null, 1);
 
