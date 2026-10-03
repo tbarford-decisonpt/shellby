@@ -533,6 +533,7 @@
           h('span', { text: SB.shortPath(s.cwd, 30) }),
           s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
           open ? h('span', { class: 'h-open', text: 'open' }) : null)),
+      h('button', { class: 'history-rename', type: 'button', title: 'Rename', 'aria-label': `Rename ${s.title}`, onclick: e => renameHistory(s, e.currentTarget) }, '✎'),
       h('button', { class: 'history-tick', type: 'button', title: tick, 'aria-pressed': String(!!s.done), 'aria-label': `${tick}: ${s.title}`, onclick: () => markDone(s.id, !s.done) }, '✓'),
       h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'));
   }
@@ -561,6 +562,19 @@
     if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
   }
 
+  // The row's open button becomes the name field; the rest of the row stays put.
+  function renameHistory(s, btn) {
+    const row = btn.closest('.history-item');
+    SB.editTitle(row.querySelector('.history-open'), s.title, async title => {
+      if (title) {
+        state.sessions = await api.renameSession(s.id, title);
+        const tab = state.tabs.get(s.id);
+        if (tab) { tab.title = title; SB.renderTabStrip(); }
+      }
+      renderHistory();
+    });
+  }
+
   async function deleteHistory(id) {
     state.sessions = await api.deleteSession(id);
     const tab = state.tabs.get(id);
@@ -568,7 +582,7 @@
     renderHistory();
   }
 
-  SB.views.history = { render: async () => { state.sessions = await api.listSessions(); renderHistory(); } };
+  SB.views.history = { render: async () => { state.sessions = await api.listSessions(); renderHistory(); }, redraw: () => renderHistory() };
 
   // ------------------------------------------------------------ onboarding
 

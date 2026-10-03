@@ -42,6 +42,11 @@
 .tab.unread .tab-title { color: var(--sand); font-weight: 700; }
 .tab.asking { box-shadow: inset 0 2px 0 var(--amber); }
 .tab-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A tab or History row being renamed in place (SB.editTitle). */
+.title-edit {
+  flex: 1; min-width: 0; height: 22px; padding: 0 6px; border: 1px solid var(--glass); border-radius: 5px;
+  background: var(--abyss); color: var(--sand); font: inherit; outline: none;
+}
 .tab-x {
   flex: none; width: 20px; height: 20px; border: 0; border-radius: 5px; background: none;
   color: var(--sand-faint); font-size: 15px; line-height: 1; opacity: 0; transition: opacity .12s;

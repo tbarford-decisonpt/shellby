@@ -2611,6 +2611,14 @@ ${r.detail}` });
     if (isStr(id)) history.setDone(id, !!done);
     return history.list();
   });
+  // From the tab strip or a History row. An open tab goes through the manager so
+  // its strip, notifications and (if not yet sent anything) first save agree.
+  ipcMain.handle('session:rename', (_e, { id, title } = {}) => {
+    if (isStr(id) && isStr(title)) {
+      if (manager.tabs.has(id)) manager.rename(id, title); else history.rename(id, title);
+    }
+    return history.list();
+  });
 
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {

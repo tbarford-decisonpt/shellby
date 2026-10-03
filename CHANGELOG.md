@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.34.0: call it what you like
+
+### New
+- **Rename a conversation.** Double-click a tab, or press F2 on it, and type a new name. In History, hover a row and press ✎. Enter saves it and Escape leaves it as it was. You can name a fresh tab before you send it anything, and your first message won't replace the name. Renaming doesn't count as activity, so the conversation keeps its place in History.
+
 ## 0.33.0: off to GitHub
 
 ### New

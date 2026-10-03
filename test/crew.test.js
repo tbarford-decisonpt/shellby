@@ -174,6 +174,30 @@ test('sending to a conversation you marked done puts it back on the list', async
   }
 });
 
+test('a tab renamed before its first message keeps that name; a saved one renames its History entry', () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    mgr.open({ tabId: 'fresh', cwd: os.tmpdir() });
+    assert.equal(mgr.rename('fresh', '  Login   bug  '), true);
+    assert.equal(mgr.tabs.get('fresh').title, 'Login bug');
+    assert.equal(mgr.summary[0].named, true);
+    mgr.send('fresh', 'fix the redirect after login', { kind: 'user', text: 'fix the redirect after login' });
+    assert.equal(history.get('fresh').title, 'Login bug', 'the first message does not replace a chosen name');
+
+    mgr.open({ tabId: 'saved', cwd: os.tmpdir(), historyEntry: history.create({ id: 'saved', title: 'old name', cwd: os.tmpdir(), mode: 'ask' }) });
+    assert.equal(mgr.rename('saved', 'new name'), true);
+    assert.equal(mgr.tabs.get('saved').title, 'new name');
+    assert.equal(history.get('saved').title, 'new name');
+
+    assert.equal(mgr.rename('saved', '   '), false, 'a blank name changes nothing');
+    assert.equal(history.get('saved').title, 'new name');
+    assert.equal(mgr.rename('gone', 'x'), false);
+  } finally {
+    mgr.closeAll();
+  }
+});
+
 // The tab order is the strip's order and the order tabs come back in next launch
 // (main.js writes `summary` to config on every change), so it's worth pinning down.
 test('a tab can be moved anywhere in the strip, and nowhere it would be a no-op', () => {

@@ -702,6 +702,10 @@ select.field option { background: var(--reef); }
 .history-tabs { margin-top: 8px; }
 /* Ticked off: quieter, but never so quiet you can't read it (see .h-done for the chip). */
 .history-item.done .h-title { color: var(--sand-dim); font-weight: 600; }
+.history-item .title-edit { height: auto; margin: 7px 0 7px 9px; padding: 6px 8px; font-size: 13.5px; font-weight: 700; }
+.history-rename { border: 0; background: none; color: var(--sand-faint); padding: 0 10px; font-size: 13px; opacity: 0; transition: opacity .12s; }
+.history-item:hover .history-rename, .history-rename:focus-visible { opacity: 1; }
+.history-rename:hover { color: var(--sand); background: var(--reef-3); }
 .history-tick { border: 0; background: none; color: var(--sand-faint); padding: 0 11px; font-size: 13px; }
 .history-tick:hover { color: var(--glass); background: var(--glass-dim); }
 .history-tick[aria-pressed="true"] { color: var(--glass); }

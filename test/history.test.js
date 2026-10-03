@@ -129,6 +129,22 @@ test('marking a conversation done survives a restart and leaves its timestamps a
   assert.equal(h.setDone('nobody', true), null);
 });
 
+test('renaming a conversation survives a restart and leaves its timestamps alone', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'a', title: 'fix the thing', cwd: 'C:/work', mode: 'ask' });
+  const { updatedAt } = h.get('a');
+
+  assert.equal(h.rename('a', '  Login\n redirect  ').title, 'Login redirect');
+  assert.equal(h.get('a').updatedAt, updatedAt, 'naming a chat is not work on it');
+  assert.equal(new History(dir).get('a').title, 'Login redirect');
+
+  assert.equal(h.rename('a', 'x'.repeat(100)).title.length, 68, 'long names are cut like generated ones');
+  assert.equal(h.rename('a', '   '), null, 'a blank name changes nothing');
+  assert.equal(h.get('a').title.startsWith('xxx'), true);
+  assert.equal(h.rename('nobody', 'hi'), null);
+});
+
 test('size() reports what the transcripts take up', () => {
   const dir = tmp();
   const h = new History(dir);

@@ -78,6 +78,19 @@ class History {
     return e;
   }
 
+  /**
+   * Give a conversation a name of your own. Not update(), for the same reason as
+   * setDone(): naming a chat isn't work on it. A blank name changes nothing.
+   */
+  rename(id, title) {
+    const e = this.get(id);
+    const t = cleanTitle(title);
+    if (!e || !t) return null;
+    e.title = t;
+    this.saveIndex();
+    return e;
+  }
+
   append(id, item) {
     if (!PERSISTED.has(item.kind)) return;
     if (item.kind === 'task' && (item.phase === 'progress' || item.phase === 'updated')) return; // start + finish are enough to replay
@@ -174,8 +187,13 @@ function readIndex(file) {
 }
 
 function titleFrom(text) {
-  const t = String(text || 'New task').replace(/\s+/g, ' ').trim();
+  return cleanTitle(text) || 'New task';
+}
+
+// One line, at most 70 characters; '' when there's nothing left after trimming.
+function cleanTitle(text) {
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim();
   return t.length > 70 ? t.slice(0, 67) + '…' : t;
 }
 
-module.exports = { History, titleFrom, MAX_ENTRIES };
+module.exports = { History, titleFrom, cleanTitle, MAX_ENTRIES };

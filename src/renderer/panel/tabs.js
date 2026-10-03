@@ -7,6 +7,7 @@
   // ------------------------------------------------------------ tabs
 
   let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
+  let renaming = null;  // the tab whose name is being edited in the strip (see "rename")
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
 
@@ -21,7 +22,7 @@
     Object.assign(tab, {
       title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy,
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
-      unread: !!summary.unread, saved: summary.saved ?? tab.saved, routineId: summary.routineId ?? tab.routineId,
+      unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
       context: summary.context !== undefined ? summary.context : tab.context || null,
     });
@@ -158,6 +159,8 @@
 
   SB.renderTabStrip = () => {
     const strip = $('tabs');
+    // Redrawing would throw away the name being typed; finishing the edit redraws.
+    if (renaming && strip.querySelector('.title-edit')) return;
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
       const btn = h('div', {
@@ -169,10 +172,10 @@ ${contextText(t.context)}` : t.title,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
         onpointerdown: e => dragStart(e, t.id),
-        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); },
+        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); else if (e.key === 'F2') { e.preventDefault(); SB.renameTab(t.id); } },
       },
       tabIcon(t),
-      h('span', { class: 'tab-title', text: t.isEmpty && !t.saved ? 'New task' : t.title }),
+      h('span', { class: 'tab-title', text: shownTitle(t) }),
       h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
       t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
       return btn;
@@ -184,6 +187,66 @@ ${contextText(t.context)}` : t.title,
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
   };
+  const shownTitle = t => t.isEmpty && !t.saved && !t.named ? 'New task' : t.title;
+
+  // ------------------------------------------------------------ rename
+
+  // Double-click a tab (or F2 on it) to name it. Watched on the strip rather than
+  // with dblclick on the tab, because the first click activates the tab, which
+  // redraws the strip, and the second click lands on a different element.
+  const DOUBLE_MS = 400;
+  let lastClick = null;
+  $('tabs').addEventListener('click', e => {
+    const el = e.target.closest('.tab');
+    if (!el || e.target.closest('.tab-x, .title-edit')) return;
+    const id = el.dataset.tabId;
+    const again = lastClick && lastClick.id === id && e.timeStamp - lastClick.at < DOUBLE_MS;
+    lastClick = again ? null : { id, at: e.timeStamp };
+    if (again) SB.renameTab(id);
+  });
+
+  SB.renameTab = (tabId) => {
+    const tab = state.tabs.get(tabId);
+    const el = [...$('tabs').children].find(c => c.dataset.tabId === tabId)?.querySelector('.tab-title');
+    if (!tab || !el || renaming) return;
+    renaming = tabId;
+    SB.editTitle(el, shownTitle(tab), async title => {
+      renaming = null;
+      if (title) {
+        tab.title = title;
+        if (!tab.saved) tab.named = true;
+        state.sessions = await api.renameSession(tabId, title);
+      }
+      SB.renderTabStrip();
+      if (state.view === 'history') SB.views.history.redraw?.();
+    });
+  };
+
+  // Swaps `el` for a text field holding `current`. Enter or leaving the field
+  // saves, Escape doesn't; done(name) gets the new name, or null for no change.
+  SB.editTitle = (el, current, done) => {
+    const field = h('input', { class: 'title-edit', type: 'text', maxlength: 70, spellcheck: 'false', 'aria-label': 'Conversation name' });
+    field.value = current;
+    let over = false;
+    const finish = save => {
+      if (over) return;
+      over = true;
+      const name = field.value.replace(/\s+/g, ' ').trim();
+      done(save && name && name !== current ? name : null);
+    };
+    field.addEventListener('keydown', e => {
+      e.stopPropagation(); // Escape, Ctrl+W and friends belong to the field while it's open
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    field.addEventListener('blur', () => finish(true));
+    // Not a click on the tab or row underneath, and not the start of a drag.
+    for (const type of ['click', 'pointerdown', 'auxclick']) field.addEventListener(type, e => e.stopPropagation());
+    el.replaceWith(field);
+    field.focus();
+    field.select();
+  };
+
   $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   $('newTabBtn').addEventListener('click', () => SB.newTab());
 
@@ -309,7 +372,7 @@ ${contextText(t.context)}` : t.title,
     tab.busy = true;
     tab.saved = true;
     tab.statusText = 'Working…';
-    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
+    if (tab.title === 'New task' && !tab.named) tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
     return true;
