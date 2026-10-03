@@ -90,6 +90,15 @@
 
 ### New
 - **Ask Claude to review your memory.** Toolbox → Memory has a **Review with Claude** button, and each open `CLAUDE.md` has an **Ask Claude** button next to Save. Either one starts a task asking Claude to look the files over and suggest what to tighten, add or cut, and to show you the changes before making them. It's filled into the box but not sent, so you can say what you want changed first. If the `claude-md-management` plugin is installed, the task uses its `/claude-md-improver` skill. Without it, Claude still does the review from a plain prompt. If you have the file open with unsaved changes and Claude edits it too, saving won't overwrite Claude's version and offers to reload.
+## 0.27.3: GitHub sign-in lets go on quit
+
+### Fixed
+- **Quitting during a GitHub sign-in leaves nothing behind.** If Shellby closed just as a GitHub sign-in finished, the sign-in could still start its 15-minute sync timer afterwards. Once Shellby is closing, a late sign-in no longer starts anything.
+
+## 0.27.2: diffs under any spelling of the path
+
+### Fixed
+- **A turn's diff and Undo work wherever the project is.** If Windows knew the project folder by its short name (`C:\Users\RUNNER~1\...`), opening a file's diff or pressing **Undo** said "That project has moved." The folder is now compared with its full name.
 
 ## 0.27.1: tidier health warnings
 

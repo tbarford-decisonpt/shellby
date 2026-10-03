@@ -48,6 +48,11 @@ async function rootOf(dir) {
   return r.ok && r.out.trim() ? path.resolve(r.out.trim()) : null;
 }
 
+// Git reports the root in full; the folder it was asked about may be an 8.3
+// short name (C:\Users\RUNNER~1\...). Compare the two with names expanded.
+const longPath = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+const sameRoot = (root, dir) => !!root && longPath(root).toLowerCase() === longPath(dir).toLowerCase();
+
 /**
  * The working folder as a tree, untracked files included (minus ignored ones,
  * and minus anything enormous). -> { root, tree } | null
@@ -139,7 +144,7 @@ async function patchFor(ref) {
   const bad = checkRef(ref);
   if (bad) return { error: bad };
   const root = await rootOf(ref.root);
-  if (!root || path.resolve(root) !== path.resolve(ref.root)) return { error: 'That project has moved.' };
+  if (!sameRoot(root, ref.root)) return { error: 'That project has moved.' };
   const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : [])], { maxBuffer: 16 * 1024 * 1024 });
   if (!r.ok) return { error: /bad object|not a tree|unknown revision/i.test(r.error) ? 'Those changes have been tidied away by git since.' : r.error || "Couldn't read the diff." };
   return r.out.length > MAX_PATCH ? { patch: r.out.slice(0, MAX_PATCH), truncated: true } : { patch: r.out, truncated: false };
@@ -153,7 +158,7 @@ async function undo(ref) {
   const bad = checkRef(ref);
   if (bad) return { ok: false, error: bad };
   const root = await rootOf(ref.root);
-  if (!root || path.resolve(root) !== path.resolve(ref.root)) return { ok: false, error: 'That project has moved.' };
+  if (!sameRoot(root, ref.root)) return { ok: false, error: 'That project has moved.' };
   const turn = await changedFiles(root, ref.before, ref.after);
   if (!turn) return { ok: false, error: 'Those changes have been tidied away by git since.' };
   if (!turn.length) return { ok: true, restored: 0 };

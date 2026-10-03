@@ -204,3 +204,18 @@ test('service: a declined sign-in reports why; a foreign verification page is re
     svc.stop();
   } finally { await mock.close(); }
 });
+
+test('service: a sign-in that finishes after stop() starts no sync timer', async () => {
+  const mock = await startMockGitHub();
+  try {
+    // A slow runner: the profile is still loading when the service is stopped.
+    const fetchImpl = async (u, o) => { if (String(u).endsWith('/user')) await new Promise(r => setTimeout(r, 300)); return fetch(u, o); };
+    const svc = new GitHubService({ config: new MemConfig({}), store: new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto), web: mock.base, api: mock.base, fetchImpl });
+    await svc.signIn(['sync']);
+    mock.approve();
+    assert.ok(await until(() => svc.view().signedIn));
+    svc.stop();
+    await new Promise(r => setTimeout(r, 600));
+    assert.equal(svc.timer, null, 'no sync timer left to keep the process alive');
+  } finally { await mock.close(); }
+});

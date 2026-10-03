@@ -24,6 +24,30 @@ let slow = null;
 let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
 let effort = args.includes('--effort') ? args[args.indexOf('--effort') + 1] : '';
 
+// Like the real CLI, it keeps the conversation under <config>/projects/<folder>/<id>.jsonl,
+// so Shellby can carry it into a copy and it can carry on there. Only for a
+// config folder under temp: a test run never writes into a real ~/.claude.
+const transcript = (() => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = process.env.CLAUDE_CONFIG_DIR;
+  let tmp;
+  try { tmp = fs.realpathSync.native(os.tmpdir()).toLowerCase() + path.sep; } catch { return null; }
+  if (!dir || !fs.existsSync(dir) || !(fs.realpathSync.native(dir).toLowerCase() + path.sep).startsWith(tmp)) return null;
+  return path.join(dir, 'projects', path.resolve(process.cwd()).replace(/[^a-zA-Z0-9]/g, '-'), `${sessionId}.jsonl`);
+})();
+const remember = entry => {
+  if (!transcript) return;
+  require('fs').mkdirSync(require('path').dirname(transcript), { recursive: true });
+  require('fs').appendFileSync(transcript, JSON.stringify(entry) + '\n');
+};
+// The edit a hook held back, if the last thing in the transcript is one.
+const heldEdit = () => {
+  try {
+    const last = require('fs').readFileSync(transcript, 'utf8').trim().split('\n').map(l => JSON.parse(l)).pop();
+    return last?.held || null;
+  } catch { return null; }
+};
+
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
 let messages = 0;
 // Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
@@ -77,11 +101,14 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   // "edit <file> <words...>" -> writes <words> into <file> in the working folder,
   // the way a real turn changes code (for the turn's diff and worktrees). A
   // registered PreToolUse hook is asked first; held back, it answers
-  // "Branch: add-greeting" instead.
-  if (content.startsWith('edit ')) {
-    const [, file, ...words] = content.split(' ');
+  // "Branch: add-greeting" instead, and makes the edit when told to carry on.
+  const carried = /carry on/i.test(content) && heldEdit();
+  if (content.startsWith('edit ') || carried) {
+    const [, file, ...words] = (carried || content).split(' ');
+    remember({ user: content });
     const write = () => {
       require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`);
+      remember({ edited: file });
       text(`edited ${file}`);
       result(true);
     };
@@ -92,6 +119,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       requestId,
       onAnswer: r => {
         if (r?.hookSpecificOutput?.permissionDecision !== 'deny') return write();
+        remember({ held: carried || content });
         text('Branch: add-greeting');
         result(true);
       },
