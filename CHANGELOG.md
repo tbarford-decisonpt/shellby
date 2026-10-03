@@ -14,6 +14,19 @@
 - Everything stays on this PC and is never synced. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes. Only a code host's page counts in a browser, so a web page can't put time on your invoice by naming a project in its title.
 - Commit messages can't sneak into a timesheet as anything but text: no HTML, no spreadsheet formulas, no terminal escapes or invisible characters.
 
+## 0.56.0: dependency watch
+
+### New
+- **Dependency watch.** Once a week Shellby checks the npm projects you work in for outdated packages and known vulnerabilities, using `npm outdated` and `npm audit`. It's on the **Routines** page under Dependency health, off until you switch it on, because those commands ask the npm registry about your packages. **Check now** runs it straight away.
+- Where the **Dependency checkup** routine has Claude look over any kind of project and report, this is Shellby checking your npm projects himself, without Claude, and offering to do the update for you.
+- **Bump & open a PR.** For a project that needs it, one button opens a task in a copy of the project on its own branch. It bumps what's safe, then the major versions one at a time, runs the tests, and opens a pull request listing what changed and what it left alone. If the tests won't pass, it stops and tells you what broke instead of pushing. Your own checkout isn't touched.
+- **Make it a routine.** The same job as a weekly routine for that project, filled in for you to check before you save it.
+- When the weekly check finds something, you get a notification. One with a critical vulnerability gets through even during a focus session.
+- It checks up to 12 projects: the git repos Shellby has seen you work in and your recent folders, wherever there's a `package.json` and a `package-lock.json`.
+
+### Safety
+- The check runs inside your projects with no one watching, so a project can't choose what runs. npm and git are found by their full paths, never looked up in the project folder, and there's no shell. A project's `.npmrc` can't swap in its own git, and npm gets none of your environment's tokens or keys, so a project's settings can't quote them and send them somewhere. Package names and versions go to Claude only if they look like real ones, and marked as data, not instructions.
+
 ## 0.55.0: a life of his own
 
 ### New
