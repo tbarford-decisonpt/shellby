@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.48.0: all the way to 99
+
+### New
+- **Something to grow into at every stage.** Levels used to run out of rewards at 20. Now there's a new title, badge colour or shell at least every five levels, all the way to **Shellby Supreme** at level 99. Six new shells to grow into: a **Coconut Half** (30), a **Lantern Jar** (40), a **Diving Helmet** (50), a **Crystal Geode** (65), a **Treasure Chest** (80) and the **Rainbow Nautilus** (99). The level badge changes colour every ten levels, from Sunlit gold through Coral, Lagoon, Kelp, Deep, Amethyst, Ruby, Pearl and Abyss to Prism.
+- **What's next.** The XP card shows what the next unlock is and how much XP it is away.
+- **Daily bounties.** Three small goals a day, like *Push to 2 different projects* or *Turn failing tests green*. Every PC gets the same three. Each pays 40–75 XP, and clearing all three pays 50 more. Shellby tells you when you finish one.
+- **XP for doing it well.** Tests that pass after a failing run in the same project are **green again**, worth 40 instead of 25. The first push of the day to each project pays 20 extra.
+- **Streaks count.** A streak adds 5% to your XP for every week it runs, up to 25%. After three days or more away, your next 150 XP counts double.
+- **Your last 30 days.** The XP card charts your XP for each day and shows where it came from. Each log entry says which bonuses it got.
+
+### Changed
+- **No more hard hourly cap.** Doing the same thing over and over within an hour pays half, then a quarter, then nothing, so a test loop still can't farm XP.
+- The list of ways to earn XP now comes straight from the rules, so it can't fall out of date.
+
+### Fixed
+- **XP earned on two PCs didn't add up.** Sync kept only the larger of the two totals, so 500 XP on one PC and 300 on another came to 500. Each PC now keeps its own count and sync adds them together. XP from before this version is kept as it was, and a PC still on an older Shellby can't make anything count twice.
+
 ## 0.47.1: the newest update, not the first one
 
 ### Fixed

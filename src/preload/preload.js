@@ -219,6 +219,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onHomes: on('homes'),
   onXp: on('xp'),
   onLevelUp: on('xp:levelup'),
+  onXpBounty: on('xp:bounty'),
 
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),
