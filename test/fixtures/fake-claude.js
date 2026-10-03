@@ -41,10 +41,12 @@ const remember = entry => {
   require('fs').mkdirSync(require('path').dirname(transcript), { recursive: true });
   require('fs').appendFileSync(transcript, JSON.stringify(entry) + '\n');
 };
-// The edit a hook held back, if the last thing in the transcript is one.
+// The edit a hook held back, if the last thing in the transcript is one. The
+// { sessionId, text } lines kept for branching are written as each message
+// arrives, so they're skipped: they'd always be last.
 const heldEdit = () => {
   try {
-    const last = require('fs').readFileSync(transcript, 'utf8').trim().split('\n').map(l => JSON.parse(l)).pop();
+    const last = require('fs').readFileSync(transcript, 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(e => !e.sessionId).pop();
     return last?.held || null;
   } catch { return null; }
 };
