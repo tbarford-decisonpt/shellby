@@ -62,6 +62,8 @@ const TABS = {
     await panel.ev("SB.setView('settings')");
     await wait(500);
     check(await selected(panel) === 'claude', 'Settings opens on the Claude tab');
+    check(await panel.ev("document.querySelectorAll('#modelSelect optgroup').length >= 2 && document.getElementById('modelSelect').offsetParent !== null"),
+      'the model picker on the Claude tab lists the models by family');
 
     for (const [tab, navs] of Object.entries(TABS)) {
       await panel.ev(`document.getElementById('setTab-${tab}').click()`);

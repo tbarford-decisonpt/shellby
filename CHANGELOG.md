@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.29.0: Settings in four tabs
+## 0.30.0: Settings in four tabs
 
 ### New
 - **Settings is split into four tabs** instead of one long page: **Shellby** (his look, music, desk lighting, streaming), **Claude** (Claude Code, permission mode, model, working folder, Claude Code everywhere), **Connections** (notifications on your phone, GitHub) and **General** (startup, the shortcut, updates and About). Settings reopens on whichever tab you last looked at. The first time, it opens on Claude, or on Shellby in just-the-crab mode. The arrow keys move between tabs.
@@ -8,7 +8,12 @@
 - When an update is ready, the **General** tab gets the same dot as the gear.
 
 ### Changed
-- **Shortcut & model** is split in two: the shortcut that opens Shellby is under **General**, and the model is under **Claude**.
+- **Shortcut & model** is split in two: the shortcut that opens Shellby is under **General**, and the model picker (with every model from 0.29.0) is under **Claude**.
+
+## 0.29.0: every model
+
+### New
+- **Pick any Claude model.** **Settings → Shortcut & model** now lists every current model, grouped by family: Fable 5.1 and 5, Opus 5.5 down to 4.5, Sonnet 5.5 down to 4.5, and Haiku 4.5. **Opus**, **Sonnet** and **Haiku (latest)** are still there and follow whatever Claude Code treats as newest. The others pin that exact release. Like before, the choice applies to new conversations.
 
 ## 0.28.0: Claude can tidy your memory
 
