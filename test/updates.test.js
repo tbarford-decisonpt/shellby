@@ -80,15 +80,46 @@ test('progress only wakes the panel when the rounded percent moves', () => {
 });
 
 test('a ready update is announced once, however often the check finds it again', async () => {
+  const { u, updater, views } = make();
+  const ready = [];
+  u.on('ready', v => ready.push(v.version));
+  u.start();
+  updater.emit('update-downloaded', { version: '0.19.0' });
+  const before = views.length;
+  await u.check();
+  // electron-updater re-finds the cached file: available, progress, downloaded.
+  updater.emit('checking-for-update');
+  updater.emit('update-available', { version: '0.19.0' });
+  updater.emit('download-progress', { percent: 100 });
+  updater.emit('update-downloaded', { version: '0.19.0' });
+  assert.deepEqual(ready, ['0.19.0'], 'one notification, not one per check');
+  assert.equal(updater.checks, 2, 'the check still asks GitHub');
+  assert.ok(views.slice(before).every(v => v.state === 'ready'), 'the install button never flickers away');
+});
+
+test('a release that lands after one is ready replaces it without a restart', async () => {
   const { u, updater } = make();
   const ready = [];
   u.on('ready', v => ready.push(v.version));
   u.start();
   updater.emit('update-downloaded', { version: '0.19.0' });
   await u.check();
+  updater.emit('update-available', { version: '0.20.0' });
+  assert.deepEqual([u.view().state, u.view().version], ['downloading', '0.20.0']);
+  updater.emit('update-downloaded', { version: '0.20.0' });
+  assert.deepEqual([u.view().state, u.view().version], ['ready', '0.20.0']);
+  assert.deepEqual(ready, ['0.19.0', '0.20.0'], 'the newer one is announced too');
+  assert.equal(trayLabel(u.view()), 'Update to 0.20.0 and restart');
+});
+
+test('a failed or empty re-check keeps the downloaded update installable', async () => {
+  const { u, updater } = make();
+  u.start();
   updater.emit('update-downloaded', { version: '0.19.0' });
-  assert.deepEqual(ready, ['0.19.0'], 'one notification, not one per check');
-  assert.equal(updater.checks, 1, 'and no pointless re-download once it is on disk');
+  updater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
+  updater.emit('update-not-available', { version: '0.18.0' });
+  assert.deepEqual([u.view().state, u.view().version, u.view().error], ['ready', '0.19.0', null]);
+  assert.equal(u.install(), true);
 });
 
 test('a failed check says so, and the next one clears it', async () => {

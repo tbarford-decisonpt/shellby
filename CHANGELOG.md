@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.1: the newest update, not the first one
+
+### Fixed
+- **An update waiting to install hid any newer one.** Once Shellby had downloaded an update, he stopped checking, so a release that came out after it meant restarting to install the first, then restarting again for the second. He keeps checking now, and if something newer lands he downloads it and **Restart and update** installs that instead. If a check fails meanwhile, the update already downloaded stays ready to install.
+
 ## 0.47.0: say it
 
 ### New
