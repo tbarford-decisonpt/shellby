@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.49.1: what the README says about billing
+
+### Fixed
+- **The README said Shellby always hides API keys from Claude Code.** It hasn't done that since Claude Code started getting your PC's environment as it is. The README now says what really happens: Settings warns you when an API key or provider switch is set, and **Always use my Claude plan** leaves them out. It also says plainly that Shellby never sees your Claude sign-in.
+
 ## 0.49.0: all the way to 99
 
 ### New
