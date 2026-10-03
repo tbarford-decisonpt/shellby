@@ -25,6 +25,9 @@ const DEFAULTS = {
   notifications: true,
   recap: true,        // a digest of what happened when you come back after an hour away (see recap.js)
   model: '', // '' -> Claude Code's default
+  effort: '', // '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
+  outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
+  shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
   onboarded: false,
   crabOnly: false,

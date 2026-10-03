@@ -18,14 +18,28 @@ const WORK_HOOK = 'shellby-before-work';
 
 const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
 
+// Effort levels Claude Code takes (--effort). '' leaves it to Claude Code.
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+// How long Shellby waits for the CLI to answer one of its own control requests.
+const REQUEST_TIMEOUT_MS = 15000;
+
 class ClaudeSession extends EventEmitter {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
   // extraEnv: () => {} of variables to add when the process starts (GitHub access).
   // context: the last reading of how full it is ({ tokens, window }), so a
   // resumed conversation shows its meter before it next speaks.
-  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [], extraEnv = () => ({}), context = null }) {
+  //
+  // effort: one of EFFORTS, or '' for Claude Code's own default. outputStyle: a
+  // style name passed as a flag setting, or '' to leave the user's own.
+  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix, extraEnv });
+    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv });
+    // Set by rewindTo(): the next start resumes the conversation only up to this
+    // transcript entry, as a fork, so the original is left as it was. Kept in
+    // History too (sessions.js), so a restart before the next message honours it.
+    this.resumeAt = resumeId ? resumeAt : null;
+    this.lastUuid = null;          // the newest main-thread transcript entry this turn
+    this.requests = new Map();     // request_id -> { resolve, timer } for Shellby's own control requests
     this.context = ctx.view(context?.tokens, context?.window);
     this.windows = null;           // { model: contextWindow } as Claude Code last reported it
     this.proc = null;
@@ -53,7 +67,12 @@ class ClaudeSession extends EventEmitter {
       '--allow-dangerously-skip-permissions',
     ];
     if (this.model) args.push('--model', this.model);
-    if (this.sessionId) args.push('--resume', this.sessionId);
+    if (EFFORTS.includes(this.effort)) args.push('--effort', this.effort);
+    if (this.outputStyle) args.push('--settings', JSON.stringify({ outputStyle: this.outputStyle }));
+    if (this.sessionId) {
+      args.push('--resume', this.sessionId);
+      if (this.resumeAt) args.push(`--resume-session-at=${this.resumeAt}`, '--fork-session');
+    }
     return args;
   }
 
@@ -73,6 +92,10 @@ class ClaudeSession extends EventEmitter {
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
       const { event, items } = parseLine(line);
+      if (event?.type === 'control_response') return this.answered(event.response);
+      // The newest entry of the conversation's own chain, so a later rewind can
+      // resume up to the end of this turn (see result below and rewind()).
+      if ((event?.type === 'assistant' || event?.type === 'user') && !event.parent_tool_use_id && typeof event.uuid === 'string') this.lastUuid = event.uuid;
       if (event?.type === 'control_request' && event.request?.subtype === 'hook_callback' && event.request.callback_id === WORK_HOOK) {
         this.answerHook(event.request_id, event.request.input);
       } else if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
@@ -96,6 +119,7 @@ class ClaudeSession extends EventEmitter {
       this.proc = null;
       this.waiting = null;
       this.cancelPending();
+      for (const id of [...this.requests.keys()]) this.answered({ request_id: id, subtype: 'error', error: 'Claude Code stopped.' });
       let crewChanged = false;
       for (const [id, t] of this.tasks) {
         if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
@@ -113,6 +137,7 @@ class ClaudeSession extends EventEmitter {
     switch (item.kind) {
       case 'init':
         if (item.sessionId) this.sessionId = item.sessionId;
+        this.resumeAt = null; // the fork is made: from here on it's an ordinary resume
         break;
       case 'tool':
         if (item.filePath) this.createdFiles.add(item.filePath);
@@ -128,6 +153,9 @@ class ClaudeSession extends EventEmitter {
         if (item.sessionId) this.sessionId = item.sessionId;
         if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
         this.interrupting = false;
+        // Where this turn ends in Claude Code's transcript: rewinding to the
+        // message after it resumes up to here.
+        if (this.lastUuid) item.anchor = this.lastUuid;
         // A command that outran its timeout (or was backgrounded on purpose)
         // is still going: the turn ended, but the work isn't done.
         if (item.ok && !item.interrupted) {
@@ -290,6 +318,48 @@ class ClaudeSession extends EventEmitter {
     setTimeout(() => { if (this.proc === proc && this.busy) this.kill(); }, 8000);
   }
 
+  /**
+   * Ask the running CLI something over the control protocol and wait for its
+   * answer. -> { ok: true, response } | { ok: false, error }. Never throws.
+   */
+  request(subtype, payload = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+    if (!this.proc) return Promise.resolve({ ok: false, error: "This conversation isn't running right now." });
+    const id = randomUUID();
+    return new Promise(resolve => {
+      const timer = setTimeout(() => this.answered({ request_id: id, subtype: 'error', error: "Claude Code didn't answer." }), timeoutMs);
+      this.requests.set(id, { resolve, timer });
+      this.write({ type: 'control_request', request_id: id, request: { subtype, ...payload } });
+    });
+  }
+
+  answered(r) {
+    const waiting = r && this.requests.get(r.request_id);
+    if (!waiting) return;
+    this.requests.delete(r.request_id);
+    clearTimeout(waiting.timer);
+    waiting.resolve(r.subtype === 'success' ? { ok: true, response: r.response || {} } : { ok: false, error: String(r.error || 'Claude Code said no.') });
+  }
+
+  // Effort for this conversation: the flag for the next start, and the running
+  // process told now, so the very next turn thinks harder (or less).
+  setEffort(effort) {
+    this.effort = EFFORTS.includes(effort) ? effort : '';
+    if (this.proc) this.request('apply_flag_settings', { settings: { effortLevel: this.effort || null } });
+  }
+
+  /**
+   * Make the next start pick the conversation up only as far as `anchor` (a
+   * transcript entry from an earlier result), as a new fork. No anchor: the
+   * next message starts a new conversation.
+   */
+  async rewindTo(anchor) {
+    await this.stop();
+    if (anchor) this.resumeAt = anchor;
+    else this.sessionId = null;
+    this.lastUuid = null;
+    this.setContext(0);
+  }
+
   setMode(mode) {
     this.mode = mode;
     if (this.proc) {
@@ -330,4 +400,4 @@ class ClaudeSession extends EventEmitter {
   }
 }
 
-module.exports = { ClaudeSession, DENY_MESSAGE };
+module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS };

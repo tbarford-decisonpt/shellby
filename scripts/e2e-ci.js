@@ -33,6 +33,7 @@ const SUITE = [
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
+  'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode
 ];

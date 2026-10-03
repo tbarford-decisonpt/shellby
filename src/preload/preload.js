@@ -68,6 +68,14 @@ contextBridge.exposeInMainWorld('shellby', {
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   freshTab: invoke('tab:fresh'),
+  // the terminal's conveniences (parity.js)
+  suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
+  promptHistory: invoke('prompt:history'),
+  runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
+  rewindPoints: invoke('rewind:points'),
+  rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
+  exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
+  listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
@@ -107,6 +115,13 @@ contextBridge.exposeInMainWorld('shellby', {
   saveHook: (scope, hook, at = null, fp = null) => ipcRenderer.invoke('setup:save-hook', { scope, hook, at, fp }),
   removeHook: (scope, at, fp) => ipcRenderer.invoke('setup:remove-hook', { scope, at, fp }),
   revealSetupFile: fire('setup:reveal'),
+  saveRule: (scope, list, rule) => ipcRenderer.invoke('setup:save-rule', { scope, list, rule }),
+  removeRule: (scope, list, rule) => ipcRenderer.invoke('setup:remove-rule', { scope, list, rule }),
+  refreshMcp: invoke('mcp:refresh'),
+  reconnectMcp: (tabId, name) => ipcRenderer.invoke('mcp:reconnect', { tabId, name }),
+  toggleMcp: (tabId, name, enabled) => ipcRenderer.invoke('mcp:toggle', { tabId, name, enabled }),
+  addMcp: invoke('mcp:add'),
+  removeMcp: (tabId, name) => ipcRenderer.invoke('mcp:remove', { tabId, name }),
 
   // skill shop (Claude Code plugin marketplaces)
   shopList: invoke('shop:list'),

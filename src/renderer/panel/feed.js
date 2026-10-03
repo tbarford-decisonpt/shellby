@@ -168,13 +168,57 @@
         case 'fresh': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↻' }),
           'Started fresh: a new conversation picks up from the summary above'));
+        case 'rewound': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↶' }),
+          item.conversation === false ? `Rewound the code: put ${item.restored || 0} file${item.restored === 1 ? '' : 's'} back`
+            : `Rewound to an earlier message${item.code && item.restored ? `, and put ${item.restored} file${item.restored === 1 ? '' : 's'} back` : ''}`));
+        case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
       }
     }
 
+    // ------------------------------------------------------------ ! commands you ran yourself
+    renderShell(item, replay) {
+      const el = h('details', { class: `tool shell-run ${item.code ? 'err' : 'ok'}`, open: !replay && String(item.output || '').split('\n').length <= 12 },
+        h('summary', {},
+          h('span', { class: 't-state' }),
+          h('span', { class: 't-label', text: 'You ran' }),
+          h('span', { class: 't-detail', text: item.command, title: item.command }),
+          item.code ? h('span', { class: 'shell-code', text: item.timedOut ? 'stopped' : `exit ${item.code}` }) : null),
+        h('pre', { class: 't-result', text: item.output || '(no output)' }));
+      if (!replay && this.shellPending) { this.shellPending.replaceWith(el); this.shellPending = null; return el; }
+      return this.append(el);
+    }
+
+    // Shown while a ! command runs; its result replaces it. null clears it.
+    renderShellPending(command) {
+      if (!command) { this.shellPending?.remove(); this.shellPending = null; return; }
+      this.stuck = true;
+      this.shellPending?.remove();
+      this.shellPending = this.append(h('details', { class: 'tool shell-run pending' },
+        h('summary', {}, h('span', { class: 't-state' }), h('span', { class: 't-label', text: 'Running' }), h('span', { class: 't-detail', text: command, title: command }))));
+    }
+
+    // Rewind: the feed starts over from what's left of the transcript.
+    reset(items) {
+      for (const el of [...this.el.children]) if (el !== this.empty) el.remove();
+      this.tools.clear();
+      this.asks.clear();
+      this.lanes.clear();
+      this.taskLane.clear();
+      this.trimmed = 0;
+      this.trimmedNotice = null;
+      this.shellPending = null;
+      this.empty.hidden = false;
+      for (const item of items) this.render(item, { replay: true });
+      this.scrollToEnd();
+    }
+
     renderUser(item) {
       const routine = item.routine ? h('div', { class: 'routine-tag' }, '⟳ ', item.routine.name, item.routine.reason === 'catch-up' ? ' · catch-up run' : '') : null;
-      this.append(h('div', { class: 'msg user' }, routine, item.text || '',
+      // Messages sent since rewind came in carry an id, and a way back to just before them.
+      const back = item.turnId ? h('button', { class: 'msg-rewind', type: 'button', title: 'Rewind to just before this message', 'aria-label': 'Rewind to just before this message', onclick: () => SB.openRewind(this, item.turnId) }) : null;
+      this.append(h('div', { class: 'msg user' }, back, routine, item.text || '',
         item.attachments?.length ? h('div', { class: 'att-list' }, SB.attachmentChips(item.attachments)) : null));
     }
 

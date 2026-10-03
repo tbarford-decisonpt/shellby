@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="crabonly.css">
 <link rel="stylesheet" href="github.css">
 <link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="composer.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -66,6 +67,10 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11M4.5 10.5c0-3 7-2.5 7-6.5M11.5 2.5v1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="4.5" cy="12.6" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="11.5" cy="3.2" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       <span id="branchLabel">own copy</span>
     </button>
+    <button type="button" class="folder-chip effort-chip" id="effortChip" aria-haspopup="menu" title="How hard Claude thinks (effort)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2 9.4 6l3.9.3-3 2.5 1 3.9L8 10.6l-3.3 2.1 1-3.9-3-2.5L6.6 6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      <span id="effortLabel">auto</span>
+    </button>
     <button type="button" class="ctx-chip" id="ctxChip" aria-haspopup="menu" hidden>
       <span class="meter-label">ctx</span>
       <span class="meter-track"><span class="meter-fill"></span></span>
@@ -82,6 +87,8 @@
   <div class="popover" id="branchMenu" role="menu" hidden></div>
   <div class="popover" id="ctxMenu" role="menu" hidden></div>
   <div class="popover usage-menu" id="usageMenu" role="menu" hidden></div>
+  <div class="popover" id="effortMenu" role="menu" hidden></div>
+  <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -101,12 +108,13 @@
         <button type="button" class="attach-btn" id="attachBtn" aria-label="Attach files" title="Attach files · or paste a screenshot (Ctrl+V)">
           <svg viewBox="0 0 16 16"><path d="M13 7.6 8.1 12.5a3.2 3.2 0 0 1-4.6-4.6l5.3-5.3a2.1 2.1 0 0 1 3 3L6.6 10.8a1 1 0 0 1-1.5-1.5l4.6-4.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <textarea id="input" rows="1" placeholder="Give Shellby a task… (type / for skills)" aria-label="Task for Shellby"></textarea>
+        <textarea id="input" rows="1" placeholder="Give Shellby a task… (/ for commands, @ for files, ! to run one yourself)" aria-label="Task for Shellby"></textarea>
         <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
           <svg viewBox="0 0 16 16"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
+      <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
       <div class="input-hint"><span id="modeHint"></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
@@ -142,6 +150,7 @@
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
         <button type="button" role="tab" data-kind="hook">Hooks <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny">Rules <span class="n"></span></button>
         <button type="button" role="tab" data-kind="memory">Memory <span class="n"></span></button>
       </div>
     </div>
@@ -583,6 +592,13 @@
           </select>
         </div>
         <p class="muted small">Applies to new conversations.</p>
+        <div class="row">
+          <label class="inline-label" for="styleSelect">Output style</label>
+          <select id="styleSelect" class="field slim">
+            <option value="">Default</option>
+          </select>
+        </div>
+        <p class="muted small" id="styleNote">How Claude talks while it works. Applies to new conversations.</p>
       </section>
 
       <section class="setting-group" data-nav="Folder">
@@ -916,6 +932,7 @@
 <script src="core.js"></script>
 <script src="feed.js"></script>
 <script src="tabs.js"></script>
+<script src="composer.js"></script>
 <script src="toolbox-setup.js"></script>
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>

@@ -61,6 +61,11 @@ const { Friends } = require('./friends');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const attach = require('./attachments');
+const shellCmd = require('./shellcmd');
+const outputStyles = require('./outputstyles');
+const { EFFORTS } = require('./session');
+const parity = require('./parity');
+const fileIndex = require('./fileindex');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -140,6 +145,8 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 const claudePath = () => config?.get('claudePath') || null;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates, friends;
+let parityIpc = null;
+let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
 let nowPlaying = null;        // { title, artist, app, playing } from the Windows media session
 let critter, panel, tray;
@@ -645,6 +652,8 @@ function createManager() {
     getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude(process.env, claudePath())),
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
+    getEffort: () => config.get('effort'),
+    getOutputStyle: () => outputStyles.clean(config.get('outputStyle')),
     getEnv: () => github?.claudeEnv() || {},
     prepareTurn: async tab => {
       tab.lastReply = null;
@@ -672,6 +681,7 @@ function createManager() {
       return;
     }
     if (item.kind === 'init') {
+      lastInit = item.toolbox;
       toolbox?.setInit(item.toolbox);
       return; // toolbox lists are large; the panel doesn't need them per tab
     }
@@ -723,17 +733,31 @@ function beginTurn(tab) {
   const cwd = tab.session?.cwd;
   if (!cwd || CAPTURE) return null;
   let late = false;
-  const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, snap); });
+  const turnId = tab.turnId;
+  const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId }); });
   return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(); }, SNAPSHOT_WAIT_MS))]);
 }
 
-async function endTurn(tabId) {
+// tabId -> the promise of its last turn's diff being noted, for rewind to wait on.
+const turnEnds = new Map();
+
+function endTurn(tabId) {
+  const p = noteTurnChanges(tabId).finally(() => { if (turnEnds.get(tabId) === p) turnEnds.delete(tabId); });
+  turnEnds.set(tabId, p);
+  return p;
+}
+
+async function noteTurnChanges(tabId) {
   const start = turnStarts.get(tabId);
   turnStarts.delete(tabId);
+  const cwd = manager.tabs.get(tabId)?.session.cwd;
+  if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
   if (!start) return;
   try {
     const summary = await changes.summarize(start, await changes.snapshot(start.root));
-    if (summary) manager.note(tabId, { kind: 'changes', ...summary });
+    // Tagged with its turn: the diff is worked out after the turn ends, by which
+    // time the next message may already be in the transcript (rewind.js).
+    if (summary) manager.note(tabId, { kind: 'changes', ...summary, ...(start.turnId ? { turnId: start.turnId } : {}) });
   } catch (err) {
     log.info(`changes: ${err.message}`);
   }
@@ -2374,7 +2398,21 @@ function userSkinsDir() {
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 
+// Remembered for Up and Ctrl+R in the box (parity.js).
+function rememberPrompt(text) { parityIpc?.rememberPrompt(text); }
+
 function registerIpc() {
+  parityIpc = parity.register({
+    ipcMain, manager, history, config, confirm, dialog, clipboard, app,
+    panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
+    toolbox: () => toolbox, lastInit: () => lastInit, stat,
+    turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
+    dataDir: app.getPath('userData'),
+    runClaude: (args, timeout, opts) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+    },
+  });
   // ---- critter
   // The grab offset is fixed at drag start; moves follow the real cursor (the
   // renderer's screenX lags and rescales while its own window moves under it).
@@ -2554,9 +2592,16 @@ function registerIpc() {
       if (!isStr(tabId) || !manager.tabs.has(tabId)) tabId = openTab({ tabId: isStr(tabId) ? tabId : undefined }).id;
       // Nothing typed: the conversation is named for what was attached.
       const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';
-      manager.send(tabId, composePrompt(text, files), { kind: 'user', text, attachments: files, title });
+      // Commands you ran with ! since your last message go to Claude with this one.
+      const tab = manager.tabs.get(tabId);
+      const ran = shellCmd.contextFor(tab.shellRuns);
+      tab.shellRuns = [];
+      // !! sends a message that starts with !; Up brings it back as typed, still !!.
+      const said = text.startsWith('!!') ? text.slice(1) : text;
+      const turnId = manager.send(tabId, composePrompt(ran + said, files), { kind: 'user', text: said, attachments: files, title });
+      rememberPrompt(text);
       wake();
-      return { ok: true, tabId };
+      return { ok: true, tabId, turnId };
     } catch (err) {
       return { ok: false, error: err.message };
     }
@@ -2777,7 +2822,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -2802,6 +2847,8 @@ ${r.detail}` });
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
+    if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
+    if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
     for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
@@ -2818,6 +2865,7 @@ ${r.detail}` });
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
     if ('mode' in allowed) manager.setMode(allowed.mode);
+    if ('effort' in allowed) manager.setEffort(allowed.effort);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
     if ('skin' in allowed) broadcastSkin();
     if ('critterScale' in allowed) {

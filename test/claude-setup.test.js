@@ -7,6 +7,7 @@ const path = require('path');
 const {
   scanSetup, scanHooks, scanMemory, validateHook, withHook, withoutHook, replaceHook,
   changeHooks, readMemory, writeMemory,
+  scanPermissions, validateRule, withRule, withoutRule, changeSettings,
 } = require('../src/main/claude-setup');
 
 const dirs = [];
@@ -127,7 +128,7 @@ test('scanMemory: an existing .claude/CLAUDE.md replaces the root suggestion', (
 test('scanSetup: bundles hooks, settings, memory and the event list', () => {
   const home = tmp();
   const s = scanSetup({ home, cwd: home });
-  assert.deepEqual(Object.keys(s).sort(), ['events', 'hooks', 'memory', 'scannedAt', 'settings']);
+  assert.deepEqual(Object.keys(s).sort(), ['events', 'hooks', 'memory', 'permissions', 'scannedAt', 'settings']);
   assert.ok(s.events.some(e => e.name === 'PreToolUse' && e.matcher));
 });
 
@@ -228,4 +229,49 @@ test('memory: follows a symlink to markdown, refuses one to anything else', (t) 
   assert.equal(readMemory(path.join(dir, 'planted.md')).ok, false);
   assert.equal(writeMemory(path.join(dir, 'planted.md'), 'x', 0).ok, false);
   assert.equal(fs.readFileSync(secret, 'utf8'), 'KEY');
+});
+
+// ---- permission rules
+
+test('validateRule: takes tool names with or without a specifier, refuses the rest', () => {
+  assert.deepEqual(validateRule('allow', ' Bash(npm run test:*) '), { list: 'allow', rule: 'Bash(npm run test:*)' });
+  assert.deepEqual(validateRule('deny', 'Read(./.env)'), { list: 'deny', rule: 'Read(./.env)' });
+  assert.deepEqual(validateRule('ask', 'mcp__github__create_issue'), { list: 'ask', rule: 'mcp__github__create_issue' });
+  assert.ok(validateRule('maybe', 'Edit').error);
+  assert.ok(validateRule('allow', '').error);
+  assert.ok(validateRule('allow', 'rm -rf /').error);
+  assert.ok(validateRule('allow', 'Bash(a\nb)').error, 'one line only');
+  assert.ok(validateRule('allow', `Bash(${'x'.repeat(600)})`).error);
+});
+
+test('withRule / withoutRule: add once, remove cleanly, keep everything else', () => {
+  const s = { model: 'opus', permissions: { allow: ['Edit'], defaultMode: 'acceptEdits' } };
+  const added = withRule(s, 'allow', 'Bash(git status)');
+  assert.deepEqual(added.permissions.allow, ['Edit', 'Bash(git status)']);
+  assert.equal(withRule(added, 'allow', 'Edit'), added, 'a rule already there is left alone');
+  assert.deepEqual(s.permissions.allow, ['Edit'], 'the original is not mutated');
+  const denied = withRule({}, 'deny', 'WebFetch');
+  assert.deepEqual(denied, { permissions: { deny: ['WebFetch'] } });
+  assert.deepEqual(withoutRule(denied, 'deny', 'WebFetch'), {}, 'an empty permissions block goes');
+  assert.deepEqual(withoutRule(added, 'allow', 'Edit').permissions, { allow: ['Bash(git status)'], defaultMode: 'acceptEdits' });
+  assert.equal(withoutRule(s, 'deny', 'Edit'), s, 'removing a rule that is not there changes nothing');
+});
+
+test('scanPermissions: rules from each settings file, with where they live', () => {
+  const home = tmp();
+  const cwd = path.join(home, 'proj');
+  put(path.join(home, '.claude', 'settings.json'), { permissions: { allow: ['Read'], deny: ['Bash(rm:*)'] } });
+  put(path.join(cwd, '.claude', 'settings.local.json'), { permissions: { ask: ['Bash(git push:*)'], defaultMode: 'plan' } });
+  const { rules, files } = scanPermissions({ home, cwd });
+  assert.deepEqual(rules.map(r => `${r.scope}:${r.list}:${r.rule}`), ['user:allow:Read', 'user:deny:Bash(rm:*)', 'local:ask:Bash(git push:*)']);
+  assert.equal(files.find(f => f.scope === 'local').defaultMode, 'plan');
+});
+
+test('changeSettings: writes the change and keeps a backup', () => {
+  const dir = tmp();
+  const file = path.join(dir, 'settings.json');
+  put(file, { model: 'opus' });
+  assert.equal(changeSettings(file, s => withRule(s, 'allow', 'Edit')).ok, true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), { model: 'opus', permissions: { allow: ['Edit'] } });
+  assert.ok(fs.existsSync(`${file}.shellby-backup`));
 });

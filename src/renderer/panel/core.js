@@ -214,9 +214,10 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu']) SB.$(id).hidden = true;
-  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage']) SB.$(id).setAttribute('aria-expanded', 'false');
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
+  SB.hidePick?.();
 };
 
 document.addEventListener('mousedown', e => {
