@@ -77,7 +77,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <td valign="top">
 
 **🦀 Eleven more packs** · 0.20<br>
-<sub>Head-to-tail sets, crabs that aren't the classic shape, and the quiet seasons filled in. 105 accessories, 18 effects, 16 crabs.</sub>
+<sub>Head-to-tail sets, crabs that aren't the classic shape, and the quiet seasons filled in. 108 accessories, 18 effects, 16 crabs.</sub>
 
 </td>
 <td valign="top">
@@ -122,11 +122,11 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 <p align="center"><img src="docs/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
-- **105 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **108 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
 - **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
 - **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick and the Golden Conch at level 20. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
-- **26 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
+- **28 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
 - **XP and levels,** from Hatchling to Legend of the Tides. Writing himself a new skill earns the most.
 - **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
 
@@ -295,6 +295,7 @@ The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` a
 Sign in with a short code you approve on github.com, with no password typed into Shellby. GitHub is only asked for what the features you turn on need:
 
 - **Sync between PCs:** trophies, collected items, XP, streak days, outfit and color, through a private gist. Syncing only ever adds progress.
+- **Visiting crabs:** add friends by GitHub username and their crab drops by your desktop now and then, wearing their outfit, and leaves a souvenir in your guestbook. You can also invite them over or send a wave (a few fixed lines, so nobody can put words in your crab's mouth). It works through a small public "calling card" gist with your crab's look and level, and nothing else. Waves are comments on it, and only friends you added get through. Turning it off, or signing out, deletes the card. Its own switch, never turned on by a first sign-in.
 - **Watch CI on your pull requests**, as above. Public repos need nothing beyond the sign-in; private ones need "Let Claude tasks push" too.
 - **Publish your Wardrobe packs** to the community gallery: Shellby forks it and opens the pull request for you.
 - **Let Claude tasks push:** Shellby's tabs get your sign-in for `git push`/`pull`, `gh` and the official GitHub plugin. Off by default, with a warning before it's turned on.
@@ -382,7 +383,7 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 
 - Claude Code talking to Anthropic, and the updater checking GitHub Releases.
 - Community pack downloads you ask for.
-- GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests.
+- GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests, and with Visiting crabs on, your public calling card and your friends' cards.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
 - Things that never leave your PC: LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 

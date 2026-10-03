@@ -57,6 +57,7 @@ const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
 const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
+const { Friends } = require('./friends');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const attach = require('./attachments');
@@ -145,7 +146,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates, friends;
 let parityIpc = null;
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
@@ -154,6 +155,8 @@ let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
 let shrinkTimer = null;
+let guestShown = false;            // room allotted for a friend's visiting crab
+let visitor = null;                // { login, look, until }: a friend's crab dropped by (see friends.js)
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let motion = null;                 // throws and strolls (see motion.js)
 let said = null;                   // { text, occasion, until } — the line in his bubble (see voice.js)
@@ -178,7 +181,9 @@ const routineTabs = new Map();     // tabId -> routine id (for lastStatus bookke
 const px = () => Math.round(BASE_PX * (config.get('critterScale') || 1));
 const helperWidth = () => Math.round(px() * 22 * 0.5) + 10;
 const CREW_PAD = 60; // room for helper name tags at the far left
-const crewExtra = (slots = crewShown) => (slots ? slots * helperWidth() + CREW_PAD : 0);
+const VISITOR_SCALE = 0.7;
+const visitorWidth = () => Math.round(px() * 22 * VISITOR_SCALE) + 16;
+const crewExtra = (slots = crewShown, guest = guestShown) => (slots || guest ? slots * helperWidth() + (guest ? visitorWidth() : 0) + CREW_PAD : 0);
 
 function critterBaseSize() {
   const p = px();
@@ -255,7 +260,7 @@ function createMotion() {
   // Now and then an idle, awake Shellby takes a few steps near his spot, or
   // finds something to do with his claws, or says something to nobody.
   setInterval(() => {
-    if (CAPTURE || motion.busy || dragging || crewShown) return;
+    if (CAPTURE || motion.busy || dragging || crewShown || guestShown) return;
     if (lastStatus.state !== 'idle' || focus.guarding(config.get('focus'), Date.now())) return;
     // A stroll moves his window; the little habits don't, so 'wander' only
     // governs the strolling, as it always has.
@@ -373,21 +378,24 @@ function welcomeBack({ since, until }) {
 
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
-function setCrewSlots(n) {
+function setCrewSlots(n, guest = !!visitor) {
   n = Math.min(n, MAX_CREW_SHOWN);
   // A shrink still pending from a moment ago would cut off whoever just arrived.
   clearTimeout(shrinkTimer);
-  if (n === crewShown) return;
-  const apply = slots => {
+  if (n === crewShown && guest === guestShown) return;
+  const apply = (slots, g) => {
     const b = critter.getBounds();
     const base = critterBaseSize();
-    const width = base.width + crewExtra(slots);
+    const width = base.width + crewExtra(slots, g);
     crewShown = slots;
+    guestShown = g;
     critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
   };
   motion?.stop(); // a throw or stroll would put back the old left edge
-  if (n > crewShown) apply(n);
-  else shrinkTimer = setTimeout(() => apply(n), 1100); // let helpers walk home first
+  if (n > crewShown || (guest && !guestShown)) apply(Math.max(n, crewShown), guest || guestShown);
+  // Grown for the newcomer; anyone leaving still gets the shrink below.
+  if (n === crewShown && guest === guestShown) return;
+  shrinkTimer = setTimeout(() => apply(n, guest), 1100); // let helpers walk home first
 }
 
 function saveCritterPos() {
@@ -2081,6 +2089,67 @@ function createCi() {
   follow();
 }
 
+// ================================================================ visiting crabs
+
+// How a card looks on this PC: skins and accessories this PC doesn't know are
+// simply left off, so a friend with a pack you haven't got still visits.
+function lookFor(card) {
+  const list = allSkins();
+  const skin = list.find(s => s.id === card.skin) || list.find(s => s.id === 'classic') || list[0];
+  const accessories = ['shell', 'neck', 'hat', 'face', 'held']
+    .map(slot => card.outfit[slot] && wardrobe?.catalog.accessories.get(card.outfit[slot]))
+    .filter(a => a && SLOT_OK.has(a.slot)).map(publicItem);
+  const home = card.home && shells.SHELLS.find(s => s.id === card.home);
+  return { skin, accessories, shell: shells.renderShell(home || null), level: card.level };
+}
+const SLOT_OK = new Set(['shell', 'neck', 'hat', 'face', 'held']);
+
+const friendsView = () => {
+  const v = friends.view();
+  return { ...v, friends: v.friends.map(f => ({ ...f, look: f.card ? lookFor(f.card) : null })) };
+};
+
+function sendVisitor() {
+  send(critter, 'critter:visitor', visitor ? { login: visitor.login, look: visitor.look, until: visitor.until } : null);
+}
+
+function createFriends() {
+  friends = new Friends({
+    config,
+    github,
+    myCard: () => {
+      const worn = shells.wornShell(config.get('home'), currentLevel());
+      return { skin: activeSkin().id, home: worn ? worn.id : null, level: currentLevel(), outfit: wardrobe.effectiveOutfit() };
+    },
+    // Company only when he's free: not working, not guarding your focus, no helpers out.
+    canVisit: () => lastStatus.state === 'idle' && !lastStatus.crew && !focus.guarding(config.get('focus'), Date.now()),
+  });
+  // A refresh saves several times; the panel only needs the last one.
+  let viewTimer = null;
+  friends.on('change', () => {
+    clearTimeout(viewTimer);
+    viewTimer = setTimeout(() => send(panel, 'friends', friendsView()), 150);
+  });
+  friends.on('record', event => stat(event));
+  friends.on('visit', v => {
+    visitor = v ? { login: v.login, look: lookFor(v.card), until: v.until } : null;
+    sendVisitor();
+    refreshCritter();
+    if (v) sayText(`@${v.login} dropped by!`, 'visit', 7000);
+  });
+  // The two of them dance, party, high-five or sing (critter.css: body.together-*).
+  friends.on('together', t => {
+    send(critter, 'critter:together', { activity: t.id, ms: t.ms });
+    if (t.id === 'party') send(critter, 'critter:burst', outfit().confetti);
+    sayText(t.line, 'together', t.ms - 500);
+  });
+  friends.on('wave', w => sayText(w.text, 'wave', 10000));
+  // Follows the GitHub toggle and sign-in, like CI.
+  const follow = () => { if (github.can('friends')) { if (!friends.timer) friends.start(); } else if (friends.timer) friends.stop(); };
+  github.on('change', follow);
+  follow();
+}
+
 function onCiEvent({ type, pr }) {
   if (!pr) return;
   const where = `${pr.repo}#${pr.number}`;
@@ -2138,7 +2207,26 @@ async function confirmGitHubFeature(feature, on) {
     });
     if (response !== 0) return { ok: false, canceled: true, view: github.view() };
   }
+  // The calling card is a public gist, so say what's on it before it goes up.
+  if (feature === 'friends' && on) {
+    const response = await askOnce({
+      icon: '🦀',
+      title: 'Let friends\' crabs visit?',
+      message: 'Shellby puts a small calling card on your GitHub as a public gist: your crab\'s outfit, colors, shell and level, under your GitHub username.',
+      detail: 'Friends you add by GitHub username can then have your crab over, and you theirs. Waves arrive as comments on the card, and only from friends you added. No stats, projects or history go on it, though anyone can see when it was last updated (about once a day while Shellby runs).',
+      note: 'Turning this off deletes the card again.',
+      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
   const r = await github.setFeature(feature, on);
+  if (feature === 'friends' && r.ok && !r.needsApproval) {
+    if (on) friends?.start();
+    else if (friends) {
+      const down = await friends.takeDown();
+      if (!down.ok) return { ...r, error: down.error, view: github.view() };
+    }
+  }
   return { ...r, view: github.view() };
 }
 
@@ -3011,12 +3099,12 @@ ${r.detail}` });
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'publish', 'claude', 'ci', 'workflows']);
+  const FEATURE_NAMES = new Set(['sync', 'friends', 'publish', 'claude', 'ci', 'workflows']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    // claude and workflows are never granted by a first sign-in: each has its own
-    // confirmation, so they can only be turned on deliberately afterwards.
-    const GUARDED = new Set(['claude', 'workflows']);
+    // claude, workflows and friends are never granted by a first sign-in: each has its
+    // own confirmation, so they can only be turned on deliberately afterwards.
+    const GUARDED = new Set(['claude', 'workflows', 'friends']);
     const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await github.signIn(list);
     return { ...r, view: github.view() };
@@ -3030,9 +3118,23 @@ ${r.detail}` });
   };
   ipcMain.on('github:open-code', openDeviceCode);
   ipcMain.on('github:cancel', () => github.cancel());
-  ipcMain.handle('github:sign-out', () => { github.signOut(); return github.view(); });
+  ipcMain.handle('github:sign-out', async () => {
+    // The calling card is public: take it down while there's still a sign-in to do it with.
+    const down = friends?.enabled ? await friends.takeDown() : { ok: true };
+    github.signOut();
+    if (!down.ok) send(panel, 'github:error', down.error);
+    return github.view();
+  });
   ipcMain.handle('github:set-feature', (_e, feature, on) => (FEATURE_NAMES.has(feature) ? confirmGitHubFeature(feature, !!on) : { ok: false, view: github.view() }));
   ipcMain.handle('github:sync', async () => ({ ...(await github.sync()), view: github.view() }));
+  // ---- Visiting crabs (src/main/friends.js)
+  const noFriends = { ok: false, error: 'Visiting crabs is unavailable.' };
+  ipcMain.handle('friends:get', () => (friends ? friendsView() : null));
+  ipcMain.handle('friends:refresh', async () => (friends ? { ...(await friends.refresh()), view: friendsView() } : noFriends));
+  ipcMain.handle('friends:add', async (_e, login) => (friends && isStr(login) ? { ...(await friends.add(login.slice(0, 100))), view: friendsView() } : noFriends));
+  ipcMain.handle('friends:remove', (_e, login) => (friends && isStr(login) ? { ...friends.remove(login), view: friendsView() } : noFriends));
+  ipcMain.handle('friends:invite', (_e, login) => (friends && isStr(login) ? friends.invite(login) : noFriends));
+  ipcMain.handle('friends:wave', (_e, login, wave) => (friends && isStr(login) && isStr(wave) ? friends.wave(login, wave) : noFriends));
   ipcMain.handle('ci:get', () => ciView());
   ipcMain.handle('ci:poll', async () => { if (github.can('ci')) await ci.poll(); return ciView(); });
   const knownPr = key => isStr(key) && ci && [...ci.view().prs, ...ci.view().reviews].find(p => p.key === key);
@@ -3604,7 +3706,7 @@ app.whenReady().then(() => {
   createPanel();
   watchIdleCost();
   watchAway();
-  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); });
+  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });
 
@@ -3615,6 +3717,7 @@ app.whenReady().then(() => {
   createExternal();
   createCrabApi();
   createCi();
+  createFriends();
   channelSecret = loadChannelSecret();
   createRemote();
   createObs();
@@ -3667,6 +3770,7 @@ app.on('will-quit', () => {
   health?.stop();
   external?.stop();
   github?.stop();
+  friends?.stop();
   ci?.stop();
   clearTimeout(focusTimer);
   clearInterval(focusTick);

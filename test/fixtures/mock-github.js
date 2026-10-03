@@ -1,4 +1,5 @@
-// A small in-memory GitHub for tests: the device flow, /user, gists, just
+// A small in-memory GitHub for tests: the device flow, /user, gists (other
+// people's public ones and comments too, for visiting crabs), just
 // enough of the repos API for publishing a pack (fork, ref, contents, pulls),
 // and your open pull requests with their CI (search, pulls, check runs).
 //   const gh = await startMockGitHub({ login: 'crabfan' }); ... gh.approve(); ... await gh.close();
@@ -8,7 +9,7 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
   const state = {
     login, approved: autoApprove, denied: false, requestedScope: '', token: 'gho_mocktoken123',
     gists: new Map(), files: new Map(), refs: new Map([['x-salmon/shellby-packs:main', 'basesha1']]),
-    forks: new Set(), pulls: [], requests: [], nextGist: 1,
+    forks: new Set(), pulls: [], requests: [], nextGist: 1, nextComment: 1,
     // Your open pull requests and the ones waiting for your review (see setCi()).
     ci: { prs: [], reviews: [] },
   };
@@ -38,17 +39,37 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
       if (!authed) return send(401, { message: 'Bad credentials' });
       if (req.method === 'GET' && p === '/user') return send(200, { login: state.login, name: 'Crab Fan', avatar_url: 'https://example.invalid/a.png' }, { 'x-oauth-scopes': state.requestedScope.split(' ').join(', ') });
 
-      if (p === '/gists' && req.method === 'GET') return send(200, [...state.gists.values()].map(g => ({ id: g.id, files: Object.fromEntries(Object.keys(g.files).map(f => [f, { filename: f }])) })));
+      // Gists a test put in by hand belong to you.
+      const ownerOf = g => g.owner?.login || state.login;
+      const listed = g => ({ id: g.id, owner: { login: ownerOf(g) }, public: g.public, files: Object.fromEntries(Object.keys(g.files).map(f => [f, { filename: f }])) });
+      if (p === '/gists' && req.method === 'GET') return send(200, [...state.gists.values()].filter(g => ownerOf(g) === state.login).map(listed));
       if (p === '/gists' && req.method === 'POST') {
         const id = `g${state.nextGist++}`;
         const files = Object.fromEntries(Object.entries(json.files || {}).map(([f, v]) => [f, { content: v.content, size: v.content.length }]));
-        state.gists.set(id, { id, public: json.public, files });
+        state.gists.set(id, { id, owner: { login: state.login }, public: json.public, files, comments: [] });
         return send(201, { id });
       }
-      let m = p.match(/^\/gists\/([^/]+)$/);
+      let m = p.match(/^\/users\/([^/]+)\/gists$/);
+      if (m && req.method === 'GET') {
+        const who = decodeURIComponent(m[1]).toLowerCase();
+        return send(200, [...state.gists.values()].filter(g => g.public && ownerOf(g).toLowerCase() === who).map(listed));
+      }
+      m = p.match(/^\/gists\/([^/]+)\/comments$/);
       if (m) {
         const g = state.gists.get(decodeURIComponent(m[1]));
         if (!g) return send(404, { message: 'Not Found' });
+        if (req.method === 'POST') {
+          (g.comments ||= []).push({ id: state.nextComment++, body: json.body, user: { login: state.login }, created_at: new Date().toISOString() });
+          return send(201, {});
+        }
+        const per = Number(url.searchParams.get('per_page')) || 30, page = Number(url.searchParams.get('page')) || 1;
+        return send(200, (g.comments || []).slice((page - 1) * per, page * per));
+      }
+      m = p.match(/^\/gists\/([^/]+)$/);
+      if (m) {
+        const g = state.gists.get(decodeURIComponent(m[1]));
+        if (!g) return send(404, { message: 'Not Found' });
+        if (req.method === 'DELETE') { state.gists.delete(g.id); return send(204); }
         if (req.method === 'PATCH') for (const [f, v] of Object.entries(json.files || {})) g.files[f] = { content: v.content, size: v.content.length };
         return send(200, g);
       }
@@ -123,6 +144,17 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
     /** Your open PRs: [{ repo, number, title, conclusion: 'success'|'failure'|'pending' }], and review requests. */
     setCi(prs, reviews = state.ci.reviews) {
       state.ci = { prs: prs.map((pr, i) => ({ ...pr, sha: (pr.sha || String(i + 1)).padEnd(40, 'a') })), reviews };
+    },
+    /** Someone else's public gist, like a friend's calling card. files: { name: content }. Returns its id. */
+    othersGist(owner, files) {
+      const id = `g${state.nextGist++}`;
+      const f = Object.fromEntries(Object.entries(files).map(([n, content]) => [n, { content, size: content.length }]));
+      state.gists.set(id, { id, owner: { login: owner }, public: true, files: f, comments: [] });
+      return id;
+    },
+    /** A comment from someone else (a friend's wave) on a gist. */
+    comment(gistId, from, body) {
+      state.gists.get(gistId).comments.push({ id: state.nextComment++, body, user: { login: from }, created_at: new Date().toISOString() });
     },
     close: () => new Promise(r => server.close(r)),
   };

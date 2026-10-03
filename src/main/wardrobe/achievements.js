@@ -30,6 +30,8 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'good-crab', name: 'Good Crab', icon: '💕', description: 'Pet Shellby 25 times', stat: 'petsGiven', goal: 25, rewards: ['heart-shades', 'starfish'], hidden: true },
   { id: 'frequent-flyer', name: 'Frequent Flyer', icon: '🛩️', description: 'Throw Shellby across your screen', stat: 'timesThrown', goal: 1, rewards: ['aviator-cap', 'inner-tube'], hidden: true },
   { id: 'deep-focus', name: 'Deep Focus', icon: '⛑️', description: 'Finish 5 focus sessions', stat: 'focusSessions', goal: 5, rewards: ['guard-helmet', 'welding-mask'] },
+  { id: 'open-house', name: 'Open House', icon: '🏡', description: "A friend's crab drops by", stat: 'visitorsHosted', goal: 1, rewards: ['sea-glass', 'friendship-bracelet'] },
+  { id: 'pen-pals', name: 'Pen Pals', icon: '💌', description: 'Wave to friends 5 times', stat: 'wavesSent', goal: 5, rewards: ['message-bottle'] },
   { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag'] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
@@ -38,7 +40,7 @@ const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
 const COUNTERS = [
   'tasksCompleted', 'helpersSpawned', 'maxCrew', 'tricksLearned', 'createdScriptsRun', 'routinesRun',
   'nightTasks', 'earlyTasks', 'maxParallel', 'permissionsAnswered', 'plansApproved', 'filesDropped',
-  'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed',
+  'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed', 'visitorsHosted', 'wavesSent',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,6 +62,8 @@ const INCREMENTS = {
   thrown: 'timesThrown',
   'focus-completed': 'focusSessions',
   'ci-fixed': 'buildsFixed',
+  'visitor-hosted': 'visitorsHosted',
+  'wave-sent': 'wavesSent',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = { 'crew-size': 'maxCrew', parallel: 'maxParallel' };

@@ -6,7 +6,7 @@ const { scopesFor, covers, startDeviceFlow, pollForToken, CLIENT_ID } = require(
 const { GitHubApi } = require('./api');
 const { syncNow } = require('./sync');
 
-const FEATURES = ['profile', 'sync', 'publish', 'claude', 'ci', 'workflows'];
+const FEATURES = ['profile', 'sync', 'friends', 'publish', 'claude', 'ci', 'workflows'];
 const SYNC_EVERY_MS = 15 * 60 * 1000;
 const SYNC_SOON_MS = 20 * 1000;          // after a local change worth sharing
 const AVATAR_MAX_BYTES = 200 * 1024;
@@ -155,7 +155,7 @@ class GitHubService extends EventEmitter {
     clearInterval(this.timer); this.timer = null;
     clearTimeout(this.soon); this.soon = null;
     const f = this.state.features;
-    this.save({ login: null, name: '', avatar: null, lastSyncAt: null, lastSyncError: null, features: { ...f, claude: false } });
+    this.save({ login: null, name: '', avatar: null, lastSyncAt: null, lastSyncError: null, features: { ...f, claude: false, friends: false } });
   }
 
   /** Turn a feature on/off. On needs a wider sign-in when the token lacks the scope. */
