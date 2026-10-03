@@ -211,6 +211,7 @@ function desktopHost() {
  * Windows actually took it (it refuses for elevated windows, for one).
  */
 function ownBy(self, owner) {
+  if (!owner) return false; // no window to own him: "owner is 0" would read as success
   return safe(a => {
     a.SetWindowLongPtrW(self, GWLP_HWNDPARENT, owner);
     return a.GetWindow(self, GW_OWNER) === owner;

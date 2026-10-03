@@ -7,6 +7,28 @@
 - **Nothing extra to install.** Windows' own speech recognition does the listening, on your PC: no account, no service, and the audio never leaves your machine. The microphone is only open while you hold the shortcut.
 - Turn it on in **Settings → Shortcut → Hold it to dictate a task**. It's off until you do. If Windows has no speech recognizer for your language, or desktop apps can't use the microphone, the switch stays off and says what to change in Windows Settings.
 
+## 0.46.1: a security and bug sweep
+
+### Fixed
+- **Routines kept running overnight.** Each run of a routine opened a tab and left Claude Code running in it. An hourly routine filled all eight tab slots by morning, and after that neither the routine nor you could open a new one. A routine's Claude Code process now stops when its run ends (replying picks the conversation up again), and when the tabs are full the oldest finished routine tab closes. History keeps everything.
+- **Quitting mid-task left Claude working.** Closing Shellby while a task ran let that Claude Code process, and anything it had started, carry on with no window to show it. Quitting now ends them.
+- **Draft it could hang.** Drafting a routine from a description could wait the full 90 seconds and then say Claude took too long. It answers right away now.
+- **A routine that couldn't run said nothing.** When a scheduled run is skipped (Claude Code signed out, or the last run still going), you now get a notification saying why.
+- **Sending while Shellby was busy** could save a message to History that Claude never saw, and reset what that turn's changes were measured from. It's refused before anything changes now.
+- Switching Health off and on during a slow sensor read could leave it reading twice as often.
+
+### Security
+- **Bring home no longer runs your repository's git hooks.** Claude can edit a tracked hook (`.husky/pre-commit`, say) without a prompt in Auto-edit, and Bring home's commit and merge would then have run it as you. Push still runs your hooks, as a terminal would. Shellby's git commands also turn off `core.fsmonitor`, so a repository's own settings can't name a program for Shellby to run.
+- **! commands start PowerShell by its full path.** Windows looks for a program in the working folder first, so a `powershell.exe` inside a project could have run instead.
+- **The crab's window has a bridge of its own.** It draws friends' visiting crabs and stickers, so it can now only move him and take a dropped file. Every call from a window is checked against what that window may do.
+- **Phone notifications go only where you confirmed.** Pointing them somewhere new, changing the token, or letting the phone answer Allow or Deny now asks in the confirmation window first, and nothing is sent anywhere you haven't confirmed. What you had set up before this version keeps working.
+- **Switching to Autonomous asks once each time Shellby starts**, after the first-time confirmation.
+- **Routines that don't ask first** (Smart, Auto-edit, Autonomous) are confirmed when you save a new one or change what one does, where or how.
+- **Confirmation windows come one at a time,** and a pile of them is turned down rather than shown.
+- **Network shares are never opened** for a picture or pack path, since just opening one makes Windows sign in to that machine. The working folder menu only switches to your recent folders; a new one comes through the folder picker.
+- **Tighter checks:** the Claude Code plugin's port also checks the `Host` header, the Skill Shop refuses local names written with a trailing dot (`localhost.`), phone notifications only use plain `http:` for real private addresses (not names like `10.example.com`), the hardware monitor never follows a redirect, and links in Claude's replies show where they go on hover.
+- **SECURITY.md** now says what Shellby really does: API keys reach Claude Code unless **Always use my Claude plan** is on, your GitHub token reaches it if you let Claude push, and the plugin's port also takes the MCP tools and the `shellby do` command.
+
 ## 0.46.0: describe a routine
 
 ### New

@@ -18,6 +18,7 @@
 // you (and a QR code in Settings to subscribe with), and Telegram's chat id is
 // read off the bot once you've messaged it.
 const crypto = require('crypto');
+const net = require('net');
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_TITLE = 100;
@@ -217,9 +218,11 @@ function localOrHttps(raw) {
   try { u = new URL(raw); } catch { return false; }
   if (u.protocol === 'https:') return true;
   if (u.protocol !== 'http:') return false;
-  const h = u.hostname;
-  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.endsWith('.local')
-    || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+  const h = u.hostname.replace(/\.+$/, '');
+  // The ranges are for addresses only: "10.example.com" is a public name.
+  const ip4 = net.isIPv4(h);
+  return h === 'localhost' || h === '127.0.0.1' || u.hostname === '[::1]' || h.endsWith('.local')
+    || (ip4 && (/^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h)));
 }
 
 /**

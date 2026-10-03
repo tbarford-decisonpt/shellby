@@ -47,10 +47,13 @@ class HealthMonitor extends EventEmitter {
   start() {
     if (this.running) return;
     this.running = true;
+    // A loop belongs to one start(): one still awaiting a poll when Health is
+    // switched off and on again must not carry on beside the new one.
+    const epoch = this.epoch;
     const loop = async () => {
-      if (!this.running) return;
+      if (!this.running || epoch !== this.epoch) return;
       await this.poll();
-      if (this.running) this.timer = setTimeout(loop, this.pollMs);
+      if (this.running && epoch === this.epoch) this.timer = setTimeout(loop, this.pollMs);
     };
     loop();
   }

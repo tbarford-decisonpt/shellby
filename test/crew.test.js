@@ -268,3 +268,21 @@ test("a branch's note goes ahead of its first real message, once, and never in f
     mgr.closeAll();
   }
 });
+
+test('a send while the tab is busy is refused before anything is saved or reset', async () => {
+  const history = new History(tmp());
+  let prepared = 0;
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '', prepareTurn: () => { prepared++; return null; } });
+  try {
+    mgr.open({ tabId: 'tab-busy', cwd: os.tmpdir() });
+    const first = mgr.send('tab-busy', 'wait 400 first', { kind: 'user', text: 'wait 400 first' });
+    const tab = mgr.tabs.get('tab-busy');
+    assert.equal(tab.turnId, first);
+    assert.throws(() => mgr.send('tab-busy', 'second', { kind: 'user', text: 'second' }), /still working/);
+    assert.equal(tab.turnId, first, 'the running turn keeps its id');
+    assert.equal(prepared, 1, 'the running turn\'s snapshot is not replaced');
+    assert.equal(history.load('tab-busy').filter(i => i.kind === 'user').length, 1, 'no message Claude never saw');
+  } finally {
+    mgr.closeAll({ kill: true });
+  }
+});

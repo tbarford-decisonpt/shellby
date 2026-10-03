@@ -87,12 +87,12 @@ function parseRoutine(args) {
 const MODE_NAMES = { ask: 'Ask first', smart: 'Smart', acceptEdits: 'Auto-edit', plan: 'Plan only', autonomous: 'Autonomous' };
 
 /** The confirm window's text for a routine Claude proposed. `replacing` is the one it would overwrite. */
-function routineQuestion(routine, { replacing = null, defaultFolder = '' } = {}) {
+// own: saved from the Routines page rather than proposed by Claude.
+function routineQuestion(routine, { replacing = null, defaultFolder = '', own = false } = {}) {
+  const who = own ? 'Save' : replacing ? 'Claude wants to change' : 'Claude wants to add';
   return {
     title: replacing ? 'Change a routine?' : 'Add a routine?',
-    message: replacing
-      ? `Claude wants to change "${replacing.name}": ${describeSchedule(routine.schedule)}.`
-      : `Claude wants to add "${routine.name}": ${describeSchedule(routine.schedule)}.`,
+    message: `${who} "${(replacing && !own ? replacing : routine).name}": ${describeSchedule(routine.schedule)}.`,
     // Folder and mode first: they're the facts a long prompt must not push away.
     detail: `Folder: ${routine.cwd || `${defaultFolder} (default)`}\nMode: ${MODE_NAMES[routine.mode] || routine.mode}\n\n${routine.prompt}`,
     note: 'Each run is a Claude Code task on your subscription. You can pause, edit or delete it in Routines.',

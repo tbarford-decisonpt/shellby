@@ -193,7 +193,21 @@ function acceptable(req) {
     && ROUTES.includes(req.url)
     && req.headers['x-shellby'] === '1'
     && /^application\/json\b/i.test(req.headers['content-type'] || '')
-    && !req.headers.origin;
+    && !req.headers.origin
+    // Every client here dials 127.0.0.1. A page that rebinds its own name to
+    // this PC still sends that name as Host, so this holds even if the Origin
+    // rule ever didn't.
+    && /^(127\.0\.0\.1|localhost)(:\d+)?$/i.test(req.headers.host || '');
+}
+
+// A refused request isn't read: enough of it is drained to answer cleanly,
+// and anything bigger just loses its connection.
+const REFUSED_DRAIN = 64 * 1024;
+function refuse(req, res, status) {
+  res.writeHead(status).end();
+  let seen = 0;
+  req.on('data', c => { seen += c.length; if (seen > REFUSED_DRAIN) req.destroy(); });
+  req.resume();
 }
 
 class ExternalSessions extends EventEmitter {
@@ -280,7 +294,7 @@ class ExternalSessions extends EventEmitter {
 
   handle(req, res) {
     const route = req.url;
-    if (!acceptable(req)) { res.writeHead(ROUTES.includes(route) ? 403 : 404).end(); req.resume(); return; }
+    if (!acceptable(req)) { refuse(req, res, ROUTES.includes(route) ? 403 : 404); return; }
     // Shellby's own Claude Code processes carry SHELLBY_OWNED=1 into the hook's
     // environment; their tabs already drive the crab. (Only hooks: a task
     // Shellby started may still legitimately drive the crab over MCP.)

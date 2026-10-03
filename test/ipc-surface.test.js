@@ -17,7 +17,7 @@ const all = (text, re) => [...text.matchAll(re)].map(m => m[1]);
 
 // Both bridges: the panel/critter one, and the confirmation window's own
 // (confirm.js), which is deliberately a separate, much smaller surface.
-const preload = [read(path.join(SRC, 'preload', 'preload.js')), read(path.join(SRC, 'preload', 'dialog-preload.js'))].join('\n');
+const preload = ['preload.js', 'dialog-preload.js', 'critter-preload.js'].map(f => read(path.join(SRC, 'preload', f))).join('\n');
 
 // Every .js under src/main: handlers and pushes both live outside main.js too.
 const mainFiles = (function walk(dir) {

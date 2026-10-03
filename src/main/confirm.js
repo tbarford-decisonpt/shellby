@@ -31,7 +31,24 @@ function wire() {
 // spec: { title, message, detail, note, icon, danger, items, skin, accessories, shell,
 //         buttons: [{ label, style }], defaultId, cancelId }
 // Resolves with the index of the chosen button (cancelId if the window closes).
+//
+// One question at a time, and only a few waiting: a stack of them is how
+// someone gets clicked through ("yes, yes, yes"), so anything past that is
+// answered Cancel without being shown.
+const MAX_WAITING = 3;
+let queue = Promise.resolve();
+let waiting = 0;
+
 function ask(parent, spec) {
+  const cancelId = spec.cancelId ?? spec.buttons.length - 1;
+  if (waiting >= MAX_WAITING) return Promise.resolve(cancelId);
+  waiting++;
+  const turn = queue.then(() => show(parent, spec));
+  queue = turn.catch(() => {}).finally(() => { waiting--; });
+  return turn;
+}
+
+function show(parent, spec) {
   wire();
   return new Promise(resolve => {
     const hasParent = parent && !parent.isDestroyed() && parent.isVisible();

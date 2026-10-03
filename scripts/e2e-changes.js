@@ -73,6 +73,25 @@ const ntfy = http.createServer((req, res) => {
     const ev = expr => new Promise(r => { const i = ++id; p.set(i, m => r(m.result?.result?.value)); ws.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true, awaitPromise: true } })); });
     const until = async (expr, ms = 10000) => { for (let t = 0; t < ms; t += 150) { if (await ev(expr)) return true; await wait(150); } return false; };
     const idle = () => until('!SB.activeTab().busy');
+    // The confirmation window is its own page: find it, read it, press a button.
+    const pressInDialog = async (label, title) => {
+      let dlg = null;
+      for (let i = 0; i < 40 && !dlg; i++) {
+        try { dlg = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()).find(t => t.url.endsWith('dialog.html')); } catch { /* not yet */ }
+        if (!dlg) await wait(250);
+      }
+      if (!dlg) return null;
+      const dws = new WebSocket(dlg.webSocketDebuggerUrl);
+      await new Promise(r => { dws.onopen = r; });
+      let did = 0; const dp = new Map();
+      dws.onmessage = e => { const m = JSON.parse(e.data); dp.get(m.id)?.(m); };
+      const dev = expr => new Promise(r => { const i = ++did; dp.set(i, m => r(m.result?.result?.value)); dws.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true, awaitPromise: true } })); });
+      for (let t = 0; t < 10000 && !(await dev(`document.getElementById('title')?.textContent === ${JSON.stringify(title)} && document.activeElement?.tagName === 'BUTTON'`)); t += 150) await wait(150);
+      const seen = await dev("({ message: document.getElementById('message').textContent, focused: document.activeElement?.textContent })");
+      await dev(`[...document.querySelectorAll('#actions button')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+      dws.close();
+      return seen;
+    };
     // E2E_SHOTS=<dir>: also save the panel at each step, to look at by eye.
     const shot = name => (process.env.E2E_SHOTS ? ev("document.querySelectorAll('.celebrate .cel-close').forEach(b => b.click())").then(() => wait(400)).then(() => new Promise(r => { const i = ++id; p.set(i, m => { fs.writeFileSync(path.join(process.env.E2E_SHOTS, `${name}.png`), Buffer.from(m.result.data, 'base64')); r(); }); ws.send(JSON.stringify({ id: i, method: 'Page.captureScreenshot', params: { format: 'png' } })); })) : null);
     await wait(3000);
@@ -133,7 +152,11 @@ const ntfy = http.createServer((req, res) => {
 
     // ---- 3. answering from the phone
     await ev("shellby.setSettings({ worktrees: false }).then(r => { SB.state.settings = r.settings; })");
-    await ev(`shellby.setChannels({ enabled: true, provider: 'ntfy', target: 'http://127.0.0.1:${ntfyPort}/shellby-e2e-k7m2p9q4r8t3', replies: true })`);
+    // A destination that can answer back is confirmed in the isolated window first.
+    const setting = ev(`shellby.setChannels({ enabled: true, provider: 'ntfy', target: 'http://127.0.0.1:${ntfyPort}/shellby-e2e-k7m2p9q4r8t3', replies: true })`);
+    const asked = await pressInDialog('Send them there', 'Send notifications here?');
+    check(asked?.message?.includes('shellby-e2e-k7m2p9q4r8t3') && asked.focused === 'Cancel', `the confirm window names the topic, with Cancel the default (${JSON.stringify(asked)})`);
+    await setting;
     await ev('SB.newTab()');
     await ev("SB.send('tool please')");
     for (let t = 0; t < 8000 && !published.length; t += 150) await wait(150);

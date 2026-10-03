@@ -85,6 +85,9 @@ class SessionManager extends EventEmitter {
 
   send(tabId, prompt, userItem) {
     const tab = this.require(tabId);
+    // Before anything below touches History or the turn: session.send would
+    // refuse anyway, but only after a message Claude never saw was saved.
+    if (tab.session.busy) throw new Error('Shellby is still working on the last task.');
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
       tab.title = this.history.get(tab.id).title;
@@ -158,10 +161,12 @@ class SessionManager extends EventEmitter {
     return true;
   }
 
-  close(tabId) {
+  // kill: end the process tree now instead of letting it wind down (quitting).
+  close(tabId, { kill = false } = {}) {
     const tab = this.tabs.get(tabId);
     if (!tab) return;
     tab.session.removeAllListeners();
+    if (kill) tab.session.kill();
     tab.session.close();
     this.tabs.delete(tabId);
     this.changed();
@@ -178,7 +183,7 @@ class SessionManager extends EventEmitter {
     });
   }
 
-  closeAll() { for (const id of [...this.tabs.keys()]) this.close(id); }
+  closeAll(opts) { for (const id of [...this.tabs.keys()]) this.close(id, opts); }
 
   setMode(mode) {
     for (const tab of this.tabs.values()) if (!tab.pinnedMode) tab.session.setMode(mode);

@@ -8,7 +8,8 @@
   function inline(s) {
     const codes = [];
     s = s.replace(/`([^`\n]+)`/g, (_m, c) => `\u0000${codes.push(c) - 1}\u0000`);
-    s = s.replace(/\[([^\]\n]+)\]\((https:\/\/[^)\s]+)\)/g, (_m, t, u) => `<a data-href="${u}" href="#">${t}</a>`);
+    // The title shows where it really goes on hover: the text is Claude's to choose.
+    s = s.replace(/\[([^\]\n]+)\]\((https:\/\/[^)\s]+)\)/g, (_m, t, u) => `<a data-href="${u}" href="#" title="${u}">${t}</a>`);
     s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     // Emphasis must hug its text (`*word*`), so `2 * 3 * 4` and snake_case stay plain.
     s = s.replace(/(^|[^*\w])\*(?=\S)([^*\n]*?\S)\*(?!\w)/g, '$1<em>$2</em>');
