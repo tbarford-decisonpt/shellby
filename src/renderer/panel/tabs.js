@@ -20,7 +20,7 @@
       state.tabs.set(summary.id, tab);
     }
     Object.assign(tab, {
-      title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy,
+      title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy, busySince: summary.busySince ?? (summary.busy ? tab.busySince : null),
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
       unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
@@ -338,7 +338,19 @@ ${contextText(t.context)}` : t.title,
     $('sendBtn').classList.toggle('queueing', busy);
     $('sendHint').textContent = busy ? 'Enter to queue · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
+    tickClock();
     renderQueue();
+  }
+
+  // How long the current prompt has been running, like Claude Code's "(12s · esc
+  // to interrupt)". One timer, alive only while the tab on screen is working.
+  let clockTimer = null;
+  function tickClock() {
+    const tab = SB.activeTab();
+    const since = tab?.busy && tab.busySince;
+    $('statusTime').textContent = since ? SB.clock(Date.now() - since) : '';
+    if (since && !clockTimer) clockTimer = setInterval(tickClock, 1000);
+    if (!since && clockTimer) { clearInterval(clockTimer); clockTimer = null; }
   }
   SB.syncBusyUi = syncBusyUi;
 
@@ -370,6 +382,7 @@ ${contextText(t.context)}` : t.title,
     if (!r.ok) { SB.toast(r.error); return false; }
     tab.render({ kind: 'user', text, attachments });
     tab.busy = true;
+    tab.busySince = Date.now();
     tab.saved = true;
     tab.statusText = 'Working…';
     if (tab.title === 'New task' && !tab.named) tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
@@ -947,6 +960,7 @@ ${contextText(t.context)}` : t.title,
     if (!r?.ok) return SB.toast(r?.error || "Couldn't start fresh.");
     tab.render({ kind: 'user', text: r.text });
     tab.busy = true;
+    tab.busySince = Date.now();
     tab.statusText = 'Writing a summary…';
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();

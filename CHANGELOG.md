@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.35.0: on the clock
+
+### New
+- **See how long he's been at it.** While a prompt runs, the Working bar shows a clock next to what he's doing, like Claude Code's *(12s · esc to interrupt)*. It ticks every second (*7s*, *1m 05s*, *1h 02m*) and starts over for each prompt, including queued ones as they go out. The time comes from the moment the turn actually started, so it stays right if you switch tabs or reopen the panel mid-task. When the turn ends, the *done · 48s* line under it keeps the final figure as before.
+
 ## 0.34.0: call it what you like
 
 ### New

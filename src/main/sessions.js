@@ -167,7 +167,7 @@ class SessionManager extends EventEmitter {
 
   get summary() {
     return [...this.tabs.values()].map(t => ({
-      id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy,
+      id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved, named: t.named, context: t.session.context,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
