@@ -35,7 +35,9 @@ commit('more.js', 'z\n', 'more');
 (async () => {
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
-  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
+  // The slap is skipped under reduced motion, and CI's Windows runners have
+  // animations off: motion is asked for, so the beats below are there to see.
+  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`, '--force-prefers-no-reduced-motion'], {
     stdio: 'ignore',
     env: { ...process.env, SHELLBY_USER_DATA: path.join(base, 'userdata'), SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: String(HOOK) },
   });

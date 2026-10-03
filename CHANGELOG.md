@@ -6,6 +6,11 @@
 - **Just describe it.** The Routines page has a new box: type what you want done and when ("every weekday at 8:30, list what changed in my Documents") and press **Draft it**. Claude fills in the routine form for you (name, schedule, prompt, permission mode and, if you named one, the folder), and you check it over and press **Save routine**. Nothing is saved until you do.
 - It works without the Shellby plugin, uses no tools and doesn't add anything to your History. It's one short call to Claude's fastest model, and Autonomous is never picked for you.
 
+## 0.45.1: your sign-in, your call, released
+
+### Fixed
+- **0.45.0 never made it out.** Its release build stopped at three checks that only failed there: one compared two spellings of the same temp folder (the build machine's short `RUNNER~1` name against the full one Git reports), one watched for the sticker slap on a machine with animations turned off, and the stand-in Claude that the end-to-end checks talk to lost track of the edit it was holding back for a copy. All three are fixed, and everything in 0.45.0 and the four versions before it (0.41.0 to 0.44.0) ships in this version.
+
 ## 0.45.0: your sign-in, your call
 
 ### Changed
@@ -63,6 +68,11 @@
 - **Settings → Shellby → Climbing onto your windows:** Never, Sometimes (the default) or Often. The apps he's been told to stay off are listed underneath, and you can take them back off the list. Turning strolling off keeps him off your windows too.
 - **His temperament shows.** A cocky crab climbs most and a fussy one least, and a sleepy one stays longest (and naps). He has things to say about all of it: "nice view", "wheee", "rude!", "oh no", "the room spins".
 - **Five new trophies, each with an outfit:** Window Sill (a spyglass), Hang On! (racing goggles, for riding a window 2,000 px), and three secret ones that bring a cowboy hat, a parachute and a ringmaster's collar.
+
+## 0.40.2: visiting crabs, released
+
+### Fixed
+- **0.40.0 and 0.40.1 never made it out.** Their release builds stopped at two end-to-end checks: one hadn't learned about the new Visiting crabs toggle, and the other waited forever for a screenshot the build machine never took. Both are fixed, and everything in 0.40.0 below ships in this version.
 
 ## 0.40.0: visiting crabs
 
@@ -154,6 +164,15 @@
 
 ### New
 - **Ask Claude to review your memory.** Toolbox → Memory has a **Review with Claude** button, and each open `CLAUDE.md` has an **Ask Claude** button next to Save. Either one starts a task asking Claude to look the files over and suggest what to tighten, add or cut, and to show you the changes before making them. It's filled into the box but not sent, so you can say what you want changed first. If the `claude-md-management` plugin is installed, the task uses its `/claude-md-improver` skill. Without it, Claude still does the review from a plain prompt. If you have the file open with unsaved changes and Claude edits it too, saving won't overwrite Claude's version and offers to reload.
+## 0.27.3: GitHub sign-in lets go on quit
+
+### Fixed
+- **Quitting during a GitHub sign-in leaves nothing behind.** If Shellby closed just as a GitHub sign-in finished, the sign-in could still start its 15-minute sync timer afterwards. Once Shellby is closing, a late sign-in no longer starts anything.
+
+## 0.27.2: diffs under any spelling of the path
+
+### Fixed
+- **A turn's diff and Undo work wherever the project is.** If Windows knew the project folder by its short name (`C:\Users\RUNNER~1\...`), opening a file's diff or pressing **Undo** said "That project has moved." The folder is now compared with its full name.
 
 ## 0.27.1: tidier health warnings
 
