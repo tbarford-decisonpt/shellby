@@ -279,6 +279,16 @@
       <ul class="deps-list" id="depsList"></ul>
     </section>
 
+    <section class="deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
+      <div class="deps-head">
+        <h3 id="flakyTitle">Flaky tests</h3>
+        <span class="deps-summary" id="flakySummary"></span>
+      </div>
+      <p class="view-lede">Tests that failed and then passed with the code exactly the same, in Shellby's tabs. Fixing or quarantining one happens in a copy of the repository, on its own branch.</p>
+      <ul class="deps-list" id="flakyList"></ul>
+      <button type="button" class="btn ghost slim-btn flaky-forget" id="flakyForget">Forget all of this</button>
+    </section>
+
     <section class="dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
       <div class="dw-head">
         <h3 id="depWatchTitle">Dependency watch</h3>
@@ -1063,6 +1073,8 @@
         <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
         <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
+        <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
+        <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">

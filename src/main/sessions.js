@@ -66,7 +66,10 @@ class SessionManager extends EventEmitter {
     return tab;
   }
 
-  onItem(tab, item) {
+  onItem(tab, raw) {
+    // A long tool result's tail is only for main to read (flaky.js): it's
+    // neither saved with the tab nor sent to the panel.
+    const { tail, ...item } = raw;
     // A rewind's fork exists once Claude Code reports its id: from then on it's an ordinary resume.
     if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId, resumeAt: null });
     if (item.kind === 'init' && tab.preambleSent) {
@@ -80,7 +83,7 @@ class SessionManager extends EventEmitter {
       if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
     }
     if (tab.saved) this.history.append(tab.id, item);
-    this.emit('item', tab.id, item, tab);
+    this.emit('item', tab.id, item, tab, tail);
     if (['permission', 'decision', 'result', 'error'].includes(item.kind)) this.changed();
   }
 

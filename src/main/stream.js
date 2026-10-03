@@ -104,6 +104,8 @@ function toolItem(b, sub) {
   const input = b.input || {};
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
+  // Its result only says it started: not a finished run (flaky.js).
+  if ((b.name === 'Bash' || b.name === 'PowerShell') && input.run_in_background === true) item.background = true;
   const fp = writtenPath(b.name, input);
   if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); }
   if (AGENT_TOOLS.has(b.name)) {
@@ -171,10 +173,14 @@ function toItems(ev) {
       const content = ev.message?.content;
       if (!Array.isArray(content)) return [];
       return content.filter(b => b.type === 'tool_result').map(b => {
+        const full = resultText(b.content);
         const item = {
           kind: 'tool_result', id: b.tool_use_id, isError: !!b.is_error,
-          text: truncate(resultText(b.content), MAX_RESULT_CHARS), ...sub,
+          text: truncate(full, MAX_RESULT_CHARS), ...sub,
         };
+        // Test runners print their failures last: main reads the end of a
+        // long result for the flaky test detective (flaky.js), then drops it.
+        if (full.length > MAX_RESULT_CHARS) item.tail = full.slice(-MAX_RESULT_CHARS);
         // Subagent results carry run stats alongside the text.
         const r = ev.tool_use_result;
         if (r && typeof r === 'object' && r.agentId) {

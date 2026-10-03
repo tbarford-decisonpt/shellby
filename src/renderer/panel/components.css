@@ -273,6 +273,9 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .dep-pill.ok { background: var(--glass-dim); color: var(--glass); }
 .dep-pill.warn { background: rgba(255, 193, 94, .14); color: #ffd28a; }
 .dep-pill.err { background: rgba(255, 90, 74, .15); color: #ff9b8f; }
+.flaky-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 46%; }
+.dep.flaky.fixed { opacity: .72; }
+.flaky-forget { margin-top: 8px; }
 
 .r-pill.warn { background: var(--coral-dim); color: var(--coral); }
 

@@ -56,6 +56,8 @@ const DEFAULTS = {
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
+  flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
+  flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky.js); this PC only
   timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)

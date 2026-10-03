@@ -1,0 +1,27 @@
+
+ RUN  v2.1.4 C:/code/app
+
+ ✓ src/math.test.ts (3 tests) 4ms
+ ❯ src/cart.test.ts (2 tests | 1 failed) 31ms
+   × cart > applies the discount 12ms
+     → expected 90 to be 80
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/cart.test.ts > cart > applies the discount
+AssertionError: expected 90 to be 80 // Object.is equality
+
+- Expected
++ Received
+
+- 80
++ 90
+
+ ❯ src/cart.test.ts:14:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 4 passed (5)
+   Start at  10:12:01
+   Duration  412ms

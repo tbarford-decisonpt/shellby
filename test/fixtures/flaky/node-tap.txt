@@ -1,0 +1,19 @@
+TAP version 13
+# Subtest: parses dates
+ok 1 - parses dates
+  ---
+  duration_ms: 0.8
+  ...
+# Subtest: talks to the cache
+not ok 2 - talks to the cache
+  ---
+  duration_ms: 31.2
+  failureType: 'testCodeFailure'
+  ...
+# Subtest: later
+not ok 3 - later # TODO
+1..3
+# tests 3
+# pass 1
+# fail 1
+# todo 1

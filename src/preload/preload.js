@@ -248,6 +248,12 @@ contextBridge.exposeInMainWorld('shellby', {
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),
   onCheckups: on('checkups'),
+  // the flaky test detective (flaky.js)
+  getFlaky: invoke('flaky:get'),
+  flakyAct: invoke('flaky:act'),
+  forgetFlaky: invoke('flaky:forget'),
+  onFlaky: on('flaky'),
+  onFlakyFocus: on('flaky:focus'),
   getWeek: invoke('week:get'),
   onWeekReady: on('week:ready'),
   // time on each project (src/main/timetrack-service.js)

@@ -5,7 +5,7 @@
 (function () {
   const { h, api, state, $ } = SB;
   const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯', pet: '♥', play: '🙈', find: '🐚', treasure: '🏴‍☠️', bond: '💞' };
-  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties', pet: 'Pets', play: 'Games', find: 'Finds', treasure: 'Treasure', bond: 'Bond' };
+  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', flakefix: 'Flaky fixes', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties', pet: 'Pets', play: 'Games', find: 'Finds', treasure: 'Treasure', bond: 'Bond' };
   const UNLOCK_NAME = { shell: 'shell', title: 'title', rank: '' };
   const fmt = n => Number(n || 0).toLocaleString();
   const shortDay = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
