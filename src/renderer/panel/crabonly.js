@@ -28,6 +28,7 @@
     files: 'With Claude Code, drop files on Shellby and he works on them: sorts, renames, summarizes, converts.',
     ci: 'With Claude Code, Shellby reads the failing logs and tells you why the build is red, without changing anything.',
     review: "With Claude Code, Shellby can look over the changes you haven't committed or pushed yet and say what looks risky, without changing anything.",
+    lhm: 'With Claude Code, Shellby can install LibreHardwareMonitor and switch on its web server for you. Until then, the steps in the Health view do the same by hand.',
   };
 
   SB.claudeUpsell = (reason = 'health') => {

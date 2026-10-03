@@ -295,6 +295,20 @@
     const st = view.sources?.lhm;
     SB.toast(st === 'ok' ? 'Found it! CPU temperature is on.' : st === 'auth' ? 'LHM wants a password; turn off its authentication.' : `Nothing answering on port ${view.settings.lhmPort} yet.`);
   });
+  // Hand the whole LHM setup to Claude. The box is filled in, not sent: it runs
+  // winget and an elevated program, so you see what you're agreeing to first.
+  $('hlClaudeLhm').addEventListener('click', () => {
+    if (SB.isCrabOnly()) return SB.claudeUpsell('lhm');
+    const port = view?.settings?.lhmPort || 8085;
+    SB.prefill([
+      'Set up LibreHardwareMonitor so Shellby can read my CPU temperature from its local web server.',
+      '1. If it isn\'t installed, install it with `winget install --id LibreHardwareMonitor.LibreHardwareMonitor -e --accept-source-agreements --accept-package-agreements`, then find where LibreHardwareMonitor.exe ended up.',
+      `2. Make sure LHM isn't running, then in LibreHardwareMonitor.config (next to the exe; run LHM once and close it if the file isn't there yet) turn on the remote web server on port ${port} with no authentication, and set it to start minimized to the tray. Read the file first and use the setting names it already has.`,
+      '3. Start it as administrator (`Start-Process -Verb RunAs`); I\'ll accept the Windows prompt.',
+      `4. Check that http://127.0.0.1:${port}/data.json answers, and tell me if anything needs me to click something in LHM.`,
+      'Ask me before making LHM run at Windows startup.',
+    ].join('\n') + '\n');
+  });
   $('hlGetLhm').addEventListener('click', () => api.openExternal('https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest'));
   $('hlPort').addEventListener('change', e => save({ lhmPort: Number(e.target.value) }));
   $('hlEnabledToggle').addEventListener('change', e => save({ enabled: e.target.checked }));

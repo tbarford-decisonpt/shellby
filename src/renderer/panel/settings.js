@@ -122,6 +122,7 @@
     // The gear carries the news from any screen, so this part runs even when
     // Settings is nowhere in sight.
     $('updateDot').hidden = !ready;
+    $('updateTabDot').hidden = !ready;
     $('settingsBtn').title = ready ? `Settings — update ${u.version} is ready` : 'Settings';
     const row = $('updateRow');
     row.hidden = !u;

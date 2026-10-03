@@ -1,6 +1,6 @@
 /* Shellby panel — navigation: the bottom bar and Settings gear, Back/Esc going
    up one level, Ctrl+1…6, the Ctrl+K "jump anywhere" palette, and the Settings
-   section links. */
+   tabs. */
 'use strict';
 (function () {
   const { h, state, $ } = SB;
@@ -37,82 +37,67 @@
     b.click();
   });
 
-  // ------------------------------------------------------------ Settings section links
+  // ------------------------------------------------------------ Settings tabs
 
+  // Four tabs instead of one long page: the crab, Claude, the outside world, the
+  // app itself. Settings reopens on the last tab you looked at; the first time,
+  // Claude users start on Claude and just-the-crab users on Shellby.
   const settingsView = $('settingsView');
-  const jump = $('settingsJump');
-  const visibleGroups = () => [...settingsView.querySelectorAll('.setting-group[data-nav]')]
-    .filter(g => !g.hidden && getComputedStyle(g).display !== 'none');
+  const tabs = [...$('settingsTabs').querySelectorAll('[role="tab"]')];
+  const allGroups = () => [...settingsView.querySelectorAll('.setting-group[data-nav]')];
+  const tabOf = group => group.closest('.settings-panel')?.dataset.tab;
+  let currentTab = null;
 
-  // While a jump's smooth scroll runs, keep the clicked link lit instead of
-  // walking the highlight through every section on the way.
-  let jumpingTo = null;
-  settingsView.addEventListener('scrollend', () => { jumpingTo = null; markCurrent(); });
+  function showTab(tab, { focus = false } = {}) {
+    const changed = tab !== currentTab;
+    currentTab = tab;
+    for (const b of tabs) {
+      const on = b.dataset.tab === tab;
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+    }
+    for (const p of settingsView.querySelectorAll('.settings-panel')) p.hidden = p.dataset.tab !== tab;
+    if (changed) settingsView.scrollTop = 0;
+  }
+
+  SB.showSettingsTab = tab => showTab(tab);
+  for (const b of tabs) b.addEventListener('click', () => showTab(b.dataset.tab));
+  // Arrow keys walk the tabs, the usual way for a tab list.
+  $('settingsTabs').addEventListener('keydown', e => {
+    const i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    showTab(tabs[(next + tabs.length) % tabs.length].dataset.tab, { focus: true });
+  });
 
   // main.js points here by section name (the tray's update item, the "update
-  // ready" notification).
+  // ready" notification), and the palette by section.
   SB.jumpToSettingByName = name => {
-    const group = [...settingsView.querySelectorAll('.setting-group[data-nav]')].find(g => g.dataset.nav === name);
+    const group = allGroups().find(g => g.dataset.nav === name);
     if (group) SB.jumpToSetting(group);
   };
 
   SB.jumpToSetting = group => {
     if (state.view !== 'settings') SB.setView('settings');
+    showTab(tabOf(group));
     requestAnimationFrame(() => {
-      const before = settingsView.scrollTop;
-      jumpingTo = group;
       group.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
-      markCurrent(group);
-      // Already in place: no scroll happens, so no scrollend either.
-      requestAnimationFrame(() => { if (settingsView.scrollTop === before) jumpingTo = null; });
+      // A brief glow says which section you were sent to.
+      group.classList.remove('arrived');
+      void group.offsetWidth;
+      group.classList.add('arrived');
     });
   };
-
-  function renderJump() {
-    jump.replaceChildren(...visibleGroups().map(g => h('button', {
-      type: 'button', class: 'jump-chip', dataset: { nav: g.dataset.nav }, onclick: () => SB.jumpToSetting(g),
-    }, g.dataset.nav)));
-    markCurrent();
-    markEdges();
-  }
-
-  // The current section is the last one whose top has scrolled up under the links.
-  function markCurrent(forced) {
-    const groups = visibleGroups();
-    if (!groups.length) return;
-    let current = forced;
-    if (!current) {
-      const line = settingsView.getBoundingClientRect().top + jump.offsetHeight + 24;
-      current = groups[0];
-      for (const g of groups) if (g.getBoundingClientRect().top <= line) current = g;
-      // At the very bottom the last short sections can never reach the line.
-      if (settingsView.scrollTop + settingsView.clientHeight >= settingsView.scrollHeight - 2) current = groups.at(-1);
-    }
-    for (const chip of jump.children) {
-      const on = chip.dataset.nav === current.dataset.nav;
-      if (on) chip.setAttribute('aria-current', 'true'); else chip.removeAttribute('aria-current');
-      if (on) {
-        const { offsetLeft: left, offsetWidth: width } = chip;
-        if (left < jump.scrollLeft || left + width > jump.scrollLeft + jump.clientWidth) jump.scrollLeft = left - 16;
-      }
-    }
-  }
-
-  const markEdges = () => {
-    jump.classList.toggle('more-left', jump.scrollLeft > 2);
-    jump.classList.toggle('more-right', jump.scrollLeft + jump.clientWidth < jump.scrollWidth - 2);
-  };
-  jump.addEventListener('scroll', markEdges, { passive: true });
-  new ResizeObserver(markEdges).observe(jump);
-
-  let scrollTick = 0;
-  settingsView.addEventListener('scroll', () => {
-    if (scrollTick) return;
-    scrollTick = requestAnimationFrame(() => { scrollTick = 0; markCurrent(jumpingTo); });
-  }, { passive: true });
+  settingsView.addEventListener('animationend', e => e.target.classList.remove('arrived'));
 
   const renderSettings = SB.views.settings.render;
-  SB.views.settings.render = () => { renderSettings(); renderJump(); };
+  SB.views.settings.render = () => {
+    renderSettings();
+    if (!currentTab) showTab(SB.isCrabOnly() ? 'shellby' : 'claude');
+  };
 
   // ------------------------------------------------------------ Ctrl+K palette
 
@@ -142,12 +127,15 @@
     ].filter(Boolean).map(e => ({ ...e, group: 'Screens' }));
   }
 
+  // Every section, whichever tab it's on: the palette is how you find one without
+  // knowing where it lives.
   function settingEntries() {
-    return visibleGroups().map(g => {
+    return allGroups().filter(g => !g.hidden).map(g => {
       const heading = g.querySelector('h3')?.textContent || '';
+      const tab = tabs.find(b => b.dataset.tab === tabOf(g))?.textContent.trim() || '';
       return {
         group: 'Settings', icon: '⚙️', title: `Settings › ${g.dataset.nav}`,
-        sub: heading.toLowerCase() === g.dataset.nav.toLowerCase() ? '' : heading,
+        sub: [tab, heading.toLowerCase() === g.dataset.nav.toLowerCase() ? '' : heading].filter(Boolean).join(' · '),
         keys: g.textContent.slice(0, 400), run: () => SB.jumpToSetting(g),
       };
     });
