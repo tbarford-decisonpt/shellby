@@ -870,7 +870,7 @@ ${contextText(t.context)}` : t.title,
     }
     if (r?.ok) {
       await SB.closeTab(tab.id);
-      SB.toast(r.merged ? `${merged} The conversation is in History.` : 'Nothing new to merge, so the copy was just tidied away.', { ms: 6000 });
+      SB.toast(r.merged ? `${merged} The conversation is in History, marked done.` : 'Nothing new to merge, so the copy was just tidied away.', { ms: 6000 });
       return;
     }
     if (r?.conflict) {

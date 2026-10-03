@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.35.0: home and done
+
+### New
+- **Bringing a copy home ticks the conversation off.** When you bring a copy home and tidy it away (the tab closes), History marks that conversation done. It's merged, so it's finished. Bringing it home and keeping the copy leaves it alone, because you might carry on there, and so does throwing a copy away. If a done conversation gets more work, it's marked not done again, the same as when you tick it yourself.
+
 ## 0.34.0: call it what you like
 
 ### New
