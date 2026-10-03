@@ -72,7 +72,7 @@ These are SignPath Foundation's [conditions](https://signpath.org/terms). Shellb
    | Variable | `SIGNPATH_PROJECT_SLUG` | Only if it isn't `shellby` |
    | Variable | `SIGNPATH_POLICY_SLUG` | Only if it isn't `release-signing` |
 
-4. **Tag a release** and approve the request when SignPath emails you. The workflow uploads the signed files, rebuilds `latest.yml` and the blockmap for the signed installer (signing changes its hash, and updaters refuse a hash that doesn't match), and checks that both exes are validly signed before publishing.
+4. **Tag a release** and approve the request when SignPath emails you. The workflow uploads the signed files, rebuilds `latest.yml` and the blockmap for the signed installer (signing changes its hash, and updaters refuse a hash that doesn't match), and checks that both exes are validly signed by SignPath Foundation before publishing.
 5. **Then tidy up the wording.** Drop the "not signed yet" notes from the README's install section and [.github/release-notes.md](../.github/release-notes.md), and the "applying for this" note in the code signing policy.
 
 Configure SignPath *or* Azure, not both: the workflow stops if it finds both.

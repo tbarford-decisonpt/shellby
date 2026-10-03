@@ -125,7 +125,9 @@ jobs:
       # arrives as this starts), up to an hour.
       - name: Sign with SignPath
         if: ${{ env.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
-        uses: signpath/github-action-submit-signing-request@v3
+        # Pinned to a commit, not the tag: this action gets the API token and
+        # hands back the files we publish, so a moved tag mustn't change it.
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         timeout-minutes: 70
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -162,15 +164,20 @@ jobs:
           cat SHA256SUMS.txt
           gh release upload "$GITHUB_REF_NAME" SHA256SUMS.txt --clobber
 
-      # When signing is on, fail loudly if the result isn't actually signed.
+      # When signing is on, fail loudly if the result isn't signed, or is signed
+      # by anyone but the expected publisher. The draft stays unpublished.
       - name: Check signatures
         if: ${{ vars.AZURE_SIGN_ENDPOINT != '' || vars.SIGNPATH_ORGANIZATION_ID != '' }}
         shell: pwsh
+        env:
+          EXPECTED_PUBLISHER: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' && 'SignPath Foundation' || vars.AZURE_SIGN_PUBLISHER }}
         run: |
           foreach ($f in Get-ChildItem dist\Shellby-*.exe) {
             $sig = Get-AuthenticodeSignature $f.FullName
             "{0}: {1} ({2})" -f $f.Name, $sig.Status, $sig.SignerCertificate.Subject
             if ($sig.Status -ne 'Valid') { throw "$($f.Name) is not validly signed" }
+            $cn = $sig.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+            if ($cn -ne $env:EXPECTED_PUBLISHER) { throw "$($f.Name) is signed by '$cn', not '$env:EXPECTED_PUBLISHER'" }
           }
 
       # Publish only once every file is attached, so auto-update never sees a
