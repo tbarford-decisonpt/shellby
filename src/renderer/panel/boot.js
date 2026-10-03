@@ -52,6 +52,7 @@
   api.onRecap(d => SB.showRecap(d));
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
+  api.onSnippets(SB.applySnippets);
   api.onRoutines(list => { state.routines = list; if (state.view === 'routines') SB.views.routines.render(); });
   api.onWorkflows(view => SB.applyWorkflows(view));
   api.onWorkflowRun(summary => SB.onWorkflowRun(summary));
@@ -130,6 +131,7 @@
       settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,
       home: b.home, version: b.version, packaged: b.packaged, models: b.models, cwd: b.cwd, registryUrl: b.registryUrl,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates,
+      snippets: b.snippets || [],
     });
     if (b.outlook) SB.applyOutlook(b.outlook);
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear

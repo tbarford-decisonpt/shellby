@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="stickers.css">
+<link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -19,6 +20,7 @@
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="workflows.css">
+<link rel="stylesheet" href="time.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -145,7 +147,7 @@
       <button type="button" class="btn ghost slim-btn" id="rescanBtn" title="Scan again">Rescan</button>
       <button type="button" class="btn primary slim-btn" id="shopBtn" title="Browse and install skills from Claude Code plugin marketplaces">Get more</button>
     </div>
-    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers, plus the hooks and memory files that shape every session. When Shellby builds itself a new tool, it shows up here with a <span class="new-pill">new</span> tag.</p>
+    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers, plus the hooks and memory files that shape every session, and the prompts you've saved as snippets. When Shellby builds itself a new tool, it shows up here with a <span class="new-pill">new</span> tag.</p>
     <div class="learned" id="learnedBox" hidden></div>
     <div class="toolbox-controls">
       <input type="search" id="toolSearch" class="field" placeholder="Search tools…" aria-label="Search tools">
@@ -154,6 +156,7 @@
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="snippet" title="Saved prompts: /name here, shellby do @name in a terminal">Snippets <span class="n"></span></button>
         <button type="button" role="tab" data-kind="hook">Hooks <span class="n"></span></button>
         <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny">Rules <span class="n"></span></button>
         <button type="button" role="tab" data-kind="memory">Memory <span class="n"></span></button>
@@ -276,6 +279,16 @@
       <p class="view-lede">What the last <code>npm audit</code>, <code>pip-audit</code>, <code>cargo outdated</code> and the like found in each project. A clean audit keeps a project 🧼 fresh for 30 days.</p>
       <ul class="deps-list" id="depsList"></ul>
     </section>
+
+    <section class="dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
+      <div class="dw-head">
+        <h3 id="depWatchTitle">Dependency watch</h3>
+        <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects for outdated and vulnerable packages every week</label>
+      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby runs <code>npm outdated</code> and <code>npm audit</code> in the npm projects you work in, which asks the npm registry about their packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
+      <ul class="dw-list" id="depWatchList"></ul>
+    </section>
   </main>
 
   <!-- ====================== HEALTH ====================== -->
@@ -389,8 +402,10 @@
       <h2 class="sr-only">Wardrobe</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
-        <button type="button" data-goto="trophies">Trophies &amp; XP</button>
+        <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
       </nav>
       <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
@@ -452,8 +467,10 @@
       <h2 class="sr-only">Trophies and XP</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
-        <button type="button" aria-current="page" data-goto="trophies">Trophies &amp; XP <span class="n" id="trophyCount"></span></button>
+        <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Make a shareable picture of your Shellby" aria-label="Make a shareable picture of your Shellby">📸</button>
     </div>
@@ -531,8 +548,10 @@
       <h2 class="sr-only">Sticker Book</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
-        <button type="button" data-goto="trophies">Trophies &amp; XP</button>
+        <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
@@ -572,8 +591,92 @@
     </section>
   </main>
 
+  <!-- ====================== FINDS: what he digs up (together.js, src/main/gifts.js) ====================== -->
+  <main class="view view-finds" id="findsView">
+    <div class="view-head">
+      <h2 class="sr-only">Finds</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
+        <button type="button" data-goto="us">Us</button>
+      </nav>
+    </div>
+    <section class="fd-hero" aria-label="The shelf">
+      <div class="fd-fav" id="fdFav"></div>
+      <div class="fd-hero-text">
+        <p class="xp-eyebrow fd-eyebrow">The shelf</p>
+        <h3 id="fdTotal">Nothing on the shelf yet</h3>
+        <p class="fd-sub">When he's bored he digs at your wallpaper, and now and then he turns something up. Some only show up in their season, after dark, or on a special day.</p>
+        <div class="fd-tools">
+          <button type="button" class="btn primary slim-btn" id="fdDig">Dig for treasure</button>
+          <span class="fd-dig-note muted small" id="fdDigNote"></span>
+        </div>
+      </div>
+    </section>
+    <ul class="fd-sets" id="fdSets" aria-label="Sets"></ul>
+    <section class="fd-detail" id="fdDetail" hidden aria-live="polite"></section>
+    <ul class="fd-grid" id="fdGrid" role="list" aria-label="Every find"></ul>
+  </main>
+
+  <!-- ====================== US: the two of you (together.js, src/main/bond.js, playtime.js) ====================== -->
+  <main class="view view-us" id="usView">
+    <div class="view-head">
+      <h2 class="sr-only">You and Shellby</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="us">Us</button>
+      </nav>
+    </div>
+    <section class="us-hero" id="usHero" aria-label="How close you are"></section>
+    <section class="us-card us-play" aria-label="Play">
+      <h3>Play with him</h3>
+      <p class="muted small">No account or Claude needed. Right-click him on the desktop for these too.</p>
+      <div class="us-play-btns">
+        <button type="button" class="btn slim-btn" data-play="hide">🙈 Hide and seek</button>
+        <button type="button" class="btn slim-btn" data-play="fetch">🎾 Fetch</button>
+        <button type="button" class="btn slim-btn" data-play="dig">⛏️ Dig for treasure</button>
+        <button type="button" class="btn ghost slim-btn" data-play="stop" hidden>Stop</button>
+      </div>
+      <ul class="us-scores" id="usScores"></ul>
+    </section>
+    <section class="us-card us-birthday" aria-label="Your birthday">
+      <h3>Your birthday</h3>
+      <p class="muted small">Tell him and he'll make a fuss on the day, and dig up something you can't find any other way. It stays on this PC.</p>
+      <div class="row wrap us-bd-row">
+        <select class="field slim" id="usBdMonth" aria-label="Month"></select>
+        <select class="field slim" id="usBdDay" aria-label="Day"></select>
+        <button type="button" class="btn slim-btn" id="usBdSave">Save</button>
+        <button type="button" class="btn ghost slim-btn" id="usBdForget" hidden>Forget it</button>
+      </div>
+    </section>
+    <section class="us-card" aria-label="What grows">
+      <h3>As you get closer</h3>
+      <p class="muted small">Pet him, play with him, and just keep him around. It never goes back down: he doesn't sulk.</p>
+      <ul class="us-unlocks" id="usUnlocks"></ul>
+    </section>
+    <section class="us-card" aria-label="His little scenes">
+      <h3 id="usScenesTitle">His little scenes</h3>
+      <p class="muted small">Things he gets up to when nothing's happening. Some only at night, at the weekend, or when you're playing music.</p>
+      <ul class="us-scenes" id="usScenes"></ul>
+    </section>
+    <section class="us-card" aria-label="Our story">
+      <h3>Our story</h3>
+      <p class="muted small">The moments he remembers. Every so often he brings one up.</p>
+      <ol class="us-story" id="usStory"></ol>
+    </section>
+  </main>
+
   <!-- ====================== HISTORY ====================== -->
   <main class="view view-history" id="historyView">
+    <nav class="seg auto-switch" aria-label="History">
+      <button type="button" aria-current="page">Conversations</button>
+      <button type="button" data-goto-view="time">Time</button>
+    </nav>
     <div class="view-head">
       <h2>History</h2>
     </div>
@@ -586,6 +689,88 @@
     </div>
     <ul class="history-list" id="historyList"></ul>
     <p class="muted small history-note">Stored only on this PC. To clear it, open <b>Settings → About → Data folder</b>.</p>
+  </main>
+
+  <!-- ====================== TIME (timetrack.js) ====================== -->
+  <main class="view view-time" id="timeView">
+    <nav class="seg auto-switch" aria-label="History">
+      <button type="button" data-goto-view="history">Conversations</button>
+      <button type="button" aria-current="page">Time</button>
+    </nav>
+    <div class="view-head">
+      <h2>Time</h2>
+      <label class="toggle tm-onoff"><input type="checkbox" id="timeToggle"><span class="switch"></span>Keep time</label>
+    </div>
+    <section class="tm-intro" id="timeIntro" hidden>
+      <p>Shellby can keep track of how long you spend on each project, for timesheets and invoices. He works it out from what he already sees:</p>
+      <ul>
+        <li><b>The window in front.</b> An editor or terminal showing a project's folder, or the project's page on GitHub.</li>
+        <li><b>Claude at work.</b> While Claude works in a project, your terminal and docs count for it.</li>
+        <li><b>Git.</b> A commit, checkout or pull says which project you're in.</li>
+      </ul>
+      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere.</p>
+    </section>
+    <p class="tm-now" id="timeNow" aria-live="polite"></p>
+    <div id="timeBody">
+      <div class="seg tm-ranges" id="timeRanges" role="tablist" aria-label="Period" data-roving></div>
+      <section class="tm-overview" aria-labelledby="timeTotal">
+        <div class="tm-totals">
+          <p class="tm-total" id="timeTotal"></p>
+          <p class="tm-amount" id="timeAmount"></p>
+        </div>
+        <ul class="tm-chart" id="timeChart" aria-label="Hours each day"></ul>
+      </section>
+      <p class="tm-fill" id="timeFill" hidden></p>
+      <ul class="tm-projects" id="timeProjects"></ul>
+
+      <section class="setting-group tm-export" aria-labelledby="timeExportTitle">
+        <h3 id="timeExportTitle">Timesheet</h3>
+        <div class="row wrap">
+          <select class="field slim" id="timeOnly" aria-label="Which projects go on it"></select>
+          <button type="button" class="btn slim-btn" id="timePdf">Save PDF</button>
+          <button type="button" class="btn slim-btn" id="timeCsv">Save CSV</button>
+          <button type="button" class="btn ghost slim-btn" id="timeCopy">Copy as text</button>
+        </div>
+        <p class="muted small" id="timeExportNote">For the period above, rounded as set below. Each day's line is its note, or else your commit messages.</p>
+      </section>
+
+      <section class="setting-group" aria-labelledby="timeAddTitle">
+        <h3 id="timeAddTitle">Add time by hand</h3>
+        <form class="tm-add" id="timeAdd" novalidate>
+          <div class="grid-2">
+            <label class="field-label">Project<select class="field" id="timeAddProject" required></select></label>
+            <label class="field-label">Day<input class="field" type="date" id="timeAddDay" required></label>
+          </div>
+          <div class="tm-add-row">
+            <div class="seg tm-sign" role="radiogroup" aria-label="Add or take off">
+              <button type="button" role="radio" aria-checked="true" data-sign="1">Add</button>
+              <button type="button" role="radio" aria-checked="false" data-sign="-1">Take off</button>
+            </div>
+            <label class="field-label tm-num">Hours<input class="field" type="number" id="timeAddHours" min="0" max="24" step="1" value="0" inputmode="numeric"></label>
+            <label class="field-label tm-num">Minutes<input class="field" type="number" id="timeAddMinutes" min="0" max="59" step="5" value="30" inputmode="numeric"></label>
+          </div>
+          <label class="field-label">What it was for <span class="field-hint">(optional, goes on the timesheet)</span><input class="field" id="timeAddNote" maxlength="200" placeholder="Kickoff call with the client"></label>
+          <p class="form-errors" id="timeAddError" role="alert" hidden></p>
+          <div class="row"><button type="submit" class="btn primary slim-btn">Add time</button></div>
+        </form>
+      </section>
+
+      <section class="setting-group" aria-labelledby="timeSetTitle">
+        <h3 id="timeSetTitle">How time is kept</h3>
+        <div class="tm-settings">
+          <label class="field-label">Stop the clock after<select class="field slim" id="timeIdle"></select></label>
+          <label class="field-label">Round each day<select class="field slim" id="timeRound"></select></label>
+          <label class="field-label">Currency<input class="field slim tm-cur" id="timeCurrency" maxlength="3" spellcheck="false" autocomplete="off" aria-describedby="timeCurHint"></label>
+        </div>
+        <p class="muted small" id="timeCurHint">Three letters, like USD, EUR or GBP.</p>
+        <div class="row wrap">
+          <button type="button" class="btn ghost slim-btn" id="timeAddFolder">Add a project folder…</button>
+        </div>
+        <p class="muted small">Projects show up on their own once Shellby sees you in them. Add one here if he hasn't yet.</p>
+        <p class="muted small" id="timeIgnored" hidden></p>
+      </section>
+    </div>
+    <p class="muted small history-note">Kept only on this PC, never synced or sent anywhere.</p>
   </main>
 
   <!-- ====================== SETTINGS ====================== -->
@@ -639,7 +824,8 @@
           </label>
           <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
         </div>
-        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble. Normal lets him say a few words about what he's up to; Chatty lets him mutter to himself as well. He always keeps quiet while he's guarding your focus.</p>
+        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
+        <p class="small temper-note" id="temperNote" hidden></p>
         <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
       </section>
 
@@ -1065,10 +1251,12 @@
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>
+<script src="depwatch.js"></script>
 <script src="workflows.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
+<script src="together.js"></script>
 <script src="health.js"></script>
 <script src="card.js"></script>
 <script src="celebrate.js"></script>
@@ -1080,6 +1268,7 @@
 <script src="week-card.js"></script>
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
+<script src="time.js"></script>
 <script src="github.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>

@@ -1,0 +1,13 @@
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; -webkit-user-drag: none; }
+#toy {
+  position: absolute; inset: 0; display: grid; place-items: end center;
+  padding: 0 0 4px; margin: 0; border: 0; background: none; cursor: grab; outline: none;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35));
+}
+#toy:active { cursor: grabbing; }
+#toy:focus-visible { outline: 2px dashed #7fd6c2; outline-offset: -4px; }
+#toy svg { display: block; animation: wobble 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
+/* a little "throw me" wobble while it waits, still while it's held */
+#toy:active svg { animation: none; }
+@keyframes wobble { 0%, 80%, 100% { transform: none; } 86% { transform: rotate(-8deg); } 92% { transform: rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { #toy svg { animation: none; } }

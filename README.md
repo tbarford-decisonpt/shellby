@@ -6,7 +6,7 @@
 
 Give him a task and he scuttles off, sends out helper crabs and builds his own tools,<br>
 all on **your own Claude Pro or Max plan**. No API keys, no per-token billing.<br>
-No Claude? He's still a desk pet who talks, watches your PC, dresses up and earns trophies.
+No Claude? He's still a desk pet who talks, plays, digs you up gifts, remembers you, watches your PC and dresses up.
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
@@ -33,6 +33,26 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 ## What's new
 
 <table>
+<tr>
+<td width="33%" valign="top">
+
+**🎭 A life of his own** · 0.55<br>
+<sub>Little scenes when nothing's happening: he pounces on your cursor and misses, builds a sandcastle, gets the hiccups. He notices your day too: <i>"gg"</i> after a game, quiet on a call.</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**🐚 Gifts from digging** · 0.55<br>
+<sub>He digs at your wallpaper and turns things up: sea glass, a lost key, a pearl, once in a long while a gold doubloon. 38 finds, six sets, a shelf to fill.</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**💞 He remembers you** · 0.55<br>
+<sub>A bond that grows, a story of your moments together (<i>"remember Chrome?"</i>), your birthday, hide and seek, fetch, and visiting crabs who chat back.</sub>
+
+</td>
+</tr>
 <tr>
 <td width="33%" valign="top">
 
@@ -73,26 +93,6 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 </td>
 </tr>
-<tr>
-<td valign="top">
-
-**🦀 Eleven more packs** · 0.20<br>
-<sub>Head-to-tail sets, crabs that aren't the classic shape, and the quiet seasons filled in. 108 accessories, 18 effects, 16 crabs.</sub>
-
-</td>
-<td valign="top">
-
-**🛡️ A security read** · 0.20<br>
-<sub>The shield next to a project sends your unpushed work for a read-only review, worst first. He changes nothing.</sub>
-
-</td>
-<td valign="top">
-
-**🔄 Updating is a button** · 0.19<br>
-<sub><b>Restart and update</b> in Settings and the tray, <b>Report a problem</b> with the facts filled in, and kinder to your battery.</sub>
-
-</td>
-</tr>
 </table>
 
 ## 🦀 He lives on your desktop
@@ -103,6 +103,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **Shows you what's happening:** he scuttles while Claude works, raises a claw when it needs you, celebrates when it's done and naps when it's quiet.
 - **He has a voice:** a few words of his own in his bubble, about the work he's actually doing — *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push, *"this file again?"* on the third visit. He says good morning, notices when you've been away, and mutters to himself when it's quiet. He never quotes Claude; the lines are all his.
 - **A temperament of his own:** chipper, fussy, cocky or sleepy, picked once from your install and kept. It adds lines (a cocky crab says *"obviously"*) and colours his idle habits: digging at your wallpaper, buffing his shell, peeking at what you're doing, stretching, flopping over.
+- **Awake while you're here:** your own keyboard and mouse keep him up, and he naps when you step away (and now and then because he felt like it). His eyes follow your cursor.
 - **Pet him** by rubbing the mouse back and forth over him. **Flick him** while dragging and he tumbles across the screen and lands on the taskbar. When he's idle he strolls around his spot a little.
 - **He climbs onto your windows.** Every so often he eyes up the window you're using, crouches, and hops onto its title bar (with a somersault if it's far). Up there he potters along the bar, sits on the edge swinging his legs, and peers down at what you're doing. Drag the window and he hangs on, leaning into the wind; shake it and he's flung off and lands seeing stars. Close it under him and he hangs in mid-air for a beat, looks down, and drops (onto the window below, if there is one), then walks home. Throw him at a title bar and he catches it. He keeps clear of the close button, never goes near fullscreen games or presentations, and lets clicks through to the title bar around him. Right-click him up there for **Hop down** or **Not on this app**; **Settings → Shellby** sets how often he climbs, or turns it off.
 - **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, counts down, holds back the notifications that can wait, and takes a break with you when time's up.
@@ -112,7 +113,8 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 <details>
 <summary><b>How much he talks, and when he doesn't</b></summary>
 
-- **Settings → Look → Personality:** **Quiet** is a single mark in the bubble and never a word. **Normal** (the default) leaves at least 40 seconds between lines. **Chatty** shortens that to 12 seconds and lets him mutter when nothing's happening.
+- **Settings → Look → Personality:** **Quiet** is a single mark in the bubble and never a word. **Normal** (the default) leaves at least 40 seconds between lines and has him mutter to himself now and then when nothing's happening. **Chatty** shortens the gap to 12 seconds, and he mutters and plays out his little scenes more often. **Settings → Look** also says which of the four temperaments yours is.
+- **On a call he hushes:** while an app has your microphone he holds up a little "shh" sign and says nothing, and asks how it went after. Windows' own record of who's using the microphone tells him; he never listens himself.
 - He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters — a health warning, a red build, a countdown — takes the bubble back off him.
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
 - **Usage limit reached?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
@@ -120,16 +122,28 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 </details>
 
+## 🐚 Just the two of you
+
+None of this needs Claude or an account. It's all on your PC.
+
+- **Little scenes.** When nothing's happening he gets up to something: squints at your cursor, creeps up on it, pounces and misses (*"meant to do that"*); builds a sandcastle and watches it wash away; sneezes, gets the hiccups, blows bubbles, juggles pebbles, nods off, counts grains of sand. Some only happen at night, at the weekend, in their season or while music plays, and his temperament changes what he says. The **Us** page shows which of the 24 you've caught him in.
+- **He notices your day.** *"gg"* when a game ends, *"numbers again?"* after most of an hour in Excel (Word and PowerPoint get their own), *"friday!"* on a Friday afternoon, a lazy line at the weekend and a groan on Monday morning. He only ever knows the *kind* of app in front, from its file name and where it's installed, never a window title or anything in it. (The one thing that reads titles is the time tracker, if you turn it on, and only to tell which project you're in.)
+- **Gifts from digging.** Now and then a dig turns something up and he holds it out to you: sea glass, a bottle cap, a lost key, a pearl, a fossil, and very rarely a black pearl or a gold doubloon. 38 finds in six sets (sea glass in every colour, a pirate's hoard, the junk drawer), some only in their season or after dark, two only on special days. Right-click him → **Play → Dig for treasure** every couple of hours. They live on the shelf at **Shellby → Finds**, and the one you pick as his favourite is what he shows off.
+- **He remembers you.** Petting, playing and simply keeping him around bring you closer, from *New friends* to *Inseparable*, and each step opens something up: memories, his favourite find, hearts in the sand, a lean on your cursor. It never goes back down. **Shellby → Us** keeps your story (*"You shook him off Chrome"*, *"Dug up his first find: a pearl"*), and every so often he brings one up. He counts the days (*"100 days together!"*), marks his hatch day each year, and if you tell him your birthday he makes a fuss and digs up something you can't find any other way.
+- **Play with him.** **Hide and seek:** he burrows into the sand and pops up behind one of your windows (he lives on the wallpaper, so they really do hide him). Click him to find him; take too long and he peeks out over your windows, and much longer and he wins. **Fetch:** a pebble appears beside him; throw it across the screen and he scuttles after it and brings it back.
+- **Crabs that chat.** When a friend's crab visits, the two of them talk, and what they say depends on both temperaments (a cocky crab meeting a fussy one is a different visit from two sleepy ones), the stickers on their shells, how much each has grown and the finds they're proudest of.
+- **XP and trophies without Claude.** Petting, games, finds and growing closer all earn XP, and eleven new trophies come with outfits of their own: a sand pail, a metal detector, a leafy disguise, a friendship locket and more.
+
 ## 🎩 Dress him up
 
 <p align="center"><img src="docs/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
-- **119 accessories, 18 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **138 accessories, 21 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
 - **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
 - **A sticker for every project you ship:** the first time you push, deploy or release a repo (or a pull request of yours is merged), he holds up a sticker drawn for it and slaps it on his shell. More below.
 - **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick, the Golden Conch at level 20, and on up through a Coconut Half, a Lantern Jar, a Diving Helmet, a Crystal Geode and a Treasure Chest to the Rainbow Nautilus at level 99. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
-- **39 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
+- **50 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Or flip **Unlock everything**.
 - **XP and levels,** from Hatchling to Shellby Supreme at level 99, with a new title, badge colour or shell at least every five levels. Writing himself a new skill earns the most.
 - **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look, and a **📸 crab card** shows him off.
 
@@ -242,11 +256,13 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Try again from any turn:** hover one of your messages and press ⑂ to try it again in a new tab, changed or exactly as it was, or press **⑂ branch** under a reply to carry on from there. The new tab remembers the conversation up to that point and works in its own copy of the project with the files exactly as they were then, while the original carries on untouched. Two approaches run side by side without touching each other. The branch chip compares two tries file by file, and **Keep this one** brings your favourite home and throws the other tries away. `/branch` does the same from the box.
 - **The terminal's keys, in the box:** <kbd>Esc</kbd> <kbd>Esc</kbd> (or `/rewind`) takes the conversation, the code or both back to before an earlier message. `!` runs a command yourself and hands its output to Claude, `@` finds files in the project, <kbd>↑</kbd> and <kbd>Ctrl</kbd>+<kbd>R</kbd> bring back what you've sent, and `/export` saves the conversation as Markdown. A chip sets how hard Claude thinks (effort), and Settings picks the output style.
 - **Toolbox:** MCP servers show their connection status, and can be added, removed, reconnected or turned off. New skills and agents are tagged **new** and can be pinned as one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
+- **Prompt snippets:** save what you ask for again and again ("review my diff", "write tests for this file") in **Toolbox → Snippets**, then type `/review` in the box, click it pinned on the start screen, or run `shellby do @review` in a terminal. `$ARGUMENTS` in a snippet stands for whatever you type after its name, and `/snippets save <name>` keeps the last thing you sent. It starts you off with review, tests, explain, commit and pr.
 - **Permission rules:** **Toolbox → Rules** lists the allow, ask and deny rules from your settings and the project's, and adds or removes them. Anything that lets Claude do more on its own asks first in the isolated confirmation window.
 - **Hooks and memory:** **Toolbox → Hooks** lists every hook in your settings, the project's and your installed plugins', and adds, edits or removes your own. Each change asks first in the isolated confirmation window, shows the exact command and keeps a backup of the settings file. **Toolbox → Memory** opens your `CLAUDE.md`, the project's, `CLAUDE.local.md`, `.claude/rules/` and any `CLAUDE.md` in the folders above, in an editor that won't save over a change made somewhere else.
 - **Skill Shop:** **Toolbox → Get more** lists every plugin in your marketplaces, most popular first. Add marketplaces from GitHub, and every install asks first in an isolated confirmation window. It uses Claude Code's own plugin system, so whatever you install works in your terminal and editor too.
 - **Routines:** each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up. Or just describe one ("every Friday at 5, tidy Downloads") and Claude fills in the form for you to check and save.
 - **Dependency checkups:** the **Dependency checkup** template runs `npm outdated` and `npm audit` (or the pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET equivalent) in every project in a folder, once a week, without changing anything. Shellby reads what each check actually printed, not just how it exited, so a piped or `|| true` run can't pass for clean. It counts whether Claude runs the checks from a routine, from a tab or from your terminal with the plugin. **Routines → Dependency health** lists what each project's last checkup found, a clean audit earns XP and the project's sticker its 🧼 **Fresh** mark, and there's a bounty for it. A project's page in the Sticker Book has **Check dependencies** too.
+- **Time on each project:** **History → Time** keeps track of how long you spend on each project, for timesheets and invoices. It works out the project from the window in front (an editor or terminal showing its folder, its page on GitHub), from Claude working in it, and from git moving in it, and the clock stops when you're away from the keyboard. Give a project a client and an hourly rate, round each day to 6, 15 or 30 minutes, add or take off time by hand with a note, and save a **PDF timesheet**, a **CSV** for your invoicing tool, or copy it as text. Each day's line is its note, or else your commit messages, and days you committed but weren't tracking can be filled in from the commits. Off until you turn it on. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC.
 - **Claude Code somewhere unusual?** **Find it myself…** in setup takes a portable copy or another drive, and checks the file really is Claude Code before keeping it.
 
 </details>
@@ -261,9 +277,12 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 
 ```powershell
 shellby do "tidy my Downloads"   # a task, in this folder
+shellby do @review               # one of your saved prompt snippets
+shellby do @tests src/app.js     # ...with what it's about filled in
 shellby say "all green"          # a line in his bubble
 shellby status                   # him, and how this PC is doing
 shellby flow run "Release notes" version=1.2.0   # start a workflow that allows it
+shellby time last-week           # hours on each project, ready for an invoice
 ```
 
 **Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**
@@ -404,8 +423,8 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 - Claude Code talking to Anthropic, and the updater checking GitHub Releases.
 - GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your pull requests, and with Visiting crabs on, your public calling card and your friends' cards.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
-- Things you ask for: community packs, plugins and MCP servers, `git` fetches and pushes, and workflow web requests.
-- Things that never leave your PC: push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), your PC's health readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
+- Things you ask for: community packs, plugins and MCP servers, `git` fetches and pushes, workflow web requests, and the weekly npm dependency check.
+- Things that never leave your PC: the time tracker (it reads the title of the window in front to tell which project you're in, keeps only the project, the day and the minutes, and never syncs them), push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), your PC's health readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 

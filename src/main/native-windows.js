@@ -39,6 +39,7 @@ function load() {
       PostMessageW: user32.func('bool __stdcall PostMessageW(intptr_t hwnd, uint32_t msg, uintptr_t w, intptr_t l)'),
       GetWindowRect: user32.func('bool __stdcall GetWindowRect(intptr_t hwnd, _Out_ SHELLBY_RECT *r)'),
       GetClassNameW: user32.func('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ uint16_t *buf, int max)'),
+      GetWindowTextW: user32.func('int __stdcall GetWindowTextW(intptr_t hwnd, _Out_ uint16_t *buf, int max)'),
       GetWindowThreadProcessId: user32.func('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
       DwmFrame: dwmapi.func('DwmGetWindowAttribute', 'long', ['intptr_t', 'uint32_t', koffi.out(koffi.pointer('SHELLBY_RECT')), 'uint32_t']),
       DwmCloaked: dwmapi.func('DwmGetWindowAttribute', 'long', ['intptr_t', 'uint32_t', koffi.out(koffi.pointer('uint32_t')), 'uint32_t']),
@@ -102,26 +103,28 @@ function topLevelWindows() {
   }, []);
 }
 
-const exeCache = new Map(); // pid -> lower-case file name; pids are reused, so it's capped and short-lived
-function exeOf(pid) {
-  if (!pid) return '';
+const exeCache = new Map(); // pid -> { name, full }; pids are reused, so it's capped and short-lived
+function imageOf(pid) {
+  if (!pid) return { name: '', full: '' };
   const hit = exeCache.get(pid);
-  if (hit && Date.now() - hit.at < 60000) return hit.name;
-  const name = safe(a => {
+  if (hit && Date.now() - hit.at < 60000) return hit;
+  const full = safe(a => {
     const h = a.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
     if (!h) return '';
     try {
       const buf = new Uint16Array(1024);
       const size = [1024];
       if (!a.QueryFullProcessImageNameW(h, 0, buf, size)) return '';
-      const full = String.fromCharCode(...buf.slice(0, size[0]));
-      return full.split('\\').pop().toLowerCase();
+      return String.fromCharCode(...buf.slice(0, size[0]));
     } finally { a.CloseHandle(h); }
   }, '');
+  const entry = { name: full.split('\\').pop().toLowerCase(), full, at: Date.now() };
   if (exeCache.size > 200) exeCache.clear();
-  exeCache.set(pid, { name, at: Date.now() });
-  return name;
+  exeCache.set(pid, entry);
+  return entry;
 }
+// The lower-case file name ("chrome.exe").
+const exeOf = pid => imageOf(pid).name;
 
 function frameOf(a, h) {
   const r = {};
@@ -166,6 +169,8 @@ function describe(h) {
       hwnd: h,
       pid: pid[0],
       exe: exeOf(pid[0]),
+      // Where it's installed, so a game can be told by its launcher's folder (surroundings.js).
+      path: imageOf(pid[0]).full,
       cls: str16(a.GetClassNameW, h),
       rect: rectOf(r),
       ...q,
@@ -181,6 +186,23 @@ function describe(h) {
 }
 
 const foreground = () => safe(a => a.GetForegroundWindow(), 0);
+
+/**
+ * The window in front, for the time tracker (timetrack.js): its process and
+ * exe, and its title. The title is only ever matched against project names in
+ * memory; it is never stored or logged. null when there's nothing in front.
+ */
+function frontWindow() {
+  return safe(a => {
+    const h = a.GetForegroundWindow();
+    if (!h) return null;
+    const pid = [0];
+    a.GetWindowThreadProcessId(h, pid);
+    const b = new Uint16Array(512);
+    const n = a.GetWindowTextW(h, b, 512);
+    return { hwnd: h, pid: pid[0], exe: exeOf(pid[0]), title: String.fromCharCode(...b.slice(0, Math.max(0, n))) };
+  }, null);
+}
 const isWindow = h => safe(a => !!h && a.IsWindow(h), false);
 // Is this key held right now, whichever app has focus? (push-to-talk, see dictation.js)
 const keyDown = vk => safe(a => (a.GetAsyncKeyState(vk) & 0x8000) !== 0, false);
@@ -268,7 +290,7 @@ const blockShutdown = (h, reason) => safe(a => a.ShutdownBlockReasonCreate(h, St
 const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 
 module.exports = {
-  load, available, hwndOf, topLevelWindows, describe, quick, foreground, isWindow, keyDown, isVisible, ownerOf,
+  load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
   lockScreen, blockShutdown, unblockShutdown,
 };

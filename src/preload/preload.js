@@ -118,6 +118,10 @@ contextBridge.exposeInMainWorld('shellby', {
   rescanToolbox: invoke('toolbox:rescan'),
   pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
   revealTool: fire('toolbox:reveal'),
+  // prompt snippets: /name in the box, @name from a terminal
+  saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
+  removeSnippet: invoke('snippets:remove'),
+  expandSnippet: invoke('snippets:expand'),
   // hooks and CLAUDE.md memory (every write is re-checked in main; hook changes ask in the confirm window)
   getClaudeSetup: invoke('setup:get'),
   readMemory: invoke('setup:read-memory'),
@@ -203,7 +207,7 @@ contextBridge.exposeInMainWorld('shellby', {
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
   devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), scene: invoke('dev:scene'), life: invoke('dev:life') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions
@@ -221,6 +225,16 @@ contextBridge.exposeInMainWorld('shellby', {
   onXp: on('xp'),
   onLevelUp: on('xp:levelup'),
   onXpBounty: on('xp:bounty'),
+
+  // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
+  getLife: invoke('life:get'),
+  setBirthday: invoke('life:birthday'),
+  setFavouriteFind: invoke('life:favourite'),
+  findsSeen: fire('life:finds-seen'),
+  play: invoke('life:play'),
+  onLife: on('life'),
+  onLifeFound: on('life:found'),   // he dug up a gift
+  onLifeMoment: on('life:moment'), // a day worth marking, a closer bond, a finished set
 
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),
@@ -240,6 +254,18 @@ contextBridge.exposeInMainWorld('shellby', {
   onCheckups: on('checkups'),
   getWeek: invoke('week:get'),
   onWeekReady: on('week:ready'),
+  // time on each project (src/main/timetrack-service.js)
+  getTime: invoke('time:get'),
+  setTimeSettings: invoke('time:settings'),
+  setTimeProject: invoke('time:project'),
+  removeTimeProject: invoke('time:remove'),
+  addTime: invoke('time:add'),
+  addTimeFolder: invoke('time:add-folder'),
+  exportTimeCsv: invoke('time:export-csv'),
+  exportTimePdf: invoke('time:export-pdf'),
+  copyTime: invoke('time:copy'),
+  showTimeFile: invoke('time:show-file'),
+  onTimeNow: on('time:now'),
   onStickers: on('stickers'),
   onStickerNew: on('stickers:new'),
   onStickerNews: on('stickers:news'), // a tier-up or a new mark on one already earned
@@ -309,6 +335,13 @@ contextBridge.exposeInMainWorld('shellby', {
   draftRoutine: invoke('routines:draft'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
+  // dependency watch
+  getDepWatch: invoke('depwatch:get'),
+  setDepWatch: invoke('depwatch:set'),
+  scanDeps: invoke('depwatch:scan'),
+  bumpDeps: invoke('depwatch:bump'),
+  depRoutine: invoke('depwatch:routine'),
+  onDepWatch: on('depwatch'),
   usageBreakdown: invoke('usage:breakdown'),
   // usage forecast, and work held for after the reset (forecast.js, held.js)
   getOutlook: invoke('outlook:get'),
@@ -348,6 +381,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabSent: on('tab:sent'), // a held message went out after the reset
   onHeldReturned: on('held:returned'), // one that couldn't, back to its box
   onToolbox: on('toolbox'),
+  onSnippets: on('snippets'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
   onWorkflows: on('workflows'),

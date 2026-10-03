@@ -33,15 +33,18 @@ function guardIpc(ipcMain, allow, { onRefused = () => {} } = {}) {
 
 // The crab's window: its own bridge (critter-preload.js), and nothing else.
 const CRITTER_CHANNELS = /^(critter:(?!reset-position$)[a-z-]+|attach:image)$/;
+// The pebble you throw for fetch (toy-preload.js): being dragged, and that's all.
+const TOY_CHANNELS = /^toy:drag-(start|move|end)$/;
 
-/** windows: () => ({ panel, critter }) webContents, either possibly gone. */
+/** windows: () => ({ panel, critter, isToy(webContents) }), any of them possibly gone. */
 function windowPolicy(windows) {
   return (channel, sender) => {
-    const { panel, critter } = windows();
+    const { panel, critter, isToy } = windows();
     if (sender && panel && sender === panel) return true;
     if (sender && critter && sender === critter) return CRITTER_CHANNELS.test(channel);
+    if (sender && isToy?.(sender)) return TOY_CHANNELS.test(channel);
     return false;
   };
 }
 
-module.exports = { guardIpc, windowPolicy, CRITTER_CHANNELS };
+module.exports = { guardIpc, windowPolicy, CRITTER_CHANNELS, TOY_CHANNELS };

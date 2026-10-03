@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 3 October 2026, for Shellby 0.54.1.*
+*Last updated: 3 October 2026, for Shellby 0.58.1.*
 
 Shellby is a desktop app that runs on your PC. It has **no servers, no accounts of its own, no telemetry, no analytics and no crash reporting**. Nobody behind Shellby, including its author, receives anything about you or how you use it.
 
@@ -19,12 +19,13 @@ What Shellby does do is talk to a few services on your behalf: GitHub to check f
 | **GitHub sign-in** | GitHub | The sign-in code you approve, then requests for your profile and avatar | When you sign in. Off by default. |
 | **Sync** | GitHub (a *private* gist in your account) | Trophies, XP and its log, outfit, skin, project names and their GitHub remote addresses (e.g. `github.com/you/repo`), stats, and a random ID for this PC | Every 15 minutes and shortly after changes, while Sync is on. Off by default. |
 | **CI status** | GitHub | Searches for your open pull requests and ones awaiting your review, and their check results | Every 3 minutes, while it's on. |
-| **Visiting crabs** | GitHub (a *public* gist in your account, and your friends' gists) | Your calling card: GitHub username, skin, shell, level, outfit, sticker art, and up to 3 project names only if you pick **Shell and names**. Waves are posted as gist comments. | Every few minutes, while it's on. Turning it off deletes your card. Off by default. |
+| **Visiting crabs** | GitHub (a *public* gist in your account, and your friends' gists) | Your calling card: GitHub username, skin, shell, level, outfit, sticker art, his temperament and his favourite find from digging, and up to 3 project names only if you pick **Shell and names**. Waves are posted as gist comments. | Every few minutes, while it's on. Turning it off deletes your card. Off by default. |
 | **Publishing a Wardrobe pack** | GitHub | Your pack, as a pull request to `x-salmon/shellby-packs` | When you publish one. |
 | **Let Claude tasks push** | GitHub, through `git` and `gh` in your tabs | Your GitHub sign-in is handed to the Claude Code tasks Shellby runs, so they can push | Off by default, with a warning before it's turned on. |
 | **Community packs and outfit codes** | `x-salmon.github.io/shellby-packs` | Requests for the pack index, catalog and pack files | When you open a `shellby://install` link or paste an outfit code that needs items you don't have. |
 | **Phone notifications** | The service you pick: ntfy (or your own ntfy server), Pushover, Telegram, a Discord or Slack webhook, or your own endpoint | The notification's title and text and the project's name. For permission prompts that includes what Claude is asking to do, such as a command or a file path. | When an event you chose happens. Off by default, and the destination is confirmed in a separate window before anything is sent. |
 | **Answering from your phone** | ntfy or Telegram | Shellby checks for your Allow/Deny reply | Only while a prompt is waiting. Off by default. |
+| **Dependency watch** | The npm registry, through `npm outdated` and `npm audit` | The names and versions of each npm project's dependencies, as npm normally sends them | Once a week, for the npm projects you work in. Off by default. Fixing what it finds is a Claude Code task you start, which can open a pull request. |
 | **Workflow web requests** | Any address you type into a workflow's **Web request** step | Whatever that step is set to send, including workflow secrets you put in it | When the workflow runs. |
 | **Git** | Your project's own remote (e.g. GitHub) | `git fetch` and `git push`, with your usual git credentials | When you open a tab's repository menu, **Push**, or **Bring it home and push**. |
 | **Skill Shop, MCP servers and the Shellby plugin** | The source of whatever you install (usually GitHub), through Claude Code | Claude Code's download requests | When you install or update one, after a confirmation window. |
@@ -38,6 +39,7 @@ What these services do with your data is up to them, under their own policies: [
 
 - **Your PC's health readings:** temperatures, CPU, memory, disk, which apps are using them, what starts when you sign in, and LibreHardwareMonitor, HWiNFO and `nvidia-smi` readings. Shellby reads these to show them to you. They're only sent anywhere if you press one of the **Ask Shellby why** buttons (which hands them to a Claude Code task you can see) or turn on health alerts for phone notifications.
 - **Push-to-talk audio.** Windows' offline speech recognizer hears it, on your PC. The microphone is only open while you hold the shortcut.
+- **The time tracker.** It reads the title of the window in front to tell which project you're in, and keeps only the project, the day and the minutes. It is never synced.
 - **Which apps he perches on**, Now Playing, your usage counts and weekly summaries.
 - **The local connections** for the `shellby` command, the Claude Code plugin and hooks (port 47913), the OBS overlay (port 47914, off by default), OpenRGB and sensor apps. They only accept connections from this PC (`127.0.0.1`).
 

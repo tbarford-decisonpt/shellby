@@ -29,12 +29,13 @@ key community packs get. Two packs in here must therefore never use the same ite
 | `theme-crabs.json` | 6 skins | Recolours for themed desktops. |
 | `sticker-shop.json` | 6 accessories | Rewards for the shell-sticker trophies (shipping projects, a 1.0, swaps). |
 | `now-playing.json` | 3 accessories, 1 effect | Listening along. The headphones he puts on by himself are the base pack's. |
+| `keepsakes.json` | 11 accessories | Rewards for the trophies that need no Claude: gifts he digs up, sets, hide and seek, fetch, best friends, games, calls, scenes and crab chat. |
 
-Totals: **127 accessories, 21 effects, 14 skins** (as `npm run packs` counts them).
+Totals: **138 accessories, 21 effects, 14 skins** (as `npm run packs` counts them).
 
 ## Unlocks
 
-Of the 148 accessories and effects, **32 are available on day one, 66 come from trophies and
+Of the 159 accessories and effects, **32 are available on day one, 77 come from trophies and
 50 are seasonal** — so the wardrobe reads as a collection rather than a pile. The day-one set
 exists to fill the slots that used to be empty (`face`, `neck` and `shell` had 4, 5 and 3
 items, all of them locked); hats and held items stay mostly earned, the way the base pack

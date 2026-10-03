@@ -22,6 +22,9 @@ let ciFailing = 0; // pull requests with red CI (src/main/github/ci.js)
 let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
 let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
+let onCall = false;  // you're on a call: he holds up his "shh" sign (src/main/surroundings.js)
+// Things a scene or a game puts on him for a moment, by slot (src/renderer/critter/life.js).
+const overrides = new Map();
 // The sign he holds up while CI is red. It goes in the held slot like any other
 // prop, so the post lands in the claw pinch and the whole thing swings with his
 // arm instead of hanging in the air beside it.
@@ -33,6 +36,15 @@ const CI_SIGN = {
     '.pp.....', '.pp.....', '.pp.....',
   ],
 };
+// ...and the one he holds up while you're on a call: a finger to his lips.
+const CALL_SIGN = {
+  slot: 'held', anchor: 'claw', follows: 'claw', pivot: [2, 9],
+  palette: { K: '#2b2d42', w: '#fff4e4', r: '#e63946', s: '#f4c095', p: '#a0693a' },
+  pixels: [
+    'KKKKKKKKK', 'KwwwswwwK', 'KwwwswwwK', 'KwrrsrrwK', 'KwwrsrwwK', 'KwwwwwwwK', 'KKKKKKKKK',
+    '..pp.....', '..pp.....', '..pp.....',
+  ],
+};
 const TOSS_MS = 620;  // how long what he was carrying stays in the air
 const GRAB_MS = 560;  // ...and when the sign takes its place, once it is clear
 const CATCH_MS = 520; // the drop back down once the build is green
@@ -40,9 +52,9 @@ let tossed = false;   // his own held item is out of his claw, from throw to cat
 let flinging = false; // mid-throw: he has not got a claw on the sign yet
 // He only holds the sign up on his feet: a nap, a molt or a throw has his claws busy.
 const settled = () => state === 'idle' || state === 'working';
-const holdingSign = () => ciFailing > 0 && !flinging && settled();
+const holdingSign = () => (ciFailing > 0 || onCall) && !flinging && settled();
 // Everything his claw can be carrying, so that a change of load triggers a redraw.
-const clawLoad = () => (holdingSign() ? 'sign' : tossed ? 'empty' : 'own');
+const clawLoad = () => (holdingSign() ? (ciFailing > 0 ? 'ci' : 'call') : tossed ? 'empty' : 'own');
 const healthFx = window.ShellbyHealthFx.mount(document.getElementById('healthFx'), document.getElementById('self'));
 const helpers = new Map(); // task id -> element
 
@@ -75,8 +87,10 @@ function drawSelf() {
   else if (outfit.musicHeadphones) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.musicHeadphones];
   // Red CI wants the claw he carries things in: his own held item is in the air
   // (see throwHeld) and the sign goes in once he has let go of it.
+  // A scene's prop or a find to show off takes its slot for a moment.
+  for (const [slot, item] of overrides) accessories = [...accessories.filter(a => a.slot !== slot), item];
   if (tossed || holdingSign() || slap?.holding) accessories = accessories.filter(a => a.slot !== 'held');
-  if (holdingSign()) accessories = [...accessories, CI_SIGN];
+  if (holdingSign()) accessories = [...accessories, ciFailing > 0 ? CI_SIGN : CALL_SIGN];
   if (slap?.holding) accessories = [...accessories, slap.held];
   spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell, stickers: stickersFor(shell) }));
 }
@@ -318,13 +332,14 @@ function bubbleFor() {
   if (limit && state === 'sleeping') return `⏳ ${timeLeft(limit.resetsAt)}`;
   if (focusing && state === 'idle') return `${focusing.phase === 'break' ? 'break ' : ''}${minutesLeft()}`;
   if (ciFailing && state === 'idle') return ciFailing > 1 ? `CI ✗${ciFailing}` : 'CI ✗';
+  if (onCall && state === 'idle') return '🤫';
   // His own voice comes last of the things that mean something, and still beats
   // the bare mood glyph it replaces.
   if (saying()) return say.text;
   return BUBBLES[state] ?? '';
 }
 const saying = () => !!say && say.until > Date.now();
-const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((ciFailing > 0 || !!focusing) && state === 'idle') || (!!limit && state === 'sleeping');
+const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((ciFailing > 0 || !!focusing || onCall) && state === 'idle') || (!!limit && state === 'sleeping');
 const timeLeft = t => {
   const ms = Math.max(0, t - Date.now());
   if (ms >= 3600000) return `${Math.floor(ms / 3600000)}h${String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0')}`;
@@ -340,7 +355,7 @@ function paintBody() {
   document.body.className = [
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
-    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', ...flags,
+    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '', ...flags,
   ].filter(Boolean).join(' ');
   bubbleText.textContent = dropping ? 'drop it!' : bubbleFor();
 }
@@ -353,6 +368,7 @@ api.onState(msg => {
   ciFailing = msg.ci?.failing || 0;
   limit = msg.limit || null;
   say = msg.say || null;
+  onCall = !!msg.call;
   const wasGuarding = focusing?.phase === 'focus';
   focusing = msg.focus || null;
   // The throw waits for him to settle, so that it runs into the sign going up
@@ -591,10 +607,12 @@ let bit = null;
 api.onBit(msg => {
   if (typeof msg?.bit !== 'string' || !/^[a-z]{2,12}$/.test(msg.bit)) return;
   endBit();
+  if (msg.bit === 'none') return void paintBody(); // a scene was cut short
+  if (msg.dir === 1 || msg.dir === -1) setDir(msg.dir); // a pounce goes toward your cursor
   bit = msg.bit;
   flags.add(`bit-${bit}`);
   paintBody();
-  const ms = Number.isFinite(msg.ms) ? clampN(msg.ms, 800, 10000) : BIT_MS;
+  const ms = Number.isFinite(msg.ms) ? clampN(msg.ms, 400, 10000) : BIT_MS; // a scene's beats can be short
   bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, ms);
 });
 
@@ -637,7 +655,11 @@ api.onVisitor(v => {
   const tag = document.createElement('span');
   tag.className = 'tag';
   tag.textContent = `@${v.login}`;
-  el.append(tag, visitorSprite());
+  // What the visitor says back when the two of them talk (src/main/banter.js).
+  const vbubble = document.createElement('span');
+  vbubble.className = 'vbubble';
+  vbubble.setAttribute('aria-hidden', 'true');
+  el.append(tag, vbubble, visitorSprite());
   crewHost.prepend(el);
   visitorEl = el;
 });
@@ -689,3 +711,13 @@ api.onTogether(msg => {
   }
   togetherTimers.push(setTimeout(endTogether, Math.min(Math.max(Number(msg.ms) || 5000, 1000), 10000)));
 });
+
+// ---- what src/renderer/critter/life.js needs from in here: his slots, a
+// redraw, his body classes, and where the visitor is.
+window.ShellbyCritter = {
+  wear(slot, item) { if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
+  flags, paint: paintBody, setDir,
+  px: () => px,
+  claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,
+  visitor: () => visitorEl,
+};

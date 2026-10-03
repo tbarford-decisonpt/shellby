@@ -41,6 +41,10 @@ const DEFAULTS = {
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
+  finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
+  bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
+  play: null,        // hide and seek and fetch scores (see play.js)
+  scenesSeen: null,  // which of his little scenes he's done (see scenes.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
   focus: null,       // the focus session in progress (see focus.js)
@@ -52,6 +56,7 @@ const DEFAULTS = {
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
+  timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
   github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here
@@ -62,8 +67,10 @@ const DEFAULTS = {
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
   openTabs: [],       // history ids of conversations open as tabs
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
+  snippets: null,     // [{ name, text }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters
   learnedTricks: [],  // recently discovered skills/agents/commands
   routines: [],       // see routines.js
+  depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
   health: null,       // health monitor settings (see health/service.js); null -> defaults
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)

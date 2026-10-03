@@ -1,0 +1,297 @@
+// Gifts from digging. When he digs at your wallpaper, now and then he turns
+// something up: sea glass, a lost key, a pearl, very rarely a gold doubloon.
+// He holds it up, gives it to you, and it goes on the shelf (Shellby's screen →
+// Finds). Some only turn up in their season, a couple only on special days,
+// and they come in sets worth completing.
+//
+// Pure: no I/O, no clock, no randomness of its own (callers pass `now` and
+// `rand`). src/main/life.js does the digging; see test/gifts.test.js.
+
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
+
+const RARITY = Object.freeze({
+  common: { weight: 64, label: 'Common' },
+  uncommon: { weight: 26, label: 'Uncommon' },
+  rare: { weight: 8.5, label: 'Rare' },
+  legendary: { weight: 1.5, label: 'Legendary' },
+  special: { weight: 0, label: 'Keepsake' },
+});
+
+const DIG_CHANCE = 0.2;            // an idle dig that turns something up
+const DRY_SPELL = 6;               // ...and after this many empty digs in a row, one always does
+const DAILY_CAP = 5;               // idle finds a day; a manual dig is on top
+const FIND_GAP = 20 * MINUTE;      // between idle finds
+const MANUAL_EVERY = 2 * HOUR;     // "Dig for treasure" from his menu
+const LEGENDARY_AFTER = 10;        // finds before a legendary can turn up at all
+const NEW_BIAS = 2;                // something not on the shelf yet is this much likelier
+
+// Each find: pixel art (one character per pixel, '.' is empty), a line for the
+// shelf, and where it belongs. `season` finds only turn up in that season
+// (src/main/wardrobe/seasons.js), `night` ones only after dark, `special` ones
+// only on their day.
+const FINDS = Object.freeze([
+  // ---- the beach
+  { id: 'pebble', name: 'Smooth pebble', rarity: 'common', set: 'beach', blurb: 'Perfectly round. He checked.', palette: { a: '#8d99ae', b: '#b8c2d1', c: '#dfe5ec' }, pixels: ['.bbb.', 'bcbba', 'bbbba', '.aaa.'] },
+  { id: 'sand-dollar', name: 'Sand dollar', rarity: 'common', set: 'beach', blurb: 'Not legal tender. He asked.', palette: { a: '#f3e6cc', b: '#c9b38a' }, pixels: ['.aaa.', 'aabaa', 'abbba', 'aabaa', '.aaa.'] },
+  { id: 'tiny-shell', name: 'Tiny shell', rarity: 'common', set: 'beach', blurb: 'Too small to live in. For now.', palette: { a: '#ff9f80', b: '#ffd2c2' }, pixels: ['..a..', '.aba.', 'ababa', 'aaaaa'] },
+  { id: 'driftwood', name: 'Driftwood', rarity: 'common', set: 'beach', blurb: 'Washed up from somewhere far away.', palette: { a: '#8a6a4a', b: '#b89470' }, pixels: ['ab....', '.aab..', '..abba', '....ab'] },
+  { id: 'kelp', name: 'Bit of kelp', rarity: 'common', set: 'beach', blurb: 'Smells like home.', palette: { a: '#2a9d8f', b: '#57cc99' }, pixels: ['.a', 'ab', 'a.', 'ab', '.a'] },
+  { id: 'starfish', name: 'Starfish', rarity: 'uncommon', set: 'beach', blurb: 'Waved at him first.', palette: { a: '#ff7a5c', b: '#ffb199' }, pixels: ['..a..', 'aabaa', '.aba.', 'a...a'] },
+
+  // ---- sea glass: one of each colour
+  { id: 'sea-glass-green', name: 'Green sea glass', rarity: 'common', set: 'sea-glass', blurb: 'An old bottle, worn smooth by the tide.', palette: { a: '#57cc99', b: '#c8f3e8' }, pixels: ['.ab.', 'aaab', '.aa.'] },
+  { id: 'sea-glass-blue', name: 'Blue sea glass', rarity: 'uncommon', set: 'sea-glass', blurb: 'The colour of the deep end.', palette: { a: '#4ea8de', b: '#cdeafe' }, pixels: ['.ab.', 'aaab', '.aa.'] },
+  { id: 'sea-glass-amber', name: 'Amber sea glass', rarity: 'uncommon', set: 'sea-glass', blurb: 'Glows when the sun hits it.', palette: { a: '#e9a23b', b: '#fde6b8' }, pixels: ['.ab.', 'aaab', '.aa.'] },
+  { id: 'sea-glass-red', name: 'Red sea glass', rarity: 'rare', set: 'sea-glass', blurb: 'The rarest colour there is. He knows.', palette: { a: '#e63946', b: '#ffccd5' }, pixels: ['.ab.', 'aaab', '.aa.'] },
+
+  // ---- down the back of your desk
+  { id: 'paperclip', name: 'Paperclip', rarity: 'common', set: 'junk-drawer', blurb: 'Bent. Probably by you.', palette: { a: '#a8b2c1' }, pixels: ['.aaa.', 'a.a.a', 'a.a.a', 'a...a', '.aaa.'] },
+  { id: 'rubber-band', name: 'Rubber band', rarity: 'common', set: 'junk-drawer', blurb: 'Not for flicking. Not at him.', palette: { a: '#c97b4a' }, pixels: ['.aaa.', 'a...a', 'a...a', '.aaa.'] },
+  { id: 'button', name: 'Lost button', rarity: 'common', set: 'junk-drawer', blurb: 'From a shirt you no longer own.', palette: { a: '#7fb3ff', b: '#2b4a7a' }, pixels: ['.aa.', 'abba', 'abba', '.aa.'] },
+  { id: 'bottle-cap', name: 'Bottle cap', rarity: 'common', set: 'junk-drawer', blurb: 'Crimped edges, very satisfying.', palette: { a: '#e63946', b: '#ffd6d9' }, pixels: ['.aaa.', 'abbba', 'aaaaa'] },
+  { id: 'lost-key', name: 'Lost key', rarity: 'uncommon', set: 'junk-drawer', blurb: 'Opens something. Nobody knows what.', palette: { a: '#e2b13c' }, pixels: ['.aa.....', 'a..aaaaa', '.aa..a.a'] },
+  { id: 'guitar-pick', name: 'Guitar pick', rarity: 'uncommon', set: 'junk-drawer', blurb: 'He has no guitar. He has ambitions.', palette: { a: '#9d4edd', b: '#c77dff' }, pixels: ['aaaaa', 'abbba', '.aba.', '..a..'] },
+  { id: 'usb-stick', name: 'USB stick', rarity: 'uncommon', set: 'junk-drawer', blurb: 'Labelled "backup FINAL 2". Not plugged in.', palette: { a: '#3d405b', b: '#c0c0c0' }, pixels: ['.bb.', '.bb.', 'aaaa', 'aaaa', 'aaaa'] },
+  { id: 'marble', name: 'Marble', rarity: 'uncommon', blurb: 'He lost his once. This one is yours.', palette: { a: '#4361ee', b: '#f72585', c: '#ffffff' }, pixels: ['.aa.', 'abca', 'acba', '.aa.'] },
+
+  // ---- a pirate's hoard
+  { id: 'old-coin', name: 'Old coin', rarity: 'uncommon', set: 'pirate', blurb: 'A king nobody remembers.', palette: { a: '#b08d57', b: '#d4b483' }, pixels: ['.aaa.', 'abbba', 'ababa', 'abbba', '.aaa.'] },
+  { id: 'compass', name: 'Compass', rarity: 'rare', set: 'pirate', blurb: 'Always points at the snacks.', palette: { a: '#b08d57', b: '#fff4e4', r: '#e63946', w: '#3d405b' }, pixels: ['.aaa.', 'abrba', 'abwba', 'abbba', '.aaa.'] },
+  { id: 'tiny-anchor', name: 'Tiny anchor', rarity: 'rare', set: 'pirate', blurb: 'From a very small ship.', palette: { a: '#577590' }, pixels: ['..a..', '.aaa.', '..a..', 'a.a.a', '.aaa.'] },
+  { id: 'message-bottle', name: 'Message in a bottle', rarity: 'rare', set: 'pirate', blurb: 'It says "hi". That\'s all it says.', palette: { a: '#8a6a4a', c: '#a8dadc', d: '#fff4e4' }, pixels: ['..a..', '..c..', '.ccc.', '.cdc.', '.ccc.'] },
+  { id: 'treasure-map', name: 'Torn treasure map', rarity: 'legendary', set: 'pirate', blurb: 'X marks the spot. The spot is your desk.', palette: { a: '#e9d8a6', b: '#c9b38a', c: '#e63946' }, pixels: ['aaaaa', 'abcba', 'acbba', 'aaaaa'] },
+  { id: 'gold-doubloon', name: 'Gold doubloon', rarity: 'legendary', set: 'pirate', blurb: 'Real gold. He bit it to check.', palette: { a: '#c99700', b: '#ffd23f', c: '#fff4b3' }, pixels: ['.aaa.', 'abbba', 'abcba', 'abbba', '.aaa.'] },
+
+  // ---- from the deep
+  { id: 'pearl', name: 'Pearl', rarity: 'rare', set: 'deep', blurb: 'An oyster worked very hard on this.', palette: { a: '#f8f4ff', b: '#cfc6e6' }, pixels: ['.aa.', 'aaab', '.bb.'] },
+  { id: 'shark-tooth', name: 'Shark tooth', rarity: 'rare', set: 'deep', blurb: 'The shark has others. Probably.', palette: { a: '#f1faee', b: '#cfd8dc' }, pixels: ['aaaaa', '.abb.', '.ab..', '..a..'] },
+  { id: 'ammonite', name: 'Ammonite fossil', rarity: 'rare', set: 'deep', blurb: 'Older than the dinosaurs. Older than him, even.', palette: { a: '#a1887f', b: '#d7ccc8' }, pixels: ['.aaaa.', 'ab..ba', 'ab.a.a', 'a.aa.a', '.aaaa.'] },
+  { id: 'moon-shell', name: 'Moon shell', rarity: 'rare', set: 'deep', night: true, blurb: 'Only shows itself after dark.', palette: { a: '#cfd8ff', b: '#9fb0ff', c: '#ffffff' }, pixels: ['.aaa.', 'abbba', 'abcba', 'abbba', '.aaa.'] },
+  { id: 'black-pearl', name: 'Black pearl', rarity: 'legendary', set: 'deep', blurb: 'One in ten thousand oysters. He found it in your wallpaper.', palette: { a: '#2b2d42', b: '#8d99ae' }, pixels: ['.aa.', 'aaab', '.bb.'] },
+  { id: 'mermaid-comb', name: 'Mermaid\'s comb', rarity: 'legendary', set: 'deep', blurb: 'She\'ll want it back.', palette: { a: '#ffd23f', b: '#7fd6c2' }, pixels: ['abababa', 'aaaaaaa', '.bbbbb.'] },
+
+  // ---- all year round: one per season
+  { id: 'candy-corn', name: 'Candy corn', rarity: 'uncommon', set: 'seasons', season: 'halloween', blurb: 'Divisive. He likes it.', palette: { w: '#fff4e4', o: '#ff9f1c', y: '#ffd23f' }, pixels: ['..w..', '.ooo.', 'ooooo', 'yyyyy'] },
+  { id: 'snowflake', name: 'Snowflake ornament', rarity: 'uncommon', set: 'seasons', season: 'winter', blurb: 'Doesn\'t melt. He tried.', palette: { a: '#e0fbfc' }, pixels: ['a.a.a', '.aaa.', 'aa.aa', '.aaa.', 'a.a.a'] },
+  { id: 'heart-locket', name: 'Heart locket', rarity: 'uncommon', set: 'seasons', season: 'valentine', blurb: 'There\'s a tiny crab inside.', palette: { a: '#ff8fab', b: '#fff4f7' }, pixels: ['.a.a.', 'aaaaa', 'abaaa', '.aaa.', '..a..'] },
+  { id: 'painted-egg', name: 'Painted egg', rarity: 'uncommon', set: 'seasons', season: 'spring', blurb: 'Not his. He\'s keeping it anyway.', palette: { a: '#b8f2e6', b: '#ff8fab', c: '#ffd166' }, pixels: ['.aa.', 'abba', 'aaaa', 'acca', '.aa.'] },
+  { id: 'beach-ball', name: 'Beach ball', rarity: 'uncommon', set: 'seasons', season: 'summer', blurb: 'Bigger than him when it\'s blown up.', palette: { a: '#ff5a4a', b: '#fff4e4', c: '#3a86ff' }, pixels: ['.abc.', 'abcab', 'cabca', '.bca.'] },
+  { id: 'acorn', name: 'Acorn', rarity: 'uncommon', set: 'seasons', season: 'autumn', blurb: 'A squirrel is looking for this.', palette: { a: '#c97b4a', b: '#7f5539' }, pixels: ['.bbb.', 'bbbbb', '.aaa.', '.aaa.', '..a..'] },
+
+  // ---- keepsakes: only on their day
+  { id: 'cake-slice', name: 'Birthday cake', rarity: 'special', special: 'birthday', blurb: 'Dug up on your birthday. Still fresh, somehow.', palette: { r: '#e63946', w: '#fff4e4', p: '#f4a261' }, pixels: ['...r.', '..www', '.wwwp', 'wwwpp', 'ppppp'] },
+  { id: 'hatch-candle', name: 'Hatch-day candle', rarity: 'special', special: 'hatchday', blurb: 'From the anniversary of the day he moved in.', palette: { y: '#ffd23f', o: '#ff9f1c', w: '#fff4e4', p: '#ff8fab' }, pixels: ['..y..', '..o..', '.www.', '.wpw.', '.www.'] },
+].map(f => Object.freeze({ set: null, season: null, night: false, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }) })));
+
+const SETS = Object.freeze([
+  { id: 'beach', name: 'Beach day', icon: '🏖️' },
+  { id: 'sea-glass', name: 'Sea glass rainbow', icon: '🌈' },
+  { id: 'junk-drawer', name: 'Junk drawer', icon: '🗃️' },
+  { id: 'pirate', name: 'Pirate\'s hoard', icon: '🏴‍☠️' },
+  { id: 'deep', name: 'From the deep', icon: '🐚' },
+  { id: 'seasons', name: 'All year round', icon: '🗓️' },
+].map(s => Object.freeze({ ...s, members: Object.freeze(FINDS.filter(f => f.set === s.id).map(f => f.id)) })));
+
+const BY_ID = new Map(FINDS.map(f => [f.id, f]));
+const findById = id => BY_ID.get(id) || null;
+
+const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const pos = v => (Number.isFinite(v) && v > 0 ? v : 0);
+
+/** Tolerate anything read from disk. */
+function normalize(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const items = {};
+  for (const [id, it] of Object.entries(r.items && typeof r.items === 'object' ? r.items : {})) {
+    if (!BY_ID.has(id) || !it || typeof it !== 'object') continue;
+    const n = Math.floor(pos(it.n));
+    if (n) items[id] = { n, first: pos(it.first), last: pos(it.last) };
+  }
+  return {
+    items,
+    digs: Math.floor(pos(r.digs)),
+    dry: Math.floor(pos(r.dry)),
+    day: typeof r.day === 'string' ? r.day : null,
+    today: Math.floor(pos(r.today)),
+    lastFindAt: pos(r.lastFindAt),
+    lastManualAt: pos(r.lastManualAt),
+    specials: (Array.isArray(r.specials) ? r.specials : []).filter(s => typeof s === 'string' && /^[a-z]+:\d{4}$/.test(s)).slice(-20),
+    favourite: BY_ID.has(r.favourite) && items[r.favourite] ? r.favourite : null,
+    unseen: (Array.isArray(r.unseen) ? r.unseen : []).filter(id => items[id]).slice(-60),
+  };
+}
+
+const total = state => Object.values(state.items).reduce((n, it) => n + it.n, 0);
+const kinds = state => Object.keys(state.items).length;
+
+/** Every find that could turn up right now, given the moment. */
+function eligible(state, { seasons = [], night = false, special = null } = {}) {
+  if (special) return FINDS.filter(f => f.special === special);
+  const legendaryOk = total(state) >= LEGENDARY_AFTER;
+  return FINDS.filter(f => !f.special
+    && (!f.season || seasons.includes(f.season))
+    && (!f.night || night)
+    && (f.rarity !== 'legendary' || legendaryOk));
+}
+
+/** One find, weighted by rarity, with a nudge toward what's not on the shelf yet. */
+function pickFind(state, ctx, rand = Math.random) {
+  const pool = eligible(state, ctx);
+  if (!pool.length) return null;
+  const weights = pool.map(f => (RARITY[f.rarity].weight || 1) * (state.items[f.id] ? 1 : NEW_BIAS));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let r = rand() * sum;
+  for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r < 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+
+function add(state, find, t) {
+  const it = state.items[find.id];
+  const day = dayKey(t);
+  return {
+    ...state,
+    items: { ...state.items, [find.id]: { n: (it?.n || 0) + 1, first: it?.first || t, last: t } },
+    dry: 0,
+    lastFindAt: t,
+    unseen: [...state.unseen.filter(id => id !== find.id), find.id].slice(-60),
+    day,
+    today: state.day === day ? state.today : 0,
+  };
+}
+
+/**
+ * He dug. Did he find anything? Returns { state, find, isNew, completed }:
+ * `find` is a FINDS entry or null, `isNew` whether it's the first of its kind,
+ * `completed` the sets this find just finished.
+ *   ctx: { seasons: ['autumn'], night, manual } — `manual` is "Dig for treasure"
+ *   from his menu: it always finds something, on its own cooldown.
+ */
+function dig(stateIn, ctx = {}, now, rand = Math.random) {
+  const state = normalize(stateIn);
+  const t = Number(now);
+  const nothing = s => ({ state: s, find: null, isNew: false, completed: [] });
+  if (!Number.isFinite(t)) return nothing(state);
+  const day = dayKey(t);
+  const today = state.day === day ? state.today : 0;
+  let s = { ...state, digs: state.digs + 1, day, today };
+  if (ctx.manual) {
+    if (!canDig(state, t)) return nothing(state);
+    s = { ...s, lastManualAt: t };
+  } else {
+    const first = total(state) === 0; // his very first dig always turns something up
+    const lucky = first || s.dry + 1 >= DRY_SPELL || rand() < DIG_CHANCE;
+    if (!first && (today >= DAILY_CAP || t - state.lastFindAt < FIND_GAP || !lucky)) return nothing({ ...s, dry: s.dry + 1 });
+  }
+  const find = pickFind(s, ctx, rand);
+  if (!find) return nothing(s);
+  const isNew = !s.items[find.id];
+  let next = add(s, find, t);
+  if (!ctx.manual) next = { ...next, today: next.today + 1 };
+  return { state: next, find, isNew, completed: newlyCompleted(s, next) };
+}
+
+/**
+ * A keepsake for a special day ('birthday' | 'hatchday'), once per year.
+ * Returns the same shape as dig(), or a null find when it's already been given.
+ */
+function keepsake(stateIn, special, now) {
+  const state = normalize(stateIn);
+  const t = Number(now);
+  const tag = `${special}:${new Date(t).getFullYear()}`;
+  const find = FINDS.find(f => f.special === special);
+  if (!find || !Number.isFinite(t) || state.specials.includes(tag)) return { state, find: null, isNew: false, completed: [] };
+  const isNew = !state.items[find.id];
+  const next = { ...add(state, find, t), specials: [...state.specials, tag].slice(-20) };
+  return { state: next, find, isNew, completed: [] };
+}
+
+/** Can "Dig for treasure" go now? */
+const canDig = (state, now) => Number(now) - normalize(state).lastManualAt >= MANUAL_EVERY;
+/** When it can next go (ms epoch). */
+const nextDigAt = state => normalize(state).lastManualAt + MANUAL_EVERY;
+
+const setDone = (state, set) => set.members.every(id => state.items[id]);
+function newlyCompleted(before, after) {
+  return SETS.filter(set => !setDone(before, set) && setDone(after, set)).map(s => s.id);
+}
+
+/** The find he'd show off: the one you picked, else the rarest you have (newest first on a tie). */
+const RANK = { legendary: 4, special: 3, rare: 2, uncommon: 1, common: 0 };
+function favourite(stateIn) {
+  const state = normalize(stateIn);
+  if (state.favourite) return findById(state.favourite);
+  const owned = Object.entries(state.items).map(([id, it]) => ({ f: findById(id), last: it.last }));
+  owned.sort((a, b) => RANK[b.f.rarity] - RANK[a.f.rarity] || b.last - a.last);
+  return owned[0]?.f || null;
+}
+
+/** His line when he hands it over: the name if it fits, flavoured by rarity. */
+function foundLine(find, rand = Math.random) {
+  if (!find) return null;
+  const short = find.name.toLowerCase();
+  const pick = xs => xs[Math.min(xs.length - 1, Math.floor(rand() * xs.length))];
+  const options = {
+    common: [`a ${short}!`, 'found something!', 'for you!'],
+    uncommon: [`ooh, ${short}!`, 'look what I found', 'for you!'],
+    rare: [`a ${short}!!`, 'ooh, a rare one!', 'look look look!'],
+    legendary: ['TREASURE!!', `${short}!!`, 'we\'re rich!'],
+    special: ['for you, today', 'a special one', 'just for today'],
+  }[find.rarity];
+  const fits = options.filter(l => l.length <= 24);
+  return pick(fits.length ? fits : ['for you!']);
+}
+
+/** Everything the shelf shows. Finds you haven't got are there as silhouettes. */
+function view(stateIn, now = Date.now(), { seasons = [] } = {}) {
+  const state = normalize(stateIn);
+  const fav = favourite(state);
+  return {
+    total: total(state),
+    kinds: kinds(state),
+    of: FINDS.length,
+    digs: state.digs,
+    favourite: fav?.id || null,
+    nextDigAt: nextDigAt(state),
+    canDig: canDig(state, now),
+    unseen: state.unseen,
+    finds: FINDS.map(f => {
+      const it = state.items[f.id];
+      return {
+        id: f.id, rarity: f.rarity, rarityLabel: RARITY[f.rarity].label, set: f.set,
+        season: f.season, inSeason: !f.season || seasons.includes(f.season), night: f.night, special: f.special,
+        owned: !!it, count: it?.n || 0, first: it?.first || 0,
+        // The name and the line are part of the surprise, except for keepsakes,
+        // which say what day to look out for.
+        name: it || f.special ? f.name : '???',
+        blurb: it ? f.blurb : hintFor(f),
+        pixels: f.pixels, palette: f.palette,
+      };
+    }),
+    sets: SETS.map(set => ({ id: set.id, name: set.name, icon: set.icon, have: set.members.filter(id => state.items[id]).length, of: set.members.length, done: setDone(state, set), members: set.members })),
+  };
+}
+
+function hintFor(f) {
+  if (f.special === 'birthday') return 'Turns up on your birthday (set it on the Us page).';
+  if (f.special === 'hatchday') return 'Turns up on the anniversary of the day he moved in.';
+  if (f.season) return `Only turns up in ${{ halloween: 'Spooky Season', winter: 'the winter holidays', valentine: 'Valentine’s week', spring: 'spring', summer: 'summer', autumn: 'autumn' }[f.season]}.`;
+  if (f.night) return 'Only turns up after dark.';
+  if (f.rarity === 'legendary') return 'Legendary. Keep digging.';
+  return 'Not found yet.';
+}
+
+/** Pick the one he shows off (null goes back to the rarest). */
+function setFavourite(stateIn, id) {
+  const state = normalize(stateIn);
+  if (id != null && !Object.hasOwn(state.items, id)) return state;
+  return { ...state, favourite: id || null };
+}
+
+/** The shelf has been looked at. */
+const markSeen = stateIn => ({ ...normalize(stateIn), unseen: [] });
+
+module.exports = {
+  FINDS, SETS, RARITY, DIG_CHANCE, DRY_SPELL, DAILY_CAP, FIND_GAP, MANUAL_EVERY, LEGENDARY_AFTER,
+  normalize, findById, eligible, pickFind, dig, keepsake, canDig, nextDigAt, favourite, foundLine, view, setFavourite, markSeen, total,
+};

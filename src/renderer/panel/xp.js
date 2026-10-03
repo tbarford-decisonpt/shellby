@@ -4,8 +4,8 @@
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯' };
-  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties' };
+  const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯', pet: '♥', play: '🙈', find: '🐚', treasure: '🏴‍☠️', bond: '💞' };
+  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties', pet: 'Pets', play: 'Games', find: 'Finds', treasure: 'Treasure', bond: 'Bond' };
   const UNLOCK_NAME = { shell: 'shell', title: 'title', rank: '' };
   const fmt = n => Number(n || 0).toLocaleString();
   const shortDay = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
@@ -83,12 +83,14 @@
     $('xpBoosts').textContent = b;
     renderBounties(v.bounties);
     renderHistory(v);
-    $('xpWays').replaceChildren(...(v.ways || []).map(w => h('li', {}, h('span', { text: KIND_ICON[w.kind] || '✦' }), h('span', { text: w.text }), h('b', { text: `+${w.xp}` }))));
+    // Just the crab: only the ways that don't need Claude.
+    const ways = (v.ways || []).filter(w => !(w.claude && state.settings.crabOnly));
+    $('xpWays').replaceChildren(...ways.map(w => h('li', {}, h('span', { text: KIND_ICON[w.kind] || '✦' }), h('span', { text: w.text }), h('b', { text: `+${w.xp}` }))));
     $('xpLog').replaceChildren(...(v.log.length ? v.log.slice(0, 8).map(e => h('li', { title: e.bonus ? `Bonus: ${e.bonus}` : null },
       h('span', { class: 'xp-log-icon', text: KIND_ICON[e.kind] || '✦' }),
       h('span', { class: 'xp-log-label', text: [e.project ? `${e.label} · ${e.project}` : e.label, e.bonus].filter(Boolean).join(' · ') }),
       h('b', { text: `+${e.xp}` }),
-      h('time', { text: SB.relTime(e.at) }))) : [h('li', { class: 'xp-empty', text: 'No XP yet. Give Shellby a task!' })]));
+      h('time', { text: SB.relTime(e.at) }))) : [h('li', { class: 'xp-empty', text: state.settings.crabOnly ? 'No XP yet. Give him a pet!' : 'No XP yet. Give Shellby a task, or a pet!' })]));
   }
 
   api.onXp(apply);

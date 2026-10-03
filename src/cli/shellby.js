@@ -7,6 +7,8 @@
 //   shellby say "all green"                 put a line in his speech bubble
 //   shellby status                          how the crab and this PC are doing
 //   shellby flow run "Red build fixer" branch=main   start a workflow
+//   shellby time last-week                  hours on each project, for an invoice
+//   shellby do @review                      run a saved prompt snippet
 //
 // Self-contained plain Node (builtins only): Shellby copies this file next to
 // its shim in %LOCALAPPDATA%\Shellby\bin, so it never has to be read out of the
@@ -34,16 +36,26 @@ const MAX_INPUTS = 10;
 const MAX_INPUT_VALUE = 2000;
 const MAX_FLOW_NAME = 60;
 
+const TIME_RANGES = ['today', 'week', 'last-week', 'month', 'last-month'];
+// A saved snippet, as Shellby names them (snippets.js NAME). Lowercase only, so
+// `shellby do @Makefile ...` and `@src/app.js` stay file mentions for Claude.
+const SNIPPET = /^@([a-z0-9][a-z0-9-]{0,31})$/;
+
 const EXIT = { ok: 0, error: 1, usage: 2, notRunning: 3, denied: 4 };
 
 const USAGE = `shellby - the desktop crab, from your terminal
 
   shellby do <task...>        hand a task to Shellby, in this folder
+  shellby do @<snippet> [more...]
+                              run one of your saved prompt snippets, like @review
+  shellby snippets            your snippets
   shellby say <text...>       put a short line in his speech bubble
   shellby status              how the crab and this PC are doing
   shellby flow list           your workflows, and which ones Claude Code may run
   shellby flow run <name...> [key=value ...]
                               start a workflow that has the "Claude Code" trigger
+  shellby time [range] [--git] hours on each project: ${TIME_RANGES.join(' | ')}
+                              (default: week). --git fills untracked days from your commits
   shellby help                this
   shellby version
 
@@ -51,6 +63,9 @@ Options for "do":
   -C, --dir <path>     run the task somewhere else (default: this folder)
   -m, --mode <mode>    ${MODES.join(' | ')}  (default: whatever Shellby is set to)
   -q, --quiet          print nothing unless it fails
+
+A snippet's prompt gets whatever follows its name: in place of $ARGUMENTS if
+it has one ("shellby do @tests src/app.js"), otherwise on the end.
 
 For "flow run", the name is every word before the first key=value (or quote
 it), and each key=value fills in one of the workflow's inputs:
@@ -131,6 +146,7 @@ function parseArgs(argv) {
   if (!first || first === 'help' || first === '--help' || first === '-h') return { usage: true };
   if (first === 'version' || first === '--version' || first === '-v') return { cmd: 'version' };
   if (first === 'status') return { cmd: 'status' };
+  if (first === 'snippets') return args.length ? { error: 'shellby snippets takes nothing after it.' } : { cmd: 'snippets' };
 
   if (first === 'say') {
     const text = args.join(' ').trim();
@@ -155,13 +171,25 @@ function parseArgs(argv) {
       else if (a.startsWith('-') && a.length > 1) return { error: `Unknown option: ${a}` };
       else words.push(a);
     }
+    const snippet = SNIPPET.exec(words[0] || '');
+    if (snippet) words.shift();
     const prompt = words.join(' ').trim();
-    if (!prompt) return { error: 'What should he do? (shellby do "tidy my Downloads")' };
+    if (!prompt && !snippet) return { error: 'What should he do? (shellby do "tidy my Downloads", or a snippet: shellby do @review)' };
     if (prompt.length > MAX_PROMPT) return { error: `That task is longer than ${MAX_PROMPT} characters.` };
-    return { ...opts, prompt };
+    return snippet ? { ...opts, prompt, snippet: snippet[1] } : { ...opts, prompt };
   }
 
   if (first === 'flow') return parseFlowArgs(args);
+
+  if (first === 'time') {
+    const opts = { cmd: 'time', range: 'week', estimates: false };
+    for (const a of args) {
+      if (a === '--git') opts.estimates = true;
+      else if (TIME_RANGES.includes(a)) opts.range = a;
+      else return { error: `shellby time takes one of ${TIME_RANGES.join(', ')} (and --git), not "${String(a).slice(0, 30)}".` };
+    }
+    return opts;
+  }
 
   return { error: `Unknown command: ${String(first).slice(0, 30)}. Try "shellby help".` };
 }
@@ -230,13 +258,17 @@ async function main(argv) {
     return EXIT.denied;
   }
 
+  if (cmd.cmd === 'time') return cliRequest({ action: 'time', range: cmd.range, estimates: cmd.estimates }, token, { fallback: 'No time to show.' });
+  if (cmd.cmd === 'snippets') return cliRequest({ action: 'snippets' }, token, { fallback: 'No snippets yet.' });
   if (cmd.cmd === 'flow-list') return cliRequest({ action: 'flow-list' }, token, { fallback: 'No answer.' });
   if (cmd.cmd === 'flow-run') return cliRequest({ action: 'flow-run', name: cmd.name, inputs: cmd.inputs }, token, { fallback: 'Started.' });
 
   // do
   const dir = path.resolve(cmd.dir || process.cwd());
   if (!isDirectory(dir)) { err(`Not a folder: ${dir}`); return EXIT.usage; }
-  return cliRequest({ action: 'task', args: { prompt: cmd.prompt, cwd: dir, mode: cmd.mode } }, token,
+  const args = { prompt: cmd.prompt, cwd: dir, mode: cmd.mode };
+  if (cmd.snippet) args.snippet = cmd.snippet;
+  return cliRequest({ action: 'task', args }, token,
     { quiet: cmd.quiet, fallback: 'Handed to Shellby.' });
 }
 
@@ -274,4 +306,4 @@ if (require.main === module) {
     .catch(e => { err(`shellby: ${e?.message || e}`); process.exit(EXIT.error); });
 }
 
-module.exports = { parseArgs, main, USAGE, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME };
+module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, SNIPPET };

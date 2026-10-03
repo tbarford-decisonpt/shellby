@@ -1,10 +1,67 @@
 # Changelog
 
-## 0.54.1: getting ready to sign
+## 0.58.1: getting ready to sign
 
 ### Changed
 - **Releases can now be signed for free through SignPath Foundation**, the code-signing programme for open-source projects. Once Shellby's application is approved, the installer and portable exe will be signed and Windows should stop showing the "Windows protected your PC" warning. Until then nothing changes: releases are unsigned, and **More info → Run anyway** still gets you past it. Who can sign what is written up in the README's new [code signing policy](README.md#code-signing-policy); setup is in [docs/SIGNING.md](docs/SIGNING.md).
 - **A privacy policy.** [PRIVACY.md](PRIVACY.md) lists every connection Shellby makes, what goes over it, when, and how to turn it off, plus what's stored on your PC and how to delete it. Nothing about what Shellby does has changed; the README's shorter list had left a few out, like workflow web requests, `git fetch`, and plugin installs.
+
+## 0.58.0: prompt snippets
+
+### New
+- **Prompt snippets.** Save the things you ask Claude for again and again, like "review my diff" or "write tests for this file", under a short name in **Toolbox → Snippets**. Then type `/review` in the box, or run `shellby do @review` in any terminal, and Claude gets the whole prompt.
+- **Fill in the blank.** Put `$ARGUMENTS` in a snippet and whatever you type after its name goes there: `/tests src/app.js`, or `shellby do @tests src/app.js`. Without it, anything you add goes on the end. A snippet that needs something says so instead of sending half a prompt.
+- **In the slash menu.** Your snippets come up as you type `/`, marked as snippets, right after Shellby's own commands. One that shares a name with a skill or command runs instead of it in the box, and the Toolbox tells you so.
+- **One click.** Pin a snippet and it's a chip on the start screen. Clicking it sends it, or puts it in the box if it needs something. Whatever you'd already typed goes with it.
+- **Keep what worked.** `/snippets save <name>` saves the last thing you sent as a snippet.
+- **From the terminal.** `shellby snippets` lists yours, and an `@name` that isn't one tells you the ones there are. `@src/app.js`, `@README.md` and anything else with a dot, a slash or a capital is still a file for Claude, as before.
+- You start with five you can edit or delete: **review**, **tests**, **explain**, **commit** and **pr**.
+
+## 0.57.0: time on each project
+
+### New
+- **Time on each project.** **History → Time** keeps track of how long you spend on each project, so a timesheet or an invoice is a click away. Shellby works it out from what he already sees: an editor or terminal showing a project's folder, the project's page on GitHub or GitLab, Claude working in it, and git moving in it (a commit, a checkout, a pull). Your terminal and the docs you're reading count for the project you were just in. The clock stops when you're away from the keyboard (after 5 minutes, or what you choose) or the screen is locked. It's off until you turn it on.
+- **Clients and rates.** Give each project a client and an hourly rate, mark it billable or not, and round each day to the nearest (or next) 6, 10, 15, 30 or 60 minutes. The page shows the period's hours and what they come to, a bar for each day, and each project's days with your commits on them.
+- **Time by hand.** Add a meeting or take off a break on any day, with a note for the invoice. Each day has quick −15 and +15 buttons and its own note.
+- **From your commits.** Days you committed but weren't keeping time can be filled in from the commits, the way git-hours estimates them, and they're marked as estimates wherever they show.
+- **Timesheets.** **Save PDF** makes a clean timesheet for a client, one project or everything: each day's hours and what it was for (its note, or else your commit messages), the rate and the total. **Save CSV** gives one row per project per day for a spreadsheet or your invoicing tool, and **Copy as text** is ready to paste into an email. They're saved to `Documents\Shellby Timesheets`.
+- **From the terminal.** `shellby time last-week` prints the same summary (`today`, `week`, `last-week`, `month` or `last-month`, and `--git` to fill in from commits).
+
+### Privacy
+- Everything stays on this PC and is never synced. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes. Only a code host's page counts in a browser, so a web page can't put time on your invoice by naming a project in its title.
+- Commit messages can't sneak into a timesheet as anything but text: no HTML, no spreadsheet formulas, no terminal escapes or invisible characters.
+
+## 0.56.0: dependency watch
+
+### New
+- **Dependency watch.** Once a week Shellby checks the npm projects you work in for outdated packages and known vulnerabilities, using `npm outdated` and `npm audit`. It's on the **Routines** page under Dependency health, off until you switch it on, because those commands ask the npm registry about your packages. **Check now** runs it straight away.
+- Where the **Dependency checkup** routine has Claude look over any kind of project and report, this is Shellby checking your npm projects himself, without Claude, and offering to do the update for you.
+- **Bump & open a PR.** For a project that needs it, one button opens a task in a copy of the project on its own branch. It bumps what's safe, then the major versions one at a time, runs the tests, and opens a pull request listing what changed and what it left alone. If the tests won't pass, it stops and tells you what broke instead of pushing. Your own checkout isn't touched.
+- **Make it a routine.** The same job as a weekly routine for that project, filled in for you to check before you save it.
+- When the weekly check finds something, you get a notification. One with a critical vulnerability gets through even during a focus session.
+- It checks up to 12 projects: the git repos Shellby has seen you work in and your recent folders, wherever there's a `package.json` and a `package-lock.json`.
+
+### Safety
+- The check runs inside your projects with no one watching, so a project can't choose what runs. npm and git are found by their full paths, never looked up in the project folder, and there's no shell. A project's `.npmrc` can't swap in its own git, and npm gets none of your environment's tokens or keys, so a project's settings can't quote them and send them somewhere. Package names and versions go to Claude only if they look like real ones, and marked as data, not instructions.
+
+## 0.55.0: a life of his own
+
+### New
+- **Little scenes.** When nothing's happening he gets up to something, a few beats at a time: squints at your cursor, creeps up on it, pounces and misses (*"meant to do that"*); builds a sandcastle and watches it wash away; sneezes, gets the hiccups, blows bubbles, juggles pebbles, nods off, counts grains of sand, swats at a fly. Some only happen at night, at the weekend, in their season or while music plays, and what he says depends on his temperament. 24 in all, and **Shellby → Us** shows which you've caught him in.
+- **He notices your day.** *"gg"* when a game you've been playing ends, *"numbers again?"* after most of an hour in Excel (and his own lines for Word and PowerPoint), *"friday!"* on a Friday afternoon, a lazy line at the weekend, a groan on Monday morning. He only ever knows the *kind* of app in front, from its file name and where it's installed: never a window title or anything in it, and nothing leaves your PC.
+- **Quiet on a call.** While an app has your microphone, he holds up a little "shh" sign, says nothing, stays off your windows, and asks how it went once you hang up. Windows' own record of who's using the microphone tells him; he never listens himself.
+- **Gifts from digging.** Now and then a dig turns something up and he holds it out to you. 38 finds, from sea glass and lost keys to pearls and, very rarely, a gold doubloon, in six sets to complete. Some only turn up in their season or after dark, and two only on special days. Right-click him → **Play → Dig for treasure** every couple of hours, and see them all on the new **Shellby → Finds** shelf. The one you pick as his favourite is what he shows off, and what he brings up when friends visit.
+- **He remembers you.** Petting, playing and keeping him around bring the two of you closer, from *New friends* to *Inseparable*, and every step opens something up. It never goes back down. **Shellby → Us** keeps your story (*"You shook him off Chrome"*), and every so often he brings a moment up. He counts your days together, marks his hatch day each year, and if you tell him your birthday he makes a fuss and digs up something you can't find any other way.
+- **Hide and seek, and fetch.** Right-click him → **Play**. He hides behind one of your windows, peeks out if you're stuck, and wins if you take too long. Or throw him a pebble and he scuttles off after it and brings it back.
+- **Visiting crabs talk.** When a friend's crab drops by, the two of them chat, and the conversation depends on both temperaments, their stickers, how much each has grown and the finds they're proudest of. Your calling card now carries his temperament and favourite find for this.
+- **11 new trophies,** each with something to wear: a sand pail, a metal detector, a treasure chest, a leafy disguise, a tennis ball, a friendship locket and more.
+
+### Changed
+- **He stays awake while you're at your PC.** He used to fall asleep three minutes after his last task even with you sitting right there, so without Claude he was asleep most of the day. Now your own keyboard and mouse keep him up, and he naps when you step away, or now and then because he felt like it.
+- **His eyes follow your cursor.**
+- **Normal mode hears from him.** On the default setting he now mutters to himself now and then when nothing's happening, instead of only on Chatty.
+- **XP without Claude.** Petting him, playing, his finds and growing closer all earn XP, so a crab-only Shellby levels up and earns his outfits too. The Trophies page lists every way to earn it, and only the ones that apply in just-the-crab mode.
+- **His temperament is shown.** Settings → Look, the Us page and his crab card say whether yours is chipper, fussy, cocky or sleepy. A crab-only crab card shows days together and finds instead of tasks and helpers.
 
 ## 0.54.0: is it safe to leave?
 

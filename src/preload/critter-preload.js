@@ -37,6 +37,14 @@ contextBridge.exposeInMainWorld('shellby', {
     pet: fire('critter:pet'),
     hit: fire('critter:hit'),
     onPerch: on('critter:perch'),
+    // His life between tasks (src/main/life.js, playtime.js): where your cursor
+    // is, a prop for a scene, something in his claw or on his face, and what a
+    // visiting crab says back.
+    onLook: on('critter:look'),
+    onProp: on('critter:prop'),
+    onHold: on('critter:hold'),
+    onWear: on('critter:wear'),
+    onVisitorSay: on('critter:visitor-say'),
   },
 
   // Files dropped on him: their paths, or (for a picture with no file behind

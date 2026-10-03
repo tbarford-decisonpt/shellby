@@ -86,4 +86,48 @@ async function stickerFile(root) {
   }
 }
 
-module.exports = { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile };
+// "2026-09-29 04:00:00 +0000": a date every git parses the same way.
+const gitDate = ms => new Date(ms).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' +0000');
+const COMMITS_MAX = 1000;
+
+/**
+ * Your commits on any local branch between two times (ms), oldest first:
+ * [{ at, subject }]. "Yours" is the repo's user.email when there is one. For
+ * the time tracker's invoice lines and estimates (timetrack.js).
+ */
+async function commitsBetween(root, from, to) {
+  if (!okDir(root) || !Number.isFinite(from) || !Number.isFinite(to)) return [];
+  const [email, out] = await Promise.all([
+    git(['-C', root, 'config', '--get', 'user.email']),
+    git(['-C', root, 'log', '--branches', '--no-merges', `-n${COMMITS_MAX}`, `--since=${gitDate(from)}`, `--until=${gitDate(to)}`, '--format=%ct%x09%ae%x09%s'], 8000, 1024 * 1024),
+  ]);
+  if (!out) return [];
+  const me = (email || '').toLowerCase();
+  return out.split('\n').map(line => {
+    const [ct, author, ...rest] = line.split('\t');
+    // Anyone who can push writes these: no control, bidi or zero-width characters.
+    const subject = rest.join('\t').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]+/g, ' ').trim().slice(0, 200);
+    return { at: Number(ct) * 1000, author: (author || '').toLowerCase(), subject };
+  }).filter(c => Number.isFinite(c.at) && c.at >= from && c.at < to && (!me || c.author === me))
+    .map(({ at, subject }) => ({ at, subject })).sort((a, b) => a.at - b.at);
+}
+
+/** The git reflogs that change when HEAD moves anywhere in the repo (commit, checkout, pull), worktrees included. */
+async function headLogs(root) {
+  if (!okDir(root)) return [];
+  const gitDir = path.join(root, '.git');
+  const out = [path.join(gitDir, 'logs', 'HEAD')];
+  try {
+    for (const e of await fs.promises.readdir(path.join(gitDir, 'worktrees'), { withFileTypes: true })) {
+      if (e.isDirectory()) out.push(path.join(gitDir, 'worktrees', e.name, 'logs', 'HEAD'));
+    }
+  } catch { /* no worktrees */ }
+  return out.slice(0, 20);
+}
+
+/** git's user.name, for "Prepared by" on a timesheet, or ''. */
+async function userName() {
+  return (await git(['config', '--global', '--get', 'user.name'])) || '';
+}
+
+module.exports = { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile, commitsBetween, headLogs, userName, gitDate };

@@ -1,0 +1,304 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "keepsakes",
+  "name": "Keepsakes",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rewards for the things you do together without Claude: digging up gifts, finishing a set, hide and seek, fetch, growing close, and the crabs who come to chat.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "sand-pail",
+      "name": "Sand Pail",
+      "description": "For carrying finds home.",
+      "slot": "held",
+      "rarity": "common",
+      "pivot": [
+        3,
+        0
+      ],
+      "unlock": {
+        "achievement": "beachcomber"
+      },
+      "palette": {
+        "k": "#8d99ae",
+        "K": "#ff9f1c",
+        "R": "#ff7a5c",
+        "r": "#ffb199"
+      },
+      "pixels": [
+        "..kkk..",
+        ".k...k.",
+        "KKKKKKK",
+        ".RrrrR.",
+        ".RrrrR.",
+        "..RRR.."
+      ]
+    },
+    {
+      "id": "metal-detector",
+      "name": "Metal Detector",
+      "description": "Beep. Beep. BEEP.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [
+        1,
+        1
+      ],
+      "unlock": {
+        "achievement": "magpie"
+      },
+      "palette": {
+        "k": "#4a4e69",
+        "c": "#ffd23f",
+        "y": "#fff4b3"
+      },
+      "pixels": [
+        "kk.....",
+        ".k.....",
+        "..k....",
+        "...k...",
+        "....k..",
+        "...ccc.",
+        "..cyyyc",
+        "...ccc."
+      ]
+    },
+    {
+      "id": "treasure-chest",
+      "name": "Treasure Chest",
+      "description": "Where the good finds go.",
+      "slot": "shell",
+      "rarity": "epic",
+      "pivot": [
+        3,
+        2
+      ],
+      "unlock": {
+        "achievement": "curator"
+      },
+      "palette": {
+        "K": "#5e3a1a",
+        "b": "#a0693a",
+        "y": "#ffd23f"
+      },
+      "pixels": [
+        ".KKKKK.",
+        "KbbybbK",
+        "KKKyKKK",
+        "KbbbbbK",
+        "KKKKKKK"
+      ]
+    },
+    {
+      "id": "doubloon-medal",
+      "name": "Doubloon Medal",
+      "description": "Pirate gold, on a ribbon.",
+      "slot": "neck",
+      "rarity": "epic",
+      "pivot": [
+        2,
+        0
+      ],
+      "unlock": {
+        "achievement": "x-marks"
+      },
+      "palette": {
+        "r": "#e63946",
+        "y": "#ffd23f",
+        "Y": "#c99700"
+      },
+      "pixels": [
+        "r...r",
+        ".r.r.",
+        ".yyy.",
+        "yyYyy",
+        ".yyy."
+      ]
+    },
+    {
+      "id": "friendship-locket",
+      "name": "Friendship Locket",
+      "description": "There is a picture of you inside.",
+      "slot": "neck",
+      "rarity": "epic",
+      "pivot": [
+        3,
+        0
+      ],
+      "unlock": {
+        "achievement": "best-friends"
+      },
+      "palette": {
+        "g": "#ffd23f",
+        "p": "#ff8fab"
+      },
+      "pixels": [
+        "g.....g",
+        ".g...g.",
+        "..g.g..",
+        "..p.p..",
+        ".ppppp.",
+        "..ppp..",
+        "...p..."
+      ]
+    },
+    {
+      "id": "leafy-disguise",
+      "name": "Leafy Disguise",
+      "description": "You will never find him now.",
+      "slot": "hat",
+      "rarity": "rare",
+      "pivot": [
+        3,
+        4
+      ],
+      "unlock": {
+        "achievement": "peekaboo"
+      },
+      "palette": {
+        "g": "#2a9d8f",
+        "G": "#57cc99"
+      },
+      "pixels": [
+        "..g.g..",
+        ".gGgGg.",
+        "gGgGgGg",
+        ".gGgGg.",
+        "ggggggg"
+      ]
+    },
+    {
+      "id": "tennis-ball",
+      "name": "Tennis Ball",
+      "description": "Throw it. No, really, throw it.",
+      "slot": "held",
+      "rarity": "common",
+      "pivot": [
+        1,
+        3
+      ],
+      "unlock": {
+        "achievement": "good-arm"
+      },
+      "palette": {
+        "y": "#c7f464",
+        "w": "#ffffff"
+      },
+      "pixels": [
+        ".yy.",
+        "ywyy",
+        "yywy",
+        ".yy."
+      ]
+    },
+    {
+      "id": "game-controller",
+      "name": "Game Controller",
+      "description": "Player two has joined.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [
+        1,
+        4
+      ],
+      "unlock": {
+        "achievement": "player-two"
+      },
+      "palette": {
+        "K": "#2b2d42",
+        "k": "#cfd8dc",
+        "r": "#e63946",
+        "b": "#3a86ff",
+        "g": "#2dc653"
+      },
+      "pixels": [
+        ".KKKKK.",
+        "KkKKKrK",
+        "kkkKKKb",
+        "KkKKKgK",
+        ".KK.KK."
+      ]
+    },
+    {
+      "id": "on-air-light",
+      "name": "On Air Light",
+      "description": "Lit while you talk. He stays shtum.",
+      "slot": "hat",
+      "rarity": "rare",
+      "pivot": [
+        3,
+        4
+      ],
+      "unlock": {
+        "achievement": "on-air"
+      },
+      "palette": {
+        "K": "#2b2d42",
+        "k": "#4a4e69",
+        "r": "#e63946",
+        "w": "#fff4e4"
+      },
+      "pixels": [
+        ".KKKKK.",
+        "KrrrrrK",
+        "KrwrwrK",
+        "KrrrrrK",
+        "..kkk.."
+      ]
+    },
+    {
+      "id": "bubble-pipe",
+      "name": "Bubble Pipe",
+      "description": "Very distinguished. Very bubbly.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [
+        6,
+        3
+      ],
+      "unlock": {
+        "achievement": "storyteller"
+      },
+      "palette": {
+        "b": "#8a6a4a",
+        "w": "#a8dadc"
+      },
+      "pixels": [
+        "....w.w",
+        ".....w.",
+        "bbb..w.",
+        "bbbbbbb",
+        ".b....."
+      ]
+    },
+    {
+      "id": "tin-can-phone",
+      "name": "Tin Can Phone",
+      "description": "For crab-to-crab calls.",
+      "slot": "held",
+      "rarity": "common",
+      "pivot": [
+        1,
+        5
+      ],
+      "unlock": {
+        "achievement": "gossip"
+      },
+      "palette": {
+        "K": "#8d99ae",
+        "c": "#cfd8dc",
+        "s": "#fff4e4"
+      },
+      "pixels": [
+        "s....",
+        ".s...",
+        "..s..",
+        "KKK..",
+        "KcK..",
+        "KKK.."
+      ]
+    }
+  ]
+}
