@@ -20,7 +20,9 @@ const MAX_COMMAND = 4000;
 /**
  * -> Promise<{ command, output, code, timedOut, ms }>. Never rejects.
  */
-function run(cwd, command, { timeoutMs = TIMEOUT_MS } = {}) {
+// signal: an AbortSignal that ends the command (and everything it started) early.
+// env: extra environment variables (a workflow passes its values this way, never in the command text).
+function run(cwd, command, { timeoutMs = TIMEOUT_MS, signal = null, env = null } = {}) {
   const started = Date.now();
   const cmd = String(command || '').slice(0, MAX_COMMAND);
   return new Promise(resolve => {
@@ -41,7 +43,7 @@ function run(cwd, command, { timeoutMs = TIMEOUT_MS } = {}) {
       // UTF-8 output, so non-ASCII file names and messages come back intact.
       child = spawn(POWERSHELL, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
         `[Console]::OutputEncoding=[Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; ${cmd}`], {
-        cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+        cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...(env ? { env: { ...process.env, ...env } } : {}),
       });
     } catch (e) {
       resolve({ command: cmd, output: e.message, code: -1, timedOut: false, ms: 0 });
@@ -49,13 +51,17 @@ function run(cwd, command, { timeoutMs = TIMEOUT_MS } = {}) {
     }
     child.stdout.on('data', keeper());
     child.stderr.on('data', keeper());
+    const killTree = () => execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
     const timer = setTimeout(() => {
       timedOut = true;
-      execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+      killTree();
     }, timeoutMs);
+    const onAbort = () => killTree();
+    if (signal?.aborted) onAbort(); else signal?.addEventListener('abort', onAbort, { once: true });
     child.on('error', e => { output += e.message; });
     child.on('close', code => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       let text = output.replace(/\r\n/g, '\n').replace(/\s+$/, '');
       if (over) text = `${text.slice(0, MAX_OUTPUT)}\n… (output cut off at ${MAX_OUTPUT.toLocaleString('en-US')} characters)`;
       if (timedOut) text = `${text}\n(stopped after ${Math.round(timeoutMs / 1000)} seconds)`.trim();

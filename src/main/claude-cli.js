@@ -68,7 +68,10 @@ async function verifyClaude(file) {
 // Always resolves: a file Windows refuses to execute at all (a .txt chosen in
 // the file picker, say) makes execFile throw synchronously with EFTYPE rather
 // than calling back, and that used to escape as a rejected promise.
-function run(exe, args, timeout = 15000, { cwd } = {}) {
+// opts.input: text for stdin, which `claude -p` with no prompt argument reads
+// as the prompt. Long prompts go this way: a Windows command line stops at
+// 32,767 characters.
+function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
   return new Promise(resolve => {
     let timedOut = false;
     let child;
@@ -84,7 +87,8 @@ function run(exe, args, timeout = 15000, { cwd } = {}) {
     }
     // Nothing is ever typed in, and `claude -p` waits for stdin to end before
     // it starts when stdin isn't a terminal.
-    try { child.stdin?.end(); } catch { /* already gone */ }
+    child.stdin?.on('error', () => { /* it exited before reading: the callback reports it */ });
+    try { if (input === null) child.stdin?.end(); else child.stdin?.end(String(input)); } catch { /* already gone */ }
     // Our own timeout: kill the whole tree while claude is still alive (a plugin
     // install may be running git; execFile's timeout would only kill claude.exe).
     const timer = setTimeout(() => {

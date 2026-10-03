@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="github.css">
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="composer.css">
+<link rel="stylesheet" href="workflows.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -90,6 +91,7 @@
   <div class="popover usage-menu" id="usageMenu" role="menu" hidden></div>
   <div class="popover" id="effortMenu" role="menu" hidden></div>
   <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
+  <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -187,8 +189,21 @@
     </details>
   </main>
 
+  <!-- ====================== WORKFLOWS (workflows.js) ====================== -->
+  <main class="view view-workflows" id="workflowsView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows aria-current="page">Workflows</button>
+      <button type="button" data-view-btn="routines">Routines</button>
+    </nav>
+    <div id="wfScreen"></div>
+  </main>
+
   <!-- ====================== ROUTINES ====================== -->
   <main class="view view-routines" id="routinesView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows>Workflows</button>
+      <button type="button" aria-current="page">Routines</button>
+    </nav>
     <div class="view-head">
       <h2>Routines</h2>
       <button type="button" class="btn primary slim-btn" id="newRoutineBtn">New routine</button>
@@ -908,9 +923,9 @@
       <span>Toolbox</span>
       <i class="dot-badge" id="toolboxBadge" hidden></i>
     </button>
-    <button type="button" class="dock-btn" data-view-btn="routines" aria-keyshortcuts="Control+4">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2M13.4 2.6v2.8h-2.8M8 5.2V8l2 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Routines</span>
+    <button type="button" class="dock-btn" data-view-btn="workflows" aria-keyshortcuts="Control+4">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.8L3.6 9h4l-1 5.2L12.4 7h-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Automate</span>
     </button>
     <button type="button" class="dock-btn" data-view-btn="health" aria-keyshortcuts="Control+5">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.6h2.8l1.6-4.4 3 7.8 1.8-5 1 1.6h2.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1014,6 +1029,7 @@
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>
+<script src="workflows.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
