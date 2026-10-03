@@ -67,7 +67,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
     await wait(500);
 
-    // 1. The page and its templates.
+    // 1. The page and its templates. On a cold start the bridge and the
+    // workflow service may still be coming up: wait until it answers.
+    check(await until("typeof shellby !== 'undefined' && shellby.listWorkflows().then(v => !!v?.templates)", 20000), 'the workflow service answers');
     const view = JSON.parse(await ev('shellby.listWorkflows().then(v => JSON.stringify(v))'));
     check(view && Array.isArray(view.workflows) && view.workflows.length === 0, 'starts with no workflows');
     check(view.templates.length === 6, `six templates (${view.templates.length})`);

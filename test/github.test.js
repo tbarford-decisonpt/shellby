@@ -99,6 +99,32 @@ test('sync: two PCs meet in one private gist', async () => {
   } finally { await mock.close(); }
 });
 
+test('sync: XP earned on two PCs adds up, and syncing again never counts it twice', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const gh = new GitHubApi({ token: mock.state.token, api: mock.base });
+    // Both start from the same synced 300, from before XP was counted per PC.
+    const pc1 = new MemConfig({ xp: { total: 300, device: 'pc-one1', byDevice: { legacy: 300, 'pc-one1': 500 } } });
+    const pc2 = new MemConfig({ xp: { total: 300, device: 'pc-two2', byDevice: { legacy: 300, 'pc-two2': 200 } } });
+    const io = c => ({ get: k => c.get(k), set: p => c.set(p) });
+    await syncNow(gh, io(pc1));
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('xp').total, 1000);
+    assert.equal(pc2.get('xp').total, 1000);
+    assert.equal(pc1.get('xp').device, 'pc-one1', 'each PC keeps its own id');
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('xp').total, 1000);
+    // An older Shellby rewrote the gist with only a total: it's a floor, not extra.
+    const id = pc1.get('syncGistId');
+    const old = JSON.parse(mock.state.gists.get(id).files[FILE].content);
+    mock.state.gists.get(id).files[FILE].content = JSON.stringify({ ...old, xp: { total: 1040, log: [] } });
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('xp').total, 1040);
+  } finally { await mock.close(); }
+});
+
 test('sync: stickers meet too, and each PC keeps its own folders and badges', async () => {
   const mock = await startMockGitHub();
   try {

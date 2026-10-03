@@ -178,8 +178,9 @@ class WorkflowService {
     if (!riskSignature(wf)) return true;
     const want = this.sign(wf);
     const have = (this.deps.config.get('workflowApprovals') || {})[wf.id];
-    // No key at all (Windows' encrypted storage is unavailable): nothing can be checked, so nothing is held back.
-    if (!want) return true;
+    // No key (Windows' encrypted storage is unavailable): nothing can be
+    // checked, so nothing that acts unasked is trusted. It fails closed.
+    if (!want) return false;
     return typeof have === 'string' && have.length === want.length && crypto.timingSafeEqual(Buffer.from(have), Buffer.from(want));
   }
 

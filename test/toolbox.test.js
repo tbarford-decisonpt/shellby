@@ -192,22 +192,46 @@ test('watcher: init plugins feed later scans without flooding "learned"', () => 
   }
 });
 
-test('watcher: a skill that flickers in and out is only "learned" once', () => {
+test('watcher: another cached version of a plugin is never "learned", launch after launch', () => {
   // Claude Code sessions can report two cached versions of the same plugin
   // (installed_plugins.json says 0.2.2, the auto-updated cache has 0.2.6).
+  // seen starts empty each launch, so this has to hold for a fresh watcher too.
   const home = tmp(), v1 = tmp(), v2 = tmp();
   put(path.join(v1, 'skills', 'doctor', 'SKILL.md'), md('', 'old'));
   put(path.join(v2, 'skills', 'doctor', 'SKILL.md'), md('', 'old'));
   put(path.join(v2, 'skills', 'status', 'SKILL.md'), md('', 'new in v2'));
+  for (let launch = 0; launch < 2; launch++) {
+    const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+    const learned = [];
+    w.on('learned', l => learned.push(l.name));
+    w.start();
+    try {
+      w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
+      w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+      w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
+      w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+      assert.deepEqual(learned, []);
+    } finally {
+      w.stop();
+    }
+  }
+});
+
+test('watcher: a skill that flickers in and out is only "learned" once', () => {
+  const home = tmp(), plug = tmp();
   const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
   const learned = [];
   w.on('learned', l => learned.push(l.name));
   w.start();
   try {
-    w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
-    w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
-    w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
-    w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+    w.setInit({ plugins: [{ name: 'ruflo', path: plug }] });
+    const status = path.join(plug, 'skills', 'status', 'SKILL.md');
+    put(status, md('', 'new'));
+    w.rescan();
+    fs.rmSync(path.dirname(status), { recursive: true });
+    w.rescan();
+    put(status, md('', 'new'));
+    w.rescan();
     assert.deepEqual(learned, ['ruflo:status']);
 
     // Same for a user skill that's deleted and put back.

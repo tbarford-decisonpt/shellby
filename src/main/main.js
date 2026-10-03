@@ -45,7 +45,7 @@ const { qrRows } = require('./qr');
 const { MediaWatcher, trackRemark } = require('./media');
 const { Dictation, PushToTalk, holdKeyOf } = require('./dictation');
 const native = require('./native-windows');
-const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
+const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
@@ -779,7 +779,9 @@ function createManager() {
     if (item.kind === 'tool_result' && pendingCommands.has(item.id)) {
       const c = pendingCommands.get(item.id);
       pendingCommands.delete(item.id);
-      const kind = !item.isError && classifyCommand(c.command);
+      const meant = classifyCommand(c.command);
+      if (item.isError && meant === 'tests' && c.project && config && !CAPTURE) config.set({ xp: markRed(config.get('xp'), c.project, Date.now()) });
+      const kind = !item.isError && meant;
       if (kind) {
         awardXp(kind, { project: c.project });
         speak(voice.occasionForCommand(kind));
@@ -1036,13 +1038,22 @@ async function checkNudges() {
 // ================================================================ XP and levels
 
 function xpView() {
-  const s = config.get('xp') || {};
-  return { ...levelFor(s.total || 0), log: (s.log || []).slice(0, 15) };
+  return xpSummary(config.get('xp'), Date.now(), currentStreak());
+}
+
+const currentStreak = () => streaks.streakOf(config.get('streaks'), Date.now()).current;
+
+// What a level-up unlocked, in words: "the Reef Warden title and the Kelp badge".
+function unlockedText(list) {
+  const names = list.filter(u => u.kind !== 'shell').map(u => (u.kind === 'title' ? `the ${u.name} title` : `the ${u.name}`));
+  if (!names.length) return '';
+  return `Unlocked ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]}.`;
 }
 
 const LEVELUP_TEXT = {
   trick: m => `He wrote himself a new trick: ${m.label}.`,
   tests: m => `Tests passed${m.project ? ` in ${m.project}` : ''}.`,
+  fixed: m => `Tests green again${m.project ? ` in ${m.project}` : ''}.`,
   ship: m => `Pushed code${m.project ? ` in ${m.project}` : ''}.`,
   deploy: m => `Deployed${m.project ? ` from ${m.project}` : ''}!`,
 };
@@ -1050,25 +1061,28 @@ const LEVELUP_TEXT = {
 function awardXp(kind, meta = {}) {
   if (kind === 'ship') setTimeout(checkNudges, 3000); // a push means a fresh commit: update streak data
   if (CAPTURE || !config) return;
-  const r = award(config.get('xp'), kind, new Date(), meta);
-  if (!r.gained) return;
-  config.set({ xp: r.state });
-  send(critter, 'critter:xp', { amount: r.gained, kind });
+  const r = award(config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
+  if (r.changed) config.set({ xp: r.state });
+  if (!r.gained) { if (r.changed) send(panel, 'xp', xpView()); return; }
+  send(critter, 'critter:xp', { amount: r.gained, kind: r.kind });
+  for (const b of r.bounties) send(panel, 'xp:bounty', b);
   lastXp = { amount: r.gained, at: Date.now() };
   refreshStatusLine();
   setTimeout(refreshStatusLine, 15500); // let "+25 XP" fade from the status line
   send(panel, 'xp', xpView());
   if (!r.levelUp) return;
   levelUpAt = r.after.level;
-  const text = (LEVELUP_TEXT[kind] || (() => `${AWARDS[kind].label}.`))(meta);
+  const text = (LEVELUP_TEXT[r.kind] || (() => `${AWARDS[r.kind].label}.`))(meta);
+  // The new title is already the card's heading.
+  const unlocked = unlockedText(unlocksBetween(r.before.level, r.after.level).filter(u => !(u.kind === 'title' && u.name === r.after.title)));
   const shell = molt(r.before.level, r.after.level);
   if (!shell) {
     flashState('levelup', 6500);
     send(critter, 'critter:burst', outfit().confetti);
   }
-  send(panel, 'xp:levelup', { level: r.after.level, title: r.after.title, text, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
+  send(panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
   if (!(panel?.isVisible() && panel.isFocused())) {
-    const body = shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`;
+    const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
     notify(`Level up! Shellby is level ${r.after.level}`, body, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); });
   }
 }
@@ -4389,6 +4403,8 @@ app.whenReady().then(() => {
     });
   }
   stat('active');
+  // This PC's own XP count, so sync can add PCs together (xp.js).
+  if (!CAPTURE && !config.get('xp')?.device) config.set({ xp: withDevice(config.get('xp'), randomUUID()) });
   awardXp('day');
   setInterval(() => { wardrobe.collectSeasonals(); broadcastWardrobe(); }, 60 * 60 * 1000);
   skins = loadSkins(userSkinsDir());

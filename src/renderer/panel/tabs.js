@@ -172,6 +172,7 @@
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
         onpointerdown: e => dragStart(e, t.id),
+        oncontextmenu: e => { e.preventDefault(); openTabMenu(t.id, e.currentTarget); },
         onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); else if (e.key === 'F2') { e.preventDefault(); SB.renameTab(t.id); } },
       },
       tabIcon(t),
@@ -221,6 +222,16 @@
       if (state.view === 'history') SB.views.history.redraw?.();
     });
   };
+
+  // Right-click a tab (or Shift+F10 on it) for the same things, spelled out.
+  function openTabMenu(tabId, anchor) {
+    SB.openMenu($('tabMenu'), anchor, () => [
+      h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.renameTab(tabId); } },
+        h('span', { class: 'mi-check', text: '✎' }), h('span', { class: 'mi-title', text: 'Rename  (F2)' })),
+      h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.closeTab(tabId); } },
+        h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: 'Close  (Ctrl+W)' })),
+    ]);
+  }
 
   // Swaps `el` for a text field holding `current`. Enter or leaving the field
   // saves, Escape doesn't; done(name) gets the new name, or null for no change.
@@ -526,7 +537,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'wfMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
+      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       // Esc twice, like the terminal: back to an earlier message (composer.js).
       if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
@@ -880,7 +891,7 @@
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and push' }), h('div', { class: 'mi-sub', text: `Merge into ${w.base}, then push ${w.base} to its remote. The conversation carries on` }))),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
         h('span', { class: 'mi-check', text: '✓' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs stay in History' }))),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs move to Done in History' }))),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
         h('span', { class: 'mi-check', text: '✕' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
@@ -926,7 +937,9 @@
     const gone = r.discarded ? ` Threw away ${plural(r.discarded, 'other try', 'other tries')}.` : '';
     const failed = r.failed?.length ? ` Couldn't remove ${r.failed.join(', ')}.` : '';
     if (r.home?.tidied) await SB.closeTab(tab.id);
-    SB.toast(`${home}${gone}${failed} The conversations stay in History.`.trim(), { ms: 8000 });
+    // Coming home ticks this one off (the thrown-away tries aren't done, just gone).
+    if (!r.home) return SB.toast(`${home}${gone}${failed} The conversations stay in History.`.trim(), { ms: 8000 });
+    SB.toast(`${home}${gone}${failed} This one is marked done: it's under Done in History.`.trim(), { ms: 10000, action: 'Show me', onAction: SB.showDoneHistory });
   }
 
   async function bringHome(tab, { finish = false, push = false } = {}) {
@@ -944,8 +957,10 @@
       return;
     }
     if (r?.ok) {
+      // Finishing ticks the conversation off either way (main.js), and History
+      // hides done ones by default, so say where it went.
       await SB.closeTab(tab.id);
-      SB.toast(r.merged ? `${merged} The conversation is in History, marked done.` : 'Nothing new to merge, so the copy was just tidied away.', { ms: 6000 });
+      SB.toast(`${r.merged ? merged : 'Nothing new to merge, so the copy was just tidied away.'} Marked done: it's under Done in History.`, { ms: 8000, action: 'Show me', onAction: SB.showDoneHistory });
       return;
     }
     if (r?.conflict) {

@@ -47,10 +47,21 @@ class Updates extends EventEmitter {
   start() {
     const u = this.updater;
     if (!u) return this;
-    u.on('checking-for-update', () => this.#set('checking', { error: null }));
+    // While an update sits downloaded, later checks run quietly behind the
+    // install button: only a release newer than the one on disk moves it.
+    u.on('checking-for-update', () => {
+      if (this.state !== 'ready') this.#set('checking', { error: null });
+    });
     // autoDownload is on, so "available" already means the download has begun.
-    u.on('update-available', info => this.#set('downloading', { offered: versionOf(info) || this.offered, percent: 0 }));
-    u.on('update-not-available', () => this.#set('current', { offered: null, percent: 0, checkedAt: Date.now() }));
+    u.on('update-available', info => {
+      const offered = versionOf(info) || this.offered;
+      if (this.state === 'ready' && offered === this.offered) return; // the cached file, found again
+      this.#set('downloading', { offered, percent: 0 });
+    });
+    u.on('update-not-available', () => {
+      if (this.state === 'ready') return;
+      this.#set('current', { offered: null, percent: 0, checkedAt: Date.now() });
+    });
     u.on('download-progress', p => {
       if (this.state === 'ready') return; // an already-cached file reports progress after the fact
       this.#set('downloading', { percent: clampPercent(p && p.percent) });
@@ -63,17 +74,23 @@ class Updates extends EventEmitter {
         this.emit('ready', this.view());
       }
     });
-    u.on('error', e => this.#set('error', { error: messageOf(e) }));
+    // A failed re-check doesn't un-download what's already on disk.
+    u.on('error', e => {
+      if (this.state !== 'ready') this.#set('error', { error: messageOf(e) });
+    });
     this.check();
     this.timer = this.timers.setInterval(() => this.check(), this.every);
     return this;
   }
 
-  /** Ask GitHub. Resolves once the check has settled; any download carries on behind it. */
+  /**
+   * Ask GitHub. Resolves once the check has settled; any download carries on
+   * behind it. Still asks once an update is ready, so a release that lands
+   * after the download replaces it rather than needing a second restart.
+   */
   async check() {
-    // Already downloaded, or already busy: nothing a second check could add.
-    if (!this.updater || this.state === 'ready' || this.view().busy) return this.view();
-    this.#set('checking', { error: null });
+    if (!this.updater || this.view().busy) return this.view();
+    if (this.state !== 'ready') this.#set('checking', { error: null });
     try {
       await this.updater.checkForUpdates();
     } catch (e) {

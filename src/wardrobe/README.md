@@ -13,7 +13,7 @@ key community packs get. Two packs in here must therefore never use the same ite
 
 | File | Contents | Why |
 |---|---|---|
-| `base.pack.json` | 41 accessories, 7 effects, 2 skins | The original wardrobe. Hand-maintained — the formatter deliberately skips it. |
+| `base.pack.json` | 44 accessories, 7 effects, 2 skins | The original wardrobe. Hand-maintained — the formatter deliberately skips it. |
 | `shell-cargo.json` | 10 accessories | The `shell` slot had only 3 items. All ride the shell and rock when he naps. |
 | `eyewear.json` | 9 accessories | The `face` slot had only 4. Two use `follows: eyes`, so they track his scan while he works. |
 | `neckwear.json` | 7 accessories | The `neck` slot had 5, three of them scarves. |
@@ -23,17 +23,19 @@ key community packs get. Two packs in here must therefore never use the same ite
 | `beach-day.json` | 6 accessories, 2 effects | Summer had 2 items. |
 | `harvest.json` | 7 accessories, 1 effect | Autumn had 2 items. |
 | `sweetheart.json` | 6 accessories, 1 effect | Valentine had 2 items. |
+| `haunted-shell.json` | 8 accessories, 3 effects, 2 skins | Spooky Season had 4 items and the ghost skin. Every slot gets at least one, all seasonal. |
 | `high-places.json` | 5 accessories | One per slot, all from the window-perching trophies (`window-sill`, `hang-on`, `rodeo`, `leap-of-faith`, `trapeze`). |
 | `crab-species.json` | 4 skins | Reshaped crabs. Three move their `anchors` so accessories still land correctly. |
 | `theme-crabs.json` | 6 skins | Recolours for themed desktops. |
 | `sticker-shop.json` | 6 accessories | Rewards for the shell-sticker trophies (shipping projects, a 1.0, swaps). |
+| `now-playing.json` | 3 accessories, 1 effect | Listening along. The headphones he puts on by himself are the base pack's. |
 
-Totals: **119 accessories, 18 effects, 12 skins** (as `npm run packs` counts them).
+Totals: **127 accessories, 21 effects, 14 skins** (as `npm run packs` counts them).
 
 ## Unlocks
 
-Of the 137 accessories and effects, **32 are available on day one, 66 come from trophies and
-39 are seasonal** — so the wardrobe reads as a collection rather than a pile. The day-one set
+Of the 148 accessories and effects, **32 are available on day one, 66 come from trophies and
+50 are seasonal** — so the wardrobe reads as a collection rather than a pile. The day-one set
 exists to fill the slots that used to be empty (`face`, `neck` and `shell` had 4, 5 and 3
 items, all of them locked); hats and held items stay mostly earned, the way the base pack
 always had them.

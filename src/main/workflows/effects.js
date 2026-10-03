@@ -77,8 +77,11 @@ async function writeFile(p, content, { append = false, signal, forbidden = [] } 
 // Shellby's own local port takes MCP calls, commands and web hooks: a workflow
 // request (or a redirect) reaching it could start things nobody approved.
 function ownPort(u, blockedPorts) {
+  // URL() has already turned 2130706433, 0x7f.1 and 127.1 into 127.0.0.1.
   const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
-  const local = host === 'localhost' || host.endsWith('.localhost') || host === '::1' || /^127\./.test(host) || host === '0.0.0.0';
+  const mapped = /^::ffff:(?:127\.|7f[0-9a-f]{2}:)/.test(host); // IPv4-mapped loopback
+  const local = host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '::' || mapped
+    || /^127\./.test(host) || host === '0.0.0.0' || /^0+:0+:0+:0+:0+:0+:0+:0*1$/.test(host);
   const port = Number(u.port || (u.protocol === 'https:' ? 443 : 80));
   return local && blockedPorts.includes(port);
 }

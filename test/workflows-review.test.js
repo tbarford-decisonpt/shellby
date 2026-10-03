@@ -122,6 +122,9 @@ test('effects: no writes to places that run code later; no calls to Shellby\'s o
   const fetchImpl = async () => ({ status: 200, headers: { get: () => null }, text: async () => '' });
   await assert.rejects(effects.http({ method: 'POST', url: 'http://127.0.0.1:47913/v1/flow', fetchImpl, blockedPorts: [47913] }), /own local port/);
   await assert.rejects(effects.http({ method: 'POST', url: 'http://localhost:47913/v1/crab', fetchImpl, blockedPorts: [47913] }), /own local port/);
+  for (const sneaky of ['http://2130706433:47913/', 'http://0x7f.1:47913/', 'http://127.1:47913/', 'http://[::ffff:127.0.0.1]:47913/', 'http://[::]:47913/', 'http://[0:0:0:0:0:0:0:1]:47913/']) {
+    await assert.rejects(effects.http({ method: 'POST', url: sneaky, fetchImpl, blockedPorts: [47913] }), /own local port/, sneaky);
+  }
   const redirect = async url => (url.includes('a.com') ? { status: 307, headers: { get: () => 'https://b.com/x' }, text: async () => '' } : { status: 200, headers: { get: () => null }, text: async () => '' });
   await assert.rejects(effects.http({ method: 'POST', url: 'https://a.com/', body: '{"key":1}', fetchImpl: redirect }), /body and all/);
 });
@@ -171,6 +174,10 @@ test('a risky workflow written straight into settings is paused until saved agai
   const b = svcWith({ ...a.store, workflows: tampered }, { dataDir: a.dir });
   b.svc.workflows = b.svc.loadWorkflows();
   assert.deepEqual(b.svc.workflows.map(w => [w.name, w.enabled, !!w.needsApproval]), [['Mine', false, true], ['Planted', false, true]]);
+  // No encrypted storage, no way to check: a risky workflow stays paused (fails closed).
+  const d = svcWith({ workflows: a.store.workflows }, { crypto: { available: () => false } });
+  d.svc.workflows = d.svc.loadWorkflows();
+  assert.equal(d.svc.workflows[0].enabled, false);
   // Autonomous written in by hand isn't loaded without the acknowledgement, and isn't lost either.
   const c = svcWith({ workflows: [{ id: 'wf-a', name: 'Auto', steps: [{ type: 'claude', prompt: 'x', mode: 'autonomous' }] }] });
   c.svc.workflows = c.svc.loadWorkflows();

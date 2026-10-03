@@ -1,0 +1,264 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "haunted-shell",
+  "name": "Haunted Shell",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Spooky Season collectibles. A jack-o'-lantern, cat ears, a costume mask, a vampire collar, a candle, a caramel apple, a cobweb and a ghost buddy, with spiders, wisps and candy corn.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "jack-o-lantern",
+      "name": "Jack-o'-Lantern",
+      "description": "Spooky Season collectible. Carved with a butter knife and a lot of patience.",
+      "slot": "hat",
+      "rarity": "epic",
+      "unlock": { "season": "halloween" },
+      "pivot": [3, 4],
+      "palette": { "g": "#4a7c3a", "O": "#e8772e", "o": "#b4531b", "y": "#ffd23f" },
+      "pixels": [
+        "...g...",
+        ".OOgOO.",
+        "OyOOOyO",
+        "OOyyyOO",
+        ".ooooo."
+      ]
+    },
+    {
+      "id": "cat-ears",
+      "name": "Cat Ears",
+      "description": "Spooky Season collectible. The easiest costume there is.",
+      "slot": "hat",
+      "unlock": { "season": "halloween" },
+      "pivot": [4, 2],
+      "palette": { "K": "#1f1a24", "p": "#f4a6c0" },
+      "pixels": [
+        ".K.....K.",
+        "KpK...KpK",
+        "KKKKKKKKK"
+      ]
+    },
+    {
+      "id": "costume-mask",
+      "name": "Costume Mask",
+      "description": "Spooky Season collectible. Nobody will ever guess who it is.",
+      "slot": "face",
+      "unlock": { "season": "halloween" },
+      "pivot": [4, 1],
+      "palette": { "K": "#2b2233", "k": "#4a3b5c" },
+      "pixels": [
+        ".KKKKKKK.",
+        "KK..K..KK",
+        "kK..k..Kk"
+      ]
+    },
+    {
+      "id": "vampire-collar",
+      "name": "Vampire Collar",
+      "description": "Spooky Season collectible. Stands up all on its own.",
+      "slot": "neck",
+      "rarity": "rare",
+      "unlock": { "season": "halloween" },
+      "pivot": [4, 3],
+      "palette": { "K": "#1a1420", "r": "#a4161a" },
+      "pixels": [
+        "KK......KK",
+        "KrK....KrK",
+        "KrrK..KrrK",
+        ".KKKKKKKK."
+      ]
+    },
+    {
+      "id": "candle",
+      "name": "Dripping Candle",
+      "description": "Spooky Season collectible. For walking down dark hallways slowly.",
+      "slot": "held",
+      "unlock": { "season": "halloween" },
+      "pivot": [1, 6],
+      "palette": { "f": "#ffd23f", "F": "#ff8c2a", "w": "#f1ece0", "W": "#c9c0ad", "h": "#6b5b4d" },
+      "pixels": [
+        ".f.",
+        ".F.",
+        "wwW",
+        "WwW",
+        "wwW",
+        "hhh"
+      ]
+    },
+    {
+      "id": "caramel-apple",
+      "name": "Caramel Apple",
+      "description": "Spooky Season collectible. The best house on the street gives these out.",
+      "slot": "held",
+      "unlock": { "season": "halloween" },
+      "pivot": [1, 5],
+      "palette": { "s": "#d9b38c", "c": "#c47a2c", "r": "#c1121f" },
+      "pixels": [
+        ".s.",
+        "ccc",
+        "crc",
+        "rrr",
+        ".r."
+      ]
+    },
+    {
+      "id": "cobweb",
+      "name": "Cobweb",
+      "description": "Spooky Season collectible. Some tenants never pay rent.",
+      "slot": "shell",
+      "rarity": "rare",
+      "unlock": { "season": "halloween" },
+      "pivot": [3, 1],
+      "palette": { "w": "#d8dde3", "k": "#1a1a22" },
+      "pixels": [
+        "w..w..w",
+        ".w.w.w.",
+        "wwwkwww",
+        ".w.w.w.",
+        "w..w..w"
+      ]
+    },
+    {
+      "id": "ghost-buddy",
+      "name": "Ghost Buddy",
+      "description": "Spooky Season collectible. Followed him home. He's keeping it.",
+      "slot": "shell",
+      "rarity": "epic",
+      "unlock": { "season": "halloween" },
+      "pivot": [2, 6],
+      "palette": { "W": "#f4f1ea", "g": "#c9c4d6", "k": "#1a1a22" },
+      "pixels": [
+        ".WWW.",
+        "WkWkW",
+        "WWWWW",
+        "WWWWg",
+        "W.W.g"
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "spiders",
+      "name": "Spiders",
+      "description": "Spooky Season collectible. Just hanging around.",
+      "motion": "fall",
+      "count": 5,
+      "speed": 0.5,
+      "rarity": "rare",
+      "unlock": { "season": "halloween" },
+      "sprites": [
+        {
+          "palette": { "w": "#d8dde3", "k": "#1a1a22" },
+          "pixels": [
+            ".w.",
+            "kkk",
+            "k.k"
+          ]
+        },
+        {
+          "palette": { "k": "#1a1a22" },
+          "pixels": [
+            "k.k",
+            ".k."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wisps",
+      "name": "Will-o'-Wisps",
+      "description": "Spooky Season collectible. Do not follow them into the marsh.",
+      "motion": "float",
+      "count": 6,
+      "speed": 0.5,
+      "rarity": "epic",
+      "unlock": { "season": "halloween" },
+      "sprites": [
+        {
+          "palette": { "G": "#e0ffd6", "g": "#7ae582" },
+          "pixels": [
+            ".g.",
+            "gGg",
+            ".g."
+          ]
+        },
+        {
+          "palette": { "g": "#7ae582" },
+          "pixels": [
+            "g"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "candy-corn",
+      "name": "Candy Corn",
+      "description": "Spooky Season collectible. The bag split.",
+      "motion": "burst",
+      "count": 10,
+      "speed": 1,
+      "unlock": { "season": "halloween" },
+      "sprites": [
+        {
+          "palette": { "w": "#fff4e4", "o": "#f28c28", "y": "#ffd23f" },
+          "pixels": [
+            ".w.",
+            "ooo",
+            "yyy"
+          ]
+        }
+      ]
+    }
+  ],
+  "skins": [
+    {
+      "id": "skeleton",
+      "name": "Skeleton",
+      "author": "Shellby",
+      "description": "Spooky Season collectible. Bare bones, still cheerful.",
+      "unlock": { "season": "halloween" },
+      "palette": { "S": "#1c1b22", "s": "#2e2c38", "h": "#e9e4d4", "b": "#e9e4d4", "B": "#a39e8f", "c": "#e9e4d4", "C": "#a39e8f", "k": "#a39e8f", "e": "#1a1a22", "w": "#cfe8ff", "l": "#e9e4d4" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    },
+    {
+      "id": "pumpkin-patch",
+      "name": "Pumpkin Patch",
+      "author": "Shellby",
+      "description": "Spooky Season collectible. Grew a pumpkin for a shell.",
+      "unlock": { "season": "halloween" },
+      "palette": { "S": "#7a3410", "s": "#e8772e", "h": "#ffa552", "b": "#5a8f3c", "B": "#3b6b28", "c": "#5a8f3c", "C": "#3b6b28", "k": "#3b6b28", "e": "#16201f", "w": "#fff4e4", "l": "#3b6b28" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "pixels": [
+        "......SSSS...ew.ew....",
+        "....SSsssSS..ee.ee....",
+        "...SsshhhssS..k..k....",
+        "..SshhSSSshsS.k..k....",
+        "..SshSsssSshSbbbbbb...",
+        ".SshSshhsSshSbbbbbbb..",
+        ".SshSshSsSshSbbbbbB.cc",
+        ".SshSssSSshsSbbbbBcccC",
+        ".SsshSSsshhsSbbbbBccc.",
+        "..SsshhhhhsSbbbbbBBC..",
+        "...SSsssssSBBBBBBB....",
+        "....SSSSSS..ll.ll.ll..",
+        "...........l..l..l...."
+      ]
+    }
+  ]
+}

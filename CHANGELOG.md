@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.48.0: workflows
+## 0.50.0: workflows
 
 ### New
 - **Workflows.** Something happens and Shellby runs a list of steps. It can start on a schedule (down to every 5 minutes), when a pull request goes red or green, when you push, deploy or release, when a task finishes, when a file lands in a folder, when another workflow finishes, when Shellby starts, when a script calls its web hook, or when Claude Code asks. The steps can be Claude, a PowerShell command, a web request, reading or writing a file, a question for you, or a message to your notifications, your phone or the crab. There's also **If**, **For each**, **Wait**, **Set values**, **Run another workflow** and **Stop**. They're on the new **Automate** page (the bottom bar, <kbd>Ctrl</kbd>+<kbd>4</kbd>), next to Routines. [Everything they can do](docs/WORKFLOWS.md).
@@ -17,6 +17,49 @@
 - Saving a workflow that can act without asking shows Shellby's confirmation window, listing every command, prompt, web address and file it could act on, in full. It asks again when any of those change. A workflow Claude proposes is always confirmed, never gets Autonomous, and is refused if it's too long to show in full.
 - Values from outside, like a pull request's title, a web page or a file, can't turn into code. A command gets them as environment variables, never in its text. Claude gets them marked as data, not instructions. A web address gets them encoded, and a file path refuses one that would leave its folder.
 - At most 4 runs go at once, and a workflow that starts more than 60 times in an hour is paused, with a notification saying so.
+- What you said yes to is signed with a key Windows keeps encrypted. A risky workflow added to Shellby's settings file any other way is paused until you save it again (which asks). Workflows can't write into Shellby's own folder, Claude Code's setup, your Startup folder, PowerShell profiles or git hooks, and can't call Shellby's own local port.
+## 0.49.1: what the README says about billing
+
+### Fixed
+- **The README said Shellby always hides API keys from Claude Code.** It hasn't done that since Claude Code started getting your PC's environment as it is. The README now says what really happens: Settings warns you when an API key or provider switch is set, and **Always use my Claude plan** leaves them out. It also says plainly that Shellby never sees your Claude sign-in.
+
+## 0.49.0: all the way to 99
+
+### New
+- **Something to grow into at every stage.** Levels used to run out of rewards at 20. Now there's a new title, badge colour or shell at least every five levels, all the way to **Shellby Supreme** at level 99. Six new shells to grow into: a **Coconut Half** (30), a **Lantern Jar** (40), a **Diving Helmet** (50), a **Crystal Geode** (65), a **Treasure Chest** (80) and the **Rainbow Nautilus** (99). The level badge changes colour every ten levels, from Sunlit gold through Coral, Lagoon, Kelp, Deep, Amethyst, Ruby, Pearl and Abyss to Prism.
+- **What's next.** The XP card shows what the next unlock is and how much XP it is away.
+- **Daily bounties.** Three small goals a day, like *Push to 2 different projects* or *Turn failing tests green*. Every PC gets the same three. Each pays 40–75 XP, and clearing all three pays 50 more. Shellby tells you when you finish one.
+- **XP for doing it well.** Tests that pass after a failing run in the same project are **green again**, worth 40 instead of 25. The first push of the day to each project pays 20 extra.
+- **Streaks count.** A streak adds 5% to your XP for every week it runs, up to 25%. After three days or more away, your next 150 XP counts double.
+- **Your last 30 days.** The XP card charts your XP for each day and shows where it came from. Each log entry says which bonuses it got.
+
+### Changed
+- **No more hard hourly cap.** Doing the same thing over and over within an hour pays half, then a quarter, then nothing, so a test loop still can't farm XP.
+- The list of ways to earn XP now comes straight from the rules, so it can't fall out of date.
+
+### Fixed
+- **XP earned on two PCs didn't add up.** Sync kept only the larger of the two totals, so 500 XP on one PC and 300 on another came to 500. Each PC now keeps its own count and sync adds them together. XP from before this version is kept as it was, and a PC still on an older Shellby can't make anything count twice.
+
+## 0.48.0: Haunted Shell
+
+### New
+- **Haunted Shell, a new Spooky Season pack.** Eight things to wear: a jack-o'-lantern, cat ears, a costume mask, a vampire collar, a dripping candle, a caramel apple, a cobweb and a little ghost buddy who floats over his shell. Three effects: dangling spiders, will-o'-wisps and a burst of candy corn. Two new crabs: **Skeleton** and **Pumpkin Patch**.
+- Like every seasonal item, they're yours to keep if Shellby is running while Spooky Season is on (October 1 to November 2). It's on now.
+
+## 0.47.3: old news
+
+### Fixed
+- **The same "new skill" every time Shellby started.** When Claude Code had two versions of a plugin cached and one had a skill the other didn't, Shellby announced that skill as newly learned once per launch, and gave him the XP for it each time. A plugin update isn't a trick he taught himself, so it's no longer announced. A skill that really is new still gets its celebration, once.
+
+## 0.47.2: he knows his own name
+
+### Fixed
+- **Shellby underlined his own name.** Typing "Shellby" (or "Shellby's") got the red squiggle as if it were a typo. He knows how to spell it now, with no need to add it to the dictionary yourself.
+
+## 0.47.1: the newest update, not the first one
+
+### Fixed
+- **An update waiting to install hid any newer one.** Once Shellby had downloaded an update, he stopped checking, so a release that came out after it meant restarting to install the first, then restarting again for the second. He keeps checking now, and if something newer lands he downloads it and **Restart and update** installs that instead. If a check fails meanwhile, the update already downloaded stays ready to install.
 
 ## 0.47.0: say it
 
