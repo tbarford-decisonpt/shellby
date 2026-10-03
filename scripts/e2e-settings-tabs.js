@@ -31,7 +31,13 @@ async function launch(profile) {
   await new Promise(r => { ws.onopen = r; });
   let id = 0; const pending = new Map();
   ws.onmessage = e => { const m = JSON.parse(e.data); pending.get(m.id)?.(m); };
-  const send = (method, params = {}) => new Promise(r => { const i = ++id; pending.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
+  // A call that never answers fails by name instead of running into e2e-ci's five-minute limit.
+  const send = (method, params = {}, ms = 30000) => new Promise((r, reject) => {
+    const i = ++id;
+    const t = setTimeout(() => { pending.delete(i); reject(new Error(`${method} got no answer in ${ms / 1000}s`)); }, ms);
+    pending.set(i, m => { clearTimeout(t); pending.delete(i); r(m.result); });
+    ws.send(JSON.stringify({ id: i, method, params }));
+  });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
   return { app, send, ev };
 }
@@ -46,9 +52,15 @@ const TABS = {
 (async () => {
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
+  // Screenshots are for a person to look at, not something checked, so one that
+  // doesn't come (a hidden or unpainted window on a CI runner) is noted and skipped.
   const shot = async (panel, name) => {
-    const s = await panel.send('Page.captureScreenshot', { format: 'png' });
-    fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from(s.data, 'base64'));
+    try {
+      const s = await panel.send('Page.captureScreenshot', { format: 'png' }, 10000);
+      fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from(s.data, 'base64'));
+    } catch (e) {
+      console.log(`(no screenshot for ${name}: ${e.message})`);
+    }
   };
   const selected = panel => panel.ev("document.querySelector('#settingsTabs [aria-selected=\"true\"]')?.dataset.tab");
   const shown = panel => panel.ev(`[...document.querySelectorAll('#settingsView .setting-group[data-nav]')]
