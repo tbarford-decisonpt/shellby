@@ -247,6 +247,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Skill Shop:** **Toolbox → Get more** lists every plugin in your marketplaces, most popular first. Add marketplaces from GitHub, and every install asks first in an isolated confirmation window. It uses Claude Code's own plugin system, so whatever you install works in your terminal and editor too.
 - **Routines:** each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up. Or just describe one ("every Friday at 5, tidy Downloads") and Claude fills in the form for you to check and save.
 - **Dependency checkups:** the **Dependency checkup** template runs `npm outdated` and `npm audit` (or the pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET equivalent) in every project in a folder, once a week, without changing anything. Shellby reads what each check actually printed, not just how it exited, so a piped or `|| true` run can't pass for clean. It counts whether Claude runs the checks from a routine, from a tab or from your terminal with the plugin. **Routines → Dependency health** lists what each project's last checkup found, a clean audit earns XP and the project's sticker its 🧼 **Fresh** mark, and there's a bounty for it. A project's page in the Sticker Book has **Check dependencies** too.
+- **Time on each project:** **History → Time** keeps track of how long you spend on each project, for timesheets and invoices. It works out the project from the window in front (an editor or terminal showing its folder, its page on GitHub), from Claude working in it, and from git moving in it, and the clock stops when you're away from the keyboard. Give a project a client and an hourly rate, round each day to 6, 15 or 30 minutes, add or take off time by hand with a note, and save a **PDF timesheet**, a **CSV** for your invoicing tool, or copy it as text. Each day's line is its note, or else your commit messages, and days you committed but weren't tracking can be filled in from the commits. Off until you turn it on. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC.
 - **Claude Code somewhere unusual?** **Find it myself…** in setup takes a portable copy or another drive, and checks the file really is Claude Code before keeping it.
 
 </details>
@@ -264,6 +265,7 @@ shellby do "tidy my Downloads"   # a task, in this folder
 shellby say "all green"          # a line in his bubble
 shellby status                   # him, and how this PC is doing
 shellby flow run "Release notes" version=1.2.0   # start a workflow that allows it
+shellby time last-week           # hours on each project, ready for an invoice
 ```
 
 **Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**
@@ -404,7 +406,7 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 - Community pack downloads you ask for.
 - GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your open pull requests, and with Visiting crabs on, your public calling card and your friends' cards.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
-- Things that never leave your PC: push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
+- Things that never leave your PC: the time tracker (it reads the title of the window in front to tell which project you're in, keeps only the project, the day and the minutes, and never syncs them), push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), LibreHardwareMonitor or HWiNFO sensor readings, OpenRGB, the OBS overlay, and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 

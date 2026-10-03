@@ -65,6 +65,7 @@ const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('
 const stickers = require('./stickers');
 const checkup = require('./checkup');
 const weekly = require('./weekly');
+const { TimeTracker } = require('./timetrack-service');
 const routineTemplates = require('./routine-templates');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
@@ -1017,6 +1018,7 @@ function saveStreaks(next) {
 // remembers the git repo it ran in with its newest commit time.
 async function recordWork(dir) {
   if (CAPTURE || !config) return;
+  timeTracker?.touch(dir);
   saveStreaks(streaks.recordWorkDay(config.get('streaks'), Date.now()));
   const repo = await repoOf(dir);
   if (!repo) return;
@@ -1379,6 +1381,48 @@ function checkWrapUp() {
   if (!sayText(`What a week: ${w.headline.charAt(0).toLowerCase()}${w.headline.slice(1)}!`, 'sticker', 9000)) return;
   config.set({ weekly: weekly.markWrapped(config.get('weekly'), key) });
   send(panel, 'week:ready', w);
+}
+
+// ================================================================ time on each project (timetrack.js)
+//
+// The window in front, Claude's work and git's reflogs say which project you're
+// on; the seconds add up per day for timesheets and invoices. Off until you
+// turn it on, and it never leaves this PC.
+let timeTracker = null;
+
+// Every project Shellby has seen you work in or ship: [{ key, name }], key the
+// repo's folder (case-folded on Windows, as streaks keep it).
+function knownProjects() {
+  const out = new Map();
+  for (const [key, p] of Object.entries(streaks.normalize(config.get('streaks')).projects)) out.set(key, { key, name: p.name });
+  for (const p of Object.values(stickerState().projects)) {
+    if (!p.root || p.from) continue; // a friend's gift has no folder here
+    const key = process.platform === 'win32' ? path.resolve(p.root).toLowerCase() : path.resolve(p.root);
+    if (!out.has(key)) out.set(key, { key, name: p.name });
+  }
+  return [...out.values()];
+}
+
+function createTimeTracker() {
+  timeTracker = new TimeTracker({
+    config,
+    toPanel: (channel, payload) => send(panel, channel, payload),
+    front: () => native.frontWindow(),
+    windowsAvailable: () => native.available(),
+    idle: () => ({ idleMs: powerMonitor.getSystemIdleTime() * 1000, locked: powerMonitor.getSystemIdleState(60) === 'locked' }),
+    selfPid: process.pid,
+    known: knownProjects,
+    // Where Claude is working right now: Shellby's busy tabs by folder, and
+    // sessions elsewhere by the folder name the plugin sends.
+    claudeAt: () => ({
+      dirs: [...(manager?.tabs.values() || [])].filter(t => t.session?.busy).map(t => t.worktree?.originalCwd || t.session?.cwd).filter(Boolean),
+      names: (external?.summary.sessions || []).filter(s => s.state === 'working' || s.state === 'asking').map(s => s.project),
+    }),
+    resolve: dir => projectOf(dir),
+    electron: { dialog, BrowserWindow, clipboard, shell, app },
+    panel: () => panel,
+  });
+  timeTracker.start();
 }
 
 // Sticker milestones for the trophies (wardrobe/achievements.js).
@@ -1789,6 +1833,12 @@ function runCliRequest(body, token) {
   if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
 
   if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+  // Your hours are yours: behind the token, unlike status.
+  if (body?.action === 'time') {
+    const range = ['today', 'week', 'last-week', 'month', 'last-month'].includes(body.range) ? body.range : 'week';
+    if (!timeTracker) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
+    return timeTracker.cliText(range, { estimates: body.estimates === true }).then(text => ({ text }));
+  }
   if (body?.action === 'flow-list' || body?.action === 'flow-run') {
     if (config.get('crabOnly') || !workflows) return { ok: false, error: 'Workflows are off: Shellby is in just-the-crab mode.', status: 403 };
     const flow = clipath.parseFlowRequest(body);
@@ -4367,6 +4417,43 @@ ${r.detail}` });
   ipcMain.handle('checkups:run', (_e, key) => (isStr(key) && checkupsView().some(c => c.key === key) ? runCheckup(key) : { ok: false, error: 'Unknown project.' }));
   ipcMain.handle('week:get', () => weekView());
 
+  // ---- time on each project (timetrack-service.js). Everything from the panel is checked here.
+  const DAY = /^\d{4}-\d{2}-\d{2}$/;
+  const timeOpts = o => {
+    const src = o && typeof o === 'object' ? o : {};
+    const only = src.only && typeof src.only === 'object'
+      ? (isStr(src.only.key) && src.only.key.length <= 400 ? { key: src.only.key } : typeof src.only.client === 'string' && src.only.client.length <= 60 ? { client: src.only.client } : null)
+      : null;
+    return {
+      range: typeof src.range === 'string' ? src.range.slice(0, 20) : 'week',
+      from: DAY.test(src.from) ? src.from : null, to: DAY.test(src.to) ? src.to : null,
+      estimates: !!src.estimates, only,
+    };
+  };
+  const timeKey = k => (isStr(k) && k.length <= 400 && path.isAbsolute(k) ? k : null); // a project is a folder
+  ipcMain.handle('time:get', (_e, o) => timeTracker.view(timeOpts(o)));
+  ipcMain.handle('time:settings', (_e, patch) => timeTracker.setSettings(patch && typeof patch === 'object' ? patch : {}));
+  ipcMain.handle('time:project', (_e, key, patch) => timeTracker.setProject(timeKey(key), patch && typeof patch === 'object' ? patch : {}));
+  ipcMain.handle('time:remove', (_e, key) => timeTracker.removeProject(timeKey(key)));
+  ipcMain.handle('time:add', (_e, entry) => {
+    const e = entry && typeof entry === 'object' ? entry : {};
+    return timeTracker.addTime({ key: timeKey(e.key), day: DAY.test(e.day) ? e.day : null, minutes: Number(e.minutes) || 0, note: typeof e.note === 'string' ? e.note.slice(0, 400) : undefined });
+  });
+  ipcMain.handle('time:add-folder', async () => {
+    const r = await dialog.showOpenDialog(panel, { title: 'Which project folder should Shellby keep time for?', defaultPath: currentCwd(), properties: ['openDirectory'] });
+    if (r.canceled || !r.filePaths[0] || !isFolder(r.filePaths[0])) return { ok: false, canceled: true };
+    return timeTracker.addFolder(r.filePaths[0]);
+  });
+  ipcMain.handle('time:export-csv', (_e, o) => timeTracker.exportCsv(timeOpts(o)).catch(e => { log.error('time csv', e); return { ok: false, error: "Couldn't save that file." }; }));
+  ipcMain.handle('time:export-pdf', (_e, o) => timeTracker.exportPdf(timeOpts(o)).catch(e => { log.error('time pdf', e); return { ok: false, error: "Couldn't make the timesheet." }; }));
+  ipcMain.handle('time:copy', (_e, o) => timeTracker.copyText(timeOpts(o)));
+  // Only a file this page just saved: it says where, and nothing else gets opened.
+  ipcMain.handle('time:show-file', (_e, file) => {
+    if (!isStr(file) || !timeTracker.wasSaved(file) || !fs.existsSync(file)) return false;
+    shell.showItemInFolder(file);
+    return true;
+  });
+
   // ---- Claude Code sessions elsewhere
   ipcMain.on('clipboard:text', (_e, text) => { if (isStr(text) && text.length <= 2000) clipboard.writeText(text); });
   ipcMain.handle('external:get', () => externalView());
@@ -4865,6 +4952,7 @@ app.whenReady().then(() => {
   createTray();
   health.start();
   createExternal();
+  createTimeTracker();
   createCrabApi();
   createWorkflows();
   createCi();
@@ -4930,6 +5018,7 @@ app.on('will-quit', () => {
   if (config) saveSpend();
   toolbox?.stop();
   health?.stop();
+  timeTracker?.stop(); // writes the last minutes down
   external?.stop();
   github?.stop();
   friends?.stop();

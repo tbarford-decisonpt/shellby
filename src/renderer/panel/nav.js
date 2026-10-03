@@ -135,6 +135,7 @@
       claude() && { icon: '⏰', title: 'New routine', sub: 'Schedule a recurring task', keys: 'schedule add', run: () => { SB.setView('routines'); $('newRoutineBtn').click(); } },
       { icon: '📈', title: 'Health', sub: 'Temperatures, memory and drives', keys: 'gpu cpu ram disk temperature vitals', run: go('health') },
       claude() && { icon: '🗂️', title: 'History', sub: 'Past conversations', keys: 'sessions old', run: go('history') },
+      { icon: '⏱️', title: 'Time', sub: 'Hours on each project, timesheets and invoices', keys: 'time tracking hours timesheet invoice billing clients rate freelance', run: go('time') },
       { icon: '⚙️', title: 'Settings', sub: 'Everything else', keys: 'preferences options', run: go('settings') },
     ].filter(Boolean).map(e => ({ ...e, group: 'Screens' }));
   }

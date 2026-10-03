@@ -1,0 +1,124 @@
+/* Shellby panel — Time (time.js): hours on each project. The period's total is
+   the headline; one sea-glass hue carries the hours in the chart and the bars,
+   so colour means "time" and nothing else. Panel variables only. */
+
+body[data-view="time"] .view-time {
+  display: block; overflow-y: auto; padding: 14px 16px 20px;
+  animation: fadein .18s var(--ease-out);
+}
+.view-time {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.view-history .auto-switch, .view-time .auto-switch { width: 240px; }
+.tm-onoff { margin-left: auto; font-size: 13px; font-weight: 700; }
+
+/* ---------------------------------------------------------------- intro and now */
+.tm-intro { margin: 0 0 14px; padding: 12px 14px; border-radius: var(--r); border: 1px dashed rgba(127, 214, 194, .4); background: var(--glass-dim); font-size: 13px; color: var(--sand-dim); }
+.tm-intro p { margin: 0 0 8px; }
+.tm-intro p:last-child { margin: 8px 0 0; font-size: 12px; }
+.tm-intro ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.tm-intro b { color: var(--sand); }
+
+.tm-now { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin: -2px 0 12px; font-size: 12.5px; color: var(--sand-dim); }
+.tm-now b { color: var(--sand); }
+.tm-now-all { margin-left: auto; font: 600 11px var(--font-mono); color: var(--sand-faint); }
+.tm-live { width: 8px; height: 8px; border-radius: 50%; background: var(--glass); box-shadow: 0 0 0 3px var(--glass-dim); animation: tm-pulse 2.4s ease-in-out infinite; }
+.tm-live.off { background: var(--sand-faint); box-shadow: none; animation: none; }
+@keyframes tm-pulse { 50% { box-shadow: 0 0 0 6px transparent; } }
+
+.tm-ranges { margin-bottom: 12px; }
+.tm-ranges button { white-space: nowrap; }
+
+/* ---------------------------------------------------------------- the period */
+.tm-overview { padding: 14px 14px 10px; border-radius: var(--r-lg); border: 1px solid var(--line); background: linear-gradient(180deg, var(--reef-2), var(--reef) 70%); }
+.tm-totals { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.tm-total { margin: 0; color: var(--sand-dim); font-size: 13px; }
+.tm-total b { font: 600 30px/1 var(--font-pixel); color: var(--sand); letter-spacing: -.01em; }
+.tm-amount { margin: 0; font: 600 12px var(--font-mono); color: var(--glass); }
+
+/* One bar per day, grown from the baseline. 2px of surface between them. */
+.tm-chart { list-style: none; margin: 12px 0 0; padding: 0; display: flex; align-items: stretch; gap: 2px; height: 118px; }
+.tm-bar { flex: 1; min-width: 0; display: grid; grid-template-rows: 16px 1fr 16px; text-align: center; }
+.tm-bar-value { font: 600 10px/16px var(--font-mono); color: var(--sand); white-space: nowrap; overflow: visible; }
+.tm-bar-track { position: relative; border-bottom: 1px solid var(--line); }
+.tm-bar-track i {
+  position: absolute; left: 50%; bottom: 0; width: min(26px, 70%); transform: translateX(-50%);
+  border-radius: 4px 4px 0 0; background: var(--glass); opacity: .85;
+  transition: opacity .12s, height .35s var(--ease-out);
+}
+.tm-chart.many .tm-bar-track i { width: 80%; border-radius: 2px 2px 0 0; }
+.tm-bar:hover .tm-bar-track i { opacity: 1; }
+.tm-bar-day { font: 500 10px/16px var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
+.tm-bar.today .tm-bar-day { color: var(--sand); font-weight: 700; }
+
+.tm-fill { margin: 10px 0 0; }
+.tm-fill .toggle { font-size: 12.5px; color: var(--sand-dim); }
+
+/* ---------------------------------------------------------------- projects */
+.tm-projects { list-style: none; margin: 12px 0 4px; padding: 0; display: grid; gap: 6px; }
+.tm-empty { padding: 14px; border-radius: var(--r); border: 1px dashed var(--line); color: var(--sand-dim); font-size: 13px; text-align: center; }
+.tm-project { border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); transition: border-color .15s; }
+.tm-project[open] { border-color: var(--reef-3); }
+.tm-project summary {
+  list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center;
+  padding: 10px 12px 9px; border-radius: var(--r);
+}
+.tm-project summary::-webkit-details-marker { display: none; }
+.tm-project summary:hover { background: var(--reef-2); }
+.tm-project summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.tm-p-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.tm-p-name b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-p-name small, .tm-p-hours small { font: 500 10.5px var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
+.tm-p-hours { display: flex; align-items: baseline; gap: 8px; justify-content: flex-end; }
+.tm-p-hours b { font: 600 13px var(--font-mono); }
+.tm-p-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--abyss); overflow: hidden; }
+.tm-p-bar i { display: block; height: 100%; border-radius: 2px; background: var(--glass); opacity: .85; }
+.tm-p-body { padding: 4px 12px 12px; border-top: 1px solid var(--line-soft); animation: rise .2s var(--ease-out); }
+
+.tm-days { list-style: none; margin: 6px 0 12px; padding: 0; display: grid; gap: 2px; }
+/* Date, hours, commits and the nudges on one line; what it was for under them, full width. */
+.tm-day { display: grid; grid-template-columns: 96px 1fr auto auto; align-items: center; gap: 4px 10px; padding: 6px 0 8px; border-bottom: 1px solid var(--line-soft); text-align: left; }
+.tm-day.empty .tm-day-hours b { color: var(--sand-faint); }
+.tm-day.est .tm-day-hours b { color: var(--amber); }
+.tm-day-date { font: 500 11px var(--font-mono); color: var(--sand-dim); white-space: nowrap; }
+.tm-day-hours { display: grid; justify-items: start; line-height: 1.2; min-width: 0; }
+.tm-day-hours b { font: 600 12.5px var(--font-mono); }
+.tm-day-hours small { font-size: 10.5px; color: var(--sand-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-commits { font: 600 9.5px/16px var(--font-mono); padding: 0 6px; border-radius: 99px; background: var(--reef-3); color: var(--sand-dim); white-space: nowrap; cursor: default; }
+.tm-commits:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.tm-note.field { grid-row: 2; grid-column: 1 / -1; height: 28px; font-size: 12px; padding: 0 8px; min-width: 0; }
+.tm-note.field:not(:focus):placeholder-shown { background: transparent; border-color: var(--line-soft); }
+.tm-nudge { display: flex; }
+.tm-nudge .icon-btn { width: 24px; height: 24px; font: 700 15px/1 var(--font-mono); }
+.tm-nudge .icon-btn:disabled { opacity: .3; }
+
+.tm-psettings { display: grid; gap: 10px; padding-top: 4px; }
+.tm-prow { display: flex; align-items: end; gap: 14px; }
+.tm-rate { width: 170px; }
+.tm-psettings .row { gap: 6px; }
+
+/* ---------------------------------------------------------------- export, add, settings */
+.tm-export .row { gap: 6px; }
+.tm-export select { flex: 1; min-width: 150px; }
+.tm-add { display: grid; gap: 10px; }
+.tm-add-row { display: flex; align-items: end; gap: 10px; }
+.tm-sign { flex: none; width: 160px; }
+.tm-sign button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
+.tm-num { width: 90px; }
+.tm-settings { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+.tm-settings + .muted.small + .row { margin-top: 12px; }
+.field.slim.tm-cur { width: 76px; text-transform: uppercase; font-family: var(--font-mono); }
+#timeIgnored .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--glass); text-decoration: underline dotted; cursor: pointer; }
+
+@media (max-width: 420px) {
+  .tm-day { grid-template-columns: 84px 1fr auto; }
+  .tm-day .tm-commits { grid-row: 2; grid-column: 1 / -1; justify-self: start; }
+  .tm-note.field { grid-row: 3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-live { animation: none; }
+  .tm-bar-track i { transition: none; }
+  .tm-p-body { animation: none; }
+}

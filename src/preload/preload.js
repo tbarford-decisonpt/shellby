@@ -240,6 +240,18 @@ contextBridge.exposeInMainWorld('shellby', {
   onCheckups: on('checkups'),
   getWeek: invoke('week:get'),
   onWeekReady: on('week:ready'),
+  // time on each project (src/main/timetrack-service.js)
+  getTime: invoke('time:get'),
+  setTimeSettings: invoke('time:settings'),
+  setTimeProject: invoke('time:project'),
+  removeTimeProject: invoke('time:remove'),
+  addTime: invoke('time:add'),
+  addTimeFolder: invoke('time:add-folder'),
+  exportTimeCsv: invoke('time:export-csv'),
+  exportTimePdf: invoke('time:export-pdf'),
+  copyTime: invoke('time:copy'),
+  showTimeFile: invoke('time:show-file'),
+  onTimeNow: on('time:now'),
   onStickers: on('stickers'),
   onStickerNew: on('stickers:new'),
   onStickerNews: on('stickers:news'), // a tier-up or a new mark on one already earned

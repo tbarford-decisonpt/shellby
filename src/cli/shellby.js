@@ -7,6 +7,7 @@
 //   shellby say "all green"                 put a line in his speech bubble
 //   shellby status                          how the crab and this PC are doing
 //   shellby flow run "Red build fixer" branch=main   start a workflow
+//   shellby time last-week                  hours on each project, for an invoice
 //
 // Self-contained plain Node (builtins only): Shellby copies this file next to
 // its shim in %LOCALAPPDATA%\Shellby\bin, so it never has to be read out of the
@@ -34,6 +35,8 @@ const MAX_INPUTS = 10;
 const MAX_INPUT_VALUE = 2000;
 const MAX_FLOW_NAME = 60;
 
+const TIME_RANGES = ['today', 'week', 'last-week', 'month', 'last-month'];
+
 const EXIT = { ok: 0, error: 1, usage: 2, notRunning: 3, denied: 4 };
 
 const USAGE = `shellby - the desktop crab, from your terminal
@@ -44,6 +47,8 @@ const USAGE = `shellby - the desktop crab, from your terminal
   shellby flow list           your workflows, and which ones Claude Code may run
   shellby flow run <name...> [key=value ...]
                               start a workflow that has the "Claude Code" trigger
+  shellby time [range] [--git] hours on each project: ${TIME_RANGES.join(' | ')}
+                              (default: week). --git fills untracked days from your commits
   shellby help                this
   shellby version
 
@@ -163,6 +168,16 @@ function parseArgs(argv) {
 
   if (first === 'flow') return parseFlowArgs(args);
 
+  if (first === 'time') {
+    const opts = { cmd: 'time', range: 'week', estimates: false };
+    for (const a of args) {
+      if (a === '--git') opts.estimates = true;
+      else if (TIME_RANGES.includes(a)) opts.range = a;
+      else return { error: `shellby time takes one of ${TIME_RANGES.join(', ')} (and --git), not "${String(a).slice(0, 30)}".` };
+    }
+    return opts;
+  }
+
   return { error: `Unknown command: ${String(first).slice(0, 30)}. Try "shellby help".` };
 }
 
@@ -230,6 +245,7 @@ async function main(argv) {
     return EXIT.denied;
   }
 
+  if (cmd.cmd === 'time') return cliRequest({ action: 'time', range: cmd.range, estimates: cmd.estimates }, token, { fallback: 'No time to show.' });
   if (cmd.cmd === 'flow-list') return cliRequest({ action: 'flow-list' }, token, { fallback: 'No answer.' });
   if (cmd.cmd === 'flow-run') return cliRequest({ action: 'flow-run', name: cmd.name, inputs: cmd.inputs }, token, { fallback: 'Started.' });
 
@@ -274,4 +290,4 @@ if (require.main === module) {
     .catch(e => { err(`shellby: ${e?.message || e}`); process.exit(EXIT.error); });
 }
 
-module.exports = { parseArgs, main, USAGE, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME };
+module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME };

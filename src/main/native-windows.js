@@ -39,6 +39,7 @@ function load() {
       PostMessageW: user32.func('bool __stdcall PostMessageW(intptr_t hwnd, uint32_t msg, uintptr_t w, intptr_t l)'),
       GetWindowRect: user32.func('bool __stdcall GetWindowRect(intptr_t hwnd, _Out_ SHELLBY_RECT *r)'),
       GetClassNameW: user32.func('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ uint16_t *buf, int max)'),
+      GetWindowTextW: user32.func('int __stdcall GetWindowTextW(intptr_t hwnd, _Out_ uint16_t *buf, int max)'),
       GetWindowThreadProcessId: user32.func('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
       DwmFrame: dwmapi.func('DwmGetWindowAttribute', 'long', ['intptr_t', 'uint32_t', koffi.out(koffi.pointer('SHELLBY_RECT')), 'uint32_t']),
       DwmCloaked: dwmapi.func('DwmGetWindowAttribute', 'long', ['intptr_t', 'uint32_t', koffi.out(koffi.pointer('uint32_t')), 'uint32_t']),
@@ -178,6 +179,23 @@ function describe(h) {
 }
 
 const foreground = () => safe(a => a.GetForegroundWindow(), 0);
+
+/**
+ * The window in front, for the time tracker (timetrack.js): its process and
+ * exe, and its title. The title is only ever matched against project names in
+ * memory; it is never stored or logged. null when there's nothing in front.
+ */
+function frontWindow() {
+  return safe(a => {
+    const h = a.GetForegroundWindow();
+    if (!h) return null;
+    const pid = [0];
+    a.GetWindowThreadProcessId(h, pid);
+    const b = new Uint16Array(512);
+    const n = a.GetWindowTextW(h, b, 512);
+    return { hwnd: h, pid: pid[0], exe: exeOf(pid[0]), title: String.fromCharCode(...b.slice(0, Math.max(0, n))) };
+  }, null);
+}
 const isWindow = h => safe(a => !!h && a.IsWindow(h), false);
 // Is this key held right now, whichever app has focus? (push-to-talk, see dictation.js)
 const keyDown = vk => safe(a => (a.GetAsyncKeyState(vk) & 0x8000) !== 0, false);
@@ -260,6 +278,6 @@ const dpiAware = () => safe(a => a.SetProcessDpiAwarenessContext(-4 /* PER_MONIT
 const move = (h, x, y) => safe(a => a.SetWindowPos(h, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | 0x4 /* NOZORDER */), false);
 
 module.exports = {
-  load, available, hwndOf, topLevelWindows, describe, quick, foreground, isWindow, keyDown, isVisible, ownerOf,
+  load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
 };
