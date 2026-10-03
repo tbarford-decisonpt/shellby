@@ -1,9 +1,24 @@
 # Changelog
 
-## 0.29.0: Claude sets up CPU temperature
+## 0.31.0: Claude sets up CPU temperature
 
 ### New
 - **Let Claude set up LibreHardwareMonitor.** When CPU temperature isn't available, the Health view's setup card has a **Let Claude set it up** button. It fills in a task asking Claude to install LibreHardwareMonitor with winget, turn on its web server on the port Shellby uses (no password), start it minimized as administrator and check that Shellby can reach it. You accept the Windows admin prompt yourself. The task isn't sent until you press Enter, and Claude asks before making LHM start with Windows. The manual steps are still there. In just-the-crab mode the button explains what Claude Code would add.
+
+## 0.30.0: Settings in four tabs
+
+### New
+- **Settings is split into four tabs** instead of one long page: **Shellby** (his look, music, desk lighting, streaming), **Claude** (Claude Code, permission mode, model, working folder, Claude Code everywhere), **Connections** (notifications on your phone, GitHub) and **General** (startup, the shortcut, updates and About). Settings reopens on whichever tab you last looked at. The first time, it opens on Claude, or on Shellby in just-the-crab mode. The arrow keys move between tabs.
+- **Nothing is hidden from search.** <kbd>Ctrl</kbd>+<kbd>K</kbd> still finds every setting and shows which tab it's on. Picking one opens that tab, scrolls there and briefly lights up the section. The tray's update item and the "update ready" notification land in the right place the same way.
+- When an update is ready, the **General** tab gets the same dot as the gear.
+
+### Changed
+- **Shortcut & model** is split in two: the shortcut that opens Shellby is under **General**, and the model picker (with every model from 0.29.0) is under **Claude**.
+
+## 0.29.0: every model
+
+### New
+- **Pick any Claude model.** **Settings → Shortcut & model** now lists every current model, grouped by family: Fable 5.1 and 5, Opus 5.5 down to 4.5, Sonnet 5.5 down to 4.5, and Haiku 4.5. **Opus**, **Sonnet** and **Haiku (latest)** are still there and follow whatever Claude Code treats as newest. The others pin that exact release. Like before, the choice applies to new conversations.
 
 ## 0.28.0: Claude can tidy your memory
 

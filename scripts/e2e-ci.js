@@ -27,6 +27,7 @@ const SUITE = [
   'e2e-usage-breakdown', // the meters' breakdown by tab, routine and project
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
+  'e2e-settings-tabs', // Settings' four tabs: what's on each, the arrow keys, jumps by name
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
