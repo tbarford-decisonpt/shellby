@@ -11,7 +11,7 @@ const { Config, MODES } = require('./config');
 const { MODELS, isModel } = require('./models');
 const { History } = require('./history');
 const { SessionManager } = require('./sessions');
-const { checkStatus, findClaude, verifyClaude, run: runCli } = require('./claude-cli');
+const { checkStatus, findClaude, verifyClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
 const { keepOnDesktop, sendToBottom } = require('./desktop-layer');
@@ -2822,7 +2822,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle', 'planOnly']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -2849,7 +2849,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'planOnly']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
@@ -2866,6 +2866,7 @@ ${r.detail}` });
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
     if ('mode' in allowed) manager.setMode(allowed.mode);
     if ('effort' in allowed) manager.setEffort(allowed.effort);
+    if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
     if ('skin' in allowed) broadcastSkin();
     if ('critterScale' in allowed) {
@@ -3613,6 +3614,7 @@ function showUpdateSetting() {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
+  setPlanOnly(config.get('planOnly')); // before anything launches Claude Code
   history = new History(path.join(userData, 'sessions'), { onError: (what, err) => log.error(`history: ${what}`, err) });
   // Transcripts orphaned by an older build (which trimmed the index without
   // deleting them) or by an interrupted delete. Cheap, and it only ever removes

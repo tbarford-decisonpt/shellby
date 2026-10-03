@@ -569,6 +569,9 @@
         <div class="row wrap">
           <button type="button" class="btn" id="claudeModeBtn"></button>
         </div>
+        <label class="toggle"><input type="checkbox" id="planOnlyToggle"><span class="switch"></span>Always use my Claude plan</label>
+        <p class="muted small">Claude Code decides how it signs in. If an API key or another provider (Bedrock, Vertex, Foundry) is set on this PC, it bills that instead of your plan. Turn this on and Shellby leaves those out, so its conversations always run on your Claude Pro or Max plan. Applies to new conversations.</p>
+        <p class="small warn" id="billingEnvNote" hidden></p>
       </section>
 
       <section class="setting-group" data-nav="Mode">

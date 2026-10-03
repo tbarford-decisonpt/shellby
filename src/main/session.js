@@ -8,7 +8,7 @@ const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
-const { subscriptionEnv } = require('./claude-cli');
+const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
 
@@ -79,7 +79,7 @@ class ClaudeSession extends EventEmitter {
   start() {
     if (this.proc) return;
     const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
-      cwd: this.cwd, env: { ...subscriptionEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.proc = proc;
     let stderr = '';

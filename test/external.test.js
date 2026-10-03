@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf } = require('../src/main/external');
-const { subscriptionEnv } = require('../src/main/claude-cli');
+const { claudeEnv } = require('../src/main/claude-cli');
 
 const ev = (hook_event_name, extra = {}) => ({ hook_event_name, session_id: 'abc-123', cwd: 'C:\\Users\\you\\code\\3d-rack', ...extra });
 
@@ -134,7 +134,7 @@ test('a busy port: status busy, no leaked timers across retries', async () => {
 });
 
 test("Shellby's own Claude processes are marked so the plugin ignores them", () => {
-  assert.equal(subscriptionEnv({ PATH: 'x' }).SHELLBY_OWNED, '1');
+  assert.equal(claudeEnv({ PATH: 'x' }).SHELLBY_OWNED, '1');
 });
 
 // ------------------------------------------------------------------ the listener

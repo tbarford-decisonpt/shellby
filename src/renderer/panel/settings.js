@@ -76,6 +76,10 @@
     $('recapToggle').checked = state.settings.recap !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     $('worktreeToggle').checked = !!state.settings.worktrees;
+    $('planOnlyToggle').checked = !!state.settings.planOnly;
+    const billing = state.status?.billingEnv || [];
+    $('billingEnvNote').hidden = !billing.length;
+    $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}.` : '';
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
     const st = state.status || {};
@@ -112,6 +116,13 @@
     const r = await api.setSettings({ worktrees: e.target.checked });
     state.settings = r.settings;
     SB.toast(e.target.checked ? 'New conversations in a git project will get their own copy.' : 'New conversations will work in your checkout again.');
+  });
+  $('planOnlyToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ planOnly: e.target.checked });
+    state.settings = r.settings;
+    state.status = await api.claudeStatus(); // what Claude Code bills depends on it
+    renderSettings();
+    SB.toast(e.target.checked ? 'New conversations will use your Claude plan.' : 'New conversations will sign in however Claude Code is set up.');
   });
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });

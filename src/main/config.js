@@ -29,6 +29,7 @@ const DEFAULTS = {
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
+  planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude-cli.js)
   onboarded: false,
   crabOnly: false,
   wander: true,      // idle strolls near his spot (see motion.js)

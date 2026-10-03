@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.40.1: your sign-in, your call
+
+### Changed
+- **Shellby no longer hides API keys from Claude Code.** Until now Shellby quietly removed `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` and the Bedrock, Vertex and Foundry switches before starting Claude Code, so it always ran on your Claude plan. Claude Code now gets them as they're set on your PC, and signs in however you've set it up.
+- **Always use my Claude plan.** To keep the old behavior, turn this on in **Settings → Claude → Claude Code**. Shellby then leaves those variables out, so its conversations always run on your Claude Pro or Max plan. It applies to new conversations.
+- **A heads-up when a key is set.** If one of those variables is set and the switch is off, Settings and the sign-in step say which one, because Claude Code may bill it per token instead of using your plan.
+
 ## 0.40.0: visiting crabs
 
 ### New

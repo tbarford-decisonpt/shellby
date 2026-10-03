@@ -730,6 +730,7 @@ select.field option { background: var(--reef); }
 .step-sub code { color: var(--sand); }
 .step .row { margin-top: 8px; flex-wrap: wrap; }
 .step .warn { color: var(--amber); }
+#billingEnvNote { color: var(--amber); }
 .onboarding-modes { border-top: 0; }
 
 /* ================================================================ toast */
