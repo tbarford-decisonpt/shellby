@@ -276,6 +276,7 @@
       $('cardPath').textContent = r.name;
       sheet.hidden = false;
       $('cardCopy').focus();
+      if (r.copied === false) SB.toast("Saved, but another app is holding the clipboard. Try Copy in a moment.");
     } catch (e) {
       console.warn('[shellby] card failed', e);
       SB.toast("Couldn't draw the card.");
