@@ -95,6 +95,15 @@ SB.duration = ms => {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 };
 
+// A running clock, whole seconds so it ticks steadily: 7s, 1m 05s, 1h 02m.
+SB.clock = ms => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+};
+
 SB.compact = n => (n == null ? '' : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 SB.prettyAccel = a => String(a || '').replace(/Control/g, 'Ctrl').replace(/\+/g, ' + ');

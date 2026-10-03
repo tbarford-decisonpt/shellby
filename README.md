@@ -175,6 +175,8 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **What Docker, WSL and the package caches are sitting on.** On a developer's PC these are usually the biggest things on the drive. He says when there are tens of gigabytes to reclaim, and **Ask Shellby** comes back with what's safe to clear and the exact command. He never prunes or deletes anything himself.
 - **His mood follows your hardware:** he sweats past 80°C, gets dizzy when memory fills up, and overstuffs his shell when a drive is full. One notification per problem, and another when it's fixed. You set the thresholds.
 - **"Ask Shellby why"** runs a read-only Claude task that finds the cause and reports back.
+- **What's hogging it.** While he sweats or sees stars, the busiest processes are listed right under the warning, sorted by GPU, CPU or memory, each with an **End task** that asks first.
+- **What starts with Windows.** Everything that launches when you sign in, and a read-only **Ask Shellby** report on which ones you actually need.
 
 <p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
 
@@ -184,7 +186,7 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - Everything is read locally, with no admin rights needed. NVIDIA GPUs work out of the box through `nvidia-smi`.
 - **CPU temperature and the rest** come from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'s local web server, because Windows won't give them to normal apps. **HWiNFO** works too, through its Remote Sensor Monitor. The Health view walks you through the setup.
 - Readings must stay over the line for about 20 seconds, so a loading-screen spike doesn't count. Past 88°C he pants under a heat shimmer, and it wakes him up if he's asleep.
-- "Ask Shellby why" never deletes or kills anything. You can also turn the desktop reactions off and keep only the dashboard.
+- "Ask Shellby why" never deletes or kills anything. The only thing Health can end is a process you pick, after you confirm it, and never Windows' own. You can also turn the desktop reactions off and keep only the dashboard.
 - More in [docs/HEALTH.md](docs/HEALTH.md).
 
 </details>
@@ -251,6 +253,8 @@ shellby status                   # him, and how this PC is doing
 ### 🤖 Claude can drive him
 
 The plugin brings an MCP server with four tools — `say`, `celebrate`, `wear` and `status` — so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks**: spending your subscription isn't something a local port gets to do.
+
+**Claude can set up routines for you, too.** Say "every weekday at 8:30, summarise what changed in my Documents" in any Claude Code session and Claude writes the routine with `add_routine` (and checks your existing ones with `list_routines`). Shellby then shows you the whole thing in his own confirmation window: the name, schedule, folder, mode and every word of the prompt. **Nothing is saved until you say yes there**, and Autonomous is never on offer.
 
 </td>
 <td width="50%" valign="top">

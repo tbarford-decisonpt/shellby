@@ -44,6 +44,7 @@ class ClaudeSession extends EventEmitter {
     this.windows = null;           // { model: contextWindow } as Claude Code last reported it
     this.proc = null;
     this.busy = false;
+    this.busySince = null;         // when the current turn started, for the panel's running clock
     this.sessionId = resumeId;
     this.pending = new Map(); // requestId -> permission item
     // beforeWork(hookInput) -> hook output: set by main.js while a conversation
@@ -237,6 +238,7 @@ class ClaudeSession extends EventEmitter {
   setBusy(b) {
     if (this.busy === b) return;
     this.busy = b;
+    this.busySince = b ? Date.now() : null;
     this.emit('busy', b);
   }
 

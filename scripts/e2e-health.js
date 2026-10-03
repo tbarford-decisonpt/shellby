@@ -15,9 +15,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
 const SCENARIOS = [
   { name: 'calm', mood: null, title: 'All calm', badge: false },
-  { name: 'hot', mood: 'hot', title: 'Running hot', badge: 'warn', bubble: /^8\d°$/, card: ['gpu-temp:0', 'lvl-warn'] },
-  { name: 'scorching', mood: 'scorching', title: 'Overheating!', badge: 'critical', bubble: /^9\d°$/, card: ['cpu-temp', 'lvl-critical'] },
-  { name: 'dizzy', mood: 'dizzy', title: "Memory's nearly full", badge: 'warn', bubble: /^9\d%$/, card: ['ram', 'lvl-warn'] },
+  { name: 'hot', mood: 'hot', title: 'Running hot', badge: 'warn', bubble: /^8\d°$/, card: ['gpu-temp:0', 'lvl-warn'], hogs: ['GPU', 'Cyberpunk2077'] },
+  { name: 'scorching', mood: 'scorching', title: 'Overheating!', badge: 'critical', bubble: /^9\d°$/, card: ['cpu-temp', 'lvl-critical'], hogs: ['CPU', 'Cyberpunk2077'] },
+  { name: 'dizzy', mood: 'dizzy', title: "Memory's nearly full", badge: 'warn', bubble: /^9\d%$/, card: ['ram', 'lvl-warn'], hogs: ['Memory', 'Cyberpunk2077'] },
   { name: 'stuffed', mood: 'stuffed', title: 'C: is filling up', badge: 'critical', bubble: /^C: 8\.4 GB$/ },
   { name: 'nocpu', mood: null, title: 'All calm', badge: false, setup: true },
 ];
@@ -104,6 +104,20 @@ async function until(fn, ms = 8000) {
       }
       const disks = await panel.ev("document.querySelectorAll('#hlDisks .hl-disk').length");
       check(disks === 2, `${sc.name}: 2 drives listed`);
+      // What's hogging it: only while he sweats or is dizzy, sorted by what explains it.
+      const hogsShown = await panel.ev("!document.getElementById('hlHogs').hidden");
+      check(hogsShown === !!sc.hogs, `${sc.name}: "What's hogging it" ${sc.hogs ? 'shown' : 'hidden'}`);
+      if (sc.hogs) {
+        const top = await until(() => panel.ev("document.querySelector('#hlHogList .hl-hog-name')?.textContent || ''"));
+        const by = await panel.ev("document.querySelector('#hlHogsSeg [aria-selected=\"true\"]')?.textContent || ''");
+        check(by === sc.hogs[0] && top === sc.hogs[1], `${sc.name}: hogs by ${by}, top is ${top}`);
+        const ends = await panel.ev("document.querySelectorAll('#hlHogList .hl-hog-end').length");
+        check(ends > 0, `${sc.name}: ${ends} End task buttons`);
+      }
+      const startup = await until(() => panel.ev("document.querySelectorAll('#hlStartup .hl-start').length"));
+      const startupSum = await panel.ev("document.getElementById('hlStartupSum').textContent");
+      check(startup === 10 && /^9 things start/.test(startupSum), `${sc.name}: startup list (${startup} rows, "${startupSum}")`);
+      check(await panel.ev("!document.getElementById('hlAskStartup').disabled"), `${sc.name}: startup audit button enabled`);
       const setup = await panel.ev("!document.getElementById('hlSetup').hidden");
       check(setup === !!sc.setup, `${sc.name}: LHM setup card ${sc.setup ? 'shown' : 'hidden'}`);
 

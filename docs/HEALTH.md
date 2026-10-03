@@ -64,6 +64,22 @@ Every warning has an **Ask Shellby why** button. It opens a new conversation wit
 
 Each task tells Claude not to delete, kill, close or change anything, only to report back. It runs in your current permission mode, so anything it does want to run still goes through your approval as usual.
 
+## What's hogging it
+
+While Shellby is sweating or dizzy, the Health view lists the busiest processes right under the warning, so "your GPU is at 84°C" comes with the answer to "why?". It's sorted by whatever explains the mood: GPU use when the GPU is hot, CPU use when the CPU is hot, memory when memory is full. Switch between **GPU**, **CPU** and **Memory** to see the others. The list refreshes every 30 seconds, or when you press **Refresh**.
+
+Each row has an **End task** button. It does the same as End task in Task Manager, but asks first, in Shellby's separate confirmation window, showing the process and what it's using. A few things can't be ended from here: Windows' own processes (including Explorer and Defender) and Shellby himself. They say **protected** instead. If the process closes while the question is open and Windows gives its number to something else, Shellby notices and leaves the new one alone.
+
+Processes that run as administrator can't be ended without admin rights, and Shellby tells you so.
+
+GPU use per process needs Windows 10 1709 or later. Reading the list takes a second or two, so it's only read while the Health view is open and something is wrong.
+
+## Starts with Windows
+
+The Health view lists what launches when you sign in: the Run entries in the registry and the Startup folders, yours and everyone's. Anything you've switched off in Task Manager is crossed out and doesn't count toward the total.
+
+**Ask Shellby which ones I need** starts a task with that list. Claude explains what each one is, also looks (read-only) at scheduled tasks that run at logon and at non-Microsoft services that start automatically, and gives you a table of what to keep, what to switch off, and how to do it yourself. Like the other Ask Shellby tasks, it's told not to disable or change anything. It always runs in **Ask** mode, whatever mode you're in, because the list comes from the registry and any installer can write there. So anything Claude wants to run still asks you first.
+
 ## Trophies
 
 | Trophy | How | Reward |
@@ -86,5 +102,7 @@ In the Health view:
 - `src/main/health/sensors.js`: the readers and their parsers.
 - `src/main/health/monitor.js`: the poll loop and an hour of history.
 - `src/main/health/service.js`: settings, notifications, the alert log, trophies and IPC.
+- `src/main/health/hogs.js`: the process list, sorting and the End task guards. Covered in `test/hogs.test.js`.
+- `src/main/health/startup.js`: the startup list and its audit prompt. Also covered in `test/hogs.test.js`.
 - **Fake sensors.** `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu npm start` runs a dev build with scripted sensors and no waiting. It's ignored by installed builds.
 - **End-to-end check.** `node scripts/e2e-health.js` launches each scenario and checks the desktop mood, the bubble, the Health view and the badge on Health in the panel's bottom bar.

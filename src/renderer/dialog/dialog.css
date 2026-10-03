@@ -25,7 +25,8 @@ body { padding: 10px; }
 .badge { font-size: 26px; line-height: 1; margin-bottom: 8px; }
 h1 { margin: 0 0 6px; font: 600 19px/1.25 var(--font-pixel); }
 #message { margin: 0 0 10px; color: var(--sand); font-size: 14.5px; }
-.detail { margin: 0 0 10px; color: var(--sand-dim); white-space: pre-line; overflow-wrap: anywhere; font-size: 13px; }
+/* Capped and scrolling, so a long detail can never push the buttons out of the window. */
+.detail { margin: 0 0 10px; color: var(--sand-dim); white-space: pre-line; overflow-wrap: anywhere; font-size: 13px; max-height: 320px; overflow-y: auto; }
 .note { margin: 0 0 12px; padding: 8px 11px; border-radius: 8px; font-size: 12.5px; color: var(--sand-dim); background: var(--glass-dim); border: 1px solid rgba(127, 214, 194, .25); }
 .dialog.danger .note { color: #ffc2bb; background: rgba(255, 90, 74, .1); border-color: rgba(255, 90, 74, .4); }
 .dialog.danger h1 { color: #ff9b8f; }

@@ -125,6 +125,43 @@ body[data-view="health"] .view-health {
 .hl-bar { height: 6px; margin-top: 6px; border-radius: 3px; background: var(--reef-3); overflow: hidden; }
 .hl-bar span { display: block; height: 100%; background: var(--lvl); transform-origin: left; transition: transform .6s var(--ease-out); border-radius: inherit; }
 
+/* what's hogging it: shown under the hero while he sweats or is dizzy */
+.hl-hogs-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.hl-hogs-head .hl-h { margin: 0; }
+.hl-hogs-seg { margin-left: auto; padding: 2px; }
+.hl-hogs-seg button { flex: none; height: 24px; padding: 0 9px; font-size: 11.5px; }
+.hl-hogs-head .slim-btn { height: 26px; }
+.hl-hogs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.hl-hog {
+  display: grid; grid-template-columns: 1fr auto; column-gap: 10px; align-items: center;
+  padding: 7px 10px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft);
+}
+.hl-hog-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; }
+.hl-hog-name { font: 600 12.5px var(--font-mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-hog-rest { color: var(--sand-faint); font: 500 10.5px var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hl-hog-val { margin-left: auto; font: 700 13px var(--font-mono); color: var(--amber); white-space: nowrap; }
+.hl-hog-bar { grid-column: 1; height: 4px; margin-top: 5px; border-radius: 2px; background: var(--reef-3); overflow: hidden; }
+.hl-hog-bar span { display: block; height: 100%; background: var(--amber); transform-origin: left; transition: transform .6s var(--ease-out); border-radius: inherit; }
+.hl-hog-end, .hl-hog-locked { grid-column: 2; grid-row: 1 / span 2; }
+.hl-hog-end {
+  height: 26px; padding: 0 10px; border-radius: 7px; font-size: 12px; font-weight: 700;
+  background: none; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+}
+.hl-hog-end:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.hl-hog-end:disabled { opacity: .5; }
+.hl-hog-locked { font: 600 10px var(--font-mono); color: var(--sand-faint); padding: 0 4px; cursor: help; }
+.hl-fine { margin: 6px 0 0; font-size: 11.5px; color: var(--sand-faint); }
+
+/* starts with Windows */
+.hl-startup-sum { margin: 0 0 6px; font-size: 13px; }
+.hl-startup { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 1px; }
+.hl-start { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
+.hl-start:last-child { border-bottom: 0; }
+.hl-start-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-start-where { margin-left: auto; flex: none; font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
+.hl-start.off .hl-start-name { color: var(--sand-faint); text-decoration: line-through; }
+.hl-start-off { flex: none; font: 700 9px/15px var(--font-mono); padding: 0 6px; border-radius: 99px; text-transform: uppercase; color: var(--sand-faint); border: 1px solid var(--line-soft); }
+
 /* sensors */
 .hl-sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .hl-src { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: start; padding: 5px 0; }
