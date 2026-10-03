@@ -178,7 +178,9 @@ class CiWatcher extends EventEmitter {
     // One PR GitHub won't show (an SSO-protected org, a moved repo) mustn't sink the others.
     const pull = await gh.get(`${base}/pulls/${ref.number}`).catch(() => null);
     const sha = typeof pull?.head?.sha === 'string' && /^[0-9a-f]{40}$/.test(pull.head.sha) ? pull.head.sha : null;
-    const out = { ...ref, url: this.url(ref.repo, ref.number), sha };
+    // The branch, for a workflow that fixes it there (workflows: the ci trigger's trigger.branch).
+    const branch = typeof pull?.head?.ref === 'string' && /^[\w./-]{1,200}$/.test(pull.head.ref) ? pull.head.ref : null;
+    const out = { ...ref, url: this.url(ref.repo, ref.number), sha, branch };
     if (!sha) return { ...out, state: 'none', failing: [] };
     const [runs, status] = await Promise.all([
       gh.get(`${base}/commits/${sha}/check-runs?per_page=100`).catch(() => null),
