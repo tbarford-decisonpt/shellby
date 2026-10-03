@@ -7,6 +7,21 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 - **Turn finished:** he celebrates, and it counts toward his trophies.
 - **Subagents:** helper crabs go out for them, labeled with the project.
 - **Routines:** ask Claude to do something on a schedule ("every Friday at 5, tidy my Downloads") and it sets up a Shellby routine with the `add_routine` tool. Shellby shows you the whole routine and only saves it if you say yes.
+- **Workflows:** ask Claude for something with several steps or another trigger ("when CI fails on my repo, have Claude look and notify me") and it proposes a Shellby workflow with `add_workflow`. You see everything it would do in a confirmation window and approve it there. Claude can also start the workflows you've given the **Claude Code** trigger.
+
+## MCP tools
+
+| Tool | What it does |
+|---|---|
+| `say` | A short line in Shellby's speech bubble. |
+| `celebrate` | Confetti and a little dance. |
+| `wear` | Puts on an accessory you've unlocked. |
+| `status` | The crab's level and what he's up to, plus CPU/GPU/memory/disk if Health is on. |
+| `add_routine` / `list_routines` | Proposes a scheduled Claude Code task (you confirm it) / lists your routines. |
+| `add_workflow` / `list_workflows` | Proposes a workflow (you confirm it) / lists your workflows and which ones Claude may run. |
+| `run_workflow` | Starts a workflow that has the **Claude Code** trigger, with its inputs. Returns once it has started. |
+
+The same workflows can be listed and started from a terminal with `shellby flow list` and `shellby flow run <name> [key=value ...]`.
 
 ## Install
 

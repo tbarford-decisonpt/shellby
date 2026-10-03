@@ -19,7 +19,7 @@ class SessionManager extends EventEmitter {
   }
 
   // Creates (or returns) a tab. `historyEntry` resumes a saved conversation.
-  open({ tabId, cwd, historyEntry = null, mode = null, routineId = null, title = null }) {
+  open({ tabId, cwd, historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null }) {
     if (!TAB_ID.test(tabId || '')) throw new Error('bad tab id');
     if (this.tabs.has(tabId)) return this.tabs.get(tabId);
     if (this.tabs.size >= MAX_TABS) throw new Error(`Shellby can run up to ${MAX_TABS} conversations at once. Close one first.`);
@@ -39,7 +39,8 @@ class SessionManager extends EventEmitter {
     });
     const tab = {
       id: tabId, session, routineId,
-      pinnedMode: !!mode,          // routines keep their own mode
+      workflowRunId,               // a workflow run's conversation (workflows/service.js)
+      pinnedMode: !!mode,          // routines and workflows keep their own mode
       title: historyEntry?.title || title || 'New task',
       saved: !!historyEntry,       // has a history entry (created on first send)
       named: false,                // renamed before its first send: keep that name
@@ -205,7 +206,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
-      outcome: t.outcome, unread: t.unread, routineId: t.routineId, saved: t.saved, named: t.named, context: t.session.context,
+      outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
     }));

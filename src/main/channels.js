@@ -32,6 +32,8 @@ const EVENTS = Object.freeze({
   limit: { label: 'Usage limit reached, and when it resets', default: true, priority: 'normal' },
   health: { label: 'Something is overheating or filling up', default: false, priority: 'high' },
   ci: { label: 'A build goes red or green', default: false, priority: 'normal' },
+  // A workflow's own "tell me on my phone" step: asked for by name, so on by default.
+  workflow: { label: 'A workflow sends you a message', default: true, priority: 'normal' },
 });
 
 const EVENT_NAMES = Object.keys(EVENTS);
@@ -359,7 +361,7 @@ function shouldSend(event, settings, { focused = false } = {}) {
 
 // ------------------------------------------------------------------ messages
 
-const EMOJI = { asking: '🦀', done: '✅', limit: '😴', health: '🥵', ci: '🔴' };
+const EMOJI = { asking: '🦀', done: '✅', limit: '😴', health: '🥵', ci: '🔴', workflow: '⚡' };
 
 /**
  * One event -> what every provider sends.
@@ -417,6 +419,12 @@ function describeEvent(event) {
         emoji: e.passing ? '✅' : '🔴',
         title: e.passing ? `Build fixed: ${project || 'your pull request'}` : `Build failed: ${project || 'your pull request'}`,
         body: clip(e.body, MAX_BODY) || (e.passing ? 'It went green again.' : 'CI went red.'),
+      };
+    case 'workflow':
+      return {
+        ...base, tags: ['crab', 'zap'],
+        title: clip(e.title, MAX_TITLE) || (project ? `From ${project}` : 'From a workflow'),
+        body: clip(e.body, MAX_BODY) || '',
       };
     default:
       return { ...base, title: clip(e.title, MAX_TITLE) || 'Shellby', body: clip(e.body, MAX_BODY) || '' };

@@ -36,8 +36,10 @@
       const on = onSpot(sh, i);
       const names = on.map(s => projectOf(s.id)?.name).filter(Boolean);
       const label = on.length ? `Spot ${i + 1}: ${names.join(', then ')}${on.length > 1 ? ' underneath' : ''}` : `Spot ${i + 1}: empty`;
+      const keys = on.length && !holding ? 'Delete peels it off, [ and ] change which is on top, F flips it.' : null;
       const btn = h('button', {
         type: 'button', class: `st-spot${on.length ? ' has' : ''}${holding ? ' ready' : ''}`, 'aria-label': holding ? `${label}. Press Enter to put ${projectOf(holding)?.name} here.` : label,
+        'aria-description': keys, 'aria-keyshortcuts': keys ? 'Delete [ ] F' : null,
         title: names.length ? names.join(' · ') : 'Empty spot',
         style: `left:${x * BENCH_PX}px;top:${y * BENCH_PX}px;width:${SPOT * BENCH_PX}px;height:${SPOT * BENCH_PX}px`,
         draggable: on.length ? 'true' : null,
@@ -114,7 +116,7 @@
     const cur = currentShell();
     $('stShells').hidden = list.length < 2;
     $('stShells').replaceChildren(...list.map(sh => h('button', {
-      type: 'button', role: 'radio', class: `st-shell-chip${sh.id === cur?.id ? ' on' : ''}`, 'aria-checked': String(sh.id === cur?.id),
+      type: 'button', role: 'radio', dataset: { id: sh.id }, class: `st-shell-chip${sh.id === cur?.id ? ' on' : ''}`, 'aria-checked': String(sh.id === cur?.id),
       title: sh.worn ? `${sh.name} (wearing it)` : `${sh.name}: decorate it for when he moves back in`,
       onclick: () => { shellId = sh.id; holding = null; render(); },
     }, sh.name, sh.stickers.length ? h('span', { class: 'n', text: String(sh.stickers.length) }) : null, sh.worn ? h('span', { class: 'st-worn', text: '●', 'aria-label': 'wearing' }) : null)));
@@ -124,7 +126,7 @@
   function tile(p) {
     const on = currentShell()?.stickers.some(s => s.id === p.id);
     return h('li', { role: 'presentation' }, h('button', {
-      type: 'button', role: 'option', 'aria-selected': String(selected === p.id),
+      type: 'button', role: 'option', 'aria-selected': String(selected === p.id), dataset: { id: p.id },
       class: `st-tile tier-${p.tier} weather-${p.weather}${selected === p.id ? ' on' : ''}${on ? ' placed' : ''}`,
       'aria-label': `${p.name}, ${p.tierName} sticker, ${p.from ? `from @${p.from}` : plural(p.ships, 'ship')}${on ? ', on this shell' : ''}${p.isNew ? ', new' : ''}`,
       draggable: 'true',
@@ -191,8 +193,16 @@
         h('label', { class: 'toggle st-hide' },
           h('input', { type: 'checkbox', checked: p.hidden, onchange: async e => apply(await api.hideSticker(p.id, e.target.checked)) }),
           h('span', { class: 'switch' }), 'Keep off my calling card')),
-      h('button', { class: 'cel-close icon-btn st-close', type: 'button', 'aria-label': 'Close', onclick: () => { selected = null; render(); } },
+      h('button', { class: 'cel-close icon-btn st-close', type: 'button', 'aria-label': 'Close', onclick: close },
         SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
+  }
+
+  // The close button goes with the page, so the keyboard goes back to its sticker.
+  function close() {
+    const id = selected;
+    selected = null;
+    render();
+    [...$('stGrid').querySelectorAll('.st-tile')].find(b => b.dataset.id === id)?.focus();
   }
 
   function select(id) {
@@ -220,7 +230,6 @@
     document.querySelectorAll('#stCardMode [data-card]').forEach(b => {
       const on = b.dataset.card === mode;
       b.setAttribute('aria-checked', String(on));
-      b.setAttribute('aria-selected', String(on));
     });
   }
 

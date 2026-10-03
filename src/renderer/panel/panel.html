@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="github.css">
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="composer.css">
+<link rel="stylesheet" href="workflows.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -91,6 +92,7 @@
   <div class="popover" id="effortMenu" role="menu" hidden></div>
   <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
   <div class="popover" id="tabMenu" role="menu" hidden></div>
+  <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -147,7 +149,7 @@
     <div class="learned" id="learnedBox" hidden></div>
     <div class="toolbox-controls">
       <input type="search" id="toolSearch" class="field" placeholder="Search tools…" aria-label="Search tools">
-      <div class="seg" id="toolTabs" role="tablist">
+      <div class="seg" id="toolTabs" role="tablist" aria-label="Kind" data-roving>
         <button type="button" role="tab" data-kind="skill" aria-selected="true">Skills <span class="n"></span></button>
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
@@ -172,7 +174,7 @@
     <div class="shop-suggest" id="shopSuggest" hidden></div>
     <div class="toolbox-controls">
       <input type="search" id="shopSearch" class="field" placeholder="Search plugins…" aria-label="Search plugins">
-      <div class="seg" id="shopTabs" role="tablist">
+      <div class="seg" id="shopTabs" role="tablist" aria-label="Show" data-roving>
         <button type="button" role="tab" data-filter="all" aria-selected="true">Browse <span class="n"></span></button>
         <button type="button" role="tab" data-filter="installed">Installed <span class="n"></span></button>
       </div>
@@ -189,8 +191,21 @@
     </details>
   </main>
 
+  <!-- ====================== WORKFLOWS (workflows.js) ====================== -->
+  <main class="view view-workflows" id="workflowsView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows aria-current="page">Workflows</button>
+      <button type="button" data-view-btn="routines">Routines</button>
+    </nav>
+    <div id="wfScreen"></div>
+  </main>
+
   <!-- ====================== ROUTINES ====================== -->
   <main class="view view-routines" id="routinesView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows>Workflows</button>
+      <button type="button" aria-current="page">Routines</button>
+    </nav>
     <div class="view-head">
       <h2>Routines</h2>
       <button type="button" class="btn primary slim-btn" id="newRoutineBtn">New routine</button>
@@ -281,7 +296,7 @@
     <section class="hl-block hl-hogs" id="hlHogs" hidden aria-labelledby="hlHogsTitle">
       <div class="hl-hogs-head">
         <h3 class="hl-h" id="hlHogsTitle">What's hogging it</h3>
-        <div class="seg hl-hogs-seg" id="hlHogsSeg" role="tablist" aria-label="Sort by">
+        <div class="seg hl-hogs-seg" id="hlHogsSeg" role="tablist" aria-label="Sort by" data-roving>
           <button type="button" role="tab" data-metric="gpu">GPU</button>
           <button type="button" role="tab" data-metric="cpu">CPU</button>
           <button type="button" role="tab" data-metric="mem">Memory</button>
@@ -372,18 +387,18 @@
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
     <div class="season-banner" id="seasonBanner" hidden></div>
-    <div class="stage" id="wdStage" aria-label="Preview">
-      <div class="stage-fx" id="wdFx"></div>
-      <div class="stage-crab" id="wdCrab"></div>
+    <div class="stage" id="wdStage" role="group" aria-label="Preview">
+      <div class="stage-fx" id="wdFx" aria-hidden="true"></div>
+      <div class="stage-crab" id="wdCrab" aria-hidden="true"></div>
       <div class="stage-floor"></div>
       <div class="stage-caption" id="wdCaption"></div>
     </div>
     <div class="stage-moods" role="group" aria-label="Preview mood">
-      <button type="button" class="mood on" data-mood="idle">Idle</button>
-      <button type="button" class="mood" data-mood="working">Working</button>
-      <button type="button" class="mood" data-mood="asking">Asking</button>
-      <button type="button" class="mood" data-mood="sleeping">Sleeping</button>
-      <button type="button" class="mood random" id="randomizeBtn" title="Surprise me">🎲</button>
+      <button type="button" class="mood on" data-mood="idle" aria-pressed="true">Idle</button>
+      <button type="button" class="mood" data-mood="working" aria-pressed="false">Working</button>
+      <button type="button" class="mood" data-mood="asking" aria-pressed="false">Asking</button>
+      <button type="button" class="mood" data-mood="sleeping" aria-pressed="false">Sleeping</button>
+      <button type="button" class="mood random" id="randomizeBtn" title="Surprise me" aria-label="Random outfit">🎲</button>
     </div>
     <div class="outfit-code" id="outfitCodeRow">
       <span class="oc-label">Outfit code</span>
@@ -391,7 +406,7 @@
       <button type="button" class="btn ghost slim-btn" id="copyCodeBtn">Copy</button>
       <button type="button" class="btn slim-btn" id="wearCodeBtn">Wear a code…</button>
     </div>
-    <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots">
+    <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots" data-roving>
       <button type="button" role="tab" data-slot="hat" aria-selected="true">Hats</button>
       <button type="button" role="tab" data-slot="face">Face</button>
       <button type="button" role="tab" data-slot="neck">Neck</button>
@@ -401,7 +416,7 @@
       <button type="button" role="tab" data-slot="effect">Effects</button>
       <button type="button" role="tab" data-slot="skin">Colors</button>
     </div>
-    <div class="wd-grid" id="wdGrid" role="listbox" aria-label="Items"></div>
+    <div class="wd-grid" id="wdGrid" role="listbox" aria-label="Items" data-roving></div>
     <section class="setting-group wd-options">
       <h3>Options</h3>
       <label class="toggle"><input type="checkbox" id="seasonalToggle"><span class="switch"></span>Seasonal outfits: dress up automatically for Halloween, winter and more</label>
@@ -513,7 +528,7 @@
         <p class="xp-eyebrow st-eyebrow">Sticker Book</p>
         <h3 id="stTotal">No stickers yet</h3>
         <p class="st-sub" id="stSub"></p>
-        <div class="st-shells" id="stShells" role="radiogroup" aria-label="Which shell to decorate"></div>
+        <div class="st-shells" id="stShells" role="radiogroup" aria-label="Which shell to decorate" data-roving></div>
         <div class="st-tools">
           <button type="button" class="btn slim-btn" id="stArrange" title="Lay the stickers out again, most shipped in the middle">Tidy up</button>
           <label class="toggle st-auto"><input type="checkbox" id="stAuto"><span class="switch"></span>New stickers go straight on</label>
@@ -522,7 +537,7 @@
     </section>
     <p class="st-hint" id="stHint" aria-live="polite"></p>
     <section class="st-detail" id="stDetail" hidden aria-live="polite"></section>
-    <ul class="st-grid" id="stGrid" role="listbox" aria-label="Your stickers"></ul>
+    <ul class="st-grid" id="stGrid" role="listbox" aria-label="Your stickers" data-roving></ul>
     <section class="st-waiting" id="stWaitingWrap" hidden>
       <h3>Waiting to ship</h3>
       <p class="muted small">Projects you've worked in that haven't shipped yet. Push one to earn its sticker.</p>
@@ -531,7 +546,7 @@
     <section class="setting-group st-options">
       <h3>On your calling card</h3>
       <p class="muted small">With Visiting crabs on, your calling card is public. Nothing about your stickers goes on it until you choose here, and projects you keep off it never leave your PC.</p>
-      <div class="seg st-card-mode" id="stCardMode" role="radiogroup" aria-label="What friends see">
+      <div class="seg st-card-mode" id="stCardMode" role="radiogroup" aria-label="What friends see" data-roving>
         <button type="button" role="radio" data-card="off">Nothing</button>
         <button type="button" role="radio" data-card="art">His shell</button>
         <button type="button" role="radio" data-card="names">Shell and names</button>
@@ -547,7 +562,7 @@
     </div>
     <input type="search" id="historySearch" class="field" placeholder="Search conversations…" aria-label="Search conversations">
     <!-- Hidden until you've ticked something off: nothing to filter before that. -->
-    <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" hidden>
+    <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" data-roving hidden>
       <button type="button" role="tab" data-filter="todo" aria-selected="true">Not done <span class="n"></span></button>
       <button type="button" role="tab" data-filter="done" aria-selected="false">Done <span class="n"></span></button>
       <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
@@ -924,9 +939,9 @@
       <span>Toolbox</span>
       <i class="dot-badge" id="toolboxBadge" hidden></i>
     </button>
-    <button type="button" class="dock-btn" data-view-btn="routines" aria-keyshortcuts="Control+4">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2M13.4 2.6v2.8h-2.8M8 5.2V8l2 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Routines</span>
+    <button type="button" class="dock-btn" data-view-btn="workflows" aria-keyshortcuts="Control+4">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.8L3.6 9h4l-1 5.2L12.4 7h-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Automate</span>
     </button>
     <button type="button" class="dock-btn" data-view-btn="health" aria-keyshortcuts="Control+5">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.6h2.8l1.6-4.4 3 7.8 1.8-5 1 1.6h2.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1023,6 +1038,7 @@
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
 <script src="core.js"></script>
+<script src="a11y.js"></script>
 <script src="feed.js"></script>
 <script src="tabs.js"></script>
 <script src="composer.js"></script>
@@ -1030,6 +1046,7 @@
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>
+<script src="workflows.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>

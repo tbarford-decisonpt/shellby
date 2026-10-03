@@ -307,6 +307,24 @@ contextBridge.exposeInMainWorld('shellby', {
   holdForReset: invoke('held:add'),
   cancelHeld: invoke('held:cancel'),
 
+  // workflows (docs/plans/workflows.md)
+  listWorkflows: invoke('workflows:list'),
+  validateWorkflow: invoke('workflows:validate'),
+  saveWorkflow: invoke('workflows:save'),
+  deleteWorkflow: invoke('workflows:delete'),
+  runWorkflow: invoke('workflows:run'),
+  draftWorkflow: invoke('workflows:draft'),
+  repairWorkflow: invoke('workflows:repair'),
+  importWorkflow: invoke('workflows:import'),
+  exportWorkflow: invoke('workflows:export'),
+  listRuns: invoke('workflows:runs'),
+  getRun: invoke('workflows:run-get'),
+  stopRun: invoke('workflows:run-stop'),
+  resumeRun: invoke('workflows:run-resume'),
+  answerRun: invoke('workflows:run-answer'),
+  setWorkflowSecret: invoke('workflows:secret-set'),
+  deleteWorkflowSecret: invoke('workflows:secret-delete'),
+
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
 
@@ -324,6 +342,9 @@ contextBridge.exposeInMainWorld('shellby', {
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
+  onWorkflows: on('workflows'),
+  onWorkflowRun: on('workflows:run-changed'),
+  onWorkflowOpen: on('workflows:open-run'), // a notification about a run was clicked
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
   onDictated: on('panel:dictated'), // push-to-talk: what you said, for the box (see dictation.js)

@@ -6,6 +6,7 @@
 //   shellby do "tidy my Downloads folder"   hand a task to Shellby
 //   shellby say "all green"                 put a line in his speech bubble
 //   shellby status                          how the crab and this PC are doing
+//   shellby flow run "Red build fixer" branch=main   start a workflow
 //
 // Self-contained plain Node (builtins only): Shellby copies this file next to
 // its shim in %LOCALAPPDATA%\Shellby\bin, so it never has to be read out of the
@@ -26,6 +27,12 @@ const PORT = Number(process.env.SHELLBY_PORT) || 47913;
 const TIMEOUT_MS = 8000;
 const MAX_PROMPT = 4000;
 const MODES = ['ask', 'smart', 'acceptEdits', 'plan'];   // deliberately not autonomous
+// Workflow inputs, as Shellby checks them (crabtools.parseWorkflowCall). Repeated
+// here because this file can't load the app's modules; Shellby checks again.
+const INPUT_KEY = /^[a-z][a-z0-9_]{0,31}$/;
+const MAX_INPUTS = 10;
+const MAX_INPUT_VALUE = 2000;
+const MAX_FLOW_NAME = 60;
 
 const EXIT = { ok: 0, error: 1, usage: 2, notRunning: 3, denied: 4 };
 
@@ -34,6 +41,9 @@ const USAGE = `shellby - the desktop crab, from your terminal
   shellby do <task...>        hand a task to Shellby, in this folder
   shellby say <text...>       put a short line in his speech bubble
   shellby status              how the crab and this PC are doing
+  shellby flow list           your workflows, and which ones Claude Code may run
+  shellby flow run <name...> [key=value ...]
+                              start a workflow that has the "Claude Code" trigger
   shellby help                this
   shellby version
 
@@ -41,6 +51,10 @@ Options for "do":
   -C, --dir <path>     run the task somewhere else (default: this folder)
   -m, --mode <mode>    ${MODES.join(' | ')}  (default: whatever Shellby is set to)
   -q, --quiet          print nothing unless it fails
+
+For "flow run", the name is every word before the first key=value (or quote
+it), and each key=value fills in one of the workflow's inputs:
+  shellby flow run Red build fixer branch=main
 
 Shellby has to be running. He will ask you before starting the task unless you
 have turned that off in Settings.`;
@@ -147,7 +161,39 @@ function parseArgs(argv) {
     return { ...opts, prompt };
   }
 
+  if (first === 'flow') return parseFlowArgs(args);
+
   return { error: `Unknown command: ${String(first).slice(0, 30)}. Try "shellby help".` };
+}
+
+const FLOW_USAGE = 'Usage: shellby flow list | shellby flow run <name...> [key=value ...]';
+
+/** `flow list` / `flow run <name...> [key=value ...]` -> { cmd: 'flow-list' } | { cmd: 'flow-run', name, inputs } | { error } */
+function parseFlowArgs(args) {
+  const sub = args.shift();
+  if (sub === 'list' || sub === 'ls') return args.length ? { error: FLOW_USAGE } : { cmd: 'flow-list' };
+  if (sub !== 'run') return { error: sub ? `Unknown flow command: ${String(sub).slice(0, 30)}. ${FLOW_USAGE}` : FLOW_USAGE };
+
+  const words = [];
+  const inputs = {};
+  let count = 0;
+  for (const a of args) {
+    const eq = a.indexOf('=');
+    // Everything before the first key=value is the name.
+    if (eq === -1 && !count) { words.push(a); continue; }
+    if (eq === -1) return { error: `Expected key=value after the name, got "${a.slice(0, 40)}". ${FLOW_USAGE}` };
+    const key = a.slice(0, eq);
+    if (!INPUT_KEY.test(key)) return { error: `"${key.slice(0, 40)}" can't be an input name: use lowercase letters, digits and _.` };
+    if (Object.prototype.hasOwnProperty.call(inputs, key)) return { error: `${key} is given twice.` };
+    const value = a.slice(eq + 1);
+    if (value.length > MAX_INPUT_VALUE) return { error: `${key} is longer than ${MAX_INPUT_VALUE} characters.` };
+    if (++count > MAX_INPUTS) return { error: `At most ${MAX_INPUTS} inputs.` };
+    inputs[key] = value;
+  }
+  const name = words.join(' ').replace(/\s+/g, ' ').trim();
+  if (!name) return { error: `Which workflow? ${FLOW_USAGE}` };
+  if (name.length > MAX_FLOW_NAME) return { error: `Workflow names are at most ${MAX_FLOW_NAME} characters.` };
+  return { cmd: 'flow-run', name, inputs };
 }
 
 // ------------------------------------------------------------------ commands
@@ -176,24 +222,37 @@ async function main(argv) {
     return EXIT.ok;
   }
 
-  // do
+  // Everything below starts something, so it needs the token.
   const token = readToken();
   if (!token) {
     err('Shellby has not set up the command line yet.');
     err('Turn on Settings > Claude Code everywhere > the shellby command, then try again.');
     return EXIT.denied;
   }
+
+  if (cmd.cmd === 'flow-list') return cliRequest({ action: 'flow-list' }, token, { fallback: 'No answer.' });
+  if (cmd.cmd === 'flow-run') return cliRequest({ action: 'flow-run', name: cmd.name, inputs: cmd.inputs }, token, { fallback: 'Started.' });
+
+  // do
   const dir = path.resolve(cmd.dir || process.cwd());
   if (!isDirectory(dir)) { err(`Not a folder: ${dir}`); return EXIT.usage; }
+  return cliRequest({ action: 'task', args: { prompt: cmd.prompt, cwd: dir, mode: cmd.mode } }, token,
+    { quiet: cmd.quiet, fallback: 'Handed to Shellby.' });
+}
 
-  const res = await post('/v1/cli', { action: 'task', args: { prompt: cmd.prompt, cwd: dir, mode: cmd.mode } }, { token });
+/** POST to /v1/cli with the token, print the answer, and turn it into an exit code. */
+async function cliRequest(payload, token, { quiet = false, fallback = 'Done.' } = {}) {
+  const res = await post('/v1/cli', payload, { token });
   if (!res.status) return notRunning();
   if (res.status === 401 || res.status === 403) {
-    err('Shellby refused the command line. Turn it off and on again in Settings to get a fresh token.');
+    // A 403 that says why (the command is off, that workflow isn't Claude's to
+    // run) is passed on; a bare refusal is most likely a stale token.
+    err(res.status === 403 && res.json?.error ? res.json.error
+      : 'Shellby refused the command line. Turn it off and on again in Settings to get a fresh token.');
     return EXIT.denied;
   }
   if (res.status >= 300) { err(res.json?.error || `Shellby answered ${res.status}.`); return EXIT.error; }
-  if (!cmd.quiet) out(res.json?.text || 'Handed to Shellby.');
+  if (!quiet) out(res.json?.text || fallback);
   return EXIT.ok;
 }
 
@@ -215,4 +274,4 @@ if (require.main === module) {
     .catch(e => { err(`shellby: ${e?.message || e}`); process.exit(EXIT.error); });
 }
 
-module.exports = { parseArgs, main, USAGE, MODES, MAX_PROMPT, EXIT };
+module.exports = { parseArgs, main, USAGE, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME };
