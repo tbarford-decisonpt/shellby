@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.29.0: every model
+
+### New
+- **Pick any Claude model.** **Settings → Shortcut & model** now lists every current model, grouped by family: Fable 5.1 and 5, Opus 5.5 down to 4.5, Sonnet 5.5 down to 4.5, and Haiku 4.5. **Opus**, **Sonnet** and **Haiku (latest)** are still there and follow whatever Claude Code treats as newest. The others pin that exact release. Like before, the choice applies to new conversations.
+
 ## 0.28.0: Claude can tidy your memory
 
 ### New
