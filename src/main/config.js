@@ -25,6 +25,7 @@ const DEFAULTS = {
   openAtLogin: false,
   notifications: true,
   recap: true,        // a digest of what happened when you come back after an hour away (see recap.js)
+  leaveGuard: true,   // hold up a shutdown or sign-out while work is unpushed, uncommitted or mid-turn (see leaving.js)
   model: '', // '' -> Claude Code's default
   effort: '', // '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)

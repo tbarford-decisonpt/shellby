@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.51.0: is it safe to leave?
+
+### New
+- **Is it safe to leave?** In his menu (right-click him or the tray icon). Shellby checks the projects you've worked in over the last two weeks and tells you what only exists on this PC or is still going: commits no remote has (and on which branches), files nobody committed, including in Shellby's own copies, stashes, Claude still working or waiting on you, and commands left running in the background. *"2 projects have unpushed work."* **Tidy up** opens a conversation in that project with a ready-to-send prompt to commit and push it; nothing is sent until you press Enter.
+- **Lock the PC** checks first. All clear, and it locks straight away; anything at risk is listed first, with **Lock anyway**.
+- **Shutdowns and sign-outs wait.** If you shut down, restart or sign out with unpushed or uncommitted work, or while Claude is mid-task or waiting on you, Windows shows Shellby holding it up with the reason, and **Shut down anyway** still works. Stashes and background commands are listed by the check but never hold up a shutdown, and neither do installers or critical shutdowns. Turn it off under **Settings → System**.
+- A project git can't read is shown as **couldn't be checked**, never as safe.
+- The menu item says what the last check found, so a glance is often enough.
+
 ## 0.50.0: workflows
 
 ### New

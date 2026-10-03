@@ -51,6 +51,7 @@ const focus = require('./focus');
 const limits = require('./limits');
 const spend = require('./spend');
 const recap = require('./recap');
+const leaving = require('./leaving');
 const ctx = require('./context');
 const { CritterMotion } = require('./motion');
 const { createPerching } = require('./perching');
@@ -443,6 +444,121 @@ function welcomeBack({ since, until }) {
   speak('back', { force: true });
   if (panel.isVisible() && panel.isFocused()) return;
   notify(`While you were away (${recap.awayFor(digest.awayMs)})`, recap.headline(digest), () => showPanel({ focusInput: false }));
+}
+
+// ---------------------------------------------------------------- is it safe to leave? (leaving.js)
+// Unpushed, uncommitted and stashed work in the projects you've been in lately,
+// plus anything still running. Asked from the menu ("Is it safe to leave?" and
+// "Lock the PC", which checks first), and kept fresh in the background so that
+// a shutdown or sign-out can be held up with the reason beside Shellby's name:
+// Windows can't tell an app the screen is about to lock, but it does ask before
+// ending the session.
+const LEAVE_RECENT_MS = 14 * 24 * 60 * 60 * 1000; // projects worked in this recently are checked
+const LEAVE_REFRESH_MS = 10 * 60 * 1000;
+const LEAVE_AFTER_WORK_MS = 30 * 1000;            // a finished turn usually committed or changed something
+let leaveProjects = [];   // the last git check, for the shutdown guard (which can't wait for git)
+let leaveChecking = null; // the check in flight, shared by everyone who asks meanwhile
+let leaveSoon = null;
+
+function leaveFolders() {
+  const now = Date.now();
+  const recent = Object.entries(streaks.normalize(config.get('streaks')).projects)
+    .filter(([, p]) => now - p.lastSeen < LEAVE_RECENT_MS)
+    .sort((a, b) => b[1].lastSeen - a[1].lastSeen)
+    .map(([key]) => key);
+  const tabs = [...(manager?.tabs.values() || [])].map(t => t.session?.cwd);
+  return [...tabs, ...(config.get('recentFolders') || []), ...recent].filter(Boolean);
+}
+
+// What's in flight right now, in Shellby and in Claude Code elsewhere. Live, so cheap.
+function runningNow() {
+  const tabs = [...(manager?.tabs.values() || [])];
+  const ext = external?.summary || { sessions: [], background: [] };
+  return {
+    working: [
+      ...tabs.filter(t => t.session.busy && !t.session.pending.size).map(t => t.title),
+      ...(ext.sessions || []).filter(s => s.state === 'working').map(s => s.where || s.project),
+    ],
+    waiting: waitingOnYou().map(w => w.title),
+    background: (ext.background || []).map(b => ({ program: b.program, project: b.project })),
+  };
+}
+
+// fresh: don't settle for a check that started before you asked (a push you
+// made a moment ago must count), so wait for that one and run another.
+async function checkLeaving({ fresh = false } = {}) {
+  if (CAPTURE || !config) return [];
+  if (fresh && leaveChecking) await leaveChecking;
+  leaveChecking ||= leaving.check(leaveFolders())
+    .then(projects => { leaveProjects = projects; return projects; })
+    .catch(e => { log.warn('safe-to-leave check failed', e.message); return leaveProjects; })
+    .finally(() => { leaveChecking = null; });
+  return leaveChecking;
+}
+
+// The cached answer, with what's running read fresh.
+const leaveVerdict = () => leaving.verdict(leaveProjects, runningNow());
+
+function checkLeavingSoon() {
+  clearTimeout(leaveSoon);
+  leaveSoon = setTimeout(checkLeaving, LEAVE_AFTER_WORK_MS);
+}
+
+// lock: asked from "Lock the PC". Safe locks straight away; anything at risk is
+// listed first, with the choice to lock anyway or have Claude tidy it up.
+async function leaveCheck({ lock = false } = {}) {
+  const v = leaving.verdict(await checkLeaving({ fresh: true }), runningNow());
+  if (v.safe && lock) { native.lockScreen(); return; }
+  const fixable = leaveProjects.find(p => p.ok && leaving.verdict([p]).lines.length);
+  const canFix = !v.safe && !!fixable && !config.get('crabOnly');
+  const buttons = v.safe
+    ? [{ label: 'Lock the PC' }, { label: 'Close' }]
+    : [{ label: 'Lock anyway', style: 'danger' }, ...(canFix ? [{ label: `Tidy up ${fixable.name}` }] : []), { label: 'Stay' }];
+  const cancelId = buttons.length - 1;
+  const response = await confirm.ask(panel, {
+    ...dialogLook(), icon: v.safe ? '🐚' : '🧳',
+    title: v.safe ? 'Safe to leave' : 'Not quite safe to leave',
+    message: v.headline,
+    detail: v.lines.slice(0, 12).join('\n') + (v.lines.length > 12 ? `\n…and ${v.lines.length - 12} more` : ''),
+    note: v.safe ? '' : 'Locking never loses any of this, but a shutdown or a dead battery can.',
+    buttons, defaultId: v.safe ? 0 : cancelId, cancelId,
+  });
+  if (response === 0) native.lockScreen();
+  else if (canFix && response === 1) {
+    showPanel();
+    send(panel, 'tab:new-in', { cwd: fixable.root, draft: `I'm about to leave my PC. In ${fixable.name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Ask me before anything destructive.` });
+  }
+}
+
+// Windows asks every window before a shutdown, restart or sign-out. While work
+// is at risk Shellby says no, with the reason, and Windows shows it beside his
+// name with "Shut down anyway". Only for work this PC alone has, or Claude
+// mid-turn (leaving.verdict's hold); never for a critical shutdown or an
+// installer asking apps to close (close-app). With no reason to show (koffi
+// missing), he never holds it up: a nameless "an app is preventing shutdown"
+// would just look broken.
+function guardSessionEnd(win) {
+  const release = () => { try { if (!win.isDestroyed()) native.unblockShutdown(native.hwndOf(win)); } catch { /* best effort */ } };
+  win.on('query-session-end', e => {
+    try {
+      const reasons = e.reasons || [];
+      const v = leaveVerdict();
+      if (config.get('leaveGuard') === false || reasons.includes('critical') || reasons.includes('close-app') || !v.hold) { release(); return; }
+      if (native.blockShutdown(native.hwndOf(win), `Shellby: ${v.headline}`)) e.preventDefault();
+      // What it said may be up to ten minutes old: look again, so the next try is right.
+      checkLeaving();
+    } catch (err) { log.warn('shutdown guard failed', err.message); }
+  });
+  win.on('session-end', release);
+}
+
+function watchLeaving() {
+  if (CAPTURE) return;
+  guardSessionEnd(critter);
+  setTimeout(checkLeaving, 90 * 1000);
+  setInterval(checkLeaving, LEAVE_REFRESH_MS);
+  // Leaving the desk is when the answer matters next: have it ready.
+  for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkLeaving());
 }
 
 // The critter window grows to the left to make room for helper crabs, keeping
@@ -1004,6 +1120,7 @@ function saveStreaks(next) {
 // remembers the git repo it ran in with its newest commit time.
 async function recordWork(dir) {
   if (CAPTURE || !config) return;
+  checkLeavingSoon();
   saveStreaks(streaks.recordWorkDay(config.get('streaks'), Date.now()));
   const repo = await repoOf(dir);
   if (!repo) return;
@@ -3465,7 +3582,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'effort', 'outputStyle', 'planOnly', 'pushToTalk']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -3505,7 +3622,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'planOnly', 'pushToTalk']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'leaveGuard', 'planOnly', 'pushToTalk']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -4222,6 +4339,12 @@ function updateMenuItem() {
   return { label, enabled: view.state !== 'checking', click: () => { updates.check(); showUpdateSetting(); } };
 }
 
+// Says what the last check found, so a glance at the menu is often enough.
+function leaveMenuLabel() {
+  const v = leaveVerdict();
+  return v.safe ? 'Is it safe to leave?' : `Safe to leave? ${v.headline.replace(/\.$/, '')}`.slice(0, 90);
+}
+
 function buildMenu() {
   const agg = manager?.aggregate;
   const claude = !config.get('crabOnly'); // just-the-crab mode has no tasks, toolbox or routines
@@ -4233,6 +4356,8 @@ function buildMenu() {
     claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
     claude && { label: 'Workflows', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'workflows'); } },
     claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
+    { label: leaveMenuLabel(), click: () => leaveCheck() },
+    { label: 'Lock the PC', click: () => leaveCheck({ lock: true }) },
     { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
     focusMenu(),
     { type: 'separator' },
@@ -4425,6 +4550,7 @@ app.whenReady().then(() => {
   createPanel();
   watchIdleCost();
   watchAway();
+  watchLeaving();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });
