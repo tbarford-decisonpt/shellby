@@ -266,6 +266,16 @@
       </div>
     </form>
     <ul class="routine-list" id="routineList"></ul>
+
+    <section class="dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
+      <div class="dw-head">
+        <h3 id="depWatchTitle">Dependency watch</h3>
+        <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects for outdated and vulnerable packages every week</label>
+      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby runs <code>npm outdated</code> and <code>npm audit</code> in the npm projects you work in, which asks the npm registry about their packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
+      <ul class="dw-list" id="depWatchList"></ul>
+    </section>
   </main>
 
   <!-- ====================== HEALTH ====================== -->
@@ -1043,6 +1053,7 @@
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>
+<script src="depwatch.js"></script>
 <script src="workflows.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>

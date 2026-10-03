@@ -159,5 +159,6 @@
     if (dir) { folder = dir; $('routineFolder').textContent = SB.tildify(dir); }
   });
 
-  SB.views.routines = { render };
+  // openEditor: Dependency watch (depwatch.js) offers its routine through the same editor.
+  SB.views.routines = { render, openEditor };
 })();

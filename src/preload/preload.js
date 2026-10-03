@@ -300,6 +300,13 @@ contextBridge.exposeInMainWorld('shellby', {
   draftRoutine: invoke('routines:draft'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
+  // dependency watch
+  getDepWatch: invoke('depwatch:get'),
+  setDepWatch: invoke('depwatch:set'),
+  scanDeps: invoke('depwatch:scan'),
+  bumpDeps: invoke('depwatch:bump'),
+  depRoutine: invoke('depwatch:routine'),
+  onDepWatch: on('depwatch'),
   usageBreakdown: invoke('usage:breakdown'),
 
   // workflows (docs/plans/workflows.md)

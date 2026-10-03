@@ -21,6 +21,7 @@ const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const routineDraft = require('./routine-draft');
+const depwatch = require('./depwatch');
 const { WorkflowService } = require('./workflows/service');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
@@ -164,6 +165,7 @@ const claudePath = () => config?.get('claudePath') || null;
 
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates, friends;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
+let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let parityIpc = null;
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
@@ -2928,6 +2930,67 @@ function startScheduler() {
   missed.forEach((r, i) => setTimeout(() => runRoutine(r, { reason: 'catch-up' }), 8000 + i * 5000));
 }
 
+// ================================================================ dependency watch
+
+// The projects it looks at: the git repos Shellby has seen you work in, then
+// your recent folders (depwatch.candidates keeps the npm ones).
+function depProjects() {
+  const s = streaks.normalize(config.get('streaks'));
+  return depwatch.candidates({
+    projects: Object.entries(s.projects).map(([key, p]) => ({ key, name: p.name })),
+    recent: config.get('recentFolders') || [],
+    exclude: [worktreeHome()], // a bump task's copy is where the work happens, not a project of its own
+    has: (dir, file) => { try { return fs.statSync(path.join(dir, file)).isFile(); } catch { return false; } },
+  });
+}
+
+function createDepWatch() {
+  depWatch = new depwatch.DepWatch({
+    config,
+    projects: depProjects,
+    isOff: () => !!config.get('crabOnly'),
+    toPanel: (channel, payload) => send(panel, channel, payload),
+    notify: n => notify(n.title, n.body, showDepWatch, { urgent: n.urgent, action: 'Have a look' }),
+  });
+  depWatch.start();
+}
+
+function showDepWatch() {
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'routines');
+}
+
+// A task that starts in a copy of its own (worktrees.js), whatever the
+// worktrees setting says: work that ends in a pull request has no business in
+// your checkout. promptFor(worktree) writes the prompt once the branch is known.
+async function startTaskInCopy(dir, title, promptFor, { mode = null } = {}) {
+  if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
+  const made = await worktrees.create(dir, { home: worktreeHome(), title });
+  if (!made) return { ok: false, error: "That folder isn't in a git repository." };
+  if (!made.ok) return { ok: false, error: made.error };
+  const w = made.worktree;
+  const tabId = randomUUID();
+  try {
+    const tab = openTab({ tabId, title, mode, cwd: w.cwd });
+    tab.worktree = w;
+    const prompt = promptFor(w);
+    manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
+    history.update(tabId, { cwd: w.cwd, worktree: w });
+    manager.note(tabId, { kind: 'moved', branch: w.branch, base: w.base });
+    wake();
+    send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
+    return { ok: true, tabId };
+  } catch (err) {
+    // Tidy up without letting a second failure hide the first.
+    try {
+      if (manager.tabs.has(tabId)) await manager.closeAndWait(tabId);
+      if (history.get(tabId)) history.remove(tabId); // it would point at a copy that's gone
+      await worktrees.remove(w, { force: true });
+    } catch (e) { log.info(`dependency task cleanup: ${e.message}`); }
+    return { ok: false, error: err.message };
+  }
+}
+
 // ================================================================ workflows
 
 // The Automate page (workflows/service.js). Everything Shellby-specific a run
@@ -3731,6 +3794,33 @@ ${r.detail}` });
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
+  // ---- dependency watch (depwatch.js). Only a project from the last check is
+  // accepted: the renderer names one, it never hands over a folder of its own.
+  ipcMain.handle('depwatch:get', () => depWatch.view());
+  ipcMain.handle('depwatch:set', (_e, on) => depWatch.setEnabled(on === true));
+  ipcMain.handle('depwatch:scan', () => depWatch.scan());
+  ipcMain.handle('depwatch:bump', async (_e, key) => {
+    const r = depWatch.result(key);
+    if (!r || !depwatch.needsAttention(r)) return { ok: false, error: 'Nothing to bump there. Check again first.' };
+    if (!isFolder(r.key)) return { ok: false, error: "Shellby can't find that folder any more." };
+    // The copy gets its own branch; the pull request is opened from it.
+    const res = await startTaskInCopy(r.key, `Bump dependencies in ${r.name}`, w => depwatch.bumpPrompt(r, { branch: w.branch, base: w.base }));
+    if (res.ok) showPanel({ focusInput: false, tabId: res.tabId });
+    return res;
+  });
+  // A routine for the editor to fill in: saving it goes through routines:save
+  // like any other, with its confirmation.
+  ipcMain.handle('depwatch:routine', (_e, key) => {
+    const r = depWatch.result(key);
+    if (!r) return null;
+    return {
+      name: `Weekly package bump: ${r.name}`.slice(0, 60),
+      prompt: depwatch.routinePrompt(r.name),
+      cwd: r.key, mode: 'smart',
+      schedule: { type: 'weekly', time: '10:00', days: [1] },
+    };
+  });
+
   // ---- streaks and nudges
   ipcMain.handle('streaks:get', () => streaksView());
   if (NUDGE_TEST) ipcMain.handle('dev:check-nudges', () => checkNudges());
@@ -4449,6 +4539,7 @@ app.whenReady().then(() => {
   createExternal();
   createCrabApi();
   createWorkflows();
+  createDepWatch();
   createCi();
   createFriends();
   channelSecret = loadChannelSecret();
@@ -4509,6 +4600,7 @@ app.on('will-quit', () => {
   if (config) saveSpend();
   toolbox?.stop();
   health?.stop();
+  depWatch?.stop();
   external?.stop();
   github?.stop();
   friends?.stop();
