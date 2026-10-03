@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { History, MAX_ENTRIES } = require('../src/main/history');
+const { History, MAX_ENTRIES, TRASH_DAYS } = require('../src/main/history');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 const transcripts = dir => fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).sort();
@@ -174,4 +174,101 @@ test('! commands and rewinds are kept in the transcript', () => {
   h.append('c2', { kind: 'shell', command: 'git status', output: 'clean', code: 0 });
   h.append('c2', { kind: 'rewound', conversation: true });
   assert.deepEqual(h.load('c2').map(i => i.kind), ['shell', 'rewound']);
+});
+
+// ---- Recently deleted
+
+const DAY = 24 * 60 * 60 * 1000;
+const seed = (h, id, extra = {}) => {
+  h.create({ id, title: id, cwd: 'C:/work', mode: 'ask' });
+  if (extra.createdAt) h.get(id).createdAt = extra.createdAt;
+  h.append(id, { kind: 'user', text: `hi from ${id}` });
+};
+
+test('trash() hides a conversation from list() and get() but keeps its transcript, across a restart', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  seed(h, 'b');
+  h.trash('a', 1000);
+
+  const after = new History(dir);
+  assert.deepEqual(after.list().map(e => e.id), ['b']);
+  assert.equal(after.get('a'), null);
+  assert.deepEqual(after.trashed().map(e => [e.id, e.deletedAt]), [['a', 1000]]);
+  assert.deepEqual(transcripts(dir), ['a.jsonl', 'b.jsonl']);
+});
+
+test('restore() puts a conversation back where its start date belongs, transcript intact', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'old', { createdAt: 1 });
+  seed(h, 'mid', { createdAt: 2 });
+  seed(h, 'new', { createdAt: 3 });
+  h.saveIndex();
+  h.trash('mid');
+  h.restore('mid');
+
+  assert.deepEqual(h.list().map(e => e.id), ['new', 'mid', 'old']);
+  assert.equal(h.get('mid').deletedAt, undefined);
+  assert.deepEqual(h.trashed(), []);
+  assert.equal(h.load('mid')[0].text, 'hi from mid');
+});
+
+test('sweep() leaves binned transcripts alone', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  h.trash('a');
+  assert.equal(h.sweep(), 0);
+  assert.deepEqual(transcripts(dir), ['a.jsonl']);
+});
+
+test('a damaged trash file stops sweep() rather than letting it delete binned transcripts', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  h.trash('a');
+  fs.writeFileSync(path.join(dir, 'trash.json'), '[{"id":"a","ti');
+
+  const after = new History(dir);
+  assert.equal(after.trashIntact, false);
+  assert.equal(after.sweep(), 0);
+  assert.deepEqual(transcripts(dir), ['a.jsonl']);
+});
+
+test('purge() deletes one binned conversation for good, or all of them', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  for (const id of ['a', 'b', 'c']) { seed(h, id); h.trash(id); }
+
+  assert.equal(h.purge(['b']), 1);
+  assert.deepEqual(h.trashed().map(e => e.id).sort(), ['a', 'c']);
+  assert.deepEqual(transcripts(dir), ['a.jsonl', 'c.jsonl']);
+
+  assert.equal(h.purge(), 2);
+  assert.deepEqual(new History(dir).trashed(), []);
+  assert.deepEqual(transcripts(dir), []);
+});
+
+test(`purgeExpired() empties only what has waited ${TRASH_DAYS} days`, () => {
+  const dir = tmp();
+  const h = new History(dir);
+  const now = 100 * DAY;
+  seed(h, 'stale'); h.trash('stale', now - TRASH_DAYS * DAY - 1);
+  seed(h, 'fresh'); h.trash('fresh', now - DAY);
+
+  assert.equal(h.purgeExpired(now), 1);
+  assert.deepEqual(h.trashed().map(e => e.id), ['fresh']);
+  assert.equal(h.trashed()[0].purgeAt, now - DAY + TRASH_DAYS * DAY);
+  assert.deepEqual(transcripts(dir), ['fresh.jsonl']);
+});
+
+test('remove() is still a hard delete, for Shellby tidying up after itself', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  h.remove('a');
+  assert.deepEqual(h.trashed(), []);
+  assert.deepEqual(transcripts(dir), []);
 });

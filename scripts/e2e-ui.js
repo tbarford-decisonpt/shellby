@@ -127,7 +127,8 @@ async function cdp(wsUrl) {
     try {
       if (panel) {
         if (originalMode) await panel.evaluate(`SB.chooseMode(${JSON.stringify(originalMode)}, { quiet: true })`);
-        for (const id of created) await panel.evaluate(`window.shellby.deleteSession(${JSON.stringify(id)})`);
+        // Delete only bins a chat now, so purge too: test runs shouldn't fill Recently deleted.
+        for (const id of created) await panel.evaluate(`window.shellby.deleteSession(${JSON.stringify(id)}).then(() => window.shellby.purgeSession(${JSON.stringify(id)}))`);
         await wait(300);
         panel.close();
       }

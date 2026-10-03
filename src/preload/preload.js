@@ -100,6 +100,9 @@ contextBridge.exposeInMainWorld('shellby', {
   listSessions: invoke('session:list'),
   openSession: invoke('session:open'),
   deleteSession: invoke('session:delete'),
+  listTrash: invoke('session:trash'),
+  restoreSession: invoke('session:restore'),
+  purgeSession: invoke('session:purge'),
   setSessionDone: (id, done) => ipcRenderer.invoke('session:done', { id, done }),
   renameSession: (id, title) => ipcRenderer.invoke('session:rename', { id, title }),
 

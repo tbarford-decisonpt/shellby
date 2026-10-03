@@ -4353,11 +4353,24 @@ ${r.detail}` });
     }
     return { tabId: id, entry, items: history.load(id) };
   });
+  // Deleting from History is a move to Recently deleted, not the end: the
+  // transcript stays until it's restored, purged, or TRASH_DAYS pass.
   ipcMain.handle('session:delete', (_e, id) => {
     if (!isStr(id)) return history.list();
     manager.close(id);
-    history.remove(id);
+    history.trash(id);
     return history.list();
+  });
+  ipcMain.handle('session:trash', () => history.trashed());
+  // Answers with both lists: the row leaves one and lands in the other.
+  ipcMain.handle('session:restore', (_e, id) => {
+    if (isStr(id)) history.restore(id);
+    return { sessions: history.list(), trash: history.trashed() };
+  });
+  // One id, or none for Empty bin.
+  ipcMain.handle('session:purge', (_e, id) => {
+    history.purge(isStr(id) ? [id] : null);
+    return history.trashed();
   });
   // Both of these answer with the fresh list, so the renderer redraws History
   // from one round trip instead of guessing what changed.
@@ -5461,6 +5474,13 @@ app.whenReady().then(() => {
   // files nothing lists; see History.sweep().
   const swept = history.sweep();
   if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
+  // Recently deleted empties itself: at boot, and daily for a PC that never restarts.
+  const purgeBin = () => {
+    const n = history.purgeExpired();
+    if (n) log.info(`purged ${n} expired deleted conversation${n > 1 ? 's' : ''}`);
+  };
+  purgeBin();
+  setInterval(purgeBin, 24 * 60 * 60 * 1000).unref?.();
   attach.prune(path.join(userData, 'screenshots'));
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
