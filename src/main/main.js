@@ -1174,14 +1174,16 @@ function saveStreaks(next) {
 }
 
 // A task finished somewhere (dir: its working folder). Keeps the streak, and
-// remembers the git repo it ran in with its newest commit time.
-async function recordWork(dir) {
+// remembers the git repo it ran in with its newest commit time. A merge home
+// (task: false) keeps the streak but isn't another task for the week's count.
+async function recordWork(dir, { task = true } = {}) {
   if (CAPTURE || !config) return;
   timeTracker?.touch(dir);
   checkLeavingSoon();
   saveStreaks(streaks.recordWorkDay(config.get('streaks'), Date.now()));
   const repo = await repoOf(dir);
   if (!repo) return;
+  if (task) config.set({ weekly: weekly.recordWork(config.get('weekly'), Date.now(), repo.name) }); // the week's top project
   let s = streaks.recordProject(config.get('streaks'), repo.key, repo.name, Date.now());
   const at = await lastCommitAt(repo.root);
   if (at) s = streaks.recordCommit(s, repo.key, at);
@@ -4421,7 +4423,7 @@ function registerIpc() {
     try {
       const merged = await worktrees.bringHome(w, { message: `Shellby: ${manager.tabs.get(tabId)?.title || 'work from a tab'}` });
       if (!merged.ok) return merged;
-      recordWork(w.originalCwd);
+      recordWork(w.originalCwd, { task: false });
       if (merged.merged) manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
       // And on to GitHub. A push that fails leaves the merge where it is: the
       // copy stays, so the push can be tried again from the folder menu.
@@ -4517,7 +4519,7 @@ ${r.detail}` });
         if (x.ok && x.merged && c && manager.tabs.has(c.id)) manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });
       }
       const merged = r.results.filter(x => x.ok && x.merged);
-      if (merged.length) recordWork(root);
+      if (merged.length) recordWork(root, { task: false });
       const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
       const out = {
         ok: r.ok, root, busy,
@@ -5718,6 +5720,7 @@ app.whenReady().then(() => {
   wardrobe.on('unlocked', e => {
     flashState('unlocked', 6000);
     awardXp('trophy', { label: e.achievement.name });
+    if (!CAPTURE) config.set({ weekly: weekly.recordTrophy(config.get('weekly'), Date.now(), e.achievement) });
     send(critter, 'critter:burst', outfit().confetti);
     send(panel, 'wardrobe:unlocked', e);
     send(panel, 'wardrobe', wardrobe.view());
