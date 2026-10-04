@@ -1431,11 +1431,22 @@ const LEVELUP_TEXT = {
   deploy: m => `Deployed${m.project ? ` from ${m.project}` : ''}!`,
 };
 
+// XP kinds that also count toward a trophy (achievements.js), by the stat event they feed.
+const XP_STATS = {
+  deploy: 'deployed', fixed: 'tests-fixed', flakefix: 'flake-fixed', issue: 'issue-shipped',
+  deps: 'deps-clean', tidy: 'toolbox-tidied', fresh: 'started-fresh',
+};
+
 function awardXp(kind, meta = {}) {
   if (kind === 'ship') setTimeout(checkNudges, 3000); // a push means a fresh commit: update streak data
   if (CAPTURE || !config) return;
   const r = award(config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
   if (r.changed) config.set({ xp: r.state });
+  // Trophies count the event even when repetition left it paying nothing. Streak
+  // and level are reported every time, so the day's first award credits old progress.
+  if (XP_STATS[r.kind]) stat(XP_STATS[r.kind]);
+  stat('streak', { n: streaks.streakOf(config.get('streaks'), Date.now()).longest });
+  stat('level', { n: r.after.level });
   // The week-in-review counts it even when repetition left it paying nothing.
   // Shipping is counted where the project is known (recordShipped).
   if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);

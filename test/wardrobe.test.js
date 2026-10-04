@@ -322,6 +322,25 @@ test('achievements: every event updates the right stat without mutating', () => 
   assert.notEqual(ach.recordStat(s0, 'made-up'), s0);
   assert.deepEqual(s0, ach.emptyStats());
 });
+test('achievements: shipyard events count, and streak and level keep their high-water mark', () => {
+  const s0 = Object.freeze(ach.emptyStats());
+  const cases = [
+    ['deployed', 'deploys'], ['tests-fixed', 'testsFixed'], ['flake-fixed', 'flakesFixed'],
+    ['issue-shipped', 'issuesShipped'], ['deps-clean', 'cleanAudits'], ['toolbox-tidied', 'toolsTidied'],
+    ['started-fresh', 'freshStarts'],
+  ];
+  for (const [event, stat] of cases) assert.equal(ach.recordStat(s0, event)[stat], 1, event);
+  let s = ach.recordStat(s0, 'streak', { n: 8 });
+  s = ach.recordStat(s, 'streak', { n: 2 });
+  s = ach.recordStat(s, 'level', { n: 10 });
+  assert.deepEqual([s.longestStreak, s.level], [8, 10]);
+  const earned = ach.evaluate(s);
+  assert.ok(earned.includes('on-a-roll') && earned.includes('double-digits'));
+  assert.ok(!earned.includes('unstoppable'));
+  assert.ok(ach.evaluate({ ...s, longestStreak: 30 }).includes('unstoppable'));
+  assert.ok(!ach.evaluate({ ...s0, testsFixed: 9 }).includes('back-to-green'));
+  assert.ok(ach.evaluate({ ...s0, testsFixed: 10 }).includes('back-to-green'));
+});
 test('achievements: task hours count as night / early and mark the day active', () => {
   const at = h => ach.recordStat(ach.emptyStats(), 'task-completed', {}, day(2026, 3, 4, h));
   assert.deepEqual([0, 4, 5, 7, 8, 23].map(h => { const s = at(h); return [s.nightTasks, s.earlyTasks]; }),

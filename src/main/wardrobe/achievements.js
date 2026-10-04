@@ -58,6 +58,17 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'on-air', name: 'Quiet on Set', icon: '🤫', description: 'Shellby keeps quiet through 5 calls', stat: 'callsHushed', goal: 5, rewards: ['on-air-light'], hidden: true },
   { id: 'storyteller', name: 'Little Scenes', icon: '🎭', description: 'Catch Shellby in 10 different little scenes', stat: 'scenesSeen', goal: 10, rewards: ['bubble-pipe'] },
   { id: 'gossip', name: 'Gossip', icon: '💬', description: 'Your crab chats with visiting crabs 5 times', stat: 'banters', goal: 5, rewards: ['tin-can-phone'] },
+  // The shipyard: the work XP already pays for (xp.js AWARDS), fed from awardXp in main.js.
+  { id: 'launch-day', name: 'Launch Day', icon: '🛰️', description: 'Deploy or publish something', stat: 'deploys', goal: 1, rewards: ['mission-patch'] },
+  { id: 'back-to-green', name: 'Back to Green', icon: '🧪', description: 'Turn failing tests green 10 times', stat: 'testsFixed', goal: 10, rewards: ['test-tube'] },
+  { id: 'ghostbuster', name: 'Ghostbuster', icon: '👻', description: 'Fix a flaky test for good', stat: 'flakesFixed', goal: 1, rewards: ['proton-pack'], hidden: true },
+  { id: 'issue-to-ship', name: 'Issue to Ship', icon: '🧭', description: 'Take an issue all the way to a pull request', stat: 'issuesShipped', goal: 1, rewards: ['ships-wheel'] },
+  { id: 'clean-bill', name: 'Clean Bill', icon: '📋', description: 'Get a clean dependency audit', stat: 'cleanAudits', goal: 1, rewards: ['clipboard'] },
+  { id: 'tidy-shell', name: 'Tidy Shell', icon: '🪶', description: 'Turn off a plugin or MCP server that sits idle', stat: 'toolsTidied', goal: 1, rewards: ['feather-duster'] },
+  { id: 'fresh-start', name: 'Fresh Start', icon: '📝', description: 'Start a crowded conversation fresh with a summary', stat: 'freshStarts', goal: 1, rewards: ['fresh-page'] },
+  { id: 'on-a-roll', name: 'On a Roll', icon: '🔥', description: 'Keep a 7-day streak going', stat: 'longestStreak', goal: 7, rewards: ['flame-scarf'] },
+  { id: 'unstoppable', name: 'Unstoppable', icon: '☄️', description: 'Keep a 30-day streak going', stat: 'longestStreak', goal: 30, rewards: ['blazing-crest'], hidden: true },
+  { id: 'double-digits', name: 'Double Digits', icon: '🪸', description: 'Reach level 10', stat: 'level', goal: 10, rewards: ['coral-laurel'] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -69,6 +80,7 @@ const COUNTERS = [
   'perchesMade', 'timesShaken', 'windowLeaps', 'windowCatches', 'longestRide',
   'stickersEarned', 'holoStickers', 'majorReleases', 'stickeredShells', 'friendStickers',
   'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
+  'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -104,6 +116,13 @@ const INCREMENTS = {
   'game-watched': 'gamesWatched',
   'call-hushed': 'callsHushed',
   banter: 'banters',
+  deployed: 'deploys',
+  'tests-fixed': 'testsFixed',
+  'flake-fixed': 'flakesFixed',
+  'issue-shipped': 'issuesShipped',
+  'deps-clean': 'cleanAudits',
+  'toolbox-tidied': 'toolsTidied',
+  'started-fresh': 'freshStarts',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
@@ -112,6 +131,8 @@ const MAXIMA = {
   'stickers-earned': 'stickersEarned', 'holo-stickers': 'holoStickers', 'one-point-oh': 'majorReleases', 'stickered-shells': 'stickeredShells', 'friend-stickers': 'friendStickers',
   // Bond level and the number of different scenes seen (src/main/life.js) report their totals.
   'bond-level': 'bondLevel', 'scenes-seen': 'scenesSeen',
+  // The longest streak (streaks.js) and the XP level (xp.js), reported by awardXp in main.js.
+  streak: 'longestStreak', level: 'level',
 };
 
 function emptyStats() {
