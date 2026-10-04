@@ -559,7 +559,28 @@
       return;
     }
     maxList = items.reduce((m, t) => Math.max(m, num(usageOf(t)?.listTokens)), 0);
+    const refocus = focusedIn(list);
     list.replaceChildren(...[listed ? sortNote() : null, ...page(grouped(items, q))].filter(Boolean));
+    refocus();
+  }
+
+  // A redraw (a rescan, usage landing a moment after you clicked) replaces every
+  // row, which would drop the keyboard at the top of the page. Put it back on the
+  // same heading, or the same button of the same row.
+  function focusedIn(list) {
+    const a = document.activeElement;
+    if (!a || a === list || !list.contains(a)) return () => {};
+    const head = a.closest('.tool-group-btn');
+    const row = a.closest('.tool-row[data-key]');
+    if (!head && !row) return () => {};
+    const nth = head ? -1 : [...row.querySelectorAll('button')].indexOf(a);
+    return () => {
+      const el = head
+        ? [...list.querySelectorAll('.tool-group-btn')].find(b => b.dataset.src === head.dataset.src)
+        : [...list.querySelectorAll('.tool-row[data-key]')].find(r => r.dataset.key === row.dataset.key);
+      const target = nth >= 0 ? el?.querySelectorAll('button')[nth] : el;
+      target?.focus({ preventScroll: true });
+    };
   }
 
   // The first PAGE rows, then a line saying how many more there are. Headings don't count,
