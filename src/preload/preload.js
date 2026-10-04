@@ -412,6 +412,7 @@ contextBridge.exposeInMainWorld('shellby', {
   runWorkflow: invoke('workflows:run'),
   draftWorkflow: invoke('workflows:draft'),
   repairWorkflow: invoke('workflows:repair'),
+  chatWorkflow: invoke('workflows:chat'), // Build it with Claude: one turn of the editor's chat
   importWorkflow: invoke('workflows:import'),
   exportWorkflow: invoke('workflows:export'),
   listRuns: invoke('workflows:runs'),

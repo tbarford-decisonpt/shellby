@@ -147,9 +147,6 @@ body[data-view="workflows"] .view-workflows {
   white-space: pre-wrap; word-break: break-word;
 }
 
-.wf-note-box { margin-bottom: 12px; padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--glass); background: var(--glass-dim); font-size: 13px; }
-.wf-note-box b { color: var(--glass); }
-.wf-note-box p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .wf-summary { margin-bottom: 12px; padding: 9px 11px; border-radius: var(--r-sm); background: rgba(255, 90, 74, .1); color: #ffb3aa; font-size: 12.5px; }
 .wf-summary:focus { outline: none; }
 .wf-summary:focus-visible { outline: 2px solid var(--glass); }

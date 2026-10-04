@@ -18,6 +18,33 @@ They live on the **Automate** page (the bottom bar, or <kbd>Ctrl</kbd>+<kbd>4</k
 - **Build it** step by step in the editor, or paste one someone shared
   (**Import**).
 
+## Build it with Claude
+
+The editor has a chat, **Build it with Claude**: under the workflow in a
+narrow panel, beside it once there's room (**Make room**). Say what you want
+("every weekday at 8, check my site and tell me on my phone if it's down",
+"make the second step ask me first") and Claude changes the workflow while you
+watch. What it changed glows on the map for a moment. A draft from **Describe
+it** or a **Fix with Claude** opens with Claude's note in the chat, so you can
+carry on from there.
+
+With **Let Claude test it** ticked, Claude can also try it out. It saves the
+workflow and runs it by hand, reads what happened, fixes what went wrong and
+runs it again. It does that up to three times per message, and **Stop** ends it
+early.
+
+- A **new** workflow is saved **switched off** for its tests, so its triggers
+  can't fire. Press **Save** when you're happy to switch it on. If you leave
+  without saving, it stays in the list, switched off.
+- An existing workflow keeps its on/off setting. A test saves your changes to it.
+- Saving for a test goes through the same checks as Save, so anything that
+  would show the confirmation window on Save shows it here too.
+- A test run that asks you something waits for your answer like any other run.
+  **See the run** opens it.
+- Untick it, and Claude offers a **Test it** button instead of running anything.
+
+Claude never sees your hook addresses, and it is never given Autonomous mode.
+
 Claude Code can also propose one from any session with the Shellby plugin
 (`add_workflow`). You see the whole thing in Shellby's confirmation window
 first.

@@ -58,7 +58,33 @@ let messages = 0;
 const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId, uuid: `uuid-${sessionId}-${messages}` });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
 
-readline.createInterface({ input: process.stdin }).on('line', line => {
+// `claude -p --output-format json --json-schema …` with the prompt on stdin: one
+// structured answer, then exit. Workflow drafts get a one-step workflow. The
+// editor's chat gets a scripted build: a first version that fails its test, a
+// fix, then "it worked", so a screenshot run can watch Claude iterate.
+const ONE_SHOT = args.includes('--json-schema');
+if (ONE_SHOT) {
+  let prompt = '';
+  process.stdin.on('data', c => { prompt += c; });
+  process.stdin.on('end', () => {
+    const schema = JSON.parse(args[args.indexOf('--json-schema') + 1]);
+    const hello = (extra = []) => JSON.stringify({
+      name: 'Morning hello', description: 'Says good morning.',
+      when: [{ type: 'schedule', schedule: { type: 'daily', time: '09:00' } }],
+      steps: [{ id: 'hello', type: 'tell', to: 'crab', text: 'Good morning!' }, ...extra],
+    });
+    let answer;
+    if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
+    else if (!prompt.includes('The test run that just finished')) {
+      answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };
+    } else if (/Status: error/.test(prompt)) {
+      answer = { reply: 'The leftover Stop step failed the run. I took it out; testing again.', workflow_json: hello(), test: true };
+    } else answer = { reply: 'The test run worked: Shellby said good morning. Press Save to switch it on.', workflow_json: '', test: false };
+    out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer });
+  });
+}
+
+if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', line => {
   const msg = JSON.parse(line);
 
   if (msg.type === 'control_response' && pending && msg.response.request_id === pending.requestId) {

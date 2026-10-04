@@ -373,6 +373,79 @@ test('fix with Claude keeps the id and the hook token', async () => {
   assert.match(prompt, /exit code 1/);
 });
 
+const chatAnswer = out => ({ stdout: JSON.stringify({ structured_output: out }) });
+
+test('build it with Claude: a reply with no workflow changes nothing', async () => {
+  const prompts = [];
+  const { svc } = make({ runClaude: async (_a, _t, { input }) => { prompts.push(input); return chatAnswer({ reply: 'What should it check?', workflow_json: '', test: false }); } });
+  const r = await svc.chat({ workflow: { name: '', steps: [] }, messages: [{ role: 'user', text: 'watch my site' }] });
+  assert.deepEqual(r, { ok: true, reply: 'What should it check?', test: false });
+  assert.match(prompts[0], /Person: «watch my site»/);
+});
+
+test('build it with Claude: a change is validated, fixed once, and stays new', async () => {
+  const answers = [
+    { reply: 'Added it.', workflow_json: JSON.stringify({ id: 'made-up', name: 'Hi', steps: [{ type: 'tell', text: '{{ nope.x }}' }] }), test: true },
+    { reply: 'Added it.', workflow_json: JSON.stringify({ name: 'Hi', steps: [{ type: 'tell', to: 'crab', text: 'hi' }] }), test: true },
+  ];
+  const prompts = [];
+  const { svc } = make({ runClaude: async (_a, _t, { input }) => { prompts.push(input); return chatAnswer(answers.shift()); } });
+  const r = await svc.chat({ workflow: { name: '', steps: [] }, messages: [{ role: 'user', text: 'say hi' }] });
+  assert.equal(r.ok, true);
+  assert.equal(r.test, true);
+  assert.equal(r.workflow.steps[0].text, 'hi');
+  assert.equal(r.workflow.id, undefined, 'Claude can\'t pick an id');
+  assert.equal(prompts.length, 2);
+  assert.match(prompts[1], /nope/);
+});
+
+test('build it with Claude: a change that still has problems opens in the editor, without a test', async () => {
+  const bad = { reply: 'Here.', workflow_json: JSON.stringify({ name: 'Hi', steps: [{ type: 'tell', text: '{{ nope.x }}' }] }), test: true };
+  const { svc } = make({ runClaude: async () => chatAnswer(bad) });
+  const r = await svc.chat({ workflow: {}, messages: [{ role: 'user', text: 'say hi' }] });
+  assert.equal(r.ok, true);
+  assert.equal(r.test, false);
+  assert.ok(r.errors.length);
+});
+
+test('build it with Claude: the test run is read in main, keeps id and hook token, and only for its own workflow', async () => {
+  let prompt = '';
+  const runClaude = async (_a, _t, { input }) => {
+    prompt = input;
+    return chatAnswer({ reply: 'Fixed the command.', workflow_json: JSON.stringify({ id: 'other', name: 'Broken', when: [{ type: 'webhook' }], steps: [{ type: 'run', command: 'echo fixed' }] }), test: true });
+  };
+  const { svc } = make({ runClaude, command: c => ({ output: 'nope', code: c === 'bad' ? 1 : 0 }) });
+  const { workflow } = await svc.save({ name: 'Broken', when: [{ type: 'webhook' }], steps: [{ type: 'run', command: 'bad' }] });
+  const { workflow: elsewhere } = await svc.save({ name: 'Elsewhere', steps: [{ type: 'tell', to: 'crab', text: 'x' }] });
+  const run = svc.runManual(workflow.id);
+  await until(() => svc.getRun(run.runId)?.status === 'error');
+
+  const turns = [{ role: 'user', text: 'make it work' }, { role: 'claude', text: 'Testing.' }, { role: 'run', text: 'The test run failed.' }];
+  const r = await svc.chat({ workflow, messages: turns, runId: run.runId });
+  assert.equal(r.ok, true);
+  assert.equal(r.workflow.id, workflow.id);
+  assert.equal(r.workflow.when[0].token, workflow.when[0].token);
+  assert.equal(prompt.includes(workflow.when[0].token), false);
+  assert.match(prompt, /exit code 1/);
+
+  // Another workflow's run isn't handed over.
+  await svc.chat({ workflow: elsewhere, messages: turns, runId: run.runId });
+  assert.doesNotMatch(prompt, /exit code 1/);
+});
+
+test('build it with Claude: the chat must end with the person or a run, and one call at a time', async () => {
+  let release;
+  const { svc } = make({ runClaude: () => new Promise(res => { release = () => res(chatAnswer({ reply: 'ok', workflow_json: '', test: false })); }) });
+  assert.equal((await svc.chat({ workflow: {}, messages: [] })).ok, false);
+  assert.equal((await svc.chat({ workflow: {}, messages: [{ role: 'claude', text: 'hi' }] })).ok, false);
+  assert.equal((await svc.chat({ workflow: {}, messages: [{ role: 'system', text: 'hi' }] })).ok, false);
+  const first = svc.chat({ workflow: {}, messages: [{ role: 'user', text: 'one' }] });
+  const second = await svc.chat({ workflow: {}, messages: [{ role: 'user', text: 'two' }] });
+  assert.equal(second.ok, false);
+  release();
+  assert.equal((await first).ok, true);
+});
+
 test('deleting a workflow stops its runs and removes its history', async () => {
   const { svc } = make();
   const { workflow } = await svc.save({ name: 'Gate', steps: [{ type: 'ask', question: 'Go?' }] });

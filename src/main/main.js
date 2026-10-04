@@ -4248,6 +4248,8 @@ function createWorkflows() {
     toPanel: (channel, payload) => send(panel, channel, payload),
     runCommand: (cwd, command, opts) => shellCmd.run(cwd, command, opts),
     runClaude: (args, timeoutMs, opts) => {
+      // Dev and screenshot runs: the fake CLI answers drafts and the editor's chat too.
+      if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
       const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
       if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
       return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
@@ -4281,6 +4283,7 @@ function registerWorkflowIpc(ipcMain) {
   ipcMain.handle('workflows:run', (_e, id, inputs) => (ready() && isId(id) ? workflows.runManual(id, isObj(inputs) ? inputs : {}) : off));
   ipcMain.handle('workflows:draft', (_e, text) => (ready() ? workflows.draft(text) : off));
   ipcMain.handle('workflows:repair', (_e, runId) => (ready() && isId(runId) ? workflows.repair(runId) : off));
+  ipcMain.handle('workflows:chat', (_e, req) => (ready() && isObj(req) ? workflows.chat({ workflow: isObj(req.workflow) ? req.workflow : {}, messages: req.messages, runId: isId(req.runId) ? req.runId : null }) : off));
   ipcMain.handle('workflows:import', (_e, text) => (workflows ? workflows.importText(text) : off));
   ipcMain.handle('workflows:export', (_e, id) => (workflows && isId(id) ? workflows.exportText(id) : off));
   ipcMain.handle('workflows:runs', (_e, id) => (workflows ? workflows.listRuns(isId(id) ? id : null) : []));

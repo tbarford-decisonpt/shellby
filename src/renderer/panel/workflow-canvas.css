@@ -8,7 +8,7 @@
 body[data-view="workflows"] .view-workflows.map-mode { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 .view-workflows.map-mode #wfScreen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .view-workflows.map-mode .wf-foot { position: static; margin: 0 -16px; padding: 10px 16px 12px; background: var(--ink); border-top: 1px solid var(--line-soft); }
-.view-workflows.map-mode .wf-summary, .view-workflows.map-mode .wf-note-box { margin-bottom: 8px; }
+.view-workflows.map-mode .wf-summary { margin-bottom: 8px; }
 .view-workflows.map-mode .wf-run-actions { margin-bottom: 10px; }
 .wf-run-error-map { max-height: 84px; }
 

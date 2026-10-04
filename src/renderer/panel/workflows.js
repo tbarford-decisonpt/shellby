@@ -752,11 +752,13 @@
   // ================================================================ the editor: model
 
   const ed = {
-    def: null, title: '', note: null, isNew: true, dirty: false, touched: false,
+    def: null, title: '', isNew: true, dirty: false, touched: false,
     errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
     layout: pref(PREF.layout, 'map'), // 'map' or 'list'
     sel: null,                        // the map node the inspector shows: 's<n>', 't<n>', 'manual', 'settings'
     map: null,                        // the map on screen, while there is one
+    chat: null,                       // Build it with Claude (wf-chat.js), one per editor session
+    trial: false,                     // saved only by Claude's test runs so far: kept switched off until you Save
   };
   const mapOn = () => !ed.json && ed.layout === 'map';
   const stepSel = s => `s${keyOf(s)}`;
@@ -859,10 +861,14 @@
     // A blank new one shows its problems once you start; anything with content is checked straight away.
     const blank = !d.id && !d.name && !d.steps.length && !d.when.length;
     Object.assign(ed, {
-      def: d, note, isNew: !d.id, dirty: (!d.id && !blank) || !!note, touched: false,
+      // What Claude said about a draft or a fix opens the chat, so you can carry on from it.
+      def: d, isNew: !d.id, dirty: (!d.id && !blank) || !!note, touched: false,
       errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
-      title: title || (d.id ? `Edit “${d.name || 'workflow'}”` : 'New workflow'), sel: null, map: null,
+      title: title || (d.id ? `Edit “${d.name || 'workflow'}”` : 'New workflow'), sel: null, map: null, trial: false,
     });
+    const host = chatHost();
+    ed.chat = SB.wfChat.create(host, { greeting: note || '' });
+    host.bind(ed.chat);
     if (d.steps.length === 1) openSteps.add(d.steps[0]);
     if (current().name === 'editor') nav.pop();
     go('editor');
@@ -1208,11 +1214,14 @@
           type: 'button', class: 'btn ghost slim-btn wf-json-toggle', 'aria-pressed': String(ed.json),
           title: 'See and edit the whole workflow as text', onclick: toggleJson,
         }, 'JSON')),
-      ed.note ? h('div', { class: 'wf-note-box', role: 'note' }, h('b', { text: 'What Claude changed' }), h('p', { text: ed.note })) : null,
       h('div', { class: 'wf-summary', id: 'wfSummary', role: 'status', 'aria-live': 'polite', hidden: true }),
-      ed.json ? jsonPane()
-        : mapOn() ? mapPane(d)
-          : h('div', { class: 'wf-editor' }, basicsSection(d), inputsSection(d), whenSection(d), stepsSection(d)),
+      // The chat sits beside the workflow when there's room, under it when not. It's the same
+      // element every time, so a rebuild keeps the conversation and whatever you're typing.
+      h('div', { class: 'wf-work' },
+        ed.json ? jsonPane()
+          : mapOn() ? mapPane(d)
+            : h('div', { class: 'wf-editor' }, basicsSection(d), inputsSection(d), whenSection(d), stepsSection(d)),
+        ed.chat?.el),
       editorFoot());
     paintErrors();
   }
@@ -2050,6 +2059,85 @@
     visit(ed.def.steps, 'steps');
   }
 
+  // ------------------------------------------------------------ Build it with Claude (wf-chat.js)
+
+  function chatHost() {
+    let chat = null;
+    const alive = () => !!chat && ed.chat === chat && nav.some(x => x.name === 'editor');
+    return {
+      alive,
+      getDef: () => { if (ed.json) applyJson(); return clone(ed.def); },
+      apply: (def, { since } = {}) => {
+        if (!alive()) return false;
+        if (ed.json) applyJson();
+        if (since && JSON.stringify(ed.def) !== since) return 'conflict';
+        const before = stepPrints(ed.def);
+        ed.def = normalise(def);
+        ed.dirty = true;
+        ed.touched = true;
+        ed.json = false;
+        ed.sel = null;
+        if (current().name !== 'editor') return true;
+        rebuild();
+        validateSoon.now();
+        flashChanged(before);
+        return true;
+      },
+      testSave: async () => {
+        if (!alive()) return { ok: false, error: 'The editor was closed.' };
+        if (ed.json && !applyJson()) return { ok: false, error: 'The JSON has a problem.' };
+        // A new workflow is tested switched off, so its triggers can't fire before you Save it.
+        const enabled = ed.def.enabled !== false;
+        let res;
+        try { res = await api.saveWorkflow({ ...ed.def, enabled: ed.def.id && !ed.trial ? enabled : false }); } catch { res = { ok: false, errors: [{ message: 'Couldn\'t save it.' }] }; }
+        if (!res?.ok) {
+          if (!res?.declined && alive()) { ed.errors = normErrors(res?.errors); if (current().name === 'editor') paintErrors(); }
+          return { ok: false, declined: !!res?.declined, error: normErrors(res?.errors).map(e => e.message).join(' ') || 'Not saved.' };
+        }
+        if (res.view) applyView(res.view); else loadView();
+        if (alive()) {
+          if (!ed.def.id) ed.trial = true;
+          // Saving gives it an id and hook addresses. Only those are copied in: anything you
+          // changed while it saved stays, and so does your on/off.
+          ed.def.id = res.workflow.id;
+          ed.def.createdAt = res.workflow.createdAt;
+          const tokens = res.workflow.when.filter(t => t.type === 'webhook').map(t => t.token);
+          for (const t of ed.def.when.filter(x => x.type === 'webhook')) {
+            const token = tokens.shift();
+            if (!t.token) t.token = token;
+          }
+        }
+        return { ok: true, id: res.workflow.id };
+      },
+      openRun: runId => { if (alive()) go('run', { runId }); },
+      // The host is made before its chat, which is bound to it straight after.
+      bind: c => { chat = c; },
+    };
+  }
+
+  // Each step's own settings (not the steps inside it), by id: what Claude's change touched.
+  function stepPrints(def) {
+    const prints = new Map();
+    walk(def?.steps, s => {
+      const own = Object.fromEntries(Object.entries(s).filter(([k]) => !(CONTAINERS[s.type] || []).includes(k)));
+      prints.set(s.id, JSON.stringify(own));
+    });
+    return prints;
+  }
+
+  function flashChanged(before) {
+    const after = stepPrints(ed.def);
+    walk(ed.def.steps, s => {
+      if (before.get(s.id) === after.get(s.id)) return;
+      const el = [...screen.querySelectorAll('[data-fk]')].find(e => e.dataset.fk === stepFk(s));
+      const target = el?.closest('.wfc-cell, .wf-card');
+      if (!target) return;
+      target.classList.remove('wf-touched');
+      void target.offsetWidth; // restart the animation
+      target.classList.add('wf-touched');
+    });
+  }
+
   // ================================================================ runs of one workflow
 
   const runsState = { id: null, list: null, error: '' };
@@ -2403,6 +2491,7 @@
 
   function onRun(summary) {
     if (!summary?.id) return;
+    ed.chat?.onRun(summary); // Claude's test run, wherever you are
     const w = workflows().find(x => x.id === summary.workflowId);
     if (w && (!w.lastRun || w.lastRun.id === summary.id || (summary.startedAt || 0) >= (w.lastRun.startedAt || 0))) w.lastRun = summary;
     if (state.view !== 'workflows') return;
