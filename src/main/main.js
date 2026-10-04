@@ -1734,7 +1734,9 @@ function knownProjects() {
   return [...out.values()];
 }
 
-function createTimeTracker() {
+// `start: false` builds it without the 15-second tick (README screenshots,
+// where the window in front is your real editor, not demo data).
+function createTimeTracker({ start = true } = {}) {
   timeTracker = new TimeTracker({
     config,
     toPanel: (channel, payload) => send(panel, channel, payload),
@@ -1753,7 +1755,7 @@ function createTimeTracker() {
     electron: { dialog, BrowserWindow, clipboard, shell, app },
     panel: () => panel,
   });
-  timeTracker.start();
+  if (start) timeTracker.start();
 }
 
 // Sticker milestones for the trophies (wardrobe/achievements.js).
@@ -5864,7 +5866,8 @@ app.whenReady().then(() => {
   watchLeaving();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); });
 
-  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });
+  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin,
+    makeTimeTracker: () => { createTimeTracker({ start: false }); return timeTracker; } });
 
   createToolbox();
   createShop();
