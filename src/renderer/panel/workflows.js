@@ -752,7 +752,7 @@
   // ================================================================ the editor: model
 
   const ed = {
-    def: null, title: '', note: null, isNew: true, dirty: false, touched: false,
+    def: null, title: '', note: null, isNew: true, dirty: false, saved: null, touched: false,
     errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
     layout: pref(PREF.layout, 'map'), // 'map' or 'list'
     sel: null,                        // the map node the inspector shows: 's<n>', 't<n>', 'manual', 'settings'
@@ -866,12 +866,22 @@
     if (d.steps.length === 1) openSteps.add(d.steps[0]);
     if (current().name === 'editor') nav.pop();
     go('editor');
+    // What's on disk, to tell a real change from one that was typed and then put back.
+    // Nothing to compare against when it opens with changes already in it.
+    ed.saved = ed.dirty ? null : JSON.stringify(ed.def);
     if (!blank) validateSoon.now();
     if (blank) requestAnimationFrame(() => focusFk('wf-name'));
   }
 
+  function unsaved() {
+    if (!ed.dirty) return false;
+    if (ed.saved === null) return true;
+    if (ed.json && ed.jsonText !== JSON.stringify(ed.def, null, 2)) return true;
+    return JSON.stringify(ed.def) !== ed.saved;
+  }
+
   function leaveEditor(then) {
-    if (!ed.dirty) { validateSoon.cancel(); return then(); }
+    if (!unsaved()) { validateSoon.cancel(); return then(); }
     SB.toast('You have changes that aren\'t saved.', {
       action: 'Discard them', ms: 5000,
       onAction: () => { ed.dirty = false; validateSoon.cancel(); then(); },
@@ -1026,8 +1036,15 @@
   const txt = (label, value, onChange, opts = {}) => wrap(label, textControl('input', value, onChange, opts.attrs), opts);
   const area = (label, value, onChange, opts = {}) => wrap(label, textControl('textarea', value, onChange, { rows: 3, ...opts.attrs }), opts);
 
+  // Chromium turns the wheel over a focused number box into +1/-1, so scrolling
+  // the page past one quietly changes it. Let go of the box and let the page scroll.
+  function noWheel(el) {
+    el.addEventListener('wheel', () => { if (document.activeElement === el) el.blur(); }, { passive: true });
+    return el;
+  }
+
   function num(label, value, onChange, opts = {}) {
-    const el = h('input', { class: 'field', type: 'number', inputmode: 'numeric', ...opts.attrs });
+    const el = noWheel(h('input', { class: 'field', type: 'number', inputmode: 'numeric', ...opts.attrs }));
     el.value = value ?? '';
     el.addEventListener('input', () => { onChange(toInt(el.value)); changed(); });
     return wrap(label, el, opts);
@@ -1922,7 +1939,7 @@
     const seconds = Number.isFinite(s.seconds) ? s.seconds : 60;
     const unit = waitUnits.get(s) || ([...WAIT_UNITS].reverse().find(([, f]) => seconds % f === 0) || WAIT_UNITS[0])[0];
     const factor = () => WAIT_UNITS.find(([u]) => u === (waitUnits.get(s) || unit))[1];
-    const amount = h('input', { class: 'field', type: 'number', min: 1, inputmode: 'numeric', 'aria-label': 'How long' });
+    const amount = noWheel(h('input', { class: 'field', type: 'number', min: 1, inputmode: 'numeric', 'aria-label': 'How long' }));
     amount.value = String(seconds / WAIT_UNITS.find(([u]) => u === unit)[1]);
     const recompute = () => { const n = Number(amount.value); s.seconds = Number.isFinite(n) && amount.value !== '' ? Math.round(n * factor()) : undefined; changed(); };
     amount.addEventListener('input', recompute);
