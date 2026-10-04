@@ -53,8 +53,12 @@ test('up, then a crash: the URL, the output and the exit code all reach the log'
   const code = await until(() => s.read().map(out.exitOf).find(c => c !== undefined));
   assert.equal(code, 3);
   assert.ok(s.buf.all().includes('Error: something broke'), 'stderr is in the log too');
-  await until(() => !runner.isAlive(s.pid, s.createdAt, native.processInfo), 5000);
-  assert.equal(runner.isAlive(s.pid, s.createdAt, native.processInfo), false);
+  // Gone means this very process, start time and all. isAlive allows a few
+  // seconds of slack on the start time, and the supervisor lives about one, so
+  // a process that gets its pid straight after would pass for it.
+  const gone = () => { const i = native.processInfo(s.pid); return !i?.alive || i.createdAt !== s.createdAt; };
+  await until(gone, 5000);
+  assert.equal(gone(), true, 'the supervisor ended with the server');
 });
 
 test('stop ends the whole tree, and leaves no exit marker (it was asked to go)', { skip }, async () => {
