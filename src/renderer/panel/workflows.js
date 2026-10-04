@@ -114,6 +114,16 @@
     settings: 'M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6M10 3v3M6 10v3',
     expand: 'M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9',
     shrink: 'M13 3L9 7M9 3.5V7h3.5M3 13l4-4M7 12.5V9H3.5',
+    // What starts a workflow, for the tile on its row in the list.
+    schedule: 'M8 2.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11M8 5v3.2l2.1 1.3',
+    ci: 'M8 2.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11M5.6 8.1l1.7 1.7 3.2-3.4',
+    issue: 'M8 2.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11M7 8a1 1 0 1 0 2 0a1 1 0 1 0-2 0',
+    shipped: 'M8 10.5V2.8M5 5.6l3-3 3 3M3 9.5v3.5h10V9.5',
+    task: 'M3 8.4l3 3 7-7',
+    health: 'M1.5 8.5h3l1.5-4 3 8 1.5-4h4',
+    folder: 'M2 4.5c0-.6.4-1 1-1h3l1.5 1.5H13c.6 0 1 .4 1 1V12c0 .6-.4 1-1 1H3c-.6 0-1-.4-1-1z',
+    startup: 'M8 2v5.5M5 4a5 5 0 1 0 6 0',
+    webhook: 'M7 9l2-2M6.2 5.8l1.3-1.3a2.5 2.5 0 0 1 3.5 3.5l-1.3 1.3M9.8 10.2l-1.3 1.3a2.5 2.5 0 0 1-3.5-3.5l1.3-1.3',
   };
   const icon = (name, width = 1.4) => SB.icon(ICON[name] || ICON.stop, { width: name === 'more' ? 2.6 : width });
 
@@ -379,7 +389,7 @@
 
   // ================================================================ the list
 
-  const list = { rows: null, gallery: null, secrets: null, pending: false };
+  const list = { rows: null, gallery: null, secrets: null, lede: null, pending: false };
   let describeText = '';
   let drafting = false;
   let runFormFor = null;     // workflow id whose inputs form is open
@@ -393,14 +403,17 @@
     setMapMode(false);
     list.rows = h('ul', { class: 'wf-list', 'aria-label': 'Your workflows' });
     list.gallery = h('div', { class: 'wf-gallery' });
-    list.secrets = h('section', { class: 'wf-secrets', 'aria-labelledby': 'wfSecretsTitle' });
-    fill(screen, 
+    // Folded away: you add a secret once and then only refer to it.
+    list.secrets = h('details', { class: 'wf-disclosure wf-secrets' });
+    // The explainer is for before your first workflow; after that the list says it.
+    list.lede = h('p', { class: 'view-lede', text: 'Something happens, and Shellby does a list of steps: Claude, commands, web requests, questions for you. You can always run one by hand too.' });
+    fill(screen,
       h('div', { class: 'view-head' },
         h('h2', { text: 'Workflows' }),
         h('div', { class: 'wf-head-actions' },
           h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: openImport }, 'Import'),
           h('button', { type: 'button', class: 'btn primary slim-btn', onclick: () => openEditor(blankWorkflow()) }, 'New workflow'))),
-      h('p', { class: 'view-lede', text: 'Something happens, and Shellby does a list of steps: Claude, commands, web requests, questions for you. You can always run one by hand too.' }),
+      list.lede,
       describeBox(),
       list.rows,
       list.gallery,
@@ -428,6 +441,7 @@
     keepFocus(() => {
       fill(list.rows, ...workflows().map(workflowRow));
       list.rows.hidden = !workflows().length;
+      list.lede.hidden = !!workflows().length;
       fillGallery();
       fillSecrets();
     });
@@ -441,10 +455,11 @@
   function describeBox() {
     const id = uid('describe');
     const box = h('textarea', {
-      class: 'field area wf-describe-text', id, rows: 3, maxlength: 2000, disabled: drafting,
+      class: 'field area wf-describe-text', id, rows: 1, maxlength: 2000, disabled: drafting,
       placeholder: 'When a build fails on my repo, have Claude find out why and tell me on my phone',
       oninput: e => { describeText = e.target.value; },
-      onkeydown: e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); submit(); } },
+      // It looks like one line, so Enter sends; Shift+Enter starts a new line.
+      onkeydown: e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); } },
     });
     box.value = describeText;
     const note = h('p', { class: 'wf-note', id: uid('note'), 'aria-live': 'polite', text: 'Claude drafts it for you to check. Nothing is saved until you press Save.' });
@@ -483,30 +498,46 @@
     function setNote(text, err = false) { note.textContent = text; note.classList.toggle('err', err); }
     return h('form', { class: `wf-describe${drafting ? ' busy' : ''}`, novalidate: true, onsubmit: e => { e.preventDefault(); submit(); } },
       h('label', { class: 'field-label', for: id, text: 'Describe a workflow' }),
-      box,
-      h('div', { class: 'wf-describe-foot' }, note, btn));
+      h('div', { class: 'wf-describe-row' }, box, btn),
+      note);
   }
 
   // ------------------------------------------------------------ rows
 
+  // One quiet line: how the last run went (a dot and a few words), then when it runs.
+  function lastRunNote(w) {
+    const last = w.lastRun;
+    const at = last?.endedAt || last?.startedAt;
+    if (last?.waiting) return { tone: 'wait', text: 'Needs you' };
+    if (w.running) return { tone: 'run', text: 'Running now' };
+    if (!last) return { tone: 'none', text: 'Never run' };
+    const word = { ok: 'Ran', error: 'Failed', stopped: 'Stopped', interrupted: 'Interrupted' }[last.status] || 'Started';
+    const tone = { ok: 'ok', error: 'err', interrupted: 'warn' }[last.status] || 'none';
+    return { tone, text: at ? `${word} ${SB.relTime(at)}` : word };
+  }
+
   function workflowRow(w) {
     const last = w.lastRun;
-    const status = w.running ? 'running' : last?.status;
+    const note = lastRunNote(w);
     const when = [w.triggers?.length ? w.triggers.join(' · ') : 'Run by hand'];
     if (!w.enabled) when.push('off');
     else if (w.next) when.push(`next ${SB.untilTime(w.next)}`);
-    return h('li', { class: `wf-row${w.enabled ? '' : ' paused'}${last?.waiting ? ' waiting' : ''}`, 'data-workflow-id': w.id },
-      h('div', { class: 'wf-row-top' },
-        h('label', { class: 'toggle mini', title: w.enabled ? 'Turn off' : 'Turn on' },
-          h('input', { type: 'checkbox', checked: w.enabled, 'aria-label': `Run “${w.name}” automatically`, 'data-fk': `en-${w.id}`, onchange: e => setEnabled(w, e.target) }),
-          h('span', { class: 'switch' })),
-        h('div', { class: 'wf-row-main' },
-          h('div', { class: 'wf-row-name' }, h('span', { class: 'wf-row-title', text: w.name }), status ? statusPill(status, last?.endedAt || last?.startedAt) : h('span', { class: 'r-pill', text: 'never run' })),
-          h('div', { class: 'wf-row-when', text: when.join(' · ') }),
-          w.description ? h('div', { class: 'wf-row-desc', text: w.description, title: w.description }) : null),
-        h('div', { class: 'wf-row-actions' },
+    const firstTrigger = w.when?.[0]?.type;
+    return h('li', { class: `ar-row wf-row${w.enabled ? '' : ' paused'}${last?.waiting ? ' waiting' : ''}`, 'data-workflow-id': w.id },
+      h('div', { class: 'ar-top' },
+        h('span', { class: 'ar-icon', 'aria-hidden': 'true', title: firstTrigger ? TRIGGER_INFO[firstTrigger]?.name : 'By hand' }, icon(ICON[firstTrigger] ? firstTrigger : 'play')),
+        h('div', { class: 'ar-main' },
+          h('div', { class: 'ar-name' }, h('button', { type: 'button', class: 'ar-title', 'aria-label': `Edit “${w.name}”`, 'data-fk': `edit-${w.id}`, onclick: () => openEditor(toDef(w)) }, w.name)),
+          h('div', { class: 'ar-meta' },
+            h('span', { class: `ar-status ${note.tone}` }, h('span', { class: 'ar-dot', 'aria-hidden': 'true' }), note.text),
+            h('span', { class: 'ar-when', text: when.join(' · ') })),
+          w.description ? h('div', { class: 'ar-desc', text: w.description, title: w.description }) : null),
+        h('div', { class: 'ar-actions' },
           iconBtn('play', `Run “${w.name}” now`, () => startRun(w), { 'data-fk': `run-${w.id}`, 'aria-expanded': w.inputs?.length ? String(runFormFor === w.id) : null }),
-          iconBtn('more', `More for “${w.name}”`, e => rowMenu(w, e.currentTarget), { 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-fk': `more-${w.id}` }))),
+          iconBtn('more', `More for “${w.name}”`, e => rowMenu(w, e.currentTarget), { 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-fk': `more-${w.id}` }),
+          h('label', { class: 'toggle mini', title: w.enabled ? 'Turn off' : 'Turn on' },
+            h('input', { type: 'checkbox', checked: w.enabled, 'aria-label': `Run “${w.name}” automatically`, 'data-fk': `en-${w.id}`, onchange: e => setEnabled(w, e.target) }),
+            h('span', { class: 'switch' })))),
       last?.waiting ? waitingBox(last) : null,
       runFormFor === w.id ? runForm(w) : null);
   }
@@ -516,8 +547,7 @@
     if (wt.question || wt.choices) {
       const choices = wt.choices?.length ? wt.choices : ['Continue', 'Stop'];
       return h('div', { class: 'wf-waiting', role: 'group', 'aria-label': 'Waiting for you' },
-        h('div', { class: 'wf-waiting-head', text: 'Waiting for you' }),
-        h('p', { class: 'wf-waiting-q', text: wt.question || '' }),
+        h('p', { class: 'wf-waiting-q', text: wt.question || 'Carry on?' }),
         h('div', { class: 'row wrap' }, choices.map(c => h('button', {
           type: 'button', class: 'btn slim-btn',
           onclick: async ev => { ev.currentTarget.disabled = true; await answer(last.id, wt.key, c); },
@@ -663,8 +693,9 @@
     const nameEl = h('input', { class: 'field wf-mono', id: nameId, maxlength: 40, autocomplete: 'off', spellcheck: 'false', placeholder: 'GITHUB_TOKEN', 'data-fk': 'secret-name', oninput: e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'); } });
     const valueEl = h('input', { class: 'field', id: valueId, type: 'password', autocomplete: 'off', 'data-fk': 'secret-value' });
     const err = h('p', { class: 'wf-err', role: 'alert', hidden: !secretError, text: secretError });
-    fill(list.secrets, 
-      h('h3', { id: 'wfSecretsTitle', class: 'wf-h3', text: 'Secrets' }),
+    fill(list.secrets,
+      h('summary', {}, 'Secrets', names.length ? h('span', { class: 'wf-count', text: String(names.length) }) : null),
+      h('div', { class: 'wf-secrets-body' },
       h('p', { class: 'field-hint' }, 'Use as ', h('code', { text: '{{ secrets.NAME }}' }), ' in commands and web requests. Kept encrypted by Windows.'),
       names.length ? h('ul', { class: 'wf-secret-list' }, names.map(n => h('li', {},
         h('code', { text: n }), h('span', { class: 'wf-dots', 'aria-hidden': 'true', text: '••••••' }),
@@ -688,7 +719,8 @@
       h('div', { class: 'wf-field' }, h('label', { class: 'field-label', for: nameId, text: 'Name' }), nameEl),
       h('div', { class: 'wf-field' }, h('label', { class: 'field-label', for: valueId, text: 'Value' }), valueEl),
       h('button', { type: 'submit', class: 'btn slim-btn', 'data-fk': 'secret-add' }, 'Add')),
-      err);
+      err));
+    if (secretError) list.secrets.open = true;
     function showSecretError(text, el) { secretError = text; err.hidden = false; err.textContent = text; el.focus(); }
   }
 

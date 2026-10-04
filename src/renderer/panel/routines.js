@@ -18,18 +18,23 @@
   const templateButton = t => h('button', { class: 'template', type: 'button', onclick: () => openEditor({ ...t, isTemplate: true }) },
     h('b', {}, t.icon ? `${t.icon} ` : '', t.name), h('span', { text: t.note || t.prompt }));
 
-  function statusPill(r) {
-    if (r.running) return h('span', { class: 'r-pill running', text: 'running' });
-    // Waiting for the usage window to reset (src/main/held.js): click to run it on schedule instead.
-    if (r.held) return h('button', { class: 'r-pill held', type: 'button', title: 'Held for after your usage resets. Click to cancel.', 'aria-label': `Don't run ${r.name} after the reset`, onclick: async () => {
+  // Waiting for the usage window to reset (src/main/held.js): click to run it on schedule instead.
+  function heldPill(r) {
+    return h('button', { class: 'r-pill held', type: 'button', title: 'Held for after your usage resets. Click to cancel.', 'aria-label': `Don't run ${r.name} after the reset`, onclick: async () => {
       await api.cancelHeld(r.held.id);
       SB.toast(`"${r.name}" won't run after the reset.`);
     } }, `after reset · ${r.held.atText}`);
-    if (r.lastStatus === 'ok') return h('span', { class: 'r-pill ok', text: `ran ${SB.relTime(r.lastRunAt)}` });
-    if (r.lastStatus === 'error') return h('span', { class: 'r-pill err', text: `failed ${SB.relTime(r.lastRunAt)}` });
-    if (r.lastStatus === 'stopped') return h('span', { class: 'r-pill', text: `stopped ${SB.relTime(r.lastRunAt)}` });
-    if (r.lastRunAt) return h('span', { class: 'r-pill', text: `started ${SB.relTime(r.lastRunAt)}` });
-    return h('span', { class: 'r-pill', text: 'never run' });
+  }
+
+  // How the last run went, as a dot and a few words (the same line Workflows uses).
+  function lastRunStatus(r) {
+    const [tone, text] = r.running ? ['run', 'Running now']
+      : r.lastStatus === 'ok' ? ['ok', `Ran ${SB.relTime(r.lastRunAt)}`]
+        : r.lastStatus === 'error' ? ['err', `Failed ${SB.relTime(r.lastRunAt)}`]
+          : r.lastStatus === 'stopped' ? ['none', `Stopped ${SB.relTime(r.lastRunAt)}`]
+            : r.lastRunAt ? ['none', `Started ${SB.relTime(r.lastRunAt)}`]
+              : ['none', 'Never run'];
+    return h('span', { class: `ar-status ${tone}` }, h('span', { class: 'ar-dot', 'aria-hidden': 'true' }), text);
   }
 
   function render() {
@@ -37,6 +42,8 @@
     const routines = state.routines || [];
     renderDeps();
     renderFlaky();
+    // The explainer is for before your first routine; after that the list says it.
+    $('routinesView').querySelector('.view-lede').hidden = routines.length > 0;
     if (!routines.length) {
       list.replaceChildren(h('li', { class: 'routine-empty' },
         h('p', {}, 'No routines yet. Start from one of these:'),
@@ -46,21 +53,20 @@
     // The ones you haven't set up yet stay a click away.
     const have = new Set(routines.map(r => r.name.toLowerCase()));
     const more = templates.filter(t => !have.has(t.name.toLowerCase()));
-    list.replaceChildren(...routines.map(r => h('li', { class: `routine${r.enabled ? '' : ' paused'}` },
-      h('label', { class: 'toggle mini', title: r.enabled ? 'Pause' : 'Resume' },
-        h('input', { type: 'checkbox', checked: r.enabled, onchange: async e => {
-          const res = await api.saveRoutine({ ...r, enabled: e.target.checked });
-          if (res.ok) state.routines = res.routines; else SB.toast(res.errors.join(' '));
-          render();
-        } }), h('span', { class: 'switch' })),
-      h('div', { class: 'routine-main' },
-        h('div', { class: 'routine-name' }, r.name, statusPill(r)),
-        h('div', { class: 'routine-when' },
-          r.scheduleText,
-          ' · ', r.enabled ? h('span', { title: r.next ? new Date(r.next).toLocaleString() : '' }, `next ${SB.untilTime(r.next)}`) : 'paused',
-          ' · ', MODE_NAME[r.mode] || r.mode),
-        h('div', { class: 'routine-prompt', text: r.prompt, title: r.prompt })),
-      h('div', { class: 'routine-actions' },
+    list.replaceChildren(...routines.map(r => h('li', { class: `ar-row routine${r.enabled ? '' : ' paused'}` }, h('div', { class: 'ar-top' },
+      h('span', { class: 'ar-icon', 'aria-hidden': 'true' }, SB.icon(SB.ICONS.clock, { width: 1.4 })),
+      h('div', { class: 'ar-main' },
+        h('div', { class: 'ar-name' },
+          h('button', { type: 'button', class: 'ar-title', 'aria-label': `Edit ${r.name}`, onclick: () => openEditor(r) }, r.name),
+          r.held ? heldPill(r) : null),
+        h('div', { class: 'ar-meta' },
+          lastRunStatus(r),
+          h('span', { class: 'ar-when' },
+            r.scheduleText,
+            ' · ', r.enabled ? h('span', { title: r.next ? new Date(r.next).toLocaleString() : '' }, `next ${SB.untilTime(r.next)}`) : 'paused',
+            ' · ', MODE_NAME[r.mode] || r.mode)),
+        h('div', { class: 'ar-desc', text: r.prompt, title: r.prompt })),
+      h('div', { class: 'ar-actions routine-actions' },
         h('button', { class: 'icon-btn', type: 'button', title: 'Run now', 'aria-label': `Run ${r.name} now`, disabled: r.running, onclick: async () => {
           const res = await api.runRoutine(r.id);
           SB.toast(res.ok ? `Started "${r.name}"` : res.error);
@@ -71,14 +77,19 @@
           const res = await api.holdForReset({ kind: 'routine', routineId: r.id });
           SB.toast(res.ok ? `"${r.name}" runs at ${res.atText}, once your usage resets.` : res.error);
         } }, SB.icon(SB.ICONS.clock, { width: 1.4 })) : null,
-        h('button', { class: 'icon-btn', type: 'button', title: 'Edit', 'aria-label': `Edit ${r.name}`, onclick: () => openEditor(r) }, SB.icon(SB.ICONS.edit)),
         h('button', { class: 'icon-btn danger-hover', type: 'button', title: 'Delete', 'aria-label': `Delete ${r.name}`, onclick: async () => {
           state.routines = await api.deleteRoutine(r.id);
           render();
           SB.toast(`Deleted "${r.name}"`);
-        } }, SB.icon(SB.ICONS.trash))))),
+        } }, SB.icon(SB.ICONS.trash)),
+        h('label', { class: 'toggle mini', title: r.enabled ? 'Pause' : 'Resume' },
+          h('input', { type: 'checkbox', checked: r.enabled, 'aria-label': `Run ${r.name} on its schedule`, onchange: async e => {
+            const res = await api.saveRoutine({ ...r, enabled: e.target.checked });
+            if (res.ok) state.routines = res.routines; else SB.toast(res.errors.join(' '));
+            render();
+          } }), h('span', { class: 'switch' })))))),
     ...(more.length ? [h('li', { class: 'routine-more' },
-      h('details', {}, h('summary', { text: `More templates (${more.length})` }), h('div', { class: 'templates' }, more.map(templateButton))))] : []));
+      h('details', { class: 'wf-disclosure' }, h('summary', { text: `More templates (${more.length})` }), h('div', { class: 'templates' }, more.map(templateButton))))] : []));
   }
 
   // ------------------------------------------------------------ dependency health

@@ -35,54 +35,135 @@ body[data-view="workflows"] .view-workflows {
 }
 
 /* ================================================================ list */
-.wf-describe { display: grid; gap: 6px; margin-bottom: 16px; }
-.wf-describe .field.area { min-height: 64px; max-height: 200px; }
-.wf-describe-foot { display: flex; align-items: flex-start; gap: 10px; }
-.wf-describe-foot .btn { flex: none; }
+/* Describe it: one line that grows as you type, the button beside it. */
+.wf-describe { display: grid; gap: 6px; margin-bottom: 18px; }
+.wf-describe-row { display: flex; align-items: flex-end; gap: 8px; }
+.wf-describe-row .btn { flex: none; height: 38px; }
+.wf-describe .field.area { flex: 1; min-width: 0; min-height: 38px; max-height: 180px; padding-block: 8px; resize: none; field-sizing: content; }
 .wf-describe.busy .wf-note { animation: blinkdot 1.2s steps(1) infinite; }
 
-.wf-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; }
-.wf-row { padding: 10px 8px 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
-.wf-row.paused .wf-row-top { opacity: .62; }
-.wf-row.waiting { border-color: var(--amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 14%, transparent); }
-.wf-row-top { display: flex; gap: 12px; align-items: flex-start; }
-.wf-row .toggle.mini { padding: 2px 0 0; }
-.wf-row-main { flex: 1; min-width: 0; }
-.wf-row-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wf-row-title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-row-name .r-pill { flex: none; }
-.wf-row-when { margin-top: 2px; overflow-wrap: anywhere; font: 11px var(--font-mono); font-stretch: 88%; color: var(--glass); }
-.wf-row-desc { margin-top: 4px; font-size: 12.5px; color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-row-actions { display: flex; gap: 2px; }
+.wf-list { margin: 0 0 16px; }
+
+/* ---------------------------------------------------------------- list rows
+   Shared by Workflows and Routines (routines.js): a tile for what starts it,
+   the name (click to edit), one status line, then the actions and the switch. */
+.ar-list, .wf-list, .routine-list {
+  list-style: none; padding: 0; display: grid; gap: 6px;
+  /* A long name or description must shorten, not push the actions off the panel. */
+  grid-template-columns: minmax(0, 1fr);
+}
+.ar-row {
+  min-width: 0; padding: 10px 6px 10px 10px;
+  border: 1px solid var(--line-soft); border-radius: var(--r); background: var(--reef);
+  transition: border-color .15s, background-color .15s;
+}
+.ar-row:hover, .ar-row:focus-within { border-color: var(--line); background: color-mix(in srgb, var(--reef-2) 45%, var(--reef)); }
+/* The name shares its line with the actions; the lines under it run the full
+   width, so the status and schedule rarely wrap. */
+.ar-top {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; column-gap: 11px; row-gap: 2px; align-items: center;
+}
+.ar-main { display: contents; }
+.ar-icon {
+  grid-column: 1; grid-row: 1 / span 3; align-self: start;
+  display: grid; place-items: center; width: 32px; height: 32px;
+  border-radius: 9px; background: var(--abyss); color: var(--glass); border: 1px solid var(--line-soft);
+}
+.ar-icon svg { width: 16px; height: 16px; }
+.ar-name { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ar-meta, .ar-desc { grid-column: 2 / -1; padding-right: 6px; }
+.ar-name .r-pill { flex: none; }
+.ar-title {
+  min-width: 0; max-width: 100%; padding: 0; border: 0; background: none; color: var(--sand); text-align: left;
+  font: 700 14px/1.35 var(--font-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  text-decoration: underline transparent; text-underline-offset: 3px; transition: text-decoration-color .15s;
+}
+.ar-title:hover { text-decoration-color: var(--sand-faint); }
+.ar-title:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 3px; }
+
+.ar-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 12px; line-height: 1.45; color: var(--sand-dim); }
+.ar-when { min-width: 0; overflow-wrap: anywhere; }
+.ar-status { display: inline-flex; align-items: center; gap: 6px; flex: none; font-weight: 700; color: var(--sand-dim); }
+.ar-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sand-faint); flex: none; }
+.ar-status.none { font-weight: 400; color: var(--sand-faint); }
+.ar-status.ok .ar-dot { background: var(--glass); }
+.ar-status.err { color: #ffb3aa; }
+.ar-status.err .ar-dot { background: var(--danger); }
+.ar-status.warn .ar-dot { background: var(--amber); }
+.ar-status.wait { color: var(--amber); }
+.ar-status.wait .ar-dot { background: var(--amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 22%, transparent); }
+.ar-status.run { color: var(--coral); }
+.ar-status.run .ar-dot { background: var(--coral); animation: blinkdot 1.2s steps(1) infinite; }
+
+.ar-desc { margin-top: 1px; font-size: 12.5px; color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ar-actions { grid-column: 3; grid-row: 1; display: flex; align-items: center; gap: 1px; }
+.ar-actions .icon-btn:disabled { opacity: .35; }
+.ar-actions .toggle.mini { padding: 0 4px 0 8px; margin-left: 4px; border-left: 1px solid var(--line-soft); }
+
+/* Off: the row steps back, but its switch stays readable so you can turn it on. */
+.ar-row.paused { background: transparent; }
+.ar-row.paused :is(.ar-icon, .ar-name, .ar-meta, .ar-desc) { opacity: .55; }
+.ar-row.paused .ar-icon { color: var(--sand-faint); }
+
+.ar-row.waiting { border-color: color-mix(in srgb, var(--amber) 60%, var(--line)); background: color-mix(in srgb, var(--amber) 5%, var(--reef)); }
+.ar-row.waiting .ar-icon { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 35%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-row, .ar-title { transition: none; }
+  .ar-status.run .ar-dot { animation: none; }
+}
 
 .r-pill.wait { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); }
 .r-pill.warn { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber); }
 
+/* Under a row, lined up with its name rather than its tile. */
 .wf-waiting {
-  margin-top: 9px; padding: 9px 10px; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--amber) 9%, var(--abyss)); border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent);
+  margin: 10px 0 2px 43px; padding: 10px 12px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 8%, var(--abyss)); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
 }
 .wf-waiting.quiet { display: flex; align-items: center; gap: 10px; justify-content: space-between; font-size: 12.5px; color: var(--sand-dim); background: var(--abyss); border-color: var(--line); }
-.wf-waiting-head { font: 600 10.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--amber); }
-.wf-waiting-q { margin: 3px 0 8px; font-size: 13px; overflow-wrap: anywhere; }
+.wf-waiting-q { margin: 0 0 9px; font-size: 13.5px; font-weight: 700; overflow-wrap: anywhere; }
 
-.wf-runform { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
+.wf-runform { margin: 10px 0 2px 43px; padding-top: 10px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
 .wf-runform .row.end { margin-top: 2px; }
 
-.wf-gallery { margin-bottom: 16px; }
-.wf-template { grid-template-columns: 26px 1fr; column-gap: 10px; align-items: start; }
-.wf-template-icon { font-size: 18px; line-height: 1.3; text-align: center; }
+/* ---------------------------------------------------------------- templates
+   Two to a row where there's room, so the whole gallery fits in a glance. */
+.view-workflows .templates, .view-routines .templates {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 6px;
+}
+.view-workflows .template, .view-routines .template {
+  align-content: start; padding: 11px 12px 12px;
+  border: 1px solid var(--line-soft); background: color-mix(in srgb, var(--reef) 55%, transparent);
+}
+.view-workflows .template:hover, .view-routines .template:hover { border-color: var(--glass); background: var(--reef); }
+.view-workflows .template:focus-visible, .view-routines .template:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+/* Just the description: three lines at most. */
+.wf-template-text > span, .view-routines .template > span {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.wf-gallery { margin-bottom: 14px; }
+.wf-template { grid-template-columns: 22px 1fr; column-gap: 9px; }
+.wf-template-icon { font-size: 16px; line-height: 1.25; text-align: center; }
 .wf-template-text { display: grid; gap: 3px; min-width: 0; }
+
+/* ---------------------------------------------------------------- disclosures */
 .wf-disclosure > summary, .wf-advanced > summary, .wf-out > summary {
   cursor: pointer; width: fit-content; padding: 4px 6px; margin-left: -6px; border-radius: var(--r-sm);
   font-size: 12.5px; font-weight: 700; color: var(--sand-dim);
 }
 .wf-disclosure > summary:hover, .wf-advanced > summary:hover, .wf-out > summary:hover { color: var(--sand); background: var(--reef); }
+.wf-disclosure > summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
 .wf-disclosure[open] > summary { margin-bottom: 8px; }
+.wf-count {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 7px; padding: 0 5px; border-radius: 99px;
+  background: var(--reef-2); color: var(--sand-dim); font: 700 11px var(--font-body); vertical-align: 1px;
+}
 
-.wf-secrets { padding-top: 14px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
-.wf-secrets .wf-h3 { margin: 0; }
-.wf-secrets > .field-hint { margin: 0; }
+.wf-secrets { padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.wf-secrets-body { display: grid; gap: 8px; }
+.wf-secrets-body > .field-hint { margin: 0; }
 .wf-secrets code { color: var(--glass); }
 .wf-secret-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .wf-secret-list li { display: flex; align-items: center; gap: 10px; padding: 3px 4px 3px 10px; border-radius: var(--r-sm); background: var(--reef); border: 1px solid var(--line-soft); }
