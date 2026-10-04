@@ -54,6 +54,7 @@ const { kindOfApp } = require('./surroundings');
 const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween, normalizeXp } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
+const rooms = require('./rooms');
 const toast = require('./toast');
 const limits = require('./limits');
 const spend = require('./spend');
@@ -1448,6 +1449,28 @@ const XP_STATS = {
   deps: 'deps-clean', tidy: 'toolbox-tidied', fresh: 'started-fresh',
 };
 
+// Rooms (rooms.js): the screens a new user has opened so far. The scripted
+// screenshots always show every one.
+function roomsPanelView() {
+  return rooms.roomsView(CAPTURE ? null : config.get('rooms'));
+}
+
+function setRooms(next) {
+  if (next && !CAPTURE) config.set({ rooms: next });
+  const v = roomsPanelView();
+  send(panel, 'rooms', { view: v, opened: [] });
+  return v;
+}
+
+// A task of his own finished: maybe a new room opens, and the panel says so.
+function roomTaskDone() {
+  if (CAPTURE || !config) return;
+  const r = rooms.taskDone(config.get('rooms'));
+  if (!r.state || r.state.all) return; // every door already open: nothing to count
+  config.set({ rooms: r.state });
+  send(panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(({ id, name, text }) => ({ id, name, text })) });
+}
+
 function awardXp(kind, meta = {}) {
   if (kind === 'ship') setTimeout(checkNudges, 3000); // a push means a fresh commit: update streak data
   if (CAPTURE || !config) return;
@@ -2161,6 +2184,7 @@ function onResult(tabId, item, tab) {
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
     stat('task-completed');
     awardXp('task', { label: tab.title });
+    if (!inWorkflow && !routineId) roomTaskDone(); // tasks you gave him, not ones that ran by themselves
     recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
   }
   if (!item.interrupted && !inWorkflow && !waiting) {
@@ -5953,6 +5977,11 @@ ${r.detail}` });
   // ---- XP and levels
   ipcMain.handle('xp:get', () => xpView());
 
+  // ---- rooms: which screens are open yet (rooms.js)
+  ipcMain.handle('rooms:get', () => roomsPanelView());
+  ipcMain.handle('rooms:open', (_e, id) => setRooms(rooms.openRoom(config.get('rooms'), String(id || ''))));
+  ipcMain.handle('rooms:all', () => setRooms(rooms.openAll(config.get('rooms'))));
+
   // Dev/e2e only: throw him, send him for a stroll, finish a focus session now,
   // make him say something or do one of his idle habits.
   if (!app.isPackaged && process.env.SHELLBY_MOTION_TEST === '1') {
@@ -6648,6 +6677,9 @@ function showUpdateSetting() {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
+  // Rooms are decided once: everything for someone who was already here, one
+  // door at a time for someone new (rooms.js).
+  if (config.get('rooms') == null) config.set({ rooms: rooms.initialRooms(!!config.get('onboarded')) });
   setPlanOnly(config.get('planOnly')); // before anything launches Claude Code
   history = new History(path.join(userData, 'sessions'), { onError: (what, err) => log.error(`history: ${what}`, err) });
   // Transcripts orphaned by an older build (which trimmed the index without

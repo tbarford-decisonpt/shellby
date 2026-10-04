@@ -254,6 +254,12 @@ contextBridge.exposeInMainWorld('shellby', {
   onLevelUp: on('xp:levelup'),
   onXpBounty: on('xp:bounty'),
 
+  // rooms: which screens are open yet (rooms.js)
+  getRooms: invoke('rooms:get'),
+  openRoom: invoke('rooms:open'),
+  openAllRooms: invoke('rooms:all'),
+  onRooms: on('rooms'),
+
   // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
   getLife: invoke('life:get'),
   setBirthday: invoke('life:birthday'),

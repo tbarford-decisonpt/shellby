@@ -55,6 +55,18 @@ body[data-view="onboarding"] .dock { display: none; }
 .dock-shellby:focus-visible .dock-crab { outline: 2px solid var(--glass); outline-offset: 1px; }
 body.busy .dock-crab svg { animation: hop .4s ease-in-out infinite; }
 
+/* Rooms (rooms.js): screens someone new hasn't opened yet stay off the bar,
+   and "More" says what opens next. A room that just opened glows once. */
+.dock-btn.room-locked { display: none; }
+body:not(.rooms-ready) .dock-btn:not(.dock-shellby):not([data-view-btn="chat"]) { visibility: hidden; } /* no flash of the full bar */
+.dock-more > svg { border: 1px dashed var(--line); padding: 3px 12px; }
+.dock-more:hover > svg { border-color: var(--glass); }
+.dock-btn.room-new > svg { animation: room-open 1.6s var(--ease-out) 2; }
+@keyframes room-open {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--coral) 55%, transparent); background: color-mix(in srgb, var(--coral) 22%, transparent); }
+  100% { box-shadow: 0 0 0 9px transparent; }
+}
+
 .shellby-tabs button[aria-current="page"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 
 /* popups clear the bar (and the composer, in chat) */
@@ -138,6 +150,6 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 @media (prefers-reduced-motion: reduce) {
   .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button { transition: none; }
   .settings-panel, .setting-group.arrived { animation: none; }
-  .dock-shellby:hover .dock-crab svg, body.busy .dock-crab svg { animation: none; }
+  .dock-shellby:hover .dock-crab svg, body.busy .dock-crab svg, .dock-btn.room-new > svg { animation: none; }
   .palette-sheet, .palette { animation: none; }
 }
