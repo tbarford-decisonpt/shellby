@@ -86,6 +86,34 @@ function topBy(procs, metric, n = TOP_N) {
     .slice(0, n);
 }
 
+/**
+ * The same list added up by app: a hundred node processes at 1% each are one
+ * line saying "node ×100, 100%", which a top-8 of single processes never shows.
+ * -> [{ name, count, pids, cpu, gpu, mem, owned }], busiest `n` by `metric`.
+ * `owned` counts the members Shellby's own tasks started (see process-job.js).
+ */
+function groupByName(procs, metric, n = TOP_N, ownedPids = new Set()) {
+  const key = METRICS.includes(metric) ? metric : 'cpu';
+  const groups = new Map();
+  for (const p of procs) {
+    const id = p.name.toLowerCase();
+    const g = groups.get(id) || { name: p.name, count: 0, pids: [], cpu: 0, gpu: p.gpu == null ? null : 0, mem: 0, owned: 0 };
+    g.count++;
+    g.pids.push(p.pid);
+    g.cpu += Number(p.cpu) || 0;
+    if (g.gpu != null) g.gpu += Number(p.gpu) || 0;
+    g.mem += Number(p.mem) || 0;
+    if (ownedPids.has(p.pid)) g.owned++;
+    groups.set(id, g);
+  }
+  const tidy = v => Math.min(100, Math.round(v * 10) / 10);
+  return [...groups.values()]
+    .map(g => ({ ...g, cpu: tidy(g.cpu), gpu: g.gpu == null ? null : tidy(g.gpu), pids: g.pids.sort((a, b) => a - b) }))
+    .filter(g => Number(g[key]) > 0)
+    .sort((a, b) => b[key] - a[key] || b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, n);
+}
+
 /** Which metric explains a mood: the GPU's heat, the CPU's, or memory. */
 function metricFor(checkId) {
   const id = String(checkId || '');
@@ -118,6 +146,17 @@ function parseTasklistName(text, pid) {
   return null;
 }
 
+/** `tasklist /NH /FO CSV` (everything) -> Map(pid -> name without ".exe"). */
+function parseTasklistNames(text) {
+  const out = new Map();
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const cells = [...line.matchAll(/"((?:[^"]|"")*)"/g)].map(m => m[1]);
+    const pid = cells.length >= 2 ? Number(cells[1]) : NaN;
+    if (Number.isInteger(pid) && pid > 0) out.set(pid, cleanName(cells[0].replace(/\.exe$/i, '')));
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ reader
 
 const system32 = () => path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
@@ -139,7 +178,8 @@ const PROCESS_SCRIPT = [
 /**
  * The real process reader. read() resolves to [{ pid, name, cpu, mem, gpu }]
  * or null; nameOf(pid) to the name running at that PID now, null if nothing
- * is, or undefined if Windows couldn't be asked; end(pid) to { ok, error? }.
+ * is, or undefined if Windows couldn't be asked; names() to a Map of every
+ * PID's name (or undefined); end(pid) to { ok, error? }.
  */
 function createProcessReader({ platform = process.platform } = {}) {
   return {
@@ -153,6 +193,11 @@ function createProcessReader({ platform = process.platform } = {}) {
     async nameOf(pid) {
       const out = await run(path.join(system32(), 'tasklist.exe'), ['/FI', `PID eq ${pid}`, '/NH', '/FO', 'CSV'], 4000);
       return out == null ? undefined : parseTasklistName(out, pid);
+    },
+    /** Every running process's name in one call: Map(pid -> name), or undefined. */
+    async names() {
+      const out = await run(path.join(system32(), 'tasklist.exe'), ['/NH', '/FO', 'CSV'], 6000);
+      return out == null ? undefined : parseTasklistNames(out);
     },
     async end(pid) {
       try {
@@ -168,6 +213,6 @@ function createProcessReader({ platform = process.platform } = {}) {
 }
 
 module.exports = {
-  parseGpuEngines, parseProcesses, topBy, metricFor, protectedReason, parseTasklistName,
+  parseGpuEngines, parseProcesses, topBy, groupByName, metricFor, protectedReason, parseTasklistName, parseTasklistNames,
   createProcessReader, METRICS, TOP_N,
 };

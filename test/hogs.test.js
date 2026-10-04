@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  parseGpuEngines, parseProcesses, topBy, metricFor, protectedReason, parseTasklistName,
+  parseGpuEngines, parseProcesses, topBy, groupByName, metricFor, protectedReason, parseTasklistName, parseTasklistNames,
 } = require('../src/main/health/hogs');
 const { parseApproved, parseStartup, describeLocation, approvalScope, switchFor, approvedBytes, startupPrompt, createStartupReader } = require('../src/main/health/startup');
 const { HealthService } = require('../src/main/health/service');
@@ -465,4 +465,118 @@ test('askStartup says so when the list can\'t be read', async () => {
   assert.equal((await svc.startupItems()).ok, false);
   assert.equal((await svc.askStartup()).ok, false);
   assert.equal(tasks.length, 0);
+});
+
+// ------------------------------------------------------------------ grouped by app
+
+const SWARM = [
+  ...Array.from({ length: 40 }, (_, i) => ({ pid: 5000 + i, name: 'python', cpu: 1.5, gpu: 0, mem: 80 * MB })),
+  { pid: 1000, name: 'game', cpu: 30, gpu: 95, mem: 4000 * MB },
+  { pid: 3000, name: 'Chrome', cpu: 5, gpu: 2, mem: 900 * MB },
+  { pid: 3001, name: 'chrome', cpu: 2, gpu: 0, mem: 300 * MB },
+  { pid: 2000, name: 'csrss', cpu: 1, gpu: 1, mem: 5 * MB },
+];
+
+test('groupByName adds a swarm of small processes up into one line', () => {
+  const groups = groupByName(SWARM, 'cpu');
+  assert.equal(groups[0].name, 'python');
+  assert.equal(groups[0].count, 40);
+  assert.equal(groups[0].cpu, 60);
+  assert.equal(groups[0].mem, 40 * 80 * MB);
+  assert.equal(groups[1].name, 'game');
+  // Names match without case, and the first spelling seen is kept.
+  const chrome = groups.find(g => g.name.toLowerCase() === 'chrome');
+  assert.deepEqual([chrome.name, chrome.count, chrome.cpu, chrome.pids], ['Chrome', 2, 7, [3000, 3001]]);
+});
+
+test('groupByName caps shares at 100%, keeps "no GPU counters" as null, and counts owned PIDs', () => {
+  const procs = [{ pid: 1, name: 'x', cpu: 70, gpu: null, mem: 1 }, { pid: 2, name: 'x', cpu: 60, gpu: null, mem: 1 }];
+  const [g] = groupByName(procs, 'cpu', 8, new Set([2, 99]));
+  assert.equal(g.cpu, 100);
+  assert.equal(g.gpu, null);
+  assert.equal(g.owned, 1);
+  assert.deepEqual(groupByName(procs, 'gpu'), [], 'nothing is using a GPU it cannot measure');
+});
+
+test('parseTasklistNames reads every PID in one listing', () => {
+  const names = parseTasklistNames('"node.exe","5000","Console","1","80,000 K"\r\n"Code.exe","42","Console","1","1 K"\r\nINFO: junk');
+  assert.deepEqual([...names], [[5000, 'node'], [42, 'Code']]);
+});
+
+function groupProcesses(list, { names } = {}) {
+  const p = processes(list);
+  p.names = async () => (names === undefined ? new Map(list.map(x => [x.pid, x.name])) : names);
+  return p;
+}
+
+test('hogs() returns app groups with ownership, and keeps their PIDs in main', async () => {
+  const { svc } = service({ processes: processes(SWARM), ownedPids: () => new Set([5000, 5001]) });
+  const r = await svc.hogs('cpu');
+  const py = r.groups[0];
+  assert.deepEqual([py.name, py.count, py.owned, py.locked], ['python', 40, 2, null]);
+  assert.equal('pids' in py, false, 'the panel never sees group PIDs');
+  assert.equal(r.total, SWARM.length);
+  assert.equal(r.procs.find(p => p.pid === 5000).owned, true);
+  assert.match(r.groups.find(g => g.name === 'csrss').locked, /Windows needs/);
+});
+
+test('endGroup asks once, then ends every process still running under that name', async () => {
+  const names = new Map(SWARM.map(x => [x.pid, x.name]));
+  names.delete(5003);              // closed on its own
+  names.set(5004, 'notepad');      // and its PID went to something else
+  const p = groupProcesses(SWARM, { names });
+  const { svc, asked } = service({ processes: p });
+  await svc.hogs('cpu');
+  const r = await svc.endGroup('PYTHON');
+  assert.equal(asked.length, 1);
+  assert.match(asked[0].title, /End all 40 python processes\?/);
+  assert.equal(asked[0].defaultId, 1, 'Enter cancels');
+  assert.deepEqual([r.ok, r.ended, r.gone, r.failed], [true, 38, 2, 0]);
+  assert.equal(p.ended.includes(5003) || p.ended.includes(5004), false);
+  assert.equal((await svc.endGroup('python')).ok, false, 'a group is ended once per listing');
+});
+
+test('endGroup: cancel, protected names, unknown names and Shellby himself', async () => {
+  const p = groupProcesses(SWARM);
+  const cancelled = service({ processes: p, answer: 1 });
+  await cancelled.svc.hogs('cpu');
+  assert.deepEqual(await cancelled.svc.endGroup('python'), { ok: false, cancelled: true });
+  assert.deepEqual(p.ended, []);
+
+  const { svc, asked } = service({ processes: p, selfPids: () => [1000] });
+  await svc.hogs('cpu');
+  assert.match((await svc.endGroup('csrss')).error, /Windows needs/);
+  assert.match((await svc.endGroup('nope')).error, /no longer in the list/);
+  assert.match((await svc.endGroup('game')).error, /Shellby himself/);
+  assert.equal((await svc.endGroup(42)).ok, false);
+  assert.equal(asked.length, 0);
+});
+
+test("endGroup ends nothing when Windows can't list processes", async () => {
+  const p = groupProcesses(SWARM, { names: null });
+  const { svc } = service({ processes: p });
+  await svc.hogs('cpu');
+  const r = await svc.endGroup('python');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /couldn't check/);
+  assert.deepEqual(p.ended, []);
+});
+
+test('endGroup words a one-process group like End task', async () => {
+  const { svc, asked } = service({ processes: groupProcesses(SWARM) });
+  await svc.hogs('cpu');
+  await svc.endGroup('game');
+  assert.match(asked[0].title, /^End game\?$/);
+  assert.equal(asked[0].buttons[0].label, 'End task');
+});
+
+test("endGroup leaves a PID that became Shellby's own while the question was open", async () => {
+  const p = groupProcesses(SWARM);
+  let self = [];
+  const { svc } = service({ processes: p, selfPids: () => self });
+  await svc.hogs('cpu');
+  svc.deps.confirm = async () => { self = [5007]; return 0; };
+  const r = await svc.endGroup('python');
+  assert.equal(r.ended, 39);
+  assert.equal(p.ended.includes(5007), false);
 });

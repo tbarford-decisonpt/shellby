@@ -333,23 +333,53 @@
 
     <section class="hl-block hl-hogs" id="hlHogs" hidden aria-labelledby="hlHogsTitle">
       <div class="hl-hogs-head">
-        <h3 class="hl-h" id="hlHogsTitle">What's hogging it</h3>
+        <h3 class="hl-h" id="hlHogsTitle">What's using it</h3>
         <div class="seg hl-hogs-seg" id="hlHogsSeg" role="tablist" aria-label="Sort by" data-roving>
           <button type="button" role="tab" data-metric="gpu">GPU</button>
           <button type="button" role="tab" data-metric="cpu">CPU</button>
           <button type="button" role="tab" data-metric="mem">Memory</button>
         </div>
+        <div class="seg hl-hogs-seg" id="hlHogsGroup" role="tablist" aria-label="Show" data-roving>
+          <button type="button" role="tab" data-group="app" title="Add up every process of the same app">By app</button>
+          <button type="button" role="tab" data-group="proc" title="One row per process">Each</button>
+        </div>
         <button type="button" class="btn ghost slim-btn" id="hlHogsRefresh" title="Read the process list again">Refresh</button>
+        <button type="button" class="btn ghost slim-btn" id="hlHogsClose" title="Stop reading the process list">Hide</button>
       </div>
+      <button type="button" class="hl-hogs-open" id="hlHogsOpen">See what's using the CPU, GPU and memory right now</button>
       <ol class="hl-hogs-list" id="hlHogList" aria-live="polite"></ol>
-      <p class="hl-fine">End task asks first, and won't touch Windows itself or Shellby.</p>
+      <p class="hl-fine" id="hlHogsFine">End task asks first, and won't touch Windows itself or Shellby. Processes marked "Shellby task" end on their own when that task closes.</p>
     </section>
 
+    <div class="hl-gauges-head">
+      <h3 class="hl-h">Vitals</h3>
+      <div class="seg hl-range" id="hlRange" role="tablist" aria-label="Graph range" data-roving>
+        <button type="button" role="tab" data-range="600000">10 min</button>
+        <button type="button" role="tab" data-range="3600000">1 hour</button>
+      </div>
+    </div>
     <div class="hl-gauges" id="hlGauges"></div>
 
-    <section class="hl-block">
+    <section class="hl-block" id="hlFansBlock" hidden>
+      <h3 class="hl-h">Fans</h3>
+      <ul class="hl-fans" id="hlFans"></ul>
+    </section>
+
+    <section class="hl-block" id="hlDrivesBlock">
       <h3 class="hl-h">Drives</h3>
       <ul class="hl-disks" id="hlDisks"></ul>
+    </section>
+
+    <section class="hl-block hl-space" id="hlSpace" hidden aria-labelledby="hlSpaceTitle">
+      <div class="hl-space-head">
+        <h3 class="hl-h" id="hlSpaceTitle">Developer clutter</h3>
+        <span class="hl-space-total" id="hlSpaceTotal"></span>
+      </div>
+      <ul class="hl-space-list" id="hlSpaceList"></ul>
+      <p class="hl-fine" id="hlSpaceFine"></p>
+      <div class="row wrap">
+        <button type="button" class="btn" id="hlAskSpace">Ask Shellby what's safe to clear</button>
+      </div>
     </section>
 
     <section class="hl-block">
@@ -362,8 +392,8 @@
       <p class="hl-fine">Switching one off works like Task Manager: the app stays installed and you can switch it back on here. Entries for everyone need an administrator, so those stay locked. The task Shellby starts only reports back.</p>
     </section>
 
-    <section class="hl-block">
-      <h3 class="hl-h">Sensors</h3>
+    <details class="hl-block hl-fold" id="hlSensorsFold">
+      <summary><span class="hl-h">Sensors</span><span class="hl-fold-sum" id="hlSensorsSum"></span></summary>
       <ul class="hl-sources" id="hlSources"></ul>
       <div class="hl-setup" id="hlSetup" hidden>
         <p><b>Windows doesn't let normal apps read CPU temperature.</b> LibreHardwareMonitor can (it's free and open source), and Shellby reads it from LHM's local web server. Nothing leaves your PC.</p>
@@ -381,21 +411,24 @@
           <label class="inline-label hl-port">Port <input class="field slim" id="hlPort" type="number" min="1024" max="65535" inputmode="numeric"></label>
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="setting-group hl-settings">
-      <h3>Alerts</h3>
+    <details class="setting-group hl-settings hl-fold" id="hlSettingsFold">
+      <summary><span class="hl-h">Alert settings</span><span class="hl-fold-sum" id="hlSettingsSum"></span></summary>
       <label class="toggle"><input type="checkbox" id="hlEnabledToggle"><span class="switch"></span>Watch my PC's health</label>
       <label class="toggle"><input type="checkbox" id="hlMoodsToggle"><span class="switch"></span>Shellby reacts on the desktop (sweats, gets dizzy, overstuffs his shell)</label>
       <label class="toggle"><input type="checkbox" id="hlNotifyToggle"><span class="switch"></span>Notify me when something's off</label>
+      <label class="toggle"><input type="checkbox" id="hlSpaceToggle"><span class="switch"></span>Measure Docker, WSL and package caches (every few hours)</label>
       <div class="hl-thresholds" id="hlThresholds">
         <label class="field-label">GPU hot at<span class="hl-unit"><input class="field" type="number" data-key="gpuWarn" min="60" max="100">°C</span></label>
         <label class="field-label">CPU hot at<span class="hl-unit"><input class="field" type="number" data-key="cpuWarn" min="60" max="105">°C</span></label>
+        <label class="field-label">Drive hot at<span class="hl-unit"><input class="field" type="number" data-key="storageWarn" min="50" max="95">°C</span></label>
         <label class="field-label">Memory warning at<span class="hl-unit"><input class="field" type="number" data-key="ramWarn" min="70" max="98">%</span></label>
         <label class="field-label">Drive low under<span class="hl-unit"><input class="field" type="number" data-key="diskWarnGb" min="1" max="1000">GB</span></label>
+        <label class="field-label">Clutter warning at<span class="hl-unit"><input class="field" type="number" data-key="reclaimWarnGb" min="5" max="500">GB</span></label>
       </div>
-      <p class="muted small">"Very hot" is 8°C past the line. Shellby waits about 20 seconds before reacting, so short spikes during a game load don't count. Small drives warn at 10% free instead.</p>
-    </section>
+      <p class="muted small">"Very hot" is 8°C past the line. Shellby waits about 20 seconds before reacting, so short spikes during a game load don't count. Small drives warn at 10% free instead. Clutter is what Docker and the package caches could give back.</p>
+    </details>
 
     <section class="hl-claude" id="hlClaude" hidden>
       <div class="hl-claude-crab" aria-hidden="true">⚡</div>

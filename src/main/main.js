@@ -34,6 +34,7 @@ const { KNOWN_SEASONS } = require('./wardrobe/seasons');
 const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog } = require('./registry');
 const { itemHash } = require('./wardrobe/codes');
 const { HealthService } = require('./health/service');
+const processJob = require('./process-job');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const crabtools = require('./crabtools');
 const clipath = require('./clipath');
@@ -2085,7 +2086,7 @@ function showHealth() {
 }
 
 function createHealth() {
-  // Dev runs can fake a scenario (SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu);
+  // Dev runs can fake a scenario (SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu|hotdrive|cluttered);
   // screenshot runs always do. Packaged builds only ever read real sensors.
   const envFake = !app.isPackaged && FAKE_SCENARIOS.includes(process.env.SHELLBY_FAKE_HEALTH) ? process.env.SHELLBY_FAKE_HEALTH : null;
   health = new HealthService({
@@ -2098,6 +2099,7 @@ function createHealth() {
     getPanel: () => panel,
     confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
     selfPids: () => app.getAppMetrics().map(m => m.pid),
+    ownedPids: () => processJob.ownedPids(),
     fakeScenario: CAPTURE ? 'calm' : envFake,
     onMood: mood => { healthMood = mood; refreshCritter(); },
   });
@@ -5692,6 +5694,7 @@ ${r.detail}` });
   ipcMain.handle('health:ask', (_e, checkId) => (isStr(checkId) ? health.ask(checkId) : { ok: false, error: 'Unknown reading.' }));
   ipcMain.handle('health:hogs', (_e, metric) => health.hogs(isStr(metric) ? metric : null));
   ipcMain.handle('health:end-task', (_e, pid) => health.endTask(Number.isInteger(pid) ? pid : null));
+  ipcMain.handle('health:end-group', (_e, name) => health.endGroup(isStr(name) ? name : null));
   ipcMain.handle('health:startup', (_e, force) => health.startupItems({ force: force === true }));
   ipcMain.handle('health:ask-startup', () => health.askStartup());
   ipcMain.handle('health:set-startup', (_e, id, off) => health.setStartup(isStr(id) ? id : null, off === true));

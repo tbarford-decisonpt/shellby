@@ -3,7 +3,7 @@
 // passes in what it owns so this file never reaches into globals.
 const { HealthMonitor } = require('./monitor');
 const { createSensors } = require('./sensors');
-const { createFakeSensors, createFakeProcesses, createFakeStartup } = require('./fake');
+const { createFakeSensors, createFakeProcesses, createFakeStartup, createFakeSpace } = require('./fake');
 const { DEFAULT_THRESHOLDS, normalizeThresholds, askPrompt, rank, formatGb } = require('./rules');
 const space = require('./space');
 const hogs = require('./hogs');
@@ -49,6 +49,7 @@ class HealthService {
    *   onMood(mood|null): the critter shows it (only called while moods are on)
    *   confirm(spec) -> index of the button chosen in the isolated confirm window
    *   selfPids() -> every PID of Shellby's own, which End task never touches
+   *   ownedPids() -> Set of PIDs Shellby's tasks started and still have running
    */
   constructor(deps) {
     this.deps = deps;
@@ -67,14 +68,15 @@ class HealthService {
     this.startup = deps.startupReader || (fake ? createFakeStartup() : startup.createStartupReader());
     this.hogRead = null;
     this.shownHogs = new Map();   // pid -> process: the only ones endTask() will touch
+    this.shownGroups = new Map(); // lowercased name -> group: the only ones endGroup() will touch
     this.ending = false;
     this.shownStartup = new Map(); // id -> startup entry: the only ones setStartup() will touch
     this.switching = false;
     // Docker, WSL and the package caches. Measured rarely and well off the poll
     // loop: walking a cache is not something to do every five seconds.
-    this.space = deps.spaceProbe || space.createSpaceProbe();
+    this.space = deps.spaceProbe || (fake ? createFakeSpace(fake) : space.createSpaceProbe());
     this.spaceSnapshot = null;
-    this.monitor.on('sample', snap => this.toPanel('health', { ...snap, settings: this.settings }));
+    this.monitor.on('sample', snap => this.toPanel('health', { ...snap, settings: this.settings, space: this.spaceSnapshot }));
     this.monitor.on('mood', mood => deps.onMood(this.settings.moods ? mood : null));
     this.monitor.on('change', change => this.onChange(change));
     // readings() is the monitor's own list; this adds the one that doesn't come
@@ -147,7 +149,10 @@ class HealthService {
 
   /**
    * The busiest processes by 'cpu', 'gpu' or 'mem' (by default whichever
-   * explains the current mood): { ok, metric, procs: [{ pid, name, cpu, gpu, mem, locked }] }.
+   * explains the current mood), one by one and added up by app:
+   *   { ok, metric, total, procs: [{ pid, name, cpu, gpu, mem, owned, locked }],
+   *     groups: [{ name, count, cpu, gpu, mem, owned, locked }] }
+   * owned says Shellby's own tasks started it. Group PIDs stay here.
    */
   async hogs(metric) {
     const m = hogs.METRICS.includes(metric) ? metric : hogs.metricFor(this.monitor.mood?.id) || 'cpu';
@@ -155,10 +160,24 @@ class HealthService {
       this.hogRead = { at: Date.now(), promise: this.processes.read().catch(() => null) };
     }
     const all = await this.hogRead.promise;
-    if (!all) return { ok: false, metric: m, procs: [], error: "Shellby couldn't read the process list." };
+    if (!all) return { ok: false, metric: m, procs: [], groups: [], error: "Shellby couldn't read the process list." };
+    let owned;
+    try { owned = this.deps.ownedPids?.() || new Set(); } catch { owned = new Set(); }
     const top = hogs.topBy(all, m);
+    const groups = hogs.groupByName(all, m, hogs.TOP_N, owned);
     this.shownHogs = new Map(top.map(p => [p.pid, p]));
-    return { ok: true, metric: m, procs: top.map(p => ({ ...p, locked: this.lockedReason(p) })) };
+    this.shownGroups = new Map(groups.map(g => [g.name.toLowerCase(), g]));
+    return {
+      ok: true, metric: m, total: all.length,
+      procs: top.map(p => ({ ...p, owned: owned.has(p.pid), locked: this.lockedReason(p) })),
+      groups: groups.map(({ pids, ...g }) => ({ ...g, locked: g.count > 1 ? this.groupLock(g) : this.lockedReason(all.find(p => p.pid === pids[0])) })),
+    };
+  }
+
+  // A group is ended by name, so a protected name locks the lot; Shellby's own
+  // PIDs inside an otherwise endable group are just skipped by endGroup().
+  groupLock(group) {
+    return hogs.protectedReason({ pid: -1, name: group.name }, []);
   }
 
   lockedReason(proc) {
@@ -199,6 +218,58 @@ class HealthService {
     const result = await this.processes.end(pid);
     if (result.ok) { this.shownHogs.delete(pid); this.hogRead = null; }
     return result;
+  }
+
+  /**
+   * End every process in one app group from the last hogs() list, after one
+   * question in the confirm window. Each PID is checked again afterwards, in a
+   * single tasklist read, and only ended if it still runs under the same name.
+   * -> { ok, ended, gone, failed, error? } or { ok: false, cancelled: true }.
+   */
+  async endGroup(name) {
+    const group = typeof name === 'string' ? this.shownGroups.get(name.toLowerCase()) : null;
+    if (!group) return { ok: false, error: 'That one is no longer in the list. Refresh and try again.' };
+    const locked = this.groupLock(group);
+    if (locked) return { ok: false, error: locked };
+    const notSelf = () => {
+      const self = new Set([process.pid, process.ppid, ...(this.deps.selfPids?.() || [])]);
+      return group.pids.filter(pid => !self.has(pid));
+    };
+    const pids = notSelf();
+    if (!pids.length) return { ok: false, error: "That's Shellby himself." };
+    if (this.ending) return { ok: false, error: 'Shellby is already asking about another one.' };
+    this.ending = true;
+    let answer;
+    try {
+      answer = await this.deps.confirm({
+        icon: '🛑', danger: true,
+        title: pids.length === 1 ? `End ${group.name}?` : `End all ${pids.length} ${group.name} processes?`,
+        message: `Windows closes ${pids.length === 1 ? group.name : `every ${group.name} process`} straight away, like End task in Task Manager.`,
+        detail: `Together: ${group.cpu}% CPU${group.gpu != null ? `, ${group.gpu}% GPU` : ''}, ${formatGb(group.mem / 1024 ** 3)} of memory.${group.owned ? ` ${group.owned} of them were started by Shellby's tasks.` : ''}`,
+        note: "Anything unsaved in them is lost. If it's an app you have open, closing it yourself is safer.",
+        buttons: [{ label: pids.length === 1 ? 'End task' : 'End all', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+    } finally {
+      this.ending = false;
+    }
+    if (answer !== 0) return { ok: false, cancelled: true };
+    const now = await this.processes.names?.();
+    if (!now) return { ok: false, error: "Shellby couldn't check those processes just now. Try again." };
+    // Shellby's own PIDs again, as of now: one may have been reused while the
+    // question was open. The names were read in one go just above, and ending is
+    // a plain TerminateProcess each, so the gap a PID could be reused in (and
+    // then only by a process of the same name the user agreed to end) is tiny.
+    const stillNotSelf = new Set(notSelf());
+    let ended = 0, gone = 0, failed = 0, error = null;
+    for (const pid of pids.filter(p => stillNotSelf.has(p))) {
+      const running = now.get(pid);
+      if (!running || running.toLowerCase() !== group.name.toLowerCase()) { gone++; continue; }
+      const r = await this.processes.end(pid);
+      if (r.ok) ended++; else { failed++; error = error || r.error; }
+    }
+    this.shownGroups.delete(group.name.toLowerCase());
+    this.hogRead = null;
+    return { ok: ended + gone > 0 || !failed, ended, gone, failed, error };
   }
 
   /**

@@ -4,7 +4,7 @@ const {
   step, moodFor, describe, askPrompt, normalizeThresholds, limitsFor, targetLevel, DEFAULT_THRESHOLDS, formatGb,
 } = require('../src/main/health/rules');
 const { parseNvidiaSmi, parseLhm, parseSensorValue, sensorKind, cpuPercent, parseDriveList, cleanName } = require('../src/main/health/sensors');
-const { HealthMonitor } = require('../src/main/health/monitor');
+const { HealthMonitor, historyPoint } = require('../src/main/health/monitor');
 const { HealthService, normalizeHealthSettings } = require('../src/main/health/service');
 
 const GB = 1024 ** 3;
@@ -439,4 +439,29 @@ test('service: settings are validated and clamped', () => {
     gpuWarn: 100, cpuWarn: 85, ramWarn: 90, diskWarnGb: 50, storageWarn: 70, reclaimWarnGb: 40,
   });
   assert.equal(normalizeHealthSettings(null, { lhmPort: 9000 }).lhmPort, 9000);
+});
+
+test("monitor: snapshots carry each check's reading, and live ones the newest history point", async () => {
+  const state = { gpuTemp: 61, cFreeGb: 300 };
+  const m = new HealthMonitor({ sensors: fakeSensors(state), getThresholds: () => T, now: () => 0 });
+  const live = [];
+  m.on('sample', s => live.push(s));
+  await m.poll();
+  const snap = m.snapshot();
+  assert.equal(snap.checks['gpu-temp:0'].reading.kind, 'gpu-temp');
+  assert.equal(snap.checks['gpu-temp:0'].reading.value, 61);
+  assert.equal(snap.point, undefined);
+  assert.equal(live[0].history, undefined);
+  assert.deepEqual(live[0].point, snap.history.at(-1));
+});
+
+test("historyPoint keeps the first GPU's keys and numbers the rest, plus drive temperatures", () => {
+  const p = historyPoint({
+    at: 5, cpu: { load: 12.345, temp: 60 }, ram: { pct: 40 },
+    gpus: [{ load: 90, temp: 70 }, { load: 10, temp: 45.06 }],
+    storage: [{ temp: 41 }, { temp: null }],
+  });
+  assert.deepEqual(p, { at: 5, cpu: 12.3, cpuT: 60, ram: 40, gpu: 90, gpuT: 70, gpu1: 10, gpuT1: 45.1, stT0: 41, stT1: null });
+  const none = historyPoint({ at: 1, cpu: { load: 1, temp: null }, ram: null, gpus: [] });
+  assert.deepEqual(none, { at: 1, cpu: 1, cpuT: null, ram: null, gpu: null, gpuT: null });
 });
