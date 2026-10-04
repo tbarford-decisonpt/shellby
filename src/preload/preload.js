@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('shellby', {
   bootstrap: invoke('app:bootstrap'),
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
+  claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
+  onClaudeStatus: on('claude:status'), // re-checked after the sign-in window closes, or a sign-out
   locateClaude: invoke('claude:locate'), // when the search missed it (unusual install)
 
   // tabs + tasks

@@ -4164,6 +4164,30 @@ function registerIpc() {
   // first time the panel asked, so the same run behaved differently depending on
   // whether the machine happened to have Claude Code installed.
   ipcMain.handle('claude:status', async () => (claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() })));
+  // Checks again and tells the panel, so Settings and onboarding follow a
+  // sign-in or sign-out without a "Check again" press.
+  async function recheckClaude() {
+    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() });
+    refreshStatusLine();
+    send(panel, 'claude:status', claudeStatus);
+    return claudeStatus;
+  }
+  // Opens its own console window; the CLI walks the user through the browser
+  // sign-in. When that window closes (signed in, or given up), check again.
+  function startClaudeLogin() {
+    const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+    if (!exe) return false;
+    try {
+      const child = require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false });
+      child.on('error', err => log.warn('claude auth login failed to start', err.message));
+      child.on('exit', () => { recheckClaude().catch(() => { /* the next check will tell */ }); });
+      child.unref();
+      return true;
+    } catch (err) {
+      log.warn('claude auth login failed to start', err.message);
+      return false;
+    }
+  }
   // "Find it myself…": for installs in places the search can't guess — a
   // portable copy, another drive, a company image. The file is run once to prove
   // it really is Claude Code before the path is kept, so a wrong pick is
@@ -4189,12 +4213,34 @@ function registerIpc() {
     refreshStatusLine();
     return { ok: true, status: claudeStatus };
   });
-  ipcMain.handle('claude:login', () => {
+  ipcMain.handle('claude:login', () => startClaudeLogin());
+  // Signing out (and "Switch account", which signs straight back in) runs
+  // Claude Code's own `auth logout`: the sign-in is Claude Code's, not ours.
+  ipcMain.handle('claude:logout', async (_e, { thenSignIn = false } = {}) => {
     const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-    if (!exe) return false;
-    // Opens its own console window; the CLI walks the user through the browser sign-in.
-    require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
-    return true;
+    if (!exe) return { ok: false, error: 'Claude Code not found.', status: claudeStatus };
+    const busy = manager?.aggregate?.busy || 0;
+    if (busy) {
+      const r = await dialog.showMessageBox(panel, {
+        type: 'warning', buttons: [thenSignIn ? 'Switch anyway' : 'Sign out anyway', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+        message: `${busy === 1 ? 'A task is' : `${busy} tasks are`} still running.`,
+        detail: 'Signing out of Claude Code can stop it partway. Let it finish first if you can.',
+      });
+      if (r.response !== 0) return { ok: false, cancelled: true, status: claudeStatus };
+    }
+    const out = await runCli(exe, ['auth', 'logout'], 30000);
+    await recheckClaude();
+    if (claudeStatus?.loggedIn && claudeStatus.billingEnv?.length) {
+      // An API key in the environment signs Claude Code in by itself; logout can't remove it.
+      return { ok: false, error: `Still signed in through ${claudeStatus.billingEnv.join(', ')}. Turn on "Always use my Claude plan" to ignore it.`, status: claudeStatus };
+    }
+    if (!out.ok && claudeStatus?.loggedIn) {
+      log.warn('claude auth logout failed', (out.stderr || out.err?.message || '').slice(0, 300));
+      return { ok: false, error: "Claude Code didn't sign out. Try `claude auth logout` in a terminal.", status: claudeStatus };
+    }
+    log.info('signed out of Claude Code', thenSignIn ? '(switching account)' : '');
+    if (thenSignIn) startClaudeLogin();
+    return { ok: true, status: claudeStatus };
   });
 
   // ---- tabs

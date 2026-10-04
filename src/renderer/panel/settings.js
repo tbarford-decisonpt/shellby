@@ -91,6 +91,27 @@
     $('temperNote').hidden = !t;
     if (t) $('temperNote').textContent = `${t.emoji} Your crab is ${t.name.toLowerCase()}. ${t.blurb}`;
     $('pushToTalkToggle').checked = !!state.settings.pushToTalk;
+    renderClaudeAccount();
+    renderFacts();
+  }
+
+  // Who Claude Code is signed in as, with sign out and switch beside it.
+  // Hidden in just-the-crab mode and when Claude Code isn't installed: then
+  // there's nothing to sign in to, and the button above sets it up.
+  function renderClaudeAccount() {
+    const st = state.status || {};
+    $('claudeAccount').hidden = !st.installed || SB.isCrabOnly?.();
+    const signedIn = !!st.loggedIn;
+    $('claudeWho').textContent = signedIn ? st.email || 'Signed in' : 'Not signed in';
+    $('claudePlan').textContent = signedIn
+      ? (st.subscriptionType ? `${st.subscriptionType[0].toUpperCase()}${st.subscriptionType.slice(1)} plan` : st.authMethod || 'claude.ai')
+      : 'Sign in with your Claude account to give Shellby tasks.';
+    $('claudeSwitch').hidden = !signedIn;
+    $('claudeSignOut').hidden = !signedIn;
+    $('claudeSignIn').hidden = signedIn;
+  }
+
+  function renderFacts() {
     const st = state.status || {};
     const facts = [
       ['Shellby', `v${state.version}`],
@@ -152,6 +173,34 @@
     renderSettings();
     SB.toast(e.target.checked ? 'New conversations will use your Claude plan.' : 'New conversations will sign in however Claude Code is set up.');
   });
+  SB.renderClaudeAccount = renderClaudeAccount;
+  const accountBusy = on => ['claudeSwitch', 'claudeSignOut', 'claudeSignIn'].forEach(id => { $(id).disabled = on; });
+  async function claudeSignOut(thenSignIn) {
+    accountBusy(true);
+    try {
+      const r = await api.claudeLogout({ thenSignIn });
+      if (r.status) state.status = r.status;
+      renderSettings();
+      if (r.cancelled) return;
+      if (!r.ok) return SB.toast(r.error || "Couldn't sign out.", { ms: 6000 });
+      SB.toast(thenSignIn ? 'Signed out. Sign in with the other account in the window that opened.' : 'Signed out of Claude Code.', { ms: thenSignIn ? 6000 : 3000 });
+    } finally { accountBusy(false); }
+  }
+  $('claudeSignOut').addEventListener('click', () => claudeSignOut(false));
+  $('claudeSwitch').addEventListener('click', () => claudeSignOut(true));
+  $('claudeSignIn').addEventListener('click', async () => {
+    if (await api.claudeLogin()) SB.toast('Finish signing in in the window that opened. Shellby notices when you’re done.', { ms: 6000 });
+    else SB.toast('Claude Code not found.');
+  });
+  // Pushed after the sign-in window closes, or a sign-out: follow it wherever it shows.
+  api.onClaudeStatus(status => {
+    const was = state.status || {};
+    state.status = status;
+    if (state.view === 'settings') renderSettings();
+    if (state.view === 'onboarding') renderOnboarding();
+    if (status?.loggedIn && (!was.loggedIn || was.email !== status.email)) SB.toast(`Signed in${status.email ? ` as ${status.email}` : ''}.`);
+  });
+
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
   // Turning it on starts Windows' recognizer first, which can take a second or two.
@@ -772,7 +821,7 @@
         signedIn
           ? (s.warning ? h('span', { class: 'warn', text: s.warning }) : `${s.email || 'Signed in'} · ${s.subscriptionType ? s.subscriptionType.toUpperCase() + ' plan' : 'claude.ai'}`)
           : 'Shellby uses your Claude Pro or Max plan through Claude Code. There are no API keys and nothing is billed per token.',
-        installed ? [h('button', { class: 'btn primary', type: 'button', onclick: async () => { await api.claudeLogin(); SB.toast('Finish signing in, then press Check again.'); } }, 'Sign in'), recheck()] : null),
+        installed ? [h('button', { class: 'btn primary', type: 'button', onclick: async () => { await api.claudeLogin(); SB.toast('Finish signing in in the window that opened. Shellby notices when you’re done.', { ms: 6000 }); } }, 'Sign in'), recheck()] : null),
     );
     const pick = async mode => {
       if (mode === 'autonomous') return SB.toast('You can turn on Autonomous later in Settings.');

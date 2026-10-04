@@ -21,6 +21,7 @@
       : 'Shellby does tasks for you with Claude Code. You can switch to just the crab (Health, Wardrobe and trophies) any time; your conversations stay saved.';
     $('claudeModeBtn').textContent = on ? 'Set up Claude Code' : 'Switch to just the crab';
     $('claudeModeBtn').className = on ? 'btn primary' : 'btn';
+    SB.renderClaudeAccount?.(); // no account row in just-the-crab mode
   }
 
   const LEDES = {
