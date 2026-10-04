@@ -42,7 +42,7 @@ class Wardrobe extends EventEmitter {
   constructor({ config, builtinDir, userDir, now = () => new Date() }) {
     super();
     Object.assign(this, { config, builtinDir, userDir, now });
-    this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), packs: [], errors: [] };
+    this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), decor: new Map(), packs: [], errors: [] };
   }
 
   // ------------------------------------------------------------ persistence
@@ -65,7 +65,7 @@ class Wardrobe extends EventEmitter {
     return this.catalog;
   }
 
-  item(key) { return this.catalog.accessories.get(key) || this.catalog.effects.get(key) || this.catalog.voices.get(key) || this.catalog.skins.find(s => s.key === key) || null; }
+  item(key) { return this.catalog.accessories.get(key) || this.catalog.effects.get(key) || this.catalog.voices.get(key) || this.catalog.decor.get(key) || this.catalog.skins.find(s => s.key === key) || null; }
 
   // ------------------------------------------------------------ unlocking
   isUnlocked(item, d = this.data) {
@@ -94,7 +94,7 @@ class Wardrobe extends EventEmitter {
   collectSeasonals() {
     const d = this.data;
     const fresh = [];
-    for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.voices.values(), ...this.catalog.skins]) {
+    for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.voices.values(), ...this.catalog.decor.values(), ...this.catalog.skins]) {
       const s = item.unlock?.season;
       if (s && isActive(s, this.now()) && !d.collected.includes(item.key)) fresh.push(item.key);
     }
@@ -334,6 +334,11 @@ class Wardrobe extends EventEmitter {
     };
   }
 
+  // Every piece of tank decor, with whether it's unlocked and new (src/main/tank.js lays them out).
+  decorView(d = this.data, stats = this.stats) {
+    return [...this.catalog.decor.values()].map(item => ({ ...publicItem(item), locked: this.lockInfo(item, d, stats), isNew: d.newItems.includes(item.key) }));
+  }
+
   // Everything the Wardrobe screen shows.
   view() {
     const d = this.data;
@@ -374,6 +379,7 @@ function publicItem(item) {
   if (!item) return null;
   const { key, id, packId, name, description, slot, anchor, follows, pivot, palette, pixels, rarity, unlock, source, motion, count, speed, sprites } = item;
   const out = { key, id, packId, name, description, rarity, unlock, source };
+  if (item.category) return { ...out, kind: 'decor', category: item.category, layer: item.layer, palette: { ...palette }, pixels: [...pixels], frames: item.frames.map(f => [...f]), fps: item.fps, spots: item.spots.map(s => ({ kind: s.kind, at: [...s.at] })) };
   if (pixels) Object.assign(out, { slot, anchor, follows, pivot, palette: { ...palette }, pixels: [...pixels] });
   if (sprites) Object.assign(out, { motion, count, speed, sprites: sprites.map(s => ({ palette: { ...s.palette }, pixels: [...s.pixels] })) });
   if (item.lines) Object.assign(out, { lang: item.lang, fallback: item.fallback, sample: voiceSample(item), occasions: Object.keys(item.lines).length });

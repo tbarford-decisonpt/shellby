@@ -61,7 +61,8 @@ If something is wrong, the Wardrobe lists the pack with its warnings, for exampl
   "effects": [],                   // up to 50
   "skins": [],                     // up to 50
   "voices": [],                    // up to 20
-  "scenes": []                     // up to 60
+  "scenes": [],                    // up to 60
+  "decor": []                      // up to 100: things for his tank
 }
 ```
 
@@ -324,6 +325,34 @@ A scene can only use the animations and props Shellby already draws, which is wh
 
 Pack scenes don't count toward his Storyteller trophy or the scene count on the Us page. Those are for his own scenes.
 
+## Decor
+
+Decor goes in his tank (Shellby's screen → **Tank**, see [TANK.md](TANK.md)): castles, plants, rocks, treasures and lights, plus the floor and the back glass. Decor unlocks, gets a "new" dot and syncs like any other item.
+
+```jsonc
+{
+  "id": "lighthouse",
+  "name": "Lighthouse",
+  "description": "…",              // optional, up to 160 chars
+  "category": "structure",         // structure, plant, rock, treasure, bubbler, substrate or backdrop
+  "layer": "floor",                // optional: floor (default), back or float
+  "palette": { "w": "#f3e6cc", "r": "#e63946", "y": "#ffd23f", "Y": "#fff2b8" },
+  "pixels": ["..r..", ".yyy.", ".www.", ".rrr.", "wwwww"],   // up to 32×32
+  "frames": [["..r..", ".YYY.", ".www.", ".rrr.", "wwwww"]], // optional: 1–3 more pictures, the same size
+  "fps": 1,                        // with frames: 1–8 (default 2)
+  "spots": [{ "kind": "hide", "at": [2, 4] }],              // optional, up to 4
+  "rarity": "rare",
+  "unlock": { "achievement": "green-light" }
+}
+```
+
+- **`layer`:** `floor` pieces stand in one of three rows, and he walks between the back row and the front one. `back` pieces stand against the back glass, behind everything. `float` pieces hang in the water.
+- **`frames`** play in a loop after `pixels`: a plant swaying, a lamp flickering. Keep them gentle. With reduced motion on, only `pixels` is shown.
+- **`bubbler`** pieces on the floor get a column of bubbles rising from them. After dark, floating bubblers keep their glow.
+- **`spots`** are places on the piece he can use: `hide`, `sit`, `climb`, `sleep`, `nibble`, `open` or `peek`. `at` is `[x, y]` inside the piece, and `y` may go above it (up to −32) for something he sits on top of. He doesn't use spots yet; they're there so your piece is ready when he does.
+- **`substrate` and `backdrop`** are tiles the tank repeats: across the floor, or over the whole back glass. They have no `layer`, `frames` or `spots`. Keep them small (8×4 is plenty for a floor) and quiet, because everything else stands in front of them.
+- Decor ids share their keys with the rest of the pack, so a piece can't have the same id as one of your accessories, effects, voices or skins.
+
 ## Unlocking
 
 Items are available right away unless you add `unlock`. You can use one of these:
@@ -336,7 +365,7 @@ Items are available right away unless you add `unlock`. You can use one of these
 
 If an achievement or season id doesn't exist, the item is skipped with a warning. The ids you can use are listed below. They're defined in `src/main/wardrobe/achievements.js` and `src/main/wardrobe/seasons.js`.
 
-**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request), `tagged` (ship a project and earn its sticker), `sticker-bomb` (10 projects shipped), `shiny` (a sticker goes holo), `liftoff` (release a 1.0), `well-traveled` (stickers on 3 shells), `swap-meet` (a visiting friend leaves you a sticker), `beachcomber` (his first dug-up gift), `magpie` (25 gifts), `curator` (complete a set of finds), `x-marks` (secret: a legendary find), `best-friends` (reach Best friends), `peekaboo` (find him in hide and seek), `good-arm` (10 games of fetch), `player-two` (secret: he watches you finish 5 games), `on-air` (secret: he keeps quiet through 5 calls), `storyteller` (10 different little scenes), `gossip` (5 chats with visiting crabs).
+**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request), `tagged` (ship a project and earn its sticker), `sticker-bomb` (10 projects shipped), `shiny` (a sticker goes holo), `liftoff` (release a 1.0), `well-traveled` (stickers on 3 shells), `swap-meet` (a visiting friend leaves you a sticker), `beachcomber` (his first dug-up gift), `magpie` (25 gifts), `curator` (complete a set of finds), `x-marks` (secret: a legendary find), `best-friends` (reach Best friends), `peekaboo` (find him in hide and seek), `good-arm` (10 games of fetch), `player-two` (secret: he watches you finish 5 games), `on-air` (secret: he keeps quiet through 5 calls), `storyteller` (10 different little scenes), `gossip` (5 chats with visiting crabs), `moving-in` (the first piece in his tank), `interior-designer` (15 pieces in his tank at once).
 
 **Seasons** (local dates, both ends included):
 

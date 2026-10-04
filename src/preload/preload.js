@@ -297,6 +297,10 @@ contextBridge.exposeInMainWorld('shellby', {
   // the beach: a castle per project shipped, the tide, his finds (beach.js)
   getBeach: invoke('beach:get'),
   beachSeen: invoke('beach:seen'),
+  // his tank: decor you place and he lives among (tank.js)
+  getTank: invoke('tank:get'),
+  saveTank: invoke('tank:save'),
+  tankSeen: fire('tank:seen'),
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),

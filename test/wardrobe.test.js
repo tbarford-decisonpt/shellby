@@ -157,14 +157,17 @@ test('wardrobe: __proto__ keys cannot pollute prototypes', () => {
   assert.equal(Object.getPrototypeOf(ok.accessories[0].palette), null);
 });
 test('wardrobe: unknown fields are stripped', () => {
-  const { pack: p } = validatePack(pack({ evil: 1, accessories: [hat({ onClick: 'alert(1)', script: 'x' })], effects: [fx({ sprites: [{ palette: { b: '#000000' }, pixels: ['b'], extra: 1 }] })] }), known);
+  const { pack: p } = validatePack(pack({ evil: 1, accessories: [hat({ onClick: 'alert(1)', script: 'x' })], effects: [fx({ sprites: [{ palette: { b: '#000000' }, pixels: ['b'], extra: 1 }] })], decor: [{ id: 'rock', name: 'Rock', category: 'rock', palette: { r: '#888888' }, pixels: ['r'], onClick: 'alert(1)', spots: [{ kind: 'sit', at: [0, 0], extra: 1 }] }] }), known);
   assert.equal(p.evil, undefined);
-  assert.deepEqual(Object.keys(p).sort(), ['accessories', 'author', 'description', 'effects', 'homepage', 'id', 'name', 'scenes', 'skins', 'source', 'version', 'voices']);
+  assert.deepEqual(Object.keys(p).sort(), ['accessories', 'author', 'decor', 'description', 'effects', 'homepage', 'id', 'name', 'scenes', 'skins', 'source', 'version', 'voices']);
   assert.deepEqual(Object.keys(p.accessories[0]).sort(),
     ['anchor', 'description', 'follows', 'id', 'key', 'name', 'packId', 'palette', 'pivot', 'pixels', 'rarity', 'slot', 'source', 'unlock']);
   assert.deepEqual(Object.keys(p.effects[0]).sort(),
     ['count', 'description', 'id', 'key', 'motion', 'name', 'packId', 'rarity', 'source', 'speed', 'sprites', 'unlock']);
   assert.deepEqual(Object.keys(p.effects[0].sprites[0]).sort(), ['palette', 'pixels']);
+  assert.deepEqual(Object.keys(p.decor[0]).sort(),
+    ['category', 'description', 'fps', 'frames', 'id', 'key', 'layer', 'name', 'packId', 'palette', 'pixels', 'rarity', 'source', 'spots', 'unlock']);
+  assert.deepEqual(Object.keys(p.decor[0].spots[0]).sort(), ['at', 'kind']);
 });
 test('wardrobe: duplicate item ids keep the first; lists are capped', () => {
   const { pack: p, warnings } = validatePack(pack({ accessories: [hat({ name: 'First' }), hat({ name: 'Second' })] }), known);
@@ -204,7 +207,7 @@ test('wardrobe: loadCatalog merges builtin and user packs', () => {
   assert.deepEqual([...c.accessories.keys()], ['witch-hat', 'alpha/witch-hat']);
   assert.deepEqual([...c.effects.keys()], ['bats', 'alpha/bats']);
   assert.deepEqual(c.skins.map(s => s.id), ['ghost', 'alpha/ghost']);
-  assert.deepEqual(c.packs[1].counts, { accessories: 1, effects: 1, skins: 1, voices: 0, scenes: 0 });
+  assert.deepEqual(c.packs[1].counts, { accessories: 1, effects: 1, skins: 1, voices: 0, scenes: 0, decor: 0 });
   assert.equal(c.packs[1].file, path.join(userDir, 'a.json'));
   assert.equal(c.errors.length, 5);
   assert.ok(c.errors.some(e => e.startsWith('b.json: id reserved')));
@@ -412,6 +415,59 @@ test('addon schema is valid JSON and mirrors the validator enums', () => {
   assert.deepEqual(d.unlock.oneOf[2].properties.season.enum, [...seasons.KNOWN_SEASONS]);
 });
 
+// ---- tank decor
+const decorPiece = (over = {}) => ({ id: 'castle', name: 'Castle', category: 'structure', palette: { s: '#e6d3a0' }, pixels: ['s.s', 'sss'], ...over });
+
+test('wardrobe: decor normalizes with a floor layer, no frames and no spots by default', () => {
+  const { pack: p, warnings } = validatePack(pack({ decor: [decorPiece()] }), known);
+  assert.deepEqual(warnings, []);
+  const d = p.decor[0];
+  assert.equal(d.key, 'spooky-extras/castle');
+  assert.deepEqual([d.layer, d.frames, d.fps, d.spots, d.rarity], ['floor', [], 0, [], 'common']);
+  assert.deepEqual(d.unlock, { default: true });
+});
+
+test('wardrobe: decor keeps frames, fps and spots that fit the piece', () => {
+  const raw = decorPiece({ layer: 'back', frames: [['.ss', 'sss']], fps: 2, spots: [{ kind: 'hide', at: [1, 1] }, { kind: 'sit', at: [0, -1] }] });
+  const d = validatePack(pack({ decor: [raw] }), known).pack.decor[0];
+  assert.equal(d.layer, 'back');
+  assert.deepEqual(d.frames, [['.ss', 'sss']]);
+  assert.equal(d.fps, 2);
+  assert.deepEqual(d.spots, [{ kind: 'hide', at: [1, 1] }, { kind: 'sit', at: [0, -1] }]);
+});
+
+test('wardrobe: bad decor is skipped with a warning', () => {
+  const big = Array.from({ length: 33 }, () => 's');
+  const decor = [
+    decorPiece({ id: 'a', category: 'furniture' }),
+    decorPiece({ id: 'b', layer: 'ceiling' }),
+    decorPiece({ id: 'c', pixels: big }),
+    decorPiece({ id: 'd', frames: [['sss']] }),
+    decorPiece({ id: 'e', frames: [['s.s', 'sss']], fps: 9 }),
+    decorPiece({ id: 'f', fps: 2 }),
+    decorPiece({ id: 'g', spots: [{ kind: 'dance', at: [0, 0] }] }),
+    decorPiece({ id: 'h', spots: [{ kind: 'hide', at: [5, 0] }] }),
+    decorPiece({ id: 'i', category: 'substrate', layer: 'floor' }),
+    decorPiece({ id: 'j', category: 'backdrop', spots: [{ kind: 'hide', at: [0, 0] }] }),
+    decorPiece({ id: 'k', frames: [['s.s', 'sss'], ['s.s', 'sss'], ['s.s', 'sss'], ['s.s', 'sss']] }),
+    decorPiece({ id: 'l', unlock: { achievement: 'nope' } }),
+    decorPiece({ id: 'ok' }),
+  ];
+  const { pack: p, warnings } = validatePack(pack({ decor }), known);
+  assert.deepEqual(p.decor.map(d => d.id), ['ok']);
+  assert.equal(warnings.length, 12);
+  assert.ok(warnings.every(w => w.startsWith('skipped decor')));
+});
+
+test('wardrobe: decor can’t take a key another item already has', () => {
+  const dir = tmp();
+  fs.writeFileSync(path.join(dir, 'a.json'), JSON.stringify(pack({ decor: [decorPiece({ id: 'witch-hat' })] })));
+  const c = loadCatalog({ userDir: dir, ...known });
+  assert.equal(c.decor.size, 0);
+  assert.ok(c.packs[0].warnings.some(w => /skipped decor witch-hat: key .* already taken/.test(w)));
+  assert.equal(c.packs[0].counts.decor, 1);
+});
+
 // ---- the built-in pack (created separately; skipped until it exists)
 const BASE = path.join(__dirname, '..', 'src', 'wardrobe', 'base.pack.json');
 test('built-in pack validates cleanly and provides every reward and season outfit item', { skip: !fs.existsSync(BASE) && 'src/wardrobe/base.pack.json not created yet' }, () => {
@@ -428,7 +484,7 @@ test('built-in pack validates cleanly and provides every reward and season outfi
   const accessories = all.accessories;
   const effects = all.effects;
   for (const a of ach.ACHIEVEMENTS) {
-    for (const r of a.rewards) assert.ok(accessories.has(r) || effects.has(r), `${a.id} reward ${r} missing from the built-in packs`);
+    for (const r of a.rewards) assert.ok(accessories.has(r) || effects.has(r) || all.decor.has(r), `${a.id} reward ${r} missing from the built-in packs`);
   }
   for (const s of seasons.SEASONS) {
     for (const [slot, key] of Object.entries(s.outfit)) {

@@ -250,7 +250,7 @@ test('the Wardrobe wears a voice, hands it to the runtime, and lets it go when t
   const tile = v.voices.find(x => x.key === 'pirate-talk/pirate');
   assert.deepEqual(tile.sample, ['arr, on it', 'booty!']);
   assert.equal(tile.lines, undefined, 'the panel gets a sample, not the whole voice');
-  assert.deepEqual(v.packs.find(p => p.id === 'pirate-talk').counts, { accessories: 0, effects: 0, skins: 0, voices: 1, scenes: 1 });
+  assert.deepEqual(v.packs.find(p => p.id === 'pirate-talk').counts, { accessories: 0, effects: 0, skins: 0, voices: 1, scenes: 1, decor: 0 });
 
   w.remove('pirate-talk');
   assert.equal(w.dialogue().voice, null);

@@ -117,6 +117,7 @@ const { registerProjectsIpc } = require('./projects/ipc');
 const { readRepo } = require('./projects/local');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
+const { registerTankIpc } = require('./ipc/tank');
 const { DevServers } = require('./devservers/service');
 const devRunner = require('./devservers/runner');
 const devScripts = require('./devservers/scripts');
@@ -5680,6 +5681,14 @@ ${r.detail}` });
       return r.canceled ? null : r.filePaths[0] || null;
     },
     openPath: p => shell.openPath(p),
+  });
+
+  // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
+  registerTankIpc(ipcMain, {
+    config, stat,
+    wardrobe: () => wardrobe,
+    level: () => currentLevel(),
+    shipped: () => stickers.stats(stickerState()).stickers,
   });
 
   // ---- toolbox

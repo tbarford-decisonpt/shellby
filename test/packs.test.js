@@ -64,8 +64,8 @@ test('packs: pack ids are unique and none shadows another', () => {
 //   gate but no reward entry  → the item unlocks with no notification and no "new" badge
 //   reward entry but no gate  → the celebration claims you unlocked something you always had
 test('packs: achievement gates and reward lists agree both ways', () => {
-  const { accessories, effects } = catalog();
-  const items = [...accessories.values(), ...effects.values()];
+  const { accessories, effects, decor } = catalog();
+  const items = [...accessories.values(), ...effects.values(), ...decor.values()];
   const rewardOf = new Map();
   for (const a of ACHIEVEMENTS) for (const key of a.rewards) rewardOf.set(key, a.id);
 
@@ -85,10 +85,24 @@ test('packs: achievement gates and reward lists agree both ways', () => {
 });
 
 test('packs: unlockable items only reference achievements and seasons that exist', () => {
-  const { accessories, effects, skins } = catalog();
-  for (const item of [...accessories.values(), ...effects.values(), ...skins]) {
+  const { accessories, effects, skins, decor } = catalog();
+  for (const item of [...accessories.values(), ...effects.values(), ...skins, ...decor.values()]) {
     const u = item.unlock;
     if (u.achievement) assert.ok(KNOWN_ACHIEVEMENTS.has(u.achievement), `${item.key}: ${u.achievement}`);
     if (u.season) assert.ok(KNOWN_SEASONS.has(u.season), `${item.key}: ${u.season}`);
   }
+});
+
+// The tank (src/main/tank.js) falls back to these when nothing else is chosen,
+// and a new tank should have something to put in it straight away.
+test('packs: the tank has its default floor and back glass, and a starter set', () => {
+  const { decor } = catalog();
+  const { DEFAULT_STYLE } = require('../src/main/tank');
+  assert.equal(decor.get(DEFAULT_STYLE.substrate)?.category, 'substrate');
+  assert.equal(decor.get(DEFAULT_STYLE.backdrop)?.category, 'backdrop');
+  assert.equal(decor.get(DEFAULT_STYLE.substrate).unlock.default, true);
+  assert.equal(decor.get(DEFAULT_STYLE.backdrop).unlock.default, true);
+  const starters = [...decor.values()].filter(d => d.unlock.default && d.layer);
+  assert.ok(starters.length >= 10, `expected a starter set of at least 10 pieces, got ${starters.length}`);
+  for (const cat of ['structure', 'plant', 'rock']) assert.ok(starters.some(d => d.category === cat), `no starter ${cat}`);
 });

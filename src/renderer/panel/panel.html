@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="beach.css">
+<link rel="stylesheet" href="tank.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -505,6 +506,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -573,6 +575,7 @@
         <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -659,6 +662,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -709,6 +713,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -739,6 +744,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -811,6 +817,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" aria-current="page" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -840,6 +847,81 @@
     <section class="us-sec" aria-labelledby="bcKeyTitle">
       <div class="us-h"><h3 id="bcKeyTitle">How it grows</h3><span class="us-h-meta">Nothing on it ever washes away</span></div>
       <ul class="bc-key" id="bcKey"></ul>
+    </section>
+  </main>
+
+  <!-- ====================== TANK: a home you decorate (tank.js, tank-paint.js, src/main/tank.js) ====================== -->
+  <main class="view view-tank" id="tankView">
+    <div class="view-head">
+      <h2 class="sr-only">His tank</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="tk-hero" aria-labelledby="tkTitle">
+      <div class="tk-head">
+        <div>
+          <h3 id="tkTitle">His tank</h3>
+          <p class="tk-sub" id="tkSub"></p>
+        </div>
+        <div class="tk-tools">
+          <button type="button" class="btn primary slim-btn" id="tkDecorate">Decorate</button>
+          <button type="button" class="btn ghost slim-btn" id="tkUndo" hidden title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkRedo" hidden title="Redo (Ctrl+Y)">Redo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkCancel" hidden>Cancel</button>
+          <button type="button" class="btn primary slim-btn" id="tkDone" hidden>Done</button>
+        </div>
+      </div>
+      <div class="tk-stage" id="tkStage">
+        <div class="tk-frame">
+          <canvas class="tk-canvas" id="tkCanvas" role="img" aria-label="His tank"></canvas>
+          <div class="tk-hits" id="tkHits" role="group" aria-label="In the tank"></div>
+        </div>
+        <div class="tk-empty" id="tkEmpty" hidden>
+          <b>Nothing in here yet</b>
+          <span>Press Decorate to give him a castle, some plants, or the finds he’s dug up for you.</span>
+        </div>
+      </div>
+      <div class="tk-picked" id="tkPicked" hidden>
+        <span class="tk-picked-name" id="tkPickedName"></span>
+        <button type="button" class="btn ghost slim-btn" id="tkFlip" title="Flip (F)">Flip</button>
+        <button type="button" class="btn ghost slim-btn" id="tkBack" title="Send back ([)">Send back</button>
+        <button type="button" class="btn ghost slim-btn" id="tkForward" title="Bring forward (])">Bring forward</button>
+        <button type="button" class="btn ghost slim-btn" id="tkAway" title="Put away (Delete)">Put away</button>
+      </div>
+      <p class="tk-keys muted small" id="tkKeysHint" hidden><span id="tkKeys">Arrow keys move it (Shift for bigger steps), Up and Down change the row, F flips it, [ and ] send it back or bring it forward, Delete puts it away.</span></p>
+      <p class="tk-note" id="tkNote" hidden></p>
+      <p class="tk-note muted small" id="tkMissing" hidden></p>
+      <p class="sr-only" id="tkLive" aria-live="polite"></p>
+    </section>
+    <section class="tk-tray" id="tkTray" hidden aria-label="Decor">
+      <div class="seg tk-shelves" id="tkShelves" role="tablist" aria-label="Shelf" data-roving></div>
+      <div class="tk-items" id="tkItems" role="group"></div>
+      <div class="tk-settings">
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Tank</span>
+          <div class="seg tk-sizes" id="tkSizes" role="radiogroup" aria-label="Tank size" data-roving></div>
+        </div>
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Light</span>
+          <div class="seg tk-light" id="tkLight" role="radiogroup" aria-label="Light" data-roving>
+            <button type="button" role="radio" data-light="clock" title="Day and night follow your clock">Clock</button>
+            <button type="button" role="radio" data-light="day">Day</button>
+            <button type="button" role="radio" data-light="night">Night</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="us-sec" id="tkKeySec" aria-labelledby="tkKeyTitle">
+      <div class="us-h"><h3 id="tkKeyTitle">Where his decor comes from</h3><span class="us-h-meta" id="tkKeyMeta"></span></div>
+      <ul class="tk-key" id="tkKey"></ul>
     </section>
   </main>
 
@@ -1624,6 +1706,8 @@
 <script src="card.js"></script>
 <script src="beach-paint.js"></script>
 <script src="beach.js"></script>
+<script src="tank-paint.js"></script>
+<script src="tank.js"></script>
 <script src="celebrate.js"></script>
 <script src="recap.js"></script>
 <script src="outlook.js"></script>
