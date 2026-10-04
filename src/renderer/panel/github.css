@@ -10,6 +10,11 @@
 .gh-sync .slim-btn { height: 28px; }
 .ext-status.bad { color: var(--coral); }
 .gh-note { margin: -4px 0 10px 46px !important; }
+/* Sign in sits under the lede, ahead of the toggles it asks for. */
+.gh-signin { margin: 0 0 12px; }
+.gh-code + .toggle { margin-top: 12px; }
+/* Two plain subheads split the toggles: the crab on show, then your code. */
+.gh-sub { margin: 16px 0 4px; font-size: 12.5px; font-weight: 700; color: var(--sand-dim); }
 .gh-code { margin-top: 6px; padding: 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--glass-dim); text-align: center; }
 .gh-code p { margin: 0 0 8px !important; }
 .gh-code-text { display: block; margin: 4px auto 12px; font: 600 26px/1.2 "Martian Mono", monospace; letter-spacing: .12em; color: var(--glass); user-select: all; }

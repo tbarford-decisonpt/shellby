@@ -1178,6 +1178,10 @@
           <button type="button" class="btn ghost" id="openSkinsBtn">Open skins folder</button>
           <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
         </div>
+      </section>
+
+      <section class="setting-group" id="moveGroup" data-nav="Moving around">
+        <h3>Moving around</h3>
         <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
         <label class="toggle"><input type="checkbox" id="onTopToggle"><span class="switch"></span>Keep him on top of your apps instead of on the desktop</label>
         <div class="row wrap">
@@ -1212,8 +1216,13 @@
             </select>
           </label>
         </div>
+        <p class="small muted">Rub the mouse back and forth over him to pet him, or flick him while dragging and he goes flying. Drop him on a title bar and he sits there; right-click him up there to send him down or keep him off that app. Throw him hard at a screen edge and he hangs on. Click a pal to say hello.</p>
+      </section>
+
+      <section class="setting-group" id="personalityGroup" data-nav="Personality">
+        <h3>Personality</h3>
         <div class="row wrap">
-          <label class="inline-label" for="chatterSelect">Personality
+          <label class="inline-label" for="chatterSelect">How much he talks
             <select id="chatterSelect" class="field slim">
               <option value="quiet">Quiet</option>
               <option value="normal">Normal</option>
@@ -1221,6 +1230,14 @@
             </select>
           </label>
         </div>
+        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble. Normal lets him say a few words about what he's up to; Chatty talks and plays more. He always keeps quiet while guarding your focus or while you're on a call.</p>
+        <p class="small temper-note" id="temperNote" hidden></p>
+        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
+        <p class="small muted">He gets peckish, sandy and sleepy, and a little mopey if you ignore him. Never worse than that, and it never costs you anything you've earned. Feed him snacks you earn by getting things done.</p>
+      </section>
+
+      <section class="setting-group" id="soundGroup" data-nav="Sound">
+        <h3>Sound</h3>
         <div class="row wrap">
           <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
           <label class="toggle"><input type="checkbox" id="soundFxToggle"><span class="switch"></span>Footsteps, bumps and ta-das</label>
@@ -1241,17 +1258,12 @@
             </select>
           </label>
         </div>
-        <p class="small muted">His claws patter when he walks, he bonks off the screen's edges when thrown, and a deploy, a trophy or a new level gets a ta-da. All of it is made on the spot, not played from files, and goes silent while he guards your focus, while you're on a call, or while the screen is locked.</p>
-        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
-        <p class="small temper-note" id="temperNote" hidden></p>
-        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
-        <p class="small muted">He gets peckish, a bit sandy, sleepy, and a little mopey if you're right there and ignore him. Never worse than that, and it never costs you anything you've earned. Feed him snacks you earn by getting things done. Off keeps him content all the time.</p>
-        <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
-        <p class="small muted">He also climbs the sides of your screen and hangs from the top of it. Throw him hard at the edge and he sticks; put him down right beside it and he grabs on. Pals are little crabs of his own who hang out with him on the floor, nap when he naps and cheer when a task goes well. Click one to say hello.</p>
+        <p class="small muted">It all goes silent while he guards your focus, while you're on a call, or while the screen is locked.</p>
       </section>
 
-      <section class="setting-group mischief-group" id="mischiefGroup" data-nav="Mischief">
-        <h3>Mischief</h3>
+      <p class="settings-sub" id="extrasLabel">Extras <span>Off until you turn them on</span></p>
+      <details class="setting-group setting-fold mischief-group" id="mischiefGroup" data-nav="Mischief" data-fold-on="mischiefPranks">
+        <summary><h3>Mischief</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Off unless you turn it on. A cheeky crab gets up to a little harmless trouble now and then, Desktop Goose style. He never does it while you're clicking, on a call, guarding your focus, gaming or presenting, or while a task is running.</p>
         <div class="row wrap">
           <label class="inline-label" for="mischiefSelect">How cheeky
@@ -1270,10 +1282,10 @@
           <label class="toggle"><input type="checkbox" data-prank="notes"><span class="switch"></span>Drag little notes onto your desktop (click one to throw it away)</label>
         </fieldset>
         <p class="small muted" id="mischiefNote" hidden>Right-click him for <b>Do something cheeky</b> to see it now, or <b>Behave for an hour</b> when you need him to.</p>
-      </section>
+      </details>
 
-      <section class="setting-group" id="musicGroup" data-nav="Music">
-        <h3>Listening along</h3>
+      <details class="setting-group setting-fold" id="musicGroup" data-nav="Music" data-fold-on="npBody">
+        <summary><h3>Listening along</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Shellby notices what's playing on this PC — Spotify, a browser tab, anything that shows up in the volume flyout — and puts his headphones on. Read from Windows itself: no account, and nothing leaves the PC.</p>
         <label class="toggle"><input type="checkbox" id="npEnabled"><span class="switch"></span>Notice what I'm listening to</label>
         <div class="np-body" id="npBody" hidden>
@@ -1281,20 +1293,20 @@
           <label class="toggle"><input type="checkbox" id="npRemarks"><span class="switch"></span>Let him remark on it now and then</label>
           <p class="small ext-status" id="npStatus"></p>
         </div>
-      </section>
+      </details>
 
-      <section class="setting-group" id="typingGroup" data-nav="Typing along">
-        <h3>Typing along</h3>
+      <details class="setting-group setting-fold" id="typingGroup" data-nav="Typing along" data-fold-on="typingBody">
+        <summary><h3>Typing along</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">While you type, in any app, he taps along on a little keyboard, bobs to keep up when you're quick, and watches a long fast burst with stars in his eyes. He hears <em>that</em> a key was pressed, never which one, and none of it leaves the PC.</p>
         <label class="toggle"><input type="checkbox" id="typingEnabled"><span class="switch"></span>Tap along while I type</label>
         <div id="typingBody" hidden>
           <label class="toggle"><input type="checkbox" id="typingRemarks"><span class="switch"></span>Tell me how fast a burst was</label>
           <p class="small ext-status" id="typingStatus"></p>
         </div>
-      </section>
+      </details>
 
-      <section class="setting-group" id="weatherGroup" data-nav="Weather">
-        <h3>The weather outside</h3>
+      <details class="setting-group setting-fold" id="weatherGroup" data-nav="Weather" data-fold-on="weatherBody">
+        <summary><h3>The weather outside</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
         <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
         <div id="weatherBody" hidden>
@@ -1306,10 +1318,10 @@
           <label class="toggle"><input type="checkbox" id="weatherRemarks"><span class="switch"></span>Let him say so when the weather turns</label>
           <p class="small ext-status" id="weatherStatus" aria-live="polite"></p>
         </div>
-      </section>
+      </details>
 
-      <section class="setting-group" id="rgbGroup" data-nav="Desk lighting">
-        <h3>Desk lighting</h3>
+      <details class="setting-group setting-fold" id="rgbGroup" data-nav="Desk lighting" data-fold-on="rgbBody">
+        <summary><h3>Desk lighting</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. Shellby can install it for you and starts it in the tray whenever the lighting is on.</p>
         <label class="toggle"><input type="checkbox" id="rgbEnabled"><span class="switch"></span>Follow his mood with my lighting</label>
         <div class="rgb-body" id="rgbBody" hidden>
@@ -1320,10 +1332,10 @@
           </div>
           <ul class="ext-sessions" id="rgbList"></ul>
         </div>
-      </section>
+      </details>
 
-      <section class="setting-group" id="obsGroup" data-nav="On a stream">
-        <h3>On a stream</h3>
+      <details class="setting-group setting-fold" id="obsGroup" data-nav="On a stream" data-fold-on="obsBody">
+        <summary><h3>On a stream</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Serve Shellby as a browser source, on a transparent background, so he can sit in the corner of a stream and react while you work. It's the same crab, in the same outfit, on 127.0.0.1 only.</p>
         <label class="toggle"><input type="checkbox" id="obsEnabled"><span class="switch"></span>Serve the overlay</label>
         <div class="obs-body" id="obsBody" hidden>
@@ -1331,7 +1343,7 @@
           <p class="small muted">In OBS: <b>+</b> → <b>Browser</b>, paste that URL, and tick <b>Shutdown source when not visible</b>.</p>
           <p class="small ext-status" id="obsStatus"></p>
         </div>
-      </section>
+      </details>
       </div>
 
     <div class="settings-panel" role="tabpanel" id="setPanel-claude" data-tab="claude" aria-labelledby="setTab-claude" hidden>
@@ -1394,7 +1406,7 @@
         <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
         <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
         <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give a conversation its own copy of a git project when it starts changing things</label>
-        <p class="muted small">Tabs in the same repository stop stepping on each other. Questions stay in your checkout; the first time a conversation goes to change a file, it moves into a copy on a branch named for the work. Each copy is a git worktree on its own branch, starting from your last commit; your own checkout and anything uncommitted in it stay as they are. <b>Bring it home</b> merges the branch back and the conversation carries on; <b>Bring it home and finish</b> also tidies the copy away. <b>Bring it home and push</b> sends it to the remote as well, and the folder menu can <b>Push</b> your branch or <b>Bring all home</b> at once. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
+        <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
       </section>
 
       <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
@@ -1503,13 +1515,25 @@
           <div class="gh-who"><b id="ghName"></b><span class="small muted" id="ghLogin"></span></div>
           <button type="button" class="btn ghost slim-btn" id="ghSignOut">Sign out</button>
         </div>
-        <p class="small muted ext-lede" id="ghLede">Sign in to sync your progress between PCs, have Shellby watch CI on your pull requests, publish Wardrobe packs to the gallery, and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby.</p>
+        <p class="small muted ext-lede" id="ghLede">Sync your progress between PCs, watch CI on your pull requests and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby. Tick what you want below and one sign-in asks for all of it.</p>
+        <p class="small ext-status bad" id="ghNoCrypto" hidden>Windows can't encrypt a sign-in on this PC, so GitHub sign-in is unavailable.</p>
+        <button type="button" class="btn primary gh-signin" id="ghSignIn">Sign in with GitHub</button>
+        <div class="gh-code" id="ghCode" hidden>
+          <p class="small">Enter this code on github.com/login/device:</p>
+          <code class="gh-code-text" id="ghCodeText"></code>
+          <div class="gh-code-actions">
+            <button type="button" class="btn primary slim-btn" id="ghOpenCode">Copy code and open GitHub</button>
+            <button type="button" class="btn ghost slim-btn" id="ghCancel">Cancel</button>
+          </div>
+          <p class="small muted gh-wait"><span class="gh-dot"></span>Waiting for you to approve it on GitHub…</p>
+        </div>
         <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit and streak between PCs (a private gist)</label>
         <div class="gh-sync" id="ghSyncRow" hidden>
           <p class="small ext-status" id="ghSyncStatus"></p>
           <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
         </div>
-        <label class="toggle"><input type="checkbox" id="ghFriends"><span class="switch"></span>Visiting crabs: friends' crabs drop by, leave souvenirs and wave (a public calling card gist)</label>
+        <h4 class="gh-sub">Show off your crab</h4>
+        <label class="toggle"><input type="checkbox" id="ghFriends"><span class="switch"></span>Visiting crabs: friends' crabs drop by, wave and leave souvenirs (a public gist)</label>
         <div class="gh-friends" id="ghFriendsRow" hidden>
           <div class="gh-ci-head"><p class="small ext-status" id="frStatus"></p><button type="button" class="btn ghost slim-btn" id="frRefresh">Check now</button></div>
           <form class="fr-add" id="frAddForm">
@@ -1523,7 +1547,7 @@
           <div class="fr-souvenirs" id="frSouvenirs" aria-label="Souvenirs"></div>
           <ul class="fr-guestbook" id="frGuestbook"></ul>
         </div>
-        <label class="toggle"><input type="checkbox" id="ghProfileCard"><span class="switch"></span>Profile card: your crab, level, streak and latest stickers on your GitHub profile (a public gist, copied in by a GitHub Action you add)</label>
+        <label class="toggle"><input type="checkbox" id="ghProfileCard"><span class="switch"></span>Profile card: your crab, level, streak and latest stickers on your GitHub profile (a public gist)</label>
         <div class="gh-profile-card" id="ghProfileCardRow" hidden>
           <img class="pc-preview" id="pcPreview" alt="Preview of your profile card" width="480" height="200">
           <div class="gh-ci-head"><p class="small ext-status" id="pcStatus"></p><button type="button" class="btn ghost slim-btn" id="pcPublish">Update now</button></div>
@@ -1533,34 +1557,24 @@
             <li>Paste this line where you want the crab in <code>README.md</code>. <button type="button" class="btn ghost slim-btn" id="pcCopyReadme">Copy README line</button></li>
           </ol>
         </div>
-        <label class="toggle"><input type="checkbox" id="ghPrBadge"><span class="switch"></span>Built with Shellby: your crab, level and a link at the bottom of pull requests your tabs open (his picture lives in a public repo on your account)</label>
+        <label class="toggle"><input type="checkbox" id="ghPrBadge"><span class="switch"></span>Built with Shellby: your crab and a link at the bottom of pull requests your tabs open (his picture lives in a public repo)</label>
         <div class="gh-pr-badge" id="ghPrBadgeRow" hidden>
           <img class="pb-preview" id="pbPreview" alt="Your crab as he'll appear on pull requests" width="72" height="48">
           <div class="gh-ci-head"><p class="small ext-status" id="pbStatus"></p><button type="button" class="btn ghost slim-btn" id="pbOpenRepo">Open his repo</button></div>
         </div>
+        <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
+        <h4 class="gh-sub">Work with your code</h4>
         <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
         <div class="gh-ci" id="ghCiRow" hidden>
           <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
           <ul class="gh-ci-list" id="ghCiList"></ul>
         </div>
-        <label class="toggle"><input type="checkbox" id="ghIssues"><span class="switch"></span>Offer to take on issues assigned to me or labelled <code>shellby</code> (needs a workflow with the Issue trigger, like the Issue helper template on the Automate page)</label>
-        <label class="toggle"><input type="checkbox" id="ghProjects"><span class="switch"></span>Show my repositories on the Projects page (public ones need nothing more; private ones need "Let Claude tasks push")</label>
-        <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
+        <label class="toggle"><input type="checkbox" id="ghIssues"><span class="switch"></span>Offer to take on issues assigned to me or labelled <code>shellby</code> (needs an Issue workflow, like the Issue helper template on Automate)</label>
+        <label class="toggle"><input type="checkbox" id="ghProjects"><span class="switch"></span>Show my repositories on the Projects page (private ones also need "Let Claude tasks push")</label>
         <label class="toggle"><input type="checkbox" id="ghClaude"><span class="switch"></span>Let Claude tasks push code and open pull requests</label>
         <p class="small muted gh-note" id="ghClaudeNote"></p>
         <label class="toggle"><input type="checkbox" id="ghWorkflows"><span class="switch"></span>…including changes to CI workflows</label>
         <p class="small muted gh-note" id="ghWorkflowsNote"></p>
-        <p class="small ext-status bad" id="ghNoCrypto" hidden>Windows can't encrypt a sign-in on this PC, so GitHub sign-in is unavailable.</p>
-        <button type="button" class="btn primary" id="ghSignIn">Sign in with GitHub</button>
-        <div class="gh-code" id="ghCode" hidden>
-          <p class="small">Enter this code on github.com/login/device:</p>
-          <code class="gh-code-text" id="ghCodeText"></code>
-          <div class="gh-code-actions">
-            <button type="button" class="btn primary slim-btn" id="ghOpenCode">Copy code and open GitHub</button>
-            <button type="button" class="btn ghost slim-btn" id="ghCancel">Cancel</button>
-          </div>
-          <p class="small muted gh-wait"><span class="gh-dot"></span>Waiting for you to approve it on GitHub…</p>
-        </div>
       </section>
       </div>
 
@@ -1572,6 +1586,10 @@
         <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
         <label class="toggle"><input type="checkbox" id="recapToggle"><span class="switch"></span>When I'm back after an hour away, sum up what happened</label>
         <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
+      </section>
+
+      <section class="setting-group" id="limitGroup" data-nav="Usage limit">
+        <h3>Your 5-hour limit</h3>
         <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
         <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
         <label class="toggle"><input type="checkbox" id="spendGuardToggle"><span class="switch"></span>Stop routines and workflows before they use up my 5-hour limit</label>
@@ -1594,6 +1612,10 @@
           </label>
         </div>
         <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
+      </section>
+
+      <section class="setting-group" id="safetyGroup" data-nav="Safety nets">
+        <h3>Safety nets</h3>
         <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
         <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
