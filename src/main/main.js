@@ -661,6 +661,7 @@ function createPanel() {
   secureWindow(panel);
   attachContextMenu(panel, Menu);
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
+  panel.on('focus', reachedForShellby); // clicked into it yourself
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
   panel.on('resized', () => {
     if (Date.now() - roomyAt < ROOMY.settleMs) return; // it was us, not you
@@ -715,18 +716,19 @@ function setPanelRoomy(on) {
   return { ok: true, roomy: true };
 }
 
+// A dev run opens its panel behind whatever you're doing (a game, say) instead of
+// snatching focus, until you reach for Shellby yourself: the crab, the hotkey, the
+// tray, or clicking the panel. SHELLBY_FOREGROUND=1 brings back the packaged behavior.
+let openBehind = !app.isPackaged && process.env.SHELLBY_FOREGROUND !== '1';
+const reachedForShellby = () => { openBehind = false; };
+
 function showPanel({ focusInput = true, tabId = null } = {}) {
-  if (!panel.isVisible()) {
-    const b = critter.getBounds();
-    const self = { x: b.x + crewExtra(), y: b.y, width: b.width - crewExtra(), height: b.height };
-    const [pw, ph] = panel.getSize();
-    const display = screen.getDisplayNearestPoint({ x: b.x, y: b.y });
-    const wa = { ...display.workArea };
-    // An auto-hiding taskbar leaves workArea == bounds; keep the composer clear of where it pops up.
-    if (wa.height === display.bounds.height) wa.height -= 48;
-    const p = panelPosition(self, { width: pw, height: ph }, wa);
-    panel.setPosition(p.x, p.y);
+  if (openBehind) {
+    if (!panel.isVisible()) { placePanel(); panel.showInactive(); sendToBottom(panel); }
+    if (tabId) send(panel, 'tab:focus', tabId);
+    return;
   }
+  if (!panel.isVisible()) placePanel();
   if (panel.isMinimized()) panel.restore();
   panel.show();
   panel.moveTop();
@@ -735,7 +737,21 @@ function showPanel({ focusInput = true, tabId = null } = {}) {
   if (focusInput) send(panel, 'panel:focus-input');
 }
 
+// Beside the crab, on his screen.
+function placePanel() {
+  const b = critter.getBounds();
+  const self = { x: b.x + crewExtra(), y: b.y, width: b.width - crewExtra(), height: b.height };
+  const [pw, ph] = panel.getSize();
+  const display = screen.getDisplayNearestPoint({ x: b.x, y: b.y });
+  const wa = { ...display.workArea };
+  // An auto-hiding taskbar leaves workArea == bounds; keep the composer clear of where it pops up.
+  if (wa.height === display.bounds.height) wa.height -= 48;
+  const p = panelPosition(self, { width: pw, height: ph }, wa);
+  panel.setPosition(p.x, p.y);
+}
+
 function togglePanel() {
+  reachedForShellby(); // the crab and the hotkey both land here
   if (panel.isVisible() && panel.isFocused()) panel.hide();
   else showPanel();
 }
@@ -6027,7 +6043,8 @@ function createTray() {
   const img = nativeImage.createFromPath(path.join(ROOT, 'assets', 'tray.png'));
   tray = new Tray(img.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 16, height: 16 }) : img);
   tray.setToolTip('Shellby');
-  tray.on('click', () => showPanel());
+  tray.on('click', () => { reachedForShellby(); showPanel(); });
+  tray.on('right-click', reachedForShellby); // its menu's items open the panel too
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
 }
 
