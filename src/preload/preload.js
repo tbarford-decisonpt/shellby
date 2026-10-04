@@ -214,6 +214,7 @@ contextBridge.exposeInMainWorld('shellby', {
   githubSync: invoke('github:sync'),
   getProfileCard: invoke('profile-card:get'),
   publishProfileCard: invoke('profile-card:publish'),
+  profileCardSetup: invoke('profile-card:setup'),
   getPrBadge: invoke('pr-badge:get'),
   setPrBadgePicture: invoke('pr-badge:picture'),
   onPrBadge: on('pr-badge'),

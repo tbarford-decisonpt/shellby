@@ -14,6 +14,7 @@
   const CHECK_EVERY_MS = 30 * 60 * 1000; // main skips the upload when nothing changed
   const FIRST_CHECK_MS = 20 * 1000;
   const SOON_MS = 15 * 1000;             // after an outfit, sticker or XP change
+  const WORKFLOW_FILE = '.github/workflows/shellby-card.yml';
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const serializer = new XMLSerializer();
@@ -147,10 +148,92 @@ ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="
     if (row.hidden) return;
     if (!preview && ready()) preview = build();
     if (preview) $('pcPreview').src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`;
-    $('pcStatus').textContent = v.error || (v.publishedAt ? `Card updated ${SB.relTime(v.publishedAt)}. Shellby refreshes it when your crab changes.` : 'Putting the card up…');
-    $('pcStatus').classList.toggle('bad', !!v.error);
+    renderStatus();
+    const hadSteps = !$('pcSteps').hidden;
     $('pcSteps').hidden = !v.workflow;
+    if (v.workflow && !hadSteps) checkSetup();
   }
+
+  function renderStatus() {
+    const v = current;
+    if (!v) return;
+    const live = doneSteps(setup?.progress).length === STEPS.length;
+    $('pcStatus').textContent = v.error || (!v.publishedAt ? 'Drawing your card…'
+      : !setup?.progress ? 'Card ready. Checking your profile…'
+      : live ?`Card updated ${SB.relTime(v.publishedAt)}. Shellby refreshes it when your crab changes.`
+      : 'Your card is ready. Four steps on GitHub put it on your profile.');
+    $('pcStatus').classList.toggle('bad', !!v.error);
+  }
+
+  // ------------------------------------------------------------ setup checklist
+
+  const STEPS = ['repo', 'action', 'card', 'readme'];
+  const RECHECK_MS = 10 * 1000; // coming back from the browser re-checks, at most this often
+  let setup = null;             // the last profile-card:setup answer
+  let checking = null;
+  let checkedAt = 0;
+  let generation = 0;           // bumped on turning off, so a late answer is dropped
+
+  // A private profile repository doesn't count: GitHub only shows public ones.
+  const doneSteps = p => (p ? STEPS.filter(s => (s === 'repo' ? p.repo && p.isPublic : p[s])) : []);
+
+  async function checkSetup() {
+    if (checking) return checking;
+    $('pcCheck').disabled = true;
+    const asked = generation;
+    checking = api.profileCardSetup().then(r => {
+      if (asked !== generation || !isOn()) return; // turned off (or signed out) meanwhile
+      checkedAt = Date.now();
+      // A failed check keeps what we knew: a rate limit shouldn't undo finished steps.
+      setup = r.ok ? r : { ...setup, error: r.error, links: r.links || setup?.links };
+      renderSetup();
+    }).catch(() => {
+      if (asked !== generation) return;
+      setup = { ...setup, error: "Couldn't check your profile repository. Try Check again in a moment." };
+      renderSetup();
+    }).finally(() => { checking = null; $('pcCheck').disabled = false; });
+    return checking;
+  }
+
+  function renderSetup() {
+    const p = setup?.progress;
+    const login = state.github?.login || 'your username';
+    const done = doneSteps(p);
+    const next = p ? STEPS.find(s => !done.includes(s)) : 'repo';
+    for (const li of document.querySelectorAll('#pcSteps .pc-step')) {
+      const step = li.dataset.step;
+      const isDone = done.includes(step);
+      li.classList.toggle('done', isDone);
+      li.classList.toggle('next', step === next);
+      li.querySelector('.pc-tick').textContent = isDone ? '✓' : String(STEPS.indexOf(step) + 1);
+      li.querySelector('.btn').classList.toggle('ghost', step !== next);
+    }
+    const isPrivate = p?.repo && !p.isPublic;
+    $('pcRepoText').textContent = isPrivate
+      ? `github.com/${login}/${login} is private, so GitHub won't show it on your profile. Make it public in its settings.`
+      : `A public repository called ${login}, the same as your username. GitHub shows its README at the top of your profile.`;
+    $('pcRepoGo').textContent = isPrivate ? 'Open its settings' : 'Create it on GitHub';
+    $('pcReadmeText').textContent = p?.readmePath
+      ? 'Shellby copies the line for you. Paste it where you want the crab, then commit.'
+      : "There's no README yet. GitHub opens a new one with the crab already in it. Press Commit changes.";
+    $('pcReadmeGo').textContent = p?.readmePath ? 'Copy line and open README' : 'Create README on GitHub';
+    $('pcSetupCount').textContent = p ? `${done.length} of ${STEPS.length} done` : '';
+    $('pcSetupNote').hidden = !setup?.error;
+    $('pcSetupNote').textContent = setup?.error || '';
+    $('pcSetupNote').classList.toggle('bad', !!setup?.error);
+    const allDone = !next;
+    $('pcDone').hidden = !allDone;
+    document.querySelector('#pcSteps .pc-steps').hidden = allDone;
+    renderStatus();
+  }
+
+  const open = key => { const url = setup?.links?.[key]; if (url) api.openExternal(url); };
+
+  // Back from the browser: see what got done there.
+  window.addEventListener('focus', () => {
+    if ($('pcSteps').hidden || !$('pcDone').hidden || Date.now() - checkedAt < RECHECK_MS) return;
+    checkSetup();
+  });
 
   // Called on every GitHub view change: only turning on or off starts or stops the checks.
   function checkSoon(ms = SOON_MS) {
@@ -161,7 +244,7 @@ ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="
 
   async function load() {
     const on = isOn();
-    if (!on && timer) { clearInterval(timer); clearTimeout(soon); timer = soon = null; preview = null; }
+    if (!on && timer) { clearInterval(timer); clearTimeout(soon); timer = soon = null; preview = null; setup = null; generation++; $('pcSteps').hidden = true; }
     const v = await api.getProfileCard();
     if (on !== isOn()) return; // turned on or off while we asked: that newer load wins
     render(v);
@@ -183,9 +266,16 @@ ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="
     $('pcPublish').disabled = false;
     if (r) SB.toast(r.ok ? 'Card updated. Your profile picks it up on the Action\'s next run.' : r.error, { ms: r.ok ? 3000 : 6000 });
   });
-  $('pcOpenRepo').addEventListener('click', () => { if (current?.profileRepo) api.openExternal(current.profileRepo); });
-  $('pcCopyWorkflow').addEventListener('click', () => copy(current?.workflow, 'Action'));
-  $('pcCopyReadme').addEventListener('click', () => copy(current?.readme, 'README line'));
+  $('pcCheck').addEventListener('click', () => checkSetup());
+  $('pcRepoGo').addEventListener('click', () => open(setup?.progress?.repo && !setup.progress.isPublic ? 'settings' : 'createRepo'));
+  $('pcActionGo').addEventListener('click', () => open('addAction'));
+  $('pcCopyWorkflow').addEventListener('click', () => copy(current?.workflow, `The Action (save it as ${WORKFLOW_FILE})`));
+  $('pcRunGo').addEventListener('click', () => open('runAction'));
+  $('pcReadmeGo').addEventListener('click', () => {
+    if (setup?.progress?.readmePath) copy(current?.readme, 'README line');
+    open('readme');
+  });
+  $('pcProfileGo').addEventListener('click', () => open('profile'));
 
   // crab and ascii: the pull request badge draws him the same way (pr-badge.js).
   SB.profileCard = { build, load, publish, crab, ascii, ready };

@@ -6334,6 +6334,7 @@ ${r.detail}` });
   ipcMain.handle('github:set-feature', (_e, feature, on) => (FEATURE_NAMES.has(feature) ? confirmGitHubFeature(feature, !!on) : { ok: false, view: github.view() }));
   ipcMain.handle('github:sync', async () => ({ ...(await github.sync()), view: github.view() }));
   ipcMain.handle('profile-card:get', () => profileCard.view());
+  ipcMain.handle('profile-card:setup', () => profileCard.setup());
   ipcMain.handle('profile-card:publish', async (_e, svg, force) => ({ ...(await profileCard.publish(svg, { force: force === true })), view: profileCard.view() }));
   ipcMain.handle('pr-badge:get', () => prBadge.view());
   // Only kept for the next pull request: nothing is uploaded until there is one.

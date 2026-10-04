@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ProfileCard, cleanSvg, rawUrl, workflowYaml, README_LINE, PROFILE_FILE } = require('../src/main/github/profile-card');
+const { ProfileCard, cleanSvg, rawUrl, workflowYaml, setupLinks, setupProgress, README_LINE, PROFILE_FILE, WORKFLOW_PATH } = require('../src/main/github/profile-card');
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="200"><rect width="10" height="10" fill="url(#bg)"/><text>Lv 3</text></svg>';
 const GIST = 'abcdef0123456789abcdef0123456789';
@@ -146,6 +146,80 @@ test('a publish that arrives while the card is being taken down is refused', asy
   assert.deepEqual(await down, { ok: true });
   assert.equal(gh.gists.size, 0);
   assert.equal(card.isUp, false);
+});
+
+// A profile repository as the REST API sees it: files maps path -> text.
+function fakeRepo({ exists = true, isPrivate = false, branch = 'main', files = {} } = {}) {
+  const calls = [];
+  const notFound = () => Object.assign(new Error('Not Found'), { status: 404 });
+  return {
+    calls,
+    async get(path) {
+      calls.push(path);
+      if (!exists) throw notFound();
+      if (path === '/repos/crab-fan/crab-fan') return { private: isPrivate, default_branch: branch };
+      if (path === '/repos/crab-fan/crab-fan/readme') {
+        if (!('README.md' in files)) throw notFound();
+        return { path: 'README.md', content: Buffer.from(files['README.md']).toString('base64') };
+      }
+      const m = /^\/repos\/crab-fan\/crab-fan\/contents\/(.+)$/.exec(path);
+      const file = m && decodeURIComponent(m[1]);
+      if (file && file in files) return { path: file };
+      throw notFound();
+    },
+  };
+}
+
+test('setupProgress: no profile repository yet means nothing is done', async () => {
+  const p = await setupProgress(fakeRepo({ exists: false }), 'crab-fan');
+  assert.deepEqual(p, { repo: false, isPublic: false, branch: null, action: false, card: false, readme: false, readmePath: null });
+});
+
+test('setupProgress ticks off each step it finds in the repository', async () => {
+  const half = await setupProgress(fakeRepo({ files: { [WORKFLOW_PATH]: 'yaml', 'README.md': '# Hi' } }), 'crab-fan');
+  assert.equal(half.repo, true);
+  assert.equal(half.isPublic, true);
+  assert.equal(half.action, true);
+  assert.equal(half.card, false);
+  assert.equal(half.readme, false, 'a README without the card line');
+  assert.equal(half.readmePath, 'README.md');
+  const all = await setupProgress(fakeRepo({ branch: 'trunk', files: { [WORKFLOW_PATH]: 'yaml', [PROFILE_FILE]: '<svg/>', 'README.md': `# Hi\n${README_LINE}\n` } }), 'crab-fan');
+  assert.deepEqual({ ...all, readmePath: undefined }, { repo: true, isPublic: true, branch: 'trunk', action: true, card: true, readme: true, readmePath: undefined });
+});
+
+test('setupProgress notices a private profile repository and passes on errors that are not 404', async () => {
+  assert.equal((await setupProgress(fakeRepo({ isPrivate: true }), 'crab-fan')).isPublic, false);
+  const down = { get: async () => { throw Object.assign(new Error('rate limited'), { status: 403 }); } };
+  await assert.rejects(setupProgress(down, 'crab-fan'), /rate limited/);
+  assert.equal(await setupProgress(down, 'crab-fan"; x'), null);
+});
+
+test('setupLinks prefill the Action and README on the right branch', () => {
+  const l = setupLinks('crab-fan', GIST, { branch: 'trunk' });
+  assert.equal(l.createRepo, 'https://github.com/new?name=crab-fan&visibility=public&description=My%20GitHub%20profile');
+  const add = new URL(l.addAction);
+  assert.equal(add.pathname, '/crab-fan/crab-fan/new/trunk');
+  assert.equal(add.searchParams.get('filename'), WORKFLOW_PATH);
+  assert.equal(add.searchParams.get('value'), workflowYaml('crab-fan', GIST));
+  assert.equal(new URL(l.readme).searchParams.get('value'), `${README_LINE}\n`, 'no README yet: a new one with the line in it');
+  assert.equal(setupLinks('crab-fan', GIST, { branch: 'main', readmePath: 'README.md' }).readme, 'https://github.com/crab-fan/crab-fan/edit/main/README.md');
+  assert.equal(setupLinks('crab-fan', null).addAction, null, 'no gist, no Action');
+  assert.equal(setupLinks('../x', GIST), null);
+});
+
+test('ProfileCard.setup reports progress, and a friendly error when GitHub fails', async () => {
+  const { card } = setup();
+  await card.publish(SVG);
+  card.github.gh = () => fakeRepo({ files: { [WORKFLOW_PATH]: 'yaml' } });
+  const r = await card.setup();
+  assert.equal(r.ok, true);
+  assert.equal(r.progress.action, true);
+  assert.ok(r.links.addAction.includes(GIST));
+  card.github.gh = () => ({ get: async () => { throw Object.assign(new Error('Bad credentials'), { status: 401 }); } });
+  const bad = await card.setup();
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /Sign in again/);
+  assert.ok(bad.links.createRepo, 'links still there to try by hand');
 });
 
 test('a card the panel really drew (fixture) passes cleanSvg', () => {
