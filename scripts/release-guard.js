@@ -25,6 +25,7 @@
 // test/release-guard.test.js.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 /** The tag has to be exactly v + package.json's version. */
@@ -127,6 +128,37 @@ function checkTagFree(remoteSha, tag) {
   return `${tag} is already on GitHub (at ${remoteSha.slice(0, 7)}). If that release failed, ship the fix as the next patch, don't move the tag.`;
 }
 
+// SignPath signs after electron-builder is done, so like an unsigned build its
+// app-update.yml names no publisher, and its installs take any update.
+const SIGNPATH_PUBLISHER = 'SignPath Foundation';
+
+/**
+ * Who signs this build, from the release workflow's signing settings: a name,
+ * or null for unsigned. Azure needs the same five settings as the build step,
+ * which quietly builds unsigned if any is missing (an expired secret that's
+ * still set fails the build itself instead).
+ */
+function expectedPublisher(env) {
+  if (env.SIGNPATH_ORGANIZATION_ID) return SIGNPATH_PUBLISHER;
+  const azure = ['AZURE_CLIENT_SECRET', 'AZURE_SIGN_ENDPOINT', 'AZURE_SIGN_ACCOUNT', 'AZURE_SIGN_PROFILE', 'AZURE_SIGN_PUBLISHER'];
+  return azure.every(k => env[k]) ? env.AZURE_SIGN_PUBLISHER : null;
+}
+
+/**
+ * An installer electron-builder signed with Azure writes its publisher into
+ * app-update.yml, and from then on that install refuses any update not signed
+ * by exactly that name, unsigned ones included. It fails quietly: Shellby just
+ * stops updating. So once a release is Azure-signed, every later one has to be
+ * signed by the same name, unless the switch is deliberate (docs/SIGNING.md).
+ *   previous: the signer of the latest published installer, or null if unsigned
+ *   next: who signs this build, or null if unsigned
+ */
+function checkPublisherContinuity(previous, next, allowChange) {
+  if (!previous || previous === SIGNPATH_PUBLISHER || previous === next || allowChange) return null;
+  const now = next ? `would be signed by "${next}"` : 'would be unsigned';
+  return `The last release was signed by "${previous}", and this one ${now}. Installs of the last release would refuse the update and stop updating without saying so. Check the signing secrets and variables (docs/SIGNING.md). If changing publisher is deliberate, read "Changing publisher" there first.`;
+}
+
 // ------------------------------------------------------------------ running it
 
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -142,6 +174,32 @@ function releaseView(tag) {
 
 function remoteTagSha(tag) {
   return commitFromLsRemote(run('git', ['ls-remote', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`]), tag);
+}
+
+/** The signer of the latest published release's installer: its name, or null if unsigned or there's none. */
+function previousPublisher() {
+  let tag;
+  try {
+    tag = JSON.parse(run('gh', ['release', 'view', '--json', 'tagName'])).tagName;
+  } catch (e) {
+    if (/release not found|HTTP 404/i.test(String(e.stderr || e.message))) return null;
+    throw e;
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-signer-'));
+  try {
+    run('gh', ['release', 'download', tag, '--pattern', 'Shellby-Setup-*.exe', '--dir', dir]);
+    const exe = fs.readdirSync(dir).find(f => f.endsWith('.exe'));
+    if (!exe) return null;
+    // Anything but Valid counts as unsigned: electron-updater wouldn't have
+    // been given a publisher for a build whose signature didn't hold up.
+    const ps = `$s = Get-AuthenticodeSignature -LiteralPath $env:SIGNED_EXE; if ($s.Status -eq 'Valid') { $s.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) }`;
+    const out = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, SIGNED_EXE: path.join(dir, exe) },
+    }).trim();
+    return out || null;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 const ROOT = path.join(__dirname, '..');
@@ -227,6 +285,14 @@ async function main(step, args) {
     } catch (e) {
       console.log(`::warning::Couldn't check CI on ${sha.slice(0, 7)} (${e.message}); the release's own tests decide.`);
     }
+    // Same rule: only a sure mismatch stops the tag. The Check signatures step
+    // still confirms this build's own signer before anything is published.
+    try {
+      const allow = process.env.ALLOW_PUBLISHER_CHANGE === 'true';
+      problems.push(checkPublisherContinuity(previousPublisher(), expectedPublisher(process.env), allow));
+    } catch (e) {
+      console.log(`::warning::Couldn't check who signed the last release (${e.message}).`);
+    }
   } else if (step === 'verify') {
     const release = releaseView(tag);
     if (!release) problems.push(`There's no release ${tag} to publish.`);
@@ -254,5 +320,5 @@ if (require.main === module) {
 
 module.exports = {
   checkTagMatchesVersion, commitFromLsRemote, checkTagStillHere, checkExistingRelease, requiredAssets, checkAssets, checkLatestYml,
-  checkCiRuns, checkChangelog, checkTagFree,
+  checkCiRuns, checkChangelog, checkTagFree, expectedPublisher, checkPublisherContinuity,
 };
