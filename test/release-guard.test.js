@@ -101,3 +101,29 @@ test("a cancelled run proved nothing: re-run it, but it's not the code's fault",
   assert.match(g.checkCiRuns([run(SHA, 'completed', 'timed_out')], SHA).problem, /Fix main first/);
   assert.equal(g.checkCiRuns([run(SHA, 'completed', 'success')], SHA).conclusion, 'success');
 });
+
+test('signing settings say who signs the build', () => {
+  const azure = {
+    AZURE_CLIENT_SECRET: 's', AZURE_SIGN_ENDPOINT: 'https://eus.codesigning.azure.net/',
+    AZURE_SIGN_ACCOUNT: 'acct', AZURE_SIGN_PROFILE: 'prof', AZURE_SIGN_PUBLISHER: 'Jo Doe',
+  };
+  assert.equal(g.expectedPublisher({}), null);
+  assert.equal(g.expectedPublisher(azure), 'Jo Doe');
+  assert.equal(g.expectedPublisher({ ...azure, AZURE_CLIENT_SECRET: '' }), null, 'a deleted secret means the build step goes unsigned');
+  assert.equal(g.expectedPublisher({ ...azure, AZURE_SIGN_PROFILE: '' }), null);
+  assert.equal(g.expectedPublisher({ SIGNPATH_ORGANIZATION_ID: 'guid' }), 'SignPath Foundation');
+});
+
+test('once a release is Azure-signed, the next one must be signed by the same name', () => {
+  assert.equal(g.checkPublisherContinuity('Jo Doe', 'Jo Doe', false), null);
+  assert.match(g.checkPublisherContinuity('Jo Doe', null, false), /would be unsigned.*stop updating/, 'a lapsed secret would strand every signed install');
+  assert.match(g.checkPublisherContinuity('Jo Doe', 'SignPath Foundation', false), /would be signed by "SignPath Foundation"/);
+  assert.equal(g.checkPublisherContinuity('Jo Doe', null, true), null, 'a deliberate switch can be allowed');
+});
+
+test("unsigned and SignPath releases don't pin a publisher, so anything may follow them", () => {
+  assert.equal(g.checkPublisherContinuity(null, null, false), null);
+  assert.equal(g.checkPublisherContinuity(null, 'Jo Doe', false), null, 'the first signed release');
+  assert.equal(g.checkPublisherContinuity('SignPath Foundation', 'Jo Doe', false), null);
+  assert.equal(g.checkPublisherContinuity('SignPath Foundation', null, false), null);
+});

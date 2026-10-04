@@ -322,16 +322,16 @@ See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
 ## Code signing policy
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+Releases are signed with [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/), under the maintainer's verified name.
 
-> Shellby is applying for this. Until it's approved, releases are unsigned (see [Install](#install)).
+> Signing is being set up. Until the first signed release, releases are unsigned (see [Install](#install)).
 
-Only Shellby's own installer and portable exe are signed, and only when GitHub Actions builds them from a tagged commit in this repository ([release workflow](.github/workflows/release.yml)). Each signing request is approved by hand.
+Only Shellby's own files are signed, and only when GitHub Actions builds them from a tagged commit in this repository ([release workflow](.github/workflows/release.yml)). The signing key stays in Microsoft's hardware and is never on a PC. Before publishing, the workflow checks that every exe is validly signed by the expected publisher. Before building, it checks that the publisher will match the last release's, so installed copies keep updating. How it works: [docs/SIGNING.md](docs/SIGNING.md).
 
 - **Committers and reviewers:** [x-salmon](https://github.com/x-salmon). Pull requests from anyone else are reviewed before they're merged.
-- **Approvers:** [x-salmon](https://github.com/x-salmon)
+- **Release and signing:** [x-salmon](https://github.com/x-salmon)
 
-Everyone in these roles uses two-factor authentication on GitHub and SignPath.
+Everyone in these roles uses two-factor authentication on GitHub and Azure.
 
 **Privacy:** see the [privacy policy](PRIVACY.md) for everything Shellby sends over the network, and when. It has no telemetry.
 

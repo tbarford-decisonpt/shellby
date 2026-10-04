@@ -35,8 +35,18 @@ jobs:
           cache: npm
       # Before spending 20 minutes building: the tag matches package.json, still
       # points at this commit, and has no published release that electron-builder
-      # would quietly skip uploading to. See scripts/release-guard.js.
+      # would quietly skip uploading to. And once a release is Azure-signed, this
+      # one is signed by the same publisher, or those installs stop updating.
+      # See scripts/release-guard.js.
       - name: Check the tag before building
+        env:
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGN_ENDPOINT: ${{ vars.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ vars.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ vars.AZURE_SIGN_PROFILE }}
+          AZURE_SIGN_PUBLISHER: ${{ vars.AZURE_SIGN_PUBLISHER }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          ALLOW_PUBLISHER_CHANGE: ${{ vars.ALLOW_PUBLISHER_CHANGE }}
         run: node scripts/release-guard.js preflight
       - run: npm ci
       - run: npm run lint
