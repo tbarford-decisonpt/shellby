@@ -1,8 +1,8 @@
 # Privacy policy
 
-*Last updated: 3 October 2026, for Shellby 0.58.1.*
+*Last updated: 4 October 2026, adding crash reports.*
 
-Shellby is a desktop app that runs on your PC. It has **no servers, no accounts of its own, no telemetry, no analytics and no crash reporting**. Nobody behind Shellby, including its author, receives anything about you or how you use it.
+Shellby is a desktop app that runs on your PC. It has **no servers, no accounts of its own, no telemetry and no analytics**. Nobody behind Shellby, including its author, receives anything about you or how you use it, except a crash report you choose to send (below).
 
 What Shellby does do is talk to a few services on your behalf: GitHub to check for updates, and others only when you use a feature that needs them. This page lists every one, what goes to it, and how to turn it off.
 
@@ -30,6 +30,16 @@ What Shellby does do is talk to a few services on your behalf: GitHub to check f
 | **Git** | Your project's own remote (e.g. GitHub) | `git fetch` and `git push`, with your usual git credentials | When you open a tab's repository menu, **Push**, or **Bring it home and push**. |
 | **Skill Shop, MCP servers and the Shellby plugin** | The source of whatever you install (usually GitHub), through Claude Code | Claude Code's download requests | When you install or update one, after a confirmation window. |
 | **Installing OpenRGB** | OpenRGB's GitHub releases, through winget | winget's download request | When you click install and confirm. |
+
+**Crash reports (Sentry).** When Shellby crashes, hits an error it carries on from, or closes without being quit, it gets a report ready and keeps it on your PC (`%APPDATA%\Shellby\sentry`). The first time, it asks: **Send report**, **Always send** or **Don't send**. Nothing goes until you answer, and you can change it in **Settings → About → Crash reports** (Ask me each time, Always send, Never send). A report goes to [Sentry](https://sentry.io/privacy/), the crash-report service Shellby uses, and has:
+
+- the error and where in Shellby's code it happened
+- Shellby's, Windows' and Electron's versions, and basic facts about your PC: CPU, memory, graphics card, screen size, language and time zone
+- what Shellby's windows and processes were doing just before (opened, closed, crashed)
+- for a close without quitting, the log's last 40 lines from that run
+- for a crash of the app itself, a crash dump: where each part of the app was, which can hold fragments of whatever it was working on at that moment
+
+Your home folder becomes `~` and anything token-shaped is cut from all of it, and the PC's name is removed. Error messages and log lines can still name files and projects (an error about a missing file says which file). Not collected: your conversations, prompts, the contents of your files, the addresses Shellby talks to, console output, usage or sessions. Sentry sees the IP address a report comes from, as any server does. A report you turn down is deleted from your PC, and so is everything waiting when you choose **Never send**. Unsent reports are deleted after 30 days, and at most 30 are kept.
 
 **Report a problem** only opens a new GitHub issue in your browser, filled in with your Shellby, Windows, Electron and Claude Code versions and the log's last 40 lines (with your home folder and anything token-shaped removed). Nothing is sent until you read it and submit it yourself.
 

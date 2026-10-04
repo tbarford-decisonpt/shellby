@@ -34,6 +34,7 @@
     "release": "electron-builder --win --publish always"
   },
   "dependencies": {
+    "@sentry/electron": "^8.0.0",
     "electron-updater": "^6.8.9",
     "koffi": "^3.3.2",
     "qrcode-generator": "^2.0.4"

@@ -90,6 +90,8 @@
     $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}.` : '';
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    $('crashReportsRow').hidden = !state.settings.crashReportsAvailable;
+    $('crashReportsSelect').value = ['ask', 'always', 'never'].includes(state.settings.crashReports) ? state.settings.crashReports : 'ask';
     // His temperament, picked once from your install and kept (src/main/voice.js).
     const t = state.life?.temperament;
     $('temperNote').hidden = !t;
@@ -206,6 +208,7 @@
   });
 
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
+  $('crashReportsSelect').addEventListener('change', async e => { const r = await api.setSettings({ crashReports: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
   // Turning it on starts Windows' recognizer first, which can take a second or two.
   $('pushToTalkToggle').addEventListener('change', async e => {

@@ -31,6 +31,10 @@ node node_modules/electron/install.js   # only if npm skipped the Electron downl
 npm start
 ```
 
+### Crash reports
+
+Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash-report.js` for releases, and `SHELLBY_SENTRY_DSN` for a dev run (point it at a separate Sentry project, or at a local server that records what arrives). With neither, Sentry is never loaded and the **Crash reports** row in Settings stays hidden. To see the "closed unexpectedly" path, end a run from Task Manager and start it again. The run marker is `logs\running.json` in the profile.
+
 ## Scripts
 
 | Script | What it does |

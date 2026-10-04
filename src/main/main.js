@@ -93,6 +93,7 @@ const issueWork = require('./github/pullrequest');
 const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
+const crashReport = require('./crash-report');
 const attach = require('./attachments');
 const shellCmd = require('./shellcmd');
 const outputStyles = require('./outputstyles');
@@ -149,7 +150,7 @@ const captureClock = { now: null };
 // home directory and anything token-shaped, because its last lines are what
 // "Report a problem" offers to paste into an issue. See log.js.
 const log = new Log(path.join(app.getPath('userData'), 'logs'), { home: os.homedir() });
-log.info(`Shellby ${app.getVersion()} starting`, `${process.platform} ${os.release()}, electron ${process.versions.electron}`);
+// ("starting" is written below, once this is known to be the Shellby that stays.)
 
 // Keeping him alive through a stray throw is the right trade for a desk pet:
 // vanishing mid-task tells the user nothing and loses the conversation. It is
@@ -157,10 +158,16 @@ log.info(`Shellby ${app.getVersion()} starting`, `${process.platform} ${os.relea
 let snags = 0;
 function snag(what, detail) {
   log.error(what, detail);
+  if (++snags > 3) return; // a loop must not become a storm of toasts, or of reports
+  // A dead window's native crash reaches Sentry as a dump of its own; these don't.
+  if (sentry && detail instanceof Error) sentry.captureException(detail, { tags: { snag: what } });
+  else if (sentry && what === 'unhandled rejection') sentry.captureMessage(`${what}: ${detail}`, 'error');
   // No config yet means this is a crash during startup, before there's anywhere
   // to show it (and notify() would throw from inside the handler).
-  if (++snags > 3 || !config) return; // a loop must not become a storm of toasts
-  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem, { tone: 'problem', action: 'Report it' });
+  if (!config) return;
+  const ask = sentry && crashConsent() === 'ask';
+  notify('Shellby hit a snag', ask ? 'He carried on, but something went wrong. Send a report so it gets fixed?' : 'He carried on, but something went wrong. Right-click him → Report a problem.',
+    ask ? () => askToSend('snag') : reportProblem, { tone: 'problem', action: ask ? 'Send report' : 'Report it' });
 }
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
@@ -174,7 +181,45 @@ const FAKE_CLI = !app.isPackaged && process.env.SHELLBY_FAKE_CLAUDE ? path.resol
 // Dev/test runs get their own identity so Windows never ties their toasts or
 // jump lists to the installed Shellby.
 app.setAppUserModelId(app.isPackaged ? 'com.xsalmon.shellby' : 'com.xsalmon.shellby.dev');
-if (!CAPTURE && !app.requestSingleInstanceLock()) app.exit(0);
+const PRIMARY = CAPTURE || app.requestSingleInstanceLock();
+if (!PRIMARY) app.exit(0);
+// A second launch bowing out doesn't write it: this line is where the crash
+// report's "the run before" begins (crash-report.js previousLogTail).
+else log.info(`Shellby ${app.getVersion()} starting`, `${process.platform} ${os.release()}, electron ${process.versions.electron}`);
+
+// ---------------------------------------------------------------- crash reports
+// Sentry, held back by the user's answer (crash-report.js). Started before the
+// app is ready so a native crash is caught from the first moment, and only by
+// the Shellby holding the lock: a second launch bowing out isn't a crash.
+const LOG_DIR = path.join(app.getPath('userData'), 'logs');
+const lastRun = PRIMARY && !CAPTURE ? crashReport.startRun(LOG_DIR, { version: app.getVersion() }) : { unclean: false };
+// Before settings load (or if reading them throws) the gate holds everything.
+const crashGate = crashReport.makeGate(() => config && { consent: config.get('crashReports'), decisions: config.get('crashReportDecisions') });
+const sentry = PRIMARY ? startSentry() : null;
+const crashConsent = () => crashReport.normalizeConsent(config?.get('crashReports'));
+
+function startSentry() {
+  const dsn = crashReport.dsnFor({ env: process.env, isPackaged: app.isPackaged, capture: CAPTURE });
+  if (!dsn) return null;
+  try {
+    const S = require('@sentry/electron/main');
+    const scrub = s => log.scrub(s);
+    S.init({
+      dsn,
+      release: `shellby@${app.getVersion()}`,
+      environment: app.isPackaged ? 'production' : 'development',
+      sendDefaultPii: false,
+      integrations: crashReport.keepIntegrations,
+      transportOptions: { shouldSend: crashGate.shouldSend, shouldStore: crashGate.shouldStore },
+      beforeSend: event => crashReport.scrubEvent(event, scrub),
+      beforeBreadcrumb: crumb => crashReport.scrubEvent(crumb, scrub),
+    });
+    return S;
+  } catch (e) {
+    log.warn('crash reports unavailable', e);
+    return null;
+  }
+}
 
 // shellby:// links ("Add to Shellby" on the community gallery). Dev runs only
 // register when asked, so they don't hijack the links from an installed Shellby.
@@ -3202,7 +3247,7 @@ function saveSpend() {
 // Settings as the panel sees them: the ledger stays in main (usageBreakdown).
 function panelSettings() {
   const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
-  return rest;
+  return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
 function usageBreakdown() {
@@ -4915,7 +4960,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -4959,6 +5004,7 @@ ${r.detail}` });
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
+    if ('crashReports' in allowed && !crashReport.CONSENTS.includes(allowed.crashReports)) delete allowed.crashReports;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
     if ('perchIgnore' in allowed) {
@@ -4988,6 +5034,8 @@ ${r.detail}` });
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
     if ('mode' in allowed) manager.setMode(allowed.mode);
+    // Always: what's waiting on an answer goes now. Never: it's dropped from the disk now.
+    if (allowed.crashReports === 'always' || allowed.crashReports === 'never') drainCrashQueue();
     if ('forecast' in allowed) sendOutlook();
     if ('effort' in allowed) manager.setEffort(allowed.effort);
     if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
@@ -5920,6 +5968,8 @@ function reportProblem() {
     '```',
     ...(lines.length ? lines : ['(nothing logged this run)']),
     '```',
+    // The run that closed unexpectedly is the one worth reading, not this one.
+    ...(lastRun.unclean ? ['', '### Before Shellby last closed unexpectedly', '', '```', ...crashReport.previousLogTail(log.file, 20), '```'] : []),
   ].join('\n');
 
   const url = `${ISSUES_URL}?labels=bug&body=${encodeURIComponent(body)}`;
@@ -5932,6 +5982,74 @@ function reportProblem() {
     return;
   }
   shell.openExternal(url);
+}
+
+// The first time something goes wrong, he asks before any report leaves. The
+// answer is a cut-off in time (crash-report.js makeGate): Send lets everything
+// waiting go, Don't send drops it, and either way the next problem asks again.
+let askingToSend = false;
+async function askToSend(kind) {
+  if (!sentry || askingToSend || crashConsent() !== 'ask') return;
+  askingToSend = true;
+  // The answer covers what was waiting when the question appeared, not
+  // whatever goes wrong while it sits on screen.
+  const shownAt = Date.now();
+  try {
+    const response = await confirm.ask(null, {
+      ...dialogLook(), icon: '🩹',
+      title: 'Send a crash report?',
+      message: kind === 'closed' ? 'Shellby closed unexpectedly last time.' : 'Shellby hit a snag.',
+      detail: 'A report helps get it fixed. It has the error and where in Shellby it happened, the versions of Shellby, Windows and Electron, basic facts about your PC (memory, graphics card, screen) and the log\'s last lines, with your home folder and anything token-shaped removed. If Shellby crashed outright, it also has a crash dump: where each part of the app was, which can hold fragments of whatever it was working on.',
+      note: 'Reports go to Sentry, the crash-report service Shellby uses. Change this any time in Settings → About.',
+      buttons: [{ label: 'Send report', style: 'primary' }, { label: 'Always send' }, { label: 'Don\'t send' }], defaultId: 0, cancelId: 2,
+    });
+    const decisions = crashReport.addDecision(config.get('crashReportDecisions'), shownAt, response !== 2);
+    config.set(response === 1 ? { crashReports: 'always', crashReportDecisions: decisions } : { crashReportDecisions: decisions });
+    // What was okayed goes now; what was turned down comes off the disk now,
+    // rather than at the next backed-off retry.
+    drainCrashQueue();
+    log.info('crash report', ['sent', 'sent, and from now on always', 'not sent'][response]);
+  } catch (e) {
+    log.warn('crash report question failed', e);
+  } finally {
+    askingToSend = false;
+  }
+}
+
+// Sentry's queue sends one report per retry and carries on after a success,
+// but a dropped report schedules nothing more. So after an answer (or Never)
+// it's walked once: each flush() takes the next report through the gate.
+// Bounded by the queue's own cap of 30.
+let draining = false;
+async function drainCrashQueue() {
+  if (!sentry || draining) return;
+  draining = true;
+  try {
+    for (let i = 0; i < 30; i++) {
+      await sentry.flush().catch(() => {});
+      await new Promise(r => setTimeout(r, 250));
+    }
+  } finally {
+    draining = false;
+  }
+}
+
+// Shellby's last run ended without quitting: a native crash, the process being
+// ended from outside, or the power going. Before this he came back as if
+// nothing had happened, and there was nothing to go on.
+function reportUncleanExit() {
+  if (!lastRun.unclean) return;
+  const started = lastRun.startedAt ? new Date(lastRun.startedAt).toISOString() : 'unknown';
+  log.warn('the last run ended without quitting', `started ${started}${lastRun.version ? `, version ${lastRun.version}` : ''}`);
+  if (sentry && crashConsent() !== 'never') {
+    sentry.captureMessage('Shellby closed unexpectedly', {
+      level: 'fatal',
+      extra: { lastVersion: lastRun.version, lastStartedAt: started, log: crashReport.previousLogTail(log.file, 40).join('\n') },
+    });
+    if (crashConsent() === 'ask') setTimeout(() => askToSend('closed'), 4000); // once he's on the desk
+  }
+  // Without Sentry it stays in the log, and Report a problem picks it up: an
+  // installer or Task Manager ending him isn't worth a toast to everyone.
 }
 
 // Games and digging (playtime.js, life.js): none of it needs Claude.
@@ -6105,6 +6223,12 @@ app.whenReady().then(() => {
   createToolbox();
   createShop();
   createTray();
+  // Windows signing out or shutting down ends him without will-quit: that's no crash.
+  for (const w of [critter, panel]) w?.on('session-end', () => crashReport.endRun(LOG_DIR));
+  reportUncleanExit();
+  // Answers given before a restart still apply: walk the queue once so what was
+  // turned down leaves the disk, and what was okayed goes.
+  setTimeout(drainCrashQueue, 10 * 1000);
   health.start();
   createExternal();
   createTimeTracker();
@@ -6198,6 +6322,7 @@ app.on('will-quit', () => {
   clearTimeout(limitTimer);
   remote?.stop();
   dictation?.stop();
+  if (PRIMARY && !CAPTURE) crashReport.endRun(LOG_DIR); // quit on purpose: nothing to report next time
 });
 // close() gives a process 3 s to finish on its own, which Shellby quitting never
 // waits for: one mid-task would carry on editing with no window to show it.
