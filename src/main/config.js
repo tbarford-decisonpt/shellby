@@ -42,6 +42,9 @@ const DEFAULTS = {
   perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
+  soundFx: false,    // his feet, bumps, landings and a ta-da for big moments (see sounds.js)
+  ambient: 'off',    // the background: off | surf | tidepool (src/renderer/critter/ambient.js)
+  soundVolume: 60,   // 25 | 60 | 100: soft, normal, loud
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)

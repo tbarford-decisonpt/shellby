@@ -72,6 +72,9 @@ async function windows() {
     const until = async (c, expr, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await c.ev(expr)) return true; await wait(120); } return false; };
     const bubble = () => critter.ev("document.getElementById('bubbleText').textContent");
     await wait(3000);
+    // Any app holding the microphone (Discord, a game recorder) reads as a call,
+    // and on a call he says nothing; pin it off so the run doesn't depend on the PC.
+    await panel.ev("shellby.dev.life({ what: 'call', on: false })");
     // Record every class the critter shows, so short beats aren't missed.
     await critter.ev("window.__cls = new Set(); new MutationObserver(() => document.body.className.split(' ').forEach(c => window.__cls.add(c))).observe(document.body, { attributes: true, attributeFilter: ['class'] }); true");
     const seen = cls => critter.ev(`window.__cls.has(${JSON.stringify(cls)})`);
@@ -171,8 +174,9 @@ async function windows() {
     check(await panel.ev(`shellby.dev.bit('nonsense').then(b => ${JSON.stringify(BITS)}.includes(b))`), 'an unknown habit falls back to a real one');
 
     // --------------------------------------------- 7. on guard he keeps quiet
-    const chirpsBefore = await chirps();
     await panel.ev("shellby.setSettings({ sounds: true })");
+    await wait(400); // switching sounds on plays a taste of the chirp; count from after it
+    const chirpsBefore = await chirps();
     await panel.ev('shellby.startFocus(25)');
     await wait(800);
     check(await panel.ev('shellby.dev.say("success").then(s => s === null)'), 'guarding your focus: he says nothing');

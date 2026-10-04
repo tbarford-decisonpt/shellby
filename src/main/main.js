@@ -71,6 +71,7 @@ const { CritterMotion } = require('./motion');
 const { createPerching } = require('./perching');
 const { SETTINGS: PERCH_SETTINGS } = require('./perch');
 const voice = require('./voice');
+const sounds = require('./sounds');
 const gifts = require('./gifts');
 const { createLife } = require('./life');
 const { createPlaytime } = require('./playtime');
@@ -416,6 +417,8 @@ function createMotion() {
       settleCritter();
     },
     onInterrupted: kind => perching?.onInterrupted(kind),
+    // A bump against the screen's edge is only news to the speaker.
+    onBounce: b => { if (soundMix().fx) send(critter, 'critter:motion', { kind: 'bounce', ...b }); },
   });
   createPerchingFor();
   // Now and then an idle, awake Shellby takes a few steps near his spot, hops
@@ -486,7 +489,8 @@ let calmSent = '';
 function sendCalm() {
   const locked = calmReason === 'locked';
   const panelCalm = { calm: !!calmReason || hidden.game, deep: locked || hidden.game };
-  const crabCalm = { calm: locked || hidden.crab };
+  // Covered, he stops animating but can still be heard; locked, he goes quiet too.
+  const crabCalm = { calm: locked || hidden.crab, locked };
   const key = JSON.stringify([panelCalm, crabCalm]);
   if (key === calmSent) return;
   calmSent = key;
@@ -919,7 +923,8 @@ function flashState(state, ms = 7000) {
   // himself and a new trophy are rare enough to jump the cooldowns; 'levelup'
   // and the molt have no lines at all, because the bubble is already busy
   // showing the level and the new shell.
-  speak(state, { force: state === 'learned' || state === 'unlocked' });
+  // A level-up has no line to chirp with, so its cheer goes on its own.
+  if (!speak(state, { force: state === 'learned' || state === 'unlocked' })) chirp(state, { blip: false });
   refreshCritter();
   setTimeout(refreshCritter, ms + 50);
 }
@@ -960,12 +965,25 @@ function speak(occasion, { force = false, text = null } = {}) {
   return said;
 }
 
-// A little blip, synthesized in the renderer (no audio files). Off by default,
-// and silent while he's on guard.
-function chirp(occasion) {
-  if (CAPTURE || !config?.get('sounds')) return;
-  if (focus.guarding(config.get('focus'), Date.now()) || life?.hushed()) return;
-  send(critter, 'critter:chirp', { occasion });
+// What he may sound like right now (see sounds.js): nothing at all while he's
+// on guard, on a call, or posing for screenshots.
+function soundMix() {
+  if (CAPTURE || !config) return sounds.mix();
+  const quiet = focus.guarding(config.get('focus'), Date.now()) || !!life?.hushed();
+  return sounds.mix({
+    sounds: config.get('sounds'), soundFx: config.get('soundFx'),
+    ambient: config.get('ambient'), soundVolume: config.get('soundVolume'),
+  }, { quiet });
+}
+
+// A little blip when he speaks, or a ta-da for a big moment, synthesized in the
+// renderer (no audio files). Both off by default. blip: false plays only a cheer.
+function chirp(occasion, { blip = true } = {}) {
+  const m = soundMix();
+  if (!sounds.anyOn(m)) return;
+  const r = sounds.forOccasion(occasion, m);
+  if (r.cue) send(critter, 'critter:sound', { cue: r.cue });
+  else if (r.chirp && blip) send(critter, 'critter:chirp', { occasion });
 }
 
 // His seed (which decides his temperament) is made once, on first run. The gap
@@ -1018,6 +1036,7 @@ function refreshCritter() {
     limit: limited ? { resetsAt: limited.resetsAt } : null,
     say: said,
     call: !!life?.onCall(), // you're on a call: he holds up his "shh" sign
+    sound: soundMix(), // footsteps, bumps and the background play off this (src/renderer/critter/sound.js)
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
   const was = lastStatus;
@@ -5559,7 +5578,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -5599,10 +5618,12 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'soundFx', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
+    if ('ambient' in allowed && !sounds.AMBIENTS.includes(allowed.ambient)) delete allowed.ambient;
+    if ('soundVolume' in allowed && !sounds.VOLUMES.includes(allowed.soundVolume)) delete allowed.soundVolume;
     if ('crashReports' in allowed && !crashReport.CONSENTS.includes(allowed.crashReports)) delete allowed.crashReports;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -5632,6 +5653,15 @@ ${r.detail}` });
     if (allowed.pushToTalk === false) { ptt?.reset(); showListening(false); dictation?.stop(); }
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
+    if (['sounds', 'soundFx', 'ambient', 'soundVolume'].some(k => k in allowed)) {
+      refreshCritter(); // the new mix goes with his state
+      // Switching a sound on, or changing the volume, plays a taste of it
+      // (unless he's on guard or you're on a call: the mix says so).
+      const m = soundMix();
+      const tasted = allowed.soundFx === true || allowed.sounds === true || 'soundVolume' in allowed;
+      if (tasted && m.fx) send(critter, 'critter:sound', { cue: 'tada' });
+      else if (tasted && m.voice) send(critter, 'critter:chirp', { occasion: 'success' });
+    }
     if ('mode' in allowed) manager.setMode(allowed.mode);
     // Always: what's waiting on an answer goes now. Never: it's dropped from the disk now.
     if (allowed.crashReports === 'always' || allowed.crashReports === 'never') drainCrashQueue();

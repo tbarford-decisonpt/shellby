@@ -43,7 +43,9 @@ const isThrow = v => Math.hypot(v.vx, v.vy) >= MIN_THROW;
  * One physics step. body: { x, y, vx, vy }; box: { minX, maxX, minY, floorY,
  * ledges? }. A ledge ({ id, x1, x2, y }, in window coordinates) is a title bar:
  * falling onto one from above, he grabs it and lands there.
- * Returns { body, landed, bounced, ledge } (a new body; the old one is untouched).
+ * Returns { body, landed, bounced, ledge, hit } (a new body; the old one is
+ * untouched). hit says what he bumped into this step: 'wall', 'ceiling',
+ * 'floor' (a bounce, not the soft touch that ends a flight) or null.
  */
 function stepFlight(body, dtMs, box) {
   const dt = dtMs / 1000;
@@ -53,20 +55,21 @@ function stepFlight(body, dtMs, box) {
   x += vx * dt;
   y += vy * dt;
   let bounced = false;
-  if (x < box.minX) { x = box.minX; vx = Math.abs(vx) * WALL_BOUNCE; bounced = true; }
-  if (x > box.maxX) { x = box.maxX; vx = -Math.abs(vx) * WALL_BOUNCE; bounced = true; }
-  if (y < box.minY) { y = box.minY; vy = Math.abs(vy) * WALL_BOUNCE; }
+  let hit = null;
+  if (x < box.minX) { x = box.minX; vx = Math.abs(vx) * WALL_BOUNCE; bounced = true; hit = 'wall'; }
+  if (x > box.maxX) { x = box.maxX; vx = -Math.abs(vx) * WALL_BOUNCE; bounced = true; hit = 'wall'; }
+  if (y < box.minY) { y = box.minY; vy = Math.abs(vy) * WALL_BOUNCE; hit = 'ceiling'; }
   if (vy > 0) {
     const ledge = (box.ledges || []).find(l => fromY <= l.y && y >= l.y && x >= l.x1 && x <= l.x2 && l.y < box.floorY);
-    if (ledge) return { body: { x, y: ledge.y, vx: 0, vy: 0 }, landed: true, bounced: false, ledge: ledge.id };
+    if (ledge) return { body: { x, y: ledge.y, vx: 0, vy: 0 }, landed: true, bounced: false, ledge: ledge.id, hit: null };
   }
   let landed = false;
   if (y >= box.floorY) {
     y = box.floorY;
-    if (vy > 160) { vy = -vy * FLOOR_BOUNCE; vx *= FLOOR_FRICTION; bounced = true; } else { vy = 0; vx *= 0.85; }
+    if (vy > 160) { vy = -vy * FLOOR_BOUNCE; vx *= FLOOR_FRICTION; bounced = true; hit = 'floor'; } else { vy = 0; vx *= 0.85; }
     landed = vy === 0 && Math.abs(vx) < 30;
   }
-  return { body: { x, y, vx, vy }, landed, bounced, ledge: null };
+  return { body: { x, y, vx, vy }, landed, bounced, ledge: null, hit };
 }
 
 /**
@@ -98,12 +101,13 @@ function stepStroll(x, target, dtMs, speed = STROLL_SPEED) {
  *   getPos() -> { x, y }, place(x, y), box() -> { minX, maxX, minY, floorY },
  *   ledges() -> [{ id, x1, x2, y }] (read once per flight; see perch.js),
  *   onState(kind | null, info?), onSettled(kind, info?),
- *   onInterrupted(kind): someone else called stop() mid-move.
+ *   onInterrupted(kind): someone else called stop() mid-move,
+ *   onBounce({ hit, speed }): a flight bumped a wall, the ceiling or the floor.
  * Kinds: 'flight', 'stroll' (also walkTo), 'hop', 'ride'. Timers are injectable for tests.
  */
 class CritterMotion {
-  constructor({ getPos, place, box, ledges = () => [], onState = () => {}, onSettled = () => {}, onInterrupted = () => {}, setTimer = setInterval, clearTimer = clearInterval, now = () => Date.now() }) {
-    Object.assign(this, { getPos, place, box, ledges, onState, onSettled, onInterrupted, setTimer, clearTimer, now });
+  constructor({ getPos, place, box, ledges = () => [], onState = () => {}, onSettled = () => {}, onInterrupted = () => {}, onBounce = () => {}, setTimer = setInterval, clearTimer = clearInterval, now = () => Date.now() }) {
+    Object.assign(this, { getPos, place, box, ledges, onState, onSettled, onInterrupted, onBounce, setTimer, clearTimer, now });
     this.timer = null;
     this.kind = null;
   }
@@ -161,6 +165,7 @@ class CritterMotion {
     this.onState('flying', { vx: v.vx, style });
     this.run('flight', FRAME_MS, (dt, t) => {
       const r = stepFlight(body, Math.min(40, dt), { ...this.box(), ledges });
+      if (r.hit) this.onBounce({ hit: r.hit, speed: Math.round(Math.hypot(body.vx, body.vy)) }); // how hard, from before the bump
       body = r.body;
       this.place(Math.round(body.x), Math.round(body.y));
       if (r.landed || t - started > MAX_FLIGHT_MS) {

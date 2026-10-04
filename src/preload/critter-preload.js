@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onSound: on('critter:sound'), // a ta-da and the like (src/renderer/critter/sound.js)
     onCalm: on('critter:calm'),
     onVisitor: on('critter:visitor'),
     onTogether: on('critter:together'),

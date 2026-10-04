@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onSound: on('critter:sound'), // a ta-da and the like (src/renderer/critter/sound.js)
     onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
     onTogether: on('critter:together'), // ...and the two of them do something together

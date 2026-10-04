@@ -25,6 +25,9 @@ Everything he does on his own, with or without Claude. None of this needs an acc
 - **On a call he hushes:** while an app has your microphone he holds up a little "shh" sign and says nothing, and asks how it went after. Windows' own record of who's using the microphone tells him; he never listens himself.
 - He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters (a health warning, a red build, a countdown) takes the bubble back off him.
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
+- **Footsteps, bumps and ta-das:** his claws patter while he walks, he bonks off the screen's edges when you throw him and thumps down when he lands, and a deploy, a new trophy or a level-up gets a little fanfare. Off by default, under **Settings → Look**.
+- **A beach in the background:** **Rolling surf** (waves that swell, break and pull back, never quite the same twice) or **Rock pool** (calmer water with the odd drip and plip). Off by default, under **Settings → Look → Background**, with a **Volume** of Soft, Normal or Loud for all of his sounds.
+- All of it goes silent while he guards your focus, while you're on a call, and while the screen is locked. Covered by a window, he still plays. With Windows' animations turned off, he keeps his chirps and bumps to himself, but the background still plays.
 
 ## Your usage limits
 
