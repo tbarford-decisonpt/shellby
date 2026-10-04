@@ -1,7 +1,8 @@
 // A small in-memory GitHub for tests: the device flow, /user, gists (other
 // people's public ones and comments too, for visiting crabs), just
 // enough of the repos API for publishing a pack (fork, ref, contents, pulls),
-// and your open pull requests with their CI (search, pulls, check runs).
+// your open pull requests with their CI (search, pulls, check runs), and
+// issues filed on repositories of your own (add them to state.repos).
 //   const gh = await startMockGitHub({ login: 'crabfan' }); ... gh.approve(); ... await gh.close();
 const http = require('http');
 
@@ -10,6 +11,8 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
     login, approved: autoApprove, denied: false, requestedScope: '', token: 'gho_mocktoken123',
     gists: new Map(), files: new Map(), refs: new Map([['x-salmon/shellby-packs:main', 'basesha1']]),
     forks: new Set(), pulls: [], requests: [], nextGist: 1, nextComment: 1,
+    // Your own repositories (full name -> { private }), and issues filed on them.
+    repos: new Map(), issues: [],
     // Your open pull requests and the ones waiting for your review (see setCi()).
     ci: { prs: [], reviews: [] },
   };
@@ -90,6 +93,17 @@ async function startMockGitHub({ login = 'crabfan', autoApprove = false } = {}) 
       }
 
       m = p.match(/^\/repos\/([^/]+)\/([^/]+)(\/.*)?$/);
+      const own = m && state.repos.get(`${m[1]}/${m[2]}`);
+      if (own) {
+        const repo = `${m[1]}/${m[2]}`;
+        if (!m[3] && req.method === 'GET') return send(200, { full_name: repo, private: own.private, default_branch: 'main' });
+        if (m[3] === '/issues' && req.method === 'POST') {
+          if (!authed) return send(401, { message: 'Requires authentication' });
+          const number = state.issues.length + 1;
+          state.issues.push({ repo, number, ...json });
+          return send(201, { number, html_url: `https://github.com/${repo}/issues/${number}` });
+        }
+      }
       if (m) {
         const repo = `${m[1]}/${m[2]}`;
         const rest = m[3] || '';

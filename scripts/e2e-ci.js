@@ -21,6 +21,7 @@ const SUITE = [
   'e2e-questions',    // Claude's multiple-choice questions
   'e2e-xp',           // XP, levels, the desktop float and the level-up
   'e2e-flaky',        // flaky tests: fail then pass on the same code, the list, his line, Fix it in a copy
+  'e2e-flaky-issue',  // a flaky test filed as a GitHub issue: no button without GitHub, asks first, labelled and linked
   'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
   'e2e-life',         // his life between tasks: scenes, gifts, the Finds and Us pages, your day, birthdays, hide and seek, fetch
@@ -44,6 +45,7 @@ const SUITE = [
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook
+  'e2e-routine-chat', // Build it with Claude on routines: fill the form, test in a tab, read it, Save switches it on; the workflow chat too
   'e2e-projects',     // projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode

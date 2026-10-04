@@ -186,6 +186,8 @@ body.reordering .tip { display: none; }
 .seg button[aria-selected="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 .seg .n { font: 500 10.5px var(--font-mono); color: var(--sand-faint); margin-left: 3px; }
 .tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+/* A grid item is as wide as its longest unbreakable line by default: one long name would widen every row. */
+.tool-list > li { min-width: 0; }
 .tool-row { display: flex; gap: 10px; align-items: center; padding: 9px 10px 9px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
 .tool-row.is-new { border-color: rgba(255, 122, 92, .5); background: linear-gradient(90deg, var(--coral-dim), transparent 50%), var(--reef); }
 .tool-main { flex: 1; min-width: 0; }
@@ -334,6 +336,9 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .form-errors { margin: 0; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(255, 90, 74, .1); color: #ffb3aa; font-size: 12.5px; }
 .routine-editor .row.end { margin-top: 2px; }
 .routine-editor .path { font-size: 11px; padding: 6px 8px; }
+/* The editor and its Build it with Claude chat (wf-chat.css lays the pair out). */
+.routine-work { margin-bottom: 16px; }
+.routine-work > .routine-editor { margin-bottom: 0; }
 
 /* history extras */
 .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }

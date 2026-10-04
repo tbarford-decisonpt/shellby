@@ -132,6 +132,11 @@ contextBridge.exposeInMainWorld('shellby', {
   saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
   removeSnippet: invoke('snippets:remove'),
   expandSnippet: invoke('snippets:expand'),
+  duplicateSnippet: invoke('snippets:duplicate'),
+  snippetUsed: fire('snippets:used'),
+  exportSnippets: invoke('snippets:export'),
+  importSnippets: invoke('snippets:import'),
+  restoreStarterSnippets: invoke('snippets:starters'),
   // hooks and CLAUDE.md memory (every write is re-checked in main; hook changes ask in the confirm window)
   getClaudeSetup: invoke('setup:get'),
   readMemory: invoke('setup:read-memory'),
@@ -396,6 +401,10 @@ contextBridge.exposeInMainWorld('shellby', {
   routineTemplates: invoke('routines:templates'),
   saveRoutine: invoke('routines:save'),
   draftRoutine: invoke('routines:draft'),
+  chatRoutine: invoke('routines:chat'), // Build it with Claude: one turn of the routine editor's chat
+  testRoutine: invoke('routines:test'),
+  routineTestStatus: invoke('routines:test-status'),
+  stopRoutineTest: invoke('routines:test-stop'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
   // dependency watch
@@ -449,6 +458,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onSnippets: on('snippets'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
+  onRoutineTestRun: on('routines:test-run'),
   onWorkflows: on('workflows'),
   onWorkflowRun: on('workflows:run-changed'),
   onWorkflowOpen: on('workflows:open-run'), // a notification about a run was clicked

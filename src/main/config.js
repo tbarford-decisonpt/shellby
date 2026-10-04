@@ -85,7 +85,9 @@ const DEFAULTS = {
   pluginEnabledAt: {},  // when a plugin was turned back on from the Lean tab
   openTabs: [],       // history ids of conversations open as tabs
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
-  snippets: null,     // [{ name, text }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters
+  snippets: null,     // [{ name, text, hint?, newTab? }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters
+  snippetUse: {},     // { name: { n, at } }: how often each snippet has run, and when last
+  snippetFormat: 0,   // snippets.FORMAT once the saved list has been migrated to it
   learnedTricks: [],  // recently discovered skills/agents/commands
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on

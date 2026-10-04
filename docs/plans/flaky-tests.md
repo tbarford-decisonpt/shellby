@@ -236,6 +236,25 @@ skip *that test only*, the way the framework does it (`test.skip`,
 delete the test or change its assertions. After 14 days in quarantine,
 Shellby suggests "Try un-quarantining auth.spec?" once in the panel.
 
+## File an issue
+
+Added after 0.64. For a project whose `origin` is on github.com, with the
+`claude` GitHub feature on (it holds the `repo` scope that creating an issue
+needs), **File an issue** (`flaky:act` with `action: 'issue'`) asks first,
+saying whether the repository is public, then posts `issueDraft(row)`
+labelled `shellby` and assigned to you. The Issue helper workflow
+(github/issues.js) picks that up like any issue assigned to you, so the same
+yes, copy and draft pull request follow. `setIssue` keeps `{ number, url, at }`
+on the test (`cleanIssue` accepts only an https `/owner/repo/issues/N` link
+with N matching), the row links to it, and asking again returns that issue
+rather than filing a second one.
+
+The draft is public text built from repository data: every test name and
+command is in a code span after `plain()` (no backticks, no tags, and an
+@mention in a span pings nobody), the title drops `<`/`>`, and `redactCmd`
+leaves out values (`NAME=…`, `--flag=…`, the word after a token or password
+style flag). Nothing else about the test changes: its status stays as it was.
+
 ## Security
 
 Test names come from code anyone could have written and go into a Claude

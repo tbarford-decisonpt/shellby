@@ -65,7 +65,8 @@ Options for "do":
   -q, --quiet          print nothing unless it fails
 
 A snippet's prompt gets whatever follows its name: in place of $ARGUMENTS if
-it has one ("shellby do @tests src/app.js"), otherwise on the end.
+it has one ("shellby do @tests src/app.js"), word by word for $1, $2 and on
+(the last one takes the rest), otherwise on the end.
 
 For "flow run", the name is every word before the first key=value (or quote
 it), and each key=value fills in one of the workflow's inputs:

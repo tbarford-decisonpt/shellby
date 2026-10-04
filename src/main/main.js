@@ -31,8 +31,7 @@ const { attachContextMenu } = require('./context-menu');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
-const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog } = require('./registry');
-const { itemHash } = require('./wardrobe/codes');
+const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
 const { HealthService } = require('./health/service');
 const processJob = require('./process-job');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
@@ -110,6 +109,9 @@ const branch = require('./branch');
 const fileIndex = require('./fileindex');
 const { Projects } = require('./projects/service');
 const { registerProjectsIpc } = require('./projects/ipc');
+const { readRepo } = require('./projects/local');
+const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
+const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { DevServers } = require('./devservers/service');
 const devRunner = require('./devservers/runner');
 const devScripts = require('./devservers/scripts');
@@ -1120,6 +1122,8 @@ function createManager() {
     workflows?.onTabItem(tabId, item);
     if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
     if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
+    // A test run's "waiting for you" ends once you've answered.
+    if (item.kind === 'decision' && routineTests.has(tabId)) send(panel, 'routines:test-run', routineTestView(tabId));
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
@@ -1429,11 +1433,22 @@ const LEVELUP_TEXT = {
   deploy: m => `Deployed${m.project ? ` from ${m.project}` : ''}!`,
 };
 
+// XP kinds that also count toward a trophy (achievements.js), by the stat event they feed.
+const XP_STATS = {
+  deploy: 'deployed', fixed: 'tests-fixed', flakefix: 'flake-fixed', issue: 'issue-shipped',
+  deps: 'deps-clean', tidy: 'toolbox-tidied', fresh: 'started-fresh',
+};
+
 function awardXp(kind, meta = {}) {
   if (kind === 'ship') setTimeout(checkNudges, 3000); // a push means a fresh commit: update streak data
   if (CAPTURE || !config) return;
   const r = award(config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
   if (r.changed) config.set({ xp: r.state });
+  // Trophies count the event even when repetition left it paying nothing. Streak
+  // and level are reported every time, so the day's first award credits old progress.
+  if (XP_STATS[r.kind]) stat(XP_STATS[r.kind]);
+  stat('streak', { n: streaks.streakOf(config.get('streaks'), Date.now()).longest });
+  stat('level', { n: r.after.level });
   // The week-in-review counts it even when repetition left it paying nothing.
   // Shipping is counted where the project is known (recordShipped).
   if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
@@ -1719,7 +1734,11 @@ const flakyCommands = new Map();       // cmdKey -> the command as Claude ran it
 const MAX_FLAKY_COMMANDS = 100;
 
 const flakyOn = () => !CAPTURE && !!config && config.get('flakyTests') !== false && !config.get('crabOnly');
-const flakyView = () => flaky.flakyView(config.get('flaky'), Date.now());
+// issuable: filing it as a GitHub issue can work (the panel's button).
+const flakyView = () => {
+  const issuable = !!github?.can('claude');
+  return flaky.flakyView(config.get('flaky'), Date.now()).map(r => ({ ...r, issuable }));
+};
 
 /** The folder's git tree now, or null (not a repo, or slower than SNAPSHOT_WAIT_MS). */
 function snapshotWithin(dir) {
@@ -1806,6 +1825,7 @@ async function flakyAct(key, id, action) {
     send(panel, 'flaky', flakyView());
     return { ok: true };
   }
+  if (action === 'issue') return fileFlakyIssue(key, id, row);
   const act = Object.hasOwn(FLAKY_ACTIONS, action) ? FLAKY_ACTIONS[action] : null;
   if (!act) return { ok: false, error: 'Unknown action.' };
   const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
@@ -1820,6 +1840,56 @@ async function flakyAct(key, id, action) {
   send(panel, 'flaky', flakyView());
   showPanel({ focusInput: false, tabId: res.tabId });
   return res;
+}
+
+/**
+ * File a flaky test as a GitHub issue, labelled shellby and assigned to you,
+ * so the Issue helper workflow can offer to take it on (and anyone else on the
+ * repository can see it). Asks first: an issue can be public.
+ */
+async function fileFlakyIssue(key, id, row) {
+  if (row.issue) return { ok: true, ...row.issue, existing: true };
+  if (!github?.can('claude')) return { ok: false, error: 'Filing issues needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
+  const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
+  // Its origin on github.com, read from the folder itself (Projects may not list it).
+  const repo = root && isFolder(root) ? (await readRepo(root).catch(() => null))?.remote : null;
+  if (!repo) return { ok: false, error: "This project isn't on GitHub, so there's nowhere to file it." };
+  const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
+  const cmd = latest ? flakyCommands.get(latest) || null : null;
+  const draft = flaky.issueDraft(row, { cmd });
+  const gh = github.gh();
+  const info = await gh.get(`/repos/${repo}`).catch(() => null);
+  const response = await askOnce({
+    icon: '🐛',
+    title: `File an issue on ${repo}?`,
+    message: `“${draft.title}”, with what Shellby saw: the test's name, how often it flaked and how to go about fixing it.`,
+    // The one line that came from a terminal: shown as it will be posted, so a secret the redaction missed can be caught.
+    detail: (cmd ? `The command, as it will appear: ${flaky.redactCmd(cmd)}\n\n` : '')
+      + 'It\'s labelled shellby and assigned to you, so the Issue helper workflow can offer to take a crack at it.',
+    note: info?.private === false ? `${repo} is public: anyone can read the issue.` : 'Anyone who can see the repository can read the issue.',
+    buttons: [{ label: 'File it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+  });
+  if (response == null) return { ok: false, error: 'Another question from Shellby is open. Answer that one first.' };
+  if (response !== 0) return { ok: false, canceled: true };
+  // Filed while the question was open (a second click elsewhere): that one stands.
+  const filed = flaky.findTest(config.get('flaky'), key, id, Date.now())?.issue;
+  if (filed) return { ok: true, ...filed, existing: true };
+  let made;
+  try {
+    made = await gh.post(`/repos/${repo}/issues`, { ...draft, labels: ['shellby'], assignees: [github.view().login].filter(Boolean) });
+  } catch (e) {
+    log.warn('flaky issue', e.message);
+    return { ok: false, error: `GitHub didn't take it: ${e.message}` };
+  }
+  const next = flaky.setIssue(config.get('flaky'), key, id, { number: made?.number, url: made?.html_url }, Date.now());
+  const kept = next.projects[key]?.tests[id]?.issue;
+  if (!kept) {
+    log.warn('flaky issue', 'unexpected answer', JSON.stringify({ number: made?.number, url: made?.html_url }));
+    return { ok: false, error: "GitHub's answer didn't say which issue it made. Check the repository's issues before trying again." };
+  }
+  config.set({ flaky: next });
+  send(panel, 'flaky', flakyView());
+  return { ok: true, number: kept.number, url: kept.url };
 }
 
 // ================================================================ the week in review (weekly.js)
@@ -2004,6 +2074,7 @@ function stat(event, payload) {
 function onPermission(tabId, item, tab) {
   wake();
   askOnPhone(tabId, item, tab);
+  if (routineTests.has(tabId)) send(panel, 'routines:test-run', { id: tabId, status: 'running', waiting: { permission: true } });
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
   if (item.toolName === 'AskUserQuestion') {
@@ -2032,6 +2103,8 @@ function onResult(tabId, item, tab) {
     // failed turn's leftovers go with it).
     if (!item.waiting?.length) tab.session.stop().catch(() => {});
   }
+  // Build it with Claude's test run ended: the editor's chat hands it back to Claude.
+  if (routineTests.has(tabId)) send(panel, 'routines:test-run', routineTestView(tabId));
   noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
   // A workflow's Claude step: the workflow carries on and says what it wants
   // said, so no "finished" toast or phone ping for each step.
@@ -2369,6 +2442,7 @@ function runCliRequest(body, token) {
   }
   const r = startTask(prompt, snippet ? `@${snippet} from the terminal` : 'From the terminal', { mode, cwd });
   if (!r.ok) return { ok: false, error: r.error || 'Shellby could not start that.', status: 400 };
+  if (snippet) noteSnippetUse(snippet);
   showPanel({ focusInput: false, tabId: r.tabId });
   wake();
   return { text: 'Shellby is on it.' };
@@ -4066,17 +4140,24 @@ function pinnedTools() {
 
 const PANEL_MAX_TEXT = 50000; // the longest message the box sends (task:send)
 
-function snippetList() { return snippets.normalize(config.get('snippets')); }
+function snippetList() {
+  // Once: a list saved before $1 to $9 were blanks keeps sending what it did.
+  if (config.get('snippetFormat') !== snippets.FORMAT) {
+    config.set({ snippets: snippets.migrate(config.get('snippets')), snippetFormat: snippets.FORMAT });
+  }
+  return snippets.normalize(config.get('snippets'));
+}
+const snippetsView = () => ({ snippets: snippets.view(snippetList(), config.get('snippetUse')), pinned: pinnedTools() });
 
-/** Save the list and tell the panel. A rename or delete carries its pin along. */
+/** Save the list and tell the panel. A rename or delete carries its pin and its use count along. */
 function setSnippets(list, renamed = null) {
   const pins = (config.get('pinnedTools') || []).flatMap(p => {
     if (p?.kind !== 'snippet') return [p];
     const name = renamed && p.name === renamed.from ? renamed.to : p.name;
     return list.some(s => s.name === name) ? [{ kind: 'snippet', name }] : [];
   });
-  config.set({ snippets: list, pinnedTools: pins });
-  const view = { snippets: snippets.view(list), pinned: pinnedTools() };
+  config.set({ snippets: list, pinnedTools: pins, snippetUse: snippets.keepUse(config.get('snippetUse'), list, renamed) });
+  const view = snippetsView();
   send(panel, 'snippets', view);
   return view;
 }
@@ -4089,7 +4170,51 @@ function expandSnippet(name, args, { sigil = '/', max } = {}) {
   const list = snippetList();
   const s = snippets.find(list, name);
   if (!s) return null;
-  return snippets.expand(s, args, { sigil, max });
+  const r = snippets.expand(s, args, { sigil, max });
+  return r.ok ? { ...r, name: s.name, newTab: !!s.newTab } : r;
+}
+
+/** Counted once it has gone (or is queued to go), not when it's filled in. */
+function noteSnippetUse(name) {
+  if (!snippets.find(snippetList(), name)) return;
+  config.set({ snippetUse: snippets.noteUse(config.get('snippetUse'), name) });
+  send(panel, 'snippets', snippetsView());
+}
+
+/** Toolbox > Snippets > Export: the whole list, as a file to keep or share. */
+async function exportSnippets() {
+  const list = snippetList();
+  if (!list.length) return { ok: false, error: 'There are no snippets to export.' };
+  const r = await dialog.showSaveDialog(panel, {
+    title: 'Export your snippets',
+    defaultPath: path.join(app.getPath('documents'), 'shellby-snippets.json'),
+    filters: [{ name: 'Shellby snippets', extensions: ['json'] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, cancelled: true };
+  try { fs.writeFileSync(r.filePath, snippets.exportJson(list)); } catch (e) { return { ok: false, error: `Couldn't write it: ${e.code || e.message}` }; }
+  return { ok: true, path: r.filePath, count: list.length };
+}
+
+/** Toolbox > Snippets > Import: someone's export, or your own from another PC. */
+async function importSnippets() {
+  const r = await dialog.showOpenDialog(panel, {
+    title: 'Import snippets', properties: ['openFile'],
+    filters: [{ name: 'Shellby snippets', extensions: ['json'] }, { name: 'All files', extensions: ['*'] }],
+  });
+  if (r.canceled || !r.filePaths?.[0]) return { ok: false, cancelled: true };
+  let raw;
+  try {
+    if (fs.statSync(r.filePaths[0]).size > 1024 * 1024) return { ok: false, error: "That file is too big to be snippets (over 1 MB)." };
+    raw = fs.readFileSync(r.filePaths[0], 'utf8');
+  } catch (e) { return { ok: false, error: `Couldn't read it: ${e.code || e.message}` }; }
+  const parsed = snippets.parseImport(raw);
+  if (!parsed.ok) return parsed;
+  return mergeSnippets(parsed.snippets);
+}
+
+function mergeSnippets(incoming) {
+  const m = snippets.merge(snippetList(), incoming);
+  return { ok: true, added: m.added, renamed: m.renamed, skipped: m.skipped, ...(m.added.length ? setSnippets(m.list) : snippetsView()) };
 }
 
 // ================================================================ routines
@@ -4232,6 +4357,54 @@ async function draftRoutine(text) {
     }
     return routineDraft.parseDraft(res.stdout, { folderOk: isFolder });
   } finally { routineDrafting = false; }
+}
+
+// Build it with Claude's test runs: tab id -> routine id. Kept apart from
+// routineTabs, which forgets a tab once it closes, so a test is still read
+// after you've closed its tab. Only the last few are remembered.
+const routineTests = new Map();
+const MAX_ROUTINE_TESTS = 20;
+
+/**
+ * Build it with Claude, one turn of the routine editor's chat. `runId` is the
+ * test run that just finished: its transcript is read here, and only if it was
+ * a test of this same saved routine. Nothing is saved or run here.
+ */
+async function chatRoutine({ routine, messages, runId } = {}) {
+  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
+  if (routineDrafting) return { ok: false, error: 'Claude is already working on one. Give it a moment.' };
+  const saved = routine && typeof routine.id === 'string' ? routines().find(r => r.id === routine.id) : null;
+  const run = runId && saved && routineTests.get(runId) === saved.id ? routineDraft.runBrief(history.load(runId)).text : '';
+  routineDrafting = true;
+  try {
+    const res = await routineDraft.chat({ routine, messages, run }, {
+      runClaude: runClaudeOnce, folderOk: isFolder, allowAutonomous: !!config.get('autonomousAcknowledged'),
+      context: { home: os.homedir(), defaultFolder: currentCwd(), today: new Date().toDateString() },
+    });
+    if (res.stderr) log.warn('Routine chat failed', String(res.stderr).trim().split('\n').slice(-3).join(' '));
+    const { stderr: _stderr, ...out } = res;
+    return out;
+  } finally { routineDrafting = false; }
+}
+
+// How a test run is going, in the shape the editor's chat follows (wf-chat.js).
+function routineTestView(tabId) {
+  const tab = manager.tabs.get(tabId);
+  if (tab && manager.isBusy(tabId)) return { id: tabId, status: 'running', waiting: tab.session?.pending?.size ? { permission: true } : null };
+  const { status, error } = routineDraft.runBrief(history.load(tabId));
+  // No result: its tab was closed, or Claude Code quit partway (that tab is still open, and idle).
+  if (status === 'unfinished') return tab ? { id: tabId, status: 'error', error: 'Claude Code stopped before it finished.' } : { id: tabId, status: 'interrupted' };
+  return { id: tabId, status, error };
+}
+
+function testRoutine(id) {
+  const r = routines().find(x => x.id === id);
+  if (!r) return { ok: false, error: 'Save it first.' };
+  const res = runRoutine(r, { reason: 'test' });
+  if (!res.ok) return res;
+  routineTests.set(res.tabId, r.id);
+  while (routineTests.size > MAX_ROUTINE_TESTS) routineTests.delete(routineTests.keys().next().value);
+  return { ok: true, runId: res.tabId };
 }
 
 function startScheduler() {
@@ -4385,6 +4558,15 @@ async function startTaskInCopy(dir, title, promptFor, { mode = null } = {}) {
 
 // ================================================================ workflows
 
+// One tool-less `claude -p` call (drafts and the editors' chats), in your home
+// folder. Dev and screenshot runs: the fake CLI answers instead.
+function runClaudeOnce(args, timeoutMs, opts) {
+  if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
+  const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+  if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
+  return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
+}
+
 // The Automate page (workflows/service.js). Everything Shellby-specific a run
 // needs comes in through these few functions; the engine itself knows nothing
 // of Electron.
@@ -4408,13 +4590,7 @@ function createWorkflows() {
     },
     toPanel: (channel, payload) => send(panel, channel, payload),
     runCommand: (cwd, command, opts) => shellCmd.run(cwd, command, opts),
-    runClaude: (args, timeoutMs, opts) => {
-      // Dev and screenshot runs: the fake CLI answers drafts and the editor's chat too.
-      if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-      if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
-      return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
-    },
+    runClaude: runClaudeOnce,
     makeCopy: makeIssueCopy,
     openPullRequest: openIssuePr,
     copy: text => clipboard.writeText(text),
@@ -4671,7 +4847,7 @@ function registerIpc() {
       tabItems: Object.fromEntries(manager.summary.map(t => [t.id, history.load(t.id)])),
       toolbox: CAPTURE ? null : toolbox.current,
       pinned: pinnedTools(),
-      snippets: snippets.view(snippetList()),
+      snippets: snippets.view(snippetList(), config.get('snippetUse')),
       learned: CAPTURE ? [] : config.get('learnedTricks') || [],
       routines: CAPTURE ? [] : routinesView(),
       outlook: CAPTURE ? null : outlookView(),
@@ -5042,67 +5218,16 @@ ${r.detail}` });
     },
   });
 
-  // ---- history
-  ipcMain.handle('session:list', () => history.list());
-  ipcMain.handle('session:open', (_e, id) => {
-    const entry = isStr(id) && history.get(id);
-    if (!entry) return null;
-    if (!manager.tabs.has(id)) {
-      try { openTab({ tabId: id, historyEntry: entry }); } catch (err) { return { error: err.message }; }
-    }
-    return { tabId: id, entry, items: history.load(id) };
-  });
-  // Deleting from History is a move to Recently deleted, not the end: the
-  // transcript stays until it's restored, purged, or TRASH_DAYS pass.
-  ipcMain.handle('session:delete', (_e, id) => {
-    if (!isStr(id)) return history.list();
-    manager.close(id);
-    history.trash(id);
-    return history.list();
-  });
-  ipcMain.handle('session:trash', () => history.trashed());
-  // Answers with both lists: the row leaves one and lands in the other.
-  ipcMain.handle('session:restore', (_e, id) => {
-    if (isStr(id)) history.restore(id);
-    return { sessions: history.list(), trash: history.trashed() };
-  });
-  // One id, or none for Empty bin.
-  ipcMain.handle('session:purge', (_e, id) => {
-    history.purge(isStr(id) ? [id] : null);
-    return history.trashed();
-  });
-  // Clear all history. There's no undo after this, so it asks first, with
-  // Cancel as the default, the way signing out with tasks running does.
-  ipcMain.handle('session:clear', async () => {
-    const count = history.list().length + history.trashed().length;
-    const answer = (cleared) => ({ cleared, sessions: history.list(), trash: history.trashed() });
-    if (!count) return answer(false);
-    const open = history.list().filter(e => manager.tabs.has(e.id));
-    const r = await dialog.showMessageBox(panel, {
-      type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
-      message: `Are you sure? This deletes ${count === 1 ? 'your one conversation' : `all ${count} conversations`} for good.`,
-      detail: 'Recently deleted is emptied too, and nothing can be brought back.'
-        + (open.length ? ` ${open.length === 1 ? 'The open conversation closes' : `The ${open.length} open conversations close`}, stopping anything still running.` : ''),
-    });
-    if (r.response !== 0) return answer(false);
-    for (const e of open) manager.close(e.id);
-    const gone = history.clear();
-    log.info('history cleared', `${gone} conversation${gone === 1 ? '' : 's'}`);
-    return answer(true);
-  });
-  // Both of these answer with the fresh list, so the renderer redraws History
-  // from one round trip instead of guessing what changed.
-  ipcMain.handle('session:done', (_e, { id, done } = {}) => {
-    if (isStr(id)) history.setDone(id, !!done);
-    return history.list();
-  });
-  // From the tab strip or a History row. An open tab goes through the manager so
-  // its strip, notifications and (if not yet sent anything) first save agree.
-  ipcMain.handle('session:rename', (_e, { id, title } = {}) => {
-    if (isStr(id) && isStr(title)) {
-      if (manager.tabs.has(id)) manager.rename(id, title); else history.rename(id, title);
-    }
-    return history.list();
+  // ---- history (ipc/history.js)
+  registerHistoryIpc(ipcMain, {
+    history, manager, openTab, log,
+    confirmClear: async (count, openCount) => {
+      const r = await dialog.showMessageBox(panel, {
+        type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+        ...clearQuestion(count, openCount),
+      });
+      return r.response === 0;
+    },
   });
 
   // ---- settings
@@ -5217,76 +5342,19 @@ ${r.detail}` });
     return r.canceled ? null : r.filePaths[0] || null;
   });
 
-  // ---- skins
-  ipcMain.handle('skins:reload', () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); });
-
-  // ---- wardrobe
-  ipcMain.handle('wardrobe:view', () => wardrobe.view());
-  ipcMain.handle('external:clear-background', () => { external?.clearBackground(); return externalView(); });
-  ipcMain.handle('wardrobe:set-outfit', (_e, patch) => ({ ...wardrobe.setOutfit(patch && typeof patch === 'object' ? patch : {}), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:wear-season', () => ({ ...wardrobe.wearSeason(), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:randomize', () => ({ ...wardrobe.randomize(), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:set-voice', (_e, key) => {
-    const r = wardrobe.setVoice(isStr(key) ? key : null);
-    // His don't-repeat memory points into the old voice's lines: start it afresh.
-    if (r.ok) config.set({ voice: { ...voice.normalize(config.get('voice')), recent: {} } });
-    return { ...r, view: wardrobe.view() };
-  });
-  ipcMain.handle('wardrobe:options', (_e, opts) => { wardrobe.setOptions(opts || {}); return wardrobe.view(); });
-  ipcMain.on('wardrobe:seen', (_e, keys) => { if (Array.isArray(keys)) wardrobe.markSeen(keys.filter(isStr)); });
-  ipcMain.handle('wardrobe:install', async (_e, filePath) => {
-    let file = isStr(filePath) ? filePath : null;
-    if (!file) {
+  // ---- skins, the wardrobe and outfit codes (ipc/wardrobe.js)
+  registerWardrobeIpc(ipcMain, {
+    wardrobe: () => wardrobe,
+    builtinSkins: () => skins.map(s => ({ id: s.id, name: s.name })),
+    allSkins, activeSkin, config, voice, confirmAndInstallPackText, installFromRegistry, registryUrl, broadcastSkin, userSkinsDir,
+    reloadSkins: () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); },
+    clearBackground: () => { external?.clearBackground(); return externalView(); },
+    pickPackFile: async () => {
       const r = await dialog.showOpenDialog(panel, { title: 'Install a Shellby wardrobe pack', filters: [{ name: 'Shellby pack', extensions: ['json'] }], properties: ['openFile'] });
-      if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
-      file = r.filePaths[0];
-    }
-    // Only .json files under the size cap, and never echo parse errors: V8's
-    // messages quote file contents, which would let a renderer peek at any file.
-    if (!/\.json$/i.test(file)) return { ok: false, errors: ['Packs are .json files.'] };
-    if (!attach.isLocalPath(file)) return { ok: false, errors: ['Packs install from a file on this PC.'] };
-    try { if (fs.statSync(file).size > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] }; } catch { return { ok: false, errors: ['File not found.'] }; }
-    let text;
-    try { text = fs.readFileSync(file, 'utf8'); } catch { return { ok: false, errors: ['File not found.'] }; }
-    const r = await confirmAndInstallPackText(text);
-    return { ...r, view: wardrobe.view() };
+      return r.canceled ? null : r.filePaths[0] || null;
+    },
+    openPath: p => shell.openPath(p),
   });
-  ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) wardrobe.remove(packId); return wardrobe.view(); });
-
-  // ---- outfit codes (SHB-XXXX-XXXX): a whole look as a pasteable string
-  const builtinSkins = () => skins.map(s => ({ id: s.id, name: s.name }));
-  ipcMain.handle('wardrobe:code', () => ({ code: wardrobe.outfitCode(activeSkin()?.id) }));
-  ipcMain.handle('wardrobe:code-preview', async (_e, text) => {
-    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
-    const p = wardrobe.previewCode(text, builtinSkins());
-    if (!p.ok || !p.missing.length) return { ...p, packs: [] };
-    // Items from community packs you don't have: find them in the gallery's catalog.
-    const cat = await fetchRegistryCatalog({ baseUrl: registryUrl() });
-    const packs = new Map();
-    const unknown = [];
-    for (const m of p.missing) {
-      const hit = cat.ok && cat.items.find(it => it.slot === m.slot && itemHash(it.key) === m.hash);
-      if (!hit) { unknown.push(m); continue; }
-      const entry = packs.get(hit.packId) || { id: hit.packId, name: hit.packName, items: [] };
-      entry.items.push({ slot: m.slot, name: hit.name });
-      packs.set(hit.packId, entry);
-    }
-    return { ...p, packs: [...packs.values()], unknown, catalogError: cat.ok ? null : cat.errors[0] };
-  });
-  ipcMain.handle('wardrobe:code-wear', (_e, text) => {
-    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
-    const r = wardrobe.wearCode(text, builtinSkins());
-    if (!r.ok) return r;
-    if (r.skin && r.skin !== config.get('skin')) {
-      const sk = allSkins().find(x => x.id === r.skin);
-      if (sk && !sk.locked) { config.set({ skin: r.skin }); broadcastSkin(); }
-    }
-    return { ...r, view: wardrobe.view() };
-  });
-  // "Get the pack" from an outfit code: the same confirmed install as a gallery link.
-  ipcMain.handle('wardrobe:install-registry', (_e, packId) => (isStr(packId) && /^[a-z0-9][a-z0-9-]{1,39}$/.test(packId) ? installFromRegistry(packId) : { ok: false }));
-  ipcMain.on('wardrobe:open-folder', () => { fs.mkdirSync(wardrobe.userDir, { recursive: true }); shell.openPath(wardrobe.userDir); });
-  ipcMain.on('skins:open-folder', () => shell.openPath(userSkinsDir()));
 
   // ---- toolbox
   ipcMain.handle('toolbox:get', () => toolbox.current);
@@ -5307,6 +5375,15 @@ ${r.detail}` });
     return { ok: true, name: r.name, ...setSnippets(r.list, from && from !== r.name ? { from, to: r.name } : null) };
   });
   ipcMain.handle('snippets:remove', (_e, name) => setSnippets(snippets.remove(snippetList(), isStr(name) ? name : '')));
+  ipcMain.handle('snippets:duplicate', (_e, name) => {
+    const r = snippets.duplicate(snippetList(), isStr(name) ? name : '');
+    return r.ok ? { ok: true, name: r.name, ...setSnippets(r.list) } : r;
+  });
+  ipcMain.on('snippets:used', (_e, name) => { if (isStr(name)) noteSnippetUse(name); });
+  ipcMain.handle('snippets:export', () => exportSnippets());
+  ipcMain.handle('snippets:import', () => importSnippets());
+  // The five Shellby starts with, for anyone who deleted them and wants them back.
+  ipcMain.handle('snippets:starters', () => mergeSnippets(snippets.STARTERS));
   // "/review the auth module" -> the prompt to send. null: not a snippet, send it as it is.
   ipcMain.handle('snippets:expand', (_e, text) => {
     // Not isStr: a pasted file after /tests can be long. task:send's own limit applies.
@@ -5393,6 +5470,20 @@ ${r.detail}` });
     return { ok: true, routine, routines: routinesView() };
   });
   ipcMain.handle('routines:draft', (_e, text) => draftRoutine(text));
+  // Build it with Claude (the routine editor's chat) and its test runs. A test
+  // is the saved routine run by hand; stopping or reading one only works on a
+  // tab that is one of those tests.
+  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  ipcMain.handle('routines:chat', (_e, req) => (isObj(req)
+    ? chatRoutine({ routine: isObj(req.routine) ? req.routine : {}, messages: req.messages, runId: isStr(req.runId) ? req.runId : null })
+    : { ok: false, error: 'Nothing to send.' }));
+  ipcMain.handle('routines:test', (_e, id) => (isStr(id) ? testRoutine(id) : { ok: false, error: 'Save it first.' }));
+  ipcMain.handle('routines:test-status', (_e, tabId) => (isStr(tabId) && routineTests.has(tabId) ? routineTestView(tabId) : null));
+  ipcMain.handle('routines:test-stop', (_e, tabId) => {
+    if (!isStr(tabId) || !routineTests.has(tabId) || !manager.tabs.has(tabId)) return false;
+    manager.interrupt(tabId);
+    return true;
+  });
   registerWorkflowIpc(ipcMain);
   ipcMain.handle('routines:delete', (_e, id) => {
     saveRoutines(routines().filter(r => r.id !== id));

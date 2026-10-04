@@ -16,6 +16,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { SHELLS } = require('../src/main/shells');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 
 const ROOT = path.join(__dirname, '..');
@@ -100,7 +101,7 @@ async function connect(url) {
     await panel.ev("SB.clearCelebrations?.(); SB.setView('wardrobe'); document.querySelector('#wdSlots [data-slot=home]').click(); true");
     await wait(400);
     const tiles = await panel.ev("[...document.querySelectorAll('#wdGrid .wd-tile')].map(t => ({ name: t.querySelector('.wd-name').textContent, on: t.classList.contains('on'), locked: t.classList.contains('locked') }))");
-    check(tiles.length === 6 && tiles[0].name === 'His own', `Homes lists his own shell plus five (${tiles.map(t => t.name).join(', ')})`);
+    check(tiles.length === SHELLS.length + 1 && tiles[0].name === 'His own', `Homes lists his own shell plus every other (${tiles.map(t => t.name).join(', ')})`);
     check(tiles.find(t => t.name === 'Snail Shell')?.on, 'the Snail Shell is the one he wears');
     check(tiles.find(t => t.name === 'Teacup')?.locked, 'the Teacup waits for level 8');
     check(await panel.ev("!!document.querySelector('#wdCrab .part-shell rect[fill=\"#b5793f\"]')"), 'the preview wears it too');

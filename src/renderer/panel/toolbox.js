@@ -1,6 +1,6 @@
 /* Shellby panel — Toolbox: everything Claude Code can use, and what Shellby just learned.
    MCP servers can be added, removed, reconnected and turned on or off here (/mcp),
-   and your prompt snippets saved, edited and run (/snippets; snippets.js in main).
+   and your prompt snippets saved, edited and run (/snippets; toolbox-snippets.js).
    Skills, agents and commands show how often they're used and what they cost
    (lean.js usage), can be filtered by where they come from and sorted by use,
    and your own can be edited here or moved to the Recycle Bin (skillremove.js).
@@ -318,124 +318,6 @@
       h('div', {}, h('button', { class: 'btn primary slim-btn', type: 'button', onclick: add }, 'Add it')))];
   }
 
-  // ------------------------------------------------------------ prompt snippets
-
-  let snipForm = null; // { name, text, was, error } while the editor is open
-
-  /** Does the box's text start with one of your snippets (/review …)? */
-  SB.isSnippetCall = text => {
-    const m = /^\/([a-z0-9][a-z0-9-]*)(?:\s|$)/i.exec(text || '');
-    return !!m && (state.snippets || []).some(s => s.name === m[1].toLowerCase());
-  };
-
-  SB.applySnippets = (v) => {
-    if (!Array.isArray(v?.snippets)) return; // a refusal, not a new list
-    state.snippets = v.snippets;
-    if (v.pinned) state.pinned = v.pinned;
-    if (state.view === 'toolbox') render();
-    SB.refreshEmptyStates?.();
-  };
-
-  /**
-   * Run from a chip or the Run button. Whatever's in the box goes with it, and a
-   * snippet that needs something ($ARGUMENTS) waits in the box for it.
-   */
-  SB.runSnippet = (name) => {
-    const s = (state.snippets || []).find(x => x.name === name);
-    if (!s) return;
-    const draft = $('input').value.replace(/^\/\S*\s*/, '').trim();
-    if (draft || s.needsInput) return SB.prefill(`/${s.name} ${draft}`);
-    SB.setView('chat');
-    SB.send(`/${s.name}`);
-  };
-
-  // Claude Code's own commands, before a conversation has told the Toolbox about them.
-  const CLAUDE_COMMANDS = new Set(['review', 'security-review', 'init', 'help', 'cost', 'context', 'memory', 'config', 'status', 'doctor', 'pr-comments', 'agents', 'hooks', 'resume']);
-
-  // A skill or command the snippet runs instead of, in the box.
-  function shadowed(name) {
-    const tb = state.toolbox;
-    if (tb?.skills.some(t => t.name.toLowerCase() === name)) return 'skill';
-    if (tb?.commands.some(t => t.name.toLowerCase() === name) || CLAUDE_COMMANDS.has(name)) return 'command';
-    return null;
-  }
-
-  function snippetRow(s) {
-    const pin = { kind: 'snippet', name: s.name };
-    const pinned = isPinned(pin);
-    const hides = shadowed(s.name);
-    return h('li', { class: 'tool-row snippet-row' },
-      h('div', { class: 'tool-main' },
-        h('div', { class: 'tool-name' },
-          h('code', { text: `/${s.name}` }),
-          h('span', { class: 'src-pill', title: 'From a terminal', text: `@${s.name}` })),
-        h('p', { class: 'tool-desc', text: s.text, title: s.text }),
-        hides ? h('p', { class: 'snip-note', text: `In the box, this runs instead of the /${s.name} ${hides}.` }) : null),
-      h('div', { class: 'tool-actions' },
-        h('button', { class: 'btn slim-btn', type: 'button', title: s.needsInput ? 'Put it in the box, to add what it is about' : 'Send it in this conversation', onclick: () => SB.runSnippet(s.name) }, 'Run'),
-        h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => { snipForm = { name: s.name, text: s.text, was: s.name }; render(); $('setupPane').querySelector('textarea')?.focus(); } }, 'Edit'),
-        h('button', {
-          class: `icon-btn pin${pinned ? ' on' : ''}`, type: 'button', title: pinned ? 'Unpin' : 'Pin to the start screen', 'aria-pressed': String(pinned),
-          onclick: async () => { state.pinned = await api.pinTool('snippet', s.name, !pinned); render(); SB.refreshEmptyStates(); },
-        }, h('span', { text: pinned ? '★' : '☆' })),
-        h('button', {
-          class: 'icon-btn', type: 'button', title: 'Delete', 'aria-label': `Delete /${s.name}`,
-          onclick: async () => {
-            SB.applySnippets(await api.removeSnippet(s.name));
-            SB.toast(`Deleted /${s.name}`, { action: 'Undo', onAction: async () => {
-              const r = await api.saveSnippet({ name: s.name, text: s.text });
-              if (!r?.ok) return SB.toast(r?.error || "Couldn't bring it back.", { ms: 6000 });
-              SB.applySnippets(r);
-              if (pinned) { state.pinned = await api.pinTool('snippet', s.name, true); SB.refreshEmptyStates(); }
-            } });
-          },
-        }, h('span', { text: '✕' }))));
-  }
-
-  function snippetPane() {
-    const bar = h('div', { class: 'mcp-bar' },
-      h('span', { class: 'muted small', text: 'Prompts you use again and again. Type /name in the box, or shellby do @name in a terminal. $ARGUMENTS stands for what you type after the name.' }),
-      h('button', { class: 'btn primary slim-btn', type: 'button', onclick: () => { snipForm = snipForm ? null : { name: '', text: '' }; render(); $('setupPane').querySelector('input')?.focus(); } }, snipForm ? 'Close' : 'New snippet'));
-    if (!snipForm) return [bar];
-    const f = snipForm;
-    const name = h('input', { class: 'field slim mono', type: 'text', spellcheck: 'false', maxlength: '32', placeholder: 'Name, like review', 'aria-label': 'Name' });
-    const text = h('textarea', { class: 'field', rows: '5', placeholder: 'Review my uncommitted changes and point out anything risky. Or: Write tests for $ARGUMENTS.', 'aria-label': 'What it asks Claude' });
-    name.value = f.name || '';
-    text.value = f.text || '';
-    name.addEventListener('input', () => { f.name = name.value; });
-    text.addEventListener('input', () => { f.text = text.value; });
-    const save = async () => {
-      const r = await api.saveSnippet({ name: f.name, text: f.text }, f.was || null);
-      if (!r?.ok) { f.error = r?.error || "Couldn't save it."; render(); return; }
-      snipForm = null;
-      SB.applySnippets(r);
-      SB.toast(`Saved. Type /${r.name} in the box, or shellby do @${r.name} in a terminal.`, { ms: 6000 });
-    };
-    // Ctrl+Enter saves from the prompt, like sending does in the box.
-    text.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); save(); } });
-    return [bar, h('form', { class: 'mcp-form snip-form', onsubmit: e => { e.preventDefault(); save(); } },
-      name, text,
-      h('div', { class: 'snip-foot' },
-        h('p', { class: `setup-status${f.error ? ' err' : ''}`, role: 'status', text: f.error || (f.was ? `Editing /${f.was}.` : 'Lowercase letters, digits and dashes for the name.') }),
-        h('button', { class: 'btn primary slim-btn', type: 'submit' }, f.was ? 'Save changes' : 'Save')))];
-  }
-
-  function renderSnippets(q) {
-    const pane = $('setupPane');
-    const f = snipForm;
-    // Rebuilt only when the form itself changes, so a refresh can't take the cursor out of it.
-    const key = `snippet:${f ? `${f.was || 'new'}:${f.error || ''}` : 'closed'}`;
-    pane.hidden = false;
-    if (pane.dataset.mounted !== key) { pane.replaceChildren(...snippetPane()); pane.dataset.mounted = key; }
-    const list = $('toolList');
-    const items = (state.snippets || []).filter(s => !q || s.name.includes(q) || s.text.toLowerCase().includes(q));
-    if (!items.length) {
-      list.replaceChildren(h('li', { class: 'history-empty', text: q ? 'No matches.' : 'No snippets yet. Save one here, or send Claude something and then type /snippets save <name>.' }));
-      return;
-    }
-    list.replaceChildren(...items.map(snippetRow));
-  }
-
   function render() {
     const tb = state.toolbox;
     const list = $('toolList');
@@ -465,7 +347,7 @@
     if (setup.owns(kind)) { $('setupPane').hidden = false; setup.render(kind, q); return; }
     setup.hide();
     if (kind === 'lean') return SB.lean.render(q);
-    if (kind === 'snippet') return renderSnippets(q);
+    if (kind === 'snippet') return SB.toolboxSnippets.render(q);
     if (toolEd && toolEd.kind === kind) {
       // Rebuilt only for another file, so a toolbox update can't take the cursor out of it,
       // or once to say the file has gone (your text stays, to copy somewhere).

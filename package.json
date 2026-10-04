@@ -31,7 +31,8 @@
     "screenshots": "electron . --capture-screenshots",
     "reel": "electron . --capture-screenshots --reel && python scripts/make-reel.py",
     "dist": "electron-builder --win",
-    "release": "electron-builder --win --publish always"
+    "release": "electron-builder --win --publish always",
+    "release:ready": "node scripts/release-guard.js ready --wait"
   },
   "dependencies": {
     "@sentry/electron": "^8.0.0",

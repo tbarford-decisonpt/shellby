@@ -1,22 +1,29 @@
-/* Shellby panel — Build it with Claude: a chat beside the workflow editor.
+/* Shellby panel — Build it with Claude: a chat beside the workflow editor, and
+   the routine editor too.
    You say what you want; Claude changes the workflow while you watch, and can
    test it: the editor saves it (a new one switched off), runs it by hand, and
    the run comes back to Claude, who fixes what went wrong and tries again, a
-   few rounds at most per message. workflows.js owns the editor and hands this
-   a small host:
-     getDef() -> the workflow as it is in the editor
+   few rounds at most per message. workflows.js and routines.js own their
+   editors and hand this a small host:
+     noun -> 'workflow' or 'routine', for the words
+     getDef() -> the workflow (or routine) as it is in the editor
+     ask({ def, messages, runId }) -> one turn: { ok, reply, test, def?, errors? } | { ok: false, error }
      apply(def, { since }) -> show Claude's change: true, false if the editor's gone, or
-       'conflict' if you changed the workflow since `since` (the JSON Claude was sent)
+       'conflict' if you changed it since `since` (the JSON Claude was sent)
      testSave() -> { ok, id } | { ok: false, error, declined? }
+     startRun(id) -> { ok, runId } | { ok: false, error }
+     stopRun(runId), getRun(runId) -> { id, status, error } | null
      openRun(runId)
      alive() -> false once the editor this chat belongs to has closed
+   A run's updates come in through onRun({ id, status, error, waiting?, done?, steps? }).
    Claude's replies are untrusted text: they go through the escaping markdown
    renderer, and everything else through textContent. */
 'use strict';
 (function () {
-  const { h, api } = SB;
+  const { h } = SB;
   const MAX_ROUNDS = 3;         // test-and-fix rounds Claude takes on its own per message
   const MAX_TEXT = 2000;
+  const POLL_MS = 4000;         // a test run's end is pushed; this catches one that ends without a word (its tab closed)
   const ENDED = new Set(['ok', 'error', 'stopped', 'interrupted']);
   const RUN_WORD = { ok: 'worked', error: 'failed', stopped: 'was stopped', interrupted: 'was interrupted' };
   const PREF_TESTS = 'shellby.wf.chatTests';
@@ -27,12 +34,14 @@
 
   function create(host, { greeting = '' } = {}) {
     const n = ++chatN;
+    const noun = host.noun || 'workflow';
     const s = {
       turns: [],         // what Claude sees: { role: 'user' | 'claude' | 'run', text }
       busy: false,       // a Claude call or a test run is under way
       stopped: false,    // Stop pressed: no more rounds until you say something
       rounds: 0,         // tests Claude has started since your last message
       run: null,         // { id, line } while a test run is going
+      poll: null,        // the interval checking on it
       text: '',
     };
 
@@ -51,8 +60,8 @@
     const el = h('section', { class: 'wf-chat', 'aria-labelledby': `wfChatHead${n}` },
       h('div', { class: 'wf-chat-head' },
         h('h3', { class: 'wf-h3', id: `wfChatHead${n}`, text: 'Build it with Claude' }),
-        h('label', { class: 'wf-chat-tests', title: 'Claude saves it (a new one switched off) and runs it by hand to see that it works, then fixes what went wrong. Anything risky still asks you first.' },
-          tests, h('span', { text: 'Let Claude test it' }))),
+        h('label', { class: 'toggle wf-chat-tests', title: 'Claude saves it (a new one switched off) and runs it by hand to see that it works, then fixes what went wrong. Anything risky still asks you first.' },
+          tests, h('span', { class: 'switch' }), h('span', { text: 'Let Claude test it' }))),
       log,
       status,
       h('form', { class: 'wf-chat-form', novalidate: true, onsubmit: e => { e.preventDefault(); send(); } },
@@ -61,7 +70,7 @@
         h('div', { class: 'wf-chat-btns' }, stopBtn, sendBtn)));
 
     if (greeting) say('claude', greeting);
-    else line('hint', 'Say what should happen and when. Claude changes the workflow while you watch, and can run it to check it works.');
+    else line('hint', `Say what should happen and when. Claude changes the ${noun} while you watch, and can run it to check it works.`);
     paint();
 
     // ------------------------------------------------------------ the log
@@ -111,16 +120,16 @@
       const sent = host.getDef();
       const since = JSON.stringify(sent);
       let res;
-      try { res = await api.chatWorkflow({ workflow: sent, messages: s.turns, runId }); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
+      try { res = await host.ask({ def: sent, messages: s.turns, runId }); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
       if (!host.alive()) return done();
       if (!res?.ok) {
         line('err', res?.error || 'Claude couldn\'t answer that. Try saying it another way.');
         return done();
       }
-      const applied = res.workflow ? host.apply(res.workflow, { since }) : false;
+      const applied = res.def ? host.apply(res.def, { since }) : false;
       const conflict = applied === 'conflict';
-      const tagText = conflict ? 'You changed the workflow while Claude worked, so this wasn\'t applied. Send it again and Claude will work on your version.'
-        : applied ? (res.errors?.length ? 'Changed the workflow. Some things still need fixing; they\'re marked.' : 'Changed the workflow.') : '';
+      const tagText = conflict ? `You changed the ${noun} while Claude worked, so this wasn't applied. Send it again and Claude will work on your version.`
+        : applied ? (res.errors?.length ? `Changed the ${noun}. Some things still need fixing; they're marked.` : `Changed the ${noun}.`) : '';
       const wantsTest = res.test && !res.errors?.length && !conflict;
       say('claude', res.reply, [tagText ? h('p', { class: 'wf-chat-tag', text: tagText }) : null, wantsTest && !tests.checked ? testBtn() : null]);
       if (!wantsTest || !tests.checked || s.stopped) return done();
@@ -148,6 +157,7 @@
     function done() {
       s.busy = false;
       s.run = null;
+      unwatch();
       paint();
     }
 
@@ -170,9 +180,9 @@
       if (s.stopped) { line('hint', 'Stopped. It\'s saved, but it didn\'t run.'); return done(); }
       paint('Running it…');
       let started;
-      try { started = await api.runWorkflow(saved.id, {}); } catch { started = { ok: false, error: 'Couldn\'t start it.' }; }
+      try { started = await host.startRun(saved.id); } catch { started = { ok: false, error: 'Couldn\'t start it.' }; }
       if (started?.ok && started.runId && (s.stopped || !host.alive())) {
-        api.stopRun(started.runId).catch(() => {});
+        Promise.resolve(host.stopRun(started.runId)).catch(() => {});
         if (host.alive()) line('hint', 'Stopped the test run.');
         return done();
       }
@@ -183,9 +193,20 @@
       const { li, body } = line('run', 'Test run started.', [runBtn(started.runId)]);
       s.run = { id: started.runId, li, body };
       // A quick run can finish before this line: catch up once, in case its last update came first.
+      await checkRun(started.runId);
+      if (s.run?.id === started.runId) { unwatch(); s.poll = setInterval(() => checkRun(started.runId), POLL_MS); }
+    }
+
+    async function checkRun(id) {
+      if (s.run?.id !== id || !host.alive()) return unwatch();
       let rec = null;
-      try { rec = await api.getRun(started.runId); } catch { /* the updates still come */ }
+      try { rec = await host.getRun(id); } catch { /* the updates still come */ }
       if (rec && s.run?.id === rec.id && ENDED.has(rec.status)) onRun({ id: rec.id, status: rec.status, error: rec.error });
+    }
+
+    function unwatch() {
+      clearInterval(s.poll);
+      s.poll = null;
     }
 
     /** Every run update in the panel comes here; only the test run's matter. */
@@ -195,7 +216,8 @@
       if (summary.waiting?.question) { body.textContent = `The test run is asking you: ${summary.waiting.question}`; paint('Waiting for your answer…'); return; }
       if (summary.waiting?.permission) { body.textContent = 'The test run is waiting for you to allow something in its Claude tab.'; paint('Waiting for you…'); return; }
       if (!ENDED.has(summary.status)) {
-        body.textContent = `Test run: ${summary.done || 0} of ${summary.steps || '?'} steps done.`;
+        // A routine has no steps to count: Claude Code is at work in its tab.
+        body.textContent = summary.steps ? `Test run: ${summary.done || 0} of ${summary.steps} steps done.` : 'Test run going in its own tab.';
         paint('Running it…');
         return;
       }
@@ -204,13 +226,14 @@
       s.turns.push({ role: 'run', text });
       const id = s.run.id;
       s.run = null;
+      unwatch();
       if (s.stopped || summary.status === 'stopped') return done();
       ask(id);
     }
 
     function stop() {
       s.stopped = true;
-      if (s.run) api.stopRun(s.run.id).catch(() => {});
+      if (s.run) Promise.resolve(host.stopRun(s.run.id)).catch(() => {});
       paint(s.run ? 'Stopping the test run…' : 'Stopping after Claude\'s answer…');
     }
 
