@@ -269,6 +269,7 @@
     if (state.view === 'us') renderUs();
   }
   SB.applyLife = apply;
+  SB.play = kind => play(kind); // the command palette's games (nav.js)
 
   // Looking at the shelf counts as seeing what's new on it, after a moment to notice.
   function noticeFinds() {
@@ -287,7 +288,16 @@
     if (kind === 'hide') SB.toast('Close your eyes… he’s hiding behind your windows. Click him when you find him.', { ms: 5000 });
     if (kind === 'fetch') SB.toast('A pebble’s next to him on the desktop. Drag it and throw it.', { ms: 5000 });
     if (kind === 'dig') SB.toast('He’s digging…');
-    if (kind !== 'stop' && kind !== 'dig') api.hide(); // out of the way: the game is on your desktop
+    if (kind !== 'stop' && kind !== 'dig') outOfTheWay();
+  }
+  // The game is on your desktop, so the panel gets out of the way, but only once
+  // the toast above has been read: hiding at once took the how-to-play with it.
+  // Reaching back into the panel meanwhile means you want it, so it stays.
+  const READ_MS = 2500;
+  function outOfTheWay() {
+    const keep = () => clearTimeout(t);
+    const t = setTimeout(() => { document.removeEventListener('pointerdown', keep, true); api.hide(); }, READ_MS);
+    document.addEventListener('pointerdown', keep, { capture: true, once: true });
   }
   $('usBdSave').addEventListener('click', async () => {
     const m = Number($('usBdMonth').value), d = Number($('usBdDay').value);
