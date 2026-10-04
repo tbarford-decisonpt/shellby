@@ -247,12 +247,17 @@ function demoLean(now) {
       { name: 'sqlite', status: 'connected', lastUsed: null, idle: true },
       { name: 'obsidian', status: 'connected', lastUsed: now - 4 * HOUR, idle: false },
     ],
+    skills: [ // idle first, then by what each costs in every conversation
+      { kind: 'skill', name: 'changelog-writer', source: 'user', listTokens: 140, useTokens: 2300, uses: 0, lastUsed: null, idle: true },
+      { kind: 'skill', name: 'tide-tables', source: 'project', listTokens: 95, useTokens: 1800, uses: 14, lastUsed: now - 3 * HOUR, idle: false },
+      { kind: 'agent', name: 'reviewer', source: 'user', listTokens: 60, useTokens: 900, uses: 6, lastUsed: now - 2 * DAY, idle: false },
+    ],
     memory: [
       { path: 'C:\\Users\\you\\.claude\\CLAUDE.md', scope: 'user', tokens: 1620, onDemand: false },
       { path: 'C:\\Users\\you\\code\\tidepool\\CLAUDE.md', scope: 'project', tokens: 980, onDemand: false },
       { path: 'C:\\Users\\you\\.claude\\rules\\typescript.md', scope: 'user', tokens: 310, onDemand: true },
     ],
-    totals: { plugins: 7900, idlePlugins: 3500, memory: 2600, memoryOnDemand: 310, idleCount: 3 },
+    totals: { plugins: 7900, idlePlugins: 3500, memory: 2600, memoryOnDemand: 310, skills: 295, idleCount: 4 },
     watched: true, watchedFrom: now - 45 * DAY, idleDays: 21,
     cache: {
       today: { input: 3100, write: 21400, read: 171500, calls: 6, total: 196000, rate: 0.875, saved: 154350 },

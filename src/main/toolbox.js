@@ -2,7 +2,8 @@
 // commands and MCP servers — gathered from ~/.claude, the project's .claude and
 // any plugins, so the UI can list and pin them. ToolboxWatcher keeps it fresh and
 // announces when a new skill/agent/command shows up on disk ("learned a new trick").
-// Read-only: nothing here ever writes to the user's Claude config.
+// Read-only: nothing here ever writes to the user's Claude config (removing one of
+// your own skills, agents or commands is skillremove.js, and asks first).
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
@@ -107,11 +108,15 @@ function cleanDesc(d) {
   return s.length > MAX_DESC ? s.slice(0, MAX_DESC - 1) + '…' : s;
 }
 
+// The frontmatter, and how much text follows it: that body is what Claude reads
+// when the skill, command or agent is called.
 function readMeta(file) {
   try {
     const st = fs.statSync(file);
     if (!st.isFile() || st.size > MAX_FILE) return null;
-    return parseFrontmatter(fs.readFileSync(file, 'utf8'));
+    const text = fs.readFileSync(file, 'utf8');
+    const fm = /^﻿?---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.exec(text);
+    return { ...parseFrontmatter(text), bodyChars: text.length - (fm ? fm[0].length : 0) };
   } catch { return null; }
 }
 
@@ -134,9 +139,12 @@ function walkMd(dir, parts = [], depth = 0, out = []) {
   return out;
 }
 
+// listChars: the name and full description, which Claude Code lists for Claude in
+// every conversation. bodyChars: the rest of the file, read only when it's called.
 function tool(kind, name, meta, source, file) {
   const n = typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : name;
-  return { kind, name: n, description: cleanDesc(meta.description), source, path: file };
+  const desc = typeof meta.description === 'string' ? meta.description.trim() : '';
+  return { kind, name: n, description: cleanDesc(desc), source, path: file, listChars: n.length + desc.length, bodyChars: meta.bodyChars || 0 };
 }
 
 // Items from one root (<home>/.claude, <cwd>/.claude or a plugin dir).

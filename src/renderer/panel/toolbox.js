@@ -1,6 +1,8 @@
 /* Shellby panel — Toolbox: everything Claude Code can use, and what Shellby just learned.
    MCP servers can be added, removed, reconnected and turned on or off here (/mcp),
    and your prompt snippets saved, edited and run (/snippets; snippets.js in main).
+   Skills, agents and commands show how often they're used and what they cost
+   (lean.js usage), and your own can be moved to the Recycle Bin (skillremove.js).
    The Hooks, Rules and Memory tabs live in toolbox-setup.js. */
 'use strict';
 (function () {
@@ -11,6 +13,57 @@
 
   const isNew = t => (state.learned || []).some(l => l.kind === t.kind && l.name === t.name && Date.now() - l.at < NEW_FOR_MS);
   const isPinned = t => (state.pinned || []).some(p => p.kind === t.kind && p.name === t.name);
+
+  // ------------------------------------------------------------ usage and cost
+
+  let usage = null;        // { tools: { 'kind:name': { uses, lastUsed, listTokens, useTokens } }, watchedFrom }
+  let usageLoading = null;
+  let usageTried = false;  // asked once; a failure waits for Rescan rather than asking again on every render
+  const removing = new Set();
+
+  function loadUsage(refresh = false) {
+    if (usageLoading) return usageLoading;
+    usageTried = true;
+    usageLoading = api.leanUsage(refresh)
+      .then(r => { if (r?.ok) usage = r; })
+      .catch(() => {})
+      .finally(() => { usageLoading = null; if (state.view === 'toolbox') render(); });
+    return usageLoading;
+  }
+
+  const tok = n => `~${SB.compact(n)} tokens`;
+
+  function statsLine(t) {
+    const u = usage?.tools?.[`${t.kind}:${t.name}`];
+    if (!u) return null;
+    const parts = [
+      u.uses ? `used ${u.uses}× lately` : usage.watchedFrom ? 'not used lately' : null,
+      Number.isFinite(u.lastUsed) ? `last ${SB.relTime(u.lastUsed)}` : null,
+      u.listTokens ? `${tok(u.listTokens)} in every conversation` : null,
+      u.useTokens ? `${tok(u.useTokens)} each use` : null,
+    ].filter(Boolean);
+    if (!parts.length) return null;
+    const text = parts.join(' · ');
+    return h('p', { class: `tool-stats${u.uses ? '' : ' unused'}`, text: text[0].toUpperCase() + text.slice(1),
+      title: `From the last ${usage.lookbackDays} days or so of this PC's Claude Code history, Shellby and the terminal both. Its name and description are listed for Claude in every conversation; the rest of its file is read only when it's used.` });
+  }
+
+  async function removeTool(t) {
+    const key = `${t.kind}:${t.name}`;
+    if (removing.has(key)) return;
+    removing.add(key);
+    render();
+    let r;
+    try { r = await api.removeTool(t.kind, t.name); } catch { r = { ok: false, error: "Shellby couldn't do that." }; }
+    removing.delete(key);
+    if (r?.ok) {
+      if (r.toolbox) state.toolbox = r.toolbox;
+      state.pinned = (state.pinned || []).filter(p => !(p.kind === t.kind && p.name === t.name));
+      SB.refreshEmptyStates();
+      SB.toast(`Moved ${t.kind === 'agent' ? t.name : `/${t.name}`} to the Recycle Bin. Restore it from there if you change your mind.`, { ms: 8000 });
+    } else if (!r?.cancelled) SB.toast(r?.error || "Couldn't remove that.", { ms: 8000 });
+    render();
+  }
 
   function sourceLabel(src) {
     if (!src) return '';
@@ -33,7 +86,8 @@
           h('code', { text: t.kind === 'command' || t.kind === 'skill' ? `/${t.name}` : t.name }),
           isNew(t) ? h('span', { class: 'new-pill', text: 'new' }) : null,
           h('span', { class: 'src-pill', text: t.kind === 'mcp' ? (t.status || '') : sourceLabel(t.source) })),
-        t.description ? h('p', { class: 'tool-desc', text: t.description, title: t.description }) : null),
+        t.description ? h('p', { class: 'tool-desc', text: t.description, title: t.description }) : null,
+        usable ? statsLine(t) : null),
       h('div', { class: 'tool-actions' },
         t.kind === 'mcp' ? mcpActions(t) : null,
         usable ? h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.useTool(t) }, 'Use') : null,
@@ -42,7 +96,11 @@
           onclick: async () => { state.pinned = await api.pinTool(t.kind, t.name, !pinned); SB.views.toolbox.render(); SB.refreshEmptyStates(); },
         }, h('span', { text: pinned ? '★' : '☆' })) : null,
         t.path ? h('button', { class: 'icon-btn', type: 'button', title: 'Show file', 'aria-label': 'Show file', onclick: () => api.revealTool(t.path) },
-          SB.icon(SB.ICONS.folder, { width: 1.3 })) : null));
+          SB.icon(SB.ICONS.folder, { width: 1.3 })) : null,
+        usable && (t.source === 'user' || t.source === 'project') ? h('button', {
+          class: 'icon-btn', type: 'button', title: 'Remove (Shellby asks first, and it goes to the Recycle Bin)', 'aria-label': `Remove ${t.name}`,
+          disabled: removing.has(`${t.kind}:${t.name}`), onclick: () => removeTool(t),
+        }, h('span', { text: '✕' })) : null));
   }
 
   // ------------------------------------------------------------ MCP servers
@@ -251,6 +309,7 @@
       if ($('setupPane').dataset.mounted !== key) { $('setupPane').replaceChildren(...mcpPane()); $('setupPane').dataset.mounted = key; }
     }
     if (!tb) { list.replaceChildren(h('li', { class: 'history-empty', text: 'Scanning…' })); return; }
+    if (kind !== 'mcp' && !usageTried) loadUsage();
     const items = tb[listKey[kind]]
       .filter(t => !q || t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
       .sort((a, b) => (isNew(b) - isNew(a)) || (isPinned(b) - isPinned(a)) || a.name.localeCompare(b.name));
@@ -271,6 +330,7 @@
   $('toolSearch').addEventListener('input', render);
   $('rescanBtn').addEventListener('click', async () => {
     [state.toolbox] = await Promise.all([api.rescanToolbox(), SB.toolboxSetup.reload()]);
+    loadUsage(true);
     render();
     SB.toast('Toolbox rescanned');
   });

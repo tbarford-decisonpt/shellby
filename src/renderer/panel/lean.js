@@ -1,6 +1,6 @@
 /* Shellby panel — Toolbox → Lean: what every new conversation carries before your
    first word, how much of Claude's input came from the prompt cache, and the
-   plugins and MCP servers that sit idle. Nothing here touches a prompt, the model
+   plugins, MCP servers and your own skills that sit idle. Nothing here touches a prompt, the model
    or what Claude reads: turning a plugin off only affects new conversations and
    is one click to undo, and "Suggest a trim" and "Ask Claude" only draft a
    prompt for you to send.
@@ -102,6 +102,7 @@
     const parts = [
       rep.totals.plugins ? `plugins ${tok(rep.totals.plugins)} (Claude Code's estimate)` : null,
       rep.totals.memory ? `CLAUDE.md and rules ${tok(rep.totals.memory)}` : null,
+      rep.totals.skills ? `your skills' names and descriptions ${tok(rep.totals.skills)}` : null,
       'plus Claude Code\'s own prompt and tools',
     ].filter(Boolean);
     const c = rep.cache.week;
@@ -170,6 +171,36 @@
         h('button', { class: `btn ${s.idle ? '' : 'ghost '}slim-btn`, type: 'button', disabled: working, title: 'Shellby asks first, and shows what it runs so you can add it back', onclick: remove }, working ? '…' : 'Remove…')));
   }
 
+  const NOUN = { skill: 'skill', command: 'command', agent: 'agent' };
+
+  function skillUseText(t, rep) {
+    const used = t.uses ? `used ${t.uses}× lately, last ${SB.relTime(t.lastUsed)}` : lastUsedText(t, rep);
+    return [used, t.useTokens ? `${tok(t.useTokens)} each time it's used` : null].filter(Boolean).join(' · ');
+  }
+
+  function skillRow(t, rep) {
+    const key = `${t.kind}:${t.name}`;
+    const working = busy.has(key);
+    const remove = async () => {
+      const r = await change(key, () => api.removeTool(t.kind, t.name), `Moved ${t.kind === 'agent' ? t.name : `/${t.name}`} to the Recycle Bin. Restore it from there if you change your mind.`);
+      if (r?.ok) {
+        if (r.toolbox) state.toolbox = r.toolbox;
+        state.pinned = (state.pinned || []).filter(p => !(p.kind === t.kind && p.name === t.name));
+        SB.refreshEmptyStates();
+        load();
+      }
+    };
+    return h('li', { class: `tool-row${t.idle ? ' is-idle' : ''}` },
+      h('div', { class: 'tool-main' },
+        h('div', { class: 'tool-name' },
+          h('code', { text: t.kind === 'agent' ? t.name : `/${t.name}` }),
+          t.idle ? h('span', { class: 'idle-pill', text: 'idle' }) : null,
+          h('span', { class: 'src-pill', title: 'Its name and description are listed for Claude in every conversation', text: `${NOUN[t.kind]} · ${tok(t.listTokens)}` })),
+        h('p', { class: 'tool-desc', text: skillUseText(t, rep) })),
+      h('div', { class: 'tool-actions' },
+        h('button', { class: `btn ${t.idle ? '' : 'ghost '}slim-btn`, type: 'button', disabled: working, title: 'Shellby asks first, and it goes to the Recycle Bin', onclick: remove }, working ? '…' : 'Remove…')));
+  }
+
   // A trim Claude proposes and you approve: the prompt waits in a new tab, unsent.
   const TRIM_ASK = m => `Look at my Claude Code memory file at ${m.path}. ${m.onDemand ? 'It loads whenever you work on matching files' : 'It loads into every conversation'}, so every line of it is sent with every message after that. `
     + 'Suggest a shorter version that keeps everything you could not work out from the code or the project itself: commands, conventions, gotchas, preferences and rules. '
@@ -215,11 +246,13 @@
     const plugins = rep.plugins.filter(p => match(p.name));
     const off = (rep.off || []).filter(p => match(p.name));
     const mcp = rep.mcp.filter(s => match(s.name));
+    const skills = (rep.skills || []).filter(t => match(t.name));
     const memory = rep.memory.filter(m => match(m.path) && !m.onDemand);
     const onDemand = rep.memory.filter(m => match(m.path) && m.onDemand);
     const rows = [
       plugins.length ? label('Plugins') : null, ...plugins.map(p => pluginRow(p, rep)),
       mcp.length ? label('MCP servers you added') : null, ...mcp.map(s => mcpRow(s, rep)),
+      skills.length ? label(`Your skills, commands and agents (${tok(rep.totals.skills || 0)} in every conversation)`) : null, ...skills.map(t => skillRow(t, rep)),
       memory.length ? label('CLAUDE.md and rules, every conversation') : null, ...memory.map(memoryRow),
       onDemand.length ? label(`Rules for matching files only (${tok(rep.totals.memoryOnDemand)} in all)`) : null, ...onDemand.map(memoryRow),
       off.length ? label('Turned off') : null, ...off.map(offRow),
