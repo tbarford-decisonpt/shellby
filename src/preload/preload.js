@@ -294,6 +294,9 @@ contextBridge.exposeInMainWorld('shellby', {
   stickersSeen: fire('stickers:seen'),
   openStickerProject: fire('stickers:open'),
   checkupSticker: invoke('stickers:checkup'),
+  // the beach: a castle per project shipped, the tide, his finds (beach.js)
+  getBeach: invoke('beach:get'),
+  beachSeen: invoke('beach:seen'),
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),

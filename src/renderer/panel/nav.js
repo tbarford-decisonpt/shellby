@@ -126,6 +126,7 @@
       { icon: '🏆', title: 'Shellby: trophies & XP', sub: 'Level, XP, streaks and trophies', keys: 'level achievements streak', run: go('trophies') },
       { icon: '🐚', title: 'Shellby: finds', sub: 'Everything he’s dug up for you', keys: 'gifts shelf treasure dig collection sets', run: go('finds') },
       { icon: '💞', title: 'Shellby: us', sub: 'How close you are, your story, games, your birthday', keys: 'bond friendship memories journal birthday temperament scenes', run: go('us') },
+      { icon: '🏖️', title: 'Shellby: beach', sub: 'A sandcastle for every project you’ve shipped', keys: 'beach sandcastle castles shipped projects tide streak snapshot share', run: go('beach') },
       { icon: '🙈', title: 'Play hide and seek', sub: 'He hides behind your windows', keys: 'game play hide seek', run: () => SB.play('hide') },
       { icon: '🎾', title: 'Play fetch', sub: 'Throw him a pebble', keys: 'game play fetch ball throw', run: () => SB.play('fetch') },
       claude() && { icon: '💬', title: 'Chat', sub: 'Give Shellby a task', keys: 'home task conversation', run: go('chat') },

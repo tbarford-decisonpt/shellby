@@ -303,6 +303,9 @@
   document.addEventListener('dragend', () => { if (holding && state.view === 'stickers') { holding = null; $('stBench').classList.remove('holding'); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && holding && state.view === 'stickers') drop(); });
 
+  // Another screen (the beach) opening a project's page in the book.
+  SB.openSticker = id => { selected = id; SB.setView('stickers'); };
+
   api.onStickers(apply);
   // A redrawn crab (new skin, new shell) moves the spots.
   api.onSkin(() => { if (state.view === 'stickers') api.getStickers().then(apply); });
@@ -314,14 +317,14 @@
     SB.celebrate({
       eyebrow: p.from ? 'Sticker swap' : 'New sticker', icon: p.from ? '🤝' : '🏷️', title: p.name,
       text: p.from ? `@${p.from}'s crab left it when they visited. Put it on his shell from the Sticker Book.`
-        : p.shells.length ? 'You shipped it, so he slapped its sticker on his shell. Ship it again to make it shinier.' : 'You shipped it. Its sticker is in the Sticker Book.',
+        : `${p.shells.length ? 'You shipped it, so he slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.'} He’s building its castle on the beach too, and it grows as you ship it again.`,
       rewards: [{ name: p.name, pixels: p.art.pixels, palette: p.art.palette, kind: 'sticker' }],
       action: { label: 'Open Sticker Book', run: () => { selected = p.id; SB.setView('stickers'); } },
     });
   });
   api.onStickerNews(n => {
     if (!n) return;
-    const text = n.tier ? `${n.name} went ${n.tier.name.toLowerCase()} ✨` : n.pressed ? `${n.name} shipped again: its sticker is pressed back down` : `${n.marks.map(m => `${m.icon} ${m.name}`).join(', ')} on ${n.name}`;
+    const text = n.tier ? `${n.name} went ${n.tier.name.toLowerCase()} ✨ and its castle on the beach grew` : n.pressed ? `${n.name} shipped again: its sticker is pressed back down` : `${n.marks.map(m => `${m.icon} ${m.name}`).join(', ')} on ${n.name}`;
     SB.toast(text, { action: 'Sticker Book', ms: 5000, onAction: () => { selected = n.id; SB.setView('stickers'); } });
   });
 

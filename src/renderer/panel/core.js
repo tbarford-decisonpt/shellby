@@ -180,10 +180,10 @@ document.addEventListener('click', e => {
 
 SB.views = {};  // name -> { render?() }
 
-// Which navigation item a screen lives under (Trophies, Stickers, Finds and Us are
+// Which navigation item a screen lives under (Trophies, Stickers, Finds, Us and Beach are
 // tabs of the Shellby screen, Routines sits beside Workflows under Automate), and
 // which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe', finds: 'wardrobe', us: 'wardrobe', routines: 'workflows' };
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', stickers: 'wardrobe', finds: 'wardrobe', us: 'wardrobe', beach: 'wardrobe', routines: 'workflows' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
