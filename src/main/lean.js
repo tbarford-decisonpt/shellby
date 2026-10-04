@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const eff = require('./efficiency');
 const mcpAdmin = require('./mcpadmin');
-const { scanTranscripts } = require('./usagescan');
+const { scanTranscripts, totalUses } = require('./usagescan');
 const { scanToolbox } = require('./toolbox');
 
 const SAVE_MS = 5000;                        // calls come in bursts; one write when they settle
@@ -64,6 +64,22 @@ function cleanUsed(raw) {
   return Object.fromEntries(Object.entries(src).filter(([k, v]) => k.length <= 200 && Number.isFinite(v)));
 }
 
+// Per-transcript use counts from config.json: { file: { key: n } }.
+function cleanCounts(raw) {
+  const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  return Object.fromEntries(Object.entries(src)
+    .filter(([file, per]) => file.length <= 1000 && per && typeof per === 'object' && !Array.isArray(per))
+    .map(([file, per]) => [file, cleanUsed(per)]));
+}
+
+// Your own skills, commands and agents (a plugin's come and go with the plugin),
+// with when each arrived: one added lately hasn't had the chance to be used yet.
+function mine(tb) {
+  return ['skills', 'commands', 'agents'].flatMap(k => (Array.isArray(tb?.[k]) ? tb[k] : []))
+    .filter(t => (t.source === 'user' || t.source === 'project') && t.path)
+    .map(t => ({ ...t, addedAt: createdAt(t.kind === 'skill' ? path.dirname(t.path) : t.path) }));
+}
+
 /**
  * deps: { config, shop, shopBlocked, askOnce, toolbox, memory, setupWhere,
  * configDir, projectOf(tab), currentProject(), awardXp, log }
@@ -101,13 +117,13 @@ function createLean(deps) {
     if (scanning) return scanning;
     if (!scan) {
       const stored = config.get('leanUsed') || {};
-      scan = { used: cleanUsed(stored.used), from: Number.isFinite(stored.from) ? stored.from : null, seen: {}, at: 0 };
+      scan = { used: cleanUsed(stored.used), from: Number.isFinite(stored.from) ? stored.from : null, counts: cleanCounts(stored.counts), seen: {}, at: 0 };
     }
     if (!force && Date.now() - scan.at < RESCAN_MS) return Promise.resolve(scan);
-    scanning = scanTranscripts({ configDir: deps.configDir(), since: Date.now() - LOOKBACK_MS, used: scan.used, from: scan.from, seen: scan.seen })
+    scanning = scanTranscripts({ configDir: deps.configDir(), since: Date.now() - LOOKBACK_MS, used: scan.used, from: scan.from, seen: scan.seen, counts: scan.counts })
       .then(r => {
         scan = { ...r, at: Date.now() };
-        config.set({ leanUsed: { used: r.used, from: r.from } });
+        config.set({ leanUsed: { used: r.used, from: r.from, counts: r.counts } });
         return scan;
       })
       .catch(err => { deps.log?.info(`lean: transcript scan failed: ${err.message}`); return scan; })
@@ -204,7 +220,7 @@ function createLean(deps) {
     const now = Date.now();
     const mcp = deps.toolbox()?.current?.mcp || [];
     last = eff.leanReport({
-      plugins, mcp, mcpSeen: mcpSeen(mcp, now), tools: pluginTools(plugins),
+      plugins, mcp, mcpSeen: mcpSeen(mcp, now), tools: pluginTools(plugins), mine: mine(deps.toolbox()?.current), uses: totalUses(u.counts),
       memory: deps.memory().map(m => (m.exists ? { ...m, onDemand: eff.loadsOnDemand(head(m.path), m.scope) } : m)),
       used: u.used, watchedSince: u.from, setups, projectKey: deps.currentProject(), days, now,
     });
@@ -262,13 +278,29 @@ function createLean(deps) {
     return { ok: true };
   }
 
+  // For the Toolbox's rows: how often and how lately each skill, command and
+  // agent was used, and what it costs. Only the transcripts: no plugin details,
+  // so it doesn't wait on Claude Code.
+  async function usage(force = false) {
+    const u = await used(force);
+    const tb = deps.toolbox()?.current || {};
+    const counts = eff.toolUsage(tb, u.used, totalUses(u.counts));
+    const tools = {};
+    for (const t of ['skills', 'commands', 'agents'].flatMap(k => (Array.isArray(tb[k]) ? tb[k] : []))) {
+      const key = `${t.kind}:${t.name}`;
+      tools[key] = { ...counts[key], ...eff.toolTokens(t) };
+    }
+    return { ok: true, tools, watchedFrom: Number.isFinite(u.from) ? u.from : null, lookbackDays: Math.round(LOOKBACK_MS / (24 * 60 * 60 * 1000)) };
+  }
+
   function register(ipcMain) {
     ipcMain.handle('lean:report', (_e, a) => report({ refresh: !!a?.refresh }));
+    ipcMain.handle('lean:usage', (_e, a) => usage(!!a?.refresh));
     ipcMain.handle('lean:plugin', (_e, a) => (isStr(a?.id) ? setPlugin(a.id, !!a.on) : { ok: false, error: "That plugin isn't installed." }));
     ipcMain.handle('lean:mcp-removed', (_e, name) => (isStr(name) ? removedMcp(name) : { ok: false }));
   }
 
-  return { onCall, report, register, save };
+  return { onCall, report, usage, register, save, last: () => last };
 }
 
-module.exports = { createLean, worksQuietly };
+module.exports = { createLean, worksQuietly, mine };

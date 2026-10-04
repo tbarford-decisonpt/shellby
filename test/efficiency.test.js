@@ -277,6 +277,90 @@ test('scanTranscripts reads new and changed transcripts only', async () => {
   }
 });
 
+test('use counts survive a transcript growing, and leave with it', async () => {
+  const { totalUses } = require('../src/main/usagescan');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-lean-'));
+  const dir = path.join(root, 'projects', 'C--x');
+  fs.mkdirSync(dir, { recursive: true });
+  const a = path.join(dir, 'a.jsonl');
+  const skill = (name, at) => line([{ type: 'tool_use', name: 'Skill', input: { skill: name } }], 'assistant', at);
+  fs.writeFileSync(a, [skill('impeccable', '2026-09-20T10:00:00.000Z'), skill('impeccable', '2026-09-21T10:00:00.000Z')].join('\n'));
+  try {
+    const r = await scanTranscripts({ configDir: root, since: 0 });
+    assert.deepEqual(totalUses(r.counts), { 'skill:impeccable': 2 });
+
+    // Read again from the top after it grew: 3 uses, not 2 + 3.
+    fs.appendFileSync(a, `\n${skill('impeccable', '2026-09-22T10:00:00.000Z')}`);
+    const again = await scanTranscripts({ configDir: root, since: 0, used: r.used, from: r.from, seen: r.seen, counts: r.counts });
+    assert.deepEqual(totalUses(again.counts), { 'skill:impeccable': 3 });
+
+    // A restart forgets which files were read, not what was counted in them.
+    const restarted = await scanTranscripts({ configDir: root, since: 0, used: again.used, from: again.from, counts: again.counts });
+    assert.deepEqual(totalUses(restarted.counts), { 'skill:impeccable': 3 });
+
+    // Uses before the window aren't counted.
+    const recent = await scanTranscripts({ configDir: root, since: Date.parse('2026-09-21T00:00:00.000Z') });
+    assert.deepEqual(totalUses(recent.counts), { 'skill:impeccable': 2 });
+
+    fs.rmSync(a);
+    const gone = await scanTranscripts({ configDir: root, since: 0, counts: again.counts });
+    assert.deepEqual(totalUses(gone.counts), {}, 'a deleted transcript takes its counts with it');
+    assert.deepEqual(totalUses({ x: { 'skill:a': -1, 'skill:b': 'no' }, y: null }), {});
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a Toolbox item's uses: its full name, and its bare name when nothing else answers to it", () => {
+  const tools = {
+    skills: [
+      { kind: 'skill', name: 'frontend-design:frontend-design', source: 'plugin:frontend-design' },
+      { kind: 'skill', name: 'example-skills:frontend-design', source: 'plugin:example-skills' },
+      { kind: 'skill', name: 'ecc:tdd', source: 'plugin:ecc' },
+      { kind: 'skill', name: 'impeccable', source: 'user' },
+    ],
+    commands: [{ kind: 'command', name: 'deploy', source: 'project' }],
+    agents: [{ kind: 'agent', name: 'planner', source: 'user' }],
+  };
+  const used = { 'skill:ecc:tdd': 10, 'skill:tdd': 30, 'skill:frontend-design': 50, 'skill:impeccable': 20, 'agent:planner': 5 };
+  const uses = { 'skill:ecc:tdd': 1, 'skill:tdd': 2, 'skill:frontend-design': 7, 'skill:impeccable': 4, 'skill:deploy': 3, 'agent:planner': 1 };
+  const u = eff.toolUsage(tools, used, uses);
+  assert.deepEqual(u['skill:ecc:tdd'], { uses: 3, lastUsed: 30 }, 'called either way');
+  assert.deepEqual(u['skill:frontend-design:frontend-design'], { uses: 0, lastUsed: null }, 'two plugins answer to the bare name: credit neither');
+  assert.deepEqual(u['skill:impeccable'], { uses: 4, lastUsed: 20 });
+  assert.deepEqual(u['command:deploy'], { uses: 3, lastUsed: null });
+  assert.deepEqual(u['agent:planner'], { uses: 1, lastUsed: 5 });
+  assert.deepEqual(eff.toolTokens({ listChars: 400, bodyChars: 8000 }), { listTokens: 100, useTokens: 2000 });
+  assert.deepEqual(eff.toolTokens({}), { listTokens: 0, useTokens: 0 });
+});
+
+test('the Lean tab: your own skills, what they cost, and which sit idle', () => {
+  const mine = [
+    { kind: 'skill', name: 'old-trick', source: 'user', listChars: 800, bodyChars: 4000, addedAt: NOW - 60 * D },
+    { kind: 'skill', name: 'daily', source: 'user', listChars: 400, bodyChars: 400, addedAt: NOW - 60 * D },
+    { kind: 'skill', name: 'brand-new', source: 'project', listChars: 1200, bodyChars: 0, addedAt: NOW - 2 * D },
+    { kind: 'agent', name: 'no-date', source: 'user', listChars: 40, bodyChars: 40, addedAt: null },
+  ];
+  const r = eff.leanReport({ mine, used: { 'skill:daily': NOW - D }, uses: { 'skill:daily': 9 }, watchedSince: NOW - 30 * D, now: NOW });
+  assert.deepEqual(r.skills.map(s => [s.name, s.idle]), [['old-trick', true], ['brand-new', false], ['daily', false], ['no-date', false]]);
+  assert.deepEqual(r.skills.find(s => s.name === 'daily'), { kind: 'skill', name: 'daily', source: 'user', listTokens: 100, useTokens: 100, uses: 9, lastUsed: NOW - D, idle: false });
+  assert.equal(r.totals.skills, 200 + 100 + 300 + 10);
+  assert.equal(r.totals.idleCount, 1);
+  assert.ok(eff.leanReport({ mine, watchedSince: NOW - 5 * D, now: NOW }).skills.every(s => !s.idle), 'not before three weeks of history');
+});
+
+test('your skill and the Toolbox agree on a bare name a plugin also answers to', () => {
+  const yours = { kind: 'command', name: 'git:commit', source: 'user', listChars: 40, bodyChars: 40, addedAt: NOW - 60 * D };
+  const theirs = { kind: 'skill', name: 'commit-commands:commit', source: 'plugin:commit-commands' };
+  // The plugin's skill turns up twice (the Toolbox, and its folder scanned again): still one other owner.
+  const tools = { skills: [theirs, { ...theirs }], commands: [yours], agents: [] };
+  const used = { 'skill:commit': NOW - D };
+  const r = eff.leanReport({ tools, mine: [yours], used, uses: { 'skill:commit': 5 }, watchedSince: NOW - 30 * D, now: NOW });
+  assert.equal(r.skills[0].uses, 0, "a bare /commit could have been the plugin's");
+  assert.equal(eff.toolUsage(tools, used, { 'skill:commit': 5 })['command:git:commit'].uses, 0, 'the Toolbox says the same');
+  assert.equal(eff.toolUsage({ skills: [theirs, { ...theirs }] }, used, { 'skill:commit': 5 })['skill:commit-commands:commit'].uses, 5, 'a duplicate is not a second owner');
+});
+
 test("a plugin that works without being called is never idle: hooks, styles, a status line, bin/", () => {
   const { worksQuietly } = require('../src/main/lean');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-plugin-'));

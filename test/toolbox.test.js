@@ -257,3 +257,15 @@ test('watcher: fs.watch failures never throw', () => {
   assert.equal(w.watchers.length, 0);
   w.stop();
 });
+
+test('scan: what each item costs, its listing and the body read when called', () => {
+  const home = tmp();
+  put(path.join(home, '.claude', 'skills', 'sized', 'SKILL.md'), '---\nname: sized\ndescription: Twelve chars\n---\n0123456789');
+  put(path.join(home, '.claude', 'agents', 'bare.md'), 'No frontmatter at all.');
+  const tb = scanToolbox({ home });
+  const s = tb.skills.find(t => t.name === 'sized');
+  assert.equal(s.listChars, 'sized'.length + 'Twelve chars'.length);
+  assert.equal(s.bodyChars, 10);
+  const a = tb.agents.find(t => t.name === 'bare');
+  assert.equal(a.bodyChars, 'No frontmatter at all.'.length);
+});

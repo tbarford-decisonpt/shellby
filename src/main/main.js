@@ -56,6 +56,7 @@ const toast = require('./toast');
 const limits = require('./limits');
 const spend = require('./spend');
 const { createLean } = require('./lean');
+const { createSkillRemover } = require('./skillremove');
 const recap = require('./recap');
 const leaving = require('./leaving');
 const secretscan = require('./secretscan');
@@ -4336,6 +4337,14 @@ function registerIpc() {
     currentProject: () => path.resolve(currentCwd()).toLowerCase(),
   });
   lean.register(ipcMain);
+  createSkillRemover({
+    toolbox: () => toolbox, askOnce, log, stat,
+    // The folders the Toolbox scans (ToolboxWatcher's home and getCwd).
+    where: () => ({ home: os.homedir(), cwd: currentCwd() }),
+    trash: p => shell.trashItem(p),
+    usage: () => lean.usage(),
+    unpin: (kind, name) => config.set({ pinnedTools: (config.get('pinnedTools') || []).filter(p => !(p?.kind === kind && p?.name === name)) }),
+  }).register(ipcMain);
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,

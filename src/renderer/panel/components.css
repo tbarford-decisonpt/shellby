@@ -193,6 +193,8 @@ body.reordering .tip { display: none; }
 .tool-name code { font-weight: 600; color: var(--sand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .src-pill { flex: none; margin-left: auto; font: 10px var(--font-mono); color: var(--sand-faint); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-desc { margin: 3px 0 0; font-size: 12.5px; color: var(--sand-dim); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tool-stats { margin: 3px 0 0; font-size: 11.5px; color: var(--sand-dim); font-variant-numeric: tabular-nums; }
+.tool-stats.unused { opacity: .75; }
 .tool-actions { flex: none; display: flex; align-items: center; gap: 2px; }
 /* Toolbox → Lean (lean.js) */
 .lean-summary { display: grid; gap: 6px; margin-bottom: 8px; }
