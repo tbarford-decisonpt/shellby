@@ -99,52 +99,237 @@ body[data-view="finds"] .view-finds, body[data-view="us"] .view-us { display: bl
 .fd-count-pill { position: absolute; top: 5px; left: 6px; font: 600 10px var(--font-mono); color: var(--sand-dim); }
 .fd-tile .new-pill { position: absolute; top: 5px; right: 5px; }
 
-/* ---------------------------------------------------------------- Us: how close you are */
-.us-hero {
-  display: grid; gap: 4px; padding: 14px 16px; border-radius: var(--r-lg); border: 1px solid var(--line);
-  background:
-    radial-gradient(60% 80% at 10% 0%, rgba(255, 143, 171, .12), transparent 70%),
-    linear-gradient(var(--abyss), var(--reef));
+/* ---------------------------------------------------------------- Us: the diorama
+   Him on the sand at the tide line, under a sky that follows your clock
+   (together.js sets data-time). Every layer takes its colours from the five
+   tokens below, so a time of day is one block of custom properties. */
+.view-us { --us-pink: #ff8fab; --us-faint: #968d7b; }
+.us-stage {
+  --sky-top: #050d17; --sky-low: #142c3d; --sea: #0d3440; --sea-hi: #1d5763; --foam: #b9dcd6;
+  --us-sand: #3f4b50; --us-sand-lo: #36424a; --orb: #f3e6cc; --orb-glow: rgba(243, 230, 204, .35);
+  position: relative; height: 228px; overflow: hidden; isolation: isolate;
+  border-radius: var(--r-lg); border: 1px solid var(--line);
+  background: linear-gradient(var(--sky-top) 10%, var(--sky-low) 58%);
 }
-.us-level { display: flex; align-items: center; gap: 12px; }
-.us-level-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; font-size: 26px; background: rgba(255, 143, 171, .12); box-shadow: inset 0 0 0 1px rgba(255, 143, 171, .25); }
-.us-eyebrow { color: #ff8fab; }
-.us-level h3 { margin: 1px 0; font: 600 20px var(--font-pixel); }
-.us-sub { margin: 0; font-size: 12.5px; color: var(--sand-dim); }
-.us-bar { border-color: rgba(255, 143, 171, .25); }
-.us-bar i { background: linear-gradient(90deg, #ff8fab, #ffc2d1); }
-.us-next { margin: 0; font: 11px var(--font-mono); color: var(--sand-faint); }
-.us-temper { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; padding: 9px 11px; border-radius: var(--r); background: var(--abyss); border: 1px solid var(--line); }
-.us-temper-emoji { font-size: 20px; line-height: 1.2; }
-.us-temper p { margin: 0; font-size: 12.5px; color: var(--sand); }
-.us-temper .muted { color: var(--sand-faint); }
+.us-stage[data-time="dawn"] { --sky-top: #191a36; --sky-low: #7a4d62; --sea: #1f4a5b; --sea-hi: #557f88; --foam: #f7dccb; --us-sand: #a38a6b; --us-sand-lo: #937a5f; --orb: #ff9a6b; --orb-glow: rgba(255, 154, 107, .5); }
+.us-stage[data-time="day"] { --sky-top: #0e3550; --sky-low: #3f8ea2; --sea: #136b77; --sea-hi: #3bb0aa; --foam: #effaf5; --us-sand: #d8c38e; --us-sand-lo: #c9b27e; --orb: #ffc15e; --orb-glow: rgba(255, 193, 94, .55); }
+.us-stage[data-time="dusk"] { --sky-top: #1b1530; --sky-low: #8c4b52; --sea: #23455a; --sea-hi: #6d6a7c; --foam: #ffd9c2; --us-sand: #9e7b61; --us-sand-lo: #8d6c55; --orb: #ff7a5c; --orb-glow: rgba(255, 122, 92, .55); }
 
-/* ---------------------------------------------------------------- Us: the cards below */
-.us-card { margin-top: 12px; padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--reef); }
-.us-card h3 { margin: 0 0 2px; font-size: 13.5px; }
-.us-card > .muted { margin: 0 0 8px; }
-.us-play-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-.us-scores { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; font: 11.5px var(--font-mono); color: var(--sand-dim); }
+.us-sky, .us-sea, .us-sand, .us-props, .us-pops { position: absolute; pointer-events: none; }
+.us-sky { inset: 0; z-index: 0; }
+.us-stars {
+  position: absolute; left: 0; top: 0; width: 2px; height: 2px; background: var(--sand); opacity: 0; transition: opacity .6s;
+  box-shadow: 34px 22px, 92px 58px, 140px 14px, 188px 44px, 236px 26px, 300px 70px, 352px 18px, 404px 50px, 458px 32px, 516px 64px, 566px 20px, 618px 46px,
+    64px 88px, 268px 96px, 492px 92px, 600px 84px;
+  color: rgba(243, 230, 204, .7);
+}
+.us-stage[data-time="night"] .us-stars { opacity: 1; animation: us-twinkle 4s steps(2) infinite; }
+.us-stage[data-time="dawn"] .us-stars { opacity: .35; }
+.us-orb { position: absolute; right: 64px; top: 22px; display: block; filter: drop-shadow(0 0 14px var(--orb-glow)); transition: top .8s var(--ease-out); }
+.us-orb svg { display: block; }
+.us-stage[data-time="dawn"] .us-orb, .us-stage[data-time="dusk"] .us-orb { top: 84px; } /* low, half behind the sea */
+
+.us-sea {
+  left: 0; right: 0; top: 47%; height: 26%; z-index: 1;
+  background: linear-gradient(var(--sea-hi), var(--sea) 70%);
+}
+.us-sea::after { /* glints on the water */
+  content: ""; position: absolute; left: 0; top: 0; width: 6px; height: 2px; color: var(--foam); opacity: .45;
+  box-shadow: 70px 14px, 210px 22px, 330px 10px, 470px 26px, 560px 16px, 140px 32px, 410px 36px;
+  animation: us-twinkle 3s steps(2) infinite reverse;
+}
+/* Pixel wave crests: one 32px tile, slid by exactly one tile so the loop is seamless. */
+.us-wave {
+  position: absolute; left: -32px; right: 0; top: -3px; height: 6px; background: var(--foam);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 4h32v2H0zM8 2h12v2H8zM11 1h6v1h-6z'/%3E%3C/svg%3E") 0 0 / 32px 6px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 4h32v2H0zM8 2h12v2H8zM11 1h6v1h-6z'/%3E%3C/svg%3E") 0 0 / 32px 6px repeat-x;
+  animation: us-tide 2.6s linear infinite;
+}
+.us-wave.back { top: 12px; opacity: .35; animation-duration: 4.2s; animation-direction: reverse; }
+
+/* The sun or moon on the water: a narrowing column of pixel dashes under it. */
+.us-sea::before {
+  content: ""; position: absolute; right: 64px; top: 4px; width: 26px; height: 46px; opacity: .5;
+  background: repeating-linear-gradient(var(--orb) 0 2px, transparent 2px 6px);
+  clip-path: polygon(0 0, 100% 0, 66% 100%, 34% 100%);
+  animation: us-shimmer 1.8s steps(2) infinite;
+}
+@keyframes us-shimmer { 50% { transform: translateX(1px); } }
+
+/* A stepped dune, sand-coloured with a 2px dither. */
+.us-sand {
+  left: 0; right: 0; bottom: 0; height: 38%; z-index: 2;
+  background:
+    conic-gradient(at 2px 2px, transparent 75%, var(--us-sand-lo) 0) 0 0 / 19px 11px,
+    conic-gradient(at 2px 2px, transparent 75%, var(--us-sand-lo) 0) 9px 6px / 29px 17px,
+    conic-gradient(at 2px 2px, transparent 75%, color-mix(in oklab, var(--us-sand), #fff 22%) 0) 14px 3px / 37px 23px,
+    var(--us-sand);
+  clip-path: polygon(0 14px, 9% 14px, 9% 10px, 21% 10px, 21% 6px, 36% 6px, 36% 2px, 58% 2px, 58% 6px, 74% 6px, 74% 10px, 88% 10px, 88% 14px, 100% 14px, 100% 100%, 0 100%);
+}
+.us-stage::after { /* the sand meets the water: a line of wet foam */
+  content: ""; position: absolute; left: 0; right: 0; bottom: calc(38% - 16px); height: 2px; z-index: 2; pointer-events: none;
+  background: var(--foam); opacity: .2;
+}
+
+.us-props { inset: 0; z-index: 3; }
+.us-stage::before { /* a little depth at the edges */
+  content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: inherit;
+  box-shadow: inset 0 40px 50px -40px rgba(0, 0, 0, .45), inset 0 -26px 36px -30px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(255, 255, 255, .03);
+}
+.us-drawn { position: absolute; display: block; color: color-mix(in oklab, var(--us-sand) 55%, #120a02); }
+.us-drawn svg { display: block; }
+.us-drawn.h1 { left: 13%; bottom: 20px; transform: rotate(-6deg); }
+.us-drawn.h2 { left: 22%; bottom: 40px; transform: rotate(8deg); }
+.us-fav { position: absolute; left: calc(44% + 74px); bottom: 20px; display: block; }
+.us-fav svg { display: block; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .3)); animation: fd-bob 3.2s ease-in-out infinite; }
+.us-fav.rarity-legendary svg { filter: drop-shadow(0 0 6px rgba(255, 210, 63, .55)) drop-shadow(0 2px 0 rgba(0, 0, 0, .3)); }
+
+/* Him. A button: clicking pets him, the same as on the desktop. */
+.us-crab {
+  position: absolute; left: 44%; bottom: 14px; z-index: 4; translate: -50% 0;
+  padding: 6px; border: 0; border-radius: var(--r); background: none; cursor: pointer;
+  transition: transform .25s var(--ease-spring);
+}
+.us-crab::before { /* his shadow on the sand */
+  content: ""; position: absolute; left: 14%; right: 14%; bottom: 3px; height: 9px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(20, 12, 4, .35), transparent); z-index: -1;
+}
+.us-crab svg { display: block; width: 116px; height: auto; overflow: visible; animation: st-breathe 3.2s ease-in-out infinite; }
+.us-crab .part-eyes:not(.acc) { animation: st-blink 5s steps(1) infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.us-crab:hover { transform: translateY(-2px); }
+.us-crab:active { transform: translateY(1px) scale(.98); }
+.us-crab:focus-visible { outline: 2px solid var(--glass); outline-offset: 0; }
+.us-crab.petted { animation: us-hop .45s var(--ease-out); }
+
+.us-pops { left: 44%; bottom: 88px; z-index: 5; width: 0; height: 0; }
+.us-pop { position: absolute; left: -10px; top: 0; animation: us-float 1.1s var(--ease-out) forwards; }
+.us-pop svg { display: block; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .25)); }
+
+.us-title { position: absolute; left: 16px; top: 13px; right: 140px; z-index: 6; text-shadow: 0 1px 0 rgba(0, 0, 0, .45); }
+.us-title h3 { margin: 0; font: 600 24px/1.15 var(--font-pixel); letter-spacing: .01em; color: var(--sand); text-wrap: balance; }
+.us-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--sand); opacity: .85; }
+
+@keyframes us-tide { to { transform: translateX(32px); } }
+@keyframes us-twinkle { 50% { opacity: .55; } }
+@keyframes us-hop { 40% { transform: translateY(-9px); } 70% { transform: translateY(1px); } }
+@keyframes us-float {
+  from { transform: translate(0, 0) scale(.6); opacity: 0; }
+  20% { transform: translate(calc(var(--dx) * .3), -14px) scale(1); opacity: 1; }
+  to { transform: translate(var(--dx), -64px) scale(.9); opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- Us: the path between levels */
+.us-bond { padding: 14px 0 0; }
+.us-path {
+  --fill: 0; position: relative; list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(6, 1fr);
+}
+.us-path::before, .us-path::after { /* the track, from the first stone's centre to the last's */
+  content: ""; position: absolute; left: calc(100% / 12); width: calc(100% - 100% / 6); top: 15px; height: 2px; border-radius: 2px;
+}
+.us-path::before { background: var(--line); }
+.us-path::after { background: var(--us-pink); transform-origin: left; transform: scaleX(var(--fill)); transition: transform .6s var(--ease-out); }
+.us-stone { position: relative; z-index: 1; display: grid; justify-items: center; gap: 5px; }
+.us-stone-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-size: 15px;
+  background: var(--ink); border: 2px solid var(--line);
+}
+.us-stone:not(.reached) .us-stone-icon { filter: grayscale(1); opacity: .5; }
+.us-stone.reached .us-stone-icon { border-color: var(--us-pink); background: #2a1d27; }
+.us-stone.here .us-stone-icon { box-shadow: 0 0 0 4px rgba(255, 143, 171, .18), 0 0 18px rgba(255, 143, 171, .35); transform: scale(1.12); }
+.us-stone-name { font-size: 11px; line-height: 1.2; text-align: center; color: var(--us-faint); }
+.us-stone.reached .us-stone-name { color: var(--sand-dim); }
+.us-stone.here .us-stone-name { color: var(--sand); font-weight: 700; }
+.us-next { margin: 10px 0 0; text-align: center; font: 11px var(--font-mono); color: var(--us-faint); }
+
+.us-temper { display: flex; gap: 10px; align-items: flex-start; max-width: 72ch; margin: 14px 0 0; font-size: 12.5px; color: var(--sand); }
+.us-temper-emoji { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 15px; background: var(--reef); border: 1px solid var(--line); }
+.us-faint { color: var(--us-faint); }
+
+/* ---------------------------------------------------------------- Us: the sections below
+   Open sections on a hairline rather than a stack of boxes; only things you
+   press (the games) get a surface. */
+.us-sec { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.us-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin-bottom: 10px; }
+.us-h h3 { margin: 0; font-size: 14px; }
+.us-h-meta { font-size: 11.5px; color: var(--us-faint); }
+.us-lede { margin: -4px 0 10px; max-width: 64ch; font-size: 12.5px; color: var(--sand-dim); }
+
+.us-games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.us-game {
+  --hue: var(--glass);
+  position: relative; display: grid; align-content: start; gap: 2px; padding: 12px 12px 11px; text-align: left;
+  border-radius: var(--r); border: 1px solid var(--line); color: var(--sand);
+  background: linear-gradient(155deg, color-mix(in oklab, var(--hue) 13%, transparent), transparent 65%), var(--reef);
+  transition: transform .2s var(--ease-spring), border-color .15s, box-shadow .15s;
+}
+.us-game[data-hue="amber"] { --hue: var(--amber); }
+.us-game[data-hue="sand"] { --hue: #e9d8a6; }
+.us-game-icon {
+  display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 6px; border-radius: 9px; font-size: 18px;
+  background: color-mix(in oklab, var(--hue) 16%, var(--ink)); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25);
+  transition: transform .25s var(--ease-spring);
+}
+.us-game b { font-size: 13px; }
+.us-game-stat { font-size: 11.5px; line-height: 1.35; color: var(--sand-dim); text-wrap: pretty; }
+.us-game:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in oklab, var(--hue) 55%, var(--line)); box-shadow: 0 6px 16px -10px color-mix(in oklab, var(--hue) 70%, transparent); }
+.us-game:hover:not(:disabled) .us-game-icon { transform: rotate(-8deg) scale(1.08); }
+.us-game:active:not(:disabled) { transform: translateY(0); }
+.us-game:disabled { cursor: default; opacity: .5; }
+.us-stop { width: 100%; margin-top: 8px; }
+
+.us-unlocks { list-style: none; margin: 0; padding: 0; }
+.us-unlock { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; font-size: 12.5px; color: var(--sand-dim); }
+.us-unlock + .us-unlock { border-top: 1px dashed var(--line-soft); }
+.us-unlock-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; background: var(--reef); filter: grayscale(1); opacity: .55; }
+.us-unlock-at { font-size: 11.5px; font-weight: 700; color: var(--us-faint); white-space: nowrap; }
+.us-unlock.open { color: var(--sand); }
+.us-unlock.open .us-unlock-icon { filter: none; opacity: 1; background: #2a1d27; box-shadow: inset 0 0 0 1px rgba(255, 143, 171, .35); }
+.us-unlock.open .us-unlock-at { color: var(--us-pink); }
+
 .us-bd-row { gap: 6px; }
-.us-unlocks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
-.us-unlocks li { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--sand-faint); }
-.us-unlocks li.open { color: var(--sand); }
-.us-unlocks li.open .us-lock { color: #ff8fab; font-weight: 700; }
-.us-lock { width: 16px; flex: none; text-align: center; font-size: 11px; }
-.us-scenes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
-.us-scenes li { padding: 2px 9px; border-radius: 99px; border: 1px dashed var(--line); font-size: 11.5px; color: var(--sand-faint); }
-.us-scenes li.seen { border-style: solid; color: var(--sand); background: var(--abyss); }
-.us-story { list-style: none; margin: 0; padding: 0 0 0 4px; display: grid; gap: 0; }
-.us-story li { position: relative; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: baseline; padding: 6px 0 6px 6px; border-left: 1px solid var(--line); font-size: 12.5px; }
-.us-story li::before { content: ""; position: absolute; left: -4px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--reef-3); box-shadow: 0 0 0 2px var(--reef); }
-.us-story li:first-child::before { background: #ff8fab; }
-.us-story-icon { text-align: center; }
-.us-story time { font: 10.5px var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
+.us-bd-when { font-weight: 700; color: #ffb3c6; }
+
+.us-scenes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.us-scenes li {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 10px;
+  border-radius: 99px; border: 1px dashed var(--line); font: 600 11px var(--font-mono); color: var(--us-faint);
+}
+.us-scenes li.seen { gap: 7px; border-style: solid; border-color: var(--line); background: var(--reef); font: 12px var(--font-body); color: var(--sand); }
+.us-scenes li.seen::before { content: ""; width: 6px; height: 6px; background: var(--glass); box-shadow: 0 0 6px rgba(127, 214, 194, .6); }
+
+.us-story { list-style: none; margin: 0; padding: 0; }
+.us-story li { position: relative; display: grid; grid-template-columns: 28px 1fr auto; column-gap: 10px; align-items: center; padding: 5px 0; font-size: 12.5px; color: var(--sand-dim); }
+.us-story li::before { content: ""; position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--line-soft); }
+.us-story li:first-child::before { top: 50%; }
+.us-story li:last-child::before { bottom: 50%; }
+.us-story li:only-child::before { display: none; }
+.us-story-month { grid-column: 1 / -1; position: relative; z-index: 1; margin: 10px 0 4px 36px; font: 600 13px var(--font-pixel); color: var(--sand); }
+.us-story li:first-child .us-story-month { margin-top: 0; }
+.us-story-icon { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 13px; background: var(--ink); border: 1px solid var(--line); }
+.us-story time { font: 10.5px var(--font-mono); color: var(--us-faint); white-space: nowrap; }
+.us-story li.latest { color: var(--sand); font-size: 13.5px; }
+.us-story li.latest .us-story-icon { width: 30px; height: 30px; border-color: var(--us-pink); background: #2a1d27; box-shadow: 0 0 14px rgba(255, 143, 171, .25); }
+.us-story-empty { color: var(--sand-dim); }
+
+@media (max-width: 380px) {
+  .us-stage { height: 204px; }
+  .us-crab svg { width: 100px; }
+  .us-title { right: 16px; }
+  .us-orb { right: 20px; }
+  .us-stone:not(.here) .us-stone-name { visibility: hidden; }
+  .us-games { grid-template-columns: 1fr; }
+  .us-game { grid-template-columns: auto 1fr; column-gap: 12px; }
+  .us-game-icon { grid-row: span 2; margin: 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fd-fav-art svg, .fd-tile .fd-art svg, .fd-big svg { animation: none !important; transition: none; }
+  .us-crab, .us-crab svg, .us-crab .part-eyes, .us-wave, .us-stars, .us-sea::before, .us-sea::after, .us-fav svg, .us-orb, .us-path::after, .us-game, .us-game-icon { animation: none !important; transition: none !important; }
+  .us-pop { animation: us-fade .8s ease-out forwards; }
 }
 @media (max-width: 420px) {
   .fd-hero, .fd-detail { grid-template-columns: 1fr; justify-items: center; text-align: center; }
 }
+@keyframes us-fade { from { opacity: 0; } 25% { opacity: 1; } to { opacity: 0; } }
 .temper-note { margin: 6px 0 0; color: var(--sand); }

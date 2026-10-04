@@ -96,56 +96,148 @@
   }
 
   // ------------------------------------------------------------ Us
+  // The hero is a little diorama: him on the sand at the tide line, under a sky
+  // that follows your clock. What he's unlocked shows up in it (hearts drawn in
+  // the sand, his favourite find beside him). It's patched, not rebuilt, so his
+  // breathing and the waves don't restart every time life sends an update.
+  const PIX = {
+    drawn: ['.11.11.', '1..1..1', '1.....1', '.1...1.', '..1.1..', '...1...'],
+    heart: ['.11.11.', '1221111', '1211111', '.11111.', '..111..', '...1...'],
+    orb: ['..1111..', '.111111.', '11121111', '11111211', '11211111', '11111111', '.111121.', '..1111..'],
+  };
+  const ORB = { night: ['#f3e6cc', '#cdbf9f'], dawn: ['#ff9a6b', '#ffc39e'], day: ['#ffc15e', '#ffe0a3'], dusk: ['#ff7a5c', '#ffb08f'] };
+  const HEARTS_AT = 3;     // bond.js UNLOCKS: he draws you hearts in the sand
+  const SHOWS_FIND_AT = 2; // ...and shows off his favourite find
+  const GOLDEN_AT = 5;     // ...and golden hearts when you pet him
+  const MAX_POPS = 6;
+  let crabKey = null, propsKey = null;
+
+  const timeOfDay = (hour = new Date().getHours()) => (hour >= 21 || hour < 5 ? 'night' : hour < 8 ? 'dawn' : hour < 17 ? 'day' : 'dusk');
+  const pix = (rows, a, b, px) => SB.Sprite.grid(rows, { 1: a, 2: b || a }, { px });
+
+  function renderStage(v) {
+    const b = v.bond;
+    const stage = $('usStage');
+    const time = timeOfDay();
+    if (stage.dataset.time !== time || !$('usOrb').firstChild) {
+      stage.dataset.time = time;
+      $('usOrb').replaceChildren(pix(PIX.orb, ...ORB[time], 3));
+    }
+    const look = `${state.skin?.name}|${JSON.stringify(state.outfit || {})}`;
+    if (look !== crabKey && state.skin) { crabKey = look; $('usCrab').replaceChildren(SB.sprite()); }
+
+    const fav = b.level.index >= SHOWS_FIND_AT ? v.finds.finds.find(f => f.id === v.finds.favourite && f.owned) : null;
+    const key = `${b.level.index}|${fav?.id || ''}`;
+    if (key === propsKey) return;
+    propsKey = key;
+    const hearts = b.level.index >= HEARTS_AT ? [['h1', 3], ['h2', 2]].map(([cls, px]) => h('span', { class: `us-drawn ${cls}` }, pix(PIX.drawn, 'currentColor', null, px))) : [];
+    $('usProps').replaceChildren(...hearts, fav ? h('span', { class: `us-fav rarity-${fav.rarity}`, title: `${fav.name}, his favourite` }, art(fav, fit(fav, 30))) : '');
+  }
+
+  // A heart floats up from him; main counts the pet (and ignores spam).
+  function pet() {
+    api.critter.pet();
+    const crab = $('usCrab');
+    crab.classList.remove('petted');
+    void crab.offsetWidth; // restart the hop
+    crab.classList.add('petted');
+    const pops = $('usPops');
+    if (pops.childElementCount >= MAX_POPS) return;
+    const gold = (life()?.bond.level.index ?? 0) >= GOLDEN_AT;
+    const pop = h('span', { class: 'us-pop', style: `--dx:${Math.round(Math.random() * 36 - 18)}px` },
+      pix(PIX.heart, gold ? '#ffd23f' : '#ff8fab', gold ? '#fff2b8' : '#ffd1dc', 3));
+    pop.addEventListener('animationend', () => pop.remove());
+    pops.append(pop);
+  }
+
+  function renderBond(v) {
+    const b = v.bond;
+    const t = v.temperament;
+    const last = b.levels.length - 1;
+    $('usLevelName').textContent = b.level.name;
+    $('usSub').textContent = [b.days ? `${plural(b.days, 'day')} together` : 'Your first day together', b.hatchedAt ? `moved in ${when(b.hatchedAt)}` : null].filter(Boolean).join(' · ');
+
+    const path = $('usPath');
+    path.style.setProperty('--fill', String(Math.min(1, (b.level.index + b.level.progress) / last)));
+    path.setAttribute('aria-valuenow', String(Math.round(b.level.progress * 100)));
+    path.setAttribute('aria-valuetext', b.level.next != null ? `${b.level.name}, ${Math.round(b.level.progress * 100)}% of the way to ${b.levels[b.level.index + 1].name}` : b.level.name);
+    path.replaceChildren(...b.levels.map((l, i) => h('li', { class: `us-stone${l.reached ? ' reached' : ''}${i === b.level.index ? ' here' : ''}`, style: `--at:${i / last}` },
+      h('span', { class: 'us-stone-icon', 'aria-hidden': 'true', text: l.icon }),
+      h('span', { class: 'us-stone-name', text: l.name }))));
+
+    const next = b.level.next != null ? `${(b.level.next - b.level.points).toLocaleString()} to ${b.levels[b.level.index + 1].name}` : 'As close as it gets';
+    $('usNext').textContent = b.nextMilestone ? `${next} · ${b.nextMilestone - b.days} days to ${b.nextMilestone} together` : next;
+    $('usTemper').replaceChildren(
+      h('span', { class: 'us-temper-emoji', 'aria-hidden': 'true', text: t.emoji }),
+      h('span', {}, h('b', { text: `Your crab is ${t.name.toLowerCase()}.` }), ' ', t.blurb, h('span', { class: 'us-faint', text: ' Every crab is one of four, picked when he moved in, and he stays that way.' })));
+  }
+
+  function renderPlay(v) {
+    const p = v.play;
+    const playing = !!p?.playing;
+    document.querySelectorAll('.us-play [data-play]').forEach(btn => {
+      const k = btn.dataset.play;
+      if (k === 'stop') { btn.hidden = !playing; return; }
+      btn.disabled = playing || (k === 'dig' && !v.finds.canDig);
+    });
+    $('usStatHide').textContent = p?.hide.games ? `Found him ${plural(p.hide.found, 'time')}${p.hide.best ? `, best ${clock(p.hide.best)}` : ''}${p.hide.won ? `. He won ${p.hide.won}.` : ''}` : 'He hides behind your windows';
+    $('usStatFetch').textContent = p?.fetch.fetched ? `${plural(p.fetch.fetched, 'fetch', 'fetches')}${p.fetch.longest ? `, longest ${p.fetch.longest.toLocaleString()} px` : ''}` : 'Throw him a pebble';
+    $('usStatDig').textContent = !v.finds.canDig ? `He can dig again in ${until(v.finds.nextDigAt)}` : v.finds.total ? `${plural(v.finds.total, 'find')} dug up` : 'See what turns up';
+  }
+
+  function renderUnlocks(b) {
+    $('usUnlocks').replaceChildren(...b.unlocks.map(u => h('li', { class: `us-unlock${u.open ? ' open' : ''}` },
+      h('span', { class: 'us-unlock-icon', 'aria-hidden': 'true', text: b.levels[u.level].icon }),
+      h('span', { class: 'us-unlock-text' }, u.text),
+      h('span', { class: 'us-unlock-at', text: u.open ? `${u.levelName} ✓` : `at ${u.levelName}` }))));
+  }
+
+  function renderScenes(s) {
+    $('usScenesCount').textContent = `${s.seen} of ${s.of} caught`;
+    $('usScenes').style.setProperty('--seen', String(s.of ? s.seen / s.of : 0));
+    $('usScenes').replaceChildren(...s.list.map(x => h('li', x.name ? { class: 'seen', text: x.name } : { 'aria-label': 'Not caught yet', text: '?' })));
+  }
+
+  // Newest first, with the month marked where it changes.
+  function renderStory(journal) {
+    if (!journal.length) {
+      $('usStory').replaceChildren(h('li', { class: 'us-story-empty', text: 'Nothing yet. Click him up there to give him a pet.' }));
+      return;
+    }
+    const monthOf = t => new Date(t).toLocaleDateString([], { month: 'long', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+    $('usStory').replaceChildren(...journal.map((e, i) => {
+      const month = monthOf(e.at);
+      return h('li', { class: i === 0 ? 'latest' : '' },
+        month !== (i && monthOf(journal[i - 1].at)) ? h('span', { class: 'us-story-month', text: month }) : null,
+        h('span', { class: 'us-story-icon', 'aria-hidden': 'true', text: e.icon }),
+        h('span', { class: 'us-story-text', text: e.text }),
+        h('time', { datetime: new Date(e.at).toISOString(), text: when(e.at) }));
+    }));
+  }
+
   function renderUs() {
     const v = life();
     if (!v) return;
-    const b = v.bond;
-    const t = v.temperament;
-    const next = b.level.next != null ? `${b.level.next - b.level.points} to ${b.levels[b.level.index + 1].name}` : 'As close as it gets';
-    $('usHero').replaceChildren(
-      h('div', { class: 'us-level' },
-        h('span', { class: 'us-level-icon', 'aria-hidden': 'true', text: b.level.icon }),
-        h('div', {},
-          h('p', { class: 'xp-eyebrow us-eyebrow', text: 'You and Shellby' }),
-          h('h3', { text: b.level.name }),
-          h('p', { class: 'us-sub', text: [b.days ? `${plural(b.days, 'day')} together` : 'Your first day together', b.hatchedAt ? `moved in ${when(b.hatchedAt)}` : null].filter(Boolean).join(' · ') }))),
-      h('div', { class: 'xp-bar us-bar', role: 'progressbar', 'aria-label': 'How close you are', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(b.level.progress * 100)) },
-        h('i', { style: `transform:scaleX(${b.level.progress.toFixed(3)})` })),
-      h('p', { class: 'us-next', text: b.nextMilestone ? `${next} · ${b.nextMilestone - b.days} days to ${b.nextMilestone} together` : next }),
-      h('div', { class: 'us-temper' },
-        h('span', { class: 'us-temper-emoji', 'aria-hidden': 'true', text: t.emoji }),
-        h('p', {}, h('b', { text: `Your crab is ${t.name.toLowerCase()}.` }), ' ', t.blurb, h('span', { class: 'muted', text: ' Every crab is one of four, picked when he first moved in, and he stays that way.' }))));
+    renderStage(v);
+    renderBond(v);
+    renderPlay(v);
+    renderUnlocks(v.bond);
+    renderBirthday(v.bond.birthday);
+    renderScenes(v.scenes);
+    renderStory(v.bond.journal);
+  }
 
-    const p = v.play;
-    const playing = p?.playing;
-    document.querySelectorAll('.us-play [data-play]').forEach(btn => {
-      const k = btn.dataset.play;
-      btn.hidden = k === 'stop' ? !playing : !!playing;
-      if (k === 'dig') { btn.disabled = !v.finds.canDig; btn.title = v.finds.canDig ? '' : `Again in ${until(v.finds.nextDigAt)}`; }
-    });
-    const scores = [];
-    if (p?.hide.games) scores.push(`🙈 Found him ${plural(p.hide.found, 'time')}${p.hide.best ? `, best ${clock(p.hide.best)}` : ''}${p.hide.won ? ` · he won ${p.hide.won}` : ''}`);
-    if (p?.fetch.fetched) scores.push(`🎾 Fetched ${plural(p.fetch.fetched, 'time')}${p.fetch.longest ? `, longest throw ${p.fetch.longest.toLocaleString()} px` : ''}`);
-    if (v.finds.total) scores.push(`🐚 ${plural(v.finds.total, 'find')} dug up`);
-    $('usScores').replaceChildren(...scores.map(s => h('li', { text: s })));
-
-    renderBirthday(b.birthday);
-
-    $('usUnlocks').replaceChildren(...b.unlocks.map(u => h('li', { class: u.open ? 'open' : '' },
-      h('span', { class: 'us-lock', 'aria-hidden': 'true', text: u.open ? '✓' : '🔒' }),
-      h('span', {}, h('b', { text: u.levelName }), ' ', u.text))));
-
-    $('usScenesTitle').textContent = `His little scenes · ${v.scenes.seen} of ${v.scenes.of}`;
-    $('usScenes').replaceChildren(...v.scenes.list.map(s => h('li', { class: s.name ? 'seen' : '', text: s.name || '???' })));
-
-    const story = b.journal;
-    $('usStory').replaceChildren(...(story.length ? story.map(e => h('li', {},
-      h('span', { class: 'us-story-icon', 'aria-hidden': 'true', text: e.icon }),
-      h('span', { class: 'us-story-text', text: e.text }),
-      h('time', { datetime: new Date(e.at).toISOString(), text: when(e.at) }))) : [h('li', { class: 'muted', text: 'Nothing yet. Give him a pet.' })]));
+  // How long until the next one, counted in whole days.
+  function birthdayIn(bd) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let next = new Date(today.getFullYear(), bd.m - 1, bd.d);
+    if (next < today) next = new Date(today.getFullYear() + 1, bd.m - 1, bd.d);
+    return Math.round((next - today) / 86400000);
   }
 
   function renderBirthday(bd) {
+    const n = bd ? birthdayIn(bd) : null;
+    $('usBdWhen').textContent = bd ? `🎂 ${bd.d} ${MONTHS[bd.m - 1]} · ${n === 0 ? 'today!' : n === 1 ? 'tomorrow' : `in ${n} days`}` : '';
     const m = $('usBdMonth'), d = $('usBdDay');
     if (!m.options.length) {
       m.append(h('option', { value: '' }, 'Month'), ...MONTHS.map((name, i) => h('option', { value: String(i + 1) }, name)));
@@ -188,6 +280,7 @@
   // ------------------------------------------------------------ wiring
   $('fdDig').addEventListener('click', () => play('dig'));
   document.querySelectorAll('.us-play [data-play]').forEach(b => b.addEventListener('click', () => play(b.dataset.play)));
+  $('usCrab').addEventListener('click', pet);
   async function play(kind) {
     const r = await api.play(kind);
     if (!r?.ok) return SB.toast(r?.error || 'He can’t right now.');
