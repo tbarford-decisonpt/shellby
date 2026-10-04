@@ -123,6 +123,8 @@ contextBridge.exposeInMainWorld('shellby', {
   rescanToolbox: invoke('toolbox:rescan'),
   pinTool: (kind, name, pinned) => ipcRenderer.invoke('toolbox:pin', { kind, name, pinned }),
   revealTool: fire('toolbox:reveal'),
+  // Your own skill, command or agent to the Recycle Bin, asked first (skillremove.js)
+  removeTool: (kind, name) => ipcRenderer.invoke('toolbox:remove', { kind, name }),
   // prompt snippets: /name in the box, @name from a terminal
   saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
   removeSnippet: invoke('snippets:remove'),
@@ -150,6 +152,7 @@ contextBridge.exposeInMainWorld('shellby', {
   leanReport: (refresh = false) => ipcRenderer.invoke('lean:report', { refresh }),
   leanPlugin: (id, on) => ipcRenderer.invoke('lean:plugin', { id, on }),
   leanMcpRemoved: invoke('lean:mcp-removed'),
+  leanUsage: (refresh = false) => ipcRenderer.invoke('lean:usage', { refresh }),
 
   // skill shop (Claude Code plugin marketplaces)
   shopList: invoke('shop:list'),

@@ -10,8 +10,8 @@
 //     prompt, every tool, the skill and agent listings and the CLAUDE.md files
 //     before your first word; that call's size, less the prompt, is the setup.
 //   - What gets used. Skills, agents, commands and MCP servers seen in Claude
-//     Code's transcripts, so ones that sit idle can be pointed out. Turning one
-//     off is always the user's call, and always one click to undo.
+//     Code's transcripts, how often and how lately, so ones that sit idle can
+//     be pointed out. Turning one off or removing it is always the user's call.
 //
 // Pure: callers pass `now` (test/efficiency.test.js). usagescan.js reads the
 // transcripts; lean.js wires it to the panel.
@@ -245,6 +245,42 @@ function lastUsedByPlugin(used, tools = null, plugins = []) {
   return out;
 }
 
+/**
+ * How often each Toolbox item was used, and when last: { 'kind:name': { uses, lastUsed } }.
+ * tools: the Toolbox; used: { key: lastUsedAt }; uses: { key: count }. Skills and
+ * commands share 'skill:' keys. A plugin's 'plugin:thing' is usually called by its
+ * bare name, which counts for it too, unless something else answers to that name.
+ */
+function toolUsage(tools, used = {}, uses = {}) {
+  const out = {};
+  const ns = kind => (kind === 'agent' ? 'agent' : 'skill');
+  // The same item can arrive twice (the Toolbox and a plugin folder scanned again).
+  const items = [...new Map(['skills', 'commands', 'agents'].flatMap(k => (Array.isArray(tools?.[k]) ? tools[k] : []))
+    .filter(t => typeof t?.name === 'string' && typeof t.kind === 'string')
+    .map(t => [`${t.kind}:${t.name}`, t])).values()];
+  const named = new Map();
+  for (const t of items) {
+    const bare = `${ns(t.kind)}:${t.name.slice(t.name.lastIndexOf(':') + 1)}`;
+    named.set(bare, (named.get(bare) || 0) + 1);
+  }
+  for (const t of items) {
+    const keys = [`${ns(t.kind)}:${t.name}`];
+    const bare = `${ns(t.kind)}:${t.name.slice(t.name.lastIndexOf(':') + 1)}`;
+    if (bare !== keys[0] && named.get(bare) === 1) keys.push(bare);
+    const last = Math.max(...keys.map(k => used[k]).filter(Number.isFinite), -Infinity);
+    out[`${t.kind}:${t.name}`] = {
+      uses: keys.reduce((n, k) => n + num(uses[k]), 0),
+      lastUsed: Number.isFinite(last) ? last : null,
+    };
+  }
+  return out;
+}
+
+/** What a skill, command or agent costs: listed in every conversation, and read in full each time it's called. */
+function toolTokens(t) {
+  return { listTokens: Math.round(num(t?.listChars) / CHARS_PER_TOKEN), useTokens: Math.round(num(t?.bodyChars) / CHARS_PER_TOKEN) };
+}
+
 // ---- memory files
 
 /**
@@ -270,9 +306,11 @@ function loadsOnDemand(head, scope = 'user-rule') {
  * the CLAUDE.md and rule files that load here. tools: the Toolbox, to tell
  * which plugin a bare skill name came from. used/watchedSince: from the
  * transcripts. Something counts as idle only once the transcripts cover
- * IDLE_MS, so a fresh install never calls everything idle.
+ * IDLE_MS, so a fresh install never calls everything idle. mine: your own
+ * skills, commands and agents (not a plugin's), each with addedAt from its file,
+ * and uses: how many times each key was used (usagescan.totalUses).
  */
-function leanReport({ plugins = [], mcp = [], mcpSeen = {}, tools = null, memory = [], used = {}, watchedSince = null, setups = {}, projectKey = null, days = {}, now }) {
+function leanReport({ plugins = [], mcp = [], mcpSeen = {}, tools = null, mine = [], memory = [], used = {}, uses = {}, watchedSince = null, setups = {}, projectKey = null, days = {}, now }) {
   const watched = Number.isFinite(watchedSince) && now - watchedSince >= IDLE_MS;
   // Something added (or turned back on) lately hasn't had the chance to be used
   // yet, and something with no known start can't be judged at all.
@@ -302,6 +340,18 @@ function leanReport({ plugins = [], mcp = [], mcpSeen = {}, tools = null, memory
     })
     .sort((a, b) => (b.idle - a.idle) || a.name.localeCompare(b.name));
 
+  // Against everything there is, so a bare name a plugin also answers to isn't
+  // credited to yours here when the Toolbox wouldn't.
+  const all = k => [...(Array.isArray(tools?.[k]) ? tools[k] : []), ...mine.filter(t => `${t?.kind}s` === k)];
+  const usage = toolUsage({ skills: all('skills'), commands: all('commands'), agents: all('agents') }, used, uses);
+  const skillRows = mine
+    .filter(t => t && usage[`${t.kind}:${t.name}`])
+    .map(t => {
+      const u = usage[`${t.kind}:${t.name}`];
+      return { kind: t.kind, name: t.name, source: t.source, ...toolTokens(t), uses: u.uses, lastUsed: u.lastUsed, idle: idle(u.lastUsed, t.addedAt) };
+    })
+    .sort((a, b) => (b.idle - a.idle) || (b.listTokens - a.listTokens) || a.name.localeCompare(b.name));
+
   const memoryRows = memory
     .filter(m => m && m.exists && num(m.size))
     .map(m => ({ path: m.path, scope: m.scope, tokens: Math.round(m.size / CHARS_PER_TOKEN), onDemand: !!m.onDemand }))
@@ -315,13 +365,15 @@ function leanReport({ plugins = [], mcp = [], mcpSeen = {}, tools = null, memory
     setup,
     plugins: pluginRows,
     mcp: mcpRows,
+    skills: skillRows,
     memory: memoryRows,
     totals: {
       plugins: sum(pluginRows),
       idlePlugins: sum(pluginRows.filter(r => r.idle)),
       memory: sum(memoryRows.filter(r => !r.onDemand)),
       memoryOnDemand: sum(memoryRows.filter(r => r.onDemand)),
-      idleCount: pluginRows.filter(r => r.idle).length + mcpRows.filter(r => r.idle).length,
+      skills: sum(skillRows, r => r.listTokens),
+      idleCount: pluginRows.filter(r => r.idle).length + mcpRows.filter(r => r.idle).length + skillRows.filter(r => r.idle).length,
     },
     watched,
     watchedFrom: Number.isFinite(watchedSince) ? watchedSince : null,
@@ -333,6 +385,6 @@ function leanReport({ plugins = [], mcp = [], mcpSeen = {}, tools = null, memory
 module.exports = {
   callFrom, normalizeDays, recordCall, cacheSummary, cacheState,
   promptChars, setupTokens, normalizeSetups, recordSetup,
-  usedIn, recordUse, ownerOf, lastUsedByPlugin, mcpKey, loadsOnDemand, leanReport,
+  usedIn, recordUse, ownerOf, lastUsedByPlugin, mcpKey, loadsOnDemand, leanReport, toolUsage, toolTokens,
   DEFAULT_TTL_MS, IDLE_MS, CHARS_PER_TOKEN, COOLING_SHARE,
 };
