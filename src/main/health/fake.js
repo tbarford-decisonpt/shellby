@@ -9,6 +9,8 @@ const SCENARIOS = {
   dizzy: { cpuT: 60, gpuT: 61, cpu: 45, gpu: 12, ram: 94, disks: { 'C:': 317, 'S:': 1602 } },
   stuffed: { cpuT: 55, gpuT: 57, cpu: 11, gpu: 6, ram: 48, disks: { 'C:': 8.4, 'S:': 1602 } },
   nocpu: { cpuT: null, gpuT: 58, cpu: 14, gpu: 9, ram: 41, disks: { 'C:': 317, 'S:': 1602 } },
+  hotdrive: { cpuT: 52, gpuT: 58, cpu: 14, gpu: 9, ram: 41, stT: 76, disks: { 'C:': 317, 'S:': 1602 } },
+  cluttered: { cpuT: 52, gpuT: 58, cpu: 14, gpu: 9, ram: 41, dockerGb: 52, disks: { 'C:': 317, 'S:': 1602 } },
 };
 const SIZES = { 'C:': 930.8, 'S:': 7452 };
 const LABELS = { 'C:': 'Windows', 'S:': 'Storage' };
@@ -33,7 +35,14 @@ function createFakeSensors(name = 'calm') {
       return [{ index: 0, name: 'NVIDIA GeForce RTX 3080 Ti', vendor: 'nvidia', temp: wob(s().gpuT, 1.2), load: Math.max(0, Math.min(100, wob(s().gpu, 4))), memUsed: 4115, memTotal: 12288, power: 99 + s().gpu * 2.5 }];
     },
     async readLhm() {
-      return s().cpuT == null ? null : { cpu: { name: 'AMD Ryzen 9 3950X 16-Core Processor', temp: wob(s().cpuT, 1.5), sensor: 'Core (Tctl/Tdie)' }, gpus: [] };
+      if (s().cpuT == null) return null;
+      return {
+        cpu: { name: 'AMD Ryzen 9 3950X 16-Core Processor', temp: wob(s().cpuT, 1.5), sensor: 'Core (Tctl/Tdie)', power: Math.round(38 + s().cpu * 1.1) },
+        gpus: [],
+        storage: [{ name: 'Samsung SSD 980 PRO 1TB', temp: wob(s().stT ?? 41, 0.8), life: 96 }],
+        fans: [{ name: 'CPU Fan', rpm: Math.round(900 + s().cpuT * 12) }, { name: 'Case Fan #1', rpm: 780 }, { name: 'GPU Fan 1', rpm: Math.round(s().gpuT * 22) }],
+        battery: null,
+      };
     },
     readCpuLoad() { return Math.max(0, Math.min(100, wob(s().cpu, 5))); },
     readMemory() { const total = 32 * GB; const pct = wob(s().ram, 0.6); return { total, used: total * pct / 100, pct }; },
@@ -65,6 +74,7 @@ function createFakeProcesses() {
     fake: true,
     async read() { return PROCS.filter(p => !ended.has(p.pid)).map(p => ({ ...p })); },
     async nameOf(pid) { return ended.has(pid) ? null : PROCS.find(p => p.pid === pid)?.name ?? null; },
+    async names() { return new Map(PROCS.filter(p => !ended.has(p.pid)).map(p => [p.pid, p.name])); },
     async end(pid) { ended.add(pid); return { ok: true }; },
   };
 }
@@ -96,4 +106,25 @@ function createFakeStartup() {
   };
 }
 
-module.exports = { createFakeSensors, createFakeProcesses, createFakeStartup, FAKE_SCENARIOS: Object.keys(SCENARIOS) };
+// Docker, WSL and the caches, for the Reclaimable card. Same shape as space.createSpaceProbe().
+function createFakeSpace(name = 'calm') {
+  const dockerGb = SCENARIOS[name]?.dockerGb ?? 17.9;
+  const snap = {
+    at: Date.now(),
+    docker: {
+      rows: [{ type: 'Images', count: 31, active: 6, size: (dockerGb + 6.7) * GB, reclaimable: dockerGb * GB }, { type: 'Build Cache', count: 212, active: 0, size: 8.1 * GB, reclaimable: 8.1 * GB }],
+      size: (dockerGb + 14.8) * GB, reclaimable: (dockerGb + 8.1) * GB,
+    },
+    wsl: { distros: [{ name: 'Ubuntu', state: 'Stopped', version: 2, default: true }] },
+    images: [{ name: 'Docker Desktop', file: 'C:\\Users\\you\\AppData\\Local\\Docker\\wsl\\disk\\docker_desktop.raw', size: 61.2 * GB }],
+    caches: [
+      { name: 'npm', dir: 'C:\\Users\\you\\AppData\\Local\\npm-cache', size: 7.4 * GB, files: 90000, partial: true },
+      { name: 'pip', dir: 'C:\\Users\\you\\AppData\\Local\\pip\\Cache', size: 2.2 * GB, files: 4100, partial: false },
+    ],
+    vmMemory: 3.1 * GB,
+  };
+  snap.reclaimable = snap.docker.reclaimable + snap.caches.reduce((a, c) => a + c.size, 0);
+  return { get latest() { return snap; }, async read() { return snap; } };
+}
+
+module.exports = { createFakeSensors, createFakeProcesses, createFakeStartup, createFakeSpace, FAKE_SCENARIOS: Object.keys(SCENARIOS) };

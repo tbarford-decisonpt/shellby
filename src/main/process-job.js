@@ -40,6 +40,9 @@ const KEEP = new Set([
   'explorer.exe', 'code.exe', 'cursor.exe', 'windowsterminal.exe',
 ]);
 
+// Jobs not swept yet, so Health can say which processes are Shellby's doing.
+const live = new Set();
+
 let api = null;
 function load() {
   if (api || !koffi || process.platform !== 'win32') return api;
@@ -87,7 +90,9 @@ function adopt(pid) {
     a.SetInformationJobObject(job, JOB_OBJECT_BASIC_LIMIT_INFORMATION, limits, LIMIT_BYTES);
     proc =a.OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
     if (!proc || !a.AssignProcessToJobObject(job, proc)) { a.CloseHandle(job); return null; }
-    return { handle: job };
+    const made = { handle: job };
+    live.add(made);
+    return made;
   } catch {
     if (job) try { a.CloseHandle(job); } catch { /* ignore */ }
     return null;
@@ -140,9 +145,17 @@ function sweep(job) {
   }
   try { a.CloseHandle(job.handle); } catch { /* ignore */ }
   job.handle = 0;
+  live.delete(job);
   return { ended, kept };
+}
+
+/** Every process in a job that hasn't been swept: what Shellby's tasks have running now. */
+function ownedPids() {
+  const out = new Set();
+  for (const job of live) for (const pid of members(job)) out.add(pid);
+  return out;
 }
 
 const available = () => !!load();
 
-module.exports = { adopt, sweep, members, available, KEEP };
+module.exports = { adopt, sweep, members, ownedPids, available, KEEP };

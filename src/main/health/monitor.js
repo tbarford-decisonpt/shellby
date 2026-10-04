@@ -35,7 +35,7 @@ class HealthMonitor extends EventEmitter {
     this.lastNvidia = null;
     this.checks = {};
     this.mood = null;
-    this.history = [];            // compact points: { at, cpu, cpuT, gpu, gpuT, ram }
+    this.history = [];            // compact points, see historyPoint()
     this.latest = null;
     this.disks = null;
     this.disksAt = -Infinity;     // never read yet
@@ -165,13 +165,7 @@ class HealthMonitor extends EventEmitter {
   }
 
   remember(s) {
-    const g = s.gpus[0];
-    this.history.push({
-      at: s.at,
-      cpu: round(s.cpu.load), cpuT: round(s.cpu.temp),
-      gpu: round(g?.load), gpuT: round(g?.temp),
-      ram: round(s.ram?.pct),
-    });
+    this.history.push(historyPoint(s));
     const cutoff = s.at - HISTORY_MS;
     while (this.history.length > HISTORY_MAX || (this.history.length && this.history[0].at < cutoff)) this.history.shift();
   }
@@ -208,7 +202,9 @@ class HealthMonitor extends EventEmitter {
 
   /** What the Health view renders. */
   snapshot({ withHistory = true } = {}) {
-    const checks = Object.fromEntries(Object.entries(this.checks).map(([id, c]) => [id, { level: c.level, pending: c.pending }]));
+    // The reading goes too: the view words its verdict from it, so a check the
+    // view has no gauge for (a drive's heat, reclaimable space) still reads right.
+    const checks = Object.fromEntries(Object.entries(this.checks).map(([id, c]) => [id, { level: c.level, pending: c.pending, reading: c.reading }]));
     const worst = Object.values(this.checks).reduce((w, c) => (rank(c.level) > rank(w) ? c.level : w), 'ok');
     return {
       running: this.running,
@@ -220,10 +216,28 @@ class HealthMonitor extends EventEmitter {
       lhmPort: this.sensors.lhmPort,
       thresholds: normalizeThresholds(this.getThresholds()),
       history: withHistory ? this.history : undefined,
+      // Live samples carry no history, just the point this sample added to it.
+      point: withHistory ? undefined : this.history[this.history.length - 1],
     };
   }
 }
 
 function round(v) { return Number.isFinite(v) ? Math.round(v * 10) / 10 : null; }
 
-module.exports = { HealthMonitor, POLL_MS, HISTORY_MS };
+/**
+ * One compact history point. The first GPU keeps its original keys (gpu, gpuT);
+ * any others are gpu1/gpuT1 and so on, and drive temperatures are stT0, stT1...
+ */
+function historyPoint(s) {
+  const p = { at: s.at, cpu: round(s.cpu.load), cpuT: round(s.cpu.temp), ram: round(s.ram?.pct) };
+  s.gpus.forEach((g, i) => {
+    const n = i || '';
+    p[`gpu${n}`] = round(g.load);
+    p[`gpuT${n}`] = round(g.temp);
+  });
+  if (!s.gpus.length) { p.gpu = null; p.gpuT = null; }
+  (s.storage || []).forEach((d, i) => { p[`stT${i}`] = round(d.temp); });
+  return p;
+}
+
+module.exports = { HealthMonitor, historyPoint, POLL_MS, HISTORY_MS };
