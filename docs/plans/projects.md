@@ -42,7 +42,7 @@ Each phase ships on its own (bump, CHANGELOG, tag, as every shellby change does)
 - Port in use: name who holds it, offer to stop it.
 - An "erroring" state: still up, but the output is a compile error. A quieter sign, no toast.
 - Opt-in auto-restart with a crash-loop guard.
-- Project page links to what Shellby already knows per project: CI (`github/ci.js`), checkups, dependency watch, time.
+- Project page links to what Shellby already knows per project: CI (`github/ci.js`), checkups, dependency watch, time. **Done** (`projects/insights.js`): also flaky tests, streaks, stickers, git per clone and recent conversations, as chips on each row, a "Needs you" order, and Pulse / Health / Conversations cards on the project's page.
 
 ### Phase 3: everywhere else
 

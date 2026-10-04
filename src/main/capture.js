@@ -389,6 +389,13 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   const openRow = name => js(`[...document.querySelectorAll('#pjProjects .pj-row')].find(b => b.querySelector('.pj-row-name b').textContent === ${JSON.stringify(name)})?.click()`);
   await show('projects');
   await shot(panel, path.join(out, 'screenshot-projects.png'));
+  // One project's page: how it's going, what needs it, where you left off.
+  await openRow('3d-rack');
+  await wait(700);
+  await js("document.activeElement?.blur(); 1");
+  await shot(panel, path.join(out, 'screenshot-project-page.png'));
+  await js("document.querySelector('#pjDetailScreen .pj-detail-head button')?.click()");
+  await wait(300);
   await openRow('tidepool');
   await wait(1000); // its log and the Ask Claude sheet open by themselves
   // The crash, with its error lines marked, then the sheet that asks before

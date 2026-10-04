@@ -79,6 +79,7 @@ const checkup = require('./checkup');
 const flaky = require('./flaky');
 const weekly = require('./weekly');
 const { TimeTracker } = require('./timetrack-service');
+const timetrack = require('./timetrack');
 const routineTemplates = require('./routine-templates');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
@@ -1815,6 +1816,36 @@ function stickersView() {
     // Projects you work in that haven't shipped yet: silhouettes to earn.
     waiting: Object.entries(quiet).filter(([key]) => !roots.has(key.toLowerCase()))
       .sort((a, b) => b[1].lastSeen - a[1].lastSeen).slice(0, 12).map(([key, p]) => ({ key, name: p.name })),
+  };
+}
+
+// What the Projects page shows about each project, from where each part
+// already lives (projects/insights.js joins them up). Time only while it's on.
+function projectInsights() {
+  const now = Date.now();
+  const s = streaks.normalize(config.get('streaks'));
+  const tt = timetrack.normalize(timeTracker?.state ?? config.get('timeTracking'));
+  let time = null;
+  if (tt.enabled) {
+    const sum = timetrack.summarize(tt, timetrack.ranges(now).find(r => r.id === 'week'));
+    time = {
+      days: sum.days.map(d => d.day),
+      projects: sum.projects.map(p => ({ key: p.key, seconds: p.seconds, days: p.days.map(r => ({ day: r.day, seconds: r.total })) })),
+    };
+  }
+  const fl = flaky.normalizeFlaky(config.get('flaky'));
+  const st = stickerState();
+  return {
+    streaks: s.projects,
+    afterDays: s.afterDays,
+    time,
+    deps: depWatch ? depWatch.view().results : [],
+    flaky: flakyOn() ? flakyView().map(r => ({ ...r, root: fl.projects[r.key]?.root || null })) : [],
+    prs: ciView().prs,
+    stickers: Object.values(st.projects).filter(p => p.root && !p.from && !p.hidden).map(p => {
+      const v = stickers.projectView(st, p, now);
+      return { root: p.root, tierName: v.tierName, ships: v.ships, marks: v.marks.map(m => ({ icon: m.icon, name: m.name })), art: drawSticker(p).full };
+    }),
   };
 }
 
@@ -4137,6 +4168,8 @@ function createProjects() {
       gh: () => github.gh(),
       claudeEnv: () => github.claudeEnv(),
     }),
+    insights: projectInsights,
+    sessions: () => history?.list() || [],
   });
   projects.on('change', () => send(panel, 'projects:changed'));
   devServers.reattach();

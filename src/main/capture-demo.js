@@ -6,9 +6,11 @@ const crypto = require('crypto');
 const path = require('path');
 const out = require('./devservers/output');
 const weekly = require('./weekly');
+const { withInsights, sessionsFor } = require('./projects/insights');
 
 const HOME = 'C:\\Users\\you';
 const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
+const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 // ---------------------------------------------------------------- Projects
 // Canned replies for the projects:* and servers:* IPC (the real ones read git
@@ -82,13 +84,52 @@ function demoProjects(now) {
       local: [], git: [] },
   ];
 
+  // What the rest of Shellby knows about them, joined the real way (projects/insights.js).
+  const gitOf = g => ({ dirty: g.dirty, unpushed: g.unpushed, stashes: 0, copies: g.copies.length, copyList: g.copies.map(w => ({ ...w, changed: 2 })) });
+  const week = (...mins) => mins.map((m, i) => ({ day: dayKey(now - (mins.length - 1 - i) * DAY), seconds: m * 60 }));
+  const sources = {
+    now,
+    afterDays: 5,
+    streaks: {
+      [R.rack3d.toLowerCase()]: { lastSeen: now - 5 * MIN, lastCommitAt: now - 2 * HOUR, muted: false },
+      [R.shellby.toLowerCase()]: { lastSeen: now - 40 * MIN, lastCommitAt: now - DAY, muted: false },
+      [R.tide.toLowerCase()]: { lastSeen: now - 3 * HOUR, lastCommitAt: now - 2 * DAY, muted: false },
+      [R.rack.toLowerCase()]: { lastSeen: now - 2 * DAY, lastCommitAt: now - 8 * DAY, muted: false },
+    },
+    time: (() => {
+      const t = [[R.rack3d, week(95, 140, 0, 210, 160)], [R.shellby, week(60, 30, 45, 90, 40)], [R.tide, week(0, 75, 50, 0, 35)]];
+      return { days: t[0][1].map(d => d.day), projects: t.map(([key, days]) => ({ key, seconds: days.reduce((n, d) => n + d.seconds, 0), days })) };
+    })(),
+    prs: [
+      { key: 'you/tidepool#14', repo: 'you/tidepool', number: 14, title: 'Forecast endpoint', state: 'failing', failing: ['test (22.x)'], url: 'https://github.com/you/tidepool/pull/14' },
+      { key: 'you/3d-rack#31', repo: 'you/3d-rack', number: 31, title: 'Cable trays', state: 'passing', failing: [], url: 'https://github.com/you/3d-rack/pull/31' },
+    ],
+    deps: [
+      { key: R.tide, name: 'tidepool', at: now - DAY, ok: true, outdatedTotal: 4, vulnTotal: 1, vulns: { critical: 0, high: 1, moderate: 0, low: 0 }, worst: 'high', attention: true, summary: '4 outdated (1 major) · 1 high' },
+      { key: R.rack3d, name: '3d-rack', at: now - DAY, ok: true, outdatedTotal: 0, vulnTotal: 0, vulns: {}, worst: null, attention: false, summary: 'All up to date' },
+    ],
+    flaky: [{ key: 'demo3drack', root: R.rack3d, id: 'scene.spec > snaps cables to trays', label: 'scene.spec › snaps cables to trays', week: 2, total: 3, status: 'watching', retry: false }],
+    stickers: [],
+    servers: servers.servers,
+    git: new Map(projects.flatMap(p => p.local.map((c, i) => [c.root.toLowerCase(), gitOf(p.git[i])]))),
+  };
+  const sessions = [
+    { id: 'demo-s1', title: 'Snap cables to the nearest tray', cwd: R.rack3d, updatedAt: now - 25 * MIN },
+    { id: 'demo-s2', title: 'Rack units ruler', cwd: 'C:\\Users\\you\\.shellby\\worktrees\\a1b2c3\\3d-rack', updatedAt: now - 3 * HOUR },
+    { id: 'demo-s3', title: 'Why is the build slow?', cwd: R.rack3d, updatedAt: now - 2 * DAY, done: true },
+  ];
+
   const list = {
-    projects: projects.map(({ git: _git, ...p }) => p),
+    projects: withInsights(projects.map(({ git: _git, ...p }) => p), sources),
     github: { signedIn: true, enabled: true, privateRepos: true, error: null },
     servers,
     lastCloneParent: path.win32.join(HOME, 'code'),
   };
-  const detail = Object.fromEntries(projects.map(({ git, ...p }) => [p.key, { ...p, local: p.local.map((c, i) => ({ ...c, git: git[i] })) }]));
+  const detail = Object.fromEntries(list.projects.map((p, n) => {
+    const local = p.local.map((c, i) => ({ ...c, git: gitOf(projects[n].git[i]) }));
+    const copies = local.flatMap(c => c.git.copyList.map(w => w.path));
+    return [p.key, { ...p, local, sessions: sessionsFor(sessions, local.map(c => c.root), copies) }];
+  }));
   const serverLog = id => (logs[id] ? { lines: logs[id], errors: [...out.errorLines(logs[id])] } : null);
   const fixDraft = ({ id, note = '' } = {}) => {
     const s = servers.servers.find(x => x.id === id);
