@@ -78,10 +78,42 @@ async function cli(body) {
       f.requestSubmit();
     })()`);
     check(await until("/Shellby's own commands/.test(document.querySelector('#setupPane .setup-status').textContent)"), '/export is refused: it is one of Shellby\'s own');
+    check(/Shellby's own commands/.test(await ev("document.getElementById('snipNameNote').textContent")), '...and the name says so as you type, before Save');
+
+    // 2b. The editor helps as you type: names, blanks, the hint, Esc.
+    const typeIn = (id, text) => ev(`(el => { el.value = ${JSON.stringify(text)}; el.dispatchEvent(new Event('input')); })(document.getElementById('${id}'))`);
+    await typeIn('snipName', '/Fix CI');
+    check(await ev("document.getElementById('snipName').value") === 'fix-ci', 'a typed name comes out the way it is called: /Fix CI -> fix-ci');
+    await typeIn('snipName', 'review');
+    check(/already have a \/review/.test(await ev("document.getElementById('snipNameNote').textContent")), 'a name you already have is flagged as you type');
+    await typeIn('snipName', 'fix-issue');
+    await typeIn('snipText', 'Fix issue #');
+    check(await ev("document.querySelector('.snip-hint-box').hidden") === true, 'no hint field until there is a blank');
+    await ev("[...document.querySelectorAll('.snip-token')].find(b => b.textContent === '$1').click()");
+    await ev("(t => { t.value += '. It goes wrong like this: '; t.dispatchEvent(new Event('input')); })(document.getElementById('snipText'))");
+    await ev("[...document.querySelectorAll('.snip-token')].find(b => b.textContent === '$2').click()");
+    check(await ev("document.getElementById('snipText').value") === 'Fix issue #$1. It goes wrong like this: $2', 'the blank buttons put $1, then $2, at the caret');
+    check(await ev("document.querySelectorAll('.snip-backdrop mark').length") === 2, 'both blanks are marked in the prompt');
+    check(await ev("!document.querySelector('.snip-hint-box').hidden"), 'the hint field shows once there is a blank');
+    await typeIn('snipHint', 'issue number, then what happens');
+    check(/\/fix-issue <issue number, then what happens>/.test(await ev("document.getElementById('snipUsage').textContent")), 'the usage line shows the call with its hint');
+    check(/and \$2 the rest/.test(await ev("document.getElementById('snipTextNote').textContent")), 'the note explains numbered blanks');
 
     const out = process.argv[2] || path.join(os.tmpdir(), 'shellby-snippets.png');
+    await ev("document.querySelector('.snip-editor').scrollIntoView({ block: 'start' })");
     const shot = await call('Page.captureScreenshot', { format: 'png' });
     if (shot?.data) { fs.writeFileSync(out, Buffer.from(shot.data, 'base64')); console.log(`screenshot: ${out}`); }
+
+    await ev("[...document.querySelectorAll('#toolList .snippet-row')].find(r => r.dataset.name === 'tests').querySelector('.btn.ghost').click()");
+    await wait(200);
+    check(await ev("document.getElementById('snipName')?.value") === 'fix-issue', "Edit on another row doesn't throw away unsaved changes");
+    const esc = () => ev("document.getElementById('snipText').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+    await esc();
+    check(/Esc again/.test(await ev("document.querySelector('#setupPane .setup-status').textContent")) && await ev("!!document.querySelector('.snip-editor')"), 'Esc on unsaved changes asks first');
+    await esc();
+    check(await until("!document.querySelector('.snip-editor')"), 'a second Esc closes it');
+    const listShot = await call('Page.captureScreenshot', { format: 'png' });
+    if (listShot?.data) fs.writeFileSync(out.replace(/\.png$/, '-list.png'), Buffer.from(listShot.data, 'base64'));
 
     // 3. The slash menu offers them.
     await ev("SB.setView('chat')");
@@ -108,6 +140,33 @@ async function cli(body) {
     await enter();
     check(await until("[...SB.activeTab().el.querySelectorAll('.msg.assistant')].some(e => /echo: Fix the lint in src\\/app\\.js/.test(e.textContent))", 15000), '/lint src/app.js fills in $ARGUMENTS');
     await until('!SB.activeTab().busy');
+    check(await until("SB.state.snippets.find(s => s.name === 'lint')?.uses === 1"), 'a run counts as a use');
+
+    // 5b. Numbered blanks, a hint, and one that starts its own conversation.
+    const fixSaved = await ev("shellby.saveSnippet({ name: 'fix', text: 'Fix issue #$1. Wrong: $2', hint: 'issue, then what is wrong', newTab: true })");
+    check(fixSaved?.ok, 'a snippet with $1, $2, a hint and newTab saves');
+    await until("SB.state.snippets.some(s => s.name === 'fix')");
+    await type('/fi');
+    check(await until("[...document.querySelectorAll('#slashMenu .slash-item')].some(b => /\\/fix <issue, then what is wrong>/.test(b.textContent))"), 'the slash menu shows what goes after /fix');
+    await ev("SB.hideSlash()");
+    await type('/fix 42');
+    await enter();
+    await wait(400);
+    check(/needs 2 things after it: issue, then what is wrong/.test(await ev("document.getElementById('toast').textContent")), '/fix with one thing says it needs two, and what');
+    const before = { tab: await ev('SB.state.activeTab'), tabs: await ev('SB.state.tabs.size') };
+    await type('/fix 42 the login page 500s');
+    await enter();
+    check(await until(`SB.state.tabs.size > ${before.tabs} && SB.state.activeTab !== ${JSON.stringify(before.tab)}`), 'a newTab snippet opens a conversation of its own');
+    check(await until("[...SB.activeTab().el.querySelectorAll('.msg.assistant')].some(e => /echo: Fix issue #42\\. Wrong: the login page 500s/.test(e.textContent))", 15000), '...and fills $1 with a word and $2 with the rest');
+    check(!(await ev(`[...SB.state.tabs.get(${JSON.stringify(before.tab)}).el.querySelectorAll('.msg.user')].some(e => /Fix issue/.test(e.textContent))`)), 'the conversation you were in is left as it was');
+    await until('!SB.activeTab().busy');
+
+    // 5c. Duplicate, and the starters back.
+    const dup = await ev("shellby.duplicateSnippet('fix')");
+    check(dup?.ok && dup.name === 'fix-2' && dup.snippets.findIndex(s => s.name === 'fix-2') === dup.snippets.findIndex(s => s.name === 'fix') + 1, 'duplicate makes /fix-2, right after /fix');
+    await ev("shellby.removeSnippet('pr')");
+    const starters = await ev('shellby.restoreStarterSnippets()');
+    check(starters?.ok && JSON.stringify(starters.added) === '["pr"]', `Add the starters brings back only the missing /pr (${JSON.stringify(starters?.added)})`);
 
     // 6. /snippets save keeps the last thing you sent.
     await type('find dead code in the renderer');
@@ -135,7 +194,9 @@ async function cli(body) {
     // Deleted from its row: the pin goes, and Undo brings back both.
     await ev("SB.showToolbox('snippet')");
     await until("[...document.querySelectorAll('#toolList .snippet-row code')].some(c => c.textContent === '/deadcode')");
-    await ev("[...document.querySelectorAll('#toolList .snippet-row')].find(r => r.querySelector('code').textContent === '/deadcode').querySelector('[aria-label^=\"Delete\"]').click()");
+    await ev("[...document.querySelectorAll('#toolList .snippet-row')].find(r => r.querySelector('code').textContent === '/deadcode').querySelector('.snip-more').click()");
+    check(await until("!document.getElementById('snipMenu').hidden"), 'the ⋯ button opens the row menu');
+    await ev("document.querySelector('#snipMenu .menu-item.danger').click()");
     check(await until("!SB.state.snippets.some(s => s.name === 'deadcode') && !SB.state.pinned.some(p => p.kind === 'snippet')"), 'a delete takes the snippet and its pin');
     await ev("document.querySelector('#toast .toast-action').click()");
     check(await until("SB.state.snippets.some(s => s.name === 'deadcode') && SB.state.pinned.some(p => p.name === 'deadcode')"), 'Undo brings back both');
