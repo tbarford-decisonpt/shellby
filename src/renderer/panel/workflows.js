@@ -2509,8 +2509,7 @@
       const rest = { ...o };
       delete rest.reply;
       delete rest.tabId;
-      body = [o.reply ? SB.renderMarkdownInto(h('div', { class: 'wf-md' }), String(o.reply)) : null,
-        Object.keys(rest).length ? h('pre', { class: 'wf-pre', text: pretty(rest) }) : null];
+      body = [o.reply ? SB.renderMarkdownInto(h('div', { class: 'wf-md' }), String(o.reply)) : null, fieldViews(rest)];
     } else if (e.type === 'run' && typeof o === 'object') {
       body = [h('pre', { class: 'wf-pre', text: String(o.output ?? '') || '(nothing printed)' }), h('p', { class: 'field-hint', text: `Exit code ${o.code}` })];
     } else if (e.type === 'http' && typeof o === 'object') {
@@ -2521,6 +2520,19 @@
       body = h('pre', { class: 'wf-pre', text: pretty(o) });
     }
     return outputDetails(e.key, 'Output', body);
+  }
+
+  // A Claude step's fields, each shown as what it is: short values as a
+  // name/value list, long text as markdown, lists and objects as JSON.
+  function fieldViews(fields) {
+    const entries = Object.entries(fields);
+    const isLong = v => typeof v === 'string' && (v.includes('\n') || v.length > 200);
+    const short = entries.filter(([, v]) => (v === null || typeof v !== 'object') && !isLong(v));
+    return [
+      short.length ? h('dl', { class: 'wf-fields' }, short.map(([k, v]) => [h('dt', { text: k }), h('dd', { text: String(v) })])) : null,
+      entries.filter(([, v]) => isLong(v)).map(([k, v]) => [h('p', { class: 'field-hint', text: k }), SB.renderMarkdownInto(h('div', { class: 'wf-md' }), v)]),
+      entries.filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [h('p', { class: 'field-hint', text: k }), h('pre', { class: 'wf-pre', text: pretty(v) })]),
+    ];
   }
 
   function outputDetails(key, label, body) {
