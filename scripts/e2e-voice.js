@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { BITS } = require('../src/main/voice');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9363;
@@ -167,7 +168,7 @@ async function windows() {
       if (on) await critter.shot(`5-bit-${bit}`);
     }
     check(await until(critter, "!/\\bbit-/.test(document.body.className)", 4000), '...and each one ends on its own');
-    check(await panel.ev("shellby.dev.bit('nonsense').then(b => ['dig','polish','peek','stretch','flop'].includes(b))"), 'an unknown habit falls back to a real one');
+    check(await panel.ev(`shellby.dev.bit('nonsense').then(b => ${JSON.stringify(BITS)}.includes(b))`), 'an unknown habit falls back to a real one');
 
     // --------------------------------------------- 7. on guard he keeps quiet
     const chirpsBefore = await chirps();
