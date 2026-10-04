@@ -635,6 +635,7 @@
     $('historyBinBar').hidden = !showingBin;
     $('historyBinOpen').hidden = showingBin || !state.trash.length;
     $('historyBinOpen').querySelector('.n').textContent = state.trash.length;
+    $('historyClear').hidden = showingBin || (!state.sessions.length && !state.trash.length);
     if (showingBin) return renderBin(q);
     const found = state.sessions.filter(matches(q));
     const anyDone = state.sessions.some(s => s.done);
@@ -785,6 +786,28 @@
     state.trash = await api.purgeSession();
     renderHistory();
   }));
+
+  // Main asks "are you sure?" in a native box and does nothing on Cancel. On
+  // yes it has closed the open conversations, so their tabs go here too.
+  $('historyClear').addEventListener('click', async () => {
+    const before = state.sessions.map(s => s.id);
+    const r = await api.clearSessions();
+    if (!r?.cleared) return;
+    state.sessions = r.sessions;
+    state.trash = r.trash;
+    let lostActive = false;
+    for (const id of before) {
+      const tab = state.tabs.get(id);
+      if (!tab) continue;
+      tab.destroy();
+      state.tabs.delete(id);
+      if (state.activeTab === id) { state.activeTab = null; lostActive = true; }
+    }
+    if (lostActive) await SB.newTab();
+    SB.renderTabStrip();
+    renderHistory();
+    SB.toast('History cleared.');
+  });
 
   SB.views.history = {
     render: async () => {

@@ -203,6 +203,27 @@ class History {
     return this.purge(this.bin.filter(b => !(b.deletedAt > cutoff)).map(b => b.id));
   }
 
+  /**
+   * Every conversation gone for good: the list, Recently deleted, and every
+   * transcript in the folder, listed or not. Unlike sweep(), this is a person
+   * asking for a clean slate, so a damaged index doesn't hold it back.
+   * Returns how many conversations went.
+   */
+  clear() {
+    const gone = this.index.length + this.bin.length;
+    this.index = [];
+    this.bin = [];
+    this.saveIndex();
+    this.saveTrash();
+    let names;
+    try { names = fs.readdirSync(this.dir); } catch (e) { this.onError('history dir', e); return gone; }
+    for (const name of names) {
+      const m = /^([\w-]+)\.jsonl$/.exec(name);
+      if (m) this.discard(m[1]);
+    }
+    return gone;
+  }
+
   /** Delete one transcript, if the id is one we'd ever have written. */
   discard(id) {
     let file;
