@@ -345,6 +345,7 @@ function createPlaytime(d) {
     startHide, startFetch, found, grabbed, stop, busy, onSettled, menuItems, view,
     toyDragStart, toyDragMove, toyDragEnd,
     kind: () => game?.kind || null,
+    hiding: () => game?.kind === 'hide' && game.phase !== 'over', // he needs your windows to hide behind
     isToy: wc => !!toy && !toy.isDestroyed() && wc === toy.webContents,
   };
 }

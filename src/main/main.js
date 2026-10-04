@@ -16,7 +16,7 @@ const { SessionManager, MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
-const { keepOnDesktop, sendToBottom, pin: pinToDesktop, covers: coversBox, DESKTOP_CLASSES } = require('./desktop-layer');
+const { keepOnDesktop, sendToBottom, tuckUnder, setOnTop, pin: pinToDesktop, covers: coversBox, DESKTOP_CLASSES } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
@@ -414,6 +414,7 @@ function createPerchingFor() {
       return { x: p.x - crewExtra(), y: p.y };
     },
     pin: () => (CAPTURE ? sendToBottom(critter) : pinToDesktop(critter)),
+    onTop: () => onTopNow(),
     temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
     speak: (occasion, opts) => speak(occasion, opts),
     stat,
@@ -461,7 +462,7 @@ function createMischief() {
       return w;
     },
     pin: w => pinToDesktop(w),
-    lower: w => sendToBottom(w),
+    lower: w => tuckUnder(w, critter),
     critterBounds: () => critter.getBounds(),
     geo: critterGeo,
     px,
@@ -580,12 +581,16 @@ function createCritter() {
     title: 'Shellby', icon: ICON, webPreferences: { ...webPreferences, preload: CRITTER_PRELOAD },
   });
   secureWindow(critter);
+  setOnTop(onTopNow);
   critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));
   critter.once('ready-to-show', () => {
     keepCritterSize(); // created on a scaled monitor, Windows may have rounded it
     critter.showInactive();
     if (!CAPTURE) keepOnDesktop(critter, { isAway: () => !!perching?.isAway() });
+    layerOnTop = onTopNow();
   });
+  // On top of your apps his window lets the mouse through; a reload forgets that.
+  critter.webContents.on('did-finish-load', () => perching?.layerChanged());
   critter.on('blur', () => { sendToBottom(critter); floor?.lower(); }); // a no-op while he's up on a window; the floor strip stays under him
   critter.on('resize', () => setImmediate(keepCritterSize));
 }
@@ -626,8 +631,8 @@ function setCalm(reason) {
   sendCalm();
 }
 function crabCovered(info) {
-  // Up on a window he's drawn above it, so what's in front never hides him.
-  if (!info || perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
+  // Up on a window, or kept on top of your apps, he's drawn above what's in front.
+  if (!info || onTopNow() || perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
   if (!info.visible || info.minimized || info.cloaked || !info.frame) return false;
   const f = info.frame;
   const frame = screen.screenToDipRect(null, { x: f.left, y: f.top, width: f.right - f.left, height: f.bottom - f.top });
@@ -637,8 +642,30 @@ function checkCovered() {
   if (!critter || critter.isDestroyed() || !native.available()) return;
   const info = native.describe(native.foreground());
   const game = gameInFront(info);
-  hidden = { crab: (game && !perching?.isAway()) || crabCovered(info), game };
+  hidden = { ...hidden, game }; // first: whether he's on top (crabCovered) depends on it
+  hidden = { ...hidden, crab: (game && !perching?.isAway()) || crabCovered(info) };
+  syncLayer(); // a game came up, or went
   sendCalm();
+}
+
+// ---------------------------------------------------------------- on top of your apps
+// "Keep him on top of my apps" (Settings) lifts him and his floor out of the
+// desktop layer (desktop-layer.js). He still steps back down behind a game, so
+// he's never drawn over one, and while he's hiding: he needs your windows for that.
+function onTopNow() {
+  return !CAPTURE && config.get('onTop') === true && !hidden.game && !playtime?.hiding();
+}
+let layerOnTop = null; // what applyLayer last put him on
+function applyLayer() {
+  if (!critter || critter.isDestroyed()) return;
+  layerOnTop = onTopNow();
+  // In the air he lands on the right layer; up on a window, perching restacks him.
+  if (!perching?.isAway()) pinToDesktop(critter);
+  floor?.repin();
+  perching?.layerChanged();
+}
+function syncLayer() {
+  if (onTopNow() !== layerOnTop) applyLayer();
 }
 function watchIdleCost() {
   panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
@@ -3128,7 +3155,7 @@ function createLifeAndPlay() {
     getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
     bounds: () => critter.getBounds(),
     place: (x, y) => placeCritter(x, y),
-    pin: () => pinToDesktop(critter),
+    pin: () => { pinToDesktop(critter); syncLayer(); }, // hiding, he's back under your apps (onTopNow)
     float: () => native.float(native.hwndOf(critter)),
     say: (text, ms, occasion) => sayText(text, occasion, ms),
     toCrab: sendCritter,
@@ -5809,7 +5836,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -5849,7 +5876,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
@@ -5909,6 +5936,7 @@ ${r.detail}` });
     if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
     if ('skin' in allowed) broadcastSkin();
+    if ('onTop' in allowed) applyLayer();
     // Mischief on or off starts or stops its loop; pals and footprints open or close the floor strip.
     if ('mischief' in allowed || 'mischiefPranks' in allowed) pranks?.sync();
     if ('mischief' in allowed || 'mischiefPranks' in allowed || 'colony' in allowed) floor?.sync();
@@ -6363,7 +6391,7 @@ ${r.detail}` });
       if (leave) return perching.leave('asked');
       return perching.tryGoUp({ hwnd: Number.isInteger(hwnd) ? hwnd : null, eye: false, any: !hwnd });
     });
-    ipcMain.handle('dev:perch-state', (_e, { debug = false } = {}) => ({ ...perching.view(), bounds: critter.getBounds(), motion: motion.kind, ...(debug ? { debug: perching.debug() } : {}) }));
+    ipcMain.handle('dev:perch-state', (_e, { debug = false } = {}) => ({ ...perching.view(), self: native.hwndOf(critter), bounds: critter.getBounds(), motion: motion.kind, ...(debug ? { debug: perching.debug() } : {}) }));
     // The edges of the screen, mischief and the floor: start a climb (or come down), force a prank, look at it all.
     ipcMain.handle('dev:climb', (_e, { side = null, leave = false } = {}) => (leave ? climbing.leave() : climbing.tryClimb({ side: ['left', 'right'].includes(side) ? side : null })));
     ipcMain.handle('dev:prank', (_e, { kind, ignore = [] } = {}) => pranks.force(kind, { ignore: Array.isArray(ignore) ? ignore.filter(x => typeof x === 'string') : [] }));

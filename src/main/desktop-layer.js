@@ -7,21 +7,66 @@
 // owner (not SetParent) so the window keeps normal input and screen coordinates.
 // Perching (see perching.js) borrows the same trick with an app's window as the
 // owner, so while he's away the watchdog leaves his owner alone.
+//
+// "Stay on top of my apps" (Settings) turns all that around: the same windows
+// are lifted out of the desktop's band and made topmost, so he's drawn over
+// whatever you're using. pin() puts a window on whichever layer is wanted now,
+// so everything that re-pins (the watchdog, landing, a drop) keeps him there.
 const native = require('./native-windows');
 
-const HWND_BOTTOM = 1;
+const HWND_BOTTOM = 1, HWND_TOPMOST = -1, HWND_NOTOPMOST = -2;
 const SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10;
 
 let away = () => false; // set by keepOnDesktop: true while he's perched on a window
+let onTop = () => false; // set by setOnTop: true while he should be above your apps
+const lifted = new WeakSet(); // windows pin() has made topmost
 
-function sendToBottom(win) {
+function restack(win, after) {
   const a = native.load();
-  if (!a || win.isDestroyed() || away()) return;
-  try { a.SetWindowPos(native.hwndOf(win), HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE); } catch { /* best effort */ }
+  if (!a) return false;
+  try { return a.SetWindowPos(native.hwndOf(win), after, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE); } catch { return false; /* best effort */ }
+}
+
+// A lifted window stays lifted: HWND_BOTTOM would take its topmost away.
+function sendToBottom(win) {
+  if (win.isDestroyed() || away() || lifted.has(win)) return;
+  restack(win, HWND_BOTTOM);
+}
+
+/** Just behind `top` (the floor strip under him), on whichever layer they share. */
+function tuckUnder(win, top) {
+  if (win.isDestroyed() || !top || top.isDestroyed()) return;
+  if (lifted.has(win) && lifted.has(top)) restack(win, native.hwndOf(top));
+  else sendToBottom(win);
+}
+
+// Nobody's owned window any more, and topmost. Electron is told too, so its
+// idea of the window matches (and it's the only way when koffi isn't loaded).
+function lift(win) {
+  if (native.available()) native.float(native.hwndOf(win));
+  win.setAlwaysOnTop(true, 'floating');
+  restack(win, HWND_TOPMOST);
+  lifted.add(win);
+  return true;
+}
+
+function unlift(win) {
+  if (!lifted.has(win)) return;
+  lifted.delete(win);
+  win.setAlwaysOnTop(false);
+  restack(win, HWND_NOTOPMOST);
+}
+
+/** Where pin() puts windows: above your apps while `fn()` says so, else the desktop. */
+function setOnTop(fn) {
+  onTop = fn;
 }
 
 function pin(win) {
-  if (!native.available() || win.isDestroyed()) return false;
+  if (win.isDestroyed()) return false;
+  if (onTop()) return lift(win);
+  unlift(win);
+  if (!native.available()) return false;
   try {
     const host = native.desktopHost();
     if (host) native.ownBy(native.hwndOf(win), host);
@@ -34,7 +79,9 @@ function pin(win) {
 }
 
 function isPinned(win) {
-  if (!native.available() || win.isDestroyed()) return true;
+  if (win.isDestroyed()) return true;
+  if (onTop()) return lifted.has(win) && win.isAlwaysOnTop();
+  if (!native.available()) return true;
   const host = native.desktopHost();
   return !!host && native.ownerOf(native.hwndOf(win)) === host;
 }
@@ -71,4 +118,4 @@ function covers(frame, box) {
     && frame.y + frame.height >= box.y + box.height;
 }
 
-module.exports = { keepOnDesktop, pin, sendToBottom, isPinned, covers, DESKTOP_CLASSES };
+module.exports = { keepOnDesktop, pin, sendToBottom, tuckUnder, setOnTop, isPinned, covers, DESKTOP_CLASSES };

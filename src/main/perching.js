@@ -27,7 +27,8 @@ const PERCH_BITS_MS = 6000;
  * deps: {
  *   critter(), motion(), screen, config, geo(), getPos(), place(x, y), box(),
  *   homePos() -> { x, y }, pin(), temperament(), speak(occasion, opts), stat(event, payload),
- *   toRenderer(kind, info), perchView(view), bit(name, ms), refresh(), dragging(), crew(), capture
+ *   toRenderer(kind, info), perchView(view), bit(name, ms), refresh(), dragging(), crew(), capture,
+ *   onTop() -> true while he's kept above your apps (desktop-layer.js)
  * }
  */
 function createPerching(d) {
@@ -128,21 +129,40 @@ function createPerching(d) {
 
   // Perched, his transparent window overlaps the title bar under him, so it
   // lets the mouse through everywhere except over the crab himself (the
-  // renderer says when the pointer is over him).
+  // renderer says when the pointer is over him). Kept on top of your apps, it
+  // overlaps them wherever he is, so it always does.
+  const through = () => clickThrough || !!d.onTop?.();
   function applyMouse() {
     const c = d.critter();
     if (!c || c.isDestroyed()) return;
-    c.setIgnoreMouseEvents(clickThrough && !hovering, { forward: true });
+    c.setIgnoreMouseEvents(through() && !hovering, { forward: true });
+  }
+  function tellRenderer() {
+    d.perchView({ up: !!attached, through: through() });
   }
   function setClickThrough(on) {
     clickThrough = on;
-    if (!on) hovering = false;
+    if (!through()) hovering = false;
     applyMouse();
   }
   function hover(over) {
     if (hovering === !!over) return;
     hovering = !!over;
-    if (clickThrough) applyMouse();
+    if (through()) applyMouse();
+  }
+
+  /**
+   * On top of your apps or back on the desktop (Settings, or a game came up):
+   * the mouse follows, and up on a window he's restacked to match. On top he's
+   * nobody's; otherwise the window's again, so he goes behind what covers it.
+   */
+  function layerChanged() {
+    if (attached) {
+      d.pin();
+      if (!d.onTop?.() && native.ownBy(self(), attached.hwnd)) native.raiseAbove(self(), attached.hwnd);
+    }
+    setClickThrough(clickThrough);
+    tellRenderer();
   }
 
   // ---------------------------------------------------------------- going up
@@ -218,12 +238,14 @@ function createPerching(d) {
     // Gone, changed, or perching was switched off while he was in the air.
     if (!allowed() || !info || !perch.perchable(info, ctx())) return fallOff('missed');
     const me = self();
-    if (!native.ownBy(me, hwnd)) {
+    // Kept on top of your apps he stays there, up on a window too: only on the
+    // desktop layer does he take the window as his owner to sit just above it.
+    if (!d.onTop?.() && !native.ownBy(me, hwnd)) {
       // Elevated windows, mostly: Windows won't let a normal process own them.
       refused.set(hwnd, Date.now() + REFUSED_MS);
       return fallOff('refused');
     }
-    native.raiseAbove(me, hwnd);
+    if (!d.onTop?.()) native.raiseAbove(me, hwnd);
     floating = false;
     const ledge = perch.ledgeOf(info.frame, info.workArea, g);
     const cx = Math.min(Math.max(perch.centerOf(d.getPos(), g), ledge.x1), ledge.x2);
@@ -237,7 +259,7 @@ function createPerching(d) {
       clingSince: 0, praised: false,
     };
     setClickThrough(true);
-    d.perchView({ up: true });
+    tellRenderer();
     d.motion().ride(rideFrame);
     d.config.set({ perchStats: perch.recordPerch(d.config.get('perchStats'), info.exe) });
     d.stat('perched', { exe: info.exe });
@@ -258,7 +280,7 @@ function createPerching(d) {
     lastEnd = Date.now();
     d.stat('ride', { n: Math.round(was.ride.distance), exe: was.exe });
     setClickThrough(false);
-    d.perchView({ up: false });
+    tellRenderer();
     return was;
   }
 
@@ -494,7 +516,7 @@ function createPerching(d) {
 
   return {
     isUp, isAway, view, maybeGoUp, tryGoUp, leave, idleTick, onSettled, onInterrupted, grabbed, dropped,
-    flightLedges, menuItems, hover, home, dispose, debug,
+    flightLedges, menuItems, hover, layerChanged, home, dispose, debug,
     // Shared with climbing.js (home from the foot of a wall) and pranks.js (a fullscreen app means behave).
     walkHome, fullscreen: busy,
   };

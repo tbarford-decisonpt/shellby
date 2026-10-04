@@ -622,17 +622,20 @@ api.onMotion(msg => {
 // ---- up on a window. Perched, everything but the crab himself lets the mouse
 // through to the title bar under him, so main needs to know when the pointer
 // is over him (the moves are forwarded even while the window ignores clicks).
+// Kept on top of your apps, his window lets the mouse through on the floor too.
 let perched = false;
+let through = false;
 let overMe = false;
 const setOver = over => { if (over !== overMe) { overMe = over; api.hit(over); } };
 api.onPerch(msg => {
   perched = !!msg?.up;
+  through = msg?.through ?? perched;
   if (perched) flags.add('on-perch'); else flags.delete('on-perch');
-  if (!perched) overMe = false;
+  if (!through) overMe = false;
   paintBody();
 });
 document.addEventListener('mousemove', e => {
-  if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
+  if (through) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
 });
 
 // ---- up a wall or hanging from the top of the screen (src/main/climbing.js).
@@ -645,7 +648,7 @@ api.onSurface(msg => {
   if (surface !== 'floor') flags.add(`surface-${surface}`);
   paintBody();
 });
-document.addEventListener('mouseleave', () => { if (perched) setOver(false); });
+document.addEventListener('mouseleave', () => { if (through) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });
 
 // ---- drop files onto Shellby to attach them to a task

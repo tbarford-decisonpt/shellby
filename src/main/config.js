@@ -37,6 +37,7 @@ const DEFAULTS = {
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   wander: true,      // idle strolls near his spot (see motion.js)
+  onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop-layer.js)
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
   perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)

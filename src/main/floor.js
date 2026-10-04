@@ -65,7 +65,7 @@ function createFloor(d) {
     place();
     win.setIgnoreMouseEvents(true, { forward: true });
     const w = win;
-    w.once('ready-to-show', () => { if (w.isDestroyed()) return; w.showInactive(); d.pin(w); });
+    w.once('ready-to-show', () => { if (w.isDestroyed()) return; w.showInactive(); d.pin(w); lower(); });
     w.webContents.on('did-finish-load', setup); // and again after a reload, which forgets it all
     w.on('closed', () => { if (win === w) { win = null; stopFeed(); } });
   }
@@ -146,6 +146,13 @@ function createFloor(d) {
     if (win && !win.isDestroyed()) d.lower(win);
   }
 
+  // Onto whichever layer he's on now (on top of your apps, or the desktop), under him.
+  function repin() {
+    if (!win || win.isDestroyed()) return;
+    d.pin(win);
+    lower();
+  }
+
   const isFloor = wc => !!win && !win.isDestroyed() && wc === win.webContents;
   const view = () => ({ open: !!win && !win.isDestroyed(), pals: roster(d.config.get('colony')).map(p => p.name), tracks: tracksOn(d.config), bounds: win && !win.isDestroyed() ? win.getBounds() : null });
 
@@ -155,7 +162,7 @@ function createFloor(d) {
     win = null;
   }
 
-  return { sync, event, reskin, hover, calm, lower, isFloor, view, dispose, reload: setup };
+  return { sync, event, reskin, hover, calm, lower, repin, isFloor, view, dispose, reload: setup };
 }
 
 module.exports = { createFloor, roster, colonySize, tracksOn, COLONY_MAX, PAL_SCALE, NAMES };
