@@ -22,7 +22,7 @@ const claudeSetup = require('./claude-setup');
 const hookTest = require('./hook-test');
 const { describeHook } = require('./hook-recipes');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
-const routineDraft = require('./routine-draft');
+const { RoutineAssist, DRY_RUN_TOOLS, dryRunFence } = require('./routine-assist');
 const depwatch = require('./depwatch');
 const { WorkflowService } = require('./workflows/service');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
@@ -1122,8 +1122,10 @@ function createManager() {
     workflows?.onTabItem(tabId, item);
     if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
     if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
-    if (item.kind === 'permission') onPermission(tabId, item, tab);
+    // A routine's dry run refuses whatever it asks for, without bothering you (routine-assist.js).
+    if (item.kind === 'permission' && !routineAssist?.onPermission(tabId, item)) onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
+    if (item.kind === 'error') routineAssist?.onError(tabId, item); // a dry run whose Claude Code went away
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
     if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
       const dir = tab.session?.cwd || '';
@@ -1158,7 +1160,9 @@ function createManager() {
   });
   manager.on('tabs', summary => {
     send(panel, 'tabs', summary);
-    const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
+    routineAssist?.sweep(id => manager.tabs.has(id));
+    // A routine's run, a workflow's step or a dry run isn't reopened after a restart.
+    const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId && !routineAssist?.isTest(t.id)).map(t => t.id);
     if (!CAPTURE) config.set({ openTabs: saved });
   });
   manager.on('aggregate', agg => {
@@ -1234,6 +1238,11 @@ const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 // Claude is asked for a branch name, and when that turn ends moveIntoCopy makes
 // the copy, carries the conversation across and lets Claude carry on there.
 async function armCopy(tab) {
+  // A routine's dry run (routine-assist.js) has a fence of its own, and no copy.
+  if (tab.dryRun) {
+    tab.session.beforeWork = dryRunFence;
+    return;
+  }
   // A branch (branch.js) already has its copy, but Claude remembers the
   // original's paths: the same hook keeps its changes out of them. Only while
   // that copy is the one it works in: once it's gone, so is the fence.
@@ -2091,15 +2100,18 @@ function onResult(tabId, item, tab) {
   }
   noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
   // A workflow's Claude step: the workflow carries on and says what it wants
-  // said, so no "finished" toast or phone ping for each step.
-  const inWorkflow = !!tab.workflowRunId;
+  // said, so no "finished" toast or phone ping for each step. A routine's dry
+  // run reports back to the chat that started it instead.
+  const dryRun = !!routineAssist?.onResult(tabId, item);
+  const inWorkflow = !!tab.workflowRunId || dryRun;
   // A "fix this dev server" tab finished: its card offers the restart.
   if (!item.interrupted) devServers?.onTabDone(tabId, !!item.ok);
   if (!inWorkflow && !item.interrupted) {
     workflows?.event('task', { title: tab.title, outcome: item.ok ? 'ok' : 'error', folder: tab.worktree?.originalCwd || tab.session?.cwd || '', error: item.error || null });
   }
-  if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
-  if (item.ok && !item.interrupted) {
+  // A dry run is a look, not work: no flash, XP or "done" for it.
+  if (!item.interrupted && !dryRun) flashState(item.ok ? 'success' : 'error');
+  if (item.ok && !item.interrupted && !dryRun) {
     const fx = outfit().effect;
     if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
     stat('task-completed');
@@ -4263,30 +4275,77 @@ async function proposeRoutine(routine) {
   return { text: crabtools.routineReply(saved, { added: true, replaced: !!current, next: nextRun(saved, Date.now()) }) };
 }
 
-/**
- * "Describe it" on the Routines page: Claude fills in the editor from a
- * sentence. Only a draft comes back; the user saves it from the editor, so no
- * confirm window is needed. One at a time, since each is a (small) Claude call.
- */
-let routineDrafting = false;
-async function draftRoutine(text) {
-  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
-  const checked = routineDraft.checkDescription(text);
-  if (!checked.ok) return checked;
-  if (routineDrafting) return { ok: false, error: 'Already drafting one. Give it a moment.' };
+// ---- Claude's help with routines (routine-assist.js): Describe it, Fix with
+// Claude, and the editor's chat with its dry runs. Only drafts come back; the
+// user saves them from the editor, so no confirm window is needed here.
+let routineAssist = null;
+
+/** One tool-less `claude -p` (drafts, fixes, chats). Dev and screenshot runs get the fake CLI. */
+function runClaudeOnce(args, timeoutMs, opts) {
+  if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
   const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-  if (!exe) return { ok: false, error: 'Claude Code isn\'t installed yet. Set it up in Settings first.' };
-  routineDrafting = true;
-  try {
-    const res = await runCli(exe, routineDraft.draftArgs(checked.text, { home: os.homedir(), defaultFolder: currentCwd() }),
-      routineDraft.DRAFT_TIMEOUT_MS, { cwd: os.homedir() });
-    if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
-    if (!res.stdout.trim()) {
-      log.warn('Routine draft failed', res.stderr.trim().split('\n').slice(-3).join(' ') || res.err?.message);
-      return { ok: false, error: 'Claude Code didn\'t answer. Check it\'s signed in, in Settings.' };
-    }
-    return routineDraft.parseDraft(res.stdout, { folderOk: isFolder });
-  } finally { routineDrafting = false; }
+  if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
+  return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
+}
+
+// Where you work, so "my shellby repo" finds a real folder: recent conversations' folders first, then known projects.
+function routinePlaces() {
+  const home = path.resolve(os.homedir()).toLowerCase();
+  const seen = new Set();
+  const out = [];
+  const add = (dir, name) => {
+    const key = path.resolve(dir).toLowerCase();
+    if (seen.has(key) || key === home || !isFolder(dir)) return;
+    seen.add(key);
+    out.push({ name: name || path.basename(dir), path: dir });
+  };
+  for (const e of history.list().slice(0, 200)) if (e.cwd) add(e.cwd);
+  for (const p of knownProjects()) add(p.key, p.name);
+  return out.slice(0, 20);
+}
+
+// The newest run of a routine still in History: its transcript, or null.
+function lastRoutineRun(routineId) {
+  const runs = history.list().filter(e => e.routineId === routineId);
+  if (!runs.length) return null;
+  const latest = runs.reduce((a, b) => ((b.createdAt || 0) > (a.createdAt || 0) ? b : a));
+  return history.load(latest.id);
+}
+
+function openRoutineTest({ cwd, prompt, title }) {
+  makeRoomForRoutine();
+  const tabId = randomUUID();
+  const tab = openTab({ tabId, cwd: cwd || currentCwd(), mode: 'plan', title });
+  tab.noCopy = true;
+  tab.dryRun = true; // armCopy puts its fence on it
+  tab.session.workMatcher = DRY_RUN_TOOLS;
+  manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
+  send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true });
+  return tabId;
+}
+
+function createRoutineAssist() {
+  routineAssist = new RoutineAssist({
+    runClaude: runClaudeOnce,
+    context: () => ({ home: os.homedir(), defaultFolder: currentCwd(), places: routinePlaces(), today: new Date().toDateString() }),
+    folderOk: isFolder,
+    routines,
+    allowAutonomous: () => !!config.get('autonomousAcknowledged'),
+    signedIn: () => !!claudeStatus?.loggedIn,
+    lastRun: lastRoutineRun,
+    loadTranscript: tabId => history.load(tabId),
+    openTest: openRoutineTest,
+    deny: (tabId, requestId, message) => answerPermission(tabId, requestId, 'deny', { message }),
+    interrupt: tabId => manager.interrupt(tabId),
+    stopSession: tabId => { manager.tabs.get(tabId)?.session.stop().catch(() => {}); },
+    toPanel: (channel, payload) => send(panel, channel, payload),
+    timer: (fn, ms) => {
+      const t = setTimeout(fn, ms);
+      t.unref?.();
+      return { cancel: () => clearTimeout(t) };
+    },
+    log,
+  });
 }
 
 function startScheduler() {
@@ -5339,7 +5398,16 @@ ${r.detail}` });
     saveRoutines(list);
     return { ok: true, routine, routines: routinesView() };
   });
-  ipcMain.handle('routines:draft', (_e, text) => draftRoutine(text));
+  // Claude's help. Off in just-the-crab mode, like the routines themselves.
+  const assistOff = { ok: false, error: 'Routines are off in just-the-crab mode.' };
+  const assisting = () => !config.get('crabOnly') && routineAssist;
+  ipcMain.handle('routines:draft', (_e, text) => (assisting() ? routineAssist.draft(text) : assistOff));
+  ipcMain.handle('routines:repair', (_e, id) => (assisting() && isStr(id) ? routineAssist.repair(id) : assistOff));
+  ipcMain.handle('routines:chat', (_e, req) => (assisting() && req && typeof req === 'object'
+    ? routineAssist.chat({ routine: req.routine, messages: req.messages, runId: isStr(req.runId) ? req.runId : null }) : assistOff));
+  ipcMain.handle('routines:test', (_e, routine) => (assisting() ? routineAssist.test(routine) : assistOff));
+  ipcMain.handle('routines:test-stop', (_e, id) => (assisting() && isStr(id) ? routineAssist.stopTest(id) : false));
+  ipcMain.handle('routines:test-get', (_e, id) => (assisting() && isStr(id) ? routineAssist.getTest(id) : null));
   registerWorkflowIpc(ipcMain);
   ipcMain.handle('routines:delete', (_e, id) => {
     saveRoutines(routines().filter(r => r.id !== id));
@@ -6305,6 +6373,7 @@ app.whenReady().then(() => {
   createGitHub();
   createManager();
   createHealth();
+  createRoutineAssist();
   registerIpc();
   createCritter();
   createMotion();

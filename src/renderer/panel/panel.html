@@ -227,6 +227,7 @@
         <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
       </div>
       <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check. Nothing is saved until you press Save.</p>
+      <button type="button" class="btn ghost slim-btn routine-as-workflow" id="routineAsWorkflow" hidden>Build it as a workflow instead</button>
     </form>
     <form class="routine-editor" id="routineEditor" hidden novalidate>
       <h3 id="routineEditorTitle">New routine</h3>
@@ -276,6 +277,7 @@
         <button type="submit" class="btn primary">Save routine</button>
       </div>
     </form>
+    <div class="routine-chat" id="routineChatSlot" hidden></div>
     <ul class="routine-list" id="routineList"></ul>
     <section class="deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
       <div class="deps-head">

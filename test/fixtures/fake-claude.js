@@ -73,8 +73,16 @@ if (ONE_SHOT) {
       when: [{ type: 'schedule', schedule: { type: 'daily', time: '09:00' } }],
       steps: [{ id: 'hello', type: 'tell', to: 'crab', text: 'Good morning!' }, ...extra],
     });
+    // Routines (routine-draft.js): a draft, a fix, or the editor's chat, which dry-runs once and then says it's right.
+    const routine = { name: 'Morning briefing', prompt: 'List what changed in my Documents folder since yesterday, and say it in five lines.', schedule: { type: 'daily', time: '08:30' }, mode: 'plan', folder: '' };
     let answer;
-    if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
+    if (schema.properties.schedule) answer = { ...routine, needs_workflow: /build fails/.test(prompt), why: /build fails/.test(prompt) ? 'It should start when a build fails, not on a clock.' : '' };
+    else if (schema.properties.routine && schema.properties.note) answer = { routine: { ...routine, mode: 'unchanged' }, note: 'It looked in a folder that isn\'t there. I pointed it at Documents.' };
+    else if (schema.properties.routine) {
+      answer = prompt.includes('The dry run that just finished')
+        ? { reply: 'The dry run looked in the right place and planned a short summary. Press Save to keep it.', routine: { ...routine, schedule: { type: 'weekly', time: '08:30', days: [1, 2, 3, 4, 5] }, mode: 'unchanged' }, test: false, needs_workflow: false, why: '' }
+        : { reply: 'Made it weekday mornings at 8:30 and asked for five lines. Let me dry-run it.', routine: { ...routine, schedule: { type: 'weekly', time: '08:30', days: [1, 2, 3, 4, 5] }, mode: 'unchanged' }, test: true, needs_workflow: false, why: '' };
+    } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };
     } else if (/Status: error/.test(prompt)) {
