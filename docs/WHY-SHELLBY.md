@@ -46,10 +46,23 @@
 
 - **Use your limit the moment it resets.** Queue heavy work on **Routines**. It starts at the reset, keeps the PC awake, picks up after the next reset if it runs out, and tells your phone.
   <br><sub>Instead of: setting an alarm, or a scheduled task wrapping <code>claude -p</code>.</sub>
-- **React to a red build, a release or a new file.** **Workflows** pair a trigger with a list of steps: Claude, PowerShell, web requests, a question for you, a message to your phone.
+- **Put the small jobs on a schedule.** A routine is one instruction on a clock: "every weekday at 8:30, list what changed in my Documents". Each run opens in its own tab, and you get a notification if it needs you.
+  <br><sub>Instead of: Task Scheduler, a <code>.bat</code> file, and checking a log the next morning.</sub>
+- **React to a red build, a release or a new file.** **Workflows** pair a trigger with a list of steps: Claude, PowerShell, web requests, a question for you, a message to your phone. Steps pass data along, so "find out why it failed" can decide whether the next step fixes it or tells you.
   <br><sub>Instead of: writing the watcher, the script and the notifier yourself.</sub>
+- **Describe it instead of building it.** Type what should happen and when, press **Draft it**, and Claude fills in the routine or lays out the workflow for you to check. **Let Claude test it** runs a new routine once and fixes it if the run goes wrong. Nothing is saved until you press Save.
+  <br><sub>Instead of: learning a YAML format, or a cron expression.</sub>
+- **From an issue to a draft pull request.** Assign yourself an issue, or label it `shellby`, and he offers to take a crack at it. Say yes and Claude works on its own branch, runs the tests, and opens a draft PR that closes the issue.
+  <br><sub>Instead of: copying the issue into a prompt, then branching, pushing and opening the PR by hand.</sub>
+- **It can't burn your whole limit.** The spending guard stops routines and workflows before they reach the share of your 5-hour window you keep for yourself. Anything that can act without asking shows what it may do before you save it.
+  <br><sub>Instead of: finding out at lunchtime that a script used up your morning.</sub>
 - **Never miss a permission prompt.** He raises a claw on your desktop, or your phone buzzes, and you can answer **Allow** or **Deny** right there.
   <br><sub>Instead of: keeping one eye on the terminal.</sub>
+
+<p align="center">
+  <img src="screenshot-routines.png" width="360" alt="Automate → Routines: a 'describe it' box above three routines (a Friday Downloads tidy, a morning briefing, a paused disk space watch)"><br>
+  <sub>Routines, with "describe it" on top. Templates, triggers and step types are in <a href="WORKFLOWS.md">Workflows</a>.</sub>
+</p>
 
 ## 🧰 One home for your setup
 
