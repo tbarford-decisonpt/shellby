@@ -292,6 +292,35 @@
       </div>
     </form>
     </div>
+    <!-- The reset queue (held.js tasks, outlook.js state): heavy work for a fresh 5-hour window. -->
+    <section class="reset-queue" id="resetQueue" aria-labelledby="resetQueueTitle">
+      <div class="rq-head">
+        <h3 id="resetQueueTitle">When your limit resets</h3>
+        <span class="rq-when" id="resetQueueWhen"></span>
+      </div>
+      <p class="rq-lede">Heavy tasks that wait for a fresh 5-hour window, then run one after another, overnight too. If the window runs out partway, the task carries on after the next reset.</p>
+      <ol class="rq-list" id="resetQueueList"></ol>
+      <form class="rq-add" id="resetQueueForm" novalidate>
+        <label class="sr-only" for="resetQueueText">Task to run after the reset</label>
+        <textarea class="field area" id="resetQueueText" rows="2" maxlength="50000" placeholder="Refactor the billing module into smaller files, then write tests for it"></textarea>
+        <div class="rq-controls">
+          <button type="button" class="btn ghost slim-btn rq-folder" id="resetQueueFolder" title="The folder it runs in. Click to change."></button>
+          <select class="field rq-mode" id="resetQueueMode" aria-label="Permission mode">
+            <option value="smart">Smart</option>
+            <option value="acceptEdits">Auto-edit</option>
+            <option value="ask">Ask first</option>
+            <option value="plan">Plan only</option>
+            <option value="autonomous">Autonomous</option>
+          </select>
+          <button type="submit" class="btn primary slim-btn" id="resetQueueAdd">Queue it</button>
+        </div>
+        <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>
+      </form>
+      <div class="rq-foot">
+        <label class="toggle"><input type="checkbox" id="resetQueueAwake"><span class="switch"></span>Keep the PC awake while tasks wait or run</label>
+        <p class="rq-phone" id="resetQueuePhone"></p>
+      </div>
+    </section>
     <ul class="routine-list" id="routineList"></ul>
     <section class="deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
       <div class="deps-head">
@@ -1502,6 +1531,7 @@
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>
+<script src="reset-queue.js"></script>
 <script src="depwatch.js"></script>
 <script src="wf-graph.js"></script>
 <script src="workflow-canvas.js"></script>

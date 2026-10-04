@@ -420,6 +420,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getOutlook: invoke('outlook:get'),
   holdForReset: invoke('held:add'),
   cancelHeld: invoke('held:cancel'),
+  setQueueKeepAwake: invoke('held:keepAwake'), // the reset queue keeps the PC awake (main.js syncKeepAwake)
 
   // workflows (docs/plans/workflows.md)
   listWorkflows: invoke('workflows:list'),

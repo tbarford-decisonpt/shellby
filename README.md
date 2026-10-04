@@ -132,6 +132,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **He climbs onto your windows,** rides them when you drag them, and gets flung off when you shake them.
 - **He guards your focus** in a little helmet, **listens along** in headphones when music plays, and hushes when you're on a call.
 - **He knows your limits:** when you'll hit your 5-hour window, and a message held for after the reset goes by itself.
+- **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page. They start when the window resets, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.
 
 **[Everything he does on his own →](docs/DESKTOP.md)**
 

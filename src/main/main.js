@@ -1,6 +1,7 @@
 const {
   app, BrowserWindow, ipcMain: electronIpcMain, screen, Menu, Tray, shell, dialog,
   globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
+  powerSaveBlocker,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -281,6 +282,8 @@ let pendingLink = null;
 let startView = null;              // view the panel should open on at boot (e.g. a deep link wants the Wardrobe)            // a shellby:// link that arrived before boot finished
 let linkBusy = false;              // one registry install at a time
 const routineTabs = new Map();     // tabId -> routine id (for lastStatus bookkeeping)
+const queueTabs = new Map();       // tabId -> held task id, for tasks queued for the reset (held.js)
+const queueWaits = new Map();      // tabId -> resolve(how its turn ended), while the queue waits on it
 let autonomousOkThisRun = false;   // switching into Autonomous was confirmed since Shellby started (settings:set)
 
 // ================================================================ windows
@@ -1319,6 +1322,9 @@ async function retireWorktree(tabId, w, { force }) {
   remote?.settleTab(tabId);
   await manager.closeAndWait(tabId);
   routineTabs.delete(tabId);
+  queueTabs.delete(tabId);
+  queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
+  queueWaits.delete(tabId);
   turnStarts.delete(tabId);
   const removed = await worktrees.remove(w, { force });
   // The conversation was Claude's in the copy's folder, and can't be resumed
@@ -2094,6 +2100,18 @@ function onResult(tabId, item, tab) {
     tab.copyWanted = false;
   }
   if (fresh && item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
+  // A task queued for the reset: the queue is waiting to hear how it went
+  // (releaseTask), and says so on the phone itself, with the result.
+  const waiting = queueWaits.get(tabId);
+  if (waiting) {
+    queueWaits.delete(tabId);
+    waiting({ ok: !!item.ok, interrupted: !!item.interrupted, error: item.error || null, reply: tab.lastReply, seconds: Math.round((item.durationMs || 0) / 1000) });
+    // Nobody's typing into it overnight: its idle process only holds memory.
+    if (!item.waiting?.length) tab.session.stop().catch(() => {});
+  } else if (queueTabs.has(tabId) && !heldList().some(h => h.tabId === tabId)) {
+    // A turn of your own in a finished queue tab: it's yours now, never closed to make room.
+    queueTabs.delete(tabId);
+  }
   const routineId = routineTabs.get(tabId);
   if (routineId) {
     updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
@@ -2122,7 +2140,7 @@ function onResult(tabId, item, tab) {
     awardXp('task', { label: tab.title });
     recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
   }
-  if (!item.interrupted && !inWorkflow) {
+  if (!item.interrupted && !inWorkflow && !waiting) {
     tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
   }
   if (item.interrupted || inWorkflow || (panel.isVisible() && panel.isFocused())) return;
@@ -3488,10 +3506,12 @@ const HELD_GRACE_MS = FORECAST_TEST ? 1000 : 60 * 1000;
 const HELD_STAGGER_MS = 5000;          // one after another, not all at once
 const HELD_BUSY_RETRY_MS = 60 * 1000;  // its conversation is still working: try again shortly
 const HELD_SETTLE_MS = 45 * 1000;      // how long to wait for word on the window between held messages
+const QUEUE_WATCH_MS = 20 * 1000;      // how often a running queued task is checked on, in case its end goes unheard
 const OUTLOOK_TICK_MS = 60 * 1000;     // a forecast goes stale with no new readings
 let heldTimer = null;
 let releasing = false;
 let lastOutlook = '';
+let keepAwakeId = null;
 
 const heldList = () => held.normalize(config.get('held'), Date.now());
 const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 10 * 60 * 1000;
@@ -3499,8 +3519,26 @@ const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs
 function saveHeld(list) {
   config.set({ held: list });
   scheduleHeld();
+  syncKeepAwake();
   sendOutlook();
   send(panel, 'routines', routinesView()); // routines show their own "after the reset"
+}
+
+// Queued tasks are mostly for overnight, and a PC that falls asleep at 1am
+// runs nothing at 3. While one waits or runs, Windows is asked not to sleep
+// when idle (the screen still turns off). A lid shut or Sleep chosen still
+// wins: the queue then goes when the PC wakes (powerMonitor 'resume').
+function syncKeepAwake() {
+  if (!config || CAPTURE) return;
+  const want = config.get('queueKeepAwake') !== false && (queueWaits.size > 0 || heldList().some(h => h.kind === 'task'));
+  if (want && keepAwakeId === null) {
+    keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
+    log.info('Keeping the PC awake for the reset queue');
+  } else if (!want && keepAwakeId !== null) {
+    powerSaveBlocker.stop(keepAwakeId);
+    keepAwakeId = null;
+    log.info('Reset queue empty: the PC may sleep again');
+  }
 }
 
 // When "after the reset" is: the limit you're held at, else the 5-hour window's
@@ -3524,10 +3562,20 @@ function outlookView() {
     warning: warn ? { text: forecast.message(o, now, clockTime), resetsAt: o.resetsAt } : null,
     limit: w ? { window: w.window, name: limits.windowName(w.window), resetsAt: w.resetsAt, at: clockTime(w.resetsAt) } : null,
     resetAt, resetText: resetAt ? clockTime(resetAt) : null,
-    held: heldList().map(h => ({
-      id: h.id, kind: h.kind, at: h.at, atText: clockTime(h.at),
-      ...(h.kind === 'message' ? { tabId: h.tabId, text: h.text, attachments: h.attachments } : { routineId: h.routineId, name: h.name }),
-    })),
+    held: heldList().map(heldView),
+    keepAwake: config.get('queueKeepAwake') !== false,
+  };
+}
+
+function heldView(h) {
+  const base = { id: h.id, kind: h.kind, at: h.at, atText: clockTime(h.at) };
+  if (h.kind === 'message') return { ...base, tabId: h.tabId, text: h.text, attachments: h.attachments };
+  if (h.kind === 'routine') return { ...base, routineId: h.routineId, name: h.name };
+  return {
+    ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode,
+    tabId: h.tabId, running: !!h.tabId && queueWaits.has(h.tabId),
+    // Started before and still here: it ran dry partway (or Shellby restarted), and carries on.
+    resuming: !!h.tabId && !queueWaits.has(h.tabId),
   };
 }
 
@@ -3566,12 +3614,43 @@ function watchOutlook() {
 /** Hold a message or a routine run for after the reset. raw: { kind, ... } from held.js. */
 function holdForReset(raw) {
   const at = resetTarget();
+  // A window seen before and since run out: you're on a fresh one already.
+  if (!at && raw.kind === 'task' && config.get('lastUsage')?.fiveHour) return { ok: false, idle: true, error: "There's no 5-hour window running to wait for, so it would just start now. Run it as a normal task instead." };
   if (!at) return { ok: false, error: "Shellby doesn't know when your window resets yet. He finds out with your next message." };
   const res = held.hold(heldList(), { ...raw, at: at + HELD_GRACE_MS }, Date.now());
   if (res.error) return { ok: false, error: res.error };
   const added = res.list.length > heldList().length;
   if (added) saveHeld(res.list);
   return { ok: true, id: res.item.id, at: res.item.at, atText: clockTime(res.item.at), added };
+}
+
+/**
+ * "Run it when my limit resets": a task from the Routines page's queue.
+ * input: { prompt, cwd?, mode? }. Autonomous is only allowed once you've
+ * acknowledged it, and asked about each time: it runs while you sleep.
+ */
+async function queueTask(input) {
+  const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
+  if (!prompt) return { ok: false, error: 'Say what Shellby should do.' };
+  if (prompt.length > 50000) return { ok: false, error: 'That task is too long to queue (50,000 characters at most).' };
+  const cwd = isStr(input.cwd) ? input.cwd : currentCwd();
+  if (!isFolder(cwd)) return { ok: false, error: "That folder doesn't exist any more." };
+  const mode = held.TASK_MODES.includes(input.mode) ? input.mode : null;
+  if (mode === 'autonomous') {
+    if (!config.get('autonomousAcknowledged')) return { ok: false, error: 'Turn on Autonomous in Settings first.' };
+    const response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '🌙', danger: true,
+      title: 'Queue an Autonomous task?',
+      message: "It runs after your usage resets, likely while you're away, and won't ask before it acts.",
+      detail: `Folder: ${cwd}\n\n${prompt}`,
+      note: 'You can cancel it from the queue on the Routines page until it starts.',
+      buttons: [{ label: 'Queue it', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, cancelled: true };
+  }
+  const res = holdForReset({ kind: 'task', prompt, cwd, mode });
+  if (res.ok) log.info('Task queued for the reset', `${held.taskName(prompt)} at ${res.atText}`);
+  return res;
 }
 
 function scheduleHeld() {
@@ -3612,14 +3691,18 @@ async function releaseHeld() {
       if (limitWait()) break; // limited again: the next pass moves the rest to that reset
       let outcome;
       try {
-        outcome = h.kind === 'routine' ? releaseRoutine(h) : releaseMessage(h);
+        // A task is waited on until it finishes, so heavy ones go one at a
+        // time and whatever the window can't fit waits for the next reset.
+        outcome = h.kind === 'routine' ? releaseRoutine(h) : h.kind === 'task' ? await releaseTask(h) : releaseMessage(h);
       } catch (err) {
         // Dropped rather than left due: a failure that repeats would retry forever.
         log.warn('Held item failed', err.message);
         outcome = 'failed';
       }
+      if (!config) return; // quit while a task ran: it carries on next time
       const list = heldList();
-      config.set({ held: outcome === 'retry' ? held.defer(list, [h.id], Date.now() + HELD_BUSY_RETRY_MS) : held.without(list, h.id) });
+      // 'resume': a task that ran dry partway stays queued, and carries on in its conversation.
+      if (outcome !== 'resume') config.set({ held: outcome === 'retry' ? held.defer(list, [h.id], Date.now() + HELD_BUSY_RETRY_MS) : held.without(list, h.id) });
       sendOutlook(); // its chip goes now, not when the whole batch is done
       if (outcome === 'sent') went.push({ ...h, sentAt: Date.now() });
     }
@@ -3630,7 +3713,100 @@ async function releaseHeld() {
   if (!went.length) return;
   const what = held.summary(went);
   log.info('Held work released', what);
-  notify('Your usage window reset', `Shellby sent ${what}.`, () => showPanel());
+  if (!went.some(h => h.kind === 'task')) return notify('Your usage window reset', `Shellby sent ${what}.`, () => showPanel());
+  const left = heldList().filter(h => h.kind === 'task').length;
+  notify(left ? 'Shellby got through part of your queue' : 'Your reset queue is done',
+    `Shellby got through ${what}.${left ? ` ${left} more wait${left === 1 ? 's' : ''} for the next reset.` : ''}`, () => showPanel());
+}
+
+// The first message of a task that was started before and is still queued:
+// the window ran dry partway, or Shellby closed while it worked.
+const QUEUE_CARRY_ON = 'This task was cut off partway through (the usage limit ran out, or Shellby was closed), and your usage window has reset since. Carry on from where you stopped and finish it. If it was already finished, say so briefly and recap what you did.';
+
+/**
+ * One queued task: started (or carried on in its conversation), then waited
+ * on until it ends, and the result sent to your phone. -> 'sent' | 'failed'
+ * | 'retry' (its conversation is busy with you) | 'resume' (ran dry partway:
+ * stays queued for the next reset).
+ */
+async function releaseTask(h) {
+  const left = () => heldList().filter(x => x.kind === 'task' && x.id !== h.id).length;
+  const project = h.cwd ? path.basename(h.cwd) : '';
+  const tell = (status, extra = {}) => tellChannel({ kind: 'queue', status, title: h.name, project, left: left(), ...extra });
+  const fail = why => {
+    log.warn('Queued task failed', `${h.name}: ${why}`);
+    notify(`Queued task didn't run: ${h.name}`, why, () => showPanel({ focusInput: false }), { tone: 'problem' });
+    tell('error', { body: why });
+    return 'failed';
+  };
+  if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return fail('Claude Code isn\'t set up and signed in, so it couldn\'t start. Queue it again once it is.');
+  if (held.spent(h)) return fail(`It was cut off ${held.MAX_TRIES} times, so Shellby stopped retrying. Its conversation is in History.`);
+
+  const open = h.tabId ? manager.tabs.get(h.tabId) : null;
+  if (open && manager.isBusy(h.tabId)) return 'retry'; // you're working in it right now
+  const carryOn = !!h.tabId && !!(open || history.get(h.tabId));
+  const tabId = carryOn ? h.tabId : randomUUID();
+  const title = `🌙 ${h.name}`;
+  const prompt = carryOn ? QUEUE_CARRY_ON : h.prompt;
+  let turnId;
+  try {
+    if (!open) {
+      makeRoomForRoutine();
+      openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
+        : { tabId, cwd: h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd(), mode: h.mode, title });
+    }
+    turnId = manager.send(tabId, prompt, { kind: 'user', text: prompt, title, queued: { id: h.id, name: h.name } });
+    queueTabs.set(tabId, h.id);
+    // Saved as soon as it starts: if Shellby closes mid-task, the next pass carries on here.
+    config.set({ held: held.started(heldList(), h.id, tabId) });
+  } catch (err) {
+    return fail(err.message);
+  }
+  const ended = waitForQueued(tabId);
+  syncKeepAwake();
+  sendOutlook();
+  wake();
+  if (open) send(panel, 'tab:sent', { tabId, item: { kind: 'user', text: prompt, attachments: [], turnId } });
+  else send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true, busy: true });
+  log.info('Queued task started', `${h.name}${carryOn ? ' (carrying on)' : ''}`);
+
+  const end = await ended;
+  syncKeepAwake();
+  if (!config) return 'resume';
+  // The limit arrives as a usage reading, separately from the result: an
+  // error might be the window running dry before that reading is in.
+  if (!end.ok && !end.interrupted && !limitWait()) await heardSince(Date.now());
+  if (!config) return 'resume';
+  // Limited now: it most likely ran dry partway. It stays queued and carries
+  // on after this reset; if it had in fact finished, the next turn says so.
+  const w = limitWait();
+  if (w && !end.interrupted) {
+    tell('paused', { resumeAt: w.resetsAt + HELD_GRACE_MS, seconds: end.seconds });
+    return 'resume';
+  }
+  const status = end.ok ? 'ok' : end.interrupted ? 'stopped' : 'error';
+  tell(status, { body: end.ok ? end.reply : end.closed ? 'Its tab was closed.' : end.error, seconds: end.seconds });
+  return end.ok ? 'sent' : 'failed';
+}
+
+// How a queued task's turn ended: onResult answers, closing its tab answers,
+// and if neither is heard (its process died quietly), finding it idle twice does.
+function waitForQueued(tabId) {
+  return new Promise(resolve => {
+    let idle = 0;
+    const watch = setInterval(() => {
+      const gone = !manager?.tabs.has(tabId);
+      idle = !gone && !manager.isBusy(tabId) ? idle + 1 : 0;
+      if (gone || idle >= 2) finish({ ok: false, interrupted: gone, closed: gone, error: gone ? null : 'It stopped without saying how it went.' });
+    }, QUEUE_WATCH_MS);
+    watch.unref?.();
+    function finish(end) {
+      clearInterval(watch);
+      if (queueWaits.get(tabId) === finish) queueWaits.delete(tabId);
+      resolve(end);
+    }
+    queueWaits.set(tabId, finish);
+  });
 }
 
 function releaseRoutine(h) {
@@ -3709,10 +3885,13 @@ const guardSettings = () => guard.settingsOf(k => config.get(k));
 // workflow's tab, is yours. A run you started by hand (Run now, a manual
 // workflow run) is never stopped on the ceiling: only a routine's time cap
 // still applies to it.
+// A task queued for the reset counts as yours: you queued it to spend that
+// window, overnight, in whatever mode you picked, so the ceiling and the
+// "you've walked away" rule don't stop it (the limit itself still does).
 function armGuard(tab) {
-  const { routine, workflow } = tab.turnFrom || {};
+  const { routine, workflow, queued } = tab.turnFrom || {};
   const kind = routine ? 'routine' : workflow ? 'workflow' : null;
-  const byHand = routine ? routine.reason === 'manual' : !!workflow && workflows?.originOf(workflow.runId) === 'manual';
+  const byHand = queued ? true : routine ? routine.reason === 'manual' : !!workflow && workflows?.originOf(workflow.runId) === 'manual';
   tab.guardRun = { kind, startedAt: Date.now(), exempt: byHand, stopped: null };
 }
 
@@ -4250,10 +4429,13 @@ function updateRoutine(id, patch) {
 // the oldest finished routine tab closes. History keeps its transcript.
 function makeRoomForRoutine() {
   if (manager.tabs.size < MAX_TABS) return;
-  const done = [...routineTabs.keys()].find(id => manager.tabs.has(id) && !manager.isBusy(id));
+  // A queue tab still on the list (it ran dry, and carries on later) is kept.
+  const pending = new Set(heldList().map(h => h.tabId).filter(Boolean));
+  const done = [...routineTabs.keys(), ...queueTabs.keys()].find(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
   if (!done) return;
   manager.close(done);
   routineTabs.delete(done);
+  queueTabs.delete(done);
   remote?.settleTab(done);
 }
 
@@ -4463,6 +4645,7 @@ function startScheduler() {
   missed.forEach((r, i) => setTimeout(() => runOrHoldRoutine(r, 'catch-up'), 8000 + i * 5000));
   // Anything held for a reset that came while Shellby was closed goes now.
   scheduleHeld();
+  syncKeepAwake();
 }
 
 // ================================================================ dependency watch
@@ -4997,6 +5180,10 @@ function registerIpc() {
     manager.interrupt(tabId);
     manager.close(tabId);
     routineTabs.delete(tabId);
+    queueTabs.delete(tabId);
+    // A queued task you closed mid-run: the queue moves on to the next one.
+    queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
+    queueWaits.delete(tabId);
     workflows?.onTabClosed(tabId);
     remote?.settleTab(tabId);
     return true;
@@ -5565,8 +5752,9 @@ ${r.detail}` });
 
   // ---- usage forecast, and work held for after the reset
   ipcMain.handle('outlook:get', () => outlookView());
-  ipcMain.handle('held:add', (_e, input = {}) => {
+  ipcMain.handle('held:add', async (_e, input = {}) => {
     if (config.get('crabOnly')) return { ok: false, error: 'That needs Claude Code.' };
+    if (input?.kind === 'task') return queueTask(input);
     if (input?.kind === 'routine') {
       const r = routines().find(x => x.id === input.routineId);
       return r ? holdForReset({ kind: 'routine', routineId: r.id, name: r.name }) : { ok: false, error: 'Routine not found.' };
@@ -5584,7 +5772,15 @@ ${r.detail}` });
     const h = isStr(id) && list.find(x => x.id === id);
     if (!h) return { ok: false };
     saveHeld(held.without(list, id));
+    // A queued task that's running now stops too; its conversation stays.
+    if (h.kind === 'task' && h.tabId && queueWaits.has(h.tabId)) manager.interrupt(h.tabId);
     return { ok: true, item: h };
+  });
+  ipcMain.handle('held:keepAwake', (_e, on) => {
+    config.set({ queueKeepAwake: on === true });
+    syncKeepAwake();
+    sendOutlook();
+    return { ok: true, keepAwake: on === true };
   });
 
   // ---- streaks and nudges
