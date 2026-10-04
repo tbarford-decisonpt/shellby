@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 4 October 2026, adding crash reports.*
+*Last updated: 4 October 2026, adding the weather and typing along.*
 
 Shellby is a desktop app that runs on your PC. It has **no servers, no accounts of its own, no telemetry and no analytics**. Nobody behind Shellby, including its author, receives anything about you or how you use it, except a crash report you choose to send (below).
 
@@ -31,6 +31,7 @@ What Shellby does do is talk to a few services on your behalf: GitHub to check f
 | **Git** | Your project's own remote (e.g. GitHub) | `git fetch` and `git push`, with your usual git credentials | When you open a tab's repository menu, **Push**, or **Bring it home and push**. |
 | **Skill Shop, MCP servers and the Shellby plugin** | The source of whatever you install (usually GitHub), through Claude Code | Claude Code's download requests | When you install or update one, after a confirmation window. |
 | **Installing OpenRGB** | OpenRGB's GitHub releases, through winget | winget's download request | When you click install and confirm. |
+| **Weather** | [Open-Meteo](https://open-meteo.com/en/terms) (`api.open-meteo.com`, `geocoding-api.open-meteo.com`) | The town name you type when you search for it, then only your chosen town's latitude and longitude rounded to one decimal place (about 11 km). Nothing else about you; like any web request it carries your IP address, and Electron's usual headers (Shellby's name and version in the User-Agent, your language). | A search when you press **Find**; then every 30 minutes and when the PC wakes, while it's on. Off until you turn it on and pick a town. |
 
 **Crash reports (Sentry).** When Shellby crashes, hits an error it carries on from, or closes without being quit, it gets a report ready and keeps it on your PC (`%APPDATA%\Shellby\sentry`). The first time, it asks: **Send report**, **Always send** or **Don't send**. Nothing goes until you answer, and you can change it in **Settings → About → Crash reports** (Ask me each time, Always send, Never send). A report goes to [Sentry](https://sentry.io/privacy/), the crash-report service Shellby uses, and has:
 
@@ -52,6 +53,7 @@ What these services do with your data is up to them, under their own policies: [
 - **Push-to-talk audio.** Windows' offline speech recognizer hears it, on your PC. The microphone is only open while you hold the shortcut.
 - **The time tracker.** It reads the title of the window in front to tell which project you're in, and keeps only the project, the day and the minutes. It is never synced.
 - **Which apps he perches on**, Now Playing, your usage counts and weekly summaries.
+- **Typing along** (off until you turn it on in **Settings → Typing along**). Windows hands Shellby each key event, in any app, so he can tap along. He looks only at whether a key was let go and wipes the rest of the event straight away: never which key, never what you typed. His window on the desktop isn't even told when each key was pressed, only that some were, on a steady beat. From your speed he keeps one number, your fastest burst in words a minute.
 - **Toolbox → Lean.** To tell which plugins and MCP servers sit idle, Shellby reads Claude Code's own transcripts on this PC (`.claude\projects`), and keeps only the names of the skills, agents, commands and servers used and when. Never what was said. It also keeps token counts per day (how much came from the prompt cache) and what a new conversation carries before your first word.
 - **The local connections** for the `shellby` command, the Claude Code plugin and hooks (port 47913), the OBS overlay (port 47914, off by default), OpenRGB and sensor apps. They only accept connections from this PC (`127.0.0.1`).
 

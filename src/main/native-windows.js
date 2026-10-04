@@ -29,6 +29,7 @@ function load() {
       RegisterWindowMessageW: user32.func('uint32_t __stdcall RegisterWindowMessageW(str16 name)'),
       GetForegroundWindow: user32.func('intptr_t __stdcall GetForegroundWindow()'),
       GetAsyncKeyState: user32.func('int16_t __stdcall GetAsyncKeyState(int vk)'),
+      SetCursorPos: user32.func('bool __stdcall SetCursorPos(int x, int y)'),
       SetForegroundWindow: user32.func('bool __stdcall SetForegroundWindow(intptr_t hwnd)'),
       IsWindow: user32.func('bool __stdcall IsWindow(intptr_t hwnd)'),
       IsWindowVisible: user32.func('bool __stdcall IsWindowVisible(intptr_t hwnd)'),
@@ -236,6 +237,11 @@ function frontWindow() {
 const isWindow = h => safe(a => !!h && a.IsWindow(h), false);
 // Is this key held right now, whichever app has focus? (push-to-talk, see dictation.js)
 const keyDown = vk => safe(a => (a.GetAsyncKeyState(vk) & 0x8000) !== 0, false);
+// Any mouse button held right now (left, right, middle): mischief never grabs mid-click (pranks.js).
+const VK_MOUSE = [0x01, 0x02, 0x04];
+const mouseDown = () => VK_MOUSE.some(keyDown);
+// Mischief's cursor pinch (pranks.js), in physical pixels. Only ever for half a second.
+const setCursor = (x, y) => safe(a => a.SetCursorPos(Math.round(x), Math.round(y)), false);
 const isVisible = h => safe(a => a.IsWindowVisible(h), false);
 const ownerOf = h => safe(a => a.GetWindow(h, GW_OWNER), 0);
 
@@ -320,7 +326,7 @@ const blockShutdown = (h, reason) => safe(a => a.ShutdownBlockReasonCreate(h, St
 const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 
 module.exports = {
-  load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, isVisible, ownerOf,
+  load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, mouseDown, setCursor, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
   lockScreen, blockShutdown, unblockShutdown, processInfo,
 };

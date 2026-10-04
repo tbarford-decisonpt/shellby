@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onSound: on('critter:sound'), // a ta-da and the like (src/renderer/critter/sound.js)
     onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
     onTogether: on('critter:together'), // ...and the two of them do something together
@@ -247,7 +248,7 @@ contextBridge.exposeInMainWorld('shellby', {
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
   devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), scene: invoke('dev:scene'), life: invoke('dev:life') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), climb: invoke('dev:climb'), prank: invoke('dev:prank'), edges: invoke('dev:edges'), scene: invoke('dev:scene'), life: invoke('dev:life') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions
@@ -409,6 +410,13 @@ contextBridge.exposeInMainWorld('shellby', {
   getNowPlaying: invoke('nowplaying:get'),
   setNowPlaying: invoke('nowplaying:set'),
   onNowPlaying: on('nowplaying'),
+  getTyping: invoke('typing:get'),     // tapping along while you type (typing.js)
+  setTyping: invoke('typing:set'),
+  getWeather: invoke('weather:get'),   // the weather outside (weather-service.js)
+  setWeather: invoke('weather:set'),
+  searchWeather: invoke('weather:search'),
+  checkWeather: invoke('weather:check'),
+  onWeather: on('weather'),
 
   // the shellby command
   getCli: invoke('cli:get'),

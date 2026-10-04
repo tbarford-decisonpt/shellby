@@ -39,9 +39,9 @@ function windowEnd(season, date) {
 const windowKey = (season, date) => `${season.id}@${windowStart(season, date).getFullYear()}`;
 
 class Wardrobe extends EventEmitter {
-  constructor({ config, builtinDir, userDir, now = () => new Date() }) {
+  constructor({ config, builtinDir, userDir, now = () => new Date(), south = () => false }) {
     super();
-    Object.assign(this, { config, builtinDir, userDir, now });
+    Object.assign(this, { config, builtinDir, userDir, now, south });
     this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), decor: new Map(), packs: [], errors: [] };
   }
 
@@ -56,6 +56,8 @@ class Wardrobe extends EventEmitter {
     return d;
   }
   save(patch) { this.config.set({ wardrobe: { ...this.data, ...patch } }); }
+  // Where you are, for the seasons: south of the equator, spring comes in September.
+  where() { return { south: !!this.south() }; }
   get stats() { return normalizeStats(this.config.get('stats')); }
 
   // ------------------------------------------------------------ catalog
@@ -73,7 +75,7 @@ class Wardrobe extends EventEmitter {
     const u = item.unlock;
     if (d.unlockAll || !u || u.default) return true;
     if (u.achievement) return d.unlocked.includes(u.achievement);
-    if (u.season) return d.collected.includes(item.key) || isActive(u.season, this.now());
+    if (u.season) return d.collected.includes(item.key) || isActive(u.season, this.now(), this.where());
     return false;
   }
 
@@ -86,7 +88,7 @@ class Wardrobe extends EventEmitter {
       return { reason: 'achievement', achievement: u.achievement, text: a ? `${a.name}: ${a.description}` : 'Earn an achievement', current: a?.current ?? 0, goal: a?.goal ?? 1 };
     }
     const season = SEASONS.find(s => s.id === u.season);
-    const back = nextStart(u.season, this.now());
+    const back = nextStart(u.season, this.now(), this.where());
     return { reason: 'season', season: u.season, text: `${season ? `${season.emoji} ${season.name}` : 'Seasonal'} collectible`, back: back ? back.getTime() : null };
   }
 
@@ -96,7 +98,7 @@ class Wardrobe extends EventEmitter {
     const fresh = [];
     for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.voices.values(), ...this.catalog.decor.values(), ...this.catalog.skins]) {
       const s = item.unlock?.season;
-      if (s && isActive(s, this.now()) && !d.collected.includes(item.key)) fresh.push(item.key);
+      if (s && isActive(s, this.now(), this.where()) && !d.collected.includes(item.key)) fresh.push(item.key);
     }
     if (!fresh.length) return [];
     this.save({ collected: [...d.collected, ...fresh], newItems: [...new Set([...d.newItems, ...fresh])] });
@@ -120,7 +122,7 @@ class Wardrobe extends EventEmitter {
   // The season's look wins while auto-seasonal is on and you haven't changed
   // your look during this season's window.
   seasonalActive(d = this.data) {
-    const season = featuredSeason(this.now());
+    const season = featuredSeason(this.now(), this.where());
     if (!season || !d.seasonalAuto) return null;
     return d.seasonOverrides[season.id] === windowKey(season, this.now()) ? null : season;
   }
@@ -138,7 +140,7 @@ class Wardrobe extends EventEmitter {
       if (!this.validSlotValue(slot, key, d)) return { ok: false, error: key ? 'That item is still locked.' : 'Unknown slot.' };
       next[slot] = key ?? null;
     }
-    const season = featuredSeason(this.now());
+    const season = featuredSeason(this.now(), this.where());
     const seasonOverrides = { ...d.seasonOverrides };
     if (season && d.seasonalAuto) seasonOverrides[season.id] = windowKey(season, this.now());
     const touched = Object.values(patch || {}).filter(Boolean);
@@ -202,7 +204,7 @@ class Wardrobe extends EventEmitter {
   }
 
   wearSeason() {
-    const season = featuredSeason(this.now());
+    const season = featuredSeason(this.now(), this.where());
     if (!season) return { ok: false, error: 'No season right now.' };
     const d = this.data;
     const seasonOverrides = { ...d.seasonOverrides };
@@ -345,12 +347,12 @@ class Wardrobe extends EventEmitter {
     const stats = this.stats;
     const now = this.now();
     const decorate = item => ({ ...publicItem(item), locked: this.lockInfo(item, d, stats), isNew: d.newItems.includes(item.key) });
-    const featured = featuredSeason(now);
+    const featured = featuredSeason(now, this.where());
     return {
       outfit: this.effectiveOutfit(d),
       options: { seasonalAuto: d.seasonalAuto, crewOutfits: d.crewOutfits, unlockAll: d.unlockAll },
       season: featured ? { id: featured.id, name: featured.name, emoji: featured.emoji, endsAt: windowEnd(featured, now).getTime(), wearing: !!this.seasonalActive(d), outfit: featured.outfit } : null,
-      activeSeasons: activeSeasons(now).map(s => s.id),
+      activeSeasons: activeSeasons(now, this.where()).map(s => s.id),
       accessories: [...this.catalog.accessories.values()].map(decorate),
       effects: [...this.catalog.effects.values()].map(decorate),
       voices: [...this.catalog.voices.values()].map(decorate),

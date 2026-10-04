@@ -40,8 +40,17 @@ const DEFAULTS = {
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
   perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)
+  climb: 'sometimes', // how often he climbs the edges of the screen: off | sometimes | often (see climb.js)
+  mischief: 'off',   // the cheeky crab, strictly opt-in: off | cheeky | gremlin (see mischief.js)
+  mischiefPranks: null, // { pinch, nudge, tracks, notes }: which pranks; anything unset is on
+  mischiefLog: null, // { day, count, next }: today's pranks and when the next may be
+  mischiefPause: 0,  // "Behave for an hour" from his menu: no mischief until then
+  colony: 0,         // pals who hang out with him on the floor, 0 to 5 (see floor.js)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
+  soundFx: false,    // his feet, bumps, landings and a ta-da for big moments (see sounds.js)
+  ambient: 'off',    // the background: off | surf | tidepool (src/renderer/critter/ambient.js)
+  soundVolume: 60,   // 25 | 60 | 100: soft, normal, loud
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
@@ -104,6 +113,10 @@ const DEFAULTS = {
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
   rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
+  typing: null,       // { enabled, remarks }: tapping along while you type (see typing.js); off until you turn it on
+  typingBest: 0,      // your fastest burst, in words a minute (typing.js)
+  weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather-service.js); off until you pick a town
+  weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)

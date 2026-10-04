@@ -495,6 +495,8 @@ function createPerching(d) {
   return {
     isUp, isAway, view, maybeGoUp, tryGoUp, leave, idleTick, onSettled, onInterrupted, grabbed, dropped,
     flightLedges, menuItems, hover, home, dispose, debug,
+    // Shared with climbing.js (home from the foot of a wall) and pranks.js (a fullscreen app means behave).
+    walkHome, fullscreen: busy,
   };
 }
 

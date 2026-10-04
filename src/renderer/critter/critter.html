@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="critter.css">
 <link rel="stylesheet" href="life.css">
 <link rel="stylesheet" href="charm.css">
+<link rel="stylesheet" href="typing.css">
+<link rel="stylesheet" href="edges.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="../shared/health.css">
 </head>
@@ -23,34 +25,42 @@
       <button id="bgBadge" type="button" hidden></button>
       <button id="srvPill" type="button" hidden></button>
       <div id="xpFloat" aria-hidden="true"></div>
-      <div id="hearts" aria-hidden="true"></div>
-      <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
-      <!-- up on your windows (src/main/perching.js): the wind while he rides, the
-           dust when he lands, stars when he's been shaken, and the "!" when the
-           window vanishes from under him -->
-      <div id="wind" aria-hidden="true"><i></i><i></i><i></i></div>
-      <div id="dust" aria-hidden="true"></div>
-      <div id="stars" aria-hidden="true"><i>★</i><i>✦</i><i>★</i></div>
-      <div id="alert" aria-hidden="true">!</div>
-      <button id="crab" type="button" aria-label="Shellby. Click to open, drag to move, right-click for menu, drop files or screenshots to attach.">
-        <div id="sprite"></div>
-        <div id="healthFx" class="hfx-layer"></div>
-        <div id="toss" aria-hidden="true"></div>
-        <div id="stickerFly" aria-hidden="true"></div>
-        <div id="sand" aria-hidden="true"></div>
-      </button>
-      <div id="shadow"></div>
-      <!-- a scene's props, just in front of him (src/renderer/critter/life.js) -->
-      <div id="prop" aria-hidden="true"></div>
+      <!-- his body, which turns as one piece when he climbs a wall or hangs from
+           the top of the screen (src/main/climbing.js, .surface-* in critter.css).
+           The bubble and badges above stay outside it, so they stay readable. -->
+      <div id="pose">
+        <div id="hearts" aria-hidden="true"></div>
+        <div id="zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></div>
+        <!-- up on your windows (src/main/perching.js): the wind while he rides, the
+             dust when he lands, stars when he's been shaken, and the "!" when the
+             window vanishes from under him -->
+        <div id="wind" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div id="dust" aria-hidden="true"></div>
+        <div id="stars" aria-hidden="true"><i>★</i><i>✦</i><i>★</i></div>
+        <div id="alert" aria-hidden="true">!</div>
+        <button id="crab" type="button" aria-label="Shellby. Click to open, drag to move, right-click for menu, drop files or screenshots to attach.">
+          <div id="sprite"></div>
+          <div id="healthFx" class="hfx-layer"></div>
+          <div id="toss" aria-hidden="true"></div>
+          <div id="stickerFly" aria-hidden="true"></div>
+          <div id="sand" aria-hidden="true"></div>
+        </button>
+        <div id="shadow"></div>
+        <!-- a scene's props, just in front of him (src/renderer/critter/life.js) -->
+        <div id="prop" aria-hidden="true"></div>
+      </div>
     </div>
   </div>
 <script src="../shared/framecap.js"></script>
 <script src="../shared/sprite.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
+<script src="sound.js"></script>
 <script src="chirp.js"></script>
+<script src="ambient.js"></script>
 <script src="critter.js"></script>
 <script src="life.js"></script>
 <script src="charm.js"></script>
+<script src="typing.js"></script>
 </body>
 </html>

@@ -15,9 +15,10 @@ const SRC = path.join(__dirname, '..', 'src');
 const read = p => fs.readFileSync(p, 'utf8');
 const all = (text, re) => [...text.matchAll(re)].map(m => m[1]);
 
-// Every bridge: the panel's, the crab's, the pebble's (fetch), and the
-// confirmation window's own (confirm.js), each deliberately its own surface.
-const preload = ['preload.js', 'dialog-preload.js', 'critter-preload.js', 'toy-preload.js'].map(f => read(path.join(SRC, 'preload', f))).join('\n');
+// Every bridge: the panel's, the crab's, the pebble's (fetch), the floor strip's
+// (his pals and footprints), a mischief note's, and the confirmation window's
+// own (confirm.js), each deliberately its own surface.
+const preload = ['preload.js', 'dialog-preload.js', 'critter-preload.js', 'toy-preload.js', 'floor-preload.js', 'note-preload.js'].map(f => read(path.join(SRC, 'preload', f))).join('\n');
 
 // Every .js under src/main: handlers and pushes both live outside main.js too.
 const mainFiles = (function walk(dir) {
