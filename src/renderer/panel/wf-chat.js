@@ -14,6 +14,7 @@
      startRun(id) -> { ok, runId } | { ok: false, error }
      stopRun(runId), getRun(runId) -> { id, status, error } | null
      openRun(runId)
+     extras?(res, turns) -> elements to add under Claude's reply (optional)
      alive() -> false once the editor this chat belongs to has closed
    A run's updates come in through onRun({ id, status, error, waiting?, done?, steps? }).
    Claude's replies are untrusted text: they go through the escaping markdown
@@ -131,7 +132,11 @@
       const tagText = conflict ? `You changed the ${noun} while Claude worked, so this wasn't applied. Send it again and Claude will work on your version.`
         : applied ? (res.errors?.length ? `Changed the ${noun}. Some things still need fixing; they're marked.` : `Changed the ${noun}.`) : '';
       const wantsTest = res.test && !res.errors?.length && !conflict;
-      say('claude', res.reply, [tagText ? h('p', { class: 'wf-chat-tag', text: tagText }) : null, wantsTest && !tests.checked ? testBtn() : null]);
+      say('claude', res.reply, [
+        tagText ? h('p', { class: 'wf-chat-tag', text: tagText }) : null,
+        ...(host.extras?.(res, s.turns) || []),
+        wantsTest && !tests.checked ? testBtn() : null,
+      ]);
       if (!wantsTest || !tests.checked || s.stopped) return done();
       if (s.rounds >= MAX_ROUNDS) {
         line('hint', `Claude has tried ${MAX_ROUNDS} times. Say what to do next, or press Test it.`, [testBtn()]);

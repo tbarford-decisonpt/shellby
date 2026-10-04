@@ -75,11 +75,17 @@ if (ONE_SHOT) {
     });
     // The routine editor's chat: a draft to test, then "it worked".
     const morning = { name: 'Morning summary', prompt: 'List the files in this folder that changed since yesterday and sum them up in three bullets.', schedule: { type: 'weekly', time: '08:30', days: [1, 2, 3, 4, 5] }, mode: 'plan', folder: '', catchUp: true };
+    // Describe it (a routine draft: "build fails" makes it a workflow's job) and Fix with Claude.
+    // A draft's description comes as -p's argument, the rest on stdin.
+    if (args[args.indexOf('-p') + 1] && !args[args.indexOf('-p') + 1].startsWith('--')) prompt += args[args.indexOf('-p') + 1];
+    const job = { needs_workflow: /build fails/.test(prompt), why: /build fails/.test(prompt) ? 'It should start when a build fails, not on a clock.' : '' };
     let answer;
-    if (schema.properties.routine) {
+    if (schema.properties.schedule) answer = { ...morning, ...job };
+    else if (schema.properties.routine && schema.properties.note) answer = { routine: { ...morning, prompt: 'List the files in Documents that changed since yesterday and sum them up in three bullets.' }, note: 'It looked in a folder that isn\'t there. I pointed it at Documents.' };
+    else if (schema.properties.routine) {
       answer = prompt.includes('test run that just finished')
-        ? { reply: 'The test run worked: it listed what changed and summed it up. Press Save to switch it on.', changed: false, routine: morning, test: false }
-        : { reply: 'Set it for weekdays at 8:30, looking only, never changing anything. Let me test it.', changed: true, routine: morning, test: true };
+        ? { reply: 'The test run worked: it listed what changed and summed it up. Press Save to switch it on.', changed: false, routine: morning, test: false, needs_workflow: false, why: '' }
+        : { reply: 'Set it for weekdays at 8:30, looking only, never changing anything. Let me test it.', changed: true, routine: morning, test: true, needs_workflow: false, why: '' };
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };

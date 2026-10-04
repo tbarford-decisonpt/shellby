@@ -261,8 +261,16 @@ function demoWeek(now, xp) {
     [190, 'fixed', 40, 'Tests green again', '3d-rack'], [260, 'task', 10, 'Finished a task', 'shellby'],
     [330, 'trick', 150, 'Wrote himself a new trick', null], [420, 'flakefix', 40, 'Fixed a flaky test', 'rack-builder'],
   ].map(([m, kind, gained, label, project]) => ({ at: now - m * MIN, kind, xp: gained, label, project }));
+  // What the plan bought: Claude's hours each day, and four fixes, one undone by a later red.
+  const at = (ago, hour) => { const d = new Date(now); d.setDate(d.getDate() - ago); d.setHours(hour, 0, 0, 0); return d.getTime(); };
+  [[0, 4.2], [1, 6.1], [2, 2.6], [3, 5.4], [4, 3.8], [7, 3.1], [10, 4.4]].forEach(([ago, h]) => { days[key(ago)].ms = Math.round(h * HOUR); });
+  days[key(0)].fixes = [{ at: at(0, 9), key: 't:shellby' }];
+  days[key(1)].fixes = [{ at: at(1, 11), key: 't:3d-rack' }, { at: at(1, 15), key: 'ci:x-salmon/3d-rack#41' }];
+  days[key(3)].fixes = [{ at: at(3, 10), key: 't:rack-builder' }];
+  days[key(2)].reds = { 't:rack-builder': at(2, 14) };
   return {
     weekly: { days, since: key(13), wrapped: null },
+    lastUsage: { status: 'allowed', fiveHour: { pct: 22, resetsAt: now + 3 * HOUR }, sevenDay: { pct: 64, resetsAt: now + 2 * DAY }, at: now },
     xp: { ...(xp || {}), total: 48250, daily, log },
     streaks: { days: streakDays, projects: {}, nudges: false },
   };

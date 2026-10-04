@@ -46,6 +46,7 @@ const SUITE = [
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook
   'e2e-routine-chat', // Build it with Claude on routines: fill the form, test in a tab, read it, Save switches it on; the workflow chat too
+  'e2e-routines',     // Fix with Claude on a failed routine, and a request that needs a workflow handed to the workflow builder
   'e2e-projects',     // projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode

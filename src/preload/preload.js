@@ -118,6 +118,8 @@ contextBridge.exposeInMainWorld('shellby', {
   openSkinsFolder: fire('skins:open-folder'),
   openDataFolder: fire('open-data-folder'),
   openExternal: fire('open-external'),
+  pickTextMenu: fire('text-menu:pick'), // the right-click menu for text (textmenu.js, main/context-menu.js)
+  onTextMenu: on('text-menu'),
 
   // toolbox
   getToolbox: invoke('toolbox:get'),
@@ -412,6 +414,7 @@ contextBridge.exposeInMainWorld('shellby', {
   saveRoutine: invoke('routines:save'),
   draftRoutine: invoke('routines:draft'),
   chatRoutine: invoke('routines:chat'), // Build it with Claude: one turn of the routine editor's chat
+  repairRoutine: invoke('routines:repair'), // Fix with Claude: its last failed run -> a corrected routine for the editor
   testRoutine: invoke('routines:test'),
   routineTestStatus: invoke('routines:test-status'),
   stopRoutineTest: invoke('routines:test-stop'),
@@ -429,6 +432,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getOutlook: invoke('outlook:get'),
   holdForReset: invoke('held:add'),
   cancelHeld: invoke('held:cancel'),
+  setQueueKeepAwake: invoke('held:keepAwake'), // the reset queue keeps the PC awake (main.js syncKeepAwake)
 
   // workflows (docs/plans/workflows.md)
   listWorkflows: invoke('workflows:list'),

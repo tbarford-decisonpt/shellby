@@ -2610,5 +2610,36 @@
     if (state.view !== 'workflows') SB.setView('workflows'); else show();
   }
 
-  SB.views.workflows = { render, openRun };
+  /**
+   * Describe it, from somewhere else: the Routines page hands over a request a
+   * routine can't do. Drafts it and opens the editor, the way the box here does.
+   * true once the draft is open.
+   */
+  async function draftFrom(text) {
+    const want = String(text || '').slice(0, 2000);
+    if (drafting) { SB.toast('Claude is already drafting one. Give it a moment.'); return false; }
+    drafting = true;
+    SB.setView('workflows');
+    SB.toast('Claude is drafting it as a workflow…');
+    let res;
+    try { res = await api.draftWorkflow(want); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
+    drafting = false;
+    if (!res?.ok || !res.workflow) {
+      describeText = want;
+      if (state.view === 'workflows' && current().name === 'list') renderList();
+      SB.toast(res?.error || 'Claude couldn\'t draft that.');
+      return false;
+    }
+    // Never over a workflow you're part-way through editing.
+    if (current().name === 'editor' && unsaved()) {
+      describeText = want;
+      SB.toast('Claude drafted it, but you have changes open. Save or close them, then describe it again.');
+      return false;
+    }
+    openEditor(res.workflow, { title: 'Drafted workflow', note: res.note || '' });
+    SB.toast('Drafted. Check it over, then press Save.');
+    return true;
+  }
+
+  SB.views.workflows = { render, openRun, draftFrom };
 })();

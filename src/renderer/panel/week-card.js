@@ -24,6 +24,18 @@
     return `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}% on last week`;
   }
 
+  // "45m", "3.5h", "31h": Claude's working time, as short as it reads well.
+  function hoursText(ms) {
+    const h = ms / 3600000;
+    if (h < 1) return `${Math.max(1, Math.round(ms / 60000))}m`;
+    return h < 10 ? `${(Math.round(h * 10) / 10).toLocaleString()}h` : `${fmt(Math.round(h))}h`;
+  }
+  // "≈ 3.9 workdays" once it's past a day's work (8 hours).
+  const workdays = ms => (ms >= 8 * 3600000 ? `≈ ${(Math.round(ms / 3600000 / 8 * 10) / 10).toLocaleString()} workdays` : '');
+  const weekday = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short' });
+  // Anything worth a "What your plan bought you" panel: time counted, or a fix.
+  const hasPlan = w => !!(w.plan && (w.plan.ms > 0 || w.plan.fixes > 0));
+
   // The little extras worth a mention: deploys, releases, merges, clean audits, focus.
   function extras(c) {
     return [
@@ -98,6 +110,84 @@
     });
   }
 
+  // "What your plan bought you": a receipt with Claude's hours as the big
+  // number, tasks finished and fixes that held beside it, and the weekly
+  // limit's meter along the bottom, so the value sits next to what it cost.
+  function drawPlan(ctx, w, x, y, pw, ph) {
+    const p = w.plan;
+    const glow = ctx.createLinearGradient(x, y, x + pw, y + ph);
+    glow.addColorStop(0, 'rgba(255,193,94,.13)');
+    glow.addColorStop(1, 'rgba(17,35,42,.92)');
+    K.roundRect(ctx, x, y, pw, ph, 18);
+    ctx.fillStyle = 'rgba(17,35,42,.92)';
+    ctx.fill();
+    ctx.fillStyle = glow;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,193,94,.38)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const pad = 24, inner = pw - pad * 2;
+    ctx.fillStyle = C.amber;
+    ctx.font = '600 13px "Martian Mono"';
+    ctx.fillText('WHAT YOUR PLAN BOUGHT YOU', x + pad, y + 30);
+
+    // The hero: hours of Claude at work.
+    const leftW = Math.round(inner * 0.5);
+    ctx.fillStyle = C.sand;
+    ctx.fillText(K.fitText(ctx, p.ms ? hoursText(p.ms) : '—', leftW, '500 58px "Martian Mono"'), x + pad, y + 92);
+    ctx.fillStyle = C.sandDim;
+    const days = workdays(p.ms);
+    ctx.fillText(K.fitText(ctx, `of Claude at work${days ? ` · ${days}` : ''}`, leftW, '17px "Atkinson Hyperlegible"'), x + pad, y + 118);
+
+    // Beside it: tasks finished, and fixes that held (or, with no fixes, what shipped).
+    const rx = x + pad + leftW + 18;
+    ctx.fillStyle = 'rgba(243,230,204,.10)';
+    ctx.fillRect(rx - 18, y + 48, 1, 74);
+    const rows = [
+      [fmt(p.tasks), p.tasks === 1 ? 'task finished' : 'tasks finished', C.coral],
+      p.fixes
+        ? [`${fmt(p.held)}/${fmt(p.fixes)}`, p.fixes === 1 ? 'fix that held' : 'fixes that held', '#7bd389']
+        : [fmt(w.counts.projects), w.counts.projects === 1 ? 'project shipped' : 'projects shipped', C.glass],
+    ];
+    rows.forEach(([num, label, col], i) => {
+      const ry = y + 74 + i * 42;
+      ctx.fillStyle = col;
+      ctx.fillRect(rx, ry - 22, 4, 26);
+      ctx.fillStyle = C.sand;
+      ctx.font = '500 30px "Martian Mono"';
+      const nw = Math.min(ctx.measureText(num).width, 140);
+      ctx.fillText(K.fitText(ctx, num, 140, ctx.font), rx + 14, ry);
+      ctx.fillStyle = C.sandDim;
+      ctx.fillText(K.fitText(ctx, label, x + pw - pad - (rx + 26 + nw), '17px "Atkinson Hyperlegible"'), rx + 26 + nw, ry - 2);
+    });
+
+    // The meter: how much of the weekly limit that took.
+    const my = y + ph - 22;
+    if (!p.weekly) {
+      ctx.fillStyle = C.sandFaint;
+      ctx.fillText(K.fitText(ctx, 'Counted from every turn Claude finished, in Shellby and your terminal.', inner, '15px "Atkinson Hyperlegible"'), x + pad, my + 4);
+      return;
+    }
+    const five = p.fiveHour ? ` · 5-hour ${p.fiveHour.pct}%` : '';
+    const note = `${p.weekly.pct}% of weekly limit · resets ${weekday(p.weekly.resetsAt)}${five}`;
+    ctx.font = '600 15px "Atkinson Hyperlegible"';
+    const noteW = Math.min(ctx.measureText(note).width, inner * 0.76);
+    const barW = inner - noteW - 16;
+    K.roundRect(ctx, x + pad, my - 8, barW, 10, 5);
+    ctx.fillStyle = 'rgba(127,214,194,.14)';
+    ctx.fill();
+    const fill = Math.max(10, Math.round(barW * p.weekly.pct / 100));
+    const bar = ctx.createLinearGradient(x + pad, 0, x + pad + barW, 0);
+    bar.addColorStop(0, C.glass);
+    bar.addColorStop(1, p.weekly.pct >= 90 ? C.coral : C.amber);
+    K.roundRect(ctx, x + pad, my - 8, fill, 10, 5);
+    ctx.fillStyle = bar;
+    ctx.fill();
+    ctx.fillStyle = C.sandDim;
+    ctx.fillText(K.fitText(ctx, note, noteW, ctx.font), x + pad + barW + 16, my + 2);
+  }
+
   async function render() {
     await K.loadFonts();
     SB.applyStickers?.(await api.getStickers());
@@ -126,32 +216,27 @@
     ctx.fillStyle = C.sandDim;
     const lv = w.level ? ` · level ${w.level.level}` : '';
     const vs = versus(w.xp, w.xpPrev);
-    ctx.fillText(K.fitText(ctx, `+${fmt(w.xp)} XP${vs ? ` (${vs})` : ''} · ${w.activeDays} of 7 days${lv}`, colW, '20px "Atkinson Hyperlegible"'), x0, 188);
+    const plan = hasPlan(w);
+    // With the plan panel in the tiles' place, the streak moves up here.
+    const streak = plan && w.streak.current ? ` · 🔥 ${w.streak.current}-day streak` : '';
+    // The level goes first when it all won't fit.
+    const sub = `+${fmt(w.xp)} XP${vs ? ` (${vs})` : ''}${streak} · ${w.activeDays} of 7 days`;
+    ctx.font = '20px "Atkinson Hyperlegible"';
+    const subLine = ctx.measureText(sub + lv).width <= colW ? sub + lv : sub;
+    ctx.fillText(K.fitText(ctx, subLine, colW, ctx.font), x0, 188);
 
-    // Three tiles: tasks done, the streak (or days active without one), and
-    // what shipped (or turned green, or the trophies when neither happened).
     const c = w.counts;
-    const third = c.projects || (!c.green && !c.trophies)
-      ? [fmt(c.projects), c.projects === 1 ? 'project shipped' : 'projects shipped', C.glass]
-      : c.green
-        ? [fmt(c.green), c.green === 1 ? 'test suite went green' : 'tests went green', '#7bd389']
-        : [fmt(c.trophies), c.trophies === 1 ? 'trophy earned' : 'trophies earned', C.glass];
-    K.drawTiles(ctx, [
-      [fmt(c.tasks), c.tasks === 1 ? 'task done' : 'tasks done', C.coral],
-      w.streak.current
-        ? [`🔥${fmt(w.streak.current)}`, 'day streak', C.amber]
-        : [`${w.activeDays}/7`, 'days active', C.amber],
-      third,
-    ], x0, colW, 214, 118);
+    if (plan) drawPlan(ctx, w, x0, 208, colW, 172);
+    else drawStatTiles(ctx, w, x0, colW);
 
     // ---- the seven days, and the week's top project, trophies and ships
-    const top = 376;
+    const top = plan ? 404 : 376;
     ctx.fillStyle = C.sandFaint;
     ctx.font = '600 13px "Martian Mono"';
     ctx.fillText('XP PER DAY', x0, top);
     drawHighlights(ctx, w, shipped, x0 + 300, top, colW - 300);
 
-    const chart = { x: x0, y: top + 22, w: 264, h: 88 }; // room above the tallest bar for its pip
+    const chart = { x: x0, y: top + 22, w: 264, h: plan ? 76 : 88 }; // room above the tallest bar for its pip
     const best = Math.max(1, ...w.days.map(d => d.xp));
     const slot = chart.w / w.days.length, bw = Math.floor(slot * 0.62);
     w.days.forEach((d, i) => {
@@ -180,6 +265,25 @@
     return { canvas, data: w };
   }
 
+  // Before the plan panel had anything to say: three tiles, tasks done, the
+  // streak (or days active without one), and what shipped (or turned green, or
+  // the trophies when neither happened).
+  function drawStatTiles(ctx, w, x0, colW) {
+    const c = w.counts;
+    const third = c.projects || (!c.green && !c.trophies)
+      ? [fmt(c.projects), c.projects === 1 ? 'project shipped' : 'projects shipped', C.glass]
+      : c.green
+        ? [fmt(c.green), c.green === 1 ? 'test suite went green' : 'tests went green', '#7bd389']
+        : [fmt(c.trophies), c.trophies === 1 ? 'trophy earned' : 'trophies earned', C.glass];
+    K.drawTiles(ctx, [
+      [fmt(c.tasks), c.tasks === 1 ? 'task done' : 'tasks done', C.coral],
+      w.streak.current
+        ? [`🔥${fmt(w.streak.current)}`, 'day streak', C.amber]
+        : [`${w.activeDays}/7`, 'days active', C.amber],
+      third,
+    ], x0, colW, 214, 118);
+  }
+
   const postText = w => {
     const bits = [
       w.counts.projects ? `shipped ${plural(w.counts.projects, 'project')}` : null,
@@ -189,12 +293,35 @@
       w.streak.current >= 2 ? `kept a ${w.streak.current}-day streak 🔥` : null,
     ].filter(Boolean);
     const said = bits.length ? `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]}` : `earned ${fmt(w.xp)} XP`;
-    return `My week with Shellby 🦀 ${said}. A pixel hermit crab that runs Claude Code on my desktop.`;
+    return `${planText(w)}My week with Shellby 🦀 ${said}. A pixel hermit crab that runs Claude Code on my desktop.`;
   };
+
+  // "My Claude plan bought me 31 hours of work this week: 42 tasks finished, 5 of 6 fixes held. "
+  function planText(w) {
+    const p = w.plan;
+    if (!hasPlan(w) || p.ms < 3600000) return '';
+    const bits = [
+      p.tasks ? `${plural(p.tasks, 'task')} finished` : null,
+      p.fixes ? `${fmt(p.held)} of ${plural(p.fixes, 'fix', 'fixes')} held` : null,
+    ].filter(Boolean);
+    return `My Claude plan bought me ${hoursText(p.ms).replace(/h$/, '')} hours of work this week${bits.length ? `: ${bits.join(', ')}` : ''}. `;
+  }
+
+  // The Trophies page's one-liner: "🕒 31h of Claude at work · 42 tasks finished · 5/6 fixes held · 62% of weekly limit".
+  function planLine(w) {
+    if (!hasPlan(w)) return '';
+    const p = w.plan;
+    return [
+      p.ms ? `🕒 ${hoursText(p.ms)} of Claude at work` : null,
+      p.tasks ? `${plural(p.tasks, 'task')} finished` : null,
+      p.fixes ? `${fmt(p.held)}/${fmt(p.fixes)} ${p.fixes === 1 ? 'fix' : 'fixes'} held` : null,
+      p.weekly ? `${p.weekly.pct}% of your weekly limit` : null,
+    ].filter(Boolean).join(' · ');
+  }
 
   const share = () => K.present({
     kind: 'week', draw: render, buttons: '[data-share-week]', post: postText,
-    title: 'Your week', alt: 'Your week with Shellby: tasks done, your streak, your top project, new trophies, what you shipped and XP for the last seven days',
+    title: 'Your week', alt: 'Your week with Shellby: what your plan bought you (hours of Claude work, tasks finished, fixes that held, the weekly limit used), your streak, your top project, new trophies, what you shipped and XP for the last seven days',
   });
 
   // ------------------------------------------------------------ the Trophies & XP page
@@ -206,11 +333,14 @@
     if (!w) { box.hidden = true; return; }
     box.hidden = false;
     $('xpWeekRange').textContent = `· ${range(w)}`;
+    const plan = $('xpWeekPlan');
+    if (plan) { plan.textContent = planLine(w); plan.hidden = !plan.textContent; }
+    const planned = !!plan?.textContent;
     const c = w.counts;
     const bits = [
       c.projects ? plural(c.projects, 'project') + ' shipped' : null,
       c.green ? `${plural(c.green, 'test suite')} turned green` : null,
-      c.tasks ? plural(c.tasks, 'task') + ' done' : null,
+      c.tasks && !planned ? plural(c.tasks, 'task') + ' done' : null, // the plan's box says it already
       w.streak.current ? `🔥 ${w.streak.current}-day streak` : null,
       w.topProject?.tasks ? `most work in ${w.topProject.name}` : null,
       ...w.trophies.map(t => `${t.icon} ${t.name}`),

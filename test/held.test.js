@@ -90,3 +90,52 @@ test('summary says what went', () => {
   assert.equal(held.summary([m, m, r]), '2 held messages and a routine');
   assert.equal(held.summary([r, r]), '2 routines');
 });
+
+const task = (over = {}) => ({ kind: 'task', prompt: 'Refactor the billing module\ninto smaller files', cwd: 'C:\code\app', mode: 'smart', at: RESET, ...over });
+
+test('a task is held with a short name, and starts fresh whatever came in', () => {
+  const r = held.hold([], task({ tabId: 'stale-tab', tries: 2 }), NOW);
+  assert.equal(r.item.kind, 'task');
+  assert.equal(r.item.name, 'Refactor the billing module');
+  assert.equal(r.item.prompt, 'Refactor the billing module\ninto smaller files');
+  assert.equal(r.item.tabId, null);
+  assert.equal(r.item.tries, 0);
+  assert.equal(r.item.mode, 'smart');
+  assert.equal(held.hold([], task({ mode: 'yolo' }), NOW).item.mode, null);
+  assert.ok(held.hold([], task({ prompt: '   ' }), NOW).error);
+  assert.equal(held.taskName('x'.repeat(80)).length, 60);
+  assert.ok(held.taskName('x'.repeat(80)).endsWith('…'));
+});
+
+test('the same task can be queued twice; tasks go in the order they were queued', () => {
+  let list = held.hold([], task(), NOW).list;
+  list = held.hold(list, task({ prompt: 'Write tests for the parser' }), NOW + 1).list;
+  list = held.hold(list, task(), NOW + 2).list;
+  assert.equal(list.length, 3);
+  assert.deepEqual(held.due(list, RESET).map(h => h.name), ['Refactor the billing module', 'Write tests for the parser', 'Refactor the billing module']);
+});
+
+test('a started task remembers its conversation, and gives up after MAX_TRIES', () => {
+  let list = held.hold([], task(), NOW).list;
+  list = held.hold(list, msg(), NOW).list;
+  const id = list[0].id;
+  let after = held.started(list, id, 'tab-9');
+  assert.equal(after[0].tabId, 'tab-9');
+  assert.equal(after[0].tries, 1);
+  assert.equal(list[0].tries, 0); // not mutated
+  assert.deepEqual(after[1], list[1]); // only that task
+  assert.equal(held.spent(after[0]), false);
+  for (let i = 1; i < held.MAX_TRIES; i++) after = held.started(after, id, 'tab-9');
+  assert.equal(held.spent(after[0]), true);
+  assert.equal(held.spent(after[1]), false); // messages never are
+  // ...and survives a restart: read back from disk, it still carries on there.
+  const back = held.normalize(after, NOW);
+  assert.equal(back.find(h => h.id === id).tabId, 'tab-9');
+  assert.equal(back.find(h => h.id === id).tries, held.MAX_TRIES);
+});
+
+test('summary counts queued tasks too', () => {
+  assert.equal(held.summary([task()]), 'a queued task');
+  assert.equal(held.summary([task(), task()]), '2 queued tasks');
+  assert.equal(held.summary([msg(), routine(), task()]), 'a held message, a routine and a queued task');
+});

@@ -109,8 +109,9 @@ class SessionManager extends EventEmitter {
     userItem = { ...userItem, turnId: userItem.turnId || randomUUID() };
     this.history.append(tab.id, userItem);
     tab.turnId = userItem.turnId; // the turn now starting, for what main.js notes about it (its diff)
-    // Who sent it: a routine's run or a workflow's step, or you (main.js armGuard).
-    tab.turnFrom = { routine: userItem.routine || null, workflow: userItem.workflow || null };
+    // Who sent it: a routine's run, a workflow's step, a task you queued for
+    // the reset, or you (main.js armGuard).
+    tab.turnFrom = { routine: userItem.routine || null, workflow: userItem.workflow || null, queued: userItem.queued || null };
     tab.outcome = null;
     // The note goes with the first real message (a /command must still start
     // with its slash), and is only forgotten once Claude has started with it:

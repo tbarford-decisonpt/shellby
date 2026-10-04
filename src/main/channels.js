@@ -30,6 +30,8 @@ const EVENTS = Object.freeze({
   asking: { label: 'He needs permission', default: true, priority: 'high' },
   done: { label: 'A task finished', default: true, priority: 'normal' },
   limit: { label: 'Usage limit reached, and when it resets', default: true, priority: 'normal' },
+  // Work you queued for the reset, often overnight: what it came to, not just that it ended.
+  queue: { label: 'A task you queued for the reset finished, with its result', default: true, priority: 'normal' },
   health: { label: 'Something is overheating or filling up', default: false, priority: 'high' },
   ci: { label: 'A build goes red or green', default: false, priority: 'normal' },
   // A workflow's own "tell me on my phone" step: asked for by name, so on by default.
@@ -361,7 +363,7 @@ function shouldSend(event, settings, { focused = false } = {}) {
 
 // ------------------------------------------------------------------ messages
 
-const EMOJI = { asking: '🦀', done: '✅', limit: '😴', health: '🥵', ci: '🔴', workflow: '⚡' };
+const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡' };
 
 /**
  * One event -> what every provider sends.
@@ -407,6 +409,27 @@ function describeEvent(event) {
         title: e.resetsAt ? 'Usage limit reached' : 'Your usage limit has reset',
         body: e.resetsAt ? `Shellby is napping until ${timeOf(e.resetsAt)}.` : 'Shellby is awake again and ready to go.',
       };
+    case 'queue': {
+      // status: 'ok' | 'error' | 'stopped' | 'paused' (the window ran dry partway; it carries on at resumeAt).
+      const name = clip(e.title, 70) || 'Your queued task';
+      const left = Number.isFinite(e.left) && e.left > 0 ? `${e.left} more queued.` : '';
+      const head = {
+        ok: { emoji: '✅', tag: 'white_check_mark', title: `Done: ${name}` },
+        error: { emoji: '⚠️', tag: 'warning', title: `Hit a problem: ${name}` },
+        stopped: { emoji: '⏹️', tag: 'stop_button', title: `Stopped: ${name}` },
+        paused: { emoji: '😴', tag: 'sleeping', title: `Out of usage partway: ${name}` },
+      }[e.status] || { emoji: '🌙', tag: 'crescent_moon', title: name };
+      const said = e.status === 'paused'
+        ? `It carries on from where it stopped${e.resumeAt ? ` at ${timeOf(e.resumeAt)}` : ' after the next reset'}.`
+        : clip(e.body, MAX_BODY - 100) || (e.status === 'ok' ? 'It finished.' : '');
+      const facts = [project, duration(e.seconds), left].filter(Boolean).join(' · ');
+      return {
+        ...base, emoji: head.emoji, tags: ['crab', head.tag],
+        title: clip(head.title, MAX_TITLE),
+        // Its own line for the facts, so the result reads first.
+        body: [said, facts].filter(Boolean).join('\n'),
+      };
+    }
     case 'health':
       return {
         ...base, tags: ['crab', 'fire'],

@@ -93,6 +93,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **Helper crabs:** every subagent gets its own lane in the panel and its own crab on your desktop.
 - **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
 - **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
+- **Comment on the diff:** click a line number in any turn's diff (Shift+click for several) and say what should change: "no, keep this function pure". Comments collect across files and turns, then go back as one follow-up that quotes the code each one is about.
 - **Try it another way:** branch from any turn into a new tab, run two approaches side by side, and keep the one you like.
 - **A Toolbox for all of it:** every skill, agent, MCP server, hook, rule and `CLAUDE.md`, with an editor for each, a Skill Shop, and **prompt snippets** you can call with `/review`.
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
@@ -132,6 +133,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **He climbs onto your windows,** rides them when you drag them, and gets flung off when you shake them.
 - **He guards your focus** in a little helmet, **listens along** in headphones when music plays, and hushes when you're on a call.
 - **He knows your limits:** when you'll hit your 5-hour window, and a message held for after the reset goes by itself.
+- **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page. They start when the window resets, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.
 
 **[Everything he does on his own →](docs/DESKTOP.md)**
 

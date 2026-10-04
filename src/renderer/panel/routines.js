@@ -42,6 +42,7 @@
   function render() {
     const list = $('routineList');
     const routines = state.routines || [];
+    SB.renderResetQueue?.();
     renderDeps();
     renderFlaky();
     // The explainer is for before your first routine; after that the list says it.
@@ -63,6 +64,7 @@
           r.held ? heldPill(r) : null),
         h('div', { class: 'ar-meta' },
           lastRunStatus(r),
+          r.lastStatus === 'error' && !r.running ? fixButton(r) : null,
           h('span', { class: 'ar-when' },
             r.scheduleText,
             ' · ', r.enabled ? h('span', { title: r.next ? new Date(r.next).toLocaleString() : '' }, `next ${SB.untilTime(r.next)}`) : 'paused',
@@ -344,6 +346,12 @@
         if (state.tabs.has(runId)) SB.activate(runId);
         else SB.toast('That run\'s tab is closed. Find it in History.');
       },
+      // What you said in the chat goes to the workflow builder, with the routine's instruction for context.
+      extras: (res, turns) => {
+        if (!res.workflow) return [];
+        const said = turns.filter(t => t.role === 'user').map(t => t.text).join('\n');
+        return [workflowOffer(res.workflow.why, `${said}\n\n(Started as a routine: ${readForm().prompt})`.trim().slice(0, 2000))];
+      },
       // The host is made before its chat, which is bound to it straight after.
       bind: c => { mine = c; },
     };
@@ -366,16 +374,67 @@
   }
 
   api.onRoutineTestRun(summary => chat?.onRun(summary));
+
+  // ------------------------------------------------------------ fix with Claude
+
+  // A failed routine: Claude reads its last run and opens a corrected one in
+  // the editor, with what it changed in the chat. Saving it is up to you.
+  let fixing = null; // the routine Claude is looking at
+  async function fixRoutine(r) {
+    if (fixing) { SB.toast('Claude is already looking at one. Give it a moment.'); return; }
+    if (!$('routineWork').hidden) { SB.toast('Close the routine editor first, then try again.'); return; }
+    fixing = r.id;
+    render();
+    let res;
+    try { res = await api.repairRoutine(r.id); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
+    fixing = null;
+    if (state.view === 'routines') render();
+    if (!res?.ok) { SB.toast(res?.error || 'Claude couldn\'t fix that.'); return; }
+    if (!$('routineWork').hidden) { SB.toast('Claude has a fix, but the editor is open. Close it and try again.'); return; }
+    const now = (state.routines || []).find(x => x.id === r.id);
+    if (!now) { SB.toast('That routine was deleted.'); return; }
+    if (state.view !== 'routines') SB.setView('routines');
+    openEditor({ ...now, ...res.routine }, { greeting: res.note });
+    SB.toast('Check Claude\'s fix, then press Save.');
+  }
+
+  function fixButton(r) {
+    const busy = fixing === r.id;
+    return h('button', {
+      type: 'button', class: 'btn primary slim-btn r-fix', disabled: busy,
+      title: 'Claude reads the failed run and opens a corrected routine for you to check',
+      onclick: () => fixRoutine(r),
+    }, busy ? 'Claude is looking…' : 'Fix with Claude');
+  }
+
+  // ------------------------------------------------------------ a workflow's job
+
+  // Claude thinks it should be a workflow (it starts on an event, or needs steps
+  // with decisions between them): one click drafts it as one. The routine editor
+  // only closes once the workflow draft is open, so a failed one loses nothing.
+  async function asWorkflow(text) {
+    if (!text.trim() || !SB.views.workflows?.draftFrom) return;
+    if (await SB.views.workflows.draftFrom(text) && chat) closeEditor();
+  }
+
+  function workflowOffer(why, text) {
+    return h('div', { class: 'rt-workflow-offer' },
+      h('p', { class: 'wf-chat-tag', text: why }),
+      h('button', { type: 'button', class: 'btn slim-btn', onclick: () => asWorkflow(text) }, 'Build it as a workflow'));
+  }
   // ------------------------------------------------------------ describe it
 
   // Claude only fills in the editor; the routine is saved by the Save button,
   // so what you see there is exactly what runs.
   const ask = $('routineAsk');
   const ASK_NOTE = $('routineAskNote').textContent;
-  function askNote(text, err = false) {
+  let asked = ''; // what you described, for "Build it as a workflow instead"
+  function askNote(text, err = false, offer = false) {
     $('routineAskNote').textContent = text;
     $('routineAskNote').classList.toggle('err', err);
+    $('routineAsWorkflow').hidden = !offer;
   }
+  $('routineAsWorkflow').addEventListener('click', () => { askNote(ASK_NOTE); asWorkflow(asked); });
   ask.addEventListener('submit', async e => {
     e.preventDefault();
     if (ask.classList.contains('busy')) return;
@@ -388,8 +447,10 @@
       const res = await api.draftRoutine(text);
       if (!res.ok) { askNote(res.error, true); return; }
       $('routineAskText').value = '';
-      askNote(ASK_NOTE);
+      asked = text;
       openEditor({ ...res.draft, isTemplate: true }, { greeting: `I filled this in from “${text}”. Tell me what to change, or ask me to test it.` });
+      if (res.workflow) askNote(`${res.workflow.why} The closest routine is below, or:`, false, true);
+      else askNote(ASK_NOTE);
       SB.toast('Drafted. Check it over, then press Save.');
     } catch {
       askNote('Couldn\'t reach Claude. Try again.', true);
