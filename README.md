@@ -122,6 +122,7 @@ None of this needs Claude or an account.
 - **Gifts from digging:** sea glass, a lost key, a pearl, once in a long while a gold doubloon. 86 finds in eleven sets, on a shelf of their own.
 - **He remembers you:** from *New friends* to *Inseparable*, with the story of your moments together (*"You shook him off Excel"*), your birthday, and his.
 - **Hide and seek, fetch,** and friends' crabs who drop by and chat.
+- **Snacks and naps:** he gets peckish, sandy, sleepy, and a little mopey if you ignore him. Feed him plankton you earn by getting things done. Gentle by design: it never goes below a floor, never drops while you're away, and never costs you anything.
 
 **[More about the two of you →](docs/DESKTOP.md#just-the-two-of-you)**
 

@@ -46,6 +46,8 @@ const DEFAULTS = {
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
   play: null,        // hide and seek and fetch scores (see play.js)
+  needs: null,       // his tummy, shine, pep and cheer, and the snack pantry (see needs.js); this PC only
+  needsOn: true,     // "Snacks and naps": off keeps him content all the time
   scenesSeen: null,  // which of his little scenes he's done (see scenes.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own

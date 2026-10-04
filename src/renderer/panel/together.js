@@ -220,6 +220,7 @@
     if (!v) return;
     renderStage(v);
     renderBond(v);
+    SB.renderNeeds?.(v); // How he's doing (needs.js)
     renderPlay(v);
     renderUnlocks(v.bond);
     renderBirthday(v.bond.birthday);

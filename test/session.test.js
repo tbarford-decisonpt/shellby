@@ -319,10 +319,15 @@ test('each result carries where its turn ends, and rewindTo resumes only that fa
   assert.equal(s.proc, null, 'the process is stopped');
   assert.ok(s.buildArgs().includes(`--resume-session-at=${first.anchor}`));
   assert.ok(s.buildArgs().includes('--fork-session'));
+  // Both listening before the send: on a busy machine init and result can come
+  // in one stdout chunk, emitted back to back, so a result waiter added after
+  // init resolves would miss it.
+  const init = waitFor(s, i => i.kind === 'init');
+  const done = waitFor(s, i => i.kind === 'result');
   s.send('two');
-  await waitFor(s, i => i.kind === 'init');
+  await init;
   assert.ok(!s.buildArgs().includes('--fork-session'), 'once the fork exists it is resumed as usual');
-  await waitFor(s, i => i.kind === 'result');
+  await done;
   s.close();
 });
 

@@ -1,5 +1,6 @@
 // He remembers you. A bond that grows with petting, playing and days spent
-// together (it never shrinks: he doesn't sulk, and he never goes hungry), a
+// together (it never shrinks: he can get peckish or a bit mopey, see needs.js,
+// but that never costs a single point here), a
 // journal of the moments worth keeping ("You shook me off Chrome"), the days
 // worth marking (100 days together, his hatch day, your birthday if you tell
 // him), and the odd line that brings one of them back up.
@@ -37,6 +38,8 @@ const EARN = Object.freeze({
   find: { points: 1, perDay: 5 },        // a gift he dug up for you
   visit: { points: 3, perDay: 2 },       // a friend's crab dropped by
   banter: { points: 1, perDay: 3 },
+  feed: { points: 1, perDay: 3 },        // a snack (needs.js)
+  care: { points: 1, perDay: 2 },        // a rinse or a tuck-in
 });
 
 const DAY_MILESTONES = Object.freeze([7, 30, 50, 100, 200, 365, 500, 730, 1000]);
@@ -67,6 +70,9 @@ const MEMORIES = Object.freeze({
   'hide-found': { icon: '🙈', text: d => `You found him in hide and seek in ${fmtTime(d.ms)}` },
   'hide-won': { first: true, icon: '🏅', text: () => 'Won his first game of hide and seek' },
   'first-fetch': { first: true, icon: '🎾', text: () => 'Your first game of fetch' },
+  'first-snack': { first: true, icon: '🦐', text: () => 'You fed him his first snack' },
+  'first-bath': { first: true, icon: '🧼', text: () => 'His first rinse' },
+  'golden-snack': { first: true, icon: '✨', text: () => 'Shared a golden plankton' },
   days: { icon: '🗓️', text: d => `${d.n} days together` },
   level: { icon: '💞', text: d => `Became ${d.name}` },
   birthday: { icon: '🎂', text: () => 'Wished you a happy birthday' },
@@ -241,6 +247,8 @@ const RECALL = Object.freeze({
   'hide-found': d => [`you found me in ${fmtTime(d.ms)}`, 'hide and seek again?'],
   'first-fetch': () => ['fetch later?'],
   'first-pet': () => ['you pet me first'],
+  'first-snack': () => ['my first snack…', 'still taste that plankton'],
+  'golden-snack': () => ['that golden plankton!'],
 });
 
 /**

@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
+<link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -758,6 +759,31 @@
       <p class="us-temper" id="usTemper"></p>
     </section>
 
+    <!-- His needs (needs.js in panel/, src/main/needs.js, care.js). Hidden when Snacks and naps is off. -->
+    <section class="us-sec us-needs" id="usNeeds" aria-labelledby="usNeedsTitle" hidden>
+      <div class="us-h"><h3 id="usNeedsTitle">How he's doing</h3><span class="us-h-meta us-needs-mood" id="usNeedsMood"></span></div>
+      <div class="us-needs-intro" id="usNeedsIntro" hidden>
+        <p>New: he gets peckish now, and a little mopey if you're right there and ignore him. Snacks come from <span id="usNeedsIntroFrom">getting things done</span>. He never gets worse than a bit peckish, and nothing you've earned ever goes away.</p>
+        <div class="row wrap">
+          <button type="button" class="btn primary slim-btn" id="usNeedsGotIt">Got it</button>
+          <button type="button" class="btn ghost slim-btn" id="usNeedsOff">Turn this off</button>
+        </div>
+      </div>
+      <ul class="us-meters" id="usMeters"></ul>
+      <div class="us-games us-care">
+        <button type="button" class="us-game" data-care="feed" data-hue="glass"><span class="us-game-icon" aria-hidden="true">🦐</span><b>Feed him</b><span class="us-game-stat" id="usCareFeed"></span></button>
+        <button type="button" class="us-game" data-care="rinse" data-hue="surf"><span class="us-game-icon" aria-hidden="true">🧼</span><b>Give him a rinse</b><span class="us-game-stat" id="usCareRinse"></span></button>
+        <button type="button" class="us-game" data-care="tuck" data-hue="night"><span class="us-game-icon" aria-hidden="true">💤</span><b>Tuck him in</b><span class="us-game-stat" id="usCareTuck"></span></button>
+      </div>
+      <div class="us-pantry">
+        <ul class="us-pantry-list" id="usPantry" aria-label="His snacks"></ul>
+        <details class="us-sources">
+          <summary>Where snacks come from</summary>
+          <ul id="usSources"></ul>
+        </details>
+      </div>
+    </section>
+
     <section class="us-sec us-play" aria-labelledby="usPlayTitle">
       <div class="us-h"><h3 id="usPlayTitle">Play with him</h3><span class="us-h-meta">Right-click him on the desktop for these too</span></div>
       <div class="us-games">
@@ -769,7 +795,7 @@
     </section>
 
     <section class="us-sec" aria-labelledby="usUnlocksTitle">
-      <div class="us-h"><h3 id="usUnlocksTitle">As you get closer</h3><span class="us-h-meta">It never goes back down: he doesn't sulk</span></div>
+      <div class="us-h"><h3 id="usUnlocksTitle">As you get closer</h3><span class="us-h-meta">Your bond never goes back down</span></div>
       <ul class="us-unlocks" id="usUnlocks"></ul>
     </section>
 
@@ -1048,6 +1074,8 @@
         </div>
         <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
         <p class="small temper-note" id="temperNote" hidden></p>
+        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
+        <p class="small muted">He gets peckish, a bit sandy, sleepy, and a little mopey if you're right there and ignore him. Never worse than that, and it never costs you anything you've earned. Feed him snacks you earn by getting things done. Off keeps him content all the time.</p>
         <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
       </section>
 
@@ -1573,6 +1601,7 @@
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
 <script src="together.js"></script>
+<script src="needs.js"></script>
 <script src="health.js"></script>
 <script src="card.js"></script>
 <script src="celebrate.js"></script>

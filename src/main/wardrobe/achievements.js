@@ -58,6 +58,12 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'on-air', name: 'Quiet on Set', icon: '🤫', description: 'Shellby keeps quiet through 5 calls', stat: 'callsHushed', goal: 5, rewards: ['on-air-light'], hidden: true },
   { id: 'storyteller', name: 'Little Scenes', icon: '🎭', description: 'Catch Shellby in 10 different little scenes', stat: 'scenesSeen', goal: 10, rewards: ['bubble-pipe'] },
   { id: 'gossip', name: 'Gossip', icon: '💬', description: 'Your crab chats with visiting crabs 5 times', stat: 'banters', goal: 5, rewards: ['tin-can-phone'] },
+  // Snacks and naps (src/main/needs.js). Looking after him only ever adds.
+  { id: 'snack-time', name: 'Snack Time', icon: '🦐', description: 'Feed Shellby his first snack', stat: 'snacksFed', goal: 1, rewards: ['snack-bowl'] },
+  { id: 'well-fed', name: 'Well Fed', icon: '🍽️', description: 'Feed Shellby 100 snacks', stat: 'snacksFed', goal: 100, rewards: ['napkin-bib'] },
+  { id: 'squeaky-clean', name: 'Squeaky Clean', icon: '🧼', description: 'Give Shellby 25 rinses', stat: 'rinsesGiven', goal: 25, rewards: ['bath-sponge'] },
+  { id: 'night-night', name: 'Night Night', icon: '🧸', description: 'Tuck Shellby in 10 times', stat: 'tuckIns', goal: 10, rewards: ['sleepy-teddy'] },
+  { id: 'golden-tummy', name: 'Golden Tummy', icon: '✨', description: 'Share a golden plankton with Shellby', stat: 'goldenSnacks', goal: 1, rewards: ['golden-spoon'], hidden: true },
   // The shipyard: the work XP already pays for (xp.js AWARDS), fed from awardXp in main.js.
   { id: 'launch-day', name: 'Launch Day', icon: '🛰️', description: 'Deploy or publish something', stat: 'deploys', goal: 1, rewards: ['mission-patch'] },
   { id: 'back-to-green', name: 'Back to Green', icon: '🧪', description: 'Turn failing tests green 10 times', stat: 'testsFixed', goal: 10, rewards: ['test-tube'] },
@@ -80,6 +86,7 @@ const COUNTERS = [
   'perchesMade', 'timesShaken', 'windowLeaps', 'windowCatches', 'longestRide',
   'stickersEarned', 'holoStickers', 'majorReleases', 'stickeredShells', 'friendStickers',
   'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
+  'snacksFed', 'rinsesGiven', 'tuckIns', 'goldenSnacks',
   'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
 ];
 const MAX_DAYS = 400;
@@ -116,6 +123,10 @@ const INCREMENTS = {
   'game-watched': 'gamesWatched',
   'call-hushed': 'callsHushed',
   banter: 'banters',
+  fed: 'snacksFed',
+  rinsed: 'rinsesGiven',
+  tucked: 'tuckIns',
+  'golden-snack': 'goldenSnacks',
   deployed: 'deploys',
   'tests-fixed': 'testsFixed',
   'flake-fixed': 'flakesFixed',
