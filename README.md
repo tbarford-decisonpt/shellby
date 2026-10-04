@@ -10,7 +10,7 @@ No API keys, no per-token billing. No Claude? He's still a desk pet who talks, p
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
-[What's new](#whats-new) · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[What's new](#whats-new) · [Why Shellby, if you have Claude Code?](docs/WHY-SHELLBY.md) · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
@@ -69,7 +69,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
 - **In your terminal and editor too:** with the plugin he reacts to Claude Code in VS Code, Cursor, Windsurf, Zed, JetBrains and Windows Terminal, and sits in its status line.
 
-**[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)**
+**[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)** · **[Already use Claude Code in a terminal or editor? Here's what he adds →](docs/WHY-SHELLBY.md)**
 
 ## 🗂️ He runs your dev day
 
@@ -123,6 +123,7 @@ None of this needs Claude or an account.
 - **Gifts from digging:** sea glass, a lost key, a pearl, once in a long while a gold doubloon. 86 finds in eleven sets, on a shelf of their own.
 - **He remembers you:** from *New friends* to *Inseparable*, with the story of your moments together (*"You shook him off Excel"*), your birthday, and his.
 - **Hide and seek, fetch,** and friends' crabs who drop by and chat.
+- **Snacks and naps:** he gets peckish, sandy, sleepy, and a little mopey if you ignore him. Feed him plankton you earn by getting things done. Gentle by design: it never goes below a floor, never drops while you're away, and never costs you anything.
 - **Your beach,** a scene that only grows: a sandcastle for every project you ship (a tower house at 5 ships, a keep at 15, a citadel at 40), the tide coming in with your streak, a line of seaweed where your best one reached, and his finds washed up along it. New castles rise out of the sand while you watch. Drag along it, then share a snapshot of the whole thing.
 
 <p align="center"><img src="docs/beach-card.png" width="860" alt="A pixel beach at night: fourteen sandcastles of different sizes with flags and lit windows, finds washed up along a line of seaweed, plots with buckets and spades, and Shellby by the newest castle"></p>

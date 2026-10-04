@@ -72,7 +72,7 @@
           "type": "object", "required": ["achievement"], "additionalProperties": false,
           "properties": {
             "achievement": {
-              "enum": ["first-task", "ten-tasks", "quarter-century", "centurion", "crew-boss", "all-hands", "fleet", "toolmaker", "inventor", "tinkerer", "clockwork", "night-owl", "early-bird", "multitasker", "careful", "planner", "special-delivery", "loyal", "check-up", "keep-your-cool", "show-off", "spring-cleaning", "good-crab", "frequent-flyer", "deep-focus", "open-house", "pen-pals", "green-light", "window-sill", "hang-on", "rodeo", "leap-of-faith", "trapeze", "spider-crab", "sticky-feet", "little-gremlin", "tagged", "sticker-bomb", "shiny", "liftoff", "well-traveled", "swap-meet", "beachcomber", "magpie", "curator", "x-marks", "best-friends", "peekaboo", "good-arm", "player-two", "on-air", "storyteller", "gossip", "launch-day", "back-to-green", "ghostbuster", "issue-to-ship", "clean-bill", "tidy-shell", "fresh-start", "on-a-roll", "unstoppable", "double-digits"]
+              "enum": ["first-task", "ten-tasks", "quarter-century", "centurion", "crew-boss", "all-hands", "fleet", "toolmaker", "inventor", "tinkerer", "clockwork", "night-owl", "early-bird", "multitasker", "careful", "planner", "special-delivery", "loyal", "check-up", "keep-your-cool", "show-off", "spring-cleaning", "good-crab", "frequent-flyer", "deep-focus", "open-house", "pen-pals", "green-light", "window-sill", "hang-on", "rodeo", "leap-of-faith", "trapeze", "spider-crab", "sticky-feet", "little-gremlin", "tagged", "sticker-bomb", "shiny", "liftoff", "well-traveled", "swap-meet", "beachcomber", "magpie", "curator", "x-marks", "best-friends", "peekaboo", "good-arm", "player-two", "on-air", "storyteller", "gossip", "snack-time", "well-fed", "squeaky-clean", "night-night", "golden-tummy", "launch-day", "back-to-green", "ghostbuster", "issue-to-ship", "clean-bill", "tidy-shell", "fresh-start", "on-a-roll", "unstoppable", "double-digits"]
             }
           }
         },
@@ -184,7 +184,8 @@
           "found", "memory", "milestone", "idle", "oops",
           "perch", "ride", "shaken", "dropped", "dizzy", "pop", "caught",
           "climb", "stuck", "leap", "letgo",
-          "pinched", "yanked", "shoved", "noteOff", "note", "behave", "noPrank"
+          "pinched", "yanked", "shoved", "noteOff", "note", "behave", "noPrank",
+          "peckish", "sandy", "sleepy", "mopey", "fed", "stuffed", "pantryEmpty", "snackEarned", "tide", "rinsed", "tuckedIn", "notSleepy", "cheered"
         ]
       },
       "additionalProperties": { "$ref": "#/$defs/lines" }

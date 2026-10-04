@@ -138,7 +138,20 @@
         "noteOff": ["ahora vuelvo", "un momento", "tengo algo para ti"],
         "note": ["para ti", "¡correo!", "¡léela!"],
         "behave": ["vale…", "me portaré bien", "prometido"],
-        "noPrank": ["nada que pellizcar", "ahora no", "luego"]
+        "noPrank": ["nada que pellizcar", "ahora no", "luego"],
+        "peckish": ["tengo hambre…", "¿eso es plancton?", "¿un bocadito?"],
+        "sandy": ["tengo arena", "arena por todas partes", "necesito un baño"],
+        "sleepy": ["*bostezo*", "qué sueño…", "¿una siesta?"],
+        "mopey": ["…", "¿hola? ¿estás?", "qué silencio hoy"],
+        "fed": ["ñam ñam ñam", "¡qué rico!", "¡gracias!"],
+        "stuffed": ["estoy lleno", "lo guardo para luego", "luego, quizás"],
+        "pantryEmpty": ["no quedan bocados…", "despensa vacía", "luego será"],
+        "snackEarned": ["¡un bocado!", "ooh, plancton", "uno para luego"],
+        "tide": ["¡la marea trajo comida!", "mira lo que llegó", "¡plancton gratis!"],
+        "rinsed": ["¡limpísimo!", "qué brillo", "ahh, fresquito"],
+        "tuckedIn": ["buenas noches", "cinco minutitos", "a dormir"],
+        "notSleepy": ["¡no tengo sueño!", "bien despierto", "luego, quizás"],
+        "cheered": ["¡ahí estás!", "¡yay, tú!", "te eché de menos"]
       }
     }
   ],

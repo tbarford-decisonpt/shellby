@@ -91,7 +91,7 @@ test('summary says what went', () => {
   assert.equal(held.summary([r, r]), '2 routines');
 });
 
-const task = (over = {}) => ({ kind: 'task', prompt: 'Refactor the billing module\ninto smaller files', cwd: 'C:\code\app', mode: 'smart', at: RESET, ...over });
+const task = (over = {}) => ({ kind: 'task', prompt: 'Refactor the billing module\ninto smaller files', cwd: 'C:\\code\\app', mode: 'smart', at: RESET, ...over });
 
 test('a task is held with a short name, and starts fresh whatever came in', () => {
   const r = held.hold([], task({ tabId: 'stale-tab', tries: 2 }), NOW);

@@ -35,6 +35,8 @@ const AWARDS = Object.freeze({
   play: { xp: 10, perHour: 4, label: 'Played a game with him', way: 'Plays hide and seek or fetch with you' },
   find: { xp: 8, perHour: 4, label: 'He dug you up a gift', way: 'Digs you up a gift' },
   day: { xp: 5, perHour: 1, label: 'Another day together', way: 'Each day you use him' },
+  feed: { xp: 3, perHour: 3, label: 'Fed Shellby a snack', way: 'You feed him a snack' },
+  care: { xp: 3, perHour: 2, label: 'Looked after Shellby', way: 'You rinse him or tuck him in' },
   pet: { xp: 2, perHour: 5, label: 'Petted Shellby', way: 'You pet him' },
 });
 // Log-only kinds: paid by the day's bounties, not by an event.

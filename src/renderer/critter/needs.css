@@ -1,0 +1,66 @@
+/* ================================================================ his needs
+   (src/main/needs.js, care.js). critter.js sets need-<mood> and low-<meter> on
+   the body, only while he's idle or asleep. Everything here is soft: a droop, a
+   few grains of sand, never a warning colour. The looks are still poses, so
+   with reduced motion (critter.css stills every animation) they read the same.
+   On .part-* 1px is one sprite cell. */
+
+/* ---------- a bit sandy: a few grains on his shell, more as it gets worse ---------- */
+#sprite { position: relative; }
+body.low-tidiness #sprite::after {
+  /* one sprite cell per grain, on his shell (the left half, below any hat) */
+  content: ""; position: absolute; left: 18%; top: 48%; width: var(--px); height: var(--px);
+  background: #e9d8a6; pointer-events: none;
+  box-shadow:
+    calc(var(--px) * 3) calc(var(--px) * -2) 0 #d8c08a,
+    calc(var(--px) * 6) calc(var(--px) * 1) 0 #e9d8a6,
+    calc(var(--px) * 2) calc(var(--px) * 4) 0 #c9b38a,
+    calc(var(--px) * 5) calc(var(--px) * 3) 0 #e9d8a6;
+}
+body.state-sleeping.low-tidiness #sprite::after { top: 55%; }
+
+/* ---------- sleepy: heavy lids, a slow blink ---------- */
+body.low-energy.state-idle:not([class*="bit-"]) .part-eyes { animation: blink-drowsy 5s steps(1) infinite; transform: scaleY(.6); }
+@keyframes blink-drowsy { 0%, 88%, 100% { transform: scaleY(.6); } 90%, 96% { transform: scaleY(.1); } }
+
+/* ---------- mopey: eyes down, a slower breath, claw lowered ---------- */
+body.need-mopey.state-idle:not([class*="bit-"]) #sprite { animation-duration: 5.4s; }
+body.need-mopey.state-idle:not([class*="bit-"]) .part-eyes { animation: blink-drowsy 7s steps(1) infinite; transform: scaleY(.6); translate: 0 1px; }
+body.need-mopey.state-idle:not([class*="bit-"]) .part-claw { animation: none; transform: rotate(14deg) translateY(1px); }
+
+/* ---------- happy: a little extra spring in the breath ---------- */
+body.need-happy.state-idle:not([class*="bit-"]) #sprite { animation-duration: 2.6s; }
+
+/* ---------- his need habits (care.js NEED_BITS); scratch and yawn are in charm.css ---------- */
+/* peckish: rubs his tummy, a little wobble */
+body.bit-rub.state-idle #sprite, body.bit-rub #sprite { transform-origin: 50% 100%; animation: rub-wobble 2.4s ease-in-out; }
+body.bit-rub .part-claw { animation: rub-claw .4s ease-in-out 6; }
+body.bit-rub .part-eyes { animation: none; transform: scaleY(.5); }
+@keyframes rub-wobble { 0%, 100% { transform: none; } 30%, 70% { transform: rotate(-3deg) translateY(1px); } 50% { transform: rotate(3deg) translateY(1px); } }
+@keyframes rub-claw { 0%, 100% { transform: rotate(28deg) translate(-1px, 3px); } 50% { transform: rotate(40deg) translate(-3px, 3px); } }
+
+/* mopey: sits down with a sigh */
+body.bit-mope.state-idle #sprite, body.bit-mope #sprite { transform-origin: 50% 100%; animation: mope 2.6s ease-in-out; }
+body.bit-mope .part-eyes { animation: none; transform: scaleY(.45); translate: 0 1px; }
+body.bit-mope .part-claw { animation: none; transform: rotate(18deg) translateY(2px); }
+@keyframes mope { 0%, 100% { transform: none; } 30%, 80% { transform: scale(1.03, .9) translateY(2px); } }
+
+/* munching a snack: claw to mouth, chomp chomp */
+body.bit-munch.state-idle #sprite, body.bit-munch #sprite { transform-origin: 50% 100%; animation: munch-bob .3s ease-in-out infinite; }
+body.bit-munch .part-claw { animation: munch-claw .3s ease-in-out infinite; }
+body.bit-munch .part-eyes { animation: none; transform: scaleY(.3); }
+@keyframes munch-bob { 0%, 100% { transform: none; } 50% { transform: scale(1.02, .96) translateY(1px); } }
+@keyframes munch-claw { 0%, 100% { transform: rotate(-38deg) translate(-3px, -2px); } 50% { transform: rotate(-26deg) translate(-2px, -1px); } }
+
+/* ---------- the props (critter/life.js DRAW): #prop sits just right of him ---------- */
+/* a plankton drifts down to his claw */
+.prop-plankton-drop .snack { left: calc(var(--px) * -6); bottom: calc(var(--px) * 9); animation: snack-drift .9s cubic-bezier(.4, 0, .6, 1) forwards; }
+@keyframes snack-drift { 0% { transform: translate(6px, -46px) rotate(-20deg); opacity: 0; } 25% { opacity: 1; } 60% { transform: translate(-3px, -14px) rotate(10deg); } 100% { transform: translate(0, 0) rotate(0); } }
+/* crumbs fall from his mouth while he munches */
+.prop-crumbs .crumb { left: calc(var(--px) * -9); bottom: calc(var(--px) * 7); width: 3px; height: 3px; background: #7fd6c2; animation: crumb-fall .7s ease-in var(--d) backwards; }
+@keyframes crumb-fall { 0% { transform: translate(0, 0); opacity: 1; } 100% { transform: translate(var(--dx), 18px); opacity: 0; } }
+/* suds for a rinse */
+.prop-suds .sud { left: calc(var(--px) * -10 + var(--x)); bottom: calc(var(--px) * 6); width: var(--s); height: var(--s); border-radius: 50%; border: 1.5px solid rgba(220, 245, 255, .9); background: radial-gradient(circle at 30% 30%, #fff, rgba(200, 240, 255, .3)); animation: sud-pop 1.2s ease-out var(--d) backwards; }
+@keyframes sud-pop { 0% { transform: scale(.2); opacity: 0; } 30% { transform: scale(1); opacity: 1; } 100% { transform: translateY(-22px) scale(1.15); opacity: 0; } }
+/* a heart or two after a snack */
+.prop-hearts .love { left: calc(var(--px) * -8 + var(--x)); bottom: calc(var(--px) * 14); font: 700 13px "Pixelify Sans", monospace; font-style: normal; color: #ff8fab; text-shadow: 0 1px 0 rgba(0, 0, 0, .35); animation: float 1.4s ease-out var(--d) backwards; }
