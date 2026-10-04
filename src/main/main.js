@@ -5661,7 +5661,14 @@ function setupUpdates() {
     // The installer ends every Shellby.exe, dev server supervisors included,
     // which would leave the servers running unwatched: they're stopped first
     // and started again by the new version (devservers/service.js).
-    prepare: () => { app.isQuitting = true; manager?.closeAll(); devServers?.stopForUpdate(); },
+    // The installer relaunches Shellby; the flag has the new version open the
+    // panel rather than come back as just the crab (see boot).
+    prepare: () => {
+      app.isQuitting = true;
+      config.set({ reopenAfterUpdate: true });
+      manager?.closeAll();
+      devServers?.stopForUpdate();
+    },
   });
   updates.on('changed', view => {
     // Offline, no releases yet, rate-limited: it goes to the log and to the
@@ -5821,6 +5828,12 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', reclamp);
 
   if (!config.get('onboarded')) showPanel({ focusInput: false });
+  // Back from "Update and restart": you pressed a button in the panel, so
+  // that's where you land.
+  if (config.get('reopenAfterUpdate')) {
+    config.set({ reopenAfterUpdate: false });
+    showPanel();
+  }
 
   // Says good morning, or notices you've been away for a few days.
   wakeVoice();

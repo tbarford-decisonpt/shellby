@@ -33,6 +33,7 @@ const DEFAULTS = {
   claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
   planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude-cli.js)
   onboarded: false,
+  reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   wander: true,      // idle strolls near his spot (see motion.js)
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
