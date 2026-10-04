@@ -79,6 +79,7 @@ const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
+const beach = require('./beach');
 const checkup = require('./checkup');
 const flaky = require('./flaky');
 const weekly = require('./weekly');
@@ -2069,6 +2070,23 @@ function stickersView() {
     waiting: Object.entries(quiet).filter(([key]) => !roots.has(key.toLowerCase()))
       .sort((a, b) => b[1].lastSeen - a[1].lastSeen).slice(0, 12).map(([key, p]) => ({ key, name: p.name })),
   };
+}
+
+/** The beach: a castle per project shipped, the tide, his finds (beach.js). Raises the high-water mark as it goes. */
+function beachView() {
+  const now = Date.now();
+  const streakState = streaks.normalize(config.get('streaks'));
+  const before = beach.normalize(config.get('beach'));
+  const state = beach.observe(before, streaks.streakOf(streakState, now).longest);
+  if (state.highWater !== before.highWater) config.set({ beach: state });
+  return beach.view({ stickerState: stickerState(), streakState, findState: gifts.normalize(config.get('finds')), state, now });
+}
+
+/** You've looked at the beach: what's on it now stops rising up as new. */
+function beachSeen() {
+  const v = beachView();
+  config.set({ beach: beach.markSeen(config.get('beach'), v.castles, Date.now()) });
+  return beachView();
 }
 
 // What the Projects page shows about each project, from where each part
@@ -6105,6 +6123,9 @@ ${r.detail}` });
   const stickerId = id => (isStr(id) && /^[0-9a-f]{12}$/.test(id) ? id : null);
   const slotOf = n => (Number.isInteger(n) && n >= 0 && n < 64 ? n : null);
   ipcMain.handle('stickers:get', () => stickersView());
+  // ---- the beach (beach.js): read-only, built from stickers, streaks and finds
+  ipcMain.handle('beach:get', () => beachView());
+  ipcMain.handle('beach:seen', () => beachSeen());
   ipcMain.handle('stickers:place', (_e, { id, slot, shell } = {}) => {
     if (!stickerId(id) || slotOf(slot) === null) return { ok: false, error: 'That sticker or spot is not there.', view: stickersView() };
     return editStickers(shell, (s, sh, _n, now) => stickers.place(s, sh, id, slot, now));
@@ -6347,7 +6368,7 @@ ${r.detail}` });
       const dir = path.join(isolated ? app.getPath('userData') : app.getPath('pictures'), 'Shellby');
       fs.mkdirSync(dir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-      lastCard = path.join(dir, `shellby-${kind === 'week' ? 'week' : 'card'}-${stamp}.png`);
+      lastCard = path.join(dir, `shellby-${kind === 'week' || kind === 'beach' ? kind : 'card'}-${stamp}.png`);
       fs.writeFileSync(lastCard, card.buf);
     } catch (e) {
       log.warn("couldn't save a crab card", e?.message);

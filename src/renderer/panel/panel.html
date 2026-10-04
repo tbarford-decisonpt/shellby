@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="needs.css">
+<link rel="stylesheet" href="beach.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -157,24 +158,24 @@
       <button type="button" class="btn ghost slim-btn" id="rescanBtn" title="Scan again">Rescan</button>
       <button type="button" class="btn primary slim-btn" id="shopBtn" title="Browse and install skills from Claude Code plugin marketplaces">Get more</button>
     </div>
-    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers, plus the hooks and memory files that shape every session, and the prompts you've saved as snippets. When Shellby builds itself a new tool, it shows up here with a <span class="new-pill">new</span> tag.</p>
-    <div class="learned" id="learnedBox" hidden></div>
+    <p class="view-lede">What Claude Code can use, and the setup behind every conversation. Anything Shellby builds for itself comes first, tagged <span class="new-pill">new</span>.</p>
     <div class="toolbox-controls">
-      <div class="seg" id="toolTabs" role="tablist" aria-label="Kind" data-roving>
-        <span class="seg-label" aria-hidden="true">Tools</span>
-        <button type="button" role="tab" data-kind="skill" aria-selected="true">Skills <span class="n"></span></button>
+      <div class="seg tool-groups" id="toolGroups" role="tablist" aria-label="Section" data-roving>
+        <button type="button" role="tab" data-group="tools" aria-selected="true">Tools</button>
+        <button type="button" role="tab" data-group="setup" title="Hooks, permission rules and memory files">Setup</button>
+        <button type="button" role="tab" data-group="lean" title="What every conversation carries before your first word, and what sits idle">Lean <span class="n"></span></button>
+        <button type="button" role="tab" data-group="team" title="This repo's team pack: .shellby/team.json">Team <span class="n"></span></button>
+      </div>
+      <div class="kind-chips" id="toolTabs" role="tablist" aria-label="Kind" data-roving>
+        <button type="button" role="tab" data-kind="tool" aria-selected="true">All <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="skill">Skills <span class="n"></span></button>
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
-        <span class="seg-label" aria-hidden="true">More</span>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
         <button type="button" role="tab" data-kind="snippet" title="Saved prompts: /name here, shellby do @name in a terminal">Snippets <span class="n"></span></button>
-        <button type="button" role="tab" data-kind="lean" title="What every conversation carries before your first word, and what sits idle">Lean <span class="n"></span></button>
-        <span class="seg-label" aria-hidden="true">Setup</span>
-        <button type="button" role="tab" data-kind="hook">Hooks <span class="n"></span></button>
-        <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny">Rules <span class="n"></span></button>
-        <button type="button" role="tab" data-kind="memory">Memory <span class="n"></span></button>
-        <span class="seg-label" aria-hidden="true">Share</span>
-        <button type="button" role="tab" data-kind="team" title="This repo's team pack: .shellby/team.json">Team <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="hook" hidden>Hooks <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny" hidden>Rules <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="memory" hidden>Memory <span class="n"></span></button>
       </div>
       <div class="tool-find">
         <input type="search" id="toolSearch" class="field" placeholder="Search skills…" aria-label="Search skills">
@@ -506,6 +507,7 @@
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
       <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
@@ -573,6 +575,7 @@
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Make a shareable picture of your Shellby" aria-label="Make a shareable picture of your Shellby">📸</button>
     </div>
@@ -658,6 +661,7 @@
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
@@ -707,6 +711,7 @@
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
         <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
     </div>
     <section class="fd-hero" aria-label="The shelf">
@@ -736,6 +741,7 @@
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
     </div>
     <!-- The diorama is static markup: together.js patches it, so his breathing and the waves don't restart on every update. -->
@@ -819,6 +825,47 @@
     <section class="us-sec" aria-labelledby="usStoryTitle">
       <div class="us-h"><h3 id="usStoryTitle">Our story</h3><span class="us-h-meta">Every so often he brings one up</span></div>
       <ol class="us-story" id="usStory"></ol>
+    </section>
+  </main>
+
+  <!-- ====================== BEACH: a scene that only grows (beach.js, beach-paint.js, src/main/beach.js) ====================== -->
+  <main class="view view-beach" id="beachView">
+    <div class="view-head">
+      <h2 class="sr-only">Your beach</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" aria-current="page" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="bc-hero" aria-labelledby="bcTitle">
+      <div class="bc-stage" id="bcStage" data-time="night">
+        <canvas class="bc-canvas" id="bcCanvas" role="img" aria-label="Your beach"></canvas>
+        <div class="bc-hits" id="bcHits" role="group" aria-label="On the beach"></div>
+        <div class="bc-title">
+          <h3 id="bcTitle">Your beach</h3>
+          <p class="bc-sub" id="bcSub"></p>
+        </div>
+        <div class="bc-empty" id="bcEmpty" hidden>
+          <b>His first castle goes here</b>
+          <span>Ship a project and he builds it. A push, a deploy, a release or a merged PR all count.</span>
+        </div>
+      </div>
+      <canvas class="bc-map" id="bcMap" hidden aria-hidden="true" title="The whole beach: click or drag to look along it"></canvas>
+      <div class="bc-tools">
+        <button type="button" class="btn primary slim-btn" id="bcShare">Share a snapshot</button>
+        <span class="bc-hint muted small" id="bcHint" hidden>Drag the beach, or tab through it, to look along.</span>
+      </div>
+      <p class="sr-only" id="bcLive" aria-live="polite"></p>
+    </section>
+    <section class="bc-detail" id="bcDetail" hidden aria-live="polite"></section>
+    <section class="us-sec" aria-labelledby="bcKeyTitle">
+      <div class="us-h"><h3 id="bcKeyTitle">How it grows</h3><span class="us-h-meta">Nothing on it ever washes away</span></div>
+      <ul class="bc-key" id="bcKey"></ul>
     </section>
   </main>
 
@@ -1604,6 +1651,8 @@
 <script src="needs.js"></script>
 <script src="health.js"></script>
 <script src="card.js"></script>
+<script src="beach-paint.js"></script>
+<script src="beach.js"></script>
 <script src="celebrate.js"></script>
 <script src="recap.js"></script>
 <script src="outlook.js"></script>

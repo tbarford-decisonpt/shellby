@@ -62,6 +62,7 @@ const DEFAULTS = {
   spendMaxMinutes: 60, // the longest one routine run may take
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
+  beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)

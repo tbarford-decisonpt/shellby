@@ -77,7 +77,8 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 
 /* ================================================================ Shellby screen tabs */
 .view-head .shellby-tabs { flex: 1; min-width: 0; }
-.shellby-tabs button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Six tabs share the width by their words, so a short "Us" doesn't crowd out "Stickers". */
+.shellby-tabs button { flex: 1 1 auto; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ================================================================ Settings tabs */
 /* The tabs stay pinned while a tab scrolls, so the fade-under-the-header mask is

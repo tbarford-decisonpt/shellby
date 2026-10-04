@@ -276,6 +276,39 @@ function demoWeek(now, xp) {
   };
 }
 
+// ---------------------------------------------------------------- The beach
+// config 'stickers', 'streaks' and 'beach': a year and a half of shipping, so
+// the beach is wider than the panel, a streak on and a better one behind it,
+// and a few projects still being worked on (plots). Finds come from demoLife.
+function demoBeach(now) {
+  const list = [
+    ['dotfiles', 3, [], 540], ['kelp-cli', 1, ['moon'], 470], ['shellby', 52, ['live', 'release', 'v1', 'merged'], 410],
+    ['tidepool', 2, [], 380], ['3d-rack', 17, ['live', 'merged', 'green'], 330], ['rack-builder', 6, ['release'], 290],
+    ['reef-notes', 9, ['merged'], 240], ['barnacle', 1, [], 205], ['lighthouse', 24, ['live', 'release'], 170],
+    ['sea-glass', 4, [], 130], ['undertow', 41, ['live', 'release', 'v1'], 95], ['driftwood', 5, ['merged'], 60],
+    ['salt-api', 2, ['live'], 26], ['pier-ui', 1, [], 4],
+  ];
+  const projects = {};
+  list.forEach(([name, ships, marks, firstAgo], i) => {
+    const id = `bea${String(i).padStart(9, '0')}`;
+    projects[id] = {
+      name, ships, marks, lang: null, root: path.win32.join(HOME, 'code', name),
+      firstShipAt: now - firstAgo * DAY, lastShipAt: now - Math.max(0, firstAgo - 30) * DAY,
+      deploys: marks.includes('live') ? Math.ceil(ships / 4) : 0, releases: marks.includes('release') ? Math.ceil(ships / 8) : 0,
+      merges: marks.includes('merged') ? Math.ceil(ships / 3) : 0, lastVersion: marks.includes('v1') ? '1.4.0' : null,
+    };
+  });
+  const key = ago => { const d = new Date(now); d.setDate(d.getDate() - ago); return weekly.dayKey(d.getTime()); };
+  const days = [...Array.from({ length: 9 }, (_, i) => i), ...Array.from({ length: 34 }, (_, i) => 40 + i)].map(key);
+  const plot = (name, ago) => [path.win32.join(HOME, 'code', name).toLowerCase(), { name, lastSeen: now - ago * DAY, lastCommitAt: null, lastNudgeAt: null, muted: false }];
+  return {
+    stickers: { projects, layouts: { home: [] }, card: 'art', unseen: [] },
+    streaks: { days, projects: Object.fromEntries([plot('moon-jelly', 0), plot('rockpool', 2), plot('crab-mail', 6)]), nudges: false },
+    // Seen just now: the README shot shows it built, not rising.
+    beach: { seenAt: now + 1, tiers: {}, highWater: 0 },
+  };
+}
+
 // ---------------------------------------------------------------- Lean
 // What lean:report returns (lean.js buildReport). Keep token counts under a
 // million: SB.compact has no M suffix.
@@ -317,4 +350,4 @@ function demoLean(now) {
   };
 }
 
-module.exports = { demoProjects, demoTime, demoLife, demoWeek, demoLean };
+module.exports = { demoProjects, demoTime, demoLife, demoWeek, demoBeach, demoLean };

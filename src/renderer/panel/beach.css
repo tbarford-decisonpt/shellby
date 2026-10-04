@@ -1,0 +1,105 @@
+/* Shellby — the Beach tab (beach.js). The scene is one canvas, painted in art
+   pixels; this file is the frame around it, the buttons laid over it, and the
+   words under it. The frame stays still so the beach can be the lively part. */
+
+body[data-view="beach"] .view-beach { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-beach {
+  --us-faint: #968d7b;
+  font-variant-ligatures: no-common-ligatures; /* Pixelify's "fi" reads as "A" */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.shellby-tabs .bc-badge { top: 3px; right: 4px; }
+
+/* ---------------------------------------------------------------- the scene */
+.bc-stage {
+  position: relative; height: 300px; overflow: hidden; isolation: isolate; touch-action: pan-y;
+  border-radius: var(--r-lg); border: 1px solid var(--line); background: #050d17;
+  cursor: grab; user-select: none;
+}
+.bc-stage.dragging { cursor: grabbing; }
+.bc-canvas { display: block; width: 100%; image-rendering: pixelated; }
+.bc-stage::after { /* a little depth at the edges, over the scene but under the words */
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;
+  box-shadow: inset 0 46px 46px -40px rgba(0, 0, 0, .5), inset 0 -22px 30px -28px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .03);
+}
+
+.bc-title { position: absolute; left: 16px; top: 13px; right: 16px; z-index: 3; pointer-events: none; text-shadow: 0 1px 0 rgba(0, 0, 0, .55); }
+.bc-title h3 { margin: 0; font: 600 24px/1.15 var(--font-pixel); letter-spacing: .01em; color: var(--sand); }
+.bc-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--sand); opacity: .88; }
+
+/* What you can point at: invisible until hovered, focused or picked. */
+.bc-hits { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; will-change: transform; }
+.bc-hit {
+  position: absolute; padding: 0; border: 0; border-radius: 3px; background: none; cursor: pointer;
+  outline: 2px solid transparent; outline-offset: 0; transition: outline-color .12s;
+}
+.bc-hit:hover { outline-color: rgba(243, 230, 204, .35); }
+.bc-hit:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.bc-hit.on { outline: 2px solid var(--sand); outline-offset: 1px; }
+.bc-hit-crab:hover { outline-color: transparent; }
+.bc-stage.dragging .bc-hit { cursor: grabbing; }
+.bc-tag { /* the name over whatever you're pointing at */
+  position: absolute; z-index: 4; translate: -50% calc(-100% - 6px); padding: 2px 7px; pointer-events: none; white-space: nowrap;
+  font: 600 11.5px var(--font-body); color: var(--sand); background: rgba(6, 19, 22, .88);
+  border: 1px solid var(--line); border-radius: 6px;
+}
+
+.bc-empty { /* under the title, clear of him and the stake where the first castle goes */
+  position: absolute; left: 16px; top: 76px; z-index: 3; width: min(290px, calc(62% - 16px));
+  display: grid; gap: 2px; padding: 9px 13px; pointer-events: none;
+  background: rgba(6, 19, 22, .78); border: 1px solid var(--line); border-radius: var(--r);
+}
+.bc-empty b { font: 600 15px var(--font-pixel); color: var(--sand); }
+.bc-empty span { font-size: 12px; color: var(--sand-dim); }
+
+/* The whole beach, small: where you're looking is the bright bit. */
+.bc-map { display: block; width: 100%; margin-top: 6px; border-radius: 6px; border: 1px solid var(--line-soft); cursor: pointer; touch-action: none; }
+
+.bc-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; }
+
+/* ---------------------------------------------------------------- one thing, up close */
+.bc-detail {
+  position: relative; display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: center;
+  margin-top: 12px; padding: 14px; border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, rgba(233, 216, 166, .07), transparent 60%), var(--reef);
+  animation: rise .25s var(--ease-out);
+}
+.bc-detail-stage {
+  display: grid; place-items: end center; width: 112px; height: 112px; padding-bottom: 10px; border-radius: var(--r);
+  background: linear-gradient(#0b1d2a, #142c3d 62%, #3f4b50 62%);
+}
+.bc-detail-stage[data-time="dawn"] { background: linear-gradient(#191a36, #7a4d62 62%, #a38a6b 62%); }
+.bc-detail-stage[data-time="day"] { background: linear-gradient(#0e3550, #3f8ea2 62%, #d8c38e 62%); }
+.bc-detail-stage[data-time="dusk"] { background: linear-gradient(#1b1530, #8c4b52 62%, #9e7b61 62%); }
+.bc-detail-art { display: block; max-width: 96px; max-height: 92px; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
+.bc-detail-info { min-width: 0; display: grid; gap: 3px; padding-right: 18px; }
+.bc-detail-info h3 { margin: 0; font: 600 18px var(--font-pixel); overflow-wrap: anywhere; }
+.bc-detail-info p { margin: 0; font-size: 12.5px; color: var(--sand-dim); }
+.bc-detail-info .bc-detail-kind { font-size: 12px; color: var(--glass); }
+.bc-detail-info .bc-detail-kind.rarity-common { color: var(--sand-faint); }
+.bc-detail-info .bc-detail-kind[class*="rarity-"]:not(.rarity-common) { color: var(--rarity-ink); }
+.bc-detail-info .bc-detail-next { color: var(--sand); }
+.bc-marks { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 0; padding: 0; }
+.bc-marks li { padding: 1px 7px; font-size: 11.5px; color: var(--sand); background: var(--reef-2); border-radius: 999px; }
+.bc-detail-actions { margin-top: 8px; }
+.bc-detail-close { position: absolute; top: 8px; right: 8px; }
+
+/* ---------------------------------------------------------------- the key: each line is drawn from the scene itself */
+.bc-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.bc-key-item { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: start; }
+.bc-key-art { display: grid; place-items: center; width: 40px; height: 32px; border-radius: 8px; background: var(--reef); border: 1px solid var(--line-soft); }
+.bc-glyph { display: block; image-rendering: pixelated; max-width: 30px; }
+.bc-key-item b { display: block; font-size: 13px; color: var(--sand); }
+.bc-key-item p { margin: 1px 0 0; font-size: 12px; line-height: 1.45; color: var(--sand-dim); max-width: 60ch; }
+
+@media (max-width: 420px) {
+  .bc-detail { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .bc-detail-info { padding-right: 0; }
+  .bc-marks { justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bc-detail, body[data-view="beach"] .view-beach { animation: none; }
+  .bc-hit { transition: none; }
+}
