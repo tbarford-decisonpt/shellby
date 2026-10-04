@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.63.0: issues to pull requests, hooks made friendly, and a tidier crab
+
+### New
+- **From a GitHub issue to a draft pull request.** Turn on **Settings → GitHub → Offer to take on issues** and an issue assigned to you, or labelled `shellby`, starts any workflow with the new **Issue** trigger. The **Issue helper** template has a helper crab offer to take a crack at it. Say yes and Claude works on it in its own copy of the repository, on its own branch, runs the tests, commits, and opens a **draft** pull request that closes the issue. Public repos need only the sign-in; private ones and the pull request need **Let Claude tasks push** too.
+- **Workflows as a map.** Each workflow is drawn as nodes joined by wires in the order they run, with **If** steps splitting the path. Press a node to edit it. A past run is drawn the same way: each node coloured by how its step went, the path it took lit up, and every step's output a click away.
+- **Toolbox → Hooks, in plain words.** Every hook says what it does in a sentence. **Ready-made hooks** add one in a click: a chime when Claude finishes or needs you, blocking force-pushes and hard resets, keeping Claude out of `.env` files and keys, a log of the commands it runs, Prettier after edits, running the tests before it finishes, and more. **Test run** runs a hook once with a believable sample, the way Claude Code would, and says what Claude Code would make of the result. Shellby asks first.
+- **Secret scan before push.** Before anything leaves your PC, every push Shellby makes checks the commits it would send for API keys, tokens, private keys and files like `.env` or `id_rsa`. **Is it safe to leave?** flags secrets in work that hasn't gone out yet, and **Tidy up** tells Claude never to commit them.
+- **Voices.** Under **Wardrobe → Voice** he can talk like a Pirate Crab or a Grumpy Crab, speak Español, or use any voice from a community pack, each with little scenes of its own. **His own** switches back. Pack makers can find how to build one in [ADDONS.md](docs/ADDONS.md#voices).
+- **See and remove permission rules.** In **Toolbox → Rules**, each rule opens to show it in full and which file it's saved in, with **Show file** and **Remove rule**.
+
+### Fixed
+- **Claude Code cleans up after itself.** Closing a tab, finishing a routine or rewinding used to leave Claude Code's MCP servers, shells and helper programs running on Windows, sometimes dozens of them. Now everything a conversation starts is stopped when it ends. Your own apps that Claude opened (browsers, Explorer, VS Code, Terminal) stay open. A tab left quiet for 30 minutes also stops its background programs; it stays open, and your next message picks it up again.
+- **Toolbox → Lean no longer hangs on "Asking Claude Code…".** It answers within two minutes, keeps what it has measured so far, and doesn't wait for a full Skill Shop refresh.
+- **After "Restart and update"** Shellby comes back with the panel open, where you left it, instead of just the crab.
+
+### Docs
+- The README is shorter, and the full feature lists moved into their own pages under `docs/`, with fresh screenshots.
+
 ## 0.62.0: the weekly crab card
 
 ### New
