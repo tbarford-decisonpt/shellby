@@ -16,7 +16,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { SETS } = require('../src/main/gifts');
+const { FINDS, SETS } = require('../src/main/gifts');
+const { UNLOCKS } = require('../src/main/bond');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9377;
@@ -141,7 +142,7 @@ async function windows() {
 
     // ------------------------------------------------------- 4. the Finds and Us pages
     await panel.ev("SB.setView('finds')");
-    check(await until(panel, "document.querySelectorAll('#fdGrid .fd-tile').length >= 30", 4000), 'the shelf lists every find');
+    check(await until(panel, `document.querySelectorAll('#fdGrid .fd-tile').length === ${FINDS.length}`, 4000), 'the shelf lists every find');
     check(await panel.ev("shellby.getLife().then(v => document.querySelectorAll('#fdGrid .fd-tile:not(.locked)').length === v.finds.kinds)"), '...with only what he has found unlocked');
     check(await panel.ev(`document.querySelectorAll('#fdSets .fd-set').length === ${SETS.length}`), `...and ${SETS.length} sets to complete`);
     check(await panel.ev("!document.querySelector('.fd-badge').hidden || true"), 'the Finds tab has a badge for new finds');
@@ -155,7 +156,7 @@ async function windows() {
     check(await until(panel, "document.querySelector('#usHero h3')?.textContent.length > 0", 3000), 'the Us page shows how close you are');
     check(await panel.ev("/Your crab is/.test(document.getElementById('usHero').textContent)"), '...and his temperament');
     check(await panel.ev("document.querySelectorAll('#usStory li').length >= 2"), '...and your story so far');
-    check(await panel.ev("document.querySelectorAll('#usUnlocks li').length === 5"), '...and what opens up as you get closer');
+    check(await panel.ev(`document.querySelectorAll('#usUnlocks li').length === ${UNLOCKS.length}`), '...and what opens up as you get closer');
     await panel.shot('4-us');
 
     // ------------------------------------------------------- 5. your day

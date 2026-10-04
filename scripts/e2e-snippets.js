@@ -9,6 +9,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { STARTERS } = require('../src/main/snippets');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9353;
@@ -54,7 +55,7 @@ async function cli(body) {
 
     // 1. The Toolbox tab, with the starters.
     await ev("SB.showToolbox('snippet')");
-    check(await until("document.querySelectorAll('#toolList .snippet-row').length === 5"), 'Toolbox -> Snippets lists the five starters');
+    check(await until(`document.querySelectorAll('#toolList .snippet-row').length === ${STARTERS.length}`), 'Toolbox -> Snippets lists the starters');
     check(await ev("document.querySelector('#toolTabs [data-kind=\"snippet\"] .n').textContent") === '5', 'the tab counts them');
     check(/instead of the \/review command/.test(await ev("document.querySelector('#toolList .snippet-row .snip-note')?.textContent || ''")), "/review says it stands in for Claude Code's own");
 
@@ -68,7 +69,7 @@ async function cli(body) {
       f.requestSubmit();
     })()`);
     check(await until("SB.state.snippets.some(s => s.name === 'lint' && s.needsInput)"), 'the form saves "Lint" as /lint, needing input');
-    check(await until("document.querySelectorAll('#toolList .snippet-row').length === 6"), 'and it is listed');
+    check(await until(`document.querySelectorAll('#toolList .snippet-row').length === ${STARTERS.length + 1}`), 'and it is listed');
     // A clash is refused and said so in the form.
     await ev("[...document.querySelectorAll('#setupPane button')].find(b => b.textContent === 'New snippet').click()");
     await ev(`(() => {

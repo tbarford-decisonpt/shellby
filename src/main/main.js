@@ -31,8 +31,7 @@ const { attachContextMenu } = require('./context-menu');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
-const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog } = require('./registry');
-const { itemHash } = require('./wardrobe/codes');
+const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
 const { HealthService } = require('./health/service');
 const processJob = require('./process-job');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
@@ -110,6 +109,9 @@ const branch = require('./branch');
 const fileIndex = require('./fileindex');
 const { Projects } = require('./projects/service');
 const { registerProjectsIpc } = require('./projects/ipc');
+const { readRepo } = require('./projects/local');
+const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
+const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { DevServers } = require('./devservers/service');
 const devRunner = require('./devservers/runner');
 const devScripts = require('./devservers/scripts');
@@ -1719,7 +1721,11 @@ const flakyCommands = new Map();       // cmdKey -> the command as Claude ran it
 const MAX_FLAKY_COMMANDS = 100;
 
 const flakyOn = () => !CAPTURE && !!config && config.get('flakyTests') !== false && !config.get('crabOnly');
-const flakyView = () => flaky.flakyView(config.get('flaky'), Date.now());
+// issuable: filing it as a GitHub issue can work (the panel's button).
+const flakyView = () => {
+  const issuable = !!github?.can('claude');
+  return flaky.flakyView(config.get('flaky'), Date.now()).map(r => ({ ...r, issuable }));
+};
 
 /** The folder's git tree now, or null (not a repo, or slower than SNAPSHOT_WAIT_MS). */
 function snapshotWithin(dir) {
@@ -1806,6 +1812,7 @@ async function flakyAct(key, id, action) {
     send(panel, 'flaky', flakyView());
     return { ok: true };
   }
+  if (action === 'issue') return fileFlakyIssue(key, id, row);
   const act = Object.hasOwn(FLAKY_ACTIONS, action) ? FLAKY_ACTIONS[action] : null;
   if (!act) return { ok: false, error: 'Unknown action.' };
   const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
@@ -1820,6 +1827,56 @@ async function flakyAct(key, id, action) {
   send(panel, 'flaky', flakyView());
   showPanel({ focusInput: false, tabId: res.tabId });
   return res;
+}
+
+/**
+ * File a flaky test as a GitHub issue, labelled shellby and assigned to you,
+ * so the Issue helper workflow can offer to take it on (and anyone else on the
+ * repository can see it). Asks first: an issue can be public.
+ */
+async function fileFlakyIssue(key, id, row) {
+  if (row.issue) return { ok: true, ...row.issue, existing: true };
+  if (!github?.can('claude')) return { ok: false, error: 'Filing issues needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
+  const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
+  // Its origin on github.com, read from the folder itself (Projects may not list it).
+  const repo = root && isFolder(root) ? (await readRepo(root).catch(() => null))?.remote : null;
+  if (!repo) return { ok: false, error: "This project isn't on GitHub, so there's nowhere to file it." };
+  const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
+  const cmd = latest ? flakyCommands.get(latest) || null : null;
+  const draft = flaky.issueDraft(row, { cmd });
+  const gh = github.gh();
+  const info = await gh.get(`/repos/${repo}`).catch(() => null);
+  const response = await askOnce({
+    icon: '🐛',
+    title: `File an issue on ${repo}?`,
+    message: `“${draft.title}”, with what Shellby saw: the test's name, how often it flaked and how to go about fixing it.`,
+    // The one line that came from a terminal: shown as it will be posted, so a secret the redaction missed can be caught.
+    detail: (cmd ? `The command, as it will appear: ${flaky.redactCmd(cmd)}\n\n` : '')
+      + 'It\'s labelled shellby and assigned to you, so the Issue helper workflow can offer to take a crack at it.',
+    note: info?.private === false ? `${repo} is public: anyone can read the issue.` : 'Anyone who can see the repository can read the issue.',
+    buttons: [{ label: 'File it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+  });
+  if (response == null) return { ok: false, error: 'Another question from Shellby is open. Answer that one first.' };
+  if (response !== 0) return { ok: false, canceled: true };
+  // Filed while the question was open (a second click elsewhere): that one stands.
+  const filed = flaky.findTest(config.get('flaky'), key, id, Date.now())?.issue;
+  if (filed) return { ok: true, ...filed, existing: true };
+  let made;
+  try {
+    made = await gh.post(`/repos/${repo}/issues`, { ...draft, labels: ['shellby'], assignees: [github.view().login].filter(Boolean) });
+  } catch (e) {
+    log.warn('flaky issue', e.message);
+    return { ok: false, error: `GitHub didn't take it: ${e.message}` };
+  }
+  const next = flaky.setIssue(config.get('flaky'), key, id, { number: made?.number, url: made?.html_url }, Date.now());
+  const kept = next.projects[key]?.tests[id]?.issue;
+  if (!kept) {
+    log.warn('flaky issue', 'unexpected answer', JSON.stringify({ number: made?.number, url: made?.html_url }));
+    return { ok: false, error: "GitHub's answer didn't say which issue it made. Check the repository's issues before trying again." };
+  }
+  config.set({ flaky: next });
+  send(panel, 'flaky', flakyView());
+  return { ok: true, number: kept.number, url: kept.url };
 }
 
 // ================================================================ the week in review (weekly.js)
@@ -5040,67 +5097,16 @@ ${r.detail}` });
     },
   });
 
-  // ---- history
-  ipcMain.handle('session:list', () => history.list());
-  ipcMain.handle('session:open', (_e, id) => {
-    const entry = isStr(id) && history.get(id);
-    if (!entry) return null;
-    if (!manager.tabs.has(id)) {
-      try { openTab({ tabId: id, historyEntry: entry }); } catch (err) { return { error: err.message }; }
-    }
-    return { tabId: id, entry, items: history.load(id) };
-  });
-  // Deleting from History is a move to Recently deleted, not the end: the
-  // transcript stays until it's restored, purged, or TRASH_DAYS pass.
-  ipcMain.handle('session:delete', (_e, id) => {
-    if (!isStr(id)) return history.list();
-    manager.close(id);
-    history.trash(id);
-    return history.list();
-  });
-  ipcMain.handle('session:trash', () => history.trashed());
-  // Answers with both lists: the row leaves one and lands in the other.
-  ipcMain.handle('session:restore', (_e, id) => {
-    if (isStr(id)) history.restore(id);
-    return { sessions: history.list(), trash: history.trashed() };
-  });
-  // One id, or none for Empty bin.
-  ipcMain.handle('session:purge', (_e, id) => {
-    history.purge(isStr(id) ? [id] : null);
-    return history.trashed();
-  });
-  // Clear all history. There's no undo after this, so it asks first, with
-  // Cancel as the default, the way signing out with tasks running does.
-  ipcMain.handle('session:clear', async () => {
-    const count = history.list().length + history.trashed().length;
-    const answer = (cleared) => ({ cleared, sessions: history.list(), trash: history.trashed() });
-    if (!count) return answer(false);
-    const open = history.list().filter(e => manager.tabs.has(e.id));
-    const r = await dialog.showMessageBox(panel, {
-      type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
-      message: `Are you sure? This deletes ${count === 1 ? 'your one conversation' : `all ${count} conversations`} for good.`,
-      detail: 'Recently deleted is emptied too, and nothing can be brought back.'
-        + (open.length ? ` ${open.length === 1 ? 'The open conversation closes' : `The ${open.length} open conversations close`}, stopping anything still running.` : ''),
-    });
-    if (r.response !== 0) return answer(false);
-    for (const e of open) manager.close(e.id);
-    const gone = history.clear();
-    log.info('history cleared', `${gone} conversation${gone === 1 ? '' : 's'}`);
-    return answer(true);
-  });
-  // Both of these answer with the fresh list, so the renderer redraws History
-  // from one round trip instead of guessing what changed.
-  ipcMain.handle('session:done', (_e, { id, done } = {}) => {
-    if (isStr(id)) history.setDone(id, !!done);
-    return history.list();
-  });
-  // From the tab strip or a History row. An open tab goes through the manager so
-  // its strip, notifications and (if not yet sent anything) first save agree.
-  ipcMain.handle('session:rename', (_e, { id, title } = {}) => {
-    if (isStr(id) && isStr(title)) {
-      if (manager.tabs.has(id)) manager.rename(id, title); else history.rename(id, title);
-    }
-    return history.list();
+  // ---- history (ipc/history.js)
+  registerHistoryIpc(ipcMain, {
+    history, manager, openTab, log,
+    confirmClear: async (count, openCount) => {
+      const r = await dialog.showMessageBox(panel, {
+        type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+        ...clearQuestion(count, openCount),
+      });
+      return r.response === 0;
+    },
   });
 
   // ---- settings
@@ -5215,76 +5221,19 @@ ${r.detail}` });
     return r.canceled ? null : r.filePaths[0] || null;
   });
 
-  // ---- skins
-  ipcMain.handle('skins:reload', () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); });
-
-  // ---- wardrobe
-  ipcMain.handle('wardrobe:view', () => wardrobe.view());
-  ipcMain.handle('external:clear-background', () => { external?.clearBackground(); return externalView(); });
-  ipcMain.handle('wardrobe:set-outfit', (_e, patch) => ({ ...wardrobe.setOutfit(patch && typeof patch === 'object' ? patch : {}), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:wear-season', () => ({ ...wardrobe.wearSeason(), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:randomize', () => ({ ...wardrobe.randomize(), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:set-voice', (_e, key) => {
-    const r = wardrobe.setVoice(isStr(key) ? key : null);
-    // His don't-repeat memory points into the old voice's lines: start it afresh.
-    if (r.ok) config.set({ voice: { ...voice.normalize(config.get('voice')), recent: {} } });
-    return { ...r, view: wardrobe.view() };
-  });
-  ipcMain.handle('wardrobe:options', (_e, opts) => { wardrobe.setOptions(opts || {}); return wardrobe.view(); });
-  ipcMain.on('wardrobe:seen', (_e, keys) => { if (Array.isArray(keys)) wardrobe.markSeen(keys.filter(isStr)); });
-  ipcMain.handle('wardrobe:install', async (_e, filePath) => {
-    let file = isStr(filePath) ? filePath : null;
-    if (!file) {
+  // ---- skins, the wardrobe and outfit codes (ipc/wardrobe.js)
+  registerWardrobeIpc(ipcMain, {
+    wardrobe: () => wardrobe,
+    builtinSkins: () => skins.map(s => ({ id: s.id, name: s.name })),
+    allSkins, activeSkin, config, voice, confirmAndInstallPackText, installFromRegistry, registryUrl, broadcastSkin, userSkinsDir,
+    reloadSkins: () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); },
+    clearBackground: () => { external?.clearBackground(); return externalView(); },
+    pickPackFile: async () => {
       const r = await dialog.showOpenDialog(panel, { title: 'Install a Shellby wardrobe pack', filters: [{ name: 'Shellby pack', extensions: ['json'] }], properties: ['openFile'] });
-      if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
-      file = r.filePaths[0];
-    }
-    // Only .json files under the size cap, and never echo parse errors: V8's
-    // messages quote file contents, which would let a renderer peek at any file.
-    if (!/\.json$/i.test(file)) return { ok: false, errors: ['Packs are .json files.'] };
-    if (!attach.isLocalPath(file)) return { ok: false, errors: ['Packs install from a file on this PC.'] };
-    try { if (fs.statSync(file).size > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] }; } catch { return { ok: false, errors: ['File not found.'] }; }
-    let text;
-    try { text = fs.readFileSync(file, 'utf8'); } catch { return { ok: false, errors: ['File not found.'] }; }
-    const r = await confirmAndInstallPackText(text);
-    return { ...r, view: wardrobe.view() };
+      return r.canceled ? null : r.filePaths[0] || null;
+    },
+    openPath: p => shell.openPath(p),
   });
-  ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) wardrobe.remove(packId); return wardrobe.view(); });
-
-  // ---- outfit codes (SHB-XXXX-XXXX): a whole look as a pasteable string
-  const builtinSkins = () => skins.map(s => ({ id: s.id, name: s.name }));
-  ipcMain.handle('wardrobe:code', () => ({ code: wardrobe.outfitCode(activeSkin()?.id) }));
-  ipcMain.handle('wardrobe:code-preview', async (_e, text) => {
-    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
-    const p = wardrobe.previewCode(text, builtinSkins());
-    if (!p.ok || !p.missing.length) return { ...p, packs: [] };
-    // Items from community packs you don't have: find them in the gallery's catalog.
-    const cat = await fetchRegistryCatalog({ baseUrl: registryUrl() });
-    const packs = new Map();
-    const unknown = [];
-    for (const m of p.missing) {
-      const hit = cat.ok && cat.items.find(it => it.slot === m.slot && itemHash(it.key) === m.hash);
-      if (!hit) { unknown.push(m); continue; }
-      const entry = packs.get(hit.packId) || { id: hit.packId, name: hit.packName, items: [] };
-      entry.items.push({ slot: m.slot, name: hit.name });
-      packs.set(hit.packId, entry);
-    }
-    return { ...p, packs: [...packs.values()], unknown, catalogError: cat.ok ? null : cat.errors[0] };
-  });
-  ipcMain.handle('wardrobe:code-wear', (_e, text) => {
-    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
-    const r = wardrobe.wearCode(text, builtinSkins());
-    if (!r.ok) return r;
-    if (r.skin && r.skin !== config.get('skin')) {
-      const sk = allSkins().find(x => x.id === r.skin);
-      if (sk && !sk.locked) { config.set({ skin: r.skin }); broadcastSkin(); }
-    }
-    return { ...r, view: wardrobe.view() };
-  });
-  // "Get the pack" from an outfit code: the same confirmed install as a gallery link.
-  ipcMain.handle('wardrobe:install-registry', (_e, packId) => (isStr(packId) && /^[a-z0-9][a-z0-9-]{1,39}$/.test(packId) ? installFromRegistry(packId) : { ok: false }));
-  ipcMain.on('wardrobe:open-folder', () => { fs.mkdirSync(wardrobe.userDir, { recursive: true }); shell.openPath(wardrobe.userDir); });
-  ipcMain.on('skins:open-folder', () => shell.openPath(userSkinsDir()));
 
   // ---- toolbox
   ipcMain.handle('toolbox:get', () => toolbox.current);
