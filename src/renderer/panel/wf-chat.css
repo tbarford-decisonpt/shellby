@@ -30,7 +30,12 @@
 }
 .wf-chat-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
 .wf-chat-head .wf-h3 { margin: 0; white-space: nowrap; color: var(--coral); }
-.wf-chat-tests { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--sand-dim); cursor: pointer; }
+/* The panel's own switch (.toggle/.switch in panel.css), a size down to sit beside the heading. */
+.wf-chat-tests { display: inline-flex; gap: 6px; padding: 0; font-size: 11.5px; color: var(--sand-dim); }
+.wf-chat-tests:hover { color: var(--sand); }
+.wf-chat-tests .switch { width: 26px; height: 15px; }
+.wf-chat-tests .switch::after { top: 2px; left: 2px; width: 11px; height: 11px; }
+.wf-chat-tests input:checked + .switch::after { transform: translateX(11px); }
 
 .wf-chat-log {
   list-style: none; margin: 0; padding: 0; min-height: 48px; max-height: 260px; overflow-y: auto;
