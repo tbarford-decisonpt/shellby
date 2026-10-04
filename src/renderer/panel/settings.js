@@ -87,6 +87,7 @@
     renderBillingGuard();
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    $('needsToggle').checked = state.settings.needsOn !== false;
     $('crashReportsRow').hidden = !state.settings.crashReportsAvailable;
     $('crashReportsSelect').value = ['ask', 'always', 'never'].includes(state.settings.crashReports) ? state.settings.crashReports : 'ask';
     // His temperament, picked once from your install and kept (src/main/voice.js).
@@ -226,6 +227,12 @@
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
   $('crashReportsSelect').addEventListener('change', async e => { const r = await api.setSettings({ crashReports: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
+  // His needs (src/main/needs.js). Back on, he comes back full; the Us page follows.
+  $('needsToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ needsOn: e.target.checked });
+    state.settings = r.settings;
+    api.getLife().then(v => SB.applyLife?.(v));
+  });
   // Turning it on starts Windows' recognizer first, which can take a second or two.
   $('pushToTalkToggle').addEventListener('change', async e => {
     const box = e.target;

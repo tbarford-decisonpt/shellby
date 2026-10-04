@@ -60,8 +60,12 @@ function check(cond, what) {
   console.log(`  ✓ ${what}`);
 }
 
+// Every app this run started, so a failure part-way still closes them all.
+const apps = [];
+
 async function launch(profile) {
   const app = spawn(electron, [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: profile } });
+  apps.push(app);
   const panel = await cdp((await target('panel.html')).webSocketDebuggerUrl, process.env.E2E_SHOTS || profile);
   const until = async (expr, what, ms = 20000) => {
     const end = Date.now() + ms;
@@ -72,11 +76,23 @@ async function launch(profile) {
   return { app, panel, until };
 }
 
+// Close an app and wait until it has really gone: a new one started while the
+// old still holds Shellby's one-at-a-time lock just quits without a window.
+async function quit(app, ms = 20000) {
+  if (app.exitCode !== null || app.signalCode !== null) return;
+  const gone = new Promise(r => app.once('exit', r));
+  app.kill();
+  await Promise.race([gone, wait(ms)]);
+  const end = Date.now() + ms;
+  while (Date.now() < end && (await list()).length) await wait(250); // its debugging port too
+}
+
 (async () => {
   const profile = process.env.SHELLBY_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
-  let run = await launch(profile);
   let ok = false;
+  let run = null;
   try {
+    run = await launch(profile);
     const { panel, until } = run;
     await panel.ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; })");
 
@@ -175,8 +191,8 @@ async function launch(profile) {
     await panel.shot('tank-4-health');
 
     console.log('after a restart');
-    run.app.kill();
-    await wait(2500);
+    run.panel.close();
+    await quit(run.app);
     run = await launch(profile);
     await run.panel.ev("SB.setView('tank')");
     await run.until("!!SB.tankView() && SB.tankView().count === 6", 'the tank after a restart');
@@ -188,9 +204,9 @@ async function launch(profile) {
     console.log(`\nPASS  (screenshots in ${process.env.E2E_SHOTS || profile})`);
   } catch (e) {
     console.error('\nFAIL:', e.message);
-    try { await run.panel.shot('tank-fail'); } catch { /* the window may be gone */ }
+    try { await run?.panel.shot('tank-fail'); } catch { /* the window may be gone */ }
   } finally {
-    run.app.kill();
-    process.exitCode = ok ? 0 : 1;
+    for (const app of apps) await quit(app, 5000);
+    process.exit(ok ? 0 : 1); // open sockets mustn't keep a finished run alive
   }
 })();
