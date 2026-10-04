@@ -1168,6 +1168,26 @@
         <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
         <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
         <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
+        <label class="toggle"><input type="checkbox" id="spendGuardToggle"><span class="switch"></span>Stop routines and workflows before they use up my 5-hour limit</label>
+        <div class="row wrap" id="spendGuardOptions">
+          <label class="inline-label" for="spendReserveSelect">Keep for me
+            <select id="spendReserveSelect" class="field slim">
+              <option value="10">10%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+            </select>
+          </label>
+          <label class="inline-label" for="spendMaxSelect">Stop a routine after
+            <select id="spendMaxSelect" class="field slim">
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="240">4 hours</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
         <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
         <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>

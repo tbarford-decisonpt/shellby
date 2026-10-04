@@ -56,6 +56,7 @@ const spend = require('./spend');
 const recap = require('./recap');
 const leaving = require('./leaving');
 const forecast = require('./forecast');
+const guard = require('./guard');
 const held = require('./held');
 const ctx = require('./context');
 const { CritterMotion } = require('./motion');
@@ -890,6 +891,7 @@ function createManager() {
     getOutputStyle: () => outputStyles.clean(config.get('outputStyle')),
     getEnv: () => github?.claudeEnv() || {},
     prepareTurn: async tab => {
+      armGuard(tab);
       tab.lastReply = null;
       // Only the summary turn itself may start a conversation fresh (tab:fresh
       // sets it after this runs): a summary turn that died without a result
@@ -913,6 +915,7 @@ function createManager() {
       send(panel, 'usage', item);
       onUsage(item);
       refreshOutlook();
+      checkGuards();
       return;
     }
     if (item.kind === 'init') {
@@ -1781,6 +1784,7 @@ function onPermission(tabId, item, tab) {
 
 function onResult(tabId, item, tab) {
   endTurn(tabId);
+  tab.guardRun = null;
   const fresh = tab.freshWanted;
   tab.freshWanted = false;
   if (tab.copyWanted) {
@@ -3217,17 +3221,76 @@ function reopenForHeld(h) {
 }
 
 // A scheduled routine that comes due while you're at your limit would only
-// fail: it waits for the reset instead, and says so the first time.
+// fail, and one past the spending guard's ceiling would eat the share you kept
+// for yourself: either way it waits for the reset, and says so the first time.
 function runOrHoldRoutine(r, reason) {
   const w = limitWait();
-  if (!w) return runRoutine(r, { reason });
+  const usage = config.get('lastUsage');
+  const saving = !w && guard.holdBeforeStart(guardSettings(), usage, Date.now());
+  if (!w && !saving) return runRoutine(r, { reason });
   const res = holdForReset({ kind: 'routine', routineId: r.id, name: r.name, auto: true });
   if (!res.ok) return { ok: false, skipped: true, error: res.error };
   if (res.added) {
-    log.info('Routine held for the reset', r.name);
-    notify(`Routine "${r.name}" will run after the reset`, `You're at your ${limits.windowName(w.window)} limit. It runs at ${res.atText}.`, () => showPanel({ focusInput: false }));
+    log.info('Routine held for the reset', `${r.name}${saving ? ' (spending guard)' : ''}`);
+    const why = w ? `You're at your ${limits.windowName(w.window)} limit.`
+      : `Your 5-hour window is at ${usage.fiveHour.pct}%, and you asked to keep ${guardSettings().reserve}% for yourself.`;
+    notify(`Routine "${r.name}" will run after the reset`, `${why} It runs at ${res.atText}.`, () => showPanel({ focusInput: false }));
   }
   return { ok: true, held: true };
+}
+
+// ---- the spending guard (guard.js): unattended runs stop before they eat
+// the share of the 5-hour window you keep for yourself, and a routine that
+// runs far too long stops too.
+const GUARD_TICK_MS = 30 * 1000;
+const guardSettings = () => guard.settingsOf(k => config.get(k));
+
+// Each turn as it starts: what kind of unattended run it is, by who sent it
+// (sessions.js turnFrom). What you type yourself, even in a routine's or a
+// workflow's tab, is yours. A run you started by hand (Run now, a manual
+// workflow run) is never stopped on the ceiling: only a routine's time cap
+// still applies to it.
+function armGuard(tab) {
+  const { routine, workflow } = tab.turnFrom || {};
+  const kind = routine ? 'routine' : workflow ? 'workflow' : null;
+  const byHand = routine ? routine.reason === 'manual' : !!workflow && workflows?.originOf(workflow.runId) === 'manual';
+  tab.guardRun = { kind, startedAt: Date.now(), exempt: byHand, stopped: null };
+}
+
+function idleForGuard() {
+  try {
+    return powerMonitor.getSystemIdleState(60) === 'locked' ? Infinity : powerMonitor.getSystemIdleTime() * 1000;
+  } catch { return 0; }
+}
+
+// On each usage reading and every half minute: stop any run the guard says
+// should stop. Autonomous is read off the tab now, not when the turn started,
+// so switching into it mid-turn counts.
+function checkGuards() {
+  if (!manager || !config) return;
+  const settings = guardSettings();
+  if (!settings.on) return;
+  const now = Date.now();
+  const usage = config.get('lastUsage');
+  let idleMs = null;
+  for (const [tabId, tab] of manager.tabs) {
+    const run = tab.guardRun;
+    if (!run || run.stopped || !manager.isBusy(tabId)) continue;
+    const kind = run.kind || (tab.session.mode === 'autonomous' ? 'autonomous' : null);
+    if (!kind) continue;
+    if (kind === 'autonomous' && idleMs === null) idleMs = idleForGuard();
+    const v = guard.verdict({ ...run, kind }, settings, { usage, now, idleMs: idleMs ?? 0 });
+    if (!v) continue;
+    run.stopped = v;
+    log.info('Spending guard stopped a run', `${tab.title}: ${v.reason}${v.pct ? ` at ${v.pct}%` : ''}`);
+    manager.interrupt(tabId);
+    const m = guard.message(v, tab.title, settings, clockTime);
+    notify(m.title, m.body, () => showPanel({ tabId }), { tone: 'problem' });
+  }
+}
+
+function watchGuards() {
+  setInterval(checkGuards, GUARD_TICK_MS).unref?.();
 }
 
 // ================================================================ focus sessions
@@ -4484,7 +4547,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -4524,7 +4587,9 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
+    if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
+    if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -5674,6 +5739,7 @@ app.whenReady().then(() => {
   // Timers don't run while the PC sleeps: catch up on wake.
   powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); if (scheduler) scheduleHeld(); });
   watchOutlook();
+  watchGuards();
   setTimeout(checkNudges, 60 * 1000);
   try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
   setInterval(checkNudges, 60 * 60 * 1000);

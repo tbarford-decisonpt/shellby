@@ -119,6 +119,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
 - **Usage limit reached?** He naps with a countdown to the reset, then wakes up and taps you the moment your 5-hour or weekly limit resets, even if your PC was asleep.
 - **Heading for it?** When your pace says you'll fill the 5-hour window before it resets, he says when: *at this pace you'll hit your 5-hour limit around 3:40 PM. It resets at 4:15 PM.* Hold a message (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>), your queue or a routine for after the reset, and it goes by itself, even after a restart. Routines that come due while you're at the limit wait for the reset instead of failing.
+- **Spending guard.** Routines and workflows stop before they use the share of your 5-hour window you keep for yourself (25% unless you change it), and a routine that runs longer than an hour stops too. A routine due past that point waits for the reset. Autonomous tabs stop the same way, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back. **Settings → General**.
 
 </details>
 
