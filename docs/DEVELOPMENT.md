@@ -24,6 +24,7 @@ npm start
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
 | `node scripts/e2e-shop.js` | The Skill Shop against your real Claude Code, read-only: plugin list, search and filters, then Install is cancelled in the confirm window, so nothing is installed |
+| `node scripts/e2e-lean.js` | Lean Shell: with the fake CLI, the prompt-cache dot on the context chip (warm, then cold) and the fresh-start XP; then Toolbox → Lean against your real Claude Code, read-only: plugins with their estimates, CLAUDE.md apart from path-scoped rules, and Turn off cancelled in the confirm window, so nothing is turned off |
 | `node scripts/e2e-registry.js` | One-click install from the live community registry: warm and cold, themed confirmation, every item previewed |
 | `node scripts/e2e-wardrobe.js` | Real task → first trophy unlocks → desktop celebration and the celebration card → wear the Party Hat from it (isolated profile) |
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |

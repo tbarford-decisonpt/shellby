@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.61.0: Lean Shell
+
+More out of your Claude plan, without asking Claude to do any less. Nothing here touches a prompt, the model, the effort level or what Claude reads and writes.
+
+### New
+- **What every conversation carries.** **Toolbox → Lean** says how many tokens a new conversation carries before your first word, measured from its first call: Claude Code's own prompt and tools, every plugin's skill and agent listings, and your CLAUDE.md files. It's sent with every message, and while the prompt cache is warm it costs a tenth, but it always takes room in the context window.
+- **Plugins, priced.** Each plugin shows what Claude Code itself estimates it adds to every conversation. A plugin or MCP server that hasn't been used in 21 days, in Shellby or in Claude Code in the terminal on this PC, is marked **idle**. **Turn off** keeps it installed, so **Turn on** brings it back any time, and Shellby asks first.
+- **Careful about "idle".** A skill Claude calls by its bare name counts for its plugin. Plugins that work without being called (hooks, output styles, a status line, language servers, programs) are never idle, and neither is anything added or turned back on in the last three weeks. Shellby only judges as far back as this PC's Claude Code history goes.
+- **CLAUDE.md and rules.** Your memory files are listed with their sizes, and rules that only load for matching files are kept apart from the ones every conversation carries. **Suggest a trim** puts a prompt in a new tab, unsent: Claude proposes a shorter version as a diff and says why each cut is safe, and nothing changes until you say so.
+- **The prompt cache.** A dot on the context chip says whether this conversation's cache is warm, cooling or cold, and its menu explains what that means: after a break, the next message re-reads the conversation at full price, once. The Lean tab shows how much of Claude's input came from the cache this week and last.
+- **XP for tidying.** Turning off a plugin or server that sat idle is worth XP, once for each one. So is starting a crowded conversation fresh with a summary (past 80% full), and there's a bounty for it. Nothing pays for cheaper tasks, shorter replies or fewer turns: that would reward cutting corners.
+
 ## 0.60.0: projects and their dev servers
 
 ### New

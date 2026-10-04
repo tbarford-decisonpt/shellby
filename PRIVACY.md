@@ -41,6 +41,7 @@ What these services do with your data is up to them, under their own policies: [
 - **Push-to-talk audio.** Windows' offline speech recognizer hears it, on your PC. The microphone is only open while you hold the shortcut.
 - **The time tracker.** It reads the title of the window in front to tell which project you're in, and keeps only the project, the day and the minutes. It is never synced.
 - **Which apps he perches on**, Now Playing, your usage counts and weekly summaries.
+- **Toolbox → Lean.** To tell which plugins and MCP servers sit idle, Shellby reads Claude Code's own transcripts on this PC (`.claude\projects`), and keeps only the names of the skills, agents, commands and servers used and when. Never what was said. It also keeps token counts per day (how much came from the prompt cache) and what a new conversation carries before your first word.
 - **The local connections** for the `shellby` command, the Claude Code plugin and hooks (port 47913), the OBS overlay (port 47914, off by default), OpenRGB and sensor apps. They only accept connections from this PC (`127.0.0.1`).
 
 ## What's stored on your PC
