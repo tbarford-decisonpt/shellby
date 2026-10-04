@@ -227,9 +227,11 @@
         <input class="field" id="routineAskText" name="text" maxlength="500" autocomplete="off" placeholder="Every weekday at 8:30, list what changed in my Documents">
         <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
       </div>
-      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check. Nothing is saved until you press Save.</p>
+      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check, then you can keep talking it over beside it. Nothing is saved until you press Save, or Claude tests it.</p>
     </form>
-    <form class="routine-editor" id="routineEditor" hidden novalidate>
+    <!-- The editor, with Build it with Claude (wf-chat.js) beside it once there's room. -->
+    <div class="wf-work routine-work" id="routineWork" hidden>
+    <form class="routine-editor" id="routineEditor" novalidate>
       <h3 id="routineEditorTitle">New routine</h3>
       <p class="routine-tpl-note" id="routineTplNote" hidden></p>
       <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>
@@ -277,6 +279,7 @@
         <button type="submit" class="btn primary">Save routine</button>
       </div>
     </form>
+    </div>
     <ul class="routine-list" id="routineList"></ul>
     <section class="deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
       <div class="deps-head">

@@ -1122,6 +1122,8 @@ function createManager() {
     workflows?.onTabItem(tabId, item);
     if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
     if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
+    // A test run's "waiting for you" ends once you've answered.
+    if (item.kind === 'decision' && routineTests.has(tabId)) send(panel, 'routines:test-run', routineTestView(tabId));
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
@@ -2072,6 +2074,7 @@ function stat(event, payload) {
 function onPermission(tabId, item, tab) {
   wake();
   askOnPhone(tabId, item, tab);
+  if (routineTests.has(tabId)) send(panel, 'routines:test-run', { id: tabId, status: 'running', waiting: { permission: true } });
   if (panel.isVisible() && panel.isFocused()) return;
   const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
   if (item.toolName === 'AskUserQuestion') {
@@ -2100,6 +2103,8 @@ function onResult(tabId, item, tab) {
     // failed turn's leftovers go with it).
     if (!item.waiting?.length) tab.session.stop().catch(() => {});
   }
+  // Build it with Claude's test run ended: the editor's chat hands it back to Claude.
+  if (routineTests.has(tabId)) send(panel, 'routines:test-run', routineTestView(tabId));
   noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
   // A workflow's Claude step: the workflow carries on and says what it wants
   // said, so no "finished" toast or phone ping for each step.
@@ -4352,6 +4357,54 @@ async function draftRoutine(text) {
   } finally { routineDrafting = false; }
 }
 
+// Build it with Claude's test runs: tab id -> routine id. Kept apart from
+// routineTabs, which forgets a tab once it closes, so a test is still read
+// after you've closed its tab. Only the last few are remembered.
+const routineTests = new Map();
+const MAX_ROUTINE_TESTS = 20;
+
+/**
+ * Build it with Claude, one turn of the routine editor's chat. `runId` is the
+ * test run that just finished: its transcript is read here, and only if it was
+ * a test of this same saved routine. Nothing is saved or run here.
+ */
+async function chatRoutine({ routine, messages, runId } = {}) {
+  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
+  if (routineDrafting) return { ok: false, error: 'Claude is already working on one. Give it a moment.' };
+  const saved = routine && typeof routine.id === 'string' ? routines().find(r => r.id === routine.id) : null;
+  const run = runId && saved && routineTests.get(runId) === saved.id ? routineDraft.runBrief(history.load(runId)).text : '';
+  routineDrafting = true;
+  try {
+    const res = await routineDraft.chat({ routine, messages, run }, {
+      runClaude: runClaudeOnce, folderOk: isFolder, allowAutonomous: !!config.get('autonomousAcknowledged'),
+      context: { home: os.homedir(), defaultFolder: currentCwd(), today: new Date().toDateString() },
+    });
+    if (res.stderr) log.warn('Routine chat failed', String(res.stderr).trim().split('\n').slice(-3).join(' '));
+    const { stderr: _stderr, ...out } = res;
+    return out;
+  } finally { routineDrafting = false; }
+}
+
+// How a test run is going, in the shape the editor's chat follows (wf-chat.js).
+function routineTestView(tabId) {
+  const tab = manager.tabs.get(tabId);
+  if (tab && manager.isBusy(tabId)) return { id: tabId, status: 'running', waiting: tab.session?.pending?.size ? { permission: true } : null };
+  const { status, error } = routineDraft.runBrief(history.load(tabId));
+  // No result: its tab was closed, or Claude Code quit partway (that tab is still open, and idle).
+  if (status === 'unfinished') return tab ? { id: tabId, status: 'error', error: 'Claude Code stopped before it finished.' } : { id: tabId, status: 'interrupted' };
+  return { id: tabId, status, error };
+}
+
+function testRoutine(id) {
+  const r = routines().find(x => x.id === id);
+  if (!r) return { ok: false, error: 'Save it first.' };
+  const res = runRoutine(r, { reason: 'test' });
+  if (!res.ok) return res;
+  routineTests.set(res.tabId, r.id);
+  while (routineTests.size > MAX_ROUTINE_TESTS) routineTests.delete(routineTests.keys().next().value);
+  return { ok: true, runId: res.tabId };
+}
+
 function startScheduler() {
   scheduler = new Scheduler({ getRoutines: routines });
   scheduler.on('due', r => {
@@ -4503,6 +4556,15 @@ async function startTaskInCopy(dir, title, promptFor, { mode = null } = {}) {
 
 // ================================================================ workflows
 
+// One tool-less `claude -p` call (drafts and the editors' chats), in your home
+// folder. Dev and screenshot runs: the fake CLI answers instead.
+function runClaudeOnce(args, timeoutMs, opts) {
+  if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
+  const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+  if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
+  return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
+}
+
 // The Automate page (workflows/service.js). Everything Shellby-specific a run
 // needs comes in through these few functions; the engine itself knows nothing
 // of Electron.
@@ -4526,13 +4588,7 @@ function createWorkflows() {
     },
     toPanel: (channel, payload) => send(panel, channel, payload),
     runCommand: (cwd, command, opts) => shellCmd.run(cwd, command, opts),
-    runClaude: (args, timeoutMs, opts) => {
-      // Dev and screenshot runs: the fake CLI answers drafts and the editor's chat too.
-      if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-      if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
-      return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
-    },
+    runClaude: runClaudeOnce,
     makeCopy: makeIssueCopy,
     openPullRequest: openIssuePr,
     copy: text => clipboard.writeText(text),
@@ -5412,6 +5468,20 @@ ${r.detail}` });
     return { ok: true, routine, routines: routinesView() };
   });
   ipcMain.handle('routines:draft', (_e, text) => draftRoutine(text));
+  // Build it with Claude (the routine editor's chat) and its test runs. A test
+  // is the saved routine run by hand; stopping or reading one only works on a
+  // tab that is one of those tests.
+  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  ipcMain.handle('routines:chat', (_e, req) => (isObj(req)
+    ? chatRoutine({ routine: isObj(req.routine) ? req.routine : {}, messages: req.messages, runId: isStr(req.runId) ? req.runId : null })
+    : { ok: false, error: 'Nothing to send.' }));
+  ipcMain.handle('routines:test', (_e, id) => (isStr(id) ? testRoutine(id) : { ok: false, error: 'Save it first.' }));
+  ipcMain.handle('routines:test-status', (_e, tabId) => (isStr(tabId) && routineTests.has(tabId) ? routineTestView(tabId) : null));
+  ipcMain.handle('routines:test-stop', (_e, tabId) => {
+    if (!isStr(tabId) || !routineTests.has(tabId) || !manager.tabs.has(tabId)) return false;
+    manager.interrupt(tabId);
+    return true;
+  });
   registerWorkflowIpc(ipcMain);
   ipcMain.handle('routines:delete', (_e, id) => {
     saveRoutines(routines().filter(r => r.id !== id));
