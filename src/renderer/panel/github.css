@@ -1,5 +1,7 @@
 /* Shellby panel — Settings → GitHub */
 .gh-account { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }
+/* A button row above the box (Settings > Claude Code) shouldn't sit flush against it. */
+.row + .gh-account { margin-top: 12px; }
 .gh-avatar { width: 40px; height: 40px; border-radius: 50%; image-rendering: auto; border: 1px solid var(--line); }
 .gh-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .gh-who b, .gh-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
