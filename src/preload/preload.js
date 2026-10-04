@@ -403,6 +403,13 @@ contextBridge.exposeInMainWorld('shellby', {
   getNowPlaying: invoke('nowplaying:get'),
   setNowPlaying: invoke('nowplaying:set'),
   onNowPlaying: on('nowplaying'),
+  getTyping: invoke('typing:get'),     // tapping along while you type (typing.js)
+  setTyping: invoke('typing:set'),
+  getWeather: invoke('weather:get'),   // the weather outside (weather-service.js)
+  setWeather: invoke('weather:set'),
+  searchWeather: invoke('weather:search'),
+  checkWeather: invoke('weather:check'),
+  onWeather: on('weather'),
 
   // the shellby command
   getCli: invoke('cli:get'),

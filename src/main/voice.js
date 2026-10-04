@@ -91,6 +91,16 @@ const OCCASIONS = Object.freeze({
   dizzy: { every: MINUTE, ttl: 5 * SECOND },
   pop: { every: MINUTE, ttl: 4 * SECOND },
   caught: { every: 30 * SECOND, ttl: 5 * SECOND },
+
+  // --- you, typing (typing.js): a burst he watched you finish
+  typingBurst: { every: 10 * MINUTE, ttl: 5 * SECOND },
+  typingRecord: { every: 0, ttl: 7 * SECOND },
+
+  // --- the weather outside (weather.js remarkFor), as it turns
+  rainStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  snowStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  stormStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  rainStopped: { every: 2 * HOUR, ttl: 6 * SECOND },
 });
 
 // His lines. Short, dry, and his own. Every pool needs at least three or the
@@ -136,6 +146,12 @@ const LINES = Object.freeze({
   dizzy: ['the room spins', 'whoa…', 'which way is up'],
   pop: ['boing!', 'squashed!', 'okay okay'],
   caught: ['caught it!', 'stuck the landing', 'ta-da'],
+  typingBurst: ['whoa, fast', 'claws are tired', 'look at you go', 'keyboard on fire'],
+  typingRecord: ['new record!', 'fastest yet!', 'personal best!'],
+  rainStart: ["it's raining out", 'brolly time', 'rain! my favourite', 'hear that rain?'],
+  snowStart: ["it's snowing!", 'snow!', 'hat on, then'],
+  stormStart: ['thunder…', 'storm coming', 'hold the brolly'],
+  rainStopped: ['rain stopped', 'dry again', 'puddles now'],
 });
 
 // A crab is a crab, but yours is a particular one. The temperament comes from

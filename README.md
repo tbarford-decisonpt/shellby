@@ -101,7 +101,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **On the wallpaper layer,** behind every window, still there after <kbd>Win</kbd>+<kbd>D</kbd>. He scuttles while Claude works, raises a claw when it needs you, and naps when it's quiet.
 - **A voice and a temperament of his own:** chipper, fussy, cocky or sleepy. *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push. He never quotes Claude.
 - **He climbs onto your windows,** rides them when you drag them, and gets flung off when you shake them.
-- **He guards your focus** in a little helmet, **listens along** in headphones when music plays, and hushes when you're on a call.
+- **He guards your focus** in a little helmet, **listens along** in headphones when music plays, **types along** on a little keyboard while you type, **dresses for the weather** outside (a sou'wester in the rain), and hushes when you're on a call.
 - **He knows your limits:** when you'll hit your 5-hour window, and a message held for after the reset goes by itself.
 - **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page. They start when the window resets, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.
 

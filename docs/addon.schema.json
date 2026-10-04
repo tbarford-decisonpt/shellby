@@ -182,7 +182,8 @@
           "morning", "latenight", "back",
           "gameOver", "callOver", "sheetStretch", "docStretch", "slideStretch", "friday", "weekend", "monday",
           "found", "memory", "milestone", "idle", "oops",
-          "perch", "ride", "shaken", "dropped", "dizzy", "pop", "caught"
+          "perch", "ride", "shaken", "dropped", "dizzy", "pop", "caught",
+          "typingBurst", "typingRecord", "rainStart", "snowStart", "stormStart", "rainStopped"
         ]
       },
       "additionalProperties": { "$ref": "#/$defs/lines" }

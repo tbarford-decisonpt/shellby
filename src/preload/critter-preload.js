@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onVisitorSay: on('critter:visitor-say'),
     // You came back after a while away: he says hello (src/main/main.js greet).
     onGreet: on('critter:greet'),
+    // You're typing (src/main/typing.js): tap along, faster, or look on impressed.
+    onTyping: on('critter:typing'),
   },
 
   // Files dropped on him: their paths, or (for a picture with no file behind

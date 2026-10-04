@@ -84,8 +84,16 @@ api.onSkin(msg => {
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue));
   // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
   if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
-  fx.set(outfit.effect);
+  // Real rain outside beats the snow he chose to wear.
+  const effect = outfit.weather?.effect || outfit.effect;
+  if (effect?.key !== shownEffect) { shownEffect = effect?.key ?? null; fx.set(effect); }
+  // A shiver in the cold, a sweat in the heat, a flinch at thunder (critter.css, life.js).
+  for (const m of WEATHER_MOODS) flags.delete(`weather-${m}`);
+  if (WEATHER_MOODS.includes(outfit.weather?.mood)) flags.add(`weather-${outfit.weather.mood}`);
+  paintBody();
 });
+const WEATHER_MOODS = ['storm', 'cold', 'hot'];
+let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles
 
 api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
 
@@ -97,6 +105,10 @@ function drawSelf() {
   const shell = molt ? molt.shell : outfit.home;
   // Between shells, whatever sits on the shell (a flag, bat wings) has nowhere to go.
   let accessories = molt?.shell === 'none' ? outfit.accessories.filter(a => a.slot !== 'shell') : outfit.accessories;
+  // Dressed for the weather outside (src/main/weather.js): the sou'wester and
+  // umbrella go over his own things, and everything below still outranks them.
+  const gear = outfit.weather?.accessories || [];
+  if (gear.length) accessories = [...accessories.filter(a => !gear.some(g => g.slot === a.slot)), ...gear];
   // On guard: the helmet goes on instead of whatever hat he wears.
   if (focusing?.phase === 'focus' && outfit.focusHelmet) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.focusHelmet];
   // Something is playing: headphones on, unless he's already wearing the helmet.
@@ -761,5 +773,6 @@ window.ShellbyCritter = {
   flags, paint: paintBody, setDir, hearts,
   px: () => px,
   claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,
+  rows: () => skin?.pixels?.length || 0, // his height in sprite pixels, to put things on the ground beside him
   visitor: () => visitorEl,
 };

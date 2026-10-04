@@ -1,7 +1,7 @@
 const {
   app, BrowserWindow, ipcMain: electronIpcMain, screen, Menu, Tray, shell, dialog,
   globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
-  powerSaveBlocker,
+  powerSaveBlocker, net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -73,6 +73,10 @@ const { SETTINGS: PERCH_SETTINGS } = require('./perch');
 const voice = require('./voice');
 const gifts = require('./gifts');
 const { createLife } = require('./life');
+const { createTyping } = require('./typing');
+const keystrokes = require('./keystrokes');
+const weatherRules = require('./weather');
+const { createWeatherService } = require('./weather-service');
 const { createPlaytime } = require('./playtime');
 const { activeSeasons } = require('./wardrobe/seasons');
 const statusLine = require('./statusline');
@@ -271,6 +275,8 @@ let motion = null;                 // throws and strolls (see motion.js)
 let perching = null;               // up on your windows (see perching.js)
 let life = null;                   // his life between tasks: scenes, gifts, the bond, your day (see life.js)
 let playtime = null;               // hide and seek, fetch (see playtime.js)
+let typing = null;                 // tapping along while you type (see typing.js)
+let weatherSvc = null;             // the weather outside, for what he wears (see weather-service.js)
 let said = null;                   // { text, occasion, until } — the line in his bubble (see voice.js)
 let longTaskTimer = null;          // a task still running after LONG_TASK_MS gets a "still going…"
 const fileTouches = new Map();     // file path -> times written this run, for his "this file again?"
@@ -422,7 +428,8 @@ function createMotion() {
   // up onto one of your windows, finds something to do with his claws, or says
   // something to nobody. Up on a window, his life has its own rhythm.
   setInterval(() => {
-    if (CAPTURE || dragging || playtime?.busy() || life?.busy()) return;
+    // Tapping along while you type: no wandering off or digging mid-sentence.
+    if (CAPTURE || dragging || playtime?.busy() || life?.busy() || typing?.active()) return;
     const idle = lastStatus.state === 'idle';
     const guarding = focus.guarding(config.get('focus'), Date.now());
     if (perching.isUp()) return void perching.idleTick({ idle, guarding, quiet: voice.chatterOf(config.get('chatter')) === 'quiet' });
@@ -890,8 +897,31 @@ function outfit() {
     stickers: config ? shellStickers(activeSkin(), worn) : [],
     focusHelmet: helmet ? publicItem(helmet) : null,
     musicHeadphones: musicHeadphones(),
+    weather: weatherWear(),
   };
 }
+
+/**
+ * What he puts on by himself for the weather outside (weather.js dress): items
+ * by slot over his own outfit, an effect instead of his own, and a mood for the
+ * renderer. Like the headphones, they don't need unlocking. Null on a plain day.
+ */
+function weatherWear() {
+  if (!weatherSvc?.settings().enabled) return null;
+  const w = weatherRules.dress(weatherSvc.reading(), Date.now());
+  if (!w) return null;
+  const pick = id => (id ? publicItem(wardrobe?.item(id)) : null);
+  return {
+    condition: w.condition, mood: w.mood,
+    accessories: ['hat', 'neck', 'face', 'held'].map(slot => pick(w[slot])).filter(Boolean),
+    effect: pick(w.effect),
+  };
+}
+
+// South of the equator, spring comes in September (wardrobe/seasons.js). Known
+// from the town picked for the weather, which is kept with the weather switched
+// off (no network needed for that); north otherwise, as it always was.
+const seasonsWhere = () => ({ south: weatherRules.isSouth(weatherRules.normalizePlace(config?.get('weather')?.place)) });
 
 const currentLevel = () => levelFor(config?.get('xp')?.total || 0).level;
 const homesView = () => shells.homesView(config.get('home'), currentLevel());
@@ -2928,7 +2958,7 @@ function createLifeAndPlay() {
     playing: () => !!playtime?.busy(),
     guarding: () => focus.guarding(config.get('focus'), Date.now()),
     music: () => !!nowPlaying?.playing,
-    seasons: () => activeSeasons(new Date()).map(x => x.id),
+    seasons: () => activeSeasons(new Date(), seasonsWhere()).map(x => x.id),
     calm: () => calmReason === 'locked',
     // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.
     eyePoint: () => {
@@ -3043,6 +3073,62 @@ function musicHeadphones() {
   if (!nowPlaying?.playing || !mediaSettings().enabled || !mediaSettings().headphones) return null;
   const item = wardrobe?.item('headphones');
   return item ? publicItem(item) : null;
+}
+
+// ================================================================ typing along
+
+function typingSettings() {
+  const raw = config.get('typing');
+  // Off until you turn it on: it hears every key on the PC (never which one).
+  return { enabled: raw?.enabled === true, remarks: raw?.remarks !== false };
+}
+
+function createTypingAlong() {
+  typing = createTyping({
+    watch: onKey => keystrokes.watch(onKey),
+    settings: typingSettings,
+    // Awake, idle and on the ground, with nothing else in his claws: work, a
+    // nap, a game, a scene, a call (his shh sign is up) or a ride on your
+    // window all come first.
+    eligible: () => !!critter && !critter.isDestroyed() && lastStatus.state === 'idle' && !(flash?.until > Date.now()) && !dragging
+      && !perching?.isUp() && calmReason !== 'locked' && !life?.busy() && !life?.onCall() && !playtime?.busy() && !visitor,
+    toCrab: (channel, payload) => send(critter, channel, payload),
+    speak: (occasion, opts) => speak(occasion, opts),
+    best: () => config.get('typingBest'),
+    setBest: wpm => config.set({ typingBest: wpm }),
+  });
+  if (!CAPTURE) typing.start();
+}
+
+// ================================================================ the weather outside
+
+// Countries that read the thermometer in Fahrenheit.
+const FAHRENHEIT = new Set(['US', 'LR', 'MM', 'BS', 'BZ', 'KY', 'PW']);
+const weatherUnit = () => (FAHRENHEIT.has(app.getLocaleCountryCode()) ? 'f' : 'c');
+
+function weatherView() {
+  const v = weatherSvc.view();
+  return { ...v, label: weatherRules.placeLabel(v.place), summary: weatherRules.describe(v.reading, weatherUnit()), unit: weatherUnit(), south: weatherRules.isSouth(v.place) };
+}
+
+function createWeather() {
+  weatherSvc = createWeatherService({
+    config,
+    fetch: (url, opts) => net.fetch(url, opts),
+    onReading: (prev, next) => {
+      broadcastWardrobe(); // the sou'wester goes on, or comes off
+      send(panel, 'weather', weatherView());
+      const occasion = weatherRules.remarkFor(prev, next);
+      if (occasion && weatherSvc.settings().remarks) speak(occasion);
+    },
+    // A reading too old to trust takes the umbrella off (weather.js dress).
+    onFail: () => broadcastWardrobe(),
+    log: msg => log.warn(msg),
+  });
+  if (CAPTURE) return;
+  weatherSvc.start();
+  // Asleep for hours: the last reading is stale, so ask again on waking.
+  powerMonitor.on('resume', () => weatherSvc.start());
 }
 
 // ================================================================ toolbox
@@ -6326,6 +6412,33 @@ ${r.detail}` });
     return mediaView();
   });
 
+  // ---- typing along (typing.js)
+  ipcMain.handle('typing:get', () => typing.view());
+  ipcMain.handle('typing:set', (_e, patch) => {
+    const next = typingSettings();
+    for (const k of ['enabled', 'remarks']) if (patch && typeof patch === 'object' && k in patch) next[k] = !!patch[k];
+    config.set({ typing: next });
+    typing.sync();
+    return typing.view();
+  });
+
+  // ---- the weather outside (weather-service.js)
+  ipcMain.handle('weather:get', () => weatherView());
+  ipcMain.handle('weather:set', (_e, patch) => {
+    const p = patch && typeof patch === 'object' ? patch : {};
+    weatherSvc.set({
+      ...('enabled' in p ? { enabled: !!p.enabled } : {}),
+      ...('remarks' in p ? { remarks: !!p.remarks } : {}),
+      ...('place' in p ? { place: p.place } : {}), // checked by weather.normalizePlace
+    });
+    // A town south of the equator moves the seasons; switching off takes the sou'wester off.
+    wardrobe?.collectSeasonals();
+    broadcastWardrobe();
+    return weatherView();
+  });
+  ipcMain.handle('weather:search', (_e, query) => weatherSvc.search(typeof query === 'string' ? query : ''));
+  ipcMain.handle('weather:check', async () => { await weatherSvc.check(); return weatherView(); });
+
   // ---- the shellby command (clipath.js)
   ipcMain.handle('cli:get', () => cliView());
   ipcMain.handle('cli:install', async () => ({ ...(await installCli()), ...cliView() }));
@@ -6768,6 +6881,7 @@ app.whenReady().then(() => {
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),
+    south: () => seasonsWhere().south,
   });
   wardrobe.load();
   wardrobe.on('changed', broadcastWardrobe);
@@ -6820,7 +6934,7 @@ app.whenReady().then(() => {
   watchIdleCost();
   watchAway();
   watchLeaving();
-  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); life?.resendLook(); });
+  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); life?.resendLook(); typing?.resend(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin,
     makeTimeTracker: () => { createTimeTracker({ start: false }); return timeTracker; } });
@@ -6856,8 +6970,10 @@ app.whenReady().then(() => {
   createObs();
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
+  createWeather();
   createMedia();
   createLifeAndPlay();
+  createTypingAlong();
   createDictation();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
@@ -6913,6 +7029,7 @@ app.on('second-instance', (_e, argv) => {
 });
 app.on('window-all-closed', e => e.preventDefault());
 app.on('will-quit', () => {
+  typing?.stop(); // lets go of the keyboard (keystrokes.js)
   statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
   globalShortcut.unregisterAll();
   scheduler?.stop();

@@ -101,6 +101,10 @@ const DEFAULTS = {
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
   rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
+  typing: null,       // { enabled, remarks }: tapping along while you type (see typing.js); off until you turn it on
+  typingBest: 0,      // your fastest burst, in words a minute (typing.js)
+  weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather-service.js); off until you pick a town
+  weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)

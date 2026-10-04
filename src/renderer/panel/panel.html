@@ -1109,6 +1109,31 @@
         </div>
       </section>
 
+      <section class="setting-group" id="typingGroup" data-nav="Typing along">
+        <h3>Typing along</h3>
+        <p class="small muted ext-lede">While you type, in any app, he taps along on a little keyboard, bobs to keep up when you're quick, and watches a long fast burst with stars in his eyes. He hears <em>that</em> a key was pressed, never which one, and none of it leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="typingEnabled"><span class="switch"></span>Tap along while I type</label>
+        <div id="typingBody" hidden>
+          <label class="toggle"><input type="checkbox" id="typingRemarks"><span class="switch"></span>Tell me how fast a burst was</label>
+          <p class="small ext-status" id="typingStatus"></p>
+        </div>
+      </section>
+
+      <section class="setting-group" id="weatherGroup" data-nav="Weather">
+        <h3>The weather outside</h3>
+        <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
+        <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
+        <div id="weatherBody" hidden>
+          <form class="row wrap" id="weatherSearch">
+            <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
+          </form>
+          <div class="row wrap" id="weatherPlaces" role="group" aria-label="Towns found" hidden></div>
+          <label class="toggle"><input type="checkbox" id="weatherRemarks"><span class="switch"></span>Let him say so when the weather turns</label>
+          <p class="small ext-status" id="weatherStatus" aria-live="polite"></p>
+        </div>
+      </section>
+
       <section class="setting-group" id="rgbGroup" data-nav="Desk lighting">
         <h3>Desk lighting</h3>
         <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. Shellby can install it for you and starts it in the tray whenever the lighting is on.</p>
