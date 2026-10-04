@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.64.1: 0.64.0, delivered
+
+0.64.0 didn't make it out of the build, so this is the first version to bring everything in it (below). Nothing else has changed.
+
 ## 0.64.0: build workflows with Claude, a livelier crab, and quiet during games
 
 ### New

@@ -16,6 +16,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { SETS } = require('../src/main/gifts');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9377;
@@ -142,7 +143,7 @@ async function windows() {
     await panel.ev("SB.setView('finds')");
     check(await until(panel, "document.querySelectorAll('#fdGrid .fd-tile').length >= 30", 4000), 'the shelf lists every find');
     check(await panel.ev("shellby.getLife().then(v => document.querySelectorAll('#fdGrid .fd-tile:not(.locked)').length === v.finds.kinds)"), '...with only what he has found unlocked');
-    check(await panel.ev("document.querySelectorAll('#fdSets .fd-set').length === 6"), '...and six sets to complete');
+    check(await panel.ev(`document.querySelectorAll('#fdSets .fd-set').length === ${SETS.length}`), `...and ${SETS.length} sets to complete`);
     check(await panel.ev("!document.querySelector('.fd-badge').hidden || true"), 'the Finds tab has a badge for new finds');
     await panel.ev("document.querySelector('#fdGrid .fd-tile:not(.locked)').click()");
     check(await until(panel, "!document.getElementById('fdDetail').hidden", 2000), 'clicking a find opens its card');
