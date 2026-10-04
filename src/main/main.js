@@ -636,7 +636,57 @@ function createPanel() {
   attachContextMenu(panel, Menu);
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
-  panel.on('resized', () => { const [width, height] = panel.getSize(); config.set({ panelSize: { width, height } }); });
+  panel.on('resized', () => {
+    if (Date.now() - roomyAt < ROOMY.settleMs) return; // it was us, not you
+    // Resizing it yourself while it's made room keeps your size: there's nothing to put back,
+    // and the panel stops asking for room.
+    if (roomyFrom) { roomyFrom = null; send(panel, 'panel:roomy-lost'); }
+    const [width, height] = panel.getSize();
+    config.set({ panelSize: { width, height } });
+  });
+}
+
+// "Make room" on a workflow map: the panel grows toward the middle of its screen,
+// and goes back to its size after. Only you resizing it is ever remembered.
+const ROOMY = { width: 1180, height: 780, gap: 8, settleMs: 800 };
+let roomyFrom = null; // { from: its bounds before, set: the bounds it grew to, right, low }
+let roomyAt = 0;
+
+const clampInto = (r, wa) => ({
+  ...r,
+  x: Math.round(Math.min(Math.max(r.x, wa.x + ROOMY.gap), wa.x + wa.width - r.width - ROOMY.gap)),
+  y: Math.round(Math.min(Math.max(r.y, wa.y + ROOMY.gap), wa.y + wa.height - r.height - ROOMY.gap)),
+});
+
+function setPanelRoomy(on) {
+  if (!panel || panel.isDestroyed()) return { ok: false, roomy: false };
+  if (!on) {
+    if (roomyFrom) {
+      const { from, set, right, low } = roomyFrom;
+      const c = panel.getBounds();
+      // Where it was, unless it's been moved (or put back beside the crab) since: then its
+      // size, keeping the corner it grew from where it is now.
+      const back = c.x === set.x && c.y === set.y ? from
+        : clampInto({ x: right ? c.x + c.width - from.width : c.x, y: low ? c.y + c.height - from.height : c.y, width: from.width, height: from.height }, screen.getDisplayMatching(c).workArea);
+      roomyAt = Date.now();
+      panel.setBounds(back);
+    }
+    roomyFrom = null;
+    return { ok: true, roomy: false };
+  }
+  if (roomyFrom) return { ok: true, roomy: true };
+  const b = panel.getBounds();
+  const wa = screen.getDisplayMatching(b).workArea;
+  const width = Math.min(ROOMY.width, wa.width - ROOMY.gap * 2);
+  const height = Math.max(b.height, Math.min(ROOMY.height, wa.height - ROOMY.gap * 2));
+  if (width <= b.width && height <= b.height) return { ok: true, roomy: false };
+  const right = b.x + b.width / 2 > wa.x + wa.width / 2;
+  const low = b.y + b.height / 2 > wa.y + wa.height / 2;
+  const set = clampInto({ x: right ? b.x + b.width - width : b.x, y: low ? b.y + b.height - height : b.y, width, height }, wa);
+  roomyFrom = { from: b, set, right, low };
+  roomyAt = Date.now();
+  panel.setBounds(set);
+  return { ok: true, roomy: true };
 }
 
 function showPanel({ focusInput = true, tabId = null } = {}) {
@@ -4190,6 +4240,7 @@ function registerIpc() {
   // ---- panel lifecycle
   ipcMain.on('panel:hide', () => panel.hide());
   ipcMain.on('panel:minimize', () => panel.minimize());
+  ipcMain.handle('panel:roomy', (_e, on) => setPanelRoomy(on === true));
 
   ipcMain.handle('app:bootstrap', async () => {
     claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() });

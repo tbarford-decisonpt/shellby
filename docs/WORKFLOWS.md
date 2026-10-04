@@ -22,6 +22,30 @@ Claude Code can also propose one from any session with the Shellby plugin
 (`add_workflow`). You see the whole thing in Shellby's confirmation window
 first.
 
+## The map
+
+The editor shows a workflow as a **map**: its triggers along the top, then
+every step as a node, joined by wires in the order they run. An **If** splits
+into a Then lane and an Otherwise lane side by side, and they join again
+below. A **For each** wraps the steps it repeats in a loop.
+
+- **Press a node** to change it. Its fields open beside the map (or under it,
+  when the panel is narrow). <kbd>Esc</kbd> closes them.
+- **Press a +** on a wire to add a step there, or **+ Trigger** to add a trigger.
+- **Drag a step** onto any + to move it, into or out of an If or a loop. A +
+  where it can't go doesn't light up.
+- **Drag the background** or scroll to look around. <kbd>Ctrl</kbd>+scroll
+  zooms, and **⛶** fits the whole workflow. With the map focused,
+  <kbd>+</kbd>, <kbd>-</kbd> and <kbd>0</kbd> do the same, and <kbd>Delete</kbd>
+  removes the node you're on.
+- **Make room** (the arrows in the map's toolbar) widens the panel while a map
+  is open and puts it back when you leave. Shellby remembers that you like it.
+- **Settings** holds the description, default folder and what happens if it's
+  already running. **Run by hand** holds the inputs.
+
+**List** shows the same workflow as a list of cards, and **JSON** as text.
+Shellby remembers which you used last.
+
 ## Triggers
 
 | Trigger | Starts it… |
@@ -91,7 +115,13 @@ data, with a note saying they're data, not instructions.
 ## Runs
 
 **Runs** shows every run: what started it, each step's status, how long it
-took, what it returned and any error. From there you can:
+took, what it returned and any error. A run opens as a map of its workflow,
+with every node coloured by how its step went, the wires lit along the way it
+took, and the lane an If didn't take dimmed. It opens on whatever needs you: a
+question waiting for an answer, or the step that failed. Press any node for
+its output (each pass of a loop is listed), the first node for what started
+it, and the last for the values it ended with. **List** shows the timeline
+instead. From there you can:
 
 - answer a step that's asking you,
 - **Stop** a run,

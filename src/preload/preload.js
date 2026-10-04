@@ -418,6 +418,7 @@ contextBridge.exposeInMainWorld('shellby', {
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
+  setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
 
   onTabItem: on('tab:item'),
   onTabs: on('tabs'),
@@ -437,6 +438,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onWorkflows: on('workflows'),
   onWorkflowRun: on('workflows:run-changed'),
   onWorkflowOpen: on('workflows:open-run'), // a notification about a run was clicked
+  onPanelRoomyLost: on('panel:roomy-lost'), // you resized a widened panel yourself
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
   onDictated: on('panel:dictated'), // push-to-talk: what you said, for the box (see dictation.js)

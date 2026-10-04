@@ -1,11 +1,13 @@
 /* Shellby panel — Workflows: triggers start a list of steps (docs/plans/workflows.md).
    One view, four screens: the list, the editor, one workflow's runs, and one
-   run. Everything a workflow or a run says is untrusted text: it only ever
-   reaches the page through SB.h / textContent (Claude replies go through the
-   escaping markdown renderer). */
+   run. The editor and a run can each be seen as a map (workflow-canvas.js draws
+   it) or as a list. Everything a workflow or a run says is untrusted text: it
+   only ever reaches the page through SB.h / textContent (Claude replies go
+   through the escaping markdown renderer). */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
+  const G = window.ShellbyWfGraph;
   // replaceChildren() writes a null as the text "null": optional parts are dropped instead.
   const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
   const view = $('workflowsView');
@@ -98,6 +100,12 @@
     close: 'M4.5 4.5l7 7M11.5 4.5l-7 7',
     copy: 'M5.5 5.5h7v7h-7zM3.5 10.5v-7h7',
     trigger: 'M9 1.8L3.6 9h4l-1 5.2L12.4 7h-4z',
+    minus: 'M3.5 8h9',
+    fit: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
+    flag: 'M4 14V2.5M4 3h7.5L9.7 5.8l1.8 2.8H4',
+    settings: 'M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6M10 3v3M6 10v3',
+    expand: 'M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9',
+    shrink: 'M13 3L9 7M9 3.5V7h3.5M3 13l4-4M7 12.5V9H3.5',
   };
   const icon = (name, width = 1.4) => SB.icon(ICON[name] || ICON.stop, { width: name === 'more' ? 2.6 : width });
 
@@ -149,6 +157,70 @@
   }
 
   const editing = el => !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+
+  // How you like to see things, kept on this PC: Map or List, and whether the map makes room.
+  const PREF = { layout: 'shellby.wf.layout', runLayout: 'shellby.wf.runLayout', roomy: 'shellby.wf.roomy' };
+  const pref = (key, fallback) => { try { return window.localStorage.getItem(key) || fallback; } catch { return fallback; } };
+  const setPref = (key, value) => { try { window.localStorage.setItem(key, value); } catch { /* storage refused: it lasts this session */ } };
+
+  // Map | List, for the editor and for a run.
+  function layoutSwitch(value, onPick, label) {
+    const name = uid('lay');
+    const radio = (v, text) => h('label', {},
+      h('input', { type: 'radio', name, value: v, checked: value === v, 'data-fk': `lay-${v}`, onchange: () => onPick(v) }),
+      h('span', { text }));
+    return h('div', { class: 'seg wf-seg wf-layout', role: 'radiogroup', 'aria-label': label }, radio('map', 'Map'), radio('list', 'List'));
+  }
+
+  // Make room: the panel widens while a map is open, and goes back when you leave it.
+  const room = { on: false, want: pref(PREF.roomy, '') === '1' };
+
+  async function applyRoom(on) {
+    if (on === room.on || !api.setPanelRoomy) return;
+    room.on = on;
+    let res;
+    try { res = await api.setPanelRoomy(on); } catch { res = null; }
+    if (on && !res?.roomy) room.on = false; // already as wide as the screen allows
+    for (const b of document.querySelectorAll('[data-room-btn]')) paintRoomBtn(b);
+  }
+
+  function roomBtn() {
+    const b = h('button', {
+      type: 'button', class: 'icon-btn wfc-tool', 'data-room-btn': '', 'data-fk': 'room',
+      onclick: async () => {
+        room.want = !room.on;
+        setPref(PREF.roomy, room.want ? '1' : '');
+        await applyRoom(room.want);
+        if (room.want && !room.on) SB.toast('The panel is already as wide as this screen allows.');
+      },
+    });
+    paintRoomBtn(b);
+    return b;
+  }
+
+  function paintRoomBtn(b) {
+    const label = room.on ? 'Give the room back' : 'Make room: widen the panel';
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.setAttribute('aria-pressed', String(room.on));
+    b.replaceChildren(icon(room.on ? 'shrink' : 'expand'));
+  }
+
+  // You resized the widened panel yourself: that's your size now, and maps stop asking for room.
+  api.onPanelRoomyLost?.(() => {
+    room.on = false;
+    room.want = false;
+    setPref(PREF.roomy, '');
+    for (const b of document.querySelectorAll('[data-room-btn]')) paintRoomBtn(b);
+  });
+
+  // A map fills the view (no page scroll; it pans instead).
+  function setMapMode(on) {
+    view.classList.toggle('map-mode', on);
+    applyRoom(on && room.want);
+  }
+  new MutationObserver(() => { if (document.body.dataset.view !== 'workflows') setMapMode(false); })
+    .observe(document.body, { attributes: true, attributeFilter: ['data-view'] });
 
   function iconBtn(name, label, onclick, attrs = {}) {
     return h('button', { class: 'icon-btn', type: 'button', title: label, 'aria-label': label, onclick, ...attrs }, icon(name));
@@ -260,6 +332,7 @@
   }
 
   function renderLoading(text = 'Loading…') {
+    setMapMode(false);
     fill(screen, h('p', { class: 'muted small', role: 'status', text }));
   }
 
@@ -309,6 +382,7 @@
   const toDef = w => Object.fromEntries(DEF_KEYS.filter(k => w[k] !== undefined).map(k => [k, clone(w[k])]));
 
   function renderList() {
+    setMapMode(false);
     list.rows = h('ul', { class: 'wf-list', 'aria-label': 'Your workflows' });
     list.gallery = h('div', { class: 'wf-gallery' });
     list.secrets = h('section', { class: 'wf-secrets', 'aria-labelledby': 'wfSecretsTitle' });
@@ -672,7 +746,16 @@
   const ed = {
     def: null, title: '', note: null, isNew: true, dirty: false, touched: false,
     errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
+    layout: pref(PREF.layout, 'map'), // 'map' or 'list'
+    sel: null,                        // the map node the inspector shows: 's<n>', 't<n>', 'manual', 'settings'
+    map: null,                        // the map on screen, while there is one
   };
+  const mapOn = () => !ed.json && ed.layout === 'map';
+  const stepSel = s => `s${keyOf(s)}`;
+  const trigSel = t => `t${keyOf(t)}`;
+  // Where focus goes after a rebuild, in whichever layout is showing.
+  const stepFk = s => (mapOn() ? `node-${stepSel(s)}` : `t-${keyOf(s)}`);
+  const trigFk = t => (mapOn() ? `node-${trigSel(t)}` : `tr-${keyOf(t)}`);
   const openSteps = new WeakSet();
   const openAdvanced = new WeakSet();
   const waitUnits = new WeakMap();
@@ -767,7 +850,7 @@
     Object.assign(ed, {
       def: d, note, isNew: !d.id, dirty: (!d.id && !blank) || !!note, touched: false,
       errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
-      title: title || (d.id ? `Edit “${d.name || 'workflow'}”` : 'New workflow'),
+      title: title || (d.id ? `Edit “${d.name || 'workflow'}”` : 'New workflow'), sel: null, map: null,
     });
     if (d.steps.length === 1) openSteps.add(d.steps[0]);
     if (current().name === 'editor') nav.pop();
@@ -784,10 +867,14 @@
     });
   }
 
+  let mapFrame = 0;
   function changed() {
     ed.dirty = true;
     ed.touched = true;
     validateSoon();
+    // The map's nodes say what their steps do: keep them in step with what you type.
+    cancelAnimationFrame(mapFrame);
+    mapFrame = requestAnimationFrame(() => { if (ed.map?.el.isConnected) ed.map.update(); });
   }
 
   // Structural changes (add, move, delete, a different schedule kind) rebuild the editor.
@@ -858,25 +945,44 @@
     const items = loose.map(e => h('li', {}, describeAt(e.path) ? h('b', { text: `${describeAt(e.path)}: ` }) : null, e.message));
     const marked = ed.errors.length - loose.length;
     const head = ed.failedSave && ed.errors.length
-      ? (marked ? `Not saved yet. ${plural(ed.errors.length, 'thing')} to fix, marked below.` : 'Not saved yet.')
+      ? (marked ? `Not saved yet. ${plural(ed.errors.length, 'thing')} to fix, marked ${mapOn() ? 'on the map' : 'below'}.` : 'Not saved yet.')
       : null;
     box.hidden = !items.length && !head;
     fill(box, head ? h('p', { class: 'wf-summary-head', text: head }) : null, items.length ? h('ul', {}, items) : null);
   }
 
-  // "steps[2].then[0].prompt" -> "“Fix it”", for errors with no field to sit under.
-  function describeAt(path) {
-    const tokens = [...String(path).matchAll(/([A-Za-z_]+)|\[(\d+)\]/g)].map(m => (m[2] !== undefined ? Number(m[2]) : m[1]));
-    if (tokens[0] === 'when' && typeof tokens[1] === 'number') return `Trigger ${tokens[1] + 1}`;
-    if (tokens[0] === 'inputs' && typeof tokens[1] === 'number') return `Input ${tokens[1] + 1}`;
-    if (tokens[0] !== 'steps') return '';
+  const pathTokens = path => [...String(path).matchAll(/([A-Za-z_]+)|\[(\d+)\]/g)].map(m => (m[2] !== undefined ? Number(m[2]) : m[1]));
+
+  // The innermost step a validator path points into: "steps[2].then[0].prompt" -> that step.
+  function stepAt(tokens) {
+    if (tokens[0] !== 'steps') return null;
     let node = ed.def;
     let found = null;
     for (const t of tokens) {
       node = node?.[t];
       if (node && typeof node === 'object' && !Array.isArray(node) && node.type) found = node;
     }
+    return found;
+  }
+
+  // "steps[2].then[0].prompt" -> "“Fix it”", for errors with no field to sit under.
+  function describeAt(path) {
+    const tokens = pathTokens(path);
+    if (tokens[0] === 'when' && typeof tokens[1] === 'number') return `Trigger ${tokens[1] + 1}`;
+    if (tokens[0] === 'inputs' && typeof tokens[1] === 'number') return `Input ${tokens[1] + 1}`;
+    const found = stepAt(tokens);
     return found ? `“${found.label || found.id || STEP_INFO[found.type]?.name}”` : '';
+  }
+
+  // The map node that holds a problem, so a failed save can open it.
+  function selFor(path) {
+    const tokens = pathTokens(path);
+    const step = stepAt(tokens);
+    if (step) return stepSel(step);
+    const t = tokens[0] === 'when' && ed.def.when[tokens[1]];
+    if (t) return trigSel(t);
+    if (tokens[0] === 'inputs') return 'manual';
+    return ['description', 'cwd', 'concurrency'].includes(tokens[0]) ? 'settings' : null;
   }
 
   // ================================================================ the editor: field builders
@@ -1079,18 +1185,23 @@
   function renderEditor() {
     slots = new Map();
     cards = [];
+    ed.map = null;
     const d = ed.def;
-    fill(screen, 
+    setMapMode(mapOn());
+    fill(screen,
       h('div', { class: 'view-head' },
         backBtn(),
         h('h2', { class: 'wf-title', text: ed.title }),
+        ed.json ? null : layoutSwitch(ed.layout, v => { ed.layout = v; setPref(PREF.layout, v); rebuild(`lay-${v}`); }, 'Show the workflow as'),
         h('button', {
           type: 'button', class: 'btn ghost slim-btn wf-json-toggle', 'aria-pressed': String(ed.json),
           title: 'See and edit the whole workflow as text', onclick: toggleJson,
         }, 'JSON')),
       ed.note ? h('div', { class: 'wf-note-box', role: 'note' }, h('b', { text: 'What Claude changed' }), h('p', { text: ed.note })) : null,
       h('div', { class: 'wf-summary', id: 'wfSummary', role: 'status', 'aria-live': 'polite', hidden: true }),
-      ed.json ? jsonPane() : h('div', { class: 'wf-editor' }, basicsSection(d), inputsSection(d), whenSection(d), stepsSection(d)),
+      ed.json ? jsonPane()
+        : mapOn() ? mapPane(d)
+          : h('div', { class: 'wf-editor' }, basicsSection(d), inputsSection(d), whenSection(d), stepsSection(d)),
       editorFoot());
     paintErrors();
   }
@@ -1103,13 +1214,17 @@
         h('button', { type: 'button', class: 'btn primary', id: 'wfSave', disabled: ed.saving, onclick: save }, ed.saving ? 'Saving…' : 'Save')));
   }
 
+  const nameField = (d, cls) => txt('Name', d.name, v => { d.name = v; }, { at: 'name', cls, attrs: { maxlength: 60, placeholder: 'Red build fixer', 'data-fk': 'wf-name' } });
+
+  // Description, folder and concurrency: in the list's first section, or the map's Settings.
+  const aboutFields = d => [
+    area('Description', d.description, v => { d.description = v; }, { at: 'description', attrs: { rows: 2, maxlength: 500, placeholder: 'Optional: what it\'s for' } }),
+    folderField('Default folder', d.cwd, v => { d.cwd = v; }, { at: 'cwd', placeholder: 'Shellby\'s current folder', hint: 'Where Claude and commands work, unless a step says otherwise.' }),
+    concurrencyField(d),
+  ];
+
   function basicsSection(d) {
-    const nameField = txt('Name', d.name, v => { d.name = v; }, { at: 'name', attrs: { maxlength: 60, placeholder: 'Red build fixer', 'data-fk': 'wf-name' } });
-    return h('section', { class: 'wf-section', 'aria-label': 'About it' },
-      nameField,
-      area('Description', d.description, v => { d.description = v; }, { at: 'description', attrs: { rows: 2, maxlength: 500, placeholder: 'Optional: what it\'s for' } }),
-      folderField('Default folder', d.cwd, v => { d.cwd = v; }, { at: 'cwd', placeholder: 'Shellby\'s current folder', hint: 'Where Claude and commands work, unless a step says otherwise.' }),
-      concurrencyField(d));
+    return h('section', { class: 'wf-section', 'aria-label': 'About it' }, nameField(d), aboutFields(d));
   }
 
   function concurrencyField(d) {
@@ -1148,9 +1263,7 @@
   function whenSection(d) {
     const addBtn = h('button', {
       type: 'button', class: 'btn slim-btn wf-add', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-fk': 'add-trigger', disabled: d.when.length >= MAX.triggers,
-      onclick: () => popup(addBtn, () => Object.entries(TRIGGER_INFO).map(([type, info]) => menuItem(info.name, info.sub, () => addTrigger(type), {
-        glyph: icon('trigger'), disabled: ONCE_TRIGGERS.includes(type) && d.when.some(t => t.type === type),
-      }))),
+      onclick: () => popup(addBtn, () => triggerMenu(d)),
     }, '+ Add a trigger');
     return h('section', { class: 'wf-section' },
       sectionHead('When', 'What starts it. Every workflow can also be run by hand.', 'when'),
@@ -1159,28 +1272,40 @@
       addBtn);
   }
 
+  const triggerMenu = d => Object.entries(TRIGGER_INFO).map(([type, info]) => menuItem(info.name, info.sub, () => addTrigger(type), {
+    glyph: icon('trigger'), disabled: ONCE_TRIGGERS.includes(type) && d.when.some(t => t.type === type),
+  }));
+
   function addTrigger(type) {
     const t = { type, ...(TRIGGER_DEFAULTS[type]?.() || {}) };
     ed.def.when.push(t);
     changed();
-    rebuild(`tr-${keyOf(t)}`);
+    if (!mapOn()) { rebuild(`tr-${keyOf(t)}`); return; }
+    ed.sel = trigSel(t);
+    rebuild();
+    focusInspector();
+  }
+
+  function removeTrigger(i) {
+    const t = ed.def.when[i];
+    if (!t) return;
+    const info = TRIGGER_INFO[t.type] || { name: t.type };
+    if (ed.sel === trigSel(t)) ed.sel = null;
+    ed.def.when.splice(i, 1);
+    changed();
+    rebuild(ed.def.when.length ? trigFk(ed.def.when[Math.min(i, ed.def.when.length - 1)]) : 'add-trigger');
+    SB.toast(`Removed “${info.name}”`, { action: 'Undo', onAction: () => { ed.def.when.splice(i, 0, t); changed(); rebuild(trigFk(t)); } });
   }
 
   function triggerCard(t, i) {
     const at = `when[${i}]`;
     const info = TRIGGER_INFO[t.type] || { name: t.type };
     const k = keyOf(t);
-    const remove = () => {
-      ed.def.when.splice(i, 1);
-      changed();
-      rebuild(ed.def.when.length ? `tr-${keyOf(ed.def.when[Math.min(i, ed.def.when.length - 1)])}` : 'add-trigger');
-      SB.toast(`Removed “${info.name}”`, { action: 'Undo', onAction: () => { ed.def.when.splice(i, 0, t); changed(); rebuild(`tr-${k}`); } });
-    };
     const li = h('li', { class: 'wf-card wf-trigger' },
       h('div', { class: 'wf-card-head' },
         h('span', { class: 'wf-step-icon', 'aria-hidden': 'true' }, icon('trigger')),
         h('h4', { class: 'wf-card-title', tabindex: '-1', 'data-fk': `tr-${k}`, text: info.name }),
-        iconBtn('close', `Remove the trigger “${info.name}”`, remove)),
+        iconBtn('close', `Remove the trigger “${info.name}”`, () => removeTrigger(i))),
       h('div', { class: 'wf-card-body' }, triggerFields(t, at)),
       slot(at, null));
     cards.push({ at, el: li });
@@ -1320,8 +1445,16 @@
     steps.splice(index, 0, s);
     openSteps.add(s);
     changed();
+    if (mapOn()) ed.sel = stepSel(s);
     rebuild();
-    focusFirstIn(s);
+    if (mapOn()) focusInspector(); else focusFirstIn(s);
+  }
+
+  // The first field after Label in the map's inspector: what the step or trigger actually does.
+  function focusInspector() {
+    const fields = [...screen.querySelectorAll('.wfc-insp-body .field')];
+    const el = fields.find(f => !f.closest('.wfc-label-field')) || screen.querySelector('.wfc-insp-body button');
+    el?.focus();
   }
 
   function focusFirstIn(step) {
@@ -1411,11 +1544,12 @@
 
   function deleteStep(steps, i) {
     const s = steps[i];
+    walk([s], x => { if (ed.sel === stepSel(x)) ed.sel = null; }); // it, or a step inside it
     steps.splice(i, 1);
     changed();
     const next = steps[Math.min(i, steps.length - 1)];
-    rebuild(next ? `t-${keyOf(next)}` : `add-${keyOf(steps)}-${steps.length}`);
-    SB.toast(`Deleted “${s.label || STEP_INFO[s.type]?.name}”`, { action: 'Undo', onAction: () => { steps.splice(i, 0, s); changed(); rebuild(`t-${keyOf(s)}`); } });
+    rebuild(next ? stepFk(next) : `add-${keyOf(steps)}-${steps.length}`);
+    SB.toast(`Deleted “${s.label || STEP_INFO[s.type]?.name}”`, { action: 'Undo', onAction: () => { steps.splice(i, 0, s); changed(); rebuild(stepFk(s)); } });
   }
 
   function stepSummary(s) {
@@ -1434,6 +1568,179 @@
       case 'stop': return s.status === 'error' ? `Stop as failed${s.message ? `: ${s.message}` : ''}` : `Stop${s.message ? `: ${s.message}` : ''}`;
       default: return '';
     }
+  }
+
+  // A trigger in a line, for its node on the map (the server's wording is only for saved ones).
+  function triggerSummary(t) {
+    const s = t.schedule || {};
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    switch (t.type) {
+      case 'schedule':
+        if (s.type === 'weekly') return `${(s.days || []).map(n => DAYS[n]).join(', ') || 'No days'} at ${s.time || '09:00'}`;
+        if (s.type === 'interval') return `Every ${plural(s.everyHours || 0, 'hour')}`;
+        if (s.type === 'minutes') return `Every ${plural(s.every || 0, 'minute')}`;
+        return `Every day at ${s.time || '09:00'}`;
+      case 'ci': return `${{ failed: 'Fails', fixed: 'Goes green again', passed: 'Passes', merged: 'Is merged', review: 'Needs your review', any: 'Any change' }[t.on] || t.on}${t.repo ? ` · ${t.repo}` : ''}`;
+      case 'shipped': return `${{ any: 'Anything', push: 'A push', deploy: 'A deploy', release: 'A release', merge: 'A merge' }[t.kind] || t.kind}${t.project ? ` · ${t.project}` : ''}`;
+      case 'task': return { ok: 'A task succeeds', error: 'A task fails' }[t.outcome] || 'A task finishes';
+      case 'folder': return `${t.pattern || 'Files'} ${t.events === 'changed' ? 'changed' : t.events === 'any' ? 'added or changed' : 'added'}${t.path ? ` in ${SB.shortPath(t.path, 28)}` : ''}`;
+      case 'workflow': return t.name ? `“${t.name}” ${{ ok: 'succeeds', error: 'fails' }[t.status] || 'finishes'}` : 'No workflow picked';
+      default: return TRIGGER_INFO[t.type]?.sub || '';
+    }
+  }
+
+  // ================================================================ the editor: map
+
+  // sel -> what it stands for ({ kind: 'step', step, place } / { kind: 'trigger', t, index }),
+  // filled in as the map draws its nodes.
+  let selInfo = new Map();
+
+  function mapPane(d) {
+    selInfo = new Map();
+    const settingsBtn = h('button', {
+      type: 'button', class: 'btn ghost slim-btn wf-settings-btn', 'aria-expanded': String(ed.sel === 'settings'), 'data-fk': 'wf-settings',
+      onclick: e => ed.map?.select(ed.sel === 'settings' ? null : 'settings', { focus: e.detail === 0 }),
+    }, icon('settings'), 'Settings');
+    const canvas = SB.wfCanvas.mount({
+      id: `ed-${keyOf(d)}`,
+      label: 'The workflow as a map. Steps run from the top; an If splits into two lanes.',
+      steps: d.steps,
+      maxDepth: MAX.depth,
+      sel: ed.sel,
+      icon,
+      triggers: [() => manualNode(d), ...d.when.map((t, i) => () => triggerNode(t, i))],
+      step: (s, place) => {
+        selInfo.set(stepSel(s), { kind: 'step', step: s, place });
+        return {
+          sel: stepSel(s), type: s.type, icon: s.type, at: place.at, removable: true,
+          title: s.label || STEP_INFO[s.type]?.name || s.type,
+          sub: stepSummary(s),
+          badge: s.if ? 'only if' : '',
+          note: s.if ? `Only if ${s.if}` : '',
+          loopLabel: s.type === 'each' ? `Each ${s.as || 'item'}` : '',
+        };
+      },
+      register: (at, cell) => { cards.push({ at, el: cell }); return slot(at, null); },
+      select: sel => { ed.sel = sel; settingsBtn.setAttribute('aria-expanded', String(sel === 'settings')); },
+      closed: was => { if (was === 'settings') settingsBtn.focus(); },
+      inspect: (box, sel, close) => inspectEdit(box, sel, close),
+      add: (list, index, btn, depth) => popup(btn, () => typeMenu(type => insertStep(list, index, type), depth)),
+      addLabel: (list, index) => {
+        const named = s => `“${s.label || STEP_INFO[s.type]?.name}”`;
+        if (index < list.length) return `Add a step before ${named(list[index])}`;
+        return list.length ? `Add a step after ${named(list[list.length - 1])}` : 'Add a step here';
+      },
+      addFk: (list, index) => `add-${keyOf(list)}-${index}`,
+      addTrigger: d.when.length < MAX.triggers ? btn => popup(btn, () => triggerMenu(d)) : null,
+      move: (step, list, index) => {
+        if (!G.moveTo(d.steps, step, list, index, MAX.depth)) return;
+        changed();
+        rebuild(stepFk(step));
+        SB.toast(`Moved “${step.label || STEP_INFO[step.type]?.name}”`);
+      },
+      remove: removeSel,
+      tools: [roomBtn()],
+    });
+    ed.map = canvas;
+    return h('div', { class: 'wf-mappane' },
+      h('div', { class: 'wf-mapbar' }, nameField(d, 'wf-mapbar-name'), settingsBtn),
+      canvas.el,
+      h('p', { class: 'sr-only', text: 'Press a node to change it. Drag a step onto a + to move it. List shows the same workflow as a list.' }));
+  }
+
+  function manualNode(d) {
+    selInfo.set('manual', { kind: 'manual' });
+    return {
+      sel: 'manual', kind: 'trigger', type: 'manual', icon: 'play', dashed: true, title: 'Run by hand',
+      sub: d.inputs.length ? `Asks for ${plural(d.inputs.length, 'input')}` : 'Press Run any time',
+    };
+  }
+
+  function triggerNode(t, index) {
+    selInfo.set(trigSel(t), { kind: 'trigger', t, index });
+    return {
+      sel: trigSel(t), kind: 'trigger', type: t.type, icon: 'trigger', at: `when[${index}]`, removable: true,
+      title: TRIGGER_INFO[t.type]?.name || t.type, sub: triggerSummary(t),
+    };
+  }
+
+  function removeSel(sel) {
+    const it = selInfo.get(sel);
+    if (it?.kind === 'step') deleteStep(it.place.list, it.place.index);
+    else if (it?.kind === 'trigger') removeTrigger(it.index);
+  }
+
+  // The inspector: the same fields the list shows, for the one node you picked.
+  function inspectEdit(box, sel, close) {
+    const it = sel === 'settings' ? { kind: 'settings' } : selInfo.get(sel);
+    if (!it) return false;
+    const d = ed.def;
+    if (it.kind === 'step') fill(box, stepInspector(it.step, it.place, close));
+    else if (it.kind === 'trigger') fill(box, triggerInspector(it.t, it.index, close));
+    else if (it.kind === 'manual') {
+      fill(box, inspRoot('manual', inspHead('play', 'Run by hand', null, close),
+        h('p', { class: 'field-hint', text: 'Any workflow can be started with Run on the Workflows page, from another workflow, or by Claude Code when it has the Claude Code trigger. Inputs are what it asks for first.' }),
+        inputsSection(d)));
+    } else {
+      fill(box, inspRoot('settings', inspHead('settings', 'Settings', null, close), aboutFields(d)));
+    }
+    return true;
+  }
+
+  const inspRoot = (type, ...kids) => h('div', { class: 'wf-step wfc-insp-root', 'data-type': type }, kids);
+
+  function inspHead(iconName, title, actions, close) {
+    const titleEl = typeof title === 'string' ? h('h3', { class: 'wfc-insp-title', text: title }) : title;
+    return h('div', { class: 'wfc-insp-head' },
+      h('span', { class: 'wf-step-icon', 'aria-hidden': 'true' }, icon(iconName)),
+      titleEl, actions,
+      iconBtn('close', 'Close', close, { 'data-fk': 'insp-close', title: 'Close (Esc)' }));
+  }
+
+  function stepInspector(step, place, close) {
+    const info = STEP_INFO[step.type] || { name: step.type };
+    const ctx = { at: place.at, depth: place.depth, chain: place.chain, step };
+    const name = () => step.label || info.name;
+    const titleEl = h('h3', { class: 'wfc-insp-title', text: name() });
+    const more = iconBtn('more', `More for “${name()}”`, e => stepMapMenu(place, e.currentTarget), { 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-fk': 'insp-more' });
+    const inside = { if: 'Its steps are on the map, in the Then and Otherwise lanes under it. Press + in a lane to add one.', each: 'The steps it repeats are on the map, inside the loop under it.' }[step.type];
+    return inspRoot(step.type,
+      inspHead(step.type, titleEl, more, close),
+      h('p', { class: 'field-hint wfc-insp-sub', text: info.sub }),
+      slot(place.at, null),
+      txt('Label', step.label, v => { putOrDrop(step, 'label', v); titleEl.textContent = name(); }, { at: `${place.at}.label`, cls: 'wfc-label-field', attrs: { maxlength: 80, placeholder: info.name } }),
+      STEP_FIELDS[step.type]?.(step, ctx) || [],
+      inside ? h('p', { class: 'field-hint', text: inside }) : null,
+      advanced(step, ctx));
+  }
+
+  function stepMapMenu({ list, index }, anchor) {
+    const s = list[index];
+    popup(anchor, () => [
+      menuItem('Duplicate', 'A copy right after it', () => {
+        const c = copyStep(s);
+        list.splice(index + 1, 0, c);
+        changed();
+        ed.sel = stepSel(c);
+        rebuild();
+        focusInspector();
+      }, { disabled: countSteps() >= MAX.steps }),
+      menuItem('Move up', null, () => moveStep(list, index, -1), { disabled: index === 0 }),
+      menuItem('Move down', null, () => moveStep(list, index, 1), { disabled: index === list.length - 1 }),
+      h('div', { class: 'menu-sep' }),
+      menuItem('Delete', null, () => deleteStep(list, index)),
+    ]);
+  }
+
+  function triggerInspector(t, index, close) {
+    const at = `when[${index}]`;
+    const info = TRIGGER_INFO[t.type] || { name: t.type };
+    return inspRoot('trigger',
+      inspHead('trigger', info.name, null, close),
+      h('p', { class: 'field-hint wfc-insp-sub', text: info.sub || '' }),
+      slot(at, null),
+      triggerFields(t, at),
+      h('button', { type: 'button', class: 'btn ghost slim-btn wfc-insp-remove', onclick: () => removeTrigger(index) }, 'Remove this trigger'));
   }
 
   // ------------------------------------------------------------ step types
@@ -1693,6 +2000,7 @@
       if (!ed.errors.length) ed.errors = [{ path: '', message: 'Not saved.' }];
       ed.failedSave = true;
       openErrored();
+      if (mapOn()) ed.sel = ed.errors.map(e => selFor(e.path)).find(Boolean) || ed.sel;
       rebuild();
       requestAnimationFrame(() => { const box = $('wfSummary'); if (box && !box.hidden) { box.tabIndex = -1; box.focus(); box.scrollIntoView({ block: 'nearest' }); } else screen.querySelector('[aria-invalid="true"]')?.focus(); });
       return;
@@ -1719,6 +2027,7 @@
   const runsState = { id: null, list: null, error: '' };
 
   function renderRuns() {
+    setMapMode(false);
     const { id, name } = current();
     const w = workflows().find(x => x.id === id);
     if (runsState.id !== id) { runsState.id = id; runsState.list = null; runsState.error = ''; }
@@ -1763,27 +2072,143 @@
 
   // ================================================================ one run
 
-  const runState = { id: null, rec: undefined, busy: '' };
+  // sel: the map node whose inspector is open (undefined until the run first loads, then
+  // whatever needs you: a question, or the step that failed).
+  const runState = { id: null, rec: undefined, busy: '', sel: undefined };
   const openOutputs = new Set();
 
   function renderRun() {
     const { runId } = current();
-    if (runState.id !== runId) { runState.id = runId; runState.rec = undefined; runState.busy = ''; openOutputs.clear(); }
+    if (runState.id !== runId) { runState.id = runId; runState.rec = undefined; runState.busy = ''; runState.sel = undefined; openOutputs.clear(); }
     if (runState.rec === undefined) { loadRun(); }
     const r = runState.rec;
-    const head = h('div', { class: 'view-head' }, backBtn(), h('h2', { text: r?.workflowName || 'Run' }));
+    // The map needs the workflow itself; one that's since been deleted can only be listed.
+    const w = r && workflows().find(x => x.id === r.workflowId);
+    const layout = w ? pref(PREF.runLayout, 'map') : 'list';
+    const head = h('div', { class: 'view-head' }, backBtn(), h('h2', { class: 'wf-title', text: r?.workflowName || 'Run' }),
+      w ? layoutSwitch(layout, v => { setPref(PREF.runLayout, v); keepFocus(renderRun); focusFk(`lay-${v}`); }, 'Show the run as') : null);
     if (r === undefined) return fill(screen, head, h('p', { class: 'muted small', role: 'status', text: 'Loading…' }));
-    if (!r) return fill(screen, head, h('p', { class: 'wf-empty', text: 'This run isn\'t kept any more.' }));
-    fill(screen, head,
-      h('div', { class: 'wf-run-status', role: 'status', 'aria-live': 'polite' },
-        statusPill(r.status, null),
-        h('span', { class: 'wf-run-meta', text: [RUN_TRIGGER[r.trigger?.type] || r.trigger?.type, r.startedAt ? `started ${SB.relTime(r.startedAt)}` : '', runDuration(r)].filter(Boolean).join(' · ') })),
+    if (!r) { setMapMode(false); return fill(screen, head, h('p', { class: 'wf-empty', text: 'This run isn\'t kept any more.' })); }
+    setMapMode(layout === 'map');
+    const status = h('div', { class: 'wf-run-status', role: 'status', 'aria-live': 'polite' },
+      statusPill(r.status, null),
+      h('span', { class: 'wf-run-meta', text: [RUN_TRIGGER[r.trigger?.type] || r.trigger?.type, r.startedAt ? `started ${SB.relTime(r.startedAt)}` : '', runDuration(r)].filter(Boolean).join(' · ') }));
+    if (layout === 'map') {
+      fill(screen, head, status, r.error ? h('pre', { class: 'wf-run-error wf-run-error-map', text: r.error }) : null, runActions(r), runMap(r, w));
+      return;
+    }
+    fill(screen, head, status,
       r.error ? h('pre', { class: 'wf-run-error', text: r.error }) : null,
       runActions(r),
       Object.keys(r.inputs || {}).length ? factsList('Inputs', r.inputs) : null,
       h('h3', { class: 'wf-h3', text: 'Steps' }),
       timeline(r),
       Object.keys(r.vars || {}).length ? outputDetails('vars', 'Values', h('pre', { class: 'wf-pre', text: pretty(r.vars) })) : null);
+  }
+
+  const END_TITLE = { ok: 'Done', error: 'Failed', stopped: 'Stopped', running: 'Still going', waiting: 'Waiting', interrupted: 'Interrupted' };
+
+  // The run drawn on its workflow: every node shows how its step went.
+  function runMap(r, w) {
+    const def = normalise(toDef(w));
+    const stats = G.statusMap(r);
+    const strays = G.strays(def.steps, stats);
+    const trig = r.trigger?.type;
+    const byHand = !def.when.some(t => t.type === trig);
+    if (runState.sel === undefined) runState.sel = firstConcern(r, stats);
+    const canvas = SB.wfCanvas.mount({
+      id: `run-${r.id}`,
+      label: 'The run as a map. Each step shows how it went.',
+      readOnly: true,
+      steps: def.steps,
+      maxDepth: MAX.depth,
+      sel: runState.sel,
+      icon,
+      started: Object.keys(r.steps || {}).length > 0,
+      triggers: [
+        () => ({ sel: 'manual', kind: 'trigger', type: 'manual', icon: 'play', title: byHand ? RUN_TRIGGER[trig] || 'By hand' : 'Run by hand', sub: byHand ? 'Started this run' : '', dashed: !byHand, ran: byHand }),
+        ...def.when.map((t, i) => () => ({
+          sel: `t${i}`, kind: 'trigger', type: t.type, icon: 'trigger', title: TRIGGER_INFO[t.type]?.name || t.type,
+          sub: t.type === trig ? 'Started this run' : triggerSummary(t), ran: t.type === trig,
+        })),
+      ],
+      step: (s, place) => {
+        const a = stats.get(place.key);
+        const word = a ? STATUS_WORD[a.status] || a.status : 'Didn\'t run';
+        return {
+          sel: `k:${place.key}`, type: s.type, icon: s.type,
+          title: s.label || STEP_INFO[s.type]?.name || s.type,
+          sub: runNodeSub(s, a),
+          status: a?.status || 'pending',
+          ran: !!a && !['pending', 'skipped'].includes(a.status),
+          badge: a ? `${STATUS_GLYPH[a.status] || ''}${a.passes > 1 ? ` ×${a.passes}` : ''}` : '',
+          note: a?.passes > 1 ? `${word}, ${a.passes} times` : word,
+          branches: a?.branches,
+          loopLabel: s.type === 'each' ? `Each ${s.as || 'item'}` : '',
+        };
+      },
+      end: { sel: 'end', type: 'end', title: END_TITLE[r.status] || r.status, sub: runDuration(r), status: r.status, ran: r.status === 'ok' },
+      select: sel => { runState.sel = sel; },
+      inspect: (box, sel, close) => inspectRun(box, sel, close, { r, def, stats, trig, byHand }),
+      tools: [roomBtn()],
+    });
+    return h('div', { class: 'wf-mappane' },
+      strays.length ? h('p', { class: 'field-hint wf-map-strays', text: `${plural(strays.length, 'step')} in this run ${strays.length === 1 ? 'isn\'t' : 'aren\'t'} in the workflow any more. List shows everything it did.` }) : null,
+      canvas.el);
+  }
+
+  // What a node says under its name during a run: how long, how many, which way.
+  function runNodeSub(s, a) {
+    if (!a) return stepSummary(s);
+    const e = a.entries[a.entries.length - 1];
+    if (s.type === 'if' && a.branches.length === 1) return a.branches[0] === 'then' ? 'Went to Then' : 'Went to Otherwise';
+    if (s.type === 'each' && e.output && Number.isFinite(e.output.count)) return e.output.total > e.output.count ? `${e.output.count} of ${e.output.total}` : plural(e.output.count, 'item');
+    if (a.status === 'waiting') return e.question || (e.waitUntil ? `Until ${SB.untilTime(e.waitUntil)}` : 'Waiting for you');
+    if (a.status === 'error' && e.error) return firstLine(e.error);
+    return e.startedAt && e.endedAt ? SB.duration(e.endedAt - e.startedAt) : stepSummary(s);
+  }
+
+  // Open on what needs you: a step that's asking, else the one that failed.
+  function firstConcern(r, stats) {
+    if (r.waiting?.key) return `k:${G.keyTemplate(r.waiting.key)}`;
+    for (const [key, a] of stats) if (a.status === 'error') return `k:${key}`;
+    return null;
+  }
+
+  function inspectRun(box, sel, close, { r, def, stats, trig, byHand }) {
+    if (sel === 'end') {
+      fill(box, inspRoot('end', inspHead('flag', END_TITLE[r.status] || r.status, null, close),
+        h('p', { class: 'field-hint', text: [r.endedAt ? `Ended ${SB.relTime(r.endedAt)}` : 'Not finished', runDuration(r)].filter(Boolean).join(' · ') }),
+        r.error ? h('pre', { class: 'wf-run-error small', text: r.error }) : null,
+        Object.keys(r.vars || {}).length ? factsList('Values', r.vars) : h('p', { class: 'field-hint', text: 'No values were set.' })));
+      return true;
+    }
+    if (sel === 'manual' || /^t\d+$/.test(sel)) {
+      const t = sel === 'manual' ? null : def.when[Number(sel.slice(1))];
+      const started = t ? t.type === trig : byHand;
+      const data = r.trigger?.data;
+      fill(box, inspRoot('trigger', inspHead(t ? 'trigger' : 'play', t ? TRIGGER_INFO[t.type]?.name || t.type : 'Run by hand', null, close),
+        started ? null : h('p', { class: 'field-hint', text: 'This didn\'t start this run.' }),
+        started && data && Object.keys(data).length ? factsList('What started it', data) : null,
+        started && Object.keys(r.inputs || {}).length ? factsList('Inputs', r.inputs) : null,
+        started && !Object.keys(data || {}).length && !Object.keys(r.inputs || {}).length ? h('p', { class: 'field-hint', text: 'It started this run, with nothing to pass on.' }) : null));
+      return true;
+    }
+    const key = sel.slice(2);
+    const found = G.stepKeys(def.steps).find(x => x.key === key);
+    if (!found) return false;
+    const s = found.step;
+    const a = stats.get(key);
+    const items = [];
+    for (const e of a?.entries || []) {
+      const pass = /.*\.each(\d+)\./.exec(e.key || ''); // the innermost loop's pass
+      if (a.passes > 1 && pass) items.push(h('li', { class: 'wf-tl-pass', style: '--depth: 0', text: `#${Number(pass[1]) + 1}` }));
+      items.push(timelineItem(r, e, 0));
+    }
+    fill(box, inspRoot(s.type, inspHead(s.type, s.label || STEP_INFO[s.type]?.name || s.type, null, close),
+      h('p', { class: 'field-hint wfc-insp-sub', text: stepSummary(s) }),
+      items.length ? h('ol', { class: 'wf-tl wfc-insp-tl' }, items) : h('p', { class: 'field-hint', text: 'It didn\'t run.' })));
+    return true;
   }
 
   let loadingRun = false;

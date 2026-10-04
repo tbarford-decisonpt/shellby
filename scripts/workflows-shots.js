@@ -71,28 +71,78 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev(`shellby.runWorkflow(${JSON.stringify(broken)}, {})`);
     await wait(2500);
 
+    // Anything the page throws from here on is reported at the end.
+    const thrown = [];
+    const onMsg = ws.onmessage;
+    ws.onmessage = e => { const m = JSON.parse(e.data); if (m.method === 'Runtime.exceptionThrown') thrown.push(m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text); onMsg(e); };
+    await call('Runtime.enable');
+    const click = sel => ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); b && b.click(); return !!b; })()`);
+    const rect = sel => ev(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r && { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    const mouse = (type, { x, y }, buttons = 1) => call('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons, clickCount: type === 'mouseMoved' ? 0 : 1 });
+
     await ev("SB.setView('workflows')");
     await shot('1-list');
-    // The editor on a template with an If inside.
+    // The editor on a template with an If inside: the map is the default.
     await ev(`(() => { const b = [...document.querySelectorAll('#workflowsView button')].find(x => /template/i.test(x.textContent)); b && b.click(); })()`);
     await wait(300);
     await ev(`(() => { const b = [...document.querySelectorAll('#workflowsView button, #workflowsView [role=button]')].find(x => /Red build fixer/.test(x.textContent)); b && b.click(); })()`);
-    await shot('2-editor-top');
-    await ev("(el => { el.scrollTop = 700; })([...document.querySelectorAll('#workflowsView, #workflowsView *')].find(e => e.scrollHeight > e.clientHeight + 50 && getComputedStyle(e).overflowY !== 'visible') || document.getElementById('workflowsView'))");
-    await shot('3-editor-steps');
-    await ev("(() => { const b = [...document.querySelectorAll('#workflowsView button')].find(x => /Find out why/.test(x.textContent)); b && b.click(); b && b.scrollIntoView({ block: 'start' }); })()");
-    await shot('4-editor-steps-more');
-    // A run waiting on you.
+    await shot('2-editor-map');
+    console.log('map nodes:', await ev("document.querySelectorAll('#workflowsView .wfc-node').length"), 'wires:', await ev("document.querySelectorAll('#workflowsView .wfc-wire').length"));
+    // Pick the If with a real mouse click: its fields open beside (or under) the map.
+    const ifNode = await rect('#workflowsView .wfc-cell[data-type="if"] .wfc-node');
+    await mouse('mousePressed', ifNode);
+    await mouse('mouseReleased', ifNode, 0);
+    await wait(200);
+    console.log('mouse click opens the inspector:', await ev("!document.querySelector('#workflowsView .wfc-insp').hidden && /If/.test(document.querySelector('#workflowsView .wfc-insp-title')?.textContent)"));
+    await shot('3-editor-map-if');
+    // Enter on a node puts focus in its fields; Esc goes back to the node.
+    await ev("document.querySelector('#workflowsView .wfc-cell[data-type=\"claude\"] .wfc-node').focus()");
+    await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
+    await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await wait(200);
+    console.log('after Enter the inspector shows:', await ev("document.querySelector('#workflowsView .wfc-insp-title')?.textContent"), 'focus on:', await ev('document.activeElement.tagName + "." + document.activeElement.className'));
+    console.log('Enter focuses a field:', await ev("!!document.activeElement.closest('.wfc-insp') && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)"));
+    await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await wait(150);
+    console.log('Esc closes it, back on the node:', await ev("document.querySelector('#workflowsView .wfc-insp').hidden && document.activeElement.classList.contains('wfc-node')"), 'still in the editor:', await ev("!!document.querySelector('#workflowsView .wfc')"));
+    await click('#workflowsView .wfc-cell[data-type="claude"] .wfc-node');
+    await shot('4-editor-map-claude');
+    // Make room: the panel widens and the inspector docks.
+    await click('#workflowsView [data-room-btn]');
+    await wait(900);
+    await shot('5-editor-map-roomy');
+    // Drag the first step onto the last +: it should move to the end.
+    const before = await ev("JSON.stringify([...document.querySelectorAll('#workflowsView .wfc-flow > .wfc-col > .wfc-cell .wfc-title, #workflowsView .wfc-flow > .wfc-col > .wfc-block > .wfc-cell .wfc-title')].map(t => t.textContent))");
+    const from = await rect('#workflowsView .wfc-flow > .wfc-col > .wfc-cell .wfc-node, #workflowsView .wfc-flow > .wfc-col > .wfc-block > .wfc-cell .wfc-node');
+    const to = await rect('#workflowsView .wfc-flow > .wfc-col > .wfc-add:last-child');
+    if (from && to) {
+      await mouse('mousePressed', from);
+      for (let i = 1; i <= 12; i++) await mouse('mouseMoved', { x: from.x + ((to.x - from.x) * i) / 12, y: from.y + ((to.y - from.y) * i) / 12 });
+      await shot('6-editor-map-dragging');
+      await mouse('mouseReleased', to, 0);
+      await wait(300);
+    }
+    const after = await ev("JSON.stringify([...document.querySelectorAll('#workflowsView .wfc-flow > .wfc-col > .wfc-cell .wfc-title, #workflowsView .wfc-flow > .wfc-col > .wfc-block > .wfc-cell .wfc-title')].map(t => t.textContent))");
+    console.log('top-level order before:', before, 'after drag:', after);
+    await shot('7-editor-map-dropped');
+    // The same workflow as a list still works.
+    await click('#workflowsView [data-fk="lay-list"]');
+    await shot('8-editor-list');
+    await click('#workflowsView [data-fk="lay-map"]');
+    // Runs, on the map: one waiting on you, one failed.
     const runs = JSON.parse(await ev(`shellby.listRuns().then(l => JSON.stringify(l))`));
     console.log(JSON.stringify(runs.map(r => [r.workflowName, r.status])));
     await ev("SB.setView('chat')"); await wait(200); await ev("SB.setView('workflows')");
-    await ev(`(() => { const row = [...document.querySelectorAll('#workflowsView [data-workflow-id]')].find(r => /Ship gate/.test(r.textContent)); const b = row && [...row.querySelectorAll('button, a')].find(x => /wait|answer|run|view/i.test(x.textContent + (x.getAttribute('aria-label') || ''))); (b || row)?.click(); })()`);
-    await shot('5-after-click-gate');
     await ev(`SB.views.workflows.openRun(${JSON.stringify(runs.find(r => r.workflowName === 'Ship gate')?.id)})`);
-    await shot('6-run-waiting');
+    await shot('9-run-waiting-map');
     await ev(`SB.views.workflows.openRun(${JSON.stringify(runs.find(r => r.workflowName === 'Broken fetch')?.id)})`);
-    await shot('7-run-failed');
+    await shot('10-run-failed-map');
+    // Give the room back: the narrow run map, with its sheet.
+    await click('#workflowsView [data-room-btn]');
+    await wait(900);
+    await shot('11-run-failed-narrow');
     console.log('exports:', await ev('Object.keys(SB.views.workflows).join(",")'));
+    console.log('page errors:', thrown.length ? thrown.join('\n') : 'none');
   } catch (e) {
     console.log('crashed:', e.stack || e.message);
   } finally {

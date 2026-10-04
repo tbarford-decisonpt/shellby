@@ -1,0 +1,231 @@
+/* Shellby panel — the workflow map (workflow-canvas.js), and the editor and run
+   screens around it. A tide pool seen from above: nodes sit on the dark water,
+   sea-glass wires run between them, and the colour of a node's edge says what
+   kind of step it is (coral for Claude, amber for talking to you). Colours come
+   from the panel's variables only, so every skin reads the same way. */
+
+/* ================================================================ the view, while a map shows */
+body[data-view="workflows"] .view-workflows.map-mode { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.view-workflows.map-mode #wfScreen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.view-workflows.map-mode .wf-foot { position: static; margin: 0 -16px; padding: 10px 16px 12px; background: var(--ink); border-top: 1px solid var(--line-soft); }
+.view-workflows.map-mode .wf-summary, .view-workflows.map-mode .wf-note-box { margin-bottom: 8px; }
+.view-workflows.map-mode .wf-run-actions { margin-bottom: 10px; }
+.wf-run-error-map { max-height: 84px; }
+
+.view-head .wf-layout { margin-left: auto; }
+.view-head .wf-layout + .wf-json-toggle { margin-left: 0; }
+.wf-layout { width: 124px; flex: none; }
+.wf-layout label { height: 24px; font-size: 12px; }
+
+.wf-mappane { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 -16px; container: wfmap / inline-size; }
+.wf-mapbar { display: flex; align-items: flex-start; gap: 8px; padding: 0 16px 10px; }
+.wf-mapbar-name { flex: 1; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
+.wf-mapbar-name > .wf-err { grid-column: 2; }
+.wf-mapbar-name .field { height: 32px; }
+.wf-settings-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; }
+.wf-settings-btn svg { width: 14px; height: 14px; }
+.wf-settings-btn[aria-expanded="true"] { color: var(--glass); border-color: var(--glass); background: var(--glass-dim); }
+.wf-map-strays { margin: 0 16px 8px; }
+
+/* ================================================================ the map's frame */
+.wfc {
+  flex: 1; min-height: 0; position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+  border-top: 1px solid var(--line-soft);
+}
+.wfc-main { position: relative; min-width: 0; min-height: 0; }
+.wfc-stage {
+  position: absolute; inset: 0; overflow: hidden; cursor: grab; outline: none; touch-action: none;
+  background-color: var(--abyss);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--glass) 17%, transparent) 1px, transparent 1.5px);
+}
+.wfc-stage:focus-visible { box-shadow: inset 0 0 0 2px var(--glass); }
+.wfc-stage.panning { cursor: grabbing; }
+.wfc-board { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.wfc-wires { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.wfc-flow { position: relative; display: inline-flex; flex-direction: column; align-items: center; padding: 6px 28px 28px; }
+
+/* toolbar, bottom left (a sheet covers it when narrow, so it steps aside then) */
+.wfc-tools {
+  position: absolute; left: 10px; bottom: 10px; z-index: 3;
+  display: flex; align-items: center; gap: 1px; padding: 3px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: color-mix(in srgb, var(--ink) 86%, transparent); backdrop-filter: blur(6px);
+  box-shadow: 0 8px 20px -14px rgba(0, 0, 0, .9);
+}
+.wfc-tool { width: 28px; height: 28px; }
+.wfc-tool[aria-pressed="true"] { color: var(--glass); background: var(--glass-dim); }
+.wfc-zoom { min-width: 46px; height: 28px; border: 0; border-radius: 7px; background: none; color: var(--sand-dim); font: 600 10.5px var(--font-mono); font-variant-numeric: tabular-nums; }
+.wfc-zoom:hover { background: var(--reef-2); color: var(--sand); }
+.wfc-tools-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--line); }
+.wfc.inspecting .wfc-tools { display: none; }
+
+/* ================================================================ layout of the flow */
+.wfc-row { display: flex; align-items: stretch; justify-content: center; gap: 12px; }
+.wfc-col, .wfc-block, .wfc-lane, .wfc-loop { display: flex; flex-direction: column; align-items: center; }
+.wfc-lanes { display: flex; align-items: flex-start; gap: 24px; margin-top: 22px; }
+.wfc-lane { padding: 0 4px; transition: opacity .2s; }
+.wfc-lane.dim { opacity: .42; }
+.wfc-loop {
+  margin-top: 20px; padding: 12px 20px 14px; border-radius: 18px;
+  border: 1.5px dashed color-mix(in srgb, var(--glass) 30%, transparent);
+  background: color-mix(in srgb, var(--glass) 4%, transparent);
+}
+
+.wfc-dot { flex: none; width: 8px; height: 8px; margin-top: 18px; border-radius: 50%; background: var(--line); }
+.wfc-dot.ran { background: var(--glass); box-shadow: 0 0 0 3px var(--glass-dim); }
+.wfc-start { margin: 26px 0 0; }
+
+.wfc-lane-label {
+  font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--ink); color: var(--sand-dim);
+}
+.wfc-lane-label.b-then { color: var(--glass); border-color: color-mix(in srgb, var(--glass) 40%, var(--line)); }
+.wfc-lane-label.b-each { color: var(--glass); }
+.wfc-lane-label.ran { background: var(--glass-dim); border-color: var(--glass); }
+
+.wfc-nothing { padding: 5px 10px; border: 1px dashed var(--line); border-radius: var(--r-sm); font-size: 11px; color: var(--sand-faint); }
+
+/* without + buttons between them, a run's nodes need their own air */
+.wfc.read-only .wfc-start { margin-bottom: 24px; }
+.wfc.read-only .wfc-col { gap: 26px; }
+.wfc.read-only .wfc-lane-label { margin-bottom: 22px; }
+.wfc.read-only .wfc-loop .wfc-lane-label { margin-bottom: 18px; }
+
+/* ================================================================ nodes */
+.wfc-cell { position: relative; display: grid; justify-items: center; gap: 4px; --accent: var(--glass); }
+.wfc-cell[data-type="claude"] { --accent: var(--coral); }
+.wfc-cell[data-type="ask"], .wfc-cell[data-type="tell"] { --accent: var(--amber); }
+.wfc-cell[data-type="if"], .wfc-cell[data-type="each"], .wfc-cell[data-type="set"],
+.wfc-cell[data-type="wait"], .wfc-cell[data-type="workflow"], .wfc-cell[data-type="stop"] { --accent: var(--sand-dim); }
+
+.wfc-node {
+  position: relative; width: 224px;
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 9px 10px 9px 11px; text-align: left; color: var(--sand); cursor: pointer;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: linear-gradient(180deg, var(--reef-2), var(--reef));
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, .8);
+  transition: border-color .12s, box-shadow .12s, transform .14s var(--ease-out), opacity .12s;
+}
+/* the kind of step, as a strip down the left */
+.wfc-node::before { content: ""; position: absolute; left: -1px; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+.wfc-node:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); transform: translateY(-1px); }
+.wfc-node:active { transform: translateY(0); }
+.wfc-node:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.wfc-cell.selected .wfc-node { border-color: var(--glass); box-shadow: 0 0 0 3px var(--glass-dim), 0 12px 26px -14px rgba(0, 0, 0, .9); }
+
+.wfc-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--abyss)); }
+.wfc-icon svg { width: 16px; height: 16px; }
+.wfc-text { display: grid; gap: 1px; min-width: 0; }
+.wfc-title {
+  font-size: 13px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.wfc-sub {
+  font-size: 11.5px; line-height: 1.35; color: var(--sand-dim); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.wfc-badge { align-self: start; padding: 2px 6px; border-radius: 99px; background: var(--abyss); color: var(--sand-dim); font: 600 10px var(--font-mono); white-space: nowrap; }
+
+.wfc-cell.k-trigger .wfc-node { width: 196px; }
+.wfc-cell.dashed .wfc-node { border-style: dashed; background: color-mix(in srgb, var(--reef) 40%, transparent); box-shadow: none; }
+.wfc-cell.k-end { margin-top: 20px; }
+.wfc-cell.k-end .wfc-node { width: 168px; }
+.wfc-end {
+  margin-top: 16px; padding: 4px 12px; border-radius: 99px; border: 1px solid var(--line);
+  font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint);
+}
+
+/* a problem the validator found, right under the node */
+.wfc-cell.has-err .wfc-node { border-color: color-mix(in srgb, var(--danger) 70%, var(--line)); }
+.wfc-cell.has-err .wfc-node::after { content: ""; position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--abyss); }
+.wfc-cell > .wf-err {
+  max-width: 224px; font-size: 11px; text-align: center;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* "+ Trigger", at the end of the row along the top */
+.wfc-ghost {
+  display: flex; align-items: center; gap: 6px; padding: 0 14px; min-height: 50px;
+  border: 1px dashed var(--line); border-radius: 12px; background: none;
+  color: var(--sand-faint); font-size: 12.5px; font-weight: 700;
+}
+.wfc-ghost svg { width: 13px; height: 13px; }
+.wfc-ghost:hover, .wfc-ghost:focus-visible, .wfc-ghost[aria-expanded="true"] { color: var(--glass); border-color: var(--glass); background: var(--glass-dim); }
+
+/* ================================================================ how a run went */
+.wfc-cell.s-ok { --state: var(--glass); }
+.wfc-cell.s-error { --state: var(--danger); }
+.wfc-cell.s-running, .wfc-cell.s-retrying { --state: var(--coral); }
+.wfc-cell.s-waiting, .wfc-cell.s-interrupted { --state: var(--amber); }
+.wfc-cell[class*=" s-"]:not(.s-pending):not(.s-skipped) .wfc-node { border-color: color-mix(in srgb, var(--state, var(--line)) 60%, var(--line)); }
+.wfc-cell[class*=" s-"]:not(.s-pending):not(.s-skipped) .wfc-badge { color: var(--state, var(--sand-dim)); background: color-mix(in srgb, var(--state, var(--sand-dim)) 14%, var(--abyss)); }
+.wfc-cell.s-error .wfc-node { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent); }
+.wfc-cell.s-waiting .wfc-node { box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 16%, transparent); }
+.wfc-cell.s-pending .wfc-node, .wfc-cell.s-skipped .wfc-node { opacity: .5; box-shadow: none; }
+.wfc-cell.s-skipped .wfc-node { border-style: dashed; }
+.wfc-cell.s-pending.selected .wfc-node, .wfc-cell.s-skipped.selected .wfc-node { opacity: .85; }
+.wfc-cell.k-trigger.ran .wfc-node { border-color: var(--glass); }
+
+/* ================================================================ wires */
+.wfc-wire { fill: none; stroke: var(--line); stroke-width: 1.6; }
+.wfc-wire.lit { stroke: var(--glass); stroke-width: 2; }
+.wfc-wire.loop { stroke: color-mix(in srgb, var(--glass) 40%, var(--line)); stroke-dasharray: 4 4; }
+.wfc-tip { fill: none; stroke: var(--sand-faint); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ================================================================ + between steps, and dragging onto them */
+.wfc-add {
+  position: relative; z-index: 1; flex: none; display: grid; place-items: center;
+  width: 22px; height: 22px; margin: 11px 0; padding: 0; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--ink); color: var(--sand-faint);
+  opacity: .6; transition: opacity .12s, color .12s, border-color .12s, transform .14s var(--ease-out), background .12s;
+}
+.wfc-add svg { width: 12px; height: 12px; }
+.wfc-add:hover, .wfc-add:focus-visible, .wfc-add[aria-expanded="true"] { opacity: 1; color: var(--glass); border-color: var(--glass); transform: scale(1.15); }
+.wfc.dragging .wfc-add { opacity: .12; pointer-events: none; }
+.wfc.dragging .wfc-add.drop-ok { opacity: 1; color: var(--glass); border: 1.5px dashed var(--glass); transform: scale(1.1); }
+.wfc.dragging .wfc-add.drop-hot { background: var(--glass); color: var(--ink); border-style: solid; transform: scale(1.4); box-shadow: 0 0 0 6px var(--glass-dim); }
+.wfc.dragging .wfc-node { cursor: grabbing; }
+.wfc-cell.drag-src .wfc-node { opacity: .35; transform: none; }
+.wfc-ghost-node {
+  position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none;
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px;
+  border: 1px solid var(--glass); border-radius: var(--r); background: var(--reef-2);
+  color: var(--sand); font-size: 12.5px; font-weight: 700;
+  box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .9);
+}
+.wfc-ghost-node .wfc-icon { width: 22px; height: 22px; border-radius: 7px; color: var(--glass); }
+.wfc-ghost-node .wfc-icon svg { width: 13px; height: 13px; }
+
+/* ================================================================ the inspector: a sheet when narrow, docked when there's room */
+.wfc-insp {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; max-height: 62%;
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--ink); border-top: 1px solid var(--line); border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: 0 -20px 40px -22px rgba(0, 0, 0, .9);
+  animation: wfc-sheet .22s var(--ease-out);
+}
+.wfc-insp-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px 18px; }
+@container wfmap (min-width: 720px) {
+  .wfc.inspecting { grid-template-columns: minmax(0, 1fr) 360px; }
+  .wfc.inspecting .wfc-tools { display: flex; }
+  .wfc-insp { position: relative; max-height: none; border-top: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; animation: wfc-dock .18s var(--ease-out); }
+}
+@keyframes wfc-sheet { from { transform: translateY(18px); opacity: 0; } }
+@keyframes wfc-dock { from { transform: translateX(12px); opacity: 0; } }
+
+.wfc-insp-root { display: grid; gap: 10px; min-width: 0; }
+.wfc-insp-head { position: sticky; top: -12px; z-index: 1; display: flex; align-items: center; gap: 8px; margin: -2px 0 -4px; padding: 2px 0 6px; background: var(--ink); }
+.wfc-insp-title { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfc-insp-sub { margin: -6px 0 0; }
+.wfc-insp-root .wf-section { padding: 4px 0 0; border-top: 0; }
+.wfc-insp-remove { justify-self: start; color: #ffb3aa; }
+.wfc-insp-tl { margin: 0; }
+.wfc-insp-tl .wf-tl-item { padding-left: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wfc-insp { animation: none; }
+  .wfc-node, .wfc-add, .wfc-lane { transition: none; }
+  .wfc-node:hover { transform: none; }
+}

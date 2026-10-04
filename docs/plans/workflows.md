@@ -23,6 +23,24 @@ This file is the contract between the engine (`src/main/workflows/`), the panel
 | `src/main/workflows/draft.js` | Describe-it and repair: `claude -p --json-schema`. |
 | `src/main/workflows/templates.js` | The starter gallery. |
 | `src/main/workflows/service.js` | Wires it all to Shellby (tabs, notifications, confirm windows, IPC). |
+| `src/renderer/panel/workflows.js` | The Automate page: list, editor (map, list or JSON), runs, one run. |
+| `src/renderer/panel/workflow-canvas.js` | The map: lays out, wires, pans, zooms, selects and drags. Knows nothing of step types; `workflows.js` says what each node shows and fills its inspector. |
+| `src/renderer/panel/wf-graph.js` | The map's bookkeeping: run keys to nodes, loop passes to one status, legal drag targets. Pure, tested in Node. |
+
+### The map
+
+No positions are stored. The map is laid out from the steps themselves (a
+column; an `if` splits into two lanes; an `each` wraps its steps in a loop),
+so drafted, imported and MCP-proposed workflows need nothing extra, and the
+JSON stays exactly as above. A run's entries find their node by key: the
+engine's `files.each3.move` is filed under `files.each*.move`, and a node's
+status is the most telling of its passes (running, then failed, then done).
+A drag only lands where `wf-graph.canDrop` allows it: never inside itself,
+and never deeper than the 4 levels the validator accepts.
+
+"Make room" is `panel:roomy`: the panel grows toward the middle of its screen
+(up to 1180 × 780) and returns to its exact bounds after. Only a resize you
+make yourself is saved as the panel's size.
 
 ## A workflow
 
@@ -180,6 +198,7 @@ missing or wrong, it asks once more in the same conversation.
 | `setWorkflowSecret(name, value)` / `deleteWorkflowSecret(name)` | `View` |
 | `onWorkflows(cb)` | pushes `View` |
 | `onWorkflowRun(cb)` | pushes a `RunSummary` whenever a run changes |
+| `setPanelRoomy(on)` | `{ ok, roomy }`: widens the panel for a map, or puts it back (`roomy: false` when the screen has no more room) |
 
 `View = { workflows: [WorkflowView], templates: [Template], secrets: [name], running: n, webhookPort }`.
 `WorkflowView` = the definition plus `triggers: [text]`, `next` (ms or null),
