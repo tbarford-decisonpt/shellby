@@ -104,7 +104,7 @@ async function launch(port, env) {
     await poll(panel, '!!window.SB && !!SB.state.version', 20000);
     await panel.ev(`(async () => { await shellby.setSettings({ onboarded: true, crabOnly: false }); SB.state.settings.onboarded = true; await shellby.claudeStatus(); })()`);
     await panel.ev("SB.showToolbox('lean')");
-    check(await panel.ev("SB.$('setupPane').textContent.includes('half a minute') || !!SB.state.lean"), 'the Lean tab says it is asking Claude Code');
+    check(await panel.ev("SB.$('toolList').textContent.includes('Asking Claude Code') || !!SB.state.lean"), 'the Lean tab says it is asking Claude Code');
     check(await poll(panel, '!!SB.state.lean', 120000), 'the report arrives');
     const info = await panel.ev(`({
       head: document.querySelector('.lean-head')?.textContent || '',
@@ -113,6 +113,7 @@ async function launch(port, env) {
       idle: document.querySelectorAll('#toolList .idle-pill').length,
       labels: [...document.querySelectorAll('#toolList .lean-label')].map(l => l.textContent),
       count: document.querySelector('#toolTabs [data-kind="lean"] .n').textContent,
+      ask: !!document.querySelector('#setupPane .lean-ask button'),
     })`);
     console.log('lean:', JSON.stringify(info));
     check(info.rows > 0 && info.labels.includes('Plugins'), 'plugins are listed');
@@ -120,6 +121,7 @@ async function launch(port, env) {
     check(info.labels.some(l => l.startsWith('Rules for matching files only')), 'a rule with paths: is listed apart, not counted as always carried');
     check(await panel.ev("SB.state.lean.totals.memory > 0 && SB.state.lean.totals.memoryOnDemand > 0"), 'both are sized');
     check(String(info.idle) === info.count || (info.idle === 0 && info.count === ''), 'the tab count is the idle count');
+    check(info.ask, 'there is a button to ask Claude for leaner ways to keep the same features');
     await panel.shot(path.join(real, 'lean-tab.png'));
 
     // Turn off -> the confirm window, focused on Cancel; cancel it.

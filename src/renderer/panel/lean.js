@@ -2,7 +2,8 @@
    first word, how much of Claude's input came from the prompt cache, and the
    plugins and MCP servers that sit idle. Nothing here touches a prompt, the model
    or what Claude reads: turning a plugin off only affects new conversations and
-   is one click to undo, and "Suggest a trim" only drafts a prompt for you to send.
+   is one click to undo, and "Suggest a trim" and "Ask Claude" only draft a
+   prompt for you to send.
    The numbers come from main (lean.js, efficiency.js). */
 'use strict';
 (function () {
@@ -27,7 +28,7 @@
       .then(r => { if (r?.ok) state.lean = r; else error = r?.error || "Couldn't read that from Claude Code."; })
       .catch(() => { error = "Couldn't read that from Claude Code."; })
       .finally(() => { loading = null; clearInterval(tick); tick = null; rerender(); });
-    if (!state.lean) tick ??= setInterval(() => { const el = document.querySelector('#setupPane .lean-wait'); if (el) el.textContent = waited(); }, 1000);
+    if (!state.lean) tick ??= setInterval(() => { const el = document.querySelector('#toolList .lean-wait'); if (el) el.textContent = waited(); }, 1000);
     rerender();
     return loading;
   }
@@ -54,6 +55,41 @@
     return 'no use seen yet';
   }
 
+  // Advice instead of removal: what Shellby measured, handed to Claude with a
+  // brief to keep every capability reachable. The prompt waits in a new tab, unsent.
+  const ASK_ROWS = 25;     // per section: enough to judge, short enough to read before sending
+  function ADVICE_ASK(rep) {
+    const s = rep.setup;
+    const some = (rows, line) => [...rows.slice(0, ASK_ROWS).map(line), ...(rows.length > ASK_ROWS ? [`- and ${rows.length - ASK_ROWS} more`] : [])];
+    const used = r => {
+      const t = lastUsedText(r, rep);
+      return `${r.idle && Number.isFinite(r.lastUsed) ? 'idle, ' : ''}${t[0].toLowerCase()}${t.slice(1)}`;
+    };
+    const c = rep.cache.week;
+    return [
+      'Help me make what Claude Code loads into every conversation leaner without losing any functionality I use. Do not edit any file, setting or plugin: propose changes and I will decide.',
+      '',
+      'What Shellby measured on this PC:',
+      s ? `- A new conversation carries ${tok(s.tokens)} before my first message (in ${s.name}).` : null,
+      c.rate == null ? null : `- ${pct(c.rate)} of input came from the prompt cache this week.`,
+      rep.plugins.length ? `\nPlugins turned on (Claude Code's estimate of what each adds to every conversation):` : null,
+      ...some(rep.plugins, p => `- ${p.id}${p.tokens == null ? '' : `: ${tok(p.tokens)}`}, ${used(p)}`),
+      rep.mcp.length ? '\nMCP servers I added:' : null,
+      ...some(rep.mcp, m => `- ${m.name}: ${used(m)}`),
+      rep.memory.length ? '\nCLAUDE.md and rules files:' : null,
+      ...some(rep.memory, m => `- ${m.path}: ${tok(m.tokens)}, ${m.onDemand ? 'only for matching files' : 'every conversation'}`),
+      '',
+      'Read the files and settings yourself before suggesting anything. Ideas to weigh, where they fit:',
+      '- moving CLAUDE.md sections that only matter for some files into rules that load only for those paths',
+      '- turning a plugin on only in the projects that use it instead of everywhere',
+      '- scoping an MCP server to the project that needs it',
+      '- removing text repeated across memory files, and tightening long skill or agent descriptions I own',
+      '- habits that keep the prompt cache warm',
+      '',
+      'For each suggestion say what to change, roughly how many tokens it saves per conversation, and what I would notice afterwards. Order them by savings. Leave out anything that would take away a feature I use; if you are unsure whether I use something, ask instead of guessing.',
+    ].filter(l => l !== null).join('\n');
+  }
+
   // ------------------------------------------------------------ the summary
 
   function summary(rep) {
@@ -75,6 +111,10 @@
       : `${pct(c.rate)} of Claude's input came from the prompt cache this week${was.rate == null ? '' : ` (last week ${pct(was.rate)})`}: ${tok(c.saved)}' worth billed at a tenth.`;
     return h('div', { class: 'lean-summary' },
       head,
+      h('div', { class: 'setup-intro lean-ask' },
+        h('p', { text: 'Rather than turning things off, Claude can look over this setup and suggest leaner ways to keep every feature you use.' }),
+        h('button', { class: 'btn slim-btn', type: 'button', title: 'Opens a new tab with a prompt for you to read and send. Claude only proposes; nothing changes until you say so.',
+          onclick: () => { SB.setView('chat'); SB.newTabIn({ cwd: state.cwd, draft: ADVICE_ASK(rep) }); } }, 'Ask Claude')),
       h('p', { class: 'muted small', text: `That includes ${parts.join(', ')}. While the cache is warm it costs a tenth, but it always takes room in the context window, and it's paid in full whenever the cache goes cold.` }),
       h('p', { class: 'lean-cache', text: cacheLine }),
       h('div', { class: 'mcp-bar' },
@@ -159,14 +199,15 @@
     pane.dataset.mounted = '';
     const rep = state.lean;
     if (!rep) {
+      // Before the first report: one centred note in the list, like the Shop's.
       if (!loading && !error) load();
-      pane.replaceChildren(
-        h('p', { class: `setup-status${error ? ' err' : ''}`, role: 'status',
-          text: error || 'Asking Claude Code what each plugin adds to a conversation. The first time takes a minute or so with lots of plugins.' }),
+      pane.replaceChildren();
+      list.replaceChildren(h('li', { class: `history-empty lean-loading${error ? ' err' : ''}`, role: 'status' },
+        h('span', { text: error || 'Asking Claude Code what each plugin adds to a conversation…' }),
         error
           ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => load(true) }, 'Check again')
-          : h('p', { class: 'muted small lean-wait', 'aria-hidden': 'true', text: waited() }));
-      list.replaceChildren();
+          : h('span', { class: 'lean-wait', 'aria-hidden': 'true', text: waited() }),
+        error ? null : h('span', { class: 'lean-wait-hint', text: 'The first time takes a minute or so with lots of plugins.' })));
       return;
     }
     pane.replaceChildren(...[summary(rep), error ? h('p', { class: 'setup-status err', role: 'status', text: error }) : null].filter(Boolean));
