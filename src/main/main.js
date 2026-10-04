@@ -2437,6 +2437,7 @@ function runCliRequest(body, token) {
   }
   const r = startTask(prompt, snippet ? `@${snippet} from the terminal` : 'From the terminal', { mode, cwd });
   if (!r.ok) return { ok: false, error: r.error || 'Shellby could not start that.', status: 400 };
+  if (snippet) noteSnippetUse(snippet);
   showPanel({ focusInput: false, tabId: r.tabId });
   wake();
   return { text: 'Shellby is on it.' };
@@ -4132,17 +4133,24 @@ function pinnedTools() {
 
 const PANEL_MAX_TEXT = 50000; // the longest message the box sends (task:send)
 
-function snippetList() { return snippets.normalize(config.get('snippets')); }
+function snippetList() {
+  // Once: a list saved before $1 to $9 were blanks keeps sending what it did.
+  if (config.get('snippetFormat') !== snippets.FORMAT) {
+    config.set({ snippets: snippets.migrate(config.get('snippets')), snippetFormat: snippets.FORMAT });
+  }
+  return snippets.normalize(config.get('snippets'));
+}
+const snippetsView = () => ({ snippets: snippets.view(snippetList(), config.get('snippetUse')), pinned: pinnedTools() });
 
-/** Save the list and tell the panel. A rename or delete carries its pin along. */
+/** Save the list and tell the panel. A rename or delete carries its pin and its use count along. */
 function setSnippets(list, renamed = null) {
   const pins = (config.get('pinnedTools') || []).flatMap(p => {
     if (p?.kind !== 'snippet') return [p];
     const name = renamed && p.name === renamed.from ? renamed.to : p.name;
     return list.some(s => s.name === name) ? [{ kind: 'snippet', name }] : [];
   });
-  config.set({ snippets: list, pinnedTools: pins });
-  const view = { snippets: snippets.view(list), pinned: pinnedTools() };
+  config.set({ snippets: list, pinnedTools: pins, snippetUse: snippets.keepUse(config.get('snippetUse'), list, renamed) });
+  const view = snippetsView();
   send(panel, 'snippets', view);
   return view;
 }
@@ -4155,7 +4163,51 @@ function expandSnippet(name, args, { sigil = '/', max } = {}) {
   const list = snippetList();
   const s = snippets.find(list, name);
   if (!s) return null;
-  return snippets.expand(s, args, { sigil, max });
+  const r = snippets.expand(s, args, { sigil, max });
+  return r.ok ? { ...r, name: s.name, newTab: !!s.newTab } : r;
+}
+
+/** Counted once it has gone (or is queued to go), not when it's filled in. */
+function noteSnippetUse(name) {
+  if (!snippets.find(snippetList(), name)) return;
+  config.set({ snippetUse: snippets.noteUse(config.get('snippetUse'), name) });
+  send(panel, 'snippets', snippetsView());
+}
+
+/** Toolbox > Snippets > Export: the whole list, as a file to keep or share. */
+async function exportSnippets() {
+  const list = snippetList();
+  if (!list.length) return { ok: false, error: 'There are no snippets to export.' };
+  const r = await dialog.showSaveDialog(panel, {
+    title: 'Export your snippets',
+    defaultPath: path.join(app.getPath('documents'), 'shellby-snippets.json'),
+    filters: [{ name: 'Shellby snippets', extensions: ['json'] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, cancelled: true };
+  try { fs.writeFileSync(r.filePath, snippets.exportJson(list)); } catch (e) { return { ok: false, error: `Couldn't write it: ${e.code || e.message}` }; }
+  return { ok: true, path: r.filePath, count: list.length };
+}
+
+/** Toolbox > Snippets > Import: someone's export, or your own from another PC. */
+async function importSnippets() {
+  const r = await dialog.showOpenDialog(panel, {
+    title: 'Import snippets', properties: ['openFile'],
+    filters: [{ name: 'Shellby snippets', extensions: ['json'] }, { name: 'All files', extensions: ['*'] }],
+  });
+  if (r.canceled || !r.filePaths?.[0]) return { ok: false, cancelled: true };
+  let raw;
+  try {
+    if (fs.statSync(r.filePaths[0]).size > 1024 * 1024) return { ok: false, error: "That file is too big to be snippets (over 1 MB)." };
+    raw = fs.readFileSync(r.filePaths[0], 'utf8');
+  } catch (e) { return { ok: false, error: `Couldn't read it: ${e.code || e.message}` }; }
+  const parsed = snippets.parseImport(raw);
+  if (!parsed.ok) return parsed;
+  return mergeSnippets(parsed.snippets);
+}
+
+function mergeSnippets(incoming) {
+  const m = snippets.merge(snippetList(), incoming);
+  return { ok: true, added: m.added, renamed: m.renamed, skipped: m.skipped, ...(m.added.length ? setSnippets(m.list) : snippetsView()) };
 }
 
 // ================================================================ routines
@@ -4737,7 +4789,7 @@ function registerIpc() {
       tabItems: Object.fromEntries(manager.summary.map(t => [t.id, history.load(t.id)])),
       toolbox: CAPTURE ? null : toolbox.current,
       pinned: pinnedTools(),
-      snippets: snippets.view(snippetList()),
+      snippets: snippets.view(snippetList(), config.get('snippetUse')),
       learned: CAPTURE ? [] : config.get('learnedTricks') || [],
       routines: CAPTURE ? [] : routinesView(),
       outlook: CAPTURE ? null : outlookView(),
@@ -5265,6 +5317,15 @@ ${r.detail}` });
     return { ok: true, name: r.name, ...setSnippets(r.list, from && from !== r.name ? { from, to: r.name } : null) };
   });
   ipcMain.handle('snippets:remove', (_e, name) => setSnippets(snippets.remove(snippetList(), isStr(name) ? name : '')));
+  ipcMain.handle('snippets:duplicate', (_e, name) => {
+    const r = snippets.duplicate(snippetList(), isStr(name) ? name : '');
+    return r.ok ? { ok: true, name: r.name, ...setSnippets(r.list) } : r;
+  });
+  ipcMain.on('snippets:used', (_e, name) => { if (isStr(name)) noteSnippetUse(name); });
+  ipcMain.handle('snippets:export', () => exportSnippets());
+  ipcMain.handle('snippets:import', () => importSnippets());
+  // The five Shellby starts with, for anyone who deleted them and wants them back.
+  ipcMain.handle('snippets:starters', () => mergeSnippets(snippets.STARTERS));
   // "/review the auth module" -> the prompt to send. null: not a snippet, send it as it is.
   ipcMain.handle('snippets:expand', (_e, text) => {
     // Not isStr: a pasted file after /tests can be long. task:send's own limit applies.

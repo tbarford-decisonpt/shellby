@@ -342,3 +342,8 @@ body[data-view="workflows"] .view-workflows {
 .wf-md > :first-child { margin-top: 0; }
 .wf-md > :last-child { margin-bottom: 0; }
 .wf-out .wf-md + .wf-pre { margin-top: 6px; }
+.wf-out .wf-md + .wf-fields, .wf-out .wf-fields + .field-hint, .wf-out .wf-md + .field-hint, .wf-out .wf-pre + .field-hint { margin-top: 8px; }
+.wf-out > .field-hint { margin-bottom: 4px; font-family: var(--font-mono); }
+.wf-fields { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; font-size: 12px; }
+.wf-fields dt { font-family: var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
+.wf-fields dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

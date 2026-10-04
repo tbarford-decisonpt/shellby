@@ -508,7 +508,7 @@ class Engine {
       read = structured.read(again.text || again.reply, step.output);
       if (!read.ok) throw new StepFailed(`Claude didn't give back the fields this step needs. ${read.problem}`);
     }
-    return { reply: first.reply || '', tabId: first.tabId, ...read.data };
+    return { reply: structured.strip(first.reply || ''), tabId: first.tabId, ...read.data };
   }
 }
 
