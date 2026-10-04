@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.64.0: build workflows with Claude, a livelier crab, and quiet during games
+
+### New
+- **Build it with Claude.** The workflow editor has a chat. Say what you want and Claude changes the workflow while you watch, with what it changed glowing on the map. Tick **Let Claude test it** and it saves, runs it by hand, reads what happened and fixes it, up to three times per message. A new workflow is saved switched off while it's being tested. See [WORKFLOWS.md](docs/WORKFLOWS.md#build-it-with-claude).
+- **Projects that tell you what needs you.** Each row says what Shellby knows in a few words: failing CI, vulnerable packages, unpushed commits, flaky tests, hours this week. **Needs you** puts the troubled ones first. Point at a row for **New conversation here** and **Start**. A project's own page now has **Pulse** (this week's hours by day, the last commit), **Health** (checks, dependencies, flaky tests) and your last few conversations in it.
+- **A much better Health page.** **What's using it** lists what's eating the CPU, GPU and memory, by app or by process, with **End task** (it asks first). It opens by itself while he's sweating. There are also fans, a 10 min / 1 hour graph range, and **Developer clutter**, which measures what Docker, WSL and package caches could give back, with **Ask Shellby what's safe to clear**.
+- **Remove your own skills, commands and agents** from the Toolbox, and see how often each one is used. Removing one asks first and sends it to the Recycle Bin.
+- **He's more alive.** He leans into a rub and rolls over if you keep going, perks up and waves when your cursor comes near, says hello when you've been away, his eye stalks wobble when he stops, and he chews a claw through your tests and wipes his brow when a long job lands.
+- **The Us page is a little beach**: him on the sand under a sky that follows your clock, with hearts in the sand and his favourite find beside him.
+- **86 things to dig up** in eleven sets, up from 38 in six. New sets include a dig site, things lost in the codebase, and an After dark set that only turns up at night.
+- **Clear all history** in History, after asking you first.
+- **Opt-in crash reports.** If Shellby closes unexpectedly, the next start asks whether to send a report: **Send report**, **Always send** or **Don't send**. Nothing is sent without your yes, and reports are scrubbed of your home folder, tokens and PC name. Change it in **Settings → About → Crash reports**. [PRIVACY.md](PRIVACY.md) lists what a report holds.
+- **Tidier pages.** The level card, the Automate page's workflow and routine lists, and Lean's counter are easier to read at a glance.
+
+### Fixed
+- **He no longer eats your GPU behind a game.** Hidden behind a game or a window that covers him, he kept animating at 60 fps, which used up to a third of a high-end graphics card. Now he rests until he can be seen again.
+- **The panel no longer jumps over your game.** With a game or presentation in front, the panel opens behind it unless you reached for Shellby in the last 15 seconds.
+- **Scrolling through a workflow no longer changes its numbers.** The mouse wheel over a number box used to change the value. Leaving the editor after typing a change and putting it back no longer warns about unsaved changes.
+- **Long permission rules fit in Toolbox → Rules**, and any rule Claude Code wrote can be removed, including multi-line ones.
+
 ## 0.63.1: 0.63.0, delivered
 
 0.63.0 didn't make it out of the build, so this is the first version to bring everything in it (below).
