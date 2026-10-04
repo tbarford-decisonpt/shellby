@@ -10,6 +10,7 @@ const os = require('os');
 const path = require('path');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 const { formatWave } = require('../src/main/github/mail');
+const { TEMPERAMENTS } = require('../src/main/banter');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9361;
@@ -95,7 +96,7 @@ async function connect(url) {
     const body = JSON.parse(card.files['shellby-card.json'].content);
     check(body.login === 'crabfan' && 'outfit' in body && !('stats' in body) && !('xp' in body), 'the card holds the look and nothing else');
     check(body.stickers === null, 'nothing about his stickers goes on it until you choose');
-    check(['chipper', 'fussy', 'cocky', 'sleepy'].includes(body.temperament), `his temperament is on it, for the crabs to chat about (${body.temperament})`);
+    check(TEMPERAMENTS.includes(body.temperament), `his temperament is on it, for the crabs to chat about (${body.temperament})`);
     await ev("shellby.setStickerOptions({ card: 'names' })"); // so a visit can swap
 
     // 3. Add a friend by username: their crab shows in the list.

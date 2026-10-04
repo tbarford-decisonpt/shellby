@@ -9,6 +9,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { templates } = require('../src/main/workflows/templates');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9361;
@@ -72,7 +73,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await until("typeof shellby !== 'undefined' && shellby.listWorkflows().then(v => !!v?.templates)", 20000), 'the workflow service answers');
     const view = JSON.parse(await ev('shellby.listWorkflows().then(v => JSON.stringify(v))'));
     check(view && Array.isArray(view.workflows) && view.workflows.length === 0, 'starts with no workflows');
-    check(view.templates.length === 7, `seven templates (${view.templates.length})`);
+    check(view.templates.length === templates().length, `every template (${view.templates.length} of ${templates().length})`);
     check(view.webhookPort === HOOK_PORT, `web hook port is the plugin port (${view.webhookPort})`);
     await ev("SB.setView('workflows')");
     check(await until("document.getElementById('workflowsView')?.offsetParent !== null"), 'the Automate page opens');
