@@ -447,24 +447,25 @@
   SB.clearComposer = clearComposer;
   SB.renderAttachments = renderAttachments;
 
+  // -> true once it has gone (or is queued to), false if it stayed where it was.
   SB.send = async (text) => {
     const tab = SB.activeTab();
-    if (!tab) return;
+    if (!tab) return false;
     text = (text ?? input.value).trim();
-    if (!text && !tab.attachments.length) return;
+    if (!text && !tab.attachments.length) return false;
     const attachments = [...tab.attachments];
     let snippet = null; // its name, counted as a use once the prompt has gone
     // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
-    if (!attachments.length && SB.runLocal?.(text, tab)) { clearComposer(tab); return; }
+    if (!attachments.length && SB.runLocal?.(text, tab)) { clearComposer(tab); return true; }
     // /review and the rest of your snippets: Claude gets the prompt they stand for,
     // filled in before it can be queued, so editing the snippet can't change it later.
     if (SB.isSnippetCall?.(text)) {
       // A second Enter while main fills it in would send it twice.
-      if (tab.expanding) return;
+      if (tab.expanding) return false;
       tab.expanding = true;
       let r;
       try { r = await api.expandSnippet(text); } finally { tab.expanding = false; }
-      if (r && !r.ok) { SB.toast(r.error); return; }
+      if (r && !r.ok) { SB.toast(r.error); return false; }
       if (r?.newTab && !tab.isEmpty) return sendInNewTab(tab, text, r, attachments);
       if (r) { snippet = r.name; text = r.prompt; }
     }
@@ -473,13 +474,13 @@
       clearComposer(tab);
       syncBusyUi();
       if (snippet) api.snippetUsed(snippet);
-      return;
+      return true;
     }
-    if (await sendNow(tab, text, attachments)) {
-      clearComposer(tab);
-      SB.setView('chat');
-      if (snippet) api.snippetUsed(snippet);
-    }
+    if (!(await sendNow(tab, text, attachments))) return false;
+    clearComposer(tab);
+    SB.setView('chat');
+    if (snippet) api.snippetUsed(snippet);
+    return true;
   };
 
   // A snippet set to start a conversation of its own: the one you're in is left
@@ -492,10 +493,11 @@
       from.attachments = attachments;
       renderAttachments();
       SB.prefill(typed);
-      return;
+      return false;
     }
-    if (await sendNow(fresh, prompt, attachments)) { SB.setView('chat'); api.snippetUsed(name); }
-    else SB.prefill(prompt);
+    if (await sendNow(fresh, prompt, attachments)) { SB.setView('chat'); api.snippetUsed(name); return true; }
+    SB.prefill(prompt);
+    return false;
   }
 
   // ------------------------------------------------------------ queued messages
@@ -508,6 +510,7 @@
     const box = $('queued');
     box.hidden = !q.length && !later.length;
     SB.renderOutlook?.();
+    SB.renderReview?.();
     if (box.hidden) { box.replaceChildren(); return; }
     const limited = !!state.outlook?.limit;
     box.replaceChildren(...[
