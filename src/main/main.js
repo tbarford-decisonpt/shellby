@@ -15,7 +15,7 @@ const { SessionManager, MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
-const { keepOnDesktop, sendToBottom, pin: pinToDesktop } = require('./desktop-layer');
+const { keepOnDesktop, sendToBottom, pin: pinToDesktop, covers: coversBox, DESKTOP_CLASSES } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
@@ -417,18 +417,54 @@ function createCritter() {
 // breathing crab, never the spinners or progress — are paused when the panel
 // isn't focused, and everything in both windows stops while the screen is locked
 // or the machine is suspended.
-let calmReason = null; // 'blur' | 'locked' | null
+//
+// He also stops while he can't be seen. He lives under every app, so a game or a
+// maximized window hides him completely, but Chromium never learns that (a
+// transparent window owned by the desktop is never reported occluded) and kept
+// compositing his loops at 60 fps: a third of a 3080 Ti behind a game. A cheap
+// poll asks whether a game is up or the window in front covers him; while it
+// does he gets the locked-screen calm, and with a game up the panel does too.
+const COVER_POLL_MS = 2000;
+let calmReason = null; // the panel: 'blur' | 'locked' | null
+let hidden = { crab: false, game: false };
+let calmSent = '';
+function sendCalm() {
+  const locked = calmReason === 'locked';
+  const panelCalm = { calm: !!calmReason || hidden.game, deep: locked || hidden.game };
+  const crabCalm = { calm: locked || hidden.crab };
+  const key = JSON.stringify([panelCalm, crabCalm]);
+  if (key === calmSent) return;
+  calmSent = key;
+  send(panel, 'panel:calm', panelCalm);
+  send(critter, 'critter:calm', crabCalm);
+}
 function setCalm(reason) {
-  if (calmReason === reason) return;
   calmReason = reason;
-  send(panel, 'panel:calm', { calm: !!reason, deep: reason === 'locked' });
-  send(critter, 'critter:calm', { calm: reason === 'locked' }); // he is visible whenever the screen is
+  sendCalm();
+}
+function crabCovered(info) {
+  // Up on a window he's drawn above it, so what's in front never hides him.
+  if (!info || perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
+  if (!info.visible || info.minimized || info.cloaked || !info.frame) return false;
+  const f = info.frame;
+  const frame = screen.screenToDipRect(null, { x: f.left, y: f.top, width: f.right - f.left, height: f.bottom - f.top });
+  return coversBox(frame, critter.getBounds());
+}
+function checkCovered() {
+  if (!critter || critter.isDestroyed() || !native.available()) return;
+  const info = native.describe(native.foreground());
+  const game = gameInFront(info);
+  hidden = { crab: (game && !perching?.isAway()) || crabCovered(info), game };
+  sendCalm();
 }
 function watchIdleCost() {
   panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
   panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
   for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
   for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
+  // The renderers start animated; a reload would forget a calm sent before it.
+  for (const w of [panel, critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
+  if (!CAPTURE) setInterval(checkCovered, COVER_POLL_MS).unref?.();
 }
 
 // ---------------------------------------------------------------- while you were away (recap.js)
@@ -730,10 +766,9 @@ const REACHED_MS = 15000;
 // Every build, packaged too: with a game in front, the panel only comes forward
 // when you just reached for it (the hotkey, mostly). Anything else (a task from
 // the terminal, a finished routine) opens behind the game.
-function gameInFront() {
+function gameInFront(info = native.describe(native.foreground())) {
   const q = native.notificationState();
   if (q === native.QUNS.D3D_FULL_SCREEN || q === native.QUNS.PRESENTATION) return true;
-  const info = native.describe(native.foreground());
   if (!info || info.pid === process.pid) return false;
   return kindOfApp({ exe: info.exe, path: info.path }) === 'game';
 }

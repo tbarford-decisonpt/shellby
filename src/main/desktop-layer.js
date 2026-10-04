@@ -59,4 +59,16 @@ function keepOnDesktop(win, { watchdogMs = 15000, isAway = () => false } = {}) {
   return () => clearInterval(timer);
 }
 
-module.exports = { keepOnDesktop, pin, sendToBottom, isPinned };
+// Does the window in front hide him completely? He lives below every app, so a
+// window whose frame contains his whole box does. Both rects in DIPs ({x, y,
+// width, height}). The desktop's own host window is screen-sized but sits under
+// him, so it never counts (the caller leaves it out by class).
+const DESKTOP_CLASSES = new Set(['Progman', 'WorkerW']);
+function covers(frame, box) {
+  if (!frame || !box) return false;
+  return frame.x <= box.x && frame.y <= box.y
+    && frame.x + frame.width >= box.x + box.width
+    && frame.y + frame.height >= box.y + box.height;
+}
+
+module.exports = { keepOnDesktop, pin, sendToBottom, isPinned, covers, DESKTOP_CLASSES };
