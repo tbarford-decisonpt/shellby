@@ -1,0 +1,189 @@
+/* The small things that make him yours (set by charm.js, and his new idle
+   habits from src/main/voice.js). Every rule is scoped `body.X #crab ...` so it
+   outranks #crab:hover, which is always on while you're rubbing him.
+   On .part-* (inside the sprite's SVG) 1px is one sprite cell; on #sprite it is
+   a screen pixel. prefers-reduced-motion is handled once, in critter.css. */
+:root { --rub: 1; }
+#crab { transition: rotate .35s cubic-bezier(.3, 1.4, .5, 1); }
+
+/* ================================================================ follow-through */
+
+/* he stops; his eye stalks carry on a beat, then wobble back */
+body.settle #crab .part-stalks { transform-origin: 50% 100%; animation: stalk-lag .75s ease-out; }
+body.settle #crab .part-eyes { animation: eye-lag .75s ease-out; }
+@keyframes stalk-lag {
+  0% { transform: skewX(calc(var(--dir) * -24deg)); }
+  25% { transform: skewX(calc(var(--dir) * 15deg)); }
+  50% { transform: skewX(calc(var(--dir) * -7deg)); }
+  75% { transform: skewX(calc(var(--dir) * 3deg)); }
+  100% { transform: none; }
+}
+@keyframes eye-lag {
+  0% { transform: translateX(calc(var(--dir) * 1px)); }
+  25% { transform: translateX(calc(var(--dir) * -.6px)); }
+  50% { transform: translateX(calc(var(--dir) * .3px)); }
+  75% { transform: translateX(calc(var(--dir) * -.1px)); }
+  100% { transform: none; }
+}
+
+/* ================================================================ a rub */
+
+/* he leans into your hand, eyes shut */
+body.rubbed #crab { transform-origin: 50% 100%; rotate: calc(var(--rub) * 6deg); }
+body.rubbed #crab .part-eyes { animation: none; transform: scaleY(.25); }
+@media (prefers-reduced-motion: reduce) { body.rubbed #crab { rotate: none; } }
+
+/* ...and rubbed enough, rolls right over with his legs in the air */
+body.belly #crab #sprite { transform-origin: 50% 65%; animation: belly 2.6s cubic-bezier(.35, 1.2, .5, 1) both; }
+body.belly #crab [class*="part-legs"] { animation: leg .1s steps(1) infinite; }
+body.belly #crab .part-eyes { animation: none; transform: scaleY(.25); }
+body.belly #crab .part-claw { animation: wave .3s ease-in-out infinite; }
+body.belly #shadow { width: calc(var(--px) * 12); }
+@keyframes belly {
+  0% { transform: none; }
+  16% { transform: translateY(-5px) rotate(calc(var(--dir) * -40deg)); }
+  30% { transform: translateY(-3px) rotate(calc(var(--dir) * -172deg)); }
+  40% { transform: translateY(-3px) rotate(calc(var(--dir) * -164deg)); }
+  50% { transform: translateY(-3px) rotate(calc(var(--dir) * -178deg)); }
+  60% { transform: translateY(-3px) rotate(calc(var(--dir) * -164deg)); }
+  72% { transform: translateY(-3px) rotate(calc(var(--dir) * -176deg)); }
+  88% { transform: translateY(-4px) rotate(calc(var(--dir) * -340deg)); }
+  94% { transform: scale(1.12, .88) rotate(calc(var(--dir) * -360deg)); }
+  100% { transform: rotate(calc(var(--dir) * -360deg)); }
+}
+
+/* ================================================================ you, nearby */
+
+/* your cursor came close: he perks up and gives a little wave */
+body.notice #crab #sprite { transform-origin: 50% 100%; animation: notice 1.1s cubic-bezier(.3, 1.5, .5, 1); }
+body.notice #crab .part-eyes { animation: none; transform: scaleY(1.3); }
+body.notice #crab .part-claw { animation: wave .4s ease-in-out .25s 2; }
+@keyframes notice {
+  0% { transform: none; }
+  18% { transform: scale(1.06, .92); }
+  40% { transform: translateY(-5px) scale(.96, 1.06); }
+  65% { transform: translateY(0) scale(1.03, .97); }
+  100% { transform: none; }
+}
+
+/* ================================================================ hello again */
+
+/* a hop toward you (he comes up a size, closer) and a wave; out of a nap if need be */
+body.greet #crab #sprite { transform-origin: 50% 100%; animation: greet 2.2s cubic-bezier(.3, 1.3, .5, 1); }
+body.greet-big #crab #sprite { animation: greet 1.3s cubic-bezier(.3, 1.3, .5, 1) 2; }
+body.greet #crab .part-claw { animation: wave .32s ease-in-out .35s infinite; }
+body.greet #crab .part-eyes { animation: none; transform: scaleY(1.25); }
+body.greet-big #crab .part-eyes { transform: scaleY(.3); }
+body.greet #crab .part-body, body.greet #crab .part-stalks, body.greet #crab [class*="part-legs"] { transform: none; opacity: 1; }
+body.greet #crab .part-claw, body.greet #crab .part-eyes { opacity: 1; }
+body.greet #crab .part-shell { animation: none; }
+body.greet #zzz { opacity: 0; }
+@keyframes greet {
+  0% { transform: none; }
+  10% { transform: scale(1.12, .86); }
+  28% { transform: translateY(-11px) scale(.96, 1.08); }
+  44% { transform: scale(1.16, .94); }
+  56% { transform: translateY(-3px) scale(1.08); }
+  85% { transform: scale(1.08); }
+  100% { transform: none; }
+}
+
+/* ================================================================ your work */
+
+/* tests running, or a long job: he chews a claw and keeps glancing about */
+body.fret #crab .part-claw { animation: chew .36s steps(2) infinite; }
+body.fret #crab .part-eyes { animation: look .9s steps(1) infinite; }
+@keyframes chew {
+  0% { transform: rotate(-48deg) translate(-2px, -1px); }
+  50% { transform: rotate(-54deg) translate(-2px, -2px); }
+}
+
+/* a long one came good: a wipe of the brow before the jump */
+body.relief #crab .part-claw { animation: wipe 1.2s ease-in-out; }
+body.relief #crab .part-eyes { animation: none; transform: scaleY(.25); }
+@keyframes wipe {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(-70deg) translate(-1px, -2px); }
+  55% { transform: rotate(-80deg) translate(-4px, -2px); }
+  75% { transform: rotate(-40deg); }
+}
+
+/* ================================================================ idle fidgets
+   Small habits between the big ones (src/main/voice.js BITS). */
+
+/* settles his shell back on, like a rucksack */
+body.bit-shuffle #crab .part-shell { animation: shuffle 1.3s ease-in-out; }
+body.bit-shuffle #crab .part-body { animation: dig-bob .32s ease-in-out 3; }
+body.bit-shuffle #crab .part-eyes { animation: none; transform: scaleY(.6); }
+@keyframes shuffle {
+  0%, 100% { transform: none; }
+  15% { transform: rotate(-5deg) translateY(-1px); }
+  35% { transform: rotate(4deg) translateY(-1px); }
+  55% { transform: rotate(-3deg); }
+  70% { transform: translateY(.5px) scale(1.03, .97); }
+}
+
+/* a good scratch with one leg, eyes half shut */
+body.bit-scratch #crab .part-legs-a { animation: scratch .1s steps(2) 12; }
+body.bit-scratch.state-idle #crab #sprite, body.bit-scratch #crab #sprite { transform-origin: 50% 100%; animation: scratch-tilt 1.4s ease-in-out; }
+body.bit-scratch #crab .part-eyes { animation: none; transform: scaleY(.35); }
+@keyframes scratch { 0% { transform: translate(0, -1px); } 50% { transform: translate(1px, 0); } }
+@keyframes scratch-tilt { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(calc(var(--dir) * 5deg)); } }
+
+/* a big yawn: up, eyes screwed shut, claw to his mouth, then a slump */
+body.bit-yawn.state-idle #crab #sprite, body.bit-yawn #crab #sprite { transform-origin: 50% 100%; animation: yawn 2.4s ease-in-out; }
+body.bit-yawn #crab .part-eyes { animation: yawn-eyes 2.4s steps(1); }
+body.bit-yawn #crab .part-claw { animation: yawn-claw 2.4s ease-in-out; }
+@keyframes yawn {
+  0%, 100% { transform: none; }
+  35% { transform: scale(.97, 1.08) translateY(-2px); }
+  55% { transform: scale(.97, 1.09) translateY(-2px); }
+  80% { transform: scale(1.04, .95) translateY(1px); }
+}
+@keyframes yawn-eyes { 0%, 100% { transform: none; } 25%, 70% { transform: scaleY(.15); } 85% { transform: scaleY(.5); } }
+@keyframes yawn-claw { 0%, 100% { transform: none; } 30%, 60% { transform: rotate(-38deg) translate(-1px, -1px); } }
+
+/* ================================================================ clumsy
+   Rare (voice.js CLUMSY_BITS), and followed by an "oops". */
+
+/* catches a leg on nothing, pitches forward, picks himself up */
+body.bit-trip.state-idle #crab #sprite, body.bit-trip #crab #sprite { transform-origin: 70% 100%; animation: trip 1.6s cubic-bezier(.3, 1.2, .5, 1); }
+body.bit-trip #crab [class*="part-legs"] { animation: leg .07s steps(1) 6; }
+body.bit-trip #crab .part-eyes { animation: trip-eyes 1.6s steps(1); }
+body.bit-trip #crab .part-claw { animation: trip-claw 1.6s ease-out; }
+@keyframes trip {
+  0% { transform: none; }
+  12% { transform: translateX(calc(var(--dir) * 2px)) rotate(calc(var(--dir) * 6deg)); }
+  24% { transform: translateX(calc(var(--dir) * 3px)) translateY(2px) rotate(calc(var(--dir) * 18deg)) scale(1.06, .9); }
+  55% { transform: translateX(calc(var(--dir) * 3px)) translateY(2px) rotate(calc(var(--dir) * 16deg)) scale(1.06, .9); }
+  72% { transform: translateY(-3px); }
+  82% { transform: translateX(-1px); }
+  90% { transform: translateX(1px); }
+  100% { transform: none; }
+}
+@keyframes trip-eyes { 0%, 100% { transform: none; } 12% { transform: scaleY(1.5); } 24%, 55% { transform: scaleY(.2); } 72% { transform: scaleY(1.2); } }
+@keyframes trip-claw { 0%, 100% { transform: none; } 14% { transform: rotate(-60deg); } 24%, 55% { transform: rotate(22deg) translateY(1px); } }
+
+/* claw stuck in the sand: tug, tug, TUG, and he pops free backwards */
+body.bit-stuck.state-idle #crab #sprite, body.bit-stuck #crab #sprite { transform-origin: 50% 100%; animation: stuck 2.2s ease-in-out; }
+body.bit-stuck #crab .part-claw { animation: stuck-claw 2.2s ease-in-out; }
+body.bit-stuck #crab .part-eyes { animation: stuck-eyes 2.2s steps(1); }
+body.bit-stuck #crab [class*="part-legs"] { animation: leg .09s steps(1) 14; }
+@keyframes stuck {
+  0%, 12% { transform: none; }
+  20% { transform: translateX(calc(var(--dir) * -2px)) rotate(calc(var(--dir) * -4deg)); }
+  27% { transform: none; }
+  37% { transform: translateX(calc(var(--dir) * -3px)) rotate(calc(var(--dir) * -6deg)); }
+  44% { transform: none; }
+  58% { transform: translateX(calc(var(--dir) * -4px)) rotate(calc(var(--dir) * -9deg)) scale(1.05, .94); }
+  66% { transform: translateX(calc(var(--dir) * -9px)) translateY(-5px) rotate(calc(var(--dir) * -14deg)); }
+  78% { transform: translateX(calc(var(--dir) * -6px)) scale(1.1, .88); }
+  100% { transform: none; }
+}
+@keyframes stuck-claw {
+  0%, 100% { transform: none; }
+  10%, 58% { transform: rotate(34deg) translateY(2px); }
+  66% { transform: rotate(-55deg) translateY(-2px); }
+  82% { transform: rotate(-20deg); }
+}
+@keyframes stuck-eyes { 0%, 100% { transform: none; } 15%, 58% { transform: scaleY(.45); } 62% { transform: scaleY(1.5); } 85% { transform: scaleY(.3); } }

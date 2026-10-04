@@ -1,6 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const voice = require('../src/main/voice');
+const fs = require('fs');
+const path = require('path');
 
 const T0 = new Date(2026, 9, 1, 12, 0, 0).getTime();
 const SECOND = 1000;
@@ -237,4 +239,11 @@ test("a seed carried in state picks that crab's flavoured lines", () => {
   // Over a full pool he uses the flavoured lines too, not just the base ones.
   assert.ok([...texts].every(t => pool.includes(t)));
   assert.ok([...texts].some(t => voice.FLAVOR.cocky.success.includes(t)));
+});
+
+test('every idle habit has an animation, and the clumsy ones are habits', () => {
+  const dir = path.join(__dirname, '..', 'src', 'renderer', 'critter');
+  const css = ['critter.css', 'charm.css'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+  for (const bit of voice.BITS) assert.ok(css.includes(`body.bit-${bit} `), `no animation for bit-${bit}`);
+  for (const bit of voice.CLUMSY_BITS) assert.ok(voice.BITS.includes(bit), `${bit} is clumsy but never picked`);
 });
