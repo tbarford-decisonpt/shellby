@@ -147,7 +147,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 None of this needs Claude or an account.
 
 - **Little scenes** when nothing's happening: he pounces on your cursor and misses, builds a sandcastle, gets the hiccups. 24 to catch him in.
-- **Gifts from digging:** sea glass, a lost key, a pearl, once in a long while a gold doubloon. 38 finds in six sets, on a shelf of their own.
+- **Gifts from digging:** sea glass, a lost key, a pearl, once in a long while a gold doubloon. 86 finds in eleven sets, on a shelf of their own.
 - **He remembers you:** from *New friends* to *Inseparable*, with the story of your moments together (*"You shook him off Excel"*), your birthday, and his.
 - **Hide and seek, fetch,** and friends' crabs who drop by and chat.
 

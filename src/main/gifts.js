@@ -38,6 +38,8 @@ const FINDS = Object.freeze([
   { id: 'driftwood', name: 'Driftwood', rarity: 'common', set: 'beach', blurb: 'Washed up from somewhere far away.', palette: { a: '#8a6a4a', b: '#b89470' }, pixels: ['ab....', '.aab..', '..abba', '....ab'] },
   { id: 'kelp', name: 'Bit of kelp', rarity: 'common', set: 'beach', blurb: 'Smells like home.', palette: { a: '#2a9d8f', b: '#57cc99' }, pixels: ['.a', 'ab', 'a.', 'ab', '.a'] },
   { id: 'starfish', name: 'Starfish', rarity: 'uncommon', set: 'beach', blurb: 'Waved at him first.', palette: { a: '#ff7a5c', b: '#ffb199' }, pixels: ['..a..', 'aabaa', '.aba.', 'a...a'] },
+  { id: 'urchin-shell', name: 'Urchin shell', rarity: 'common', set: 'beach', blurb: 'Spikes gone. Still a bit grumpy.', palette: { a: '#9d4edd', b: '#c77dff' }, pixels: ['a.a.a', '.bbb.', 'abbba', '.bbb.', 'a.a.a'] },
+  { id: 'conch', name: 'Conch shell', rarity: 'uncommon', set: 'beach', blurb: 'Hold it to your ear: the sea. Or your laptop fan.', palette: { a: '#ffb4a2', b: '#e5989b', c: '#fff1e6' }, pixels: ['..aa.', '.abaa', 'abbca', '.aaa.'] },
 
   // ---- sea glass: one of each colour
   { id: 'sea-glass-green', name: 'Green sea glass', rarity: 'common', set: 'sea-glass', blurb: 'An old bottle, worn smooth by the tide.', palette: { a: '#57cc99', b: '#c8f3e8' }, pixels: ['.ab.', 'aaab', '.aa.'] },
@@ -53,7 +55,45 @@ const FINDS = Object.freeze([
   { id: 'lost-key', name: 'Lost key', rarity: 'uncommon', set: 'junk-drawer', blurb: 'Opens something. Nobody knows what.', palette: { a: '#e2b13c' }, pixels: ['.aa.....', 'a..aaaaa', '.aa..a.a'] },
   { id: 'guitar-pick', name: 'Guitar pick', rarity: 'uncommon', set: 'junk-drawer', blurb: 'He has no guitar. He has ambitions.', palette: { a: '#9d4edd', b: '#c77dff' }, pixels: ['aaaaa', 'abbba', '.aba.', '..a..'] },
   { id: 'usb-stick', name: 'USB stick', rarity: 'uncommon', set: 'junk-drawer', blurb: 'Labelled "backup FINAL 2". Not plugged in.', palette: { a: '#3d405b', b: '#c0c0c0' }, pixels: ['.bb.', '.bb.', 'aaaa', 'aaaa', 'aaaa'] },
-  { id: 'marble', name: 'Marble', rarity: 'uncommon', blurb: 'He lost his once. This one is yours.', palette: { a: '#4361ee', b: '#f72585', c: '#ffffff' }, pixels: ['.aa.', 'abca', 'acba', '.aa.'] },
+  { id: 'safety-pin', name: 'Safety pin', rarity: 'common', set: 'junk-drawer', blurb: 'Holding nothing together. Yet.', palette: { a: '#c0c0c0' }, pixels: ['aaaaaa', 'a....a', '.aaaa.'] },
+  { id: 'battery', name: 'Mystery battery', rarity: 'common', set: 'junk-drawer', blurb: 'Dead? Alive? Only the remote knows.', palette: { a: '#2b2d42', b: '#ffd23f', c: '#c0c0c0' }, pixels: ['.c.', 'aaa', 'aaa', 'bbb', 'bbb'] },
+  { id: 'sticky-note', name: 'Sticky note', rarity: 'common', set: 'junk-drawer', blurb: 'Says "DON\'T FORGET". Doesn\'t say what.', palette: { a: '#ffe066', b: '#c9a227' }, pixels: ['aaaa', 'abba', 'aaaa', 'abaa'] },
+
+  // ---- the toy box
+  { id: 'metal-jack', name: 'Metal jack', rarity: 'common', set: 'toy-box', blurb: 'Do not step on. He learned.', palette: { a: '#c0c0c0' }, pixels: ['a...a', '.a.a.', '..a..', '.a.a.', 'a...a'] },
+  { id: 'toy-brick', name: 'Toy brick', rarity: 'common', set: 'toy-box', blurb: 'Nobody has stepped on it. Yet.', palette: { a: '#e63946', b: '#ff8f8f' }, pixels: ['.b.b.', 'aaaaa', 'aaaaa'] },
+  { id: 'lucky-die', name: 'Lucky die', rarity: 'common', set: 'toy-box', blurb: 'Always lands on six. When he\'s looking.', palette: { w: '#fff4e4', k: '#2b2d42' }, pixels: ['wwwww', 'wkwkw', 'wwwww', 'wkwkw', 'wwwww'] },
+  { id: 'marble', name: 'Marble', rarity: 'uncommon', set: 'toy-box', blurb: 'He lost his once. This one is yours.', palette: { a: '#4361ee', b: '#f72585', c: '#ffffff' }, pixels: ['.aa.', 'abca', 'acba', '.aa.'] },
+  { id: 'yo-yo', name: 'Yo-yo', rarity: 'uncommon', set: 'toy-box', blurb: 'Walks the dog. There is no dog.', palette: { a: '#3a86ff', b: '#cdeafe', s: '#ffffff' }, pixels: ['s...', '.aa.', 'abba', '.aa.'] },
+  { id: 'toy-car', name: 'Toy car', rarity: 'uncommon', set: 'toy-box', blurb: 'Goes vroom. He supplies the vroom.', palette: { r: '#ff5a4a', c: '#cdeafe', k: '#2b2d42' }, pixels: ['.rc..', 'rrrrr', '.k.k.'] },
+  { id: 'wind-up-crab', name: 'Wind-up crab', rarity: 'rare', set: 'toy-box', blurb: 'A tiny tin crab. He\'s not sure how to feel.', palette: { r: '#ff7a5c', k: '#3d405b', y: '#ffd23f' }, pixels: ['..y..', 'r.y.r', 'rrrrr', '.k.k.'] },
+
+  // ---- lost in the codebase
+  { id: 'lost-semicolon', name: 'Lost semicolon', rarity: 'common', set: 'codebase', blurb: 'So that\'s where it went. Line 212.', palette: { a: '#c77dff' }, pixels: ['aa', 'aa', '..', 'aa', '.a', 'a.'] },
+  { id: 'stray-bracket', name: 'Stray bracket', rarity: 'common', set: 'codebase', blurb: 'Closes nothing. Opened nothing. At peace.', palette: { a: '#ffd23f' }, pixels: ['.aa', '.a.', '.a.', 'a..', '.a.', '.a.', '.aa'] },
+  { id: 'coffee-bean', name: 'Coffee bean', rarity: 'common', set: 'codebase', blurb: 'Fell out of your third cup.', palette: { a: '#6f4518', b: '#3b2412' }, pixels: ['.aa.', 'abaa', 'aaba', '.aa.'] },
+  { id: 'escape-key', name: 'Escape key', rarity: 'uncommon', set: 'codebase', blurb: 'You pressed it so hard it came off.', palette: { a: '#e0e0e0', b: '#9e9e9e', c: '#3d405b' }, pixels: ['aaaaa', 'accca', 'aaaaa', 'bbbbb'] },
+  { id: 'floppy-disk', name: 'Floppy disk', rarity: 'uncommon', set: 'codebase', blurb: '1.44 MB. He\'s saving it for something big.', palette: { a: '#3a86ff', b: '#c0c0c0', c: '#fff4e4' }, pixels: ['abbaa', 'abbaa', 'aaaaa', 'accca', 'accca'] },
+  { id: 'actual-bug', name: 'Actual bug', rarity: 'rare', set: 'codebase', blurb: 'Six legs. Not in your code, for once.', palette: { a: '#2a9d8f', b: '#1b4332' }, pixels: ['a...a', '.bbb.', 'abbba', '.bbb.', 'a...a'] },
+  { id: 'rubber-duck', name: 'Rubber duck', rarity: 'rare', set: 'codebase', blurb: 'Tell it your problem. It listens.', palette: { y: '#ffd23f', o: '#ff9f1c', k: '#2b2d42' }, pixels: ['..yy..', '..yko.', 'yyyyy.', '.yyyy.'] },
+  { id: 'golden-duck', name: 'Golden rubber duck', rarity: 'legendary', set: 'codebase', blurb: 'Answers your questions too. Only in riddles.', palette: { a: '#c99700', b: '#ffd23f', k: '#2b2d42' }, pixels: ['..bb..', '..bka.', 'abbbb.', '.aaaa.'] },
+
+  // ---- the back garden
+  { id: 'ladybird', name: 'Ladybird', rarity: 'common', set: 'garden', blurb: 'He counted her spots. Lost count.', palette: { r: '#e63946', k: '#2b2d42' }, pixels: ['..k..', 'rrkrr', 'rkrkr', '.rrr.'] },
+  { id: 'feather', name: 'Feather', rarity: 'common', set: 'garden', blurb: 'A bird lost it. A crab has it now.', palette: { a: '#8ecae6', b: '#219ebc' }, pixels: ['...a', '..ab', '.ab.', 'ab..', 'b...'] },
+  { id: 'daisy', name: 'Daisy', rarity: 'common', set: 'garden', blurb: 'Loves you. He checked every petal.', palette: { w: '#ffffff', y: '#ffd23f', g: '#57cc99' }, pixels: ['.w.', 'wyw', '.w.', '.g.', '.g.'] },
+  { id: 'snail-shell', name: 'Empty snail shell', rarity: 'common', set: 'garden', blurb: 'He tried it on. Bit snug.', palette: { a: '#c97b4a', b: '#f3d9b1' }, pixels: ['.aaa.', 'ab.ba', 'a.a.a', 'abaa.'] },
+  { id: 'seed-packet', name: 'Seed packet', rarity: 'uncommon', set: 'garden', blurb: 'Says "giant sunflowers". He\'s hopeful.', palette: { a: '#fde6b8', b: '#ffd23f', c: '#57cc99' }, pixels: ['aaaa', 'abba', 'abba', 'acca', 'aaaa'] },
+  { id: 'gnome-hat', name: 'Tiny gnome hat', rarity: 'uncommon', set: 'garden', blurb: 'The gnome says it\'s fine. The gnome is lying.', palette: { r: '#e63946' }, pixels: ['..r..', '.rrr.', 'rrrrr'] },
+  { id: 'four-leaf-clover', name: 'Four-leaf clover', rarity: 'rare', set: 'garden', blurb: 'Lucky. He\'s been luckier ever since.', palette: { a: '#2a9d8f', b: '#57cc99' }, pixels: ['bb.bb', 'bbabb', '..a..', 'bbabb', 'bb.bb'] },
+
+  // ---- the dig site
+  { id: 'pottery-shard', name: 'Pottery shard', rarity: 'common', set: 'dig-site', blurb: 'Someone\'s favourite mug, once.', palette: { a: '#c97b4a', b: '#e9a26a' }, pixels: ['aaab', 'abb.', 'ab..'] },
+  { id: 'rusty-nail', name: 'Rusty nail', rarity: 'common', set: 'dig-site', blurb: 'Older than the house it fell out of.', palette: { a: '#8a4b2a' }, pixels: ['aaa', '.a.', '.a.', '.a.'] },
+  { id: 'arrowhead', name: 'Arrowhead', rarity: 'uncommon', set: 'dig-site', blurb: 'Chipped by hand, a very long time ago.', palette: { a: '#6c757d', b: '#adb5bd' }, pixels: ['..a..', '.aba.', '.aba.', 'aabaa', '..a..'] },
+  { id: 'trilobite', name: 'Trilobite', rarity: 'rare', set: 'dig-site', blurb: 'Was here first. Doesn\'t like to bring it up.', palette: { a: '#8d6e63', b: '#bcaaa4' }, pixels: ['.aaa.', 'abbba', 'aaaaa', 'abbba', '.aaa.', '..a..'] },
+  { id: 'bug-in-amber', name: 'Bug in amber', rarity: 'rare', set: 'dig-site', blurb: 'It waited 40 million years to meet him.', palette: { a: '#e9a23b', b: '#fde6b8', k: '#5d4037' }, pixels: ['.aa.', 'abka', 'akka', '.aa.'] },
+  { id: 'dino-tooth', name: 'Dinosaur tooth', rarity: 'legendary', set: 'dig-site', blurb: 'Older than every crab there has ever been.', palette: { a: '#f1faee', b: '#d6ccc2' }, pixels: ['aaaa', 'aaab', '.aab', '.ab.', '.a..'] },
 
   // ---- a pirate's hoard
   { id: 'old-coin', name: 'Old coin', rarity: 'uncommon', set: 'pirate', blurb: 'A king nobody remembers.', palette: { a: '#b08d57', b: '#d4b483' }, pixels: ['.aaa.', 'abbba', 'ababa', 'abbba', '.aaa.'] },
@@ -61,6 +101,8 @@ const FINDS = Object.freeze([
   { id: 'tiny-anchor', name: 'Tiny anchor', rarity: 'rare', set: 'pirate', blurb: 'From a very small ship.', palette: { a: '#577590' }, pixels: ['..a..', '.aaa.', '..a..', 'a.a.a', '.aaa.'] },
   { id: 'message-bottle', name: 'Message in a bottle', rarity: 'rare', set: 'pirate', blurb: 'It says "hi". That\'s all it says.', palette: { a: '#8a6a4a', c: '#a8dadc', d: '#fff4e4' }, pixels: ['..a..', '..c..', '.ccc.', '.cdc.', '.ccc.'] },
   { id: 'treasure-map', name: 'Torn treasure map', rarity: 'legendary', set: 'pirate', blurb: 'X marks the spot. The spot is your desk.', palette: { a: '#e9d8a6', b: '#c9b38a', c: '#e63946' }, pixels: ['aaaaa', 'abcba', 'acbba', 'aaaaa'] },
+  { id: 'eyepatch', name: 'Eyepatch', rarity: 'uncommon', set: 'pirate', blurb: 'He doesn\'t need it. He wears it anyway.', palette: { k: '#2b2d42' }, pixels: ['k....', '.k...', '..kkk', '..kkk'] },
+  { id: 'spyglass', name: 'Spyglass', rarity: 'rare', set: 'pirate', blurb: 'Everything far away is a little closer now.', palette: { a: '#b08d57', b: '#8a6a4a', c: '#a8dadc' }, pixels: ['caabbb', 'caabbb'] },
   { id: 'gold-doubloon', name: 'Gold doubloon', rarity: 'legendary', set: 'pirate', blurb: 'Real gold. He bit it to check.', palette: { a: '#c99700', b: '#ffd23f', c: '#fff4b3' }, pixels: ['.aaa.', 'abbba', 'abcba', 'abbba', '.aaa.'] },
 
   // ---- from the deep
@@ -68,8 +110,26 @@ const FINDS = Object.freeze([
   { id: 'shark-tooth', name: 'Shark tooth', rarity: 'rare', set: 'deep', blurb: 'The shark has others. Probably.', palette: { a: '#f1faee', b: '#cfd8dc' }, pixels: ['aaaaa', '.abb.', '.ab..', '..a..'] },
   { id: 'ammonite', name: 'Ammonite fossil', rarity: 'rare', set: 'deep', blurb: 'Older than the dinosaurs. Older than him, even.', palette: { a: '#a1887f', b: '#d7ccc8' }, pixels: ['.aaaa.', 'ab..ba', 'ab.a.a', 'a.aa.a', '.aaaa.'] },
   { id: 'moon-shell', name: 'Moon shell', rarity: 'rare', set: 'deep', night: true, blurb: 'Only shows itself after dark.', palette: { a: '#cfd8ff', b: '#9fb0ff', c: '#ffffff' }, pixels: ['.aaa.', 'abbba', 'abcba', 'abbba', '.aaa.'] },
+  { id: 'ships-bell', name: 'Ship\'s bell', rarity: 'rare', set: 'deep', blurb: 'Rings once a year. Nobody knows for whom.', palette: { a: '#c99700', b: '#ffd23f' }, pixels: ['..a..', '.bbb.', '.bbb.', 'bbbbb', '..a..'] },
   { id: 'black-pearl', name: 'Black pearl', rarity: 'legendary', set: 'deep', blurb: 'One in ten thousand oysters. He found it in your wallpaper.', palette: { a: '#2b2d42', b: '#8d99ae' }, pixels: ['.aa.', 'aaab', '.bb.'] },
   { id: 'mermaid-comb', name: 'Mermaid\'s comb', rarity: 'legendary', set: 'deep', blurb: 'She\'ll want it back.', palette: { a: '#ffd23f', b: '#7fd6c2' }, pixels: ['abababa', 'aaaaaaa', '.bbbbb.'] },
+
+  // ---- after dark: only at night
+  { id: 'glow-stick', name: 'Glow stick', rarity: 'common', set: 'night', night: true, blurb: 'Still glowing from a party he missed.', palette: { a: '#80ffdb', b: '#c8fff0' }, pixels: ['..a', '.ab', 'ab.', 'a..'] },
+  { id: 'moth', name: 'Moth', rarity: 'common', set: 'night', night: true, blurb: 'Was looking for your monitor.', palette: { a: '#b5a48b', b: '#7f6f58' }, pixels: ['aa.aa', 'aabaa', '.a.a.'] },
+  { id: 'firefly-jar', name: 'Firefly jar', rarity: 'uncommon', set: 'night', night: true, blurb: 'He let them go after. Mostly.', palette: { g: '#a8dadc', y: '#ffd23f', k: '#8a6a4a' }, pixels: ['.kkk.', 'g...g', 'g.y.g', 'gy..g', 'ggggg'] },
+  { id: 'owl-feather', name: 'Owl feather', rarity: 'uncommon', set: 'night', night: true, blurb: 'Silent, even when it falls.', palette: { a: '#a1887f', b: '#5d4037' }, pixels: ['..a', '.ab', 'aba', 'ba.', 'b..'] },
+  { id: 'moonstone', name: 'Moonstone', rarity: 'rare', set: 'night', night: true, blurb: 'Cold and pale. Warms up in his claw.', palette: { a: '#dfe7fd', b: '#a5b4fc', c: '#ffffff' }, pixels: ['.aa.', 'acab', 'abbb', '.bb.'] },
+  { id: 'fallen-star', name: 'Fallen star', rarity: 'legendary', set: 'night', night: true, blurb: 'Made a wish on the way down. Won\'t say what.', palette: { y: '#ffd23f', w: '#fff4b3' }, pixels: ['..y..', '.ywy.', 'yywyy', '.yyy.', 'y...y'] },
+
+  // ---- odds and ends
+  { id: 'fortune-cookie', name: 'Fortune cookie', rarity: 'uncommon', blurb: 'It says "You will meet a crab." Spooky.', palette: { a: '#e9a23b', b: '#fde6b8' }, pixels: ['.aaa.', 'abbba', 'aa.aa'] },
+  { id: 'tiny-pumpkin', name: 'Tiny pumpkin', rarity: 'uncommon', season: 'halloween', blurb: 'Carved with a very small, very smug face.', palette: { o: '#ff9f1c', g: '#2a9d8f', k: '#2b2d42' }, pixels: ['..g..', 'ooooo', 'okoko', 'ooooo'] },
+  { id: 'lost-mitten', name: 'Lost mitten', rarity: 'uncommon', season: 'winter', blurb: 'The other one is still out there.', palette: { r: '#e63946', w: '#fff4e4' }, pixels: ['.rrr.', 'rrrr.', '.rrr.', '.www.'] },
+  { id: 'candy-heart', name: 'Candy heart', rarity: 'uncommon', season: 'valentine', blurb: 'It says BE MINE. He\'s thinking about it.', palette: { p: '#ffb3c6', k: '#ff5d8f' }, pixels: ['.p.p.', 'ppppp', 'pkkkp', '.ppp.', '..p..'] },
+  { id: 'robin-egg', name: 'Robin\'s egg', rarity: 'uncommon', season: 'spring', blurb: 'Empty. Someone hatched and flew off.', palette: { a: '#9bf6ff', b: '#6fd3e0' }, pixels: ['.aa.', 'aaba', 'abaa', '.aa.'] },
+  { id: 'lolly-stick', name: 'Lolly stick', rarity: 'uncommon', season: 'summer', blurb: 'Half a joke on it. He\'s still wondering.', palette: { a: '#e9d8a6' }, pixels: ['aa', 'aa', 'aa', 'aa', 'aa'] },
+  { id: 'red-leaf', name: 'Red maple leaf', rarity: 'uncommon', season: 'autumn', blurb: 'The reddest one. Took him ages.', palette: { r: '#d62828', b: '#9d0208' }, pixels: ['..r..', 'r.r.r', 'rrrrr', '.rrr.', '..b..'] },
 
   // ---- all year round: one per season
   { id: 'candy-corn', name: 'Candy corn', rarity: 'uncommon', set: 'seasons', season: 'halloween', blurb: 'Divisive. He likes it.', palette: { w: '#fff4e4', o: '#ff9f1c', y: '#ffd23f' }, pixels: ['..w..', '.ooo.', 'ooooo', 'yyyyy'] },
@@ -90,6 +150,11 @@ const SETS = Object.freeze([
   { id: 'junk-drawer', name: 'Junk drawer', icon: '🗃️' },
   { id: 'pirate', name: 'Pirate\'s hoard', icon: '🏴‍☠️' },
   { id: 'deep', name: 'From the deep', icon: '🐚' },
+  { id: 'toy-box', name: 'Toy box', icon: '🧸' },
+  { id: 'codebase', name: 'Lost in the codebase', icon: '💻' },
+  { id: 'garden', name: 'Back garden', icon: '🌿' },
+  { id: 'dig-site', name: 'Dig site', icon: '🦴' },
+  { id: 'night', name: 'After dark', icon: '🌙' },
   { id: 'seasons', name: 'All year round', icon: '🗓️' },
 ].map(s => Object.freeze({ ...s, members: Object.freeze(FINDS.filter(f => f.set === s.id).map(f => f.id)) })));
 
@@ -230,11 +295,12 @@ function favourite(stateIn) {
 function foundLine(find, rand = Math.random) {
   if (!find) return null;
   const short = find.name.toLowerCase();
+  const a = /^[aeiou]/.test(short) ? 'an' : 'a';
   const pick = xs => xs[Math.min(xs.length - 1, Math.floor(rand() * xs.length))];
   const options = {
-    common: [`a ${short}!`, 'found something!', 'for you!'],
+    common: [`${a} ${short}!`, 'found something!', 'for you!'],
     uncommon: [`ooh, ${short}!`, 'look what I found', 'for you!'],
-    rare: [`a ${short}!!`, 'ooh, a rare one!', 'look look look!'],
+    rare: [`${a} ${short}!!`, 'ooh, a rare one!', 'look look look!'],
     legendary: ['TREASURE!!', `${short}!!`, 'we\'re rich!'],
     special: ['for you, today', 'a special one', 'just for today'],
   }[find.rarity];

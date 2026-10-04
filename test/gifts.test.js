@@ -138,6 +138,14 @@ test('his line when he hands it over fits the bubble', () => {
       assert.ok(line && line.length <= 24, `${f.id}: "${line}"`);
     }
   }
+  assert.equal(g.foundLine(g.findById('ammonite'), () => 0), 'an ammonite fossil!!');
+  assert.equal(g.foundLine(g.findById('pebble'), () => 0), 'a smooth pebble!');
+});
+
+test('the After dark set only turns up at night', () => {
+  const night = g.SETS.find(s => s.id === 'night');
+  const day = new Set(g.eligible(g.normalize(null), {}).map(f => f.id));
+  assert.ok(night.members.every(id => g.findById(id).night && !day.has(id)));
 });
 
 test('junk from disk is tolerated', () => {
