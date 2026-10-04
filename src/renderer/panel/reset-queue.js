@@ -112,8 +112,8 @@
     $('resetQueue').hidden = !!SB.isCrabOnly?.();
     $('resetQueueList').replaceChildren(...list.map(row));
     $('resetQueueAwake').checked = state.outlook?.keepAwake !== false;
-    // Nothing waiting: nothing to keep the PC awake for.
-    $('resetQueueAwake').closest('.toggle').hidden = !list.length;
+    // Nothing waiting: nothing to keep the PC awake for, and no results to send anywhere.
+    $('resetQueue').querySelector('.rq-foot').hidden = !list.length;
     renderWhen();
     renderFolder();
     renderPhone();

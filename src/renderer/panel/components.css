@@ -315,6 +315,11 @@ body.reordering .tip { display: none; }
 /* ================================================================ routines
    Rows share the Workflows look (.ar-row in workflows.css). */
 .routine-list { margin: 0; }
+/* The status and schedule read as one sentence that wraps where it runs out,
+   rather than the schedule dropping to its own line as a block. */
+.ar-row.routine .ar-meta { display: block; }
+.ar-row.routine .ar-meta > :not(.ar-when) { margin-right: 10px; }
+.ar-row.routine .ar-status { display: inline-flex; }
 .icon-btn.danger-hover:hover { color: var(--danger); background: rgba(255, 90, 74, .1); }
 .r-pill { font: 600 9.5px/16px var(--font-mono); padding: 0 6px; border-radius: 99px; background: var(--reef-3); color: var(--sand-dim); }
 .r-pill.ok { background: var(--glass-dim); color: var(--glass); }
@@ -331,10 +336,13 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .routine-more { margin-top: 8px; }
 .routine-tpl-note { margin: -4px 0 0; font-size: 12px; color: var(--sand-dim); }
 
+/* The tools below your routines (reset queue, dependency health, flaky tests,
+   dependency watch): one quiet look, so the routines above stay the page. */
+.rt-section { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.rt-section h3 { margin: 0; font: 600 15px var(--font-pixel); color: var(--sand); }
+
 /* dependency health (checkup.js) */
-.deps-health { margin-top: 22px; }
 .deps-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.deps-head h3 { margin: 0; font: 600 15px var(--font-pixel); color: var(--sand); }
 .deps-summary { font: 600 11px var(--font-mono); color: var(--glass); }
 .deps-health .view-lede { margin: 4px 0 10px; }
 .deps-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -356,9 +364,8 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .r-pill.warn { background: var(--coral-dim); color: var(--coral); }
 
 /* dependency watch, at the foot of the Routines page */
-.dep-watch { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.dep-watch { display: grid; gap: 10px; }
 .dw-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.dw-head h3 { margin: 0; font: 600 15px var(--font-pixel); color: var(--glass); }
 .dw-sum { margin: 0; font-size: 12px; color: var(--sand-dim); }
 .dw-sum code { font: 11px var(--font-mono); }
 .dep-watch[aria-busy="true"] .dw-sum { animation: blinkdot 1.2s steps(1) infinite; }
@@ -375,9 +382,8 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .dw-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; flex: none; }
 
 /* the reset queue (reset-queue.js): heavy tasks for a fresh 5-hour window */
-.reset-queue { margin-bottom: 18px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: linear-gradient(180deg, var(--reef) 0%, var(--abyss) 140%); display: grid; gap: 8px; }
+.reset-queue { display: grid; gap: 8px; }
 .rq-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.rq-head h3 { margin: 0; font: 600 15px var(--font-pixel); color: var(--sand); }
 .rq-when { font: 600 11px var(--font-mono); color: var(--glass); white-space: nowrap; }
 .rq-lede { margin: 0; font-size: 12px; line-height: 1.45; color: var(--sand-dim); }
 .rq-list { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 5px; }
@@ -398,7 +404,7 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
 .rq-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rq-folder { min-width: 0; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 11px; }
 .rq-mode { width: auto; flex: none; height: 30px; }
-.rq-controls .btn.primary { margin-left: auto; }
+.rq-controls [type="submit"] { margin-left: auto; }
 .rq-note { margin: 0; font-size: 11.5px; color: var(--sand-dim); }
 .rq-note:empty { display: none; }
 .rq-note.err { color: #ffb3aa; }

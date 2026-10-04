@@ -68,7 +68,8 @@
           h('span', { class: 'ar-when' },
             r.scheduleText,
             ' · ', r.enabled ? h('span', { title: r.next ? new Date(r.next).toLocaleString() : '' }, `next ${SB.untilTime(r.next)}`) : 'paused',
-            ' · ', MODE_NAME[r.mode] || r.mode)),
+            // Smart is the default for routines: only say the mode when it's something else.
+            r.mode === 'smart' ? null : ` · ${MODE_NAME[r.mode] || r.mode}`)),
         h('div', { class: 'ar-desc', text: r.prompt, title: r.prompt })),
       h('div', { class: 'ar-actions routine-actions' },
         h('button', { class: 'icon-btn', type: 'button', title: 'Run now', 'aria-label': `Run ${r.name} now`, disabled: r.running, onclick: async () => {
