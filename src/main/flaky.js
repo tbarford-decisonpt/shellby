@@ -436,7 +436,18 @@ function cleanTest(t) {
     trees: Array.isArray(t.trees) ? t.trees.filter(x => TREE_RE.test(x)).slice(0, FIXED_TREES) : [],
     ftrees: Array.isArray(t.ftrees) ? t.ftrees.filter(x => TREE_RE.test(x)).slice(0, MAX_FLAKE_TREES) : [],
     old: Array.isArray(t.old) ? t.old.filter(x => TREE_RE.test(x)).slice(0, MAX_OLD) : [],  // trees from before "Fix it"
+    issue: cleanIssue(t.issue),                              // the GitHub issue filed for it, if any
   };
+}
+
+// An issue link GitHub gave back: https, /owner/repo/issues/N, N matching.
+// Any host, so GitHub Enterprise works; only https links open anyway.
+const ISSUE_URL_RE = /^https:\/\/[a-z0-9.-]+(?::\d+)?\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/issues\/(\d{1,9})$/i;
+function cleanIssue(i) {
+  if (!i || typeof i !== 'object' || typeof i.url !== 'string' || i.url.length > 300) return null;
+  const m = i.url.match(ISSUE_URL_RE);
+  const number = Math.floor(num(i.number));
+  return m && number > 0 && Number(m[1]) === number ? { number, url: i.url, at: num(i.at) } : null;
 }
 
 const lastActive = p => Math.max(0, ...p.runs.map(r => r.at), ...Object.values(p.tests).flatMap(t => [t.flakes[0] || 0, t.statusAt]));
@@ -579,6 +590,16 @@ function setStatus(stateIn, key, id, status, now) {
   return normalizeFlaky({ ...state, projects: { ...state.projects, [key]: { ...p, tests: { ...p.tests, [id]: next } } } });
 }
 
+/** Remember the GitHub issue filed for a test. Nothing else about it changes. */
+function setIssue(stateIn, key, id, issue, now) {
+  const state = normalizeFlaky(stateIn);
+  const p = own(state.projects, key);
+  const t = p && own(p.tests, id);
+  const clean = issue && cleanIssue({ ...issue, at: now });
+  if (!t || !clean) return state;
+  return normalizeFlaky({ ...state, projects: { ...state.projects, [key]: { ...p, tests: { ...p.tests, [id]: { ...t, issue: clean } } } } });
+}
+
 /** Forget one project, or everything. */
 function forget(stateIn, key = null) {
   const state = normalizeFlaky(stateIn);
@@ -606,6 +627,7 @@ function flakyView(stateIn, now) {
         status, statusAt: t.statusAt, suite: id === SUITE,
         retry: status === 'quarantined' && now - t.statusAt > RETRY_AFTER,
         clean: status === 'fixing' ? { runs: t.clean, of: FIXED_RUNS, trees: t.trees.length } : null,
+        issue: t.issue,
       });
     }
   }
@@ -768,9 +790,49 @@ function unquarantinePrompt(row, { branch, base, cmd = null }) {
   ].join('\n');
 }
 
+// A command's values stay on this PC: NAME=value, --flag=value, and the word
+// after a --token or --password style flag. An issue can be public.
+const SECRET_FLAG = /^--?[\w-]*(token|secret|password|passwd|key|auth|credential)s?$/i;
+function redactCmd(cmd) {
+  const words = plain(cmd).replace(/(^|\s)(--?[\w-]+|[A-Za-z_][A-Za-z0-9_]*)=\S+/g, '$1$2=…').split(' ');
+  return words.map((w, i) => (i && SECRET_FLAG.test(words[i - 1]) && !w.startsWith('-') ? '…' : w)).join(' ');
+}
+
+/**
+ * A GitHub issue for a flaky test: the evidence and how to fix it, for a
+ * person or the Issue helper. Everything from the repository goes in a code
+ * span, cleaned by plain(): no backticks to break out with, no tags, and an
+ * @mention in a code span pings nobody.
+ *   -> { title, body }
+ */
+function issueDraft(row, { cmd = null } = {}) {
+  const span = s => '`' + plain(s) + '`';
+  const words = s => plain(s).replace(/[<>]/g, '');
+  const title = clipTo(row.suite ? `Flaky test suite in ${words(row.project)}` : `Flaky test: ${words(row.label)}`, 120);
+  const repeat = REPEAT[row.framework] || 'a shell loop';
+  const body = [
+    "Shellby saw this test fail and then pass with the code exactly the same, so the failure isn't caused by a code change.",
+    '',
+    `- Test: ${row.suite ? 'the whole suite (no single test was named)' : span(row.id)}`,
+    `- Runner: ${RUNNER[row.framework] || 'unknown'}`,
+    `- Flaked: ${row.total} ${row.total === 1 ? 'time' : 'times'} (${row.week} this week, last on ${date(row.lastAt)})`,
+    ...(cmd ? [`- Command: ${span(redactCmd(cmd))}`] : []),
+    '',
+    '### Fixing it',
+    '1. Read the test and the code it exercises. The usual causes: timing and sleeps, state shared between tests, test order, a real network, clock or filesystem, randomness, unawaited promises or leaked handles, and parallel workers touching the same resource.',
+    `2. Reproduce it: run that one test at least 20 times, e.g. ${repeat}, and note how often it fails.`,
+    '3. Fix the cause. Retries, longer timeouts and sleeps only hide it, unless the cause really is a limit that is too short.',
+    '4. Prove it: run the test at least 20 times again, then the whole suite once.',
+    '',
+    "<sub>Filed by Shellby's flaky test detective, which only records test names, counts and dates.</sub>",
+  ].join('\n');
+  return { title, body };
+}
+
 module.exports = {
   SUITE, MAX_FAILED, MANY_FAILED, SAY_AT, FIXED_RUNS, FIXED_TREES, RETRY_AFTER,
   cleanId, labelOf, normalizeCmd, cmdKey, masked, frameworkOf, parse, readRun,
   normalizeFlaky, recordRun, setStatus, forget, flakyView, findTest, due, markSaid, sayLine,
   fixPrompt, quarantinePrompt, unquarantinePrompt,
+  setIssue, issueDraft, redactCmd,
 };

@@ -109,6 +109,7 @@ const branch = require('./branch');
 const fileIndex = require('./fileindex');
 const { Projects } = require('./projects/service');
 const { registerProjectsIpc } = require('./projects/ipc');
+const { readRepo } = require('./projects/local');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { DevServers } = require('./devservers/service');
@@ -1720,7 +1721,11 @@ const flakyCommands = new Map();       // cmdKey -> the command as Claude ran it
 const MAX_FLAKY_COMMANDS = 100;
 
 const flakyOn = () => !CAPTURE && !!config && config.get('flakyTests') !== false && !config.get('crabOnly');
-const flakyView = () => flaky.flakyView(config.get('flaky'), Date.now());
+// issuable: filing it as a GitHub issue can work (the panel's button).
+const flakyView = () => {
+  const issuable = !!github?.can('claude');
+  return flaky.flakyView(config.get('flaky'), Date.now()).map(r => ({ ...r, issuable }));
+};
 
 /** The folder's git tree now, or null (not a repo, or slower than SNAPSHOT_WAIT_MS). */
 function snapshotWithin(dir) {
@@ -1807,6 +1812,7 @@ async function flakyAct(key, id, action) {
     send(panel, 'flaky', flakyView());
     return { ok: true };
   }
+  if (action === 'issue') return fileFlakyIssue(key, id, row);
   const act = Object.hasOwn(FLAKY_ACTIONS, action) ? FLAKY_ACTIONS[action] : null;
   if (!act) return { ok: false, error: 'Unknown action.' };
   const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
@@ -1821,6 +1827,43 @@ async function flakyAct(key, id, action) {
   send(panel, 'flaky', flakyView());
   showPanel({ focusInput: false, tabId: res.tabId });
   return res;
+}
+
+/**
+ * File a flaky test as a GitHub issue, labelled shellby and assigned to you,
+ * so the Issue helper workflow can offer to take it on (and anyone else on the
+ * repository can see it). Asks first: an issue can be public.
+ */
+async function fileFlakyIssue(key, id, row) {
+  if (row.issue) return { ok: true, ...row.issue, existing: true };
+  if (!github?.can('claude')) return { ok: false, error: 'Filing issues needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
+  const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
+  // Its origin on github.com, read from the folder itself (Projects may not list it).
+  const repo = root && isFolder(root) ? (await readRepo(root).catch(() => null))?.remote : null;
+  if (!repo) return { ok: false, error: "This project isn't on GitHub, so there's nowhere to file it." };
+  const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
+  const draft = flaky.issueDraft(row, { cmd: latest ? flakyCommands.get(latest) || null : null });
+  const gh = github.gh();
+  const info = await gh.get(`/repos/${repo}`).catch(() => null);
+  const response = await askOnce({
+    icon: '🐛',
+    title: `File an issue on ${repo}?`,
+    message: `“${draft.title}”, with what Shellby saw: the test's name, how often it flaked, the command (with any values left out) and how to go about fixing it.`,
+    detail: 'It\'s labelled shellby and assigned to you, so the Issue helper workflow can offer to take a crack at it.',
+    note: info?.private === false ? `${repo} is public: anyone can read the issue.` : 'Anyone who can see the repository can read the issue.',
+    buttons: [{ label: 'File it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+  });
+  if (response !== 0) return { ok: false, canceled: true };
+  let made;
+  try {
+    made = await gh.post(`/repos/${repo}/issues`, { ...draft, labels: ['shellby'], assignees: [github.view().login].filter(Boolean) });
+  } catch (e) {
+    log.warn('flaky issue', e.message);
+    return { ok: false, error: `GitHub didn't take it: ${e.message}` };
+  }
+  config.set({ flaky: flaky.setIssue(config.get('flaky'), key, id, { number: made?.number, url: made?.html_url }, Date.now()) });
+  send(panel, 'flaky', flakyView());
+  return { ok: true, number: made?.number, url: made?.html_url };
 }
 
 // ================================================================ the week in review (weekly.js)

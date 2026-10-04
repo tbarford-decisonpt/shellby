@@ -514,3 +514,81 @@ test('flakyView: most flaky first, fixed last', () => {
   assert.equal(row.project, 'app');
   assert.equal(row.framework, 'jest');
 });
+
+// ------------------------------------------------------------------ filing an issue
+
+const ISSUE_URL = 'https://github.com/me/app/issues/12';
+
+function flakedOnce() {
+  const { state } = feed([fail(['src/auth.spec.js › auth › signs in']), pass()]);
+  return { state, row: F.flakyView(state, T0 + HOUR)[0] };
+}
+
+test('issueDraft: the evidence, with every name from the repository in a code span', () => {
+  const { row } = flakedOnce();
+  const d = F.issueDraft(row, { cmd: 'npm test' });
+  assert.equal(d.title, 'Flaky test: auth.spec › signs in', 'the label the panel shows');
+  assert.match(d.body, /fail and then pass with the code exactly the same/);
+  assert.match(d.body, /- Test: `src\/auth\.spec\.js › auth › signs in`/);
+  assert.match(d.body, /- Runner: Jest/);
+  assert.match(d.body, /- Flaked: 1 time \(1 this week, last on \d{4}-\d{2}-\d{2}\)/);
+  assert.match(d.body, /- Command: `npm test`/);
+  assert.match(d.body, /run that one test at least 20 times/);
+  assert.match(d.body, /Filed by Shellby/);
+  assert.doesNotMatch(F.issueDraft(row, {}).body, /Command:/, 'no command known: none shown');
+});
+
+test("issueDraft: a test name can't break out of its code span, open a tag or mention anyone", () => {
+  const { row } = flakedOnce();
+  const d = F.issueDraft({ ...row, id: 'x` @everyone <img src=x>\n# Heading', label: 'x` <b>' }, { cmd: 'npm test` <script>' });
+  const test = d.body.split('\n').find(l => l.startsWith('- Test:'));
+  assert.equal((test.match(/`/g) || []).length, 2, 'only the two backticks of its own span');
+  assert.doesNotMatch(d.body, /<img|<script|<b>|\n# Heading/);
+  assert.doesNotMatch(d.title, /[`<]/);
+});
+
+test('issueDraft: values in the command are left out, so a secret never reaches a public issue', () => {
+  const { row } = flakedOnce();
+  const d = F.issueDraft(row, { cmd: 'API_KEY=sk-live-123 DEBUG=1 npm test -- --token=abc123 --password hunter2' });
+  assert.doesNotMatch(d.body, /sk-live-123|abc123|hunter2/);
+  assert.match(d.body, /API_KEY=… DEBUG=… npm test -- --token=… --password …/);
+});
+
+test('issueDraft: a run with no test named says the suite, not a test', () => {
+  const { state } = feed([fail([]), pass()]);
+  const [row] = F.flakyView(state, T0 + HOUR);
+  assert.equal(row.suite, true);
+  const d = F.issueDraft(row, {});
+  assert.equal(d.title, 'Flaky test suite in app');
+  assert.match(d.body, /- Test: the whole suite \(no single test was named\)/);
+});
+
+test('setIssue: the issue is remembered on the test and shown on its row', () => {
+  const { state } = flakedOnce();
+  const id = 'src/auth.spec.js › auth › signs in';
+  const s = F.setIssue(state, KEY, id, { number: 12, url: ISSUE_URL }, T0 + HOUR);
+  const [row] = F.flakyView(s, T0 + HOUR);
+  assert.deepEqual(row.issue, { number: 12, url: ISSUE_URL, at: T0 + HOUR });
+  assert.equal(row.status, 'watching', 'filing it changes nothing else');
+  assert.deepEqual(F.flakyView(state, T0 + HOUR)[0].issue, null, 'the old state is untouched');
+  assert.deepEqual(F.normalizeFlaky(JSON.parse(JSON.stringify(s))).projects[KEY].tests[id].issue, { number: 12, url: ISSUE_URL, at: T0 + HOUR }, 'it survives a save');
+});
+
+test('setIssue: only a real GitHub issue link is kept', () => {
+  const { state } = flakedOnce();
+  const id = 'src/auth.spec.js › auth › signs in';
+  for (const bad of [
+    { number: 12, url: 'http://github.com/me/app/issues/12' },
+    { number: 12, url: 'https://github.com/me/app/issues/12#comment' },
+    { number: 12, url: 'javascript:alert(1)//github.com/me/app/issues/12' },
+    { number: 12, url: 'https://github.com/me/app/pull/12' },
+    { number: 0, url: 'https://github.com/me/app/issues/0' },
+    { number: 12, url: 'https://github.com/me/app/issues/13' },
+    null,
+  ]) {
+    assert.equal(F.flakyView(F.setIssue(state, KEY, id, bad, T0 + HOUR), T0 + HOUR)[0].issue, null, JSON.stringify(bad));
+  }
+  assert.equal(F.flakyView(F.setIssue(state, KEY, 'nope', { number: 12, url: ISSUE_URL }, T0), T0 + HOUR)[0].issue, null);
+  const ghe = F.setIssue(state, KEY, id, { number: 7, url: 'https://git.example.com/me/app/issues/7' }, T0);
+  assert.equal(F.flakyView(F.normalizeFlaky(ghe), T0 + HOUR)[0].issue.number, 7, 'GitHub Enterprise too, and it survives a save');
+});

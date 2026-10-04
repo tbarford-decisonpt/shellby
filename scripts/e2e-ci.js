@@ -21,6 +21,7 @@ const SUITE = [
   'e2e-questions',    // Claude's multiple-choice questions
   'e2e-xp',           // XP, levels, the desktop float and the level-up
   'e2e-flaky',        // flaky tests: fail then pass on the same code, the list, his line, Fix it in a copy
+  'e2e-flaky-issue',  // a flaky test filed as a GitHub issue: no button without GitHub, asks first, labelled and linked
   'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
   'e2e-life',         // his life between tasks: scenes, gifts, the Finds and Us pages, your day, birthdays, hide and seek, fetch

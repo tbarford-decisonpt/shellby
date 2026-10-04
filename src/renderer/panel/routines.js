@@ -140,6 +140,7 @@
     else bits.push(h('span', { class: `dep-pill ${f.week >= 2 ? 'err' : 'warn'}`, text: f.week ? `flaked ${f.week === 1 ? 'once' : `${f.week} times`} this week` : `flaked ${plural(f.total, 'time')}` }));
     if (f.status === 'fixing') bits.push(h('span', { class: 'dep-pill', text: `Fixing: ${Math.min(f.clean.runs, f.clean.of)} of ${f.clean.of} clean runs` }));
     if (f.status === 'quarantined') bits.push(h('span', { class: 'dep-pill', text: 'Quarantined' }));
+    if (f.issue) bits.push(h('a', { class: 'dep-pill', href: '#', 'data-href': f.issue.url, title: 'Open the issue on GitHub', text: `Issue #${f.issue.number}` }));
     return bits;
   }
 
@@ -149,8 +150,10 @@
       btn.disabled = true;
       const res = await api.flakyAct({ key: f.key, id: f.id, action });
       btn.disabled = false;
+      if (res?.canceled) return;
       if (!res?.ok) SB.toast(res?.error || "That didn't work.");
       else if (action === 'dismiss') SB.toast(`Shellby will leave ${f.label} be`);
+      else if (action === 'issue') SB.toast(`Filed as issue #${res.number}`);
     } }, label);
   }
 
@@ -159,6 +162,7 @@
       return [
         flakyButton(f, 'fix', 'Fix it', 'Claude finds the cause and fixes it, in a copy of the repository', true),
         flakyButton(f, 'quarantine', 'Quarantine', 'Claude skips just this test, with a note, in a copy of the repository'),
+        f.issuable && !f.issue && flakyButton(f, 'issue', 'File an issue', 'A GitHub issue with what Shellby saw, labelled shellby so the Issue helper can offer to fix it. Asks first'),
         flakyButton(f, 'dismiss', 'Not flaky', "Hide it unless it keeps doing this (say, it was a server that wasn't up)"),
       ];
     }
