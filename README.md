@@ -10,7 +10,7 @@ No API keys, no per-token billing. No Claude? He's still a desk pet who talks, p
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
-[What's new](#whats-new) · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[What's new](#whats-new) · [Why Shellby, if you have Claude Code?](docs/WHY-SHELLBY.md) · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
@@ -69,7 +69,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
 - **In your terminal and editor too:** with the plugin he reacts to Claude Code in VS Code, Cursor, Windsurf, Zed, JetBrains and Windows Terminal, and sits in its status line.
 
-**[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)**
+**[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)** · **[Already use Claude Code in a terminal or editor? Here's what he adds →](docs/WHY-SHELLBY.md)**
 
 ## 🗂️ He runs your dev day
 
