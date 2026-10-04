@@ -6,6 +6,7 @@
   const toy = document.getElementById('toy');
   const bridge = window.toy;
   const PX = 6; // screen pixels per sprite pixel
+  window.ShellbyFrameCap.cap(document); // a transparent window: every frame costs the GPU
 
   bridge.onLook(look => {
     if (!Array.isArray(look?.pixels) || !look.palette) return;

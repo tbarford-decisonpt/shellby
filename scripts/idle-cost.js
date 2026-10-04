@@ -71,6 +71,20 @@ function sample(rootPid) {
   return { cpuSeconds: Number(cpu), bytes: Number(ws), procs: Number(count), byPid };
 }
 
+// The GPU process's average share of the 3D engine, sampled once a second for
+// the whole window (so this also does the waiting). Every frame a transparent
+// window presents lands here: his breathe at 60 fps was a quarter of a 3080 Ti.
+// null when there's no GPU process or no counters (a VM, say).
+function gpuBusy(byPid, seconds) {
+  const pid = [...byPid].find(([, p]) => p.kind === 'gpu-process')?.[0];
+  if (!pid) return null;
+  try {
+    const ps = `$s = (Get-Counter '\\GPU Engine(pid_${pid}_*engtype_3D)\\Utilization Percentage' -SampleInterval 1 -MaxSamples ${seconds} -ErrorAction Stop).CounterSamples
+      ($s | Measure-Object CookedValue -Sum).Sum / ${seconds}`;
+    return Number(execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8' }).trim());
+  } catch { return null; }
+}
+
 (async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-idle-'));
   // No --remote-debugging-port on purpose: an attached DevTools client keeps the
@@ -97,7 +111,8 @@ function sample(rootPid) {
     console.log(`${first.procs} processes, ${(first.bytes / 1e6).toFixed(0)} MB resident`);
     console.log(`measuring ${SECONDS}s of doing nothing…`);
     const started = Date.now();
-    await wait(SECONDS * 1000);
+    const gpu = gpuBusy(first.byPid, SECONDS);
+    await wait(Math.max(0, SECONDS * 1000 - (Date.now() - started)));
     const elapsed = (Date.now() - started) / 1000;
     const last = sample(app.pid);
 
@@ -109,6 +124,7 @@ function sample(rootPid) {
     console.log(`             ${percentOfOneCore.toFixed(1)}% of one core · ${percentOfMachine.toFixed(2)}% of this ${os.cpus().length}-thread machine`);
     console.log(`  Memory     ${(last.bytes / 1e6).toFixed(0)} MB resident (${last.bytes > first.bytes ? '+' : ''}${((last.bytes - first.bytes) / 1e6).toFixed(1)} MB over the window)`);
     console.log(`  Processes  ${last.procs}`);
+    if (gpu != null) console.log(`  GPU        ${gpu.toFixed(1)}% of the 3D engine (what Task Manager shows)`);
     console.log('');
     // Where it went: a cost in the GPU process is the critter's animation being
     // composited; one in main is a timer; one in a renderer is script.

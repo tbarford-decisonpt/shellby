@@ -663,6 +663,10 @@ api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
 // picks up mid-breath. See watchIdleCost in src/main/main.js.
 api.onCalm(msg => document.body.classList.toggle('calm-deep', !!msg?.calm));
 
+// ---- and while you can see him, he moves at a pixel-art frame rate, not the
+// screen's: a transparent window pays the GPU for every frame (shared/framecap.js).
+window.ShellbyFrameCap.cap(document);
+
 // ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
 // him, ahead of any helpers, and walks back off to the left when it's time.
 const VISITOR_SCALE = 0.7; // must match VISITOR_SCALE in src/main/main.js
