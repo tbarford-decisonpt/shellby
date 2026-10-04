@@ -101,9 +101,25 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 .tk-lock { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
 
 /* ---------------------------------------------------------------- where decor comes from */
-.tk-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.tk-key b { display: block; font-size: 13px; color: var(--sand); }
-.tk-key p { margin: 1px 0 0; font-size: 12px; line-height: 1.45; color: var(--sand-dim); max-width: 60ch; }
+#tkKeyMeta { display: inline-flex; align-items: center; gap: 8px; }
+.tk-key {
+  list-style: none; margin: 0; padding: 0; display: grid;
+  border: 1px solid var(--line-soft); border-radius: var(--r); background: var(--reef); overflow: hidden;
+}
+.tk-src { display: grid; gap: 4px; padding: 9px 12px 10px; }
+.tk-src + .tk-src { border-top: 1px solid var(--line-soft); }
+.tk-src-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tk-src-name { font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.tk-src-n { font: 600 14px var(--font-pixel); color: var(--sand); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tk-src p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--sand-dim); max-width: 60ch; }
+.tk-src p b { font-weight: 700; color: var(--sand); }
+/* How much of a source is his: the panel's meter look, filled by --fill (0 to 1). */
+.tk-bar { position: relative; display: block; height: 4px; border-radius: 2px; background: var(--reef-2); overflow: hidden; }
+.tk-bar::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--glass);
+  transform: scaleX(var(--fill, 0)); transform-origin: left;
+}
+#tkKeyMeta .tk-bar { width: 44px; }
 
 @media (prefers-reduced-motion: reduce) {
   body[data-view="tank"] .view-tank { animation: none; }
