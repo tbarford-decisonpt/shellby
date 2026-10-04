@@ -9,20 +9,25 @@
   const { h, api, state, $ } = SB;
   const TRIM_FROM = 400;   // tokens: smaller memory files aren't worth a trim
   let loading = null;
+  let loadingSince = 0;
+  let tick = null;         // redraws the waiting line each second, so it never looks stuck
   let error = null;
   const busy = new Set();  // plugin ids / server names with a change in flight
 
   const tok = n => `~${SB.compact(Math.round(n))} tokens`;
   const pct = r => `${Math.round(r * 100)}%`;
   const rerender = () => { if (state.view === 'toolbox') SB.views.toolbox.render(); };
+  const waited = () => { const s = Math.round((Date.now() - loadingSince) / 1000); return loading && s >= 2 ? `${s} s` : ''; };
 
   function load(refresh = false) {
     if (loading) return loading;
     error = null;
+    loadingSince = Date.now();
     loading = api.leanReport(refresh)
       .then(r => { if (r?.ok) state.lean = r; else error = r?.error || "Couldn't read that from Claude Code."; })
       .catch(() => { error = "Couldn't read that from Claude Code."; })
-      .finally(() => { loading = null; rerender(); });
+      .finally(() => { loading = null; clearInterval(tick); tick = null; rerender(); });
+    if (!state.lean) tick ??= setInterval(() => { const el = document.querySelector('#setupPane .lean-wait'); if (el) el.textContent = waited(); }, 1000);
     rerender();
     return loading;
   }
@@ -155,8 +160,12 @@
     const rep = state.lean;
     if (!rep) {
       if (!loading && !error) load();
-      pane.replaceChildren(h('p', { class: `setup-status${error ? ' err' : ''}`, role: 'status',
-        text: error || 'Asking Claude Code what each plugin adds to a conversation. The first time takes about half a minute.' }));
+      pane.replaceChildren(
+        h('p', { class: `setup-status${error ? ' err' : ''}`, role: 'status',
+          text: error || 'Asking Claude Code what each plugin adds to a conversation. The first time takes a minute or so with lots of plugins.' }),
+        error
+          ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => load(true) }, 'Check again')
+          : h('p', { class: 'muted small lean-wait', 'aria-hidden': 'true', text: waited() }));
       list.replaceChildren();
       return;
     }

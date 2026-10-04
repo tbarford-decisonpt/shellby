@@ -251,9 +251,12 @@ class Marketplace {
     return (m && SUGGESTED.find(s => s.name === m.name && (s.source === m.repo || s.source === m.source))) || null;
   }
 
-  list({ refresh = false } = {}) {
+  // stale: any earlier list will do, so a caller that only needs what's installed
+  // never waits behind a refresh (`marketplace update` can take minutes). The
+  // cache is patched by every change, so what's installed in it stays right.
+  list({ refresh = false, stale = false } = {}) {
     if (typeof this.run !== 'function') return Promise.resolve({ ok: false, notInstalled: true, error: NOT_INSTALLED });
-    if (!refresh && this.cache && this.now() - this.cache.at < LIST_TTL_MS) return Promise.resolve({ ok: true, ...this.view() });
+    if (!refresh && this.cache && (stale || this.now() - this.cache.at < LIST_TTL_MS)) return Promise.resolve({ ok: true, ...this.view() });
     if (this.listing) return this.listing;
     this.listing = this.fetchList(refresh).finally(() => { this.listing = null; });
     return this.listing;
