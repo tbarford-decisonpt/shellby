@@ -152,6 +152,12 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .ctx-chip.warn .meter-fill { background: var(--amber); }
 .ctx-chip.hot { color: var(--danger); }
 .ctx-chip.hot .meter-fill { background: var(--danger); }
+/* The prompt cache (tabs.js cacheNow): a dot after the percentage, never an alarm. */
+.ctx-chip[data-cache="warm"]::after, .ctx-chip[data-cache="cooling"]::after, .ctx-chip[data-cache="cold"]::after { content: ""; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.ctx-chip[data-cache="warm"]::after { background: var(--glass); box-shadow: 0 0 5px var(--glass); }
+.ctx-chip[data-cache="cooling"]::after { background: var(--amber); }
+.ctx-chip[data-cache="cold"]::after { background: var(--sand-faint); }
+.menu-label.cache-note { max-width: 260px; font: 400 11.5px/1.4 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--sand-dim); padding-bottom: 6px; }
 #branchLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
 .menu-item.branch-info { cursor: default; }
 .menu-item.branch-info:hover { background: none; }

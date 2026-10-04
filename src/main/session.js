@@ -9,6 +9,7 @@ const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
+const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
@@ -56,6 +57,9 @@ class ClaudeSession extends EventEmitter {
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
     this.counted = new Map();      // message id -> weight already reported as 'spend'
+    this.calls = new Map();        // message id -> token counts already reported as 'call'
+    this.cache = null;             // { at, ttlMs }: when this conversation last touched the prompt cache
+    this.setupChars = null;        // a new conversation's first prompt, in characters, until its first call is measured
   }
 
   buildArgs() {
@@ -105,6 +109,7 @@ class ClaudeSession extends EventEmitter {
       }
       for (const item of items) this.handle(item);
       this.countSpend(spendFrom(event));
+      this.countCall(event);
       this.measure(event);
     });
     proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
@@ -118,6 +123,7 @@ class ClaudeSession extends EventEmitter {
       const wasBusy = this.busy && !this.stopping;
       this.stopping = false;
       this.proc = null;
+      this.setupChars = null; // a first prompt that never got its call can't size the next one
       this.waiting = null;
       this.cancelPending();
       for (const id of [...this.requests.keys()]) this.answered({ request_id: id, subtype: 'error', error: 'Claude Code stopped.' });
@@ -186,6 +192,33 @@ class ClaudeSession extends EventEmitter {
     this.counted.set(s.messageId, weight);
     if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
     this.emit('spend', { messageId: s.messageId, weight: weight - before });
+  }
+
+  // The prompt cache and setup weight (efficiency.js), off the transcript like
+  // spend. 'call' carries each call's growth in cache reads, cache writes and
+  // fresh input; 'cache' says when the main thread last touched the cache.
+  countCall(event) {
+    const c = eff.callFrom(event);
+    if (!c) return;
+    const prev = this.calls.get(c.messageId);
+    const grow = f => Math.max(0, c[f] - (prev?.[f] || 0));
+    const delta = { input: grow('input'), write: grow('write'), read: grow('read'), isNew: !prev };
+    this.calls.delete(c.messageId);
+    this.calls.set(c.messageId, { input: Math.max(c.input, prev?.input || 0), write: Math.max(c.write, prev?.write || 0), read: Math.max(c.read, prev?.read || 0) });
+    if (this.calls.size > 500) this.calls.delete(this.calls.keys().next().value);
+    // A brand-new conversation's first call is everything it carries before your first word.
+    let setup = null;
+    if (c.main && !prev && this.setupChars !== null) {
+      setup = eff.setupTokens(c, this.setupChars);
+      this.setupChars = null;
+    }
+    if (delta.input || delta.write || delta.read || setup) this.emit('call', { ...delta, setup });
+    // Stamped on a call's first event, close to when it read the cache: its later
+    // blocks arrive as it writes, which would make the cache look warmer than it is.
+    if (c.main && !prev) {
+      this.cache = { at: Date.now(), ttlMs: c.ttlMs || this.cache?.ttlMs || eff.DEFAULT_TTL_MS };
+      this.emit('cache', this.cache);
+    }
   }
 
   // How full the context window is, from each main-thread reply's token counts.
@@ -257,6 +290,9 @@ class ClaudeSession extends EventEmitter {
   send(content, ready = null) {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
     this.setBusy(true);
+    // No conversation yet: its first call will show the setup weight. A prompt
+    // with an image can't be sized, so that one isn't measured (-1).
+    if (!this.sessionId && !this.proc) this.setupChars = eff.promptChars(content) ?? -1;
     const message = { type: 'user', message: { role: 'user', content } };
     if (!ready) {
       this.start();

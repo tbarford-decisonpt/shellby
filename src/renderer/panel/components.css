@@ -194,6 +194,16 @@ body.reordering .tip { display: none; }
 .src-pill { flex: none; margin-left: auto; font: 10px var(--font-mono); color: var(--sand-faint); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-desc { margin: 3px 0 0; font-size: 12.5px; color: var(--sand-dim); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tool-actions { flex: none; display: flex; align-items: center; gap: 2px; }
+/* Toolbox → Lean (lean.js) */
+.lean-summary { display: grid; gap: 6px; margin-bottom: 8px; }
+.lean-summary p { margin: 0; }
+.lean-head { font-size: 13.5px; color: var(--sand); line-height: 1.4; }
+.lean-head strong { color: var(--glass); }
+.lean-cache { font-size: 12.5px; color: var(--sand-dim); }
+.lean-label { list-style: none; margin: 8px 0 0; }
+.tool-row.is-idle { border-color: rgba(255, 193, 94, .4); }
+.tool-row.is-off { opacity: .7; }
+.idle-pill { font: 700 9.5px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 99px; background: var(--amber); color: #1a1206; }
 .icon-btn.pin span { font-size: 15px; line-height: 1; }
 .icon-btn.pin.on { color: var(--amber); }
 .mcp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--sand-faint); }

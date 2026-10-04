@@ -53,6 +53,7 @@ const focus = require('./focus');
 const toast = require('./toast');
 const limits = require('./limits');
 const spend = require('./spend');
+const { createLean } = require('./lean');
 const recap = require('./recap');
 const leaving = require('./leaving');
 const forecast = require('./forecast');
@@ -181,6 +182,7 @@ let config, history, skins, manager, toolbox, scheduler, wardrobe, health, exter
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let parityIpc = null;
+let lean = null; // Lean Shell: the prompt cache, setup weight and idle tools (lean.js)
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
 let nowPlaying = null;        // { title, artist, app, playing } from the Windows media session
@@ -891,6 +893,7 @@ function createManager() {
   });
 
   manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
+  manager.on('call', (_tabId, c, tab) => { if (!CAPTURE) lean?.onCall(c, tab); });
   // A conversation past the crowded mark: he says so, and the panel offers to make room.
   manager.on('context', (_tabId, now, before, tab) => {
     if (ctx.crossed(before, now) && !tab.routineId && !tab.workflowRunId) sayText('Getting crowded in here.', 'crowded');
@@ -1828,6 +1831,8 @@ async function startFresh(tab, summary) {
   // Until the new conversation reports its id, reopening the tab starts it afresh rather than resuming the old one.
   history.update(tab.id, { claudeSessionId: null, context: null });
   manager.note(tab.id, { kind: 'fresh' });
+  if (tab.freshCrowded) awardXp('fresh', { label: tab.title });
+  tab.freshCrowded = false;
   session.setBusy(false);
   try { session.send(ctx.handoffPrompt(summary), manager.prepareTurn(tab)); } catch (err) { log.info(`fresh start: ${err.message}`); }
 }
@@ -2958,7 +2963,7 @@ function saveSpend() {
 
 // Settings as the panel sees them: the ledger stays in main (usageBreakdown).
 function panelSettings() {
-  const { spendLedger: _ledger, ...rest } = config.data;
+  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
   return rest;
 }
 
@@ -3903,6 +3908,13 @@ function registerIpc() {
     critter: critter && !critter.isDestroyed() ? critter.webContents : null,
     isToy: wc => !!playtime?.isToy(wc),
   })), { onRefused: channel => log.warn('IPC refused', channel) });
+  lean = createLean({
+    config, shop: () => shop, shopBlocked, askOnce, toolbox: () => toolbox, setupWhere, configDir: claudeConfigDir, awardXp, log,
+    memory: () => claudeSetup.scanMemory(setupWhere()),
+    projectOf: tab => { const s = spendSource(tab); return s.pk ? { key: s.pk, name: s.project } : null; },
+    currentProject: () => path.resolve(currentCwd()).toLowerCase(),
+  });
+  lean.register(ipcMain);
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
@@ -4148,6 +4160,8 @@ function registerIpc() {
     try {
       manager.send(tabId, ctx.HANDOFF_ASK, { kind: 'user', text: 'Start fresh with a summary' });
       tab.freshWanted = true; // after send: its prepareTurn clears the flag
+      // XP only past the crowded mark: starting fresh sooner throws away context for nothing.
+      tab.freshCrowded = (tab.session.context?.pct ?? 0) >= ctx.CROWDED_PCT;
       wake();
       return { ok: true, text: 'Start fresh with a summary' };
     } catch (err) {
@@ -5611,6 +5625,7 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   scheduler?.stop();
   if (config) saveSpend();
+  lean?.save();
   toolbox?.stop();
   health?.stop();
   timeTracker?.stop(); // writes the last minutes down

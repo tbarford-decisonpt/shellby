@@ -1,5 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const os = require('os');
+const path = require('path');
 
 const {
   Marketplace, SUGGESTED, parseCatalog, parseMarketplaces, parseListing, isGithubRepo, parseDetails, parseResultLine, normalizeSource, runsCode, sourceUrl,
@@ -355,4 +357,60 @@ test('addMarketplace: validates before calling the CLI', async () => {
   const r = await m.addMarketplace('https://github.com/anthropics/skills');
   assert.equal(r.ok, true);
   assert.deepEqual(calls[0], ['plugin', 'marketplace', 'add', 'anthropics/skills']);
+});
+
+test('setEnabled: turns a user plugin off and on, keeps it installed; project installs point to the terminal', async () => {
+  const catalog = { ...CATALOG, installed: [
+    { id: 'frontend-design@claude-plugins-official', scope: 'user', enabled: true, installedAt: '2026-09-01T10:00:00.000Z' },
+    { id: 'old-thing@gone-marketplace', scope: 'project', enabled: true },
+  ] };
+  const { run, calls } = fakeRun(listAnswers({
+    'plugin list --available': { ok: true, stdout: JSON.stringify(catalog) },
+    'plugin disable': { ok: true, stdout: '{"outcome":"disabled"}' },
+    'plugin enable': { ok: true, stdout: '{"outcome":"enabled"}' },
+  }));
+  const m = new Marketplace({ run });
+  await m.list();
+  const fd = () => m.view().plugins.find(p => p.name === 'frontend-design');
+  assert.equal(fd().installedAt, Date.parse('2026-09-01T10:00:00.000Z'));
+  assert.equal((await m.setEnabled('42crunch-api-security-testing@claude-plugins-official', false)).ok, false, 'not installed');
+  const proj = await m.setEnabled('old-thing@gone-marketplace', false);
+  assert.deepEqual([proj.ok, proj.needsTerminal, proj.command], [false, true, 'claude plugin disable old-thing@gone-marketplace --scope project']);
+  assert.equal((await m.setEnabled('frontend-design@claude-plugins-official', false)).ok, true);
+  assert.deepEqual([fd().installed, fd().enabled], [true, false]);
+  assert.equal((await m.setEnabled('frontend-design@claude-plugins-official', true)).ok, true);
+  assert.equal(fd().enabled, true);
+  assert.deepEqual(calls.filter(c => c[1] === 'disable' || c[1] === 'enable'), [
+    ['plugin', 'disable', 'frontend-design@claude-plugins-official', '--scope', 'user', '--json'],
+    ['plugin', 'enable', 'frontend-design@claude-plugins-official', '--scope', 'user', '--json'],
+  ]);
+});
+
+test('setEnabled: a failed result line is a failure', async () => {
+  const { run } = fakeRun(listAnswers({ 'plugin disable': { ok: true, stdout: '{"outcome":"failed","message":"nope"}' } }));
+  const m = new Marketplace({ run });
+  await m.list();
+  assert.deepEqual(await m.setEnabled('frontend-design@claude-plugins-official', false), { ok: false, error: 'nope' });
+});
+
+test("details: Claude Code's own inventory and estimate, only for listed plugins", async () => {
+  const { run, calls } = fakeRun(listAnswers());
+  const m = new Marketplace({ run });
+  await m.list();
+  const d = await m.details('frontend-design@claude-plugins-official');
+  assert.deepEqual([d.alwaysOnTokens, d.hooks], [1200, 2]);
+  assert.equal(await m.details('made-up@nowhere'), null);
+  assert.equal(calls.filter(c => c[1] === 'details').length, 1);
+});
+
+test("catalog: a plugin's folder is kept only inside Claude Code's plugins folder", () => {
+  const root = path.join(os.tmpdir(), 'claude-plugins');
+  const inside = path.join(root, 'cache', 'm', 'fd', '1.0');
+  const json = { installed: [
+    { id: 'frontend-design@claude-plugins-official', scope: 'user', installPath: inside },
+    { id: 'old-thing@gone-marketplace', scope: 'user', installPath: path.join(os.tmpdir(), 'elsewhere') },
+  ] };
+  const dirs = Object.fromEntries(parseCatalog(json, { pluginsRoot: root }).plugins.map(p => [p.name, p.dir]));
+  assert.deepEqual(dirs, { 'frontend-design': inside, 'old-thing': null });
+  assert.equal(parseCatalog(json).plugins[0].dir, null, 'no root, no folder');
 });

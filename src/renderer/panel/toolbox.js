@@ -227,7 +227,7 @@
     // counts
     document.querySelectorAll('#toolTabs [data-kind]').forEach(b => {
       const k = b.dataset.kind;
-      b.querySelector('.n').textContent = setup.owns(k) ? setup.count(k) : k === 'snippet' ? (state.snippets || []).length : tb ? tb[listKey[k]].length : '';
+      b.querySelector('.n').textContent = setup.owns(k) ? setup.count(k) : k === 'lean' ? SB.lean.count() : k === 'snippet' ? (state.snippets || []).length : tb ? tb[listKey[k]].length : '';
       b.setAttribute('aria-selected', String(k === kind));
     });
     // recently learned
@@ -241,6 +241,7 @@
     const q = $('toolSearch').value.trim().toLowerCase();
     if (setup.owns(kind)) { $('setupPane').hidden = false; setup.render(kind, q); return; }
     setup.hide();
+    if (kind === 'lean') return SB.lean.render(q);
     if (kind === 'snippet') return renderSnippets(q);
     if (kind === 'mcp') {
       // Rebuilt only when the form itself changes, so a toolbox update can't

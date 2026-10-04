@@ -26,6 +26,7 @@
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
       branchOf: summary.branchOf !== undefined ? summary.branchOf : tab.branchOf || null,
       context: summary.context !== undefined ? summary.context : tab.context || null,
+      cache: summary.cache !== undefined ? summary.cache : tab.cache || null,
     });
     return tab;
   };
@@ -1055,6 +1056,24 @@
   const contextLevel = c => (c.pct >= 95 ? 'hot' : c.pct >= CROWDED ? 'warn' : '');
   const contextText = c => `Context ${c.pct}% full · ${SB.compact(c.tokens)} of ${SB.compact(c.window)} tokens`;
 
+  // The prompt cache, as efficiency.js cacheState() reads it: warm, cooling in
+  // its last fifth, or cold. Only ever shown, never acted on: a cold cache just
+  // means the next reply re-reads the conversation at full price once.
+  const CACHE_TTL = 5 * 60 * 1000;
+  const COOLING_SHARE = 0.2;
+  function cacheNow(cache) {
+    if (!cache || !Number.isFinite(cache.at)) return null;
+    const ttl = cache.ttlMs > 0 ? cache.ttlMs : CACHE_TTL;
+    const left = cache.at + ttl - Date.now();
+    return { state: left <= 0 ? 'cold' : left <= ttl * COOLING_SHARE ? 'cooling' : 'warm', mins: Math.max(1, Math.ceil(left / 60000)) };
+  }
+  function cacheText(k, c) {
+    const whole = c ? `the whole conversation (${SB.compact(c.tokens)} tokens)` : 'the whole conversation';
+    if (k.state === 'warm') return `Prompt cache warm for about ${k.mins} more min: each reply re-reads the conversation at a tenth of the price.`;
+    if (k.state === 'cooling') return `Prompt cache cools in about ${k.mins} min. After that, the next message re-reads ${whole} at full price, once.`;
+    return `Prompt cache has cooled: the next message re-reads ${whole} at full price, once, and then it's warm again.`;
+  }
+
   function syncContextUi() {
     const tab = SB.activeTab();
     const c = tab?.context;
@@ -1064,8 +1083,10 @@
       chip.className = `ctx-chip ${contextLevel(c)}`;
       chip.querySelector('.meter-fill').style.transform = `scaleX(${c.pct / 100})`;
       $('ctxLabel').textContent = `${c.pct}%`;
-      chip.title = contextText(c);
-      chip.setAttribute('aria-label', `${contextText(c)}: make room`);
+      const k = cacheNow(tab.cache);
+      chip.dataset.cache = k ? k.state : '';
+      chip.title = k ? `${contextText(c)}\n${cacheText(k, c)}` : contextText(c);
+      chip.setAttribute('aria-label', `${contextText(c)}${k ? `, prompt cache ${k.state}` : ''}: make room`);
     }
     if (tab && (!c || c.pct < CROWDED)) tab.crowdDismissed = false;
     const box = $('crowded');
@@ -1080,6 +1101,8 @@
         SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
   }
   SB.syncContextUi = syncContextUi;
+  // The cache dot cools on its own between replies.
+  setInterval(() => { if (SB.activeTab()?.cache && !document.hidden) syncContextUi(); }, 20000);
 
   // Claude Code's own /compact: it sums the conversation up in place and carries on.
   function compact(tab) {
@@ -1105,8 +1128,10 @@
     const tab = SB.activeTab();
     const c = tab?.context;
     if (!c) return;
+    const k = cacheNow(tab.cache);
     SB.openMenu($('ctxMenu'), $('ctxChip'), () => [
       h('div', { class: 'menu-label', text: contextText(c) }),
+      k ? h('div', { class: `menu-label cache-note c-${k.state}`, text: cacheText(k, c) }) : null,
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); compact(tab); } },
         h('span', { class: 'mi-check', text: '⇣' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Compact' }), h('div', { class: 'mi-sub', text: 'Claude sums up the conversation so far and carries on in the room it frees' }))),

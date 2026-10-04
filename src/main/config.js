@@ -67,6 +67,16 @@ const DEFAULTS = {
   autonomousAcknowledged: false,
   lastUsage: null,
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
+  // Lean Shell (efficiency.js, lean.js): cache reads per day, each project's
+  // setup weight, what Claude Code used lately, plugins' always-on estimates,
+  // what was tidied away (XP once each), and when things were first seen.
+  cacheDays: {},
+  setupWeights: {},
+  leanUsed: null,
+  pluginCosts: {},
+  leanTidied: [],
+  mcpSeen: {},          // when Shellby first saw each MCP server (one that's new isn't idle)
+  pluginEnabledAt: {},  // when a plugin was turned back on from the Lean tab
   openTabs: [],       // history ids of conversations open as tabs
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
   snippets: null,     // [{ name, text }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters

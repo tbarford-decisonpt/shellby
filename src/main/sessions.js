@@ -58,6 +58,8 @@ class SessionManager extends EventEmitter {
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
+    session.on('call', c => this.emit('call', tab.id, c, tab));
+    session.on('cache', () => this.changed());
     session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
     session.on('crew', () => this.changed());
@@ -209,7 +211,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
-      outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context,
+      outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
     }));

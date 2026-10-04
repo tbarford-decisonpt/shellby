@@ -22,9 +22,13 @@ const AWARDS = Object.freeze({
   flakefix: { xp: 40, perHour: 2, label: 'Fixed a flaky test', way: 'Fixes a flaky test for good', claude: true },
   ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)', claude: true },
   deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean', claude: true },
+  // Lean Shell (efficiency.js): only for things that cost nothing in quality. Never
+  // for cheaper tasks, shorter replies or fewer turns, which would reward cutting corners.
+  tidy: { xp: 30, perHour: 6, label: 'Tidied his toolbox', way: 'Turns off a plugin or MCP server that sits idle', claude: true },
   treasure: { xp: 30, perHour: 2, label: 'He dug up something rare', way: 'Digs up something rare' },
   tests: { xp: 25, perHour: 6, label: 'Tests passed', way: 'Tests pass', claude: true },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },
+  fresh: { xp: 20, perHour: 2, label: 'Started a crowded chat fresh', way: 'Starts a crowded conversation fresh with a summary', claude: true },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },
   task: { xp: 10, perHour: 60, label: 'Finished a task', way: 'Finishes a task', claude: true },
   play: { xp: 10, perHour: 4, label: 'Played a game with him', way: 'Plays hide and seek or fetch with you' },

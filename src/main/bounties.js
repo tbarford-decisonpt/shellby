@@ -12,6 +12,7 @@ const BOUNTIES = Object.freeze([
   { id: 'push2', kinds: ['ship'], goal: 2, xp: 50, text: 'Push to 2 different projects', distinct: true },
   { id: 'deploy1', kinds: ['deploy'], goal: 1, xp: 60, text: 'Deploy or publish something' },
   { id: 'deps1', kinds: ['deps'], goal: 1, xp: 50, text: 'Pass a dependency audit' },
+  { id: 'fresh1', kinds: ['fresh'], goal: 1, xp: 40, text: 'Start a crowded conversation fresh' },
   { id: 'focus1', kinds: ['focus'], goal: 1, xp: 40, text: 'Finish a focus session' },
   { id: 'focus2', kinds: ['focus'], goal: 2, xp: 60, text: 'Finish 2 focus sessions' },
 ].map(b => Object.freeze({ ...b, kinds: Object.freeze([...b.kinds]) })));

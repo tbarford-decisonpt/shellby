@@ -139,6 +139,10 @@ contextBridge.exposeInMainWorld('shellby', {
   toggleMcp: (tabId, name, enabled) => ipcRenderer.invoke('mcp:toggle', { tabId, name, enabled }),
   addMcp: invoke('mcp:add'),
   removeMcp: (tabId, name) => ipcRenderer.invoke('mcp:remove', { tabId, name }),
+  // Lean Shell: what every conversation carries, and the prompt cache (lean.js)
+  leanReport: (refresh = false) => ipcRenderer.invoke('lean:report', { refresh }),
+  leanPlugin: (id, on) => ipcRenderer.invoke('lean:plugin', { id, on }),
+  leanMcpRemoved: invoke('lean:mcp-removed'),
 
   // skill shop (Claude Code plugin marketplaces)
   shopList: invoke('shop:list'),
