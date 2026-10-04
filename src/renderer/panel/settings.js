@@ -147,11 +147,15 @@
   }
 
   // Climbing onto windows lives under strolling: with strolling off he stays
-  // put, so the choice is shown but can't be changed.
+  // put, so the choice is shown but can't be changed. Same for the screen's edges.
   function renderPerch() {
     const s = state.settings;
     $('perchSelect').value = ['off', 'sometimes', 'often'].includes(s.perch) ? s.perch : 'sometimes';
     $('perchSelect').disabled = s.wander === false;
+    $('climbSelect').value = ['off', 'sometimes', 'often'].includes(s.climb) ? s.climb : 'sometimes';
+    $('climbSelect').disabled = s.wander === false;
+    $('colonySelect').value = String(Number.isInteger(s.colony) ? s.colony : 0);
+    renderMischief();
     const ignored = Array.isArray(s.perchIgnore) ? s.perchIgnore : [];
     $('perchIgnoreRow').hidden = !ignored.length;
     $('perchIgnoreList').replaceChildren(...ignored.map(exe => h('button', {
@@ -162,6 +166,18 @@
         renderPerch();
       },
     }, exe.replace(/\.exe$/i, ''), h('span', { class: 'x', 'aria-hidden': 'true', text: '✕' }))));
+  }
+
+  // Mischief is off until you pick a level; the pranks list only shows once it's on.
+  function renderMischief() {
+    const s = state.settings;
+    const level = ['off', 'cheeky', 'gremlin'].includes(s.mischief) ? s.mischief : 'off';
+    $('mischiefSelect').value = level;
+    $('mischiefPranks').hidden = level === 'off';
+    $('mischiefNote').hidden = level === 'off';
+    $('mischiefGroup').classList.toggle('on', level !== 'off');
+    const pranks = s.mischiefPranks || {};
+    for (const box of $('mischiefPranks').querySelectorAll('input[data-prank]')) box.checked = pranks[box.dataset.prank] !== false;
   }
 
   $('autonomousYes').addEventListener('click', async () => {
@@ -184,6 +200,24 @@
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
   $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; renderPerch(); });
   $('perchSelect').addEventListener('change', async e => { const r = await api.setSettings({ perch: e.target.value }); state.settings = r.settings; renderPerch(); });
+  $('climbSelect').addEventListener('change', async e => { const r = await api.setSettings({ climb: e.target.value }); state.settings = r.settings; renderPerch(); });
+  $('colonySelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ colony: Number(e.target.value) });
+    state.settings = r.settings;
+    renderPerch();
+  });
+  $('mischiefSelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ mischief: e.target.value });
+    state.settings = r.settings;
+    renderMischief();
+    if (r.settings.mischief !== 'off') SB.toast('Mischief on. Right-click him and pick “Do something cheeky” to see it now.');
+  });
+  $('mischiefPranks').addEventListener('change', async () => {
+    const pranks = Object.fromEntries([...$('mischiefPranks').querySelectorAll('input[data-prank]')].map(b => [b.dataset.prank, b.checked]));
+    const r = await api.setSettings({ mischiefPranks: pranks });
+    state.settings = r.settings;
+    renderMischief();
+  });
   $('worktreeToggle').addEventListener('change', async e => {
     const r = await api.setSettings({ worktrees: e.target.checked });
     state.settings = r.settings;

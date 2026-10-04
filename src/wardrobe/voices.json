@@ -43,7 +43,10 @@
         "rainStart": ["squall ahead!", "batten down!", "rain on deck"],
         "snowStart": ["ice on the rigging", "snow, arr", "cold seas"],
         "stormStart": ["all hands!", "storm off the bow", "hold fast!"],
-        "rainStopped": ["fair winds again", "squall passed", "dry decks"]
+        "rainStopped": ["fair winds again", "squall passed", "dry decks"],
+        "climb": ["up the riggin'!", "to the crow's nest", "heave ho, up!"],
+        "pinched": ["plunder!", "mine, matey", "arr, got it"],
+        "note": ["a message in a bottle", "from the captain", "read it, matey"]
       },
       "flavor": {
         "cocky": { "success": ["captain's orders"], "idle": ["finest crab at sea"] },
@@ -84,7 +87,10 @@
         "rainStart": ["rain. great.", "wet again", "of course it is"],
         "snowStart": ["snow. wonderful.", "too cold", "no thanks"],
         "stormStart": ["thunder. lovely.", "too loud", "nope"],
-        "rainStopped": ["finally", "about time", "still damp"]
+        "rainStopped": ["finally", "about time", "still damp"],
+        "climb": ["fine. up.", "walls. great.", "don't watch"],
+        "pinched": ["mine.", "deal with it", "hmph"],
+        "behave": ["fine.", "whatever.", "see if I care"]
       }
     },
     {
@@ -140,6 +146,17 @@
         "snowStart": ["¡está nevando!", "¡nieve!", "gorro puesto"],
         "stormStart": ["truenos…", "viene tormenta", "¡agárrate!"],
         "rainStopped": ["ya no llueve", "seco otra vez", "charcos"],
+        "climb": ["¡arriba!", "¡hup!", "¡a la cima!", "patas pegajosas"],
+        "stuck": ["¡pegado!", "¡agarrado!", "¡plaf! hola"],
+        "leap": ["¡al agua!", "¡yupi!", "¡atrápame!"],
+        "letgo": ["¡allá voy!", "ups, me solté", "abajo"],
+        "pinched": ["¡chas!", "mío", "jeje", "¡te pillé!"],
+        "yanked": ["vale, vale", "jo", "qué fuerza"],
+        "shoved": ["¡hup!", "un poco a la izquierda", "mejor ahí"],
+        "noteOff": ["ahora vuelvo", "un momento", "tengo algo para ti"],
+        "note": ["para ti", "¡correo!", "¡léela!"],
+        "behave": ["vale…", "me portaré bien", "prometido"],
+        "noPrank": ["nada que pellizcar", "ahora no", "luego"],
         "peckish": ["tengo hambre…", "¿eso es plancton?", "¿un bocadito?"],
         "sandy": ["tengo arena", "arena por todas partes", "necesito un baño"],
         "sleepy": ["*bostezo*", "qué sueño…", "¿una siesta?"],

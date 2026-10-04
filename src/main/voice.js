@@ -102,6 +102,21 @@ const OCCASIONS = Object.freeze({
   stormStart: { every: 2 * HOUR, ttl: 7 * SECOND },
   rainStopped: { every: 2 * HOUR, ttl: 6 * SECOND },
 
+  // --- up the edges of the screen (see climb.js)
+  climb: { every: 3 * MINUTE, ttl: 4 * SECOND },
+  stuck: { every: 30 * SECOND, ttl: 4 * SECOND },
+  leap: { every: MINUTE, ttl: 4 * SECOND },
+  letgo: { every: MINUTE, ttl: 4 * SECOND },
+
+  // --- mischief, if you asked for it (see mischief.js)
+  pinched: { every: 0, ttl: 3 * SECOND },
+  yanked: { every: 0, ttl: 3 * SECOND },
+  shoved: { every: 0, ttl: 3 * SECOND },
+  noteOff: { every: MINUTE, ttl: 3 * SECOND },
+  note: { every: 0, ttl: 5 * SECOND },
+  behave: { every: 0, ttl: 4 * SECOND },
+  noPrank: { every: 0, ttl: 3 * SECOND },
+
   // --- his needs (see needs.js). The needy ones are rare by design: needs.js
   // keeps 45 minutes between them on top of these.
   peckish: { every: HOUR, ttl: 5 * SECOND },
@@ -168,6 +183,18 @@ const LINES = Object.freeze({
   snowStart: ["it's snowing!", 'snow!', 'hat on, then'],
   stormStart: ['thunder…', 'storm coming', 'hold the brolly'],
   rainStopped: ['rain stopped', 'dry again', 'puddles now'],
+  climb: ['going up', 'hup!', 'to the top!', 'sticky feet'],
+  stuck: ['stuck it!', 'sticky feet!', 'got a grip', 'splat. hi'],
+  leap: ['geronimo!', 'wheee', 'catch me!'],
+  letgo: ['bombs away', 'oops, let go', 'down I go'],
+  pinched: ['snip!', 'mine now', 'hehe', 'gotcha'],
+  yanked: ['fine, fine', 'aww', 'strong one'],
+  shoved: ['hup!', 'a little to the left', 'better there', 'heave!'],
+  noteOff: ['brb', 'one sec', 'got something for you'],
+  note: ['for you', 'special delivery', 'read it!', 'a note!'],
+  behave: ['ok… fine', 'I’ll be good', 'promise'],
+  noPrank: ['nothing to pinch', 'not now', 'maybe later'],
+
   peckish: ["tummy's rumbling…", 'is that plankton?', 'snack o\'clock?', 'bit peckish'],
   sandy: ['bit sandy here', 'sand everywhere', 'could use a rinse'],
   sleepy: ['*yawn*', 'so sleepy…', 'nap soon?'],
@@ -198,14 +225,14 @@ const FLAVOR = Object.freeze({
   fussy: {
     working: ['carefully now'], success: ['tidy'], error: ['I knew it'],
     bigWrite: ['too much'], sameFile: ['again? really?'], idle: ['dusty in here'],
-    perch: ['dusty up here'], shaken: ['how undignified'],
+    perch: ['dusty up here'], shaken: ['how undignified'], climb: ['wipe your walls'], shoved: ['crooked. fixed it'],
     sheetStretch: ['check cell B12'], gameOver: ['enough screen time'], monday: ['mondays. ugh.'],
     found: ['needs a polish'], sandy: ['this is unbearable'], rinsed: ['finally. thank you.'],
   },
   cocky: {
     working: ['watch this'], success: ['easy', 'obviously'], error: ['not my fault'],
     passed: ['never doubted it'], push: ["you're welcome"], idle: ['bored'],
-    shaken: ['meant to do that'], caught: ['obviously'],
+    shaken: ['meant to do that'], caught: ['obviously'], pinched: ['too easy'], stuck: ['like a pro'],
     gameOver: ['I could beat that'], slideStretch: ['I should present'], found: ['you can thank me'],
     callOver: ['I was quiet. ask.'], fed: ['I deserved that'], mopey: ['fine. ignore me.'],
   },

@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('shellby', {
     pet: fire('critter:pet'),
     hit: fire('critter:hit'),
     onPerch: on('critter:perch'),
+    onSurface: on('critter:surface'), // which way up he is: on the floor, a wall or the ceiling (src/main/climbing.js)
     // His life between tasks (src/main/life.js, playtime.js): where your cursor
     // is, a prop for a scene, something in his claw or on his face, and what a
     // visiting crab says back.

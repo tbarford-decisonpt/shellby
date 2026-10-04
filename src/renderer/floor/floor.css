@@ -1,0 +1,100 @@
+:root { --ink: #0c1719; --sand: #f3e6cc; --glass: #7fd6c2; }
+html, body {
+  margin: 0; height: 100%; background: transparent; overflow: hidden;
+  user-select: none; -webkit-user-drag: none;
+}
+
+/* ---------- footprints: two little sandy dents per step, washed away slowly ---------- */
+#tracks { position: absolute; inset: 0; pointer-events: none; }
+.print {
+  position: absolute; width: 7px; height: 3px;
+  transform: scaleX(var(--dir, 1));
+  animation: tide 24s linear forwards;
+}
+.print::before, .print::after {
+  content: ""; position: absolute; bottom: 0; width: 3px; height: 2px; border-radius: 1px;
+  background: rgba(214, 186, 132, .85); box-shadow: 0 1px 0 rgba(0, 0, 0, .18);
+}
+.print::before { left: 0; }
+.print::after { left: 4px; bottom: 1px; }
+@keyframes tide { 0% { opacity: 0; } 4% { opacity: 1; } 70% { opacity: .75; } 100% { opacity: 0; } }
+
+/* ---------- his pals ---------- */
+#colony { position: absolute; inset: 0; pointer-events: none; }
+.pal {
+  position: absolute; left: 0; bottom: 14px; padding: 0; margin: 0; border: 0; background: none;
+  transform: translateX(calc(var(--x, 0px) - 50%)); cursor: pointer; outline: none; pointer-events: auto;
+}
+.pal svg { display: block; overflow: visible; transform: scaleX(var(--dir, 1)); transform-origin: 50% 100%; }
+.pal:focus-visible { outline: 2px dashed var(--glass); outline-offset: 3px; }
+.pal::after {
+  content: ""; position: absolute; left: 50%; bottom: -4px; width: 70%; height: 4px;
+  transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .32), transparent);
+}
+.pal.fresh { animation: pal-in .7s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.pal.leaving { animation: pal-out .9s ease-in forwards; pointer-events: none; }
+@keyframes pal-in { from { opacity: 0; translate: 0 10px; } }
+@keyframes pal-out { to { opacity: 0; translate: 0 10px; } }
+
+.pal .tag, .pal .say, .pal .zz {
+  position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%);
+  font: 600 10px/1.2 "Pixelify Sans", monospace; white-space: nowrap; pointer-events: none;
+}
+.pal .tag {
+  padding: 1px 5px; border-radius: 5px; color: var(--ink); background: var(--sand);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .35); opacity: 0; transition: opacity .15s;
+}
+.pal:hover .tag, .pal.fresh .tag, .pal.mode-poked .tag { opacity: 1; }
+.pal .say { bottom: calc(100% + 20px); padding: 1px 5px; border-radius: 6px; color: var(--ink); background: #fff; opacity: 0; }
+.pal .zz { color: var(--sand); opacity: 0; font-size: 11px; }
+
+/* idle: a gentle bob */
+.pal.mode-idle svg { animation: bob 1.9s ease-in-out infinite; }
+.pal:nth-child(2n).mode-idle svg { animation-delay: -.8s; }
+/* walking and scurrying */
+.pal.mode-walk .part-legs-a, .pal.mode-scurry .part-legs-a { animation: leg .24s steps(1) infinite; }
+.pal.mode-walk .part-legs-b, .pal.mode-scurry .part-legs-b { animation: leg .24s steps(1) infinite reverse; }
+.pal.mode-walk svg { animation: hop .48s ease-in-out infinite; }
+.pal.mode-scurry svg { animation: hop .26s ease-in-out infinite; }
+.pal.mode-scurry .part-legs-a, .pal.mode-scurry .part-legs-b { animation-duration: .12s; }
+/* digging */
+.pal.mode-dig .part-claw { animation: dig-claw .42s ease-in-out infinite; }
+.pal.mode-dig svg { animation: dig-bob .42s ease-in-out infinite; }
+/* waving, and looking up at him when he's somewhere high */
+.pal.mode-wave .part-claw, .pal.mode-look .part-claw { animation: wave .32s ease-in-out infinite; }
+.pal.mode-look svg { animation: look-up .6s cubic-bezier(.3, 1.3, .5, 1) forwards; }
+.pal.mode-look .part-eyes { transform: translateY(-1px) scaleY(1.2); }
+/* a chat with him, a cheer, a poke, an oof */
+.pal.mode-chat .say, .pal.mode-cheer .say, .pal.mode-poked .say, .pal.mode-oof .say, .pal.mode-look .say { opacity: 1; animation: say-pop .3s cubic-bezier(.3, 1.8, .5, 1); }
+.pal.mode-chat svg { animation: bob .7s ease-in-out infinite; }
+.pal.mode-cheer svg { animation: cheer .55s cubic-bezier(.3, 1.4, .5, 1) 3; }
+.pal.mode-cheer .part-claw { animation: wave .2s ease-in-out infinite; }
+.pal.mode-poked svg { animation: cheer .45s cubic-bezier(.3, 1.6, .5, 1); }
+.pal.mode-poked .part-eyes { transform: scaleY(1.4); }
+.pal.mode-oof svg { animation: oof .9s ease-out; }
+/* napping beside him */
+.pal.mode-sleep svg { animation: snooze 3.4s ease-in-out infinite; }
+.pal.mode-sleep .part-eyes { transform: scaleY(.15); }
+.pal.mode-sleep .zz { opacity: 1; animation: zz 3s ease-in-out infinite; }
+
+@keyframes bob { 50% { transform: scaleX(var(--dir, 1)) translateY(-1px); } }
+@keyframes hop { 0%, 100% { transform: scaleX(var(--dir, 1)); } 50% { transform: scaleX(var(--dir, 1)) translateY(-2px); } }
+@keyframes leg { 0% { transform: translateY(0); } 50% { transform: translateY(-1px) translateX(1px); } }
+@keyframes wave { 50% { transform: rotate(-30deg); } }
+@keyframes dig-claw { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(-26deg) translateY(2px); } }
+@keyframes dig-bob { 0%, 100% { transform: scaleX(var(--dir, 1)); } 50% { transform: scaleX(var(--dir, 1)) translateY(1px); } }
+@keyframes look-up { to { transform: scaleX(var(--dir, 1)) rotate(calc(var(--dir, 1) * -10deg)); } }
+@keyframes cheer { 0%, 100% { transform: scaleX(var(--dir, 1)); } 45% { transform: scaleX(var(--dir, 1)) translateY(-9px) scale(.94, 1.08); } }
+@keyframes oof { 20% { transform: scaleX(var(--dir, 1)) scale(1.1, .82); } }
+@keyframes snooze { 50% { transform: scaleX(var(--dir, 1)) scale(1.04, .94); } }
+@keyframes zz { 0% { opacity: 0; translate: 0 4px; } 30%, 70% { opacity: 1; } 100% { opacity: 0; translate: 6px -8px; } }
+@keyframes say-pop { from { transform: translateX(-50%) scale(.4); } }
+
+/* Screen locked, a game up, or nothing to see: stop drawing (see main.js watchIdleCost). */
+body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pal svg, .pal .part-legs-a, .pal .part-legs-b, .pal .part-claw, .pal .zz { animation: none !important; }
+  .print { animation: none; opacity: .7; }
+}

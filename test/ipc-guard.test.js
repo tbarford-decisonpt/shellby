@@ -76,3 +76,34 @@ test('every channel the crab\'s bridge uses is one main lets him reach', () => {
   // ...and it carries nothing of the panel's.
   assert.doesNotMatch(text, /task:|settings:|shell:|channels:|routines:/);
 });
+
+test('the floor strip may only report the pointer and a poke; a note only closes itself', () => {
+  const floor = { id: 5 }, note = { id: 6 };
+  const withThem = windowPolicy(() => ({ panel, critter, isFloor: wc => wc === floor, isNote: wc => wc === note }));
+  for (const c of ['floor:hit', 'floor:poke']) assert.equal(withThem(c, floor), true, c);
+  assert.equal(withThem('note:close', note), true);
+  for (const c of ['critter:click', 'critter:drop', 'toy:drag-start', 'task:send', 'settings:set', 'note:close', 'floor:colony']) {
+    assert.equal(withThem(c, floor), false, `floor ${c}`);
+  }
+  for (const c of ['critter:click', 'toy:drag-start', 'task:send', 'settings:set', 'floor:hit', 'floor:poke']) {
+    assert.equal(withThem(c, note), false, `note ${c}`);
+  }
+});
+
+test('the crab, the panel and the pebble are not the floor or a note', () => {
+  const floor = { id: 5 }, note = { id: 6 }, toy = { id: 4 };
+  const withThem = windowPolicy(() => ({ panel, critter, isToy: wc => wc === toy, isFloor: wc => wc === floor, isNote: wc => wc === note }));
+  assert.equal(withThem('floor:hit', critter), false);
+  assert.equal(withThem('floor:poke', toy), false);
+  assert.equal(withThem('note:close', critter), false);
+  assert.equal(withThem('note:close', toy), false);
+  assert.equal(withThem('floor:hit', stranger), false);
+  assert.equal(withThem('note:close', stranger), false);
+});
+
+test('a closed floor or note is nobody', () => {
+  const floor = { id: 5 }, note = { id: 6 };
+  const closed = windowPolicy(() => ({ panel, critter, isFloor: () => false, isNote: () => false }));
+  assert.equal(closed('floor:hit', floor), false);
+  assert.equal(closed('note:close', note), false);
+});

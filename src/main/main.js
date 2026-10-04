@@ -70,6 +70,11 @@ const ctx = require('./context');
 const { CritterMotion } = require('./motion');
 const { createPerching } = require('./perching');
 const { SETTINGS: PERCH_SETTINGS } = require('./perch');
+const { createClimbing } = require('./climbing');
+const { SETTINGS: CLIMB_SETTINGS } = require('./climb');
+const { createPranks } = require('./pranks');
+const mischief = require('./mischief');
+const { createFloor, COLONY_MAX } = require('./floor');
 const voice = require('./voice');
 const gifts = require('./gifts');
 const { createLife } = require('./life');
@@ -131,6 +136,8 @@ const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
 // The crab's window gets a bridge of its own, much smaller (ipc-guard.js).
 const CRITTER_PRELOAD = path.join(__dirname, '..', 'preload', 'critter-preload.js');
 const TOY_PRELOAD = path.join(__dirname, '..', 'preload', 'toy-preload.js');
+const FLOOR_PRELOAD = path.join(__dirname, '..', 'preload', 'floor-preload.js');
+const NOTE_PRELOAD = path.join(__dirname, '..', 'preload', 'note-preload.js');
 const ICON = path.join(ROOT, 'assets', 'icon.png');
 const CAPTURE = process.argv.includes('--capture-screenshots');
 
@@ -273,6 +280,9 @@ let visitor = null;                // { login, look, until }: a friend's crab dr
 let flash = null;                  // { state, until } — brief success/error/learned reaction
 let motion = null;                 // throws and strolls (see motion.js)
 let perching = null;               // up on your windows (see perching.js)
+let climbing = null;               // up the edges of the screen and across the top (see climbing.js)
+let pranks = null;                 // mischief, if you asked for it (see pranks.js)
+let floor = null;                  // the strip of floor with his pals and footprints (see floor.js)
 let life = null;                   // his life between tasks: scenes, gifts, the bond, your day (see life.js)
 let playtime = null;               // hide and seek, fetch (see playtime.js)
 let typing = null;                 // tapping along while you type (see typing.js)
@@ -341,6 +351,8 @@ function keepCritterSize() {
 }
 
 function resetCritterPos() {
+  pranks?.grabbed();
+  climbing?.grabbed(); // put straight back, not dropped from wherever he was
   motion?.stop();
   const p = defaultCritterPos(critterBaseSize());
   placeCritter(p.x - crewExtra(), p.y);
@@ -353,6 +365,7 @@ function resetCritterPos() {
 function settleCritter() {
   if (perching) perching.home();
   else sendToBottom(critter);
+  floor?.lower();
 }
 
 function defaultCritterPos(size) {
@@ -374,6 +387,13 @@ function motionBox() {
   return { minX: wa.x, maxX: wa.x + wa.width - b.width, minY: wa.y, floorY: wa.y + wa.height - b.height };
 }
 
+// His window and body, for perching and climbing. Feet sit 18 DIP above the
+// window's bottom edge (#crab in critter.css); half is half his width, body his height.
+function critterGeo() {
+  const s = critterSize();
+  return { width: s.width, height: s.height, foot: 18, half: 11 * px(), body: 13 * px(), headroom: s.height - 18 };
+}
+
 // What perching needs from here: his size and spot, the motion engine, and his
 // voice, stats and renderer.
 function createPerchingFor() {
@@ -383,11 +403,7 @@ function createPerchingFor() {
     screen,
     config,
     capture: CAPTURE,
-    geo: () => {
-      const s = critterSize();
-      // Feet sit 18 DIP above the window's bottom edge (#crab in critter.css).
-      return { width: s.width, height: s.height, foot: 18, half: 11 * px(), headroom: s.height - 18 };
-    },
+    geo: critterGeo,
     getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
     place: (x, y) => placeCritter(x, y),
     box: motionBox,
@@ -406,6 +422,94 @@ function createPerchingFor() {
     dragging: () => dragging,
     crew: () => crewShown + (guestShown ? 1 : 0), // helpers or a visitor beside him: he stays down
   });
+  climbing = createClimbing({
+    motion: () => motion,
+    screen,
+    config,
+    capture: CAPTURE,
+    geo: critterGeo,
+    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
+    place: (x, y) => placeCritter(x, y),
+    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
+    speak: (occasion, opts) => speak(occasion, opts),
+    stat,
+    toRenderer: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
+    surface: name => send(critter, 'critter:surface', { surface: name }),
+    bit: (bit, ms) => send(critter, 'critter:bit', { bit, ms }),
+    dragging: () => dragging,
+    crew: () => crewShown + (guestShown ? 1 : 0), // the window's wider with them: no room to turn
+    perchingAway: () => !!perching?.isAway(),
+    walkHome: () => perching.walkHome(),
+  });
+}
+
+// The floor strip and mischief: what they need from here. Created after life
+// and play, whose state they read.
+function createMischief() {
+  floor = createFloor({
+    config, screen, capture: CAPTURE,
+    makeWindow: () => {
+      const w = new BrowserWindow({
+        width: 400, height: 80, frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
+        alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
+        title: 'Shellby’s floor', icon: ICON, webPreferences: { ...webPreferences, preload: FLOOR_PRELOAD },
+      });
+      secureWindow(w);
+      w.loadFile(path.join(RENDERER, 'floor', 'floor.html'));
+      return w;
+    },
+    pin: w => pinToDesktop(w),
+    lower: w => sendToBottom(w),
+    critterBounds: () => critter.getBounds(),
+    geo: critterGeo,
+    px,
+    skin: () => ({ skin: activeSkin(), px: px(), outfit: outfit() }),
+    status: () => lastStatus.state,
+    away: () => (climbing?.isAway() ? 'climb' : perching?.isAway() ? 'perch' : null),
+    calm: () => calmReason === 'locked' || hidden.crab,
+  });
+  pranks = createPranks({
+    config, screen, native, capture: CAPTURE,
+    motion: () => motion,
+    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
+    place: (x, y) => placeCritter(x, y),
+    geo: critterGeo,
+    // His claw: in front of him, about halfway up (sprite.js DEFAULT_ANCHORS.claw).
+    clawPoint: () => {
+      if (!critter || critter.isDestroyed()) return null;
+      const g = critterGeo(), [x, y] = critter.getPosition();
+      return { x: x + g.width / 2 + 9 * px(), y: y + g.height - g.foot - 6 * px() };
+    },
+    status: () => lastStatus.state,
+    guarding: () => focus.guarding(config.get('focus'), Date.now()),
+    onCall: () => !!life?.onCall(),
+    locked: () => calmReason === 'locked',
+    // ...or tapping along while you type (typing.js): no pinching mid-sentence.
+    playing: () => !!playtime?.busy() || !!life?.busy() || !!typing?.active(),
+    dragging: () => dragging,
+    crew: () => crewShown + (guestShown ? 1 : 0),
+    perching,
+    climbingBusy: () => !!climbing?.busy(),
+    walkHome: () => perching.walkHome(),
+    speak: (occasion, opts) => speak(occasion, opts),
+    bit: (bit, ms, dir) => send(critter, 'critter:bit', { bit, ms, ...(dir ? { dir } : {}) }),
+    toRenderer: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
+    stat,
+    makeNote: () => {
+      const w = new BrowserWindow({
+        width: 210, height: 150, frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
+        alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
+        title: 'A note from Shellby', icon: ICON, webPreferences: { ...webPreferences, preload: NOTE_PRELOAD },
+      });
+      secureWindow(w);
+      w.loadFile(path.join(RENDERER, 'note', 'note.html'));
+      return w;
+    },
+    pinWindow: w => pinToDesktop(w),
+    systemIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return null; } },
+  });
+  floor.sync();
+  pranks.sync();
 }
 
 function createMotion() {
@@ -414,14 +518,21 @@ function createMotion() {
     place: (x, y) => placeCritter(x, y),
     box: motionBox,
     ledges: () => perching?.flightLedges() || [],
+    grips: () => climbing?.grips() || null,
     onState: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
     onSettled: (kind, info) => {
       if (playtime?.onSettled(kind)) return; // a walk to fetch the pebble, or back with it
+      if (pranks?.onSettled(kind)) return;   // off the edge of the screen to fetch a note
+      if (climbing?.onSettled(kind, info)) return; // at the foot of a wall, or thrown onto one
       if (perching?.onSettled(kind, info)) return;
-      if (kind === 'flight') { saveCritterPos(); stat('thrown'); }
+      if (kind === 'flight') { saveCritterPos(); stat('thrown'); floor?.event('landed'); }
       settleCritter();
     },
-    onInterrupted: kind => perching?.onInterrupted(kind),
+    onInterrupted: kind => {
+      perching?.onInterrupted(kind);
+      climbing?.onInterrupted(kind);
+      pranks?.onInterrupted();
+    },
   });
   createPerchingFor();
   // Now and then an idle, awake Shellby takes a few steps near his spot, hops
@@ -433,11 +544,14 @@ function createMotion() {
     const idle = lastStatus.state === 'idle';
     const guarding = focus.guarding(config.get('focus'), Date.now());
     if (perching.isUp()) return void perching.idleTick({ idle, guarding, quiet: voice.chatterOf(config.get('chatter')) === 'quiet' });
+    // Up a wall, or off the edge of the screen fetching a note: busy.
+    if (climbing?.busy() || pranks?.busy()) return;
     if (motion.busy || crewShown || guestShown || !idle || guarding) return;
     // A stroll moves his window; the little habits don't, so 'wander' only
     // governs the strolling (and the climbing), as it always has.
     if (config.get('wander') !== false && !life?.onCall()) {
       if (perching.maybeGoUp()) return;
+      if (climbing.maybeClimb()) return;
       const home = config.get('critterPos');
       // A bit mopey (needs.js), he doesn't feel much like strolling.
       if (home && Math.random() < (life?.mopey() ? 0.14 : 0.35)) return void motion.stroll(home.x - crewExtra());
@@ -468,7 +582,7 @@ function createCritter() {
     critter.showInactive();
     if (!CAPTURE) keepOnDesktop(critter, { isAway: () => !!perching?.isAway() });
   });
-  critter.on('blur', () => sendToBottom(critter)); // a no-op while he's up on a window
+  critter.on('blur', () => { sendToBottom(critter); floor?.lower(); }); // a no-op while he's up on a window; the floor strip stays under him
   critter.on('resize', () => setImmediate(keepCritterSize));
 }
 
@@ -500,6 +614,7 @@ function sendCalm() {
   calmSent = key;
   send(panel, 'panel:calm', panelCalm);
   send(critter, 'critter:calm', crabCalm);
+  floor?.calm(crabCalm.calm); // the floor beside him is covered when he is
 }
 function setCalm(reason) {
   calmReason = reason;
@@ -730,6 +845,8 @@ function setCrewSlots(n, guest = !!visitor) {
   // Helpers and a visiting crab line up on the floor beside him, so he comes
   // down off any window first. The refresh after he lands brings them out.
   if ((n > crewShown || (guest && !guestShown)) && perching?.isAway()) { perching.leave('crew'); return; }
+  // ...and lets go of a wall or the ceiling: his window can't widen while he's turned.
+  if ((n > crewShown || (guest && !guestShown)) && climbing?.isAway()) { climbing.leave(); return; }
   const apply = (slots, g) => {
     const b = critter.getBounds();
     const base = critterBaseSize();
@@ -932,6 +1049,7 @@ function broadcastSkin() {
   const o = outfit();
   send(critter, 'critter:skin', { skin, px: px(), helperWidth: helperWidth(), outfit: o });
   send(panel, 'skin', { skin, outfit: o });
+  floor?.reskin(); // his pals are his colours, his size
 }
 
 function dialogLook() {
@@ -951,6 +1069,7 @@ function flashState(state, ms = 7000) {
   // and the molt have no lines at all, because the bubble is already busy
   // showing the level and the new shell.
   speak(state, { force: state === 'learned' || state === 'unlocked' });
+  if (state === 'success' || state === 'error') floor?.event(state); // his pals cheer, or wince
   refreshCritter();
   setTimeout(refreshCritter, ms + 50);
 }
@@ -2956,7 +3075,7 @@ function createLifeAndPlay() {
     refresh: () => refreshCritter(),
     stat, awardXp, burst,
     systemIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return null; } },
-    isIdle: () => lastStatus.state === 'idle' && !dragging && !perching?.isUp(),
+    isIdle: () => lastStatus.state === 'idle' && !dragging && !perching?.isUp() && !climbing?.busy() && !pranks?.busy(),
     working: () => ['working', 'asking'].includes(lastStatus.state),
     playing: () => !!playtime?.busy(),
     guarding: () => focus.guarding(config.get('focus'), Date.now()),
@@ -3091,10 +3210,11 @@ function createTypingAlong() {
     watch: onKey => keystrokes.watch(onKey),
     settings: typingSettings,
     // Awake, idle and on the ground, with nothing else in his claws: work, a
-    // nap, a game, a scene, a call (his shh sign is up) or a ride on your
-    // window all come first.
+    // nap, a game, a scene, a call (his shh sign is up), a ride on your
+    // window, a wall to cling to or a prank all come first.
     eligible: () => !!critter && !critter.isDestroyed() && lastStatus.state === 'idle' && !(flash?.until > Date.now()) && !dragging
-      && !perching?.isUp() && calmReason !== 'locked' && !life?.busy() && !life?.onCall() && !playtime?.busy() && !visitor,
+      && !perching?.isUp() && !climbing?.busy() && !pranks?.busy() && calmReason !== 'locked'
+      && !life?.busy() && !life?.onCall() && !playtime?.busy() && !visitor,
     toCrab: (channel, payload) => send(critter, channel, payload),
     speak: (occasion, opts) => speak(occasion, opts),
     best: () => config.get('typingBest'),
@@ -5069,6 +5189,8 @@ function registerIpc() {
     panel: panel && !panel.isDestroyed() ? panel.webContents : null,
     critter: critter && !critter.isDestroyed() ? critter.webContents : null,
     isToy: wc => !!playtime?.isToy(wc),
+    isFloor: wc => !!floor?.isFloor(wc),
+    isNote: wc => !!pranks?.isNote(wc),
   })), { onRefused: channel => log.warn('IPC refused', channel) });
   lean = createLean({
     config, shop: () => shop, shopBlocked, askOnce, toolbox: () => toolbox, setupWhere, configDir: claudeConfigDir, awardXp, log,
@@ -5113,6 +5235,8 @@ function registerIpc() {
     life?.cancel();
     // Mid-game: found if he was hiding, and either way he stays where you put him.
     playtime?.grabbed();
+    pranks?.grabbed(); // first: whatever he was up to stops, and a note on its way in stays put
+    climbing?.grabbed(); // ...and off any wall, upright in your hand rather than falling from it
     motion?.stop();
     perching?.grabbed(); // in your hand he's above every window, so you can see where he'll go
     const c = screen.getCursorScreenPoint();
@@ -5134,11 +5258,22 @@ function registerIpc() {
     const c = screen.getCursorScreenPoint();
     if (motion?.release([...samples, { x: c.x, y: c.y, t: Date.now() }])) return; // he lands, then saves
     if (perching?.dropped()) return; // put down on a title bar: he perches there, and home stays home
+    if (climbing?.dropped()) return; // put down right by the side of the screen: he grabs hold of it
     saveCritterPos();
     settleCritter();
   });
   // Perched, his window lets the mouse through except over the crab himself.
   ipcMain.on('critter:hit', (_e, over) => perching?.hover(!!over));
+  // The floor strip lets the mouse through except over a pal (floor.js).
+  ipcMain.on('floor:hit', (_e, over) => floor?.hover(!!over));
+  let lastPoke = 0;
+  ipcMain.on('floor:poke', () => {
+    if (Date.now() - lastPoke < 500) return; // a click is a hello, not a counter to run up
+    lastPoke = Date.now();
+    stat('pal-poked');
+  });
+  // A note he dragged in, crumpled up and thrown away (pranks.js).
+  ipcMain.on('note:close', e => pranks?.closeNote(e.sender));
   // Rubbing the mouse back and forth over him (see critter.js).
   let lastPet = 0;
   ipcMain.on('critter:pet', () => {
@@ -5654,7 +5789,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -5700,6 +5835,10 @@ ${r.detail}` });
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('crashReports' in allowed && !crashReport.CONSENTS.includes(allowed.crashReports)) delete allowed.crashReports;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
+    if ('climb' in allowed && !CLIMB_SETTINGS.includes(allowed.climb)) delete allowed.climb;
+    if ('mischief' in allowed && !mischief.LEVELS.includes(allowed.mischief)) delete allowed.mischief;
+    if ('mischiefPranks' in allowed) allowed.mischiefPranks = mischief.prankSet(allowed.mischiefPranks);
+    if ('colony' in allowed) allowed.colony = Number.isInteger(allowed.colony) ? Math.max(0, Math.min(COLONY_MAX, allowed.colony)) : config.get('colony');
     // The only edit the panel makes to this list is taking an app back off it.
     if ('perchIgnore' in allowed) {
       const was = new Set(config.get('perchIgnore') || []);
@@ -5707,7 +5846,8 @@ ${r.detail}` });
     }
     // Told to stay down, he hops down off any window rather than freezing up there.
     if (allowed.wander === false || allowed.perch === 'off') perching?.leave('off');
-    if (allowed.wander === false && !perching?.isAway()) motion?.stop();
+    if (allowed.wander === false || allowed.climb === 'off') climbing?.leave();
+    if (allowed.wander === false && !perching?.isAway() && !climbing?.isAway()) motion?.stop(); // off a wall he lets go instead (above)
     const prevHotkey = config.get('hotkey');
     let hotkeyError = null;
     if ('hotkey' in allowed && allowed.hotkey !== prevHotkey) {
@@ -5738,6 +5878,9 @@ ${r.detail}` });
     if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
     if ('skin' in allowed) broadcastSkin();
+    // Mischief on or off starts or stops its loop; pals and footprints open or close the floor strip.
+    if ('mischief' in allowed || 'mischiefPranks' in allowed) pranks?.sync();
+    if ('mischief' in allowed || 'mischiefPranks' in allowed || 'colony' in allowed) floor?.sync();
     if ('critterScale' in allowed) {
       const size = critterBaseSize();
       const b = critter.getBounds();
@@ -6182,6 +6325,10 @@ ${r.detail}` });
       return perching.tryGoUp({ hwnd: Number.isInteger(hwnd) ? hwnd : null, eye: false, any: !hwnd });
     });
     ipcMain.handle('dev:perch-state', (_e, { debug = false } = {}) => ({ ...perching.view(), bounds: critter.getBounds(), motion: motion.kind, ...(debug ? { debug: perching.debug() } : {}) }));
+    // The edges of the screen, mischief and the floor: start a climb (or come down), force a prank, look at it all.
+    ipcMain.handle('dev:climb', (_e, { side = null, leave = false } = {}) => (leave ? climbing.leave() : climbing.tryClimb({ side: ['left', 'right'].includes(side) ? side : null })));
+    ipcMain.handle('dev:prank', (_e, { kind, ignore = [] } = {}) => pranks.force(kind, { ignore: Array.isArray(ignore) ? ignore.filter(x => typeof x === 'string') : [] }));
+    ipcMain.handle('dev:edges', () => ({ climb: climbing.view(), mischief: pranks.view(), floor: floor.view(), bounds: critter.getBounds(), motion: motion.kind, geo: critterGeo() }));
   }
 
   // ---- focus sessions
@@ -6661,6 +6808,8 @@ function buildMenu() {
     updateMenuItem(),
     { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
     ...(perching?.menuItems() || []),
+    ...(climbing?.menuItems() || []),
+    ...(pranks?.menuItems() || []),
     { label: 'Reset position', click: resetCritterPos },
     { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
     { label: 'Report a problem…', click: reportProblem },
@@ -6997,6 +7146,7 @@ app.whenReady().then(() => {
   createMedia();
   createLifeAndPlay();
   createTypingAlong();
+  createMischief();
   createDictation();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
@@ -7067,6 +7217,8 @@ app.on('will-quit', () => {
   friends?.stop();
   life?.stop();
   playtime?.stop();
+  pranks?.dispose();
+  floor?.dispose();
   ci?.stop();
   clearTimeout(focusTimer);
   clearInterval(focusTick);

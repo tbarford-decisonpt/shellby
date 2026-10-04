@@ -40,6 +40,12 @@ const DEFAULTS = {
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
   perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)
+  climb: 'sometimes', // how often he climbs the edges of the screen: off | sometimes | often (see climb.js)
+  mischief: 'off',   // the cheeky crab, strictly opt-in: off | cheeky | gremlin (see mischief.js)
+  mischiefPranks: null, // { pinch, nudge, tracks, notes }: which pranks; anything unset is on
+  mischiefLog: null, // { day, count, next }: today's pranks and when the next may be
+  mischiefPause: 0,  // "Behave for an hour" from his menu: no mischief until then
+  colony: 0,         // pals who hang out with him on the floor, 0 to 5 (see floor.js)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
