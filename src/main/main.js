@@ -49,6 +49,7 @@ const { qrRows } = require('./qr');
 const { MediaWatcher, trackRemark } = require('./media');
 const { Dictation, PushToTalk, holdKeyOf } = require('./dictation');
 const native = require('./native-windows');
+const { kindOfApp } = require('./surroundings');
 const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween, normalizeXp } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
@@ -720,10 +721,24 @@ function setPanelRoomy(on) {
 // snatching focus, until you reach for Shellby yourself: the crab, the hotkey, the
 // tray, or clicking the panel. SHELLBY_FOREGROUND=1 brings back the packaged behavior.
 let openBehind = !app.isPackaged && process.env.SHELLBY_FOREGROUND !== '1';
-const reachedForShellby = () => { openBehind = false; };
+let reachedAt = 0;
+const reachedForShellby = () => { openBehind = false; reachedAt = Date.now(); };
+// Long enough to pick an item from the crab's menu or the tray's.
+const REACHED_MS = 15000;
+
+// Every build, packaged too: with a game in front, the panel only comes forward
+// when you just reached for it (the hotkey, mostly). Anything else (a task from
+// the terminal, a finished routine) opens behind the game.
+function gameInFront() {
+  const q = native.notificationState();
+  if (q === native.QUNS.D3D_FULL_SCREEN || q === native.QUNS.PRESENTATION) return true;
+  const info = native.describe(native.foreground());
+  if (!info || info.pid === process.pid) return false;
+  return kindOfApp({ exe: info.exe, path: info.path }) === 'game';
+}
 
 function showPanel({ focusInput = true, tabId = null } = {}) {
-  if (openBehind) {
+  if (openBehind || (Date.now() - reachedAt > REACHED_MS && gameInFront())) {
     if (!panel.isVisible()) { placePanel(); panel.showInactive(); sendToBottom(panel); }
     if (tabId) send(panel, 'tab:focus', tabId);
     return;
@@ -4483,18 +4498,19 @@ function registerIpc() {
   ipcMain.on('critter:click', () => {
     if (playtime?.found()) return; // hide and seek: you found him
     // "auth.spec flaked 3 times this week": a click goes to the list that says which.
-    if (said?.occasion === 'flaky' && said.until > Date.now()) { wake(); showFlaky(); sendToBottom(critter); return; }
+    if (said?.occasion === 'flaky' && said.until > Date.now()) { wake(); reachedForShellby(); showFlaky(); sendToBottom(critter); return; }
     wake(); togglePanel(); sendToBottom(critter); // sendToBottom leaves a perched crab be
   });
-  ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) showPanel({ focusInput: false, tabId }); });
+  ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) { reachedForShellby(); showPanel({ focusInput: false, tabId }); } });
   // The badge for background work: straight to the list that says what it was.
   ipcMain.on('critter:bg-click', () => {
+    reachedForShellby();
     showPanel({ focusInput: false });
     send(panel, 'panel:view', 'settings');
     send(panel, 'panel:jump', 'Everywhere');
   });
   // The dev server pill or sign on the crab: that server's card.
-  ipcMain.on('critter:servers-click', () => showServer());
+  ipcMain.on('critter:servers-click', () => { reachedForShellby(); showServer(); });
   registerProjectsIpc(ipcMain, {
     projects: () => projects,
     devServers: () => devServers,
@@ -4507,8 +4523,9 @@ function registerIpc() {
     showItem: p => shell.showItemInFolder(p),
     openExternal: url => shell.openExternal(url),
   });
-  ipcMain.on('critter:menu', () => buildMenu().popup({ window: critter }));
+  ipcMain.on('critter:menu', () => { reachedForShellby(); buildMenu().popup({ window: critter }); });
   ipcMain.on('critter:drop', (_e, paths) => {
+    reachedForShellby();
     const files = (Array.isArray(paths) ? paths : []).filter(isStr).slice(0, 20);
     if (!files.length) return;
     stat('files-dropped');
@@ -6266,8 +6283,14 @@ app.whenReady().then(() => {
 
 app.on('second-instance', (_e, argv) => {
   const link = findDeepLink(argv);
-  if (link) onDeepLink(link);
-  else if (booted) showPanel();
+  if (link) return onDeepLink(link);
+  // A dev run (`electron .` shares this profile) bumping into us isn't you
+  // opening Shellby: it mustn't drag the panel over whatever you're doing.
+  if (path.basename(argv[0] || '').toLowerCase() !== path.basename(process.execPath).toLowerCase()) {
+    log.info('second-instance: a dev run started and exited; panel left alone');
+    return;
+  }
+  if (booted) { reachedForShellby(); showPanel(); }
 });
 app.on('window-all-closed', e => e.preventDefault());
 app.on('will-quit', () => {
