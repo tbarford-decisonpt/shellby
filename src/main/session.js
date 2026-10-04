@@ -13,6 +13,7 @@ const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
+const processJob = require('./process-job');
 
 // The tools that can change files, for the beforeWork hook.
 const WORK_TOOLS = 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell';
@@ -87,6 +88,10 @@ class ClaudeSession extends EventEmitter {
       cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.proc = proc;
+    // Everything Claude starts joins this job, so ending the conversation can
+    // end it too: MCP servers, shells, app copies it ran (process-job.js).
+    const job = processJob.adopt(proc.pid);
+    this.job = job;
     let stderr = '';
     if (this.beforeWork) {
       this.write({ type: 'control_request', request_id: randomUUID(), request: {
@@ -117,6 +122,12 @@ class ClaudeSession extends EventEmitter {
 
     proc.on('error', err => {
       this.emit('item', { kind: 'error', text: `Couldn't start Claude Code: ${err.message}` });
+    });
+    // 'exit', not 'close': a leftover holding one of claude's pipes would hold
+    // 'close' back until it ended on its own, which is what this is here to stop.
+    proc.on('exit', () => {
+      processJob.sweep(job);
+      if (this.job === job) this.job = null;
     });
     proc.on('close', code => {
       // A stop() asked for isn't a crash, and the tab stays busy for whoever asked.
@@ -424,7 +435,10 @@ class ClaudeSession extends EventEmitter {
 
   kill() {
     if (!this.proc) return;
-    // /T takes down the whole tree: claude plus any shells or tools it spawned.
+    // The job holds claude and everything it started, even what has lost its
+    // parent. Ended here and now, so it holds while Shellby quits.
+    if (processJob.sweep(this.job)) return;
+    // No job: /T takes down the tree as far as it's still connected.
     execFile(TASKKILL, ['/PID', String(this.proc.pid), '/T', '/F'], { windowsHide: true }, () => {});
   }
 

@@ -53,6 +53,7 @@ class SessionManager extends EventEmitter {
       branchOf: historyEntry?.branchOf || null,
       fence: historyEntry?.fence || null,
       preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
+      activeAt: Date.now(),        // when it last sent or heard anything, for stopIdle()
     };
     this.tabs.set(tabId, tab);
 
@@ -72,6 +73,7 @@ class SessionManager extends EventEmitter {
     // A long tool result's tail is only for main to read (flaky.js): it's
     // neither saved with the tab nor sent to the panel.
     const { tail, ...item } = raw;
+    tab.activeAt = Date.now();
     // A rewind's fork exists once Claude Code reports its id: from then on it's an ordinary resume.
     if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId, resumeAt: null });
     if (item.kind === 'init' && tab.preambleSent) {
@@ -94,6 +96,7 @@ class SessionManager extends EventEmitter {
     // Before anything below touches History or the turn: session.send would
     // refuse anyway, but only after a message Claude never saw was saved.
     if (tab.session.busy) throw new Error('Shellby is still working on the last task.');
+    tab.activeAt = Date.now();
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
       tab.title = this.history.get(tab.id).title;
@@ -192,6 +195,25 @@ class SessionManager extends EventEmitter {
   }
 
   closeAll(opts) { for (const id of [...this.tabs.keys()]) this.close(id, opts); }
+
+  /**
+   * Stop the process of every tab that has sat quiet for idleMs. Each one holds
+   * a claude process and a full set of MCP servers (dozens of processes, over a
+   * GB) for nothing; the tab stays open, and its next message resumes it. Not a
+   * tab that's working, waiting on you, or has something running in the
+   * background. -> the ids of the tabs stopped.
+   */
+  stopIdle(idleMs, now = Date.now()) {
+    const stopped = [];
+    for (const tab of this.tabs.values()) {
+      const s = tab.session;
+      if (!s.proc || s.busy || s.pending.size || s.runningCrew().length) continue;
+      if (now - tab.activeAt < idleMs) continue;
+      s.stop().catch(() => {});
+      stopped.push(tab.id);
+    }
+    return stopped;
+  }
 
   setMode(mode) {
     for (const tab of this.tabs.values()) if (!tab.pinnedMode) tab.session.setMode(mode);
