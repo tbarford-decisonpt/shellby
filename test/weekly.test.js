@@ -198,3 +198,42 @@ test('the Friday wrap-up: once a week, at the right time', () => {
   assert.equal(wrapUpDue(s, new Date(2026, 8, 30, 17).getTime(), w), null);
   assert.equal(wrapUpDue(null, friAfternoon, weekSummary(null, friAfternoon)), null);
 });
+
+test('what the plan bought: Claude\'s hours, tasks, and fixes that held', () => {
+  const { recordTime, recordFix, recordRed, MAX_TURN_MS } = require('../src/main/weekly');
+  const HOUR = 60 * 60 * 1000;
+  let s = recordTime(null, at(0), 2 * HOUR);
+  s = recordTime(s, at(1), HOUR / 2);
+  s = recordTime(s, at(2), 99 * HOUR);       // a stuck clock counts as one long turn, no more
+  s = recordTime(s, at(9), 5 * HOUR);        // last week
+  s = recordTime(s, at(0), -4);              // junk
+  s = recordDay(s, at(0), 'task');
+  // Fixed Monday, broke again Wednesday: didn't hold. Fixed Thursday: holding.
+  s = recordFix(s, at(4, 9), 't:shellby');
+  s = recordRed(s, at(2, 9), 't:shellby');
+  s = recordFix(s, at(1, 9), 't:shellby');
+  s = recordFix(s, at(3), 'ci:x-salmon/shellby#12');
+  // A red from before the fix doesn't undo it, and another key's red doesn't either.
+  s = recordRed(s, at(5), 'ci:x-salmon/shellby#12');
+  s = recordRed(s, at(0), 't:rack-builder');
+  s = recordFix(s, at(0), 'nope');          // not a fix key
+  const usage = { sevenDay: { pct: 61.6, resetsAt: FRI + 3 * 24 * HOUR }, fiveHour: { pct: 20, resetsAt: FRI - HOUR } };
+  const p = weekSummary(s, FRI, { xp: normalizeXp(null), usage }).plan;
+  assert.equal(p.ms, 2 * HOUR + HOUR / 2 + MAX_TURN_MS);
+  assert.equal(p.hours, 8.5);
+  assert.equal(p.msPrev, 5 * HOUR);
+  assert.equal(p.tasks, 1);
+  assert.equal(p.fixes, 3);
+  assert.equal(p.held, 2);
+  assert.deepEqual(p.weekly, { pct: 62, resetsAt: FRI + 3 * 24 * HOUR });
+  assert.equal(p.fiveHour, null, 'a reading from before the reset says nothing');
+});
+
+test('the plan\'s fields survive a save and drop junk', () => {
+  const s = normalizeWeekly({ days: { '2026-10-01': {
+    ms: 1000, fixes: [{ at: 5, key: 't:a' }, { at: 'x', key: 't:a' }, { at: 6, key: 'bad' }, null],
+    reds: { 't:a': 7, 'ci:b#1': 'x', junk: 3 },
+  } } });
+  assert.deepEqual(s.days['2026-10-01'], { ms: 1000, fixes: [{ at: 5, key: 't:a' }], reds: { 't:a': 7 } });
+  assert.deepEqual(weekSummary(null, FRI).plan, { hours: 0, ms: 0, msPrev: 0, tasks: 0, fixes: 0, held: 0, weekly: null, fiveHour: null });
+});

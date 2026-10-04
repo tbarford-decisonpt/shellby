@@ -75,7 +75,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
       s.state = 'idle';
       break;
     case 'UserPromptSubmit':
-      s.state = 'working'; s.tool = null; s.tools = 0;
+      s.state = 'working'; s.tool = null; s.tools = 0; s.turnAt = now;
       break;
     case 'PreToolUse': {
       s.state = 'working';
@@ -135,9 +135,11 @@ function applyHookEvent(sessions, evt, now, client = null) {
     }
     case 'Stop': {
       const worked = s.state === 'working' || s.state === 'asking';
-      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null });
+      // ms: how long Claude worked on the turn (0 when the prompt wasn't seen, say Shellby started mid-turn).
+      const ms = Number.isFinite(s.turnAt) ? Math.max(0, now - s.turnAt) : 0;
+      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, ms, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null });
       // s.bg deliberately survives: whatever it backgrounded is still out there.
-      s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0;
+      s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0; s.turnAt = null;
       break;
     }
     case 'SessionEnd':

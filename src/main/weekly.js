@@ -1,6 +1,8 @@
 // The week in review: what shipped, which tests turned green, the streak, the
 // top project, new trophies and the XP, for the shareable weekly crab card
-// (renderer week-card.js) that he hands you every Friday.
+// (renderer week-card.js) that he hands you every Friday. Its "What your plan
+// bought you" panel adds Claude's working hours, the fixes that held (no red
+// since under the same key) and the usage meters' last reading.
 //
 // Stickers keep running totals and XP keeps a short log, so neither can say
 // what happened *this week*; this keeps a small per-day ledger of it. Days
@@ -19,6 +21,13 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[0-9a-f]{12}$/;
 const TROPHY_RE = /^[a-z0-9-]{1,40}$/;
 const MAX_TROPHIES_A_DAY = 12;
+// What the plan bought: Claude's working time, and fixes that stayed fixed.
+const HOUR = 60 * 60 * 1000;
+const MAX_TURN_MS = 6 * HOUR;    // one turn longer than this is a clock gone wrong, not work
+const MAX_DAY_MS = 240 * HOUR;   // parallel tabs add up past 24h, but not past this
+const MAX_FIXES_A_DAY = 40;
+const MAX_REDS_A_DAY = 40;
+const FIX_KEY_RE = /^(t|ci):[^\u0000-\u001f\u007f]{1,160}$/;
 
 const dayKey = t => {
   const d = new Date(t);
@@ -51,6 +60,21 @@ function cleanDay(d) {
     if (TROPHY_RE.test(id) && clip(t?.name, 40)) trophies[id] = { name: clip(t.name, 40), icon: clip(t.icon, 8) || '🏆' };
   }
   if (Object.keys(trophies).length) out.trophies = trophies;
+  // Claude's working time that day, summed over every finished turn.
+  const ms = Math.min(count(d.ms), MAX_DAY_MS);
+  if (ms) out.ms = ms;
+  // Each fix ({ at, key }: tests or CI back to green), and the last time each key went red,
+  // so the week can tell which fixes held.
+  const fixes = (Array.isArray(d.fixes) ? d.fixes : [])
+    .filter(f => f && Number.isFinite(f.at) && FIX_KEY_RE.test(f.key || ''))
+    .slice(-MAX_FIXES_A_DAY)
+    .map(f => ({ at: f.at, key: f.key }));
+  if (fixes.length) out.fixes = fixes;
+  const reds = {};
+  for (const [key, t] of Object.entries(d.reds && typeof d.reds === 'object' ? d.reds : {}).slice(-MAX_REDS_A_DAY)) {
+    if (FIX_KEY_RE.test(key) && Number.isFinite(t)) reds[key] = t;
+  }
+  if (Object.keys(reds).length) out.reds = reds;
   return Object.keys(out).length ? out : null;
 }
 
@@ -109,6 +133,28 @@ function recordTrophy(stateIn, now, trophy) {
   return updateDay(stateIn, now, d => ({ ...d, trophies: { ...(d.trophies || {}), [trophy.id]: { name: trophy.name, icon: trophy.icon } } }));
 }
 
+/** A turn Claude finished, and how long it worked on it (ms). */
+function recordTime(stateIn, now, ms) {
+  const n = Math.min(count(ms), MAX_TURN_MS);
+  if (!n) return normalizeWeekly(stateIn);
+  return updateDay(stateIn, now, d => ({ ...d, ms: (d.ms || 0) + n }));
+}
+
+/**
+ * Something broken came back green. key: 't:<project>' for a test run, 'ci:<repo>#<pr>'
+ * for a pull request's checks. It held if that key hasn't gone red since.
+ */
+function recordFix(stateIn, now, key) {
+  if (!FIX_KEY_RE.test(key || '') || !Number.isFinite(now)) return normalizeWeekly(stateIn);
+  return updateDay(stateIn, now, d => ({ ...d, fixes: [...(d.fixes || []), { at: now, key }] }));
+}
+
+/** Tests or checks failed under this key: any earlier fix for it didn't hold. */
+function recordRed(stateIn, now, key) {
+  if (!FIX_KEY_RE.test(key || '') || !Number.isFinite(now)) return normalizeWeekly(stateIn);
+  return updateDay(stateIn, now, d => ({ ...d, reds: { ...(d.reds || {}), [key]: now } }));
+}
+
 /** Mark a week's wrap-up as announced. */
 const markWrapped = (stateIn, day) => ({ ...normalizeWeekly(stateIn), wrapped: DAY_RE.test(day) ? day : null });
 
@@ -125,6 +171,8 @@ function tally(s, from, to, { xp, stickers } = {}) {
   const projects = new Map(); // id -> { id, name, days }
   const work = new Map();     // repo name -> tasks finished there
   const trophies = new Map(); // id -> { id, name, icon }, in the order earned
+  let ms = 0;
+  const fixes = [];
   const since = s.since ? new Date(`${s.since}T00:00:00`).getTime() : Infinity;
   const kept = t => t >= since;
   for (let t = from; t < to; t = addDays(t, 1)) {
@@ -137,6 +185,8 @@ function tally(s, from, to, { xp, stickers } = {}) {
     }
     for (const [name, n] of Object.entries(d.work || {})) work.set(name, (work.get(name) || 0) + n);
     for (const [id, tr] of Object.entries(d.trophies || {})) if (!trophies.has(id)) trophies.set(id, { id, ...tr });
+    ms += d.ms || 0;
+    fixes.push(...(d.fixes || []));
   }
   // Before the ledger: the XP log's events, and stickers that shipped in the window.
   for (const e of xp?.log || []) {
@@ -152,7 +202,39 @@ function tally(s, from, to, { xp, stickers } = {}) {
     }
     if (p.firstShipAt >= from && p.firstShipAt < to && !kept(p.firstShipAt)) totals.minted += 1;
   }
-  return { totals, projects: [...projects.values()], work, trophies: [...trophies.values()] };
+  return { totals, projects: [...projects.values()], work, trophies: [...trophies.values()], ms, fixes };
+}
+
+// The last time each key went red, over every day kept (a fix from Monday
+// that broke again on Thursday didn't hold).
+function lastReds(s) {
+  const out = new Map();
+  for (const d of Object.values(s.days)) {
+    for (const [key, t] of Object.entries(d.reds || {})) if (!(out.get(key) >= t)) out.set(key, t);
+  }
+  return out;
+}
+
+// A usage window's reading, if it's still about the current window.
+function windowNow(u, now) {
+  if (!u || !Number.isFinite(u.pct) || !Number.isFinite(u.resetsAt) || u.resetsAt <= now) return null;
+  return { pct: Math.max(0, Math.min(100, Math.round(u.pct))), resetsAt: u.resetsAt };
+}
+
+/**
+ * What the plan bought this week: Claude's hours, tasks finished, fixes and
+ * how many held, next to the 5-hour and weekly meters. usage: the last
+ * rate-limit report ({ fiveHour: { pct, resetsAt }, sevenDay }), or null.
+ */
+function planOf(s, cur, prev, tasks, usage, now) {
+  const reds = lastReds(s);
+  const held = cur.fixes.filter(f => !(reds.get(f.key) > f.at)).length;
+  return {
+    hours: Math.round((cur.ms / HOUR) * 10) / 10, ms: cur.ms, msPrev: prev.ms,
+    tasks, fixes: cur.fixes.length, held,
+    weekly: windowNow(usage?.sevenDay, now),
+    fiveHour: windowNow(usage?.fiveHour, now),
+  };
 }
 
 // The repo with the most tasks finished; failing that, the busiest one shipped.
@@ -166,7 +248,7 @@ function topProjectOf(work, shipped) {
  * The last seven days (today included) and the seven before, for the card.
  *   streak: { current, longest } (streaks.js); level: levelFor() (xp.js)
  */
-function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, level = null } = {}) {
+function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, level = null, usage = null } = {}) {
   const s = normalizeWeekly(stateIn);
   const today = startOfDay(now);
   const from = addDays(today, -(WEEK - 1)), to = addDays(today, 1);
@@ -207,6 +289,7 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
     prev: { projects: prev.projects.length, ships: ships(prev), green: prev.totals.fixed, tasks: prev.totals.task },
     streak: { current: count(streak?.current), longest: count(streak?.longest) },
     level: level ? { level: level.level, title: level.title, color: level.rank?.color || null } : null,
+    plan: planOf(s, cur, prev, t.task, usage, now),
   };
   return { ...summary, headline: headline(summary), quiet: isQuiet(summary) };
 }
@@ -250,4 +333,4 @@ function wrapUpDue(stateIn, now, summary) {
   return s.wrapped === key ? null : key;
 }
 
-module.exports = { KINDS, SHIP_KINDS, KEEP_DAYS, normalizeWeekly, recordDay, recordWork, recordTrophy, markWrapped, weekSummary, headline, wrapUpDue, dayKey };
+module.exports = { KINDS, SHIP_KINDS, KEEP_DAYS, MAX_TURN_MS, normalizeWeekly, recordDay, recordWork, recordTrophy, recordTime, recordFix, recordRed, markWrapped, weekSummary, headline, wrapUpDue, dayKey };

@@ -1140,7 +1140,10 @@ function createManager() {
       const c = pendingCommands.get(item.id);
       pendingCommands.delete(item.id);
       const meant = classifyCommand(c.command);
-      if (item.isError && meant === 'tests' && c.project && config && !CAPTURE) config.set({ xp: markRed(config.get('xp'), c.project, Date.now()) });
+      if (item.isError && meant === 'tests' && c.project && config && !CAPTURE) {
+        config.set({ xp: markRed(config.get('xp'), c.project, Date.now()) });
+        noteRed(`t:${c.project}`);
+      }
       if (c.tree) noteTestRun(c, item, tail);
       const kind = !item.isError && meant;
       if (kind) {
@@ -1452,6 +1455,7 @@ function awardXp(kind, meta = {}) {
   // The week-in-review counts it even when repetition left it paying nothing.
   // Shipping is counted where the project is known (recordShipped).
   if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
+  if (r.kind === 'fixed' && meta.project) noteFix(`t:${meta.project}`);
   if (!r.gained) { if (r.changed) send(panel, 'xp', xpView()); return; }
   send(critter, 'critter:xp', { amount: r.gained, kind: r.kind });
   for (const b of r.bounties) send(panel, 'xp:bounty', b);
@@ -1902,11 +1906,29 @@ function noteWeek(kind, project = null) {
   config.set({ weekly: weekly.recordDay(config.get('weekly'), Date.now(), kind, project && { id: project.id, name: project.name }) });
 }
 
+// What the plan bought (the card's "What your plan bought you"): Claude's
+// working time, and each fix with the failures that would undo it.
+function noteWorkTime(ms) {
+  if (CAPTURE || !config || !(ms > 0)) return;
+  config.set({ weekly: weekly.recordTime(config.get('weekly'), Date.now(), ms) });
+}
+
+function noteFix(key) {
+  if (CAPTURE || !config) return;
+  config.set({ weekly: weekly.recordFix(config.get('weekly'), Date.now(), key) });
+}
+
+function noteRed(key) {
+  if (CAPTURE || !config) return;
+  config.set({ weekly: weekly.recordRed(config.get('weekly'), Date.now(), key) });
+}
+
 function weekView() {
   const now = Date.now();
   const xp = normalizeXp(config.get('xp'));
   return weekly.weekSummary(config.get('weekly'), now, {
     xp, stickers: stickerState(), streak: streaks.streakOf(config.get('streaks'), now), level: levelFor(xp.total),
+    usage: config.get('lastUsage'),
   });
 }
 
@@ -2087,6 +2109,7 @@ function onPermission(tabId, item, tab) {
 function onResult(tabId, item, tab) {
   endTurn(tabId);
   tab.guardRun = null;
+  noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
   const fresh = tab.freshWanted;
   tab.freshWanted = false;
   if (tab.copyWanted) {
@@ -2272,6 +2295,7 @@ function createExternal() {
   external.on('checkup', e => checkedUp(e.dir, e.check, e.result));
   external.on('turn-done', e => {
     awardXp('task', { project: e.project });
+    noteWorkTime(e.ms);
     tellChannel({ kind: 'done', project: e.project, tools: e.tools });
     recordWork(e.cwd);
     flashState('success');
@@ -3999,6 +4023,8 @@ function onCiEvent({ type, pr }) {
   const where = `${pr.repo}#${pr.number}`;
   workflows?.event('ci', { event: type, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
   const open = () => openGitHubUrl(pr.url);
+  if (type === 'failed') noteRed(`ci:${where}`);
+  if (type === 'fixed') noteFix(`ci:${where}`);
   if (type === 'failed') {
     flashState('error', 5000);
     tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
