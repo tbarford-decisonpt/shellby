@@ -272,3 +272,34 @@ test('remove() is still a hard delete, for Shellby tidying up after itself', () 
   assert.deepEqual(h.trashed(), []);
   assert.deepEqual(transcripts(dir), []);
 });
+
+test('clear() empties the list and the bin and deletes every transcript, listed or not', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  for (const id of ['a', 'b', 'c']) { h.create({ id, title: id, cwd: 'C:/work', mode: 'ask' }); h.append(id, { kind: 'user', text: 'hi' }); }
+  h.trash('c');
+  fs.writeFileSync(path.join(dir, 'orphan.jsonl'), '{}\n');
+
+  assert.equal(h.clear(), 3);
+  assert.deepEqual(h.list(), []);
+  assert.deepEqual(h.trashed(), []);
+  assert.deepEqual(transcripts(dir), []);
+
+  // And it sticks: a fresh load sees the same clean slate.
+  const after = new History(dir);
+  assert.deepEqual(after.list(), []);
+  assert.deepEqual(after.trashed(), []);
+});
+
+test('clear() still clears when the index was damaged, since a person asked for it', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'keep', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  h.append('keep', { kind: 'user', text: 'hi' });
+  fs.writeFileSync(path.join(dir, 'index.json'), '[{"id":"keep","tit');
+
+  const after = new History(dir);
+  after.clear();
+  assert.deepEqual(transcripts(dir), []);
+  assert.equal(new History(dir).indexIntact, true, 'the damaged index is replaced by a clean one');
+});
