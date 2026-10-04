@@ -19,6 +19,8 @@ const { keepOnDesktop, sendToBottom, pin: pinToDesktop } = require('./desktop-la
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
+const hookTest = require('./hook-test');
+const { describeHook } = require('./hook-recipes');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const routineDraft = require('./routine-draft');
 const depwatch = require('./depwatch');
@@ -2756,7 +2758,11 @@ const setupCwd = () => {
   return ISOLATED && !insideHome ? setupHome() : c;
 };
 const setupWhere = () => ({ home: setupHome(), cwd: setupCwd(), ceiling: ISOLATED ? setupHome() : null });
-const setupView = () => claudeSetup.scanSetup({ ...setupWhere(), plugins: toolbox?.plugins() || [] });
+const setupView = () => {
+  const where = setupWhere();
+  const view = claudeSetup.scanSetup({ ...where, plugins: toolbox?.plugins() || [] });
+  return { ...view, paused: pausedView(claudeSetup.settingsFiles(where)) };
+};
 const HOOK_WHERE = { user: 'your settings, so every project', project: "this project's shared settings", local: 'your own settings for this project' };
 const isAt = at => !!at && typeof at === 'object' && isStr(at.event) && Number.isInteger(at.group) && Number.isInteger(at.hook);
 // The confirm window wraps text and folds runs of spaces, so spell long runs out:
@@ -2815,6 +2821,150 @@ async function confirmAndChangeHook({ scope, at, fp, hook: input } = {}, remove 
   try { r = claudeSetup.changeHooks(target.file, change, editing ? { at, fp } : null); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
   if (r.ok) stat(remove ? 'hook-removed' : 'hook-saved');
   return { ...r, setup: setupView() };
+}
+
+// ---- pause, resume and test run
+
+// Claude Code has no off switch for one hook, so Pause takes it out of the
+// settings file and keeps it here, exactly as it was, for Resume to put back.
+// Only main writes this list (the panel can't set it). Resuming one of your own
+// hooks doesn't ask; a project's might be one you paused because you didn't
+// trust it, so that asks first.
+const MAX_PAUSED = 100;
+const pausedList = () => (Array.isArray(config.get('pausedHooks')) ? config.get('pausedHooks') : []);
+const isEntry = p => !!p && isStr(p.id) && isStr(p.scope) && isStr(p.file) && isStr(p.event) && typeof p.matcher === 'string' && !!p.entry && typeof p.entry === 'object' && !Array.isArray(p.entry);
+
+// The paused hooks of the settings files that load here (a project's only show in that project).
+function pausedView(files) {
+  return pausedList().filter(isEntry).flatMap(p => {
+    const f = files.find(x => x.scope === p.scope && samePath(x.file, p.file));
+    if (!f) return [];
+    const type = isStr(p.entry.type) ? p.entry.type : 'command';
+    const command = String(p.entry.command || p.entry.prompt || p.entry.url || '').slice(0, 1000);
+    return [{
+      ...describeHook({ type, command }),
+      id: `paused:${p.id}`, pausedId: p.id, paused: true, pausedAt: p.at || 0,
+      source: p.scope, path: f.file, event: p.event, matcher: p.matcher, type, command,
+      timeout: Number.isFinite(p.entry.timeout) ? p.entry.timeout : null, editable: false,
+    }];
+  });
+}
+
+async function pauseHook({ scope, at, fp } = {}) {
+  const fail = error => ({ ok: false, error, setup: setupView() });
+  const changed = () => ({ ...fail('That hook changed on disk since this list was made. Rescan and try again.'), conflict: true });
+  if (hookAsking) return fail('Answer the open question about a hook first.');
+  const target = claudeSetup.settingsFiles(setupWhere()).find(f => f.scope === scope);
+  if (!target || !isAt(at) || !isStr(fp)) return fail('Pick a hook to pause.');
+  const existing = setupView().hooks.find(h => h.source === scope && h.fp === fp);
+  if (!existing) return changed();
+  if (pausedList().length >= MAX_PAUSED) return fail(`Shellby keeps up to ${MAX_PAUSED} paused hooks. Resume or forget one first.`);
+  const when = claudeSetup.HOOK_EVENTS.find(e => e.name === existing.event)?.when || `on ${existing.event}`;
+  hookAsking = true;
+  let response;
+  try {
+    response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '⏸️', title: 'Pause this hook?',
+      message: `Claude Code will stop running it ${when} until you resume it.`,
+      detail: `${existing.summary}\n\n${showCommand(existing.command.slice(0, 400))}`,
+      note: 'Shellby keeps it, and Resume puts it back exactly as it was. Sessions already open keep the hooks they started with.',
+      buttons: [{ label: 'Pause it', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+  } finally { hookAsking = false; }
+  if (response !== 0) return { ok: false, cancelled: true, setup: setupView() };
+
+  // Kept first, then taken out: if the write fails, nothing is lost.
+  const found = claudeSetup.hookEntry(claudeSetup.readSettings(target.file).data, at);
+  if (!found) return changed();
+  const id = randomUUID();
+  config.set({ pausedHooks: [...pausedList(), { id, scope, file: target.file, ...found, at: Date.now() }] });
+  let r;
+  try { r = claudeSetup.changeHooks(target.file, s => claudeSetup.withoutHook(s, at), { at, fp }); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
+  if (!r.ok) config.set({ pausedHooks: pausedList().filter(p => p.id !== id) });
+  return { ...r, setup: setupView() };
+}
+
+async function resumeHook(id) {
+  const fail = error => ({ ok: false, error, setup: setupView() });
+  const p = pausedList().find(x => isEntry(x) && x.id === id);
+  if (!p) return fail("That paused hook isn't there any more.");
+  const target = claudeSetup.settingsFiles(setupWhere()).find(f => f.scope === p.scope && samePath(f.file, p.file));
+  if (!target) return fail('Open the project it belongs to, then resume it there.');
+  if (p.scope !== 'user') {
+    if (hookAsking) return fail('Answer the open question about a hook first.');
+    const when = claudeSetup.HOOK_EVENTS.find(e => e.name === p.event)?.when || `on ${p.event}`;
+    const command = String(p.entry.command || p.entry.prompt || p.entry.url || '');
+    hookAsking = true;
+    let response;
+    try {
+      response = await confirm.ask(panel, {
+        ...dialogLook(), icon: '🪝', danger: true, title: 'Resume this hook?',
+        message: `Claude Code will run it ${when} again, in every session that reads ${HOOK_WHERE[p.scope]}.`,
+        detail: `${showCommand(command.slice(0, 1000))}${command.length > 1000 ? `… (+${command.length - 1000} more characters)` : ''}\n\nIn ${target.file.replace(os.homedir(), '~')}`,
+        note: "Hooks run with your Windows account's permissions and don't ask first. Only resume it if you trust where this project came from.",
+        buttons: [{ label: 'Resume it', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+    } finally { hookAsking = false; }
+    if (response !== 0) return { ok: false, cancelled: true, setup: setupView() };
+  }
+  let r;
+  // Already back in the file (resumed before a crash, or by hand): just stop listing it as paused.
+  const where = { event: p.event, matcher: p.matcher };
+  const back = s => (claudeSetup.hasHook(s, where, p.entry) ? s : claudeSetup.withHook(s, where, p.entry));
+  try { r = claudeSetup.changeHooks(target.file, back); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
+  if (r.ok) config.set({ pausedHooks: pausedList().filter(x => x.id !== id) });
+  return { ...r, setup: setupView() };
+}
+
+// A paused hook isn't running, so letting go of it doesn't need the confirm window.
+function forgetPausedHook(id) {
+  if (!isStr(id)) return { ok: false, error: 'Pick a paused hook.', setup: setupView() };
+  config.set({ pausedHooks: pausedList().filter(x => x.id !== id) });
+  return { ok: true, setup: setupView() };
+}
+
+// Commands you've said yes to testing since Shellby started, in that folder
+// (the same `npm test` does something else in another project), so trying again
+// with different test details doesn't ask every time. One test runs at a time.
+const testedCommands = new Set();
+let testRunning = false;
+
+async function testHook({ hook: input, payload } = {}) {
+  const v = claudeSetup.validateHook(input);
+  if (v.error) return { ok: false, error: v.error };
+  const hook = v.hook;
+  const cwd = setupCwd();
+  let body;
+  if (payload === undefined || payload === null || payload === '') body = hookTest.samplePayload(hook, cwd);
+  else {
+    const parsed = hookTest.parsePayload(payload);
+    if (parsed.error) return { ok: false, error: parsed.error };
+    body = parsed.payload;
+  }
+  if (testRunning) return { ok: false, error: 'A test run is still going. Wait for it to finish.' };
+  const tested = `${cwd}\0${hook.command}`;
+  if (!testedCommands.has(tested)) {
+    if (hookAsking) return { ok: false, error: 'Answer the open question about a hook first.' };
+    const when = claudeSetup.HOOK_EVENTS.find(e => e.name === hook.event)?.when || `on ${hook.event}`;
+    hookAsking = true;
+    let response;
+    try {
+      response = await confirm.ask(panel, {
+        ...dialogLook(), icon: '🧪', danger: true, title: 'Run this command once?',
+        message: `Shellby will run it now, the way Claude Code would ${when}, with made-up details for the test.`,
+        detail: `${showCommand(hook.command)}\n\nIn ${cwd.replace(os.homedir(), '~')}`,
+        note: "It runs with your Windows account's permissions, for real: a command that deletes or pushes will do it. Shellby asks once per command and folder until it restarts.",
+        buttons: [{ label: 'Run it', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+    } finally { hookAsking = false; }
+    if (response !== 0) return { ok: false, cancelled: true };
+    testedCommands.add(tested);
+  }
+  testRunning = true;
+  try {
+    const result = await hookTest.runHook({ command: hook.command, payload: body, cwd, timeout: hook.timeout || 60 });
+    return { ok: true, result, verdict: hookTest.verdict(hook.event, result) };
+  } finally { testRunning = false; }
 }
 
 // ================================================================ skill shop
@@ -4928,10 +5078,20 @@ ${r.detail}` });
   });
   ipcMain.handle('setup:save-hook', (_e, req) => confirmAndChangeHook(req || {}, false));
   ipcMain.handle('setup:remove-hook', (_e, req) => confirmAndChangeHook(req || {}, true));
+  ipcMain.handle('setup:pause-hook', (_e, req) => pauseHook(req || {}));
+  ipcMain.handle('setup:resume-hook', (_e, id) => resumeHook(id));
+  ipcMain.handle('setup:forget-paused-hook', (_e, id) => forgetPausedHook(id));
+  ipcMain.handle('setup:test-hook', (_e, req) => testHook(req || {}));
+  // The JSON a hook would get, to show (and change) before a test run.
+  ipcMain.handle('setup:sample-hook-input', (_e, hook) => {
+    const h = hook && typeof hook === 'object' ? hook : {};
+    if (!claudeSetup.HOOK_EVENTS.some(e => e.name === h.event)) return null;
+    return hookTest.samplePayload({ event: h.event, matcher: isStr(h.matcher) ? h.matcher : '', command: isStr(h.command) ? h.command : '' }, setupCwd());
+  });
   ipcMain.on('setup:reveal', (_e, p) => {
     if (!isStr(p)) return;
     const s = setupView();
-    const hit = [...s.memory.filter(m => m.exists), ...s.hooks].find(x => samePath(x.path, p));
+    const hit = [...s.memory.filter(m => m.exists), ...s.hooks, ...s.paused].find(x => samePath(x.path, p));
     if (hit) shell.showItemInFolder(hit.path);
   });
 
