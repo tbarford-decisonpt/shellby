@@ -33,6 +33,7 @@ Every workflow can also be run by hand, so "when" may be empty.
 Triggers:
 - { "type": "schedule", "schedule": { "type": "daily", "time": "HH:MM" } | { "type": "weekly", "time": "HH:MM", "days": [0-6, 0=Sunday] } | { "type": "interval", "everyHours": 1-168 } | { "type": "minutes", "every": 5-1440 } }
 - { "type": "ci", "on": "failed"|"fixed"|"passed"|"merged"|"review"|"any", "repo": "owner/name" or "" }  data: event, repo, number, title, url, branch, failing
+- { "type": "issue", "on": "assigned"|"labelled"|"any", "repo": "owner/name" or "" }  (a GitHub issue assigned to them or labelled shellby) data: event, reasons, repo, number, title, body, labels, author, url
 - { "type": "shipped", "kind": "push"|"deploy"|"release"|"merge"|"any", "project": "" }  data: kind, project, version
 - { "type": "task", "outcome": "ok"|"error"|"any" }  (a Shellby task finished) data: title, outcome, folder, error
 - { "type": "health" }  data: title, body
@@ -54,6 +55,8 @@ Steps (each may have "id" (snake_case, how later steps refer to it), "label", "i
 - { "type": "file", "action": "read"|"write"|"append", "path": "absolute", "content": "" }  output: text (read)
 - { "type": "workflow", "name": "another workflow", "inputs": { "name": "value" } }  output: status, vars
 - { "type": "stop", "status": "ok"|"error", "message": "" }
+- { "type": "worktree", "repo": "owner/name", "branch": "short-name" }  a copy of a GitHub repository cloned on this PC, on a new branch from its default branch. output: path, branch, base, repo. Give later Claude steps "cwd": "{{ <id>.path }}".
+- { "type": "pr", "folder": "{{ <worktree id>.path }}", "title": "...", "body": "", "draft": true }  commits what's left in that copy, pushes its branch and opens a pull request. output: url, number, branch, repo, draft
 
 Values: {{ path }} in any text, with optional filters: | json, upper, lower, trim, length, first, last, join ", ", default "x", lines, slice 0 100.
 Paths: trigger.<field>, inputs.<name>, vars.<name>, <stepId>.<field> (e.g. diagnose.cause, check.output), item / loop.number inside each, now, today, run.id, secrets.NAME (only in run commands and http).

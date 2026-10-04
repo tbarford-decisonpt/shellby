@@ -23,6 +23,9 @@ class GitHubApi {
     if (!res.ok) {
       const err = new Error(data?.message || `GitHub answered ${res.status}`);
       err.status = res.status;
+      // "Validation Failed" says little: what failed is in errors[] ("A pull request already exists…").
+      const detail = Array.isArray(data?.errors) ? data.errors.map(e => (typeof e?.message === 'string' ? e.message : '')).filter(Boolean).join(' ') : '';
+      if (detail) err.detail = detail.slice(0, 300);
       throw err;
     }
     return { data, scopes: res.headers.get('x-oauth-scopes') };

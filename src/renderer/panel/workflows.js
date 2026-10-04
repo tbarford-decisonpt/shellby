@@ -29,13 +29,16 @@
     wait: { name: 'Wait', sub: 'Pause before the next step' },
     workflow: { name: 'Run a workflow', sub: 'Start another workflow and wait for it' },
     stop: { name: 'Stop', sub: 'End the run here' },
+    worktree: { name: 'Make a copy', sub: 'A copy of a GitHub repository to work in, on its own branch' },
+    pr: { name: 'Open a pull request', sub: 'Push the copy\'s branch and open a draft pull request' },
   };
-  const STEP_GROUPS = [['Claude', ['claude']], ['Do', ['run', 'http', 'file']], ['Talk', ['ask', 'tell']], ['Logic', ['if', 'each', 'set', 'wait', 'workflow', 'stop']]];
+  const STEP_GROUPS = [['Claude', ['claude']], ['Do', ['run', 'http', 'file']], ['GitHub', ['worktree', 'pr']], ['Talk', ['ask', 'tell']], ['Logic', ['if', 'each', 'set', 'wait', 'workflow', 'stop']]];
   const CONTAINERS = { if: ['then', 'else'], each: ['steps'] };
 
   const TRIGGER_INFO = {
     schedule: { name: 'On a schedule', sub: 'Every day, certain days, or every few hours or minutes' },
     ci: { name: 'When a build changes', sub: 'A pull request fails, goes green, is merged…' },
+    issue: { name: 'When an issue comes in', sub: 'Assigned to you, or labelled shellby' },
     shipped: { name: 'When something ships', sub: 'A push, deploy, release or merge' },
     task: { name: 'When a task finishes', sub: 'One of your Shellby conversations' },
     health: { name: 'When the PC needs attention', sub: 'Something overheats or fills up' },
@@ -52,6 +55,7 @@
   const TRIGGER_FIELDS = {
     schedule: { at: 'When it was due' },
     ci: { event: 'What happened', repo: 'owner/name', number: 'Pull request number', title: 'Pull request title', url: 'Link', branch: 'Branch', failing: 'Failing checks (a list)' },
+    issue: { event: 'assigned or labelled', reasons: 'Every reason it came in (a list)', repo: 'owner/name', number: 'Issue number', title: 'Issue title', body: 'What the issue says', labels: 'Its labels (a list)', author: 'Who opened it', url: 'Link' },
     shipped: { kind: 'push, deploy, release or merge', project: 'Project', version: 'Version, if any' },
     task: { title: 'Task title', outcome: 'ok or error', folder: 'Its folder', error: 'The error, if it failed' },
     health: { title: 'What happened', body: 'The details' },
@@ -67,6 +71,8 @@
     file: s => (s.action === 'read' || !s.action ? { text: 'What the file says' } : { path: 'The file' }),
     workflow: () => ({ status: 'ok or error', vars: 'Its values' }),
     each: () => ({ count: 'How many it went through' }),
+    worktree: () => ({ path: 'The copy\'s folder', branch: 'Its branch', base: 'The branch it started from', repo: 'owner/name' }),
+    pr: () => ({ url: 'Link to the pull request', number: 'Pull request number', branch: 'Its branch', repo: 'owner/name', draft: 'true if it\'s a draft' }),
   };
 
   const MODE_NAME = Object.fromEntries(SB.MODES.map(m => [m.id, m.title]));
@@ -92,6 +98,8 @@
     wait: 'M4 2.5h8M4 13.5h8M5 2.5c0 3 6 2.9 6 5.5s-6 2.5-6 5.5M11 2.5c0 3-6 2.9-6 5.5s6 2.5 6 5.5',
     workflow: 'M2.5 3h4.5v3.5H2.5zM9 9.5h4.5V13H9zM4.8 6.5v4.8H9',
     stop: 'M4.5 4.5h7v7h-7z',
+    worktree: 'M4.5 2.5v11M4.5 9.5c0-2 1.6-3 3.5-3h1c1.4 0 2.5-1.1 2.5-2.5V2.5',
+    pr: 'M4.5 2.5v11M11.5 13.5V7c0-1.4-1.1-2.5-2.5-2.5H7M8.5 3l-1.8 1.5L8.5 6',
     play: 'M5 3.5v9l7-4.5z',
     up: 'M4 10l4-4 4 4',
     down: 'M4 6l4 4 4-4',
@@ -780,11 +788,14 @@
     wait: () => ({ seconds: 300 }),
     workflow: () => ({ name: '' }),
     stop: () => ({ status: 'ok' }),
+    worktree: () => ({ repo: '{{ trigger.repo }}', branch: '' }),
+    pr: () => ({ folder: '', title: '', draft: true }),
   };
 
   const TRIGGER_DEFAULTS = {
     schedule: () => ({ schedule: { type: 'daily', time: '09:00' } }),
     ci: () => ({ on: 'failed', repo: '' }),
+    issue: () => ({ on: 'any', repo: '' }),
     shipped: () => ({ kind: 'any', project: '' }),
     task: () => ({ outcome: 'any' }),
     folder: () => ({ path: '', pattern: '', events: 'added' }),
@@ -1319,6 +1330,10 @@
         sel('When a build', [['failed', 'fails'], ['fixed', 'goes green again'], ['passed', 'passes'], ['merged', 'is merged'], ['review', 'needs your review'], ['any', 'changes at all']], t.on || 'failed', v => { t.on = v; }, { at: `${at}.on` }),
         txt('Repository (optional)', t.repo, v => { t.repo = v; }, { at: `${at}.repo`, attrs: { placeholder: 'owner/name' }, hint: 'Leave empty for every repository Shellby watches.' }),
       ];
+      case 'issue': return [
+        sel('When an issue is', [['any', 'assigned to me or labelled shellby'], ['assigned', 'assigned to me'], ['labelled', 'labelled shellby']], t.on || 'any', v => { t.on = v; }, { at: `${at}.on`, hint: 'The label counts in your own repositories and the ones cloned on this PC. Needs “Offer to take on issues” in Settings → GitHub.' }),
+        txt('Repository (optional)', t.repo, v => { t.repo = v; }, { at: `${at}.repo`, attrs: { placeholder: 'owner/name' }, hint: 'Leave empty for every repository.' }),
+      ];
       case 'shipped': return [
         sel('What ships', [['any', 'Anything'], ['push', 'A push'], ['deploy', 'A deploy'], ['release', 'A release'], ['merge', 'A merged pull request']], t.kind || 'any', v => { t.kind = v; }, { at: `${at}.kind` }),
         txt('Project (optional)', t.project, v => { t.project = v; }, { at: `${at}.project`, attrs: { placeholder: 'Any project' } }),
@@ -1566,6 +1581,8 @@
       case 'file': return `${(FILE_ACTIONS.find(([v]) => v === (s.action || 'read')) || [])[1] || s.action} · ${s.path || '…'}`;
       case 'workflow': return s.name ? `Run “${s.name}”` : 'No workflow picked';
       case 'stop': return s.status === 'error' ? `Stop as failed${s.message ? `: ${s.message}` : ''}` : `Stop${s.message ? `: ${s.message}` : ''}`;
+      case 'worktree': return s.repo ? `Copy of ${s.repo}` : 'No repository yet';
+      case 'pr': return `${s.draft === false ? 'Pull request' : 'Draft'}: ${firstLine(s.title) || '…'}`;
       default: return '';
     }
   }
@@ -1581,6 +1598,7 @@
         if (s.type === 'minutes') return `Every ${plural(s.every || 0, 'minute')}`;
         return `Every day at ${s.time || '09:00'}`;
       case 'ci': return `${{ failed: 'Fails', fixed: 'Goes green again', passed: 'Passes', merged: 'Is merged', review: 'Needs your review', any: 'Any change' }[t.on] || t.on}${t.repo ? ` · ${t.repo}` : ''}`;
+      case 'issue': return `${{ assigned: 'Assigned to me', labelled: 'Labelled shellby', any: 'Assigned or labelled' }[t.on] || t.on}${t.repo ? ` · ${t.repo}` : ''}`;
       case 'shipped': return `${{ any: 'Anything', push: 'A push', deploy: 'A deploy', release: 'A release', merge: 'A merge' }[t.kind] || t.kind}${t.project ? ` · ${t.project}` : ''}`;
       case 'task': return { ok: 'A task succeeds', error: 'A task fails' }[t.outcome] || 'A task finishes';
       case 'folder': return `${t.pattern || 'Files'} ${t.events === 'changed' ? 'changed' : t.events === 'any' ? 'added or changed' : 'added'}${t.path ? ` in ${SB.shortPath(t.path, 28)}` : ''}`;
@@ -1815,6 +1833,16 @@
         columns: [{ key: 'k', label: 'Input', mono: true, width: '.8fr' }, { key: 'v', label: 'Value', insert: ins(c) }],
         onChange: rows => putOrDrop(s, 'inputs', Object.keys(rowsObj(rows)).length ? rowsObj(rows) : undefined),
       }),
+    ],
+    worktree: (s, c) => [
+      txt('Repository', s.repo, v => { s.repo = v; }, { at: `${c.at}.repo`, insert: ins(c), attrs: { class: 'field wf-mono', placeholder: '{{ trigger.repo }}' }, hint: 'owner/name, cloned on this PC (the Projects page clones it). The copy starts from its main branch on GitHub; your checkout isn\'t touched.' }),
+      txt('Branch name (optional)', s.branch, v => putOrDrop(s, 'branch', v), { at: `${c.at}.branch`, insert: ins(c), attrs: { maxlength: 60, placeholder: 'issue-{{ trigger.number }}' }, hint: 'Becomes shellby/<name>-<code>. Later steps work in {{ id.path }}.' }),
+    ],
+    pr: (s, c) => [
+      txt('Copy', s.folder, v => { s.folder = v; }, { at: `${c.at}.folder`, insert: ins(c), attrs: { class: 'field wf-mono', placeholder: '{{ copy.path }}' }, hint: 'The folder a “Make a copy” step made. Whatever is left uncommitted there is committed first.' }),
+      txt('Title', s.title, v => { s.title = v; }, { at: `${c.at}.title`, insert: ins(c), attrs: { maxlength: 250, placeholder: '{{ trigger.title }}' } }),
+      area('Description (optional)', s.body, v => putOrDrop(s, 'body', v), { at: `${c.at}.body`, insert: ins(c), attrs: { rows: 4, placeholder: 'Closes #{{ trigger.number }}' } }),
+      check('Open it as a draft', s.draft !== false, v => { s.draft = v; }, { hint: 'Needs “Let Claude tasks push code and open pull requests” in Settings → GitHub.' }),
     ],
     stop: (s, c) => [
       sel('Finish the run as', [['ok', 'Done (ok)'], ['error', 'Failed']], s.status || 'ok', v => { s.status = v; }, { at: `${c.at}.status` }),

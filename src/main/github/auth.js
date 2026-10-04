@@ -16,6 +16,7 @@ const FEATURE_SCOPES = Object.freeze({
   publish: ['public_repo'],    // fork shellby-packs and open a PR
   claude: ['repo'],            // Claude Code tasks can push and open PRs (private repos too)
   ci: [],                      // watch CI on your pull requests (public repos; private ones ride on `repo`)
+  issues: [],                  // issues assigned to you or labelled shellby start workflows (same as ci)
   // GitHub refuses any push that touches .github/workflows without this, even
   // with `repo`. Kept separate from `claude` on purpose: a workflow decides what
   // runs in CI, where the repository's secrets are, so it is its own decision.

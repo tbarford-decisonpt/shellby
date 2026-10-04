@@ -412,6 +412,26 @@ class Engine {
         return { status: r.status, vars: r.vars || {}, runId: r.runId };
       }
 
+      case 'worktree': {
+        // The branch name only names it: worktrees.js turns it into shellby/<words>-<hex>.
+        const r = await fx.copy({ repo: expr.render(step.repo, ctx).trim(), slug: step.branch ? expr.render(step.branch, ctx) : '', signal });
+        if (!r.ok) throw new StepFailed(r.error || 'Couldn\'t make the copy.');
+        return { path: r.path, branch: r.branch, base: r.base, repo: r.repo };
+      }
+
+      case 'pr': {
+        const r = await fx.pullRequest({
+          folder: expr.render(step.folder, ctx).trim(),
+          title: expr.render(step.title, ctx),
+          body: step.body ? expr.render(step.body, ctx) : '',
+          draft: step.draft !== false,
+          workflow: this.workflow.name,
+          signal,
+        });
+        if (!r.ok) throw new StepFailed(r.error || 'Couldn\'t open the pull request.');
+        return { url: r.url, number: r.number, branch: r.branch, repo: r.repo, draft: r.draft };
+      }
+
       default:
         throw new StepFailed(`Unknown step type ${step.type}`);
     }

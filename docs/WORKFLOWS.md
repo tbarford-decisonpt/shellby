@@ -52,6 +52,7 @@ Shellby remembers which you used last.
 |---|---|
 | Schedule | every day, on certain days, every few hours, or every 5-1440 minutes |
 | Build | when a pull request's checks fail, go green again, pass, merge, or ask for your review (needs GitHub CI turned on) |
+| Issue | when a GitHub issue is assigned to you, or labelled `shellby` (needs **Offer to take on issues** in Settings → GitHub) |
 | Shipped | when a project is pushed, deployed, released or has a pull request merged |
 | Task finished | when one of your Shellby tasks finishes (never a workflow's own) |
 | Health | when something overheats or a drive fills up |
@@ -79,6 +80,8 @@ Every workflow can also be run by hand with **Run**.
 | **File** | reads, writes or adds to a file |
 | **Run workflow** | runs another workflow and waits for it |
 | **Stop** | ends the run, as done or as failed |
+| **Make a copy** | a copy of a GitHub repository cloned on this PC, on its own branch, started from its main branch on GitHub. Later steps work in it as `{{ copy.path }}`. |
+| **Open a pull request** | commits whatever is left in the copy, pushes its branch and opens a pull request (a draft, unless you untick it) |
 
 Every step can also retry, have a time limit, run only if a condition holds,
 or carry on when it fails.
@@ -111,6 +114,39 @@ the tab stays so you can read it or reply.
 
 Values from outside (a PR title, a web page, a file) reach Claude marked as
 data, with a note saying they're data, not instructions.
+
+## From an issue to a pull request
+
+The **Issue helper** template puts it together. When an issue is assigned to
+you, or someone labels it `shellby`, he asks "Want me to take a crack at #42?"
+(on the desktop, as a notification, and on your phone). Say **Take a crack**
+and he:
+
+1. makes a copy of the repository on its own branch (`shellby/issue-42-…`),
+   started from its main branch on GitHub, so your checkout isn't touched;
+2. has Claude work on the issue there in Auto-edit, run the tests and commit;
+3. pushes that branch and opens a **draft** pull request that closes the issue.
+
+Opening it pays XP, and when it's merged the project earns its sticker like
+any other merge.
+
+What it needs:
+
+- **Offer to take on issues** and **Let Claude tasks push code and open pull
+  requests**, both in Settings → GitHub.
+- The repository cloned on this PC (the Projects page can clone it).
+
+Where the label counts: your own repositories, and the ones cloned on this PC
+that you can push to. Anywhere else, only issues assigned to you start it.
+He offers an issue once it has been assigned to you or labelled since you
+turned this on, including while Shellby was closed. Issues that were already
+open, or an old one that only gets a new comment, aren't offered.
+
+The pull request step only works on copies Shellby made, works out the
+repository and branch from the copy itself, never force-pushes, and skips git
+hooks (Claude may have just edited one while working on an issue someone else
+wrote). On a private repository whose plan has no draft pull requests, it
+opens an ordinary one. The copy stays in Shellby's worktrees folder afterwards.
 
 ## Runs
 

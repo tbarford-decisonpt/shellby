@@ -31,11 +31,11 @@ const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
 
 // fsmonitor off: a repository's own config could name a program to run on
 // every status (one Shellby never asked for).
-function git(cwd, args, { timeout = 30000 } = {}) {
+function git(cwd, args, { timeout = 30000, env = {} } = {}) {
   return new Promise(resolve => {
     execFile('git', ['-C', cwd, '-c', 'core.fsmonitor=false', ...args], {
       windowsHide: true, timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', GIT_MERGE_AUTOEDIT: 'no' },
+      env: { ...process.env, ...env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', GIT_MERGE_AUTOEDIT: 'no' },
     }, (err, stdout, stderr) => resolve(err
       ? { ok: false, out: String(stdout || ''), error: String(stderr || err.message).trim() }
       : { ok: true, out: String(stdout) }));
@@ -190,9 +190,10 @@ function findSession({ configDir, sessionId, prefer = [] }) {
  * Give a folder in a git repo its own worktree.
  *   dir:  where the tab would have worked (may be a subfolder of the repo)
  *   home: the folder worktrees live under (%APPDATA%/Shellby/worktrees)
+ *   start: the commit to start from (default HEAD), e.g. origin/main for work that becomes a pull request
  * -> { ok: true, worktree: { path, cwd, branch, base, root, originalCwd } } | { ok: false, error } | null (not a repo)
  */
-async function create(dir, { home, title }) {
+async function create(dir, { home, title, start = 'HEAD' }) {
   if (typeof dir !== 'string' || !path.isAbsolute(dir) || !fs.existsSync(dir)) return null;
   // Where the folder sits inside the repo, in git's own words: comparing paths
   // here would trip over 8.3 short names (C:\Users\RUNNER~1\...) that git
@@ -208,12 +209,13 @@ async function create(dir, { home, title }) {
   const base = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
   if (!base.ok || !base.out.trim()) return { ok: false, error: 'Your checkout is not on a branch (detached HEAD), so there would be nowhere to bring it home to.' };
 
+  if (start !== 'HEAD' && !REF.test(start)) return { ok: false, error: 'There is no such commit to start from.' };
   const branch = branchName(title);
   // <home>/<suffix>/<repo name>: the folder keeps the project's own name, so
   // streaks, XP and the status line still say "shellby", not "shellby-1a2b3c".
   const wt = path.join(home, branch.slice(-6), path.basename(root));
   fs.mkdirSync(path.dirname(wt), { recursive: true });
-  const add = await git(root, ['worktree', 'add', '-b', branch, wt, 'HEAD'], { timeout: 120000 });
+  const add = await git(root, ['worktree', 'add', '--no-track', '-b', branch, wt, start], { timeout: 120000 });
   if (!add.ok) return { ok: false, error: firstLine(add.error) || "git couldn't make the copy." };
   const rel = prefix.trim().replace(/\/$/, '');
   const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
@@ -511,7 +513,7 @@ async function bringAllHome(list, { messageFor = () => 'Work from Shellby' } = {
 }
 
 module.exports = {
-  create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, checkWorktree, BRANCH,
+  git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, checkWorktree, BRANCH,
   remoteStatus, pushBase, bringAllHome, upstreamOf,
   startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
 };

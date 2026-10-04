@@ -6,7 +6,7 @@
   const wanted = new Set(['sync']); // what a sign-in asks for (signed out)
 
   const ago = t => (t ? SB.relTime(t) : 'not yet');
-  const TOGGLES = [['sync', 'ghSync'], ['friends', 'ghFriends'], ['ci', 'ghCi'], ['projects', 'ghProjects'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
+  const TOGGLES = [['sync', 'ghSync'], ['friends', 'ghFriends'], ['ci', 'ghCi'], ['issues', 'ghIssues'], ['projects', 'ghProjects'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
 
   function render(v) {
     if (!v) return;

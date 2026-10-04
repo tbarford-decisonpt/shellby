@@ -39,6 +39,8 @@ class WorkflowService {
    *   confirm(spec) -> Promise<button index>, notify(title, body, onClick, { urgent, tone, action }),
    *   tellPhone(event), say(text), showWorkflows(runId?), toPanel(channel, payload),
    *   runCommand(cwd, command, { timeoutMs, signal }), runClaude(args, timeoutMs, { input }) -> { stdout, timedOut, ... },
+   *   makeCopy({ repo, slug }) -> { ok, path, branch, base, repo } (a worktree to work in),
+   *   openPullRequest({ folder, title, body, draft, workflow }) -> { ok, url, number, ... },
    *   copy(text), crypto: { available, encrypt, decrypt }, webhookPort() -> number | null,
    *   log: { info, warn }, now(), fetchImpl?
    * }
@@ -551,6 +553,8 @@ class WorkflowService {
       readFile: (p, signal) => fx.readFile(p, signal),
       writeFile: (p, content, opts) => fx.writeFile(p, content, { ...opts, forbidden: d.forbiddenDirs?.() || [] }),
       runWorkflow: args => this.childRun(run, args),
+      copy: ({ repo, slug }) => (d.makeCopy ? d.makeCopy({ repo, slug }) : Promise.resolve({ ok: false, error: 'Copies need a repository cloned on this PC.' })),
+      pullRequest: ({ folder, title, body, draft, workflow }) => (d.openPullRequest ? d.openPullRequest({ folder, title, body, draft, workflow }) : Promise.resolve({ ok: false, error: 'Pull requests need GitHub sign-in.' })),
       sleep: (ms, signal) => fx.sleep(ms, signal),
     };
   }

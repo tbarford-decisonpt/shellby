@@ -278,3 +278,29 @@ test('recorded outputs are capped; redactor ignores short values', () => {
   const r = redactor(['abc', 'longsecret']);
   assert.equal(r('abc longsecret'), 'abc ••••');
 });
+
+test('a copy and a pull request hand their results on, and a refusal fails the run', async () => {
+  const w = wf([
+    { id: 'copy', type: 'worktree', repo: '{{ trigger.repo }}', branch: 'issue-{{ trigger.number }}' },
+    { id: 'work', type: 'claude', mode: 'acceptEdits', cwd: '{{ copy.path }}', prompt: 'Fix {{ trigger.title }}' },
+    { id: 'pr', type: 'pr', folder: '{{ copy.path }}', title: '{{ trigger.title }}', body: 'Closes #{{ trigger.number }}' },
+    { type: 'tell', text: '{{ pr.url }}' },
+  ]);
+  const dir = require('os').tmpdir();
+  const { effects, calls } = fx();
+  effects.copy = async a => { calls.push(['copy', a]); return { ok: true, path: dir, branch: 'shellby/issue-42-abc123', base: 'main', repo: 'me/crab' }; };
+  effects.pullRequest = async a => { calls.push(['pr', a]); return { ok: true, url: 'https://github.com/me/crab/pull/7', number: 7, branch: 'shellby/issue-42-abc123', repo: 'me/crab', draft: true }; };
+  const trigger = { type: 'issue', data: { repo: 'me/crab', number: 42, title: 'Crab falls off' } };
+  const r = await runIt(w, effects, record({ trigger }));
+  assert.equal(r.status, 'ok', r.error);
+  assert.deepEqual(calls.map(c => c[0]), ['copy', 'claude', 'pr', 'tell']);
+  assert.deepEqual({ repo: calls[0][1].repo, slug: calls[0][1].slug }, { repo: 'me/crab', slug: 'issue-42' });
+  assert.equal(calls[1][1].cwd, require('path').normalize(dir), 'Claude works in the copy');
+  assert.deepEqual({ ...calls[2][1], signal: undefined }, { folder: dir, title: 'Crab falls off', body: 'Closes #42', draft: true, workflow: 'T', signal: undefined });
+  assert.equal(calls[3][1].text, 'https://github.com/me/crab/pull/7');
+
+  effects.pullRequest = async () => ({ ok: false, error: 'There\'s nothing to propose: the copy has no changes.' });
+  const failed = await runIt(w, effects, record({ trigger }));
+  assert.equal(failed.status, 'error');
+  assert.match(failed.error, /nothing to propose/);
+});
