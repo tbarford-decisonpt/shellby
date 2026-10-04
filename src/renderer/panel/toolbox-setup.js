@@ -194,7 +194,7 @@
     const what = file ? file : 'the CLAUDE.md files that load for this folder (including my own in ~/.claude)';
     const ask = `Look over ${what} and suggest what to tighten, add or cut. Show me the changes before you make them.`;
     const skill = reviewSkill();
-    SB.prefill(skill ? `/${skill.name} ${ask} ` : `${ask} `);
+    SB.prefillNew(skill ? `/${skill.name} ${ask} ` : `${ask} `);
   }
 
   function askBtn(file, label) {

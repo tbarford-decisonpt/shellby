@@ -439,7 +439,7 @@
   $('hlClaudeLhm').addEventListener('click', () => {
     if (SB.isCrabOnly()) return SB.claudeUpsell('lhm');
     const port = view?.settings?.lhmPort || 8085;
-    SB.prefill([
+    SB.prefillNew([
       'Set up LibreHardwareMonitor so Shellby can read my CPU temperature from its local web server.',
       '1. If it isn\'t installed, install it with `winget install --id LibreHardwareMonitor.LibreHardwareMonitor -e --accept-source-agreements --accept-package-agreements`, then find where LibreHardwareMonitor.exe ended up.',
       `2. Make sure LHM isn't running, then in LibreHardwareMonitor.config (next to the exe; run LHM once and close it if the file isn't there yet) turn on the remote web server on port ${port} with no authentication, and set it to start minimized to the tray. Read the file first and use the setting names it already has.`,

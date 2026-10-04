@@ -122,11 +122,12 @@
     return creating;
   };
 
-  // A fresh tab in a known project, with a prompt ready to send (from a nudge).
-  SB.newTabIn = async ({ cwd, draft }) => {
-    const r = await api.newTab({ cwd });
+  // A fresh tab in a known project (or the usual folder), with a prompt ready to
+  // send (from a nudge).
+  SB.newTabIn = async ({ cwd, draft } = {}) => {
+    const r = await api.newTab(cwd ? { cwd } : {});
     if (!r.ok) return SB.toast(r.error);
-    SB.ensureTab({ id: r.tabId, title: 'New task', cwd });
+    SB.ensureTab({ id: r.tabId, title: 'New task', cwd: cwd || state.cwd });
     SB.activate(r.tabId);
     input.value = draft || '';
     autosize();
@@ -719,6 +720,15 @@
     autosize();
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
+  };
+
+  // A prompt Shellby wrote for you to look over (a "let Claude set it up"
+  // button): in a conversation of its own, not on the end of the one you're in.
+  // A blank, idle tab with nothing typed is used as is.
+  SB.prefillNew = (text) => {
+    const cur = SB.activeTab();
+    if (cur && cur.isEmpty && !cur.busy && !input.value.trim()) return SB.prefill(text);
+    return SB.newTabIn({ draft: text });
   };
 
   SB.useTool = (t) => {
