@@ -12,12 +12,20 @@
 // `animationend`, fill modes and `finished` promises behave as before. An
 // animation something else paused (animation-play-state, a script) is left
 // alone: it was never this clock's.
+//
+// `filter` picks which animations the clock takes. The panel is opaque but just
+// as costly behind a game, and it is clicked and hovered: it hands over only the
+// loops (`loops`), so a hover or a tab sliding in still runs at the screen's rate.
 (function (root) {
   const DEFAULT_FPS = 12;
 
-  // cap(doc, { fps, setInterval, clearInterval, now }) -> { stop() }
+  // Repeats forever: a spinner, a breathe, the drifting light. Never a reply to a click.
+  const loops = a => a.effect?.getComputedTiming?.().iterations === Infinity;
+
+  // cap(doc, { fps, filter, setInterval, clearInterval, now }) -> { stop() }
   function cap(doc, opts = {}) {
     const fps = opts.fps || DEFAULT_FPS;
+    const filter = opts.filter || (() => true);
     const every = opts.setInterval || setInterval;
     const cancel = opts.clearInterval || clearInterval;
     const now = opts.now || (() => performance.now());
@@ -29,7 +37,7 @@
       const dt = t - last;
       last = t;
       for (const a of doc.getAnimations()) {
-        if (a.playState === 'running') {
+        if (a.playState === 'running' && filter(a)) {
           // Just started, by CSS or a script: from here on it's ours.
           a.pause();
           held.add(a);
@@ -55,6 +63,6 @@
     return { stop: () => cancel(timer), tick };
   }
 
-  root.ShellbyFrameCap = { cap, DEFAULT_FPS };
+  root.ShellbyFrameCap = { cap, loops, DEFAULT_FPS };
   if (typeof module !== 'undefined') module.exports = root.ShellbyFrameCap;
 })(typeof window !== 'undefined' ? window : globalThis);

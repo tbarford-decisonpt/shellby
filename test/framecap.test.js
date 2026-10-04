@@ -1,21 +1,22 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { cap, DEFAULT_FPS } = require('../src/renderer/shared/framecap');
+const { cap, loops, DEFAULT_FPS } = require('../src/renderer/shared/framecap');
 
 // A stand-in for a Web Animation: enough of the API for the clock.
-function anim({ endTime = Infinity, rate = 1, playState = 'running' } = {}) {
+function anim({ endTime = Infinity, iterations = Infinity, rate = 1, playState = 'running' } = {}) {
   return {
     playState, currentTime: 0, playbackRate: rate, finished: false,
-    effect: { getComputedTiming: () => ({ endTime }) },
+    effect: { getComputedTiming: () => ({ endTime, iterations }) },
     pause() { this.playState = 'paused'; },
     finish() { this.playState = 'finished'; this.currentTime = endTime; this.finished = true; },
   };
 }
 
-function rig(animations) {
+function rig(animations, opts = {}) {
   let clock = 0, ticker = null, every = null;
   const doc = { getAnimations: () => animations.filter(a => a.playState !== 'finished') };
   const fc = cap(doc, {
+    ...opts,
     setInterval: (fn, ms) => { ticker = fn; every = ms; return 1; },
     clearInterval: () => { ticker = null; },
     now: () => clock,
@@ -84,4 +85,21 @@ test('stop() ends the clock', () => {
   r.fc.stop();
   r.advance(100);
   assert.equal(a.currentTime, 0);
+});
+
+test('with the loops filter, takes the loops and leaves a hover to the screen', () => {
+  const spinner = anim();
+  const hover = anim({ endTime: 150, iterations: 1 });
+  const r = rig([spinner, hover], { filter: loops });
+  r.advance(10);
+  assert.equal(spinner.playState, 'paused');
+  assert.equal(hover.playState, 'running');
+  r.advance(100);
+  assert.equal(spinner.currentTime, 100);
+  assert.equal(hover.currentTime, 0);
+});
+
+test('loops is false for an animation without timing', () => {
+  assert.equal(loops({}), false);
+  assert.equal(loops({ effect: null }), false);
 });

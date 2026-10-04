@@ -93,7 +93,9 @@ function gpuBusy(byPid, seconds) {
   // A fresh profile opens the panel for onboarding, which is the state measured.
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT], {
     stdio: 'ignore',
-    env: { ...process.env, SHELLBY_USER_DATA: profile },
+    // A dev run opens the panel behind your windows (main.js openBehind), and an
+    // unfocused panel is calm: without this, "in front" measured the calm panel.
+    env: { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FOREGROUND: '1' },
   });
   console.log(`pid ${app.pid}, profile ${profile}, panel open and ${UNFOCUSED ? 'behind another window' : 'in front'}`);
   let thief = null;
