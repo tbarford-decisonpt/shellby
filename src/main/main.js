@@ -2891,6 +2891,8 @@ function createToolbox() {
     home: os.homedir(),
     getCwd: currentCwd,
     getPlugins: () => [],
+    seenFile: CAPTURE ? null : path.join(app.getPath('userData'), 'toolbox-seen.json'),
+    log,
   });
   toolbox.on('changed', tb => send(panel, 'toolbox', tb));
   toolbox.on('learned', trick => {
@@ -6034,7 +6036,7 @@ function reportPackResult(result) {
 function setFolder(dir) {
   config.set({ cwd: dir });
   config.addRecentFolder(dir);
-  toolbox?.rescan();
+  toolbox?.rescan({ plugins: false });
   return { cwd: dir, settings: panelSettings() };
 }
 

@@ -1,5 +1,5 @@
-// Removing one of your own skills, slash commands or agents from the Toolbox.
-// Only what lives in ~/.claude or the project's .claude: a plugin's come and go
+// Removing (or editing) one of your own skills, slash commands or agents from the
+// Toolbox. Only what lives in ~/.claude or the project's .claude: a plugin's come and go
 // with the plugin (Lean turns one off, the Skill Shop uninstalls it), and Claude
 // Code's built-in ones aren't files at all.
 //
@@ -11,6 +11,9 @@ const fs = require('fs');
 const path = require('path');
 const { samePath } = require('./toolbox');
 const eff = require('./efficiency');
+const claudeSetup = require('./claude-setup');
+
+const MAX_EDIT = 256 * 1024; // the Toolbox skips bigger files, so saving one would make it vanish
 
 const LIST = { skill: 'skills', agent: 'agents', command: 'commands' };
 const NOUN = { skill: 'skill', agent: 'agent', command: 'slash command' };
@@ -53,6 +56,29 @@ function removalTarget(t, where = {}, fsImpl = fs) {
     if (!samePath(fsImpl.realpathSync(target), path.join(fsImpl.realpathSync(base), path.relative(base, target)))) return linked;
   } catch { return { ok: false, error: "It's already gone." }; }
   return { ok: true, target, isDir: st.isDirectory() };
+}
+
+/**
+ * The file the Toolbox's editor may open for an item: { ok, file } or { ok: false, error }.
+ * The same places removal allows (your own, where Claude Code looks, not via a link).
+ */
+function editTarget(t, where = {}, fsImpl = fs) {
+  const found = removalTarget(t, where, fsImpl);
+  if (found.ok) {
+    // For a skill, removal only checked its folder. The file itself must not be
+    // a link either: saving follows links, and this one could point anywhere.
+    const base = t.source === 'user' ? where.home : where.cwd;
+    try {
+      if (fsImpl.lstatSync(t.path).isSymbolicLink()
+        || !samePath(fsImpl.realpathSync(t.path), path.join(fsImpl.realpathSync(base), path.relative(base, t.path)))) {
+        return { ok: false, error: "It's a link to a file kept somewhere else. Use Show file to edit it yourself." };
+      }
+    } catch { return { ok: false, error: "It's already gone." }; }
+    return { ok: true, file: t.path };
+  }
+  if (found.plugin) return { ok: false, error: `It comes with the ${found.plugin} plugin, which would put back its own copy on the next update. Use Show file to read it.` };
+  if (t?.source === 'cli') return { ok: false, error: "It's built into Claude Code, so there's no file to edit." };
+  return { ok: false, error: "Shellby only edits your own skills, agents and commands. Use Show file to open it in your editor." };
 }
 
 /**
@@ -100,15 +126,47 @@ function createSkillRemover(deps) {
     }
     deps.unpin?.(kind, name);
     deps.stat?.('tool-removed');
-    deps.toolbox()?.rescan();
+    deps.toolbox()?.rescan({ plugins: false });
     return { ok: true, toolbox: deps.toolbox()?.current || null };
+  }
+
+  // The editor names an item by its file, which stays put when its frontmatter
+  // renames it; the path still has to be one the Toolbox's own scan reported.
+  function find(kind, file) {
+    if (!LIST[kind] || !isStr(file)) return null;
+    return deps.toolbox()?.current?.[LIST[kind]]?.find(x => x.path && samePath(x.path, file)) || null;
+  }
+
+  function read(kind, file) {
+    const t = find(kind, file);
+    if (!t) return { ok: false, error: "That isn't in the Toolbox any more." };
+    const target = editTarget(t, deps.where());
+    return target.ok ? claudeSetup.readMemory(target.file) : target;
+  }
+
+  function write(kind, file, text, mtimeMs) {
+    const t = find(kind, file);
+    if (!t) return { ok: false, error: "That isn't in the Toolbox any more." };
+    const target = editTarget(t, deps.where());
+    if (!target.ok) return target;
+    if (typeof text !== 'string' || !Number.isFinite(mtimeMs)) return { ok: false, error: "Couldn't save that file." };
+    // Counted as if every line ending became \r\n: writeMemory keeps a CRLF file CRLF.
+    if (Buffer.byteLength(text.replace(/\r?\n/g, '\r\n')) > MAX_EDIT) return { ok: false, error: 'That is too long for one file here. Open it in your editor instead.' };
+    let r;
+    try { r = claudeSetup.writeMemory(target.file, text, mtimeMs); } catch { r = { ok: false, error: "Couldn't save that file." }; }
+    if (!r.ok) return r;
+    deps.stat?.('tool-edited');
+    deps.toolbox()?.rescan({ plugins: false });
+    return { ...r, toolbox: deps.toolbox()?.current || null };
   }
 
   function register(ipcMain) {
     ipcMain.handle('toolbox:remove', (_e, a) => (LIST[a?.kind] && isStr(a?.name) ? remove(a.kind, a.name) : { ok: false, error: "Shellby can't remove that." }));
+    ipcMain.handle('toolbox:read', (_e, a) => read(a?.kind, a?.path));
+    ipcMain.handle('toolbox:write', (_e, a) => write(a?.kind, a?.path, a?.text, a?.mtimeMs));
   }
 
-  return { remove, register };
+  return { remove, read, write, register };
 }
 
-module.exports = { removalTarget, createSkillRemover };
+module.exports = { removalTarget, editTarget, createSkillRemover };

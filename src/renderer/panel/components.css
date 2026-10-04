@@ -219,7 +219,15 @@ body.reordering .tip { display: none; }
 .mcp-dot.s-failed { background: var(--danger); }
 
 /* Toolbox → Hooks and Memory */
-#toolTabs { display: grid; grid-template-columns: repeat(3, 1fr); } /* six kinds: two rows of three */
+/* Nine kinds in three labelled rows: Tools, More, Setup */
+#toolTabs { display: grid; grid-template-columns: auto repeat(3, 1fr); align-items: center; }
+.seg-label { padding: 0 8px 0 6px; font: 700 9.5px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-faint); }
+/* Search on its own row; where-from and order share the one below (hidden on tabs without them) */
+.tool-find { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tool-find #toolSearch { grid-column: 1 / -1; }
+.tool-find select { min-width: 0; text-overflow: ellipsis; }
+.tool-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px 0 4px; font-size: 12px; color: var(--sand-faint); }
+.tool-note { margin: 0 0 6px; font-size: 12px; color: var(--sand-faint); }
 .setup-pane:empty { display: none; }
 .setup-intro { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .setup-intro p { flex: 1; margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--sand-dim); }

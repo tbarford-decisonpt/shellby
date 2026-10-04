@@ -126,6 +126,8 @@ contextBridge.exposeInMainWorld('shellby', {
   revealTool: fire('toolbox:reveal'),
   // Your own skill, command or agent to the Recycle Bin, asked first (skillremove.js)
   removeTool: (kind, name) => ipcRenderer.invoke('toolbox:remove', { kind, name }),
+  readTool: (kind, path) => ipcRenderer.invoke('toolbox:read', { kind, path }),
+  writeTool: (kind, path, text, mtimeMs) => ipcRenderer.invoke('toolbox:write', { kind, path, text, mtimeMs }),
   // prompt snippets: /name in the box, @name from a terminal
   saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
   removeSnippet: invoke('snippets:remove'),

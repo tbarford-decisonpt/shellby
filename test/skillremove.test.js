@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { removalTarget, createSkillRemover } = require('../src/main/skillremove');
+const { removalTarget, editTarget, createSkillRemover } = require('../src/main/skillremove');
 
 const dirs = [];
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-remove-')); dirs.push(d); return d; };
@@ -123,4 +123,57 @@ test('remove: cancelled, unknown, or Windows saying no: nothing changes', async 
   assert.equal(res.ok, false);
   assert.match(res.error, /Recycle Bin/);
   assert.deepEqual(refused.calls.unpinned, []);
+});
+
+// ---- editing your own
+
+test("editTarget: your own files, never a plugin's, a built-in or one out of place", () => {
+  const home = tmp();
+  const cwd = tmp();
+  const skill = put(path.join(home, '.claude', 'skills', 'mine', 'SKILL.md'));
+  assert.deepEqual(editTarget({ kind: 'skill', name: 'mine', source: 'user', path: skill }, { home, cwd }), { ok: true, file: skill });
+  assert.match(editTarget({ kind: 'skill', name: 'ecc:plan', source: 'plugin:ecc', path: skill }, { home, cwd }).error, /ecc plugin/);
+  assert.match(editTarget({ kind: 'command', name: 'review', source: 'cli', path: null }, { home, cwd }).error, /built into/);
+  const stray = put(path.join(cwd, '.claude', 'skills', 'p', 'SKILL.md'));
+  assert.equal(editTarget({ kind: 'skill', name: 'p', source: 'user', path: stray }, { home, cwd }).ok, false);
+});
+
+test('editTarget: a SKILL.md that is itself a link is left alone (saving would follow it)', () => {
+  const home = tmp();
+  const skill = put(path.join(home, '.claude', 'skills', 'mine', 'SKILL.md'));
+  const t = { kind: 'skill', name: 'mine', source: 'user', path: skill };
+  // File links need admin on Windows, so the fs says so instead.
+  const isSkill = p => path.basename(p) === 'SKILL.md';
+  const linkFs = { ...fs, lstatSync: p => (isSkill(p) ? { ...fs.lstatSync(p), isSymbolicLink: () => true, isDirectory: () => false } : fs.lstatSync(p)) };
+  assert.match(editTarget(t, { home }, linkFs).error, /link/);
+  const elsewhere = path.join(tmp(), 'notes.md');
+  const pointsAway = { ...fs, realpathSync: p => (isSkill(p) ? elsewhere : fs.realpathSync(p)) };
+  assert.match(editTarget(t, { home }, pointsAway).error, /link/);
+  assert.equal(editTarget(t, { home }).ok, true);
+});
+
+test('read and write: by path from the scan, with a check for changes made elsewhere', () => {
+  const home = tmp();
+  const cwd = tmp();
+  const file = put(path.join(home, '.claude', 'agents', 'helper.md'), '---\r\ndescription: helps\r\n---\r\nbody\r\n');
+  let rescans = 0;
+  const tb = { agents: [{ kind: 'agent', name: 'helper', source: 'user', path: file }], skills: [], commands: [] };
+  const r = createSkillRemover({ toolbox: () => ({ current: tb, rescan: () => { rescans++; } }), where: () => ({ home, cwd }) });
+
+  const read = r.read('agent', file);
+  assert.equal(read.ok, true);
+  assert.equal(read.text, '---\ndescription: helps\n---\nbody\n');
+
+  const saved = r.write('agent', file, '---\ndescription: helps more\n---\nbody\n', read.mtimeMs);
+  assert.equal(saved.ok, true);
+  assert.equal(rescans, 1);
+  // Windows line endings stay as they were.
+  assert.equal(fs.readFileSync(file, 'utf8'), '---\r\ndescription: helps more\r\n---\r\nbody\r\n');
+
+  // Saving over a version you didn't see is refused.
+  assert.equal(r.write('agent', file, 'x', read.mtimeMs - 1000).conflict, true);
+
+  assert.equal(r.read('agent', path.join(home, 'elsewhere.md')).ok, false);
+  assert.equal(r.write('skill', file, 'x', saved.mtimeMs).ok, false); // wrong kind for that file
+  assert.match(r.write('agent', file, 'x'.repeat(300 * 1024), saved.mtimeMs).error, /too long/);
 });

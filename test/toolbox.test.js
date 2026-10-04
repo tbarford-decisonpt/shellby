@@ -269,3 +269,159 @@ test('scan: what each item costs, its listing and the body read when called', ()
   const a = tb.agents.find(t => t.name === 'bare');
   assert.equal(a.bodyChars, 'No frontmatter at all.'.length);
 });
+
+// ---- caches (the scan runs on the main process)
+test('scan: metaCache skips unchanged files, rereads changed ones and drops deleted ones', () => {
+  const home = tmp();
+  const a = path.join(home, '.claude', 'skills', 'a', 'SKILL.md');
+  const b = path.join(home, '.claude', 'skills', 'b', 'SKILL.md');
+  put(a, md('', 'first'));
+  put(b, md('', 'bee'));
+  const metaCache = new Map();
+  scanToolbox({ home, metaCache });
+  assert.deepEqual([...metaCache.keys()].sort(), [a, b].sort());
+
+  // Unchanged: served from the cache, even if the entry says something else.
+  metaCache.set(a, { ...metaCache.get(a), meta: { description: 'cached', bodyChars: 1 } });
+  assert.equal(scanToolbox({ home, metaCache }).skills.find(t => t.name === 'a').description, 'cached');
+
+  // Changed size: read again.
+  put(a, md('', 'second, longer'));
+  assert.equal(scanToolbox({ home, metaCache }).skills.find(t => t.name === 'a').description, 'second, longer');
+
+  fs.rmSync(path.dirname(b), { recursive: true });
+  scanToolbox({ home, metaCache });
+  assert.deepEqual([...metaCache.keys()], [a]);
+});
+
+test('scan: pluginCache reuses a plugin dir until cleared, and forgets plugins that went away', () => {
+  const home = tmp(), plug = tmp(), other = tmp();
+  put(path.join(plug, 'skills', 'pdf', 'SKILL.md'), md('', 'pdf'));
+  put(path.join(other, 'skills', 'xlsx', 'SKILL.md'), md('', 'xlsx'));
+  const pluginCache = new Map();
+  const metaCache = new Map();
+  const plugins = [{ name: 'docs', path: plug }, { name: 'sheets', path: other }];
+  scanToolbox({ home, plugins, pluginCache, metaCache });
+  assert.equal(pluginCache.size, 2);
+
+  put(path.join(plug, 'skills', 'docx', 'SKILL.md'), md('', 'docx'));
+  assert.deepEqual(names(scanToolbox({ home, plugins, pluginCache, metaCache }).skills), ['docs:pdf', 'sheets:xlsx']);
+  // Reused dirs keep their file entries, so a cleared pluginCache doesn't mean rereading everything.
+  assert.ok(metaCache.has(path.join(plug, 'skills', 'pdf', 'SKILL.md')));
+
+  pluginCache.clear();
+  assert.deepEqual(names(scanToolbox({ home, plugins, pluginCache, metaCache }).skills), ['docs:docx', 'docs:pdf', 'sheets:xlsx']);
+
+  scanToolbox({ home, plugins: [plugins[0]], pluginCache, metaCache });
+  assert.deepEqual([...pluginCache.keys()], [`docs=${plug}`]);
+
+  // An empty dir may be an install still being written, so it isn't kept.
+  const fresh = tmp();
+  scanToolbox({ home, plugins: [{ name: 'later', path: fresh }], pluginCache, metaCache });
+  assert.equal(pluginCache.size, 0);
+  put(path.join(fresh, 'skills', 'ready', 'SKILL.md'), md('', 'ready'));
+  assert.deepEqual(names(scanToolbox({ home, plugins: [{ name: 'later', path: fresh }], pluginCache, metaCache }).skills), ['later:ready']);
+});
+
+test('watcher: the poll reads plugin dirs again every tenth time', async () => {
+  const home = tmp(), plug = tmp();
+  put(path.join(plug, 'skills', 'pdf', 'SKILL.md'), md('', 'pdf'));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 5, getPlugins: () => [{ name: 'docs', path: plug }] });
+  w.start();
+  try {
+    put(path.join(plug, 'skills', 'docx', 'SKILL.md'), md('', 'docx'));
+    const end = Date.now() + 5000;
+    while (Date.now() < end && !w.current.skills.some(t => t.name === 'docs:docx')) await new Promise(r => setTimeout(r, 10));
+    assert.ok(w.current.skills.some(t => t.name === 'docs:docx'));
+  } finally {
+    w.stop();
+  }
+});
+
+test('watcher: the poll reuses plugin dirs, Rescan reads them again, your own are always fresh', () => {
+  const home = tmp(), plug = tmp();
+  put(path.join(plug, 'skills', 'pdf', 'SKILL.md'), md('', 'pdf'));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getPlugins: () => [{ name: 'docs', path: plug }] });
+  w.start();
+  try {
+    put(path.join(plug, 'skills', 'docx', 'SKILL.md'), md('', 'docx'));
+    put(path.join(home, '.claude', 'skills', 'mine', 'SKILL.md'), md('', 'mine'));
+    w.rescan({ plugins: false });
+    assert.deepEqual(names(w.current.skills), ['docs:pdf', 'mine']);
+    w.rescan();
+    assert.deepEqual(names(w.current.skills), ['docs:docx', 'docs:pdf', 'mine']);
+  } finally {
+    w.stop();
+  }
+});
+
+// ---- what's been seen, across launches
+test('watcher: a skill written while Shellby was closed is news at the next launch', () => {
+  const home = tmp(), cwd = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  put(path.join(home, '.claude', 'skills', 'old', 'SKILL.md'), md('', 'old'));
+  const launch = () => {
+    const w = new ToolboxWatcher({ home, getCwd: () => cwd, pollMs: 0, seenFile });
+    const learned = [];
+    w.on('learned', l => learned.push(l.name));
+    w.start();
+    w.stop();
+    return learned;
+  };
+  // The first launch ever has nothing to compare with.
+  assert.deepEqual(launch(), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), ['skill:old']);
+
+  put(path.join(home, '.claude', 'skills', 'new', 'SKILL.md'), md('', 'new'));
+  put(path.join(home, '.claude', 'agents', 'helper.md'), md('', 'helps'));
+  // A project's own aren't news at launch: Shellby may never have looked in that folder.
+  put(path.join(cwd, '.claude', 'skills', 'proj', 'SKILL.md'), md('', 'project'));
+  assert.deepEqual(launch().sort(), ['helper', 'new']);
+  assert.deepEqual(launch(), []);
+});
+
+test('watcher: at most a few announcements at launch, and a bad seen file is a first launch', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  fs.writeFileSync(seenFile, '{not json');
+  const w0 = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+  assert.equal(w0.restored, false);
+
+  fs.writeFileSync(seenFile, JSON.stringify(['skill:gone', 42]));
+  for (const n of ['a', 'b', 'c', 'd', 'e']) put(path.join(home, '.claude', 'skills', n, 'SKILL.md'), md('', n));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+  const learned = [];
+  w.on('learned', l => learned.push(l.name));
+  w.start();
+  w.stop();
+  assert.equal(learned.length, 3);
+  // All five are remembered, so the rest don't come up next time either.
+  const saved = JSON.parse(fs.readFileSync(seenFile, 'utf8'));
+  assert.ok(['a', 'b', 'c', 'd', 'e'].every(n => saved.includes(`skill:${n}`)));
+});
+
+test('watcher: a first launch with nothing at all still counts as one', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  const launch = () => {
+    const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+    const learned = [];
+    w.on('learned', l => learned.push(l.name));
+    w.start();
+    w.stop();
+    return learned;
+  };
+  assert.deepEqual(launch(), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), []);
+  put(path.join(home, '.claude', 'skills', 'first', 'SKILL.md'), md('', 'first'));
+  assert.deepEqual(launch(), ['first']);
+});
+
+// ---- built-in commands
+test('mergeInit: Claude Code built-in commands get a description, unknown ones none', () => {
+  const tb = mergeInit({ skills: [], agents: [], commands: [] }, { slash_commands: ['compact', 'brand-new-thing', 'constructor'] });
+  const by = Object.fromEntries(tb.commands.map(t => [t.name, t.description]));
+  assert.match(by.compact, /Summarize/);
+  assert.equal(by['brand-new-thing'], '');
+  assert.equal(by.constructor, '');
+});

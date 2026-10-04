@@ -2,14 +2,23 @@
    MCP servers can be added, removed, reconnected and turned on or off here (/mcp),
    and your prompt snippets saved, edited and run (/snippets; snippets.js in main).
    Skills, agents and commands show how often they're used and what they cost
-   (lean.js usage), and your own can be moved to the Recycle Bin (skillremove.js).
+   (lean.js usage), can be filtered by where they come from and sorted by use,
+   and your own can be edited here or moved to the Recycle Bin (skillremove.js).
    The Hooks, Rules and Memory tabs live in toolbox-setup.js. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
   const NEW_FOR_MS = 3 * 24 * 3600 * 1000;
+  const PAGE = 150;               // rows drawn at a time: plugins can bring hundreds of skills
+  const SEARCH_WAIT_MS = 120;
+  const USAGE_RETRY_MS = 30 * 1000;
   let kind = 'skill';
   const listKey = { skill: 'skills', agent: 'agents', command: 'commands', mcp: 'mcp' };
+  const LISTED = new Set(['skill', 'agent', 'command']); // the kinds with source and order pickers
+  const SEARCH_WHAT = {
+    skill: 'skills', agent: 'agents', command: 'commands', mcp: 'MCP servers', snippet: 'snippets',
+    hook: 'hooks', rule: 'rules', memory: 'memory files', lean: 'plugins, servers and skills',
+  };
 
   const isNew = t => (state.learned || []).some(l => l.kind === t.kind && l.name === t.name && Date.now() - l.at < NEW_FOR_MS);
   const isPinned = t => (state.pinned || []).some(p => p.kind === t.kind && p.name === t.name);
@@ -18,17 +27,87 @@
 
   let usage = null;        // { tools: { 'kind:name': { uses, lastUsed, listTokens, useTokens } }, watchedFrom }
   let usageLoading = null;
-  let usageTried = false;  // asked once; a failure waits for Rescan rather than asking again on every render
+  let usageTried = false;  // asked once; after one retry, a failure waits for Rescan
+  let usageFailed = false;
+  let usageRetried = false;
+  let usageRetry = null;
   const removing = new Set();
 
   function loadUsage(refresh = false) {
     if (usageLoading) return usageLoading;
     usageTried = true;
+    clearTimeout(usageRetry);
+    usageRetry = null;
     usageLoading = api.leanUsage(refresh)
-      .then(r => { if (r?.ok) usage = r; })
-      .catch(() => {})
-      .finally(() => { usageLoading = null; if (state.view === 'toolbox') render(); });
+      .then(r => { usageFailed = !r?.ok; if (r?.ok) usage = r; })
+      .catch(() => { usageFailed = true; })
+      .finally(() => {
+        usageLoading = null;
+        if (usageFailed && !usageRetried) {
+          usageRetried = true;
+          usageRetry = setTimeout(() => loadUsage(), USAGE_RETRY_MS);
+        }
+        if (state.view === 'toolbox') render();
+      });
     return usageLoading;
+  }
+
+  const usageOf = t => usage?.tools?.[`${t.kind}:${t.name}`] || null;
+  const num = v => (Number.isFinite(v) ? v : 0);
+
+  // ------------------------------------------------------------ where from, and in what order
+
+  // Per kind, so a source that one tab lacks doesn't reset the others: 'all',
+  // 'user', 'project', 'cli', 'plugins' or 'plugin:<name>'.
+  const sources = { skill: 'all', agent: 'all', command: 'all' };
+  let sort = 'name';
+  const SOURCE_NAMES = { user: 'Yours', project: 'This project', cli: 'Built in' };
+
+  const fromSource = t => {
+    const s = sources[kind] || 'all';
+    return s === 'all' || (s === 'plugins' ? (t.source || '').startsWith('plugin:') : t.source === s);
+  };
+
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  const SORTS = {
+    name: (a, b) => (isNew(b) - isNew(a)) || (isPinned(b) - isPinned(a)) || byName(a, b),
+    used: (a, b) => (num(usageOf(b)?.uses) - num(usageOf(a)?.uses)) || (num(usageOf(b)?.lastUsed) - num(usageOf(a)?.lastUsed)) || byName(a, b),
+    // Never used, the ones costing the most in every conversation first: what's worth a look.
+    unused: (a, b) => (!!num(usageOf(a)?.uses) - !!num(usageOf(b)?.uses)) || (num(usageOf(b)?.listTokens) - num(usageOf(a)?.listTokens)) || byName(a, b),
+  };
+
+  // The picker lists where this kind's items come from, with counts; rebuilt only when that changes.
+  function syncSourcePicker(all) {
+    const sel = $('toolSource');
+    const counts = new Map();
+    for (const t of all) counts.set(t.source, (counts.get(t.source) || 0) + 1);
+    const plugins = [...counts.keys()].filter(s => (s || '').startsWith('plugin:')).sort();
+    const pluginTotal = plugins.reduce((n, s) => n + counts.get(s), 0);
+    const opts = [
+      ['all', `All (${all.length})`],
+      ...['user', 'project', 'cli'].filter(s => counts.has(s)).map(s => [s, `${SOURCE_NAMES[s]} (${counts.get(s)})`]),
+      ...(plugins.length ? [['plugins', `All plugins (${pluginTotal})`]] : []),
+    ];
+    const pluginOpts = plugins.map(s => [s, `${s.slice(7)} (${counts.get(s)})`]);
+    const key = JSON.stringify([opts, pluginOpts]);
+    if (sel.dataset.key !== key) {
+      sel.replaceChildren(
+        ...opts.map(([v, t]) => h('option', { value: v, text: t })),
+        pluginOpts.length ? h('optgroup', { label: 'One plugin' }, pluginOpts.map(([v, t]) => h('option', { value: v, text: t }))) : null);
+      sel.dataset.key = key;
+    }
+    // Gone from this tab (its last one removed, a plugin uninstalled): back to all of them.
+    if (![...sel.options].some(o => o.value === sources[kind])) sources[kind] = 'all';
+    sel.value = sources[kind];
+  }
+
+  // A line above the list when the order needs usage that isn't here (yet).
+  function sortNote() {
+    if (sort === 'name' || usage) return null;
+    const text = usageLoading || !usageTried ? 'Counting uses from Claude Code history…'
+      : usageRetry ? "Couldn't read usage yet. Trying again shortly; A to Z until then."
+        : "Couldn't read usage, so this is A to Z. Rescan to try again.";
+    return h('li', { class: 'tool-note', role: 'status', text });
   }
 
   const tok = n => `~${SB.compact(n)} tokens`;
@@ -58,11 +137,89 @@
     removing.delete(key);
     if (r?.ok) {
       if (r.toolbox) state.toolbox = r.toolbox;
+      if (toolEd?.path === t.path) toolEd = null;
       state.pinned = (state.pinned || []).filter(p => !(p.kind === t.kind && p.name === t.name));
       SB.refreshEmptyStates();
       SB.toast(`Moved ${t.kind === 'agent' ? t.name : `/${t.name}`} to the Recycle Bin. Restore it from there if you change your mind.`, { ms: 8000 });
     } else if (!r?.cancelled) SB.toast(r?.error || "Couldn't remove that.", { ms: 8000 });
     render();
+  }
+
+  // ------------------------------------------------------------ editing your own
+
+  // One open editor, kept while you look at other tabs. Named by its file: saving a
+  // new name: in the frontmatter renames the tool but not the file.
+  let toolEd = null; // { kind, path, name, original, text, mtimeMs, error, conflict, leaving }
+  const NOUN = { skill: 'skill', agent: 'agent', command: 'command' };
+  const ownTool = t => LISTED.has(t.kind) && (t.source === 'user' || t.source === 'project') && !!t.path;
+
+  async function openTool(t) {
+    let r;
+    try { r = await api.readTool(t.kind, t.path); } catch { r = null; }
+    if (!r?.ok) { SB.toast(r?.error || "Couldn't open that file.", { ms: 8000 }); return; }
+    toolEd = { kind: t.kind, path: t.path, name: t.name, original: r.text, text: r.text, mtimeMs: r.mtimeMs, error: '', conflict: false, leaving: false };
+    $('setupPane').dataset.mounted = '';
+    render();
+    if (kind === t.kind) $('setupPane').querySelector('.mem-text')?.focus();
+  }
+
+  function toolEditor(ed) {
+    const area = h('textarea', { class: 'field area mono mem-text', spellcheck: 'false', 'aria-label': `Edit ${ed.path}` });
+    area.value = ed.text;
+    const dirty = () => ed.text !== ed.original;
+    const saveable = () => dirty() && !ed.gone;
+    const hint = () => ed.error || 'The name and description at the top are what Claude sees in every conversation. Ctrl+S saves.';
+    const status = h('p', { class: `setup-status${ed.error ? ' err' : ''}`, role: 'status', text: hint() });
+    const save = h('button', { class: 'btn primary slim-btn', type: 'button', disabled: !saveable() }, 'Save');
+    const back = h('button', { class: 'back-btn', type: 'button' }, `← ${SEARCH_WHAT[ed.kind][0].toUpperCase()}${SEARCH_WHAT[ed.kind].slice(1)}`);
+    const reloadBtn = h('button', { class: 'btn ghost slim-btn', type: 'button', hidden: !ed.conflict, onclick: () => openTool(ed) }, 'Reload');
+    const setStatus = (text, err) => { status.textContent = text; status.classList.toggle('err', !!err); };
+
+    async function doSave() {
+      if (!saveable() || save.disabled) return;
+      save.disabled = true;
+      let r;
+      try { r = await api.writeTool(ed.kind, ed.path, ed.text, ed.mtimeMs); } catch { r = null; }
+      if (r?.ok) {
+        if (r.toolbox) state.toolbox = r.toolbox;
+        const now = state.toolbox?.[listKey[ed.kind]]?.find(t => t.path === ed.path);
+        Object.assign(ed, { original: ed.text, mtimeMs: r.mtimeMs, error: '', conflict: false, name: now?.name || ed.name });
+        setStatus(hint());
+        SB.toast(`Saved ${ed.kind === 'agent' ? ed.name : `/${ed.name}`}. New conversations use this version.`);
+      } else {
+        Object.assign(ed, { error: r?.error || "Couldn't save that file.", conflict: !!r?.conflict });
+        setStatus(ed.error, true);
+        reloadBtn.hidden = !ed.conflict;
+      }
+      save.disabled = !saveable();
+    }
+
+    area.addEventListener('input', () => {
+      ed.text = area.value;
+      save.disabled = !saveable();
+      if (ed.leaving) { ed.leaving = false; back.textContent = back.dataset.label; }
+    });
+    area.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); doSave(); }
+    });
+    save.addEventListener('click', doSave);
+    // Leaving with unsaved text takes a second click, as in Memory.
+    back.dataset.label = back.textContent;
+    back.addEventListener('click', () => {
+      if (dirty() && !ed.leaving) { ed.leaving = true; back.textContent = 'Discard changes?'; return; }
+      toolEd = null;
+      render();
+    });
+
+    return h('div', { class: 'setup-form mem-editor' },
+      h('div', { class: 'setup-head' },
+        back,
+        h('strong', { text: `${ed.kind === 'agent' ? ed.name : `/${ed.name}`}` }),
+        h('code', { class: 'mem-path', text: SB.shortPath(ed.path, 46), title: ed.path }),
+        h('button', { class: 'icon-btn', type: 'button', title: 'Show file', 'aria-label': 'Show file', onclick: () => api.revealTool(ed.path) },
+          SB.icon(SB.ICONS.folder, { width: 1.3 }))),
+      area,
+      h('div', { class: 'row setup-actions' }, status, reloadBtn, save));
   }
 
   function sourceLabel(src) {
@@ -97,6 +254,8 @@
         }, h('span', { text: pinned ? '★' : '☆' })) : null,
         t.path ? h('button', { class: 'icon-btn', type: 'button', title: 'Show file', 'aria-label': 'Show file', onclick: () => api.revealTool(t.path) },
           SB.icon(SB.ICONS.folder, { width: 1.3 })) : null,
+        ownTool(t) ? h('button', { class: 'icon-btn', type: 'button', title: `Edit this ${NOUN[t.kind]}`, 'aria-label': `Edit ${t.name}`, onclick: () => openTool(t) },
+          SB.icon(SB.ICONS.edit, { width: 1.3 })) : null,
         usable && (t.source === 'user' || t.source === 'project') ? h('button', {
           class: 'icon-btn', type: 'button', title: 'Remove (Shellby asks first, and it goes to the Recycle Bin)', 'aria-label': `Remove ${t.name}`,
           disabled: removing.has(`${t.kind}:${t.name}`), onclick: () => removeTool(t),
@@ -296,11 +455,32 @@
       h('div', { class: 'pinned-chips' }, recent.map(l => SB.toolChip(l))));
     $('toolboxBadge').hidden = true;
 
-    const q = $('toolSearch').value.trim().toLowerCase();
+    const search = $('toolSearch');
+    const what = SEARCH_WHAT[kind] || 'tools';
+    if (search.placeholder !== `Search ${what}…`) { search.placeholder = `Search ${what}…`; search.setAttribute('aria-label', `Search ${what}`); }
+    const listed = LISTED.has(kind) && !(toolEd && toolEd.kind === kind);
+    $('toolSource').hidden = $('toolSort').hidden = !listed;
+
+    const q = search.value.trim().toLowerCase();
     if (setup.owns(kind)) { $('setupPane').hidden = false; setup.render(kind, q); return; }
     setup.hide();
     if (kind === 'lean') return SB.lean.render(q);
     if (kind === 'snippet') return renderSnippets(q);
+    if (toolEd && toolEd.kind === kind) {
+      // Rebuilt only for another file, so a toolbox update can't take the cursor out of it,
+      // or once to say the file has gone (your text stays, to copy somewhere).
+      const pane = $('setupPane');
+      const gone = !!tb && !tb[listKey[kind]].some(t => t.path === toolEd.path);
+      if (gone && !toolEd.gone) {
+        Object.assign(toolEd, { gone: true, error: 'This file was moved or removed outside Shellby, so it can\'t be saved here. Copy your text if you need it.' });
+        pane.dataset.mounted = '';
+      }
+      const key = `tool:${toolEd.path}`;
+      pane.hidden = false;
+      list.hidden = true;
+      if (pane.dataset.mounted !== key) { pane.replaceChildren(toolEditor(toolEd)); pane.dataset.mounted = key; }
+      return;
+    }
     if (kind === 'mcp') {
       // Rebuilt only when the form itself changes, so a toolbox update can't
       // take the cursor out of a field you're typing in.
@@ -310,11 +490,15 @@
     }
     if (!tb) { list.replaceChildren(h('li', { class: 'history-empty', text: 'Scanning…' })); return; }
     if (kind !== 'mcp' && !usageTried) loadUsage();
-    const items = tb[listKey[kind]]
+    const all = tb[listKey[kind]];
+    if (listed) syncSourcePicker(all);
+    const order = listed && usage ? SORTS[sort] : SORTS.name;
+    const items = all
+      .filter(t => !listed || fromSource(t))
       .filter(t => !q || t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
-      .sort((a, b) => (isNew(b) - isNew(a)) || (isPinned(b) - isPinned(a)) || a.name.localeCompare(b.name));
+      .sort(order);
     if (!items.length) {
-      const hint = q ? 'No matches.' : {
+      const hint = q || (listed && sources[kind] !== 'all') ? 'No matches.' : {
         skill: 'No skills yet. Ask Shellby: "build yourself a skill that…"',
         agent: 'No custom agents yet. Ask Shellby to create one in ~/.claude/agents.',
         command: 'No custom slash commands yet.',
@@ -323,13 +507,45 @@
       list.replaceChildren(h('li', { class: 'history-empty', text: hint }));
       return;
     }
-    list.replaceChildren(...items.slice(0, 300).map(toolRow));
+    list.replaceChildren(...[listed ? sortNote() : null, ...page(items)].filter(Boolean));
   }
 
-  document.querySelectorAll('#toolTabs [data-kind]').forEach(b => b.addEventListener('click', () => { kind = b.dataset.kind; render(); }));
-  $('toolSearch').addEventListener('input', render);
+  // The first PAGE rows, then a line saying how many more there are.
+  let shown = PAGE;
+  let shownFor = '';
+  function page(items) {
+    const forKey = `${kind}|${$('toolSearch').value.trim().toLowerCase()}|${sources[kind] || ''}|${sort}`;
+    if (forKey !== shownFor) { shown = PAGE; shownFor = forKey; }
+    const rows = items.slice(0, shown).map(toolRow);
+    if (items.length <= shown) return rows;
+    const more = n => () => {
+      const first = shown;
+      shown = n;
+      render();
+      // Carry on from the first new row rather than dropping the keyboard at the top.
+      $('toolList').querySelectorAll('.tool-row')[first]?.querySelector('button')?.focus();
+    };
+    return [...rows, h('li', { class: 'tool-more', role: 'status' },
+      `Showing ${shown} of ${items.length}.`,
+      h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: more(shown + PAGE) }, `Show ${Math.min(PAGE, items.length - shown)} more`),
+      items.length - shown > PAGE ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: more(items.length) }, 'Show all') : null)];
+  }
+
+  let searchWait = null;
+  document.querySelectorAll('#toolTabs [data-kind]').forEach(b => b.addEventListener('click', () => { clearTimeout(searchWait); kind = b.dataset.kind; render(); }));
+  $('toolSearch').addEventListener('input', () => {
+    clearTimeout(searchWait);
+    searchWait = setTimeout(() => { if (state.view === 'toolbox') render(); }, SEARCH_WAIT_MS);
+  });
+  $('toolSource').addEventListener('change', e => { sources[kind] = e.target.value; render(); });
+  $('toolSort').addEventListener('change', e => {
+    sort = e.target.value;
+    if (sort !== 'name' && !usage && !usageLoading) { usageRetried = false; loadUsage(); }
+    render();
+  });
   $('rescanBtn').addEventListener('click', async () => {
     [state.toolbox] = await Promise.all([api.rescanToolbox(), SB.toolboxSetup.reload()]);
+    usageRetried = false;
     loadUsage(true);
     render();
     SB.toast('Toolbox rescanned');
