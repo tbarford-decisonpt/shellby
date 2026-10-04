@@ -281,6 +281,8 @@ contextBridge.exposeInMainWorld('shellby', {
   onLife: on('life'),
   onLifeFound: on('life:found'),   // he dug up a gift
   onLifeMoment: on('life:moment'), // a day worth marking, a closer bond, a finished set
+  // looking after him (care.js, needs.js): each answers { ok, error?, life }
+  needs: { feed: invoke('needs:feed'), rinse: invoke('needs:rinse'), tuck: invoke('needs:tuck'), introSeen: fire('needs:intro-seen') },
 
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),

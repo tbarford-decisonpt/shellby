@@ -33,6 +33,8 @@
     coffee: { palette: { w: '#fff4e4', b: '#6f4e37', s: '#cfd8dc' }, pixels: ['.s.s..', 'wwwww.', 'wbbbww', 'wbbbww', 'wwwww.'] },
     pebble: { palette: { a: '#8d99ae', b: '#b8c2d1' }, pixels: ['.bb.', 'abba', '.aa.'] },
     mic: { palette: { K: '#2b2d42', s: '#cfd8dc', k: '#4a4e69' }, pixels: ['.KKK.', 'KsKsK', '.KKK.', '..k..', '..k..'] },
+    // A plankton drifting down to him (the one he eats comes with its own pixels, src/main/needs.js SNACKS).
+    plankton: { palette: { a: '#7fd6c2', b: '#c8f3e8', k: '#2a9d8f' }, pixels: ['.ab.', 'aaak', '.ak.'] },
   };
   // What he puts on his face for a scene.
   const WEAR = {
@@ -76,6 +78,16 @@
     'notes': () => ['♪', '♫', '♪'].map((t, i) => { const n = el('i', 'note', { '--d': `${i * 520}ms`, '--x': `${i * 9 - 9}px` }); n.textContent = t; return n; }),
     'sweat': () => [0, 1].map(i => el('i', 'drop', { '--d': `${i * 400}ms`, '--x': `${i * 10}px` })),
     'sparkle': () => ['✦', '✧', '✦', '✧'].map((t, i) => { const s = el('i', 'spark', { '--d': `${i * 260}ms`, '--x': `${(i % 2 ? 1 : -1) * (6 + i * 5)}px`, '--y': `${-4 - (i * 7) % 14}px` }); s.textContent = t; return s; }),
+    // Looking after him (src/main/care.js): a snack drifting down to his claw,
+    // crumbs while he munches, suds for a rinse, and a heart or two after.
+    'plankton-drop': () => {
+      const p = el('i', 'snack');
+      p.append(Sprite.grid(HOLD.plankton.pixels, HOLD.plankton.palette, { px: Math.max(2, Math.round(C.px() * 0.6)) }));
+      return [p];
+    },
+    'crumbs': () => Array.from({ length: 6 }, (_, i) => el('i', 'crumb', { '--d': `${i * 280}ms`, '--dx': `${(i % 2 ? 1 : -1) * (4 + (i * 5) % 9)}px` })),
+    'suds': () => Array.from({ length: 9 }, (_, i) => el('i', 'sud', { '--d': `${i * 230}ms`, '--x': `${(i % 3) * 9 - 12}px`, '--s': `${5 + (i * 3) % 6}px` })),
+    'hearts': () => ['♥', '♥'].map((t, i) => { const e = el('i', 'love', { '--d': `${i * 320}ms`, '--x': `${i * 10 - 5}px` }); e.textContent = t; return e; }),
   };
 
   api.onProp(msg => {

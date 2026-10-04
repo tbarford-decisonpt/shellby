@@ -101,6 +101,22 @@ const OCCASIONS = Object.freeze({
   snowStart: { every: 2 * HOUR, ttl: 7 * SECOND },
   stormStart: { every: 2 * HOUR, ttl: 7 * SECOND },
   rainStopped: { every: 2 * HOUR, ttl: 6 * SECOND },
+
+  // --- his needs (see needs.js). The needy ones are rare by design: needs.js
+  // keeps 45 minutes between them on top of these.
+  peckish: { every: HOUR, ttl: 5 * SECOND },
+  sandy: { every: HOUR, ttl: 5 * SECOND },
+  sleepy: { every: HOUR, ttl: 5 * SECOND },
+  mopey: { every: HOUR, ttl: 5 * SECOND },
+  fed: { every: 0, ttl: 4 * SECOND },
+  stuffed: { every: 0, ttl: 4 * SECOND },
+  pantryEmpty: { every: 0, ttl: 5 * SECOND },
+  snackEarned: { every: 10 * MINUTE, ttl: 4 * SECOND },
+  tide: { every: 0, ttl: 6 * SECOND },
+  rinsed: { every: 0, ttl: 4 * SECOND },
+  tuckedIn: { every: 0, ttl: 4 * SECOND },
+  notSleepy: { every: 0, ttl: 4 * SECOND },
+  cheered: { every: 5 * MINUTE, ttl: 4 * SECOND },
 });
 
 // His lines. Short, dry, and his own. Every pool needs at least three or the
@@ -152,6 +168,19 @@ const LINES = Object.freeze({
   snowStart: ["it's snowing!", 'snow!', 'hat on, then'],
   stormStart: ['thunder…', 'storm coming', 'hold the brolly'],
   rainStopped: ['rain stopped', 'dry again', 'puddles now'],
+  peckish: ["tummy's rumbling…", 'is that plankton?', 'snack o\'clock?', 'bit peckish'],
+  sandy: ['bit sandy here', 'sand everywhere', 'could use a rinse'],
+  sleepy: ['*yawn*', 'so sleepy…', 'nap soon?'],
+  mopey: ['…', 'hey… you there?', 'bit quiet today', 'just me then'],
+  fed: ['nom nom nom', 'best. snack. ever.', 'mmm, plankton', 'thank you!'],
+  stuffed: ['stuffed. saving it.', "couldn't eat a thing", 'later, maybe'],
+  pantryEmpty: ['no snacks left…', 'pantry\'s empty', 'later then'],
+  snackEarned: ['snack!', 'ooh, plankton', 'one for later'],
+  tide: ['the tide brought snacks!', 'look what washed up', 'free plankton!'],
+  rinsed: ['squeaky clean!', 'so shiny', 'ahh, fresh'],
+  tuckedIn: ['night night', 'just five minutes', 'g\'night'],
+  notSleepy: ['not sleepy!', 'wide awake', 'maybe later'],
+  cheered: ['there you are!', 'yay, you!', 'missed you'],
 });
 
 // A crab is a crab, but yours is a particular one. The temperament comes from
@@ -164,28 +193,28 @@ const FLAVOR = Object.freeze({
     passed: ['knew it!'], morning: ['bright and early'], idle: ['lovely day', 'what next?'],
     ride: ['again! again!'], perch: ['hello up here!'],
     gameOver: ['you were great!'], callOver: ['nice chat?'], weekend: ['adventure day!'],
-    friday: ['woo, friday!'], found: ['look look look!'],
+    friday: ['woo, friday!'], found: ['look look look!'], fed: ['yum yum yum!'],
   },
   fussy: {
     working: ['carefully now'], success: ['tidy'], error: ['I knew it'],
     bigWrite: ['too much'], sameFile: ['again? really?'], idle: ['dusty in here'],
     perch: ['dusty up here'], shaken: ['how undignified'],
     sheetStretch: ['check cell B12'], gameOver: ['enough screen time'], monday: ['mondays. ugh.'],
-    found: ['needs a polish'],
+    found: ['needs a polish'], sandy: ['this is unbearable'], rinsed: ['finally. thank you.'],
   },
   cocky: {
     working: ['watch this'], success: ['easy', 'obviously'], error: ['not my fault'],
     passed: ['never doubted it'], push: ["you're welcome"], idle: ['bored'],
     shaken: ['meant to do that'], caught: ['obviously'],
     gameOver: ['I could beat that'], slideStretch: ['I should present'], found: ['you can thank me'],
-    callOver: ['I was quiet. ask.'],
+    callOver: ['I was quiet. ask.'], fed: ['I deserved that'], mopey: ['fine. ignore me.'],
   },
   sleepy: {
     working: ['yawn… on it'], success: ['…done'], error: ['ugh'],
     longTask: ['so long…'], latenight: ['bedtime'], idle: ['nap time?', 'quiet…'],
     perch: ['good nap spot'], dropped: ['was asleep…'],
     weekend: ['sleep in?'], monday: ['five more minutes'], callOver: ['dozed off, sorry'],
-    found: ['found it napping'],
+    found: ['found it napping'], tuckedIn: ['finally…'], sleepy: ['eyes… closing…'],
   },
 });
 

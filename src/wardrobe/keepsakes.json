@@ -299,6 +299,135 @@
         "KcK..",
         "KKK.."
       ]
+    },
+    {
+      "id": "snack-bowl",
+      "name": "Snack Bowl",
+      "description": "Never empty for long.",
+      "slot": "held",
+      "rarity": "common",
+      "pivot": [
+        3,
+        0
+      ],
+      "unlock": {
+        "achievement": "snack-time"
+      },
+      "palette": {
+        "k": "#4a4e69",
+        "b": "#7fd6c2",
+        "p": "#ff9f80"
+      },
+      "pixels": [
+        ".p.p.p.",
+        "bbbbbbb",
+        ".bbbbb.",
+        "..kkk.."
+      ]
+    },
+    {
+      "id": "napkin-bib",
+      "name": "Napkin Bib",
+      "description": "For the messy eaters. He is one.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [
+        3,
+        0
+      ],
+      "unlock": {
+        "achievement": "well-fed"
+      },
+      "palette": {
+        "w": "#fff4e4",
+        "r": "#e63946"
+      },
+      "pixels": [
+        "w.....w",
+        "wwrwrww",
+        ".wwwww.",
+        "..wrw..",
+        "...w..."
+      ]
+    },
+    {
+      "id": "bath-sponge",
+      "name": "Bath Sponge",
+      "description": "Scrub-a-dub-crab.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [
+        2,
+        3
+      ],
+      "unlock": {
+        "achievement": "squeaky-clean"
+      },
+      "palette": {
+        "y": "#ffd23f",
+        "o": "#e9a23b",
+        "w": "#cfe8ff"
+      },
+      "pixels": [
+        ".w..w",
+        "yyyy.",
+        "yoyoy",
+        "yyyyy",
+        ".yyyy"
+      ]
+    },
+    {
+      "id": "sleepy-teddy",
+      "name": "Sleepy Teddy",
+      "description": "Goes everywhere a nap does.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [
+        2,
+        4
+      ],
+      "unlock": {
+        "achievement": "night-night"
+      },
+      "palette": {
+        "b": "#b08d57",
+        "d": "#8a6a4a",
+        "k": "#2b2d42"
+      },
+      "pixels": [
+        "b...b",
+        "bbbbb",
+        "bkbkb",
+        ".bdb.",
+        "bbbbb",
+        "b...b"
+      ]
+    },
+    {
+      "id": "golden-spoon",
+      "name": "Golden Spoon",
+      "description": "Born with one. Well, found one.",
+      "slot": "held",
+      "rarity": "epic",
+      "pivot": [
+        1,
+        5
+      ],
+      "unlock": {
+        "achievement": "golden-tummy"
+      },
+      "palette": {
+        "a": "#c99700",
+        "b": "#ffd23f"
+      },
+      "pixels": [
+        ".bb",
+        "bab",
+        ".b.",
+        ".a.",
+        ".a.",
+        ".a."
+      ]
     }
   ]
 }

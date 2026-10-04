@@ -439,7 +439,8 @@ function createMotion() {
     if (config.get('wander') !== false && !life?.onCall()) {
       if (perching.maybeGoUp()) return;
       const home = config.get('critterPos');
-      if (home && Math.random() < 0.35) return void motion.stroll(home.x - crewExtra());
+      // A bit mopey (needs.js), he doesn't feel much like strolling.
+      if (home && Math.random() < (life?.mopey() ? 0.14 : 0.35)) return void motion.stroll(home.x - crewExtra());
     }
     if (voice.chatterOf(config.get('chatter')) === 'quiet' || Math.random() > IDLE_BIT_CHANCE) return;
     // A scene, a habit, maybe a find or a memory (life.js).
@@ -1048,6 +1049,8 @@ function refreshCritter() {
     limit: limited ? { resetsAt: limited.resetsAt } : null,
     say: said,
     call: !!life?.onCall(), // you're on a call: he holds up his "shh" sign
+    // Peckish, sandy, sleepy, mopey (needs.js): only ever while he has nothing better to show.
+    needs: ['idle', 'sleeping'].includes(state) && !CAPTURE ? life?.needsLook() || null : null,
   });
   setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
   const was = lastStatus;
@@ -5159,6 +5162,12 @@ function registerIpc() {
     if (kind === 'stop') { playtime.stop('aww, ok'); return { ok: true }; }
     return { ok: false, error: 'Unknown game.' };
   });
+  // Looking after him (care.js): the Us page's Feed, Rinse and Tuck in.
+  const careResult = r => ({ ...r, life: life?.view() || null });
+  ipcMain.handle('needs:feed', (_e, kind) => (life ? careResult(life.feed(typeof kind === 'string' ? kind.slice(0, 12) : null)) : { ok: false, error: 'Not ready yet.' }));
+  ipcMain.handle('needs:rinse', () => (life ? careResult(life.rinse()) : { ok: false, error: 'Not ready yet.' }));
+  ipcMain.handle('needs:tuck', () => (life ? careResult(life.tuckIn()) : { ok: false, error: 'Not ready yet.' }));
+  ipcMain.on('needs:intro-seen', () => life?.needsIntroSeen());
   // The pebble for fetch: its own window and bridge (toy-preload.js), dragged like he is.
   ipcMain.on('toy:drag-start', () => playtime?.toyDragStart());
   ipcMain.on('toy:drag-move', () => playtime?.toyDragMove()); // follows the real cursor, like he does
@@ -5645,7 +5654,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -5685,7 +5694,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
@@ -5714,7 +5723,10 @@ ${r.detail}` });
       const r = await dictation.warm();
       if (!r.ok) { pushToTalkError = r.error; delete allowed.pushToTalk; }
     }
+    const neededBefore = config.get('needsOn') !== false;
     config.set(allowed);
+    // Snacks and naps on again: he comes back full, not hungry (care.js).
+    if ('needsOn' in allowed && allowed.needsOn !== neededBefore) life?.needsSwitched(allowed.needsOn);
     if (allowed.pushToTalk === false) { ptt?.reset(); showListening(false); dictation?.stop(); }
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
@@ -6150,6 +6162,7 @@ ${r.detail}` });
       if (what === 'event') return life.event(args.event), true;
       if (what === 'day') return life.newDayForTest(), true;
       if (what === 'call') return life.callForTest(args.on), true;
+      if (what === 'needs') return life.needsForTest(args); // { meters, pantry }
       return life.view();
     });
     ipcMain.handle('dev:throw', (_e, { vx = 0, vy = 0 } = {}) => {
@@ -6642,6 +6655,7 @@ function buildMenu() {
     { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
     focusMenu(),
     playMenu(),
+    ...careMenu(),
     { type: 'separator' },
     ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
     updateMenuItem(),
@@ -6770,6 +6784,15 @@ function reportUncleanExit() {
 function playMenu() {
   if (!playtime || !life) return null;
   return { label: 'Play', submenu: [...playtime.menuItems(), { type: 'separator' }, life.digMenuItem(), { label: 'Finds and memories…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'us'); } }] };
+}
+
+// Feeding him and the rest of looking after him (care.js). Gone entirely with
+// Snacks and naps switched off.
+function careMenu() {
+  const m = life?.needsMenu();
+  if (!m) return [];
+  const us = { label: 'How he\'s doing…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'us'); } };
+  return [m.feed, { label: 'Care', submenu: [...m.care, { type: 'separator' }, us] }];
 }
 
 function focusMenu() {

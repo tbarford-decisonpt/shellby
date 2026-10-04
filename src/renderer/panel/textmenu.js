@@ -61,7 +61,7 @@
   menu.addEventListener('keydown', e => {
     const items = [...menu.querySelectorAll('.menu-item:not(:disabled)')];
     const i = items.indexOf(document.activeElement);
-    let to = null;
+    let to;
     if (e.key === 'ArrowDown') to = items[(i + 1) % items.length];
     else if (e.key === 'ArrowUp') to = items[(i - 1 + items.length) % items.length];
     else if (e.key === 'Home') to = items[0];
