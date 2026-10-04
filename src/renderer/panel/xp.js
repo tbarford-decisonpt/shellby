@@ -7,7 +7,9 @@
   const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', issue: '🎫', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯', pet: '♥', play: '🙈', find: '🐚', treasure: '🏴‍☠️', bond: '💞' };
   const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', flakefix: 'Flaky fixes', issue: 'Issues taken on', tidy: 'Tidying', fresh: 'Fresh starts', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties', pet: 'Pets', play: 'Games', find: 'Finds', treasure: 'Treasure', bond: 'Bond' };
   const UNLOCK_NAME = { shell: 'shell', title: 'title', rank: '' };
-  const fmt = n => Number(n || 0).toLocaleString();
+  const TOP_KINDS = 3;   // where the XP came from, under the 30-day chart
+  const LOG_ROWS = 5;    // latest XP rows; the chart above covers the rest
+  const fmt = n =>Number(n || 0).toLocaleString();
   const shortDay = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
 
   function apply(v) {
@@ -23,19 +25,23 @@
     if (state.view === 'trophies') render();
   }
 
-  function unlockLine(u) {
-    if (!u) return 'Every shell, title and badge is his. Shellby Supreme!';
+  // One line for "what's next": the XP to the next level, then what it unlocks,
+  // or the next level that unlocks anything when that's further off.
+  function unlockLine(v) {
+    const u = v.unlock;
+    if (!u) return v.level >= 99 ? '' : ' · everything is unlocked';
     // "Snail Shell" already says shell; "Tidecaller" needs "title".
     const names = u.unlocks.map(x => (UNLOCK_NAME[x.kind] && !x.name.toLowerCase().includes(UNLOCK_NAME[x.kind]) ? `${x.name} ${UNLOCK_NAME[x.kind]}` : x.name)).join(', ');
-    return `Next at level ${u.level}: ${names} · ${fmt(u.xpToGo)} XP to go`;
+    return u.level === v.level + 1 ? ` · unlocks ${names}` : ` · ${names} at level ${u.level}, ${fmt(u.xpToGo)} XP to go`;
   }
 
+  // Short pills; the full sentence is on hover and for screen readers.
   function boosts(v) {
     const list = [];
-    if (v.streak?.multiplier > 1) list.push(`🔥 ${v.streak.days}-day streak: ×${v.streak.multiplier.toFixed(2)} XP`);
-    else if (v.streak?.days) list.push(`🔥 ${v.streak.days}-day streak · keep it to 7 days for ×1.05 XP`);
-    if (v.rested > 0) list.push(`😴 Rested: the next ${v.rested} XP counts double`);
-    return list.join(' · ');
+    if (v.streak?.multiplier > 1) list.push({ icon: '🔥', text: `×${v.streak.multiplier.toFixed(2)}`, title: `${v.streak.days}-day streak: ×${v.streak.multiplier.toFixed(2)} XP` });
+    else if (v.streak?.days) list.push({ icon: '🔥', text: `${v.streak.days}/7`, title: `${v.streak.days}-day streak. Keep it to 7 days for ×1.05 XP` });
+    if (v.rested > 0) list.push({ icon: '😴', text: `2× ${fmt(v.rested)}`, title: `Rested: the next ${fmt(v.rested)} XP counts double` });
+    return list;
   }
 
   function renderBounties(b) {
@@ -61,7 +67,7 @@
       class: d.xp ? '' : 'zero', title: `${shortDay(d.day)}: ${fmt(d.xp)} XP`,
       style: `height:${d.xp ? Math.max(8, Math.round((d.xp / top) * 100)) : 4}%`,
     })));
-    const kinds = [...(v.byKind || [])].sort((a, b) => b.xp - a.xp).slice(0, 6);
+    const kinds = [...(v.byKind || [])].sort((a, b) => b.xp - a.xp).slice(0, TOP_KINDS);
     $('xpKinds').replaceChildren(...kinds.map(k => h('li', { title: `${KIND_NAME[k.kind] || k.kind}: ${fmt(k.xp)} XP` },
       h('span', { text: KIND_ICON[k.kind] || '✦' }), h('span', { text: KIND_NAME[k.kind] || k.kind }), h('b', { text: fmt(k.xp) }))));
   }
@@ -75,18 +81,22 @@
     $('xpCard').dataset.rank = v.rank?.name || '';
     $('xpBar').style.transform = `scaleX(${v.progress.toFixed(3)})`;
     $('xpBarWrap').setAttribute('aria-valuenow', Math.round(v.progress * 100));
-    $('xpNext').textContent = v.level >= 99 ? `${v.rank?.name || ''} badge · max level` : `${fmt(v.needed - v.into)} XP to level ${v.level + 1} · ${v.rank?.name || ''} badge`;
-    $('xpUnlock').hidden = false;
-    $('xpUnlock').textContent = unlockLine(v.unlock);
+    $('xpEyebrow').textContent = v.rank?.name ? `Level · ${v.rank.name}` : 'Level';
+    $('xpNext').textContent = v.level >= 99 ? 'Max level. Every shell, title and badge is his!' : `${fmt(v.needed - v.into)} XP to level ${v.level + 1}`;
+    const unlock = unlockLine(v);
+    $('xpUnlock').hidden = !unlock;
+    $('xpUnlock').textContent = unlock;
     const b = boosts(v);
-    $('xpBoosts').hidden = !b;
-    $('xpBoosts').textContent = b;
+    $('xpBoosts').hidden = !b.length;
+    $('xpBoosts').replaceChildren(...b.map(x => h('li', { title: x.title },
+      h('span', { 'aria-hidden': 'true', text: `${x.icon} ${x.text}` }), h('span', { class: 'sr-only', text: x.title }))));
     renderBounties(v.bounties);
     renderHistory(v);
     // Just the crab: only the ways that don't need Claude.
     const ways = (v.ways || []).filter(w => !(w.claude && state.settings.crabOnly));
+    $('xpWaysCount').textContent = `· ${ways.length}`;
     $('xpWays').replaceChildren(...ways.map(w => h('li', {}, h('span', { text: KIND_ICON[w.kind] || '✦' }), h('span', { text: w.text }), h('b', { text: `+${w.xp}` }))));
-    $('xpLog').replaceChildren(...(v.log.length ? v.log.slice(0, 8).map(e => h('li', { title: e.bonus ? `Bonus: ${e.bonus}` : null },
+    $('xpLog').replaceChildren(...(v.log.length ? v.log.slice(0, LOG_ROWS).map(e => h('li', { title: e.bonus ? `Bonus: ${e.bonus}` : null },
       h('span', { class: 'xp-log-icon', text: KIND_ICON[e.kind] || '✦' }),
       h('span', { class: 'xp-log-label', text: [e.project ? `${e.label} · ${e.project}` : e.label, e.bonus].filter(Boolean).join(' · ') }),
       h('b', { text: `+${e.xp}` }),
