@@ -71,4 +71,22 @@ function covers(frame, box) {
     && frame.y + frame.height >= box.y + box.height;
 }
 
-module.exports = { keepOnDesktop, pin, sendToBottom, isPinned, covers, DESKTOP_CLASSES };
+// Take a transparent window off the screen while nobody can see it, and put it
+// back under every app when they can. Calm (animation: none) isn't enough
+// behind a game: every repaint he still makes — a state change, a bubble, the
+// crew — is a frame presented to a GPU the game is saturating, and each one
+// waits in the game's queue. Measured behind Dune: 23% of the 3D engine and a
+// quarter of a core with not one animation running. A hidden window presents
+// nothing at all. Owned windows keep their owner while hidden, so he comes back
+// on the desktop layer.
+function veil(win, hide, { lower = () => {} } = {}) {
+  if (!win || win.isDestroyed()) return;
+  if (hide) {
+    if (win.isVisible()) win.hide();
+  } else if (!win.isVisible()) {
+    win.showInactive();
+    lower(win);
+  }
+}
+
+module.exports = { keepOnDesktop, pin, sendToBottom, isPinned, covers, veil, DESKTOP_CLASSES };

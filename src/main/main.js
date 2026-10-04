@@ -16,7 +16,7 @@ const { SessionManager, MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
-const { keepOnDesktop, sendToBottom, pin: pinToDesktop, covers: coversBox, DESKTOP_CLASSES } = require('./desktop-layer');
+const { keepOnDesktop, sendToBottom, pin: pinToDesktop, covers: coversBox, veil, DESKTOP_CLASSES } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
@@ -393,6 +393,7 @@ function critterGeo() {
 function createPerchingFor() {
   perching = createPerching({
     critter: () => critter,
+    veiled: () => crabCalmNow().hide,
     motion: () => motion,
     screen,
     config,
@@ -460,7 +461,9 @@ function createMischief() {
     skin: () => ({ skin: activeSkin(), px: px(), outfit: outfit() }),
     status: () => lastStatus.state,
     away: () => (climbing?.isAway() ? 'climb' : perching?.isAway() ? 'perch' : null),
-    calm: () => calmReason === 'locked' || hidden.crab,
+    calm: () => crabCalmNow().calm,
+    hidden: () => crabCalmNow().hide,
+    veil: (w, hide) => veil(w, hide, { lower: sendToBottom }),
   });
   pranks = createPranks({
     config, screen, native, capture: CAPTURE,
@@ -571,7 +574,8 @@ function createCritter() {
   critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));
   critter.once('ready-to-show', () => {
     keepCritterSize(); // created on a scaled monitor, Windows may have rounded it
-    critter.showInactive();
+    critterReady = true;
+    if (!crabCalmNow().hide) critter.showInactive(); // started behind a game: the next calm shows him
     if (!CAPTURE) keepOnDesktop(critter, { isAway: () => !!perching?.isAway() });
   });
   critter.on('blur', () => { sendToBottom(critter); floor?.lower(); }); // a no-op while he's up on a window; the floor strip stays under him
@@ -593,20 +597,31 @@ function createCritter() {
 // compositing his loops at 60 fps: a third of a 3080 Ti behind a game. A cheap
 // poll asks whether a game is up or the window in front covers him; while it
 // does he gets the locked-screen calm, and with a game up the panel does too.
+// Under a game's window, or with the screen locked, calm isn't enough: he and
+// his floor are hidden outright (desktop-layer.js veil). Only when the game
+// covers him: on another monitor he's still in plain sight. And not behind an
+// ordinary window: the poll is two seconds, and a crab missing from the desktop
+// that long after you minimize something would be noticed.
 const COVER_POLL_MS = 2000;
 let calmReason = null; // the panel: 'blur' | 'locked' | null
-let hidden = { crab: false, game: false };
+let hidden = { crab: false, game: false, underGame: false };
 let calmSent = '';
+let critterReady = false;
+function crabCalmNow() {
+  const locked = calmReason === 'locked';
+  return { calm: locked || hidden.crab, hide: !CAPTURE && (locked || hidden.underGame) };
+}
 function sendCalm() {
   const locked = calmReason === 'locked';
   const panelCalm = { calm: !!calmReason || hidden.game, deep: locked || hidden.game };
-  const crabCalm = { calm: locked || hidden.crab };
+  const crabCalm = crabCalmNow();
   const key = JSON.stringify([panelCalm, crabCalm]);
   if (key === calmSent) return;
   calmSent = key;
   send(panel, 'panel:calm', panelCalm);
   send(critter, 'critter:calm', crabCalm);
-  floor?.calm(crabCalm.calm); // the floor beside him is covered when he is
+  if (critterReady) veil(critter, crabCalm.hide, { lower: sendToBottom }); // until then, ready-to-show decides
+  floor?.calm(crabCalm.calm, crabCalm.hide); // the floor beside him is covered when he is
 }
 function setCalm(reason) {
   calmReason = reason;
@@ -624,14 +639,21 @@ function checkCovered() {
   if (!critter || critter.isDestroyed() || !native.available()) return;
   const info = native.describe(native.foreground());
   const game = gameInFront(info);
-  hidden = { crab: (game && !perching?.isAway()) || crabCovered(info), game };
+  const covered = crabCovered(info);
+  hidden = { crab: (game && !perching?.isAway()) || covered, game, underGame: game && covered };
   sendCalm();
 }
 function watchIdleCost() {
   panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
   panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
   for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
-  for (const awake of ['unlock-screen', 'resume']) powerMonitor.on(awake, () => setCalm(panel?.isFocused() ? null : 'blur'));
+  powerMonitor.on('unlock-screen', () => setCalm(panel?.isFocused() ? null : 'blur'));
+  // A wake usually lands on the lock screen: stay hidden until it's unlocked.
+  powerMonitor.on('resume', () => {
+    let locked = false;
+    try { locked = powerMonitor.getSystemIdleState(60) === 'locked'; } catch { /* unknown: treat as awake */ }
+    setCalm(locked ? 'locked' : panel?.isFocused() ? null : 'blur');
+  });
   // The renderers start animated; a reload would forget a calm sent before it.
   for (const w of [panel, critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
   if (!CAPTURE) setInterval(checkCovered, COVER_POLL_MS).unref?.();

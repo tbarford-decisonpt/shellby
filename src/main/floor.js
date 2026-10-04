@@ -30,7 +30,7 @@ const tracksOn = config => mischief.levelOf(config.get('mischief')) !== 'off' &&
  *   config, screen, capture, makeWindow() -> BrowserWindow, pin(win), lower(win),
  *   critterBounds(), geo() -> { width, height, foot, half }, px(),
  *   skin() -> the critter:skin payload, status() -> his state, away() -> 'perch' | 'climb' | null,
- *   calm()
+ *   calm(), hidden() -> off the screen with him (behind a game), veil(win, hide)
  * }
  */
 function createFloor(d) {
@@ -38,6 +38,7 @@ function createFloor(d) {
   let feed = null;
   let sent = '';
   let shown = '';
+  let ready = false; // shown once; before that, ready-to-show decides
 
   const wanted = () => !d.capture && (colonySize(d.config.get('colony')) > 0 || tracksOn(d.config));
   const height = () => Math.round(d.px() * 13 * PAL_SCALE) + 64;
@@ -62,10 +63,16 @@ function createFloor(d) {
     win = d.makeWindow();
     shown = '';
     sent = '';
+    ready = false;
     place();
     win.setIgnoreMouseEvents(true, { forward: true });
     const w = win;
-    w.once('ready-to-show', () => { if (w.isDestroyed()) return; w.showInactive(); d.pin(w); });
+    w.once('ready-to-show', () => {
+      if (w.isDestroyed()) return;
+      ready = true;
+      if (!d.hidden()) w.showInactive();
+      d.pin(w);
+    });
     w.webContents.on('did-finish-load', setup); // and again after a reload, which forgets it all
     w.on('closed', () => { if (win === w) { win = null; stopFeed(); } });
   }
@@ -137,8 +144,10 @@ function createFloor(d) {
     if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(!over, { forward: true });
   }
 
-  function calm(on) {
-    if (win && !win.isDestroyed()) win.webContents.send('floor:calm', { calm: !!on });
+  function calm(on, hide = false) {
+    if (!win || win.isDestroyed()) return;
+    win.webContents.send('floor:calm', { calm: !!on });
+    if (ready) d.veil(win, hide);
   }
 
   // Under him, always: the strip goes to the bottom after he does.

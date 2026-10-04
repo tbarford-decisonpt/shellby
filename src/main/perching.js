@@ -27,7 +27,8 @@ const PERCH_BITS_MS = 6000;
  * deps: {
  *   critter(), motion(), screen, config, geo(), getPos(), place(x, y), box(),
  *   homePos() -> { x, y }, pin(), temperament(), speak(occasion, opts), stat(event, payload),
- *   toRenderer(kind, info), perchView(view), bit(name, ms), refresh(), dragging(), crew(), capture
+ *   toRenderer(kind, info), perchView(view), bit(name, ms), refresh(), dragging(), crew(), capture,
+ *   veiled() -> hidden behind a game or the lock screen (main.js veil)
  * }
  */
 function createPerching(d) {
@@ -277,7 +278,7 @@ function createPerching(d) {
       // Windows hides an owned window along with a minimized owner, so let go of
       // it first or the best bit happens out of sight.
       floatUp();
-      if (why === 'minimized' || why === 'hidden') d.critter().showInactive();
+      if ((why === 'minimized' || why === 'hidden') && !d.veiled?.()) d.critter().showInactive();
       d.toRenderer('coyote', { why });
     }
     if (what === 'cling' || what === 'settle') return;
