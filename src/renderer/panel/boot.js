@@ -76,6 +76,10 @@
     document.body.classList.toggle('calm', !!calm);
     document.body.classList.toggle('calm-deep', !!deep);
   });
+  // Even in front, the loops (spinners, hops, the drifting light) only need a
+  // few frames a second; at the screen's 60 they were most of the panel's GPU,
+  // and far more with a game running beside it (shared/framecap.js).
+  window.ShellbyFrameCap.cap(document, { filter: window.ShellbyFrameCap.loops });
   api.onSkin(({ skin, outfit }) => {
     state.skin = skin;
     state.outfit = outfit;
