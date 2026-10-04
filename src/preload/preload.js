@@ -151,6 +151,16 @@ contextBridge.exposeInMainWorld('shellby', {
   revealSetupFile: fire('setup:reveal'),
   saveRule: (scope, list, rule) => ipcRenderer.invoke('setup:save-rule', { scope, list, rule }),
   removeRule: (scope, list, rule) => ipcRenderer.invoke('setup:remove-rule', { scope, list, rule }),
+  // Toolbox → Team: the repo's .shellby/team.json (team-ipc.js)
+  getTeamPack: invoke('team:get'),
+  useTeamSnippets: invoke('team:use-snippets'),
+  stopTeamSnippets: invoke('team:stop-snippets'),
+  addTeamWorkflow: invoke('team:add-workflow'),
+  addTeamHook: (key, scope) => ipcRenderer.invoke('team:add-hook', { key, scope }),
+  addTeamRule: (key, scope) => ipcRenderer.invoke('team:add-rule', { key, scope }),
+  draftTeamPack: invoke('team:draft'),
+  writeTeamPack: invoke('team:write'),
+  revealTeamPack: fire('team:reveal'),
   refreshMcp: invoke('mcp:refresh'),
   reconnectMcp: (tabId, name) => ipcRenderer.invoke('mcp:reconnect', { tabId, name }),
   toggleMcp: (tabId, name, enabled) => ipcRenderer.invoke('mcp:toggle', { tabId, name, enabled }),
@@ -456,6 +466,8 @@ contextBridge.exposeInMainWorld('shellby', {
   onHeldReturned: on('held:returned'), // one that couldn't, back to its box
   onToolbox: on('toolbox'),
   onSnippets: on('snippets'),
+  onTeam: on('team'), // Shellby's folder changed: that repo's team pack, or none
+  onTeamNotice: on('team:notice'), // the repo you're in has a team pack you haven't seen
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
   onRoutineTestRun: on('routines:test-run'),

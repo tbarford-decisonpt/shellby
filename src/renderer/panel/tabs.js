@@ -463,7 +463,7 @@
       if (tab.expanding) return;
       tab.expanding = true;
       let r;
-      try { r = await api.expandSnippet(text); } finally { tab.expanding = false; }
+      try { r = await api.expandSnippet(text, tab.id); } finally { tab.expanding = false; }
       if (r && !r.ok) { SB.toast(r.error); return; }
       if (r?.newTab && !tab.isEmpty) return sendInNewTab(tab, text, r, attachments);
       if (r) { snippet = r.name; text = r.prompt; }

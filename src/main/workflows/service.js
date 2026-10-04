@@ -250,9 +250,10 @@ class WorkflowService {
   }
 
   /**
-   * Save from the panel ('panel') or a proposal from Claude ('claude'). Anything
-   * that can act unasked is confirmed in the isolated window first: always for
-   * Claude's, and for the panel's when what it may do has changed.
+   * Save from the panel ('panel'), a proposal from Claude ('claude') or one added
+   * from a repo's team pack ('team'). Anything that can act unasked is confirmed
+   * in the isolated window first: always for Claude's and a team pack's, and for
+   * the panel's when what it may do has changed.
    */
   async save(input, { source = 'panel' } = {}) {
     const existing = input && typeof input === 'object' && input.id ? this.get(input.id) : null;
@@ -268,7 +269,11 @@ class WorkflowService {
     const ask = source !== 'panel' || (risk && (risk !== riskSignature(existing) || !this.approved(existing)));
     if (ask) {
       const verdict = await this.confirmSave(wf, existing, source);
-      if (verdict === 'too-long') return { ok: false, errors: [{ path: '', message: 'This workflow is too long to show in full in the confirmation window, so it can\'t be proposed this way. Split it into smaller workflows (a workflow step can run another), or the user can build it on the Automate page.' }] };
+      if (verdict === 'too-long') {
+        return { ok: false, errors: [{ path: '', message: source === 'team'
+          ? 'This workflow is too long to show in full in the confirmation window, so it can\'t be added from the team pack. Paste it on the Automate page (Import) and read it in the editor instead.'
+          : 'This workflow is too long to show in full in the confirmation window, so it can\'t be proposed this way. Split it into smaller workflows (a workflow step can run another), or the user can build it on the Automate page.' }] };
+      }
       if (verdict !== 'yes') return { ok: false, declined: true, errors: [{ path: '', message: 'Not saved.' }] };
     }
     // The list may have changed while the window was up.
@@ -286,7 +291,8 @@ class WorkflowService {
     const steps = [];
     walkSteps(wf.steps, (s, _at, scope) => steps.push(`${'  '.repeat(scope.length)}${s.label || s.id} (${s.type}${s.mode ? `, ${MODE_NAMES[s.mode]}` : ''})`));
     const risky = riskDetail(wf);
-    const who = source === 'claude' ? (existing ? 'Claude wants to change' : 'Claude wants to add') : 'Save';
+    const who = source === 'claude' ? (existing ? 'Claude wants to change' : 'Claude wants to add')
+      : source === 'team' ? (existing ? "The repo's team pack has a different version of" : "From the repo's team pack:") : 'Save';
     const caps = capabilities(wf);
     const detail = [
       `Starts: ${triggers.join('; ')}`,

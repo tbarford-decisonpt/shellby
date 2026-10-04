@@ -20,6 +20,7 @@
   let flash = null;  // { name, until }: a snippet just saved, lit up in the list for a moment
 
   const list = () => state.snippets || [];
+  const own = () => list().filter(s => !s.team); // without the repo's team snippets (Toolbox → Team)
   const rerender = () => { if (state.view === 'toolbox') SB.views.toolbox?.render(); };
 
   function slots(text) {
@@ -94,7 +95,28 @@
     return h('p', { class: `tool-stats${s.uses ? '' : ' unused'}`, text: parts.join(' · ') });
   }
 
+  // One from the repo's team pack (Toolbox → Team): run it, or keep a copy of your own to change.
+  function teamRow(s) {
+    const keep = async () => {
+      if (editorBusy()) return;
+      openEditor({ name: s.name, text: s.text, hint: s.hint || '', newTab: !!s.newTab });
+      rerender();
+      focusEditor('snipText');
+    };
+    return h('li', { class: 'tool-row snippet-row is-team', dataset: { name: s.name } },
+      h('div', { class: 'tool-main' },
+        h('div', { class: 'tool-name', title: `From this repo's team pack. Type /${s.name} in the box, or shellby do @${s.name} in a terminal in the repo` },
+          h('code', { text: `/${s.name}` }),
+          s.hint ? h('span', { class: 'snip-hint', text: `<${s.hint}>` }) : null,
+          h('span', { class: 'team-pill', text: 'team' })),
+        h('p', { class: 'tool-desc', text: s.text, title: s.text })),
+      h('div', { class: 'tool-actions' },
+        h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.runSnippet(s.name) }, 'Run'),
+        h('button', { class: 'btn ghost slim-btn', type: 'button', title: 'Save it as one of yours, to change. Yours wins the name.', onclick: keep }, 'Keep a copy')));
+  }
+
   function snippetRow(s) {
+    if (s.team) return teamRow(s);
     const pinned = isPinned(s.name);
     const hides = shadowed(s.name);
     const more = h('button', {
@@ -179,12 +201,12 @@
         SB.applySnippets(r);
         SB.toast(importedText(r), { ms: 8000 });
       }),
-      menuItem('Export to a file…', list().length ? `All ${list().length}, to keep or share` : 'Nothing to export yet', async () => {
+      menuItem('Export to a file…', own().length ? `All ${own().length}, to keep or share` : 'Nothing to export yet', async () => {
         const r = await api.exportSnippets();
         if (r?.cancelled) return;
         if (!r?.ok) return SB.toast(r?.error || "Couldn't export them.", { ms: 8000 });
         SB.toast(`Exported ${r.count} snippet${r.count === 1 ? '' : 's'} to ${SB.tildify(r.path)}`, { ms: 6000 });
-      }, { disabled: !list().length }),
+      }, { disabled: !own().length }),
       h('div', { class: 'menu-sep', role: 'separator' }),
       menuItem('Add the starters', 'review, tests, explain, commit and pr, if they are missing', addStarters),
     ];
@@ -244,7 +266,7 @@
     if (n.length > 32) return { err: 'Keep it to 32 characters.' };
     if (!NAME.test(n)) return { err: n.startsWith('-') ? 'Start with a letter or a digit.' : 'Lowercase letters, digits and dashes only.' };
     if ((SB.LOCAL_COMMANDS || []).some(c => c.name === n) || n === 'compact' || n === 'clear') return { err: `/${n} is one of Shellby's own commands.` };
-    if (n !== editor.was && list().some(s => s.name === n)) return { err: `You already have a /${n}.` };
+    if (n !== editor.was && own().some(s => s.name === n)) return { err: `You already have a /${n}.` };
     const hides = shadowed(n);
     return hides ? { warn: `Typed in the box, it runs instead of the /${n} ${hides}.` } : {};
   }

@@ -342,7 +342,8 @@ function register(deps) {
   // ---- output styles
   ipcMain.handle('styles:list', () => outputStyles.list({ home: deps.setupWhere().home, cwd: deps.currentCwd() }));
 
-  return { rememberPrompt };
+  // changeRule: Toolbox → Team adds a pack's rules the same way (team-ipc.js).
+  return { rememberPrompt, changeRule: req => changeRule(req || {}, false) };
 }
 
 module.exports = { register, addPrompt };

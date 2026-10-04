@@ -102,6 +102,7 @@ const shellCmd = require('./shellcmd');
 const outputStyles = require('./outputstyles');
 const { EFFORTS } = require('./session');
 const parity = require('./parity');
+const teamIpcModule = require('./team-ipc');
 const { guardIpc, windowPolicy } = require('./ipc-guard');
 const system32 = require('./system32');
 const branching = require('./branching');
@@ -249,6 +250,7 @@ let depWatch = null;               // the weekly look at your projects' packages
 let projects = null;               // the Projects page (projects/service.js)
 let devServers = null;             // the dev servers in them (devservers/service.js)
 let parityIpc = null;
+let teamIpc = null;                // Toolbox → Team: the repo's .shellby/team.json (team-ipc.js)
 let lean = null; // Lean Shell: the prompt cache, setup weight and idle tools (lean.js)
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
 let obsServer, rgbClient, media, channelSecret, remote;
@@ -2415,7 +2417,7 @@ function runCliRequest(body, token) {
   if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
 
   if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
-  if (body?.action === 'snippets') return { text: snippets.cliText(snippetList()) };
+  if (body?.action === 'snippets') return { text: snippets.cliText(allSnippets()) };
   // Your hours are yours: behind the token, unlike status.
   if (body?.action === 'time') {
     const range = ['today', 'week', 'last-week', 'month', 'last-month'].includes(body.range) ? body.range : 'week';
@@ -2435,8 +2437,8 @@ function runCliRequest(body, token) {
   const { cwd, mode, snippet } = checked.task;
   let { prompt } = checked.task;
   if (snippet) {
-    const x = expandSnippet(snippet, prompt, { sigil: '@', max: 4000 });
-    if (!x) return { ok: false, error: snippets.unknownText(snippet, snippetList()), status: 404 };
+    const x = expandSnippet(snippet, prompt, { sigil: '@', max: 4000, cwd: cwd || undefined });
+    if (!x) return { ok: false, error: snippets.unknownText(snippet, allSnippets(cwd || undefined)), status: 404 };
     if (!x.ok) return { ok: false, error: x.error, status: 400 };
     prompt = x.prompt;
   }
@@ -4147,7 +4149,12 @@ function snippetList() {
   }
   return snippets.normalize(config.get('snippets'));
 }
-const snippetsView = () => ({ snippets: snippets.view(snippetList(), config.get('snippetUse')), pinned: pinnedTools() });
+/** Yours, then the team pack's for that folder (if you've turned them on there; yours win a name). */
+function allSnippets(cwd = currentCwd()) {
+  const own = snippetList();
+  return [...own, ...(teamIpc?.snippetsFor(cwd, own) || [])];
+}
+const snippetsView = () => ({ snippets: snippets.view(allSnippets(), config.get('snippetUse')), pinned: pinnedTools() });
 
 /** Save the list and tell the panel. A rename or delete carries its pin and its use count along. */
 function setSnippets(list, renamed = null) {
@@ -4164,11 +4171,11 @@ function setSnippets(list, renamed = null) {
 
 /**
  * A snippet, filled in and ready to send: /review from the panel, @review from a
- * terminal. null when there's no snippet by that name.
+ * terminal. null when there's no snippet by that name. `cwd` is where it'll
+ * run, for that repo's team snippets.
  */
-function expandSnippet(name, args, { sigil = '/', max } = {}) {
-  const list = snippetList();
-  const s = snippets.find(list, name);
+function expandSnippet(name, args, { sigil = '/', max, cwd } = {}) {
+  const s = snippets.find(allSnippets(cwd), name);
   if (!s) return null;
   const r = snippets.expand(s, args, { sigil, max });
   return r.ok ? { ...r, name: s.name, newTab: !!s.newTab } : r;
@@ -4691,6 +4698,13 @@ function registerIpc() {
       const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
       return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
     },
+  });
+  teamIpc = teamIpcModule.register({
+    ipcMain, config, shell, home: os.homedir(), panel: () => panel, send, currentCwd, stat,
+    ownSnippets: snippetList, pushSnippets: () => send(panel, 'snippets', snippetsView()),
+    workflows: () => (config.get('crabOnly') ? null : workflows),
+    setupView, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    log: { warn: msg => log.warn('team pack', msg) },
   });
   // ---- critter
   // The grab offset is fixed at drag start; moves follow the real cursor (the
@@ -5385,10 +5399,19 @@ ${r.detail}` });
   // The five Shellby starts with, for anyone who deleted them and wants them back.
   ipcMain.handle('snippets:starters', () => mergeSnippets(snippets.STARTERS));
   // "/review the auth module" -> the prompt to send. null: not a snippet, send it as it is.
-  ipcMain.handle('snippets:expand', (_e, text) => {
+  ipcMain.handle('snippets:expand', (_e, text, tabId) => {
     // Not isStr: a pasted file after /tests can be long. task:send's own limit applies.
     const call = snippets.parseShortcut(typeof text === 'string' ? text.slice(0, PANEL_MAX_TEXT) : '', '/');
-    return call ? expandSnippet(call.name, call.args, { max: PANEL_MAX_TEXT }) : null;
+    // The tab's own folder, for that repo's team snippets.
+    const cwd = (isStr(tabId) && manager.tabs.get(tabId)?.session.cwd) || undefined;
+    if (!call) return null;
+    const x = expandSnippet(call.name, call.args, { max: PANEL_MAX_TEXT, cwd });
+    // The menu lists the team snippets of Shellby's folder; this conversation is
+    // in another. Say so rather than sending "/ship" to Claude as it is.
+    if (!x && snippets.find(allSnippets(), call.name)?.team) {
+      return { ok: false, error: `/${call.name} is a team snippet from ${path.basename(currentCwd())}, and this conversation is working somewhere else.` };
+    }
+    return x;
   });
   ipcMain.on('toolbox:reveal', (_e, p) => {
     // Only reveal files the toolbox itself reported (never arbitrary paths from the renderer).
@@ -6128,6 +6151,9 @@ function setFolder(dir) {
   config.set({ cwd: dir });
   config.addRecentFolder(dir);
   toolbox?.rescan({ plugins: false });
+  // Another repo, other team snippets; and a pack there you haven't seen gets a word.
+  send(panel, 'snippets', snippetsView());
+  teamIpc?.folderChanged(dir);
   return { cwd: dir, settings: panelSettings() };
 }
 

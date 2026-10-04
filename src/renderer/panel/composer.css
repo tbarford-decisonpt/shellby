@@ -117,6 +117,44 @@
 .snip-empty { display: grid; gap: 12px; justify-items: center; padding: 26px 12px; }
 .snip-empty p { margin: 0; max-width: 34ch; line-height: 1.45; color: var(--sand-dim); }
 
+/* ================================================================ Toolbox: team pack
+   toolbox-team.js. The repo's .shellby/team.json: what's in it, and the form for making one. */
+.team-pill { flex: none; font: 700 9.5px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 99px; border: 1px solid var(--glass-dim); color: var(--glass); }
+.team-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.team-title { min-width: 0; flex: 1 1 220px; }
+.team-title h3 { margin: 0 0 3px; font: 600 15px var(--font-pixel); color: var(--glass); }
+.team-title p { margin: 0; line-height: 1.45; }
+.team-head-btns { display: flex; gap: 6px; }
+.team-label { margin: 16px 0 6px; }
+.team-bar .muted.warn { color: var(--amber); }
+.team-list { margin: 0; }
+.team-list .tool-desc { -webkit-line-clamp: 4; }
+.team-note { margin: 0 0 6px; }
+.team-cmd { display: block; max-width: 100%; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-mono); color: var(--sand-dim); }
+.team-add { flex-wrap: wrap; justify-content: flex-end; }
+.team-add select { max-width: 190px; }
+.team-done { font-size: 12px; color: var(--glass); white-space: nowrap; }
+.team-all { margin: 0 0 8px; color: var(--glass); }
+.tool-stats.err { color: #ffb3aa; }
+.team-problems { margin: 0 0 8px; font-size: 12px; color: var(--amber); }
+.team-problems summary { cursor: pointer; }
+.team-problems ul { margin: 6px 0 0; padding-left: 18px; color: var(--sand-dim); }
+.team-empty { justify-items: start; padding: 18px 4px; }
+.team-empty p { max-width: 52ch; }
+.team-field { display: grid; gap: 4px; }
+.team-field .row-label { margin: 0; }
+.team-pick { display: grid; gap: 2px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.team-pick legend { padding: 0; }
+.team-check { display: flex; gap: 8px; align-items: flex-start; padding: 5px 6px; border-radius: var(--r-sm); cursor: pointer; }
+.team-check:hover { background: var(--reef-2); }
+.team-check input { margin-top: 3px; flex: none; }
+.team-check > span { display: grid; min-width: 0; }
+.team-check-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12.5px var(--font-mono); }
+.team-check-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--sand-dim); }
+.team-written { position: relative; display: grid; gap: 4px; margin-bottom: 12px; padding: 10px 36px 10px 12px; border: 1px solid var(--glass); border-radius: var(--r); background: var(--reef); }
+.team-written p { margin: 0; line-height: 1.45; }
+.team-written .icon-btn { position: absolute; top: 6px; right: 6px; }
+
 .snip-editor { display: grid; gap: 14px; margin: 2px 0 12px; padding: 14px; border: 1px solid var(--glass); border-radius: var(--r-lg); background: var(--reef); animation: rise .2s var(--ease-out); }
 .snip-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
 .snip-head h3 { margin: 0; font: 600 15px var(--font-pixel); color: var(--glass); }

@@ -4,7 +4,8 @@
    Skills, agents and commands show how often they're used and what they cost
    (lean.js usage), can be filtered by where they come from and sorted by use,
    and your own can be edited here or moved to the Recycle Bin (skillremove.js).
-   The Hooks, Rules and Memory tabs live in toolbox-setup.js. */
+   The Hooks, Rules and Memory tabs live in toolbox-setup.js, and Team (the
+   repo's .shellby/team.json) in toolbox-team.js. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -17,7 +18,7 @@
   const LISTED = new Set(['skill', 'agent', 'command']); // the kinds with source and order pickers
   const SEARCH_WHAT = {
     skill: 'skills', agent: 'agents', command: 'commands', mcp: 'MCP servers', snippet: 'snippets',
-    hook: 'hooks', rule: 'rules', memory: 'memory files', lean: 'plugins, servers and skills',
+    hook: 'hooks', rule: 'rules', memory: 'memory files', lean: 'plugins, servers and skills', team: 'the team pack',
   };
 
   const isNew = t => (state.learned || []).some(l => l.kind === t.kind && l.name === t.name && Date.now() - l.at < NEW_FOR_MS);
@@ -326,7 +327,7 @@
     // counts
     document.querySelectorAll('#toolTabs [data-kind]').forEach(b => {
       const k = b.dataset.kind;
-      b.querySelector('.n').textContent = setup.owns(k) ? setup.count(k) : k === 'lean' ? SB.lean.count() : k === 'snippet' ? (state.snippets || []).length : tb ? tb[listKey[k]].length : '';
+      b.querySelector('.n').textContent = setup.owns(k) ? setup.count(k) : k === 'lean' ? SB.lean.count() : k === 'team' ? SB.toolboxTeam.count() : k === 'snippet' ? (state.snippets || []).length : tb ? tb[listKey[k]].length : '';
       b.setAttribute('aria-selected', String(k === kind));
     });
     // recently learned
@@ -348,6 +349,7 @@
     setup.hide();
     if (kind === 'lean') return SB.lean.render(q);
     if (kind === 'snippet') return SB.toolboxSnippets.render(q);
+    if (kind === 'team') return SB.toolboxTeam.render(q);
     if (toolEd && toolEd.kind === kind) {
       // Rebuilt only for another file, so a toolbox update can't take the cursor out of it,
       // or once to say the file has gone (your text stays, to copy somewhere).
@@ -426,7 +428,7 @@
     render();
   });
   $('rescanBtn').addEventListener('click', async () => {
-    [state.toolbox] = await Promise.all([api.rescanToolbox(), SB.toolboxSetup.reload()]);
+    [state.toolbox] = await Promise.all([api.rescanToolbox(), SB.toolboxSetup.reload(), SB.toolboxTeam.refresh()]);
     usageRetried = false;
     loadUsage(true);
     render();
