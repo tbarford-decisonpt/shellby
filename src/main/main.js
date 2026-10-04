@@ -96,6 +96,7 @@ const { CiWatcher } = require('./github/ci');
 const { IssueWatcher } = require('./github/issues');
 const issueWork = require('./github/pullrequest');
 const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
+const { ProfileCard } = require('./github/profile-card');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
@@ -246,7 +247,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let projects = null;               // the Projects page (projects/service.js)
@@ -3436,6 +3437,7 @@ function createGitHub() {
   };
   github.schedule();
   if (github.can('sync')) setTimeout(() => github.sync().catch(() => {}), 30 * 1000);
+  profileCard = new ProfileCard({ config, github });
 }
 
 // ================================================================ usage limits
@@ -4297,7 +4299,23 @@ async function confirmGitHubFeature(feature, on) {
     });
     if (response !== 0) return { ok: false, canceled: true, view: github.view() };
   }
+  // The profile card is a public gist too, and it shows your level and streak.
+  if (feature === 'profileCard' && on) {
+    const response = await askOnce({
+      icon: '🪪',
+      title: 'Put your crab on your GitHub profile?',
+      message: 'Shellby keeps an image of your crab in a public gist: his outfit, your level, your streak and your five latest stickers (pictures only, no project names).',
+      detail: 'A small GitHub Action in your profile repository copies it in every few hours, so your profile README can show it. Shellby gives you the Action and the README line to paste; it never touches your repositories itself.',
+      note: 'Turning this off deletes the gist. The last copy stays in your profile repo until you remove it.',
+      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
   const r = await github.setFeature(feature, on);
+  if (feature === 'profileCard' && r.ok && !r.needsApproval && !on) {
+    const down = await profileCard.takeDown();
+    if (!down.ok) return { ...r, error: down.error, view: github.view() };
+  }
   if (feature === 'friends' && r.ok && !r.needsApproval) {
     if (on) friends?.start();
     else if (friends) {
@@ -5906,12 +5924,12 @@ ${r.detail}` });
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'friends', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
+  const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    // claude, workflows and friends are never granted by a first sign-in: each has its
-    // own confirmation, so they can only be turned on deliberately afterwards.
-    const GUARDED = new Set(['claude', 'workflows', 'friends']);
+    // claude, workflows, friends and the profile card are never granted by a first sign-in:
+    // each has its own confirmation, so they can only be turned on deliberately afterwards.
+    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard']);
     const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await github.signIn(list);
     return { ...r, view: github.view() };
@@ -5928,12 +5946,17 @@ ${r.detail}` });
   ipcMain.handle('github:sign-out', async () => {
     // The calling card is public: take it down while there's still a sign-in to do it with.
     const down = friends?.enabled ? await friends.takeDown() : { ok: true };
+    // Its gist too, even if turning it off earlier couldn't delete it.
+    const cardDown = github.can('profileCard') || profileCard.isUp ? await profileCard.takeDown() : { ok: true };
     github.signOut();
     if (!down.ok) send(panel, 'github:error', down.error);
+    if (!cardDown.ok) send(panel, 'github:error', cardDown.error);
     return github.view();
   });
   ipcMain.handle('github:set-feature', (_e, feature, on) => (FEATURE_NAMES.has(feature) ? confirmGitHubFeature(feature, !!on) : { ok: false, view: github.view() }));
   ipcMain.handle('github:sync', async () => ({ ...(await github.sync()), view: github.view() }));
+  ipcMain.handle('profile-card:get', () => profileCard.view());
+  ipcMain.handle('profile-card:publish', async (_e, svg, force) => ({ ...(await profileCard.publish(svg, { force: force === true })), view: profileCard.view() }));
   // ---- Visiting crabs (src/main/friends.js)
   const noFriends = { ok: false, error: 'Visiting crabs is unavailable.' };
   ipcMain.handle('friends:get', () => (friends ? friendsView() : null));

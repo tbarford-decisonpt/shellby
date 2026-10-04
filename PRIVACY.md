@@ -20,6 +20,7 @@ What Shellby does do is talk to a few services on your behalf: GitHub to check f
 | **Sync** | GitHub (a *private* gist in your account) | Trophies, XP and its log, outfit, skin, project names and their GitHub remote addresses (e.g. `github.com/you/repo`), stats, and a random ID for this PC | Every 15 minutes and shortly after changes, while Sync is on. Off by default. |
 | **CI status** | GitHub | Searches for your open pull requests and ones awaiting your review, and their check results | Every 3 minutes, while it's on. |
 | **Visiting crabs** | GitHub (a *public* gist in your account, and your friends' gists) | Your calling card: GitHub username, skin, shell, level, outfit, sticker art, his temperament and his favourite find from digging, and up to 3 project names only if you pick **Shell and names**. Waves are posted as gist comments. | Every few minutes, while it's on. Turning it off deletes your card. Off by default. |
+| **Profile card** | GitHub (a *public* gist in your account) | An SVG picture: your GitHub username, crab and outfit, level and title, streak length, and the art of your five latest stickers (no project names; hidden projects left off). A GitHub Action you add to your profile repository copies it there. | When it changes, and at most once a day otherwise, while it's on. Turning it off or signing out deletes the gist; the copy in your profile repository stays until you remove it. Off by default. |
 | **Publishing a Wardrobe pack** | GitHub | Your pack, as a pull request to `x-salmon/shellby-packs` | When you publish one. |
 | **Let Claude tasks push** | GitHub, through `git` and `gh` in your tabs | Your GitHub sign-in is handed to the Claude Code tasks Shellby runs, so they can push | Off by default, with a warning before it's turned on. |
 | **Community packs and outfit codes** | `x-salmon.github.io/shellby-packs` | Requests for the pack index, catalog and pack files | When you open a `shellby://install` link or paste an outfit code that needs items you don't have. |
@@ -65,7 +66,7 @@ What these services do with your data is up to them, under their own policies: [
 
 Uninstalling Shellby removes the app but **keeps your data**, so a reinstall picks up where you left off. To remove everything, uninstall and then delete `%APPDATA%\Shellby`, `%LOCALAPPDATA%\Shellby` and `Pictures\Shellby`.
 
-Things stored in your GitHub account stay there until you remove them: turn off Visiting crabs to delete your calling card, delete the `shellby-sync.json` gist from [your gists](https://gist.github.com), and revoke Shellby under [GitHub → Settings → Applications](https://github.com/settings/applications).
+Things stored in your GitHub account stay there until you remove them: turn off Visiting crabs to delete your calling card, turn off Profile card to delete its gist (and remove `shellby-profile.svg` from your profile repository yourself), delete the `shellby-sync.json` gist from [your gists](https://gist.github.com), and revoke Shellby under [GitHub → Settings → Applications](https://github.com/settings/applications).
 
 ## Changes
 

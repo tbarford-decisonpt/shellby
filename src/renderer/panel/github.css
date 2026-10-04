@@ -44,6 +44,11 @@
 /* Visiting crabs */
 .gh-friends { margin: -2px 0 10px 46px; }
 .gh-friends .gh-ci-head { margin-bottom: 6px; }
+.gh-profile-card { margin: -2px 0 10px 46px; }
+.pc-preview { display: block; width: 100%; max-width: 480px; height: auto; margin-bottom: 6px; border-radius: 14px; }
+.pc-steps { margin: 8px 0 0; padding-left: 18px; color: var(--sand-dim); }
+.pc-steps li { margin-bottom: 6px; }
+.pc-steps .slim-btn { height: 26px; margin-left: 4px; vertical-align: middle; }
 .fr-add { display: flex; gap: 8px; margin-bottom: 8px; }
 .fr-add .field { flex: 1; min-width: 0; }
 .fr-list, .fr-inbox, .fr-guestbook { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }

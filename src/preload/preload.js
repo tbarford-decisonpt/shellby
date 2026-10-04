@@ -211,6 +211,8 @@ contextBridge.exposeInMainWorld('shellby', {
   githubSignOut: invoke('github:sign-out'),
   githubSetFeature: invoke('github:set-feature'),
   githubSync: invoke('github:sync'),
+  getProfileCard: invoke('profile-card:get'),
+  publishProfileCard: invoke('profile-card:publish'),
   githubManage: () => ipcRenderer.send('github:manage'),
   publishPack: invoke('github:publish'),
   onGitHub: on('github'),
