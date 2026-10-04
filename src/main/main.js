@@ -108,6 +108,7 @@ const { IssueWatcher } = require('./github/issues');
 const issueWork = require('./github/pullrequest');
 const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
 const { ProfileCard } = require('./github/profile-card');
+const prBadges = require('./github/pr-badge');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
@@ -261,7 +262,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard, prBadge;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let projects = null;               // the Projects page (projects/service.js)
@@ -1360,6 +1361,8 @@ function createManager() {
       // A push, deploy or release ships the project: its sticker (stickers.js).
       const ship = c.dir && stickers.shipOf(kind, c.command);
       if (ship) shipped(c.dir, ship.kind, ship.meta);
+      // gh pr create: the tab's work is a pull request now, so it gets the badge (github/pr-badge.js).
+      if (!item.isError && prBadges.isPrCreate(c.command)) badgePr(`${item.text || ''}\n${tail || ''}`);
       // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
       const check = checkup.checkupOf(c.command);
       if (check && c.cwd) {
@@ -3712,6 +3715,7 @@ function createGitHub() {
   github.schedule();
   if (github.can('sync')) setTimeout(() => github.sync().catch(() => {}), 30 * 1000);
   profileCard = new ProfileCard({ config, github });
+  prBadge = new prBadges.PrBadge({ config, github, level: currentLevel, web: githubEndpoints().web });
 }
 
 // ================================================================ usage limits
@@ -4389,8 +4393,22 @@ function makeIssueCopy({ repo, slug }) {
   });
 }
 
-async function openIssuePr({ folder, title, body, draft }) {
+// "Built with Shellby" on a pull request a tab just opened, when that's on.
+// Best effort: a badge that didn't make it is noted in Settings, nothing more.
+function badgePr(output) {
+  if (CAPTURE || !github?.can('prBadge')) return;
+  const pr = prBadges.prFromOutput(output, githubEndpoints().web);
+  if (!pr) return;
+  prBadge.addTo(pr)
+    .then(r => { if (!r.ok) log.warn('PR badge', r.error); send(panel, 'pr-badge', prBadge.view()); })
+    .catch(e => log.warn('PR badge', e.message));
+}
+
+async function openIssuePr({ folder, title, body: asked, draft }) {
   if (!github?.can('claude')) return { ok: false, error: 'Opening pull requests needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
+  // The badge goes in the body it opens with, rather than an edit after.
+  const badge = github.can('prBadge') ? await prBadge.block() : null;
+  const body = badge ? prBadges.withBadge(asked, badge) : asked;
   const r = await issueWork.openPullRequest({ folder, title, body, draft }, {
     gh: github.gh(), git: worktrees.git, home: worktreeHome(), env: github.claudeEnv(), web: githubEndpoints().web,
   });
@@ -4581,6 +4599,18 @@ async function confirmGitHubFeature(feature, on) {
       message: 'Shellby keeps an image of your crab in a public gist: his outfit, your level, your streak and your five latest stickers (pictures only, no project names).',
       detail: 'A small GitHub Action in your profile repository copies it in every few hours, so your profile README can show it. Shellby gives you the Action and the README line to paste; it never touches your repositories itself.',
       note: 'Turning this off deletes the gist. The last copy stays in your profile repo until you remove it.',
+      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
+  // The badge makes a public repository on your account and edits your pull requests: say so first.
+  if (feature === 'prBadge' && on) {
+    const response = await askOnce({
+      icon: '🦀',
+      title: 'Put your crab on your pull requests?',
+      message: 'When a Shellby tab opens a pull request, Shellby adds a small picture of your crab (dressed as he is now), your level and a link to Shellby at the bottom of its description.',
+      detail: `The picture has to live in a public repository for GitHub to show it, so Shellby makes one on your account, ${github.view().login || 'you'}/${prBadges.REPO}, holding only that picture (each new look is a commit, so earlier looks stay in its history). Only pull requests you open from Shellby get it, and you can delete it from any of them like any other text.\n\nGitHub has no permission for just one repository, so this asks for access to your public repositories (public_repo), the same one publishing Wardrobe packs uses. Shellby only ever writes to ${prBadges.REPO} and your own pull requests with it.`,
+      note: 'Turning this off stops new badges. The repository stays, so the pictures on pull requests you already opened keep working. The permission lasts until you sign out.',
       buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
     });
     if (response !== 0) return { ok: false, canceled: true, view: github.view() };
@@ -6250,12 +6280,12 @@ ${r.detail}` });
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
+  const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    // claude, workflows, friends and the profile card are never granted by a first sign-in:
+    // claude, workflows, friends, the profile card and the PR badge are never granted by a first sign-in:
     // each has its own confirmation, so they can only be turned on deliberately afterwards.
-    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard']);
+    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard', 'prBadge']);
     const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await github.signIn(list);
     return { ...r, view: github.view() };
@@ -6283,6 +6313,9 @@ ${r.detail}` });
   ipcMain.handle('github:sync', async () => ({ ...(await github.sync()), view: github.view() }));
   ipcMain.handle('profile-card:get', () => profileCard.view());
   ipcMain.handle('profile-card:publish', async (_e, svg, force) => ({ ...(await profileCard.publish(svg, { force: force === true })), view: profileCard.view() }));
+  ipcMain.handle('pr-badge:get', () => prBadge.view());
+  // Only kept for the next pull request: nothing is uploaded until there is one.
+  ipcMain.handle('pr-badge:picture', (_e, svg) => ({ ok: prBadge.setSvg(svg), view: prBadge.view() }));
   // ---- Visiting crabs (src/main/friends.js)
   const noFriends = { ok: false, error: 'Visiting crabs is unavailable.' };
   ipcMain.handle('friends:get', () => (friends ? friendsView() : null));
