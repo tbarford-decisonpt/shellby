@@ -407,6 +407,16 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   await wait(300);
   await shot(panel, path.join(out, 'screenshot-devserver-fix.png'));
   await js("document.querySelector('#pjDetailScreen .pj-detail-head button')?.click()");
+
+  // The beach, built and at night (the brand's hour), then its snapshot.
+  // Last, because its seed replaces the stickers and streaks.
+  config.set(demo.demoBeach(now));
+  await js("SB.beachPaint.timeOfDay = () => 'night'; 1");
+  await show('beach', 1800);
+  await shot(panel, path.join(out, 'screenshot-beach.png'));
+  const beachCard = await js('SB.beachCard.render().then(r => r.canvas.toDataURL("image/png"))');
+  fs.writeFileSync(path.join(out, 'beach-card.png'), Buffer.from(beachCard.split(',')[1], 'base64'));
+  console.log('wrote', path.relative(process.cwd(), path.join(out, 'beach-card.png')));
 }
 
 const FAKE_STATUS = {
