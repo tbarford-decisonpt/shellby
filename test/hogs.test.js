@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   parseGpuEngines, parseProcesses, topBy, metricFor, protectedReason, parseTasklistName,
 } = require('../src/main/health/hogs');
-const { parseApproved, parseStartup, describeLocation, approvalScope, startupPrompt } = require('../src/main/health/startup');
+const { parseApproved, parseStartup, describeLocation, approvalScope, switchFor, approvedBytes, startupPrompt, createStartupReader } = require('../src/main/health/startup');
 const { HealthService } = require('../src/main/health/service');
 
 const MB = 1024 ** 2;
@@ -159,6 +159,55 @@ test('startup list: switched-off ones are marked, sorted last, and shortcuts mat
   assert.equal(parseStartup('{oops'), null);
   // One item comes back as an object, not an array.
   assert.equal(parseStartup(JSON.stringify({ items: { Name: 'Solo', Command: 'solo.exe', Location: 'Startup' } })).length, 1);
+});
+
+test('only your own entries get a switch, under their exact registry name', () => {
+  const RUN = '\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run';
+  const me = 'S-1-5-21-1-2-3-1001';
+  assert.deepEqual(switchFor({ Name: 'Discord', Location: `HKU\\${me}${RUN}` }, me), { key: 'Run', name: 'Discord' });
+  assert.deepEqual(switchFor({ Name: 'Old', Location: `HKU\\${me}\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run` }, me), { key: 'Run32', name: 'Old' });
+  assert.deepEqual(switchFor({ Name: 'Spotify', Command: 'Spotify.lnk', Location: 'Startup' }, me), { key: 'StartupFolder', name: 'Spotify.lnk' });
+  assert.equal(switchFor({ Name: 'Discord', Location: `HKU\\S-1-5-21-9-9-9-1002${RUN}` }, me), null, "another signed-in account's entry");
+  assert.equal(switchFor({ Name: 'Discord', Location: `HKU\\${me}${RUN}` }, undefined), null, 'no SID read: not sure it is yours');
+  assert.equal(switchFor({ Name: 'SecurityHealth', Location: `HKLM${RUN}` }, me), null, 'everyone: needs admin');
+  assert.equal(switchFor({ Name: 'Tailscale', Command: 'Tailscale.lnk', Location: 'Common Startup' }, me), null);
+  assert.equal(switchFor({ Name: 'Setup', Location: `HKU\\${me}${RUN}Once` }, me), null);
+  // A name with control characters is never cleaned up and written as something else.
+  assert.equal(switchFor({ Name: 'Evil\nname', Location: `HKU\\${me}${RUN}` }, me), null);
+  assert.equal(switchFor({ Name: 'x'.repeat(261), Location: `HKU\\${me}${RUN}` }, me), null);
+});
+
+test('the parsed list carries each switch, using the SID the reader found', () => {
+  const me = 'S-1-5-21-1-2-3-1001';
+  const items = parseStartup(JSON.stringify({
+    sid: me,
+    items: [
+      { Name: 'Discord', Command: 'Update.exe', Location: `HKU\\${me}\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run` },
+      { Name: 'SecurityHealth', Command: 'x.exe', Location: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' },
+    ],
+  }));
+  assert.deepEqual(items.find(i => i.name === 'Discord').switch, { key: 'Run', name: 'Discord' });
+  assert.equal(items.find(i => i.name === 'SecurityHealth').switch, null);
+});
+
+test('switch values match what Task Manager writes', () => {
+  assert.deepEqual(approvedBytes(false), [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const off = approvedBytes(true, Date.UTC(2026, 9, 3));
+  assert.equal(off.length, 12);
+  assert.deepEqual(off.slice(0, 4), [3, 0, 0, 0]);
+  // Bytes 4-11 are a little-endian FILETIME: 100 ns ticks since 1601.
+  const ft = off.slice(4).reduceRight((acc, b) => acc * 256n + BigInt(b), 0n);
+  assert.equal(ft, (BigInt(Date.UTC(2026, 9, 3)) + 11644473600000n) * 10000n);
+  assert.ok(off.every(b => Number.isInteger(b) && b >= 0 && b <= 255));
+});
+
+test('the writer refuses lists and names it was never meant to touch', async () => {
+  const reader = createStartupReader({ platform: 'win32' });
+  assert.equal((await reader.set({ key: 'RunOnce', name: 'x' }, true)).ok, false);
+  assert.equal((await reader.set({ key: '..\\..\\Run', name: 'x' }, true)).ok, false);
+  assert.equal((await reader.set({ key: 'Run', name: 'a\u0000b' }, true)).ok, false);
+  assert.equal((await reader.set(null, true)).ok, false);
+  assert.equal((await createStartupReader({ platform: 'linux' }).set({ key: 'Run', name: 'x' }, true)).ok, false);
 });
 
 test('startup prompt counts what runs, fences the list off as data, and is read-only', () => {
@@ -340,6 +389,75 @@ test('askStartup starts a read-only task with the startup list', async () => {
   assert.deepEqual(tasks[0].opts, { mode: 'ask' }, 'registry text in the prompt: never in a looser mode');
   assert.match(tasks[0].prompt, /Discord/);
   assert.match(tasks[0].prompt, /Don't disable/);
+});
+
+test('startupItems hands the panel ids and locks, never the registry names', async () => {
+  const { svc } = service({ selfExe: 'C:\\Users\\you\\AppData\\Local\\Programs\\Shellby\\Shellby.exe' });
+  const { items } = await svc.startupItems();
+  const discord = items.find(i => i.name === 'Discord');
+  assert.equal(typeof discord.id, 'string');
+  assert.equal(discord.locked, null);
+  assert.equal('switch' in discord, false);
+  assert.match(items.find(i => i.name === 'SecurityHealth').locked, /administrator/);
+  assert.match(items.find(i => i.name === 'Shellby').locked, /Settings/);
+});
+
+test('setStartup switches one off and back on, and returns the fresh list', async () => {
+  const { svc } = service();
+  const { items } = await svc.startupItems();
+  const id = items.find(i => i.name === 'Steam').id;
+  const off = await svc.setStartup(id, true);
+  assert.equal(off.ok, true);
+  assert.equal(off.off, true);
+  assert.equal(off.list.items.find(i => i.name === 'Steam').off, true);
+  const on = await svc.setStartup(id, false);
+  assert.equal(on.list.items.find(i => i.name === 'Steam').off, false);
+});
+
+test('setStartup only touches unlocked entries it just listed', async () => {
+  const set = [];
+  const reader = {
+    read: async () => [
+      { name: 'Steam', command: 'steam.exe', location: 'Run key (you)', off: false, switch: { key: 'Run', name: 'Steam' } },
+      { name: 'SecurityHealth', command: 'x.exe', location: 'Run key (everyone)', off: false, switch: null },
+    ],
+    set: async (sw, off) => { set.push([sw, off]); return { ok: true }; },
+  };
+  const { svc } = service({ startupReader: reader });
+  assert.equal((await svc.setStartup('run key (you)|steam', true)).ok, false, 'nothing listed yet');
+  const { items } = await svc.startupItems();
+  assert.equal((await svc.setStartup('run key (you)|discord', true)).ok, false);
+  assert.equal((await svc.setStartup(42, true)).ok, false);
+  assert.match((await svc.setStartup(items[1].id, true)).error, /administrator/);
+  assert.deepEqual(set, []);
+  await svc.setStartup(items[0].id, true);
+  assert.deepEqual(set, [[{ key: 'Run', name: 'Steam' }, true]]);
+});
+
+test('only the entry that runs this Shellby is locked; another Shellby build is not', async () => {
+  const reader = {
+    read: async () => [
+      { name: 'com.xsalmon.shellby', command: '"C:\\Programs\\Shellby\\Shellby.exe"', location: 'Run key (you)', off: false, switch: { key: 'Run', name: 'com.xsalmon.shellby' } },
+      { name: 'com.sandoxus.shellby', command: '"C:\\Other\\Shellby\\Shellby.exe"', location: 'Run key (you)', off: false, switch: { key: 'Run', name: 'com.sandoxus.shellby' } },
+    ],
+    set: async () => ({ ok: true }),
+  };
+  const { svc } = service({ startupReader: reader, selfExe: 'C:\\Programs\\Shellby\\Shellby.exe' });
+  const { items } = await svc.startupItems();
+  assert.match(items[0].locked, /Open at login/);
+  assert.equal(items[1].locked, null);
+});
+
+test('setStartup reports a write Windows refused', async () => {
+  const reader = {
+    read: async () => [{ name: 'Steam', command: 'steam.exe', location: 'Run key (you)', off: false, switch: { key: 'Run', name: 'Steam' } }],
+    set: async () => ({ ok: false, error: "Windows didn't take the change." }),
+  };
+  const { svc } = service({ startupReader: reader });
+  const { items } = await svc.startupItems();
+  const r = await svc.setStartup(items[0].id, true);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /didn't take/);
 });
 
 test('askStartup says so when the list can\'t be read', async () => {

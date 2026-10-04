@@ -5042,6 +5042,7 @@ ${r.detail}` });
   ipcMain.handle('health:end-task', (_e, pid) => health.endTask(Number.isInteger(pid) ? pid : null));
   ipcMain.handle('health:startup', (_e, force) => health.startupItems({ force: force === true }));
   ipcMain.handle('health:ask-startup', () => health.askStartup());
+  ipcMain.handle('health:set-startup', (_e, id, off) => health.setStartup(isStr(id) ? id : null, off === true));
   ipcMain.handle('health:clear-log', () => { config.set({ healthLog: [] }); return health.view(); });
   ipcMain.on('health:viewed', () => stat('health-viewed'));
 

@@ -78,6 +78,12 @@ GPU use per process needs Windows 10 1709 or later. Reading the list takes a sec
 
 The Health view lists what launches when you sign in: the Run entries in the registry and the Startup folders, yours and everyone's. Anything you've switched off in Task Manager is crossed out and doesn't count toward the total.
 
+**Switch off / Switch on** next to an entry flips the same switch as Task Manager → Startup apps (the `StartupApproved` value under your account). The entry and the app stay where they are, so switching it back on puts things as they were, and Task Manager shows the change too. Shellby only switches your own entries. These stay **locked**, and hovering the tag says why:
+
+- Entries for everyone (HKLM, the shared Startup folder) need an administrator. Use Task Manager.
+- Shellby's own entry is controlled by **Open at login** in Settings.
+- RunOnce and the system accounts' entries have no switch.
+
 **Ask Shellby which ones I need** starts a task with that list. Claude explains what each one is, also looks (read-only) at scheduled tasks that run at logon and at non-Microsoft services that start automatically, and gives you a table of what to keep, what to switch off, and how to do it yourself. Like the other Ask Shellby tasks, it's told not to disable or change anything. It always runs in **Ask** mode, whatever mode you're in, because the list comes from the registry and any installer can write there. So anything Claude wants to run still asks you first.
 
 ## Trophies
@@ -103,6 +109,6 @@ In the Health view:
 - `src/main/health/monitor.js`: the poll loop and an hour of history.
 - `src/main/health/service.js`: settings, notifications, the alert log, trophies and IPC.
 - `src/main/health/hogs.js`: the process list, sorting and the End task guards. Covered in `test/hogs.test.js`.
-- `src/main/health/startup.js`: the startup list and its audit prompt. Also covered in `test/hogs.test.js`.
+- `src/main/health/startup.js`: the startup list, its on/off switch and the audit prompt. Also covered in `test/hogs.test.js`.
 - **Fake sensors.** `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu npm start` runs a dev build with scripted sensors and no waiting. It's ignored by installed builds.
 - **End-to-end check.** `node scripts/e2e-health.js` launches each scenario and checks the desktop mood, the bubble, the Health view and the badge on Health in the panel's bottom bar.
