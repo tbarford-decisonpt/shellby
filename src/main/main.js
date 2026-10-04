@@ -747,7 +747,7 @@ function createPanel() {
     show: false, frame: false, backgroundColor: '#0c1719', title: 'Shellby', icon: ICON, webPreferences,
   });
   secureWindow(panel);
-  attachContextMenu(panel, Menu);
+  attachContextMenu(panel, electronIpcMain); // checks the sender itself: only the panel picks from its menu
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
   panel.on('focus', reachedForShellby); // clicked into it yourself
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });

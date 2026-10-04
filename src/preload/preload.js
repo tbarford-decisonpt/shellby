@@ -118,6 +118,8 @@ contextBridge.exposeInMainWorld('shellby', {
   openSkinsFolder: fire('skins:open-folder'),
   openDataFolder: fire('open-data-folder'),
   openExternal: fire('open-external'),
+  pickTextMenu: fire('text-menu:pick'), // the right-click menu for text (textmenu.js, main/context-menu.js)
+  onTextMenu: on('text-menu'),
 
   // toolbox
   getToolbox: invoke('toolbox:get'),

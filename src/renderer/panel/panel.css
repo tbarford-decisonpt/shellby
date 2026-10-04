@@ -210,6 +210,15 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .menu-sep { height: 1px; background: var(--line); margin: 5px 4px; }
 .menu-label { padding: 6px 9px 3px; font: 600 10.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--sand-faint); }
 
+/* Right-click on text (textmenu.js): compact, at the pointer, spelling fixes first. */
+.text-menu { position: fixed; z-index: 60; min-width: 190px; max-width: 280px; padding: 5px; animation-duration: .12s; }
+.text-menu .menu-item { align-items: center; padding: 6px 9px; }
+.text-menu .mi-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-menu .tm-fix .mi-title { font-weight: 700; color: var(--glass); }
+.text-menu .tm-keys { flex: none; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
+.text-menu .menu-label { padding-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .text-menu { animation: none; } }
+
 /* ================================================================ views */
 .view { display: none; flex: 1; min-height: 0; position: relative; z-index: 1; }
 body[data-view="chat"] .view-chat { display: flex; flex-direction: column; }
