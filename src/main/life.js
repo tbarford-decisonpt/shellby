@@ -536,6 +536,9 @@ function createLife(d) {
     hushed: () => onCall, onCall: () => onCall, playing: () => playing, napping, wake,
     busy: () => !!scene || !!presenting,
     lookNow: () => look,
+    // The crab's page (re)loaded: send where he's looking on the next tick even if
+    // it hasn't changed, since a still cursor would otherwise never send it again.
+    resendLook: () => { lookSent = ''; },
     // dev/e2e
     playScene: id => { const s = repertoire().list.find(x => x.id === id); return s ? play(s, { force: true }) : null; },
     dig: dug,

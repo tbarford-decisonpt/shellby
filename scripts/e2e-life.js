@@ -92,8 +92,10 @@ async function windows() {
     const l0 = await life();
     check(!!l0?.temperament?.name && !!l0.temperament.blurb, `he has a temperament (${l0?.temperament?.name})`);
     check(l0?.bond?.journal?.some(e => e.kind === 'hatched'), 'the story starts with him moving in');
-    const look = await critter.ev("getComputedStyle(document.documentElement).getPropertyValue('--lookx').trim()");
-    check(['-1', '0', '1'].includes(look), `his eyes have somewhere to look (--lookx ${look})`);
+    const lookx = "getComputedStyle(document.documentElement).getPropertyValue('--lookx').trim()";
+    await until(critter, `['-1', '0', '1'].includes(${lookx})`, 5000);
+    const look = await critter.ev(lookx);
+    check(['-1', '0', '1'].includes(look),`his eyes have somewhere to look (--lookx ${look})`);
 
     // ------------------------------------------------------- 2. every scene plays
     const scenes = await panel.ev('shellby.getLife().then(v => v.scenes.list.map(s => s.id))');

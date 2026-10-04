@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.63.1: 0.63.0, delivered
+
+0.63.0 didn't make it out of the build, so this is the first version to bring everything in it (below).
+
+### Fixed
+- **His eyes follow your cursor from the start.** When his window reloaded with the mouse sitting still, he could stare straight ahead until you moved it.
+
 ## 0.63.0: issues to pull requests, hooks made friendly, and a tidier crab
 
 ### New

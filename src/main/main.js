@@ -6097,7 +6097,7 @@ app.whenReady().then(() => {
   watchIdleCost();
   watchAway();
   watchLeaving();
-  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); });
+  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); life?.resendLook(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin,
     makeTimeTracker: () => { createTimeTracker({ start: false }); return timeTracker; } });
