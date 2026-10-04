@@ -241,12 +241,12 @@
     </div>
     <p class="view-lede">Tasks Shellby runs on a schedule while your PC is on. Each run opens its own tab, and if it needs you, you'll get a notification.</p>
     <form class="routine-ask" id="routineAsk" novalidate>
-      <label class="field-label" for="routineAskText">Or just describe it</label>
+      <label class="field-label" for="routineAskText">Describe a routine</label>
       <div class="row">
         <input class="field" id="routineAskText" name="text" maxlength="500" autocomplete="off" placeholder="Every weekday at 8:30, list what changed in my Documents">
         <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
       </div>
-      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check, then you can keep talking it over beside it. Nothing is saved until you press Save, or Claude tests it.</p>
+      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check before anything is saved.</p>
       <button type="button" class="btn ghost slim-btn routine-as-workflow" id="routineAsWorkflow" hidden>Build it as a workflow instead</button>
     </form>
     <!-- The editor, with Build it with Claude (wf-chat.js) beside it once there's room. -->
@@ -300,13 +300,15 @@
       </div>
     </form>
     </div>
+    <!-- Your routines come first; the tools below them are secondary (.rt-section). -->
+    <ul class="routine-list" id="routineList"></ul>
     <!-- The reset queue (held.js tasks, outlook.js state): heavy work for a fresh 5-hour window. -->
-    <section class="reset-queue" id="resetQueue" aria-labelledby="resetQueueTitle">
+    <section class="rt-section reset-queue" id="resetQueue" aria-labelledby="resetQueueTitle">
       <div class="rq-head">
         <h3 id="resetQueueTitle">When your limit resets</h3>
         <span class="rq-when" id="resetQueueWhen"></span>
       </div>
-      <p class="rq-lede">Heavy tasks that wait for a fresh 5-hour window, then run one after another, overnight too. If the window runs out partway, the task carries on after the next reset.</p>
+      <p class="rq-lede">Heavy tasks wait for a fresh 5-hour window, then run one after another, overnight too.</p>
       <ol class="rq-list" id="resetQueueList"></ol>
       <form class="rq-add" id="resetQueueForm" novalidate>
         <label class="sr-only" for="resetQueueText">Task to run after the reset</label>
@@ -320,7 +322,7 @@
             <option value="plan">Plan only</option>
             <option value="autonomous">Autonomous</option>
           </select>
-          <button type="submit" class="btn primary slim-btn" id="resetQueueAdd">Queue it</button>
+          <button type="submit" class="btn slim-btn" id="resetQueueAdd">Queue it</button>
         </div>
         <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>
       </form>
@@ -329,8 +331,7 @@
         <p class="rq-phone" id="resetQueuePhone"></p>
       </div>
     </section>
-    <ul class="routine-list" id="routineList"></ul>
-    <section class="deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
+    <section class="rt-section deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
       <div class="deps-head">
         <h3 id="depsTitle">Dependency health</h3>
         <span class="deps-summary" id="depsSummary"></span>
@@ -339,7 +340,7 @@
       <ul class="deps-list" id="depsList"></ul>
     </section>
 
-    <section class="deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
+    <section class="rt-section deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
       <div class="deps-head">
         <h3 id="flakyTitle">Flaky tests</h3>
         <span class="deps-summary" id="flakySummary"></span>
@@ -349,12 +350,12 @@
       <button type="button" class="btn ghost slim-btn flaky-forget" id="flakyForget">Forget all of this</button>
     </section>
 
-    <section class="dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
+    <section class="rt-section dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
       <div class="dw-head">
         <h3 id="depWatchTitle">Dependency watch</h3>
         <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
       </div>
-      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects for outdated and vulnerable packages every week</label>
+      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects' packages every week</label>
       <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby runs <code>npm outdated</code> and <code>npm audit</code> in the npm projects you work in, which asks the npm registry about their packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
       <ul class="dw-list" id="depWatchList"></ul>
     </section>
