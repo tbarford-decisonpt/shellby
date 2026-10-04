@@ -495,20 +495,21 @@
       <div class="xp-head">
         <span class="xp-level" id="xpLevel">1</span>
         <div class="xp-titles">
-          <p class="xp-eyebrow">Level</p>
+          <p class="xp-eyebrow" id="xpEyebrow">Level</p>
           <h3 id="xpTitle">Hatchling</h3>
         </div>
         <span class="xp-total" id="xpTotal">0 XP</span>
       </div>
       <div class="xp-bar" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="100" id="xpBarWrap"><i id="xpBar"></i></div>
-      <p class="xp-next" id="xpNext"></p>
-      <p class="xp-unlock" id="xpUnlock" hidden></p>
-      <p class="xp-boosts" id="xpBoosts" hidden></p>
-      <div class="xp-bounties" id="xpBounties" aria-label="Today's bounties">
+      <div class="xp-meta">
+        <p class="xp-next"><span id="xpNext"></span><span class="xp-unlock" id="xpUnlock" hidden></span></p>
+        <ul class="xp-boosts" id="xpBoosts" aria-label="XP boosts" hidden></ul>
+      </div>
+      <div class="xp-section xp-bounties" id="xpBounties" aria-label="Today's bounties">
         <p class="xp-sub">Today's bounties <span id="xpBountyBonus"></span></p>
         <ul id="xpBountyList"></ul>
       </div>
-      <div class="xp-week" id="xpWeek" aria-label="This week" hidden>
+      <div class="xp-section xp-week" id="xpWeek" aria-label="This week" hidden>
         <div class="xp-week-head">
           <p class="xp-sub">This week <span id="xpWeekRange"></span></p>
           <button type="button" class="btn slim-btn" data-share-week title="Make a shareable picture of your week: tasks, streak, top project and new trophies">📅 Share my week</button>
@@ -516,14 +517,16 @@
         <p class="xp-week-line" id="xpWeekLine"></p>
         <ul class="xp-week-shipped" id="xpWeekShipped" aria-label="Shipped this week"></ul>
       </div>
-      <div class="xp-history">
+      <div class="xp-section xp-history">
         <p class="xp-sub">Last 30 days <span id="xpHistoryTotal"></span></p>
         <div class="xp-spark" id="xpSpark" role="img"></div>
-        <ul class="xp-kinds" id="xpKinds"></ul>
+        <ul class="xp-kinds" id="xpKinds" aria-label="Where the XP came from"></ul>
+        <ul class="xp-log" id="xpLog" aria-label="Latest XP"></ul>
       </div>
-      <p class="xp-sub">Ways to earn</p>
-      <ul class="xp-ways" id="xpWays"></ul>
-      <ul class="xp-log" id="xpLog"></ul>
+      <details class="xp-section xp-ways-box">
+        <summary class="xp-sub">How to earn XP <span id="xpWaysCount"></span></summary>
+        <ul class="xp-ways" id="xpWays"></ul>
+      </details>
     </section>
     <section class="streak-card" id="streakCard" aria-label="Streaks">
       <div class="streak-head">
@@ -712,7 +715,8 @@
     </div>
     <ul class="history-list" id="historyList"></ul>
     <button type="button" class="btn ghost history-bin-open" id="historyBinOpen" hidden>Recently deleted <span class="n"></span></button>
-    <p class="muted small history-note">Stored only on this PC. To clear it, open <b>Settings → About → Data folder</b>.</p>
+    <p class="muted small history-note">Stored only on this PC.</p>
+    <button type="button" class="btn ghost deny history-clear" id="historyClear" hidden>Clear all history</button>
   </main>
 
   <!-- ====================== TIME (timetrack.js) ====================== -->

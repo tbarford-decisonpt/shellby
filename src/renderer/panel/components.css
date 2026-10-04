@@ -201,6 +201,11 @@ body.reordering .tip { display: none; }
 .lean-head strong { color: var(--glass); }
 .lean-cache { font-size: 12.5px; color: var(--sand-dim); }
 .lean-label { list-style: none; margin: 8px 0 0; }
+.lean-ask { margin: 2px 0; }
+.lean-loading { display: grid; justify-items: center; gap: 6px; padding-inline: 16px; line-height: 1.45; }
+.lean-loading.err { color: var(--danger); }
+.lean-wait { min-height: 18px; font: 600 12.5px/18px var(--font-mono); color: var(--glass); font-variant-numeric: tabular-nums; }
+.lean-wait-hint { font-size: 11.5px; color: var(--sand-faint); }
 .tool-row.is-idle { border-color: rgba(255, 193, 94, .4); }
 .tool-row.is-off { opacity: .7; }
 .idle-pill { font: 700 9.5px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 99px; background: var(--amber); color: #1a1206; }

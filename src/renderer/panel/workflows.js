@@ -752,7 +752,7 @@
   // ================================================================ the editor: model
 
   const ed = {
-    def: null, title: '', isNew: true, dirty: false, touched: false,
+    def: null, title: '', isNew: true, dirty: false, saved: null, touched: false,
     errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
     layout: pref(PREF.layout, 'map'), // 'map' or 'list'
     sel: null,                        // the map node the inspector shows: 's<n>', 't<n>', 'manual', 'settings'
@@ -872,12 +872,22 @@
     if (d.steps.length === 1) openSteps.add(d.steps[0]);
     if (current().name === 'editor') nav.pop();
     go('editor');
+    // What's on disk, to tell a real change from one that was typed and then put back.
+    // Nothing to compare against when it opens with changes already in it.
+    ed.saved = ed.dirty ? null : JSON.stringify(ed.def);
     if (!blank) validateSoon.now();
     if (blank) requestAnimationFrame(() => focusFk('wf-name'));
   }
 
+  function unsaved() {
+    if (!ed.dirty) return false;
+    if (ed.saved === null) return true;
+    if (ed.json && ed.jsonText !== JSON.stringify(ed.def, null, 2)) return true;
+    return JSON.stringify(ed.def) !== ed.saved;
+  }
+
   function leaveEditor(then) {
-    if (!ed.dirty) { validateSoon.cancel(); return then(); }
+    if (!unsaved()) { validateSoon.cancel(); return then(); }
     SB.toast('You have changes that aren\'t saved.', {
       action: 'Discard them', ms: 5000,
       onAction: () => { ed.dirty = false; validateSoon.cancel(); then(); },
@@ -1032,8 +1042,15 @@
   const txt = (label, value, onChange, opts = {}) => wrap(label, textControl('input', value, onChange, opts.attrs), opts);
   const area = (label, value, onChange, opts = {}) => wrap(label, textControl('textarea', value, onChange, { rows: 3, ...opts.attrs }), opts);
 
+  // Chromium turns the wheel over a focused number box into +1/-1, so scrolling
+  // the page past one quietly changes it. Let go of the box and let the page scroll.
+  function noWheel(el) {
+    el.addEventListener('wheel', () => { if (document.activeElement === el) el.blur(); }, { passive: true });
+    return el;
+  }
+
   function num(label, value, onChange, opts = {}) {
-    const el = h('input', { class: 'field', type: 'number', inputmode: 'numeric', ...opts.attrs });
+    const el = noWheel(h('input', { class: 'field', type: 'number', inputmode: 'numeric', ...opts.attrs }));
     el.value = value ?? '';
     el.addEventListener('input', () => { onChange(toInt(el.value)); changed(); });
     return wrap(label, el, opts);
@@ -1931,7 +1948,7 @@
     const seconds = Number.isFinite(s.seconds) ? s.seconds : 60;
     const unit = waitUnits.get(s) || ([...WAIT_UNITS].reverse().find(([, f]) => seconds % f === 0) || WAIT_UNITS[0])[0];
     const factor = () => WAIT_UNITS.find(([u]) => u === (waitUnits.get(s) || unit))[1];
-    const amount = h('input', { class: 'field', type: 'number', min: 1, inputmode: 'numeric', 'aria-label': 'How long' });
+    const amount = noWheel(h('input', { class: 'field', type: 'number', min: 1, inputmode: 'numeric', 'aria-label': 'How long' }));
     amount.value = String(seconds / WAIT_UNITS.find(([u]) => u === unit)[1]);
     const recompute = () => { const n = Number(amount.value); s.seconds = Number.isFinite(n) && amount.value !== '' ? Math.round(n * factor()) : undefined; changed(); };
     amount.addEventListener('input', recompute);
@@ -2088,8 +2105,9 @@
         if (ed.json && !applyJson()) return { ok: false, error: 'The JSON has a problem.' };
         // A new workflow is tested switched off, so its triggers can't fire before you Save it.
         const enabled = ed.def.enabled !== false;
+        const sent = { ...clone(ed.def), enabled: ed.def.id && !ed.trial ? enabled : false };
         let res;
-        try { res = await api.saveWorkflow({ ...ed.def, enabled: ed.def.id && !ed.trial ? enabled : false }); } catch { res = { ok: false, errors: [{ message: 'Couldn\'t save it.' }] }; }
+        try { res = await api.saveWorkflow(sent); } catch { res = { ok: false, errors: [{ message: 'Couldn\'t save it.' }] }; }
         if (!res?.ok) {
           if (!res?.declined && alive()) { ed.errors = normErrors(res?.errors); if (current().name === 'editor') paintErrors(); }
           return { ok: false, declined: !!res?.declined, error: normErrors(res?.errors).map(e => e.message).join(' ') || 'Not saved.' };
@@ -2099,13 +2117,20 @@
           if (!ed.def.id) ed.trial = true;
           // Saving gives it an id and hook addresses. Only those are copied in: anything you
           // changed while it saved stays, and so does your on/off.
-          ed.def.id = res.workflow.id;
-          ed.def.createdAt = res.workflow.createdAt;
-          const tokens = res.workflow.when.filter(t => t.type === 'webhook').map(t => t.token);
-          for (const t of ed.def.when.filter(x => x.type === 'webhook')) {
-            const token = tokens.shift();
-            if (!t.token) t.token = token;
-          }
+          const fillIn = def => {
+            def.id = res.workflow.id;
+            def.createdAt = res.workflow.createdAt;
+            const tokens = res.workflow.when.filter(t => t.type === 'webhook').map(t => t.token);
+            for (const t of def.when.filter(x => x.type === 'webhook')) {
+              const token = tokens.shift();
+              if (!t.token) t.token = token;
+            }
+          };
+          fillIn(ed.def);
+          // What's on disk now, for "changes that aren't saved": a new one tested switched off
+          // still differs from yours (it's on), so leaving it still warns until you Save.
+          fillIn(sent);
+          ed.saved = JSON.stringify(sent);
         }
         return { ok: true, id: res.workflow.id };
       },

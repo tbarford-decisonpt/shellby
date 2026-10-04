@@ -733,6 +733,7 @@ select.field option { background: var(--reef); }
 .history-tick[aria-pressed="true"] { color: var(--glass); }
 /* Recently deleted: a quiet way in under the list, a bar on top once inside. */
 .history-bin-open { display: block; margin: 0 auto 6px; }
+.history-clear { display: block; margin: 0 auto 6px; }
 .history-bin-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .history-bin-bar .small { flex: 1; min-width: 0; text-align: center; }
 .history-item.binned .h-title { color: var(--sand-dim); font-weight: 600; }

@@ -220,12 +220,27 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-total { margin-left: auto; font: 600 12px var(--font-mono); color: var(--sand-dim); white-space: nowrap; }
 .xp-bar { height: 8px; margin: 12px 0 5px; border-radius: 99px; background: var(--abyss); overflow: hidden; border: 1px solid rgba(255, 210, 63, .2); }
 .xp-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--rank, #ffd23f) 75%, #000), var(--rank, #ffd23f)); transform-origin: left; transform: scaleX(0); transition: transform .8s var(--ease-out); }
-.xp-next { margin: 0 0 6px; font-size: 12px; color: var(--sand-dim); }
+/* Under the bar: what's next on the left, boosts as pills on the right. */
+.xp-meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; }
+.xp-next { flex: 1 1 200px; margin: 0; font-size: 12px; line-height: 1.45; color: var(--sand); }
 .xp-card[data-rank="Prism"] .xp-level, .xp-card[data-rank="Prism"] .xp-bar i { background: linear-gradient(120deg, #ff5e5b, #ffb347, #ffe66d, #7bd389, #5bc0eb, #b28dff); }
-.xp-unlock { margin: 0 0 6px; font-size: 12px; color: var(--sand); }
-.xp-boosts { margin: 0 0 10px; font-size: 11.5px; color: #ffb37a; }
-.xp-sub { margin: 10px 0 5px; font: 600 10px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sand-faint); }
-.xp-sub span { letter-spacing: 0; text-transform: none; color: var(--sand-dim); }
+.xp-unlock { color: var(--sand-dim); }
+.xp-boosts { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; }
+.xp-boosts li { font: 600 10.5px/18px var(--font-mono); padding: 0 7px; border-radius: 99px; background: rgba(255, 179, 122, .12); border: 1px solid rgba(255, 179, 122, .28); color: #ffb37a; white-space: nowrap; cursor: default; }
+/* Four groups (today, this week, last 30 days, how to earn), each set off by a hairline. */
+.xp-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.xp-sub { margin: 10px 0 5px; font: 600 10px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sand-dim); }
+.xp-section > .xp-sub:first-child, .xp-section > :first-child > .xp-sub { margin-top: 0; }
+.xp-sub span { letter-spacing: 0; text-transform: none; color: var(--sand-faint); }
+/* How to earn: reference, so it stays folded until asked for. */
+.xp-ways-box > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; border-radius: 4px; }
+.xp-ways-box > summary::-webkit-details-marker { display: none; }
+.xp-ways-box > summary::before { content: '▸'; font-size: 10px; letter-spacing: 0; transition: transform .15s var(--ease-out); }
+.xp-ways-box[open] > summary::before { transform: rotate(90deg); }
+.xp-ways-box > summary:hover { color: var(--sand); }
+.xp-ways-box > summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.xp-ways-box[open] > summary { margin-bottom: 6px; }
+@media (prefers-reduced-motion: reduce) { .xp-ways-box > summary::before { transition: none; } }
 /* the week in review (week-card.js) */
 .xp-week-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .xp-week-head .btn { margin-top: 4px; }
@@ -250,10 +265,10 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-kinds li { display: flex; gap: 4px; align-items: center; font-size: 11px; color: var(--sand-dim); }
 .xp-kinds b { font: 700 10.5px var(--font-mono); color: var(--sand); }
 .xp-ways, .xp-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
-.xp-ways { grid-template-columns: 1fr 1fr; column-gap: 12px; margin-bottom: 10px; }
+.xp-ways { grid-template-columns: 1fr 1fr; column-gap: 12px; }
 .xp-ways li { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items: center; font-size: 11.5px; color: var(--sand-dim); }
 .xp-ways b, .xp-log b { font: 700 11px var(--font-mono); color: #ffd23f; }
-.xp-log { border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.xp-log { margin-top: 10px; }
 .xp-log li { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; font-size: 12px; }
 .xp-log-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xp-log time { font: 500 10px var(--font-mono); color: var(--sand-faint); }

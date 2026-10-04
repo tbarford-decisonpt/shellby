@@ -4900,6 +4900,25 @@ ${r.detail}` });
     history.purge(isStr(id) ? [id] : null);
     return history.trashed();
   });
+  // Clear all history. There's no undo after this, so it asks first, with
+  // Cancel as the default, the way signing out with tasks running does.
+  ipcMain.handle('session:clear', async () => {
+    const count = history.list().length + history.trashed().length;
+    const answer = (cleared) => ({ cleared, sessions: history.list(), trash: history.trashed() });
+    if (!count) return answer(false);
+    const open = history.list().filter(e => manager.tabs.has(e.id));
+    const r = await dialog.showMessageBox(panel, {
+      type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+      message: `Are you sure? This deletes ${count === 1 ? 'your one conversation' : `all ${count} conversations`} for good.`,
+      detail: 'Recently deleted is emptied too, and nothing can be brought back.'
+        + (open.length ? ` ${open.length === 1 ? 'The open conversation closes' : `The ${open.length} open conversations close`}, stopping anything still running.` : ''),
+    });
+    if (r.response !== 0) return answer(false);
+    for (const e of open) manager.close(e.id);
+    const gone = history.clear();
+    log.info('history cleared', `${gone} conversation${gone === 1 ? '' : 's'}`);
+    return answer(true);
+  });
   // Both of these answer with the fresh list, so the renderer redraws History
   // from one round trip instead of guessing what changed.
   ipcMain.handle('session:done', (_e, { id, done } = {}) => {
