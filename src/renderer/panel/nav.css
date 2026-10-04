@@ -100,6 +100,33 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .settings-tabs .tab-dot { top: 5px; right: 6px; }
 .settings-panel { animation: fadein .14s var(--ease-out); }
 .view-settings .setting-group { scroll-margin-top: 50px; }
+
+/* The extras: one line each until opened. The label above them carries the
+   divider, so the first fold (a first-of-type details) needs none. */
+.settings-sub {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 6px 0 0; padding: 18px 0 4px; border-top: 1px solid var(--line-soft);
+  font-size: 13px; font-weight: 700; color: var(--sand);
+}
+.settings-sub span { font-size: 11.5px; font-weight: 400; color: var(--sand-faint); }
+.setting-group.setting-fold { padding: 0; }
+.setting-fold > summary {
+  display: flex; align-items: center; gap: 8px; padding: 11px 0;
+  list-style: none; cursor: pointer;
+}
+.setting-fold > summary::-webkit-details-marker { display: none; }
+.setting-fold > summary::before {
+  content: "▸" / ""; flex: none; width: 10px; font-size: 10px; color: var(--sand-faint);
+  transition: transform .15s var(--ease-out);
+}
+.setting-fold[open] > summary::before { transform: rotate(90deg); }
+.setting-fold > summary h3 { margin: 0; flex: 1; }
+.setting-fold > summary:hover h3 { color: var(--sand); }
+.setting-fold > summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 4px; }
+.fold-state { font: 600 10.5px var(--font-mono); color: var(--sand-faint); }
+.fold-state.on { color: var(--glass); }
+.setting-group.setting-fold[open] { padding-bottom: 14px; }
+.setting-fold[open] > summary { padding-bottom: 6px; }
 /* where a jump from the palette or the tray lands */
 .setting-group.arrived { animation: arrived 1.4s var(--ease-out); }
 @keyframes arrived {
@@ -149,7 +176,7 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .palette-foot kbd { font-size: 9.5px; padding: 1px 4px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button { transition: none; }
+  .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button, .setting-fold > summary::before { transition: none; }
   .settings-panel, .setting-group.arrived { animation: none; }
   .dock-shellby:hover .dock-crab svg, body.busy .dock-crab svg, .dock-btn.room-new > svg { animation: none; }
   .palette-sheet, .palette { animation: none; }

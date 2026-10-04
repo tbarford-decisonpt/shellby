@@ -69,8 +69,23 @@
     if (!el || !group) return;
     SB.setView('settings');
     showTab(tabOf(group));
+    if (group.tagName === 'DETAILS') group.open = true;
     requestAnimationFrame(() => { group.scrollIntoView({ block: 'center' }); el.focus(); });
   };
+
+  // The extras fold to one line each. The line says On or Off, read from the
+  // body each section already shows only while its feature is on.
+  for (const fold of settingsView.querySelectorAll('.setting-fold[data-fold-on]')) {
+    const body = $(fold.dataset.foldOn);
+    const label = fold.querySelector('.fold-state');
+    if (!body || !label) continue;
+    const sync = () => {
+      label.textContent = body.hidden ? 'Off' : 'On';
+      label.classList.toggle('on', !body.hidden);
+    };
+    new MutationObserver(sync).observe(body, { attributes: true, attributeFilter: ['hidden'] });
+    sync();
+  }
   for (const b of tabs) b.addEventListener('click', () => showTab(b.dataset.tab));
   // Arrow keys walk the tabs, the usual way for a tab list.
   $('settingsTabs').addEventListener('keydown', e => {
@@ -92,6 +107,7 @@
   SB.jumpToSetting = group => {
     if (state.view !== 'settings') SB.setView('settings');
     showTab(tabOf(group));
+    if (group.tagName === 'DETAILS') group.open = true;
     requestAnimationFrame(() => {
       group.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
       // A brief glow says which section you were sent to.

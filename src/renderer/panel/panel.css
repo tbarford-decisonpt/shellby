@@ -694,10 +694,9 @@ select.field option { background: var(--reef); }
 /* apps he's been told to stay off: one pill each, ✕ to let him back on */
 .perch-ignore { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; }
 .perch-ignore #perchIgnoreList { display: contents; }
-/* Mischief: plain while it's off; a coral edge once you've let him loose, so it's
+/* Mischief: its folded line says On in coral once you've let him loose, so it's
    easy to see at a glance that he's allowed to misbehave. */
-.mischief-group { border-left: 3px solid transparent; transition: border-color .2s; }
-.mischief-group.on { border-left-color: var(--coral); }
+.mischief-group.on .fold-state { color: var(--coral); }
 .mischief-pranks { display: grid; gap: 4px; margin: 4px 0 6px; padding: 0; border: 0; }
 .mischief-pranks legend { padding: 0; margin-bottom: 2px; }
 .perch-app {
