@@ -100,6 +100,8 @@ const DEFAULTS = {
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)
   channelsConfirmed: null, // the destination you said yes to in the confirm window; nothing goes anywhere else (main.js channelPlace)
+  crashReports: 'ask',        // ask | always | never: whether crash reports go to Sentry (crash-report.js)
+  crashReportDecisions: [],   // [{ until, send }]: each Send / Don't send answer and what it covered
 };
 
 class Config {

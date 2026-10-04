@@ -1302,6 +1302,18 @@
           </div>
           <div class="update-bar" id="updateBar" hidden><i></i></div>
         </div>
+        <div id="crashReportsRow" hidden>
+          <div class="row wrap">
+            <label class="inline-label" for="crashReportsSelect">Crash reports
+              <select id="crashReportsSelect" class="field slim">
+                <option value="ask">Ask me each time</option>
+                <option value="always">Always send</option>
+                <option value="never">Never send</option>
+              </select>
+            </label>
+          </div>
+          <p class="small muted">When Shellby crashes or closes unexpectedly, a report helps get it fixed. It has the error, versions and the log's last lines, with your home folder and anything token-shaped removed, and goes to Sentry. Nothing is sent without your say-so.</p>
+        </div>
         <div class="row wrap">
           <button type="button" class="btn ghost" id="githubBtn">GitHub</button>
           <button type="button" class="btn ghost" id="dataBtn">Data folder</button>
