@@ -68,6 +68,8 @@ class HealthService {
     this.hogRead = null;
     this.shownHogs = new Map();   // pid -> process: the only ones endTask() will touch
     this.ending = false;
+    this.shownStartup = new Map(); // id -> startup entry: the only ones setStartup() will touch
+    this.switching = false;
     // Docker, WSL and the package caches. Measured rarely and well off the poll
     // loop: walking a cache is not something to do every five seconds.
     this.space = deps.spaceProbe || space.createSpaceProbe();
@@ -199,10 +201,58 @@ class HealthService {
     return result;
   }
 
-  /** What starts with Windows: { ok, items: [{ name, command, location, off }] }. */
+  /**
+   * What starts with Windows: { ok, items: [{ id, name, command, location, off, locked }] }.
+   * locked says why Shellby won't switch one (null when he will). The registry
+   * name stays here: the panel only ever sends back an id from this list.
+   */
   async startupItems({ force = false } = {}) {
     const items = await this.startup.read({ force }).catch(() => null);
-    return items ? { ok: true, items } : { ok: false, items: [], error: "Shellby couldn't read the startup list." };
+    if (!items) return { ok: false, items: [], error: "Shellby couldn't read the startup list." };
+    // Name and location: what the parser keeps unique, and it can't drift onto
+    // another entry if the list is re-read and re-sorted before the click.
+    this.shownStartup = new Map(items.map(item => [`${item.location}|${item.name}`.toLowerCase(), item]));
+    return {
+      ok: true,
+      items: [...this.shownStartup].map(([id, item]) => {
+        const { switch: _sw, ...shown } = item;
+        return { ...shown, id, locked: this.startupLock(item) };
+      }),
+    };
+  }
+
+  startupLock(item) {
+    // By the exe it runs, not the name: another Shellby build (com.someone.shellby)
+    // is just another app here, and Open at login doesn't control it.
+    const exe = (this.deps.selfExe || process.execPath).toLowerCase();
+    if (item.command.toLowerCase().includes(exe)) return "That's Shellby: use Open at login in Settings.";
+    if (item.switch) return null;
+    if (/everyone/.test(item.location)) return 'Entries for everyone need an administrator. Switch it in Task Manager → Startup apps.';
+    return "Windows has no on/off switch for this one.";
+  }
+
+  /**
+   * Switch one entry from the last startupItems() list on or off, the way Task
+   * Manager does: the entry stays put, so it can always be switched back.
+   * -> { ok, name, off, list } with the list read again, or { ok: false, error }.
+   */
+  async setStartup(id, off) {
+    const item = typeof id === 'string' ? this.shownStartup.get(id) : null;
+    if (!item) return { ok: false, error: 'That one is no longer in the list. Refresh and try again.' };
+    const locked = this.startupLock(item);
+    if (locked) return { ok: false, error: locked };
+    if (this.switching) return { ok: false, error: 'Shellby is still switching another one.' };
+    this.switching = true;
+    let r;
+    try {
+      r = await this.startup.set(item.switch, !!off);
+    } catch {
+      r = null;
+    } finally {
+      this.switching = false;
+    }
+    if (!r?.ok) return { ok: false, error: r?.error || "Windows didn't take the change." };
+    return { ok: true, name: item.name, off: !!off, list: await this.startupItems({ force: true }) };
   }
 
   /** Start the read-only startup audit task. */

@@ -328,11 +328,28 @@
     $('hlStartup').replaceChildren(...items.map(i => h('li', { class: `hl-start${i.off ? ' off' : ''}`, title: i.command },
       h('span', { class: 'hl-start-name', text: i.name }),
       i.off ? h('span', { class: 'hl-start-off', text: 'off' }) : null,
-      h('span', { class: 'hl-start-where', text: i.location }))));
+      h('span', { class: 'hl-start-where', text: i.location }),
+      i.locked
+        ? h('span', { class: 'hl-start-locked', title: i.locked, text: 'locked' })
+        : h('button', {
+          class: 'hl-start-switch', type: 'button',
+          'aria-label': `${i.off ? 'Switch on' : 'Switch off'} ${i.name} at sign-in`,
+          onclick: e => switchStartup(i, e.currentTarget),
+        }, i.off ? 'Switch on' : 'Switch off'))));
   }
 
   async function loadStartup() {
     startup = await api.getStartupApps();
+    if (state.view === 'health') renderStartup();
+  }
+
+  async function switchStartup(item, btn) {
+    btn.disabled = true;
+    let r;
+    try { r = await api.setStartupApp(item.id, !item.off); } finally { btn.disabled = false; }
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't switch that one.");
+    SB.toast(r.off ? `${r.name} won't start with Windows now` : `${r.name} starts with Windows again`);
+    if (r.list) startup = r.list;
     if (state.view === 'health') renderStartup();
   }
 

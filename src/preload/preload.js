@@ -329,6 +329,7 @@ contextBridge.exposeInMainWorld('shellby', {
   endTask: invoke('health:end-task'),
   getStartupApps: invoke('health:startup'),
   askAboutStartup: invoke('health:ask-startup'),
+  setStartupApp: invoke('health:set-startup'),
   healthViewed: fire('health:viewed'),
   onHealth: on('health'),
   onHealthLog: on('health:log'),
