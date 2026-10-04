@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { walkMd, samePath } = require('./toolbox');
 const { writeJson } = require('./statusline');
+const { RECIPES, GROUPS: RECIPE_GROUPS, describeHook } = require('./hook-recipes');
 
 const MAX_MEMORY = 512 * 1024;   // a CLAUDE.md bigger than this isn't one we should edit in a textarea
 const MAX_SETTINGS = 1024 * 1024;
@@ -22,22 +23,32 @@ const MAX_MATCHER = 200;
 const MAX_TIMEOUT = 3600;
 // Anything that would break a line, so what a confirm window shows is all there is.
 const CONTROL_CHARS = /[\u0000-\u001f\u007f\u2028\u2029]/;
+// Characters that look like nothing or like something else (right-to-left
+// overrides, zero-width joiners, odd spaces): a command shown in the confirm
+// window has to read as what runs.
+const HIDDEN_CHARS = /[\p{Cf}\p{Zs}]/u;
 
 // Claude Code's hook events, in the order a session meets them. `matcher` says
-// whether the event filters on something (a tool name, how a session started).
+// whether the event filters on something: a tool name (`tools`), one of a few
+// fixed values (`choices`), or an agent type. `label` heads its group in the
+// panel; `blocks` is what exit code 2 stops (null: it can't stop anything), and
+// `context` means what the command prints is added to what Claude knows.
 const HOOK_EVENTS = [
-  { name: 'SessionStart', when: 'when a session starts or resumes', matcher: true },
-  { name: 'UserPromptSubmit', when: 'when you send a prompt', matcher: false },
-  { name: 'PreToolUse', when: 'before Claude uses a tool', matcher: true },
-  { name: 'PermissionRequest', when: 'when Claude asks for permission', matcher: true },
-  { name: 'PostToolUse', when: 'after a tool call succeeds', matcher: true },
-  { name: 'PostToolUseFailure', when: 'after a tool call fails', matcher: true },
-  { name: 'Notification', when: 'when Claude Code sends a notification', matcher: true },
-  { name: 'SubagentStart', when: 'when a helper agent starts', matcher: true },
-  { name: 'SubagentStop', when: 'when a helper agent finishes', matcher: true },
-  { name: 'Stop', when: 'when Claude finishes a turn', matcher: false },
-  { name: 'PreCompact', when: 'before the conversation is compacted', matcher: true },
-  { name: 'SessionEnd', when: 'when a session ends', matcher: false },
+  { name: 'SessionStart', label: 'When a session starts', when: 'when a session starts or resumes', matcher: true, context: true, blocks: null,
+    choices: [['startup', 'New sessions'], ['resume', 'Resumed ones'], ['clear', 'After /clear'], ['compact', 'After compacting']] },
+  { name: 'UserPromptSubmit', label: 'When you send a message', when: 'when you send a prompt', matcher: false, context: true, blocks: 'your message from being sent' },
+  { name: 'PreToolUse', label: 'Before Claude uses a tool', when: 'before Claude uses a tool', matcher: true, tools: true, blocks: 'Claude from using the tool' },
+  { name: 'PermissionRequest', label: 'When Claude asks for permission', when: 'when Claude asks for permission', matcher: true, tools: true, blocks: 'the request, turning it down' },
+  { name: 'PostToolUse', label: 'After a tool works', when: 'after a tool call succeeds', matcher: true, tools: true, blocks: null, feedback: true },
+  { name: 'PostToolUseFailure', label: 'After a tool fails', when: 'after a tool call fails', matcher: true, tools: true, blocks: null, feedback: true },
+  { name: 'Notification', label: 'When Claude Code wants your attention', when: 'when Claude Code sends a notification', matcher: true, blocks: null,
+    choices: [['permission_prompt', 'Asking for permission'], ['idle_prompt', 'Waiting for your reply']] },
+  { name: 'SubagentStart', label: 'When a helper agent starts', when: 'when a helper agent starts', matcher: true, blocks: null },
+  { name: 'SubagentStop', label: 'When a helper agent finishes', when: 'when a helper agent finishes', matcher: true, blocks: 'the agent from stopping' },
+  { name: 'Stop', label: 'When Claude finishes replying', when: 'when Claude finishes a turn', matcher: false, blocks: 'Claude from stopping' },
+  { name: 'PreCompact', label: 'Before the conversation is compacted', when: 'before the conversation is compacted', matcher: true, blocks: null,
+    choices: [['manual', 'When you run /compact'], ['auto', 'When it happens on its own']] },
+  { name: 'SessionEnd', label: 'When a session ends', when: 'when a session ends', matcher: false, blocks: null },
 ];
 const EVENT = new Map(HOOK_EVENTS.map(e => [e.name, e]));
 const SCOPES = ['user', 'project', 'local'];
@@ -94,11 +105,12 @@ function flattenHooks(hooks, base) {
       group.hooks.forEach((hook, hi) => {
         if (!isObj(hook) || out.length >= MAX_HOOKS) return;
         const type = str(hook.type) || 'command';
+        const command = hookText(hook).slice(0, MAX_COMMAND);
         out.push({
           ...base,
+          ...describeHook({ type, command }),
           id: `${base.source}:${event}:${gi}:${hi}`,
-          event, matcher: str(group.matcher), type,
-          command: hookText(hook).slice(0, MAX_COMMAND),
+          event, matcher: str(group.matcher), type, command,
           timeout: Number.isFinite(hook.timeout) ? hook.timeout : null,
           known: EVENT.has(event),
           editable: base.editable && type === 'command' && EVENT.has(event),
@@ -144,6 +156,7 @@ function validateHook(input) {
   if (command.length > MAX_COMMAND) return { error: `Keep the command under ${MAX_COMMAND} characters. For more, put it in a script and run that.` };
   // One line, no control characters: what the confirm window shows is exactly what runs.
   if (CONTROL_CHARS.test(command)) return { error: 'Keep the command on one line. For more, put it in a script and run that.' };
+  if (HIDDEN_CHARS.test(command.replace(/ /g, ''))) return { error: 'The command has an invisible or unusual character in it (a special space, say). Retype it with plain characters.' };
   const matcher = EVENT.get(event).matcher ? str(i.matcher).trim() : '';
   if (matcher.length > MAX_MATCHER) return { error: 'That matcher is too long.' };
   let timeout = null;
@@ -159,14 +172,29 @@ const commandEntry = (hook, base = {}) => {
   return { ...rest, type: 'command', command: hook.command, ...(hook.timeout ? { timeout: hook.timeout } : {}) };
 };
 
-function withHook(settings, hook) {
+// `entry` is what goes in the file: a new command entry, or a paused hook put
+// back exactly as it was (any type, any extra keys).
+function withHook(settings, hook, entry = commandEntry(hook)) {
   const hooks = isObj(settings.hooks) ? settings.hooks : {};
   const groups = Array.isArray(hooks[hook.event]) ? hooks[hook.event] : [];
   const gi = groups.findIndex(g => isObj(g) && Array.isArray(g.hooks) && str(g.matcher) === hook.matcher);
   const next = gi >= 0
-    ? groups.map((g, i) => (i === gi ? { ...g, hooks: [...g.hooks, commandEntry(hook)] } : g))
-    : [...groups, { ...(hook.matcher ? { matcher: hook.matcher } : {}), hooks: [commandEntry(hook)] }];
+    ? groups.map((g, i) => (i === gi ? { ...g, hooks: [...g.hooks, entry] } : g))
+    : [...groups, { ...(hook.matcher ? { matcher: hook.matcher } : {}), hooks: [entry] }];
   return { ...settings, hooks: { ...hooks, [hook.event]: next } };
+}
+
+/** Is this exact entry already in the file under that event and matcher? (Resume twice, or after a crash.) */
+function hasHook(settings, { event, matcher }, entry) {
+  const groups = isObj(settings?.hooks) && Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
+  const same = JSON.stringify(entry);
+  return groups.some(g => isObj(g) && str(g.matcher) === matcher && Array.isArray(g.hooks) && g.hooks.some(h => JSON.stringify(h) === same));
+}
+
+/** The raw entry at `at` and its group's matcher, for pausing. null if it isn't there. */
+function hookEntry(settings, at) {
+  const found = hookAt(settings, at);
+  return found ? { event: at.event, matcher: str(found.group.matcher), entry: found.hook } : null;
 }
 
 function withoutHook(settings, at) {
@@ -419,13 +447,13 @@ function scanSetup({ home, cwd, plugins, ceiling } = {}) {
   return {
     hooks, settings: files, memory: scanMemory({ home, cwd, ceiling }),
     permissions: scanPermissions({ home, cwd }),
-    events: HOOK_EVENTS, scannedAt: Date.now(),
+    events: HOOK_EVENTS, recipes: RECIPES, recipeGroups: RECIPE_GROUPS, scannedAt: Date.now(),
   };
 }
 
 module.exports = {
   HOOK_EVENTS, SCOPES, scanSetup, scanHooks, scanMemory, settingsFiles,
-  validateHook, withHook, withoutHook, replaceHook, changeHooks,
+  validateHook, withHook, withoutHook, replaceHook, hookEntry, hasHook, changeHooks, readSettings,
   RULE_LISTS, scanPermissions, explainRule, validateRule, withRule, withoutRule, changeSettings,
   readMemory, writeMemory,
 };

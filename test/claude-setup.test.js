@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const {
-  scanSetup, scanHooks, scanMemory, validateHook, withHook, withoutHook, replaceHook,
+  scanSetup, scanHooks, scanMemory, validateHook, withHook, withoutHook, replaceHook, hookEntry, hasHook,
   changeHooks, readMemory, writeMemory,
   scanPermissions, explainRule, validateRule, withRule, withoutRule, changeSettings,
 } = require('../src/main/claude-setup');
@@ -128,8 +128,64 @@ test('scanMemory: an existing .claude/CLAUDE.md replaces the root suggestion', (
 test('scanSetup: bundles hooks, settings, memory and the event list', () => {
   const home = tmp();
   const s = scanSetup({ home, cwd: home });
-  assert.deepEqual(Object.keys(s).sort(), ['events', 'hooks', 'memory', 'permissions', 'scannedAt', 'settings']);
+  assert.deepEqual(Object.keys(s).sort(), ['events', 'hooks', 'memory', 'permissions', 'recipeGroups', 'recipes', 'scannedAt', 'settings']);
   assert.ok(s.events.some(e => e.name === 'PreToolUse' && e.matcher));
+});
+
+test('HOOK_EVENTS: every moment has a plain label, and says what it can stop', () => {
+  const { HOOK_EVENTS } = require('../src/main/claude-setup');
+  for (const e of HOOK_EVENTS) {
+    assert.match(e.label, /^[A-Z]/, e.name);
+    assert.ok(e.blocks === null || typeof e.blocks === 'string', e.name);
+    if (e.choices) assert.ok(e.matcher && e.choices.every(([v, l]) => v && l), e.name);
+  }
+  assert.ok(HOOK_EVENTS.find(e => e.name === 'PreToolUse').tools);
+  assert.equal(HOOK_EVENTS.find(e => e.name === 'Notification').blocks, null);
+});
+
+test('scanHooks: each row says what it does, by recipe or by its command', () => {
+  const { RECIPES } = require('../src/main/hook-recipes');
+  const home = tmp();
+  const guard = RECIPES.find(r => r.id === 'guard-git');
+  put(path.join(home, '.claude', 'settings.json'), { hooks: {
+    PreToolUse: [{ matcher: 'Bash', hooks: [cmd(guard.command), cmd('node "C:\\hooks\\check.js"')] }],
+  } });
+  const rows = scanHooks({ home, cwd: home }).hooks;
+  assert.deepEqual(rows.map(r => [r.summary, r.recipe]), [[guard.title, 'guard-git'], ['Runs check.js', null]]);
+  assert.equal(rows[0].icon, guard.icon);
+});
+
+// ---- pausing
+test('hookEntry + withHook: a paused hook goes back exactly as it was', () => {
+  const entry = { type: 'command', command: 'a', timeout: 5, statusMessage: 'Checking' };
+  const settings = { model: 'opus', hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [entry, cmd('b')] }] } };
+  const at = { event: 'PreToolUse', group: 0, hook: 0 };
+  const taken = hookEntry(settings, at);
+  assert.deepEqual(taken, { event: 'PreToolUse', matcher: 'Bash', entry });
+  const paused = withoutHook(settings, at);
+  assert.deepEqual(paused.hooks.PreToolUse[0].hooks, [cmd('b')]);
+  const back = withHook(paused, { event: taken.event, matcher: taken.matcher }, taken.entry);
+  assert.deepEqual(back.hooks.PreToolUse[0].hooks, [cmd('b'), entry]);
+  assert.equal(back.model, 'opus');
+  assert.equal(hookEntry(settings, { event: 'Stop', group: 0, hook: 0 }), null);
+  // Its group was emptied meanwhile: a new one is made.
+  const gone = withoutHook({ hooks: { Stop: [{ hooks: [cmd('x')] }] } }, { event: 'Stop', group: 0, hook: 0 });
+  assert.deepEqual(withHook(gone, { event: 'Stop', matcher: '' }, cmd('x')), { hooks: { Stop: [{ hooks: [cmd('x')] }] } });
+});
+
+test('hasHook: spots an entry that is already back, so Resume never doubles it', () => {
+  const settings = { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [cmd('a', { timeout: 5 })] }] } };
+  assert.equal(hasHook(settings, { event: 'PreToolUse', matcher: 'Bash' }, cmd('a', { timeout: 5 })), true);
+  assert.equal(hasHook(settings, { event: 'PreToolUse', matcher: 'Edit' }, cmd('a', { timeout: 5 })), false);
+  assert.equal(hasHook(settings, { event: 'PreToolUse', matcher: 'Bash' }, cmd('a')), false);
+  assert.equal(hasHook({}, { event: 'Stop', matcher: '' }, cmd('a')), false);
+});
+
+test('validateHook: refuses characters that hide what a command says', () => {
+  for (const c of ['echo hi\u202e', 'rm\u200b -rf x', 'echo\u00a0hi', 'echo\u3000hi']) {
+    assert.match(validateHook({ event: 'Stop', command: c }).error, /invisible or unusual/, JSON.stringify(c));
+  }
+  assert.equal(validateHook({ event: 'Stop', command: 'echo "héllo wörld"' }).error, undefined);
 });
 
 // ---- writing

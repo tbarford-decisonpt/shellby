@@ -1,8 +1,9 @@
 // End-to-end over the Chrome DevTools Protocol: Toolbox → Hooks and Memory.
 // Everything happens in a temp profile with a pretend home (isolated runs never
-// read or write the real ~/.claude): lists the hooks and CLAUDE.md files, adds a
-// hook through the confirm window (once cancelled, once confirmed), removes one,
-// edits a CLAUDE.md, and refuses to overwrite it after an outside edit.
+// read or write the real ~/.claude): lists the hooks in plain words, adds one of
+// your own through the confirm window (once cancelled, once confirmed), adds one
+// from a recipe after a test run, pauses and resumes it, removes one, edits a
+// CLAUDE.md, and refuses to overwrite it after an outside edit.
 //   node scripts/e2e-setup.js
 const { spawn } = require('child_process');
 const path = require('path');
@@ -92,44 +93,87 @@ async function answer(label, expect) {
     await panel.evaluate(`SB.setView('toolbox'); document.querySelector('#toolTabs [data-kind="hook"]').click()`);
     await until(() => panel.evaluate(`document.querySelectorAll('#toolList .hook-row').length > 0`), 'hook list');
 
-    // ---- hooks: listed
+    // ---- hooks: listed, in plain words, under the moment they run
+    const rows = () => panel.evaluate(`[...document.querySelectorAll('#toolList .hook-row')].map(r => r.querySelector('.hook-title strong').textContent + (r.classList.contains('is-paused') ? ' (paused)' : ''))`);
     const hooks = await panel.evaluate(`({
-      rows: [...document.querySelectorAll('#toolList .hook-row')].map(r => r.querySelector('code').textContent + ' ' + r.querySelector('.hook-cmd').textContent),
+      groups: [...document.querySelectorAll('#toolList .hook-group-head span')].map(e => e.textContent),
+      rows: [...document.querySelectorAll('#toolList .hook-row')].map(r => r.querySelector('.hook-title strong').textContent + ' | ' + r.querySelector('.hook-full').textContent),
       counts: Object.fromEntries([...document.querySelectorAll('#toolTabs [data-kind]')].map(b => [b.dataset.kind, b.querySelector('.n').textContent])),
     })`);
     console.log('hooks:', JSON.stringify(hooks));
-    if (hooks.rows.join() !== 'Stop echo done' || hooks.counts.hook !== '1' || hooks.counts.memory !== '2') throw new Error('hooks/memory not listed as expected');
+    if (hooks.groups.join() !== 'When Claude finishes replying' || hooks.rows.join() !== 'Prints a message | echo done' || hooks.counts.hook !== '1' || hooks.counts.memory !== '2') throw new Error('hooks/memory not listed as expected');
     await panel.shot(path.join(profile, 'setup-hooks.png'));
 
-    // ---- hooks: add, cancelled in the confirm window, then confirmed
-    const fill = `(() => {
-      document.querySelector('.setup-intro .btn').click();
-      const f = document.querySelector('.setup-form');
-      const [event, where] = f.querySelectorAll('select');
+    // ---- hooks: your own, from "Write my own"; cancelled in the confirm window, then confirmed
+    const pick = id => panel.evaluate(`(() => { document.querySelector('.setup-intro .btn').click(); document.querySelector('[data-recipe="${id}"]').click(); })()`);
+    await pick('custom');
+    await panel.evaluate(`(() => {
+      const f = () => document.querySelector('.hook-form');
+      const event = f().querySelector('[name=event]');
       event.value = 'PreToolUse'; event.dispatchEvent(new Event('change'));
-      where.value = 'project'; where.dispatchEvent(new Event('change'));
-      const set = (name, v) => { const el = f.querySelector('[name=' + name + ']'); el.value = v; el.dispatchEvent(new Event('input')); };
-      set('matcher', 'Bash');
-      set('command', 'node check.js');
-      f.requestSubmit();
-    })()`;
-    await panel.evaluate(fill);
+      f().querySelector('.hook-chip[data-value="Bash"]').click();
+      f().querySelector('input[name=where][value=project]').click();
+      const c = f().querySelector('[name=command]'); c.value = 'node check.js'; c.dispatchEvent(new Event('input'));
+    })()`);
+    const form = await panel.evaluate(`({ pattern: document.querySelector('.hook-pattern').value, pressed: [...document.querySelectorAll('.hook-chip[aria-pressed="true"]')].map(c => c.textContent), hint: document.getElementById('hookCanDo').textContent })`);
+    console.log('form:', JSON.stringify(form));
+    if (form.pattern !== 'Bash' || form.pressed.join() !== 'Shell commands' || !/exit with code 2/.test(form.hint)) throw new Error('form did not explain or fill in as expected');
     await panel.shot(path.join(profile, 'setup-hook-form.png'));
+    await panel.evaluate(`document.querySelector('.hook-form').requestSubmit()`);
     await answer('Cancel', { title: 'Add this hook?', command: 'node check.js' });
     await wait(500);
     if (fs.existsSync(projectSettings)) throw new Error('Cancel still wrote the hook');
-    await panel.evaluate(`document.querySelector('.setup-form').requestSubmit()`);
+    await panel.evaluate(`document.querySelector('.hook-form').requestSubmit()`);
     await answer('Add it', { title: 'Add this hook?', command: 'node check.js' });
     await until(() => fs.existsSync(projectSettings), 'project settings written');
     const written = readJson(projectSettings);
     console.log('project settings:', JSON.stringify(written));
     if (written.hooks?.PreToolUse?.[0]?.matcher !== 'Bash' || written.hooks.PreToolUse[0].hooks[0].command !== 'node check.js') throw new Error('hook written wrong');
-    await until(() => panel.evaluate(`document.querySelectorAll('#toolList .hook-row').length === 2`), 'two hooks listed');
+    await until(async () => (await rows()).length === 2, 'two hooks listed');
+
+    // ---- hooks: from a recipe, tried with Test run first
+    await panel.evaluate(`document.querySelector('#toolTabs [data-kind="hook"]').click()`);
+    await panel.evaluate(`document.querySelector('.setup-intro .btn').click()`);
+    await panel.shot(path.join(profile, 'setup-hook-ideas.png'));
+    await panel.evaluate(`document.querySelector('[data-recipe="guard-git"]').click()`);
+    await panel.shot(path.join(profile, 'setup-hook-recipe.png'));
+    const guard = await panel.evaluate(`document.querySelector('.hook-form [name=command]').value`);
+    if (!guard.startsWith('bash -c')) throw new Error('recipe did not fill in the command');
+    await panel.evaluate(`[...document.querySelectorAll('.hook-test button')].find(b => b.textContent === 'Test run').click()`);
+    await answer('Run it', { title: 'Run this command once?', command: guard });
+    await until(() => panel.evaluate(`!!document.querySelector('.hook-test .hook-verdict:not(.busy)')`), 'test verdict');
+    const tried = await panel.evaluate(`({ tone: document.querySelector('.hook-test .hook-verdict').className, text: document.querySelector('.hook-test .hook-verdict').textContent })`);
+    console.log('test run:', JSON.stringify(tried));
+    if (!/\bblock\b/.test(tried.tone) || !/stop Claude from using the tool/.test(tried.text)) throw new Error('the guard recipe did not block its sample force-push');
+    await panel.evaluate(`document.querySelector('.hook-test').scrollIntoView({ block: 'center' })`);
+    await panel.shot(path.join(profile, 'setup-hook-test.png'));
+    await panel.evaluate(`document.querySelector('.hook-form').requestSubmit()`);
+    await answer('Add it', { title: 'Add this hook?', command: guard });
+    const hasGuard = () => (readJson(userSettings).hooks?.PreToolUse || []).some(g => g.hooks.some(x => x.command === guard));
+    await until(hasGuard, 'recipe written to user settings');
+    await until(async () => (await rows()).includes('Stop force-pushes and hard resets'), 'recipe listed by its name');
+
+    // ---- hooks: pause, then resume, exactly as it was
+    const openRow = name => panel.evaluate(`(() => { const r = [...document.querySelectorAll('#toolList .hook-row')].find(r => r.querySelector('.hook-title strong').textContent === ${JSON.stringify(name)}); r.open = true; return true; })()`);
+    const press = (name, label) => panel.evaluate(`[...[...document.querySelectorAll('#toolList .hook-row')].find(r => r.querySelector('.hook-title strong').textContent === ${JSON.stringify(name)}).querySelectorAll('.hook-actions button')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+    const before = readJson(userSettings).hooks.PreToolUse;
+    await openRow('Stop force-pushes and hard resets');
+    await press('Stop force-pushes and hard resets', 'Pause');
+    await answer('Pause it', { title: 'Pause this hook?', command: 'git +reset' });
+    await until(() => !hasGuard(), 'paused hook taken out of the file');
+    await until(async () => (await rows()).includes('Stop force-pushes and hard resets (paused)'), 'paused hook still listed');
+    await panel.shot(path.join(profile, 'setup-hook-paused.png'));
+    await openRow('Stop force-pushes and hard resets');
+    await press('Stop force-pushes and hard resets', 'Resume');
+    await until(hasGuard, 'resumed hook back in the file');
+    if (JSON.stringify(readJson(userSettings).hooks.PreToolUse) !== JSON.stringify(before)) throw new Error('resume did not put the hook back as it was');
+    console.log('pause/resume ok:', JSON.stringify(await rows()));
 
     // ---- hooks: remove the user one
+    await openRow('Prints a message');
     await panel.evaluate(`[...document.querySelectorAll('#toolList .hook-row')].find(r => r.textContent.includes('echo done')).querySelector('[aria-label="Remove this hook"]').click()`);
     await answer('Remove it', { title: 'Remove this hook?', command: 'echo done' });
-    await until(() => !readJson(userSettings).hooks, 'user hook removed');
+    await until(() => !readJson(userSettings).hooks?.Stop, 'user hook removed');
     if (readJson(userSettings).model !== 'opus') throw new Error('removing a hook lost other settings');
     if (!fs.existsSync(`${userSettings}.shellby-backup`)) throw new Error('no backup kept');
     console.log('remove ok, other settings kept, backup made');
