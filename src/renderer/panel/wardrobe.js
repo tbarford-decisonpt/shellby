@@ -211,6 +211,7 @@
     const o = wd()?.options || {};
     $('seasonalToggle').checked = !!o.seasonalAuto;
     $('crewToggle').checked = !!o.crewOutfits;
+    $('unlockAllOption').hidden = !o.unlockAllOffered;
     $('unlockAllToggle').checked = !!o.unlockAll;
   }
 

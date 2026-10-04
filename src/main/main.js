@@ -7176,6 +7176,8 @@ app.whenReady().then(() => {
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),
     south: () => seasonsWhere().south,
+    // "Unlock everything" is held back for a paid tier; dev runs (e2e, screenshots) keep it.
+    canUnlockAll: () => !app.isPackaged,
   });
   wardrobe.load();
   wardrobe.on('changed', broadcastWardrobe);

@@ -226,7 +226,7 @@ test('however many pack scenes there are, his own still come up at least half th
 
 function make() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-dlg-'));
-  const w = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => new Date(2026, 5, 10, 12) });
+  const w = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => new Date(2026, 5, 10, 12), canUnlockAll: () => true });
   w.load();
   return { w, dir };
 }

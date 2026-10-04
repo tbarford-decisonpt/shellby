@@ -9,10 +9,10 @@ const { SEASONS } = require('../src/main/wardrobe/seasons');
 
 const BUILTIN = path.join(__dirname, '..', 'src', 'wardrobe');
 
-function make(date) {
+function make(date, { canUnlockAll = () => true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-wd-'));
   const clock = { now: date };
-  const w = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => clock.now });
+  const w = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => clock.now, canUnlockAll });
   w.load();
   return { w, clock, dir };
 }
@@ -116,6 +116,21 @@ test('unlock-all opens everything without touching achievements', () => {
   assert.ok(w.isUnlocked(w.item('crown')));
   assert.equal(w.setOutfit({ hat: 'crown' }).ok, true);
   assert.deepEqual(w.data.unlocked, []);
+});
+
+test('unlock-all stays locked when it is not on offer', () => {
+  const offered = { on: false };
+  const { w } = make(d(2026, 6, 10), { canUnlockAll: () => offered.on });
+  w.setOptions({ unlockAll: true });
+  assert.equal(w.isUnlocked(w.item('crown')), false);
+  assert.equal(w.setOutfit({ hat: 'crown' }).ok, false);
+  assert.deepEqual(w.view().options, { seasonalAuto: true, crewOutfits: true, unlockAll: false, unlockAllOffered: false });
+
+  // A setting left over from before the lock doesn't sneak through either.
+  offered.on = true;
+  w.setOptions({ unlockAll: true });
+  offered.on = false;
+  assert.equal(w.isUnlocked(w.item('crown')), false);
 });
 
 test('history backfill credits past usage once, quietly', () => {

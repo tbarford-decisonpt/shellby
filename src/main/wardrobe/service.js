@@ -39,9 +39,10 @@ function windowEnd(season, date) {
 const windowKey = (season, date) => `${season.id}@${windowStart(season, date).getFullYear()}`;
 
 class Wardrobe extends EventEmitter {
-  constructor({ config, builtinDir, userDir, now = () => new Date(), south = () => false }) {
+  // canUnlockAll: whether "Unlock everything" is on offer (locked until it's sold).
+  constructor({ config, builtinDir, userDir, now = () => new Date(), south = () => false, canUnlockAll = () => false }) {
     super();
-    Object.assign(this, { config, builtinDir, userDir, now, south });
+    Object.assign(this, { config, builtinDir, userDir, now, south, canUnlockAll });
     this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), decor: new Map(), packs: [], errors: [] };
   }
 
@@ -53,6 +54,7 @@ class Wardrobe extends EventEmitter {
     for (const k of ['unlocked', 'collected', 'newItems']) d[k] = Array.isArray(raw[k]) ? raw[k].filter(x => typeof x === 'string') : [];
     d.seasonOverrides = raw.seasonOverrides && typeof raw.seasonOverrides === 'object' ? { ...raw.seasonOverrides } : {};
     d.voice = typeof raw.voice === 'string' ? raw.voice : null;
+    d.unlockAll = raw.unlockAll === true && !!this.canUnlockAll();
     return d;
   }
   save(patch) { this.config.set({ wardrobe: { ...this.data, ...patch } }); }
@@ -230,6 +232,7 @@ class Wardrobe extends EventEmitter {
   setOptions(opts = {}) {
     const patch = {};
     for (const k of ['seasonalAuto', 'crewOutfits', 'unlockAll']) if (typeof opts[k] === 'boolean') patch[k] = opts[k];
+    if (!this.canUnlockAll()) delete patch.unlockAll;
     this.save(patch);
     this.emit('changed');
   }
@@ -350,7 +353,7 @@ class Wardrobe extends EventEmitter {
     const featured = featuredSeason(now, this.where());
     return {
       outfit: this.effectiveOutfit(d),
-      options: { seasonalAuto: d.seasonalAuto, crewOutfits: d.crewOutfits, unlockAll: d.unlockAll },
+      options: { seasonalAuto: d.seasonalAuto, crewOutfits: d.crewOutfits, unlockAll: d.unlockAll, unlockAllOffered: !!this.canUnlockAll() },
       season: featured ? { id: featured.id, name: featured.name, emoji: featured.emoji, endsAt: windowEnd(featured, now).getTime(), wearing: !!this.seasonalActive(d), outfit: featured.outfit } : null,
       activeSeasons: activeSeasons(now, this.where()).map(s => s.id),
       accessories: [...this.catalog.accessories.values()].map(decorate),
