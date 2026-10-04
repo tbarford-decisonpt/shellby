@@ -1110,6 +1110,25 @@
           <span id="perchIgnoreList"></span>
         </div>
         <div class="row wrap">
+          <label class="inline-label" for="climbSelect">Climbing the edges of the screen
+            <select id="climbSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+          <label class="inline-label" for="colonySelect">Pals on the floor
+            <select id="colonySelect" class="field slim">
+              <option value="0">Just him</option>
+              <option value="1">1 pal</option>
+              <option value="2">2 pals</option>
+              <option value="3">3 pals</option>
+              <option value="4">4 pals</option>
+              <option value="5">5 pals</option>
+            </select>
+          </label>
+        </div>
+        <div class="row wrap">
           <label class="inline-label" for="chatterSelect">Personality
             <select id="chatterSelect" class="field slim">
               <option value="quiet">Quiet</option>
@@ -1144,6 +1163,29 @@
         <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
         <p class="small muted">He gets peckish, a bit sandy, sleepy, and a little mopey if you're right there and ignore him. Never worse than that, and it never costs you anything you've earned. Feed him snacks you earn by getting things done. Off keeps him content all the time.</p>
         <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
+        <p class="small muted">He also climbs the sides of your screen and hangs from the top of it. Throw him hard at the edge and he sticks; put him down right beside it and he grabs on. Pals are little crabs of his own who hang out with him on the floor, nap when he naps and cheer when a task goes well. Click one to say hello.</p>
+      </section>
+
+      <section class="setting-group mischief-group" id="mischiefGroup" data-nav="Mischief">
+        <h3>Mischief</h3>
+        <p class="small muted ext-lede">Off unless you turn it on. A cheeky crab gets up to a little harmless trouble now and then, Desktop Goose style. He never does it while you're clicking, on a call, guarding your focus, gaming or presenting, or while a task is running.</p>
+        <div class="row wrap">
+          <label class="inline-label" for="mischiefSelect">How cheeky
+            <select id="mischiefSelect" class="field slim">
+              <option value="off">Off, he behaves</option>
+              <option value="cheeky">Cheeky (now and then)</option>
+              <option value="gremlin">Gremlin (every few minutes)</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="mischief-pranks" id="mischiefPranks" hidden>
+          <legend class="small muted">What he gets up to</legend>
+          <label class="toggle"><input type="checkbox" data-prank="pinch"><span class="switch"></span>Pinch the cursor for half a second when it hangs about near him</label>
+          <label class="toggle"><input type="checkbox" data-prank="nudge"><span class="switch"></span>Give the window he's sitting on a shove (only when you're not using it)</label>
+          <label class="toggle"><input type="checkbox" data-prank="tracks"><span class="switch"></span>Leave sandy footprints where he walks</label>
+          <label class="toggle"><input type="checkbox" data-prank="notes"><span class="switch"></span>Drag little notes onto your desktop (click one to throw it away)</label>
+        </fieldset>
+        <p class="small muted" id="mischiefNote" hidden>Right-click him for <b>Do something cheeky</b> to see it now, or <b>Behave for an hour</b> when you need him to.</p>
       </section>
 
       <section class="setting-group" id="musicGroup" data-nav="Music">
@@ -1154,6 +1196,31 @@
           <label class="toggle"><input type="checkbox" id="npHeadphones"><span class="switch"></span>Put his headphones on while it plays</label>
           <label class="toggle"><input type="checkbox" id="npRemarks"><span class="switch"></span>Let him remark on it now and then</label>
           <p class="small ext-status" id="npStatus"></p>
+        </div>
+      </section>
+
+      <section class="setting-group" id="typingGroup" data-nav="Typing along">
+        <h3>Typing along</h3>
+        <p class="small muted ext-lede">While you type, in any app, he taps along on a little keyboard, bobs to keep up when you're quick, and watches a long fast burst with stars in his eyes. He hears <em>that</em> a key was pressed, never which one, and none of it leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="typingEnabled"><span class="switch"></span>Tap along while I type</label>
+        <div id="typingBody" hidden>
+          <label class="toggle"><input type="checkbox" id="typingRemarks"><span class="switch"></span>Tell me how fast a burst was</label>
+          <p class="small ext-status" id="typingStatus"></p>
+        </div>
+      </section>
+
+      <section class="setting-group" id="weatherGroup" data-nav="Weather">
+        <h3>The weather outside</h3>
+        <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
+        <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
+        <div id="weatherBody" hidden>
+          <form class="row wrap" id="weatherSearch">
+            <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
+          </form>
+          <div class="row wrap" id="weatherPlaces" role="group" aria-label="Towns found" hidden></div>
+          <label class="toggle"><input type="checkbox" id="weatherRemarks"><span class="switch"></span>Let him say so when the weather turns</label>
+          <p class="small ext-status" id="weatherStatus" aria-live="polite"></p>
         </div>
       </section>
 

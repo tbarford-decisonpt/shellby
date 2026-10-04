@@ -1,0 +1,38 @@
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; -webkit-user-drag: none; }
+
+/* A torn-off scrap of paper with his handwriting on it. */
+#note {
+  position: absolute; left: 10px; right: 10px; top: 12px; bottom: 10px;
+  display: flex; flex-direction: column; justify-content: center; gap: 6px;
+  padding: 12px 14px 10px; margin: 0; border: 0; border-radius: 3px 3px 10px 3px;
+  background:
+    repeating-linear-gradient(transparent 0 17px, rgba(90, 140, 190, .18) 17px 18px),
+    linear-gradient(170deg, #fff8e2, #f6e7c1);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .22), 0 6px 14px rgba(0, 0, 0, .18);
+  color: #3a2a1a; text-align: left; cursor: pointer; outline: none;
+  transform: rotate(var(--tilt, -2deg)); transform-origin: 50% 100%;
+}
+#note:focus-visible { outline: 2px dashed #7fd6c2; outline-offset: 3px; }
+#note:hover { box-shadow: 0 3px 0 rgba(0, 0, 0, .22), 0 8px 18px rgba(0, 0, 0, .24); }
+#text { font: 600 15px/1.25 "Pixelify Sans", monospace; overflow-wrap: anywhere; }
+#sign { align-self: flex-end; font: 500 12px/1 "Pixelify Sans", monospace; color: #b0502e; }
+/* where his claw pinched it */
+#claw {
+  position: absolute; top: -6px; left: 50%; width: 14px; height: 9px; translate: -50% 0;
+  border-radius: 0 0 6px 6px; background: rgba(230, 90, 60, .22);
+}
+
+/* dropped where he left it */
+body.settle #note { animation: settle .45s cubic-bezier(.3, 1.5, .5, 1); }
+/* dug up out of the sand */
+body.rise #note { animation: rise .7s cubic-bezier(.2, .9, .3, 1.2); }
+/* thrown away */
+body.crumple #note { animation: crumple .42s cubic-bezier(.5, 0, .9, .4) forwards; pointer-events: none; }
+
+@keyframes settle { 0% { transform: rotate(var(--tilt)) translateY(-6px); } 100% { transform: rotate(var(--tilt)); } }
+@keyframes rise { from { transform: rotate(var(--tilt)) translateY(60%) scale(.6); opacity: 0; } }
+@keyframes crumple { to { transform: rotate(calc(var(--tilt) * -6)) scale(.15); opacity: 0; border-radius: 50%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  body.settle #note, body.rise #note, body.crumple #note { animation: none; }
+}

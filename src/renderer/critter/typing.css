@@ -1,0 +1,61 @@
+/* Typing along and the weather on him (typing.js, src/main/typing.js, src/main/weather.js). */
+
+/* ---------- his little keyboard, on the ground by his claw ---------- */
+#keys {
+  position: absolute; left: var(--kx, 0); top: var(--ky, 0); pointer-events: none;
+  display: grid; grid-template-columns: repeat(4, calc(var(--px) * .75)); gap: 1px;
+  padding: 1px; background: #2b2d42; box-shadow: 0 1px 0 rgba(0, 0, 0, .35);
+  opacity: 0; transform: translateY(2px); transition: opacity .2s, transform .2s;
+}
+#keys i { display: block; height: calc(var(--px) * .6); background: #cfd8dc; }
+#keys i.down { background: #ffd23f; transform: translateY(1px); }
+body.typing #keys { opacity: 1; transform: none; }
+
+/* ---------- typing: claw poised over the keys, eyes on his work ---------- */
+body.typing .part-claw { animation: none; transform: rotate(-12deg); transition: transform 60ms ease-out; }
+body.typing #crab.tap .part-claw { transform: rotate(14deg) translateY(1px); transition-duration: 30ms; }
+body.typing .part-eyes { animation: none; transform: translateY(1px); }
+body.typing #crab.tap .part-legs-a { transform: translateY(-1px); }
+body.typing #crab.tap.tap-b .part-legs-a { transform: none; }
+body.typing #crab.tap.tap-b .part-legs-b { transform: translateY(-1px); }
+
+/* fast: he bobs along to keep up */
+body.typing-fast #sprite { animation: hop .26s ease-in-out infinite; }
+
+/* a real burst: eyes wide, stalks up, and a sparkle over his head */
+body.impressed .part-eyes { transform: scale(1.25) translateY(-1px); transform-box: fill-box; transform-origin: 50% 50%; }
+body.impressed .part-stalks { transform: translateY(-1px); }
+body.impressed #crab::after {
+  content: "✦"; position: absolute; left: calc(var(--px) * 17); top: calc(var(--px) * -4);
+  color: #ffd23f; font: 700 calc(var(--px) * 3) / 1 system-ui, sans-serif; text-shadow: 0 1px 0 rgba(61, 42, 0, .5);
+  animation: impressed-twinkle .7s steps(2) infinite;
+}
+@keyframes impressed-twinkle { 0% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.7) rotate(20deg); } }
+
+/* ---------- the weather on him ---------- */
+/* thunder: the sky flashes and he flinches */
+body.thunder #fx::before {
+  content: ""; position: absolute; inset: 0; background: #fff; border-radius: 40%;
+  animation: thunder-flash .9s ease-out forwards; pointer-events: none;
+}
+body.thunder #sprite { transform-origin: 50% 100%; animation: thunder-flinch .9s ease-out; }
+@keyframes thunder-flash { 0%, 20% { opacity: .55; } 10% { opacity: .1; } 100% { opacity: 0; } }
+@keyframes thunder-flinch { 0% { transform: none; } 12% { transform: translateY(1px) scale(1.04, .94); } 30% { transform: translateY(-2px); } 100% { transform: none; } }
+
+/* cold: a shiver now and then */
+body.weather-cold.state-idle .part-body, body.weather-cold.state-idle .part-shell { animation: cold-shiver 5s linear infinite; }
+@keyframes cold-shiver { 0%, 84%, 100% { transform: none; } 86%, 90%, 94% { transform: translateX(1px); } 88%, 92%, 96% { transform: translateX(-1px); } }
+
+/* hot: a bead of sweat runs down */
+body.weather-hot.state-idle #crab::before {
+  content: ""; position: absolute; left: calc(var(--px) * 12); top: calc(var(--px) * 2);
+  width: calc(var(--px) * .75); height: var(--px); background: #9ecbff; border-radius: 0 0 50% 50%;
+  animation: heat-drop 4s ease-in infinite; pointer-events: none;
+}
+@keyframes heat-drop { 0%, 55% { opacity: 0; transform: translateY(0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translateY(calc(var(--px) * 4)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  #keys { transition: none; }
+  body.typing-fast #sprite, body.impressed #crab::after, body.thunder #sprite, body.thunder #fx::before,
+  body.weather-cold.state-idle .part-body, body.weather-cold.state-idle .part-shell, body.weather-hot.state-idle #crab::before { animation: none; }
+}

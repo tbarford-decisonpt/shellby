@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('shellby', {
     pet: fire('critter:pet'),
     hit: fire('critter:hit'),
     onPerch: on('critter:perch'),
+    onSurface: on('critter:surface'), // which way up he is: on the floor, a wall or the ceiling (src/main/climbing.js)
     // His life between tasks (src/main/life.js, playtime.js): where your cursor
     // is, a prop for a scene, something in his claw or on his face, and what a
     // visiting crab says back.
@@ -49,6 +50,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onVisitorSay: on('critter:visitor-say'),
     // You came back after a while away: he says hello (src/main/main.js greet).
     onGreet: on('critter:greet'),
+    // You're typing (src/main/typing.js): tap along, faster, or look on impressed.
+    onTyping: on('critter:typing'),
   },
 
   // Files dropped on him: their paths, or (for a picture with no file behind

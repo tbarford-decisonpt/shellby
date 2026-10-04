@@ -84,8 +84,16 @@ api.onSkin(msg => {
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue));
   // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
   if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
-  fx.set(outfit.effect);
+  // Real rain outside beats the snow he chose to wear.
+  const effect = outfit.weather?.effect || outfit.effect;
+  if (effect?.key !== shownEffect) { shownEffect = effect?.key ?? null; fx.set(effect); }
+  // A shiver in the cold, a sweat in the heat, a flinch at thunder (critter.css, life.js).
+  for (const m of WEATHER_MOODS) flags.delete(`weather-${m}`);
+  if (WEATHER_MOODS.includes(outfit.weather?.mood)) flags.add(`weather-${outfit.weather.mood}`);
+  paintBody();
 });
+const WEATHER_MOODS = ['storm', 'cold', 'hot'];
+let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles
 
 api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
 
@@ -97,6 +105,10 @@ function drawSelf() {
   const shell = molt ? molt.shell : outfit.home;
   // Between shells, whatever sits on the shell (a flag, bat wings) has nowhere to go.
   let accessories = molt?.shell === 'none' ? outfit.accessories.filter(a => a.slot !== 'shell') : outfit.accessories;
+  // Dressed for the weather outside (src/main/weather.js): the sou'wester and
+  // umbrella go over his own things, and everything below still outranks them.
+  const gear = outfit.weather?.accessories || [];
+  if (gear.length) accessories = [...accessories.filter(a => !gear.some(g => g.slot === a.slot)), ...gear];
   // On guard: the helmet goes on instead of whatever hat he wears.
   if (focusing?.phase === 'focus' && outfit.focusHelmet) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.focusHelmet];
   // Something is playing: headphones on, unless he's already wearing the helmet.
@@ -500,7 +512,7 @@ function hearts(n = 3) {
 // while it does: one body class per beat, all of it in critter.css.
 const MOTION_FLAGS = [
   'flying', 'fly-left', 'fly-fall', 'fly-fling', 'fly-pop', 'landed', 'walking', 'walk-left',
-  'eyeing', 'crouch', 'hopping', 'hop-flip', 'cling', 'scramble', 'coyote', 'wheee', 'windy',
+  'eyeing', 'crouch', 'hopping', 'hop-flip', 'cling', 'scramble', 'coyote', 'wheee', 'windy', 'hauling',
 ];
 const FLY_STYLES = new Set(['fall', 'fling', 'pop']); // 'tumble' is the plain throw
 const DIZZY_MS = 2600;
@@ -571,7 +583,8 @@ api.onMotion(msg => {
   }
   for (const f of MOTION_FLAGS) flags.delete(f);
   clearTimeout(landedTimer);
-  window.ShellbySound.scuttle(kind === 'walking' ? msg.speed || AMBLE : 0); // his feet go quiet the moment he stops
+  // Hauling a prank along is walking too, just backwards. His feet go quiet the moment he stops.
+  window.ShellbySound.scuttle(kind === 'walking' || kind === 'hauling' ? msg.speed || AMBLE : 0);
   if (kind !== 'perched' && kind !== null) endBit();
   if (kind !== 'cling') setLean(0);
   if (kind === 'flying') {
@@ -581,6 +594,9 @@ api.onMotion(msg => {
     setDir(vx);
   }
   if (kind === 'walking') { flags.add('walking'); if (msg.dir < 0) flags.add('walk-left'); setDir(msg.dir); }
+  // Mischief: walking backwards, hauling a note in by its corner (src/main/pranks.js).
+  if (kind === 'hauling') { flags.add('walking'); flags.add('hauling'); setDir(msg.dir); }
+  // 'still' (a pause on a wall) is just the absence of all the above.
   if (kind === 'eyeing') { flags.add('eyeing'); setDir(msg.dx); }
   if (kind === 'crouch') { flags.add('crouch'); setDir(vx); }
   if (kind === 'hopping') {
@@ -617,6 +633,17 @@ api.onPerch(msg => {
 });
 document.addEventListener('mousemove', e => {
   if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
+});
+
+// ---- up a wall or hanging from the top of the screen (src/main/climbing.js).
+// His body (#pose) turns about the middle of the window; main has put the
+// window where that brings his feet to the edge.
+const SURFACES = ['left', 'right', 'ceiling'];
+api.onSurface(msg => {
+  const surface = SURFACES.includes(msg?.surface) ? msg.surface : 'floor';
+  for (const s of SURFACES) flags.delete(`surface-${s}`);
+  if (surface !== 'floor') flags.add(`surface-${surface}`);
+  paintBody();
 });
 document.addEventListener('mouseleave', () => { if (perched) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });
@@ -782,5 +809,6 @@ window.ShellbyCritter = {
   flags, paint: paintBody, setDir, hearts,
   px: () => px,
   claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,
+  rows: () => skin?.pixels?.length || 0, // his height in sprite pixels, to put things on the ground beside him
   visitor: () => visitorEl,
 };

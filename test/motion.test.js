@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, CritterMotion, STROLL_RANGE } = require('../src/main/motion');
+const { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, CritterMotion, STROLL_RANGE, GRIP_SPEED, GRIP_CLEAR } = require('../src/main/motion');
 
 const BOX = { minX: 0, maxX: 1700, minY: 0, floorY: 900 };
 
@@ -245,4 +245,71 @@ test('a calm ride slows to a few frames a second, and speeds up the moment it is
   t += 100; tick();
   assert.deepEqual(periods, [16, 100, 16], 'the window moved: full speed again');
   assert.equal(m.kind, 'ride');
+});
+
+const GRIPS = { left: true, right: true, ceiling: true };
+
+test('stepFlight: thrown hard into a climbable edge mid-air, he sticks to it', () => {
+  const hit = stepFlight({ x: 5, y: 400, vx: -GRIP_SPEED * 2, vy: 0 }, 16, { ...BOX, grips: GRIPS });
+  assert.equal(hit.landed, true);
+  assert.equal(hit.wall, 'left');
+  assert.equal(hit.body.x, BOX.minX);
+  assert.equal(hit.body.vx, 0);
+  const right = stepFlight({ x: 1695, y: 400, vx: GRIP_SPEED * 2, vy: 0 }, 16, { ...BOX, grips: GRIPS });
+  assert.equal(right.wall, 'right');
+  assert.equal(right.body.x, BOX.maxX);
+});
+
+test('stepFlight: the same throw with nothing to grip bounces off', () => {
+  const body = { x: 5, y: 400, vx: -GRIP_SPEED * 2, vy: 0 };
+  for (const grips of [null, undefined, { left: false, right: true, ceiling: true }]) {
+    const r = stepFlight(body, 16, { ...BOX, grips });
+    assert.equal(r.wall, null);
+    assert.equal(r.landed, false);
+    assert.equal(r.bounced, true);
+    assert.ok(r.body.vx > 0);
+  }
+});
+
+test('stepFlight: a soft knock against a climbable edge bounces too', () => {
+  const r = stepFlight({ x: 5, y: 400, vx: -(GRIP_SPEED - 200), vy: 0 }, 16, { ...BOX, grips: GRIPS });
+  assert.equal(r.wall, null);
+  assert.equal(r.bounced, true);
+});
+
+test('stepFlight: a throw that is nearly on the floor does not stick', () => {
+  const r = stepFlight({ x: 5, y: BOX.floorY - GRIP_CLEAR, vx: -GRIP_SPEED * 2, vy: 0 }, 16, { ...BOX, grips: GRIPS });
+  assert.equal(r.wall, null);
+  assert.equal(r.bounced, true);
+});
+
+test('stepFlight: a fast upward throw into the ceiling sticks to it', () => {
+  const r = stepFlight({ x: 800, y: 5, vx: 0, vy: -GRIP_SPEED * 2 }, 16, { ...BOX, grips: GRIPS });
+  assert.equal(r.landed, true);
+  assert.equal(r.wall, 'ceiling');
+  assert.equal(r.body.y, BOX.minY);
+  const soft = stepFlight({ x: 800, y: 5, vx: 0, vy: -GRIP_SPEED / 2 }, 16, { ...BOX, grips: GRIPS });
+  assert.equal(soft.wall, null);
+});
+
+test('a throw into a climbable wall sticks and says which', () => {
+  const r = rigMotion({ x: 40, y: 400 }, { grips: () => GRIPS });
+  r.m.launch({ vx: -GRIP_SPEED * 2, vy: 0 }, { why: 'thrown' });
+  r.run(100);
+  const [kind, info] = r.settled.at(-1);
+  assert.equal(kind, 'flight');
+  assert.equal(info.wall, 'left');
+  assert.equal(r.pos.x, BOX.minX);
+  assert.equal(r.m.busy, false);
+});
+
+test('a leap off a wall is meant to come down: it ignores what he could grip', () => {
+  const r = rigMotion({ x: 40, y: 400 }, { grips: () => GRIPS });
+  r.m.launch({ vx: -GRIP_SPEED * 2, vy: 0 }, { why: 'leap' });
+  r.run(500);
+  const [kind, info] = r.settled.at(-1);
+  assert.equal(kind, 'flight');
+  assert.equal(info.wall, null);
+  assert.equal(info.why, 'leap');
+  assert.ok(r.pos.x >= BOX.minX);
 });

@@ -35,16 +35,22 @@ function guardIpc(ipcMain, allow, { onRefused = () => {} } = {}) {
 const CRITTER_CHANNELS = /^(critter:(?!reset-position$)[a-z-]+|attach:image)$/;
 // The pebble you throw for fetch (toy-preload.js): being dragged, and that's all.
 const TOY_CHANNELS = /^toy:drag-(start|move|end)$/;
+// The floor strip with his pals and footprints (floor-preload.js): the pointer's over a pal, a pal was poked.
+const FLOOR_CHANNELS = /^floor:(hit|poke)$/;
+// A note he dragged in (note-preload.js): throw it away.
+const NOTE_CHANNELS = /^note:close$/;
 
-/** windows: () => ({ panel, critter, isToy(webContents) }), any of them possibly gone. */
+/** windows: () => ({ panel, critter, isToy(wc), isFloor(wc), isNote(wc) }), any of them possibly gone. */
 function windowPolicy(windows) {
   return (channel, sender) => {
-    const { panel, critter, isToy } = windows();
+    const { panel, critter, isToy, isFloor, isNote } = windows();
     if (sender && panel && sender === panel) return true;
     if (sender && critter && sender === critter) return CRITTER_CHANNELS.test(channel);
     if (sender && isToy?.(sender)) return TOY_CHANNELS.test(channel);
+    if (sender && isFloor?.(sender)) return FLOOR_CHANNELS.test(channel);
+    if (sender && isNote?.(sender)) return NOTE_CHANNELS.test(channel);
     return false;
   };
 }
 
-module.exports = { guardIpc, windowPolicy, CRITTER_CHANNELS, TOY_CHANNELS };
+module.exports = { guardIpc, windowPolicy, CRITTER_CHANNELS, TOY_CHANNELS, FLOOR_CHANNELS, NOTE_CHANNELS };
