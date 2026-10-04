@@ -18,6 +18,8 @@ const RESCAN_MS = 6 * 60 * 60 * 1000;        // transcripts: at most this often,
 const LOOKBACK_MS = 45 * 24 * 60 * 60 * 1000;
 const COST_BATCH = 4;                        // `claude plugin details` at a time (~2 s each)
 const MAX_COSTS = 300;
+const REPORT_MS = 2 * 60 * 1000;             // past this the panel gets an answer, not a spinner
+const TOO_SLOW = 'Claude Code is taking too long to answer. Try "Check again" in a minute.';
 const MAX_TIDIED = 300;
 const MAX_SEEN = 300;                        // MCP servers whose first sighting is kept
 const MAX_MANIFEST = 1024 * 1024;
@@ -118,7 +120,7 @@ function createLean(deps) {
   // language server), which no transcript shows. A version it wouldn't
   // describe is asked again only on a refresh.
   async function withDetails(plugins, refresh) {
-    const known = { ...(config.get('pluginCosts') || {}) };
+    let known = { ...(config.get('pluginCosts') || {}) };
     const key = p => `${p.id}#${p.version}`;
     const todo = plugins.filter(p => p.enabled && (!Object.hasOwn(known, key(p)) || (refresh && known[key(p)] === null)));
     for (let i = 0; i < todo.length; i += COST_BATCH) {
@@ -128,8 +130,11 @@ function createLean(deps) {
         const d = got[j];
         known[key(p)] = d ? { tokens: Number.isFinite(d.alwaysOnTokens) ? d.alwaysOnTokens : null, background: ((d.hooks || 0) + (d.lsp || 0)) > 0 } : null;
       });
+      // Kept as it goes: with dozens of plugins this takes a while, and a report
+      // that's cut short (or Shellby closing) shouldn't have to start over.
+      known = Object.fromEntries(Object.entries(known).slice(-MAX_COSTS));
+      config.set({ pluginCosts: known });
     }
-    if (todo.length) config.set({ pluginCosts: Object.fromEntries(Object.entries(known).slice(-MAX_COSTS)) });
     const turnedOn = config.get('pluginEnabledAt') || {};
     return plugins.map(p => {
       const d = known[key(p)];
@@ -170,17 +175,30 @@ function createLean(deps) {
   }
 
   // One report at a time: the panel asking twice shares the first one's work.
+  // One that runs past REPORT_MS answers with an error and lets go, so a call
+  // into Claude Code that never comes back can't keep the tab waiting for good.
   let reporting = null;
   function report(opts = {}) {
-    if (!reporting) reporting = buildReport(opts).finally(() => { reporting = null; });
-    return reporting;
+    if (reporting) return reporting;
+    let timer;
+    const mine = Promise.race([
+      buildReport(opts),
+      new Promise(resolve => { timer = setTimeout(() => resolve({ ok: false, error: TOO_SLOW }), deps.reportMs ?? REPORT_MS); }),
+    ]).finally(() => {
+      clearTimeout(timer);
+      if (reporting === mine) reporting = null;
+    });
+    reporting = mine;
+    return mine;
   }
 
   async function buildReport({ refresh = false } = {}) {
     const blocked = deps.shopBlocked();
     if (blocked) return blocked;
     load();
-    const [list, u] = await Promise.all([deps.shop().list({ refresh: false }), used(refresh)]);
+    // Only what's installed matters here, so the last list does unless asked
+    // to check again: a Skill Shop refresh can take minutes.
+    const [list, u] = await Promise.all([deps.shop().list({ stale: !refresh }), used(refresh)]);
     if (!list.ok) return list;
     const plugins = await withDetails(list.plugins.filter(p => p.installed), refresh);
     const now = Date.now();
