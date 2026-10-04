@@ -84,10 +84,7 @@
     $('wanderToggle').checked = state.settings.wander !== false;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
-    $('planOnlyToggle').checked = !!state.settings.planOnly;
-    const billing = state.status?.billingEnv || [];
-    $('billingEnvNote').hidden = !billing.length;
-    $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}.` : '';
+    renderBillingGuard();
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
     $('crashReportsRow').hidden = !state.settings.crashReportsAvailable;
@@ -99,6 +96,25 @@
     $('pushToTalkToggle').checked = !!state.settings.pushToTalk;
     renderClaudeAccount();
     renderFacts();
+  }
+
+  // Off with an API key or provider set on this PC means per-token billing,
+  // so that case gets the loudest look (see .billing-guard in panel.css).
+  const BILLING_GUARD = {
+    safe: { title: 'Billing: your Claude plan', pill: 'Protected' },
+    off: { title: 'Billing: Claude Code decides', pill: 'Not protected' },
+    risk: { title: 'Heads up: this may bill your API key', pill: 'Pay per token' },
+  };
+  function renderBillingGuard() {
+    const on = !!state.settings.planOnly;
+    const billing = state.status?.billingEnv || [];
+    const key = on ? 'safe' : billing.length ? 'risk' : 'off';
+    $('planOnlyToggle').checked = on;
+    $('billingGuard').dataset.state = key;
+    $('billingGuardTitle').textContent = BILLING_GUARD[key].title;
+    $('billingGuardPill').textContent = BILLING_GUARD[key].pill;
+    $('billingEnvNote').hidden = !billing.length;
+    $('billingEnvNote').textContent = billing.length ? `Set on this PC right now: ${billing.join(', ')}. Turn this on to keep them out.` : '';
   }
 
   // Who Claude Code is signed in as, with sign out and switch beside it.

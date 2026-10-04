@@ -1101,9 +1101,16 @@
           <button type="button" class="btn ghost slim-btn" id="claudeSignOut">Sign out</button>
           <button type="button" class="btn primary slim-btn" id="claudeSignIn" hidden>Sign in</button>
         </div>
-        <label class="toggle"><input type="checkbox" id="planOnlyToggle"><span class="switch"></span>Always use my Claude plan</label>
-        <p class="muted small">Claude Code decides how it signs in. If an API key or another provider (Bedrock, Vertex, Foundry) is set on this PC, it bills that instead of your plan. Turn this on and Shellby leaves those out, so its conversations always run on your Claude Pro or Max plan. Applies to new conversations.</p>
-        <p class="small warn" id="billingEnvNote" hidden></p>
+        <div class="billing-guard" id="billingGuard" data-state="off">
+          <div class="billing-guard-head">
+            <span class="billing-guard-icon" aria-hidden="true"></span>
+            <b id="billingGuardTitle">Billing</b>
+            <span class="billing-guard-pill" id="billingGuardPill"></span>
+          </div>
+          <label class="toggle"><input type="checkbox" id="planOnlyToggle" aria-describedby="billingGuardText billingEnvNote"><span class="switch"></span>Always use my Claude plan</label>
+          <p class="small" id="billingGuardText">If an API key or another provider (Bedrock, Vertex, Foundry) is set on this PC, Claude Code bills that, per token, instead of your Pro or Max plan. Turn this on and Shellby leaves them out, so every conversation runs on your plan. Applies to new conversations.</p>
+          <p class="small" id="billingEnvNote" hidden></p>
+        </div>
       </section>
 
       <section class="setting-group" data-nav="Mode">
