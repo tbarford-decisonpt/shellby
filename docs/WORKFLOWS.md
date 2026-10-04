@@ -49,6 +49,32 @@ Claude Code can also propose one from any session with the Shellby plugin
 (`add_workflow`). You see the whole thing in Shellby's confirmation window
 first.
 
+### Routines too
+
+The routine editor (**Automate → Routines**) has the same chat. Say what you
+want ("every weekday at 8:30, sum up what changed in my Documents", "only look,
+don't change anything", "make the report shorter") and Claude fills in the
+form while you watch. A routine drafted with **Describe it** opens with the
+chat ready to carry on.
+
+With **Let Claude test it** ticked, Claude saves the routine and runs it once in
+its own tab. When that run finishes, Claude reads what Claude Code did there:
+how it ended, which tools failed, and what it reported. Then it rewrites the
+instruction, the mode or the folder if the run went wrong, and tries again, up
+to three times per message.
+
+- A **new** routine is saved **switched off** for its tests, so it doesn't run
+  on its schedule yet. **Save** switches it on. Leave without saving and it
+  stays in the list, switched off.
+- An existing routine keeps its on/off setting. A test saves your changes to
+  it, so its next scheduled run uses them even if you leave without saving.
+- A test is a real run: it uses your Claude usage like **Run now** does, and
+  saving for one shows the confirmation window whenever **Save** would.
+- **See the run** opens the test's tab. If it stops to ask your permission,
+  the chat waits for you.
+- Claude never picks Autonomous. If you gave the routine Autonomous yourself,
+  Claude can leave it be.
+
 ## The map
 
 The editor shows a workflow as a **map**: its triggers along the top, then

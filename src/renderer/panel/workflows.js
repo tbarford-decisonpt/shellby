@@ -2115,7 +2115,15 @@
     const alive = () => !!chat && ed.chat === chat && nav.some(x => x.name === 'editor');
     return {
       alive,
+      noun: 'workflow',
       getDef: () => { if (ed.json) applyJson(); return clone(ed.def); },
+      ask: async ({ def, messages, runId }) => {
+        const res = await api.chatWorkflow({ workflow: def, messages, runId });
+        return res?.ok && res.workflow ? { ...res, def: res.workflow } : res;
+      },
+      startRun: id => api.runWorkflow(id, {}),
+      stopRun: runId => api.stopRun(runId),
+      getRun: runId => api.getRun(runId),
       apply: (def, { since } = {}) => {
         if (!alive()) return false;
         if (ed.json) applyJson();

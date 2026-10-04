@@ -73,8 +73,14 @@ if (ONE_SHOT) {
       when: [{ type: 'schedule', schedule: { type: 'daily', time: '09:00' } }],
       steps: [{ id: 'hello', type: 'tell', to: 'crab', text: 'Good morning!' }, ...extra],
     });
+    // The routine editor's chat: a draft to test, then "it worked".
+    const morning = { name: 'Morning summary', prompt: 'List the files in this folder that changed since yesterday and sum them up in three bullets.', schedule: { type: 'weekly', time: '08:30', days: [1, 2, 3, 4, 5] }, mode: 'plan', folder: '', catchUp: true };
     let answer;
-    if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
+    if (schema.properties.routine) {
+      answer = prompt.includes('test run that just finished')
+        ? { reply: 'The test run worked: it listed what changed and summed it up. Press Save to switch it on.', changed: false, routine: morning, test: false }
+        : { reply: 'Set it for weekdays at 8:30, looking only, never changing anything. Let me test it.', changed: true, routine: morning, test: true };
+    } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };
     } else if (/Status: error/.test(prompt)) {

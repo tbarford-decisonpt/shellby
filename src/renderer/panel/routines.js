@@ -5,6 +5,8 @@
   const form = $('routineEditor');
   let editing = null;      // routine being edited (null = new)
   let folder = null;       // chosen cwd for the editor (null = default)
+  let chat = null;         // Build it with Claude (wf-chat.js), one per editor session
+  let trial = false;       // a new routine Claude saved switched off to test it
 
   // Templates live in main (routine-templates.js), so the dependency checkup's
   // prompt and the one the Sticker Book uses can't drift apart.
@@ -210,12 +212,27 @@
   }
   form.elements.type.addEventListener('change', syncWhen);
 
-  function openEditor(r = null) {
+  // `greeting`: what Claude said about a draft, to open the chat with.
+  function openEditor(r = null, { greeting = '' } = {}) {
+    if (chat) closeEditor(); // one editor, one chat: whatever was open goes the usual way
     editing = r && !r.isTemplate ? r : null;
-    folder = r?.cwd || null;
     $('routineEditorTitle').textContent = editing ? `Edit “${r.name}”` : 'New routine';
     $('routineTplNote').hidden = !(r?.isTemplate && r.note);
     $('routineTplNote').textContent = r?.isTemplate && r.note ? r.note : '';
+    fillForm(r);
+    form.querySelector('option[value=autonomous]').disabled = !state.settings.autonomousAcknowledged;
+    $('routineErrors').hidden = true;
+    const host = chatHost();
+    chat = SB.wfChat.create(host, { greeting });
+    host.bind(chat);
+    $('routineWork').append(chat.el);
+    $('routineWork').hidden = false;
+    $('routineWork').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.elements.name.focus();
+  }
+
+  function fillForm(r) {
+    folder = r?.cwd || null;
     const s = r?.schedule || { type: 'daily', time: '09:00' };
     form.elements.name.value = r?.name || '';
     form.elements.prompt.value = r?.prompt || '';
@@ -226,42 +243,129 @@
     form.querySelectorAll('input[name=day]').forEach(c => { c.checked = days.has(c.value); });
     form.elements.mode.value = r?.mode || 'smart';
     form.elements.catchUp.checked = r ? r.catchUp !== false : true;
-    form.querySelector('option[value=autonomous]').disabled = !state.settings.autonomousAcknowledged;
     $('routineFolder').textContent = folder ? SB.tildify(folder) : `Default (${SB.tildify(state.cwd)})`;
-    $('routineErrors').hidden = true;
     syncWhen();
-    form.hidden = false;
-    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    form.elements.name.focus();
   }
 
-  function closeEditor() { form.hidden = true; editing = null; }
-
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
+  // The routine as it is in the editor, ready for routines:save. How it last ran
+  // isn't sent: main keeps what it has, which a test run may have just changed.
+  function readForm() {
     const type = form.elements.type.value;
     const schedule = type === 'interval'
       ? { type, everyHours: Number(form.elements.everyHours.value) }
       : type === 'weekly'
         ? { type, time: form.elements.time.value, days: [...form.querySelectorAll('input[name=day]:checked')].map(c => Number(c.value)) }
         : { type, time: form.elements.time.value };
-    const input = {
-      ...(editing ? { id: editing.id, createdAt: editing.createdAt, lastRunAt: editing.lastRunAt, lastStatus: editing.lastStatus, enabled: editing.enabled } : {}),
+    return {
+      ...(editing ? { id: editing.id, createdAt: editing.createdAt, enabled: editing.enabled } : {}),
       name: form.elements.name.value, prompt: form.elements.prompt.value, cwd: folder,
       mode: form.elements.mode.value, schedule, catchUp: form.elements.catchUp.checked,
     };
+  }
+
+  function closeEditor() {
+    // A new routine Claude tested was saved switched off; it stays in the list that way.
+    if (trial && editing) SB.toast(`"${editing.name}" is saved, switched off. Switch it on in the list when you're ready.`);
+    $('routineWork').hidden = true;
+    chat?.el.remove();
+    chat = null;
+    editing = null;
+    trial = false;
+  }
+
+  function showErrors(errors) {
+    $('routineErrors').hidden = !errors.length;
+    $('routineErrors').textContent = errors.join(' ');
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    // Saving is when a routine Claude tested (saved switched off) is switched on.
+    const input = { ...readForm(), ...(trial ? { enabled: true } : {}) };
     const res = await api.saveRoutine(input);
-    if (!res.ok) {
-      $('routineErrors').hidden = false;
-      $('routineErrors').textContent = res.errors.join(' ');
-      return;
-    }
+    if (!res.ok) { showErrors(res.errors); return; }
     state.routines = res.routines;
+    trial = false;
     closeEditor();
     render();
     const saved = state.routines.find(r => r.id === res.routine.id);
     SB.toast(`Saved. Next run ${SB.untilTime(saved?.next)}`);
   });
+
+  // ------------------------------------------------------------ Build it with Claude (wf-chat.js)
+
+  // The routine editor's side of the chat. A test saves the routine (a new one
+  // switched off, so it can't run on its schedule before you press Save) and
+  // runs it once in its own tab; when that tab's turn ends, Claude reads it.
+  function chatHost() {
+    let mine = null;
+    const alive = () => !!mine && chat === mine && !$('routineWork').hidden;
+    const snapshot = () => JSON.stringify(readForm());
+    return {
+      alive,
+      noun: 'routine',
+      getDef: () => readForm(),
+      ask: async ({ def, messages, runId }) => {
+        const res = await api.chatRoutine({ routine: def, messages, runId });
+        return res?.ok && res.routine ? { ...res, def: res.routine } : res;
+      },
+      apply: (def, { since } = {}) => {
+        if (!alive()) return false;
+        if (since && snapshot() !== since) return 'conflict';
+        const before = readForm();
+        fillForm({ ...before, ...def });
+        flashChanged(before, readForm());
+        showErrors([]);
+        return true;
+      },
+      testSave: async () => {
+        if (!alive()) return { ok: false, error: 'The editor was closed.' };
+        const input = readForm();
+        const sent = { ...input, enabled: editing && !trial ? input.enabled : false };
+        let res;
+        try { res = await api.saveRoutine(sent); } catch { res = { ok: false, errors: ['Couldn\'t save it.'] }; }
+        if (!res?.ok) {
+          if (!res?.cancelled && alive()) showErrors(res?.errors || []);
+          return { ok: false, declined: !!res?.cancelled, error: (res?.errors || []).join(' ') || 'Not saved.' };
+        }
+        state.routines = res.routines;
+        render();
+        if (alive()) {
+          if (!editing) trial = true;
+          editing = res.routine;
+          $('routineEditorTitle').textContent = `Edit “${res.routine.name}”`;
+        }
+        return { ok: true, id: res.routine.id };
+      },
+      startRun: id => api.testRoutine(id),
+      stopRun: runId => api.stopRoutineTest(runId),
+      getRun: runId => api.routineTestStatus(runId),
+      openRun: runId => {
+        if (state.tabs.has(runId)) SB.activate(runId);
+        else SB.toast('That run\'s tab is closed. Find it in History.');
+      },
+      // The host is made before its chat, which is bound to it straight after.
+      bind: c => { mine = c; },
+    };
+  }
+
+  // What Claude's change touched glows for a moment, the way the workflow editor's steps do.
+  const FIELD_OF = { name: 'name', prompt: 'prompt', mode: 'mode', catchUp: 'catchUp' };
+  function flashChanged(before, after) {
+    const targets = Object.entries(FIELD_OF).filter(([k]) => before[k] !== after[k]).map(([, f]) => form.elements[f]);
+    if (JSON.stringify(before.schedule) !== JSON.stringify(after.schedule)) targets.push(form.elements.type);
+    if (before.cwd !== after.cwd) targets.push($('routineFolder'));
+    for (const el of targets) {
+      const target = el?.closest('.field-label, .toggle') || el;
+      if (!target) continue;
+      target.classList.remove('wf-touched');
+      void target.offsetWidth; // restart the animation
+      target.classList.add('wf-touched');
+      setTimeout(() => target.classList.remove('wf-touched'), 1700);
+    }
+  }
+
+  api.onRoutineTestRun(summary => chat?.onRun(summary));
   // ------------------------------------------------------------ describe it
 
   // Claude only fills in the editor; the routine is saved by the Save button,
@@ -285,7 +389,7 @@
       if (!res.ok) { askNote(res.error, true); return; }
       $('routineAskText').value = '';
       askNote(ASK_NOTE);
-      openEditor({ ...res.draft, isTemplate: true });
+      openEditor({ ...res.draft, isTemplate: true }, { greeting: `I filled this in from “${text}”. Tell me what to change, or ask me to test it.` });
       SB.toast('Drafted. Check it over, then press Save.');
     } catch {
       askNote('Couldn\'t reach Claude. Try again.', true);
