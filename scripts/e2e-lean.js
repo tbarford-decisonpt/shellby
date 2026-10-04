@@ -112,7 +112,7 @@ async function launch(port, env) {
       rows: document.querySelectorAll('#toolList .tool-row').length,
       idle: document.querySelectorAll('#toolList .idle-pill').length,
       labels: [...document.querySelectorAll('#toolList .lean-label')].map(l => l.textContent),
-      count: document.querySelector('#toolTabs [data-kind="lean"] .n').textContent,
+      count: document.querySelector('#toolGroups [data-group="lean"] .n').textContent,
       ask: !!document.querySelector('#setupPane .lean-ask button'),
     })`);
     console.log('lean:', JSON.stringify(info));
@@ -126,7 +126,9 @@ async function launch(port, env) {
 
     // Turn off -> the confirm window, focused on Cancel; cancel it.
     const pick = await panel.ev(`(() => {
-      const row = document.querySelector('#toolList .tool-row.is-idle') || [...document.querySelectorAll('#toolList .tool-row')].find(r => r.querySelector('button')?.textContent === 'Turn off');
+      // A plugin's row (its first action is Turn off), an idle one if there is: idle skills offer Remove instead.
+      const plugins = [...document.querySelectorAll('#toolList .tool-row')].filter(r => r.querySelector('.tool-actions button')?.textContent === 'Turn off');
+      const row = plugins.find(r => r.classList.contains('is-idle')) || plugins[0];
       if (!row) return null;
       row.querySelector('.tool-actions button').click();
       return row.querySelector('code').textContent;

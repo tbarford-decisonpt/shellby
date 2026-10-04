@@ -67,7 +67,7 @@ function repo(base, name, pack) {
     await ev("SB.showToolbox('team')");
     const listed = await until("document.getElementById('setupPane').textContent.includes('Use these snippets') && document.getElementById('setupPane').textContent");
     check(/Acme web/.test(listed || '') && /\/ship/.test(listed) && /Check before a release/.test(listed) && /Says when Claude is done/.test(listed) && /git push --force/.test(listed), 'Team tab lists every part of the pack');
-    check(await ev("document.querySelector('#toolTabs [data-kind=team] .n').textContent") === '4', 'the Team tab counts the 4 things waiting');
+    check(await ev("document.querySelector('#toolGroups [data-group=team] .n').textContent") === '4', 'the Team tab counts the 4 things waiting');
     check(!(await ev("(SB.state.snippets || []).some(s => s.name === 'ship')")), '/ship is off before you say yes');
     check((await ev("shellby.expandSnippet('/ship main')")) === null, '/ship is not a snippet yet');
 

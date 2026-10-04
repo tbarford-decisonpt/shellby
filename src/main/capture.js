@@ -375,7 +375,7 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
 
   // Lean only asks main for a report when it has none, so it can be handed one.
   await show('toolbox', 900);
-  await js(`SB.state.lean = ${JSON.stringify(demo.demoLean(now))}; SB.showToolbox('lean'); document.getElementById('toolTabs').scrollIntoView({ block: 'start' }); 1`);
+  await js(`SB.state.lean = ${JSON.stringify(demo.demoLean(now))}; SB.showToolbox('lean'); document.getElementById('toolGroups').scrollIntoView({ block: 'start' }); 1`);
   await wait(700);
   await shot(panel, path.join(out, 'screenshot-lean.png'));
   await js("SB.showToolbox('skill'); 1");
