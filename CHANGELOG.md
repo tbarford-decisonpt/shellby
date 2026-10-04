@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.62.0: the weekly crab card
+
+### New
+- **Your top project.** **Trophies & XP → This week** now names the repo where you finished the most tasks, and lists the trophies you earned that week, alongside tasks, streak, ships, green tests, deploys, releases and clean audits.
+- **The weekly crab card comes to you.** Every Friday afternoon after a week with anything done in it (not only weeks that shipped), Shellby hands you the card, ready to share. **📅 Share my week** still makes one any time. Projects you keep off your calling card stay off it.
+
 ## 0.61.0: Lean Shell
 
 More out of your Claude plan, without asking Claude to do any less. Nothing here touches a prompt, the model, the effort level or what Claude reads and writes.
