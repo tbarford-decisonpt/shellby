@@ -554,6 +554,23 @@ test('issueDraft: values in the command are left out, so a secret never reaches 
   assert.match(d.body, /API_KEY=… DEBUG=… npm test -- --token=… --password …/);
 });
 
+test('redactCmd: quoted values, headers, URL passwords and short secret flags', () => {
+  const cases = [
+    ['TOKEN="abc def" npm test', 'TOKEN=… npm test'],
+    ["TOKEN='abc def' npm test", 'TOKEN=… npm test'],
+    ['curl -H "Authorization: Bearer xyz.123" http://localhost', 'curl -H … http://localhost'],
+    ['curl --header "X-Api-Key: k1" http://localhost', 'curl --header … http://localhost'],
+    ['DATABASE_URL=x npm test && psql https://user:pa55@db.example.com/x', 'DATABASE_URL=… npm test && psql https://…@db.example.com/x'],
+    ['mysql -u root -p hunter2 -e "select 1"', 'mysql -u root -p … -e "select 1"'],
+    ['npm test -- --api-key "two words"', 'npm test -- --api-key …'],
+    ['run Bearer abc.def', 'run Bearer …'],
+  ];
+  for (const [cmd, want] of cases) assert.equal(F.redactCmd(cmd), want, cmd);
+  for (const keep of ['npx jest src/a.test.js -t "signs in"', 'pytest -k "login and not slow" -x', 'go test -run ^TestLogin$ ./...']) {
+    assert.equal(F.redactCmd(keep), keep, 'a test filter is not a secret');
+  }
+});
+
 test('issueDraft: a run with no test named says the suite, not a test', () => {
   const { state } = feed([fail([]), pass()]);
   const [row] = F.flakyView(state, T0 + HOUR);

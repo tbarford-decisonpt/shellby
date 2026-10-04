@@ -790,12 +790,21 @@ function unquarantinePrompt(row, { branch, base, cmd = null }) {
   ].join('\n');
 }
 
-// A command's values stay on this PC: NAME=value, --flag=value, and the word
-// after a --token or --password style flag. An issue can be public.
-const SECRET_FLAG = /^--?[\w-]*(token|secret|password|passwd|key|auth|credential)s?$/i;
+// A command's values stay on this PC, because an issue can be public:
+// NAME=value and --flag=value, the word after a --token/--password style flag,
+// a header (-H) or -p, the word after "Bearer", and a password in a URL.
+// Quoted words count as one, so TOKEN="two words" goes whole.
+const SECRET_FLAG = /^(--?[\w-]*(token|secret|password|passwd|key|auth|credential)s?|-p|-H|--header)$/i;
+const WORD = /(?:[^\s"']+|"[^"]*"?|'[^']*'?)+/g;
 function redactCmd(cmd) {
-  const words = plain(cmd).replace(/(^|\s)(--?[\w-]+|[A-Za-z_][A-Za-z0-9_]*)=\S+/g, '$1$2=…').split(' ');
-  return words.map((w, i) => (i && SECRET_FLAG.test(words[i - 1]) && !w.startsWith('-') ? '…' : w)).join(' ');
+  const words = plain(cmd).match(WORD) || [];
+  return words.map((w, i) => {
+    const before = i ? words[i - 1] : '';
+    if ((SECRET_FLAG.test(before) && !w.startsWith('-')) || /^bearer$/i.test(before)) return '…';
+    const assigned = w.match(/^(--?[\w-]+|[A-Za-z_]\w*)=/);
+    if (assigned) return `${assigned[1]}=…`;
+    return w.replace(/^([a-z][\w+.-]*:\/\/)[^/\s@]+@/i, '$1…@');
+  }).join(' ');
 }
 
 /**

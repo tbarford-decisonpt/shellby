@@ -102,10 +102,17 @@ function checkCiRuns(runs, sha) {
   const where = newest.html_url ? ` (${newest.html_url})` : '';
   if (newest.status !== 'completed') return { state: 'running', problem: `CI is still running on ${short}${where}. Tag it once it's green, or run with --wait.` };
   if (newest.conclusion !== 'success') {
-    return { state: 'failed', problem: `CI ended "${newest.conclusion}" on ${short}${where}, so the release would fail the same way. Fix main first; the fix ships as the next version.` };
+    const why = RED.has(newest.conclusion)
+      ? 'so the release would fail the same way. Fix main first; the fix ships as the next version.'
+      : 'so it never proved anything. Re-run it, and tag once it\'s green.';
+    return { state: 'failed', conclusion: newest.conclusion, problem: `CI ended "${newest.conclusion}" on ${short}${where}, ${why}` };
   }
-  return { state: 'green', problem: null };
+  return { state: 'green', conclusion: 'success', problem: null };
 }
+
+// The conclusions that mean the tests themselves failed, not that the run was
+// cut short (cancelled, skipped): only these stop a tag that's already pushed.
+const RED = new Set(['failure', 'timed_out']);
 
 /** The CHANGELOG at the release commit has a "## X.Y.Z" heading for it. */
 function checkChangelog(text, version) {
@@ -211,9 +218,15 @@ async function main(step, args) {
     problems.push(checkExistingRelease(releaseView(tag), tag));
     // Only a red CI stops it here: one still running is the release's own tests
     // racing it, and they run below anyway. Red means those tests fail too, so
-    // stop now, not after ten minutes of building.
-    const ci = checkCiRuns(await ciRuns(sha), sha);
-    if (ci.state === 'failed') problems.push(ci.problem);
+    // stop now, not after ten minutes of building. Anything less certain (a
+    // cancelled run, GitHub not answering) lets the release's own tests decide:
+    // a tag that fails here can't be moved, so it must only fail for a reason.
+    try {
+      const ci = checkCiRuns(await ciRuns(sha), sha);
+      if (ci.state === 'failed' && RED.has(ci.conclusion)) problems.push(ci.problem);
+    } catch (e) {
+      console.log(`::warning::Couldn't check CI on ${sha.slice(0, 7)} (${e.message}); the release's own tests decide.`);
+    }
   } else if (step === 'verify') {
     const release = releaseView(tag);
     if (!release) problems.push(`There's no release ${tag} to publish.`);

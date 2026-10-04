@@ -90,3 +90,14 @@ test('a tag already on GitHub is never reused', () => {
   assert.equal(g.checkTagFree(null, 'v1.0.0'), null);
   assert.match(g.checkTagFree(SHA, 'v1.0.0'), /already on GitHub \(at aaaaaaa\).*next patch/);
 });
+
+test("a cancelled run proved nothing: re-run it, but it's not the code's fault", () => {
+  const c = g.checkCiRuns([run(SHA, 'completed', 'cancelled')], SHA);
+  assert.equal(c.state, 'failed', 'still not ready to tag');
+  assert.equal(c.conclusion, 'cancelled');
+  assert.match(c.problem, /Re-run it/);
+  assert.doesNotMatch(c.problem, /Fix main/);
+  assert.equal(g.checkCiRuns([run(SHA, 'completed', 'timed_out')], SHA).conclusion, 'timed_out');
+  assert.match(g.checkCiRuns([run(SHA, 'completed', 'timed_out')], SHA).problem, /Fix main first/);
+  assert.equal(g.checkCiRuns([run(SHA, 'completed', 'success')], SHA).conclusion, 'success');
+});

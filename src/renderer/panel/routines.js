@@ -153,7 +153,7 @@
       if (res?.canceled) return;
       if (!res?.ok) SB.toast(res?.error || "That didn't work.");
       else if (action === 'dismiss') SB.toast(`Shellby will leave ${f.label} be`);
-      else if (action === 'issue') SB.toast(`Filed as issue #${res.number}`);
+      else if (action === 'issue') SB.toast(`${res.existing ? 'Already filed' : 'Filed'} as issue #${res.number}`);
     } }, label);
   }
 

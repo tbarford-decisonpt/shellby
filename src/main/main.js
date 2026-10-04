@@ -1842,18 +1842,25 @@ async function fileFlakyIssue(key, id, row) {
   const repo = root && isFolder(root) ? (await readRepo(root).catch(() => null))?.remote : null;
   if (!repo) return { ok: false, error: "This project isn't on GitHub, so there's nowhere to file it." };
   const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
-  const draft = flaky.issueDraft(row, { cmd: latest ? flakyCommands.get(latest) || null : null });
+  const cmd = latest ? flakyCommands.get(latest) || null : null;
+  const draft = flaky.issueDraft(row, { cmd });
   const gh = github.gh();
   const info = await gh.get(`/repos/${repo}`).catch(() => null);
   const response = await askOnce({
     icon: '🐛',
     title: `File an issue on ${repo}?`,
-    message: `“${draft.title}”, with what Shellby saw: the test's name, how often it flaked, the command (with any values left out) and how to go about fixing it.`,
-    detail: 'It\'s labelled shellby and assigned to you, so the Issue helper workflow can offer to take a crack at it.',
+    message: `“${draft.title}”, with what Shellby saw: the test's name, how often it flaked and how to go about fixing it.`,
+    // The one line that came from a terminal: shown as it will be posted, so a secret the redaction missed can be caught.
+    detail: (cmd ? `The command, as it will appear: ${flaky.redactCmd(cmd)}\n\n` : '')
+      + 'It\'s labelled shellby and assigned to you, so the Issue helper workflow can offer to take a crack at it.',
     note: info?.private === false ? `${repo} is public: anyone can read the issue.` : 'Anyone who can see the repository can read the issue.',
     buttons: [{ label: 'File it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
   });
+  if (response == null) return { ok: false, error: 'Another question from Shellby is open. Answer that one first.' };
   if (response !== 0) return { ok: false, canceled: true };
+  // Filed while the question was open (a second click elsewhere): that one stands.
+  const filed = flaky.findTest(config.get('flaky'), key, id, Date.now())?.issue;
+  if (filed) return { ok: true, ...filed, existing: true };
   let made;
   try {
     made = await gh.post(`/repos/${repo}/issues`, { ...draft, labels: ['shellby'], assignees: [github.view().login].filter(Boolean) });
@@ -1861,9 +1868,15 @@ async function fileFlakyIssue(key, id, row) {
     log.warn('flaky issue', e.message);
     return { ok: false, error: `GitHub didn't take it: ${e.message}` };
   }
-  config.set({ flaky: flaky.setIssue(config.get('flaky'), key, id, { number: made?.number, url: made?.html_url }, Date.now()) });
+  const next = flaky.setIssue(config.get('flaky'), key, id, { number: made?.number, url: made?.html_url }, Date.now());
+  const kept = next.projects[key]?.tests[id]?.issue;
+  if (!kept) {
+    log.warn('flaky issue', 'unexpected answer', JSON.stringify({ number: made?.number, url: made?.html_url }));
+    return { ok: false, error: "GitHub's answer didn't say which issue it made. Check the repository's issues before trying again." };
+  }
+  config.set({ flaky: next });
   send(panel, 'flaky', flakyView());
-  return { ok: true, number: made?.number, url: made?.html_url };
+  return { ok: true, number: kept.number, url: kept.url };
 }
 
 // ================================================================ the week in review (weekly.js)
