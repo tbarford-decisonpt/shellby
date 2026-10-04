@@ -408,10 +408,7 @@
     // The explainer is for before your first workflow; after that the list says it.
     list.lede = h('div', { class: 'wf-hero' },
       h('h3', { class: 'wf-hero-title', text: 'Nothing in the tide pool yet' }),
-      h('p', { class: 'wf-hero-sub', text: 'Something happens, and Shellby works through a list of steps:' }),
-      h('ul', { class: 'wf-hero-steps', 'aria-label': 'Kinds of step' },
-        [['claude', 'Claude'], ['cmd', 'Commands'], ['web', 'Web requests'], ['ask', 'Questions for you']]
-          .map(([k, label]) => h('li', { class: `wf-hero-step ${k}`, text: label }))),
+      h('p', { class: 'wf-hero-sub', text: 'Something happens, and Shellby works through a list of steps: asking Claude, running a command, calling a web address, or checking with you.' }),
       h('p', { class: 'wf-hero-sub', text: 'Describe one below, or start from a template. You can always run one by hand too.' }));
     fill(screen,
       h('div', { class: 'view-head' },

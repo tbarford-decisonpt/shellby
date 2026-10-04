@@ -168,16 +168,7 @@ body[data-view="workflows"] .view-workflows {
 }
 .wf-hero-title { margin: 0 0 8px; font: 600 21px/1.2 var(--font-pixel); color: var(--sand); }
 .wf-hero-sub { margin: 0; font-size: 14px; line-height: 1.5; color: var(--sand-dim); }
-.wf-hero-steps { list-style: none; padding: 0; margin: 10px 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
-.wf-hero-step {
-  --tint: var(--glass);
-  padding: 3px 10px; border-radius: 999px; font: 600 12px/1.5 var(--font-mono); font-stretch: 90%;
-  color: var(--tint); background: color-mix(in srgb, var(--tint) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tint) 35%, transparent);
-}
-.wf-hero-step.claude { --tint: var(--coral); }
-.wf-hero-step.web { --tint: var(--amber); }
-.wf-hero-step.ask { --tint: var(--sand); }
+.wf-hero-sub + .wf-hero-sub { margin-top: 8px; }
 
 @media (prefers-reduced-motion: reduce) {
   .wf-hero { animation: none; }
