@@ -227,6 +227,52 @@ const MAX_RULE_ROWS = 1000;
 // WebFetch(domain:example.com), mcp__github, mcp__github__create_issue.
 const RULE = /^[A-Za-z][\w-]*(\(.+\))?$/s;
 
+// What a rule covers, as the end of "Claude doesn't ask before …".
+const WHOLE_TOOL = {
+  Bash: 'running any shell command', PowerShell: 'running any PowerShell command',
+  Read: 'reading any file', Edit: 'editing any file', Write: 'writing any file',
+  MultiEdit: 'editing any file', NotebookEdit: 'editing any notebook',
+  Glob: 'searching for files', Grep: 'searching inside files',
+  WebFetch: 'fetching any web page', WebSearch: 'searching the web',
+  Skill: 'using any skill', Agent: 'starting any helper agent', Task: 'starting any helper agent',
+};
+const PATH_VERB = { Read: 'reading', Edit: 'editing', Write: 'writing', MultiEdit: 'editing', NotebookEdit: 'editing', Glob: 'searching', Grep: 'searching in' };
+
+function shellTarget(kind, spec) {
+  const prefix = spec.match(/^(.*?)(?::\*| \*)$/s);
+  if (prefix && !prefix[1].includes('*')) return `running any ${kind} command that starts with "${prefix[1]}"`;
+  if (spec.includes('*')) return `running any ${kind} command matching "${spec}" (* stands for anything)`;
+  return `running the ${kind} command "${spec}"`;
+}
+
+function ruleTarget(rule) {
+  const mcp = rule.match(/^mcp__([^_]+(?:_[^_]+)*?)(?:__(.+))?$/);
+  if (mcp) {
+    return !mcp[2] || mcp[2] === '*'
+      ? `using any tool from the ${mcp[1]} MCP server`
+      : `using the ${mcp[2]} tool from the ${mcp[1]} MCP server`;
+  }
+  const m = rule.match(/^([^(]+)(?:\((.*)\))?$/s);
+  const tool = m ? m[1] : rule;
+  const spec = m?.[2];
+  if (spec === undefined || spec === '' || spec === '*') return WHOLE_TOOL[tool] || `using the ${tool} tool`;
+  if (tool === 'Bash') return shellTarget('shell', spec);
+  if (tool === 'PowerShell') return shellTarget('PowerShell', spec);
+  if (PATH_VERB[tool]) return `${PATH_VERB[tool]} files matching "${spec}"`;
+  if (tool === 'WebFetch') return spec.startsWith('domain:') ? `fetching pages from ${spec.slice(7)}` : `fetching "${spec}"`;
+  if (tool === 'Skill') return `using the ${spec} skill`;
+  if (tool === 'Agent' || tool === 'Task') return `handing work to the ${spec} agent`;
+  return `using the ${tool} tool for "${spec}"`;
+}
+
+/** One plain sentence saying what a permission rule does. */
+function explainRule(list, rule) {
+  const what = ruleTarget(str(rule));
+  if (list === 'deny') return `Claude is blocked from ${what}, even if you'd say yes.`;
+  if (list === 'ask') return `Claude always asks you before ${what}, whatever your permission mode.`;
+  return `Claude doesn't ask before ${what}.`;
+}
+
 function scanPermissions({ home, cwd } = {}) {
   const rules = [];
   const files = [];
@@ -238,7 +284,7 @@ function scanPermissions({ home, cwd } = {}) {
       const arr = Array.isArray(perms[list]) ? perms[list] : [];
       for (const rule of arr) {
         if (typeof rule !== 'string' || rules.length >= MAX_RULE_ROWS) continue;
-        rules.push({ scope, path: file, list, rule: rule.slice(0, MAX_RULE) });
+        rules.push({ scope, path: file, list, rule: rule.slice(0, MAX_RULE), what: explainRule(list, rule) });
       }
     }
   }
@@ -380,6 +426,6 @@ function scanSetup({ home, cwd, plugins, ceiling } = {}) {
 module.exports = {
   HOOK_EVENTS, SCOPES, scanSetup, scanHooks, scanMemory, settingsFiles,
   validateHook, withHook, withoutHook, replaceHook, changeHooks,
-  RULE_LISTS, scanPermissions, validateRule, withRule, withoutRule, changeSettings,
+  RULE_LISTS, scanPermissions, explainRule, validateRule, withRule, withoutRule, changeSettings,
   readMemory, writeMemory,
 };
