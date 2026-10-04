@@ -77,7 +77,10 @@ test('sweeping twice, or with no job, does nothing', { skip }, async () => {
   const p = spawn(process.execPath, ['-e', ''], { stdio: 'ignore', windowsHide: true });
   const job = processJob.adopt(p.pid);
   await new Promise(r => p.once('exit', r));
-  assert.deepEqual(processJob.sweep(job), { ended: [], kept: [] });
+  // Its conhost can outlive it by a moment on a busy machine, and a sweep rightly
+  // ends that too; nothing else is left to end.
+  const r = processJob.sweep(job);
+  assert.deepEqual({ ...r, ended: r.ended.filter(n => n !== 'conhost.exe') }, { ended: [], kept: [] });
   assert.equal(processJob.sweep(job), null);
   assert.equal(processJob.sweep(null), null);
 });

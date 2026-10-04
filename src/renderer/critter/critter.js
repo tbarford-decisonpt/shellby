@@ -367,12 +367,19 @@ const minutesLeft = () => timeLeft(focusing?.endsAt || 0);
 // Every body class in one place: the mood, plus anything that outlasts a state
 // message (a molt in progress, a throw, a walk). Drop-over toggles its own.
 const flags = new Set();
+// His needs (src/main/needs.js): the mood that shows and every meter that's low.
+// Main only sends them while he's idle or asleep; needs.css draws them.
+const NEED_MOODS = new Set(['happy', 'content', 'peckish', 'sandy', 'sleepy', 'mopey']);
+const NEED_METERS = new Set(['fullness', 'tidiness', 'energy', 'cheer']);
+let needs = null;
+const needClasses = () => (needs ? [NEED_MOODS.has(needs.mood) ? `need-${needs.mood}` : '', ...(needs.low || []).filter(k => NEED_METERS.has(k)).map(k => `low-${k}`)] : []);
 function paintBody() {
   const dropping = document.body.classList.contains('dropping');
   document.body.className = [
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
-    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '', ...flags,
+    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '',
+    ...needClasses(), ...flags,
   ].filter(Boolean).join(' ');
   bubbleText.textContent = dropping ? 'drop it!' : bubbleFor();
 }
@@ -388,6 +395,7 @@ api.onState(msg => {
   say = msg.say || null;
   onCall = !!msg.call;
   window.ShellbySound.setMix(msg.sound);
+  needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;
   const wasGuarding = focusing?.phase === 'focus';
   focusing = msg.focus || null;
   // The throw waits for him to settle, so that it runs into the sign going up

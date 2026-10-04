@@ -15,6 +15,7 @@ const gifts = require('./gifts');
 const bond = require('./bond');
 const banter = require('./banter');
 const voice = require('./voice');
+const { createCare } = require('./care');
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -83,6 +84,26 @@ function createLife(d) {
   const app = exe => surroundings.niceName(exe) || null;
   const changed = () => d.toPanel('life', view());
 
+  // His needs (care.js, needs.js), played through the same scene slot as
+  // everything else, so a drag or a task cuts a munch short like any scene.
+  function perform(id, ms, steps) {
+    cancel();
+    const timers = steps.map(s => setTimeout(s.run, s.at));
+    timers.push(setTimeout(() => { scene = null; clearProps(); }, ms + 150));
+    scene = { id, timers };
+  }
+  function napFor(ms) {
+    if (!free() || napUntil >= now() + ms) return; // busy, or already down for longer
+    cancel();
+    napUntil = now() + ms;
+    d.refresh();
+    later(ms + 100, () => { if (!napping()) d.touch(); d.refresh(); });
+  }
+  const care = createCare(d, {
+    now, later, free, perform, napFor, napping: () => napping(), wake: () => wake(),
+    grow: kind => grow(kind), remember: (kind, data) => remember(kind, data), changed: () => changed(),
+  });
+
   // ---------------------------------------------------------------- the bond grows
   function grow(kind) {
     const r = bond.earn(getBond(), kind, now());
@@ -92,6 +113,7 @@ function createLife(d) {
       d.stat('bond-level', { n: r.levelUp.index });
       d.awardXp('bond', { label: `You and Shellby: ${r.levelUp.name}` });
       celebrate(BOND_LINES[r.levelUp.index], { eyebrow: 'Closer', icon: r.levelUp.icon, title: r.levelUp.name, text: bond.UNLOCKS.find(u => u.level === r.levelUp.index)?.text || '' });
+      care.earn('bond-up'); // a golden plankton to mark it
     }
     if (r.milestone) celebrate(bond.celebrationLine('days', { days: r.milestone }), { eyebrow: 'Together', icon: '🗓️', title: `${r.milestone} days together`, text: 'He counts. Every one of them.' });
     changed();
@@ -130,7 +152,7 @@ function createLife(d) {
     const h = new Date(t).getHours();
     const sleepy = temperament() === 'sleepy' ? 2.2 : 1;
     const drowsy = (h >= 13 && h < 16) || h >= 23 || h < 5 ? 1.6 : 1;
-    if (Math.random() > 0.1 * sleepy * drowsy) return;
+    if (Math.random() > 0.1 * sleepy * drowsy * care.napChance()) return;
     napUntil = t + NAP_MS[0] + Math.random() * (NAP_MS[1] - NAP_MS[0]);
     cancel();
     d.refresh();
@@ -159,6 +181,7 @@ function createLife(d) {
   function watch() {
     if (!d.enabled()) return;
     hereCheck();
+    care.tick();
     const r = surroundings.track(track, sample(), now());
     track = r.state;
     playing = r.playing;
@@ -209,6 +232,7 @@ function createLife(d) {
     if (key === lastDay || !d.isIdle() || onCall || d.guarding()) return;
     lastDay = key;
     grow('day');
+    care.earn('new-day'); // a couple of plankton to say good morning
     const special = bond.specialDay(getBond(), t);
     if (!special) return;
     const years = special === 'hatchday' ? new Date(t).getFullYear() - new Date(getBond().hatchedAt).getFullYear() : 0;
@@ -265,6 +289,7 @@ function createLife(d) {
       const s = scenes.pickScene(context(), recent, Math.random, repertoire().list);
       if (s) { play(s); return true; }
     }
+    if (care.idleBit()) return true; // peckish, sandy, sleepy or mopey: it shows
     const bit = voice.pickBit(voice.normalize(d.config.get('voice')).seed);
     d.toCrab('critter:bit', { bit });
     if (bit === 'dig') later(DIG_MS, () => dug());
@@ -347,6 +372,7 @@ function createLife(d) {
   // ---------------------------------------------------------------- gifts
   function dug({ manual = false } = {}) {
     if (!manual && !free()) return null;
+    care.wear('dig'); // sand in places sand shouldn't be
     const t = now();
     const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), manual }, t);
     setFinds(r.state);
@@ -422,11 +448,13 @@ function createLife(d) {
     wake();
     lastPetAt = now();
     remember('first-pet');
+    care.attend('pet');
     const r = grow('pet');
     if (r.gained) d.awardXp('pet');
   }
 
   function onStat(event, payload = {}) {
+    care.onStat(event, payload); // wear and snacks (care.js)
     if (event === 'thrown') remember('first-throw');
     if (event === 'perched' && payload.exe) remember('first-perch', { app: app(payload.exe) || 'a window' });
     if (event === 'shaken') {
@@ -443,6 +471,8 @@ function createLife(d) {
 
   /** A game ended (playtime.js). */
   function played(kind, data = {}) {
+    care.attend('play');
+    care.wear('game');
     const r = grow('play');
     if (r.gained || kind) d.awardXp('play', { label: { hide: 'Played hide and seek', fetch: 'Played fetch' }[kind] || 'Played a game' });
     if (kind === 'hide' && data.foundMs != null && data.best) remember('hide-found', { ms: data.foundMs });
@@ -507,6 +537,7 @@ function createLife(d) {
       bond: bond.view(getBond(), now()),
       finds: gifts.view(getFinds(), now(), { seasons: d.seasons() }),
       play: d.playView?.() || null,
+      needs: care.view(),
       scenes: { seen: seen.length, of: scenes.SCENES.length, list: scenes.SCENES.map(s => ({ id: s.id, name: seen.includes(s.id) ? s.name : null })) },
       onCall, playing,
     };
@@ -532,6 +563,7 @@ function createLife(d) {
     clearInterval(watchTimer); clearInterval(micTimer); clearInterval(lookTimer);
     watchTimer = micTimer = lookTimer = null;
     cancel();
+    care.flush();
   }
 
   return {
@@ -539,6 +571,16 @@ function createLife(d) {
     hushed: () => onCall, onCall: () => onCall, playing: () => playing, napping, wake,
     busy: () => !!scene || !!presenting,
     lookNow: () => look,
+    // His needs (care.js): what the crab shows, his menu, the Us page's buttons.
+    needsLook: () => care.look(),
+    needsMenu: () => care.menu(),
+    mopey: () => care.mopey(),
+    feed: kind => care.feed(kind),
+    rinse: () => care.rinse(),
+    tuckIn: () => care.tuckIn(),
+    needsSwitched: isOn => care.switched(isOn),
+    needsIntroSeen: () => care.seenIntro(),
+    needsForTest: patch => care.setForTest(patch),
     // The crab's page (re)loaded: send where he's looking on the next tick even if
     // it hasn't changed, since a still cursor would otherwise never send it again.
     resendLook: () => { lookSent = ''; },

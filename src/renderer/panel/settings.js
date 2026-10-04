@@ -90,6 +90,7 @@
     $('soundFxToggle').checked = !!state.settings.soundFx;
     $('ambientSelect').value = ['off', 'surf', 'tidepool'].includes(state.settings.ambient) ? state.settings.ambient : 'off';
     $('soundVolumeSelect').value = [25, 60, 100].includes(state.settings.soundVolume) ? String(state.settings.soundVolume) : '60';
+    $('needsToggle').checked = state.settings.needsOn !== false;
     $('crashReportsRow').hidden = !state.settings.crashReportsAvailable;
     $('crashReportsSelect').value = ['ask', 'always', 'never'].includes(state.settings.crashReports) ? state.settings.crashReports : 'ask';
     // His temperament, picked once from your install and kept (src/main/voice.js).
@@ -232,6 +233,12 @@
   $('soundFxToggle').addEventListener('change', async e => { const r = await api.setSettings({ soundFx: e.target.checked }); state.settings = r.settings; });
   $('ambientSelect').addEventListener('change', async e => { const r = await api.setSettings({ ambient: e.target.value }); state.settings = r.settings; });
   $('soundVolumeSelect').addEventListener('change', async e => { const r = await api.setSettings({ soundVolume: Number(e.target.value) }); state.settings = r.settings; });
+  // His needs (src/main/needs.js). Back on, he comes back full; the Us page follows.
+  $('needsToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ needsOn: e.target.checked });
+    state.settings = r.settings;
+    api.getLife().then(v => SB.applyLife?.(v));
+  });
   // Turning it on starts Windows' recognizer first, which can take a second or two.
   $('pushToTalkToggle').addEventListener('change', async e => {
     const box = e.target;
