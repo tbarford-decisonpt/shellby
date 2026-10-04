@@ -1526,11 +1526,52 @@
         <div class="gh-profile-card" id="ghProfileCardRow" hidden>
           <img class="pc-preview" id="pcPreview" alt="Preview of your profile card" width="480" height="200">
           <div class="gh-ci-head"><p class="small ext-status" id="pcStatus"></p><button type="button" class="btn ghost slim-btn" id="pcPublish">Update now</button></div>
-          <ol class="pc-steps small" id="pcSteps" hidden>
-            <li>Open your profile repository, the public one named after your username. <button type="button" class="link-btn inline" id="pcOpenRepo">Open it on GitHub</button> (create it if GitHub says it doesn't exist; its README is what your profile shows).</li>
-            <li>Add the Action as <code>.github/workflows/shellby-card.yml</code>, then run it once from the Actions tab. <button type="button" class="btn ghost slim-btn" id="pcCopyWorkflow">Copy Action</button></li>
-            <li>Paste this line where you want the crab in <code>README.md</code>. <button type="button" class="btn ghost slim-btn" id="pcCopyReadme">Copy README line</button></li>
-          </ol>
+          <section class="pc-setup" id="pcSteps" aria-labelledby="pcSetupTitle" hidden>
+            <div class="pc-setup-head">
+              <h4 id="pcSetupTitle">Put him on your profile</h4>
+              <span class="pc-count" id="pcSetupCount" aria-live="polite"></span>
+              <button type="button" class="btn ghost slim-btn" id="pcCheck">Check again</button>
+            </div>
+            <p class="small pc-setup-note" id="pcSetupNote" hidden></p>
+            <ol class="pc-steps">
+              <li class="pc-step" data-step="repo">
+                <span class="pc-tick" aria-hidden="true">1</span>
+                <div class="pc-step-body">
+                  <b>Create your profile repository</b>
+                  <p class="small" id="pcRepoText">A public repository with the same name as your username. GitHub shows its README at the top of your profile.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcRepoGo">Create it on GitHub</button></div>
+                </div>
+              </li>
+              <li class="pc-step" data-step="action">
+                <span class="pc-tick" aria-hidden="true">2</span>
+                <div class="pc-step-body">
+                  <b>Add the card Action</b>
+                  <p class="small">GitHub opens with the file already filled in. Press <b>Commit changes</b>.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcActionGo">Add it on GitHub</button><button type="button" class="link-btn inline" id="pcCopyWorkflow">or copy the file</button></div>
+                </div>
+              </li>
+              <li class="pc-step" data-step="card">
+                <span class="pc-tick" aria-hidden="true">3</span>
+                <div class="pc-step-body">
+                  <b>Run it once</b>
+                  <p class="small">Press <b>Run workflow</b>. It copies your crab into the repository, then checks for a new one every six hours.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcRunGo">Open Actions</button></div>
+                </div>
+              </li>
+              <li class="pc-step" data-step="readme">
+                <span class="pc-tick" aria-hidden="true">4</span>
+                <div class="pc-step-body">
+                  <b>Show him in your README</b>
+                  <p class="small" id="pcReadmeText">Shellby copies the line for you. Paste it where you want the crab, then commit.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcReadmeGo">Copy line and open README</button></div>
+                </div>
+              </li>
+            </ol>
+            <div class="pc-done" id="pcDone" hidden>
+              <p class="small"><b>He's on your profile.</b> From now on he updates by himself.</p>
+              <button type="button" class="btn ghost slim-btn" id="pcProfileGo">See your profile</button>
+            </div>
+          </section>
         </div>
         <label class="toggle"><input type="checkbox" id="ghPrBadge"><span class="switch"></span>Built with Shellby: your crab, level and a link at the bottom of pull requests your tabs open (his picture lives in a public repo on your account)</label>
         <div class="gh-pr-badge" id="ghPrBadgeRow" hidden>

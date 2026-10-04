@@ -91,6 +91,59 @@ jobs:
 }
 
 const README_LINE = `<a href="https://github.com/x-salmon/shellby"><img src="./${PROFILE_FILE}" alt="My Shellby: a pixel hermit crab with my level, streak and latest stickers" width="480"></a>`;
+const WORKFLOW_PATH = '.github/workflows/shellby-card.yml';
+
+const enc = encodeURIComponent;
+const encPath = p => String(p).split('/').map(enc).join('/');
+
+/**
+ * Where each setup step happens on github.com, prefilled so it's one click
+ * plus Commit. Shellby still never writes to the repo itself.
+ *   progress: what setupProgress found ({ branch, readmePath })
+ */
+function setupLinks(login, gistId, progress = {}) {
+  if (!LOGIN_RE.test(String(login))) return null;
+  const repo = `https://github.com/${login}/${login}`;
+  const branch = encPath(progress.branch || 'main');
+  const yaml = workflowYaml(login, gistId);
+  const newFile = (name, value) => `${repo}/new/${branch}?filename=${enc(name)}&value=${enc(value)}`;
+  return {
+    repo,
+    profile: `https://github.com/${login}`,
+    createRepo: `https://github.com/new?name=${enc(login)}&visibility=public&description=${enc('My GitHub profile')}`,
+    settings: `${repo}/settings`,
+    addAction: yaml ? newFile(WORKFLOW_PATH, yaml) : null,
+    runAction: `${repo}/actions/workflows/shellby-card.yml`,
+    readme: progress.readmePath ? `${repo}/edit/${branch}/${encPath(progress.readmePath)}` : newFile('README.md', `${README_LINE}\n`),
+  };
+}
+
+/**
+ * A read-only look at github.com/<you>/<you>: which setup steps are done.
+ * Throws when GitHub can't answer (rate limit, offline); a 404 just means "not yet".
+ */
+async function setupProgress(gh, login) {
+  if (!LOGIN_RE.test(String(login))) return null;
+  const base = `/repos/${enc(login)}/${enc(login)}`;
+  const find = path => gh.get(path).catch(e => { if (e.status === 404) return null; throw e; });
+  const repo = await find(base);
+  if (!repo) return { repo: false, isPublic: false, branch: null, action: false, card: false, readme: false, readmePath: null };
+  const [action, card, readme] = await Promise.all([
+    find(`${base}/contents/${encPath(WORKFLOW_PATH)}`),
+    find(`${base}/contents/${PROFILE_FILE}`),
+    find(`${base}/readme`),
+  ]);
+  const readmeText = typeof readme?.content === 'string' ? Buffer.from(readme.content, 'base64').toString('utf8') : '';
+  return {
+    repo: true,
+    isPublic: repo.private !== true,
+    branch: typeof repo.default_branch === 'string' ? repo.default_branch : 'main',
+    action: !!action,
+    card: !!card,
+    readme: readmeText.includes(PROFILE_FILE),
+    readmePath: typeof readme?.path === 'string' ? readme.path : null,
+  };
+}
 
 /**
  * Keeps the card gist in step with what the panel draws.
@@ -127,6 +180,19 @@ class ProfileCard {
       workflow: on && s.gistId ? workflowYaml(login, s.gistId) : null,
       readme: on && s.gistId ? README_LINE : null,
     };
+  }
+
+  /** The setup checklist: what's done in your profile repository, and links for what isn't. */
+  async setup() {
+    const login = this.github.view().login;
+    if (!this.github.can('profileCard') || !login) return { ok: false, error: 'The profile card is off.' };
+    try {
+      const progress = await setupProgress(this.github.gh(), login);
+      return { ok: true, progress, links: setupLinks(login, this.state.gistId, progress || {}) };
+    } catch (e) {
+      const error = e.status === 401 ? 'GitHub signed Shellby out. Sign in again to check your profile.' : `Couldn't check your profile repository: ${String(e.message).slice(0, 150)}`;
+      return { ok: false, error, links: setupLinks(login, this.state.gistId) };
+    }
   }
 
   /** Publish the panel's drawing if it changed (or a day went by). force: publish regardless. */
@@ -176,4 +242,4 @@ class ProfileCard {
   get isUp() { return !!this.state.gistId; }
 }
 
-module.exports = { PROFILE_FILE, ProfileCard, cleanSvg, publishProfile, deleteProfile, rawUrl, workflowYaml, README_LINE };
+module.exports = { PROFILE_FILE, WORKFLOW_PATH, ProfileCard, cleanSvg, publishProfile, deleteProfile, rawUrl, workflowYaml, setupLinks, setupProgress, README_LINE };
