@@ -174,6 +174,56 @@ test('sending to a conversation you marked done puts it back on the list', async
   }
 });
 
+test('a tab left quiet gives its process back, and its next message resumes the conversation', async () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    mgr.open({ tabId: 'quiet', cwd: os.tmpdir() });
+    let results = 0;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'result') results++; });
+    mgr.send('quiet', 'hello', { kind: 'user', text: 'hello' });
+    await until(mgr, () => results === 1);
+    const tab = mgr.tabs.get('quiet');
+    const proc = tab.session.proc;
+    assert.ok(proc, 'the process stays up after a turn');
+
+    assert.deepEqual(mgr.stopIdle(30 * 60 * 1000), [], 'not after a moment');
+    assert.deepEqual(mgr.stopIdle(30 * 60 * 1000, Date.now() + 31 * 60 * 1000), ['quiet']);
+    await new Promise(r => (proc.exitCode !== null ? r() : proc.once('exit', r)));
+    assert.equal(tab.session.proc, null);
+    assert.equal(mgr.tabs.has('quiet'), true, 'the tab itself stays open');
+
+    mgr.send('quiet', 'still there?', { kind: 'user', text: 'still there?' });
+    await until(mgr, () => results === 2);
+    assert.ok(tab.session.buildArgs().includes('--resume'), 'it picks the conversation back up');
+  } finally {
+    mgr.closeAll();
+  }
+});
+
+test('a quiet tab keeps its process while it waits on you or runs something in the background', async () => {
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'ask', getModel: () => '' });
+  try {
+    const later = Date.now() + 60 * 60 * 1000;
+    let results = 0;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'result') results++; });
+    for (const id of ['asking', 'background']) {
+      mgr.open({ tabId: id, cwd: os.tmpdir() });
+      mgr.send(id, 'hello', { kind: 'user', text: 'hello' });
+    }
+    await until(mgr, () => results === 2);
+    mgr.tabs.get('asking').session.pending.set('req-1', { requestId: 'req-1' });
+    mgr.tabs.get('background').session.tasks.set('t1', { taskId: 't1', status: 'running' });
+    assert.deepEqual(mgr.stopIdle(1000, later), []);
+
+    mgr.tabs.get('asking').session.pending.clear();
+    mgr.tabs.get('background').session.tasks.set('t1', { taskId: 't1', status: 'completed' });
+    assert.deepEqual(mgr.stopIdle(1000, later).sort(), ['asking', 'background']);
+  } finally {
+    mgr.closeAll();
+  }
+});
+
 test('a tab renamed before its first message keeps that name; a saved one renames its History entry', () => {
   const history = new History(tmp());
   const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });

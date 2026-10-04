@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const { TASKKILL } = require('./system32');
+const processJob = require('./process-job');
 
 // Env vars that would route the CLI to API-key billing or another provider.
 // Claude Code gets them as set: how it signs in is the user's call, not ours.
@@ -85,6 +86,11 @@ function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
       resolve({ ok: false, stdout: '', stderr: '', err, timedOut: false });
       return;
     }
+    // A one-shot `claude -p` starts its MCP servers too; whatever it leaves
+    // running when it exits is ended with it (process-job.js). On 'exit', since
+    // a leftover holding its pipes would hold back the callback until the timeout.
+    const job = processJob.adopt(child.pid);
+    child.once('exit', () => processJob.sweep(job));
     // Nothing is ever typed in, and `claude -p` waits for stdin to end before
     // it starts when stdin isn't a terminal.
     child.stdin?.on('error', () => { /* it exited before reading: the callback reports it */ });
@@ -93,6 +99,7 @@ function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
     // install may be running git; execFile's timeout would only kill claude.exe).
     const timer = setTimeout(() => {
       timedOut = true;
+      if (processJob.sweep(job)) return;
       if (process.platform === 'win32' && child.pid) {
         execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
       } else {

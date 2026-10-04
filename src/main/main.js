@@ -125,6 +125,9 @@ const SLEEP_AFTER_MS = 3 * 60 * 1000;
 // A task running this long earns a "bear with me" (dev/e2e may shorten it).
 const LONG_TASK_MS = Number(!process.env.SHELLBY_LONG_TASK_MS ? 0 : process.env.SHELLBY_LONG_TASK_MS) || 3 * 60 * 1000;
 const CREW_WORTH_MENTIONING = 3;         // helpers out before he remarks on the crowd
+// A tab left this long gives its claude process (and MCP servers) back; its next message resumes it.
+const TAB_IDLE_STOP_MS = 30 * 60 * 1000;
+const TAB_IDLE_CHECK_MS = 60 * 1000;
 const IDLE_BIT_CHANCE = 0.25;            // ...of each idle tick becoming a little habit
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
 const CARD_MAX_BYTES = 8 * 1024 * 1024;
@@ -1036,6 +1039,10 @@ function createManager() {
     if (s && agg.crew.length > s.maxCrew) stat('crew-size', { n: agg.crew.length });
     if (s && agg.busy > s.maxParallel) stat('parallel', { n: agg.busy });
   });
+  setInterval(() => {
+    const stopped = manager.stopIdle(TAB_IDLE_STOP_MS);
+    if (stopped.length) log.info('Stopped idle tabs', `${stopped.length} quiet for ${TAB_IDLE_STOP_MS / 60000} min`);
+  }, TAB_IDLE_CHECK_MS).unref?.();
 }
 
 // ================================================================ what each turn changed (changes.js)
