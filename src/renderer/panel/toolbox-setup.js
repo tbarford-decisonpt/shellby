@@ -311,22 +311,39 @@
     deny: { label: 'Deny', sub: 'never runs' },
   };
   let ruleDraft = { scope: null, list: 'allow', rule: '', error: '' };
+  // Which rules are opened up, so a rescan or a removal doesn't fold them all shut.
+  const openRules = new Set();
+  const ruleKey = r => `${r.scope}\n${r.list}\n${r.rule}`;
 
+  async function removeRule(r) {
+    const res = await call(() => api.removeRule(r.scope, r.list, r.rule));
+    if (res.ok) { openRules.delete(ruleKey(r)); SB.toast('Rule removed'); }
+    else if (!res.cancelled) SB.toast(res.error || "Couldn't remove that rule");
+    rerender();
+  }
+
+  // One line that opens to the whole rule, what it does, and where it's saved.
   function ruleRow(r) {
-    return h('li', { class: 'rule-row' },
-      h('span', { class: `rule-pill l-${r.list}`, text: r.list, title: LISTS[r.list].sub }),
-      h('code', { text: r.rule, title: r.rule }),
-      h('span', { class: 'src-pill', text: SOURCE[r.scope] || r.scope, title: r.path }),
-      h('button', {
-        class: 'icon-btn', type: 'button', title: 'Remove this rule', 'aria-label': `Remove the rule ${r.rule}`,
-        onclick: async () => {
-          const res = await call(() => api.removeRule(r.scope, r.list, r.rule));
-          if (res.ok) SB.toast('Rule removed');
-          else if (!res.cancelled) SB.toast(res.error || "Couldn't remove that rule");
-          rerender();
-        },
-      }, h('span', { text: '✕' })),
-      folderBtn(r.path));
+    const key = ruleKey(r);
+    const row = h('details', { class: 'rule-row', open: openRules.has(key) },
+      h('summary', { class: 'rule-sum', title: 'Show the whole rule' },
+        h('span', { class: `rule-pill l-${r.list}`, text: r.list, title: LISTS[r.list].sub }),
+        h('code', { text: r.rule }),
+        h('span', { class: 'src-pill', text: SOURCE[r.scope] || r.scope }),
+        h('button', {
+          class: 'icon-btn danger-hover', type: 'button', title: 'Remove this rule', 'aria-label': `Remove the rule ${r.rule}`,
+          // A click inside the summary would also open the row; this button only removes.
+          onclick: e => { e.preventDefault(); e.stopPropagation(); removeRule(r); },
+        }, h('span', { text: '✕' }))),
+      h('div', { class: 'rule-detail' },
+        h('pre', { class: 'rule-full', text: r.rule }),
+        h('p', { class: 'rule-what', text: r.what || `${LISTS[r.list].label}: ${LISTS[r.list].sub}.` }),
+        h('p', { class: 'muted small' }, 'Saved in ', h('code', { text: SB.tildify(r.path), title: r.path })),
+        h('div', { class: 'row rule-actions' },
+          h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => api.revealSetupFile(r.path) }, 'Show file'),
+          h('button', { class: 'btn danger slim-btn', type: 'button', onclick: () => removeRule(r) }, 'Remove rule'))));
+    row.addEventListener('toggle', () => { if (row.open) openRules.add(key); else openRules.delete(key); });
+    return h('li', {}, row);
   }
 
   function ruleForm() {
@@ -369,7 +386,7 @@
         h('p', { text: 'Rules Claude Code follows before your permission mode: deny wins, then ask, then allow. Adding an allow rule, or taking away an ask or deny, asks you first.' }),
         modes.length ? h('p', { class: 'muted small', text: modes.join(' · ') }) : null),
       ruleForm());
-    const rows = (s.permissions.rules || []).filter(r => !q || r.rule.toLowerCase().includes(q) || r.list.includes(q));
+    const rows = (s.permissions.rules || []).filter(r => !q || [r.rule, r.list, r.what || ''].some(v => v.toLowerCase().includes(q)));
     const order = { deny: 0, ask: 1, allow: 2 };
     rows.sort((a, b) => order[a.list] - order[b.list] || a.rule.localeCompare(b.rule));
     list.replaceChildren(...(rows.length ? [h('li', {}, h('ul', { class: 'rule-list' }, rows.map(ruleRow)))]
