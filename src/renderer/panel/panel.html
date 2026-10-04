@@ -99,6 +99,7 @@
   <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
   <div class="popover" id="tabMenu" role="menu" hidden></div>
   <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
+  <div class="popover" id="pjMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -830,28 +831,44 @@
 
     <!-- The list -->
     <div id="pjListScreen">
-      <p class="view-lede">Your repositories, here and on GitHub, and the dev servers in them. Start one, and Shellby watches it: if it crashes he holds up a sign.</p>
-      <!-- Shown while servers run: what happens to them when Shellby quits. -->
-      <section class="pj-quit" id="pjQuit" aria-labelledby="pjQuitTitle" hidden>
-        <p class="pj-quit-title" id="pjQuitTitle">When Shellby quits</p>
-        <div class="pj-quit-choices">
-          <label class="pj-radio"><input type="radio" name="pjOnQuit" value="keep"> Leave dev servers running</label>
-          <label class="pj-radio"><input type="radio" name="pjOnQuit" value="stop"> Stop them</label>
-        </div>
-        <button type="button" class="btn ghost slim-btn" id="pjStopAll">Stop all now</button>
+      <p class="pj-summary" id="pjSummary" aria-live="polite"></p>
+      <!-- Shown while servers run: how many, what happens to them when Shellby quits. -->
+      <section class="pj-quit" id="pjQuit" aria-label="Dev servers running" hidden>
+        <span class="pj-dot up" aria-hidden="true"></span>
+        <span class="pj-quit-count" id="pjQuitCount"></span>
+        <label class="pj-quit-when">On quit
+          <select class="field slim" id="pjOnQuit" aria-label="When Shellby quits">
+            <option value="keep">keep running</option>
+            <option value="stop">stop them</option>
+          </select>
+        </label>
+        <button type="button" class="btn ghost slim-btn" id="pjStopAll">Stop all</button>
       </section>
       <div class="pj-tools">
         <input type="search" id="pjSearch" class="field" placeholder="Search projects…" aria-label="Search projects">
-        <div class="seg pj-filter" id="pjFilter" role="tablist" aria-label="Show projects" data-roving>
-          <button type="button" role="tab" data-filter="all" aria-selected="true">All</button>
-          <button type="button" role="tab" data-filter="local" aria-selected="false">On this PC</button>
-          <button type="button" role="tab" data-filter="running" aria-selected="false">Running</button>
-          <button type="button" role="tab" data-filter="github" aria-selected="false">GitHub only</button>
+        <div class="pj-tools-row">
+          <div class="seg pj-sort" id="pjSort" role="tablist" aria-label="Order" data-roving>
+            <button type="button" role="tab" data-sort="recent" aria-selected="true">Recent</button>
+            <button type="button" role="tab" data-sort="attention" aria-selected="false">Needs you</button>
+            <button type="button" role="tab" data-sort="name" aria-selected="false">A–Z</button>
+          </div>
+          <select class="field slim pj-scope" id="pjScope" aria-label="Show which projects">
+            <option value="all">All</option>
+            <option value="local">On this PC</option>
+            <option value="running">Running</option>
+            <option value="github">GitHub only</option>
+          </select>
         </div>
       </div>
       <ul class="pj-list" id="pjProjects" aria-live="polite"></ul>
-      <p class="pj-empty muted" id="pjEmpty" hidden></p>
-      <div class="row wrap pj-add">
+      <div class="pj-empty" id="pjEmpty" hidden>
+        <p class="muted" id="pjEmptyText"></p>
+        <div class="row wrap" id="pjEmptyActions">
+          <button type="button" class="btn primary slim-btn" id="pjEmptyScan">Scan a folder…</button>
+          <button type="button" class="btn ghost slim-btn" id="pjEmptyAdd">Add a repo…</button>
+        </div>
+      </div>
+      <div class="row wrap pj-add" id="pjAddRow">
         <button type="button" class="btn slim-btn" id="pjAdd">Add a repo…</button>
         <button type="button" class="btn ghost slim-btn" id="pjScan">Scan a folder…</button>
       </div>
@@ -1444,6 +1461,7 @@
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
 <script src="time.js"></script>
+<script src="project-facts.js"></script>
 <script src="projects.js"></script>
 <script src="github.js"></script>
 <script src="friends.js"></script>

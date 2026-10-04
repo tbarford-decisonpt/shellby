@@ -4,9 +4,15 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 
 ## Projects and dev servers
 
-<p align="center"><img src="screenshot-projects.png" width="420" alt="The Projects page: five repos, one with a dev server up on :5173 and one down"></p>
-
 <table>
+<tr>
+<td width="50%"><img src="screenshot-projects.png" alt="The Projects page: 3 need you, and each repo with what Shellby knows about it: unpushed commits, a flaky test, failing CI, a vulnerability, time this week, a dev server up on :5173 and one down"></td>
+<td width="50%"><img src="screenshot-project-page.png" alt="One project's page: New conversation here, this week's hours with a bar for each day, the last commit, and Health with its pull request, dependencies and a flaky test to fix"></td>
+</tr>
+<tr>
+<td align="center"><sub>What needs you, at a glance</sub></td>
+<td align="center"><sub>Everything Shellby knows about one project</sub></td>
+</tr>
 <tr>
 <td width="50%"><img src="screenshot-devserver.png" alt="A crashed dev server: npm run dev crashed 3 minutes ago, exit code 1, with the error lines marked in red"></td>
 <td width="50%"><img src="screenshot-devserver-fix.png" alt="Ask Claude to fix it?: exactly what will be sent, a box for a note of your own, and Send to Claude or Not now"></td>
@@ -18,10 +24,17 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 </table>
 
 - **Projects** (<kbd>Ctrl</kbd>+<kbd>7</kbd>) lists your repos: the ones Shellby has seen you work in, plus any you add. **Add a repo…** takes one folder; **Scan a folder…** looks through a folder you pick and lists the repos in it for you to tick, adding nothing by itself. Sign in to GitHub and turn on **Show my repositories** to see those too. A clone and its GitHub repository are one project, however many clones you have.
-- **A project's page** shows each clone's branch and whether it has uncommitted or unpushed work, with **Open folder**, **New conversation here** and **Open on GitHub**. **Remove from Projects** only takes it off the list; the folder is never touched.
+- **What needs you.** Each row says what Shellby already knows about the project, in a few words: failing CI on a pull request, vulnerable or outdated packages, commits no remote has, tests that flaked this week, the hours you've spent on it this week, and how long it's been quiet. Trouble is coloured, the rest stays grey. The line at the top counts them (*"3 need you"*), and **Needs you** shows only those projects, worst first. **Recent** and **A–Z** order the rest, and the dropdown narrows it to the ones on this PC, running, or only on GitHub.
+- **Quick actions.** Point at a row (or tab to it) for **New conversation here** and **Start** (or **Open** a server that's up) without opening the project. **⋯** or a right-click has the rest: **Open folder**, **Open on GitHub**, **Clone…**.
+- **A project's page** starts with **New conversation here**, then:
+  - **Pulse:** hours this week with a bar for each day (while History → Time is on), the last commit, the last time you were in it, and whether he nudges you when it goes quiet.
+  - **Health:** its pull requests' checks (**Ask why** on a red one), its dependency check (**Bump & open a PR**) and its flaky tests (**Fix it**, **Quarantine**), the same tasks as on their own pages.
+  - **Conversations:** the last few you had in it, including ones in a copy Shellby made, to pick back up, and **Where did we leave off?**.
+  - Each clone's branch, uncommitted and unpushed work and stashes, with **Tidy up…** (the same ask as *Is it safe to leave?*, put in the box for you to read before it goes) and the copies Shellby made of it.
+- **Remove from Projects** only takes it off the list; the folder is never touched. Git is read a few repos at a time after the list is drawn, so a big list opens straight away and its rows fill in.
 - **Dev servers.** Each clone's dev scripts (`dev`, `start`, `serve`, `preview`, `watch`) are listed with the framework they start, and **Start** runs one with the project's own package manager (npm, pnpm, Yarn or Bun). Shellby reads where it's serving, so the card says **Up on :5173** with an **Open** button, and a little `:5173` pill sits by the crab.
 - **When one crashes** he puts down what he was holding and raises a red sign, the pill turns red, and a notification says what died. The server's card shows the error lines marked in its log and an **Ask Claude to fix it?** sheet with exactly what would be sent, secrets blanked out. Nothing goes to Claude until you press **Send to Claude**, and when Claude's done, **Restart** is one click.
-- **Servers keep running when Shellby quits**, and are picked back up, log and all, when it starts again. Or choose **Stop them** on the Projects page or in **Settings → Claude → Dev servers**.
+- **Servers keep running when Shellby quits**, and are picked back up, log and all, when it starts again. Or choose **On quit: stop them** on the line the Projects page shows while any run, or in **Settings → Claude → Dev servers**.
 - **Clone.** A GitHub repository that isn't on this PC has a **Clone…** button. Nothing is downloaded until you've chosen where it goes, it won't clone over a folder that's already there, and nothing is installed or run afterwards.
 - **Safe with any repo:** only a script's plain name ever reaches a command line, programs are never run from the project folder itself, and a server's output reaches Claude fenced and labelled as output, never as instructions.
 

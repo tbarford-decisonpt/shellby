@@ -16,31 +16,87 @@ body[data-view="projects"] .view-projects {
 .view-projects .link-btn:hover,
 .view-projects .link-btn:focus-visible { color: var(--sand); }
 
-/* ---------- when Shellby quits: right above the servers it's about ---------- */
-.pj-quit {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 12px;
-  margin: 0 0 12px; padding: 10px 12px; border-radius: var(--r);
-  border: 1px solid color-mix(in srgb, var(--glass) 35%, transparent);
-  background: var(--glass-dim);
+/* ---------- the line at the top: how it's all going ---------- */
+.pj-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin: 2px 0 12px; font-size: 13px; color: var(--sand-dim); }
+.pj-summary[hidden] { display: none; }
+.pj-sep { color: var(--sand-faint); }
+.pj-sum-need {
+  padding: 1px 9px; border-radius: 99px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber); font: 700 12px var(--font-body); cursor: pointer;
 }
-.pj-quit-title { grid-column: 1 / -1; margin: 0; font: 600 10.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--glass); }
-.pj-quit-choices { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.pj-sum-need:hover, .pj-sum-need:focus-visible { background: color-mix(in srgb, var(--amber) 22%, transparent); }
+.pj-sum-down { color: #ffb3ad; font-weight: 700; }
+
+/* ---------- servers running, and what happens to them when Shellby quits: one quiet line ---------- */
+.pj-quit {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  margin: 0 0 12px; padding: 6px 8px 6px 12px; border-radius: var(--r);
+  border: 1px solid color-mix(in srgb, var(--glass) 25%, transparent); background: var(--glass-dim);
+}
+.pj-quit[hidden] { display: none; }
+.pj-quit-count { font-size: 12.5px; font-weight: 700; color: var(--glass); }
+.pj-quit-when { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sand-dim); }
+.pj-quit-when .field { height: 26px; font-size: 12px; }
+#devServersGroup .pj-quit-choices { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 2px 0 4px; }
 .pj-radio { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; padding: 3px 0; }
 .pj-radio input { accent-color: var(--glass); margin: 0; }
-#devServersGroup .pj-quit-choices { margin: 2px 0 4px; }
 
 /* ---------- the list ---------- */
 .pj-tools { display: grid; gap: 8px; margin-bottom: 10px; }
-.pj-filter button { flex: 1; }
+.pj-tools-row { display: flex; gap: 8px; align-items: center; }
+.pj-sort { flex: 1; }
+.pj-scope { height: 36px; }
 .pj-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.pj-item { position: relative; }
 .pj-row {
-  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
-  padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); color: var(--sand);
+  width: 100%; display: flex; align-items: center; gap: 11px; text-align: left;
+  padding: 9px 12px 9px 9px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); color: var(--sand);
   cursor: pointer; transition: border-color .15s, background .15s;
 }
-.pj-row:hover { border-color: color-mix(in srgb, var(--glass) 50%, var(--line)); background: var(--reef-2); }
+.pj-row:hover, .pj-item:focus-within .pj-row { border-color: color-mix(in srgb, var(--glass) 50%, var(--line)); background: var(--reef-2); }
 .pj-row:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
-.pj-row-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.pj-row-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.pj-row-end { flex: none; display: grid; justify-items: end; gap: 3px; }
+.pj-row-when { font: 10px var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
+
+/* A project's face: its sticker once it has shipped, its initial until then. */
+.pj-tile {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+  font: 600 16px var(--font-pixel); color: hsl(var(--hue, 170) 70% 82%);
+  background: hsl(var(--hue, 170) 35% 22%); border: 1px solid hsl(var(--hue, 170) 40% 32%);
+}
+.pj-tile.art { background: var(--abyss); border-color: var(--line-soft); overflow: hidden; }
+.pj-tile.art svg, .pj-tile.art canvas { max-width: 30px; max-height: 30px; image-rendering: pixelated; }
+.pj-tile.lg { width: 56px; height: 56px; border-radius: 13px; font-size: 26px; }
+.pj-tile.lg.art svg, .pj-tile.lg.art canvas { max-width: 50px; max-height: 50px; }
+
+/* What Shellby knows, in a few words: colour only where it needs you. */
+.pj-chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.pj-chip {
+  flex: none; font: 600 10px/17px var(--font-mono); font-stretch: 90%; padding: 0 7px; border-radius: 99px;
+  border: 1px solid var(--line-soft); background: var(--abyss); color: var(--sand-dim); white-space: nowrap;
+}
+.pj-chip.bad { color: #ffb3ad; border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 13%, transparent); }
+.pj-chip.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 35%, transparent); background: color-mix(in srgb, var(--amber) 9%, transparent); }
+.pj-chip.mark { padding: 0 4px; font-size: 11px; }
+.pj-chip.more { color: var(--sand-faint); }
+
+/* Quick actions: on the row while you're on it (hover or keyboard). */
+.pj-quick {
+  position: absolute; top: 50%; right: 8px; translate: 0 -50%; display: flex; gap: 2px; padding: 3px;
+  border-radius: 9px; background: var(--reef-2); border: 1px solid var(--line);
+  box-shadow: -12px 0 12px -4px var(--reef-2);
+  opacity: 0; pointer-events: none; transition: opacity .12s;
+}
+.pj-item:hover .pj-quick, .pj-item:focus-within .pj-quick { opacity: 1; pointer-events: auto; }
+.pj-q {
+  display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 7px;
+  background: none; color: var(--sand-dim); cursor: pointer;
+}
+.pj-q svg { width: 16px; height: 16px; }
+.pj-q:hover, .pj-q:focus-visible { background: var(--glass-dim); color: var(--glass); }
+.pj-q:focus-visible { outline: 2px solid var(--glass); outline-offset: -1px; }
+@media (prefers-reduced-motion: reduce) { .pj-quick { transition: none; } }
 .pj-row-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; }
 .pj-row-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pj-row-where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
@@ -53,16 +109,70 @@ body[data-view="projects"] .view-projects {
 .pj-pill.up { background: var(--glass-dim); color: var(--glass); }
 .pj-pill.down { background: color-mix(in srgb, var(--danger) 22%, transparent); color: #ffb3ad; }
 .pj-empty { margin: 10px 2px; font-size: 13px; line-height: 1.5; }
+.pj-empty[hidden], .pj-add[hidden], .pj-empty .row[hidden] { display: none; }
+.pj-empty p { margin: 0 0 10px; }
 .pj-add { margin: 12px 0 6px; }
 
 /* ---------- one project ---------- */
-.pj-detail-head { display: grid; justify-items: start; gap: 4px; margin-bottom: 12px; }
-.pj-detail-name { margin: 6px 0 0; font: 600 20px var(--font-pixel); }
+.pj-detail-head { display: grid; justify-items: start; gap: 10px; margin-bottom: 14px; }
+.pj-hero { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.pj-hero-text { display: grid; gap: 4px; min-width: 0; }
+.pj-detail-name { margin: 0; font: 600 22px var(--font-pixel); overflow-wrap: anywhere; }
+.pj-hero-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pj-hero-sticker { font: 10.5px var(--font-mono); color: var(--sand-faint); }
+.pj-desc { margin: 0; line-height: 1.5; }
+.pj-hero-acts { gap: 6px; }
 .pj-repo { font: 11.5px var(--font-mono); }
+
+/* The cards: Pulse, Health, Conversations. */
+.pj-panel { margin-bottom: 10px; padding: 11px 12px 12px; border-radius: var(--r); border: 1px solid var(--line-soft); background: color-mix(in srgb, var(--reef) 70%, transparent); }
+.pj-panel > .row-label { margin: 0 0 8px; }
+.pj-panel > p.muted { margin: 0 0 8px; }
+.pj-calm { margin: 0; line-height: 1.5; }
+.pj-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; }
+.pj-stat { display: grid; gap: 2px; align-content: start; }
+.pj-stat-label { font: 600 9.5px var(--font-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--sand-faint); }
+.pj-stat-value { font: 600 14px var(--font-mono); font-stretch: 90%; color: var(--sand); }
+.pj-week { display: flex; gap: 4px; margin-top: 12px; }
+.pj-day { flex: 1; display: grid; gap: 3px; justify-items: center; }
+.pj-bar { width: 100%; height: 30px; border-radius: 3px; background: var(--abyss); position: relative; overflow: hidden; }
+.pj-bar::after { content: ''; position: absolute; inset: auto 0 0; height: calc(var(--v, 0) * 100%); background: color-mix(in srgb, var(--glass) 55%, transparent); border-radius: 3px; }
+.pj-day.today .pj-bar::after { background: var(--glass); }
+.pj-day-name { font: 9px var(--font-mono); color: var(--sand-faint); }
+.pj-day.today .pj-day-name { color: var(--glass); }
+.pj-nudge { margin-top: 10px; font-size: 12.5px; }
+
+.pj-h-list, .pj-convos, .pj-copy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pj-h-row { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 7px 2px; border-top: 1px dashed var(--line-soft); }
+.pj-h-row:first-child { border-top: 0; padding-top: 0; }
+.pj-h-text { display: grid; gap: 1px; min-width: 0; }
+.pj-h-text b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-h-text .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-h-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.pj-h-acts:empty { display: none; }
+
+.pj-convo {
+  width: 100%; display: flex; align-items: center; gap: 7px; padding: 7px 8px; text-align: left;
+  border: 0; border-radius: var(--r-sm); background: none; color: var(--sand); cursor: pointer;
+}
+.pj-convo:hover, .pj-convo:focus-visible { background: var(--reef-2); }
+.pj-convo:focus-visible { outline: 2px solid var(--glass); outline-offset: -1px; }
+.pj-convo-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.pj-convo-when { flex: none; font: 10px var(--font-mono); color: var(--sand-faint); }
+.pj-convos + .row { margin-top: 8px; }
+
+.pj-clones-label { margin: 16px 0 6px; }
 .pj-clone { margin-bottom: 12px; padding: 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); }
 .pj-clone-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.pj-clone-head .path { flex: 1 1 100%; font: 11px var(--font-mono); }
+.pj-clone-head .pj-path { flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11.5px var(--font-mono); color: var(--sand); }
 .pj-facts { margin: 8px 0 0; }
+.pj-tidy {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 7px 8px 7px 10px;
+  border-radius: var(--r-sm); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent); background: color-mix(in srgb, var(--amber) 7%, transparent);
+}
+.pj-copies { margin-top: 8px; }
+.pj-copy-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0 3px 12px; }
+.pj-copy-list code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-mono); color: var(--sand-dim); }
 .pj-detail-foot { margin-top: 4px; }
 
 /* ---------- servers ---------- */

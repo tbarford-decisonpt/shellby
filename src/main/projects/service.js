@@ -13,9 +13,15 @@ const local = require('./local');
 const clone = require('./clone');
 const { merge, caseKey, repoKey } = require('./merge');
 const { RepoCache } = require('./github');
+const { withInsights, sessionsFor } = require('./insights');
 const scripts = require('../devservers/scripts');
 
 const LOCAL_TTL_MS = 60 * 1000;
+// Each clone's git state (uncommitted, unpushed) is read after the list is
+// drawn, a few at a time, and kept this long: a row's "3 unpushed" can wait.
+const GIT_TTL_MS = 2 * 60 * 1000;
+const GIT_AT_ONCE = 4;
+const MAX_GIT_READS = 60;
 const MAX_ADDED = 300;
 const MAX_HIDDEN = 300;
 
@@ -38,6 +44,8 @@ class Projects extends EventEmitter {
    *   known() -> [{ key: folder, name }]        projects Shellby has seen (main.js knownProjects)
    *   lastWorked() -> Map(caseKey(root) -> ms)  when you last worked in each
    *   github() -> { signedIn, login, can(feature), gh(), claudeEnv() }
+   *   insights?() -> what the rest of Shellby knows per project (insights.js's sources)
+   *   sessions?() -> History's index, for a project's recent conversations
    *   run?: git runner (tests)
    * }
    */
@@ -53,6 +61,8 @@ class Projects extends EventEmitter {
     this.scanned = new Map(); // caseKey(root) -> repo, from the last scan: the only ones addMany takes
     this.scanAbort = null;
     this.cloneAbort = null;
+    this.gitCache = new Map(); // caseKey(root) -> { at, git }
+    this.gitLoading = null;
   }
 
   save(patch) {
@@ -97,8 +107,11 @@ class Projects extends EventEmitter {
     return this.repoCache.get(g.gh(), g.login, { force });
   }
 
-  /** -> { projects, github, servers } for the page. refresh: re-read local repos and GitHub now. */
-  async list({ refresh = false } = {}) {
+  /**
+   * -> { projects, github, servers } for the page. refresh: re-read local repos and GitHub now.
+   * readGit: false when the caller reads the clones it cares about itself (detail).
+   */
+  async list({ refresh = false, readGit = true } = {}) {
     const [locals, remote] = await Promise.all([this.localRepos({ force: refresh }), this.githubRepos({ force: refresh })]);
     const running = new Set(this.deps.devServers.view().servers.filter(s => s.status === 'up' || s.status === 'starting').map(s => caseKey(s.root)));
     const projects = merge(locals, remote, { hidden: new Set(this.state.hidden), lastWorked: this.deps.lastWorked(), running });
@@ -111,7 +124,59 @@ class Projects extends EventEmitter {
         Object.assign(c, this.cloneView(c.root));
       }
     }
-    return { projects, github: this.githubState(), servers: this.deps.devServers.view(), lastCloneParent: this.state.lastCloneParent };
+    if (readGit) this.readGitSoon(projects.flatMap(p => p.local.map(c => c.root)), { force: refresh });
+    return {
+      projects: withInsights(projects, this.sources()),
+      github: this.githubState(), servers: this.deps.devServers.view(), lastCloneParent: this.state.lastCloneParent,
+    };
+  }
+
+  // Everything insights.js joins to the projects, read now.
+  sources() {
+    let given = {};
+    try { given = this.deps.insights?.() || {}; } catch { /* a source that fails leaves its facts off the page */ }
+    const git = new Map([...this.gitCache].map(([k, v]) => [k, v.git]));
+    return { ...given, now: this.now(), servers: this.deps.devServers.view().servers, git };
+  }
+
+  // ------------------------------------------------------------------ git, after the list
+
+  gitView(s) {
+    if (!s?.ok) return null;
+    const main = s.worktrees.find(w => w.main) || s.worktrees[0];
+    const copies = s.worktrees.filter(w => !w.main);
+    return {
+      dirty: main ? (main.changed || 0) + (main.untracked || 0) : 0,
+      unpushed: s.unpushed?.commits || 0,
+      stashes: s.stashes || 0,
+      copies: copies.length,
+      copyList: copies.map(w => ({ path: w.path, branch: w.branch, changed: (w.changed || 0) + (w.untracked || 0) })).slice(0, 12),
+    };
+  }
+
+  async readGit(root) {
+    const s = await leaving.probe(root, this.run).catch(() => null);
+    const git = this.gitView(s);
+    const before = JSON.stringify(this.gitCache.get(caseKey(root))?.git ?? null);
+    this.gitCache.set(caseKey(root), { at: this.now(), git });
+    return JSON.stringify(git) !== before;
+  }
+
+  /** Read the clones whose git state is stale, a few at a time, and say so when any changed. */
+  readGitSoon(roots, { force = false } = {}) {
+    if (this.gitLoading) return;
+    const stale = roots.filter(r => {
+      const c = this.gitCache.get(caseKey(r));
+      return force || !c || this.now() - c.at > GIT_TTL_MS;
+    }).slice(0, MAX_GIT_READS);
+    if (!stale.length) return;
+    this.gitLoading = (async () => {
+      let changed = false;
+      const queue = [...stale];
+      const worker = async () => { while (queue.length) if (await this.readGit(queue.shift())) changed = true; };
+      await Promise.all(Array.from({ length: Math.min(GIT_AT_ONCE, queue.length) }, worker));
+      if (changed) this.emit('change');
+    })().catch(() => {}).finally(() => { this.gitLoading = null; });
   }
 
   // What a clone can run, and what it's running.
@@ -126,25 +191,23 @@ class Projects extends EventEmitter {
     };
   }
 
-  /** One project's page: its clones with uncommitted / unpushed work. */
+  /**
+   * One project's page: its clones with uncommitted / unpushed work and
+   * Shellby's copies, read fresh; its insights; and its recent conversations.
+   */
   async detail(key) {
-    const { projects } = await this.list();
-    const p = projects.find(x => x.key === key);
-    if (!p) return null;
-    const states = await Promise.all(p.local.map(c => leaving.probe(c.root, this.run).catch(() => null)));
-    p.local = p.local.map((c, i) => {
-      const s = states[i];
-      const main = s?.ok ? s.worktrees.find(w => w.main) || s.worktrees[0] : null;
-      return {
-        ...c,
-        git: s?.ok ? {
-          dirty: main ? (main.changed || 0) + (main.untracked || 0) : 0,
-          unpushed: s.unpushed?.commits || 0,
-          copies: s.worktrees.filter(w => !w.main).map(w => ({ path: w.path, branch: w.branch })).slice(0, 12),
-        } : null,
-      };
-    });
-    return p;
+    const { projects } = await this.list({ readGit: false });
+    const found = projects.find(x => x.key === key);
+    if (!found) return null;
+    await Promise.all(found.local.map(c => this.readGit(c.root)));
+    const local = found.local.map(c => ({ ...c, git: this.gitCache.get(caseKey(c.root))?.git || null }));
+    const [p] = withInsights([{ ...found, local }], this.sources());
+    let sessions = [];
+    try {
+      const copies = local.flatMap(c => (c.git?.copyList || []).map(w => w.path));
+      sessions = sessionsFor(this.deps.sessions?.() || [], local.map(c => c.root), copies);
+    } catch { /* no History, no list */ }
+    return { ...p, sessions };
   }
 
   // ------------------------------------------------------------------ adding and removing

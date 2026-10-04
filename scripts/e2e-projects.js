@@ -80,7 +80,7 @@ async function cdp(url) {
     check(/^Up on :\d+$/.test(up || ''), `it comes up (${up})`);
     const port = Number(String(up).split(':')[1]);
     check(await until("!document.getElementById('pjQuit').hidden"), '"when Shellby quits" shows while it runs');
-    check(await ev("document.querySelector('input[name=\"pjOnQuit\"][value=\"keep\"]').checked"), 'leave running is the default');
+    check(await ev("document.getElementById('pjOnQuit').value === 'keep'"), 'leave running is the default');
     const pill = await crab.ev("(() => { const p = document.getElementById('srvPill'); return p.hidden ? null : p.textContent; })()");
     check(pill === `:${port}`, `the crab's pill says the port (${pill})`);
     const res = await fetch(`http://localhost:${port}/`).then(r => r.text()).catch(e => e.message);
@@ -114,7 +114,7 @@ async function cdp(url) {
     check(/^Up on :\d+$/.test(back || ''), `Restart brings it back (${back})`);
 
     // The quit choice, here and in Settings.
-    await ev("document.querySelector('input[name=\"pjOnQuit\"][value=\"stop\"]').click()");
+    await ev("const q = document.getElementById('pjOnQuit'); q.value = 'stop'; q.dispatchEvent(new Event('change'))");
     check(await until("(async () => (await SB.api.getServers()).settings.onQuit === 'stop')()", 3000), 'choosing "Stop them" is saved');
     check(await ev("document.querySelector('input[name=\"setOnQuit\"][value=\"stop\"]').checked"), 'Settings shows the same choice');
     check(await ev("!!document.getElementById('devServersGroup')"), 'Settings has a Dev servers group');
