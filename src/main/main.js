@@ -31,8 +31,7 @@ const { attachContextMenu } = require('./context-menu');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
-const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog } = require('./registry');
-const { itemHash } = require('./wardrobe/codes');
+const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
 const { HealthService } = require('./health/service');
 const processJob = require('./process-job');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
@@ -110,6 +109,8 @@ const branch = require('./branch');
 const fileIndex = require('./fileindex');
 const { Projects } = require('./projects/service');
 const { registerProjectsIpc } = require('./projects/ipc');
+const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
+const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { DevServers } = require('./devservers/service');
 const devRunner = require('./devservers/runner');
 const devScripts = require('./devservers/scripts');
@@ -5040,67 +5041,16 @@ ${r.detail}` });
     },
   });
 
-  // ---- history
-  ipcMain.handle('session:list', () => history.list());
-  ipcMain.handle('session:open', (_e, id) => {
-    const entry = isStr(id) && history.get(id);
-    if (!entry) return null;
-    if (!manager.tabs.has(id)) {
-      try { openTab({ tabId: id, historyEntry: entry }); } catch (err) { return { error: err.message }; }
-    }
-    return { tabId: id, entry, items: history.load(id) };
-  });
-  // Deleting from History is a move to Recently deleted, not the end: the
-  // transcript stays until it's restored, purged, or TRASH_DAYS pass.
-  ipcMain.handle('session:delete', (_e, id) => {
-    if (!isStr(id)) return history.list();
-    manager.close(id);
-    history.trash(id);
-    return history.list();
-  });
-  ipcMain.handle('session:trash', () => history.trashed());
-  // Answers with both lists: the row leaves one and lands in the other.
-  ipcMain.handle('session:restore', (_e, id) => {
-    if (isStr(id)) history.restore(id);
-    return { sessions: history.list(), trash: history.trashed() };
-  });
-  // One id, or none for Empty bin.
-  ipcMain.handle('session:purge', (_e, id) => {
-    history.purge(isStr(id) ? [id] : null);
-    return history.trashed();
-  });
-  // Clear all history. There's no undo after this, so it asks first, with
-  // Cancel as the default, the way signing out with tasks running does.
-  ipcMain.handle('session:clear', async () => {
-    const count = history.list().length + history.trashed().length;
-    const answer = (cleared) => ({ cleared, sessions: history.list(), trash: history.trashed() });
-    if (!count) return answer(false);
-    const open = history.list().filter(e => manager.tabs.has(e.id));
-    const r = await dialog.showMessageBox(panel, {
-      type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
-      message: `Are you sure? This deletes ${count === 1 ? 'your one conversation' : `all ${count} conversations`} for good.`,
-      detail: 'Recently deleted is emptied too, and nothing can be brought back.'
-        + (open.length ? ` ${open.length === 1 ? 'The open conversation closes' : `The ${open.length} open conversations close`}, stopping anything still running.` : ''),
-    });
-    if (r.response !== 0) return answer(false);
-    for (const e of open) manager.close(e.id);
-    const gone = history.clear();
-    log.info('history cleared', `${gone} conversation${gone === 1 ? '' : 's'}`);
-    return answer(true);
-  });
-  // Both of these answer with the fresh list, so the renderer redraws History
-  // from one round trip instead of guessing what changed.
-  ipcMain.handle('session:done', (_e, { id, done } = {}) => {
-    if (isStr(id)) history.setDone(id, !!done);
-    return history.list();
-  });
-  // From the tab strip or a History row. An open tab goes through the manager so
-  // its strip, notifications and (if not yet sent anything) first save agree.
-  ipcMain.handle('session:rename', (_e, { id, title } = {}) => {
-    if (isStr(id) && isStr(title)) {
-      if (manager.tabs.has(id)) manager.rename(id, title); else history.rename(id, title);
-    }
-    return history.list();
+  // ---- history (ipc/history.js)
+  registerHistoryIpc(ipcMain, {
+    history, manager, openTab, log,
+    confirmClear: async (count, openCount) => {
+      const r = await dialog.showMessageBox(panel, {
+        type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+        ...clearQuestion(count, openCount),
+      });
+      return r.response === 0;
+    },
   });
 
   // ---- settings
@@ -5215,76 +5165,19 @@ ${r.detail}` });
     return r.canceled ? null : r.filePaths[0] || null;
   });
 
-  // ---- skins
-  ipcMain.handle('skins:reload', () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); });
-
-  // ---- wardrobe
-  ipcMain.handle('wardrobe:view', () => wardrobe.view());
-  ipcMain.handle('external:clear-background', () => { external?.clearBackground(); return externalView(); });
-  ipcMain.handle('wardrobe:set-outfit', (_e, patch) => ({ ...wardrobe.setOutfit(patch && typeof patch === 'object' ? patch : {}), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:wear-season', () => ({ ...wardrobe.wearSeason(), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:randomize', () => ({ ...wardrobe.randomize(), view: wardrobe.view() }));
-  ipcMain.handle('wardrobe:set-voice', (_e, key) => {
-    const r = wardrobe.setVoice(isStr(key) ? key : null);
-    // His don't-repeat memory points into the old voice's lines: start it afresh.
-    if (r.ok) config.set({ voice: { ...voice.normalize(config.get('voice')), recent: {} } });
-    return { ...r, view: wardrobe.view() };
-  });
-  ipcMain.handle('wardrobe:options', (_e, opts) => { wardrobe.setOptions(opts || {}); return wardrobe.view(); });
-  ipcMain.on('wardrobe:seen', (_e, keys) => { if (Array.isArray(keys)) wardrobe.markSeen(keys.filter(isStr)); });
-  ipcMain.handle('wardrobe:install', async (_e, filePath) => {
-    let file = isStr(filePath) ? filePath : null;
-    if (!file) {
+  // ---- skins, the wardrobe and outfit codes (ipc/wardrobe.js)
+  registerWardrobeIpc(ipcMain, {
+    wardrobe: () => wardrobe,
+    builtinSkins: () => skins.map(s => ({ id: s.id, name: s.name })),
+    allSkins, activeSkin, config, voice, confirmAndInstallPackText, installFromRegistry, registryUrl, broadcastSkin, userSkinsDir,
+    reloadSkins: () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); },
+    clearBackground: () => { external?.clearBackground(); return externalView(); },
+    pickPackFile: async () => {
       const r = await dialog.showOpenDialog(panel, { title: 'Install a Shellby wardrobe pack', filters: [{ name: 'Shellby pack', extensions: ['json'] }], properties: ['openFile'] });
-      if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
-      file = r.filePaths[0];
-    }
-    // Only .json files under the size cap, and never echo parse errors: V8's
-    // messages quote file contents, which would let a renderer peek at any file.
-    if (!/\.json$/i.test(file)) return { ok: false, errors: ['Packs are .json files.'] };
-    if (!attach.isLocalPath(file)) return { ok: false, errors: ['Packs install from a file on this PC.'] };
-    try { if (fs.statSync(file).size > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] }; } catch { return { ok: false, errors: ['File not found.'] }; }
-    let text;
-    try { text = fs.readFileSync(file, 'utf8'); } catch { return { ok: false, errors: ['File not found.'] }; }
-    const r = await confirmAndInstallPackText(text);
-    return { ...r, view: wardrobe.view() };
+      return r.canceled ? null : r.filePaths[0] || null;
+    },
+    openPath: p => shell.openPath(p),
   });
-  ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) wardrobe.remove(packId); return wardrobe.view(); });
-
-  // ---- outfit codes (SHB-XXXX-XXXX): a whole look as a pasteable string
-  const builtinSkins = () => skins.map(s => ({ id: s.id, name: s.name }));
-  ipcMain.handle('wardrobe:code', () => ({ code: wardrobe.outfitCode(activeSkin()?.id) }));
-  ipcMain.handle('wardrobe:code-preview', async (_e, text) => {
-    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
-    const p = wardrobe.previewCode(text, builtinSkins());
-    if (!p.ok || !p.missing.length) return { ...p, packs: [] };
-    // Items from community packs you don't have: find them in the gallery's catalog.
-    const cat = await fetchRegistryCatalog({ baseUrl: registryUrl() });
-    const packs = new Map();
-    const unknown = [];
-    for (const m of p.missing) {
-      const hit = cat.ok && cat.items.find(it => it.slot === m.slot && itemHash(it.key) === m.hash);
-      if (!hit) { unknown.push(m); continue; }
-      const entry = packs.get(hit.packId) || { id: hit.packId, name: hit.packName, items: [] };
-      entry.items.push({ slot: m.slot, name: hit.name });
-      packs.set(hit.packId, entry);
-    }
-    return { ...p, packs: [...packs.values()], unknown, catalogError: cat.ok ? null : cat.errors[0] };
-  });
-  ipcMain.handle('wardrobe:code-wear', (_e, text) => {
-    if (!isStr(text) || text.length > 120) return { ok: false, error: "That doesn't look like an outfit code." };
-    const r = wardrobe.wearCode(text, builtinSkins());
-    if (!r.ok) return r;
-    if (r.skin && r.skin !== config.get('skin')) {
-      const sk = allSkins().find(x => x.id === r.skin);
-      if (sk && !sk.locked) { config.set({ skin: r.skin }); broadcastSkin(); }
-    }
-    return { ...r, view: wardrobe.view() };
-  });
-  // "Get the pack" from an outfit code: the same confirmed install as a gallery link.
-  ipcMain.handle('wardrobe:install-registry', (_e, packId) => (isStr(packId) && /^[a-z0-9][a-z0-9-]{1,39}$/.test(packId) ? installFromRegistry(packId) : { ok: false }));
-  ipcMain.on('wardrobe:open-folder', () => { fs.mkdirSync(wardrobe.userDir, { recursive: true }); shell.openPath(wardrobe.userDir); });
-  ipcMain.on('skins:open-folder', () => shell.openPath(userSkinsDir()));
 
   // ---- toolbox
   ipcMain.handle('toolbox:get', () => toolbox.current);
