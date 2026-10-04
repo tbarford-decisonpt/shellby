@@ -152,7 +152,8 @@ html, body {
 
 /* ---------- success / error ---------- */
 .state-success #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) 2; }
-.state-error #sprite { animation: shake .45s ease-in-out 2; }
+.state-error #sprite { transform-origin: 50% 100%; animation: oof .9s ease-out; }
+.state-error .part-eyes { animation: oof-eyes .9s steps(1); }
 
 /* ---------- sleeping: tuck everything into the shell ---------- */
 .state-sleeping .part-body, .state-sleeping .part-claw, .state-sleeping .part-eyes,
@@ -224,8 +225,25 @@ html, body {
 @keyframes snap { 0% { transform: none } 50% { transform: rotate(-20deg) } }
 @keyframes look { 0%,100% { transform: translateX(0) } 33% { transform: translateX(1px) } 66% { transform: translateX(-1px) } }
 @keyframes sway { 0%,100% { transform: rotate(-2deg) } 50% { transform: rotate(2deg) } }
-@keyframes jump { 0%,100% { transform: translateY(0) } 40% { transform: translateY(-14px) scale(1.04, .96) } }
+/* crouch to spring, stretch going up, round at the top, squash on the way back down */
+@keyframes jump {
+  0%,100% { transform: translateY(0) }
+  12% { transform: translateY(3px) scale(1.1, .86) }
+  28% { transform: translateY(-9px) scale(.94, 1.08) }
+  42% { transform: translateY(-14px) scale(1.02, .98) }
+  80% { transform: translateY(3px) scale(1.08, .9) }
+}
 @keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
+/* an error: a flinch and an "oof", then he shakes it off (never a sulk) */
+@keyframes oof {
+  0%,100% { transform: none }
+  14% { transform: translateY(2px) scale(1.08, .88) }
+  34% { transform: translateY(1px) rotate(-4deg) }
+  52% { transform: translateX(2px) rotate(3deg) }
+  68% { transform: translateX(-2px) rotate(-2deg) }
+  84% { transform: translateX(1px) }
+}
+@keyframes oof-eyes { 0%,100% { transform: none } 10%, 45% { transform: scaleY(.2) } }
 @keyframes snooze { 0%,100% { transform: rotate(0) } 50% { transform: rotate(-3deg) } }
 @keyframes float { 0% { transform: translate(0, 0); opacity: 0 } 20% { opacity: 1 } 100% { transform: translate(10px, -30px); opacity: 0 } }
 @keyframes pulse { 50% { transform: scale(1.12) } }
@@ -301,7 +319,9 @@ html, body {
 @keyframes squash { 0% { transform: scale(1.25, .7) translateY(3px); } 60% { transform: scale(.95, 1.06); } 100% { transform: none; } }
 
 /* ---------- strolling: a sideways amble ---------- */
-.walking #sprite { animation: hop .5s ease-in-out infinite; }
+/* a lean back before the first step, then the amble */
+.walking #sprite { transform-origin: 50% 100%; animation: set-off .22s ease-out, hop .5s ease-in-out .22s infinite; }
+@keyframes set-off { 50% { transform: rotate(calc(var(--dir) * -6deg)) scale(1.06, .92); } }
 .walking .part-legs-a { animation: leg .25s steps(1) infinite; }
 .walking .part-legs-b { animation: leg .25s steps(1) infinite reverse; }
 .walking .part-eyes, .walking .part-stalks { animation: look 2s steps(1) infinite; }

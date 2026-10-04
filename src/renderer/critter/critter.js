@@ -472,13 +472,14 @@ crab.addEventListener('pointermove', e => {
   rub.turns = [];
   hearts();
   api.pet();
+  document.dispatchEvent(new Event('shellby:petted')); // charm.js counts these for a belly-up
 });
 crab.addEventListener('pointerleave', () => { rub = { x: null, dir: 0, turns: [] }; });
-function hearts() {
-  for (let i = 0; i < 3; i++) {
+function hearts(n = 3) {
+  for (let i = 0; i < n; i++) {
     const el = document.createElement('span');
     el.textContent = '♥';
-    el.style.setProperty('--dx', `${(i - 1) * 14}px`);
+    el.style.setProperty('--dx', `${(i - (n - 1) / 2) * 14}px`);
     el.style.animationDelay = `${i * 140}ms`;
     heartsHost.append(el);
     setTimeout(() => el.remove(), 1700);
@@ -753,7 +754,7 @@ api.onTogether(msg => {
 // redraw, his body classes, and where the visitor is.
 window.ShellbyCritter = {
   wear(slot, item) { if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
-  flags, paint: paintBody, setDir,
+  flags, paint: paintBody, setDir, hearts,
   px: () => px,
   claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,
   visitor: () => visitorEl,

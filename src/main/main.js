@@ -380,8 +380,9 @@ function createMotion() {
     if (voice.chatterOf(config.get('chatter')) === 'quiet' || Math.random() > IDLE_BIT_CHANCE) return;
     // A scene, a habit, maybe a find or a memory (life.js).
     if (life?.idleBit()) return;
-    send(critter, 'critter:bit', { bit: voice.pickBit(voice.normalize(config.get('voice')).seed) });
-    speak('idle');
+    const bit = voice.pickBit(voice.normalize(config.get('voice')).seed);
+    send(critter, 'critter:bit', { bit });
+    speak(voice.CLUMSY_BITS.includes(bit) ? 'oops' : 'idle');
   }, 15000);
 }
 
@@ -455,7 +456,17 @@ function checkAway({ locked = false, idleMs = null } = {}) {
   }
   const r = recap.watch(away, { now: Date.now(), idleMs, locked });
   away = r.state;
-  if (r.back) welcomeBack(r.back);
+  if (r.back) {
+    greet(r.back.until - r.back.since);
+    welcomeBack(r.back);
+  }
+}
+
+// He runs to the front of his window and waves you back in, both claws once
+// you've been gone a good while. Never a sulk, however long it was.
+function greet(awayMs) {
+  if (CAPTURE || !critter || critter.isDestroyed()) return;
+  send(critter, 'critter:greet', { awayMs: Math.max(0, Number(awayMs) || 0) });
 }
 
 function watchAway() {
@@ -845,6 +856,7 @@ function wakeVoice() {
   config.set({ voice: { ...state, seed, lastRunAt: now } });
   const occasion = voice.absenceOccasion(state.lastRunAt, now) || voice.timeOccasion(now);
   if (occasion) setTimeout(() => speak(occasion, { force: true }), 2500); // let him settle onto the desktop first
+  if (occasion === 'back') setTimeout(() => greet(now - state.lastRunAt), 2500);
 }
 
 // Rolls every tab up into one mood: asking > working > flash > idle/sleeping.

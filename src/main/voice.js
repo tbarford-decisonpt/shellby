@@ -81,6 +81,7 @@ const OCCASIONS = Object.freeze({
 
   // --- nothing happening. Normal hears it now and then; chatty mutters more.
   idle: { every: 25 * MINUTE, ttl: 6 * SECOND },
+  oops: { every: 10 * MINUTE, ttl: 4 * SECOND }, // a clumsy habit (trip, stuck)
 
   // --- up on your windows (see perch.js)
   perch: { every: 3 * MINUTE, ttl: 5 * SECOND },
@@ -127,6 +128,7 @@ const LINES = Object.freeze({
   memory: ['remember that?', 'good times', 'us two'],
   milestone: ['look how far!', 'what a run', 'us two!'],
   idle: ['all quiet', "tide's out", 'anything?', 'hm', 'nice day'],
+  oops: ['oops', 'nobody saw that', 'meant to do that', 'ahem'],
   perch: ['nice view', 'comfy up here', 'my spot now', "what's this one?"],
   ride: ['wheee', 'steady!', 'faster!', 'whoa'],
   shaken: ['rude!', 'HEY', 'oof', 'was that needed?'],
@@ -182,12 +184,15 @@ const TEMPERAMENT_INFO = Object.freeze({
 
 // What he does with his claws when there's nothing to do. The renderer animates
 // these (critter.css); strolling is the one that moves his window (motion.js).
-const BITS = Object.freeze(['dig', 'polish', 'peek', 'stretch', 'flop']);
+// The small fidgets (settling his shell, a scratch, a yawn) fill the gaps
+// between the bigger habits; trip and stuck are the rare clumsy ones.
+const BITS = Object.freeze(['dig', 'polish', 'peek', 'stretch', 'flop', 'shuffle', 'scratch', 'yawn', 'trip', 'stuck']);
+const CLUMSY_BITS = Object.freeze(['trip', 'stuck']);
 const BIT_WEIGHT = Object.freeze({
-  chipper: { dig: 2, polish: 1, peek: 2, stretch: 1, flop: 1 },
-  fussy: { dig: 1, polish: 3, peek: 1, stretch: 1, flop: 1 },
-  cocky: { dig: 1, polish: 2, peek: 2, stretch: 2, flop: 1 },
-  sleepy: { dig: 1, polish: 1, peek: 1, stretch: 2, flop: 3 },
+  chipper: { dig: 2, polish: 1, peek: 2, stretch: 1, flop: 1, shuffle: 1, scratch: 1, yawn: 0.5, trip: 0.5, stuck: 0.5 },
+  fussy: { dig: 1, polish: 3, peek: 1, stretch: 1, flop: 1, shuffle: 2, scratch: 1, yawn: 0.5, trip: 0.5, stuck: 0.5 },
+  cocky: { dig: 1, polish: 2, peek: 2, stretch: 2, flop: 1, shuffle: 1, scratch: 1, yawn: 0.5, trip: 0.5, stuck: 0.5 },
+  sleepy: { dig: 1, polish: 1, peek: 1, stretch: 2, flop: 3, shuffle: 1, scratch: 1, yawn: 2, trip: 0.5, stuck: 0.5 },
 });
 
 // ---------------------------------------------------------------- what the work is
@@ -359,7 +364,7 @@ function pickBit(seed, rand = Math.random) {
 }
 
 module.exports = {
-  CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
+  CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, CLUMSY_BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
   normalize, chatterOf, temperamentOf, poolFor, voiceCovers, say, timeOccasion, absenceOccasion, pickBit,
   occasionForTool, occasionForCommand,
 };

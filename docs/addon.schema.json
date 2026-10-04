@@ -181,7 +181,7 @@
           "tests", "passed", "push", "deploy", "bigWrite", "sameFile", "searching", "web", "crew", "longTask", "serverDown",
           "morning", "latenight", "back",
           "gameOver", "callOver", "sheetStretch", "docStretch", "slideStretch", "friday", "weekend", "monday",
-          "found", "memory", "milestone", "idle",
+          "found", "memory", "milestone", "idle", "oops",
           "perch", "ride", "shaken", "dropped", "dizzy", "pop", "caught"
         ]
       },

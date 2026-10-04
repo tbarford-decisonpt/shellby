@@ -22,6 +22,7 @@
     latenight: [-5, -7],
     back: [4, 7, 4],
     idle: [-3],
+    oops: [7, 3, -2],
   };
   const NOTE_MS = 55;
   const GAIN = 0.045;        // quiet enough to live behind your music

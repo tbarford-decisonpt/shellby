@@ -30,6 +30,7 @@ const NAP_CHECK_MS = 12 * MINUTE;
 const NAP_MS = [3 * MINUTE, 6 * MINUTE];
 const PRESENT_MS = 2800;            // holding up a find
 const DIG_MS = 2600;                // voice.js BITS run this long (critter.js BIT_MS)
+const CLUMSY_MS = 1700;             // a trip or a stuck claw, before he owns up to it
 const NEAR_PX = 380;                // the cursor counts as "near him" within this
 const MIC_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone';
 
@@ -267,6 +268,8 @@ function createLife(d) {
     const bit = voice.pickBit(voice.normalize(d.config.get('voice')).seed);
     d.toCrab('critter:bit', { bit });
     if (bit === 'dig') later(DIG_MS, () => dug());
+    // A trip or a stuck claw gets a sheepish word once he's picked himself up.
+    if (voice.CLUMSY_BITS.includes(bit)) { later(CLUMSY_MS, () => d.speak('oops')); return true; }
     if (Math.random() < RECALL_CHANCE && recallMemory()) return true;
     d.speak('idle');
     return true;

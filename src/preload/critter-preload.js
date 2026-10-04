@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onHold: on('critter:hold'),
     onWear: on('critter:wear'),
     onVisitorSay: on('critter:visitor-say'),
+    // You came back after a while away: he says hello (src/main/main.js greet).
+    onGreet: on('critter:greet'),
   },
 
   // Files dropped on him: their paths, or (for a picture with no file behind
