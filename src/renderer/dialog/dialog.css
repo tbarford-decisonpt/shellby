@@ -36,6 +36,7 @@ h1 { margin: 0 0 6px; font: 600 19px/1.25 var(--font-pixel); }
 .item { display: grid; justify-items: center; gap: 3px; padding: 8px 4px 6px; border-radius: 9px; background: var(--reef); border: 1px solid var(--line); }
 .item .art { height: 34px; display: grid; place-items: center; }
 .item .art svg { max-width: 60px; max-height: 34px; width: auto; height: 34px; overflow: visible; }
+.item .art .glyph { font-size: 22px; line-height: 1; }
 .item .nm { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.2; }
 .item .kd { font: 600 9px var(--font-mono); color: var(--sand-faint); text-transform: uppercase; letter-spacing: .04em; }
 .preview::-webkit-scrollbar { width: 8px; }

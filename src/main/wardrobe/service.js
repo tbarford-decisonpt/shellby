@@ -12,6 +12,7 @@ const RANDOM_SKIP = 0.35; // chance a slot stays empty when randomizing
 
 const DEFAULTS = {
   outfit: { ...EMPTY_OUTFIT },
+  voice: null,           // key of the pack voice he talks in (null: his own)
   unlocked: [],          // achievement ids
   collected: [],         // seasonal item keys collected while their season was on
   newItems: [],          // item keys the user hasn't looked at yet
@@ -41,7 +42,7 @@ class Wardrobe extends EventEmitter {
   constructor({ config, builtinDir, userDir, now = () => new Date() }) {
     super();
     Object.assign(this, { config, builtinDir, userDir, now });
-    this.catalog = { accessories: new Map(), effects: new Map(), skins: [], packs: [], errors: [] };
+    this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), packs: [], errors: [] };
   }
 
   // ------------------------------------------------------------ persistence
@@ -51,6 +52,7 @@ class Wardrobe extends EventEmitter {
     d.outfit = { ...EMPTY_OUTFIT, ...(raw.outfit || {}) };
     for (const k of ['unlocked', 'collected', 'newItems']) d[k] = Array.isArray(raw[k]) ? raw[k].filter(x => typeof x === 'string') : [];
     d.seasonOverrides = raw.seasonOverrides && typeof raw.seasonOverrides === 'object' ? { ...raw.seasonOverrides } : {};
+    d.voice = typeof raw.voice === 'string' ? raw.voice : null;
     return d;
   }
   save(patch) { this.config.set({ wardrobe: { ...this.data, ...patch } }); }
@@ -63,7 +65,7 @@ class Wardrobe extends EventEmitter {
     return this.catalog;
   }
 
-  item(key) { return this.catalog.accessories.get(key) || this.catalog.effects.get(key) || this.catalog.skins.find(s => s.key === key) || null; }
+  item(key) { return this.catalog.accessories.get(key) || this.catalog.effects.get(key) || this.catalog.voices.get(key) || this.catalog.skins.find(s => s.key === key) || null; }
 
   // ------------------------------------------------------------ unlocking
   isUnlocked(item, d = this.data) {
@@ -92,7 +94,7 @@ class Wardrobe extends EventEmitter {
   collectSeasonals() {
     const d = this.data;
     const fresh = [];
-    for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.skins]) {
+    for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.voices.values(), ...this.catalog.skins]) {
       const s = item.unlock?.season;
       if (s && isActive(s, this.now()) && !d.collected.includes(item.key)) fresh.push(item.key);
     }
@@ -235,6 +237,39 @@ class Wardrobe extends EventEmitter {
     this.save({ newItems: d.newItems.filter(k => !keys.includes(k)) });
   }
 
+  // ------------------------------------------------------------ voices and scenes
+
+  /** The pack voice he's talking in, or null for his own (also when it was removed or is locked). */
+  activeVoice(d = this.data) {
+    const v = d.voice ? this.catalog.voices.get(d.voice) : null;
+    return v && this.isUnlocked(v, d) ? v : null;
+  }
+
+  /** Talk in a pack voice (its key), or his own (null). */
+  setVoice(key) {
+    const d = this.data;
+    if (key != null) {
+      const v = this.catalog.voices.get(key);
+      if (!v) return { ok: false, error: "That voice isn't installed." };
+      if (!this.isUnlocked(v, d)) return { ok: false, error: 'That voice is still locked.' };
+    }
+    this.save({ voice: key ?? null, newItems: d.newItems.filter(k => k !== key) });
+    this.emit('changed');
+    return { ok: true };
+  }
+
+  /**
+   * What he says and does, for main.js and life.js: the voice he's wearing
+   * (null for his own) and every pack scene, keyed so they can't clash with his.
+   */
+  dialogue(d = this.data) {
+    const v = this.activeVoice(d);
+    return {
+      voice: v ? { key: v.key, name: v.name, lines: v.lines, flavor: v.flavor, fallback: v.fallback } : null,
+      scenes: [...this.catalog.scenes.values()].map(s => ({ id: s.key, name: s.name, voice: s.voice, who: s.who, when: s.when, beats: s.beats })),
+    };
+  }
+
   // ------------------------------------------------------------ stats + achievements
   record(event, payload = {}) {
     const before = this.stats;
@@ -313,6 +348,8 @@ class Wardrobe extends EventEmitter {
       activeSeasons: activeSeasons(now).map(s => s.id),
       accessories: [...this.catalog.accessories.values()].map(decorate),
       effects: [...this.catalog.effects.values()].map(decorate),
+      voices: [...this.catalog.voices.values()].map(decorate),
+      voice: this.activeVoice(d)?.key || null,
       skins: this.catalog.skins.map(decorate),
       achievements: progress(stats, new Set(d.unlocked)).map(p => ({ ...p, rewards: p.rewards.map(k => this.item(k)).filter(Boolean).map(publicItem) })),
       packs: this.catalog.packs.map(p => ({ id: p.id, name: p.name, author: p.author, version: p.version, description: p.description, source: p.source, counts: p.counts, warnings: (p.warnings || []).length })),
@@ -339,7 +376,15 @@ function publicItem(item) {
   const out = { key, id, packId, name, description, rarity, unlock, source };
   if (pixels) Object.assign(out, { slot, anchor, follows, pivot, palette: { ...palette }, pixels: [...pixels] });
   if (sprites) Object.assign(out, { motion, count, speed, sprites: sprites.map(s => ({ palette: { ...s.palette }, pixels: [...s.pixels] })) });
+  if (item.lines) Object.assign(out, { lang: item.lang, fallback: item.fallback, sample: voiceSample(item), occasions: Object.keys(item.lines).length });
   return out;
+}
+
+// A taste of a voice for its Wardrobe tile: a few of its everyday lines.
+const SAMPLE_FROM = ['working', 'success', 'idle', 'error', 'petted'];
+function voiceSample(v, n = 3) {
+  const order = [...SAMPLE_FROM.filter(o => v.lines[o]), ...Object.keys(v.lines).filter(o => !SAMPLE_FROM.includes(o))];
+  return order.map(o => v.lines[o][0]).slice(0, n);
 }
 
 module.exports = { Wardrobe, SLOTS, EMPTY_OUTFIT, windowStart, windowEnd, windowKey, publicItem };

@@ -226,12 +226,18 @@ function fits(scene, ctx = {}) {
  * Which scene next, or null. Ones that suit his temperament come up more; the
  * last few he did are left out so he doesn't loop.
  *   ctx: { temperament, hour, weekday, dayOccasion, music, cursorNear, hasFind, bond, seasons }
+ *   scenes: the ones to choose from: his own, plus any from wardrobe packs.
  */
-function pickScene(ctx = {}, recent = [], rand = Math.random) {
-  const pool = SCENES.filter(s => fits(s, ctx) && !recent.includes(s.id));
+function pickScene(ctx = {}, recent = [], rand = Math.random, scenes = SCENES) {
+  const pool = scenes.filter(s => fits(s, ctx) && !recent.includes(s.id));
   if (!pool.length) return null;
+  // However many packs are installed, pack scenes together come up no more
+  // often than his own do: they add to his repertoire, they don't replace it.
+  const own = pool.filter(s => SCENES.includes(s)).length;
+  const extra = pool.length - own;
+  const packShare = extra > own && own ? own / extra : 1;
   // Scenes that only happen at a particular moment are the special ones: give them a lift.
-  const weight = s => (s.who.includes(ctx.temperament) ? 3 : 1) * (Object.keys(s.when).length ? 1.6 : 1);
+  const weight = s => (s.who.includes(ctx.temperament) ? 3 : 1) * (Object.keys(s.when).length ? 1.6 : 1) * (SCENES.includes(s) ? 1 : packShare);
   const sum = pool.reduce((n, s) => n + weight(s), 0);
   let r = rand() * sum;
   for (const s of pool) { r -= weight(s); if (r < 0) return s; }
@@ -244,18 +250,36 @@ function lineFor(say, temperament, rand = Math.random) {
   let v = say;
   if (typeof v === 'object' && !Array.isArray(v)) v = v[temperament] ?? v.any;
   if (Array.isArray(v)) v = v[Math.min(v.length - 1, Math.floor(rand() * v.length))];
-  return typeof v === 'string' && v.length <= MAX_LINE ? v : null;
+  return typeof v === 'string' && [...v].length <= MAX_LINE ? v : null;
 }
 
-/** The scene's beats with every line settled for this crab: [{ bit, ms, say, prop, hold, wear }]. */
-function resolve(scene, temperament, rand = Math.random) {
+/**
+ * The scene's beats with every line settled for this crab: [{ bit, ms, say, prop, hold, wear }].
+ * silent: play it without words (he's wearing a pack voice in another language,
+ * and this scene wasn't written for it).
+ */
+function resolve(scene, temperament, rand = Math.random, { silent = false } = {}) {
   if (!scene) return [];
   return scene.beats.map(b => ({
-    bit: b.bit, ms: b.ms, say: lineFor(b.say, temperament, rand), prop: b.prop || null, hold: b.hold || null, wear: b.wear || null,
+    bit: b.bit, ms: b.ms, say: silent ? null : lineFor(b.say, temperament, rand), prop: b.prop || null, hold: b.hold || null, wear: b.wear || null,
   }));
+}
+
+/**
+ * Which scenes he can do in a voice: his own and every pack scene written for
+ * anyone, plus the ones written for the voice he's wearing. Returns the list
+ * and whether a scene should play silent.
+ *   packScenes: [{ id, voice, who, when, beats }] (voice: a voice key or null)
+ *   worn: { key, fallback } or null
+ */
+function inVoice(packScenes = [], worn = null) {
+  const key = worn?.key || null;
+  const list = [...SCENES, ...packScenes.filter(s => !s.voice || s.voice === key)];
+  const silent = s => !!worn && worn.fallback === 'quiet' && s.voice !== key;
+  return { list, silent };
 }
 
 /** How long it runs, start to finish. */
 const lengthOf = beats => beats.reduce((n, b) => n + b.ms, 0);
 
-module.exports = { SCENES, PROPS, HOLDS, WEARS, SCENE_BITS, TEMPERAMENTS: T, fits, pickScene, lineFor, resolve, lengthOf };
+module.exports = { SCENES, PROPS, HOLDS, WEARS, SCENE_BITS, TEMPERAMENTS: T, fits, pickScene, lineFor, resolve, inVoice, lengthOf };

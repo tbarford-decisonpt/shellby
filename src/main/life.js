@@ -76,6 +76,8 @@ function createLife(d) {
     return Array.isArray(v) ? v.filter(id => scenes.SCENES.some(s => s.id === id)) : [];
   };
   const temperament = () => d.temperament();
+  // His scenes plus any from wardrobe packs, in the voice he's wearing (scenes.inVoice).
+  const repertoire = () => { const g = d.dialogue?.() || {}; return scenes.inVoice(g.scenes, g.voice); };
   const chatter = () => voice.chatterOf(d.config.get('chatter'));
   const app = exe => surroundings.niceName(exe) || null;
   const changed = () => d.toPanel('life', view());
@@ -259,7 +261,7 @@ function createLife(d) {
     if (level === 'quiet') return false;
     const t = now();
     if (t - lastSceneAt >= (SCENE_EVERY[level] || SCENE_EVERY.normal) && Math.random() < SCENE_CHANCE) {
-      const s = scenes.pickScene(context(), recent);
+      const s = scenes.pickScene(context(), recent, Math.random, repertoire().list);
       if (s) { play(s); return true; }
     }
     const bit = voice.pickBit(voice.normalize(d.config.get('voice')).seed);
@@ -274,13 +276,14 @@ function createLife(d) {
     const r = bond.recall(getBond(), now(), Math.random, { throws: d.throws() });
     if (!r) return false;
     const spoken = d.speak('memory', { text: r.text });
-    if (spoken) setBond(r.state);
+    // Only told if he actually said it (a voice in another language says its own line).
+    if (spoken?.text === r.text) setBond(r.state);
     return !!spoken;
   }
 
   function play(s, { force = false } = {}) {
     cancel();
-    const beats = scenes.resolve(s, temperament());
+    const beats = scenes.resolve(s, temperament(), Math.random, { silent: repertoire().silent(s) });
     const timers = [];
     let at = 0;
     for (const b of beats) {
@@ -300,7 +303,8 @@ function createLife(d) {
     recent.push(s.id);
     while (recent.length > 4) recent.shift();
     const seen = getSeen();
-    if (!seen.includes(s.id)) {
+    // Only his own scenes count toward the Us page and Storyteller: a pack can't hand those out.
+    if (scenes.SCENES.includes(s) && !seen.includes(s.id)) {
       d.config.set({ scenesSeen: [...seen, s.id] });
       d.stat('scenes-seen', { n: seen.length + 1 });
       changed();
@@ -533,7 +537,7 @@ function createLife(d) {
     busy: () => !!scene || !!presenting,
     lookNow: () => look,
     // dev/e2e
-    playScene: id => { const s = scenes.SCENES.find(x => x.id === id); return s ? play(s, { force: true }) : null; },
+    playScene: id => { const s = repertoire().list.find(x => x.id === id); return s ? play(s, { force: true }) : null; },
     dig: dug,
     event: onEvent,
     newDayForTest: () => { lastDay = null; newDay(); },

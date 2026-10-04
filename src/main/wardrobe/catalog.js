@@ -1,5 +1,6 @@
 // Wardrobe packs: JSON files that add accessories (hats, glasses, held items…),
-// ambient effects (falling snow, orbiting bats…) and skins. The built-in pack
+// ambient effects (falling snow, orbiting bats…), skins, and dialogue: voices
+// (a new way of talking) and scenes (see dialogue.js). The built-in pack
 // ships in src/wardrobe; community packs live in %APPDATA%/Shellby/wardrobe.
 //
 // Packs are data only. Everything is validated strictly before it reaches the
@@ -8,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { validate: validateSkin } = require('../skins');
+const { voiceContent, sceneContent } = require('./dialogue');
 
 const FORMAT = 1;
 const MAX_FILE_BYTES = 512 * 1024;
@@ -36,7 +38,7 @@ const DEFAULT_ANCHORS = Object.freeze({
 });
 
 const LIMITS = Object.freeze({
-  accessories: 200, effects: 50, skins: 50,
+  accessories: 200, effects: 50, skins: 50, voices: 20, scenes: 60,
   itemGrid: 16, spriteGrid: 8, paletteMax: 16, spritesMax: 6,
 });
 
@@ -162,10 +164,32 @@ function validatePackSkin(raw, known) {
   return { item: { ...skin, unlock, anchors } };
 }
 
+function validateVoice(raw, known) {
+  const [base, err] = commonFields(raw);
+  if (err) return { error: err };
+  const { content, warnings, error } = voiceContent(raw);
+  if (error) return { error };
+  const [unlock, ue] = checkUnlock(raw.unlock, known);
+  if (ue) return { error: ue };
+  return { item: { ...base, ...content, unlock }, warnings };
+}
+
+// Scenes are checked after voices, so one can name a voice from its own pack.
+function validateScene(raw, known, pack) {
+  const [base, err] = commonFields(raw);
+  if (err) return { error: err };
+  const { content, error } = sceneContent(raw, { seasons: known.seasons, voiceIds: pack.voices.map(v => v.id) });
+  if (error) return { error };
+  return { item: { name: base.name, description: base.description, ...content } };
+}
+
+// Voices come before scenes: see validateScene.
 const KINDS = [
   ['accessories', 'accessory', validateAccessory],
   ['effects', 'effect', validateEffect],
   ['skins', 'skin', validatePackSkin],
+  ['voices', 'voice', validateVoice],
+  ['scenes', 'scene', validateScene],
 ];
 
 /**
@@ -200,7 +224,7 @@ function validatePack(json, { source = 'user', knownAchievements = new Set(), kn
   const pack = {
     id: json.id, name: json.name, author: json.author, version: json.version,
     description, homepage, source,
-    accessories: [], effects: [], skins: [],
+    accessories: [], effects: [], skins: [], voices: [], scenes: [],
   };
   const keyOf = id => (source === 'builtin' ? id : `${pack.id}/${id}`);
 
@@ -217,17 +241,23 @@ function validatePack(json, { source = 'user', knownAchievements = new Set(), kn
       const id = isObj(raw) ? raw.id : undefined;
       const name = typeof id === 'string' ? id : `#${i}`;
       if (typeof id !== 'string' || !ITEM_ID_RE.test(id)) { warnings.push(`skipped ${label} ${name}: bad id`); return; }
-      const { item, error } = check(raw, known);
+      const { item, error, warnings: itemWarnings = [] } = check(raw, known, pack);
       if (error) { warnings.push(`skipped ${label} ${id}: ${error}`); return; }
       if (seen.has(id)) { warnings.push(`skipped ${label} ${id}: duplicate id (kept the first)`); return; }
       seen.add(id);
+      warnings.push(...itemWarnings.map(w => `${label} ${id}: ${w}`));
       const key = keyOf(id);
       const extra = label === 'skin' ? { id: key } : { id };
+      if (label === 'scene') extra.voice = item.voice ? keyOf(item.voice) : null;
       pack[field].push({ ...item, ...extra, key, packId: pack.id, source });
     });
   }
-  return { pack, errors: [], warnings };
+  return { pack, errors: [], warnings: capWarnings(warnings) };
 }
+
+// Enough to fix a pack by, without a junk one filling the Wardrobe.
+const MAX_WARNINGS = 50;
+const capWarnings = w => (w.length > MAX_WARNINGS ? [...w.slice(0, MAX_WARNINGS), `…and ${w.length - MAX_WARNINGS} more`] : w);
 
 function isHttpsUrl(v) {
   if (typeof v !== 'string' || v.length > 200 || !/^https:\/\/\S+$/.test(v)) return false;
@@ -257,6 +287,8 @@ function listJson(dir) {
 function loadCatalog({ builtinDir, userDir, knownAchievements = new Set(), knownSeasons = new Set() } = {}) {
   const accessories = new Map();
   const effects = new Map();
+  const voices = new Map();
+  const scenes = new Map();
   const skinKeys = new Set();
   const skins = [];
   const packs = [];
@@ -289,15 +321,21 @@ function loadCatalog({ builtinDir, userDir, knownAchievements = new Set(), known
         if (skinKeys.has(s.key)) packWarnings.push(`skipped skin ${s.id}: key ${s.key} already taken`);
         else { skinKeys.add(s.key); skins.push(s); }
       }
+      // A voice shares unlocks and "new" badges with the other items, so its key has to be theirs too.
+      for (const v of pack.voices) {
+        if (accessories.has(v.key) || effects.has(v.key) || skinKeys.has(v.key)) packWarnings.push(`skipped voice ${v.id}: key ${v.key} already taken`);
+        else add(voices, v, 'voice');
+      }
+      for (const sc of pack.scenes) add(scenes, sc, 'scene');
       packs.push({
         id: pack.id, name: pack.name, author: pack.author, version: pack.version,
         description: pack.description, homepage: pack.homepage, source, file,
-        counts: { accessories: pack.accessories.length, effects: pack.effects.length, skins: pack.skins.length },
+        counts: { accessories: pack.accessories.length, effects: pack.effects.length, skins: pack.skins.length, voices: pack.voices.length, scenes: pack.scenes.length },
         warnings: packWarnings,
       });
     }
   }
-  return { accessories, effects, skins, packs, errors };
+  return { accessories, effects, skins, voices, scenes, packs, errors };
 }
 
 // Resolve `${userDir}/${id}.json`, refusing anything that would land outside userDir.

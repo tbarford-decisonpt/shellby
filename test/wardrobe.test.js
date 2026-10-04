@@ -159,7 +159,7 @@ test('wardrobe: __proto__ keys cannot pollute prototypes', () => {
 test('wardrobe: unknown fields are stripped', () => {
   const { pack: p } = validatePack(pack({ evil: 1, accessories: [hat({ onClick: 'alert(1)', script: 'x' })], effects: [fx({ sprites: [{ palette: { b: '#000000' }, pixels: ['b'], extra: 1 }] })] }), known);
   assert.equal(p.evil, undefined);
-  assert.deepEqual(Object.keys(p).sort(), ['accessories', 'author', 'description', 'effects', 'homepage', 'id', 'name', 'skins', 'source', 'version']);
+  assert.deepEqual(Object.keys(p).sort(), ['accessories', 'author', 'description', 'effects', 'homepage', 'id', 'name', 'scenes', 'skins', 'source', 'version', 'voices']);
   assert.deepEqual(Object.keys(p.accessories[0]).sort(),
     ['anchor', 'description', 'follows', 'id', 'key', 'name', 'packId', 'palette', 'pivot', 'pixels', 'rarity', 'slot', 'source', 'unlock']);
   assert.deepEqual(Object.keys(p.effects[0]).sort(),
@@ -204,7 +204,7 @@ test('wardrobe: loadCatalog merges builtin and user packs', () => {
   assert.deepEqual([...c.accessories.keys()], ['witch-hat', 'alpha/witch-hat']);
   assert.deepEqual([...c.effects.keys()], ['bats', 'alpha/bats']);
   assert.deepEqual(c.skins.map(s => s.id), ['ghost', 'alpha/ghost']);
-  assert.deepEqual(c.packs[1].counts, { accessories: 1, effects: 1, skins: 1 });
+  assert.deepEqual(c.packs[1].counts, { accessories: 1, effects: 1, skins: 1, voices: 0, scenes: 0 });
   assert.equal(c.packs[1].file, path.join(userDir, 'a.json'));
   assert.equal(c.errors.length, 5);
   assert.ok(c.errors.some(e => e.startsWith('b.json: id reserved')));

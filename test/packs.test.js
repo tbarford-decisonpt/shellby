@@ -25,7 +25,7 @@ test('packs: every built-in pack passes the loader and the schema', () => {
 
 test('packs: every pack contributes at least one item', () => {
   for (const r of reports) {
-    const total = r.counts.accessories + r.counts.effects + r.counts.skins;
+    const total = Object.values(r.counts).reduce((n, c) => n + c, 0);
     assert.ok(total > 0, `${r.file} loaded no items`);
   }
 });

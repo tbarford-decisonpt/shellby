@@ -104,7 +104,7 @@ function checkPacks(dir = PACK_DIR) {
     let json = null;
     try { json = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { problems.push(`invalid JSON: ${e.message}`); }
 
-    let counts = { accessories: 0, effects: 0, skins: 0 };
+    let counts = { accessories: 0, effects: 0, skins: 0, voices: 0, scenes: 0 };
     let name = f;
     if (json) {
       name = json.name || f;
@@ -115,7 +115,7 @@ function checkPacks(dir = PACK_DIR) {
       const { pack, errors, warnings } = validatePack(json, known);
       problems.push(...errors.map(e => `loader: ${e}`), ...warnings.map(w => `loader: ${w}`));
       problems.push(...checkSchema(json, schema, schema).map(e => `schema: ${e}`));
-      if (pack) counts = { accessories: pack.accessories.length, effects: pack.effects.length, skins: pack.skins.length };
+      if (pack) counts = { accessories: pack.accessories.length, effects: pack.effects.length, skins: pack.skins.length, voices: pack.voices.length, scenes: pack.scenes.length };
     }
     return { file: f, name, counts, bytes, problems };
   });
@@ -123,21 +123,21 @@ function checkPacks(dir = PACK_DIR) {
 
 function main() {
   const reports = checkPacks();
-  const totals = { accessories: 0, effects: 0, skins: 0 };
+  const totals = { accessories: 0, effects: 0, skins: 0, voices: 0, scenes: 0 };
   let bad = 0;
   for (const r of reports) {
     for (const k of Object.keys(totals)) totals[k] += r.counts[k];
-    const tally = `${r.counts.accessories}a ${r.counts.effects}e ${r.counts.skins}s`;
+    const tally = `${r.counts.accessories}a ${r.counts.effects}e ${r.counts.skins}s ${r.counts.voices}v ${r.counts.scenes}sc`;
     if (r.problems.length) {
       bad++;
       console.log(`✗ ${r.file}  (${tally}, ${Math.round(r.bytes / 1024)} KB)`);
       for (const p of r.problems) console.log(`    ${p}`);
     } else {
-      console.log(`✓ ${r.file.padEnd(22)} ${tally.padEnd(12)} ${String(Math.round(r.bytes / 1024)).padStart(3)} KB  ${r.name}`);
+      console.log(`✓ ${r.file.padEnd(22)} ${tally.padEnd(20)} ${String(Math.round(r.bytes / 1024)).padStart(3)} KB  ${r.name}`);
     }
   }
   console.log(`
-${reports.length} packs · ${totals.accessories} accessories · ${totals.effects} effects · ${totals.skins} skins`);
+${reports.length} packs · ${totals.accessories} accessories · ${totals.effects} effects · ${totals.skins} skins · ${totals.voices} voices · ${totals.scenes} scenes`);
   if (bad) { console.error(`${bad} pack(s) failed.`); process.exit(1); }
   console.log('All packs pass the app loader and docs/addon.schema.json.');
 }

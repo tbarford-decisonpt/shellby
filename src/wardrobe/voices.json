@@ -1,0 +1,180 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "voices",
+  "name": "Voices",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "New ways for him to talk: a pirate, a grump, and Spanish. Each comes with a few little scenes of its own. Pick one under Voice in the Wardrobe.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "voices": [
+    {
+      "id": "pirate",
+      "name": "Pirate Crab",
+      "description": "Arr. Everything is the sea, every bug is a mutiny, and every push sets sail.",
+      "lang": "en",
+      "lines": {
+        "working": ["arr, on it", "hoist the code!", "all hands on deck", "aye aye"],
+        "success": ["treasure secured!", "shiver me timbers!", "plunder complete", "yo ho ho!"],
+        "error": ["we've sprung a leak", "blimey.", "man overboard!", "scuttled!"],
+        "petted": ["arr, thank ye", "aye, again", "yarr"],
+        "tests": ["test the rigging", "spyglass out", "walk the plank, bugs"],
+        "passed": ["shipshape!", "all hands green", "fair winds!"],
+        "push": ["anchors aweigh!", "set sail!", "she's off!"],
+        "deploy": ["land ho!", "flag's up!", "she sails!"],
+        "crew": ["the crew's aboard", "full crew!", "more hands!"],
+        "longTask": ["long voyage…", "keep rowin'", "not far now"],
+        "morning": ["mornin', matey", "up with the tide", "ahoy, early bird"],
+        "latenight": ["night watch, eh?", "moon's high", "still at the helm?"],
+        "back": ["ye've returned!", "missed ye, matey", "back from sea?"],
+        "gameOver": ["good battle!", "victory, matey?", "another round?"],
+        "friday": ["shore leave soon!", "friday, matey!", "nearly port"],
+        "monday": ["back to the oars", "swab the deck", "monday. arr."],
+        "found": ["X marks the spot!", "booty!", "treasure, matey!"],
+        "idle": ["calm seas", "no wind today", "ahoy?", "swabbin' the deck"],
+        "perch": ["crow's nest!", "fine lookout", "land in sight?"],
+        "ride": ["full sail!", "steady as she goes", "yo ho!"],
+        "shaken": ["rough seas!", "avast!", "mutiny!"],
+        "dropped": ["overboard!", "abandon ship", "into the brig"],
+        "caught": ["sea legs!", "aye, caught it", "stuck the landing, arr"]
+      },
+      "flavor": {
+        "cocky": { "success": ["captain's orders"], "idle": ["finest crab at sea"] },
+        "sleepy": { "idle": ["hammock time"], "working": ["…aye. rowin'."] }
+      }
+    },
+    {
+      "id": "grumpy",
+      "name": "Grumpy Crab",
+      "description": "Does everything you ask. Complains about all of it.",
+      "lang": "en",
+      "lines": {
+        "working": ["fine. I'll do it.", "ugh, on it", "if I must", "again?"],
+        "success": ["there. happy?", "done. finally.", "about time", "you're welcome. ugh."],
+        "error": ["of course it broke", "typical.", "not my fault", "wonderful."],
+        "petted": ["…fine.", "hmph", "don't get used to it", "one more. maybe."],
+        "tests": ["they'll fail", "here we go…", "bet it's red"],
+        "passed": ["huh. lucky.", "won't last", "fine. green."],
+        "push": ["it's out. ugh.", "don't break prod", "off it goes. sigh."],
+        "deploy": ["live. brace.", "pray for prod", "it's live. ugh."],
+        "morning": ["too early", "coffee. now.", "mornings. ugh."],
+        "latenight": ["go to bed", "it's late. leave.", "why are we up"],
+        "back": ["oh. you.", "took your time", "back already?"],
+        "callOver": ["finally quiet", "that was long", "too many words"],
+        "friday": ["finally.", "about time", "two days off. good."],
+        "monday": ["mondays.", "nope.", "back to bed"],
+        "found": ["found junk", "it's a rock. great.", "here. take it."],
+        "milestone": ["fine. you're OK", "not bad. I guess", "don't make it weird"],
+        "idle": ["don't touch me", "go away", "*grumble*", "it's too bright"],
+        "perch": ["too high", "drafty up here", "get me down"],
+        "ride": ["put me down", "stop that", "I hate this"],
+        "shaken": ["STOP", "unacceptable", "rude."],
+        "dropped": ["thanks a lot", "ow. great.", "unbelievable"],
+        "caught": ["obviously", "not impressed", "whatever"]
+      }
+    },
+    {
+      "id": "espanol",
+      "name": "Español",
+      "description": "Shellby habla español. Lo que no tiene traducción, se lo calla.",
+      "lang": "es",
+      "fallback": "quiet",
+      "lines": {
+        "working": ["manos a la obra", "en ello", "déjamelo a mí", "a trabajar"],
+        "success": ["¡listo!", "¡hecho!", "todo tuyo", "¡lo logré!"],
+        "error": ["ay, no", "algo se rompió", "mmm.", "¡auch!"],
+        "learned": ["¡truco nuevo!", "¡qué útil!", "ahora es mío"],
+        "unlocked": ["¡qué brillante!", "¿para mí?", "¡oh!"],
+        "petted": ["jiji", "¿otra vez?", "mmm"],
+        "tests": ["¿pruebas otra vez?", "dedos cruzados", "momento de la verdad"],
+        "passed": ["¡todo verde!", "te lo dije", "¡verde!"],
+        "push": ["¡enviado!", "allá va", "ya está fuera"],
+        "deploy": ["¡en vivo!", "¡lanzado!", "¡ya está!"],
+        "bigWrite": ["¡qué grande!", "eso es mucho", "uf"],
+        "sameFile": ["¿este archivo otra vez?", "viejo amigo", "a la tercera…"],
+        "searching": ["buscando…", "por aquí estaba", "excavando…"],
+        "web": ["salgo a mirar", "vuelvo enseguida", "a buscar"],
+        "crew": ["todos a una", "¡qué lleno!", "la pandilla"],
+        "longTask": ["sigue y sigue…", "paciencia", "ya casi"],
+        "serverDown": ["¡se cayó el servidor!", "servidor caído", "se cayó"],
+        "morning": ["buenos días", "¡madrugas!", "¡buen día!"],
+        "latenight": ["¿tú también?", "noche larga", "¿aún por aquí?"],
+        "back": ["¡volviste!", "te eché de menos", "¿dónde estabas?"],
+        "gameOver": ["bien jugado", "¿ganamos?", "¿revancha?"],
+        "callOver": ["uf, se acabó", "¿qué tal fue?", "¿ya puedo hablar?"],
+        "sheetStretch": ["¿números otra vez?", "celdas y celdas", "¿día de hojas?"],
+        "docStretch": ["¿sigues escribiendo?", "¿un ensayo?", "palabra a palabra"],
+        "slideStretch": ["¿gran presentación?", "¡siguiente!", "pon un cangrejo"],
+        "friday": ["¡viernes!", "ya casi finde", "recta final"],
+        "weekend": ["¡es finde!", "¿día tranquilo?", "cangrejo de finde"],
+        "monday": ["lunes otra vez", "semana nueva", "necesito café"],
+        "found": ["¡encontré algo!", "¡mira!", "¡para ti!", "¡un tesoro!"],
+        "memory": ["¿te acuerdas?", "buenos tiempos", "tú y yo"],
+        "milestone": ["¡mira cuánto!", "¡qué racha!", "¡tú y yo!"],
+        "idle": ["todo tranquilo", "marea baja", "¿algo?", "mmm", "buen día"],
+        "perch": ["buena vista", "qué cómodo", "mi sitio ahora", "¿y esta ventana?"],
+        "ride": ["¡yupi!", "¡despacio!", "¡más rápido!", "¡uoh!"],
+        "shaken": ["¡oye!", "¡OYE!", "uf", "¿hacía falta?"],
+        "dropped": ["oh, no", "…¿eh?", "¿adónde fue?", "otra vez no"],
+        "dizzy": ["todo da vueltas", "uoh…", "¿dónde es arriba?"],
+        "pop": ["¡boing!", "¡aplastado!", "vale, vale"],
+        "caught": ["¡atrapado!", "aterrizaje perfecto", "¡tachán!"]
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "spyglass",
+      "name": "Keeps a lookout",
+      "voice": "pirate",
+      "beats": [
+        { "bit": "gaze", "ms": 2200, "say": "land ho?" },
+        { "bit": "squint", "ms": 1400, "say": "…nope" },
+        { "bit": "gaze", "ms": 1800, "say": { "any": "keep lookin'", "sleepy": "wake me at land" } }
+      ]
+    },
+    {
+      "id": "shanty",
+      "name": "Sings a sea shanty",
+      "voice": "pirate",
+      "when": { "music": true },
+      "beats": [
+        { "bit": "rock", "ms": 2600, "prop": "notes", "say": "♪ yo ho ho ♪" },
+        { "bit": "rock", "ms": 1800, "prop": "notes" },
+        { "bit": "bow", "ms": 1100, "say": "arr, thank ye" }
+      ]
+    },
+    {
+      "id": "grumble",
+      "name": "Grumbles at the sand",
+      "voice": "grumpy",
+      "beats": [
+        { "bit": "count", "ms": 1600, "say": "sand. everywhere." },
+        { "bit": "swat", "ms": 900, "say": "go AWAY" },
+        { "bit": "flop", "ms": 1500, "say": "*grumble*" }
+      ]
+    },
+    {
+      "id": "castillo",
+      "name": "Construye un castillo",
+      "voice": "espanol",
+      "beats": [
+        { "bit": "dig", "ms": 1800, "say": "construyendo…" },
+        { "bit": "admire", "ms": 2000, "prop": "castle", "say": "¡obra maestra!" },
+        { "bit": "squint", "ms": 1000, "prop": "castle-fall" },
+        { "bit": "flop", "ms": 1500, "say": "…mi castillo" }
+      ]
+    },
+    {
+      "id": "estrellas",
+      "name": "Mira las estrellas",
+      "voice": "espanol",
+      "when": { "night": true },
+      "beats": [
+        { "bit": "gaze", "ms": 2600, "say": "cuántas estrellas" },
+        { "bit": "gaze", "ms": 1600, "prop": "shooting-star", "say": "¡un deseo!" },
+        { "bit": "admire", "ms": 1500, "say": { "any": "no te lo digo", "chipper": "¡pedí por ti!" } }
+      ]
+    }
+  ]
+}

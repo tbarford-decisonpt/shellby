@@ -801,7 +801,8 @@ function speak(occasion, { force = false, text = null } = {}) {
   if (focus.guarding(config.get('focus'), Date.now())) return null;
   if (life?.hushed()) return null; // you're on a call: not a peep
   const now = Date.now();
-  const r = voice.say(config.get('voice'), occasion, now, { chatter: config.get('chatter'), force, text });
+  const worn = wardrobe ? wardrobe.dialogue().voice : null; // a pack voice (wardrobe/dialogue.js)
+  const r = voice.say(config.get('voice'), occasion, now, { chatter: config.get('chatter'), force, text, voice: worn });
   if (!r) return null;
   config.set({ voice: r.state });
   said = { text: r.text, occasion: r.occasion, until: r.until };
@@ -2577,6 +2578,7 @@ function createLifeAndPlay() {
     temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
     speak: (occasion, opts) => speak(occasion, opts),
     say: (text, ms, occasion) => sayText(text, occasion, ms),
+    dialogue: () => (wardrobe ? wardrobe.dialogue() : null),
     toCrab: sendCritter,
     toPanel: (channel, payload) => send(panel, channel, payload),
     // You're at your PC: he stays up (refreshCritter puts him to sleep SLEEP_AFTER_MS after this).
@@ -4775,6 +4777,12 @@ ${r.detail}` });
   ipcMain.handle('wardrobe:set-outfit', (_e, patch) => ({ ...wardrobe.setOutfit(patch && typeof patch === 'object' ? patch : {}), view: wardrobe.view() }));
   ipcMain.handle('wardrobe:wear-season', () => ({ ...wardrobe.wearSeason(), view: wardrobe.view() }));
   ipcMain.handle('wardrobe:randomize', () => ({ ...wardrobe.randomize(), view: wardrobe.view() }));
+  ipcMain.handle('wardrobe:set-voice', (_e, key) => {
+    const r = wardrobe.setVoice(isStr(key) ? key : null);
+    // His don't-repeat memory points into the old voice's lines: start it afresh.
+    if (r.ok) config.set({ voice: { ...voice.normalize(config.get('voice')), recent: {} } });
+    return { ...r, view: wardrobe.view() };
+  });
   ipcMain.handle('wardrobe:options', (_e, opts) => { wardrobe.setOptions(opts || {}); return wardrobe.view(); });
   ipcMain.on('wardrobe:seen', (_e, keys) => { if (Array.isArray(keys)) wardrobe.markSeen(keys.filter(isStr)); });
   ipcMain.handle('wardrobe:install', async (_e, filePath) => {
@@ -5491,8 +5499,10 @@ async function confirmAndInstallPackText(text, { sourceLabel = null, expectId = 
       ...p.accessories.map(a => ({ kind: a.slot, label: SLOT_LABEL[a.slot] || a.slot, name: a.name, pixels: a.pixels, palette: { ...a.palette } })),
       ...p.effects.map(e => ({ kind: 'effect', label: 'Effect', name: e.name, sprites: e.sprites.map(sp => ({ pixels: sp.pixels, palette: { ...sp.palette } })) })),
       ...p.skins.map(k => ({ kind: 'skin', label: 'Colors', name: k.name, pixels: k.pixels, palette: { ...k.palette }, parts: { ...k.parts } })),
+      ...p.voices.map(v => ({ kind: 'voice', label: v.lang ? `Voice · ${v.lang}` : 'Voice', name: v.name, glyph: '💬' })),
+      ...p.scenes.map(sc => ({ kind: 'scene', label: 'Scene', name: sc.name, glyph: '🎬' })),
     ],
-    note: "Packs are pixel art and settings only. They can't run code.",
+    note: "Packs are pixel art, lines and settings only. They can't run code.",
     buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
   });
   if (response !== 0) return { ok: false, canceled: true };

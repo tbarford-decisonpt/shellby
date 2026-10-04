@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
   "title": "Shellby wardrobe pack",
-  "description": "A data-only pack of accessories, effects and skins for Shellby (format 1). See docs/ADDONS.md. The app strips unknown fields and skips invalid items; this schema is the strict version used to validate uploads.",
+  "description": "A data-only pack of accessories, effects, skins, voices and scenes for Shellby (format 1). See docs/ADDONS.md. The app strips unknown fields and skips invalid items; this schema is the strict version used to validate uploads.",
   "type": "object",
   "required": ["format", "id", "name", "author", "version"],
   "additionalProperties": false,
@@ -17,7 +17,9 @@
     "homepage": { "type": "string", "format": "uri", "pattern": "^https://\\S+$", "maxLength": 200 },
     "accessories": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/accessory" } },
     "effects": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/effect" } },
-    "skins": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/skin" } }
+    "skins": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/skin" } },
+    "voices": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/voice" } },
+    "scenes": { "type": "array", "maxItems": 60, "items": { "$ref": "#/$defs/scene" } }
   },
   "$defs": {
     "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
@@ -162,6 +164,119 @@
             "shellTop": { "$ref": "#/$defs/anchorPoint" }
           }
         }
+      }
+    },
+    "line": {
+      "description": "One line in his speech bubble: plain text, at most 24 characters, no control characters or bidi overrides.",
+      "type": "string", "minLength": 1, "maxLength": 24, "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f\\u202a-\\u202e\\u2066-\\u2069]+$"
+    },
+    "lines": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/$defs/line" } },
+    "occasionLines": {
+      "description": "Lines by occasion: what he says when it comes up.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "enum": [
+          "working", "success", "error", "learned", "unlocked", "petted",
+          "tests", "passed", "push", "deploy", "bigWrite", "sameFile", "searching", "web", "crew", "longTask", "serverDown",
+          "morning", "latenight", "back",
+          "gameOver", "callOver", "sheetStretch", "docStretch", "slideStretch", "friday", "weekend", "monday",
+          "found", "memory", "milestone", "idle",
+          "perch", "ride", "shaken", "dropped", "dizzy", "pop", "caught"
+        ]
+      },
+      "additionalProperties": { "$ref": "#/$defs/lines" }
+    },
+    "temperament": { "enum": ["chipper", "fussy", "cocky", "sleepy"] },
+    "voice": {
+      "type": "object",
+      "required": ["id", "name", "lines"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "name": { "$ref": "#/$defs/text", "maxLength": 40 },
+        "description": { "type": "string", "maxLength": 160 },
+        "lang": { "description": "The language the lines are in, as a tag like \"es\" or \"pt-BR\".", "type": "string", "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$" },
+        "fallback": { "description": "On occasions with no lines here: \"shellby\" uses his own lines, \"quiet\" says nothing.", "enum": ["shellby", "quiet"], "default": "shellby" },
+        "lines": { "$ref": "#/$defs/occasionLines" },
+        "flavor": {
+          "description": "Extra lines for one temperament, added to its lines.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/temperament" },
+          "additionalProperties": { "$ref": "#/$defs/occasionLines" }
+        },
+        "rarity": { "$ref": "#/$defs/rarity" },
+        "unlock": { "$ref": "#/$defs/unlock" }
+      }
+    },
+    "sayChoice": { "oneOf": [{ "$ref": "#/$defs/line" }, { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/line" } }] },
+    "say": {
+      "description": "A line, a list to pick from, or lines by temperament with \"any\" for the rest.",
+      "oneOf": [
+        { "$ref": "#/$defs/sayChoice" },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "any": { "$ref": "#/$defs/sayChoice" },
+            "chipper": { "$ref": "#/$defs/sayChoice" },
+            "fussy": { "$ref": "#/$defs/sayChoice" },
+            "cocky": { "$ref": "#/$defs/sayChoice" },
+            "sleepy": { "$ref": "#/$defs/sayChoice" }
+          }
+        }
+      ]
+    },
+    "beat": {
+      "type": "object",
+      "required": ["bit", "ms"],
+      "additionalProperties": false,
+      "properties": {
+        "bit": {
+          "enum": [
+            "dig", "polish", "peek", "stretch", "flop", "squint", "creep", "pounce", "nose", "sneeze", "sniff", "hic", "hold",
+            "blow", "nod", "jolt", "curl", "admire", "rock", "bow", "swat", "jab", "gaze", "juggle", "bonk", "present", "lean",
+            "sip", "boogie", "hide", "boo", "shiver", "wave", "count"
+          ]
+        },
+        "ms": { "type": "integer", "minimum": 500, "maximum": 5000 },
+        "say": { "$ref": "#/$defs/say" },
+        "prop": { "enum": ["castle", "castle-fall", "bubbles", "fly", "shooting-star", "juggle", "heart", "achoo", "zz", "notes", "sweat"] },
+        "hold": { "enum": ["find", "coffee", "pebble", "mic"] },
+        "wear": { "enum": ["shades"] }
+      }
+    },
+    "when": {
+      "description": "Conditions that must all hold for the scene to come up.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "night": { "const": true },
+        "day": { "const": true },
+        "weekend": { "const": true },
+        "friday": { "const": true },
+        "monday": { "const": true },
+        "music": { "const": true },
+        "cursor": { "const": true },
+        "find": { "const": true },
+        "bond": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "season": { "enum": ["halloween", "winter", "valentine", "spring", "summer", "autumn"] }
+      }
+    },
+    "scene": {
+      "description": "A little scene in beats. The beats can add up to at most 12000 ms.",
+      "type": "object",
+      "required": ["id", "name", "beats"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "name": { "$ref": "#/$defs/text", "maxLength": 40 },
+        "description": { "type": "string", "maxLength": 160 },
+        "who": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/temperament" } },
+        "when": { "$ref": "#/$defs/when" },
+        "voice": { "description": "A voice in this pack: the scene only plays while he talks in it.", "$ref": "#/$defs/itemId" },
+        "beats": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/beat" } }
       }
     }
   }

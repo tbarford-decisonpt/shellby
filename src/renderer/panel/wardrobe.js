@@ -1,9 +1,10 @@
-/* Shellby panel — the Wardrobe (outfits, effects, colors, packs) and Trophies. */
+/* Shellby panel — the Wardrobe (outfits, effects, colors, voices, packs) and Trophies. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color', home: 'home' };
+  const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color', home: 'home', voice: 'voice' };
   const HOME = 'home'; // his own shell (see src/main/shells.js)
+  const OWN_VOICE = ['on it', 'nailed it', 'all quiet']; // a taste of voice.js LINES, for the "His own" tile
   const RARITY = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
   let slot = 'hat';
   let mood = 'idle';
@@ -19,6 +20,7 @@
     if (s === 'effect') return w.effects;
     if (s === 'skin') return state.skins;
     if (s === 'home') return homes();
+    if (s === 'voice') return w.voices || [];
     return w.accessories.filter(a => a.slot === s);
   }
 
@@ -41,7 +43,7 @@
 
   function outfitWith(override) {
     const o = { ...(wd()?.outfit || {}) };
-    if (override && override.slot !== 'skin' && override.slot !== 'home') o[override.slot] = override.key;
+    if (override && !['skin', 'home', 'voice'].includes(override.slot)) o[override.slot] = override.key;
     return o;
   }
 
@@ -73,20 +75,29 @@
     if (effect) bits.push(effect.name);
     const home = shellFor(state.homes?.worn);
     if (home) bits.unshift(home.name);
-    $('wdCaption').textContent = tryOn ? `Trying on: ${(itemsFor(tryOn.slot).find(i => (i.key || i.id) === tryOn.key) || {}).name || 'nothing'}` : bits.length ? bits.join(' · ') : 'Just the shell';
+    const talking = voiceFor(w?.voice);
+    if (talking) bits.push(`💬 ${talking.name}`);
+    $('wdCaption').textContent = tryOn?.slot === 'voice' ? voiceCaption(voiceFor(tryOn.key)) : tryOn ? `Trying on: ${(itemsFor(tryOn.slot).find(i => (i.key || i.id) === tryOn.key) || {}).name || 'nothing'}` : bits.length ? bits.join(' · ') : 'Just the shell';
   }
+
+  // ------------------------------------------------------------ voices
+  const voiceFor = key => (key ? (wd()?.voices || []).find(v => v.key === key) || null : null);
+  const quoted = lines => lines.map(l => `“${l}”`).join(' ');
+  const voiceCaption = v => (v ? `${v.name}: ${quoted(v.sample)}` : `His own voice: ${quoted(OWN_VOICE)}`);
+  const bubble = line => h('span', { class: 'wd-bubble', text: line || '…' });
 
   // ------------------------------------------------------------ grid
   function tile(item) {
     const isSkin = slot === 'skin';
     const key = isSkin ? item.id : item.key;
-    const equipped = isSkin ? state.skin?.id === key : slot === 'home' ? state.homes?.worn === key : wd().outfit[slot] === key;
+    const equipped = isSkin ? state.skin?.id === key : slot === 'home' ? state.homes?.worn === key : slot === 'voice' ? wd().voice === key : wd().outfit[slot] === key;
     const locked = item.locked;
     let art;
-    if (isSkin) art = SB.sprite(item, { plain: true });
+    if (slot === 'voice') art = bubble(item.sample[0]);
+    else if (isSkin) art = SB.sprite(item, { plain: true });
     else if (item.sprites) { const sp = bigSprite(item); art = SB.Sprite.grid(sp.pixels, sp.palette); }
     else art = SB.Sprite.grid(item.pixels, item.palette);
-    const tipLines = [item.name, item.description, locked ? lockText(locked) : null, item.rarity && item.rarity !== 'common' ? RARITY[item.rarity] : null].filter(Boolean);
+    const tipLines = [item.name, item.description, item.sample ? quoted(item.sample) : null, locked ? lockText(locked) : null, item.rarity && item.rarity !== 'common' ? RARITY[item.rarity] : null].filter(Boolean);
     // Hovering (or tabbing to) a new item is looking at it: the pill fades out.
     const look = e => {
       tryOn = { slot, key };
@@ -117,7 +128,7 @@
     const items = itemsFor(slot);
     const grid = $('wdGrid');
     const bare = !wd().outfit[slot];
-    const none = slot === 'skin' ? null : slot === 'home' ? ownShellTile() : h('button', {
+    const none = slot === 'skin' ? null : slot === 'home' ? ownShellTile() : slot === 'voice' ? ownVoiceTile() : h('button', {
       type: 'button', role: 'option', 'aria-selected': String(bare), dataset: { key: '' }, class: `wd-tile none${bare ? ' on' : ''}`, title: `No ${SLOT_LABEL[slot]}`,
       onmouseenter: () => { tryOn = { slot, key: null }; renderStage(); },
       onmouseleave: () => { tryOn = null; renderStage(); },
@@ -129,6 +140,7 @@
     const order = { common: 0, rare: 1, epic: 2, legendary: 3 };
     const sorted = [...items].sort((a, b) => (!!a.locked - !!b.locked) || (order[a.rarity] ?? 0) - (order[b.rarity] ?? 0));
     grid.replaceChildren(...[none, ...sorted.map(tile)].filter(Boolean));
+    $('wdHint').hidden = !(slot === 'voice' && !items.length);
     document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.slot === slot)));
     refreshBadge();
   }
@@ -146,8 +158,26 @@
     }, h('span', { class: 'wd-art' }, SB.sprite(state.skin, { plain: true })), h('span', { class: 'wd-name', text: 'His own' }));
   }
 
+  // The way he talks out of the box: always there, first in the Voice tab.
+  function ownVoiceTile() {
+    const on = !wd().voice;
+    return h('button', {
+      type: 'button', role: 'option', 'aria-selected': String(on), dataset: { key: '' }, class: `wd-tile${on ? ' on' : ''}`, title: ['His own voice', 'The way he talks out of the box.'].join('\n'),
+      onmouseenter: () => { tryOn = { slot, key: null }; renderStage(); },
+      onmouseleave: () => { tryOn = null; renderStage(); },
+      onfocus: () => { tryOn = { slot, key: null }; renderStage(); },
+      onblur: () => { tryOn = null; renderStage(); },
+      onclick: () => equip(null, null, on),
+    }, h('span', { class: 'wd-art' }, bubble(OWN_VOICE[0])), h('span', { class: 'wd-name', text: 'His own' }));
+  }
+
   async function equip(item, key, equipped) {
     if (item?.locked) return SB.toast(lockText(item.locked).replace('🔒 ', ''));
+    if (slot === 'voice') {
+      const r = await api.setVoice(equipped ? null : key);
+      if (!r.ok) SB.toast(r.error);
+      return applyView(r.view);
+    }
     if (slot === 'skin') {
       const r = await api.setSettings({ skin: key });
       state.settings = r.settings;
@@ -195,12 +225,16 @@
     else if (!r.canceled) SB.toast(r.error || "Couldn't publish that pack.", { ms: 7000 });
   }
 
+  // "3 accessories · 2 voices": what's in it, leaving out the kinds it has none of.
+  const COUNT_LABELS = [['accessories', 'accessory', 'accessories'], ['effects', 'effect', 'effects'], ['skins', 'color', 'colors'], ['voices', 'voice', 'voices'], ['scenes', 'scene', 'scenes']];
+  const packCounts = c => COUNT_LABELS.filter(([k]) => c[k]).map(([k, one, many]) => `${c[k]} ${c[k] === 1 ? one : many}`).join(' · ') || 'empty';
+
   function renderPacks() {
     const packs = wd()?.packs || [];
     $('packList').replaceChildren(...packs.map(p => h('li', { class: 'pack' },
       h('div', { class: 'pack-main' },
         h('b', { text: p.name }), h('span', { class: 'pack-meta', text: ` v${p.version} · by ${p.author}` }),
-        h('div', { class: 'pack-counts', text: [`${p.counts.accessories} accessories`, `${p.counts.effects} effects`, `${p.counts.skins} colors`].join(' · ') + (p.warnings ? ` · ${p.warnings} skipped` : '') })),
+        h('div', { class: 'pack-counts', text: packCounts(p.counts) + (p.warnings ? ` · ${p.warnings} skipped` : '') })),
       p.source === 'builtin' ? h('span', { class: 'src-pill', text: 'built in' }) : null,
       p.source !== 'builtin' && canPublish() ? h('button', { class: 'btn ghost slim-btn publish-btn', type: 'button', title: 'Open a pull request to the community gallery', onclick: e => publish(p, e.currentTarget) }, 'Publish') : null,
       p.source !== 'builtin' ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: async () => { applyView(await api.removePack(p.id)); SB.toast(`Removed ${p.name}`); } }, 'Remove') : null)));
@@ -217,7 +251,7 @@
   }
   SB.applyWardrobe = applyView;
 
-  const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...homes()].filter(i => i.isNew && !i.locked);
+  const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...(wd()?.voices || []), ...homes()].filter(i => i.isNew && !i.locked);
   const refreshBadge = () => {
     const fresh = freshItems().length > 0;
     $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length && !state.life?.finds?.unseen?.length; // new stickers (stickers.js) and finds (together.js) too
@@ -231,11 +265,11 @@
   function acknowledge(keys) {
     const fresh = new Set(keys);
     const w = wd();
-    const items = [...(w?.accessories || []), ...(w?.effects || [])].filter(i => i.isNew && fresh.has(i.key)).map(i => i.key);
+    const items = [...(w?.accessories || []), ...(w?.effects || []), ...(w?.voices || [])].filter(i => i.isNew && fresh.has(i.key)).map(i => i.key);
     const shells = (state.homes?.shells || []).filter(s => s.isNew && fresh.has(s.id)).map(s => s.id);
     if (items.length) {
       const clear = i => (fresh.has(i.key) ? { ...i, isNew: false } : i);
-      state.wardrobe = { ...w, accessories: w.accessories.map(clear), effects: w.effects.map(clear) };
+      state.wardrobe = { ...w, accessories: w.accessories.map(clear), effects: w.effects.map(clear), voices: (w.voices || []).map(clear) };
       api.markSeen(items);
     }
     if (shells.length) {

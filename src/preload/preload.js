@@ -160,6 +160,7 @@ contextBridge.exposeInMainWorld('shellby', {
   wearSeason: invoke('wardrobe:wear-season'),
   randomizeOutfit: invoke('wardrobe:randomize'),
   setWardrobeOptions: invoke('wardrobe:options'),
+  setVoice: invoke('wardrobe:set-voice'),
   markSeen: fire('wardrobe:seen'),
   installPack: invoke('wardrobe:install'),
   removePack: invoke('wardrobe:remove-pack'),

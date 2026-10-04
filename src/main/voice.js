@@ -257,8 +257,20 @@ function temperamentOf(seed) {
   return TEMPERAMENTS[(h >>> 0) % TEMPERAMENTS.length];
 }
 
-/** Base lines plus the temperament's own, for one occasion. */
-function poolFor(occasion, temperament) {
+// A voice from a wardrobe pack ({ lines, flavor, fallback }, see
+// wardrobe/dialogue.js) speaks for every occasion it has lines for.
+const voiceCovers = (worn, occasion, temperament) => !!(worn?.lines?.[occasion] || worn?.flavor?.[temperament]?.[occasion]);
+
+/**
+ * Base lines plus the temperament's own, for one occasion. With a pack voice on
+ * (`worn`), its lines instead. On occasions it has no lines for, his own lines
+ * come back, or none at all with fallback 'quiet'.
+ */
+function poolFor(occasion, temperament, worn = null) {
+  if (worn && voiceCovers(worn, occasion, temperament)) {
+    return [...(worn.lines[occasion] || []), ...(worn.flavor?.[temperament]?.[occasion] || [])];
+  }
+  if (worn?.fallback === 'quiet') return [];
   const base = LINES[occasion] || [];
   const extra = FLAVOR[temperament]?.[occasion] || [];
   return [...base, ...extra];
@@ -271,9 +283,11 @@ function poolFor(occasion, temperament) {
  *   opts: { chatter, rand, force, text } — force skips the cooldowns (a level-up
  *   shouldn't lose its line because he said something 30 seconds ago). `text`
  *   is a line made elsewhere (a memory, a milestone) that still has to pass
- *   every rule here; it must fit the bubble.
+ *   every rule here; it must fit the bubble. `voice` is the pack voice he's
+ *   wearing, if any (see poolFor). With fallback 'quiet' its own line replaces
+ *   `text`, or he keeps quiet.
  */
-function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, force = false, text = null } = {}) {
+function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, force = false, text: textIn = null, voice: worn = null } = {}) {
   const state = normalize(stateIn);
   const level = chatterOf(chatter);
   const rule = OCCASIONS[occasion];
@@ -286,6 +300,15 @@ function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, f
     const last = state.said[occasion];
     if (last != null && t - last < rule.every * COOLDOWN_SCALE[level]) return null;
   }
+  const temperament = temperamentOf(state.seed);
+  // A line made elsewhere carries something real (which memory, which find, how
+  // many days), so a character voice lets it through. A quiet voice is another
+  // language: it says its own line for the occasion, or nothing.
+  let text = textIn;
+  if (text != null && worn?.fallback === 'quiet') {
+    if (!voiceCovers(worn, occasion, temperament)) return null;
+    text = null;
+  }
   if (text != null) {
     if (typeof text !== 'string' || !text.trim() || text.length > MAX_LINE) return null;
     return {
@@ -293,7 +316,7 @@ function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, f
       state: { ...state, lastSpokeAt: t, said: { ...state.said, [occasion]: t } },
     };
   }
-  const pool = poolFor(occasion, temperamentOf(state.seed));
+  const pool = poolFor(occasion, temperament, worn);
   if (!pool.length) return null;
   // Don't repeat a line while another one in the pool is still unused.
   const seen = new Set(state.recent[occasion] || []);
@@ -337,6 +360,6 @@ function pickBit(seed, rand = Math.random) {
 
 module.exports = {
   CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
-  normalize, chatterOf, temperamentOf, poolFor, say, timeOccasion, absenceOccasion, pickBit,
+  normalize, chatterOf, temperamentOf, poolFor, voiceCovers, say, timeOccasion, absenceOccasion, pickBit,
   occasionForTool, occasionForCommand,
 };
