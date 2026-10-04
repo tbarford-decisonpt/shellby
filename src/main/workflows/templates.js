@@ -40,6 +40,48 @@ function templates({ home = '' } = {}) {
       },
     },
     {
+      key: 'issue-helper',
+      icon: '🦀',
+      name: 'Issue helper',
+      description: 'When an issue is assigned to you or labelled shellby, he offers to take a crack at it. Say yes and he works on it in a copy of the repository and opens a draft pull request.',
+      workflow: {
+        name: 'Issue helper',
+        description: 'Offers to work on new issues, and turns a yes into a draft pull request.',
+        when: [{ type: 'issue', on: 'any', repo: '' }],
+        concurrency: 'queue',
+        steps: [
+          { type: 'tell', to: 'crab', text: 'Want me to take a crack at #{{ trigger.number }}?' },
+          {
+            id: 'offer', type: 'ask',
+            question: 'Want me to take a crack at {{ trigger.repo }}#{{ trigger.number }}: {{ trigger.title }}?',
+            choices: ['Take a crack', 'Not now'],
+          },
+          {
+            type: 'if', test: 'offer.choice == "Take a crack"',
+            then: [
+              { id: 'copy', type: 'worktree', label: 'Make a copy to work in', repo: '{{ trigger.repo }}', branch: 'issue-{{ trigger.number }}' },
+              {
+                id: 'work', type: 'claude', mode: 'acceptEdits', label: 'Work on the issue', cwd: '{{ copy.path }}',
+                prompt: 'Work on GitHub issue #{{ trigger.number }} in {{ trigger.repo }}.\n\nTitle: {{ trigger.title }}\n\n{{ trigger.body }}\n\nThis folder is a fresh copy on its own branch. Make the change the issue asks for, keep it focused, run the project\'s tests, and commit your work with a clear message. Don\'t push and don\'t open a pull request: Shellby does that next. If the issue is unclear or too big, do the part you\'re sure of and say what\'s left.',
+                output: {
+                  summary: { type: 'string', description: 'What you changed and why, in a few sentences, for the pull request' },
+                  left: { type: 'string', description: 'Anything left to do or decide, or an empty string' },
+                },
+              },
+              {
+                id: 'pr', type: 'pr', label: 'Open a draft pull request', folder: '{{ copy.path }}',
+                title: '{{ trigger.title }}',
+                body: 'Closes #{{ trigger.number }}\n\n{{ work.summary }}\n\n{{ work.left }}\n\n🦀 Opened as a draft by Shellby.',
+                draft: true,
+              },
+              { type: 'tell', to: 'crab', text: 'Draft pull request up for #{{ trigger.number }}!' },
+              { type: 'tell', to: 'notification', title: 'Draft pull request opened', text: '{{ pr.url }}' },
+            ],
+          },
+        ],
+      },
+    },
+    {
       key: 'morning-brief',
       icon: '☀️',
       name: 'Morning brief',

@@ -20,6 +20,7 @@ const AWARDS = Object.freeze({
   bond: { xp: 50, perHour: 1, label: 'Grew closer', way: 'The two of you grow closer' },
   fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green', claude: true },
   flakefix: { xp: 40, perHour: 2, label: 'Fixed a flaky test', way: 'Fixes a flaky test for good', claude: true },
+  issue: { xp: 40, perHour: 3, label: 'Turned an issue into a pull request', way: 'Takes an issue all the way to a pull request', claude: true },
   ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)', claude: true },
   deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean', claude: true },
   // Lean Shell (efficiency.js): only for things that cost nothing in quality. Never

@@ -273,3 +273,9 @@ test('service: a sign-in that finishes after stop() starts no sync timer', async
     assert.equal(svc.timer, null, 'no sync timer left to keep the process alive');
   } finally { await mock.close(); }
 });
+
+test('GitHubApi keeps what a 422 was about, not just "Validation Failed"', async () => {
+  const { GitHubApi } = require('../src/main/github/api');
+  const fetchImpl = async () => new Response(JSON.stringify({ message: 'Validation Failed', errors: [{ resource: 'PullRequest', code: 'custom', message: 'A pull request already exists for me:x.' }] }), { status: 422 });
+  await assert.rejects(new GitHubApi({ token: 't', fetchImpl }).post('/repos/me/crab/pulls', {}), e => e.status === 422 && e.message === 'Validation Failed' && e.detail === 'A pull request already exists for me:x.');
+});

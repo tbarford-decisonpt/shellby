@@ -19,6 +19,7 @@ const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').
  * only the first matching trigger of each (two triggers matching one event
  * start it once).
  *   ci:       data { event, repo, ... }
+ *   issue:    data { event, reasons: ['assigned'|'labelled'], repo, ... }
  *   shipped:  data { kind, project, ... }
  *   task:     data { outcome, ... }
  *   health, startup: any data
@@ -37,6 +38,8 @@ function matchEvent(workflows, type, data = {}) {
 function matches(t, data, wf) {
   switch (t.type) {
     case 'ci': return (t.on === 'any' || t.on === data.event) && (!t.repo || same(t.repo, data.repo));
+    // An issue can be both assigned to you and labelled: either reason counts.
+    case 'issue': return (t.on === 'any' || (Array.isArray(data.reasons) && data.reasons.includes(t.on))) && (!t.repo || same(t.repo, data.repo));
     case 'shipped': return (t.kind === 'any' || t.kind === data.kind) && (!t.project || same(t.project, data.project));
     case 'task': return t.outcome === 'any' || t.outcome === data.outcome;
     case 'workflow':

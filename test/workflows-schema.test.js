@@ -156,3 +156,24 @@ test('walkSteps visits nested steps with their loop scope', () => {
     ['tell', 'steps[0].steps[0].then[0]', 'f'],
   ]);
 });
+
+test('copy and pull request steps: a template folder, a title, and the push needs approving', () => {
+  const { validateWorkflow: v, capabilities, riskSignature, riskDetail } = require('../src/main/workflows/schema');
+  const ok = v({ name: 'I', when: [{ type: 'issue' }], steps: [
+    { id: 'copy', type: 'worktree', repo: '{{ trigger.repo }}', branch: 'issue-{{ trigger.number }}' },
+    { id: 'pr', type: 'pr', folder: '{{ copy.path }}', title: '{{ trigger.title }}', body: 'Closes #{{ trigger.number }}' },
+  ] });
+  assert.equal(ok.ok, true, JSON.stringify(ok.errors));
+  assert.equal(ok.workflow.steps[1].draft, true, 'a draft unless said otherwise');
+  assert.deepEqual(capabilities(ok.workflow), ['Push a branch and open a draft pull request on GitHub']);
+  assert.match(riskDetail(ok.workflow), /pushes its branch to GitHub and opens a draft pull request\nTitle: \{\{ trigger.title \}\}\nCloses/);
+  const ready = v({ ...ok.workflow, id: undefined, steps: [ok.workflow.steps[0], { ...ok.workflow.steps[1], draft: false }] });
+  assert.notEqual(riskSignature(ready.workflow), riskSignature(ok.workflow), 'turning the draft off asks again');
+
+  const bad = (steps, re) => { const r = v({ name: 'B', steps }); assert.equal(r.ok, false); assert.match(r.errors.map(e => e.message).join('; '), re); };
+  bad([{ type: 'worktree', repo: 'not a repo' }], /owner\/name/);
+  bad([{ type: 'worktree' }], /Fill in the repository/);
+  bad([{ type: 'pr', folder: 'C:\\anywhere', title: 'x' }], /Make a copy/);
+  bad([{ type: 'pr', folder: '{{ copy.path }}', title: 'x' }], /“copy” isn't a step/);
+  bad([{ id: 'copy', type: 'worktree', repo: 'a/b' }, { type: 'pr', folder: '{{ copy.path }}' }], /Fill in the title/);
+});

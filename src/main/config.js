@@ -67,6 +67,7 @@ const DEFAULTS = {
   pausedHooks: [],    // hooks taken out of a Claude Code settings file by Pause, kept to put back (main.js pauseHook)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
   github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here
+  issueWatch: null,   // which GitHub issues he has already offered to take on (see github/issues.js)
   syncGistId: null,   // the private gist progress syncs through
   syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
   autonomousAcknowledged: false,

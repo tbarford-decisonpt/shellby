@@ -64,6 +64,7 @@ make yourself is saved as the panel's size.
 |---|---|---|
 | `schedule` | `schedule`: a routine schedule (`daily`/`weekly`/`interval` hours) or `{ type: "minutes", every: 5-1440 }` | `{ at }` |
 | `ci` | `on`: `failed` `fixed` `passed` `merged` `review` `any`; `repo?`: `owner/name` | `{ event, repo, number, title, url, branch, failing[] }` |
+| `issue` | `on`: `assigned` `labelled` `any`; `repo?`: `owner/name` (github/issues.js: assigned to you anywhere; labelled `shellby` in your own repos and the cloned ones you can push to; confirmed from the issue's events since watching began) | `{ event, reasons[], repo, number, title, body, labels[], author, url }` |
 | `shipped` | `kind`: `push` `deploy` `release` `merge` `any`; `project?` | `{ kind, project, version? }` |
 | `task` | `outcome`: `ok` `error` `any` (Shellby's own tabs; never a workflow's) | `{ title, outcome, folder, error? }` |
 | `health` | none | `{ title, body }` |
@@ -102,6 +103,8 @@ Every step can have:
 | `file` | `action`: `read` `write` `append`; `path`; `content?` | `{ text }` for read, `{ path }` otherwise |
 | `workflow` | `name` (another workflow), `inputs?` | `{ status, vars }` |
 | `stop` | `status`: `ok` `error`; `message?` | ends the run |
+| `worktree` | `repo` (template, `owner/name` cloned here), `branch?` (≤60, a name for `shellby/<name>-<hex>`) | `{ path, branch, base, repo }`: a worktree from `origin/<default branch>` (github/pullrequest.js) |
+| `pr` | `folder` (template: a `worktree` step's path), `title` (≤250), `body?`, `draft` (default true) | `{ url, number, branch, repo, draft }`: commits leftovers and pushes the copy's branch with no hooks, never forced; only Shellby's own copies |
 
 ### Templates and conditions
 

@@ -92,7 +92,7 @@ test('every template is a valid workflow', () => {
     const r = validateWorkflow(t.workflow);
     assert.equal(r.ok, true, `${t.key}: ${JSON.stringify(r.errors)}`);
   }
-  assert.equal(templates({}).length, 6);
+  assert.equal(templates({}).length, 7);
 });
 
 test('the draft format names every step and trigger type', () => {
@@ -155,4 +155,18 @@ test('abortable sleep', async () => {
   const p = effects.sleep(10000, c.signal);
   c.abort();
   await assert.rejects(p, e => e.name === 'AbortError');
+});
+
+test('issue triggers match on why the issue came in, and the repository', () => {
+  const any = wf([{ type: 'issue' }], { name: 'Any' });
+  const mine = wf([{ type: 'issue', on: 'assigned', repo: 'Me/Crab' }], { name: 'Mine' });
+  const tagged = wf([{ type: 'issue', on: 'labelled' }], { name: 'Tagged' });
+  const names = data => matchEvent([any, mine, tagged], 'issue', data).map(m => m.workflow.name);
+  assert.deepEqual(names({ reasons: ['assigned'], repo: 'me/crab' }), ['Any', 'Mine']);
+  assert.deepEqual(names({ reasons: ['assigned', 'labelled'], repo: 'me/crab' }), ['Any', 'Mine', 'Tagged']);
+  assert.deepEqual(names({ reasons: ['labelled'], repo: 'pal/tool' }), ['Any', 'Tagged']);
+  assert.deepEqual(names({ repo: 'me/crab' }), ['Any'], 'no reasons, no assigned/labelled match');
+  assert.equal(any.when[0].on, 'any');
+  assert.equal(validateWorkflow({ name: 'X', when: [{ type: 'issue', on: 'closed' }], steps: [{ type: 'tell', text: 'x' }] }).ok, false);
+  assert.equal(validateWorkflow({ name: 'X', when: [{ type: 'issue', repo: 'not a repo' }], steps: [{ type: 'tell', text: 'x' }] }).ok, false);
 });

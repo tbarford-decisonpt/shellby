@@ -88,6 +88,8 @@ const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
 const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
 const { CiWatcher } = require('./github/ci');
+const { IssueWatcher } = require('./github/issues');
+const issueWork = require('./github/pullrequest');
 const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
@@ -187,7 +189,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates, friends;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let projects = null;               // the Projects page (projects/service.js)
@@ -3603,6 +3605,58 @@ function createCi() {
   follow();
 }
 
+// ================================================================ issues he could take on
+
+// Issues assigned to you, or labelled shellby where you decide who labels
+// (github/issues.js). A new one starts the workflows with an Issue trigger:
+// the Issue helper template offers to take a crack at it and turns a yes into
+// a draft pull request (github/pullrequest.js).
+function createIssues() {
+  const ep = githubEndpoints();
+  issues = new IssueWatcher({
+    gh: () => github.gh(), login: () => github.view().login, web: ep.web, api: ep.api,
+    repos: async () => (projects ? (await projects.localRepos()).map(r => r.remote).filter(Boolean) : []),
+    load: () => config.get('issueWatch'),
+    save: v => config.set({ issueWatch: v }),
+  });
+  issues.on('event', ({ type, issue }) => {
+    workflows?.event('issue', {
+      event: type, reasons: issue.reasons, repo: issue.repo, number: issue.number, title: issue.title,
+      body: issue.body, labels: issue.labels, author: issue.author, url: issue.url,
+    });
+  });
+  const follow = () => { if (github.can('issues')) issues.start(); else if (issues.running) issues.stop(); };
+  github.on('change', follow);
+  follow();
+}
+
+// The clone on this PC of a GitHub repository, for a copy to start from.
+async function cloneOf(repo) {
+  if (!projects) return null;
+  const want = String(repo).toLowerCase();
+  return (await projects.localRepos()).find(r => r.remote && r.remote.toLowerCase() === want)?.root || null;
+}
+
+function makeIssueCopy({ repo, slug }) {
+  if (!github?.signedIn) return Promise.resolve({ ok: false, error: 'Sign in with GitHub first (Settings → GitHub).' });
+  return issueWork.makeCopy({ repo, slug }, {
+    findRoot: cloneOf, gh: github.gh(), git: worktrees.git, create: worktrees.create, home: worktreeHome(), env: github.claudeEnv(),
+  });
+}
+
+async function openIssuePr({ folder, title, body, draft }) {
+  if (!github?.can('claude')) return { ok: false, error: 'Opening pull requests needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
+  const r = await issueWork.openPullRequest({ folder, title, body, draft }, {
+    gh: github.gh(), git: worktrees.git, home: worktreeHome(), env: github.claudeEnv(), web: githubEndpoints().web,
+  });
+  if (!r.ok || r.existing) return r; // a retried step found its pull request already open: paid already
+  // Shipping it pays now; the sticker comes when it merges (ci.js sees it, shippedMerge).
+  flashState('success', 4000);
+  awardXp('issue', { project: r.repo.split('/')[1], label: `Opened ${r.repo}#${r.number}` });
+  if (github.can('ci')) ci?.poll().catch(() => {});
+  return r;
+}
+
 // ================================================================ visiting crabs
 
 // How a card looks on this PC: skins and accessories this PC doesn't know are
@@ -4191,6 +4245,8 @@ function createWorkflows() {
       if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
       return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
     },
+    makeCopy: makeIssueCopy,
+    openPullRequest: openIssuePr,
     copy: text => clipboard.writeText(text),
     crypto: {
       available: () => safeStorage.isEncryptionAvailable(),
@@ -5247,7 +5303,7 @@ ${r.detail}` });
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'friends', 'publish', 'claude', 'ci', 'workflows', 'projects']);
+  const FEATURE_NAMES = new Set(['sync', 'friends', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
     // claude, workflows and friends are never granted by a first sign-in: each has its
@@ -6050,6 +6106,7 @@ app.whenReady().then(() => {
   createWorkflows();
   createDepWatch();
   createCi();
+  createIssues();
   createFriends();
   channelSecret = loadChannelSecret();
   // Set up before destinations needed confirming (0.46.1): what you already

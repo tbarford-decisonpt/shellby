@@ -13,16 +13,17 @@ const expr = require('./expr');
 const LIMITS = Object.freeze({
   name: 60, description: 500, steps: 60, depth: 4, triggers: 8, inputs: 10,
   prompt: 8000, command: 4000, url: 2000, header: 2000, headers: 20, body: 100000,
-  question: 300, choice: 40, text: 1000, title: 100, label: 80, values: 20, fields: 20,
+  question: 300, choice: 40, slug: 60, text: 1000, title: 100, label: 80, values: 20, fields: 20,
   fieldDescription: 200, eachMax: 100, waitSeconds: 604800, retries: 5, retryDelay: 3600, timeoutMin: 720,
 });
 
 const ID = /^[a-z][a-z0-9_]{0,31}$/;
 const WF_ID = /^[\w-]{1,64}$/;
 const SECRET = /^[A-Z][A-Z0-9_]{0,39}$/;
-const STEP_TYPES = ['claude', 'run', 'http', 'ask', 'tell', 'set', 'if', 'each', 'wait', 'file', 'workflow', 'stop'];
-const TRIGGER_TYPES = ['schedule', 'ci', 'shipped', 'task', 'health', 'folder', 'workflow', 'startup', 'webhook', 'claude'];
+const STEP_TYPES = ['claude', 'run', 'http', 'ask', 'tell', 'set', 'if', 'each', 'wait', 'file', 'workflow', 'stop', 'worktree', 'pr'];
+const TRIGGER_TYPES = ['schedule', 'ci', 'issue', 'shipped', 'task', 'health', 'folder', 'workflow', 'startup', 'webhook', 'claude'];
 const CI_EVENTS = ['failed', 'fixed', 'passed', 'merged', 'review', 'any'];
+const ISSUE_EVENTS = ['assigned', 'labelled', 'any'];
 const SHIP_KINDS = ['push', 'deploy', 'release', 'merge', 'any'];
 const OUTCOMES = ['ok', 'error', 'any'];
 const FOLDER_EVENTS = ['added', 'changed', 'any'];
@@ -76,6 +77,13 @@ function checkTrigger(t, at, err) {
       if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) { err(`${at}.repo`, 'Repository must look like owner/name'); return null; }
       return { type: 'ci', on, repo };
     }
+    case 'issue': {
+      const on = t.on ?? 'any';
+      if (!ISSUE_EVENTS.includes(on)) { err(`${at}.on`, 'Pick assigned, labelled or any'); return null; }
+      const repo = line(t.repo, 140);
+      if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) { err(`${at}.repo`, 'Repository must look like owner/name'); return null; }
+      return { type: 'issue', on, repo };
+    }
     case 'shipped': {
       const kind = t.kind ?? 'any';
       if (!SHIP_KINDS.includes(kind)) { err(`${at}.kind`, 'Pick push, deploy, release, merge or any'); return null; }
@@ -112,6 +120,7 @@ function describeTrigger(t) {
   switch (t.type) {
     case 'schedule': return describeSchedule(t.schedule);
     case 'ci': return `When a build ${t.on === 'any' ? 'changes' : { failed: 'fails', fixed: 'goes green again', passed: 'passes', merged: 'is merged', review: 'needs your review' }[t.on]}${t.repo ? ` on ${t.repo}` : ''}`;
+    case 'issue': return `When an issue is ${{ assigned: 'assigned to you', labelled: 'labelled shellby', any: 'assigned to you or labelled shellby' }[t.on]}${t.repo ? ` on ${t.repo}` : ''}`;
     case 'shipped': return `When ${t.project || 'a project'} ${t.kind === 'any' ? 'ships' : { push: 'is pushed', deploy: 'is deployed', release: 'is released', merge: 'has a pull request merged' }[t.kind]}`;
     case 'task': return `When a task ${t.outcome === 'any' ? 'finishes' : t.outcome === 'ok' ? 'succeeds' : 'fails'}`;
     case 'health': return 'When something overheats or fills up';
@@ -349,6 +358,22 @@ function checkStep(s, at, depth, ctx) {
       }
       break;
     }
+    case 'worktree': {
+      step.repo = text(s, 'repo', at, err, { max: 140, multiline: false, what: 'the repository' });
+      if (step.repo && !expr.hasTemplate(step.repo) && !/^[\w.-]+\/[\w.-]+$/.test(step.repo)) err(`${at}.repo`, 'Repository must look like owner/name');
+      const branch = text(s, 'branch', at, err, { max: LIMITS.slug, required: false, multiline: false, what: 'the branch name' });
+      if (branch) step.branch = branch;
+      break;
+    }
+    case 'pr': {
+      step.folder = text(s, 'folder', at, err, { max: 1024, multiline: false, what: 'the copy to propose' });
+      if (step.folder && !expr.hasTemplate(step.folder)) err(`${at}.folder`, 'Name the copy from a “Make a copy” step, like {{ copy.path }}');
+      step.title = text(s, 'title', at, err, { max: 250, multiline: false, what: 'the title' });
+      const body = text(s, 'body', at, err, { max: LIMITS.text * 8, required: false, what: 'the description' });
+      if (body) step.body = body;
+      step.draft = s.draft !== false;
+      break;
+    }
     case 'stop': {
       const status = s.status ?? 'ok';
       if (!['ok', 'error'].includes(status)) err(`${at}.status`, 'Stop as ok or error');
@@ -412,7 +437,7 @@ function checkRefs(wf, err) {
   walkSteps(wf.steps, (s, at, scope) => {
     const fields = [];
     const add = (key, value, kind = 'template') => { if (typeof value === 'string' && value) fields.push({ key, value, kind }); };
-    for (const k of ['prompt', 'command', 'url', 'body', 'question', 'text', 'title', 'message', 'path', 'content', 'over', 'cwd']) add(k, s[k]);
+    for (const k of ['prompt', 'command', 'url', 'body', 'question', 'text', 'title', 'message', 'path', 'content', 'over', 'cwd', 'repo', 'branch', 'folder']) add(k, s[k]);
     for (const [k, v] of Object.entries(s.headers || {})) add(`headers.${k}`, v);
     for (const [k, v] of Object.entries(s.values || {})) add(`values.${k}`, v);
     for (const [k, v] of Object.entries(s.inputs || {})) add(`inputs.${k}`, v);
@@ -517,6 +542,7 @@ function capabilities(wf) {
     if (s.type === 'file' && s.action !== 'read') say(`${s.action === 'write' ? 'Write' : 'Add to'} ${s.path}`);
     if (s.type === 'tell' && s.to === 'file') say(`Add to ${s.path}`);
     if (s.type === 'workflow') say(`Run the workflow “${s.name}”`);
+    if (s.type === 'pr') say(`Push a branch and open ${s.draft ? 'a draft' : 'a'} pull request on GitHub`);
   });
   return out;
 }
@@ -543,6 +569,7 @@ function riskDetail(wf) {
     if (s.type === 'tell' && s.to === 'file') blocks.push(`▸ ${name}: adds a line to ${s.path}`);
     // Another workflow can do anything that one may: say which, and with what.
     if (s.type === 'workflow') blocks.push(`▸ ${name}: runs the workflow “${s.name}”, and everything it does${Object.keys(s.inputs || {}).length ? `\nInputs: ${JSON.stringify(s.inputs)}` : ''}`);
+    if (s.type === 'pr') blocks.push(`▸ ${name}: commits what's in ${s.folder}, pushes its branch to GitHub and opens ${s.draft ? 'a draft' : 'a'} pull request\nTitle: ${s.title}${s.body ? `\n${s.body}` : ''}`);
   });
   const secrets = new Set();
   walkSteps(wf.steps || [], s => {
@@ -566,6 +593,7 @@ function riskSignature(wf) {
     if (s.type === 'file' && s.action !== 'read') parts.push(['file', s.action, s.path, s.content || '']);
     if (s.type === 'tell' && s.to === 'file') parts.push(['tell', s.path]);
     if (s.type === 'workflow') parts.push(['workflow', s.name.toLowerCase(), s.inputs || {}]);
+    if (s.type === 'pr') parts.push(['pr', s.folder, s.title, s.body || '', s.draft]);
   });
   if (!parts.length) return '';
   return JSON.stringify({ parts, when: (wf.when || []).map(t => ({ ...t, token: undefined })) });
