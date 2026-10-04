@@ -32,7 +32,7 @@ key community packs get. Two packs in here must therefore never use the same ite
 | `weather.json` | 5 accessories, 2 effects | What he puts on by himself for the weather outside (`src/main/weather.js`): sou'wester, rain cape, umbrella (and one blown inside out), bobble hat, rain and drizzle. Day-one items, so they're yours to wear any day too. Fog borrows the harvest pack's `mist`, the snow is the base pack's and hot-day shades are the beach pack's. |
 | `keepsakes.json` | 16 accessories | Rewards for the trophies that need no Claude: gifts he digs up, sets, hide and seek, fetch, best friends, games, calls, scenes and crab chat. |
 | `shipyard.json` | 10 accessories | Rewards for the work XP already pays for: deploys, green tests, flaky fixes, issue → PR, clean audits, tidying the toolbox, fresh starts, streaks and level 10. |
-| `voices.json` | 3 voices, 5 scenes | Example dialogue: Pirate, Grumpy, and Español (a whole language, so it uses `fallback: "quiet"`). Each has scenes that only play in that voice. The formatter skips it to keep each occasion on one line. |
+| `voices.json` | 8 voices, 10 scenes | Example dialogue: Pirate, Grumpy, Robo, Surfer, Royal, Cowboy, plus Español and Français (whole languages, so they use `fallback: "quiet"`). Each has scenes that only play in that voice. The formatter skips it to keep each occasion on one line. |
 
 Totals: **161 accessories, 23 effects, 14 skins** (as `npm run packs` counts them).
 

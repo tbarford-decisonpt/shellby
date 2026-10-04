@@ -65,6 +65,6 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 More hats, effects, colors and voices from other people at **[x-salmon.github.io/shellby-packs](https://x-salmon.github.io/shellby-packs/)**.
 
 - **Install in one click:** every item is previewed on a live Shellby, and the app shows exactly what a pack contains before it installs.
-- **New voices:** packs can teach him to talk like a pirate, grumble like a grump, or speak another language, with little scenes to match. He ships with three to try under **Wardrobe → Voice**.
+- **New voices:** packs can teach him to talk like a pirate, grumble like a grump, or speak another language, with little scenes to match. He ships with eight to try under **Wardrobe → Voice**.
 - **Safe by design:** packs are pixel art, short lines and settings in JSON, so they can't run code, and each download is checked against the gallery's SHA-256.
 - **Make your own** in [Pack Studio](https://x-salmon.github.io/shellby-packs/studio.html), then publish it from the app (Shellby forks the gallery and opens the pull request) or by hand on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). The format is in [ADDONS.md](ADDONS.md) ([JSON Schema](addon.schema.json)).

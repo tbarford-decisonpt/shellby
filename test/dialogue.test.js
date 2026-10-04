@@ -285,12 +285,14 @@ test("a locked voice can't be worn, and stops talking if it locks again", () => 
 test('the built-in voices load and cover what they promise', () => {
   const { w } = make();
   const keys = [...w.catalog.voices.keys()];
-  assert.deepEqual(keys, ['pirate', 'grumpy', 'espanol']);
-  const es = w.catalog.voices.get('espanol');
-  assert.equal(es.fallback, 'quiet');
-  assert.equal(es.lang, 'es');
-  // A language voice that falls quiet should still have something for every occasion.
-  assert.deepEqual(Object.keys(es.lines).sort(), [...dlg.OCCASIONS].sort());
+  assert.deepEqual(keys, ['pirate', 'grumpy', 'espanol', 'robot', 'surfer', 'royal', 'cowboy', 'francais']);
+  for (const [id, lang] of [['espanol', 'es'], ['francais', 'fr']]) {
+    const v = w.catalog.voices.get(id);
+    assert.equal(v.fallback, 'quiet');
+    assert.equal(v.lang, lang);
+    // A language voice that falls quiet should still have something for every occasion.
+    assert.deepEqual(Object.keys(v.lines).sort(), [...dlg.OCCASIONS].sort(), id);
+  }
 });
 
 test("built-in pack scenes don't share an id with his own", () => {

@@ -229,7 +229,7 @@ Each anchor value is `[x, y]` with integers from −16 to 48. If your crab has t
 
 ## Voices
 
-A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Wardrobe → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab and Español to copy from.
+A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Wardrobe → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab, a Robot, a Surfer, a Royal, a Cowboy, Español and Français to copy from.
 
 ```jsonc
 {
