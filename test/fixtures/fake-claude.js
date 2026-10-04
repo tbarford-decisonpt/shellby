@@ -217,6 +217,19 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "jest pass" / "jest fail <test>" -> `npm test 2>&1 | tail -40` printing a Jest summary.
+  // Piped like that it always exits 0: only the summary says whether it passed (flaky.js).
+  if (content === 'jest pass' || content.startsWith('jest fail ')) {
+    const failing = content.startsWith('jest fail ') ? content.slice(10) : null;
+    const output = failing
+      ? `FAIL src/auth.spec.js\n  auth\n    ✕ ${failing} (5004 ms)\n\n  ● auth › ${failing}\n\n    thrown: "Exceeded timeout of 5000 ms for a test."\n\nTest Suites: 1 failed, 1 total\nTests:       1 failed, 3 passed, 4 total`
+      : 'PASS src/auth.spec.js\n\nTest Suites: 1 passed, 1 total\nTests:       4 passed, 4 total';
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_jest_${turn}`, name: 'Bash', input: { command: 'npm test 2>&1 | tail -40' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_jest_${turn}`, is_error: false, content: output }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(failing ? `1 test failed: ${failing}` : 'all tests passed');
+    result(true);
+    return;
+  }
   // "run <command>" -> runs it with the Bash tool; it "fails" if the command contains "FAIL"
   if (content.startsWith('run ')) {
     const command = content.slice(4);

@@ -222,6 +222,7 @@
     { name: 'mcp', kind: 'shellby', description: 'MCP servers: add, remove, reconnect, turn on or off' },
     { name: 'model', kind: 'shellby', description: 'Pick the model for new conversations' },
     { name: 'output-style', kind: 'shellby', description: 'How Claude talks while it works (Explanatory, Learning…)' },
+    { name: 'snippets', kind: 'shellby', description: 'Your saved prompts. /snippets save <name> keeps the last thing you sent as one' },
   ];
 
   const LOCAL = {
@@ -244,7 +245,23 @@
     mcp: () => SB.showToolbox?.('mcp'),
     model: () => SB.showSetting?.('modelSelect'),
     'output-style': () => SB.showSetting?.('styleSelect'),
+    snippets: (tab, arg) => {
+      if (!arg) return SB.showToolbox?.('snippet');
+      const m = /^save\s+(\S+)$/i.exec(arg);
+      if (!m) return SB.toast("That's /snippets, or /snippets save <name> to keep the last thing you sent.");
+      saveLastAsSnippet(m[1].replace(/^[/@]/, ''));
+    },
   };
+
+  // The last thing you asked Claude, kept as a snippet: "that worked, keep it".
+  async function saveLastAsSnippet(name) {
+    const last = [...sent].reverse().find(s => !/^[/!]/.test(s));
+    if (!last) return SB.toast('Send Claude something first, then save it.');
+    const r = await api.saveSnippet({ name, text: last });
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't save it.", { ms: 6000 });
+    SB.applySnippets(r);
+    SB.toast(`Saved as /${r.name}. From a terminal: shellby do @${r.name}`, { ms: 6000 });
+  }
 
   /** Handles a message that's for Shellby, not Claude. true = handled. */
   // !! sends Claude a message that starts with a single !.

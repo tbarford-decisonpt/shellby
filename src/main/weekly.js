@@ -13,7 +13,7 @@ const WEEK = 7;
 // What a day counts. Shipping kinds come from stickers (with the project);
 // the rest from XP events.
 const SHIP_KINDS = ['ship', 'deploy', 'release', 'merge'];
-const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick'];
+const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix'];
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[0-9a-f]{12}$/;
 
@@ -153,7 +153,7 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
     counts: {
       projects: shipped.length, ships: ships(cur), deploys: t.deploy, releases: t.release, merges: t.merge,
       newStickers: t.minted, green: t.fixed, tests: t.tests + t.fixed, tasks: t.task,
-      checkups: t.deps, focus: t.focus, tricks: t.trick,
+      checkups: t.deps, focus: t.focus, tricks: t.trick, flaky: t.flaky, flakeFixes: t.flakefix,
     },
     prev: { projects: prev.projects.length, ships: ships(prev), green: prev.totals.fixed, tasks: prev.totals.task },
     streak: { current: count(streak?.current), longest: count(streak?.longest) },

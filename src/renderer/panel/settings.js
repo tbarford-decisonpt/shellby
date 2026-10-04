@@ -76,6 +76,7 @@
     $('recapToggle').checked = state.settings.recap !== false;
     $('forecastToggle').checked = state.settings.forecast !== false;
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
+    $('flakyToggle').checked = state.settings.flakyTests !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
@@ -166,6 +167,7 @@
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
+  $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
   $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
   $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
@@ -565,9 +567,20 @@
   let historyFilter = 'todo';
   const inBucket = (s, f) => f === 'all' || (f === 'done' ? !!s.done : !s.done);
 
+  // Recently deleted shares the list and the search box; showingBin swaps what
+  // they're over. state.trash is fetched alongside the sessions.
+  let showingBin = false;
+  state.trash = [];
+  const matches = q => s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q);
+
   function renderHistory() {
     const q = $('historySearch').value.trim().toLowerCase();
-    const found = state.sessions.filter(s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
+    if (!state.trash.length) showingBin = false;
+    $('historyBinBar').hidden = !showingBin;
+    $('historyBinOpen').hidden = showingBin || !state.trash.length;
+    $('historyBinOpen').querySelector('.n').textContent = state.trash.length;
+    if (showingBin) return renderBin(q);
+    const found = state.sessions.filter(matches(q));
     const anyDone = state.sessions.some(s => s.done);
     if (!anyDone) historyFilter = 'todo';
     $('historyTabs').hidden = !anyDone;
@@ -650,14 +663,80 @@
     });
   }
 
+  // Into Recently deleted, not gone: the toast's Undo is the quick way back,
+  // the bin under the list the slow one.
   async function deleteHistory(id) {
     state.sessions = await api.deleteSession(id);
+    state.trash = await api.listTrash();
     const tab = state.tabs.get(id);
     if (tab) { tab.destroy(); state.tabs.delete(id); if (state.activeTab === id) { state.activeTab = null; await SB.newTab(); } SB.renderTabStrip(); }
     renderHistory();
+    SB.toast('Moved to Recently deleted.', { action: 'Undo', onAction: () => restoreHistory(id) });
   }
 
-  SB.views.history = { render: async () => { state.sessions = await api.listSessions(); renderHistory(); }, redraw: () => renderHistory() };
+  async function restoreHistory(id) {
+    const r = await api.restoreSession(id);
+    state.sessions = r.sessions;
+    state.trash = r.trash;
+    renderHistory();
+  }
+
+  // Deleting for good takes a second click within a few seconds (as Forget
+  // its time does in time.js), since there's no undo after it.
+  function armed(btn, sure, act) {
+    let timer = null;
+    const label = btn.textContent;
+    return () => {
+      if (!timer) {
+        btn.textContent = sure;
+        timer = setTimeout(() => { timer = null; btn.textContent = label; }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      timer = null;
+      act();
+    };
+  }
+
+  function renderBin(q) {
+    const list = state.trash.filter(matches(q));
+    const ul = $('historyList');
+    if (!list.length) {
+      ul.replaceChildren(h('li', { class: 'history-empty', text: 'No matches.' }));
+      return;
+    }
+    ul.replaceChildren(...list.map(binRow));
+  }
+
+  function binRow(s) {
+    const days = Math.max(1, Math.ceil((s.purgeAt - Date.now()) / 86400000));
+    const purge = h('button', { class: 'history-del', type: 'button', title: 'Delete forever', 'aria-label': `Delete ${s.title} forever` }, '✕');
+    purge.onclick = armed(purge, 'Sure?', async () => { state.trash = await api.purgeSession(s.id); renderHistory(); });
+    return h('li', { class: 'history-item binned' },
+      h('div', { class: 'history-open' },
+        h('div', { class: 'h-title', text: s.title }),
+        h('div', { class: 'h-meta' },
+          h('span', { text: `deleted ${SB.relTime(s.deletedAt)}` }),
+          h('span', { text: `gone in ${days} day${days > 1 ? 's' : ''}` }),
+          h('span', { text: SB.shortPath(s.cwd, 24) }))),
+      h('button', { class: 'history-restore', type: 'button', 'aria-label': `Restore ${s.title}`, onclick: () => restoreHistory(s.id) }, 'Restore'),
+      purge);
+  }
+
+  $('historyBinOpen').addEventListener('click', () => { showingBin = true; renderHistory(); $('historyBinBack').focus(); });
+  $('historyBinBack').addEventListener('click', () => { showingBin = false; renderHistory(); $('historySearch').focus(); });
+  $('historyBinEmpty').addEventListener('click', armed($('historyBinEmpty'), 'Sure? All of them', async () => {
+    state.trash = await api.purgeSession();
+    renderHistory();
+  }));
+
+  SB.views.history = {
+    render: async () => {
+      [state.sessions, state.trash] = await Promise.all([api.listSessions(), api.listTrash()]);
+      renderHistory();
+    },
+    redraw: () => renderHistory(),
+  };
 
   // ------------------------------------------------------------ onboarding
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration for Shellby releases. Paste this into the
+  SignPath project (Artifact configurations -> New) and make it the default.
+
+  The release workflow uploads the installer and the portable exe as one GitHub
+  Actions artifact, which arrives as a zip; SignPath signs both inside it and
+  hands the zip back. The product name and version must match what
+  electron-builder stamps into each exe, so SignPath can't be asked to sign
+  anything else. The workflow passes `version` in.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" />
+  </parameters>
+  <zip-file>
+    <pe-file path="Shellby-Setup-${version}.exe" product-name="Shellby" product-version="${version}">
+      <authenticode-sign hash-algorithm="sha256" description="Shellby" />
+    </pe-file>
+    <pe-file path="Shellby-Portable-${version}.exe" product-name="Shellby" product-version="${version}">
+      <authenticode-sign hash-algorithm="sha256" description="Shellby" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -1,0 +1,21 @@
+   Compiling app v0.1.0 (C:\code\app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.20s
+     Running unittests src\lib.rs (target\debug\deps\app-1a2b3c)
+
+running 3 tests
+test parse::tests::reads_numbers ... ok
+test net::tests::retries_once ... FAILED
+test parse::tests::reads_words ... ok
+
+failures:
+
+---- net::tests::retries_once stdout ----
+thread 'net::tests::retries_once' panicked at src\net.rs:40:9:
+assertion `left == right` failed
+
+failures:
+    net::tests::retries_once
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+error: test failed, to rerun pass `--lib`

@@ -35,6 +35,7 @@ const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const crabtools = require('./crabtools');
 const clipath = require('./clipath');
+const snippets = require('./snippets');
 const channels = require('./channels');
 const { RemoteAnswers, deskOnlyReason } = require('./replies');
 const changes = require('./changes');
@@ -70,6 +71,7 @@ const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
 const checkup = require('./checkup');
+const flaky = require('./flaky');
 const weekly = require('./weekly');
 const { TimeTracker } = require('./timetrack-service');
 const routineTemplates = require('./routine-templates');
@@ -904,7 +906,7 @@ function createManager() {
     if (ctx.crossed(before, now) && !tab.routineId && !tab.workflowRunId) sayText('Getting crowded in here.', 'crowded');
   });
 
-  manager.on('item', (tabId, item, tab) => {
+  manager.on('item', (tabId, item, tab, tail) => {
     if (item.kind === 'usage') {
       config.set({ lastUsage: { ...item, at: Date.now() } });
       noteRecap(recap.usageEvent(tabId, tab.title, item));
@@ -928,7 +930,9 @@ function createManager() {
     if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
       const dir = tab.session?.cwd || '';
       const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
-      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null });
+      // A test run: the code as it was when it started, so a later run can be compared (flaky.js).
+      const tree = inProject && !item.background ? flakyTree(item.detail, dir) : null;
+      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree });
       if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
     }
     if (item.kind === 'tool') onToolSpoken(item);
@@ -937,6 +941,7 @@ function createManager() {
       pendingCommands.delete(item.id);
       const meant = classifyCommand(c.command);
       if (item.isError && meant === 'tests' && c.project && config && !CAPTURE) config.set({ xp: markRed(config.get('xp'), c.project, Date.now()) });
+      if (c.tree) noteTestRun(c, item, tail);
       const kind = !item.isError && meant;
       if (kind) {
         awardXp(kind, { project: c.project });
@@ -1503,6 +1508,118 @@ function runCheckup(dir) {
   return { ok: true };
 }
 
+// ================================================================ the flaky test detective (flaky.js)
+
+// One snapshot per repo at a time: Claude often runs two test commands back to back.
+const flakySnapshots = new Map();      // lower-cased folder -> promise of { root, tree } or null
+// What each command hash was, for the fix prompt. This run of Shellby only, never saved.
+const flakyCommands = new Map();       // cmdKey -> the command as Claude ran it
+const MAX_FLAKY_COMMANDS = 100;
+
+const flakyOn = () => !CAPTURE && !!config && config.get('flakyTests') !== false && !config.get('crabOnly');
+const flakyView = () => flaky.flakyView(config.get('flaky'), Date.now());
+
+/** The folder's git tree now, or null (not a repo, or slower than SNAPSHOT_WAIT_MS). */
+function snapshotWithin(dir) {
+  let late = false;
+  const taken = changes.snapshot(dir).catch(() => null).then(s => (late ? null : s));
+  return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(null); }, SNAPSHOT_WAIT_MS))]);
+}
+
+/** The code as it is now, for a test command about to run; null for anything else. */
+function flakyTree(command, dir) {
+  if (!flakyOn() || classifyCommand(command) !== 'tests') return null;
+  const key = path.resolve(dir).toLowerCase();
+  if (flakySnapshots.has(key)) return flakySnapshots.get(key);
+  const p = snapshotWithin(dir);
+  flakySnapshots.set(key, p);
+  p.finally(() => { if (flakySnapshots.get(key) === p) flakySnapshots.delete(key); });
+  return p;
+}
+
+// A long result is its first 8,000 characters, "… (N more characters)" and,
+// separately, its last 8,000: when the two overlap, that's all of it.
+function testOutput(item, tail) {
+  const text = String(item.text || '');
+  if (!tail) return { output: text, complete: true };
+  const m = text.match(/\n… \((\d+) more characters\)$/);
+  const head = m ? text.slice(0, m.index) : text;
+  const rest = m ? Number(m[1]) : Infinity;
+  return rest <= tail.length ? { output: head + tail.slice(-rest), complete: true } : { output: `${head}\n${tail}`, complete: false };
+}
+
+/** A test command finished in one of Shellby's tabs: was it a flake? */
+async function noteTestRun(c, item, tail) {
+  try {
+    const snap = await c.tree;
+    if (!snap || !flakyOn()) return;
+    // The command was seen before it ran: an edit sent alongside it, or made
+    // while it ran, means the code moved under it. Then it proves nothing.
+    const end = await snapshotWithin(c.dir);
+    if (!end || end.tree !== snap.tree) return;
+    const { output, complete } = testOutput(item, tail);
+    const run = flaky.readRun({ cmd: c.command, output, isError: item.isError, complete });
+    if (!run) return;
+    const project = await projectOf(snap.root);
+    if (!project) return;
+    flakyCommands.delete(run.cmd);
+    flakyCommands.set(run.cmd, flaky.normalizeCmd(c.command));
+    if (flakyCommands.size > MAX_FLAKY_COMMANDS) flakyCommands.delete(flakyCommands.keys().next().value);
+    const now = Date.now();
+    const r = flaky.recordRun(config.get('flaky'), { key: project.id, name: project.name, root: project.root }, { ...run, tree: snap.tree }, now);
+    let state = r.state;
+    r.fresh.forEach(() => noteWeek('flaky'));
+    for (const id of r.fixed) {
+      noteWeek('flakefix');
+      awardXp('flakefix', { project: project.name, label: `Fixed ${flaky.labelOf(id)}` });
+    }
+    const d = flaky.due(state, now);
+    if (d && sayText(flaky.sayLine(d), 'flaky', 9000)) state = flaky.markSaid(state, d.key, d.id, now);
+    config.set({ flaky: state });
+    if (r.flakes.length || r.fixed.length) send(panel, 'flaky', flakyView());
+  } catch (e) {
+    log.error('flaky', e);
+  }
+}
+
+/** The panel, on the flaky list. */
+function showFlaky() {
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'routines');
+  send(panel, 'flaky:focus');
+}
+
+const FLAKY_ACTIONS = {
+  fix: { status: 'fixing', title: row => `Fix flaky ${row.label}`, prompt: flaky.fixPrompt },
+  quarantine: { status: 'quarantined', title: row => `Quarantine ${row.label}`, prompt: flaky.quarantinePrompt },
+  unquarantine: { status: 'watching', title: row => `Bring back ${row.label}`, prompt: flaky.unquarantinePrompt },
+};
+
+/** Fix, quarantine, un-quarantine (each a task in a copy of the repo) or dismiss one flaky test. */
+async function flakyAct(key, id, action) {
+  const row = flaky.findTest(config.get('flaky'), key, id, Date.now());
+  if (!row) return { ok: false, error: "Shellby doesn't know that test any more." };
+  if (action === 'dismiss') {
+    config.set({ flaky: flaky.setStatus(config.get('flaky'), key, id, 'dismissed', Date.now()) });
+    send(panel, 'flaky', flakyView());
+    return { ok: true };
+  }
+  const act = Object.hasOwn(FLAKY_ACTIONS, action) ? FLAKY_ACTIONS[action] : null;
+  if (!act) return { ok: false, error: 'Unknown action.' };
+  const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
+  if (!root || !isFolder(root)) return { ok: false, error: "Shellby can't find that project's folder any more." };
+  const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
+  const cmd = latest ? flakyCommands.get(latest) || null : null;
+  // The prompt carries text from the repository (a test's name): never act on it without asking.
+  const mode = config.get('mode') === 'autonomous' ? 'acceptEdits' : null;
+  const res = await startTaskInCopy(root, act.title(row), w => act.prompt(row, { branch: w.branch, base: w.base, cmd }), { mode });
+  if (!res.ok) return res;
+  config.set({ flaky: flaky.setStatus(config.get('flaky'), key, id, act.status, Date.now()) });
+  send(panel, 'flaky', flakyView());
+  showPanel({ focusInput: false, tabId: res.tabId });
+  return res;
+}
+
 // ================================================================ the week in review (weekly.js)
 
 // XP kinds the week-in-review counts (shipping comes from recordShipped instead).
@@ -1987,6 +2104,7 @@ function runCliRequest(body, token) {
   if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
 
   if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+  if (body?.action === 'snippets') return { text: snippets.cliText(snippetList()) };
   // Your hours are yours: behind the token, unlike status.
   if (body?.action === 'time') {
     const range = ['today', 'week', 'last-week', 'month', 'last-month'].includes(body.range) ? body.range : 'week';
@@ -2003,8 +2121,15 @@ function runCliRequest(body, token) {
   const checked = clipath.parseTaskRequest(body, { modes: MODES.filter(m => m !== 'autonomous'), isDir: d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } } });
   if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
 
-  const { prompt, cwd, mode } = checked.task;
-  const r = startTask(prompt, 'From the terminal', { mode, cwd });
+  const { cwd, mode, snippet } = checked.task;
+  let { prompt } = checked.task;
+  if (snippet) {
+    const x = expandSnippet(snippet, prompt, { sigil: '@', max: 4000 });
+    if (!x) return { ok: false, error: snippets.unknownText(snippet, snippetList()), status: 404 };
+    if (!x.ok) return { ok: false, error: x.error, status: 400 };
+    prompt = x.prompt;
+  }
+  const r = startTask(prompt, snippet ? `@${snippet} from the terminal` : 'From the terminal', { mode, cwd });
   if (!r.ok) return { ok: false, error: r.error || 'Shellby could not start that.', status: 400 };
   showPanel({ focusInput: false, tabId: r.tabId });
   wake();
@@ -3430,8 +3555,41 @@ async function confirmAndAddMarketplace(input) {
   return { ...r, view: shop.view() };
 }
 
+// Snippets pin to the start screen like skills do, as long as they still exist.
 function pinnedTools() {
-  return (config.get('pinnedTools') || []).filter(p => p && TRICKS_KIND.has(p.kind) && typeof p.name === 'string');
+  const names = new Set(snippetList().map(s => s.name));
+  return (config.get('pinnedTools') || []).filter(p => p && typeof p.name === 'string'
+    && (TRICKS_KIND.has(p.kind) || (p.kind === 'snippet' && names.has(p.name))));
+}
+
+// ================================================================ prompt snippets
+
+const PANEL_MAX_TEXT = 50000; // the longest message the box sends (task:send)
+
+function snippetList() { return snippets.normalize(config.get('snippets')); }
+
+/** Save the list and tell the panel. A rename or delete carries its pin along. */
+function setSnippets(list, renamed = null) {
+  const pins = (config.get('pinnedTools') || []).flatMap(p => {
+    if (p?.kind !== 'snippet') return [p];
+    const name = renamed && p.name === renamed.from ? renamed.to : p.name;
+    return list.some(s => s.name === name) ? [{ kind: 'snippet', name }] : [];
+  });
+  config.set({ snippets: list, pinnedTools: pins });
+  const view = { snippets: snippets.view(list), pinned: pinnedTools() };
+  send(panel, 'snippets', view);
+  return view;
+}
+
+/**
+ * A snippet, filled in and ready to send: /review from the panel, @review from a
+ * terminal. null when there's no snippet by that name.
+ */
+function expandSnippet(name, args, { sigil = '/', max } = {}) {
+  const list = snippetList();
+  const s = snippets.find(list, name);
+  if (!s) return null;
+  return snippets.expand(s, args, { sigil, max });
 }
 
 // ================================================================ routines
@@ -3901,6 +4059,8 @@ function registerIpc() {
   ipcMain.on('toy:drag-end', () => playtime?.toyDragEnd());
   ipcMain.on('critter:click', () => {
     if (playtime?.found()) return; // hide and seek: you found him
+    // "auth.spec flaked 3 times this week": a click goes to the list that says which.
+    if (said?.occasion === 'flaky' && said.until > Date.now()) { wake(); showFlaky(); sendToBottom(critter); return; }
     wake(); togglePanel(); sendToBottom(critter); // sendToBottom leaves a perched crab be
   });
   ipcMain.on('critter:crew-click', (_e, tabId) => { if (isStr(tabId)) showPanel({ focusInput: false, tabId }); });
@@ -3986,6 +4146,7 @@ function registerIpc() {
       tabItems: Object.fromEntries(manager.summary.map(t => [t.id, history.load(t.id)])),
       toolbox: CAPTURE ? null : toolbox.current,
       pinned: pinnedTools(),
+      snippets: snippets.view(snippetList()),
       learned: CAPTURE ? [] : config.get('learnedTricks') || [],
       routines: CAPTURE ? [] : routinesView(),
       outlook: CAPTURE ? null : outlookView(),
@@ -4061,7 +4222,7 @@ function registerIpc() {
   ipcMain.on('tab:seen', (_e, tabId) => { if (isStr(tabId)) manager.markRead(tabId); });
 
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
-    text = String(text || '').trim().slice(0, 50000);
+    text = String(text || '').trim().slice(0, PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
     try {
@@ -4286,11 +4447,24 @@ ${r.detail}` });
     }
     return { tabId: id, entry, items: history.load(id) };
   });
+  // Deleting from History is a move to Recently deleted, not the end: the
+  // transcript stays until it's restored, purged, or TRASH_DAYS pass.
   ipcMain.handle('session:delete', (_e, id) => {
     if (!isStr(id)) return history.list();
     manager.close(id);
-    history.remove(id);
+    history.trash(id);
     return history.list();
+  });
+  ipcMain.handle('session:trash', () => history.trashed());
+  // Answers with both lists: the row leaves one and lands in the other.
+  ipcMain.handle('session:restore', (_e, id) => {
+    if (isStr(id)) history.restore(id);
+    return { sessions: history.list(), trash: history.trashed() };
+  });
+  // One id, or none for Empty bin.
+  ipcMain.handle('session:purge', (_e, id) => {
+    history.purge(isStr(id) ? [id] : null);
+    return history.trashed();
   });
   // Both of these answer with the fresh list, so the renderer redraws History
   // from one round trip instead of guessing what changed.
@@ -4310,7 +4484,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -4350,7 +4524,7 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -4483,10 +4657,26 @@ ${r.detail}` });
   ipcMain.handle('toolbox:get', () => toolbox.current);
   ipcMain.handle('toolbox:rescan', () => { toolbox.rescan(); return toolbox.current; });
   ipcMain.handle('toolbox:pin', (_e, { kind, name, pinned } = {}) => {
-    if (!TRICKS_KIND.has(kind) || !isStr(name)) return pinnedTools();
+    if (!(TRICKS_KIND.has(kind) || kind === 'snippet') || !isStr(name)) return pinnedTools();
+    if (kind === 'snippet' && pinned && !snippets.find(snippetList(), name)) return pinnedTools();
     const rest = pinnedTools().filter(p => !(p.kind === kind && p.name === name));
     config.set({ pinnedTools: pinned ? [...rest, { kind, name }].slice(-12) : rest });
     return pinnedTools();
+  });
+  // ---- prompt snippets (Toolbox → Snippets, /name in the box)
+  ipcMain.handle('snippets:save', (_e, { snippet, was } = {}) => {
+    const list = snippetList();
+    const r = snippets.save(list, snippet, typeof was === 'string' ? was : null);
+    if (!r.ok) return r;
+    const from = snippets.normalizeName(was);
+    return { ok: true, name: r.name, ...setSnippets(r.list, from && from !== r.name ? { from, to: r.name } : null) };
+  });
+  ipcMain.handle('snippets:remove', (_e, name) => setSnippets(snippets.remove(snippetList(), isStr(name) ? name : '')));
+  // "/review the auth module" -> the prompt to send. null: not a snippet, send it as it is.
+  ipcMain.handle('snippets:expand', (_e, text) => {
+    // Not isStr: a pasted file after /tests can be long. task:send's own limit applies.
+    const call = snippets.parseShortcut(typeof text === 'string' ? text.slice(0, PANEL_MAX_TEXT) : '', '/');
+    return call ? expandSnippet(call.name, call.args, { max: PANEL_MAX_TEXT }) : null;
   });
   ipcMain.on('toolbox:reveal', (_e, p) => {
     // Only reveal files the toolbox itself reported (never arbitrary paths from the renderer).
@@ -4868,6 +5058,27 @@ ${r.detail}` });
   ipcMain.handle('checkups:get', () => checkupsView());
   // Only a folder already in the list: the renderer can't point this anywhere new.
   ipcMain.handle('checkups:run', (_e, key) => (isStr(key) && checkupsView().some(c => c.key === key) ? runCheckup(key) : { ok: false, error: 'Unknown project.' }));
+  // ---- the flaky test detective. Only a test already on the list, by its project and name.
+  ipcMain.handle('flaky:get', () => ({ on: config.get('flakyTests') !== false, list: flakyView() }));
+  ipcMain.handle('flaky:act', (_e, o) => {
+    const src = o && typeof o === 'object' ? o : {};
+    if (!isStr(src.key) || !isStr(src.id) || src.id.length > 200 || !isStr(src.action)) return { ok: false, error: 'Unknown test.' };
+    if (config.get('crabOnly')) return { ok: false, error: 'That needs Claude Code: Shellby is in just-the-crab mode.' };
+    return flakyAct(src.key, src.id, src.action);
+  });
+  ipcMain.handle('flaky:forget', async () => {
+    const response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '🎲',
+      title: 'Forget flaky tests?',
+      message: 'Forget every flaky test Shellby has noted?',
+      detail: 'He starts watching from scratch. Tests you quarantined stay skipped in your code.',
+      buttons: [{ label: 'Forget them' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false };
+    config.set({ flaky: null });
+    send(panel, 'flaky', flakyView());
+    return { ok: true };
+  });
   ipcMain.handle('week:get', () => weekView());
 
   // ---- time on each project (timetrack-service.js). Everything from the panel is checked here.
@@ -5364,6 +5575,13 @@ app.whenReady().then(() => {
   // files nothing lists; see History.sweep().
   const swept = history.sweep();
   if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
+  // Recently deleted empties itself: at boot, and daily for a PC that never restarts.
+  const purgeBin = () => {
+    const n = history.purgeExpired();
+    if (n) log.info(`purged ${n} expired deleted conversation${n > 1 ? 's' : ''}`);
+  };
+  purgeBin();
+  setInterval(purgeBin, 24 * 60 * 60 * 1000).unref?.();
   attach.prune(path.join(userData, 'screenshots'));
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),

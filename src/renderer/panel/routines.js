@@ -36,6 +36,7 @@
     const list = $('routineList');
     const routines = state.routines || [];
     renderDeps();
+    renderFlaky();
     if (!routines.length) {
       list.replaceChildren(h('li', { class: 'routine-empty' },
         h('p', {}, 'No routines yet. Start from one of these:'),
@@ -116,6 +117,75 @@
   SB.applyCheckups = list => { state.checkups = Array.isArray(list) ? list : []; if (state.view === 'routines') renderDeps(); };
   api.getCheckups().then(SB.applyCheckups);
   api.onCheckups(SB.applyCheckups);
+
+  // ------------------------------------------------------------ flaky tests
+
+  // Tests that failed and then passed on the same code (flaky.js).
+  const RUNNER_NAME = { node: 'node --test', jest: 'Jest', vitest: 'Vitest', mocha: 'Mocha', pytest: 'pytest', go: 'Go', cargo: 'Rust', playwright: 'Playwright', rspec: 'RSpec', dotnet: '.NET', phpunit: 'PHPUnit' };
+
+  function flakyPills(f) {
+    const bits = [];
+    if (f.status === 'fixed') bits.push(h('span', { class: 'dep-pill ok', text: 'Fixed for good' }));
+    else bits.push(h('span', { class: `dep-pill ${f.week >= 2 ? 'err' : 'warn'}`, text: f.week ? `flaked ${f.week === 1 ? 'once' : `${f.week} times`} this week` : `flaked ${plural(f.total, 'time')}` }));
+    if (f.status === 'fixing') bits.push(h('span', { class: 'dep-pill', text: `Fixing: ${Math.min(f.clean.runs, f.clean.of)} of ${f.clean.of} clean runs` }));
+    if (f.status === 'quarantined') bits.push(h('span', { class: 'dep-pill', text: 'Quarantined' }));
+    return bits;
+  }
+
+  function flakyButton(f, action, label, title, primary = false) {
+    return h('button', { class: `btn ${primary ? '' : 'ghost '}slim-btn`, type: 'button', title, onclick: async e => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      const res = await api.flakyAct({ key: f.key, id: f.id, action });
+      btn.disabled = false;
+      if (!res?.ok) SB.toast(res?.error || "That didn't work.");
+      else if (action === 'dismiss') SB.toast(`Shellby will leave ${f.label} be`);
+    } }, label);
+  }
+
+  function flakyButtons(f) {
+    if (f.status === 'watching') {
+      return [
+        flakyButton(f, 'fix', 'Fix it', 'Claude finds the cause and fixes it, in a copy of the repository', true),
+        flakyButton(f, 'quarantine', 'Quarantine', 'Claude skips just this test, with a note, in a copy of the repository'),
+        flakyButton(f, 'dismiss', 'Not flaky', "Hide it unless it keeps doing this (say, it was a server that wasn't up)"),
+      ];
+    }
+    if (f.status === 'quarantined' && f.retry) return [flakyButton(f, 'unquarantine', 'Try it again', 'Claude un-skips it and runs it 20 times, in a copy of the repository', true)];
+    return [];
+  }
+
+  function renderFlaky() {
+    const list = state.flaky?.list || [];
+    const on = state.flaky?.on !== false;
+    $('flakyTests').hidden = !list.length;
+    if (!list.length) return;
+    const now = list.filter(f => f.week && f.status !== 'fixed').length;
+    $('flakySummary').textContent = on ? (now ? `${plural(now, 'test')} flaky this week` : 'Nothing flaky this week') : 'Spotting is off in Settings';
+    $('flakyList').replaceChildren(...list.map(f => h('li', { class: `dep flaky ${f.status}` },
+      h('div', { class: 'dep-main' },
+        h('div', { class: 'dep-name' },
+          h('span', { text: f.label, title: f.suite ? 'A run failed without naming a test' : f.id }),
+          h('small', { text: [f.project, RUNNER_NAME[f.framework]].filter(Boolean).join(' · ') })),
+        h('div', { class: 'dep-pills' }, ...flakyPills(f), h('time', { title: new Date(f.lastAt).toLocaleString(), text: `last ${SB.relTime(f.lastAt)}` }))),
+      h('div', { class: 'flaky-actions' }, ...flakyButtons(f)))));
+  }
+
+  SB.applyFlaky = v => { state.flaky = v && typeof v === 'object' ? { on: v.on !== false, list: Array.isArray(v.list) ? v.list : [] } : { on: true, list: [] }; if (state.view === 'routines') renderFlaky(); };
+  SB.refreshFlaky = () => api.getFlaky().then(SB.applyFlaky);
+  SB.refreshFlaky();
+  // Main pushes the list alone; whether spotting is on comes from settings.
+  api.onFlaky(list => SB.applyFlaky({ on: state.settings?.flakyTests !== false, list }));
+  api.onFlakyFocus(() => {
+    SB.refreshFlaky().then(() => {
+      const sec = $('flakyTests');
+      if (sec.hidden) return;
+      sec.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      $('flakyTitle').setAttribute('tabindex', '-1');
+      $('flakyTitle').focus({ preventScroll: true });
+    });
+  });
+  $('flakyForget').addEventListener('click', () => api.forgetFlaky()); // main asks first
 
   // ------------------------------------------------------------ editor
 

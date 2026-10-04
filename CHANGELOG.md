@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.58.0: projects and their dev servers
+## 0.60.0: projects and their dev servers
 
 ### New
 - **Projects.** A new page in the dock (**Ctrl+7**) lists your projects: the repos Shellby has seen you work in, plus any you add. **Add a repo…** takes one folder; **Scan a folder…** looks through a folder you pick and lists the repos in it for you to tick, adding nothing by itself. Sign in to GitHub and turn on **Show my repositories** to see those too: public ones need no extra permission, and private ones appear only if Claude tasks may already push. A clone and its GitHub repository are one project, however many clones you have.
@@ -19,6 +19,38 @@
 - **Send to Claude** sends exactly the text on the card: if it changed after you read it (it crashed again, say), nothing is sent and the card shows the new text.
 - Before an update installs, running servers are stopped and then started again by the new version, so none is left running unwatched.
 - The panel can only name folders the Projects page listed, and servers by id: never a path or a command.
+## 0.59.0: flaky test detective
+
+### New
+- **Flaky tests, spotted.** When a test fails and then passes with the code exactly as it was, Shellby notices. He compares the same test command on the same files (uncommitted changes included), so a test that went green because you fixed it never counts. The second time a test does it in a week, he says so: "auth.spec › signs in flaked 2 times this week". Click him while he says it to see the list.
+- **The list.** **Routines → Flaky tests** shows each one, its project and runner, and how often it flaked this week. He reads the failures from what the runner printed, for node's test runner, Jest, Vitest, Mocha, pytest, Go, Rust, Playwright (including its own "flaky" list), RSpec, .NET and PHPUnit.
+- **Fix it.** One button starts a task in a copy of the project on its own branch. Claude finds the cause (timing, shared state, test order, a real network or clock), fixes that rather than adding retries, runs the test 20 times to prove it, and commits. Once the test then goes 20 runs without a flake on the fixed code, it's marked fixed for good, which is worth XP.
+- **Quarantine.** Or have Claude skip just that test, the runner's own way, with a note saying why, without touching its code. Two weeks later he offers to try it again.
+- **Not flaky.** If it was really the world (a server that wasn't up yet), say so and he leaves it be, unless it keeps happening.
+- The week-in-review card counts flaky tests caught and fixed.
+- It's on by default, with a switch in **Settings → System**. It watches tests Claude runs in Shellby's tabs.
+
+### Safety
+- Only test names, counts and hashes are kept, on this PC. Never the output.
+- A test's name comes from the repository, which could be anyone's. In the task's prompt it's quoted and marked as data, after the rules. These tasks never run in Autonomous mode: with Autonomous on, they start in Auto-edit, so Claude asks before running anything. They commit on their own branch and don't push, so you look first.
+- A test run that prints a flood of blank lines can't stall Shellby while he reads it.
+
+## 0.58.1: getting ready to sign
+
+### Changed
+- **Releases can now be signed for free through SignPath Foundation**, the code-signing programme for open-source projects. Once Shellby's application is approved, the installer and portable exe will be signed and Windows should stop showing the "Windows protected your PC" warning. Until then nothing changes: releases are unsigned, and **More info → Run anyway** still gets you past it. Who can sign what is written up in the README's new [code signing policy](README.md#code-signing-policy); setup is in [docs/SIGNING.md](docs/SIGNING.md).
+- **A privacy policy.** [PRIVACY.md](PRIVACY.md) lists every connection Shellby makes, what goes over it, when, and how to turn it off, plus what's stored on your PC and how to delete it. Nothing about what Shellby does has changed; the README's shorter list had left a few out, like workflow web requests, `git fetch`, and plugin installs.
+
+## 0.58.0: prompt snippets
+
+### New
+- **Prompt snippets.** Save the things you ask Claude for again and again, like "review my diff" or "write tests for this file", under a short name in **Toolbox → Snippets**. Then type `/review` in the box, or run `shellby do @review` in any terminal, and Claude gets the whole prompt.
+- **Fill in the blank.** Put `$ARGUMENTS` in a snippet and whatever you type after its name goes there: `/tests src/app.js`, or `shellby do @tests src/app.js`. Without it, anything you add goes on the end. A snippet that needs something says so instead of sending half a prompt.
+- **In the slash menu.** Your snippets come up as you type `/`, marked as snippets, right after Shellby's own commands. One that shares a name with a skill or command runs instead of it in the box, and the Toolbox tells you so.
+- **One click.** Pin a snippet and it's a chip on the start screen. Clicking it sends it, or puts it in the box if it needs something. Whatever you'd already typed goes with it.
+- **Keep what worked.** `/snippets save <name>` saves the last thing you sent as a snippet.
+- **From the terminal.** `shellby snippets` lists yours, and an `@name` that isn't one tells you the ones there are. `@src/app.js`, `@README.md` and anything else with a dot, a slash or a capital is still a file for Claude, as before.
+- You start with five you can edit or delete: **review**, **tests**, **explain**, **commit** and **pr**.
 
 ## 0.57.0: time on each project
 

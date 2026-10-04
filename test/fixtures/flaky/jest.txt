@@ -1,0 +1,33 @@
+
+> app@1.0.0 test
+> jest
+
+PASS src/utils.test.js
+FAIL src/auth.spec.js (5.123 s)
+  auth
+    ✓ hashes passwords (3 ms)
+    ✕ signs in (5004 ms)
+    ✓ signs out (1 ms)
+
+  ● auth › signs in
+
+    thrown: "Exceeded timeout of 5000 ms for a test.
+    Add a timeout value to this test to increase the timeout, if this is a long-running test."
+
+      12 |   });
+      13 |
+    > 14 |   test('signs in', async () => {
+         |   ^
+
+      at Object.test (src/auth.spec.js:14:3)
+
+  ● Console
+
+    console.log
+      connecting
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       1 failed, 5 passed, 6 total
+Snapshots:   0 total
+Time:        6.2 s
+Ran all test suites.

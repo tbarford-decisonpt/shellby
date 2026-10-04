@@ -56,6 +56,8 @@ const DEFAULTS = {
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
+  flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
+  flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky.js); this PC only
   timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
@@ -67,6 +69,7 @@ const DEFAULTS = {
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
   openTabs: [],       // history ids of conversations open as tabs
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
+  snippets: null,     // [{ name, text }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters
   learnedTricks: [],  // recently discovered skills/agents/commands
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on

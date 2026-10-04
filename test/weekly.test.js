@@ -25,6 +25,16 @@ test('counts each kind per day, and remembers which projects shipped', () => {
   assert.equal(recordDay(null, at(0), 'task', A).days[dayKey(at(0))].projects, undefined);
 });
 
+test('flaky tests caught and fixed are counted for the card', () => {
+  let s = recordDay(null, at(1), 'flaky');
+  s = recordDay(s, at(0), 'flaky');
+  s = recordDay(s, at(0), 'flakefix');
+  s = recordDay(s, at(9), 'flaky'); // last week
+  const w = weekSummary(s, FRI, { xp: normalizeXp(null) });
+  assert.equal(w.counts.flaky, 2);
+  assert.equal(w.counts.flakeFixes, 1);
+});
+
 test('junk kinds, clocks and state are ignored', () => {
   assert.deepEqual(recordDay(null, at(0), 'nap'), normalizeWeekly(null));
   assert.deepEqual(recordDay(null, NaN, 'ship'), normalizeWeekly(null));

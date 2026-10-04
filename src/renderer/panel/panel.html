@@ -148,7 +148,7 @@
       <button type="button" class="btn ghost slim-btn" id="rescanBtn" title="Scan again">Rescan</button>
       <button type="button" class="btn primary slim-btn" id="shopBtn" title="Browse and install skills from Claude Code plugin marketplaces">Get more</button>
     </div>
-    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers, plus the hooks and memory files that shape every session. When Shellby builds itself a new tool, it shows up here with a <span class="new-pill">new</span> tag.</p>
+    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers, plus the hooks and memory files that shape every session, and the prompts you've saved as snippets. When Shellby builds itself a new tool, it shows up here with a <span class="new-pill">new</span> tag.</p>
     <div class="learned" id="learnedBox" hidden></div>
     <div class="toolbox-controls">
       <input type="search" id="toolSearch" class="field" placeholder="Search tools…" aria-label="Search tools">
@@ -157,6 +157,7 @@
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="snippet" title="Saved prompts: /name here, shellby do @name in a terminal">Snippets <span class="n"></span></button>
         <button type="button" role="tab" data-kind="hook">Hooks <span class="n"></span></button>
         <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny">Rules <span class="n"></span></button>
         <button type="button" role="tab" data-kind="memory">Memory <span class="n"></span></button>
@@ -278,6 +279,16 @@
       </div>
       <p class="view-lede">What the last <code>npm audit</code>, <code>pip-audit</code>, <code>cargo outdated</code> and the like found in each project. A clean audit keeps a project 🧼 fresh for 30 days.</p>
       <ul class="deps-list" id="depsList"></ul>
+    </section>
+
+    <section class="deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
+      <div class="deps-head">
+        <h3 id="flakyTitle">Flaky tests</h3>
+        <span class="deps-summary" id="flakySummary"></span>
+      </div>
+      <p class="view-lede">Tests that failed and then passed with the code exactly the same, in Shellby's tabs. Fixing or quarantining one happens in a copy of the repository, on its own branch.</p>
+      <ul class="deps-list" id="flakyList"></ul>
+      <button type="button" class="btn ghost slim-btn flaky-forget" id="flakyForget">Forget all of this</button>
     </section>
 
     <section class="dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
@@ -681,6 +692,12 @@
       <h2>History</h2>
     </div>
     <input type="search" id="historySearch" class="field" placeholder="Search conversations…" aria-label="Search conversations">
+    <!-- Shown in place of the filter row while you're looking at Recently deleted. -->
+    <div class="history-bin-bar" id="historyBinBar" hidden>
+      <button type="button" class="btn ghost" id="historyBinBack">← Conversations</button>
+      <span class="muted small">Deleted chats go for good after 30 days.</span>
+      <button type="button" class="btn ghost deny" id="historyBinEmpty">Empty bin</button>
+    </div>
     <!-- Hidden until you've ticked something off: nothing to filter before that. -->
     <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" data-roving hidden>
       <button type="button" role="tab" data-filter="todo" aria-selected="true">Not done <span class="n"></span></button>
@@ -688,6 +705,7 @@
       <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
     </div>
     <ul class="history-list" id="historyList"></ul>
+    <button type="button" class="btn ghost history-bin-open" id="historyBinOpen" hidden>Recently deleted <span class="n"></span></button>
     <p class="muted small history-note">Stored only on this PC. To clear it, open <b>Settings → About → Data folder</b>.</p>
   </main>
 
@@ -1152,6 +1170,8 @@
         <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
         <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
+        <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
+        <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">

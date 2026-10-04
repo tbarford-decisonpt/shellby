@@ -37,6 +37,23 @@ test('tool results are matched by id, flagged on error, and truncated', () => {
   assert.match(r.text, /more characters/);
 });
 
+test('a backgrounded shell command is flagged: its result is only "started"', () => {
+  const [bg] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'npm test', run_in_background: true } }] } });
+  assert.equal(bg.background, true);
+  const [fg] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'npm test' } }] } });
+  assert.equal(fg.background, undefined);
+});
+
+test('a truncated tool result keeps its tail too (test runners print failures last); a short one has none', () => {
+  const long = 'head\n' + 'x'.repeat(20000) + '\nFAILED tests/test_auth.py::test_login';
+  const [r] = toItems({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: long }] } });
+  assert.ok(r.text.startsWith('head'));
+  assert.ok(r.tail.endsWith('FAILED tests/test_auth.py::test_login'));
+  assert.ok(r.tail.length <= 8000);
+  const [s] = toItems({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't2', content: 'ok' }] } });
+  assert.equal(s.tail, undefined);
+});
+
 test('plain user text echoes (e.g. interrupt notices) produce nothing', () => {
   assert.deepEqual(toItems({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] } }), []);
   assert.deepEqual(toItems({ type: 'user', message: { content: 'string content' } }), []);
