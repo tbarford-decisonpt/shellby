@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeWeekly, recordDay, markWrapped, weekSummary, wrapUpDue, dayKey, KEEP_DAYS } = require('../src/main/weekly');
+const { normalizeWeekly, recordDay, recordWork, recordTrophy, markWrapped, weekSummary, wrapUpDue, dayKey, KEEP_DAYS } = require('../src/main/weekly');
 const { normalizeXp } = require('../src/main/xp');
 const stickers = require('../src/main/stickers');
 
@@ -139,7 +139,50 @@ test('headlines: the most impressive true thing', () => {
   assert.equal(headline({ ...base, xp: 1250 }), '1,250 XP earned');
 });
 
-test('the Friday wrap-up: once a week, only for a week that shipped', () => {
+test('the top project: most tasks finished, else the busiest one shipped', () => {
+  let s = recordWork(null, at(1), 'shellby');
+  s = recordWork(s, at(0), 'rack-builder');
+  s = recordWork(s, at(0), 'rack-builder');
+  s = recordWork(s, at(8), 'shellby'); // last week
+  s = recordWork(s, at(8), 'shellby');
+  assert.deepEqual(weekSummary(s, FRI).topProject, { name: 'rack-builder', tasks: 2 });
+  // No tasks anywhere this week: the project that shipped.
+  assert.deepEqual(weekSummary(recordDay(null, at(1), 'ship', A), FRI).topProject, { name: 'shellby', tasks: 0 });
+  assert.equal(weekSummary(null, FRI).topProject, null);
+  // Junk names are skipped, and a long one is cut.
+  assert.deepEqual(recordWork(null, at(0), ''), normalizeWeekly(null));
+  assert.equal(Object.keys(recordWork(null, at(0), 'x'.repeat(90)).days[dayKey(at(0))].work)[0].length, 60);
+});
+
+test('new trophies: each counted once, in the order earned', () => {
+  const owl = { id: 'night-owl', name: 'Night Owl', icon: '🦉' };
+  let s = recordTrophy(null, at(3), owl);
+  s = recordTrophy(s, at(1), { id: 'first-task', name: 'First Task', icon: '✅' });
+  s = recordTrophy(s, at(0), owl); // the same one again can't count twice
+  s = recordTrophy(s, at(9), { id: 'loyal', name: 'Loyal', icon: '💛' }); // last week
+  s = recordTrophy(s, at(0), { id: 'Bad Id!', name: 'x' });
+  const w = weekSummary(s, FRI);
+  assert.deepEqual(w.trophies.map(t => t.id), ['night-owl', 'first-task']);
+  assert.equal(w.trophies[0].icon, '🦉');
+  assert.equal(w.counts.trophies, 2);
+  assert.equal(w.headline, 'Earned 2 trophies');
+  // Read back from disk, junk is dropped.
+  assert.deepEqual(normalizeWeekly({ days: { [dayKey(at(0))]: { trophies: { ok: { name: '' }, 'a-b': { name: 'AB' } } } } }).days[dayKey(at(0))].trophies, { 'a-b': { name: 'AB', icon: '🏆' } });
+});
+
+test('the Friday wrap-up: once a week, for any week with something done in it', () => {
+  const friAfternoon = new Date(2026, 9, 2, 16, 30).getTime();
+  // Tasks alone are enough for a recap now, and so is a trophy.
+  const tasks = recordDay(null, at(1), 'task');
+  assert.equal(wrapUpDue(tasks, friAfternoon, weekSummary(tasks, friAfternoon)), '2026-10-02');
+  const trophy = recordTrophy(null, at(1), { id: 'night-owl', name: 'Night Owl', icon: '🦉' });
+  assert.equal(wrapUpDue(trophy, friAfternoon, weekSummary(trophy, friAfternoon)), '2026-10-02');
+  // XP just for showing up isn't.
+  const xp = normalizeXp({ total: 10, daily: { [dayKey(at(1))]: 10 } });
+  assert.equal(wrapUpDue(null, friAfternoon, weekSummary(null, friAfternoon, { xp })), null);
+});
+
+test('the Friday wrap-up: once a week, at the right time', () => {
   const s = recordDay(null, at(1), 'ship', A);
   const w = weekSummary(s, FRI);
   const friAfternoon = new Date(2026, 9, 2, 16, 30).getTime();
@@ -151,7 +194,7 @@ test('the Friday wrap-up: once a week, only for a week that shipped', () => {
   // PC off on Friday: Saturday still gets it, and it's the same week.
   assert.equal(wrapUpDue(s, new Date(2026, 9, 3, 11).getTime(), w), '2026-10-02');
   assert.equal(wrapUpDue(done, new Date(2026, 9, 4, 11).getTime(), w), null);
-  // A Wednesday, or a week with nothing shipped: never.
+  // A Wednesday, or a week with nothing in it: never.
   assert.equal(wrapUpDue(s, new Date(2026, 8, 30, 17).getTime(), w), null);
   assert.equal(wrapUpDue(null, friAfternoon, weekSummary(null, friAfternoon)), null);
 });

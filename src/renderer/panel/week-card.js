@@ -1,7 +1,8 @@
-/* Shellby panel — the week in review: "what we shipped" over the last seven
-   days, as a line on the Trophies & XP page and as a shareable 1200x630 PNG in
-   the crab card's look (card.js's kit). The numbers come from main
-   (weekly.js), which keeps a small per-day ledger of what happened. */
+/* Shellby panel — the weekly crab card: tasks, streak, top project, new
+   trophies and what shipped over the last seven days, as a line on the
+   Trophies & XP page and as a shareable 1200x630 PNG in the crab card's look
+   (card.js's kit). Main (weekly.js) keeps a small per-day ledger of what
+   happened and hands the card over every Friday afternoon. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -45,6 +46,58 @@
 
   // ------------------------------------------------------------ the card
 
+  // "shellby, rack-builder ✨, +2 more": names fitted to one line, new stickers marked.
+  function shippedLine(ctx, shipped, maxW, font) {
+    const names = shipped.map(p => (p.isNew ? `${p.name} ✨` : p.name));
+    for (let n = names.length; n > 0; n--) {
+      const line = names.slice(0, n).join(', ') + (n < names.length ? `, +${names.length - n} more` : '');
+      ctx.font = font;
+      if (ctx.measureText(line).width <= maxW || n === 1) return K.fitText(ctx, line, maxW, font);
+    }
+    return '';
+  }
+
+  // "🦉 Night Owl   🔟 Ten Tasks" when the names fit, else just the icons and a count.
+  function trophyLine(ctx, trophies, maxW, font) {
+    const named = trophies.map(t => `${t.icon} ${t.name}`).join('   ');
+    ctx.font = font;
+    if (ctx.measureText(named).width <= maxW) return [named, ''];
+    return [K.fitText(ctx, trophies.map(t => t.icon).join(' '), maxW - 110, font), ` · ${plural(trophies.length, 'trophy', 'trophies')}`];
+  }
+
+  // The right-hand column: three label-and-line rows. An empty row says so dimly.
+  function drawHighlights(ctx, w, shipped, x, top, maxW) {
+    const tp = w.topProject;
+    const valueFont = '700 19px "Atkinson Hyperlegible"';
+    const rows = [
+      ['TOP PROJECT', tp ? tp.name : '', tp?.tasks ? ` · ${plural(tp.tasks, 'task')}` : '', 'Nothing yet'],
+      ['NEW TROPHIES', ...trophyLine(ctx, w.trophies, maxW, valueFont), 'None this week'],
+      ['SHIPPED', shippedLine(ctx, shipped, maxW, valueFont), '', 'The week isn\'t over yet.'],
+    ];
+    rows.forEach(([label, value, note, empty], i) => {
+      const y = top + i * 48;
+      ctx.fillStyle = C.sandFaint;
+      ctx.font = '600 13px "Martian Mono"';
+      ctx.fillText(label, x, y);
+      if (!value) {
+        ctx.fillStyle = C.sandDim;
+        ctx.fillText(K.fitText(ctx, empty, maxW, '18px "Atkinson Hyperlegible"'), x, y + 25);
+        return;
+      }
+      ctx.fillStyle = C.sand;
+      ctx.font = '600 13px "Martian Mono"';
+      const noteW = note ? ctx.measureText(note).width : 0;
+      const text = K.fitText(ctx, value, maxW - noteW, valueFont);
+      ctx.fillText(text, x, y + 25);
+      if (note) {
+        const tw = ctx.measureText(text).width;
+        ctx.fillStyle = C.sandDim;
+        ctx.font = '600 13px "Martian Mono"';
+        ctx.fillText(note, x + tw, y + 24);
+      }
+    });
+  }
+
   async function render() {
     await K.loadFonts();
     SB.applyStickers?.(await api.getStickers());
@@ -75,23 +128,28 @@
     const vs = versus(w.xp, w.xpPrev);
     ctx.fillText(K.fitText(ctx, `+${fmt(w.xp)} XP${vs ? ` (${vs})` : ''} · ${w.activeDays} of 7 days${lv}`, colW, '20px "Atkinson Hyperlegible"'), x0, 188);
 
-    // Three tiles: what shipped, what turned green, and the streak.
+    // Three tiles: tasks done, the streak (or days active without one), and
+    // what shipped (or turned green, or the trophies when neither happened).
     const c = w.counts;
+    const third = c.projects || (!c.green && !c.trophies)
+      ? [fmt(c.projects), c.projects === 1 ? 'project shipped' : 'projects shipped', C.glass]
+      : c.green
+        ? [fmt(c.green), c.green === 1 ? 'test suite went green' : 'tests went green', '#7bd389']
+        : [fmt(c.trophies), c.trophies === 1 ? 'trophy earned' : 'trophies earned', C.glass];
     K.drawTiles(ctx, [
-      [fmt(c.projects), c.projects === 1 ? 'project shipped' : 'projects shipped', C.glass],
-      [fmt(c.green), c.green === 1 ? 'test suite went green' : 'tests went green', '#7bd389'],
+      [fmt(c.tasks), c.tasks === 1 ? 'task done' : 'tasks done', C.coral],
       w.streak.current
-        ? [`🔥${fmt(w.streak.current)}`, 'day streak', C.coral]
-        : [fmt(c.tasks), c.tasks === 1 ? 'task done' : 'tasks done', C.coral],
+        ? [`🔥${fmt(w.streak.current)}`, 'day streak', C.amber]
+        : [`${w.activeDays}/7`, 'days active', C.amber],
+      third,
     ], x0, colW, 214, 118);
 
-    // ---- the seven days, and what shipped
+    // ---- the seven days, and the week's top project, trophies and ships
     const top = 376;
     ctx.fillStyle = C.sandFaint;
     ctx.font = '600 13px "Martian Mono"';
     ctx.fillText('XP PER DAY', x0, top);
-    const shipX = x0 + 300;
-    ctx.fillText(shipped.length ? 'SHIPPED' : 'SHIPPED · NOTHING YET', shipX, top);
+    drawHighlights(ctx, w, shipped, x0 + 300, top, colW - 300);
 
     const chart = { x: x0, y: top + 22, w: 264, h: 88 }; // room above the tallest bar for its pip
     const best = Math.max(1, ...w.days.map(d => d.xp));
@@ -111,33 +169,6 @@
       ctx.textAlign = 'left';
     });
 
-    // Up to four names, busiest first; a new sticker says so.
-    const maxRows = 4;
-    shipped.slice(0, maxRows).forEach((p, i) => {
-      const y = top + 34 + i * 28;
-      ctx.fillStyle = p.isNew ? C.amber : C.glass;
-      ctx.fillRect(shipX, y - 11, 8, 8);
-      ctx.fillStyle = C.sand;
-      const tag = p.isNew ? '  NEW' : '';
-      const name = K.fitText(ctx, p.name, colW - 300 - 24 - (tag ? 50 : 0), '700 20px "Atkinson Hyperlegible"');
-      ctx.fillText(name, shipX + 18, y);
-      if (tag) {
-        const nw = ctx.measureText(name).width;
-        ctx.fillStyle = C.amber;
-        ctx.font = '600 12px "Martian Mono"';
-        ctx.fillText(tag, shipX + 18 + nw, y - 1);
-      }
-    });
-    if (shipped.length > maxRows) {
-      ctx.fillStyle = C.sandDim;
-      ctx.font = '600 14px "Martian Mono"';
-      ctx.fillText(`+${shipped.length - maxRows} more`, shipX + 18, top + 34 + maxRows * 28);
-    }
-    if (!shipped.length) {
-      ctx.fillStyle = C.sandDim;
-      ctx.fillText(K.fitText(ctx, 'The week isn\'t over yet.', colW - 300, '18px "Atkinson Hyperlegible"'), shipX, top + 34);
-    }
-
     // Everything else, on one line above the footer.
     const more = extras(c);
     if (more.length) {
@@ -153,6 +184,8 @@
     const bits = [
       w.counts.projects ? `shipped ${plural(w.counts.projects, 'project')}` : null,
       w.counts.green ? `turned ${plural(w.counts.green, 'test suite')} green` : null,
+      !w.counts.projects && w.counts.tasks ? `finished ${plural(w.counts.tasks, 'task')}` : null,
+      w.counts.trophies ? `earned ${plural(w.counts.trophies, 'trophy', 'trophies')} 🏆` : null,
       w.streak.current >= 2 ? `kept a ${w.streak.current}-day streak 🔥` : null,
     ].filter(Boolean);
     const said = bits.length ? `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]}` : `earned ${fmt(w.xp)} XP`;
@@ -161,7 +194,7 @@
 
   const share = () => K.present({
     kind: 'week', draw: render, buttons: '[data-share-week]', post: postText,
-    title: 'Your week', alt: 'Your week with Shellby: what you shipped, tests turned green, your streak and XP for the last seven days',
+    title: 'Your week', alt: 'Your week with Shellby: tasks done, your streak, your top project, new trophies, what you shipped and XP for the last seven days',
   });
 
   // ------------------------------------------------------------ the Trophies & XP page
@@ -179,6 +212,8 @@
       c.green ? `${plural(c.green, 'test suite')} turned green` : null,
       c.tasks ? plural(c.tasks, 'task') + ' done' : null,
       w.streak.current ? `🔥 ${w.streak.current}-day streak` : null,
+      w.topProject?.tasks ? `most work in ${w.topProject.name}` : null,
+      ...w.trophies.map(t => `${t.icon} ${t.name}`),
       ...extras({ ...c, newStickers: 0 }), // the chips below already say which are new
     ].filter(Boolean);
     $('xpWeekLine').textContent = bits.length ? bits.join(' · ') : 'Nothing yet this week. Ship something and it shows up here.';
@@ -186,7 +221,7 @@
   }
 
   document.querySelectorAll('[data-share-week]').forEach(b => b.addEventListener('click', share));
-  api.onWeekReady(w => SB.toast(`📅 ${w.headline} this week. Your week card is ready.`, { action: 'Share', onAction: share, ms: 6000 }));
+  api.onWeekReady(w => SB.toast(`📅 ${w.headline} this week. Your weekly crab card is ready.`, { action: 'Share', onAction: share, ms: 8000 }));
 
   const renderTrophies = SB.views.trophies.render;
   SB.views.trophies.render = () => { renderTrophies(); renderLine(); };
