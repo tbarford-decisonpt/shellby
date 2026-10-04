@@ -4,9 +4,9 @@
 
 [![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE)
 
-Give him a task and he scuttles off, sends out helper crabs and builds his own tools,<br>
-all on **your own Claude Pro or Max plan**. No API keys, no per-token billing.<br>
-No Claude? He's still a desk pet who talks, plays, digs you up gifts, remembers you, watches your PC and dresses up.
+**Hand him a task. He scuttles off with helper crabs and comes back with it done.**<br>
+A pixel hermit crab on your Windows desktop, running Claude Code on **your own Pro or Max plan**.<br>
+No API keys, no per-token billing. No Claude? He's still a desk pet who talks, plays and dresses up.
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
@@ -16,7 +16,9 @@ No Claude? He's still a desk pet who talks, plays, digs you up gifts, remembers 
 
 <img src="docs/shellby-demo.gif" width="860" alt="Shellby demo: typing a task, Shellby saying 'claws out', three helper crabs scuttling out to work in parallel lanes while he says 'all claws in', walking home, 'nailed it', then a trophy unlocking and Shellby wearing a party hat">
 
-<sub>Give him a task, watch the helper crabs go, earn outfits. ([MP4 version](docs/shellby-demo.mp4))</sub>
+**1.** Tell him what you want &nbsp;→&nbsp; **2.** Helper crabs work on it side by side &nbsp;→&nbsp; **3.** He brings it home, and you both level up
+
+<sub>([MP4 version](docs/shellby-demo.mp4))</sub>
 
 </div>
 
@@ -30,52 +32,20 @@ No Claude? He's still a desk pet who talks, plays, digs you up gifts, remembers 
 
 Windows may show a SmartScreen warning the first time; [Install](#install) explains it, along with the Claude Code setup.
 
-## What's new
+## Everything he can do
 
-<table>
-<tr>
-<td width="33%" valign="top">
+You start with just him and a chat box. The rest of his shell opens as he works: **History** and **Projects** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar.
 
-**📅 The weekly crab card** · 0.62<br>
-<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project and the trophies you earned. [See one](docs/WARDROBE.md#your-week)</sub>
-
-</td>
-<td width="33%" valign="top">
-
-**🪶 Lean Shell** · 0.61<br>
-<sub>How many tokens every conversation carries before you type, which plugins cost the most, and which sit idle. More out of your plan, without asking Claude to do any less. [How](docs/CLAUDE-CODE.md#lean-shell-more-out-of-your-plan)</sub>
-
-</td>
-<td width="33%" valign="top">
-
-**🗂️ Projects and dev servers** · 0.60<br>
-<sub>Every repo you work in on one page. Start <code>npm run dev</code>, and if it crashes he holds up a red sign and offers Claude the error. [How](docs/PROJECTS.md#projects-and-dev-servers)</sub>
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**🧪 Flaky test detective** · 0.59<br>
-<sub>A test that fails, then passes on the same code, gets caught. One button has Claude find the real cause and prove the fix 20 times over. [How](docs/PROJECTS.md#flaky-tests)</sub>
-
-</td>
-<td valign="top">
-
-**✂️ Prompt snippets** · 0.58<br>
-<sub>Save "review my diff" once, then <code>/review</code> in the box or <code>shellby do @review</code> in any terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
-
-</td>
-<td valign="top">
-
-**⏱️ Time on each project** · 0.57<br>
-<sub>Hours per project, worked out from what he already sees, with clients, rates and a PDF timesheet. It never leaves your PC. [How](docs/PROJECTS.md#time-on-each-project)</sub>
-
-</td>
-</tr>
-</table>
-
-<sub>And before that: a life of his own, gifts from digging, workflows, phone notifications, shell stickers. Everything is in the [changelog](CHANGELOG.md).</sub>
+| | |
+|---|---|
+| ⚡ **[Gets things done](#-he-gets-things-done-with-claude-code)** | Helper crabs, tabs on their own branches, undo any turn, comments on the diff |
+| 🗂️ **[Runs your dev day](#️-he-runs-your-dev-day)** | Every repo and dev server, crash help, flaky tests, time per project |
+| 🦀 **[Lives on your desktop](#-he-lives-on-your-desktop)** | Behind your windows, a voice of his own, focus guard, usage limits |
+| 💞 **[Just the two of you](#-just-the-two-of-you)** | Gifts he digs up, games, a bond that grows, your weekly card |
+| 🎩 **[Dresses up](#-dress-him-up)** | Outfits, shells and skins you earn, and community packs |
+| 🩺 **[Watches your PC](#-he-watches-your-pc)** | He sweats when the GPU runs hot and gets dizzy when memory's full |
+| 🌊 **[Gets out more](#-he-gets-out-more)** | Your phone, your stream, your RGB lights and GitHub |
+| 🔒 **[Keeps you in control](#-you-stay-in-control)** | Permission cards, five modes, a spending guard, nothing leaves your PC |
 
 ## ⚡ He gets things done with Claude Code
 
@@ -230,6 +200,53 @@ shellby time last-week
 - **Five permission modes,** from Ask first to a fenced-off Autonomous. See [Permission modes](#permission-modes).
 - **Spending guard:** routines and workflows stop before they use the share of your 5-hour window you keep for yourself.
 - **Your plan, your PC:** no API keys, no telemetry, and your history stays on your PC.
+
+## What's new
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**📅 The weekly crab card** · 0.62<br>
+<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project and the trophies you earned. [See one](docs/WARDROBE.md#your-week)</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**🪶 Lean Shell** · 0.61<br>
+<sub>How many tokens every conversation carries before you type, which plugins cost the most, and which sit idle. More out of your plan, without asking Claude to do any less. [How](docs/CLAUDE-CODE.md#lean-shell-more-out-of-your-plan)</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**🗂️ Projects and dev servers** · 0.60<br>
+<sub>Every repo you work in on one page. Start <code>npm run dev</code>, and if it crashes he holds up a red sign and offers Claude the error. [How](docs/PROJECTS.md#projects-and-dev-servers)</sub>
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🧪 Flaky test detective** · 0.59<br>
+<sub>A test that fails, then passes on the same code, gets caught. One button has Claude find the real cause and prove the fix 20 times over. [How](docs/PROJECTS.md#flaky-tests)</sub>
+
+</td>
+<td valign="top">
+
+**✂️ Prompt snippets** · 0.58<br>
+<sub>Save "review my diff" once, then <code>/review</code> in the box or <code>shellby do @review</code> in any terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
+
+</td>
+<td valign="top">
+
+**⏱️ Time on each project** · 0.57<br>
+<sub>Hours per project, worked out from what he already sees, with clients, rates and a PDF timesheet. It never leaves your PC. [How](docs/PROJECTS.md#time-on-each-project)</sub>
+
+</td>
+</tr>
+</table>
+
+<sub>And before that: a life of his own, gifts from digging, workflows, phone notifications, shell stickers. Everything is in the [changelog](CHANGELOG.md).</sub>
 
 ## Install
 
