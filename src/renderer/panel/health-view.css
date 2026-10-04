@@ -41,6 +41,10 @@ body[data-view="health"] .view-health {
   border: 1px solid var(--line-soft);
   overflow: visible;
 }
+/* His real tank behind him (health.js renderPorthole), once there's something in it. */
+.hl-tank.has-porthole { --px: 4px; }
+.hl-porthole { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; image-rendering: pixelated; }
+.hl-tank.has-porthole .hl-sand { display: none; }
 .hl-crab {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
   width: calc(var(--px) * 22); height: calc(var(--px) * 13);

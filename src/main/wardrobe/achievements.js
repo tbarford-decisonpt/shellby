@@ -16,7 +16,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'inventor', name: 'Inventor', icon: '🧙', description: 'Shellby learns 5 new tricks', stat: 'tricksLearned', goal: 5, rewards: ['wizard-hat', 'bonsai'] },
   { id: 'tinkerer', name: 'Tinkerer', icon: '🔧', description: 'Approve running a script Shellby wrote', stat: 'createdScriptsRun', goal: 1, rewards: ['wrench', 'rubber-duck'] },
   { id: 'clockwork', name: 'Clockwork', icon: '⏱️', description: 'Run your first routine', stat: 'routinesRun', goal: 1, rewards: ['pocket-watch', 'pager'] },
-  { id: 'night-owl', name: 'Night Owl', icon: '🦉', description: 'Finish a task between midnight and 5 AM', stat: 'nightTasks', goal: 1, rewards: ['nightcap', 'sleep-mask'], hidden: true },
+  { id: 'night-owl', name: 'Night Owl', icon: '🦉', description: 'Finish a task between midnight and 5 AM', stat: 'nightTasks', goal: 1, rewards: ['nightcap', 'sleep-mask', 'starry-night'], hidden: true },
   { id: 'early-bird', name: 'Early Bird', icon: '☕', description: 'Finish a task between 5 and 8 AM', stat: 'earlyTasks', goal: 1, rewards: ['coffee-mug', 'eye-black'], hidden: true },
   { id: 'multitasker', name: 'Multitasker', icon: '🎧', description: 'Run 3 conversations at the same time', stat: 'maxParallel', goal: 3, rewards: ['headphones', 'cursors'] },
   { id: 'careful', name: 'Safety First', icon: '🥽', description: 'Answer 25 permission prompts', stat: 'permissionsAnswered', goal: 25, rewards: ['safety-goggles', 'face-shield'] },
@@ -29,10 +29,10 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'spring-cleaning', name: 'Spring Cleaning', icon: '🧹', description: 'Free up space after a low-disk warning', stat: 'spaceFreed', goal: 1, rewards: ['broom', 'toadstool'] },
   { id: 'good-crab', name: 'Good Crab', icon: '💕', description: 'Pet Shellby 25 times', stat: 'petsGiven', goal: 25, rewards: ['heart-shades', 'starfish'], hidden: true },
   { id: 'frequent-flyer', name: 'Frequent Flyer', icon: '🛩️', description: 'Throw Shellby across your screen', stat: 'timesThrown', goal: 1, rewards: ['aviator-cap', 'inner-tube'], hidden: true },
-  { id: 'deep-focus', name: 'Deep Focus', icon: '⛑️', description: 'Finish 5 focus sessions', stat: 'focusSessions', goal: 5, rewards: ['guard-helmet', 'welding-mask'] },
+  { id: 'deep-focus', name: 'Deep Focus', icon: '⛑️', description: 'Finish 5 focus sessions', stat: 'focusSessions', goal: 5, rewards: ['guard-helmet', 'welding-mask', 'diver'] },
   { id: 'open-house', name: 'Open House', icon: '🏡', description: "A friend's crab drops by", stat: 'visitorsHosted', goal: 1, rewards: ['sea-glass', 'friendship-bracelet'] },
   { id: 'pen-pals', name: 'Pen Pals', icon: '💌', description: 'Wave to friends 5 times', stat: 'wavesSent', goal: 5, rewards: ['message-bottle'] },
-  { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag'] },
+  { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag', 'lighthouse'] },
   // Up on your windows (src/main/perch.js).
   { id: 'window-sill', name: 'Window Sill', icon: '🪟', description: 'Shellby climbs up onto one of your windows', stat: 'perchesMade', goal: 1, rewards: ['spyglass'] },
   { id: 'hang-on', name: 'Hang On!', icon: '🎢', description: 'Drag a window 2,000 px with Shellby riding it', stat: 'longestRide', goal: 2000, rewards: ['racing-goggles'] },
@@ -51,11 +51,11 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'well-traveled', name: 'Well Traveled', icon: '🧳', description: 'Put stickers on 3 different shells', stat: 'stickeredShells', goal: 3, rewards: ['luggage-tag'] },
   { id: 'swap-meet', name: 'Swap Meet', icon: '🤝', description: "A visiting friend's crab leaves you one of their stickers", stat: 'friendStickers', goal: 1, rewards: ['trade-binder'] },
   // Just the two of you (src/main/life.js, gifts.js, bond.js, playtime.js). None of these need Claude.
-  { id: 'beachcomber', name: 'Beachcomber', icon: '🐚', description: 'Shellby digs you up his first gift', stat: 'findsMade', goal: 1, rewards: ['sand-pail'] },
+  { id: 'beachcomber', name: 'Beachcomber', icon: '🐚', description: 'Shellby digs you up his first gift', stat: 'findsMade', goal: 1, rewards: ['sand-pail', 'pebble-floor'] },
   { id: 'magpie', name: 'Magpie', icon: '🐦', description: 'Shellby digs you up 25 gifts', stat: 'findsMade', goal: 25, rewards: ['metal-detector'] },
   { id: 'curator', name: 'Curator', icon: '🏛️', description: 'Complete a set of finds on the shelf', stat: 'setsCompleted', goal: 1, rewards: ['treasure-chest'] },
   { id: 'x-marks', name: 'X Marks the Spot', icon: '🗺️', description: 'Shellby digs up something legendary', stat: 'legendaryFinds', goal: 1, rewards: ['doubloon-medal'], hidden: true },
-  { id: 'best-friends', name: 'Best Friends', icon: '💞', description: 'Become best friends with Shellby', stat: 'bondLevel', goal: 4, rewards: ['friendship-locket'] },
+  { id: 'best-friends', name: 'Best Friends', icon: '💞', description: 'Become best friends with Shellby', stat: 'bondLevel', goal: 4, rewards: ['friendship-locket', 'jelly-lamp'] },
   { id: 'peekaboo', name: 'Peekaboo', icon: '🙈', description: 'Find Shellby in hide and seek', stat: 'hidesFound', goal: 1, rewards: ['leafy-disguise'] },
   { id: 'good-arm', name: 'Good Arm', icon: '🎾', description: 'Play fetch with Shellby 10 times', stat: 'fetches', goal: 10, rewards: ['tennis-ball'] },
   { id: 'player-two', name: 'Player Two', icon: '🎮', description: 'Shellby watches you finish 5 games', stat: 'gamesWatched', goal: 5, rewards: ['game-controller'], hidden: true },
@@ -78,7 +78,10 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'fresh-start', name: 'Fresh Start', icon: '📝', description: 'Start a crowded conversation fresh with a summary', stat: 'freshStarts', goal: 1, rewards: ['fresh-page'] },
   { id: 'on-a-roll', name: 'On a Roll', icon: '🔥', description: 'Keep a 7-day streak going', stat: 'longestStreak', goal: 7, rewards: ['flame-scarf'] },
   { id: 'unstoppable', name: 'Unstoppable', icon: '☄️', description: 'Keep a 30-day streak going', stat: 'longestStreak', goal: 30, rewards: ['blazing-crest'], hidden: true },
-  { id: 'double-digits', name: 'Double Digits', icon: '🪸', description: 'Reach level 10', stat: 'level', goal: 10, rewards: ['coral-laurel'] },
+  { id: 'double-digits', name: 'Double Digits', icon: '🪸', description: 'Reach level 10', stat: 'level', goal: 10, rewards: ['coral-laurel', 'sunken-ship'] },
+  // His tank (src/main/tank.js): the most pieces it's held at once.
+  { id: 'moving-in', name: 'Moving In', icon: '🪴', description: 'Put the first piece of decor in his tank', stat: 'tankPieces', goal: 1, rewards: ['sunken-chest'] },
+  { id: 'interior-designer', name: 'Interior Designer', icon: '🏰', description: 'Have 15 pieces in his tank at once', stat: 'tankPieces', goal: 15, rewards: ['coral-fan'] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -92,6 +95,7 @@ const COUNTERS = [
   'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
   'snacksFed', 'rinsesGiven', 'tuckIns', 'goldenSnacks',
   'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
+  'tankPieces',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -153,6 +157,8 @@ const MAXIMA = {
   'bond-level': 'bondLevel', 'scenes-seen': 'scenesSeen',
   // The longest streak (streaks.js) and the XP level (xp.js), reported by awardXp in main.js.
   streak: 'longestStreak', level: 'level',
+  // The pieces in his tank (src/main/tank.js), reported when you save it.
+  'tank-pieces': 'tankPieces',
 };
 
 function emptyStats() {

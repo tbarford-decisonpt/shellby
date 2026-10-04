@@ -234,7 +234,9 @@ test('service: device-flow sign-in, profile, features, widening and sign-out', a
     // A new Service (restart) picks the sign-in up from the encrypted file.
     const again = new GitHubService({ config, store: new TokenStore(path.join(dir, 'gh.bin'), fakeCrypto), web: mock.base, api: mock.base });
     assert.equal(again.view().signedIn, true);
+    config.set({ github: { ...config.get('github'), features: { ...config.get('github').features, prBadge: true } } });
     again.signOut();
+    assert.equal(normalizeState(config.get('github')).features.prBadge, false, 'the PR badge needs its confirmation again after sign-out');
     assert.equal(again.view().signedIn, false);
     assert.equal(normalizeState(config.get('github')).features.claude, false, 'Claude access is switched off on sign-out');
     assert.equal(fs.existsSync(path.join(dir, 'gh.bin')), false);

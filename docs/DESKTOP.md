@@ -1,6 +1,6 @@
 # Shellby on your desktop
 
-Everything he does on his own, with or without Claude. None of this needs an account, and it all stays on your PC. Back to the [README](../README.md).
+Everything he does on his own, with or without Claude. None of this needs an account, and it all stays on your PC (except the weather, which asks Open-Meteo once you pick a town). Back to the [README](../README.md).
 
 <p align="center"><img src="lineup-life.png" width="860" alt="Five Shellbys: one saying 'fingers crossed', one in a focus helmet with 18 minutes left, one holding up a red CI sign, one sweating at 83 degrees, and one asleep in his shell"></p>
 
@@ -27,6 +27,8 @@ Shellby is a polite crab. **Settings → Shellby → Mischief** lets him be a bi
 - **He never misbehaves** while you're holding a mouse button, on a call, guarding your focus, gaming or presenting, while something fullscreen is in front of him, while the screen is locked, or while a task is running, and he behaves while he's asleep.
 - **He guards your focus:** right-click him → **Guard my focus** (15, 25 or 50 minutes). He puts on a helmet, counts down, holds back the notifications that can wait, and takes a break with you when time's up.
 - **He listens along:** when something's playing he puts his headphones on, with the odd *"good one"*. Read from Windows itself, so there's no account and nothing leaves your PC.
+- **He types along:** while you type, in any app, he gets out a little keyboard and taps a claw for every key, bobbing along when you're quick. Keep up a fast burst for a few seconds and he watches with stars in his eyes, then tells you how fast that was (*"112 wpm!"*), or *"new record"* when you beat your best. He hears *that* a key was pressed, never which one, and none of it leaves your PC. He leaves the keys alone while he's working, napping or hushed on a call. Off until you turn it on under **Settings → Typing along**.
+- **He dresses for the weather:** pick your town under **Settings → Weather** and he wears a sou'wester, a rain cape and an umbrella when it's raining where you are (inside out in a gale), a bobble hat in the snow, and shades on a hot sunny afternoon. Rain or snow falls around him, he flinches at thunder in a storm, shivers below freezing, and says so when the rain starts or stops. Your town also tells him which half of the world you're in, so south of the equator spring and summer come when yours do. This is the one feature here that goes online: it asks [Open-Meteo](https://open-meteo.com) (free, no account) every 30 minutes, about your town's position to within about 11 km. Off until you pick a town.
 - **Drop files on him** to hand them to a task, or **paste a screenshot** (Win+Shift+S, then Ctrl+V) straight into the box: Claude sees the picture itself. **Wandered off-screen?** **Settings → Look → Find Shellby** brings him back.
 - **Kind to your battery:** he stops animating when you aren't looking, and everything stops while your screen is locked.
 
@@ -39,6 +41,9 @@ Shellby is a polite crab. **Settings → Shellby → Mischief** lets him be a bi
 - **On a call he hushes:** while an app has your microphone he holds up a little "shh" sign and says nothing, and asks how it went after. Windows' own record of who's using the microphone tells him; he never listens himself.
 - He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters (a health warning, a red build, a countdown) takes the bubble back off him.
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Look**.
+- **Footsteps, bumps and ta-das:** his claws patter while he walks, he bonks off the screen's edges when you throw him and thumps down when he lands, and a deploy, a new trophy or a level-up gets a little fanfare. Off by default, under **Settings → Look**.
+- **A beach in the background:** **Rolling surf** (waves that swell, break and pull back, never quite the same twice) or **Rock pool** (calmer water with the odd drip and plip). Off by default, under **Settings → Look → Background**, with a **Volume** of Soft, Normal or Loud for all of his sounds.
+- All of it goes silent while he guards your focus, while you're on a call, and while the screen is locked. Covered by a window, he still plays. With Windows' animations turned off, he keeps his chirps and bumps to himself, but the background still plays.
 
 ## Your usage limits
 

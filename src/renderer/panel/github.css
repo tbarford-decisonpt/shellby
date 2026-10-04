@@ -45,6 +45,7 @@
 .gh-friends { margin: -2px 0 10px 46px; }
 .gh-friends .gh-ci-head { margin-bottom: 6px; }
 .gh-profile-card { margin: -2px 0 10px 46px; }
+.pb-preview { display: block; width: 72px; height: auto; margin-bottom: 6px; image-rendering: pixelated; }
 .pc-preview { display: block; width: 100%; max-width: 480px; height: auto; margin-bottom: 6px; border-radius: 14px; }
 .pc-steps { margin: 8px 0 0; padding-left: 18px; color: var(--sand-dim); }
 .pc-steps li { margin-bottom: 6px; }

@@ -1,7 +1,7 @@
 const {
   app, BrowserWindow, ipcMain: electronIpcMain, screen, Menu, Tray, shell, dialog,
   globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
-  powerSaveBlocker,
+  powerSaveBlocker, net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -16,7 +16,7 @@ const { SessionManager, MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, verifyClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
-const { keepOnDesktop, sendToBottom, pin: pinToDesktop, covers: coversBox, veil, DESKTOP_CLASSES } = require('./desktop-layer');
+const { keepOnDesktop, sendToBottom, tuckUnder, setOnTop, pin: pinToDesktop, covers: coversBox, veil, DESKTOP_CLASSES } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
@@ -76,8 +76,13 @@ const { createPranks } = require('./pranks');
 const mischief = require('./mischief');
 const { createFloor, COLONY_MAX } = require('./floor');
 const voice = require('./voice');
+const sounds = require('./sounds');
 const gifts = require('./gifts');
 const { createLife } = require('./life');
+const { createTyping } = require('./typing');
+const keystrokes = require('./keystrokes');
+const weatherRules = require('./weather');
+const { createWeatherService } = require('./weather-service');
 const { createPlaytime } = require('./playtime');
 const { activeSeasons } = require('./wardrobe/seasons');
 const statusLine = require('./statusline');
@@ -103,6 +108,7 @@ const { IssueWatcher } = require('./github/issues');
 const issueWork = require('./github/pullrequest');
 const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
 const { ProfileCard } = require('./github/profile-card');
+const prBadges = require('./github/pr-badge');
 const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
@@ -122,6 +128,7 @@ const { registerProjectsIpc } = require('./projects/ipc');
 const { readRepo } = require('./projects/local');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
+const { registerTankIpc } = require('./ipc/tank');
 const { DevServers } = require('./devservers/service');
 const devRunner = require('./devservers/runner');
 const devScripts = require('./devservers/scripts');
@@ -255,7 +262,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard;
+let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard, prBadge;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let projects = null;               // the Projects page (projects/service.js)
@@ -281,6 +288,8 @@ let pranks = null;                 // mischief, if you asked for it (see pranks.
 let floor = null;                  // the strip of floor with his pals and footprints (see floor.js)
 let life = null;                   // his life between tasks: scenes, gifts, the bond, your day (see life.js)
 let playtime = null;               // hide and seek, fetch (see playtime.js)
+let typing = null;                 // tapping along while you type (see typing.js)
+let weatherSvc = null;             // the weather outside, for what he wears (see weather-service.js)
 let said = null;                   // { text, occasion, until } — the line in his bubble (see voice.js)
 let longTaskTimer = null;          // a task still running after LONG_TASK_MS gets a "still going…"
 const fileTouches = new Map();     // file path -> times written this run, for his "this file again?"
@@ -407,6 +416,7 @@ function createPerchingFor() {
       return { x: p.x - crewExtra(), y: p.y };
     },
     pin: () => (CAPTURE ? sendToBottom(critter) : pinToDesktop(critter)),
+    onTop: () => onTopNow(),
     temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
     speak: (occasion, opts) => speak(occasion, opts),
     stat,
@@ -454,7 +464,7 @@ function createMischief() {
       return w;
     },
     pin: w => pinToDesktop(w),
-    lower: w => sendToBottom(w),
+    lower: w => tuckUnder(w, critter),
     critterBounds: () => critter.getBounds(),
     geo: critterGeo,
     px,
@@ -463,7 +473,7 @@ function createMischief() {
     away: () => (climbing?.isAway() ? 'climb' : perching?.isAway() ? 'perch' : null),
     calm: () => crabCalmNow().calm,
     hidden: () => crabCalmNow().hide,
-    veil: (w, hide) => veil(w, hide, { lower: sendToBottom }),
+    veil: (w, hide) => veil(w, hide, { lower: x => tuckUnder(x, critter) }),
   });
   pranks = createPranks({
     config, screen, native, capture: CAPTURE,
@@ -481,7 +491,8 @@ function createMischief() {
     guarding: () => focus.guarding(config.get('focus'), Date.now()),
     onCall: () => !!life?.onCall(),
     locked: () => calmReason === 'locked',
-    playing: () => !!playtime?.busy() || !!life?.busy(),
+    // ...or tapping along while you type (typing.js): no pinching mid-sentence.
+    playing: () => !!playtime?.busy() || !!life?.busy() || !!typing?.active(),
     dragging: () => dragging,
     crew: () => crewShown + (guestShown ? 1 : 0),
     perching,
@@ -529,13 +540,16 @@ function createMotion() {
       climbing?.onInterrupted(kind);
       pranks?.onInterrupted();
     },
+    // A bump against the screen's edge is only news to the speaker.
+    onBounce: b => { if (soundMix().fx) send(critter, 'critter:motion', { kind: 'bounce', ...b }); },
   });
   createPerchingFor();
   // Now and then an idle, awake Shellby takes a few steps near his spot, hops
   // up onto one of your windows, finds something to do with his claws, or says
   // something to nobody. Up on a window, his life has its own rhythm.
   setInterval(() => {
-    if (CAPTURE || dragging || playtime?.busy() || life?.busy()) return;
+    // Tapping along while you type: no wandering off or digging mid-sentence.
+    if (CAPTURE || dragging || playtime?.busy() || life?.busy() || typing?.active()) return;
     const idle = lastStatus.state === 'idle';
     const guarding = focus.guarding(config.get('focus'), Date.now());
     if (perching.isUp()) return void perching.idleTick({ idle, guarding, quiet: voice.chatterOf(config.get('chatter')) === 'quiet' });
@@ -571,13 +585,17 @@ function createCritter() {
     title: 'Shellby', icon: ICON, webPreferences: { ...webPreferences, preload: CRITTER_PRELOAD },
   });
   secureWindow(critter);
+  setOnTop(onTopNow);
   critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));
   critter.once('ready-to-show', () => {
     keepCritterSize(); // created on a scaled monitor, Windows may have rounded it
     critterReady = true;
     if (!crabCalmNow().hide) critter.showInactive(); // started behind a game: the next calm shows him
     if (!CAPTURE) keepOnDesktop(critter, { isAway: () => !!perching?.isAway() });
+    layerOnTop = onTopNow();
   });
+  // On top of your apps his window lets the mouse through; a reload forgets that.
+  critter.webContents.on('did-finish-load', () => perching?.layerChanged());
   critter.on('blur', () => { sendToBottom(critter); floor?.lower(); }); // a no-op while he's up on a window; the floor strip stays under him
   critter.on('resize', () => setImmediate(keepCritterSize));
 }
@@ -609,7 +627,8 @@ let calmSent = '';
 let critterReady = false;
 function crabCalmNow() {
   const locked = calmReason === 'locked';
-  return { calm: locked || hidden.crab, hide: !CAPTURE && (locked || hidden.underGame) };
+  // Covered, he stops animating but can still be heard; locked, he goes quiet too.
+  return { calm: locked || hidden.crab, locked, hide: !CAPTURE && (locked || hidden.underGame) };
 }
 function sendCalm() {
   const locked = calmReason === 'locked';
@@ -628,8 +647,8 @@ function setCalm(reason) {
   sendCalm();
 }
 function crabCovered(info) {
-  // Up on a window he's drawn above it, so what's in front never hides him.
-  if (!info || perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
+  // Up on a window, or kept on top of your apps, he's drawn above what's in front.
+  if (!info || onTopNow() || perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
   if (!info.visible || info.minimized || info.cloaked || !info.frame) return false;
   const f = info.frame;
   const frame = screen.screenToDipRect(null, { x: f.left, y: f.top, width: f.right - f.left, height: f.bottom - f.top });
@@ -639,9 +658,31 @@ function checkCovered() {
   if (!critter || critter.isDestroyed() || !native.available()) return;
   const info = native.describe(native.foreground());
   const game = gameInFront(info);
+  hidden = { ...hidden, game }; // first: whether he's on top (crabCovered) depends on it
   const covered = crabCovered(info);
-  hidden = { crab: (game && !perching?.isAway()) || covered, game, underGame: game && covered };
+  hidden = { ...hidden, crab: (game && !perching?.isAway()) || covered, underGame: game && covered };
+  syncLayer(); // a game came up, or went
   sendCalm();
+}
+
+// ---------------------------------------------------------------- on top of your apps
+// "Keep him on top of my apps" (Settings) lifts him and his floor out of the
+// desktop layer (desktop-layer.js). He still steps back down behind a game, so
+// he's never drawn over one, and while he's hiding: he needs your windows for that.
+function onTopNow() {
+  return !CAPTURE && config.get('onTop') === true && !hidden.game && !playtime?.hiding();
+}
+let layerOnTop = null; // what applyLayer last put him on
+function applyLayer() {
+  if (!critter || critter.isDestroyed()) return;
+  layerOnTop = onTopNow();
+  // In the air he lands on the right layer; up on a window, perching restacks him.
+  if (!perching?.isAway()) pinToDesktop(critter);
+  floor?.repin();
+  perching?.layerChanged();
+}
+function syncLayer() {
+  if (onTopNow() !== layerOnTop) applyLayer();
 }
 function watchIdleCost() {
   panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
@@ -1029,8 +1070,31 @@ function outfit() {
     stickers: config ? shellStickers(activeSkin(), worn) : [],
     focusHelmet: helmet ? publicItem(helmet) : null,
     musicHeadphones: musicHeadphones(),
+    weather: weatherWear(),
   };
 }
+
+/**
+ * What he puts on by himself for the weather outside (weather.js dress): items
+ * by slot over his own outfit, an effect instead of his own, and a mood for the
+ * renderer. Like the headphones, they don't need unlocking. Null on a plain day.
+ */
+function weatherWear() {
+  if (!weatherSvc?.settings().enabled) return null;
+  const w = weatherRules.dress(weatherSvc.reading(), Date.now());
+  if (!w) return null;
+  const pick = id => (id ? publicItem(wardrobe?.item(id)) : null);
+  return {
+    condition: w.condition, mood: w.mood,
+    accessories: ['hat', 'neck', 'face', 'held'].map(slot => pick(w[slot])).filter(Boolean),
+    effect: pick(w.effect),
+  };
+}
+
+// South of the equator, spring comes in September (wardrobe/seasons.js). Known
+// from the town picked for the weather, which is kept with the weather switched
+// off (no network needed for that); north otherwise, as it always was.
+const seasonsWhere = () => ({ south: weatherRules.isSouth(weatherRules.normalizePlace(config?.get('weather')?.place)) });
 
 const currentLevel = () => levelFor(config?.get('xp')?.total || 0).level;
 const homesView = () => shells.homesView(config.get('home'), currentLevel());
@@ -1059,7 +1123,8 @@ function flashState(state, ms = 7000) {
   // himself and a new trophy are rare enough to jump the cooldowns; 'levelup'
   // and the molt have no lines at all, because the bubble is already busy
   // showing the level and the new shell.
-  speak(state, { force: state === 'learned' || state === 'unlocked' });
+  // A level-up has no line to chirp with, so its cheer goes on its own.
+  if (!speak(state, { force: state === 'learned' || state === 'unlocked' })) chirp(state, { blip: false });
   if (state === 'success' || state === 'error') floor?.event(state); // his pals cheer, or wince
   refreshCritter();
   setTimeout(refreshCritter, ms + 50);
@@ -1101,12 +1166,25 @@ function speak(occasion, { force = false, text = null } = {}) {
   return said;
 }
 
-// A little blip, synthesized in the renderer (no audio files). Off by default,
-// and silent while he's on guard.
-function chirp(occasion) {
-  if (CAPTURE || !config?.get('sounds')) return;
-  if (focus.guarding(config.get('focus'), Date.now()) || life?.hushed()) return;
-  send(critter, 'critter:chirp', { occasion });
+// What he may sound like right now (see sounds.js): nothing at all while he's
+// on guard, on a call, or posing for screenshots.
+function soundMix() {
+  if (CAPTURE || !config) return sounds.mix();
+  const quiet = focus.guarding(config.get('focus'), Date.now()) || !!life?.hushed();
+  return sounds.mix({
+    sounds: config.get('sounds'), soundFx: config.get('soundFx'),
+    ambient: config.get('ambient'), soundVolume: config.get('soundVolume'),
+  }, { quiet });
+}
+
+// A little blip when he speaks, or a ta-da for a big moment, synthesized in the
+// renderer (no audio files). Both off by default. blip: false plays only a cheer.
+function chirp(occasion, { blip = true } = {}) {
+  const m = soundMix();
+  if (!sounds.anyOn(m)) return;
+  const r = sounds.forOccasion(occasion, m);
+  if (r.cue) send(critter, 'critter:sound', { cue: r.cue });
+  else if (r.chirp && blip) send(critter, 'critter:chirp', { occasion });
 }
 
 // His seed (which decides his temperament) is made once, on first run. The gap
@@ -1159,6 +1237,7 @@ function refreshCritter() {
     limit: limited ? { resetsAt: limited.resetsAt } : null,
     say: said,
     call: !!life?.onCall(), // you're on a call: he holds up his "shh" sign
+    sound: soundMix(), // footsteps, bumps and the background play off this (src/renderer/critter/sound.js)
     // Peckish, sandy, sleepy, mopey (needs.js): only ever while he has nothing better to show.
     needs: ['idle', 'sleeping'].includes(state) && !CAPTURE ? life?.needsLook() || null : null,
   });
@@ -1304,6 +1383,8 @@ function createManager() {
       // A push, deploy or release ships the project: its sticker (stickers.js).
       const ship = c.dir && stickers.shipOf(kind, c.command);
       if (ship) shipped(c.dir, ship.kind, ship.meta);
+      // gh pr create: the tab's work is a pull request now, so it gets the badge (github/pr-badge.js).
+      if (!item.isError && prBadges.isPrCreate(c.command)) badgePr(`${item.text || ''}\n${tail || ''}`);
       // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
       const check = checkup.checkupOf(c.command);
       if (check && c.cwd) {
@@ -3071,7 +3152,7 @@ function createLifeAndPlay() {
     playing: () => !!playtime?.busy(),
     guarding: () => focus.guarding(config.get('focus'), Date.now()),
     music: () => !!nowPlaying?.playing,
-    seasons: () => activeSeasons(new Date()).map(x => x.id),
+    seasons: () => activeSeasons(new Date(), seasonsWhere()).map(x => x.id),
     calm: () => calmReason === 'locked',
     // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.
     eyePoint: () => {
@@ -3099,7 +3180,7 @@ function createLifeAndPlay() {
     getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
     bounds: () => critter.getBounds(),
     place: (x, y) => placeCritter(x, y),
-    pin: () => pinToDesktop(critter),
+    pin: () => { pinToDesktop(critter); syncLayer(); }, // hiding, he's back under your apps (onTopNow)
     float: () => native.float(native.hwndOf(critter)),
     say: (text, ms, occasion) => sayText(text, occasion, ms),
     toCrab: sendCritter,
@@ -3186,6 +3267,63 @@ function musicHeadphones() {
   if (!nowPlaying?.playing || !mediaSettings().enabled || !mediaSettings().headphones) return null;
   const item = wardrobe?.item('headphones');
   return item ? publicItem(item) : null;
+}
+
+// ================================================================ typing along
+
+function typingSettings() {
+  const raw = config.get('typing');
+  // Off until you turn it on: it hears every key on the PC (never which one).
+  return { enabled: raw?.enabled === true, remarks: raw?.remarks !== false };
+}
+
+function createTypingAlong() {
+  typing = createTyping({
+    watch: onKey => keystrokes.watch(onKey),
+    settings: typingSettings,
+    // Awake, idle and on the ground, with nothing else in his claws: work, a
+    // nap, a game, a scene, a call (his shh sign is up), a ride on your
+    // window, a wall to cling to or a prank all come first.
+    eligible: () => !!critter && !critter.isDestroyed() && lastStatus.state === 'idle' && !(flash?.until > Date.now()) && !dragging
+      && !perching?.isUp() && !climbing?.busy() && !pranks?.busy() && calmReason !== 'locked'
+      && !life?.busy() && !life?.onCall() && !playtime?.busy() && !visitor,
+    toCrab: (channel, payload) => send(critter, channel, payload),
+    speak: (occasion, opts) => speak(occasion, opts),
+    best: () => config.get('typingBest'),
+    setBest: wpm => config.set({ typingBest: wpm }),
+  });
+  if (!CAPTURE) typing.start();
+}
+
+// ================================================================ the weather outside
+
+// Countries that read the thermometer in Fahrenheit.
+const FAHRENHEIT = new Set(['US', 'LR', 'MM', 'BS', 'BZ', 'KY', 'PW']);
+const weatherUnit = () => (FAHRENHEIT.has(app.getLocaleCountryCode()) ? 'f' : 'c');
+
+function weatherView() {
+  const v = weatherSvc.view();
+  return { ...v, label: weatherRules.placeLabel(v.place), summary: weatherRules.describe(v.reading, weatherUnit()), unit: weatherUnit(), south: weatherRules.isSouth(v.place) };
+}
+
+function createWeather() {
+  weatherSvc = createWeatherService({
+    config,
+    fetch: (url, opts) => net.fetch(url, opts),
+    onReading: (prev, next) => {
+      broadcastWardrobe(); // the sou'wester goes on, or comes off
+      send(panel, 'weather', weatherView());
+      const occasion = weatherRules.remarkFor(prev, next);
+      if (occasion && weatherSvc.settings().remarks) speak(occasion);
+    },
+    // A reading too old to trust takes the umbrella off (weather.js dress).
+    onFail: () => broadcastWardrobe(),
+    log: msg => log.warn(msg),
+  });
+  if (CAPTURE) return;
+  weatherSvc.start();
+  // Asleep for hours: the last reading is stale, so ask again on waking.
+  powerMonitor.on('resume', () => weatherSvc.start());
 }
 
 // ================================================================ toolbox
@@ -3599,6 +3737,7 @@ function createGitHub() {
   github.schedule();
   if (github.can('sync')) setTimeout(() => github.sync().catch(() => {}), 30 * 1000);
   profileCard = new ProfileCard({ config, github });
+  prBadge = new prBadges.PrBadge({ config, github, level: currentLevel, web: githubEndpoints().web });
 }
 
 // ================================================================ usage limits
@@ -4276,8 +4415,22 @@ function makeIssueCopy({ repo, slug }) {
   });
 }
 
-async function openIssuePr({ folder, title, body, draft }) {
+// "Built with Shellby" on a pull request a tab just opened, when that's on.
+// Best effort: a badge that didn't make it is noted in Settings, nothing more.
+function badgePr(output) {
+  if (CAPTURE || !github?.can('prBadge')) return;
+  const pr = prBadges.prFromOutput(output, githubEndpoints().web);
+  if (!pr) return;
+  prBadge.addTo(pr)
+    .then(r => { if (!r.ok) log.warn('PR badge', r.error); send(panel, 'pr-badge', prBadge.view()); })
+    .catch(e => log.warn('PR badge', e.message));
+}
+
+async function openIssuePr({ folder, title, body: asked, draft }) {
   if (!github?.can('claude')) return { ok: false, error: 'Opening pull requests needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
+  // The badge goes in the body it opens with, rather than an edit after.
+  const badge = github.can('prBadge') ? await prBadge.block() : null;
+  const body = badge ? prBadges.withBadge(asked, badge) : asked;
   const r = await issueWork.openPullRequest({ folder, title, body, draft }, {
     gh: github.gh(), git: worktrees.git, home: worktreeHome(), env: github.claudeEnv(), web: githubEndpoints().web,
   });
@@ -4468,6 +4621,18 @@ async function confirmGitHubFeature(feature, on) {
       message: 'Shellby keeps an image of your crab in a public gist: his outfit, your level, your streak and your five latest stickers (pictures only, no project names).',
       detail: 'A small GitHub Action in your profile repository copies it in every few hours, so your profile README can show it. Shellby gives you the Action and the README line to paste; it never touches your repositories itself.',
       note: 'Turning this off deletes the gist. The last copy stays in your profile repo until you remove it.',
+      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
+  }
+  // The badge makes a public repository on your account and edits your pull requests: say so first.
+  if (feature === 'prBadge' && on) {
+    const response = await askOnce({
+      icon: '🦀',
+      title: 'Put your crab on your pull requests?',
+      message: 'When a Shellby tab opens a pull request, Shellby adds a small picture of your crab (dressed as he is now), your level and a link to Shellby at the bottom of its description.',
+      detail: `The picture has to live in a public repository for GitHub to show it, so Shellby makes one on your account, ${github.view().login || 'you'}/${prBadges.REPO}, holding only that picture (each new look is a commit, so earlier looks stay in its history). Only pull requests you open from Shellby get it, and you can delete it from any of them like any other text.\n\nGitHub has no permission for just one repository, so this asks for access to your public repositories (public_repo), the same one publishing Wardrobe packs uses. Shellby only ever writes to ${prBadges.REPO} and your own pull requests with it.`,
+      note: 'Turning this off stops new badges. The repository stays, so the pictures on pull requests you already opened keep working. The permission lasts until you sign out.',
       buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
     });
     if (response !== 0) return { ok: false, canceled: true, view: github.view() };
@@ -5723,7 +5888,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -5763,10 +5928,12 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
+    if ('ambient' in allowed && !sounds.AMBIENTS.includes(allowed.ambient)) delete allowed.ambient;
+    if ('soundVolume' in allowed && !sounds.VOLUMES.includes(allowed.soundVolume)) delete allowed.soundVolume;
     if ('crashReports' in allowed && !crashReport.CONSENTS.includes(allowed.crashReports)) delete allowed.crashReports;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     if ('climb' in allowed && !CLIMB_SETTINGS.includes(allowed.climb)) delete allowed.climb;
@@ -5804,6 +5971,15 @@ ${r.detail}` });
     if (allowed.pushToTalk === false) { ptt?.reset(); showListening(false); dictation?.stop(); }
     // Asked to hush, he stops mid-line rather than finishing it.
     if (allowed.chatter === 'quiet') { said = null; refreshCritter(); }
+    if (['sounds', 'soundFx', 'ambient', 'soundVolume'].some(k => k in allowed)) {
+      refreshCritter(); // the new mix goes with his state
+      // Switching a sound on, or changing the volume, plays a taste of it
+      // (unless he's on guard or you're on a call: the mix says so).
+      const m = soundMix();
+      const tasted = allowed.soundFx === true || allowed.sounds === true || 'soundVolume' in allowed;
+      if (tasted && m.fx) send(critter, 'critter:sound', { cue: 'tada' });
+      else if (tasted && m.voice) send(critter, 'critter:chirp', { occasion: 'success' });
+    }
     if ('mode' in allowed) manager.setMode(allowed.mode);
     // Always: what's waiting on an answer goes now. Never: it's dropped from the disk now.
     if (allowed.crashReports === 'always' || allowed.crashReports === 'never') drainCrashQueue();
@@ -5812,6 +5988,7 @@ ${r.detail}` });
     if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
     if ('openAtLogin' in allowed) applyLoginItem(allowed.openAtLogin);
     if ('skin' in allowed) broadcastSkin();
+    if ('onTop' in allowed) applyLayer();
     // Mischief on or off starts or stops its loop; pals and footprints open or close the floor strip.
     if ('mischief' in allowed || 'mischiefPranks' in allowed) pranks?.sync();
     if ('mischief' in allowed || 'mischiefPranks' in allowed || 'colony' in allowed) floor?.sync();
@@ -5855,6 +6032,14 @@ ${r.detail}` });
       return r.canceled ? null : r.filePaths[0] || null;
     },
     openPath: p => shell.openPath(p),
+  });
+
+  // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
+  registerTankIpc(ipcMain, {
+    config, stat,
+    wardrobe: () => wardrobe,
+    level: () => currentLevel(),
+    shipped: () => stickers.stats(stickerState()).stickers,
   });
 
   // ---- toolbox
@@ -6117,12 +6302,12 @@ ${r.detail}` });
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
+  const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    // claude, workflows, friends and the profile card are never granted by a first sign-in:
+    // claude, workflows, friends, the profile card and the PR badge are never granted by a first sign-in:
     // each has its own confirmation, so they can only be turned on deliberately afterwards.
-    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard']);
+    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard', 'prBadge']);
     const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await github.signIn(list);
     return { ...r, view: github.view() };
@@ -6150,6 +6335,9 @@ ${r.detail}` });
   ipcMain.handle('github:sync', async () => ({ ...(await github.sync()), view: github.view() }));
   ipcMain.handle('profile-card:get', () => profileCard.view());
   ipcMain.handle('profile-card:publish', async (_e, svg, force) => ({ ...(await profileCard.publish(svg, { force: force === true })), view: profileCard.view() }));
+  ipcMain.handle('pr-badge:get', () => prBadge.view());
+  // Only kept for the next pull request: nothing is uploaded until there is one.
+  ipcMain.handle('pr-badge:picture', (_e, svg) => ({ ok: prBadge.setSvg(svg), view: prBadge.view() }));
   // ---- Visiting crabs (src/main/friends.js)
   const noFriends = { ok: false, error: 'Visiting crabs is unavailable.' };
   ipcMain.handle('friends:get', () => (friends ? friendsView() : null));
@@ -6258,7 +6446,7 @@ ${r.detail}` });
       if (leave) return perching.leave('asked');
       return perching.tryGoUp({ hwnd: Number.isInteger(hwnd) ? hwnd : null, eye: false, any: !hwnd });
     });
-    ipcMain.handle('dev:perch-state', (_e, { debug = false } = {}) => ({ ...perching.view(), bounds: critter.getBounds(), motion: motion.kind, ...(debug ? { debug: perching.debug() } : {}) }));
+    ipcMain.handle('dev:perch-state', (_e, { debug = false } = {}) => ({ ...perching.view(), self: native.hwndOf(critter), bounds: critter.getBounds(), motion: motion.kind, ...(debug ? { debug: perching.debug() } : {}) }));
     // The edges of the screen, mischief and the floor: start a climb (or come down), force a prank, look at it all.
     ipcMain.handle('dev:climb', (_e, { side = null, leave = false } = {}) => (leave ? climbing.leave() : climbing.tryClimb({ side: ['left', 'right'].includes(side) ? side : null })));
     ipcMain.handle('dev:prank', (_e, { kind, ignore = [] } = {}) => pranks.force(kind, { ignore: Array.isArray(ignore) ? ignore.filter(x => typeof x === 'string') : [] }));
@@ -6505,6 +6693,33 @@ ${r.detail}` });
     broadcastSkin();
     return mediaView();
   });
+
+  // ---- typing along (typing.js)
+  ipcMain.handle('typing:get', () => typing.view());
+  ipcMain.handle('typing:set', (_e, patch) => {
+    const next = typingSettings();
+    for (const k of ['enabled', 'remarks']) if (patch && typeof patch === 'object' && k in patch) next[k] = !!patch[k];
+    config.set({ typing: next });
+    typing.sync();
+    return typing.view();
+  });
+
+  // ---- the weather outside (weather-service.js)
+  ipcMain.handle('weather:get', () => weatherView());
+  ipcMain.handle('weather:set', (_e, patch) => {
+    const p = patch && typeof patch === 'object' ? patch : {};
+    weatherSvc.set({
+      ...('enabled' in p ? { enabled: !!p.enabled } : {}),
+      ...('remarks' in p ? { remarks: !!p.remarks } : {}),
+      ...('place' in p ? { place: p.place } : {}), // checked by weather.normalizePlace
+    });
+    // A town south of the equator moves the seasons; switching off takes the sou'wester off.
+    wardrobe?.collectSeasonals();
+    broadcastWardrobe();
+    return weatherView();
+  });
+  ipcMain.handle('weather:search', (_e, query) => weatherSvc.search(typeof query === 'string' ? query : ''));
+  ipcMain.handle('weather:check', async () => { await weatherSvc.check(); return weatherView(); });
 
   // ---- the shellby command (clipath.js)
   ipcMain.handle('cli:get', () => cliView());
@@ -6960,6 +7175,7 @@ app.whenReady().then(() => {
   wardrobe = new Wardrobe({
     config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
     now: () => captureClock.now || new Date(),
+    south: () => seasonsWhere().south,
   });
   wardrobe.load();
   wardrobe.on('changed', broadcastWardrobe);
@@ -7012,7 +7228,7 @@ app.whenReady().then(() => {
   watchIdleCost();
   watchAway();
   watchLeaving();
-  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); life?.resendLook(); });
+  critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); life?.resendLook(); typing?.resend(); });
 
   if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin,
     makeTimeTracker: () => { createTimeTracker({ start: false }); return timeTracker; } });
@@ -7048,8 +7264,10 @@ app.whenReady().then(() => {
   createObs();
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
+  createWeather();
   createMedia();
   createLifeAndPlay();
+  createTypingAlong();
   createMischief();
   createDictation();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
@@ -7106,6 +7324,7 @@ app.on('second-instance', (_e, argv) => {
 });
 app.on('window-all-closed', e => e.preventDefault());
 app.on('will-quit', () => {
+  typing?.stop(); // lets go of the keyboard (keystrokes.js)
   statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
   globalShortcut.unregisterAll();
   scheduler?.stop();

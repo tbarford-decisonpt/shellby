@@ -66,3 +66,86 @@ test('veil ignores a missing or destroyed window', () => {
   assert.doesNotThrow(() => veil(null, true));
   assert.doesNotThrow(() => veil({ isDestroyed: () => true }, true));
 });
+
+// ---------------------------------------------------------------- on top of your apps
+// The Win32 side, stubbed: desktop-layer.js reaches it through the module object.
+const native = require('../src/main/native-windows');
+const { pin, sendToBottom, tuckUnder, setOnTop, isPinned } = require('../src/main/desktop-layer');
+
+const HOST = 900, HWND_BOTTOM = 1, HWND_TOPMOST = -1, HWND_NOTOPMOST = -2;
+let calls;
+let owners;
+Object.assign(native, {
+  load: () => ({ SetWindowPos: (h, after) => { calls.push(['pos', h, after]); return true; } }),
+  available: () => true,
+  hwndOf: w => w.hwnd,
+  desktopHost: () => HOST,
+  ownBy: (h, owner) => { owners.set(h, owner); return true; },
+  ownerOf: h => owners.get(h) || 0,
+  float: h => { owners.set(h, 0); calls.push(['float', h]); return true; },
+});
+
+function fakeWindow(hwnd) {
+  let top = false;
+  return { hwnd, isDestroyed: () => false, setAlwaysOnTop: on => { top = on; }, isAlwaysOnTop: () => top };
+}
+function reset() {
+  calls = [];
+  owners = new Map();
+}
+
+test('on top, pin lifts his window off the desktop and makes it topmost', () => {
+  reset();
+  setOnTop(() => true);
+  const w = fakeWindow(10);
+  owners.set(10, HOST);
+  assert.equal(pin(w), true);
+  assert.equal(w.isAlwaysOnTop(), true);
+  assert.equal(native.ownerOf(10), 0);
+  assert.deepEqual(calls.at(-1), ['pos', 10, HWND_TOPMOST]);
+  assert.equal(isPinned(w), true);
+});
+
+test('a lifted window is never sent to the bottom (that would end its topmost)', () => {
+  reset();
+  setOnTop(() => true);
+  const w = fakeWindow(11);
+  pin(w);
+  calls = [];
+  sendToBottom(w);
+  assert.deepEqual(calls, []);
+});
+
+test('the floor tucks in just behind him when both are on top', () => {
+  reset();
+  setOnTop(() => true);
+  const crab = fakeWindow(12), floor = fakeWindow(13);
+  pin(crab);
+  pin(floor);
+  calls = [];
+  tuckUnder(floor, crab);
+  assert.deepEqual(calls, [['pos', 13, 12]]);
+});
+
+test('switched back, pin drops the topmost and owns him by the desktop again', () => {
+  reset();
+  setOnTop(() => true);
+  const w = fakeWindow(14);
+  pin(w);
+  setOnTop(() => false);
+  assert.equal(isPinned(w), false);
+  calls = [];
+  assert.equal(pin(w), true);
+  assert.equal(w.isAlwaysOnTop(), false);
+  assert.equal(native.ownerOf(14), HOST);
+  assert.deepEqual(calls, [['pos', 14, HWND_NOTOPMOST], ['pos', 14, HWND_BOTTOM]]);
+  assert.equal(isPinned(w), true);
+});
+
+test('on the desktop, the floor goes to the bottom under him', () => {
+  reset();
+  setOnTop(() => false);
+  const crab = fakeWindow(15), floor = fakeWindow(16);
+  tuckUnder(floor, crab);
+  assert.deepEqual(calls, [['pos', 16, HWND_BOTTOM]]);
+});

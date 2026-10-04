@@ -82,11 +82,15 @@
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('flakyToggle').checked = state.settings.flakyTests !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
+    $('onTopToggle').checked = state.settings.onTop === true;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
     renderBillingGuard();
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    $('soundFxToggle').checked = !!state.settings.soundFx;
+    $('ambientSelect').value = ['off', 'surf', 'tidepool'].includes(state.settings.ambient) ? state.settings.ambient : 'off';
+    $('soundVolumeSelect').value = [25, 60, 100].includes(state.settings.soundVolume) ? String(state.settings.soundVolume) : '60';
     $('needsToggle').checked = state.settings.needsOn !== false;
     $('crashReportsRow').hidden = !state.settings.crashReportsAvailable;
     $('crashReportsSelect').value = ['ask', 'always', 'never'].includes(state.settings.crashReports) ? state.settings.crashReports : 'ask';
@@ -199,6 +203,7 @@
   });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
   $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; renderPerch(); });
+  $('onTopToggle').addEventListener('change', async e => { const r = await api.setSettings({ onTop: e.target.checked }); state.settings = r.settings; });
   $('perchSelect').addEventListener('change', async e => { const r = await api.setSettings({ perch: e.target.value }); state.settings = r.settings; renderPerch(); });
   $('climbSelect').addEventListener('change', async e => { const r = await api.setSettings({ climb: e.target.value }); state.settings = r.settings; renderPerch(); });
   $('colonySelect').addEventListener('change', async e => {
@@ -261,6 +266,9 @@
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
   $('crashReportsSelect').addEventListener('change', async e => { const r = await api.setSettings({ crashReports: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
+  $('soundFxToggle').addEventListener('change', async e => { const r = await api.setSettings({ soundFx: e.target.checked }); state.settings = r.settings; });
+  $('ambientSelect').addEventListener('change', async e => { const r = await api.setSettings({ ambient: e.target.value }); state.settings = r.settings; });
+  $('soundVolumeSelect').addEventListener('change', async e => { const r = await api.setSettings({ soundVolume: Number(e.target.value) }); state.settings = r.settings; });
   // His needs (src/main/needs.js). Back on, he comes back full; the Us page follows.
   $('needsToggle').addEventListener('change', async e => {
     const r = await api.setSettings({ needsOn: e.target.checked });
@@ -605,6 +613,74 @@
   $('npHeadphones').addEventListener('change', e => setNp({ headphones: e.target.checked }));
   $('npRemarks').addEventListener('change', e => setNp({ remarks: e.target.checked }));
   api.onNowPlaying(v => { if (state.view === 'settings') renderNowPlaying(v); });
+
+  // ---------------------------------------------------------------- typing along
+  function renderTyping(v) {
+    $('typingEnabled').checked = !!v.enabled;
+    $('typingBody').hidden = !v.enabled;
+    $('typingRemarks').checked = v.remarks !== false;
+    $('typingStatus').textContent = !v.available ? "Windows isn't letting him hear the keyboard here."
+      : v.best ? `Your fastest burst so far: ${v.best} words a minute.` : 'Type fast for a few seconds and see what he thinks.';
+    $('typingStatus').className = `small ext-status ${v.available && v.best ? 'ok' : ''}`;
+  }
+  const setTyping = patch => api.setTyping(patch).then(renderTyping);
+  $('typingEnabled').addEventListener('change', e => setTyping({ enabled: e.target.checked }));
+  $('typingRemarks').addEventListener('change', e => setTyping({ remarks: e.target.checked }));
+
+  // ---------------------------------------------------------------- the weather outside
+  const minutesAgo = at => {
+    const m = Math.round((Date.now() - at) / 60000);
+    return m < 1 ? 'just now' : m === 1 ? 'a minute ago' : m < 90 ? `${m} minutes ago` : `${Math.round(m / 60)} hours ago`;
+  };
+  function renderWeather(v) {
+    $('weatherEnabled').checked = !!v.enabled;
+    $('weatherBody').hidden = !v.enabled;
+    $('weatherRemarks').checked = v.remarks !== false;
+    if (v.label && document.activeElement !== $('weatherQuery')) $('weatherQuery').value = v.place?.name || '';
+    const status = $('weatherStatus');
+    status.className = 'small ext-status';
+    if (!v.place) status.textContent = 'Find your town to begin.';
+    else if (v.reading) { status.textContent = `${v.summary} in ${v.label}, checked ${minutesAgo(v.reading.at)}.`; status.classList.add('ok'); }
+    else if (v.error) status.textContent = `${v.label}: ${v.error[0].toUpperCase()}${v.error.slice(1)}. He'll try again shortly.`;
+    else status.textContent = `Checking the weather in ${v.label}…`;
+  }
+  const setWeather = patch => api.setWeather(patch).then(renderWeather);
+  $('weatherEnabled').addEventListener('change', e => setWeather({ enabled: e.target.checked }));
+  $('weatherRemarks').addEventListener('change', e => setWeather({ remarks: e.target.checked }));
+
+  function showPlaces(places) {
+    const host = $('weatherPlaces');
+    host.replaceChildren(...places.map(p => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn ghost slim-btn';
+      b.textContent = [p.name, p.region, p.country].filter(Boolean).join(', ');
+      b.addEventListener('click', () => {
+        host.hidden = true;
+        host.replaceChildren();
+        setWeather({ place: p });
+      });
+      return b;
+    }));
+    host.hidden = !places.length;
+    host.querySelector('button')?.focus();
+  }
+  $('weatherSearch').addEventListener('submit', async e => {
+    e.preventDefault();
+    const find = $('weatherFind');
+    find.disabled = true;
+    $('weatherStatus').textContent = 'Looking…';
+    try {
+      const r = await api.searchWeather($('weatherQuery').value);
+      showPlaces(r.places || []);
+      $('weatherStatus').textContent = r.error || (r.places.length === 1 ? 'Is this the one?' : 'Which one?');
+    } catch {
+      $('weatherStatus').textContent = "Couldn't search just now.";
+    } finally {
+      find.disabled = false;
+    }
+  });
+  api.onWeather(v => { if (state.view === 'settings') renderWeather(v); });
   api.onObs(v => { if (state.view === 'settings') renderObs(v); });
 
   document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
@@ -672,6 +748,8 @@
       api.getObs().then(renderObs);
       api.getRgb().then(renderRgb);
       api.getNowPlaying().then(renderNowPlaying);
+      api.getTyping().then(renderTyping);
+      api.getWeather().then(renderWeather);
     },
   };
 

@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onSound: on('critter:sound'), // a ta-da and the like (src/renderer/critter/sound.js)
     onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
     onTogether: on('critter:together'), // ...and the two of them do something together
@@ -213,6 +214,9 @@ contextBridge.exposeInMainWorld('shellby', {
   githubSync: invoke('github:sync'),
   getProfileCard: invoke('profile-card:get'),
   publishProfileCard: invoke('profile-card:publish'),
+  getPrBadge: invoke('pr-badge:get'),
+  setPrBadgePicture: invoke('pr-badge:picture'),
+  onPrBadge: on('pr-badge'),
   githubManage: () => ipcRenderer.send('github:manage'),
   publishPack: invoke('github:publish'),
   onGitHub: on('github'),
@@ -299,6 +303,10 @@ contextBridge.exposeInMainWorld('shellby', {
   // the beach: a castle per project shipped, the tide, his finds (beach.js)
   getBeach: invoke('beach:get'),
   beachSeen: invoke('beach:seen'),
+  // his tank: decor you place and he lives among (tank.js)
+  getTank: invoke('tank:get'),
+  saveTank: invoke('tank:save'),
+  tankSeen: fire('tank:seen'),
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),
@@ -405,6 +413,13 @@ contextBridge.exposeInMainWorld('shellby', {
   getNowPlaying: invoke('nowplaying:get'),
   setNowPlaying: invoke('nowplaying:set'),
   onNowPlaying: on('nowplaying'),
+  getTyping: invoke('typing:get'),     // tapping along while you type (typing.js)
+  setTyping: invoke('typing:set'),
+  getWeather: invoke('weather:get'),   // the weather outside (weather-service.js)
+  setWeather: invoke('weather:set'),
+  searchWeather: invoke('weather:search'),
+  checkWeather: invoke('weather:check'),
+  onWeather: on('weather'),
 
   // the shellby command
   getCli: invoke('cli:get'),

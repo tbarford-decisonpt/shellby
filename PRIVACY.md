@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 4 October 2026, adding crash reports.*
+*Last updated: 4 October 2026, adding the weather and typing along.*
 
 Shellby is a desktop app that runs on your PC. It has **no servers, no accounts of its own, no telemetry and no analytics**. Nobody behind Shellby, including its author, receives anything about you or how you use it, except a crash report you choose to send (below).
 
@@ -21,6 +21,7 @@ What Shellby does do is talk to a few services on your behalf: GitHub to check f
 | **CI status** | GitHub | Searches for your open pull requests and ones awaiting your review, and their check results | Every 3 minutes, while it's on. |
 | **Visiting crabs** | GitHub (a *public* gist in your account, and your friends' gists) | Your calling card: GitHub username, skin, shell, level, outfit, sticker art, his temperament and his favourite find from digging, and up to 3 project names only if you pick **Shell and names**. Waves are posted as gist comments. | Every few minutes, while it's on. Turning it off deletes your card. Off by default. |
 | **Profile card** | GitHub (a *public* gist in your account) | An SVG picture: your GitHub username, crab and outfit, level and title, streak length, and the art of your five latest stickers (no project names; hidden projects left off). A GitHub Action you add to your profile repository copies it there. | When it changes, and at most once a day otherwise, while it's on. Turning it off or signing out deletes the gist; the copy in your profile repository stays until you remove it. Off by default. |
+| **Built with Shellby (pull request badge)** | GitHub (a *public* repository in your account, `shellby-badge`, and the descriptions of your pull requests) | An SVG picture of your crab in his outfit (shell stickers from hidden projects left off), committed to `shellby-badge` (each new look is a new commit, so earlier looks stay in its history). Needs GitHub's `public_repo` permission, which covers all your public repositories; Shellby writes only to `shellby-badge` and your own pull requests with it. Pull requests your Shellby tabs open get that picture, your level and a link to Shellby added at the bottom of their description; only ones you authored. | The picture is uploaded only when a tab opens a pull request and his look has changed since the last one. Turning it off stops new badges; the repository stays so badges on earlier pull requests keep working, and you can delete it yourself. Off by default. |
 | **Publishing a Wardrobe pack** | GitHub | Your pack, as a pull request to `x-salmon/shellby-packs` | When you publish one. |
 | **Let Claude tasks push** | GitHub, through `git` and `gh` in your tabs | Your GitHub sign-in is handed to the Claude Code tasks Shellby runs, so they can push | Off by default, with a warning before it's turned on. |
 | **Community packs and outfit codes** | `x-salmon.github.io/shellby-packs` | Requests for the pack index, catalog and pack files | When you open a `shellby://install` link or paste an outfit code that needs items you don't have. |
@@ -31,6 +32,7 @@ What Shellby does do is talk to a few services on your behalf: GitHub to check f
 | **Git** | Your project's own remote (e.g. GitHub) | `git fetch` and `git push`, with your usual git credentials | When you open a tab's repository menu, **Push**, or **Bring it home and push**. |
 | **Skill Shop, MCP servers and the Shellby plugin** | The source of whatever you install (usually GitHub), through Claude Code | Claude Code's download requests | When you install or update one, after a confirmation window. |
 | **Installing OpenRGB** | OpenRGB's GitHub releases, through winget | winget's download request | When you click install and confirm. |
+| **Weather** | [Open-Meteo](https://open-meteo.com/en/terms) (`api.open-meteo.com`, `geocoding-api.open-meteo.com`) | The town name you type when you search for it, then only your chosen town's latitude and longitude rounded to one decimal place (about 11 km). Nothing else about you; like any web request it carries your IP address, and Electron's usual headers (Shellby's name and version in the User-Agent, your language). | A search when you press **Find**; then every 30 minutes and when the PC wakes, while it's on. Off until you turn it on and pick a town. |
 
 **Crash reports (Sentry).** When Shellby crashes, hits an error it carries on from, or closes without being quit, it gets a report ready and keeps it on your PC (`%APPDATA%\Shellby\sentry`). The first time, it asks: **Send report**, **Always send** or **Don't send**. Nothing goes until you answer, and you can change it in **Settings → About → Crash reports** (Ask me each time, Always send, Never send). A report goes to [Sentry](https://sentry.io/privacy/), the crash-report service Shellby uses, and has:
 
@@ -52,6 +54,7 @@ What these services do with your data is up to them, under their own policies: [
 - **Push-to-talk audio.** Windows' offline speech recognizer hears it, on your PC. The microphone is only open while you hold the shortcut.
 - **The time tracker.** It reads the title of the window in front to tell which project you're in, and keeps only the project, the day and the minutes. It is never synced.
 - **Which apps he perches on**, Now Playing, your usage counts and weekly summaries.
+- **Typing along** (off until you turn it on in **Settings → Typing along**). Windows hands Shellby each key event, in any app, so he can tap along. He looks only at whether a key was let go and wipes the rest of the event straight away: never which key, never what you typed. His window on the desktop isn't even told when each key was pressed, only that some were, on a steady beat. From your speed he keeps one number, your fastest burst in words a minute.
 - **Toolbox → Lean.** To tell which plugins and MCP servers sit idle, Shellby reads Claude Code's own transcripts on this PC (`.claude\projects`), and keeps only the names of the skills, agents, commands and servers used and when. Never what was said. It also keeps token counts per day (how much came from the prompt cache) and what a new conversation carries before your first word.
 - **The local connections** for the `shellby` command, the Claude Code plugin and hooks (port 47913), the OBS overlay (port 47914, off by default), OpenRGB and sensor apps. They only accept connections from this PC (`127.0.0.1`).
 
@@ -66,7 +69,7 @@ What these services do with your data is up to them, under their own policies: [
 
 Uninstalling Shellby removes the app but **keeps your data**, so a reinstall picks up where you left off. To remove everything, uninstall and then delete `%APPDATA%\Shellby`, `%LOCALAPPDATA%\Shellby` and `Pictures\Shellby`.
 
-Things stored in your GitHub account stay there until you remove them: turn off Visiting crabs to delete your calling card, turn off Profile card to delete its gist (and remove `shellby-profile.svg` from your profile repository yourself), delete the `shellby-sync.json` gist from [your gists](https://gist.github.com), and revoke Shellby under [GitHub → Settings → Applications](https://github.com/settings/applications).
+Things stored in your GitHub account stay there until you remove them: turn off Visiting crabs to delete your calling card, turn off Profile card to delete its gist (and remove `shellby-profile.svg` from your profile repository yourself), delete the `shellby-badge` repository if you used the pull request badge (badges on earlier pull requests then show a broken image), delete the `shellby-sync.json` gist from [your gists](https://gist.github.com), and revoke Shellby under [GitHub → Settings → Applications](https://github.com/settings/applications).
 
 ## Changes
 

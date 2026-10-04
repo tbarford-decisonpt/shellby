@@ -32,6 +32,33 @@ test('a thrown crab falls, bounces off walls and the floor, and lands', () => {
   assert.equal(body.y, BOX.floorY);
 });
 
+test('stepFlight says what he bumped into', () => {
+  assert.equal(stepFlight({ x: 1690, y: 500, vx: 2000, vy: 0 }, 16, BOX).hit, 'wall');
+  assert.equal(stepFlight({ x: 500, y: 5, vx: 0, vy: -2000 }, 16, BOX).hit, 'ceiling');
+  assert.equal(stepFlight({ x: 500, y: 895, vx: 0, vy: 1500 }, 16, BOX).hit, 'floor');
+  assert.equal(stepFlight({ x: 500, y: 899, vx: 0, vy: 100 }, 16, BOX).hit, null, 'a soft touchdown is a landing, not a bump');
+  assert.equal(stepFlight({ x: 500, y: 400, vx: 100, vy: 0 }, 16, BOX).hit, null);
+});
+
+test('CritterMotion reports each bounce of a throw, hardest first', () => {
+  let pos = { x: 1500, y: 400 };
+  let tick = null, t = 0;
+  const bounces = [];
+  const states = [];
+  const m = new CritterMotion({
+    getPos: () => pos, place: (x, y) => { pos = { x, y }; }, box: () => BOX,
+    onState: s => states.push(s), onBounce: b => bounces.push(b),
+    setTimer: fn => { tick = fn; return 1; }, clearTimer: () => { tick = null; }, now: () => t,
+  });
+  m.launch({ vx: 3000, vy: -500 });
+  for (let i = 0; i < 500 && tick; i++) { t += 16; tick(); }
+  assert.ok(bounces.some(b => b.hit === 'wall'), JSON.stringify(bounces));
+  const floors = bounces.filter(b => b.hit === 'floor');
+  assert.ok(floors.length >= 1);
+  assert.ok(floors[0].speed > floors.at(-1).speed || floors.length === 1, 'each floor bounce is softer');
+  assert.deepEqual(states, ['flying', null, 'landed'], 'bounces stay out of the state sequence');
+});
+
 test('strolls stay near his spot and on screen', () => {
   const seq = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2];
   let i = 0;

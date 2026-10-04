@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onMotion: on('critter:motion'),
     onBit: on('critter:bit'),
     onChirp: on('critter:chirp'),
+    onSound: on('critter:sound'), // a ta-da and the like (src/renderer/critter/sound.js)
     onCalm: on('critter:calm'),
     onVisitor: on('critter:visitor'),
     onTogether: on('critter:together'),
@@ -49,6 +50,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onVisitorSay: on('critter:visitor-say'),
     // You came back after a while away: he says hello (src/main/main.js greet).
     onGreet: on('critter:greet'),
+    // You're typing (src/main/typing.js): tap along, faster, or look on impressed.
+    onTyping: on('critter:typing'),
   },
 
   // Files dropped on him: their paths, or (for a picture with no file behind

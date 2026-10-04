@@ -170,7 +170,51 @@
     // health overlays are positioned against (hats just overflow upwards).
     $('hlSprite').replaceChildren(SB.sprite(state.skin, { fit: false }));
     if (!fx) fx = window.ShellbyHealthFx.mount($('hlFx'), $('hlHero'));
+    renderPorthole();
   }
+
+  // ------------------------------------------------------------ the porthole
+
+  // A window into his real tank (tank.js, tank-paint.js): the floor, the back
+  // glass and whatever stands nearest his spot, painted once, still. He and
+  // his mood effects stay on top as before, at --px, so they scale together.
+  // An empty tank looks just as this always has.
+  const PORTHOLE_PX = 4;   // css px per art pixel, as --px on .has-porthole
+  const CRAB_LIFT = 14;    // css px, .hl-crab's bottom
+  const FOCUS_AT = 0.28;   // his favourite piece stands to his left, not behind him
+  function renderPorthole(v = SB.tankView?.()) {
+    const box = $('hlHero').querySelector('.hl-tank');
+    const P = SB.tankPaint;
+    let canvas = box.querySelector('.hl-porthole');
+    const show = !!(P && v && v.pieces.length);
+    box.classList.toggle('has-porthole', show);
+    if (!show) { canvas?.remove(); box.style.removeProperty('--px'); return; }
+    if (!box.dataset.watched) { // a narrow panel changes its size: paint it again at the new one
+      box.dataset.watched = '1';
+      new ResizeObserver(() => { if (state.view === 'health') renderPorthole(); }).observe(box);
+    }
+    if (!canvas) {
+      canvas = h('canvas', { class: 'hl-porthole', 'aria-hidden': 'true' });
+      box.prepend(canvas);
+    }
+    const dpr = window.devicePixelRatio || 1;
+    // Whole device pixels a pixel, as near --px as they come (exact at 100–200%),
+    // and he and his moods take the same scale, so they stand on the floor.
+    const K = Math.max(1, Math.round(PORTHOLE_PX * dpr));
+    box.style.setProperty('--px', `${K / dpr}px`);
+    const cssW = box.clientWidth || 148, cssH = box.clientHeight || 112;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    const scene = P.resolve(v.layout, v);
+    const artW = canvas.width / K;
+    const ox = Math.max(0, Math.min(scene.world.w - artW, v.focusX - artW * FOCUS_AT));
+    const oy = scene.world.crabY + 1 - (cssH - CRAB_LIFT) * dpr / K;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(K, 0, 0, K, -Math.round(ox * K), -Math.round(oy * K));
+    P.paint(ctx, scene, { still: true });
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  document.addEventListener('sb:tank', e => { if (state.view === 'health') renderPorthole(e.detail); });
 
   // ------------------------------------------------------------ gauges
 

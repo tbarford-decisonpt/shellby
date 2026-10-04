@@ -92,6 +92,16 @@ const OCCASIONS = Object.freeze({
   pop: { every: MINUTE, ttl: 4 * SECOND },
   caught: { every: 30 * SECOND, ttl: 5 * SECOND },
 
+  // --- you, typing (typing.js): a burst he watched you finish
+  typingBurst: { every: 10 * MINUTE, ttl: 5 * SECOND },
+  typingRecord: { every: 0, ttl: 7 * SECOND },
+
+  // --- the weather outside (weather.js remarkFor), as it turns
+  rainStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  snowStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  stormStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  rainStopped: { every: 2 * HOUR, ttl: 6 * SECOND },
+
   // --- up the edges of the screen (see climb.js)
   climb: { every: 3 * MINUTE, ttl: 4 * SECOND },
   stuck: { every: 30 * SECOND, ttl: 4 * SECOND },
@@ -167,6 +177,12 @@ const LINES = Object.freeze({
   dizzy: ['the room spins', 'whoa…', 'which way is up'],
   pop: ['boing!', 'squashed!', 'okay okay'],
   caught: ['caught it!', 'stuck the landing', 'ta-da'],
+  typingBurst: ['whoa, fast', 'claws are tired', 'look at you go', 'keyboard on fire'],
+  typingRecord: ['new record!', 'fastest yet!', 'personal best!'],
+  rainStart: ["it's raining out", 'brolly time', 'rain! my favourite', 'hear that rain?'],
+  snowStart: ["it's snowing!", 'snow!', 'hat on, then'],
+  stormStart: ['thunder…', 'storm coming', 'hold the brolly'],
+  rainStopped: ['rain stopped', 'dry again', 'puddles now'],
   climb: ['going up', 'hup!', 'to the top!', 'sticky feet'],
   stuck: ['stuck it!', 'sticky feet!', 'got a grip', 'splat. hi'],
   leap: ['geronimo!', 'wheee', 'catch me!'],

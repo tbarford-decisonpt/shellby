@@ -24,9 +24,11 @@ const SUITE = [
   'e2e-flaky-issue',  // a flaky test filed as a GitHub issue: no button without GitHub, asks first, labelled and linked
   'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
+  'e2e-sound',        // footsteps, bumps, ta-das and the background: on, off, on guard and on a call
   'e2e-life',         // his life between tasks: scenes, gifts, the Finds and Us pages, your day, birthdays, hide and seek, fetch
   'e2e-needs',        // snacks and naps: how a neglected crab looks, the Us card, feed, rinse, tuck in, switching it off
   'e2e-health',       // every health mood, with scripted sensors
+  'e2e-tank',         // his tank: decorating by keyboard, what main refuses, the Health porthole, kept after a restart
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
   'e2e-changes',      // a turn's diff and Undo, a worktree per tab, answering from the phone

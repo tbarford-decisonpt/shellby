@@ -84,8 +84,16 @@ api.onSkin(msg => {
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue));
   // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
   if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
-  fx.set(outfit.effect);
+  // Real rain outside beats the snow he chose to wear.
+  const effect = outfit.weather?.effect || outfit.effect;
+  if (effect?.key !== shownEffect) { shownEffect = effect?.key ?? null; fx.set(effect); }
+  // A shiver in the cold, a sweat in the heat, a flinch at thunder (critter.css, life.js).
+  for (const m of WEATHER_MOODS) flags.delete(`weather-${m}`);
+  if (WEATHER_MOODS.includes(outfit.weather?.mood)) flags.add(`weather-${outfit.weather.mood}`);
+  paintBody();
 });
+const WEATHER_MOODS = ['storm', 'cold', 'hot'];
+let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles
 
 api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
 
@@ -97,6 +105,10 @@ function drawSelf() {
   const shell = molt ? molt.shell : outfit.home;
   // Between shells, whatever sits on the shell (a flag, bat wings) has nowhere to go.
   let accessories = molt?.shell === 'none' ? outfit.accessories.filter(a => a.slot !== 'shell') : outfit.accessories;
+  // Dressed for the weather outside (src/main/weather.js): the sou'wester and
+  // umbrella go over his own things, and everything below still outranks them.
+  const gear = outfit.weather?.accessories || [];
+  if (gear.length) accessories = [...accessories.filter(a => !gear.some(g => g.slot === a.slot)), ...gear];
   // On guard: the helmet goes on instead of whatever hat he wears.
   if (focusing?.phase === 'focus' && outfit.focusHelmet) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.focusHelmet];
   // Something is playing: headphones on, unless he's already wearing the helmet.
@@ -275,7 +287,7 @@ api.onSticker(msg => {
       slap = null;
       drawSelf();
       paintBody();
-      if (at) { sandPuff(at); glint(msg.id); }
+      if (at) { sandPuff(at); glint(msg.id); window.ShellbySound.cue('slap'); }
     }, landAt),
     setTimeout(endSlap, landAt + SLAP_LAND_MS),
   ];
@@ -394,6 +406,7 @@ api.onState(msg => {
   limit = msg.limit || null;
   say = msg.say || null;
   onCall = !!msg.call;
+  window.ShellbySound.setMix(msg.sound);
   needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;
   const wasGuarding = focusing?.phase === 'focus';
   focusing = msg.focus || null;
@@ -504,6 +517,8 @@ const MOTION_FLAGS = [
 const FLY_STYLES = new Set(['fall', 'fling', 'pop']); // 'tumble' is the plain throw
 const DIZZY_MS = 2600;
 const WHEEE_MS = 1800;
+const BOUNCE_HARD = 2500;  // DIP/s: a bump this fast or faster is as loud as a bump gets
+const AMBLE = 38;          // DIP/s: his walking pace when a walk doesn't say (motion.js STROLL_SPEED)
 const root = document.documentElement.style;
 const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || 0));
 let landedTimer = null;
@@ -557,6 +572,7 @@ api.onMotion(msg => {
   const { kind, vx = 0 } = msg || {};
   // Beats that layer on top of whatever he's doing rather than replacing it.
   if (kind === 'lean') { setLean(vx); paintBody(); return; }
+  if (kind === 'bounce') { window.ShellbySound.cue('bounce', { hit: msg.hit, strength: msg.speed / BOUNCE_HARD }); return; }
   if (kind === 'dizzy') { dizzy(msg.ms); return; }
   if (kind === 'wheee') {
     clearTimeout(wheeeTimer);
@@ -567,6 +583,8 @@ api.onMotion(msg => {
   }
   for (const f of MOTION_FLAGS) flags.delete(f);
   clearTimeout(landedTimer);
+  // Hauling a prank along is walking too, just backwards. His feet go quiet the moment he stops.
+  window.ShellbySound.scuttle(kind === 'walking' || kind === 'hauling' ? msg.speed || AMBLE : 0);
   if (kind !== 'perched' && kind !== null) endBit();
   if (kind !== 'cling') setLean(0);
   if (kind === 'flying') {
@@ -586,12 +604,14 @@ api.onMotion(msg => {
     if (msg.flip) flags.add('hop-flip');
     root.setProperty('--hop-ms', `${clampN(msg.ms, 200, 2000)}ms`);
     setDir(vx);
+    window.ShellbySound.cue('hop');
   }
   if (kind === 'landed') {
     flags.add('landed');
     puff();
     landedTimer = setTimeout(() => { flags.delete('landed'); paintBody(); }, 700);
     if (msg.dizzy) dizzy();
+    window.ShellbySound.cue('land', { strength: msg.dizzy ? 1 : 0.4 });
   }
   if (kind === 'cling') flags.add('cling');
   if (kind === 'scramble') flags.add('scramble');
@@ -602,17 +622,20 @@ api.onMotion(msg => {
 // ---- up on a window. Perched, everything but the crab himself lets the mouse
 // through to the title bar under him, so main needs to know when the pointer
 // is over him (the moves are forwarded even while the window ignores clicks).
+// Kept on top of your apps, his window lets the mouse through on the floor too.
 let perched = false;
+let through = false;
 let overMe = false;
 const setOver = over => { if (over !== overMe) { overMe = over; api.hit(over); } };
 api.onPerch(msg => {
   perched = !!msg?.up;
+  through = msg?.through ?? perched;
   if (perched) flags.add('on-perch'); else flags.delete('on-perch');
-  if (!perched) overMe = false;
+  if (!through) overMe = false;
   paintBody();
 });
 document.addEventListener('mousemove', e => {
-  if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
+  if (through) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
 });
 
 // ---- up a wall or hanging from the top of the screen (src/main/climbing.js).
@@ -625,7 +648,7 @@ api.onSurface(msg => {
   if (surface !== 'floor') flags.add(`surface-${surface}`);
   paintBody();
 });
-document.addEventListener('mouseleave', () => { if (perched) setOver(false); });
+document.addEventListener('mouseleave', () => { if (through) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });
 
 // ---- drop files onto Shellby to attach them to a task
@@ -676,14 +699,20 @@ api.onBit(msg => {
   bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, ms);
 });
 
-// ---- a little chirp when he speaks (off by default; see chirp.js)
+// ---- a little chirp when he speaks, a ta-da for a big moment (off by default;
+// see chirp.js and sound.js). Main decides whether; this only plays.
 api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
+api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(msg.cue); });
 
 // ---- the screen is locked (or the machine is suspending): stop animating.
 // He is on the wallpaper, so he animates all day; while the screen is off there
 // is nothing to see and it is pure drain. Paused, not stopped, so unlocking
 // picks up mid-breath. See watchIdleCost in src/main/main.js.
-api.onCalm(msg => document.body.classList.toggle('calm-deep', !!msg?.calm));
+api.onCalm(msg => {
+  document.body.classList.toggle('calm-deep', !!msg?.calm);
+  // Behind a window you can still hear him; only a locked screen fades the sea out.
+  window.ShellbySound.setCalm(!!msg?.locked);
+});
 
 // ---- and while you can see him, he moves at a pixel-art frame rate, not the
 // screen's: a transparent window pays the GPU for every frame (shared/framecap.js).
@@ -783,5 +812,6 @@ window.ShellbyCritter = {
   flags, paint: paintBody, setDir, hearts,
   px: () => px,
   claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,
+  rows: () => skin?.pixels?.length || 0, // his height in sprite pixels, to put things on the ground beside him
   visitor: () => visitorEl,
 };

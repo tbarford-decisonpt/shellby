@@ -40,6 +40,8 @@ For AMD CPUs, Shellby uses the `Core (Tctl/Tdie)` sensor. For Intel CPUs it uses
 
 If more than one thing is wrong, the worst one wins: scorching, then hot, then dizzy, then stuffed.
 
+Once you've put something in [his tank](TANK.md), the picture of him at the top of the Health view is a window into it, and his moods show on top as usual.
+
 So Shellby doesn't panic at every spike:
 
 - **Temperatures** must stay over the line for **20 seconds** before he reacts, and back under it for 30 seconds (by at least 3°C) before he calms down.

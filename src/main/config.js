@@ -37,6 +37,7 @@ const DEFAULTS = {
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   wander: true,      // idle strolls near his spot (see motion.js)
+  onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop-layer.js)
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
   perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)
@@ -48,6 +49,9 @@ const DEFAULTS = {
   colony: 0,         // pals who hang out with him on the floor, 0 to 5 (see floor.js)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
+  soundFx: false,    // his feet, bumps, landings and a ta-da for big moments (see sounds.js)
+  ambient: 'off',    // the background: off | surf | tidepool (src/renderer/critter/ambient.js)
+  soundVolume: 60,   // 25 | 60 | 100: soft, normal, loud
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
@@ -69,6 +73,7 @@ const DEFAULTS = {
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
+  tank: null,         // his tank: its size, floor and back glass, and where each piece stands (see tank.js)
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
@@ -109,6 +114,10 @@ const DEFAULTS = {
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
   rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
+  typing: null,       // { enabled, remarks }: tapping along while you type (see typing.js); off until you turn it on
+  typingBest: 0,      // your fastest burst, in words a minute (typing.js)
+  weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather-service.js); off until you pick a town
+  weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)

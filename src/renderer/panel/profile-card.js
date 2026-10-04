@@ -187,5 +187,6 @@ ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="
   $('pcCopyWorkflow').addEventListener('click', () => copy(current?.workflow, 'Action'));
   $('pcCopyReadme').addEventListener('click', () => copy(current?.readme, 'README line'));
 
-  SB.profileCard = { build, load, publish };
+  // crab and ascii: the pull request badge draws him the same way (pr-badge.js).
+  SB.profileCard = { build, load, publish, crab, ascii, ready };
 })();

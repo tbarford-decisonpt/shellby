@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
+<link rel="stylesheet" href="tank.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -506,6 +507,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -574,6 +576,7 @@
         <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -660,6 +663,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -710,6 +714,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -740,6 +745,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -837,6 +843,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" aria-current="page" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
@@ -866,6 +873,81 @@
     <section class="us-sec" aria-labelledby="bcKeyTitle">
       <div class="us-h"><h3 id="bcKeyTitle">How it grows</h3><span class="us-h-meta">Nothing on it ever washes away</span></div>
       <ul class="bc-key" id="bcKey"></ul>
+    </section>
+  </main>
+
+  <!-- ====================== TANK: a home you decorate (tank.js, tank-paint.js, src/main/tank.js) ====================== -->
+  <main class="view view-tank" id="tankView">
+    <div class="view-head">
+      <h2 class="sr-only">His tank</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="tk-hero" aria-labelledby="tkTitle">
+      <div class="tk-head">
+        <div>
+          <h3 id="tkTitle">His tank</h3>
+          <p class="tk-sub" id="tkSub"></p>
+        </div>
+        <div class="tk-tools">
+          <button type="button" class="btn primary slim-btn" id="tkDecorate">Decorate</button>
+          <button type="button" class="btn ghost slim-btn" id="tkUndo" hidden title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkRedo" hidden title="Redo (Ctrl+Y)">Redo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkCancel" hidden>Cancel</button>
+          <button type="button" class="btn primary slim-btn" id="tkDone" hidden>Done</button>
+        </div>
+      </div>
+      <div class="tk-stage" id="tkStage">
+        <div class="tk-frame">
+          <canvas class="tk-canvas" id="tkCanvas" role="img" aria-label="His tank"></canvas>
+          <div class="tk-hits" id="tkHits" role="group" aria-label="In the tank"></div>
+        </div>
+        <div class="tk-empty" id="tkEmpty" hidden>
+          <b>Nothing in here yet</b>
+          <span>Press Decorate to give him a castle, some plants, or the finds he’s dug up for you.</span>
+        </div>
+      </div>
+      <div class="tk-picked" id="tkPicked" hidden>
+        <span class="tk-picked-name" id="tkPickedName"></span>
+        <button type="button" class="btn ghost slim-btn" id="tkFlip" title="Flip (F)">Flip</button>
+        <button type="button" class="btn ghost slim-btn" id="tkBack" title="Send back ([)">Send back</button>
+        <button type="button" class="btn ghost slim-btn" id="tkForward" title="Bring forward (])">Bring forward</button>
+        <button type="button" class="btn ghost slim-btn" id="tkAway" title="Put away (Delete)">Put away</button>
+      </div>
+      <p class="tk-keys muted small" id="tkKeysHint" hidden><span id="tkKeys">Arrow keys move it (Shift for bigger steps), Up and Down change the row, F flips it, [ and ] send it back or bring it forward, Delete puts it away.</span></p>
+      <p class="tk-note" id="tkNote" hidden></p>
+      <p class="tk-note muted small" id="tkMissing" hidden></p>
+      <p class="sr-only" id="tkLive" aria-live="polite"></p>
+    </section>
+    <section class="tk-tray" id="tkTray" hidden aria-label="Decor">
+      <div class="seg tk-shelves" id="tkShelves" role="tablist" aria-label="Shelf" data-roving></div>
+      <div class="tk-items" id="tkItems" role="group"></div>
+      <div class="tk-settings">
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Tank</span>
+          <div class="seg tk-sizes" id="tkSizes" role="radiogroup" aria-label="Tank size" data-roving></div>
+        </div>
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Light</span>
+          <div class="seg tk-light" id="tkLight" role="radiogroup" aria-label="Light" data-roving>
+            <button type="button" role="radio" data-light="clock" title="Day and night follow your clock">Clock</button>
+            <button type="button" role="radio" data-light="day">Day</button>
+            <button type="button" role="radio" data-light="night">Night</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="us-sec" id="tkKeySec" aria-labelledby="tkKeyTitle">
+      <div class="us-h"><h3 id="tkKeyTitle">Where his decor comes from</h3><span class="us-h-meta" id="tkKeyMeta"></span></div>
+      <ul class="tk-key" id="tkKey"></ul>
     </section>
   </main>
 
@@ -1096,6 +1178,7 @@
           <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
         </div>
         <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
+        <label class="toggle"><input type="checkbox" id="onTopToggle"><span class="switch"></span>Keep him on top of your apps instead of on the desktop</label>
         <div class="row wrap">
           <label class="inline-label" for="perchSelect">Climbing onto your windows
             <select id="perchSelect" class="field slim">
@@ -1136,8 +1219,28 @@
               <option value="chatty">Chatty</option>
             </select>
           </label>
-          <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
         </div>
+        <div class="row wrap">
+          <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
+          <label class="toggle"><input type="checkbox" id="soundFxToggle"><span class="switch"></span>Footsteps, bumps and ta-das</label>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="ambientSelect">Background
+            <select id="ambientSelect" class="field slim">
+              <option value="off">Silence</option>
+              <option value="surf">Rolling surf</option>
+              <option value="tidepool">Rock pool</option>
+            </select>
+          </label>
+          <label class="inline-label" for="soundVolumeSelect">Volume
+            <select id="soundVolumeSelect" class="field slim">
+              <option value="25">Soft</option>
+              <option value="60">Normal</option>
+              <option value="100">Loud</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted">His claws patter when he walks, he bonks off the screen's edges when thrown, and a deploy, a trophy or a new level gets a ta-da. All of it is made on the spot, not played from files, and goes silent while he guards your focus, while you're on a call, or while the screen is locked.</p>
         <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
         <p class="small temper-note" id="temperNote" hidden></p>
         <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
@@ -1176,6 +1279,31 @@
           <label class="toggle"><input type="checkbox" id="npHeadphones"><span class="switch"></span>Put his headphones on while it plays</label>
           <label class="toggle"><input type="checkbox" id="npRemarks"><span class="switch"></span>Let him remark on it now and then</label>
           <p class="small ext-status" id="npStatus"></p>
+        </div>
+      </section>
+
+      <section class="setting-group" id="typingGroup" data-nav="Typing along">
+        <h3>Typing along</h3>
+        <p class="small muted ext-lede">While you type, in any app, he taps along on a little keyboard, bobs to keep up when you're quick, and watches a long fast burst with stars in his eyes. He hears <em>that</em> a key was pressed, never which one, and none of it leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="typingEnabled"><span class="switch"></span>Tap along while I type</label>
+        <div id="typingBody" hidden>
+          <label class="toggle"><input type="checkbox" id="typingRemarks"><span class="switch"></span>Tell me how fast a burst was</label>
+          <p class="small ext-status" id="typingStatus"></p>
+        </div>
+      </section>
+
+      <section class="setting-group" id="weatherGroup" data-nav="Weather">
+        <h3>The weather outside</h3>
+        <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
+        <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
+        <div id="weatherBody" hidden>
+          <form class="row wrap" id="weatherSearch">
+            <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
+          </form>
+          <div class="row wrap" id="weatherPlaces" role="group" aria-label="Towns found" hidden></div>
+          <label class="toggle"><input type="checkbox" id="weatherRemarks"><span class="switch"></span>Let him say so when the weather turns</label>
+          <p class="small ext-status" id="weatherStatus" aria-live="polite"></p>
         </div>
       </section>
 
@@ -1403,6 +1531,11 @@
             <li>Add the Action as <code>.github/workflows/shellby-card.yml</code>, then run it once from the Actions tab. <button type="button" class="btn ghost slim-btn" id="pcCopyWorkflow">Copy Action</button></li>
             <li>Paste this line where you want the crab in <code>README.md</code>. <button type="button" class="btn ghost slim-btn" id="pcCopyReadme">Copy README line</button></li>
           </ol>
+        </div>
+        <label class="toggle"><input type="checkbox" id="ghPrBadge"><span class="switch"></span>Built with Shellby: your crab, level and a link at the bottom of pull requests your tabs open (his picture lives in a public repo on your account)</label>
+        <div class="gh-pr-badge" id="ghPrBadgeRow" hidden>
+          <img class="pb-preview" id="pbPreview" alt="Your crab as he'll appear on pull requests" width="72" height="48">
+          <div class="gh-ci-head"><p class="small ext-status" id="pbStatus"></p><button type="button" class="btn ghost slim-btn" id="pbOpenRepo">Open his repo</button></div>
         </div>
         <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
         <div class="gh-ci" id="ghCiRow" hidden>
@@ -1695,6 +1828,8 @@
 <script src="card.js"></script>
 <script src="beach-paint.js"></script>
 <script src="beach.js"></script>
+<script src="tank-paint.js"></script>
+<script src="tank.js"></script>
 <script src="celebrate.js"></script>
 <script src="recap.js"></script>
 <script src="outlook.js"></script>
@@ -1709,6 +1844,7 @@
 <script src="project-facts.js"></script>
 <script src="projects.js"></script>
 <script src="profile-card.js"></script>
+<script src="pr-badge.js"></script>
 <script src="github.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
