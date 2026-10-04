@@ -1,6 +1,25 @@
 # Developing Shellby
 
-How to build Shellby, the test and maintenance scripts, and a map of the code. For the contribution guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md); for how Shellby drives Claude Code, see [How it works](../README.md#how-it-works).
+How to build Shellby, how he drives Claude Code, the test and maintenance scripts, and a map of the code. For the contribution guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md); for the short version with a diagram, see [How it works](../README.md#how-it-works).
+
+## How Shellby drives Claude Code
+
+Shellby doesn't talk to any AI API itself. Each conversation is one long-lived Claude Code process:
+
+```
+claude -p --input-format stream-json --output-format stream-json --verbose
+       --permission-prompt-tool stdio --permission-mode <mode> [--resume <id>]
+```
+
+- **Tasks** go in as JSON user messages on stdin. One process holds the whole conversation, so follow-ups keep context.
+- **Permission prompts** come out as `control_request { subtype: "can_use_tool" }` and Shellby answers with `allow` / `deny` (plus the suggested rules for "Always allow"). This is the same host protocol the Claude Agent SDK uses.
+- **Stop** sends an `interrupt` control request, and falls back to killing the process tree if the CLI doesn't wind down.
+- **Mode changes** mid-conversation send `set_permission_mode`.
+- **Subagents** come through as `task_started` / `task_progress` / `task_notification` system events. Their messages carry `parent_tool_use_id`, the Agent call that spawned them, and their permission prompts carry `agent_id`, which equals the `task_id`. That's all it takes to route every event, prompt and helper crab to the right lane.
+- **The toolbox** merges the skills, agents, commands and MCP servers reported in Claude Code's `init` event with a scan of `~/.claude` and the project's `.claude/`. A file watcher on those folders is how Shellby notices new tricks.
+- **Billing safety:** Shellby never sees your Claude sign-in. You log in to the official, unmodified Claude Code CLI yourself, and Shellby only reads `claude auth status` to show which account and plan it's on. Claude Code gets the environment as it is on your PC, so if `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` or a Bedrock/Vertex/Foundry switch is set, Settings warns that it may bill that instead. **Always use my Claude plan** leaves them all out. Usage counts against your plan's normal limits, exactly as if you'd typed the task into a terminal.
+
+**Staying on the desktop layer:** the critter window is made an *owned window* of the shell's desktop host (the `Progman`/`WorkerW` window that contains `SHELLDLL_DefView`), via [koffi](https://koffi.dev) FFI calls into `user32.dll`. Owned windows share their owner's z-order band, so he sits above your wallpaper and icons and below every app. A `TaskbarCreated` hook re-pins him when Explorer restarts, and a slow watchdog covers anything else.
 
 ## Build and run
 
