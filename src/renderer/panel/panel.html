@@ -1531,6 +1531,11 @@
             <li>Paste this line where you want the crab in <code>README.md</code>. <button type="button" class="btn ghost slim-btn" id="pcCopyReadme">Copy README line</button></li>
           </ol>
         </div>
+        <label class="toggle"><input type="checkbox" id="ghPrBadge"><span class="switch"></span>Built with Shellby: your crab, level and a link at the bottom of pull requests your tabs open (his picture lives in a public repo on your account)</label>
+        <div class="gh-pr-badge" id="ghPrBadgeRow" hidden>
+          <img class="pb-preview" id="pbPreview" alt="Your crab as he'll appear on pull requests" width="72" height="48">
+          <div class="gh-ci-head"><p class="small ext-status" id="pbStatus"></p><button type="button" class="btn ghost slim-btn" id="pbOpenRepo">Open his repo</button></div>
+        </div>
         <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
         <div class="gh-ci" id="ghCiRow" hidden>
           <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
@@ -1838,6 +1843,7 @@
 <script src="project-facts.js"></script>
 <script src="projects.js"></script>
 <script src="profile-card.js"></script>
+<script src="pr-badge.js"></script>
 <script src="github.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
