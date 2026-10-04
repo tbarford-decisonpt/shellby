@@ -12,6 +12,9 @@
 //   - verdict(): pure. The probes plus what's running become { safe, headline,
 //                lines }.
 //
+// Work that's still to go out is also looked over for secrets (secretscan.js),
+// since "Tidy up" asks Claude to commit and push all of it.
+//
 // Projects are the repos you've worked in lately (main.js passes the folders).
 // A Shellby copy (git worktree) is checked as part of the repo it was made
 // from, so its uncommitted work shows up under that project's name.
@@ -133,11 +136,28 @@ async function probe(root, run = git) {
 }
 
 /**
+ * What looks like a secret in the work that's still to go out (secretscan.js
+ * atRisk): only for a project with unpushed or uncommitted work, since
+ * anything else has either left already or has nothing to send.
+ * -> { findings, more, partial } | null
+ */
+async function secretsIn(p, scan) {
+  const dirs = p.worktrees.filter(wt => wt.changed + wt.untracked).map(wt => wt.path);
+  const unpushed = !!p.unpushed?.commits;
+  if (!scan || !p.ok || (!dirs.length && !unpushed)) return null;
+  try {
+    const r = await scan(p.root, { dirs, unpushed });
+    return r?.findings?.length ? { findings: r.findings, more: r.more || 0, partial: !!r.partial } : null;
+  } catch { return null; }
+}
+
+/**
  * The folders' repositories, deduplicated by main root and probed a few at a
  * time. When git itself can't run, that's one unreadable entry, not an empty
- * (and so "safe") list.
+ * (and so "safe") list. scan: secretscan.atRisk, to look for secrets in what's
+ * still to go out (left out, no project carries `secrets`).
  */
-async function check(dirs, run = git) {
+async function check(dirs, run = git, { scan = null } = {}) {
   const wanted = [...new Set((dirs || []).filter(okDir))];
   if (wanted.length && (await run(['--version'])) === null) {
     return [{ root: null, name: "your projects (git didn't run)", ok: false, worktrees: [], unpushed: null, stashes: 0 }];
@@ -150,7 +170,13 @@ async function check(dirs, run = git) {
   }
   const queue = [...roots.values()];
   const out = [];
-  const worker = async () => { while (queue.length) { const r = queue.shift(); out.push(await probe(r, run)); } };
+  const worker = async () => {
+    while (queue.length) {
+      const p = await probe(queue.shift(), run);
+      const secrets = await secretsIn(p, scan);
+      out.push(secrets ? { ...p, secrets } : p);
+    }
+  };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -171,6 +197,10 @@ function projectIssues(p) {
     issues.push(wt.main ? `${files} not committed` : `${files} not committed in the copy ${wt.branch || path.basename(wt.path)}`);
   }
   if (p.stashes) issues.push(`${plural(p.stashes, 'stash', 'stashes')}`);
+  if (p.secrets?.findings.length) {
+    const n = p.secrets.findings.length + p.secrets.more;
+    issues.push(`${n === 1 ? 'something that looks' : `${n} things that look`} like a secret (${named(p.secrets.findings.map(f => f.line ? `${f.file}:${f.line}` : f.file))})`);
+  }
   return issues;
 }
 
@@ -182,7 +212,8 @@ function projectIssues(p) {
  *
  * safe: nothing at all to mention. hold: worth holding up a shutdown for, which
  * is a narrower question: work only this PC has (unpushed, uncommitted) or
- * Claude mid-turn. A stash, a dev server left running or a repo git couldn't
+ * Claude mid-turn. A stash, a dev server left running, a secret waiting to go
+ * out (safe on this disk; it's pushing it that hurts) or a repo git couldn't
  * read is worth a line, but not a "Shut down anyway" on every shutdown.
  */
 function verdict(projects = [], running = {}) {
@@ -191,6 +222,7 @@ function verdict(projects = [], running = {}) {
     unpushed: ok.filter(p => p.unpushed?.commits).length,
     uncommitted: ok.filter(p => p.worktrees.some(dirty)).length,
     stashed: ok.filter(p => p.stashes).length,
+    secrets: ok.filter(p => p.secrets?.findings.length).length,
     working: (running.working || []).length,
     waiting: (running.waiting || []).length,
     background: (running.background || []).length,
@@ -202,6 +234,7 @@ function verdict(projects = [], running = {}) {
     counts.unpushed && has(counts.unpushed, 'unpushed work'),
     counts.uncommitted && has(counts.uncommitted, 'uncommitted changes'),
     counts.stashed && has(counts.stashed, 'stashed changes'),
+    counts.secrets && has(counts.secrets, 'something that looks like a secret waiting to go out'),
     counts.working && `Claude is still working in ${plural(counts.working, 'conversation')}`,
     counts.waiting && `${plural(counts.waiting, 'conversation')} waiting on you`,
     counts.background && `${plural(counts.background, 'command')} still running in the background`,

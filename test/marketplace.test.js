@@ -180,6 +180,30 @@ test('normalizeSource: GitHub repos and public https only', () => {
 });
 
 // ---- Marketplace
+test('list({ stale }): answers from the last list while a slow refresh runs', async () => {
+  let t = 100000;
+  let release;
+  const slow = new Promise(r => { release = r; });
+  const { run } = fakeRun(listAnswers({ 'plugin marketplace update': () => slow.then(() => ({ ok: true, stdout: '' })) }));
+  const m = new Marketplace({ run, now: () => t });
+  assert.equal((await m.list()).ok, true);
+  t += 10 * 60 * 1000; // the cache has gone stale, and the Skill Shop starts a refresh
+  const refreshing = m.list({ refresh: true });
+  const r = await Promise.race([m.list({ stale: true }), new Promise(res => setTimeout(() => res('waited'), 500))]);
+  assert.notEqual(r, 'waited', "didn't wait behind the marketplace update");
+  assert.equal(r.plugins.length, 3);
+  release();
+  await refreshing;
+});
+
+test('list({ stale }): still lists when there is nothing cached yet', async () => {
+  const { run, calls } = fakeRun(listAnswers());
+  const m = new Marketplace({ run });
+  const r = await m.list({ stale: true });
+  assert.equal(r.ok, true);
+  assert.ok(calls.some(c => c[1] === 'list'));
+});
+
 test('list: caches, and refresh updates marketplaces first (rate-limited)', async () => {
   let t = 100000;
   const { run, calls } = fakeRun(listAnswers());

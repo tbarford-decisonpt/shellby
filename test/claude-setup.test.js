@@ -7,7 +7,7 @@ const path = require('path');
 const {
   scanSetup, scanHooks, scanMemory, validateHook, withHook, withoutHook, replaceHook,
   changeHooks, readMemory, writeMemory,
-  scanPermissions, validateRule, withRule, withoutRule, changeSettings,
+  scanPermissions, explainRule, validateRule, withRule, withoutRule, changeSettings,
 } = require('../src/main/claude-setup');
 
 const dirs = [];
@@ -242,6 +242,22 @@ test('validateRule: takes tool names with or without a specifier, refuses the re
   assert.ok(validateRule('allow', 'rm -rf /').error);
   assert.ok(validateRule('allow', 'Bash(a\nb)').error, 'one line only');
   assert.ok(validateRule('allow', `Bash(${'x'.repeat(600)})`).error);
+});
+
+test('explainRule: says in plain words what each kind of rule covers', () => {
+  assert.equal(explainRule('allow', 'Bash(npm run test:*)'), 'Claude doesn\'t ask before running any shell command that starts with "npm run test".');
+  assert.equal(explainRule('allow', 'Bash(git *)'), 'Claude doesn\'t ask before running any shell command that starts with "git".');
+  assert.match(explainRule('allow', 'Bash(git * --force)'), /matching "git \* --force" \(\* stands for anything\)/);
+  assert.match(explainRule('allow', 'Bash(netstat -ano)'), /the shell command "netstat -ano"/);
+  assert.match(explainRule('deny', 'Read(./.env)'), /^Claude is blocked from reading files matching "\.\/\.env"/);
+  assert.match(explainRule('ask', 'Edit'), /^Claude always asks you before editing any file/);
+  assert.match(explainRule('allow', 'WebFetch(domain:github.com)'), /fetching pages from github\.com/);
+  assert.match(explainRule('allow', 'WebSearch'), /searching the web/);
+  assert.match(explainRule('allow', 'Skill(claude-api)'), /the claude-api skill/);
+  assert.match(explainRule('allow', 'mcp__github'), /any tool from the github MCP server/);
+  assert.match(explainRule('allow', 'mcp__github__*'), /any tool from the github MCP server/);
+  assert.match(explainRule('allow', 'mcp__plugin_github_github__create_issue'), /the create_issue tool from the plugin_github_github MCP server/);
+  assert.match(explainRule('allow', 'Frobnicate(x)'), /the Frobnicate tool for "x"/);
 });
 
 test('withRule / withoutRule: add once, remove cleanly, keep everything else', () => {

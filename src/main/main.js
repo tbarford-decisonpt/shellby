@@ -56,6 +56,7 @@ const spend = require('./spend');
 const { createLean } = require('./lean');
 const recap = require('./recap');
 const leaving = require('./leaving');
+const secretscan = require('./secretscan');
 const forecast = require('./forecast');
 const guard = require('./guard');
 const held = require('./held');
@@ -521,7 +522,7 @@ function runningNow() {
 async function checkLeaving({ fresh = false } = {}) {
   if (CAPTURE || !config) return [];
   if (fresh && leaveChecking) await leaveChecking;
-  leaveChecking ||= leaving.check(leaveFolders())
+  leaveChecking ||= leaving.check(leaveFolders(), undefined, { scan: secretscan.atRisk })
     .then(projects => { leaveProjects = projects; return projects; })
     .catch(e => { log.warn('safe-to-leave check failed', e.message); return leaveProjects; })
     .finally(() => { leaveChecking = null; });
@@ -558,7 +559,12 @@ async function leaveCheck({ lock = false } = {}) {
   if (response === 0) native.lockScreen();
   else if (canFix && response === 1) {
     showPanel();
-    send(panel, 'tab:new-in', { cwd: fixable.root, draft: `I'm about to leave my PC. In ${fixable.name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Ask me before anything destructive.` });
+    // Never "commit and push everything" past a secret: Claude is told what Shellby found, and to stop there.
+    const found = fixable.secrets?.findings.map(secretscan.describe) || [];
+    const secrets = found.length
+      ? ` Shellby found what look like secrets in work that hasn't gone out yet: ${found.join('; ')}. Don't commit or push those: tell me about them first.`
+      : '';
+    send(panel, 'tab:new-in', { cwd: fixable.root, draft: `I'm about to leave my PC. In ${fixable.name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key.${secrets} Ask me before anything destructive.` });
   }
 }
 
@@ -1729,7 +1735,9 @@ function knownProjects() {
   return [...out.values()];
 }
 
-function createTimeTracker() {
+// `start: false` builds it without the 15-second tick (README screenshots,
+// where the window in front is your real editor, not demo data).
+function createTimeTracker({ start = true } = {}) {
   timeTracker = new TimeTracker({
     config,
     toPanel: (channel, payload) => send(panel, channel, payload),
@@ -1748,7 +1756,7 @@ function createTimeTracker() {
     electron: { dialog, BrowserWindow, clipboard, shell, app },
     panel: () => panel,
   });
-  timeTracker.start();
+  if (start) timeTracker.start();
 }
 
 // Sticker milestones for the trophies (wardrobe/achievements.js).
@@ -4520,8 +4528,40 @@ function registerIpc() {
     return [...open, ...shut].filter(c => !seen.has(c.w.branch) && seen.add(c.w.branch));
   };
   let repoBusy = false;
+  // Before anything leaves the PC: what looks like a secret in the commits
+  // this push would send (secretscan.js). Nothing found: null, push on. Found:
+  // ask, with "Push anyway", "Ask Claude to take them out" (a draft in a new
+  // tab, for you to send) and "Don't push" as the safe default.
+  async function secretGate(root) {
+    const scan = await secretscan.outgoing(root);
+    if (!scan.ok) { log.warn('secret scan: git could not list what this push sends'); return null; }
+    if (!scan.findings.length) return null;
+    const list = scan.findings.map(secretscan.describe);
+    const more = scan.more ? `\n…and ${scan.more} more` : '';
+    const canFix = !config.get('crabOnly');
+    const buttons = [{ label: 'Push anyway', style: 'danger' }, ...(canFix ? [{ label: 'Ask Claude to take them out' }] : []), { label: "Don't push" }];
+    const cancelId = buttons.length - 1;
+    const n = scan.findings.length + scan.more;
+    const response = await confirm.ask(panel, {
+      ...dialogLook(), icon: '🔑', danger: true,
+      title: n === 1 ? 'This push has something that looks like a secret' : `This push has ${n} things that look like secrets`,
+      message: `Once it's on ${path.basename(root)}'s remote, anyone who can see the repository can copy it, and deleting it later doesn't take it back out of history.`,
+      detail: list.join('\n') + more,
+      note: scan.partial ? 'The changes were too big to check all of it, so there may be more.' : 'Shellby only shows where it is, never the value. A real key that has been pushed should be rotated.',
+      buttons, defaultId: cancelId, cancelId,
+    });
+    if (response === 0) { log.info(`push: sent anyway past ${n} possible secret(s)`); return null; }
+    if (canFix && response === 1) {
+      showPanel();
+      send(panel, 'tab:new-in', { cwd: root, draft: `Before I push: Shellby found what look like secrets in commits that haven't been pushed yet: ${list.join('; ')}. Take them out of the code (an environment variable, or a .env file that .gitignore covers), and since they're in commits that haven't left this PC, rewrite those commits so the secret isn't in the history either. Don't push. Ask me before anything destructive, and tell me which keys I should rotate.` });
+    }
+    return { ok: false, cancelled: true, secrets: n, error: 'Not pushed: it had something that looks like a secret.' };
+  }
+
   async function pushHome(root, { base, tabId } = {}) {
     if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
+    const stopped = await secretGate(root);
+    if (stopped) return stopped;
     const r = await worktrees.pushBase(root, { base });
     if (r.ok && r.pushed) {
       awardXp('ship', { project: path.basename(root) });
@@ -5836,7 +5876,8 @@ app.whenReady().then(() => {
   watchLeaving();
   critter.webContents.on('did-finish-load', () => { broadcastSkin(); refreshCritter(); sendVisitor(); });
 
-  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin });
+  if (CAPTURE) return require(process.argv.includes('--reel') ? './reel' : './capture').run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin,
+    makeTimeTracker: () => { createTimeTracker({ start: false }); return timeTracker; } });
 
   createToolbox();
   createShop();
