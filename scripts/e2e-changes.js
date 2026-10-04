@@ -107,8 +107,9 @@ const ntfy = http.createServer((req, res) => {
     check(await ev("document.querySelector('.feed:not([hidden]) .changes .chg-title').textContent") === '1 file changed', 'it counts the files');
     check(await ev("document.querySelector('.feed:not([hidden]) .changes .chg-path').textContent") === 'a.txt', 'and names them');
     await ev("document.querySelector('.feed:not([hidden]) .changes').open = true; document.querySelector('.feed:not([hidden]) .chg-file').click()");
-    check(await until("document.querySelector('.feed:not([hidden]) .chg-diff pre.diff')"), 'a file opens to its diff');
-    const lines = await ev("[...document.querySelectorAll('.feed:not([hidden]) .chg-diff .dl')].map(l => l.className.replace('dl ', '') + ':' + l.textContent)");
+    // A turn's diff is reviewable: each line has a line number (.ln) beside its code (.code).
+    check(await until("document.querySelector('.feed:not([hidden]) .chg-diff .diff')"), 'a file opens to its diff');
+    const lines = await ev("[...document.querySelectorAll('.feed:not([hidden]) .chg-diff .dl')].map(l => l.className.replace('dl ', '') + ':' + (l.querySelector('.code') || l).textContent)");
     await shot('1-changes');
     check(lines.includes('del:-original') && lines.includes('add:+changed by the turn'), `the diff shows the line going and coming (${lines.join(' | ')})`);
 

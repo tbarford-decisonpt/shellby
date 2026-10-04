@@ -54,10 +54,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await wait(3000);
 
     const out = process.argv[2] || path.join(os.tmpdir(), 'shellby-toolbox.png');
+    // Screenshots are for a person to look at, not something checked, so one that
+    // doesn't come (a hidden or unpainted window on a CI runner) is noted and skipped.
     const shoot = async file => {
       await ev("document.querySelector('#toolboxView .view-head').scrollIntoView()");
-      const shot = await call('Page.captureScreenshot', { format: 'png' });
+      const shot = await Promise.race([call('Page.captureScreenshot', { format: 'png' }), wait(10000)]);
       if (shot?.data) { fs.writeFileSync(file, Buffer.from(shot.data, 'base64')); console.log(`screenshot: ${file}`); }
+      else console.log(`(no screenshot for ${path.basename(file)}: Page.captureScreenshot got no answer in 10s)`);
     };
     const chips = () => ev("[...document.querySelectorAll('#toolTabs [role=tab]')].filter(b => !b.hidden).map(b => b.firstChild.textContent.trim()).join()");
 

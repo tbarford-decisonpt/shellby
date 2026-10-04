@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.65.0: a crab to look after, a tank and a beach of his own, and your crab on GitHub
+## 0.65.1: a crab to look after, a tank and a beach of his own, and your crab on GitHub
 
 ### New
 - **Snacks and naps.** He gets peckish over a long day, sandy from digging and being thrown about, sleepy after a lot of work, and a little mopey if you're right there and ignore him. You can tell from how he looks. Right-click him for **Feed him**, **Care → Give him a rinse** or **Tuck him in**, or use **How he's doing** on **Shellby → Us**. You earn plankton by getting things done. It's gentle on purpose: nothing drops while you're away, every meter has a floor, nothing you've earned ever goes down, and there are no notifications. It's on to start with. Turn it off with **Settings → Shellby → Snacks and naps**. See [DESKTOP.md](docs/DESKTOP.md#just-the-two-of-you).

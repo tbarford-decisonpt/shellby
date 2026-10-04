@@ -30,7 +30,13 @@ async function connect(url) {
   ws.onmessage = e => { const m = JSON.parse(e.data); p.get(m.id)?.(m); };
   const send = (method, params = {}) => new Promise(r => { const i = ++id; p.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
-  const shot = async name => fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  // Screenshots are for a person to look at, not something checked, so one that
+  // doesn't come (a hidden or unpainted window on a CI runner) is noted and skipped.
+  const shot = async (name, params = {}) => {
+    const s = await Promise.race([send('Page.captureScreenshot', { format: 'png', ...params }), wait(10000)]);
+    if (s?.data) fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from(s.data, 'base64'));
+    else console.log(`(no screenshot for ${name}: Page.captureScreenshot got no answer in 10s)`);
+  };
   return { send, ev, shot, close: () => ws.close() };
 }
 
@@ -101,7 +107,7 @@ async function windows() {
     await critter.shot('1-mopey');
     // ...and up close, where a grain of sand is a pixel you can see.
     const r = await critter.ev("(b => ({ x: b.x, y: b.y, width: b.width, height: b.height }))(document.getElementById('crab').getBoundingClientRect())");
-    fs.writeFileSync(path.join(OUT, '1-mopey-zoom.png'), Buffer.from((await critter.send('Page.captureScreenshot', { format: 'png', clip: { ...r, scale: 3 } })).data, 'base64'));
+    await critter.shot('1-mopey-zoom', { clip: { ...r, scale: 3 } });
 
     // ------------------------------------------------------- 2. hello for the day
     check(await until(panel, 'shellby.getLife().then(v => v.needs.pantry.plankton >= 3)', 20000), 'saying hello today put plankton in the pantry, no tasks needed');
