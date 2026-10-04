@@ -312,7 +312,8 @@ function scanPermissions({ home, cwd } = {}) {
       const arr = Array.isArray(perms[list]) ? perms[list] : [];
       for (const rule of arr) {
         if (typeof rule !== 'string' || rules.length >= MAX_RULE_ROWS) continue;
-        rules.push({ scope, path: file, list, rule: rule.slice(0, MAX_RULE), what: explainRule(list, rule) });
+        // The whole rule, never cut short: removing one matches it exactly in the file.
+        rules.push({ scope, path: file, list, rule, what: explainRule(list, rule) });
       }
     }
   }

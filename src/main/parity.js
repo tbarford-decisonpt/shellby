@@ -226,11 +226,15 @@ function register(deps) {
     const fail = error => ({ ok: false, error, setup: deps.setupView() });
     const target = claudeSetup.settingsFiles(deps.setupWhere()).find(f => f.scope === scope);
     if (!target) return fail("Shellby can't save rules there.");
-    const v = claudeSetup.validateRule(list, rule);
+    // Adding checks the rule's shape; removing only needs it to be one that's really in
+    // the file, word for word, since Claude Code itself writes rules this form would refuse
+    // (multi-line commands, very long ones).
+    const v = remove
+      ? (deps.setupView().permissions.rules.some(r => r.scope === scope && r.list === list && r.rule === rule)
+        ? { list, rule }
+        : { error: 'That rule changed on disk since this list was made. Rescan and try again.' })
+      : claudeSetup.validateRule(list, rule);
     if (v.error) return fail(v.error);
-    if (remove && !deps.setupView().permissions.rules.some(r => r.scope === scope && r.list === v.list && r.rule === v.rule)) {
-      return fail('That rule changed on disk since this list was made. Rescan and try again.');
-    }
     // Loosening: a new allow rule, or taking away an ask or deny.
     const loosens = remove ? v.list !== 'allow' : v.list === 'allow';
     if (loosens) {

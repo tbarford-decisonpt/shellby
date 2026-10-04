@@ -339,6 +339,16 @@ test('scanPermissions: rules from each settings file, with where they live', () 
   assert.equal(files.find(f => f.scope === 'local').defaultMode, 'plan');
 });
 
+test('scanPermissions: long and multi-line rules come back whole, so removing one can find it', () => {
+  const home = tmp();
+  const long = `Bash(${'x'.repeat(700)})`;
+  const multi = 'Bash(git commit -m "$(cat <<\'EOF\'\nfix\nEOF\n)")';
+  put(path.join(home, '.claude', 'settings.json'), { permissions: { allow: [long, multi] } });
+  const { rules } = scanPermissions({ home, cwd: home });
+  assert.deepEqual(rules.map(r => r.rule), [long, multi]);
+  assert.deepEqual(withoutRule({ permissions: { allow: [long, multi] } }, 'allow', long), { permissions: { allow: [multi] } });
+});
+
 test('changeSettings: writes the change and keeps a backup', () => {
   const dir = tmp();
   const file = path.join(dir, 'settings.json');
