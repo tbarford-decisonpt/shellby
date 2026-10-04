@@ -3,11 +3,16 @@
 // reboot) in the hours before the reset doesn't lose them; main.js does the
 // sending and the timer.
 //
-// Two kinds:
+// Three kinds:
 //   { kind: 'message', tabId, cwd, title, text, attachments }: a message for a
 //     conversation; it goes back there, reopening it from History if needed.
 //   { kind: 'routine', routineId, name }: one run of a routine.
-// Both carry { id, at, createdAt }: `at` is when it may go.
+//   { kind: 'task', prompt, cwd, mode, name, tabId, tries }: heavy work queued
+//     for a fresh window ("refactor X overnight"). Tasks go one after another,
+//     each waiting for the last to finish. Once one starts it keeps its tabId:
+//     if the window runs dry partway, or Shellby restarts, it stays queued and
+//     the next pass carries on in that conversation instead of starting over.
+// All carry { id, at, createdAt }: `at` is when it may go.
 //
 // Pure: callers pass `now` (test/held.test.js).
 
@@ -17,9 +22,18 @@ const MAX_HELD = 50;
 const MAX_TEXT = 50000;
 const MAX_FILES = 20;
 const MAX_WAIT_MS = 8 * 24 * 60 * 60 * 1000; // the weekly window is the longest anyone waits
+const MAX_TRIES = 3; // starts of one task (first go, then carrying on) before it's given up on
+const TASK_MODES = ['ask', 'smart', 'acceptEdits', 'plan', 'autonomous'];
 const ID_RE = /^[\w-]{1,64}$/;
 
 const isStr = s => typeof s === 'string' && s.length > 0;
+
+/** "Refactor the auth module so…" -> a name short enough for a chip and a phone. */
+function taskName(prompt) {
+  const line = prompt.split('\n').find(l => l.trim()) || 'Queued task';
+  const t = line.trim().replace(/\s+/g, ' ');
+  return t.length > 60 ? `${t.slice(0, 59).trimEnd()}…` : t;
+}
 
 /** One item read from disk or the panel, cleaned up, or null if it can't be used. */
 function clean(raw, now) {
@@ -37,6 +51,19 @@ function clean(raw, now) {
     if (!isStr(raw.routineId) || !ID_RE.test(raw.routineId)) return null;
     // auto: held because it came due at the limit, not because you asked.
     return { ...base, kind: 'routine', routineId: raw.routineId, name: String(raw.name || 'Routine').slice(0, 60), auto: raw.auto === true };
+  }
+  if (raw.kind === 'task') {
+    const prompt = typeof raw.prompt === 'string' ? raw.prompt.trim().slice(0, MAX_TEXT) : '';
+    if (!prompt) return null;
+    const tries = Number.isInteger(raw.tries) && raw.tries > 0 ? Math.min(raw.tries, MAX_TRIES) : 0;
+    return {
+      ...base, kind: 'task', prompt,
+      name: isStr(raw.name) && raw.name.trim() ? taskName(raw.name) : taskName(prompt),
+      cwd: isStr(raw.cwd) ? raw.cwd : null,
+      mode: TASK_MODES.includes(raw.mode) ? raw.mode : null,
+      tabId: isStr(raw.tabId) && ID_RE.test(raw.tabId) ? raw.tabId : null,
+      tries,
+    };
   }
   if (raw.kind === 'message') {
     const text = typeof raw.text === 'string' ? raw.text.trim().slice(0, MAX_TEXT) : '';
@@ -64,7 +91,9 @@ function normalize(raw, now) {
  * already held isn't held twice; the earlier one stands.
  */
 function hold(list, raw, now) {
-  const item = clean({ ...raw, id: undefined, createdAt: now }, now);
+  // A new task hasn't started anywhere yet, whatever came in.
+  const fresh = raw?.kind === 'task' ? { tabId: null, tries: 0 } : {};
+  const item = clean({ ...raw, ...fresh, id: undefined, createdAt: now }, now);
   if (!item) return { error: 'There\'s nothing to hold.' };
   if (item.kind === 'routine') {
     const had = list.find(h => h.kind === 'routine' && h.routineId === item.routineId);
@@ -90,14 +119,23 @@ function defer(list, ids, at) {
   return list.map(h => (move.has(h.id) ? { ...h, at: Math.max(h.at, at) } : h));
 }
 
-/** "2 messages and a routine": what went, for one notification. */
+/** A task has started in this conversation: one more try, and where to carry on. */
+function started(list, id, tabId) {
+  return list.map(h => (h.id === id && h.kind === 'task' ? { ...h, tabId, tries: h.tries + 1 } : h));
+}
+
+/** Has this task been started as often as it may be? */
+const spent = h => h.kind === 'task' && h.tries >= MAX_TRIES;
+
+/** "2 messages, a routine and 3 queued tasks": what went, for one notification. */
 function summary(items) {
   const n = k => items.filter(h => h.kind === k).length;
   const parts = [];
-  const m = n('message'), r = n('routine');
+  const m = n('message'), r = n('routine'), t = n('task');
   if (m) parts.push(m === 1 ? 'a held message' : `${m} held messages`);
   if (r) parts.push(r === 1 ? 'a routine' : `${r} routines`);
-  return parts.join(' and ');
+  if (t) parts.push(t === 1 ? 'a queued task' : `${t} queued tasks`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts.join('');
 }
 
-module.exports = { normalize, hold, without, due, next, defer, summary, MAX_HELD };
+module.exports = { normalize, hold, without, due, next, defer, started, spent, summary, taskName, MAX_HELD, MAX_TRIES, TASK_MODES };

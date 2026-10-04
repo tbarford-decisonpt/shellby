@@ -42,6 +42,7 @@
   function render() {
     const list = $('routineList');
     const routines = state.routines || [];
+    SB.renderResetQueue?.();
     renderDeps();
     renderFlaky();
     // The explainer is for before your first routine; after that the list says it.

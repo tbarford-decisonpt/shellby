@@ -52,7 +52,8 @@ const DEFAULTS = {
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
   forecast: true,    // warn when you're on pace to fill the 5-hour window before it resets (see forecast.js)
   forecastWarned: null, // the reset time of the window last warned about, so each window warns once
-  held: [],          // messages and routines waiting for the usage window to reset (see held.js)
+  held: [],          // messages, routines and queued tasks waiting for the usage window to reset (see held.js)
+  queueKeepAwake: true, // keep the PC from sleeping while a task waits for the reset or runs (main.js syncKeepAwake)
   spendGuard: true,  // stop unattended runs before they eat the share of the 5-hour window you keep (see guard.js)
   spendReserve: 25,  // % of the 5-hour window routines, workflows and away-from-the-PC Autonomous tabs leave you
   spendMaxMinutes: 60, // the longest one routine run may take
