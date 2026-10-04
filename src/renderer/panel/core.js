@@ -213,21 +213,23 @@ SB.openMenu = (menu, anchor, build) => {
   menu.replaceChildren(...build().filter(Boolean));
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
-  menu.style.top = `${r.bottom + 6}px`;
+  // Below the button, or above it when there isn't room (a row near the bottom of the list).
+  const below = r.bottom + 6 + menu.offsetHeight <= window.innerHeight - 8;
+  menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - menu.offsetHeight)}px`;
   menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
   anchor.setAttribute('aria-expanded', 'true');
   menu.querySelector('button')?.focus();
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu', 'pjMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu', 'pjMenu', 'snipMenu']) SB.$(id).hidden = true;
   for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .slash-menu, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .slash-menu, .snip-more, #input')) SB.closeMenus();
 });
 
 // ------------------------------------------------------------------ page never scrolls

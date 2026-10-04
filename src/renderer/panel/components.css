@@ -186,6 +186,8 @@ body.reordering .tip { display: none; }
 .seg button[aria-selected="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 .seg .n { font: 500 10.5px var(--font-mono); color: var(--sand-faint); margin-left: 3px; }
 .tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+/* A grid item is as wide as its longest unbreakable line by default: one long name would widen every row. */
+.tool-list > li { min-width: 0; }
 .tool-row { display: flex; gap: 10px; align-items: center; padding: 9px 10px 9px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
 .tool-row.is-new { border-color: rgba(255, 122, 92, .5); background: linear-gradient(90deg, var(--coral-dim), transparent 50%), var(--reef); }
 .tool-main { flex: 1; min-width: 0; }

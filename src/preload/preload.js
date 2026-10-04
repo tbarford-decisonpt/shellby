@@ -130,6 +130,11 @@ contextBridge.exposeInMainWorld('shellby', {
   saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
   removeSnippet: invoke('snippets:remove'),
   expandSnippet: invoke('snippets:expand'),
+  duplicateSnippet: invoke('snippets:duplicate'),
+  snippetUsed: fire('snippets:used'),
+  exportSnippets: invoke('snippets:export'),
+  importSnippets: invoke('snippets:import'),
+  restoreStarterSnippets: invoke('snippets:starters'),
   // hooks and CLAUDE.md memory (every write is re-checked in main; hook changes ask in the confirm window)
   getClaudeSetup: invoke('setup:get'),
   readMemory: invoke('setup:read-memory'),
