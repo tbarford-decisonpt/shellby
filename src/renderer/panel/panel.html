@@ -1084,6 +1084,25 @@
           <span id="perchIgnoreList"></span>
         </div>
         <div class="row wrap">
+          <label class="inline-label" for="climbSelect">Climbing the edges of the screen
+            <select id="climbSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+          <label class="inline-label" for="colonySelect">Pals on the floor
+            <select id="colonySelect" class="field slim">
+              <option value="0">Just him</option>
+              <option value="1">1 pal</option>
+              <option value="2">2 pals</option>
+              <option value="3">3 pals</option>
+              <option value="4">4 pals</option>
+              <option value="5">5 pals</option>
+            </select>
+          </label>
+        </div>
+        <div class="row wrap">
           <label class="inline-label" for="chatterSelect">Personality
             <select id="chatterSelect" class="field slim">
               <option value="quiet">Quiet</option>
@@ -1096,6 +1115,29 @@
         <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
         <p class="small temper-note" id="temperNote" hidden></p>
         <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
+        <p class="small muted">He also climbs the sides of your screen and hangs from the top of it. Throw him hard at the edge and he sticks; put him down right beside it and he grabs on. Pals are little crabs of his own who hang out with him on the floor, nap when he naps and cheer when a task goes well. Click one to say hello.</p>
+      </section>
+
+      <section class="setting-group mischief-group" id="mischiefGroup" data-nav="Mischief">
+        <h3>Mischief</h3>
+        <p class="small muted ext-lede">Off unless you turn it on. A cheeky crab gets up to a little harmless trouble now and then, Desktop Goose style. He never does it while you're clicking, on a call, guarding your focus, gaming or presenting, or while a task is running.</p>
+        <div class="row wrap">
+          <label class="inline-label" for="mischiefSelect">How cheeky
+            <select id="mischiefSelect" class="field slim">
+              <option value="off">Off, he behaves</option>
+              <option value="cheeky">Cheeky (now and then)</option>
+              <option value="gremlin">Gremlin (every few minutes)</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="mischief-pranks" id="mischiefPranks" hidden>
+          <legend class="small muted">What he gets up to</legend>
+          <label class="toggle"><input type="checkbox" data-prank="pinch"><span class="switch"></span>Pinch the cursor for half a second when it hangs about near him</label>
+          <label class="toggle"><input type="checkbox" data-prank="nudge"><span class="switch"></span>Give the window he's sitting on a shove (only when you're not using it)</label>
+          <label class="toggle"><input type="checkbox" data-prank="tracks"><span class="switch"></span>Leave sandy footprints where he walks</label>
+          <label class="toggle"><input type="checkbox" data-prank="notes"><span class="switch"></span>Drag little notes onto your desktop (click one to throw it away)</label>
+        </fieldset>
+        <p class="small muted" id="mischiefNote" hidden>Right-click him for <b>Do something cheeky</b> to see it now, or <b>Behave for an hour</b> when you need him to.</p>
       </section>
 
       <section class="setting-group" id="musicGroup" data-nav="Music">

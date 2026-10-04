@@ -37,7 +37,10 @@
         "ride": ["full sail!", "steady as she goes", "yo ho!"],
         "shaken": ["rough seas!", "avast!", "mutiny!"],
         "dropped": ["overboard!", "abandon ship", "into the brig"],
-        "caught": ["sea legs!", "aye, caught it", "stuck the landing, arr"]
+        "caught": ["sea legs!", "aye, caught it", "stuck the landing, arr"],
+        "climb": ["up the riggin'!", "to the crow's nest", "heave ho, up!"],
+        "pinched": ["plunder!", "mine, matey", "arr, got it"],
+        "note": ["a message in a bottle", "from the captain", "read it, matey"]
       },
       "flavor": {
         "cocky": { "success": ["captain's orders"], "idle": ["finest crab at sea"] },
@@ -72,7 +75,10 @@
         "ride": ["put me down", "stop that", "I hate this"],
         "shaken": ["STOP", "unacceptable", "rude."],
         "dropped": ["thanks a lot", "ow. great.", "unbelievable"],
-        "caught": ["obviously", "not impressed", "whatever"]
+        "caught": ["obviously", "not impressed", "whatever"],
+        "climb": ["fine. up.", "walls. great.", "don't watch"],
+        "pinched": ["mine.", "deal with it", "hmph"],
+        "behave": ["fine.", "whatever.", "see if I care"]
       }
     },
     {
@@ -121,7 +127,18 @@
         "dropped": ["oh, no", "…¿eh?", "¿adónde fue?", "otra vez no"],
         "dizzy": ["todo da vueltas", "uoh…", "¿dónde es arriba?"],
         "pop": ["¡boing!", "¡aplastado!", "vale, vale"],
-        "caught": ["¡atrapado!", "aterrizaje perfecto", "¡tachán!"]
+        "caught": ["¡atrapado!", "aterrizaje perfecto", "¡tachán!"],
+        "climb": ["¡arriba!", "¡hup!", "¡a la cima!", "patas pegajosas"],
+        "stuck": ["¡pegado!", "¡agarrado!", "¡plaf! hola"],
+        "leap": ["¡al agua!", "¡yupi!", "¡atrápame!"],
+        "letgo": ["¡allá voy!", "ups, me solté", "abajo"],
+        "pinched": ["¡chas!", "mío", "jeje", "¡te pillé!"],
+        "yanked": ["vale, vale", "jo", "qué fuerza"],
+        "shoved": ["¡hup!", "un poco a la izquierda", "mejor ahí"],
+        "noteOff": ["ahora vuelvo", "un momento", "tengo algo para ti"],
+        "note": ["para ti", "¡correo!", "¡léela!"],
+        "behave": ["vale…", "me portaré bien", "prometido"],
+        "noPrank": ["nada que pellizcar", "ahora no", "luego"]
       }
     }
   ],

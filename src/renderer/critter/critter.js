@@ -491,7 +491,7 @@ function hearts(n = 3) {
 // while it does: one body class per beat, all of it in critter.css.
 const MOTION_FLAGS = [
   'flying', 'fly-left', 'fly-fall', 'fly-fling', 'fly-pop', 'landed', 'walking', 'walk-left',
-  'eyeing', 'crouch', 'hopping', 'hop-flip', 'cling', 'scramble', 'coyote', 'wheee', 'windy',
+  'eyeing', 'crouch', 'hopping', 'hop-flip', 'cling', 'scramble', 'coyote', 'wheee', 'windy', 'hauling',
 ];
 const FLY_STYLES = new Set(['fall', 'fling', 'pop']); // 'tumble' is the plain throw
 const DIZZY_MS = 2600;
@@ -568,6 +568,9 @@ api.onMotion(msg => {
     setDir(vx);
   }
   if (kind === 'walking') { flags.add('walking'); if (msg.dir < 0) flags.add('walk-left'); setDir(msg.dir); }
+  // Mischief: walking backwards, hauling a note in by its corner (src/main/pranks.js).
+  if (kind === 'hauling') { flags.add('walking'); flags.add('hauling'); setDir(msg.dir); }
+  // 'still' (a pause on a wall) is just the absence of all the above.
   if (kind === 'eyeing') { flags.add('eyeing'); setDir(msg.dx); }
   if (kind === 'crouch') { flags.add('crouch'); setDir(vx); }
   if (kind === 'hopping') {
@@ -602,6 +605,17 @@ api.onPerch(msg => {
 });
 document.addEventListener('mousemove', e => {
   if (perched) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
+});
+
+// ---- up a wall or hanging from the top of the screen (src/main/climbing.js).
+// His body (#pose) turns about the middle of the window; main has put the
+// window where that brings his feet to the edge.
+const SURFACES = ['left', 'right', 'ceiling'];
+api.onSurface(msg => {
+  const surface = SURFACES.includes(msg?.surface) ? msg.surface : 'floor';
+  for (const s of SURFACES) flags.delete(`surface-${s}`);
+  if (surface !== 'floor') flags.add(`surface-${surface}`);
+  paintBody();
 });
 document.addEventListener('mouseleave', () => { if (perched) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });

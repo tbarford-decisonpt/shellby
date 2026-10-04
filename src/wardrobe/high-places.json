@@ -4,8 +4,8 @@
   "id": "high-places",
   "name": "High Places",
   "author": "x-salmon",
-  "version": "1.0.0",
-  "description": "For the crab who lives on your title bars. A spyglass for the view, goggles for the ride, a hat for the rodeo, a parachute for the drop and a collar for the big top.",
+  "version": "1.1.0",
+  "description": "For the crab who lives on your title bars and up your walls: a spyglass, racing goggles, a rodeo hat, a parachute, a ringmaster’s collar, a climbing helmet, a chalk bag, and a mask for when he’s up to no good.",
   "homepage": "https://github.com/x-salmon/shellby",
   "accessories": [
     {
@@ -87,6 +87,52 @@
         ".rYrYr."
       ],
       "unlock": { "achievement": "trapeze" }
+    },
+    {
+      "id": "climbing-helmet",
+      "name": "Climbing Helmet",
+      "description": "Ten trips up the side of your screen. Safety first.",
+      "slot": "hat",
+      "rarity": "rare",
+      "pivot": [4, 3],
+      "palette": { "y": "#f4a261", "Y": "#ffd8a8", "k": "#2b2d42" },
+      "pixels": [
+        "..yyyyy..",
+        ".yYyyyyy.",
+        "yyyyyyyyy",
+        "k.......k"
+      ],
+      "unlock": { "achievement": "spider-crab" }
+    },
+    {
+      "id": "chalk-bag",
+      "name": "Chalk Bag",
+      "description": "Thrown at the edge of the screen, and he stuck. Grip like a gecko.",
+      "slot": "neck",
+      "rarity": "epic",
+      "pivot": [2, 0],
+      "palette": { "r": "#e63946", "w": "#fff4e4", "W": "#d9d0c1" },
+      "pixels": [
+        "rrrrr",
+        ".wWw.",
+        ".WWW."
+      ],
+      "unlock": { "achievement": "sticky-feet" }
+    },
+    {
+      "id": "bandit-mask",
+      "name": "Bandit Mask",
+      "description": "Ten bits of mischief and not one apology.",
+      "slot": "face",
+      "rarity": "epic",
+      "pivot": [4, 1],
+      "palette": { "K": "#1d1d1d", "w": "#fff4e4" },
+      "pixels": [
+        ".KKKKKKK.",
+        "KKwKKKwKK",
+        ".KKKKKKK."
+      ],
+      "unlock": { "achievement": "little-gremlin" }
     }
   ]
 }

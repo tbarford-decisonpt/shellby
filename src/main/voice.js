@@ -91,6 +91,21 @@ const OCCASIONS = Object.freeze({
   dizzy: { every: MINUTE, ttl: 5 * SECOND },
   pop: { every: MINUTE, ttl: 4 * SECOND },
   caught: { every: 30 * SECOND, ttl: 5 * SECOND },
+
+  // --- up the edges of the screen (see climb.js)
+  climb: { every: 3 * MINUTE, ttl: 4 * SECOND },
+  stuck: { every: 30 * SECOND, ttl: 4 * SECOND },
+  leap: { every: MINUTE, ttl: 4 * SECOND },
+  letgo: { every: MINUTE, ttl: 4 * SECOND },
+
+  // --- mischief, if you asked for it (see mischief.js)
+  pinched: { every: 0, ttl: 3 * SECOND },
+  yanked: { every: 0, ttl: 3 * SECOND },
+  shoved: { every: 0, ttl: 3 * SECOND },
+  noteOff: { every: MINUTE, ttl: 3 * SECOND },
+  note: { every: 0, ttl: 5 * SECOND },
+  behave: { every: 0, ttl: 4 * SECOND },
+  noPrank: { every: 0, ttl: 3 * SECOND },
 });
 
 // His lines. Short, dry, and his own. Every pool needs at least three or the
@@ -136,6 +151,17 @@ const LINES = Object.freeze({
   dizzy: ['the room spins', 'whoa…', 'which way is up'],
   pop: ['boing!', 'squashed!', 'okay okay'],
   caught: ['caught it!', 'stuck the landing', 'ta-da'],
+  climb: ['going up', 'hup!', 'to the top!', 'sticky feet'],
+  stuck: ['stuck it!', 'sticky feet!', 'got a grip', 'splat. hi'],
+  leap: ['geronimo!', 'wheee', 'catch me!'],
+  letgo: ['bombs away', 'oops, let go', 'down I go'],
+  pinched: ['snip!', 'mine now', 'hehe', 'gotcha'],
+  yanked: ['fine, fine', 'aww', 'strong one'],
+  shoved: ['hup!', 'a little to the left', 'better there', 'heave!'],
+  noteOff: ['brb', 'one sec', 'got something for you'],
+  note: ['for you', 'special delivery', 'read it!', 'a note!'],
+  behave: ['ok… fine', 'I’ll be good', 'promise'],
+  noPrank: ['nothing to pinch', 'not now', 'maybe later'],
 });
 
 // A crab is a crab, but yours is a particular one. The temperament comes from
@@ -153,14 +179,14 @@ const FLAVOR = Object.freeze({
   fussy: {
     working: ['carefully now'], success: ['tidy'], error: ['I knew it'],
     bigWrite: ['too much'], sameFile: ['again? really?'], idle: ['dusty in here'],
-    perch: ['dusty up here'], shaken: ['how undignified'],
+    perch: ['dusty up here'], shaken: ['how undignified'], climb: ['wipe your walls'], shoved: ['crooked. fixed it'],
     sheetStretch: ['check cell B12'], gameOver: ['enough screen time'], monday: ['mondays. ugh.'],
     found: ['needs a polish'],
   },
   cocky: {
     working: ['watch this'], success: ['easy', 'obviously'], error: ['not my fault'],
     passed: ['never doubted it'], push: ["you're welcome"], idle: ['bored'],
-    shaken: ['meant to do that'], caught: ['obviously'],
+    shaken: ['meant to do that'], caught: ['obviously'], pinched: ['too easy'], stuck: ['like a pro'],
     gameOver: ['I could beat that'], slideStretch: ['I should present'], found: ['you can thank me'],
     callOver: ['I was quiet. ask.'],
   },
