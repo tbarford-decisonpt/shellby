@@ -43,10 +43,10 @@ async function launch(profile) {
 }
 
 const TABS = {
-  shellby: ['Look', 'Mischief', 'Music', 'Typing along', 'Weather', 'Desk lighting', 'On a stream'],
+  shellby: ['Look', 'Moving around', 'Personality', 'Sound', 'Mischief', 'Music', 'Typing along', 'Weather', 'Desk lighting', 'On a stream'],
   claude: ['Claude Code', 'Mode', 'Model', 'Folder', 'Dev servers', 'Everywhere'],
   connect: ['Elsewhere', 'GitHub'],
-  general: ['System', 'Shortcut', 'About'],
+  general: ['System', 'Usage limit', 'Safety nets', 'Shortcut', 'About'],
 };
 
 (async () => {
@@ -84,6 +84,16 @@ const TABS = {
       check(JSON.stringify(got) === JSON.stringify(navs), `the ${tab} tab shows ${navs.join(', ')} (got ${JSON.stringify(got)})`);
       await shot(panel, `tab-${tab}`);
     }
+    // the extras start folded to one line that says whether each is on
+    await panel.ev("document.getElementById('setTab-shellby').click()");
+    await wait(200);
+    check(await panel.ev("[...document.querySelectorAll('#setPanel-shellby .setting-fold')].every(f => !f.open)"), 'the extras start folded');
+    check(await panel.ev("document.querySelector('#musicGroup .fold-state').textContent") === 'Off', 'a folded extra says Off');
+    await panel.ev("document.getElementById('npEnabled').click()");
+    await wait(600);
+    check(await panel.ev("document.querySelector('#musicGroup .fold-state').textContent") === 'On', 'and On once it is turned on');
+    await panel.ev("document.getElementById('npEnabled').click()");
+    await wait(300);
     const all = Object.values(TABS).flat();
     const every = await panel.ev("[...document.querySelectorAll('#settingsView .setting-group[data-nav]')].map(g => g.dataset.nav)");
     check(every.length === all.length && all.every(n => every.includes(n)), 'every section lives on exactly one tab');
@@ -121,6 +131,7 @@ const TABS = {
     await panel.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     await wait(1000);
     check(await selected(panel) === 'shellby', 'picking Desk lighting in the palette opens the Shellby tab');
+    check(await panel.ev("document.getElementById('rgbGroup').open"), 'and unfolds Desk lighting');
     await shot(panel, 'jump-desk-lighting');
 
     // the autonomous-mode warning lives on the Claude tab
