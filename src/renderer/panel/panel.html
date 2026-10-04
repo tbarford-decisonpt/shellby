@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="github.css">
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="composer.css">
+<link rel="stylesheet" href="line-comments.css">
 <link rel="stylesheet" href="hooks.css">
 <link rel="stylesheet" href="workflows.css">
 <link rel="stylesheet" href="workflow-canvas.css">
@@ -115,6 +116,7 @@
       </div>
       <div class="crowded" id="crowded" role="status" hidden></div>
       <div class="outlook" id="outlook" role="status" hidden></div>
+      <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
       <div class="queued" id="queued" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
@@ -1522,6 +1524,8 @@
 <script src="core.js"></script>
 <script src="a11y.js"></script>
 <script src="feed.js"></script>
+<script src="line-comments.js"></script>
+<script src="line-comments-ui.js"></script>
 <script src="tabs.js"></script>
 <script src="composer.js"></script>
 <script src="toolbox-setup.js"></script>

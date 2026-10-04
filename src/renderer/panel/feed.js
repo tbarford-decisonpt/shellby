@@ -530,7 +530,7 @@
       const files = `${count} file${count === 1 ? '' : 's'}`;
       const undo = h('button', { class: 'btn ghost slim-btn', type: 'button' }, 'Undo');
       const note = h('span', { class: 'small muted', text: 'Puts these files back the way they were before this turn.' });
-      const el = h('details', { class: 'changes', dataset: { after: item.after } },
+      const el = h('details', { class: 'changes', dataset: { root: item.root, before: item.before, after: item.after } },
         h('summary', {},
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '±' }),
           h('span', { class: 'chg-title', text: `${files} changed` }),
@@ -560,11 +560,14 @@
       });
       el.undoButton = undo;
       el.undoNote = note;
+      SB.markReviewBlock?.(this, el); // comments waiting on this turn (line-comments-ui.js)
       this.append(el);
     }
 
     // read: how to fetch one file's diff (a turn's, unless a comparison says otherwise).
+    // A turn's own diff takes line comments (line-comments-ui.js); a comparison's doesn't.
     changeRow(f, ref, read = file => api.changesDiff({ tabId: this.id, ...ref, file })) {
+      const reviewable = !!ref && !!SB.reviewDiff;
       const diff = h('div', { class: 'chg-diff', hidden: true });
       let loaded = false;
       const toggle = h('button', { class: 'chg-file', type: 'button', 'aria-expanded': 'false', title: f.path },
@@ -580,7 +583,8 @@
         diff.replaceChildren(h('p', { class: 'small muted', text: 'Reading the diff…' }));
         const r = await read(f.path);
         if (r?.error) { loaded = false; diff.replaceChildren(h('p', { class: 'small warn', text: r.error })); return; }
-        diff.replaceChildren(...[SB.renderDiff(r.patch, { binary: f.binary }), r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
+        const shown = reviewable && !f.binary ? SB.reviewDiff(this, r.patch, { file: f.path, ref, binary: f.binary }) : SB.renderDiff(r.patch, { binary: f.binary });
+        diff.replaceChildren(...[shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
       });
       return h('li', {}, toggle, diff);
     }
@@ -604,9 +608,12 @@
     const MAX_LINES = 4000;
     const lines = String(patch || '').replace(/\n$/, '').split('\n');
     const rows = [];
+    let inHeader = true; // a removed "-- note" inside a hunk is "--- note", and that's code
     for (const line of lines) {
       if (rows.length >= MAX_LINES) break;
-      if (/^(diff --git|index |--- |\+\+\+ |new file mode|deleted file mode|old mode|new mode|similarity index)/.test(line)) continue;
+      if (line.startsWith('diff --git')) inHeader = true;
+      if (inHeader && /^(diff --git|index |--- |\+\+\+ |new file mode|deleted file mode|old mode|new mode|similarity index)/.test(line)) continue;
+      if (line.startsWith('@@')) inHeader = false;
       const cls = line.startsWith('@@') ? 'hunk' : line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : line.startsWith('\\') ? 'meta' : 'ctx';
       rows.push(h('span', { class: `dl ${cls}`, text: line || ' ' }));
     }
