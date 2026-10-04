@@ -1178,6 +1178,10 @@
           <button type="button" class="btn ghost" id="openSkinsBtn">Open skins folder</button>
           <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
         </div>
+      </section>
+
+      <section class="setting-group" data-nav="Moving around">
+        <h3>Moving around</h3>
         <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
         <label class="toggle"><input type="checkbox" id="onTopToggle"><span class="switch"></span>Keep him on top of your apps instead of on the desktop</label>
         <div class="row wrap">
@@ -1212,6 +1216,11 @@
             </select>
           </label>
         </div>
+        <p class="small muted">Rub the mouse over him to pet him. Right-click him for more.</p>
+      </section>
+
+      <section class="setting-group" data-nav="Voice and sound">
+        <h3>Voice and sound</h3>
         <div class="row wrap">
           <label class="inline-label" for="chatterSelect">Personality
             <select id="chatterSelect" class="field slim">
@@ -1221,6 +1230,8 @@
             </select>
           </label>
         </div>
+        <p class="small muted" id="chatterNote">Quiet: just a mark in his bubble. Chatty: talks and plays more. He always hushes during focus and calls.</p>
+        <p class="small temper-note" id="temperNote" hidden></p>
         <div class="row wrap">
           <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
           <label class="toggle"><input type="checkbox" id="soundFxToggle"><span class="switch"></span>Footsteps, bumps and ta-das</label>
@@ -1241,13 +1252,12 @@
             </select>
           </label>
         </div>
-        <p class="small muted">His claws patter when he walks, he bonks off the screen's edges when thrown, and a deploy, a trophy or a new level gets a ta-da. All of it is made on the spot, not played from files, and goes silent while he guards your focus, while you're on a call, or while the screen is locked.</p>
-        <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble and stills his little scenes. Normal lets him say a few words about what he's up to and mutter now and then; Chatty lets him talk and play more. He always keeps quiet while he's guarding your focus or you're on a call.</p>
-        <p class="small temper-note" id="temperNote" hidden></p>
-        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
-        <p class="small muted">He gets peckish, a bit sandy, sleepy, and a little mopey if you're right there and ignore him. Never worse than that, and it never costs you anything you've earned. Feed him snacks you earn by getting things done. Off keeps him content all the time.</p>
-        <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying. Every so often he climbs up onto the window you're using and rides it around; drop him on a title bar and he'll sit there. Right-click him up there to send him down, or keep him off that app.</p>
-        <p class="small muted">He also climbs the sides of your screen and hangs from the top of it. Throw him hard at the edge and he sticks; put him down right beside it and he grabs on. Pals are little crabs of his own who hang out with him on the floor, nap when he naps and cheer when a task goes well. Click one to say hello.</p>
+      </section>
+
+      <section class="setting-group" data-nav="Snacks and naps">
+        <h3>Snacks and naps</h3>
+        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Let him get hungry and sleepy</label>
+        <p class="small muted">He gets peckish, sandy, sleepy or mopey, never worse. Snacks come from getting things done.</p>
       </section>
 
       <section class="setting-group mischief-group" id="mischiefGroup" data-nav="Mischief">
