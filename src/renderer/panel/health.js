@@ -328,11 +328,28 @@
     $('hlStartup').replaceChildren(...items.map(i => h('li', { class: `hl-start${i.off ? ' off' : ''}`, title: i.command },
       h('span', { class: 'hl-start-name', text: i.name }),
       i.off ? h('span', { class: 'hl-start-off', text: 'off' }) : null,
-      h('span', { class: 'hl-start-where', text: i.location }))));
+      h('span', { class: 'hl-start-where', text: i.location }),
+      i.locked
+        ? h('span', { class: 'hl-start-locked', title: i.locked, text: 'locked' })
+        : h('button', {
+          class: 'hl-start-switch', type: 'button',
+          'aria-label': `${i.off ? 'Switch on' : 'Switch off'} ${i.name} at sign-in`,
+          onclick: e => switchStartup(i, e.currentTarget),
+        }, i.off ? 'Switch on' : 'Switch off'))));
   }
 
   async function loadStartup() {
     startup = await api.getStartupApps();
+    if (state.view === 'health') renderStartup();
+  }
+
+  async function switchStartup(item, btn) {
+    btn.disabled = true;
+    let r;
+    try { r = await api.setStartupApp(item.id, !item.off); } finally { btn.disabled = false; }
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't switch that one.");
+    SB.toast(r.off ? `${r.name} won't start with Windows now` : `${r.name} starts with Windows again`);
+    if (r.list) startup = r.list;
     if (state.view === 'health') renderStartup();
   }
 
@@ -422,7 +439,7 @@
   $('hlClaudeLhm').addEventListener('click', () => {
     if (SB.isCrabOnly()) return SB.claudeUpsell('lhm');
     const port = view?.settings?.lhmPort || 8085;
-    SB.prefill([
+    SB.prefillNew([
       'Set up LibreHardwareMonitor so Shellby can read my CPU temperature from its local web server.',
       '1. If it isn\'t installed, install it with `winget install --id LibreHardwareMonitor.LibreHardwareMonitor -e --accept-source-agreements --accept-package-agreements`, then find where LibreHardwareMonitor.exe ended up.',
       `2. Make sure LHM isn't running, then in LibreHardwareMonitor.config (next to the exe; run LHM once and close it if the file isn't there yet) turn on the remote web server on port ${port} with no authentication, and set it to start minimized to the tray. Read the file first and use the setting names it already has.`,

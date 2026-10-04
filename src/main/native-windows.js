@@ -46,6 +46,8 @@ function load() {
       OpenProcess: kernel32.func('intptr_t __stdcall OpenProcess(uint32_t access, bool inherit, uint32_t pid)'),
       CloseHandle: kernel32.func('bool __stdcall CloseHandle(intptr_t h)'),
       QueryFullProcessImageNameW: kernel32.func('bool __stdcall QueryFullProcessImageNameW(intptr_t h, uint32_t flags, _Out_ uint16_t *buf, _Inout_ uint32_t *size)'),
+      GetExitCodeProcess: kernel32.func('bool __stdcall GetExitCodeProcess(intptr_t h, _Out_ uint32_t *code)'),
+      GetProcessTimes: kernel32.func('bool __stdcall GetProcessTimes(intptr_t h, _Out_ uint64_t *created, _Out_ uint64_t *exited, _Out_ uint64_t *kernel, _Out_ uint64_t *user)'),
       SHQueryUserNotificationState: shell32.func('long __stdcall SHQueryUserNotificationState(_Out_ int32_t *state)'),
       SetProcessDpiAwarenessContext: user32.func('bool __stdcall SetProcessDpiAwarenessContext(intptr_t ctx)'),
       LockWorkStation: user32.func('bool __stdcall LockWorkStation()'),
@@ -125,6 +127,34 @@ function imageOf(pid) {
 }
 // The lower-case file name ("chrome.exe").
 const exeOf = pid => imageOf(pid).name;
+
+const STILL_ACTIVE = 259;
+const FILETIME_UNIX_MS = 11644473600000; // 1601-01-01 to 1970-01-01
+
+/**
+ * Is a process still running, and when did it start? -> { alive, createdAt (ms) }
+ * or null when Windows can't say (no koffi). A pid that isn't there, or isn't
+ * ours to look at, is { alive: false }. The start time tells a reused pid apart
+ * from the process that had it (devservers/runner.js).
+ */
+function processInfo(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return { alive: false, createdAt: null };
+  return safe(a => {
+    const h = a.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+    if (!h) return { alive: false, createdAt: null };
+    try {
+      const code = [0];
+      const alive = a.GetExitCodeProcess(h, code) ? code[0] === STILL_ACTIVE : false;
+      const created = [0], exited = [0], kernel = [0], user = [0];
+      let createdAt = null;
+      if (a.GetProcessTimes(h, created, exited, kernel, user)) {
+        const ticks = typeof created[0] === 'bigint' ? created[0] : BigInt(Math.round(Number(created[0]) || 0));
+        if (ticks > 0n) createdAt = Number(ticks / 10000n) - FILETIME_UNIX_MS;
+      }
+      return { alive, createdAt };
+    } finally { a.CloseHandle(h); }
+  }, null);
+}
 
 function frameOf(a, h) {
   const r = {};
@@ -292,5 +322,5 @@ const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 module.exports = {
   load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
-  lockScreen, blockShutdown, unblockShutdown,
+  lockScreen, blockShutdown, unblockShutdown, processInfo,
 };

@@ -6,7 +6,7 @@
   const wanted = new Set(['sync']); // what a sign-in asks for (signed out)
 
   const ago = t => (t ? SB.relTime(t) : 'not yet');
-  const TOGGLES = [['sync', 'ghSync'], ['friends', 'ghFriends'], ['ci', 'ghCi'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
+  const TOGGLES = [['sync', 'ghSync'], ['friends', 'ghFriends'], ['ci', 'ghCi'], ['projects', 'ghProjects'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
 
   function render(v) {
     if (!v) return;
@@ -26,7 +26,8 @@
     const claudeOn = signedIn && v.features.claude.on && v.features.claude.granted;
     for (const [f, id] of TOGGLES) {
       const el = $(id);
-      el.checked = signedIn ? v.features[f].on && v.features[f].granted : wanted.has(f);
+      // ?. : a view from before a feature existed simply has it off.
+      el.checked = signedIn ? !!(v.features[f]?.on && v.features[f]?.granted) : wanted.has(f);
       // Pushing workflow files is only meaningful once tasks can push at all.
       el.disabled = !!v.flow || ((f === 'claude' || f === 'friends') && !signedIn) || (f === 'workflows' && !claudeOn);
     }

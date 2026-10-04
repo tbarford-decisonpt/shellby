@@ -52,6 +52,9 @@ const DEFAULTS = {
   forecast: true,    // warn when you're on pace to fill the 5-hour window before it resets (see forecast.js)
   forecastWarned: null, // the reset time of the window last warned about, so each window warns once
   held: [],          // messages and routines waiting for the usage window to reset (see held.js)
+  spendGuard: true,  // stop unattended runs before they eat the share of the 5-hour window you keep (see guard.js)
+  spendReserve: 25,  // % of the 5-hour window routines, workflows and away-from-the-PC Autonomous tabs leave you
+  spendMaxMinutes: 60, // the longest one routine run may take
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only

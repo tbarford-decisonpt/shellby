@@ -43,6 +43,7 @@ const SUITE = [
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook
+  'e2e-projects',     // projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode
 ];

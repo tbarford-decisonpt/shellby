@@ -82,8 +82,18 @@ const STARTUP = [
   { name: 'Teams', command: '"C:\\Users\\you\\AppData\\Local\\Microsoft\\Teams\\Update.exe" --processStart Teams.exe', location: 'Run key (you)', off: true },
 ];
 
+// Your Run entries get a switch, like the real reader; everyone's don't.
+const withSwitch = i => ({ ...i, switch: i.location === 'Run key (you)' ? { key: 'Run', name: i.name } : null });
+
 function createFakeStartup() {
-  return { async read() { return STARTUP.map(i => ({ ...i })); } };
+  let items = STARTUP.map(withSwitch);
+  return {
+    async read() { return items.map(i => ({ ...i })); },
+    async set(sw, off) {
+      items = items.map(i => (i.switch?.name === sw?.name ? { ...i, off: !!off } : i));
+      return { ok: true };
+    },
+  };
 }
 
 module.exports = { createFakeSensors, createFakeProcesses, createFakeStartup, FAKE_SCENARIOS: Object.keys(SCENARIOS) };

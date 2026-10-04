@@ -167,6 +167,15 @@ test('stashes and background commands are mentioned but do not hold up a shutdow
   assert.equal(leaving.verdict([], { working: ['x'] }).hold, true);
 });
 
+test('running dev servers get a line each but never hold up a shutdown', () => {
+  const v = leaving.verdict([], { servers: [{ project: 'site', port: 5173 }, { project: 'api', port: null }] });
+  assert.equal(v.safe, false);
+  assert.equal(v.hold, false);
+  assert.equal(v.counts.servers, 2);
+  assert.match(v.headline, /2 dev servers still running/);
+  assert.deepEqual(v.lines, ['Dev server: site on :5173', 'Dev server: api']);
+});
+
 test('what is running: Claude working, waiting on you, background commands', () => {
   const v = leaving.verdict([], {
     working: ['Fix the login bug'],

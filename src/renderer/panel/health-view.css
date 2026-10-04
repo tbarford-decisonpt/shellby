@@ -155,12 +155,22 @@ body[data-view="health"] .view-health {
 /* starts with Windows */
 .hl-startup-sum { margin: 0 0 6px; font-size: 13px; }
 .hl-startup { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 1px; }
-.hl-start { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
+.hl-start { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
 .hl-start:last-child { border-bottom: 0; }
 .hl-start-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hl-start-where { margin-left: auto; flex: none; font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
 .hl-start.off .hl-start-name { color: var(--sand-faint); text-decoration: line-through; }
 .hl-start-off { flex: none; font: 700 9px/15px var(--font-mono); padding: 0 6px; border-radius: 99px; text-transform: uppercase; color: var(--sand-faint); border: 1px solid var(--line-soft); }
+/* Same footprint for both labels and the lock, so the column lines up. */
+.hl-start-switch, .hl-start-locked { flex: none; width: 74px; text-align: center; }
+.hl-start-switch {
+  height: 22px; padding: 0; border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: none; color: var(--sand-dim); border: 1px solid var(--line-soft);
+}
+.hl-start-switch:hover:not(:disabled) { color: var(--sand); border-color: var(--sand-faint); }
+.hl-start.off .hl-start-switch { color: var(--glass); border-color: color-mix(in srgb, var(--glass) 45%, transparent); }
+.hl-start-switch:disabled { opacity: .5; }
+.hl-start-locked { font: 600 10px var(--font-mono); color: var(--sand-faint); cursor: help; }
 
 /* sensors */
 .hl-sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }

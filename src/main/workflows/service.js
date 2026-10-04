@@ -198,6 +198,9 @@ class WorkflowService {
 
   ownsTab(tabId) { return this.tabRuns.has(tabId); }
 
+  /** What started a running run ('manual', 'schedule', 'webhook'...), or null. */
+  originOf(runId) { return this.active.get(runId)?.origin || null; }
+
   // ================================================================ views
 
   workflowView(wf, now = this.now()) {

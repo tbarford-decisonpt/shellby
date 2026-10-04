@@ -57,6 +57,7 @@ const { createLean } = require('./lean');
 const recap = require('./recap');
 const leaving = require('./leaving');
 const forecast = require('./forecast');
+const guard = require('./guard');
 const held = require('./held');
 const ctx = require('./context');
 const { CritterMotion } = require('./motion');
@@ -97,6 +98,11 @@ const system32 = require('./system32');
 const branching = require('./branching');
 const branch = require('./branch');
 const fileIndex = require('./fileindex');
+const { Projects } = require('./projects/service');
+const { registerProjectsIpc } = require('./projects/ipc');
+const { DevServers } = require('./devservers/service');
+const devRunner = require('./devservers/runner');
+const devScripts = require('./devservers/scripts');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -181,6 +187,8 @@ const claudePath = () => config?.get('claudePath') || null;
 let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, updates, friends;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
+let projects = null;               // the Projects page (projects/service.js)
+let devServers = null;             // the dev servers in them (devservers/service.js)
 let parityIpc = null;
 let lean = null; // Lean Shell: the prompt cache, setup weight and idle tools (lean.js)
 let lastInit = null; // the newest init report from a conversation: its MCP list is refreshed from mcp_status
@@ -504,6 +512,7 @@ function runningNow() {
     ],
     waiting: waitingOnYou().map(w => w.title),
     background: (ext.background || []).map(b => ({ program: b.program, project: b.project })),
+    servers: devServers?.runningList() || [],
   };
 }
 
@@ -803,6 +812,8 @@ function refreshCritter() {
     level: levelUpAt,
     ci: { failing: ci?.view().failing || 0 },
     background: agg.background.length,
+    // Dev servers: the "up :5173" pill and the sign when one crashed (devservers/service.js).
+    servers: devServers && !config.get('crabOnly') ? devServers.summary() : null,
     focus: focusState(),
     limit: limited ? { resetsAt: limited.resetsAt } : null,
     say: said,
@@ -882,6 +893,7 @@ function createManager() {
     getOutputStyle: () => outputStyles.clean(config.get('outputStyle')),
     getEnv: () => github?.claudeEnv() || {},
     prepareTurn: async tab => {
+      armGuard(tab);
       tab.lastReply = null;
       // Only the summary turn itself may start a conversation fresh (tab:fresh
       // sets it after this runs): a summary turn that died without a result
@@ -906,6 +918,7 @@ function createManager() {
       send(panel, 'usage', item);
       onUsage(item);
       refreshOutlook();
+      checkGuards();
       return;
     }
     if (item.kind === 'init') {
@@ -1486,7 +1499,8 @@ function knownFolder(dir) {
   const same = k => typeof k === 'string' && path.resolve(k).toLowerCase() === want;
   return Object.keys(streaks.normalize(config.get('streaks')).projects).some(same)
     || Object.values(stickerState().projects).some(p => same(p.root))
-    || Object.keys(checkup.normalizeCheckups(config.get('checkups')).projects).some(same);
+    || Object.keys(checkup.normalizeCheckups(config.get('checkups')).projects).some(same)
+    || !!projects?.knowsRoot(dir); // a clone on the Projects page ("New conversation here")
 }
 
 // Check one project's dependencies now, in a tab of its own (from the Sticker
@@ -1773,6 +1787,7 @@ function onPermission(tabId, item, tab) {
 
 function onResult(tabId, item, tab) {
   endTurn(tabId);
+  tab.guardRun = null;
   const fresh = tab.freshWanted;
   tab.freshWanted = false;
   if (tab.copyWanted) {
@@ -1793,6 +1808,8 @@ function onResult(tabId, item, tab) {
   // A workflow's Claude step: the workflow carries on and says what it wants
   // said, so no "finished" toast or phone ping for each step.
   const inWorkflow = !!tab.workflowRunId;
+  // A "fix this dev server" tab finished: its card offers the restart.
+  if (!item.interrupted) devServers?.onTabDone(tabId, !!item.ok);
   if (!inWorkflow && !item.interrupted) {
     workflows?.event('task', { title: tab.title, outcome: item.ok ? 'ok' : 'error', folder: tab.worktree?.originalCwd || tab.session?.cwd || '', error: item.error || null });
   }
@@ -3209,17 +3226,76 @@ function reopenForHeld(h) {
 }
 
 // A scheduled routine that comes due while you're at your limit would only
-// fail: it waits for the reset instead, and says so the first time.
+// fail, and one past the spending guard's ceiling would eat the share you kept
+// for yourself: either way it waits for the reset, and says so the first time.
 function runOrHoldRoutine(r, reason) {
   const w = limitWait();
-  if (!w) return runRoutine(r, { reason });
+  const usage = config.get('lastUsage');
+  const saving = !w && guard.holdBeforeStart(guardSettings(), usage, Date.now());
+  if (!w && !saving) return runRoutine(r, { reason });
   const res = holdForReset({ kind: 'routine', routineId: r.id, name: r.name, auto: true });
   if (!res.ok) return { ok: false, skipped: true, error: res.error };
   if (res.added) {
-    log.info('Routine held for the reset', r.name);
-    notify(`Routine "${r.name}" will run after the reset`, `You're at your ${limits.windowName(w.window)} limit. It runs at ${res.atText}.`, () => showPanel({ focusInput: false }));
+    log.info('Routine held for the reset', `${r.name}${saving ? ' (spending guard)' : ''}`);
+    const why = w ? `You're at your ${limits.windowName(w.window)} limit.`
+      : `Your 5-hour window is at ${usage.fiveHour.pct}%, and you asked to keep ${guardSettings().reserve}% for yourself.`;
+    notify(`Routine "${r.name}" will run after the reset`, `${why} It runs at ${res.atText}.`, () => showPanel({ focusInput: false }));
   }
   return { ok: true, held: true };
+}
+
+// ---- the spending guard (guard.js): unattended runs stop before they eat
+// the share of the 5-hour window you keep for yourself, and a routine that
+// runs far too long stops too.
+const GUARD_TICK_MS = 30 * 1000;
+const guardSettings = () => guard.settingsOf(k => config.get(k));
+
+// Each turn as it starts: what kind of unattended run it is, by who sent it
+// (sessions.js turnFrom). What you type yourself, even in a routine's or a
+// workflow's tab, is yours. A run you started by hand (Run now, a manual
+// workflow run) is never stopped on the ceiling: only a routine's time cap
+// still applies to it.
+function armGuard(tab) {
+  const { routine, workflow } = tab.turnFrom || {};
+  const kind = routine ? 'routine' : workflow ? 'workflow' : null;
+  const byHand = routine ? routine.reason === 'manual' : !!workflow && workflows?.originOf(workflow.runId) === 'manual';
+  tab.guardRun = { kind, startedAt: Date.now(), exempt: byHand, stopped: null };
+}
+
+function idleForGuard() {
+  try {
+    return powerMonitor.getSystemIdleState(60) === 'locked' ? Infinity : powerMonitor.getSystemIdleTime() * 1000;
+  } catch { return 0; }
+}
+
+// On each usage reading and every half minute: stop any run the guard says
+// should stop. Autonomous is read off the tab now, not when the turn started,
+// so switching into it mid-turn counts.
+function checkGuards() {
+  if (!manager || !config) return;
+  const settings = guardSettings();
+  if (!settings.on) return;
+  const now = Date.now();
+  const usage = config.get('lastUsage');
+  let idleMs = null;
+  for (const [tabId, tab] of manager.tabs) {
+    const run = tab.guardRun;
+    if (!run || run.stopped || !manager.isBusy(tabId)) continue;
+    const kind = run.kind || (tab.session.mode === 'autonomous' ? 'autonomous' : null);
+    if (!kind) continue;
+    if (kind === 'autonomous' && idleMs === null) idleMs = idleForGuard();
+    const v = guard.verdict({ ...run, kind }, settings, { usage, now, idleMs: idleMs ?? 0 });
+    if (!v) continue;
+    run.stopped = v;
+    log.info('Spending guard stopped a run', `${tab.title}: ${v.reason}${v.pct ? ` at ${v.pct}%` : ''}`);
+    manager.interrupt(tabId);
+    const m = guard.message(v, tab.title, settings, clockTime);
+    notify(m.title, m.body, () => showPanel({ tabId }), { tone: 'problem' });
+  }
+}
+
+function watchGuards() {
+  setInterval(checkGuards, GUARD_TICK_MS).unref?.();
 }
 
 // ================================================================ focus sessions
@@ -3759,6 +3835,73 @@ function depProjects() {
   });
 }
 
+// ================================================================ projects and dev servers
+
+function createProjects() {
+  devServers = new DevServers({
+    config,
+    dir: path.join(app.getPath('userData'), 'devservers'),
+    runner: devRunner,
+    info: native.processInfo,
+    readScripts: devScripts.read,
+    startTask,
+    panelFocused: () => !!(panel?.isVisible() && panel.isFocused()),
+    openCard: showServer,
+    notify: n => notify(n.title, n.body, n.onClick, { tone: n.tone || 'default', action: n.action || null }),
+  });
+  devServers.on('change', v => { send(panel, 'servers:changed', v); refreshCritter(); });
+  devServers.on('crashed', () => { if (!config.get('crabOnly')) speak('serverDown'); });
+  devServers.on('installed', ({ project }) => send(panel, 'projects:installed', { project }));
+  projects = new Projects({
+    config,
+    devServers,
+    known: knownProjects,
+    lastWorked: () => new Map(Object.entries(streaks.normalize(config.get('streaks')).projects).map(([key, p]) => [key, p.lastSeen || 0])),
+    github: () => ({
+      signedIn: !!github?.signedIn,
+      login: github?.view().login || null,
+      can: f => !!github?.can(f),
+      gh: () => github.gh(),
+      claudeEnv: () => github.claudeEnv(),
+    }),
+  });
+  projects.on('change', () => send(panel, 'projects:changed'));
+  devServers.reattach();
+}
+
+// A server's card on its project's page (the crab's sign, a toast, the tray).
+function showServer(serverId = null) {
+  showPanel({ focusInput: false });
+  send(panel, 'panel:view', 'projects');
+  send(panel, 'projects:show', { serverId: serverId || devServers?.summary().firstId || null });
+}
+
+// Quitting with servers running: they keep running unless you chose otherwise
+// (Settings, the Projects page, the tray, and this note the first time).
+async function serversOnQuit() {
+  if (!devServers?.liveCount()) return;
+  let { onQuit, quitNoteSeen } = devServers.view().settings;
+  if (onQuit === 'keep' && !quitNoteSeen) {
+    const n = devServers.liveCount();
+    const answer = await confirm.ask(panel, {
+      ...dialogLook(),
+      icon: '🖥️',
+      title: `${n} dev server${n === 1 ? '' : 's'} will keep running`,
+      message: `After Shellby closes, ${n === 1 ? 'it keeps' : 'they keep'} running, and Shellby picks ${n === 1 ? 'it' : 'them'} back up, log and all, when it starts again.`,
+      note: 'You can change this any time on the Projects page or in Settings.',
+      buttons: [{ label: 'Leave them running', style: 'primary' }, { label: 'Stop them' }, { label: 'Always stop them' }],
+      defaultId: 0, cancelId: 0,
+    });
+    devServers.setSettings({ quitNoteSeen: true, ...(answer === 2 ? { onQuit: 'stop' } : {}) });
+    if (answer === 1 || answer === 2) onQuit = 'stop';
+  }
+  if (onQuit === 'stop') {
+    await Promise.race([devServers.stopAll(), new Promise(r => setTimeout(r, 3000))]);
+    // Anything still going after that is ended on its own, past Shellby's exit.
+    await devServers.stopAll({ detached: true });
+  }
+}
+
 function createDepWatch() {
   depWatch = new depwatch.DepWatch({
     config,
@@ -4002,6 +4145,20 @@ function registerIpc() {
     send(panel, 'panel:view', 'settings');
     send(panel, 'panel:jump', 'Everywhere');
   });
+  // The dev server pill or sign on the crab: that server's card.
+  ipcMain.on('critter:servers-click', () => showServer());
+  registerProjectsIpc(ipcMain, {
+    projects: () => projects,
+    devServers: () => devServers,
+    pickFolder: async ({ title, defaultPath }) => {
+      const r = await dialog.showOpenDialog(panel, { title, defaultPath: defaultPath || os.homedir(), properties: ['openDirectory'] });
+      return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+    },
+    toPanel: (channel, payload) => send(panel, channel, payload),
+    openPath: p => shell.openPath(p),
+    showItem: p => shell.showItemInFolder(p),
+    openExternal: url => shell.openExternal(url),
+  });
   ipcMain.on('critter:menu', () => buildMenu().popup({ window: critter }));
   ipcMain.on('critter:drop', (_e, paths) => {
     const files = (Array.isArray(paths) ? paths : []).filter(isStr).slice(0, 20);
@@ -4082,6 +4239,30 @@ function registerIpc() {
   // first time the panel asked, so the same run behaved differently depending on
   // whether the machine happened to have Claude Code installed.
   ipcMain.handle('claude:status', async () => (claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() })));
+  // Checks again and tells the panel, so Settings and onboarding follow a
+  // sign-in or sign-out without a "Check again" press.
+  async function recheckClaude() {
+    claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() });
+    refreshStatusLine();
+    send(panel, 'claude:status', claudeStatus);
+    return claudeStatus;
+  }
+  // Opens its own console window; the CLI walks the user through the browser
+  // sign-in. When that window closes (signed in, or given up), check again.
+  function startClaudeLogin() {
+    const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+    if (!exe) return false;
+    try {
+      const child = require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false });
+      child.on('error', err => log.warn('claude auth login failed to start', err.message));
+      child.on('exit', () => { recheckClaude().catch(() => { /* the next check will tell */ }); });
+      child.unref();
+      return true;
+    } catch (err) {
+      log.warn('claude auth login failed to start', err.message);
+      return false;
+    }
+  }
   // "Find it myself…": for installs in places the search can't guess — a
   // portable copy, another drive, a company image. The file is run once to prove
   // it really is Claude Code before the path is kept, so a wrong pick is
@@ -4107,12 +4288,34 @@ function registerIpc() {
     refreshStatusLine();
     return { ok: true, status: claudeStatus };
   });
-  ipcMain.handle('claude:login', () => {
+  ipcMain.handle('claude:login', () => startClaudeLogin());
+  // Signing out (and "Switch account", which signs straight back in) runs
+  // Claude Code's own `auth logout`: the sign-in is Claude Code's, not ours.
+  ipcMain.handle('claude:logout', async (_e, { thenSignIn = false } = {}) => {
     const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-    if (!exe) return false;
-    // Opens its own console window; the CLI walks the user through the browser sign-in.
-    require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
-    return true;
+    if (!exe) return { ok: false, error: 'Claude Code not found.', status: claudeStatus };
+    const busy = manager?.aggregate?.busy || 0;
+    if (busy) {
+      const r = await dialog.showMessageBox(panel, {
+        type: 'warning', buttons: [thenSignIn ? 'Switch anyway' : 'Sign out anyway', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+        message: `${busy === 1 ? 'A task is' : `${busy} tasks are`} still running.`,
+        detail: 'Signing out of Claude Code can stop it partway. Let it finish first if you can.',
+      });
+      if (r.response !== 0) return { ok: false, cancelled: true, status: claudeStatus };
+    }
+    const out = await runCli(exe, ['auth', 'logout'], 30000);
+    await recheckClaude();
+    if (claudeStatus?.loggedIn && claudeStatus.billingEnv?.length) {
+      // An API key in the environment signs Claude Code in by itself; logout can't remove it.
+      return { ok: false, error: `Still signed in through ${claudeStatus.billingEnv.join(', ')}. Turn on "Always use my Claude plan" to ignore it.`, status: claudeStatus };
+    }
+    if (!out.ok && claudeStatus?.loggedIn) {
+      log.warn('claude auth logout failed', (out.stderr || out.err?.message || '').slice(0, 300));
+      return { ok: false, error: "Claude Code didn't sign out. Try `claude auth logout` in a terminal.", status: claudeStatus };
+    }
+    log.info('signed out of Claude Code', thenSignIn ? '(switching account)' : '');
+    if (thenSignIn) startClaudeLogin();
+    return { ok: true, status: claudeStatus };
   });
 
   // ---- tabs
@@ -4404,7 +4607,7 @@ ${r.detail}` });
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'perch', 'perchIgnore', 'chatter', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard', 'spendReserve', 'spendMaxMinutes']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -4444,7 +4647,9 @@ ${r.detail}` });
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'worktrees', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'spendGuard']) if (k in allowed) allowed[k] = !!allowed[k];
+    if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
+    if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
     // The only edit the panel makes to this list is taking an app back off it.
@@ -4781,7 +4986,7 @@ ${r.detail}` });
   ipcMain.handle('plugin:get', () => pluginView());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'friends', 'publish', 'claude', 'ci', 'workflows']);
+  const FEATURE_NAMES = new Set(['sync', 'friends', 'publish', 'claude', 'ci', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
     // claude, workflows and friends are never granted by a first sign-in: each has its
@@ -5056,6 +5261,7 @@ ${r.detail}` });
   ipcMain.handle('health:end-task', (_e, pid) => health.endTask(Number.isInteger(pid) ? pid : null));
   ipcMain.handle('health:startup', (_e, force) => health.startupItems({ force: force === true }));
   ipcMain.handle('health:ask-startup', () => health.askStartup());
+  ipcMain.handle('health:set-startup', (_e, id, off) => health.setStartup(isStr(id) ? id : null, off === true));
   ipcMain.handle('health:clear-log', () => { config.set({ healthLog: [] }); return health.view(); });
   ipcMain.on('health:viewed', () => stat('health-viewed'));
 
@@ -5341,6 +5547,8 @@ function buildMenu() {
     claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
     claude && { label: 'Workflows', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'workflows'); } },
     claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
+    claude && { label: 'Projects', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'projects'); } },
+    claude && devServers?.liveCount() && { label: `Stop all dev servers (${devServers.liveCount()})`, click: () => devServers.stopAll() },
     { label: leaveMenuLabel(), click: () => leaveCheck() },
     { label: 'Lock the PC', click: () => leaveCheck({ lock: true }) },
     { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
@@ -5421,7 +5629,9 @@ function createTray() {
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
 }
 
-function quit() {
+async function quit() {
+  // Dev servers keep running unless you chose otherwise; the first time, he says so.
+  await serversOnQuit().catch(e => log.warn('dev servers on quit', e.message));
   app.isQuitting = true;
   manager?.closeAll();
   app.quit();
@@ -5446,7 +5656,10 @@ function setupUpdates() {
   updates = new Updates({
     updater,
     version: app.getVersion(),
-    prepare: () => { app.isQuitting = true; manager?.closeAll(); },
+    // The installer ends every Shellby.exe, dev server supervisors included,
+    // which would leave the servers running unwatched: they're stopped first
+    // and started again by the new version (devservers/service.js).
+    prepare: () => { app.isQuitting = true; manager?.closeAll(); devServers?.stopForUpdate(); },
   });
   updates.on('changed', view => {
     // Offline, no releases yet, rate-limited: it goes to the log and to the
@@ -5560,6 +5773,7 @@ app.whenReady().then(() => {
   health.start();
   createExternal();
   createTimeTracker();
+  createProjects();
   createCrabApi();
   createWorkflows();
   createDepWatch();
@@ -5585,6 +5799,7 @@ app.whenReady().then(() => {
   // Timers don't run while the PC sleeps: catch up on wake.
   powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); if (scheduler) scheduleHeld(); });
   watchOutlook();
+  watchGuards();
   setTimeout(checkNudges, 60 * 1000);
   try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
   setInterval(checkNudges, 60 * 60 * 1000);
@@ -5645,4 +5860,13 @@ app.on('will-quit', () => {
 // close() gives a process 3 s to finish on its own, which Shellby quitting never
 // waits for: one mid-task would carry on editing with no window to show it.
 // Workflows freeze first: a run cut off by quitting is resumable, not failed.
-app.on('before-quit', () => { app.isQuitting = true; workflows?.shutdown(); manager?.closeAll({ kill: true }); });
+app.on('before-quit', () => {
+  app.isQuitting = true;
+  workflows?.shutdown();
+  manager?.closeAll({ kill: true });
+  // Quits that didn't come through quit() (Windows shutting down, say):
+  // "Stop them" still holds. taskkill runs on its own, so Shellby exiting
+  // can't cut it off halfway down the tree, and the servers are saved as gone.
+  if (devServers?.view().settings.onQuit === 'stop') devServers.stopAll({ detached: true }).catch(() => {});
+  devServers?.shutdown();
+});

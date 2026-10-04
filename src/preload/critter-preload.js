@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('shellby', {
     click: fire('critter:click'),
     crewClick: fire('critter:crew-click'),
     bgClick: fire('critter:bg-click'),
+    serversClick: fire('critter:servers-click'), // the dev server pill or sign
     menu: fire('critter:menu'),
     drop: fire('critter:drop'),
     onState: on('critter:state'),
