@@ -144,9 +144,44 @@ body[data-view="workflows"] .view-workflows {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
 }
 .wf-gallery { margin-bottom: 14px; }
-.wf-template { grid-template-columns: 22px 1fr; column-gap: 9px; }
-.wf-template-icon { font-size: 16px; line-height: 1.25; text-align: center; }
+.wf-template { grid-template-columns: 32px 1fr; column-gap: 11px; }
+/* The same tile as a list row's, so a template looks like the row it becomes. */
+.wf-template-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; font-size: 17px;
+  border-radius: 9px; background: var(--abyss); border: 1px solid var(--line-soft);
+}
 .wf-template-text { display: grid; gap: 3px; min-width: 0; }
+.view-workflows .wf-template b { font-size: 14px; color: var(--sand); }
+.view-workflows .wf-template-text > span { font-size: 12.5px; }
+.wf-gallery-head { margin: 0 0 9px; font: 600 15px var(--font-pixel); color: var(--glass); }
+
+/* ---------------------------------------------------------------- empty hero
+   Before the first workflow: a pool to fill, not a line of fine print. */
+.wf-hero {
+  position: relative; overflow: hidden; margin: 2px 0 18px; padding: 18px 16px 16px;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--glass-dim), transparent 60%),
+    radial-gradient(90% 80% at 0% 100%, var(--coral-dim), transparent 55%),
+    var(--reef);
+  animation: rise .5s var(--ease-out);
+}
+.wf-hero-title { margin: 0 0 8px; font: 600 21px/1.2 var(--font-pixel); color: var(--sand); }
+.wf-hero-sub { margin: 0; font-size: 14px; line-height: 1.5; color: var(--sand-dim); }
+.wf-hero-steps { list-style: none; padding: 0; margin: 10px 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.wf-hero-step {
+  --tint: var(--glass);
+  padding: 3px 10px; border-radius: 999px; font: 600 12px/1.5 var(--font-mono); font-stretch: 90%;
+  color: var(--tint); background: color-mix(in srgb, var(--tint) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint) 35%, transparent);
+}
+.wf-hero-step.claude { --tint: var(--coral); }
+.wf-hero-step.web { --tint: var(--amber); }
+.wf-hero-step.ask { --tint: var(--sand); }
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-hero { animation: none; }
+}
 
 /* ---------------------------------------------------------------- disclosures */
 .wf-disclosure > summary, .wf-advanced > summary, .wf-out > summary {
@@ -342,3 +377,8 @@ body[data-view="workflows"] .view-workflows {
 .wf-md > :first-child { margin-top: 0; }
 .wf-md > :last-child { margin-bottom: 0; }
 .wf-out .wf-md + .wf-pre { margin-top: 6px; }
+.wf-out .wf-md + .wf-fields, .wf-out .wf-fields + .field-hint, .wf-out .wf-md + .field-hint, .wf-out .wf-pre + .field-hint { margin-top: 8px; }
+.wf-out > .field-hint { margin-bottom: 4px; font-family: var(--font-mono); }
+.wf-fields { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; font-size: 12px; }
+.wf-fields dt { font-family: var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
+.wf-fields dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

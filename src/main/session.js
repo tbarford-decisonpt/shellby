@@ -54,9 +54,6 @@ class ClaudeSession extends EventEmitter {
     // in a git project has no copy of its own yet. It sees every tool call that
     // could change files before it runs, and can hold it back (worktrees.js).
     this.beforeWork = null;
-    // Which tools that hook sees: those that change files, unless main.js
-    // widens it (a routine's dry run fences MCP tools too).
-    this.workMatcher = null;
     this.interrupting = false;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
@@ -99,7 +96,7 @@ class ClaudeSession extends EventEmitter {
     if (this.beforeWork) {
       this.write({ type: 'control_request', request_id: randomUUID(), request: {
         subtype: 'initialize',
-        hooks: { PreToolUse: [{ matcher: this.workMatcher || WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }] },
+        hooks: { PreToolUse: [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }] },
       } });
     }
 

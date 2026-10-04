@@ -30,15 +30,34 @@ function retryPrompt(fields, problem) {
   return `${problem} Reply with only a fenced \`\`\`json block holding one object with the keys ${Object.keys(fields).map(k => `"${k}"`).join(', ')}, using what you found.`;
 }
 
+const isObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// Fenced blocks, found line by line: a fence only opens or closes at the start
+// of a line, so ``` inside a line (a JSON string quoting markdown, say) is just
+// text. A block left open runs to the end, minus a ``` stuck onto its last line.
+function fences(text) {
+  const blocks = [];
+  let open = null;
+  for (const m of text.matchAll(/^[ \t]*```([^`\n]*)$/gm)) {
+    const info = m[1].trim();
+    if (!open) open = { lang: info.toLowerCase(), start: m.index, bodyStart: m.index + m[0].length + 1 };
+    else if (!info) {
+      blocks.push({ lang: open.lang, start: open.start, end: m.index + m[0].length, body: text.slice(open.bodyStart, m.index) });
+      open = null;
+    }
+  }
+  if (open) blocks.push({ lang: open.lang, start: open.start, end: text.length, body: text.slice(open.bodyStart).replace(/```\s*$/, '') });
+  return blocks;
+}
+
 // The last ```json (or bare ```) block whose body is a JSON object; failing
-// that, the last {...} spanning to the end of the reply.
-function extract(reply) {
+// that, the last {...} spanning to the end of the reply. Where it sits, too.
+function locate(reply) {
   const text = String(reply ?? '');
-  const blocks = [...text.matchAll(/```(?:json|JSON)?[ \t]*\r?\n([\s\S]*?)```/g)].map(m => m[1].trim());
-  for (const b of blocks.reverse()) {
+  for (const b of fences(text).filter(b => b.lang === '' || b.lang === 'json').reverse()) {
     try {
-      const v = JSON.parse(b);
-      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+      const v = JSON.parse(b.body.trim());
+      if (isObject(v)) return { value: v, start: b.start, end: b.end };
     } catch { /* try the next one */ }
   }
   const end = text.trimEnd();
@@ -46,12 +65,24 @@ function extract(reply) {
     for (let i = end.lastIndexOf('{'); i >= 0; i = end.lastIndexOf('{', i - 1)) {
       try {
         const v = JSON.parse(end.slice(i));
-        if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+        if (isObject(v)) return { value: v, start: i, end: end.length };
       } catch { /* widen */ }
       if (i === 0) break;
     }
   }
   return null;
+}
+
+function extract(reply) {
+  return locate(reply)?.value ?? null;
+}
+
+/** The reply without its JSON block, so what's shown and passed on is the readable part. */
+function strip(reply) {
+  const text = String(reply ?? '');
+  const found = locate(text);
+  if (!found) return text;
+  return `${text.slice(0, found.start).trimEnd()}${text.slice(found.end).replace(/^\s+/, '\n\n')}`.trimEnd();
 }
 
 // Lenient where it's unambiguous ("3" is a number, "yes" is true), strict otherwise.
@@ -98,4 +129,4 @@ function read(reply, fields) {
   return { ok: true, data };
 }
 
-module.exports = { instruction, retryPrompt, extract, read, coerce };
+module.exports = { instruction, retryPrompt, extract, strip, read, coerce };

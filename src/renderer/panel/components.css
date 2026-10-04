@@ -186,6 +186,8 @@ body.reordering .tip { display: none; }
 .seg button[aria-selected="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 .seg .n { font: 500 10.5px var(--font-mono); color: var(--sand-faint); margin-left: 3px; }
 .tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+/* A grid item is as wide as its longest unbreakable line by default: one long name would widen every row. */
+.tool-list > li { min-width: 0; }
 .tool-row { display: flex; gap: 10px; align-items: center; padding: 9px 10px 9px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
 .tool-row.is-new { border-color: rgba(255, 122, 92, .5); background: linear-gradient(90deg, var(--coral-dim), transparent 50%), var(--reef); }
 .tool-main { flex: 1; min-width: 0; }
@@ -219,7 +221,15 @@ body.reordering .tip { display: none; }
 .mcp-dot.s-failed { background: var(--danger); }
 
 /* Toolbox → Hooks and Memory */
-#toolTabs { display: grid; grid-template-columns: repeat(3, 1fr); } /* six kinds: two rows of three */
+/* Nine kinds in three labelled rows: Tools, More, Setup */
+#toolTabs { display: grid; grid-template-columns: auto repeat(3, 1fr); align-items: center; }
+.seg-label { padding: 0 8px 0 6px; font: 700 9.5px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-faint); }
+/* Search on its own row; where-from and order share the one below (hidden on tabs without them) */
+.tool-find { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tool-find #toolSearch { grid-column: 1 / -1; }
+.tool-find select { min-width: 0; text-overflow: ellipsis; }
+.tool-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px 0 4px; font-size: 12px; color: var(--sand-faint); }
+.tool-note { margin: 0 0 6px; font-size: 12px; color: var(--sand-faint); }
 .setup-pane:empty { display: none; }
 .setup-intro { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .setup-intro p { flex: 1; margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--sand-dim); }
@@ -312,9 +322,6 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .routine-ask-note.err { color: #ffb3aa; }
 .routine-ask.busy .routine-ask-note { animation: blinkdot 1.2s steps(1) infinite; }
 .routine-as-workflow { justify-self: start; }
-/* Build it with Claude, under the routine editor (wf-chat.js / wf-chat.css). */
-.routine-chat { margin: -6px 0 16px; }
-.routine-chat .wf-chat-log { max-height: 280px; }
 .rt-workflow-offer { display: grid; justify-items: start; gap: 4px; }
 .ar-meta .r-fix { height: 22px; padding: 0 8px; font-size: 11.5px; }
 
@@ -332,6 +339,9 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .form-errors { margin: 0; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(255, 90, 74, .1); color: #ffb3aa; font-size: 12.5px; }
 .routine-editor .row.end { margin-top: 2px; }
 .routine-editor .path { font-size: 11px; padding: 6px 8px; }
+/* The editor and its Build it with Claude chat (wf-chat.css lays the pair out). */
+.routine-work { margin-bottom: 16px; }
+.routine-work > .routine-editor { margin-bottom: 0; }
 
 /* history extras */
 .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }

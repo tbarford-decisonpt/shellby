@@ -119,3 +119,112 @@ test('an unknown @name is answered with the ones there are', () => {
   assert.match(sn.unknownText('reveiw', [review, tests]), /No snippet called @reveiw\. Yours: @review, @tests\./);
   assert.match(sn.unknownText('x', []), /No snippet called @x\. \(shellby snippets/);
 });
+
+// ------------------------------------------------------------ 0.65: blanks, hints, sharing
+
+const fix = { name: 'fix', text: 'Fix issue #$1. What is wrong: $2', hint: 'issue number, then what is wrong' };
+
+test('slots finds $ARGUMENTS and $1 to $9, and leaves prices and $10 alone', () => {
+  assert.deepEqual(sn.slots('Fix #$1: $2'), { all: false, count: 2 });
+  assert.deepEqual(sn.slots('Only $2 here'), { all: false, count: 2 });
+  assert.deepEqual(sn.slots('Tests for $ARGUMENTS'), { all: true, count: 0 });
+  for (const plain of ['It costs $5.00', 'about US$5', '$10 off', '$1x', 'a $$1 thing', 'no blanks']) {
+    assert.deepEqual(sn.slots(plain), { all: false, count: 0 }, plain);
+  }
+  assert.equal(sn.needsInput({ text: 'Fix $1, then rerun' }), true, 'a comma after it still counts');
+});
+
+test('expand fills $1 to $N a word at a time, the last taking what is left', () => {
+  assert.deepEqual(sn.expand(fix, '42 the login page 500s'), { ok: true, prompt: 'Fix issue #42. What is wrong: the login page 500s' });
+  assert.equal(sn.expand(fix, '"42 b" fine').prompt, 'Fix issue #42 b. What is wrong: fine', 'quotes keep words together');
+  assert.equal(sn.expand(fix, "42 'quoted rest'").prompt, 'Fix issue #42. What is wrong: quoted rest');
+  const both = { name: 'b', text: '$1 / $ARGUMENTS' };
+  assert.equal(sn.expand(both, 'a b c').prompt, 'a b c / a b c', 'with one blank, $1 is the lot');
+  assert.equal(sn.expand({ name: 'r', text: '$1 and $1' }, 'x').prompt, 'x and x');
+  assert.equal(sn.expand({ name: 'p', text: 'Use $1' }, "$& $'").prompt, "Use $& $'");
+});
+
+test('expand says how many things a snippet needs, with its hint', () => {
+  assert.match(sn.expand(fix, '42').error, /\/fix needs 2 things after it: issue number, then what is wrong\./);
+  assert.match(sn.expand({ name: 'two', text: '$1 $2' }, 'a', { sigil: '@' }).error, /@two needs 2 things after it, with spaces between them/);
+  assert.match(sn.expand(fix, '').error, /\/fix needs something after it, like: \/fix <issue number, then what is wrong>/);
+});
+
+test('a hint is kept only when there is a blank for it; newTab only when true', () => {
+  assert.deepEqual(sn.check({ name: 'f', text: 'Fix $1', hint: '  <an issue>  ', newTab: true }).snippet, { name: 'f', text: 'Fix $1', hint: 'an issue', newTab: true });
+  assert.deepEqual(sn.check({ name: 'f', text: 'No blanks', hint: 'ignored', newTab: 'yes' }).snippet, { name: 'f', text: 'No blanks' });
+  assert.match(sn.check({ name: 'f', text: '$1', hint: 'x'.repeat(sn.MAX_HINT + 1) }).error, /hint under/);
+  assert.ok(sn.STARTERS.filter(s => s.hint).every(s => sn.needsInput(s)), 'the starters that have hints need input');
+});
+
+test('duplicate puts a numbered copy straight after the original', () => {
+  const r = sn.duplicate([review, tests], 'review');
+  assert.deepEqual(r.list.map(s => s.name), ['review', 'review-2', 'tests']);
+  assert.equal(r.list[1].text, review.text);
+  assert.equal(sn.duplicate(r.list, 'review').name, 'review-3');
+  assert.equal(sn.duplicate([review], 'gone').ok, false);
+  assert.equal(sn.freeName([{ name: 'x'.repeat(32), text: 'a' }], 'x'.repeat(32)).length, 32, 'stays within the name limit');
+  assert.equal(sn.freeName([], 'export'), 'export-2', 'not one of Shellby\'s own');
+});
+
+test('use counts go up, follow a rename and drop with the snippet', () => {
+  let u = sn.noteUse({}, 'review', 1000);
+  u = sn.noteUse(u, '/Review', 2000);
+  assert.deepEqual(u, { review: { n: 2, at: 2000 } });
+  assert.deepEqual(sn.keepUse(u, [{ name: 'check', text: 'x' }], { from: 'review', to: 'check' }), { check: { n: 2, at: 2000 } });
+  assert.deepEqual(sn.keepUse(u, [tests]), {}, 'a deleted one is forgotten');
+  assert.deepEqual(sn.keepUse({ review: 'junk' }, [review]), {});
+  const v = sn.view([review, fix], u);
+  assert.deepEqual(v.map(s => [s.uses, s.lastUsed, s.slots]), [[2, 2000, 0], [0, null, 2]]);
+});
+
+test('export and import go round, skipping what you have and renaming clashes', () => {
+  const file = sn.exportJson([review, fix]);
+  const parsed = sn.parseImport(file);
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.snippets, [review, fix]);
+  assert.equal(sn.parseImport(String.fromCharCode(0xFEFF) + JSON.stringify([review])).ok, true, 'a byte-order mark is fine');
+  assert.match(sn.parseImport('not json').error, /isn't JSON/);
+  assert.match(sn.parseImport('{"a":1}').error, /no list/);
+
+  const mine = [review, { name: 'fix', text: 'Something else' }];
+  const r = sn.merge(mine, [review, fix, { name: 'export', text: 'Mine now' }, { name: 'bad name', text: 'x' }]);
+  assert.deepEqual(r.added, ['fix-2', 'export-2']);
+  assert.deepEqual(r.renamed, [{ from: 'fix', to: 'fix-2' }]);
+  assert.equal(r.skipped, 2, 'the identical one and the broken one');
+  assert.equal(r.list.length, 4);
+  assert.deepEqual(mine.map(s => s.name), ['review', 'fix'], 'the list passed in is left as it was');
+  const full = Array.from({ length: sn.MAX_SNIPPETS }, (_, i) => ({ name: `s${i}`, text: `x${i}` }));
+  assert.equal(sn.merge(full, [fix]).skipped, 1);
+});
+
+test('the terminal list shows what goes after the name', () => {
+  assert.match(sn.cliText([review, fix]), /@fix <issue number, then what is wrong>\s+Fix issue/);
+});
+
+test('$$1 is a $1 sent as it is, blank or no blank', () => {
+  const awk = { name: 'awk', text: "Run awk '{print $$1}' on $ARGUMENTS" };
+  assert.deepEqual(sn.slots(awk.text), { all: true, count: 0 });
+  assert.equal(sn.expand(awk, 'log.txt').prompt, "Run awk '{print $1}' on log.txt");
+  assert.equal(sn.expand({ name: 'p', text: 'It costs $$1 each.' }).prompt, 'It costs $1 each.', 'no blanks, still unescaped');
+  assert.equal(sn.expand({ name: 'p', text: 'Price $$1' }, '$$2').prompt, 'Price $1\n\n$$2', 'what you type is never unescaped');
+  assert.equal(sn.expand({ name: 'p', text: 'Fix $1' }, '$$1').prompt, 'Fix $$1');
+});
+
+test('snippets saved before $1 was a blank keep sending what they did', () => {
+  const old = [{ name: 'awk', text: "awk '{print $1, $2}' $ARGUMENTS" }, { name: 'cost', text: 'It costs $1 each' }, 'junk', { name: 'n' }];
+  const now = sn.migrate(old);
+  assert.equal(now[0].text, "awk '{print $$1, $$2}' $ARGUMENTS", '$ARGUMENTS is still a blank');
+  assert.equal(sn.expand(now[0], 'f.txt').prompt, "awk '{print $1, $2}' f.txt");
+  assert.equal(sn.needsInput(now[1]), false);
+  assert.equal(sn.expand(now[1]).prompt, 'It costs $1 each');
+  assert.deepEqual(now.slice(2), ['junk', { name: 'n' }], 'anything else is left for normalize to judge');
+  assert.equal(sn.migrate(null), null, 'a fresh install still gets the starters');
+  assert.equal(old[0].text, "awk '{print $1, $2}' $ARGUMENTS", 'the list passed in is left as it was');
+});
+
+test('only a single quoted thing loses its quotes', () => {
+  assert.equal(sn.expand({ name: 'x', text: 'x $1' }, '"a" "b"').prompt, 'x "a" "b"');
+  assert.equal(sn.expand({ name: 'x', text: 'x $1' }, '"a b"').prompt, 'x a b');
+  assert.deepEqual(sn.splitArgs('"a b" c "d" "e"', 2), ['a b', 'c "d" "e"']);
+});

@@ -453,6 +453,7 @@
     text = (text ?? input.value).trim();
     if (!text && !tab.attachments.length) return;
     const attachments = [...tab.attachments];
+    let snippet = null; // its name, counted as a use once the prompt has gone
     // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
     if (!attachments.length && SB.runLocal?.(text, tab)) { clearComposer(tab); return; }
     // /review and the rest of your snippets: Claude gets the prompt they stand for,
@@ -464,19 +465,38 @@
       let r;
       try { r = await api.expandSnippet(text); } finally { tab.expanding = false; }
       if (r && !r.ok) { SB.toast(r.error); return; }
-      if (r) text = r.prompt;
+      if (r?.newTab && !tab.isEmpty) return sendInNewTab(tab, text, r, attachments);
+      if (r) { snippet = r.name; text = r.prompt; }
     }
     if (tab.busy) {
       tab.queue.push({ text, attachments });
       clearComposer(tab);
       syncBusyUi();
+      if (snippet) api.snippetUsed(snippet);
       return;
     }
     if (await sendNow(tab, text, attachments)) {
       clearComposer(tab);
       SB.setView('chat');
+      if (snippet) api.snippetUsed(snippet);
     }
   };
+
+  // A snippet set to start a conversation of its own: the one you're in is left
+  // as it was. If the new one can't open, what you typed stays in the box; if it
+  // opens but can't start, the prompt waits in its box.
+  async function sendInNewTab(from, typed, { name, prompt }, attachments) {
+    clearComposer(from);
+    const fresh = await SB.newTab();
+    if (!fresh) {
+      from.attachments = attachments;
+      renderAttachments();
+      SB.prefill(typed);
+      return;
+    }
+    if (await sendNow(fresh, prompt, attachments)) { SB.setView('chat'); api.snippetUsed(name); }
+    else SB.prefill(prompt);
+  }
 
   // ------------------------------------------------------------ queued messages
 
@@ -655,7 +675,7 @@
     const tb = state.toolbox || { skills: [], commands: [] };
     // Shellby's own commands come first, so a skill with the same name can't hide
     // them; then your snippets, which run instead of a skill or command they share a name with.
-    const snips = (state.snippets || []).map(s => ({ name: s.name, kind: 'snippet', description: s.summary }));
+    const snips = (state.snippets || []).map(s => ({ name: s.name, kind: 'snippet', description: s.summary, hint: s.hint }));
     const all = [...(SB.LOCAL_COMMANDS || []), ...snips, ...tb.skills.map(t => ({ ...t, kind: 'skill' })), ...tb.commands.map(t => ({ ...t, kind: 'command' }))];
     const seen = new Set();
     const pinned = new Set((state.pinned || []).map(p => `${p.kind}:${p.name}`));
@@ -687,7 +707,7 @@
     menu.replaceChildren(...slashItems.map((t, i) => h('button', {
       type: 'button', role: 'option', class: `slash-item${i === slashIndex ? ' on' : ''}`, 'aria-selected': String(i === slashIndex),
       onmousedown: e => { e.preventDefault(); pickSlash(i); },
-    }, h('span', { class: 'slash-name' }, '/', t.name), h('span', { class: `kind-pill k-${t.kind}`, text: t.kind }), h('span', { class: 'slash-desc', text: t.description || '' }))));
+    }, h('span', { class: 'slash-name' }, '/', t.name, t.hint ? h('span', { class: 'slash-hint', text: ` <${t.hint}>` }) : null), h('span', { class: `kind-pill k-${t.kind}`, text: t.kind }), h('span', { class: 'slash-desc', text: t.description || '' }))));
   }
 
   function pickSlash(i) {

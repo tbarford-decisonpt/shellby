@@ -41,9 +41,12 @@ const SUITE = [
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
   'e2e-snippets',     // prompt snippets: the Toolbox tab, /name in the box, pinned chips, shellby do @name
+  'e2e-toolbox',      // the skill list: labelled tabs, a page at a time, where-from and order, editing your own
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook
+  'e2e-routine-chat', // Build it with Claude on routines: fill the form, test in a tab, read it, Save switches it on; the workflow chat too
+  'e2e-routines',     // Fix with Claude on a failed routine, and a request that needs a workflow handed to the workflow builder
   'e2e-projects',     // projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode

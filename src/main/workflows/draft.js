@@ -170,14 +170,14 @@ const CHAT_RULES = `How this chat works:
 - After a test: if it failed or didn't do what they wanted, fix it and test again. If it worked, say so briefly and set "test" to false.`;
 
 /** The conversation from the panel -> { ok, turns } with only plain, bounded text in it. */
-function checkTurns(messages, { empty = 'Say what you want the workflow to do.' } = {}) {
-  if (!Array.isArray(messages) || !messages.length) return { ok: false, error: empty };
+function checkTurns(messages) {
+  if (!Array.isArray(messages) || !messages.length) return { ok: false, error: 'Say what you want the workflow to do.' };
   const turns = messages.slice(-MAX_TURNS)
     .filter(m => m && TURN_ROLES.has(m.role) && typeof m.text === 'string')
     .map(m => ({ role: m.role, text: m.text.replace(UNSAFE, ' ').replace(/[ \t]+/g, ' ').trim().slice(0, MAX_MESSAGE) }))
     .filter(m => m.text);
   const last = turns[turns.length - 1];
-  if (!last || last.role === 'claude') return { ok: false, error: empty };
+  if (!last || last.role === 'claude') return { ok: false, error: 'Say what you want the workflow to do.' };
   return { ok: true, turns };
 }
 
@@ -258,6 +258,6 @@ function noAutonomous(v) {
 
 module.exports = {
   checkDescription, args, draftPrompt, fixPrompt, withFixes, repairPrompt, runBrief, parse,
-  checkTurns, chatPrompt, parseChat, envelope,
+  checkTurns, chatPrompt, parseChat,
   FORMAT, SCHEMA, CHAT_SCHEMA, DRAFT_TIMEOUT_MS, MAX_DESCRIPTION, MAX_MESSAGE,
 };

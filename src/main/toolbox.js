@@ -109,14 +109,23 @@ function cleanDesc(d) {
 }
 
 // The frontmatter, and how much text follows it: that body is what Claude reads
-// when the skill, command or agent is called.
-function readMeta(file) {
+// when the skill, command or agent is called. cache ({ prev, next } Maps keyed by
+// path) skips re-reading a file whose size and time haven't changed: with a few
+// dozen plugins that's hundreds of files, and the scan runs on the main process.
+function readMeta(file, cache = null) {
   try {
     const st = fs.statSync(file);
     if (!st.isFile() || st.size > MAX_FILE) return null;
+    const hit = cache?.prev.get(file);
+    if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) {
+      cache.next.set(file, hit);
+      return hit.meta;
+    }
     const text = fs.readFileSync(file, 'utf8');
     const fm = /^﻿?---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.exec(text);
-    return { ...parseFrontmatter(text), bodyChars: text.length - (fm ? fm[0].length : 0) };
+    const meta = { ...parseFrontmatter(text), bodyChars: text.length - (fm ? fm[0].length : 0) };
+    cache?.next.set(file, { mtimeMs: st.mtimeMs, size: st.size, meta });
+    return meta;
   } catch { return null; }
 }
 
@@ -148,22 +157,22 @@ function tool(kind, name, meta, source, file) {
 }
 
 // Items from one root (<home>/.claude, <cwd>/.claude or a plugin dir).
-function scanRoot(root, source, prefix) {
+function scanRoot(root, source, prefix, cache) {
   const found = { skills: [], agents: [], commands: [] };
   const named = n => (prefix ? `${prefix}:${n}` : n);
   for (const e of readdir(path.join(root, 'skills'))) {
     const dir = path.join(root, 'skills', e.name);
     if (!(e.isDirectory() || (e.isSymbolicLink() && isDir(dir)))) continue;
     const file = path.join(dir, 'SKILL.md');
-    const meta = readMeta(file);
+    const meta = readMeta(file, cache);
     if (meta) found.skills.push(tool('skill', e.name, meta, source, file));
   }
   for (const { file, parts } of walkMd(path.join(root, 'agents'))) {
-    const meta = readMeta(file);
+    const meta = readMeta(file, cache);
     if (meta) found.agents.push(tool('agent', parts[parts.length - 1], meta, source, file));
   }
   for (const { file, parts } of walkMd(path.join(root, 'commands'))) {
-    const meta = readMeta(file);
+    const meta = readMeta(file, cache);
     if (meta) found.commands.push(tool('command', parts.join(':'), meta, source, file));
   }
   for (const k of KINDS) for (const t of found[k]) t.name = named(t.name);
@@ -186,7 +195,14 @@ function isInside(file, dir) {
   return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-function scanToolbox({ home, cwd, plugins = [] } = {}) {
+// metaCache: a Map the caller keeps between scans (ToolboxWatcher does). It's
+// refilled with just the files this scan saw, so deleted ones don't pile up.
+// pluginCache: a Map of plugin dir -> what was found there. A plugin's cached
+// version is written once when it's installed, so a poll can reuse it; the
+// caller clears it for a real rescan.
+function scanToolbox({ home, cwd, plugins = [], metaCache = null, pluginCache = null } = {}) {
+  const cache = metaCache instanceof Map ? { prev: metaCache, next: new Map() } : null;
+  const plugCache = pluginCache instanceof Map ? pluginCache : null;
   const roots = [];
   for (const p of Array.isArray(plugins) ? plugins : []) {
     if (p && typeof p.name === 'string' && p.name && typeof p.path === 'string' && p.path) {
@@ -200,7 +216,18 @@ function scanToolbox({ home, cwd, plugins = [] } = {}) {
 
   const maps = { skills: new Map(), agents: new Map(), commands: new Map() };
   for (const r of roots) {
-    const found = scanRoot(r.dir, r.source, r.prefix);
+    const plugin = r.rank === PRIORITY.plugin && plugCache;
+    const rootKey = `${r.prefix}=${r.dir}`;
+    let found = plugin ? plugCache.get(rootKey) : null;
+    if (found && cache) {
+      // Not stat'ed this time: carry their entries over, so a rescan that
+      // clears pluginCache still finds them unchanged.
+      for (const k of KINDS) for (const t of found[k]) { const hit = cache.prev.get(t.path); if (hit) cache.next.set(t.path, hit); }
+    } else if (!found) {
+      found = scanRoot(r.dir, r.source, r.prefix, cache);
+      // An empty dir may be an install still being written: look again next time.
+      if (plugin && KINDS.some(k => found[k].length)) plugCache.set(rootKey, found);
+    }
     for (const k of KINDS) {
       for (const t of found[k]) {
         const prev = maps[k].get(t.name);
@@ -208,14 +235,59 @@ function scanToolbox({ home, cwd, plugins = [] } = {}) {
       }
     }
   }
+  if (cache) {
+    metaCache.clear();
+    for (const [k, v] of cache.next) metaCache.set(k, v);
+  }
+  if (plugCache) {
+    const live = new Set(roots.filter(r => r.rank === PRIORITY.plugin).map(r => `${r.prefix}=${r.dir}`));
+    for (const k of [...plugCache.keys()]) if (!live.has(k)) plugCache.delete(k);
+  }
   const list = k => [...maps[k].values()].map(v => v.t).sort(byName).slice(0, MAX_ITEMS);
   return { skills: list('skills'), agents: list('agents'), commands: list('commands'), mcp: [], scannedAt: Date.now() };
 }
 
 // ---- CLI init merge
 
+// Claude Code's own slash commands aren't files, so the CLI only names them.
+// Unknown ones (newer than this list) just go without.
+const BUILTIN_COMMANDS = {
+  'add-dir': 'Add another folder Claude can work in.',
+  agents: 'Manage helper agents.',
+  bashes: 'List and manage background shell commands.',
+  bug: 'Report a bug to Anthropic.',
+  clear: 'Start the conversation over, without its history.',
+  compact: 'Summarize the conversation so far to free up context.',
+  config: 'Open Claude Code settings.',
+  context: 'Show what is using the context window.',
+  cost: 'Show what this conversation has cost.',
+  doctor: 'Check the Claude Code install for problems.',
+  export: 'Save the conversation to a file or the clipboard.',
+  help: 'List the commands.',
+  hooks: 'Manage hooks.',
+  init: 'Write a CLAUDE.md that describes this project.',
+  mcp: 'Manage MCP servers.',
+  memory: 'Edit CLAUDE.md memory files.',
+  model: 'Pick the model.',
+  'output-style': 'Pick how Claude writes its replies.',
+  permissions: 'Manage allow, ask and deny rules.',
+  plugin: 'Manage plugins and marketplaces.',
+  'pr-comments': "Get a pull request's review comments.",
+  'release-notes': 'Show what changed in recent versions.',
+  resume: 'Pick up an earlier conversation.',
+  review: 'Review a pull request.',
+  rewind: 'Go back to an earlier point in the conversation.',
+  'security-review': 'Look over the changes on this branch for security problems.',
+  status: 'Show the version, model, account and connections.',
+  statusline: 'Set up the status line.',
+  todos: 'Show the current to-do list.',
+  usage: 'Show plan usage limits.',
+};
+
 const strings = a => (Array.isArray(a) ? a.filter(s => typeof s === 'string' && s) : []);
-const cliTool = (kind, name) => ({ kind, name, description: '', source: 'cli', path: null });
+const cliTool = (kind, name) => ({
+  kind, name, description: kind === 'command' && Object.hasOwn(BUILTIN_COMMANDS, name) ? BUILTIN_COMMANDS[name] : '', source: 'cli', path: null,
+});
 
 function mergeInit(toolbox, init) {
   const tb = toolbox || {};
@@ -252,8 +324,25 @@ const ALL = tb => [...(tb.skills || []), ...(tb.agents || []), ...(tb.commands |
 const key = t => `${t.kind}:${t.name}`;
 const signature = tb => ALL(tb).map(t => `${key(t)}:${t.description}:${t.path}:${t.status || ''}`).join('\n');
 
+const MAX_SEEN = 5000;
+const MAX_LAUNCH_NEWS = 3;
+const PLUGIN_EVERY_POLLS = 10;   // with the minute's poll: plugin dirs re-read every ten minutes
+
+// null: no file (or a broken one), so this is as good as a first launch.
+function loadSeen(file) {
+  if (!file) return null;
+  try {
+    const keys = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return Array.isArray(keys) ? keys.filter(k => typeof k === 'string').slice(-MAX_SEEN) : null;
+  } catch { return null; }
+}
+
 class ToolboxWatcher extends EventEmitter {
-  constructor({ home, getCwd, getPlugins, debounceMs = 800, pollMs = 60000, fsImpl = fs } = {}) {
+  /**
+   * seenFile: where the keys of everything seen are kept between launches, so a
+   * skill written while Shellby was closed is still news when it starts.
+   */
+  constructor({ home, getCwd, getPlugins, debounceMs = 800, pollMs = 60000, fsImpl = fs, seenFile = null, log = null } = {}) {
     super();
     this.home = home;
     this.getCwd = typeof getCwd === 'function' ? getCwd : () => null;
@@ -261,6 +350,7 @@ class ToolboxWatcher extends EventEmitter {
     this.debounceMs = debounceMs;
     this.pollMs = pollMs;
     this.fs = fsImpl;
+    this.log = log;
     this.watchers = [];
     this.watchKey = '';
     this.debounce = null;
@@ -269,7 +359,12 @@ class ToolboxWatcher extends EventEmitter {
     this.init = null;       // last CLI init event
     this.merged = null;     // scan + init
     this.sig = null;
-    this.seen = new Set();  // every item key ever scanned: a trick is only "learned" once
+    this.seenFile = seenFile;
+    const saved = loadSeen(seenFile);
+    this.seen = new Set(saved || []);  // every item key ever scanned: a trick is only "learned" once
+    this.restored = saved !== null;    // a first launch has nothing to compare with, so it announces nothing
+    this.metaCache = new Map();
+    this.pluginCache = new Map();
     this.pluginKey = '';
     this.started = false;
   }
@@ -283,7 +378,9 @@ class ToolboxWatcher extends EventEmitter {
     this.started = true;
     this.refresh(true);
     if (this.pollMs > 0) {
-      this.poll = setInterval(() => this.rescan(), this.pollMs);
+      // Plugin dirs are read again every so often: a local plugin can be edited in place.
+      let polls = 0;
+      this.poll = setInterval(() => this.rescan({ plugins: ++polls % PLUGIN_EVERY_POLLS === 0 }), this.pollMs);
       this.poll.unref?.();
     }
   }
@@ -296,9 +393,12 @@ class ToolboxWatcher extends EventEmitter {
     this.closeWatchers();
   }
 
-  rescan() {
+  // Asked for (the Rescan button, an install): read plugin dirs again too,
+  // unless it's for a change to your own files ({ plugins: false }).
+  rescan({ plugins = true } = {}) {
     clearTimeout(this.debounce);
     this.debounce = null;
+    if (plugins) this.pluginCache.clear();
     this.refresh(false);
     return this.current;
   }
@@ -331,7 +431,7 @@ class ToolboxWatcher extends EventEmitter {
     const plugins = this.plugins();
     const prevPlugins = this.pluginKey;
     let scan;
-    try { scan = scanToolbox({ home: this.home, cwd, plugins }); } catch { return; }
+    try { scan = scanToolbox({ home: this.home, cwd, plugins, metaCache: this.metaCache, pluginCache: this.pluginCache }); } catch { return; }
     const prev = this.scan;
     this.scan = scan;
     this.pluginKey = this.pluginsKey(plugins);
@@ -347,17 +447,39 @@ class ToolboxWatcher extends EventEmitter {
     // not something Claude wrote itself. (seen is lost on restart, so keying on
     // the plugin name alone re-announced those on every launch.)
     const knownDirs = prevPlugins.split('|').filter(Boolean).map(s => s.slice(s.indexOf('=') + 1));
+    // At launch, only your own (~/.claude) count: the folder Shellby starts in
+    // may be a project it has never looked at, and plugins are updates.
+    // A handful at most, so a folder copied in wholesale isn't a notification storm.
+    const atLaunch = initial && this.restored;
+    let grew = false;
+    let launchNews = 0;
     for (const t of [...scan.skills, ...scan.agents, ...scan.commands]) {
       if (this.seen.has(key(t))) continue;
       this.seen.add(key(t));
-      if (!announce || t.source === 'cli') continue;
+      grew = true;
+      if (atLaunch ? t.source !== 'user' || ++launchNews > MAX_LAUNCH_NEWS : !announce || t.source === 'cli') continue;
       if (t.source.startsWith('plugin:') && !knownDirs.some(d => isInside(t.path, d))) continue;
       this.emit('learned', { kind: t.kind, name: t.name, description: t.description, path: t.path, source: t.source });
     }
+    // A first launch saves even an empty list, so the next one has something to compare with.
+    if (grew || (initial && !this.restored)) this.saveSeen();
     const sig = signature(this.merged);
     if (sig !== this.sig) {
       this.sig = sig;
       this.emit('changed', this.merged);
+    }
+  }
+
+  saveSeen() {
+    if (!this.seenFile) return;
+    const keys = [...this.seen].slice(-MAX_SEEN);
+    const tmp = `${this.seenFile}.tmp`;
+    try {
+      fs.mkdirSync(path.dirname(this.seenFile), { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify(keys));
+      fs.renameSync(tmp, this.seenFile);
+    } catch (err) {
+      this.log?.warn?.(`toolbox: couldn't save what it has seen: ${err.message}`);
     }
   }
 
@@ -410,4 +532,4 @@ class ToolboxWatcher extends EventEmitter {
   }
 }
 
-module.exports = { scanToolbox, parseFrontmatter, mergeInit, ToolboxWatcher, walkMd, samePath };
+module.exports = { scanToolbox, parseFrontmatter, mergeInit, ToolboxWatcher, walkMd, samePath, BUILTIN_COMMANDS };

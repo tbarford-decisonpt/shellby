@@ -67,7 +67,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-xp.js` | XP and levels with the fake CLI and hook events: passing tests, a failing run (no XP), green again, git push, an outside deploy, desktop "+XP", level-up, Trophies card (next unlock, bounties, 30 days) |
 | `node scripts/e2e-flaky.js` | The flaky test detective with the fake CLI: a Jest run piped through `tail` failing then passing on the same code, the Routines list, his "flaked 2 times this week" line, an edit between runs not counting, a click on the bubble, Fix it in a copy of the repository, and the Settings switch |
 | `node scripts/e2e-queue.js` | Queued messages with the fake CLI: queue behind a running turn, edit with ↑, drain in order, Stop hands them back, an error pauses the queue (no Claude account needed) |
-| `node scripts/e2e-routines.js` | Claude's help with routines with the fake CLI: Describe it fills the editor, the chat changes it and dry-runs it in Plan mode (a permission refused on the spot), Save keeps the chat's version, Fix with Claude on a failed routine, a request that needs a workflow handed to the workflow builder, and the workflow editor's chat still testing and fixing |
+| `node scripts/e2e-routines.js` | Claude's other help with routines with the fake CLI: Describe it fills the editor, Fix with Claude on a failed routine opens a corrected one as an edit (nothing saved), and a request that needs a workflow is handed to the workflow builder |
 | `node scripts/e2e-workflows.js` | Workflows with the fake CLI: typed Claude output steering an If, the confirmation window for risky saves, an Ask answered, Stop and Resume, a web hook on the local port |
 | `node scripts/workflows-shots.js [dir]` | Screenshots of the Automate page (list, editor, a waiting run, a failed run) for a visual check |
 | `node scripts/e2e-history-done.js` | The Done tick in History: a ticked conversation leaves the default list, the Not done / Done / All tabs only appear once something is done, Undo puts it back, and sending a done conversation more work un-ticks it |
@@ -137,8 +137,7 @@ src/main/        Electron main process
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
   routines.js      schedule maths + scheduler for recurring tasks
-  routine-draft.js Claude's prompts and answers for routines: Describe it, Fix with Claude, the editor's chat (pure)
-  routine-assist.js  makes those calls one at a time, and runs the chat's dry runs (Plan mode, permissions refused)
+  routine-draft.js Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude
   workflows/       the workflow engine (docs/plans/workflows.md): schema, expr (templates and conditions),
                    engine (replaying interpreter), effects, triggers, store, draft, templates, service
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service

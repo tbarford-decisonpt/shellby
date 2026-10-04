@@ -129,3 +129,19 @@ test('structured output is read from the last json block', () => {
   assert.deepEqual(structured.read('Done. {"cause": "x"}', { cause: { type: 'string' } }), { ok: true, data: { cause: 'x' } });
   assert.match(structured.instruction(fields), /"files": a JSON array/);
 });
+
+test('structured output survives other code blocks and fences quoted inside its values', () => {
+  const fields = { report: { type: 'string' }, mb: { type: 'number' } };
+  const json = JSON.stringify({ report: '## Steps\n```powershell\nGet-ChildItem\n```\n', mb: 140 });
+  const reply = `# Report\n\n\`\`\`powershell\nGet-Item x\n\`\`\`\n\nMore text.\n\n\`\`\`\nplain block\n\`\`\`\n\n\`\`\`json\n${json}\n\`\`\``;
+  assert.deepEqual(structured.read(reply, fields), { ok: true, data: { report: '## Steps\n```powershell\nGet-ChildItem\n```\n', mb: 140 } });
+  assert.deepEqual(structured.extract('```json\r\n{"a": 1}\r\n```\r\n'), { a: 1 });
+  assert.deepEqual(structured.extract('```json\n{"a": 1}```'), { a: 1 });
+});
+
+test('strip drops only the json block from a reply', () => {
+  const reply = 'Report\n\n```powershell\nls\n```\n\n```json\n{"mb": 1}\n```\n';
+  assert.equal(structured.strip(reply), 'Report\n\n```powershell\nls\n```');
+  assert.equal(structured.strip('Done. {"cause": "x"}'), 'Done.');
+  assert.equal(structured.strip('no block'), 'no block');
+});

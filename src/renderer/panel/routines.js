@@ -5,6 +5,8 @@
   const form = $('routineEditor');
   let editing = null;      // routine being edited (null = new)
   let folder = null;       // chosen cwd for the editor (null = default)
+  let chat = null;         // Build it with Claude (wf-chat.js), one per editor session
+  let trial = false;       // a new routine Claude saved switched off to test it
 
   // Templates live in main (routine-templates.js), so the dependency checkup's
   // prompt and the one the Sticker Book uses can't drift apart.
@@ -211,22 +213,28 @@
   }
   form.elements.type.addEventListener('change', syncWhen);
 
-  // What's in the editor, in the shape a routine has (and the shape Claude gets).
-  function readForm() {
-    const type = form.elements.type.value;
-    const schedule = type === 'interval'
-      ? { type, everyHours: Number(form.elements.everyHours.value) }
-      : type === 'weekly'
-        ? { type, time: form.elements.time.value, days: [...form.querySelectorAll('input[name=day]:checked')].map(c => Number(c.value)) }
-        : { type, time: form.elements.time.value };
-    return { name: form.elements.name.value, prompt: form.elements.prompt.value, schedule, mode: form.elements.mode.value, cwd: folder };
+  // `greeting`: what Claude said about a draft, to open the chat with.
+  function openEditor(r = null, { greeting = '' } = {}) {
+    if (chat) closeEditor(); // one editor, one chat: whatever was open goes the usual way
+    editing = r && !r.isTemplate ? r : null;
+    $('routineEditorTitle').textContent = editing ? `Edit “${r.name}”` : 'New routine';
+    $('routineTplNote').hidden = !(r?.isTemplate && r.note);
+    $('routineTplNote').textContent = r?.isTemplate && r.note ? r.note : '';
+    fillForm(r);
+    form.querySelector('option[value=autonomous]').disabled = !state.settings.autonomousAcknowledged;
+    $('routineErrors').hidden = true;
+    const host = chatHost();
+    chat = SB.wfChat.create(host, { greeting });
+    host.bind(chat);
+    $('routineWork').append(chat.el);
+    $('routineWork').hidden = false;
+    $('routineWork').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.elements.name.focus();
   }
 
-  function showFolder() { $('routineFolder').textContent = folder ? SB.tildify(folder) : `Default (${SB.tildify(state.cwd)})`; }
-
-  function fill(r) {
-    const s = r?.schedule || { type: 'daily', time: '09:00' };
+  function fillForm(r) {
     folder = r?.cwd || null;
+    const s = r?.schedule || { type: 'daily', time: '09:00' };
     form.elements.name.value = r?.name || '';
     form.elements.prompt.value = r?.prompt || '';
     form.elements.type.value = s.type;
@@ -234,170 +242,158 @@
     form.elements.everyHours.value = s.everyHours || 4;
     const days = new Set((s.days || [1]).map(String));
     form.querySelectorAll('input[name=day]').forEach(c => { c.checked = days.has(c.value); });
-    // A routine keeps its own mode, Autonomous included; main never hands Claude's Autonomous on.
-    form.elements.mode.value = MODE_NAME[r?.mode] ? r.mode : 'smart';
-    showFolder();
+    form.elements.mode.value = r?.mode || 'smart';
+    form.elements.catchUp.checked = r ? r.catchUp !== false : true;
+    $('routineFolder').textContent = folder ? SB.tildify(folder) : `Default (${SB.tildify(state.cwd)})`;
     syncWhen();
   }
 
-  // note: what Claude said about a draft or a fix. It opens the chat, so you can carry on from it.
-  function openEditor(r = null, { note = '' } = {}) {
-    editing = r && !r.isTemplate ? r : null;
-    $('routineEditorTitle').textContent = editing ? `Edit “${r.name}”` : 'New routine';
-    $('routineTplNote').hidden = !(r?.isTemplate && r.note);
-    $('routineTplNote').textContent = r?.isTemplate && r.note ? r.note : '';
-    form.querySelector('option[value=autonomous]').disabled = !state.settings.autonomousAcknowledged;
-    fill(r);
-    form.elements.catchUp.checked = r ? r.catchUp !== false : true;
-    $('routineErrors').hidden = true;
-    if (!$('routineAsWorkflow').hidden) askNote(ASK_NOTE); // that offer was for the last description
-    form.hidden = false;
-    openChat(note);
-    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    form.elements.name.focus();
+  // The routine as it is in the editor, ready for routines:save. How it last ran
+  // isn't sent: main keeps what it has, which a test run may have just changed.
+  function readForm() {
+    const type = form.elements.type.value;
+    const schedule = type === 'interval'
+      ? { type, everyHours: Number(form.elements.everyHours.value) }
+      : type === 'weekly'
+        ? { type, time: form.elements.time.value, days: [...form.querySelectorAll('input[name=day]:checked')].map(c => Number(c.value)) }
+        : { type, time: form.elements.time.value };
+    return {
+      ...(editing ? { id: editing.id, createdAt: editing.createdAt, enabled: editing.enabled } : {}),
+      name: form.elements.name.value, prompt: form.elements.prompt.value, cwd: folder,
+      mode: form.elements.mode.value, schedule, catchUp: form.elements.catchUp.checked,
+    };
   }
 
   function closeEditor() {
-    form.hidden = true;
-    editing = null;
-    chat?.close();
+    // A new routine Claude tested was saved switched off; it stays in the list that way.
+    if (trial && editing) SB.toast(`"${editing.name}" is saved, switched off. Switch it on in the list when you're ready.`);
+    $('routineWork').hidden = true;
+    chat?.el.remove();
     chat = null;
-    $('routineChatSlot').hidden = true;
-    $('routineChatSlot').replaceChildren();
+    editing = null;
+    trial = false;
+  }
+
+  function showErrors(errors) {
+    $('routineErrors').hidden = !errors.length;
+    $('routineErrors').textContent = errors.join(' ');
   }
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    const input = {
-      ...(editing ? { id: editing.id, createdAt: editing.createdAt, lastRunAt: editing.lastRunAt, lastStatus: editing.lastStatus, enabled: editing.enabled } : {}),
-      ...readForm(), catchUp: form.elements.catchUp.checked,
-    };
+    // Saving is when a routine Claude tested (saved switched off) is switched on.
+    const input = { ...readForm(), ...(trial ? { enabled: true } : {}) };
     const res = await api.saveRoutine(input);
-    if (!res.ok) {
-      $('routineErrors').hidden = false;
-      $('routineErrors').textContent = res.errors.join(' ');
-      return;
-    }
+    if (!res.ok) { showErrors(res.errors); return; }
     state.routines = res.routines;
+    trial = false;
     closeEditor();
     render();
     const saved = state.routines.find(r => r.id === res.routine.id);
     SB.toast(`Saved. Next run ${SB.untilTime(saved?.next)}`);
   });
 
-  // ------------------------------------------------------------ build it with Claude
+  // ------------------------------------------------------------ Build it with Claude (wf-chat.js)
 
-  // The editor's chat (wf-chat.js). Claude changes the form while you watch, and
-  // tests with a dry run: the routine as it is in the editor, run once in Plan
-  // mode, where Claude Code looks and plans but changes nothing. Nothing is
-  // saved until you press Save.
-  let chat = null;
-  const CHAT_COPY = {
-    noun: 'routine',
-    run: 'dry run',
-    prefKey: 'shellby.rt.chatTests',
-    placeholder: 'Tell Claude what to change, like "only on weekdays" or "just report, don\'t fix"',
-    hint: 'Say what to change. Claude edits the routine while you watch, and can dry-run it to check the instruction does what you mean.',
-    testsTitle: 'Claude runs it once in Plan mode, where Claude Code only looks and plans: anything that would change files, run a command or use an outside tool is refused. Then Claude reads what it did and tightens the instruction. Nothing is saved until you press Save.',
-    progress: () => 'Dry run: Claude Code is looking around and planning…',
-  };
-  const FIELD = { name: () => form.elements.name, prompt: () => form.elements.prompt, schedule: () => form.elements.type, mode: () => form.elements.mode, cwd: () => $('routineFolder') };
-
-  // The fields Claude changed glow for a moment, as a workflow's steps do.
-  function touched(before, after) {
-    for (const [k, el] of Object.entries(FIELD)) {
-      if (JSON.stringify(before[k]) === JSON.stringify(after[k])) continue;
-      const target = el().closest('.field-label') || el();
-      target.classList.remove('wf-touched');
-      void target.offsetWidth; // restart the animation
-      target.classList.add('wf-touched');
-      setTimeout(() => target.classList.remove('wf-touched'), 1600);
-    }
-  }
-
-  // Claude thinks it's a workflow's job: one click drafts it as one instead.
-  function workflowOffer(why, text) {
-    return h('div', { class: 'rt-workflow-offer' },
-      h('p', { class: 'wf-chat-tag', text: why }),
-      h('button', { type: 'button', class: 'btn slim-btn', onclick: () => asWorkflow(text) }, 'Build it as a workflow'));
-  }
-
-  // The routine editor only closes once the workflow draft is open, so a failed one loses nothing.
-  async function asWorkflow(text) {
-    if (!text.trim() || !SB.views.workflows?.draftFrom) return;
-    if (await SB.views.workflows.draftFrom(text)) closeEditor();
-  }
-
+  // The routine editor's side of the chat. A test saves the routine (a new one
+  // switched off, so it can't run on its schedule before you press Save) and
+  // runs it once in its own tab; when that tab's turn ends, Claude reads it.
   function chatHost() {
-    let me = null;
-    const alive = () => !!me && chat === me && !form.hidden;
+    let mine = null;
+    const alive = () => !!mine && chat === mine && !$('routineWork').hidden;
+    const snapshot = () => JSON.stringify(readForm());
     return {
       alive,
-      getDef: readForm,
+      noun: 'routine',
+      getDef: () => readForm(),
+      ask: async ({ def, messages, runId }) => {
+        const res = await api.chatRoutine({ routine: def, messages, runId });
+        return res?.ok && res.routine ? { ...res, def: res.routine } : res;
+      },
       apply: (def, { since } = {}) => {
         if (!alive()) return false;
-        if (since && JSON.stringify(readForm()) !== since) return 'conflict';
+        if (since && snapshot() !== since) return 'conflict';
         const before = readForm();
-        // Claude only has these five fields: catch-up and the rest stay as they are.
-        fill({ ...before, ...def });
-        const after = readForm();
-        if (JSON.stringify(before) === JSON.stringify(after)) return false;
-        touched(before, after);
+        fillForm({ ...before, ...def });
+        flashChanged(before, readForm());
+        showErrors([]);
         return true;
       },
-      call: async ({ def, messages, runId }) => {
-        const res = await api.chatRoutine({ routine: def, messages, runId });
-        return res?.ok ? { ...res, def: res.routine } : res;
+      testSave: async () => {
+        if (!alive()) return { ok: false, error: 'The editor was closed.' };
+        const input = readForm();
+        const sent = { ...input, enabled: editing && !trial ? input.enabled : false };
+        let res;
+        try { res = await api.saveRoutine(sent); } catch { res = { ok: false, errors: ['Couldn\'t save it.'] }; }
+        if (!res?.ok) {
+          if (!res?.cancelled && alive()) showErrors(res?.errors || []);
+          return { ok: false, declined: !!res?.cancelled, error: (res?.errors || []).join(' ') || 'Not saved.' };
+        }
+        state.routines = res.routines;
+        render();
+        if (alive()) {
+          if (!editing) trial = true;
+          editing = res.routine;
+          $('routineEditorTitle').textContent = `Edit “${res.routine.name}”`;
+        }
+        return { ok: true, id: res.routine.id };
       },
-      startTest: () => api.testRoutine(readForm()),
-      stopTest: id => api.stopRoutineTest(id),
-      getTest: id => api.getRoutineTest(id),
-      openRun: id => {
-        if (!state.tabs.has(id)) { SB.toast('That dry run\'s tab is closed. History still has it.'); return; }
-        SB.activate(id);
-        SB.setView('chat');
+      startRun: id => api.testRoutine(id),
+      stopRun: runId => api.stopRoutineTest(runId),
+      getRun: runId => api.routineTestStatus(runId),
+      openRun: runId => {
+        if (state.tabs.has(runId)) SB.activate(runId);
+        else SB.toast('That run\'s tab is closed. Find it in History.');
       },
+      // What you said in the chat goes to the workflow builder, with the routine's instruction for context.
       extras: (res, turns) => {
         if (!res.workflow) return [];
         const said = turns.filter(t => t.role === 'user').map(t => t.text).join('\n');
         return [workflowOffer(res.workflow.why, `${said}\n\n(Started as a routine: ${readForm().prompt})`.trim().slice(0, 2000))];
       },
-      bind: c => { me = c; },
+      // The host is made before its chat, which is bound to it straight after.
+      bind: c => { mine = c; },
     };
   }
 
-  function openChat(note) {
-    chat?.close();
-    const host = chatHost();
-    chat = SB.wfChat.create(host, { greeting: note, copy: CHAT_COPY });
-    host.bind(chat);
-    $('routineChatSlot').replaceChildren(chat.el);
-    $('routineChatSlot').hidden = false;
+  // What Claude's change touched glows for a moment, the way the workflow editor's steps do.
+  const FIELD_OF = { name: 'name', prompt: 'prompt', mode: 'mode', catchUp: 'catchUp' };
+  function flashChanged(before, after) {
+    const targets = Object.entries(FIELD_OF).filter(([k]) => before[k] !== after[k]).map(([, f]) => form.elements[f]);
+    if (JSON.stringify(before.schedule) !== JSON.stringify(after.schedule)) targets.push(form.elements.type);
+    if (before.cwd !== after.cwd) targets.push($('routineFolder'));
+    for (const el of targets) {
+      const target = el?.closest('.field-label, .toggle') || el;
+      if (!target) continue;
+      target.classList.remove('wf-touched');
+      void target.offsetWidth; // restart the animation
+      target.classList.add('wf-touched');
+      setTimeout(() => target.classList.remove('wf-touched'), 1700);
+    }
   }
 
-  api.onRoutineTest(summary => chat?.onRun(summary));
+  api.onRoutineTestRun(summary => chat?.onRun(summary));
 
   // ------------------------------------------------------------ fix with Claude
 
-  // A failed routine: Claude reads its last run and opens a corrected one in the
-  // editor, with what it changed in the chat. Saving it is still up to you.
+  // A failed routine: Claude reads its last run and opens a corrected one in
+  // the editor, with what it changed in the chat. Saving it is up to you.
   let fixing = null; // the routine Claude is looking at
-  async function fixRoutine(r, btn) {
+  async function fixRoutine(r) {
     if (fixing) { SB.toast('Claude is already looking at one. Give it a moment.'); return; }
-    if (!form.hidden) { SB.toast('Close the routine editor first, then try again.'); return; }
+    if (!$('routineWork').hidden) { SB.toast('Close the routine editor first, then try again.'); return; }
     fixing = r.id;
-    btn.disabled = true;
-    btn.textContent = 'Claude is looking…';
+    render();
     let res;
     try { res = await api.repairRoutine(r.id); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
     fixing = null;
-    if (state.view === 'routines') render(); // puts the button back
+    if (state.view === 'routines') render();
     if (!res?.ok) { SB.toast(res?.error || 'Claude couldn\'t fix that.'); return; }
-    if (!form.hidden) { SB.toast('Claude has a fix, but the editor is open. Close it and try again.'); return; }
+    if (!$('routineWork').hidden) { SB.toast('Claude has a fix, but the editor is open. Close it and try again.'); return; }
     const now = (state.routines || []).find(x => x.id === r.id);
     if (!now) { SB.toast('That routine was deleted.'); return; }
     if (state.view !== 'routines') SB.setView('routines');
-    openEditor({ ...now, ...res.draft }, { note: res.note || 'I looked at the last run and changed what I think made it fail.' });
+    openEditor({ ...now, ...res.routine }, { greeting: res.note });
     SB.toast('Check Claude\'s fix, then press Save.');
   }
 
@@ -406,10 +402,25 @@
     return h('button', {
       type: 'button', class: 'btn primary slim-btn r-fix', disabled: busy,
       title: 'Claude reads the failed run and opens a corrected routine for you to check',
-      onclick: e => fixRoutine(r, e.currentTarget),
+      onclick: () => fixRoutine(r),
     }, busy ? 'Claude is looking…' : 'Fix with Claude');
   }
 
+  // ------------------------------------------------------------ a workflow's job
+
+  // Claude thinks it should be a workflow (it starts on an event, or needs steps
+  // with decisions between them): one click drafts it as one. The routine editor
+  // only closes once the workflow draft is open, so a failed one loses nothing.
+  async function asWorkflow(text) {
+    if (!text.trim() || !SB.views.workflows?.draftFrom) return;
+    if (await SB.views.workflows.draftFrom(text) && chat) closeEditor();
+  }
+
+  function workflowOffer(why, text) {
+    return h('div', { class: 'rt-workflow-offer' },
+      h('p', { class: 'wf-chat-tag', text: why }),
+      h('button', { type: 'button', class: 'btn slim-btn', onclick: () => asWorkflow(text) }, 'Build it as a workflow'));
+  }
   // ------------------------------------------------------------ describe it
 
   // Claude only fills in the editor; the routine is saved by the Save button,
@@ -436,7 +447,7 @@
       if (!res.ok) { askNote(res.error, true); return; }
       $('routineAskText').value = '';
       asked = text;
-      openEditor({ ...res.draft, isTemplate: true });
+      openEditor({ ...res.draft, isTemplate: true }, { greeting: `I filled this in from “${text}”. Tell me what to change, or ask me to test it.` });
       if (res.workflow) askNote(`${res.workflow.why} The closest routine is below, or:`, false, true);
       else askNote(ASK_NOTE);
       SB.toast('Drafted. Check it over, then press Save.');
@@ -452,7 +463,7 @@
   $('newRoutineBtn').addEventListener('click', () => openEditor());
   $('routineFolderBtn').addEventListener('click', async () => {
     const dir = await api.pickAnyFolder();
-    if (dir) { folder = dir; showFolder(); }
+    if (dir) { folder = dir; $('routineFolder').textContent = SB.tildify(dir); }
   });
 
   // openEditor: Dependency watch (depwatch.js) offers its routine through the same editor.

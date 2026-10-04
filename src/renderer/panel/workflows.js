@@ -406,7 +406,13 @@
     // Folded away: you add a secret once and then only refer to it.
     list.secrets = h('details', { class: 'wf-disclosure wf-secrets' });
     // The explainer is for before your first workflow; after that the list says it.
-    list.lede = h('p', { class: 'view-lede', text: 'Something happens, and Shellby does a list of steps: Claude, commands, web requests, questions for you. You can always run one by hand too.' });
+    list.lede = h('div', { class: 'wf-hero' },
+      h('h3', { class: 'wf-hero-title', text: 'Nothing in the tide pool yet' }),
+      h('p', { class: 'wf-hero-sub', text: 'Something happens, and Shellby works through a list of steps:' }),
+      h('ul', { class: 'wf-hero-steps', 'aria-label': 'Kinds of step' },
+        [['claude', 'Claude'], ['cmd', 'Commands'], ['web', 'Web requests'], ['ask', 'Questions for you']]
+          .map(([k, label]) => h('li', { class: `wf-hero-step ${k}`, text: label }))),
+      h('p', { class: 'wf-hero-sub', text: 'Describe one below, or start from a template. You can always run one by hand too.' }));
     fill(screen,
       h('div', { class: 'view-head' },
         h('h2', { text: 'Workflows' }),
@@ -676,7 +682,7 @@
     h('span', { class: 'wf-template-icon', 'aria-hidden': 'true', text: t.icon || '⚡' }),
     h('span', { class: 'wf-template-text' }, h('b', { text: t.name }), h('span', { text: t.description || '' })))));
     if (!workflows().length) {
-      fill(list.gallery, h('p', { class: 'wf-empty', text: 'No workflows yet. Start from one of these:' }), cards);
+      fill(list.gallery, h('h3', { class: 'wf-gallery-head', text: 'Start from a template' }), cards);
       return;
     }
     const open = list.gallery.querySelector('details')?.open;
@@ -2115,7 +2121,15 @@
     const alive = () => !!chat && ed.chat === chat && nav.some(x => x.name === 'editor');
     return {
       alive,
+      noun: 'workflow',
       getDef: () => { if (ed.json) applyJson(); return clone(ed.def); },
+      ask: async ({ def, messages, runId }) => {
+        const res = await api.chatWorkflow({ workflow: def, messages, runId });
+        return res?.ok && res.workflow ? { ...res, def: res.workflow } : res;
+      },
+      startRun: id => api.runWorkflow(id, {}),
+      stopRun: runId => api.stopRun(runId),
+      getRun: runId => api.getRun(runId),
       apply: (def, { since } = {}) => {
         if (!alive()) return false;
         if (ed.json) applyJson();
@@ -2166,13 +2180,6 @@
         }
         return { ok: true, id: res.workflow.id };
       },
-      call: async ({ def, messages, runId }) => {
-        const res = await api.chatWorkflow({ workflow: def, messages, runId });
-        return res?.ok ? { ...res, def: res.workflow } : res;
-      },
-      startTest: saved => api.runWorkflow(saved.id, {}),
-      stopTest: runId => api.stopRun(runId),
-      getTest: runId => api.getRun(runId),
       openRun: runId => { if (alive()) go('run', { runId }); },
       // The host is made before its chat, which is bound to it straight after.
       bind: c => { chat = c; },
@@ -2516,8 +2523,7 @@
       const rest = { ...o };
       delete rest.reply;
       delete rest.tabId;
-      body = [o.reply ? SB.renderMarkdownInto(h('div', { class: 'wf-md' }), String(o.reply)) : null,
-        Object.keys(rest).length ? h('pre', { class: 'wf-pre', text: pretty(rest) }) : null];
+      body = [o.reply ? SB.renderMarkdownInto(h('div', { class: 'wf-md' }), String(o.reply)) : null, fieldViews(rest)];
     } else if (e.type === 'run' && typeof o === 'object') {
       body = [h('pre', { class: 'wf-pre', text: String(o.output ?? '') || '(nothing printed)' }), h('p', { class: 'field-hint', text: `Exit code ${o.code}` })];
     } else if (e.type === 'http' && typeof o === 'object') {
@@ -2528,6 +2534,19 @@
       body = h('pre', { class: 'wf-pre', text: pretty(o) });
     }
     return outputDetails(e.key, 'Output', body);
+  }
+
+  // A Claude step's fields, each shown as what it is: short values as a
+  // name/value list, long text as markdown, lists and objects as JSON.
+  function fieldViews(fields) {
+    const entries = Object.entries(fields);
+    const isLong = v => typeof v === 'string' && (v.includes('\n') || v.length > 200);
+    const short = entries.filter(([, v]) => (v === null || typeof v !== 'object') && !isLong(v));
+    return [
+      short.length ? h('dl', { class: 'wf-fields' }, short.map(([k, v]) => [h('dt', { text: k }), h('dd', { text: String(v) })])) : null,
+      entries.filter(([, v]) => isLong(v)).map(([k, v]) => [h('p', { class: 'field-hint', text: k }), SB.renderMarkdownInto(h('div', { class: 'wf-md' }), v)]),
+      entries.filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [h('p', { class: 'field-hint', text: k }), h('pre', { class: 'wf-pre', text: pretty(v) })]),
+    ];
   }
 
   function outputDetails(key, label, body) {
@@ -2594,24 +2613,26 @@
   /**
    * Describe it, from somewhere else: the Routines page hands over a request a
    * routine can't do. Drafts it and opens the editor, the way the box here does.
+   * true once the draft is open.
    */
   async function draftFrom(text) {
+    const want = String(text || '').slice(0, 2000);
     if (drafting) { SB.toast('Claude is already drafting one. Give it a moment.'); return false; }
     drafting = true;
     SB.setView('workflows');
     SB.toast('Claude is drafting it as a workflow…');
     let res;
-    try { res = await api.draftWorkflow(String(text || '').slice(0, 2000)); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
+    try { res = await api.draftWorkflow(want); } catch { res = { ok: false, error: 'Couldn\'t reach Claude. Try again.' }; }
     drafting = false;
     if (!res?.ok || !res.workflow) {
-      describeText = String(text || '').slice(0, 2000);
+      describeText = want;
       if (state.view === 'workflows' && current().name === 'list') renderList();
       SB.toast(res?.error || 'Claude couldn\'t draft that.');
       return false;
     }
     // Never over a workflow you're part-way through editing.
     if (current().name === 'editor' && unsaved()) {
-      describeText = String(text || '').slice(0, 2000);
+      describeText = want;
       SB.toast('Claude drafted it, but you have changes open. Save or close them, then describe it again.');
       return false;
     }

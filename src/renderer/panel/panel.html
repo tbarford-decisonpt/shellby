@@ -100,6 +100,7 @@
   <div class="popover" id="tabMenu" role="menu" hidden></div>
   <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
   <div class="popover" id="pjMenu" role="menu" hidden></div>
+  <div class="popover" id="snipMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -155,17 +156,28 @@
     <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers, plus the hooks and memory files that shape every session, and the prompts you've saved as snippets. When Shellby builds itself a new tool, it shows up here with a <span class="new-pill">new</span> tag.</p>
     <div class="learned" id="learnedBox" hidden></div>
     <div class="toolbox-controls">
-      <input type="search" id="toolSearch" class="field" placeholder="Search tools…" aria-label="Search tools">
       <div class="seg" id="toolTabs" role="tablist" aria-label="Kind" data-roving>
+        <span class="seg-label" aria-hidden="true">Tools</span>
         <button type="button" role="tab" data-kind="skill" aria-selected="true">Skills <span class="n"></span></button>
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
+        <span class="seg-label" aria-hidden="true">More</span>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
         <button type="button" role="tab" data-kind="snippet" title="Saved prompts: /name here, shellby do @name in a terminal">Snippets <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="lean" title="What every conversation carries before your first word, and what sits idle">Lean <span class="n"></span></button>
+        <span class="seg-label" aria-hidden="true">Setup</span>
         <button type="button" role="tab" data-kind="hook">Hooks <span class="n"></span></button>
         <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny">Rules <span class="n"></span></button>
         <button type="button" role="tab" data-kind="memory">Memory <span class="n"></span></button>
-        <button type="button" role="tab" data-kind="lean" title="What every conversation carries before your first word, and what sits idle">Lean <span class="n"></span></button>
+      </div>
+      <div class="tool-find">
+        <input type="search" id="toolSearch" class="field" placeholder="Search skills…" aria-label="Search skills">
+        <select class="field" id="toolSource" aria-label="Where they come from"></select>
+        <select class="field" id="toolSort" aria-label="Order">
+          <option value="name">A to Z</option>
+          <option value="used">Most used</option>
+          <option value="unused">Unused first</option>
+        </select>
       </div>
     </div>
     <div class="setup-pane" id="setupPane" hidden></div>
@@ -226,10 +238,12 @@
         <input class="field" id="routineAskText" name="text" maxlength="500" autocomplete="off" placeholder="Every weekday at 8:30, list what changed in my Documents">
         <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
       </div>
-      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check. Nothing is saved until you press Save.</p>
+      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check, then you can keep talking it over beside it. Nothing is saved until you press Save, or Claude tests it.</p>
       <button type="button" class="btn ghost slim-btn routine-as-workflow" id="routineAsWorkflow" hidden>Build it as a workflow instead</button>
     </form>
-    <form class="routine-editor" id="routineEditor" hidden novalidate>
+    <!-- The editor, with Build it with Claude (wf-chat.js) beside it once there's room. -->
+    <div class="wf-work routine-work" id="routineWork" hidden>
+    <form class="routine-editor" id="routineEditor" novalidate>
       <h3 id="routineEditorTitle">New routine</h3>
       <p class="routine-tpl-note" id="routineTplNote" hidden></p>
       <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>
@@ -277,7 +291,7 @@
         <button type="submit" class="btn primary">Save routine</button>
       </div>
     </form>
-    <div class="routine-chat" id="routineChatSlot" hidden></div>
+    </div>
     <ul class="routine-list" id="routineList"></ul>
     <section class="deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
       <div class="deps-head">
@@ -1484,6 +1498,7 @@
 <script src="toolbox-setup.js"></script>
 <script src="toolbox-hooks.js"></script>
 <script src="lean.js"></script>
+<script src="toolbox-snippets.js"></script>
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>

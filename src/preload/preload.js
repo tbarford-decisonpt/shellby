@@ -126,10 +126,17 @@ contextBridge.exposeInMainWorld('shellby', {
   revealTool: fire('toolbox:reveal'),
   // Your own skill, command or agent to the Recycle Bin, asked first (skillremove.js)
   removeTool: (kind, name) => ipcRenderer.invoke('toolbox:remove', { kind, name }),
+  readTool: (kind, path) => ipcRenderer.invoke('toolbox:read', { kind, path }),
+  writeTool: (kind, path, text, mtimeMs) => ipcRenderer.invoke('toolbox:write', { kind, path, text, mtimeMs }),
   // prompt snippets: /name in the box, @name from a terminal
   saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
   removeSnippet: invoke('snippets:remove'),
   expandSnippet: invoke('snippets:expand'),
+  duplicateSnippet: invoke('snippets:duplicate'),
+  snippetUsed: fire('snippets:used'),
+  exportSnippets: invoke('snippets:export'),
+  importSnippets: invoke('snippets:import'),
+  restoreStarterSnippets: invoke('snippets:starters'),
   // hooks and CLAUDE.md memory (every write is re-checked in main; hook changes ask in the confirm window)
   getClaudeSetup: invoke('setup:get'),
   readMemory: invoke('setup:read-memory'),
@@ -394,11 +401,11 @@ contextBridge.exposeInMainWorld('shellby', {
   routineTemplates: invoke('routines:templates'),
   saveRoutine: invoke('routines:save'),
   draftRoutine: invoke('routines:draft'),
-  repairRoutine: invoke('routines:repair'),     // Fix with Claude: its last failed run -> a corrected draft
-  chatRoutine: invoke('routines:chat'),         // one turn of the routine editor's chat
-  testRoutine: invoke('routines:test'),         // a dry run of the editor's routine, in Plan mode
+  chatRoutine: invoke('routines:chat'), // Build it with Claude: one turn of the routine editor's chat
+  repairRoutine: invoke('routines:repair'), // Fix with Claude: its last failed run -> a corrected routine for the editor
+  testRoutine: invoke('routines:test'),
+  routineTestStatus: invoke('routines:test-status'),
   stopRoutineTest: invoke('routines:test-stop'),
-  getRoutineTest: invoke('routines:test-get'),
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
   // dependency watch
@@ -452,7 +459,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onSnippets: on('snippets'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
-  onRoutineTest: on('routines:test-changed'),
+  onRoutineTestRun: on('routines:test-run'),
   onWorkflows: on('workflows'),
   onWorkflowRun: on('workflows:run-changed'),
   onWorkflowOpen: on('workflows:open-run'), // a notification about a run was clicked
