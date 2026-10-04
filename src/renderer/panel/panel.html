@@ -648,21 +648,45 @@
         <button type="button" aria-current="page" data-goto="us">Us</button>
       </nav>
     </div>
-    <section class="us-hero" id="usHero" aria-label="How close you are"></section>
-    <section class="us-card us-play" aria-label="Play">
-      <h3>Play with him</h3>
-      <p class="muted small">No account or Claude needed. Right-click him on the desktop for these too.</p>
-      <div class="us-play-btns">
-        <button type="button" class="btn slim-btn" data-play="hide">🙈 Hide and seek</button>
-        <button type="button" class="btn slim-btn" data-play="fetch">🎾 Fetch</button>
-        <button type="button" class="btn slim-btn" data-play="dig">⛏️ Dig for treasure</button>
-        <button type="button" class="btn ghost slim-btn" data-play="stop" hidden>Stop</button>
+    <!-- The diorama is static markup: together.js patches it, so his breathing and the waves don't restart on every update. -->
+    <section class="us-hero" id="usHero" aria-labelledby="usLevelName">
+      <div class="us-stage" id="usStage" data-time="night">
+        <div class="us-sky" aria-hidden="true"><i class="us-stars"></i><span class="us-orb" id="usOrb"></span></div>
+        <div class="us-sea" aria-hidden="true"><i class="us-wave back"></i><i class="us-wave"></i></div>
+        <div class="us-sand" aria-hidden="true"></div>
+        <div class="us-props" id="usProps" aria-hidden="true"></div>
+        <button type="button" class="us-crab" id="usCrab" aria-label="Pet Shellby" title="Give him a pet"></button>
+        <div class="us-pops" id="usPops" aria-hidden="true"></div>
+        <div class="us-title">
+          <h3 id="usLevelName"></h3>
+          <p class="us-sub" id="usSub"></p>
+        </div>
       </div>
-      <ul class="us-scores" id="usScores"></ul>
+      <div class="us-bond">
+        <ol class="us-path" id="usPath" role="progressbar" aria-label="How close you are" aria-valuemin="0" aria-valuemax="100"></ol>
+        <p class="us-next" id="usNext"></p>
+      </div>
+      <p class="us-temper" id="usTemper"></p>
     </section>
-    <section class="us-card us-birthday" aria-label="Your birthday">
-      <h3>Your birthday</h3>
-      <p class="muted small">Tell him and he'll make a fuss on the day, and dig up something you can't find any other way. It stays on this PC.</p>
+
+    <section class="us-sec us-play" aria-labelledby="usPlayTitle">
+      <div class="us-h"><h3 id="usPlayTitle">Play with him</h3><span class="us-h-meta">Right-click him on the desktop for these too</span></div>
+      <div class="us-games">
+        <button type="button" class="us-game" data-play="hide" data-hue="glass"><span class="us-game-icon" aria-hidden="true">🙈</span><b>Hide and seek</b><span class="us-game-stat" id="usStatHide"></span></button>
+        <button type="button" class="us-game" data-play="fetch" data-hue="amber"><span class="us-game-icon" aria-hidden="true">🎾</span><b>Fetch</b><span class="us-game-stat" id="usStatFetch"></span></button>
+        <button type="button" class="us-game" data-play="dig" data-hue="sand"><span class="us-game-icon" aria-hidden="true">⛏️</span><b>Dig for treasure</b><span class="us-game-stat" id="usStatDig"></span></button>
+      </div>
+      <button type="button" class="btn ghost us-stop" data-play="stop" hidden>Stop playing</button>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usUnlocksTitle">
+      <div class="us-h"><h3 id="usUnlocksTitle">As you get closer</h3><span class="us-h-meta">It never goes back down: he doesn't sulk</span></div>
+      <ul class="us-unlocks" id="usUnlocks"></ul>
+    </section>
+
+    <section class="us-sec us-birthday" aria-labelledby="usBdTitle">
+      <div class="us-h"><h3 id="usBdTitle">Your birthday</h3><span class="us-h-meta us-bd-when" id="usBdWhen"></span></div>
+      <p class="us-lede">He'll make a fuss on the day and dig up something you can't find any other way. It stays on this PC.</p>
       <div class="row wrap us-bd-row">
         <select class="field slim" id="usBdMonth" aria-label="Month"></select>
         <select class="field slim" id="usBdDay" aria-label="Day"></select>
@@ -670,19 +694,15 @@
         <button type="button" class="btn ghost slim-btn" id="usBdForget" hidden>Forget it</button>
       </div>
     </section>
-    <section class="us-card" aria-label="What grows">
-      <h3>As you get closer</h3>
-      <p class="muted small">Pet him, play with him, and just keep him around. It never goes back down: he doesn't sulk.</p>
-      <ul class="us-unlocks" id="usUnlocks"></ul>
-    </section>
-    <section class="us-card" aria-label="His little scenes">
-      <h3 id="usScenesTitle">His little scenes</h3>
-      <p class="muted small">Things he gets up to when nothing's happening. Some only at night, at the weekend, or when you're playing music.</p>
+
+    <section class="us-sec" aria-labelledby="usScenesTitle">
+      <div class="us-h"><h3 id="usScenesTitle">His little scenes</h3><span class="us-h-meta" id="usScenesCount"></span></div>
+      <p class="us-lede">What he gets up to when nothing's happening. Some only at night, at the weekend, or while you play music.</p>
       <ul class="us-scenes" id="usScenes"></ul>
     </section>
-    <section class="us-card" aria-label="Our story">
-      <h3>Our story</h3>
-      <p class="muted small">The moments he remembers. Every so often he brings one up.</p>
+
+    <section class="us-sec" aria-labelledby="usStoryTitle">
+      <div class="us-h"><h3 id="usStoryTitle">Our story</h3><span class="us-h-meta">Every so often he brings one up</span></div>
       <ol class="us-story" id="usStory"></ol>
     </section>
   </main>
