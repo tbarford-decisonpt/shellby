@@ -80,7 +80,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-push-to-talk.js` | Push-to-talk, pressing the real hotkey through Windows with a recording in place of the microphone: the Settings switch, a tap still opens and closes the panel, a hold shows *listening…* and puts the words in the box after what's typed (not sent), and switched off a hold is just a tap |
 | `node scripts/e2e-updates.js` | The update button with a scripted updater (`SHELLBY_FAKE_UPDATE=1`, `=fail` or `=current`): the download and its progress, "Restart and update" and the dot on the gear, the toast, the route the tray and the notification take, and a failed check offering another go |
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, the badge on Health in the bottom bar, screenshots |
-| `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
+| `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones; dragging a tab; keyboard only: switching tabs, the Ctrl+/ list, the palette's actions, where focus lands, Ctrl+W on a working tab |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
 | `node scripts/idle-cost.js [seconds] [--unfocused]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
@@ -175,7 +175,7 @@ src/main/        Electron main process
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
-  panel/           core · nav (bottom bar, Ctrl+K) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
+  panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI

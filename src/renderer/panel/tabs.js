@@ -646,22 +646,61 @@
     tab.setStatus('Stopping…');
   }
 
+  SB.stopTask = stop;
+
+  // Ctrl+W (and the palette) on a conversation that's still working asks first:
+  // a second press within a few seconds stops it and closes it. The × and a
+  // middle-click are aimed, so they close straight away as they always have.
+  const CLOSE_ARM_MS = 4000;
+  let closeArmed = null;
+  SB.closeTabSafely = (tabId) => {
+    const tab = state.tabs.get(tabId);
+    if (!tab) return;
+    if (tab.busy && closeArmed !== tabId) {
+      closeArmed = tabId;
+      setTimeout(() => { if (closeArmed === tabId) closeArmed = null; }, CLOSE_ARM_MS);
+      SB.toast(`"${shownTitle(tab)}" is still working. Press ${SB.shortcuts.primary('closeTab')} again to stop it and close it.`,
+        { ms: CLOSE_ARM_MS, action: 'Stop and close', onAction: () => { closeArmed = null; SB.closeTab(tabId); } });
+      return;
+    }
+    closeArmed = null;
+    SB.closeTab(tabId);
+  };
+
+  // One step along the strip, wrapping round at the ends.
+  function stepTab(step) {
+    const ids = [...state.tabs.keys()];
+    const i = ids.indexOf(state.activeTab);
+    if (ids.length) SB.activate(ids[(i + step + ids.length) % ids.length]);
+  }
+
+  // The newer shortcuts for the conversation you're in (shortcuts.js has their keys).
+  const TAB_KEYS = {
+    tryAgain: tab => SB.tryAgain(tab),
+    showChanges: tab => SB.showChanges(tab),
+    bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
+  };
+
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
-    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); SB.newTab(); return; }
-    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTab(tab.id); return; }
+    const K = SB.shortcuts;
+    if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
-    if (e.ctrlKey && e.shiftKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    if (K.matches(e, 'moveTab')) {
       e.preventDefault();
       if (tab) SB.nudgeTab(tab.id, e.key === 'PageUp' ? -1 : 1);
       return;
     }
-    if (e.ctrlKey && e.key === 'Tab') {
+    if (K.matches(e, 'nextTab')) { e.preventDefault(); stepTab(1); return; }
+    if (K.matches(e, 'prevTab')) { e.preventDefault(); stepTab(-1); return; }
+    const own = Object.keys(TAB_KEYS).find(id => K.matches(e, id));
+    if (own) {
       e.preventDefault();
-      const ids = [...state.tabs.keys()];
-      const i = ids.indexOf(state.activeTab);
-      SB.activate(ids[(i + (e.shiftKey ? -1 : 1) + ids.length) % ids.length]);
+      // Not over a dialog, and not before there's a conversation to act on.
+      if (!tab || state.view === 'onboarding' || SB.isCrabOnly() || document.querySelector('.card-sheet:not([hidden])')) return;
+      SB.inChat(() => TAB_KEYS[own](tab));
       return;
     }
     if (e.key === 'Escape') {
@@ -674,6 +713,7 @@
     }
     // Y / A / N answer the newest open permission card in the active tab.
     if (e.target.closest('textarea, input, select') || e.ctrlKey || e.metaKey || e.altKey || state.view !== 'chat') return;
+    if (e.target.closest('.card-sheet')) return; // not through a dialog (the shortcut list, the share card)
     const open = tab?.openAsk();
     const btn = open?.querySelector(`[data-key="${e.key.toLowerCase()}"]`);
     if (btn) { e.preventDefault(); btn.click(); }
@@ -785,6 +825,38 @@
   }
 
   SB.hideSlash = () => { $('slashMenu').hidden = true; };
+
+  // Run fn on the chat screen. Coming from another screen, after the switch has
+  // put the keyboard in the box, so a menu fn opens keeps it instead.
+  const SWITCH_SETTLE_MS = 60;
+  SB.inChat = (fn) => {
+    if (state.view === 'chat') return fn();
+    SB.setView('chat');
+    setTimeout(fn, SWITCH_SETTLE_MS);
+  };
+
+  // ------------------------------------------------------------ the last turn, from the keyboard
+
+  const lastChanges = tab => [...tab.el.querySelectorAll('details.changes')].pop() || null;
+  SB.hasChanges = tab => !!tab && !!lastChanges(tab);
+
+  // The last turn's "files changed" block: opened, in view, and the keyboard on
+  // its first file, so Enter shows that file's diff and Tab reaches Undo.
+  SB.showChanges = (tab) => {
+    const block = tab && lastChanges(tab);
+    if (!block) return SB.toast('Nothing in this conversation has changed any files yet.');
+    block.open = true;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    block.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    (block.querySelector('.chg-file') || block.querySelector('summary'))?.focus({ preventScroll: true });
+  };
+
+  // Your last message, tried again in a new tab: change it first, or run it as is.
+  SB.tryAgain = (tab) => {
+    if (!tab) return;
+    if (tab.busy) return SB.toast('Let him finish first (or press Stop), then try it another way.');
+    return SB.openBranch(tab, tab.lastTurnId, 'before');
+  };
   // Put text in the box (not sent) with the caret at the end, ready to add to.
   SB.prefill = (text) => {
     SB.setView('chat');
@@ -1127,6 +1199,8 @@
     SB.toast(r?.error || "Couldn't bring it home.", { ms: 8000 });
   }
 
+  SB.bringHome = bringHome;
+
   let discardArmed = null;
   async function throwAway(tab) {
     if (discardArmed !== tab.id) {
@@ -1222,6 +1296,8 @@
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
   }
+  SB.compactTab = compact;
+  SB.startFresh = startFresh;
 
   // What this conversation has cost so far (src/main/turncost.js): tokens, its
   // share of the 5-hour window, and its costliest turns, each a way back to it.
