@@ -27,6 +27,7 @@ const snippet = t => {
  *   panel(), send(win, channel, payload), worktreeHome(), claudeConfigDir(),
  *   turnEnding(tabId), turnStart(tabId) -> { root, tree, head, turnId } | null,
  *   composePrompt(text, files), bringHome(tabId, opts), retire(tabId, w, opts),
+ *   correctionFromTurns(tabId, kind, refs), noteCorrection(tabId, event),
  *   wake(), stat(event), log }
  */
 function register(deps) {
@@ -53,7 +54,12 @@ function register(deps) {
     const source = manager.tabs.get(tabId);
     if (source) source.branching = true;
     try {
-      return await makeBranch({ tabId, turnId, at: at === 'after' ? 'after' : 'before', send: !!send });
+      const where = at === 'after' ? 'after' : 'before';
+      // Trying a message again is a correction of what that turn did (corrections.js).
+      const lesson = where === 'before' ? deps.correctionFromTurns?.(tabId, 'retry', { turnIds: [turnId] }) : null;
+      const r = await makeBranch({ tabId, turnId, at: where, send: !!send });
+      if (r?.ok && lesson) deps.noteCorrection?.(tabId, lesson);
+      return r;
     } catch (err) {
       deps.log.info(`branch: ${err.message}`);
       return { ok: false, error: `Couldn't make the branch: ${err.message}` };

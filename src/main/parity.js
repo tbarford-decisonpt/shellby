@@ -41,6 +41,7 @@ function addPrompt(list, text) {
  *   panel(), dialogLook(), changeRef(raw), setupWhere(), setupView(),
  *   runClaude(args, timeout, { cwd }), currentCwd(), toolbox(), lastInit(),
  *   turnEnding(tabId) -> promise of that tab's last diff being noted,
+ *   correctionFromTurns(tabId, kind, refs), noteCorrection(tabId, event),
  *   dataDir, stat(event) }
  */
 function register(deps) {
@@ -158,6 +159,11 @@ function register(deps) {
       return { ok: false, error: 'That part of the conversation is from before Shellby could rewind it. You can still put the code back.' };
     }
 
+    // Undoing turns' code is a correction (corrections.js): what they changed,
+    // read now, before the transcript is cut.
+    const lesson = code && plan.changes.length ? deps.correctionFromTurns?.(tab.id, 'rewind', { afters: plan.changes.map(c => c.after) }) : null;
+    const learn = () => { if (lesson && restored) deps.noteCorrection?.(tab.id, lesson); };
+
     // The code first: if a file changed since and can't go back, the
     // conversation is left as it was. Every turn that did go back is marked
     // undone straight away, so trying again carries on from there.
@@ -183,6 +189,7 @@ function register(deps) {
     const marker = { t: Date.now(), kind: 'rewound', conversation: !!conversation, code: !!code, restored };
     if (!conversation) {
       manager.note(tab.id, marker);
+      learn();
       return { ok: true, restored, kept: true };
     }
 
@@ -200,6 +207,7 @@ function register(deps) {
     tab.shellRuns = [];
     manager.changed();
     deps.stat('rewound');
+    learn();
     return { ok: true, restored, items: kept, text: plan.text, attachments: plan.attachments };
   }
 

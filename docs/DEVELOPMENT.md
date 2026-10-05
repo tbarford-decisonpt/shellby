@@ -142,6 +142,8 @@ src/main/        Electron main process
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
   routines.js      schedule maths + scheduler for recurring tasks
   routine-draft.js Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude
+  corrections.js   learning from corrections (pure): the same comment, Deny or undo twice in a project -> a rule offered;
+                   learned-rules.js appends it to that project's CLAUDE.md, correction-draft.js lets Claude word it
   workflows/       the workflow engine (docs/plans/workflows.md): schema, expr (templates and conditions),
                    engine (replaying interpreter), effects, triggers, store, draft, templates, service
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
