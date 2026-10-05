@@ -92,7 +92,19 @@ class Approvals {
     this.deps.config.set({ workflowApprovals: all });
   }
 
-  async confirmSave(wf, existing, source) {
+  /**
+   * What the confirm window would say about saving this, without asking:
+   * { ok, detail } | { ok: false, errors }. For a team pack's "Set it all up",
+   * which shows it alongside the rest of the pack in one window.
+   */
+  saveDetail(input, { source = 'team' } = {}) {
+    const existing = input && typeof input === 'object' && input.id ? this.get(input.id) : null;
+    const r = validateWorkflow({ ...input, createdAt: existing?.createdAt ?? input?.createdAt }, { allowAutonomous: this.deps.allowAutonomous(), now: this.now() });
+    if (!r.ok) return { ok: false, errors: r.errors };
+    return { ok: true, detail: this.confirmText(r.workflow, existing, source).detail };
+  }
+
+  confirmText(wf, existing, source) {
     const auto = JSON.stringify(wf.steps).includes('"mode":"autonomous"');
     const triggers = wf.when.length ? wf.when.map(describeTrigger) : ['Only when you run it'];
     const steps = [];
@@ -107,6 +119,11 @@ class Approvals {
       `\nSteps:\n${steps.join('\n')}`,
       risky ? `\nIn full:\n\n${risky}` : '\nIt only looks and reports, or asks you before it acts.',
     ].filter(Boolean).join('\n');
+    return { auto, who, detail };
+  }
+
+  async confirmSave(wf, existing, source) {
+    const { auto, who, detail } = this.confirmText(wf, existing, source);
     // A proposal too long to show in full is refused, never shortened: the
     // part left off is the part that could hide something.
     if (detail.length > MAX_CONFIRM_DETAIL && source !== 'panel') return 'too-long';

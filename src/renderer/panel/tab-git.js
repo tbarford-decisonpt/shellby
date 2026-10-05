@@ -230,6 +230,8 @@
     SB.toast(r?.error || "Couldn't bring it home.", { ms: 8000 });
   }
 
+  SB.bringHome = bringHome;
+
   let discardArmed = null;
   async function throwAway(tab) {
     if (discardArmed !== tab.id) {

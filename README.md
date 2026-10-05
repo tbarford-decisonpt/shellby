@@ -37,14 +37,14 @@ all on **your own Pro or Max plan**, on Windows 10 and 11. No API keys, no per-t
 ## Get started
 
 1. **[Download the installer](https://github.com/x-salmon/shellby/releases/latest)** (`Shellby-Setup-x.y.z.exe`) and run it on Windows 10 or 11.
-2. Pick **Crab + Claude Code** (uses your Claude Pro or Max plan), or **Just the crab**: no Claude, no account, still a desk pet who talks, plays and dresses up.
+2. Pick **Crab + Claude Code** (uses your Claude Pro or Max plan), **Work mode** (the same, with your tools first on the bar and a quiet crab), or **Just the crab**: no Claude, no account, still a desk pet who talks, plays and dresses up.
 3. He moves onto your desktop. Click him to open the panel.
 
 Windows may show a SmartScreen warning the first time; [Install](#install) explains it, along with the Claude Code setup.
 
 ## Everything he can do
 
-You start with just him and a chat box. The rest of his shell opens as he works: **History** and **Projects** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar.
+You start with just him and a chat box. The rest of his shell opens as he works: **History** and **Projects** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar, and [Work mode](docs/DESKTOP.md#work-mode) starts with every one of them.
 
 | | |
 |---|---|
@@ -79,10 +79,14 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
 - **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
 - **Comment on the diff:** click a line number in any turn's diff (Shift+click for several) and say what should change: "no, keep this function pure". Comments collect across files and turns, then go back as one follow-up that quotes the code each one is about.
+- **What did that cost me:** each turn ends with its tokens, roughly how much of your 5-hour window it took, and how full the context is. The context chip adds up the whole conversation and its costliest turns, and he offers to make room a turn or two before it gets crowded.
+- **Learns from your corrections:** make the same review comment twice, Deny the same command twice, or undo changes in the same folder twice, and a card offers to add it as a rule to that project's `CLAUDE.md`, in your own words. It shows exactly what goes in before anything is written, and **Not this one** means he won't suggest it again.
 - **Try it another way:** branch from any turn into a new tab, run two approaches side by side, and keep the one you like.
 - **A Toolbox for all of it:** every skill, agent, MCP server, hook, rule and `CLAUDE.md`, with an editor for each, a Skill Shop, and **prompt snippets** you can call with `/review`.
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
+- **Keyboard first:** <kbd>Ctrl</kbd>+<kbd>K</kbd> runs what the mouse can, by name: stop, undo the last turn, try it another way, bring it home, compact, change mode or effort, start the project's dev server, run a routine. <kbd>Ctrl</kbd>+<kbd>/</kbd> lists every shortcut.
 - **In your terminal and editor too:** with the plugin he reacts to Claude Code in VS Code, Cursor, Windsurf, Zed, JetBrains and Windows Terminal, and sits in its status line.
+- **To the terminal and back:** **Continue in a terminal** carries a conversation on in Windows Terminal with `claude --resume`, and **Bring it into Shellby** (or `/shellby:handoff`) brings a terminal session into a tab.
 
 **[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)** · **[Already use Claude Code in a terminal or editor? Here's what he adds →](docs/WHY-SHELLBY.md)**
 
@@ -101,6 +105,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 
 - **Projects:** the repos you work in, here and on GitHub, with their branches and unpushed work. **Start** a dev server and a `:5173` pill sits by the crab.
 - **When a server crashes** he holds up a red sign. The card marks the error lines and shows exactly what would go to Claude, and nothing is sent until you say so.
+- **Start from where the work is:** **Fix this build** on a red pull request sends Claude the failing step's log, **Address the review** quotes the comments still open, and **Loose ends** turns a TODO in your code into a task. You see every word before it goes.
 - **Time on each project:** hours worked out from what he already sees, clients and rates, and a PDF or CSV timesheet. Off until you turn it on, and never synced.
 - **Flaky tests** caught and fixed for real, **dependencies** checked weekly with a pull request to bump them, and **Is it safe to leave?** before you lock up or shut down.
 - **Workflows and routines:** a schedule, a red build, a release or a file landing in a folder starts a list of steps: Claude, commands, web requests, a question for you. [Workflows](docs/WORKFLOWS.md).
@@ -137,7 +142,7 @@ shellby time last-week
 
 - **📱 Your phone:** a permission prompt, a finished run or a red build can reach it. ntfy is one QR scan, and Telegram finds your chat by itself. Answer Allow or Deny from it if you like.
 - **🎥 On stream:** an OBS browser source on a transparent background. **💡 On your desk:** OpenRGB lighting that follows his mood.
-- **✅ CI on your pull requests:** a ✗ sign when a build goes red, a dance when it's fixed.
+- **✅ CI on your pull requests:** a ✗ sign when a build goes red, a dance when it's fixed, and **Fix this build** to hand Claude the failing log.
 - **Sync and visiting crabs,** with an optional GitHub sign-in that only asks for what you turn on.
 
 **[Phone, stream, lights and GitHub →](docs/CONNECTIONS.md)**
@@ -161,6 +166,7 @@ That's the work. The rest is what makes him good company.
 - **A voice and a temperament of his own:** chipper, fussy, cocky or sleepy. *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push. He never quotes Claude.
 - **He climbs onto your windows,** rides them when you drag them, and gets flung off when you shake them. He **climbs the sides of your screen** and hangs from the top of it, and sticks to the edge when you throw him at it.
 - **Pals and mischief, if you like:** up to five little crabs of his own to keep him company on the floor, and an opt-in **cheeky crab** mode in which he pinches your cursor, shoves a window, leaves sandy footprints and drags notes onto your desktop.
+- **Work mode, for a quiet crab:** your tools lead the bar, he only speaks up about the work, and the pals, pranks, climbing and confetti take the day off. His needs rest, his progress keeps counting, and turning it off puts every setting back as it was. [More →](docs/DESKTOP.md#work-mode)
 - **He guards your focus** in a little helmet, **listens along** in headphones when music plays, **types along** on a little keyboard while you type, **dresses for the weather** outside (a sou'wester in the rain), and hushes when you're on a call.
 - **He knows your limits:** when you'll hit your 5-hour window, and a message held for after the reset goes by itself.
 - **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page. They start when the window resets, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.

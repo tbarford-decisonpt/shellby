@@ -103,7 +103,7 @@ function wireProgress(d) {
     d.send(d.panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
-      d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate' });
+      d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
     }
   }
 
@@ -370,9 +370,17 @@ function wireProgress(d) {
   // XP kinds the week-in-review counts (shipping comes from recordShipped instead).
   const WEEK_XP_KINDS = new Set(['fixed', 'tests', 'task', 'deps', 'focus', 'trick']);
 
-  function noteWeek(kind, project = null) {
+  // n: how many at once (a rewind takes back several turns).
+  function noteWeek(kind, project = null, n = 1) {
     if (d.CAPTURE || !d.config) return;
-    d.config.set({ weekly: weekly.recordDay(d.config.get('weekly'), Date.now(), kind, project && { id: project.id, name: project.name }) });
+    d.config.set({ weekly: weekly.recordDay(d.config.get('weekly'), Date.now(), kind, project && { id: project.id, name: project.name }, n) });
+  }
+
+  // A routine run, or a held message, finished while you were away: the card's
+  // "Routines worked 3h 10m while you were away".
+  function noteAwayRun(ms, { held = false } = {}) {
+    if (d.CAPTURE || !d.config) return;
+    d.config.set({ weekly: weekly.recordAwayRun(d.config.get('weekly'), Date.now(), ms, { held }) });
   }
 
   // What the plan bought (the card's "What your plan bought you"): Claude's
@@ -415,7 +423,7 @@ function wireProgress(d) {
 
   return {
     awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-    knownFolder, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone,
+    knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone,
     roomsPanelView, runCheckup, setRooms, showFlaky, weekView, xpView,
   };
 }

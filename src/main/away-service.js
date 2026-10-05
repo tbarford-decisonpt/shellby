@@ -35,6 +35,10 @@ function createAway(d) {
 
   // ---- while you were away (recap.js)
 
+  // Stepped away (idle or locked) as of the last reading: the weekly card's
+  // "routines worked … while you were away" counts runs that finish now.
+  function isAway() { return away.since !== null; }
+
   function noteRecap(event) {
     if (event) recapLog = recap.record(recapLog, event, Date.now());
   }
@@ -216,7 +220,7 @@ function createAway(d) {
   }
 
   return {
-    checkAway, checkLeaving, checkLeavingSoon, greet, leaveCheck, leaveVerdict, noteRecap,
+    checkAway, checkLeaving, checkLeavingSoon, greet, isAway, leaveCheck, leaveVerdict, noteRecap,
     waitingOnYou, watchAway, watchLeaving,
     // dev:usage backdates readings straight into the log (ipc/progress.js).
     get recapLog() { return recapLog; }, set recapLog(v) { recapLog = v; },

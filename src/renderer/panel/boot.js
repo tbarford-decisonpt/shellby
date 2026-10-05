@@ -42,7 +42,7 @@
   });
   api.onTabs(summaries => SB.syncTabs(summaries));
   api.onTabOpened(({ tabId, entry, items, background, busy = true, draft = '', attachments = [] }) => {
-    const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy });
+    const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy, inTerminal: entry?.inTerminal || null });
     for (const item of items || []) tab.render(item, { replay: true });
     // A branch from before a message opens with it back in the box (branching.js).
     if (draft) tab.draft = draft;
@@ -169,5 +169,6 @@
     else await SB.newTab();
 
     SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
+    performance.mark('shellby:panel-ready'); // booted, tabs back: scripts/perf-budget.js times app-ready to here
   })();
 })();

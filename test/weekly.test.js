@@ -225,6 +225,7 @@ test('what the plan bought: Claude\'s hours, tasks, and fixes that held', () => 
   assert.equal(p.tasks, 1);
   assert.equal(p.fixes, 3);
   assert.equal(p.held, 2);
+  assert.equal(p.builds, 1, 'the pull request\'s checks, back to green and staying there');
   assert.deepEqual(p.weekly, { pct: 62, resetsAt: FRI + 3 * 24 * HOUR });
   assert.equal(p.fiveHour, null, 'a reading from before the reset says nothing');
 });
@@ -235,5 +236,85 @@ test('the plan\'s fields survive a save and drop junk', () => {
     reds: { 't:a': 7, 'ci:b#1': 'x', junk: 3 },
   } } });
   assert.deepEqual(s.days['2026-10-01'], { ms: 1000, fixes: [{ at: 5, key: 't:a' }], reds: { 't:a': 7 } });
-  assert.deepEqual(weekSummary(null, FRI).plan, { hours: 0, ms: 0, msPrev: 0, tasks: 0, fixes: 0, held: 0, weekly: null, fiveHour: null });
+  assert.deepEqual(weekSummary(null, FRI).plan, { hours: 0, ms: 0, msPrev: 0, tasks: 0, fixes: 0, held: 0, builds: 0, weekly: null, fiveHour: null });
+});
+
+test('routines and held messages that ran while you were away: how many, and for how long', () => {
+  const { recordAwayRun, MAX_TURN_MS } = require('../src/main/weekly');
+  const MIN = 60 * 1000;
+  let s = recordAwayRun(null, at(1), 95 * MIN);
+  s = recordAwayRun(s, at(0), 95 * MIN);
+  s = recordAwayRun(s, at(0), 30 * 1000, { held: true });
+  s = recordAwayRun(s, at(9), 60 * MIN);     // last week
+  const c = weekSummary(s, FRI, { xp: normalizeXp(null) }).counts;
+  assert.equal(c.awayRuns, 3);
+  assert.equal(c.awayRoutines, 2);
+  assert.equal(c.awayHeld, 1);
+  assert.equal(c.awayMs, 190 * MIN + 30 * 1000);
+  // A stuck clock is one long turn at most.
+  assert.equal(recordAwayRun(null, at(0), 99 * MAX_TURN_MS).days[dayKey(at(0))].awayMs, MAX_TURN_MS);
+});
+
+test('the week\'s work: pull requests, branches home and turns taken back', () => {
+  let s = recordDay(null, at(0), 'pr');
+  s = recordDay(s, at(1), 'pr');
+  s = recordDay(s, at(1), 'home', null, 3);    // Bring them all home: three at once
+  s = recordDay(s, at(2), 'undone', null, 4);  // one rewind, four turns back
+  s = recordDay(s, at(2), 'undone', null, 0);  // nothing went back: nothing counted
+  s = recordDay(s, at(2), 'undone', null, 1e9); // capped
+  s = recordDay(s, at(3), 'merge', A);
+  const c = weekSummary(s, FRI, { xp: normalizeXp(null) }).counts;
+  assert.equal(c.prs, 2);
+  assert.equal(c.homes, 3);
+  assert.equal(c.undone, 104);
+  assert.equal(c.merges, 1);
+});
+
+test('work lines: only what happened, best first, at most four', () => {
+  const { workLines, duration, recordAwayRun } = require('../src/main/weekly');
+  const MIN = 60 * 1000;
+  assert.deepEqual(weekSummary(null, FRI).work, [], 'a quiet week claims nothing');
+  let s = recordAwayRun(null, at(1), 190 * MIN);
+  s = recordDay(s, at(1), 'undone', null, 6);
+  s = recordDay(s, at(1), 'home', null, 4);
+  s = recordDay(s, at(1), 'pr', null, 5);
+  s = recordDay(s, at(1), 'merge', A);
+  s = recordDay(s, at(1), 'merge', B);
+  const w = weekSummary(s, FRI, { xp: normalizeXp(null) });
+  assert.deepEqual(w.work.map(l => l.text), [
+    'Routines worked 3h 10m while you were away',
+    'Opened 5 pull requests, merged 2',
+    'Brought 4 branches home',
+    'Took back 6 turns with Rewind',
+  ]);
+  assert.equal(workLines(w, 2).length, 2);
+  // Held messages alone, and runs too short to put a time on.
+  const held = weekSummary(recordAwayRun(null, at(0), 20 * 1000, { held: true }), FRI).work;
+  assert.deepEqual(held.map(l => l.text), ['Held messages ran once while you were away']);
+  const one = weekSummary(recordDay(null, at(0), 'merge', A), FRI).work;
+  assert.deepEqual(one.map(l => l.text), ['Merged 1 pull request']);
+  assert.equal(duration(45 * MIN), '45m');
+  assert.equal(duration(120 * MIN), '2h');
+  assert.equal(duration(0), '1m');
+});
+
+test('a week with only work in it still earns its Friday wrap-up', () => {
+  const { recordAwayRun } = require('../src/main/weekly');
+  const s = recordAwayRun(null, at(0), 60 * 60 * 1000);
+  const fri = new Date(2026, 9, 2, 17, 0).getTime();
+  assert.equal(wrapUpDue(s, fri, weekSummary(s, fri)), dayKey(fri));
+});
+
+test('state saved before the work fields existed reads as zeros, and keeps what it had', () => {
+  const old = { days: { [dayKey(at(1))]: { task: 3, ms: 5000, fixes: [{ at: at(1), key: 'ci:a/b#1' }] } }, since: dayKey(at(9)), wrapped: null };
+  const s = normalizeWeekly(old);
+  assert.deepEqual(s.days[dayKey(at(1))], old.days[dayKey(at(1))]);
+  const w = weekSummary(old, FRI, { xp: normalizeXp(null) });
+  assert.equal(w.counts.tasks, 3);
+  for (const k of ['prs', 'homes', 'undone', 'awayRuns', 'awayMs']) assert.equal(w.counts[k], 0, k);
+  assert.equal(w.plan.builds, 1);
+  assert.deepEqual(w.work.map(l => l.id), ['builds']);
+  // Junk in the new fields is dropped, not trusted.
+  const junk = normalizeWeekly({ days: { '2026-10-01': { pr: -2, home: 'x', away: 1.7, awayMs: -5, undone: NaN } } });
+  assert.deepEqual(junk.days['2026-10-01'], { away: 1 });
 });

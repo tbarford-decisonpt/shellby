@@ -41,7 +41,8 @@ function addPrompt(list, text) {
  *   panel(), dialogLook(), changeRef(raw), setupWhere(), setupView(),
  *   runClaude(args, timeout, { cwd }), currentCwd(), toolbox(), lastInit(),
  *   turnEnding(tabId) -> promise of that tab's last diff being noted,
- *   dataDir, stat(event) }
+ *   correctionFromTurns(tabId, kind, refs), noteCorrection(tabId, event),
+ *   dataDir, stat(event), noteUndone(turns) -> the weekly card's turns taken back }
  */
 function register(deps) {
   const { ipcMain, manager, history, config, confirm, dialog, clipboard, app } = deps;
@@ -158,10 +159,18 @@ function register(deps) {
       return { ok: false, error: 'That part of the conversation is from before Shellby could rewind it. You can still put the code back.' };
     }
 
+    // Undoing turns' code is a correction (corrections.js): what they changed,
+    // read now, before the transcript is cut.
+    const lesson = code && plan.changes.length ? deps.correctionFromTurns?.(tab.id, 'rewind', { afters: plan.changes.map(c => c.after) }) : null;
+    // Awaited, so a lesson card is in the feed before the panel redraws from `kept`;
+    // a failure to note one never fails the rewind itself.
+    const learn = async () => { if (lesson && restored) await Promise.resolve(deps.noteCorrection?.(tab.id, lesson)).catch(() => {}); };
+
     // The code first: if a file changed since and can't go back, the
     // conversation is left as it was. Every turn that did go back is marked
     // undone straight away, so trying again carries on from there.
     let restored = 0;
+    let turnsBack = 0; // turns whose code went back, for the weekly card
     if (code) {
       const done = new Set(items.filter(i => i.kind === 'undone').map(i => i.after));
       for (const ch of plan.changes) {
@@ -175,6 +184,7 @@ function register(deps) {
           return { ok: false, error: `${r.error}${more} The conversation was left as it was.`, restored };
         }
         restored += r.restored || 0;
+        turnsBack += 1;
         manager.note(tab.id, { kind: 'undone', after: ref.after, restored: r.restored || 0 });
       }
       fileIndex.forget(tab.session.cwd);
@@ -183,6 +193,8 @@ function register(deps) {
     const marker = { t: Date.now(), kind: 'rewound', conversation: !!conversation, code: !!code, restored };
     if (!conversation) {
       manager.note(tab.id, marker);
+      await learn();
+      if (turnsBack) deps.noteUndone?.(turnsBack);
       return { ok: true, restored, kept: true };
     }
 
@@ -200,6 +212,8 @@ function register(deps) {
     tab.shellRuns = [];
     manager.changed();
     deps.stat('rewound');
+    await learn();
+    deps.noteUndone?.(items.slice(plan.index).filter(i => i.kind === 'user').length);
     return { ok: true, restored, items: kept, text: plan.text, attachments: plan.attachments };
   }
 

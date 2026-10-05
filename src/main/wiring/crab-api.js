@@ -135,6 +135,8 @@ function wireCrabApi(d) {
       if (!d.timeTracker) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
       return d.timeTracker.cliText(range, { estimates: body.estimates === true }).then(text => ({ text }));
     }
+    // `shellby take`: the Claude Code session in that terminal opens as a tab (wiring/handoff.js).
+    if (body?.action === 'take') return d.handoff.take(body);
     if (body?.action === 'flow-list' || body?.action === 'flow-run') {
       if (d.config.get('crabOnly') || !d.workflows) return { ok: false, error: 'Workflows are off: Shellby is in just-the-crab mode.', status: 403 };
       const flow = clipath.parseFlowRequest(body);

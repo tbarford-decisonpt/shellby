@@ -129,7 +129,9 @@
         h('span', { class: 'pj-h-text' }, h('b', { text: `#${pr.number} ${pr.title}` }),
           h('span', { class: 'muted small', text: pr.state === 'failing' ? `Failing: ${(pr.failing || []).join(', ') || 'checks'}` : `Checks ${pr.state === 'none' ? 'not reported' : pr.state}` })),
         h('span', { class: 'pj-h-acts' },
-          pr.state === 'failing' && taskButton('Ask why', () => api.askAboutCi(pr.key), 'btn slim-btn'),
+          pr.state === 'failing' && act('Fix this build', () => SB.startFrom.open('build', pr.key), 'btn slim-btn'),
+          pr.state === 'failing' && taskButton('Ask why', () => api.askAboutCi(pr.key)),
+          pr.reviewComments > 0 && act('Address the review', () => SB.startFrom.open('review', pr.key)),
           act('Open', () => api.openPr(pr.key)))));
     }
     const d = i.deps;

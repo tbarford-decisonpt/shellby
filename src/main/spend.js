@@ -103,4 +103,17 @@ function breakdown(ledger, since, by = 'task') {
   return out;
 }
 
-module.exports = { weightOf, normalize, record, windowStart, breakdown, BUCKET_MS, KEEP_MS, WINDOW_MS };
+/**
+ * What was spent since `since`, by everything Shellby ran or by one source
+ * (`key`), with the same 10 minutes of slack as breakdown().
+ */
+function weightSince(ledger, since, key = null) {
+  let total = 0;
+  for (const e of Array.isArray(ledger) ? ledger : []) {
+    if (e.t + BUCKET_MS <= since || (key && e.k !== key)) continue;
+    total += e.w;
+  }
+  return total;
+}
+
+module.exports = { weightOf, normalize, record, windowStart, breakdown, weightSince, BUCKET_MS, KEEP_MS, WINDOW_MS };

@@ -9,6 +9,7 @@ const forecast = require('./forecast');
 const guard = require('./guard');
 const limits = require('./limits');
 const spend = require('./spend');
+const turncost = require('./turncost');
 
 const SPEND_SAVE_MS = 5000;        // calls come in bursts; one write when they settle
 const OUTLOOK_TICK_MS = 60 * 1000; // a forecast goes stale with no new readings
@@ -23,7 +24,7 @@ const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs
 /**
  * d: what this needs from main, read when it's used (most of it is only there
  * once Shellby has booted).
- *   config, panel, manager, workflows, recapLog: getters
+ *   config, panel, manager, workflows, recapLog, history: getters
  *   send, notify, showPanel, refreshCritter, flashState, tellChannel, sayText,
  *   markActive (he's just been busy), routines (the saved list), heldViews
  *   (held-service.js), log, every (main's cleared-on-quit interval),
@@ -127,6 +128,32 @@ function createUsage(d) {
         projects: spend.breakdown(spendLedger, since, 'project'),
       };
     });
+  }
+
+  // ---- what a turn or a tab cost (turncost.js): a share of the current 5-hour window
+
+  /** A share of the 5-hour window, in percent: `weight`, or all a source spent in it (key). Null with no current reading. */
+  function windowShare({ weight = null, key = null } = {}) {
+    spendLedger ??= spend.normalize(d.config.get('spendLedger'));
+    const w = d.config.get('lastUsage')?.fiveHour;
+    const now = Date.now();
+    if (!w || !Number.isFinite(w.pct) || !(w.resetsAt > now)) return null;
+    const since = spend.windowStart('fiveHour', w.resetsAt, now);
+    const spent = key ? spend.weightSince(spendLedger, since, key) : weight;
+    return turncost.windowShare({ weight: spent, windowWeight: spend.weightSince(spendLedger, since), windowPct: w.pct });
+  }
+
+  /** The context menu's running total for one tab: tokens so far, its share of the window, the costliest turns. */
+  function tabCost(tabId) {
+    const tab = d.manager?.tabs.get(tabId);
+    if (!tab) return null;
+    const total = turncost.tabTotal(tab.saved ? d.history.load(tabId) : []);
+    const share = windowShare({ key: spendSource(tab).key });
+    return {
+      tokens: total.tokens, tokensText: turncost.compact(total.tokens), read: total.read, turns: total.turns,
+      share, shareText: turncost.shareText(share),
+      top: total.top.map(t => ({ turnId: t.turnId, prompt: t.prompt, tokensText: turncost.compact(t.tokens), shareText: turncost.shareText(t.share) })),
+    };
   }
 
   // ---- the forecast (forecast.js)
@@ -260,7 +287,7 @@ function createUsage(d) {
   return {
     armGuard, checkGuards, checkLimit, clockTime, guardSettings, limitWait, onSpend, onUsage,
     outlookView, refreshOutlook, resetTarget, saveSpend, scheduleLimit, sendOutlook, spendSource,
-    stop, usageBreakdown, watchGuards, watchOutlook,
+    stop, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
   };
 }
 

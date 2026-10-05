@@ -74,16 +74,18 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/workflows-shots.js [dir]` | Screenshots of the Automate page (list, editor, a waiting run, a failed run) for a visual check |
 | `node scripts/e2e-history-done.js` | The Done tick in History: a ticked conversation leaves the default list, the Not done / Done / All tabs only appear once something is done, Undo puts it back, and sending a done conversation more work un-ticks it |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
+| `node scripts/e2e-work-mode.js` | A brand-new user with a lively crab picks Work mode: the Claude setup, a bar that leads with the tools, Work mode's quiet settings on show while the file keeps theirs, a pal added in Work mode kept as its own, his needs resting, and Ctrl+K → Leave Work mode putting everything back |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
 | `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
 | `node scripts/e2e-voice.js` | His voice and his little habits with the fake CLI: Quiet says nothing at all, Normal puts words in his bubble (and clears them), the bubble never clips or resizes his window, he remarks on a test run and a push, each idle habit plays, he keeps quiet on guard, a health warning outranks him, and he's the same crab after a restart |
 | `node scripts/e2e-push-to-talk.js` | Push-to-talk, pressing the real hotkey through Windows with a recording in place of the microphone: the Settings switch, a tap still opens and closes the panel, a hold shows *listening…* and puts the words in the box after what's typed (not sent), and switched off a hold is just a tap |
 | `node scripts/e2e-updates.js` | The update button with a scripted updater (`SHELLBY_FAKE_UPDATE=1`, `=fail` or `=current`): the download and its progress, "Restart and update" and the dot on the gear, the toast, the route the tray and the notification take, and a failed check offering another go |
 | `node scripts/e2e-health.js` | Every health mood with scripted sensors: desktop reaction, speech bubble, Health view, the badge on Health in the bottom bar, screenshots |
-| `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones |
+| `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones; dragging a tab; keyboard only: switching tabs, the Ctrl+/ list, the palette's actions, where focus lands, Ctrl+W on a working tab |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
 | `node scripts/idle-cost.js [seconds] [--unfocused]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
+| `npm run perf` | The performance budget, ~4 min, run by CI as its own job: cold start, crab click to panel shown, Shellby's own share of the wait for Claude's first word, idle CPU (panel closed, and open behind a window) and memory, each held against `scripts/perf-budgets.js`. Prints a table, writes `perf-result.json` (CI keeps it as an artifact), and fails when a number is over budget twice running. `--only cold,latency,idle`, `--cold N`, `--samples N`, `--settle S`, `--idle S`, `--out file` |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `node scripts/e2e-perch.js [dir]` | Perching against a real Notepad (needs a desktop, so not in CI): the hop up, ownership and click-through, riding a slow drag, shaken off dizzy, the window closing under him, the walk home, Hop down. Screenshots each beat. If a fullscreen window covers his screen, give him another: `SHELLBY_E2E_HOME=x,y` (DIPs) |
 | `npx electron scripts/perch-probe.js` | The Win32 behaviour perching rests on: an owned window above a window of another process, surviving that window closing or crashing, hiding with it when it minimizes |
@@ -126,6 +128,50 @@ What remains is the cost of animating sprites built from ~145 `<rect>` elements
 at the full refresh rate of the display, which needs a different approach to
 sprite animation (pre-rendered frames, or a canvas) rather than tuning.
 
+### The budget CI holds him to
+
+`npm run perf` (scripts/perf-budget.js) measures the numbers above, and a few
+more, on every push, with an isolated profile and the fake Claude CLI. The
+budgets are in `scripts/perf-budgets.js`, each with a comment saying where the
+number comes from:
+
+| Metric | Budget | Local (Ryzen 9 3950X, busy desktop) |
+|---|---|---|
+| Cold start to the crab painted | 8 s | 0.8–1.6 s |
+| Cold start to the panel booted | 10 s | 1.1–1.5 s |
+| Crab clicked to the panel shown and painted | 500 ms | ~20 ms (the very first open, ~1.2 s, is reported but not judged) |
+| Shellby's share of the wait for Claude's first word | 600 ms | ~90 ms |
+| Idle CPU, panel closed | 25% of a core | 1–11% |
+| Idle CPU, panel open behind a window | 60% of a core | 5–37% |
+| Memory, panel closed / open | 900 / 1000 MB | ~500 MB |
+
+They're loose on purpose: CI's runners have a few slow cores, no GPU and reduced
+motion on, so they read several times slower than a desktop and vary between
+runs. They catch a number that doubles, not one that creeps. Over a budget by up
+to 15% prints a warning; past that the phase is measured once more, and the job
+fails only if it's over again. Each run's `perf-result.json` artifact holds every
+sample, so once a few runs show where the runner really sits, tighten the budgets
+towards 1.5x that.
+
+How each is measured, briefly (the header of perf-budget.js has the rest):
+
+- **Cold start** is from spawning electron.exe to the `shellby:crab-painted` and
+  `shellby:panel-ready` performance marks (critter.js, boot.js), read over CDP.
+  The script's clock and the renderers' `performance.timeOrigin` are both the
+  system clock, so the times line up.
+- **First-token overhead** is Enter to the reply painted in the feed, minus the
+  fake CLI's scripted 100 ms. Today most of it is the snapshot of the folder that
+  `beginTurn` (wiring/sessions.js) takes before the message goes out, for the
+  turn's diff.
+- **Idle CPU and memory** use idle-cost.js's method (scripts/process-tree.js, now
+  shared by both) in two launches with **no** debugger attached, for the reason
+  above. The panel-closed launch uses a profile that has done onboarding; the
+  open one is a fresh profile, focused, then Notepad takes focus.
+
+Health shows the same thing to the person running him: **Shellby himself: 1% CPU,
+450 MB** above the hogs list (health/footprint.js, from `app.getAppMetrics()`'s
+`cumulativeCPUUsage`, since its `percentCPUUsage` is reset by anybody's call).
+
 ## Project layout
 
 ```
@@ -143,11 +189,14 @@ src/main/        Electron main process
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
   routines.js      schedule maths + scheduler for recurring tasks
   routine-draft.js Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude
+  corrections.js   learning from corrections (pure): the same comment, Deny or undo twice in a project -> a rule offered;
+                   learned-rules.js appends it to that project's CLAUDE.md, correction-draft.js lets Claude word it
   workflows/       the workflow engine (docs/plans/workflows.md): schema, expr (templates and conditions),
                    engine (replaying interpreter), effects, triggers, store, draft, templates, service
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
-  health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
+  health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts, his own footprint
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
+  handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
   shells.js        the shells he grows into as he levels up (molting)
@@ -157,24 +206,29 @@ src/main/        Electron main process
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
+  turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
   held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), and the service tying them together
   friends.js       visiting crabs: friends list, drop-ins, guestbook and souvenirs, on top of github/card.js and mail.js
   streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
+  startfrom.js     prompts for Fix this build, Address the review and loose ends (pure): log trimming
+                   and redaction, review threads quoted, TODO parsing; github/prwork.js fetches them
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
   log.js           the log behind "Report a problem" (scrubbed of paths and tokens)
+  trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log
   skins.js         loads and validates skins
   config.js        settings in %APPDATA%\Shellby\settings.json
+  workmode.js      Work mode (pure): the settings it lays over yours, where a change made in it is kept, and what else it quiets
   placement.js     pure geometry for placing the critter and panel across monitors
   capture.js       `npm run screenshots`; reel.js records the README demo
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
-  panel/           core · nav (bottom bar, Ctrl+K) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
+  panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · workmode · outfitcode · github · boot
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI

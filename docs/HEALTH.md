@@ -76,6 +76,12 @@ Processes that run as administrator can't be ended without admin rights, and She
 
 **Ask Shellby what's running and what I don't need** starts a task with everything running right now, not just the busiest few. Processes are added up by app and sorted by memory. Claude explains what each one is and who makes it, gives you a table of what to keep, close or stop from starting, and says where the ones you don't need come from (a startup entry, a service, a scheduled task, another app's helper). Then it asks which ones you want dealt with, and changes nothing until you say. Like the startup task, it always runs in **Ask** mode, because any program can choose its own process name. So every command Claude wants to run, including ending a process, still asks you first. The list holds names and usage only, never command lines, which can contain tokens.
 
+### What Shellby himself costs
+
+Above the list, one line owns up to his share: **Shellby himself: 1% CPU, 450 MB**. It adds up every process he runs (his window, the panel, and the helpers Electron starts for them), counts CPU as a share of your whole PC like Task Manager does, and updates every 5 seconds. Hover it to see how many processes that is and what it comes to as a share of one core.
+
+Mostly that's the panel: its animations run while you're looking at it, and calm down when another window is in front. If he's using 5% or more of your PC, or over 1 GB, a hint says what helps. With the panel closed he settles to almost nothing, and once he's been measured that way on your PC the hint tells you the actual figure. Fewer pals and less wandering (**Settings → Moving around**) make him lighter still.
+
 GPU use per process needs Windows 10 1709 or later. Reading the list takes a second or two, so it's only read while the Health view is open and something is wrong.
 
 ## Starts with Windows

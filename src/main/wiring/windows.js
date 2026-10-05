@@ -259,7 +259,7 @@ function wireWindows(d) {
       if (d.CAPTURE || d.dragging || d.playtime?.busy() || d.life?.busy() || d.typing?.active()) return;
       const idle = d.lastStatus.state === 'idle';
       const guarding = focus.guarding(d.config.get('focus'), Date.now());
-      if (d.perching.isUp()) return void d.perching.idleTick({ idle, guarding, quiet: voice.chatterOf(d.config.get('chatter')) === 'quiet' });
+      if (d.perching.isUp()) return void d.perching.idleTick({ idle, guarding, quiet: !voice.hasHabits(d.config.get('chatter')) });
       // Up a wall, or off the edge of the screen fetching a note: busy.
       if (d.climbing?.busy() || d.pranks?.busy()) return;
       if (d.motion.busy || d.crewShown || d.guestShown || !idle || guarding) return;
@@ -272,7 +272,7 @@ function wireWindows(d) {
         // A bit mopey (needs.js), he doesn't feel much like strolling.
         if (home && Math.random() < (d.life?.mopey() ? 0.14 : 0.35)) return void d.motion.stroll(home.x - crewExtra());
       }
-      if (voice.chatterOf(d.config.get('chatter')) === 'quiet' || Math.random() > d.IDLE_BIT_CHANCE) return;
+      if (!voice.hasHabits(d.config.get('chatter')) || Math.random() > d.IDLE_BIT_CHANCE) return;
       // A scene, a habit, maybe a find or a memory (life.js).
       if (d.life?.idleBit()) return;
       const bit = voice.pickBit(voice.normalize(d.config.get('voice')).seed);

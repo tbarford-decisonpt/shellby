@@ -68,9 +68,12 @@ function createCopies(d) {
       if (!manager.tabs.has(tab.id)) return;
       try { session.send(text, manager.prepareTurn(tab)); } catch (err) { d.log.info(`worktree: ${err.message}`); }
     };
-    const stayHere = why => {
+    // why: a sentence; detail: what git said, for Copy details and the log.
+    const stayHere = (why, detail = '') => {
       tab.noCopy = true;
-      manager.note(tab.id, { kind: 'error', text: `Working in your checkout: ${why}` });
+      if (detail) d.log.warn('worktree', detail);
+      const message = `${why.replace(/\.$/, '')}, so this conversation works in your checkout instead.`;
+      manager.note(tab.id, { kind: 'error', text: detail || why, trouble: { kind: 'no-copy', message, action: detail ? { id: 'copy', label: 'Copy details' } : null } });
       carryOn('Shellby could not make a copy, so this conversation stays in this folder. Carry on with what you were about to do, here.');
     };
 
@@ -79,12 +82,12 @@ function createCopies(d) {
       if (made?.ok) worktrees.remove(made.worktree, { force: true });
       return;
     }
-    if (!made?.ok) return stayHere(made?.error || 'this folder is not in a git repository.');
+    if (!made?.ok) return stayHere(made?.error || "Couldn't make a copy: this folder isn't in a git repository.", made?.detail);
     const w = made.worktree;
     await session.stop();
     if (!worktrees.carryTranscript({ configDir: d.claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
       await worktrees.remove(w, { force: true });
-      return stayHere("Claude Code's record of this conversation couldn't be carried into the copy.");
+      return stayHere("Claude Code's record of this conversation couldn't be carried into the copy");
     }
     tab.worktree = w;
     session.cwd = w.cwd;

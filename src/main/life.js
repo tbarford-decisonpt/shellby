@@ -283,7 +283,7 @@ function createLife(d) {
   function idleBit() {
     if (scene || presenting || onCall || napping()) return true;
     const level = chatter();
-    if (level === 'quiet') return false;
+    if (!voice.hasHabits(level)) return false; // quiet, or just about work
     const t = now();
     if (t - lastSceneAt >= (SCENE_EVERY[level] || SCENE_EVERY.normal) && Math.random() < SCENE_CHANCE) {
       const s = scenes.pickScene(context(), recent, Math.random, repertoire().list);
@@ -579,6 +579,7 @@ function createLife(d) {
     rinse: () => care.rinse(),
     tuckIn: () => care.tuckIn(),
     needsSwitched: isOn => care.switched(isOn),
+    workModeSwitched: () => care.restSwitched(),
     needsIntroSeen: () => care.seenIntro(),
     needsForTest: patch => care.setForTest(patch),
     // The crab's page (re)loaded: send where he's looking on the next tick even if

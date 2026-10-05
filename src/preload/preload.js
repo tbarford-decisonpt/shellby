@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('shellby', {
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
   freshTab: invoke('tab:fresh'),
+  tabCost: invoke('tab:cost'),
   // the terminal's conveniences (parity.js)
   suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
   promptHistory: invoke('prompt:history'),
@@ -89,6 +90,15 @@ contextBridge.exposeInMainWorld('shellby', {
   compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
   compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
   keepBranch: invoke('branch:keep'),
+  // learning from corrections: review comments in, the rule card's buttons, Toolbox → Memory (corrections.js)
+  noteReviewComments: (tabId, comments, batch) => ipcRenderer.invoke('corrections:comments', { tabId, comments, batch }),
+  lessonState: invoke('lesson:state'),
+  lessonPreview: (id, rule) => ipcRenderer.invoke('lesson:preview', { id, rule }),
+  addLesson: (id, rule, added) => ipcRenderer.invoke('lesson:add', { id, rule, added }),
+  dismissLesson: invoke('lesson:dismiss'),
+  draftLesson: invoke('lesson:draft'),
+  learnedRules: invoke('learned:list'),
+  changeLearnedRule: (root, index, was, text) => ipcRenderer.invoke('learned:change', { root, index, was, text }),
   listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
@@ -110,6 +120,11 @@ contextBridge.exposeInMainWorld('shellby', {
   clearSessions: invoke('session:clear'),
   setSessionDone: (id, done) => ipcRenderer.invoke('session:done', { id, done }),
   renameSession: (id, title) => ipcRenderer.invoke('session:rename', { id, title }),
+
+  // between Shellby and a terminal (src/main/handoff.js)
+  continueInTerminal: invoke('handoff:terminal'),
+  pickUpHere: invoke('handoff:pickup'),
+  bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
 
   // settings
   setSettings: invoke('settings:set'),
@@ -163,6 +178,9 @@ contextBridge.exposeInMainWorld('shellby', {
   addTeamWorkflow: invoke('team:add-workflow'),
   addTeamHook: (key, scope) => ipcRenderer.invoke('team:add-hook', { key, scope }),
   addTeamRule: (key, scope) => ipcRenderer.invoke('team:add-rule', { key, scope }),
+  // values: what you typed for the server's blanks; main hands them to `claude mcp add` and keeps nothing.
+  addTeamMcp: (name, values) => ipcRenderer.invoke('team:add-mcp', { name, values }),
+  setUpTeamPack: values => ipcRenderer.invoke('team:setup-all', { values }),
   draftTeamPack: invoke('team:draft'),
   writeTeamPack: invoke('team:write'),
   revealTeamPack: fire('team:reveal'),
@@ -237,6 +255,12 @@ contextBridge.exposeInMainWorld('shellby', {
   openPr: fire('ci:open'),
   askAboutCi: invoke('ci:ask'),
   onCi: on('ci'),
+  // Start a task from a red build, a review or a loose end (startfrom.js): drafts are shown before anything is sent.
+  startFromDraft: invoke('startfrom:draft'),
+  startFromSend: invoke('startfrom:send'),
+  onStartFromOpen: on('startfrom:open'),
+  looseEnds: invoke('startfrom:loose-ends'),
+  looseEndDraft: invoke('startfrom:loose-end'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   getStatusLine: invoke('statusline:get'),

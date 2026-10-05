@@ -84,7 +84,7 @@ function wireTray(d) {
       `- Windows: ${os.release()} (${process.arch})`,
       `- Electron: ${process.versions.electron}`,
       `- Claude Code: ${d.claudeStatus?.installed ? `${d.claudeStatus.version || 'found'}${d.claudeStatus.loggedIn ? ', signed in' : ', not signed in'}` : 'not found'}`,
-      `- Mode: ${d.config?.get('crabOnly') ? 'just the crab' : d.config?.get('mode') || 'unknown'}`,
+      `- Mode: ${d.config?.get('crabOnly') ? 'just the crab' : d.config?.get('mode') || 'unknown'}${d.config?.get('workMode') && !d.config?.get('crabOnly') ? ', Work mode' : ''}`,
       '',
       '### Log',
       'The last lines before reporting. Paths are shortened to `~` and anything',

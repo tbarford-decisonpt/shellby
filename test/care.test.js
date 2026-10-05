@@ -179,6 +179,35 @@ test('switched off: nothing shows, nothing counts, no menu', () => {
   assert.equal(calls.said.length, 0);
 });
 
+test('Work mode: his needs rest, nothing drops or shows, and snacks still come in', () => {
+  const { care, store, calls, advance } = setup({ settings: { workMode: true, needs: { meters: { cheer: 36 } } } });
+  for (let i = 0; i < 40; i++) { advance(MIN); care.tick(); }
+  care.onStat('task-completed');
+  care.flush();
+  const s = needs.normalize(store.needs);
+  assert.equal(s.meters.cheer, 36, 'no lower than when Work mode began');
+  assert.equal(s.meters.energy, 100, 'work does not wear him out either');
+  assert.equal(s.pantry.plankton, 1, 'the snack still counts');
+  assert.equal(care.look(), null);
+  assert.equal(care.mopey(), false);
+  assert.equal(care.idleBit(), false);
+  assert.equal(care.view().resting, true);
+  assert.ok(!calls.said.includes('mopey'));
+});
+
+test('leaving Work mode, time spent resting costs him nothing', () => {
+  const { care, store, advance } = setup({ settings: { workMode: true } });
+  care.tick();
+  care.flush();
+  advance(3 * 60 * MIN);
+  store.workMode = false;
+  care.restSwitched();
+  advance(15 * 1000);
+  care.tick();
+  care.flush();
+  for (const k of needs.METERS) assert.ok(needs.normalize(store.needs).meters[k] > 99, `${k} barely moved`);
+});
+
 test('switched back on, he comes back full', () => {
   const { care, store } = setup({ settings: { needs: { meters: { fullness: 25, cheer: 35 } } } });
   care.switched(true);

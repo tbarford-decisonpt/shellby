@@ -5,6 +5,7 @@ const { app, safeStorage, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const focus = require('../focus');
+const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS } = require('../friends');
 const gifts = require('../gifts');
 const { TokenStore } = require('../github/auth');
@@ -140,6 +141,7 @@ function wireGithub(d) {
     if (!r.ok || r.existing) return r; // a retried step found its pull request already open: paid already
     // Shipping it pays now; the sticker comes when it merges (ci.js sees it, shippedMerge).
     d.flashState('success', 4000);
+    d.noteWeek('pr');
     d.awardXp('issue', { project: r.repo.split('/')[1], label: `Opened ${r.repo}#${r.number}` });
     if (d.github.can('ci')) d.ci?.poll().catch(() => {});
     return r;
@@ -181,7 +183,7 @@ function wireGithub(d) {
     d.send(d.panel, 'stickers:new', gifted);
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       d.notify(`@${v.login} left a sticker`, `Their ${gift.name} sticker is in your Sticker Book. Put it on his shell if you like.`,
-        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
+        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'stickers'); }, { tone: 'celebrate', pet: true });
     }
   }
 
@@ -210,6 +212,7 @@ function wireGithub(d) {
       },
       // Company only when he's free: not working, not guarding your focus, no helpers out.
       canVisit: () => d.lastStatus.state === 'idle' && !d.lastStatus.crew && !focus.guarding(d.config.get('focus'), Date.now()) && !d.playtime?.busy(),
+      dropIns: () => workmode.behaviourOf(d.config).dropIns, // Work mode: only when you invite them
     });
     // A refresh saves several times; the panel only needs the last one.
     let viewTimer = null;
@@ -252,7 +255,10 @@ function wireGithub(d) {
     if (type === 'failed') {
       d.flashState('error', 5000);
       d.tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
-      d.notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open, { tone: 'problem' });
+      // With Claude set up, a click opens "Fix this build" (what would be sent, to read first); without, the pull request.
+      const canFix = !d.config.get('crabOnly') && !!d.claudeStatus?.installed && !!d.claudeStatus?.loggedIn;
+      d.notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160),
+        canFix ? () => d.showBuildFix(pr.key) : open, { tone: 'problem', action: canFix ? 'Fix this build' : null });
     } else if (type === 'fixed') {
       d.stat('ci-fixed');
       d.flashState('cheer', 6500);

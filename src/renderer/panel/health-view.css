@@ -155,6 +155,11 @@ body[data-view="health"] .view-health {
 .hl-hog-end:disabled { opacity: .5; }
 .hl-hog-locked { font: 600 var(--fs-10) var(--font-mono); color: var(--sand-faint); padding: 0 4px; cursor: help; }
 .hl-fine { margin: 6px 0 0; font-size: var(--fs-11-5); color: var(--sand-faint); }
+/* Shellby's own footprint, above the list */
+.hl-self { margin: 0 0 8px; }
+.hl-self-line { margin: 0; font: 600 var(--fs-12-5) var(--font-mono); color: var(--sand-dim); }
+.hl-self-hint { margin: 4px 0 0; font-size: var(--fs-12); color: var(--sand-dim); }
+.hl-self-hint .link-btn.inline { color: var(--glass); }
 
 /* starts with Windows */
 .hl-startup-sum { margin: 0 0 6px; font-size: var(--fs-13); }

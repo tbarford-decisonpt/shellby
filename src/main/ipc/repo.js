@@ -46,7 +46,10 @@ function registerRepoIpc(ipcMain, d) {
         return { ...merged, base: w.base };
       }
       d.recordWork(w.originalCwd, { task: false });
-      if (merged.merged) d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
+      if (merged.merged) {
+        d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
+        d.noteWeek('home'); // the weekly card's "brought N branches home"
+      }
       // And on to GitHub. A push that fails leaves the merge where it is: the
       // copy stays, so the push can be tried again from the folder menu.
       const pushed = opts?.push ? await pushHome(w.root, { base: w.base, tabId }) : null;
@@ -177,7 +180,10 @@ ${r.detail}` });
         if (x.ok && x.merged && c && d.manager.tabs.has(c.id)) d.manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });
       }
       const merged = r.results.filter(x => x.ok && x.merged);
-      if (merged.length) d.recordWork(root, { task: false });
+      if (merged.length) {
+        d.recordWork(root, { task: false });
+        d.noteWeek('home', null, merged.length);
+      }
       const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
       const last = r.results.at(-1);
       const clashTab = clash && d.manager.tabs.has(clash.id) ? clash.id : null;
@@ -210,6 +216,7 @@ ${r.detail}` });
     panel: () => d.panel, worktreeHome: d.worktreeHome, claudeConfigDir: d.claudeConfigDir,
     turnEnding: tabId => d.turnEnds.get(tabId) || Promise.resolve(),
     turnStart: tabId => d.turnStarts.get(tabId) || null,
+    correctionFromTurns: d.correctionFromTurns, noteCorrection: d.noteCorrection,
     ask: async spec => {
       if (branchAsking) return null;
       branchAsking = true;

@@ -18,6 +18,9 @@
   let draft = null;       // the make/edit form while it's open
   let written = null;     // { file, notes } after a save, until the form opens again
   const scopes = new Map(); // 'hook:<key>' -> 'local' | 'user', kept across re-renders
+  // What you've typed for a pack MCP server's blanks: name -> { env: {}, headers: {} }.
+  // Only ever in this window and on its way to `claude mcp add`; dropped once it's in.
+  const mcpValues = new Map();
 
   const rerender = () => { if (state.view === 'toolbox') SB.views.toolbox.render(); };
 
@@ -127,11 +130,106 @@
             onclick: () => act(key, () => api.addTeamRule(x.key, scopes.get(key) || 'local'), 'Rule added') }, busy === key ? '…' : 'Add')]));
   }
 
+  // A password box per blank: the value goes to Claude Code, never into the pack.
+  function blankInputs(s) {
+    const kept = mcpValues.get(s.name) || { env: {}, headers: {} };
+    const box = (kind, name) => h('label', { class: 'team-field team-blank' },
+      h('span', { class: 'row-label', text: `${name}${kind === 'headers' ? ' (header)' : ''}` }),
+      h('input', {
+        class: 'field slim', type: 'password', autocomplete: 'off', spellcheck: 'false', value: kept[kind][name] || '',
+        'aria-label': `${name} for ${s.name}`, placeholder: 'Your own value',
+        oninput: (e) => {
+          const cur = mcpValues.get(s.name) || { env: {}, headers: {} };
+          mcpValues.set(s.name, { ...cur, [kind]: { ...cur[kind], [name]: e.target.value } });
+        },
+      }));
+    return [...s.env.map(n => box('env', n)), ...s.headers.map(n => box('headers', n))];
+  }
+
+  function mcpRow(s) {
+    const key = `mcp:${s.name}`;
+    const blanks = [...s.env, ...s.headers];
+    return h('li', { class: 'tool-row', tabindex: '-1', dataset: { row: key } },
+      h('div', { class: 'tool-main' },
+        h('div', { class: 'tool-name' }, h('span', { text: `🔌 ${s.name}` })),
+        h('code', { class: 'team-cmd', text: s.command || s.url, title: s.command || s.url }),
+        s.about ? h('p', { class: 'tool-stats', text: `The team says: “${s.about}”` }) : null,
+        s.state === 'new' && blanks.length ? h('div', { class: 'team-blanks' }, blankInputs(s)) : null),
+      h('div', { class: 'tool-actions team-add' },
+        s.state === 'added' ? doneTag(s.where === 'project' ? "In the repo's .mcp.json" : 'You have one by this name')
+          : h('button', { class: 'btn slim-btn', type: 'button', dataset: { act: key }, disabled: !!busy, title: 'Shows the command before adding it',
+            onclick: () => act(key, () => api.addTeamMcp(s.name, mcpValues.get(s.name) || {}), `Added ${s.name}. New conversations will have it.`).then((r) => { if (r?.ok) mcpValues.delete(s.name); }) }, busy === key ? '…' : 'Add')));
+  }
+
+  // ================================================================ the welcome card
+
+  const shortDate = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const some = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+  // What "Set it all up" takes, a line per kind, with names where they're short.
+  function planLines(v) {
+    const p = v.plan;
+    const names = (list, f) => list.slice(0, 4).map(f).join(', ') + (list.length > 4 ? ` and ${list.length - 4} more` : '');
+    return [
+      p.snippets ? `${some(v.snippets.list.length, 'snippet')}: ${names(v.snippets.list, s => `/${s.name}`)}` : null,
+      p.hooks.length ? `${some(p.hooks.length, 'hook')}, in your own settings for this project` : null,
+      p.rules.length ? `${some(p.rules.length, 'permission rule')}, the same` : null,
+      p.mcp.length ? `${some(p.mcp.length, 'MCP server')}: ${names(p.mcp, n => n)}` : null,
+      p.workflows.length ? `${some(p.workflows.length, 'workflow')}: ${names(p.workflows, n => n)}` : null,
+    ].filter(Boolean);
+  }
+
+  // A new hire's first look (or the pack changed since they said yes): the
+  // lot in one go, after one window that shows every part of it.
+  function welcomeCard(v) {
+    if (!v.plan?.count || (v.accepted && !v.changed)) return null;
+    const servers = (v.mcp || []).filter(s => v.plan.mcp.includes(s.name) && s.env.length + s.headers.length);
+    const head = v.changed
+      ? `The team changed this pack since you set it up on ${shortDate(v.changed.at)}.`
+      : `Welcome to ${v.name || v.where.name}. The team set this repo up with:`;
+    return h('section', { class: 'team-welcome', 'aria-label': 'Set up the team pack' },
+      h('p', { class: 'team-welcome-head', text: head }),
+      h('ul', { class: 'team-welcome-list' }, planLines(v).map(t => h('li', { text: t }))),
+      servers.length ? [
+        h('p', { class: 'muted small', text: 'These need your own values. They go straight to Claude Code, never into the pack. Leave a server blank to add it later.' }),
+        ...servers.map(s => h('div', { class: 'team-blanks' }, h('span', { class: 'team-check-name', text: s.name }), blankInputs(s))),
+      ] : null,
+      h('div', { class: 'row' },
+        h('p', { class: 'muted small', text: 'You\'ll see every part in full before anything is added.' }),
+        h('button', { class: 'btn primary slim-btn', type: 'button', dataset: { act: 'setup-all' }, disabled: !!busy,
+          onclick: () => act('setup-all', () => api.setUpTeamPack(Object.fromEntries(mcpValues)), null).then(setUpDone) },
+        busy === 'setup-all' ? '…' : v.changed ? 'Set up the changes' : 'Set it all up')));
+  }
+
+  function setUpDone(r) {
+    if (!r?.ok && !r?.added) return;
+    for (const name of [...mcpValues.keys()]) if (!r.later?.includes(name)) mcpValues.delete(name);
+    const later = r.later?.length ? ` ${r.later.join(', ')} can wait until you have ${r.later.length === 1 ? 'its' : 'their'} values.` : '';
+    if (r.ok) SB.toast(`Set up ${some(r.added, 'thing')} from the team pack.${later}`, { ms: 7000 });
+  }
+
+  // What the repo shares through Claude Code itself: listed, not touched.
+  function sharedBlock(s) {
+    if (!s) return [];
+    const line = (label, list, f = x => x) => (list.length ? h('li', {}, h('span', { class: 'row-label', text: `${label} ` }), h('span', { text: list.map(f).join(', ') })) : null);
+    return [
+      h('div', { class: 'row-label team-label', text: 'Already in the repo for Claude Code' }),
+      h('p', { class: 'muted small team-note', text: 'Claude Code picks these up from the repo by itself (and asks about servers before starting them), so there\'s nothing to add.' }),
+      h('ul', { class: 'team-shared' },
+        line('Instructions', s.memory),
+        line('Agents', s.agents),
+        line('Skills', s.skills),
+        line('Commands', s.commands, n => `/${n}`),
+        line('MCP servers', s.mcp)),
+    ];
+  }
+
   function packView(v, q) {
     const match = (...texts) => !q || texts.some(t => (t || '').toLowerCase().includes(q));
     const wfs = v.workflows.filter(w => match(w.name, w.description));
     const hooks = v.hooks.filter(x => match(x.command, x.about, x.describe));
     const rules = v.rules.filter(x => match(x.rule));
+    const servers = (v.mcp || []).filter(x => match(x.name, x.command, x.url, x.about));
     const body = [
       ...snippetsBlock(v.snippets, q),
       ...section('Workflows', wfs.length, h('ul', { class: 'tool-list team-list' }, wfs.map(workflowRow))),
@@ -139,6 +237,10 @@
         h('p', { class: 'muted small team-note', text: 'Optional ones the team suggests. Hooks run commands with your Windows account, so read each one.' }),
         h('ul', { class: 'tool-list team-list' }, hooks.map(hookRow))),
       ...section('Rules', rules.length, h('ul', { class: 'tool-list team-list' }, rules.map(ruleRow))),
+      ...section('MCP servers', servers.length,
+        h('p', { class: 'muted small team-note', text: 'Added for just you in this project. Claude Code starts or connects to them by itself, so read each command.' }),
+        h('ul', { class: 'tool-list team-list' }, servers.map(mcpRow))),
+      ...(q ? [] : sharedBlock(v.shared)),
     ];
     return [
       h('div', { class: 'team-head' },
@@ -148,6 +250,7 @@
         h('div', { class: 'team-head-btns' },
           h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => api.revealTeamPack() }, 'Show file'),
           h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: openDraft }, 'Edit pack'))),
+      q ? null : welcomeCard(v),
       v.waiting ? null : h('p', { class: 'setup-status team-all', role: 'status', text: '✓ You have everything in this team pack.' }),
       v.problems?.length ? h('details', { class: 'team-problems' },
         h('summary', { text: `${v.problems.length} part${v.problems.length === 1 ? '' : 's'} of the file couldn't be used` }),
@@ -171,7 +274,7 @@
     const p = r.picked;
     draft = {
       ...r, error: null, saving: false,
-      ticked: { snippets: new Set(p.snippets), workflows: new Set(p.workflows), hooks: new Set(p.hooks), rules: new Set(p.rules) },
+      ticked: { snippets: new Set(p.snippets), workflows: new Set(p.workflows), hooks: new Set(p.hooks), rules: new Set(p.rules), mcpServers: new Set(p.mcpServers || []) },
     };
     written = null;
     $('setupPane').dataset.mounted = '';
@@ -207,6 +310,7 @@
       r = await api.writeTeamPack({
         name: $('teamName').value, about: $('teamAbout').value,
         snippets: [...d.ticked.snippets], workflows: [...d.ticked.workflows], hooks: [...d.ticked.hooks], rules: [...d.ticked.rules],
+        mcpServers: [...d.ticked.mcpServers],
       });
     } catch { r = { ok: false, error: "Shellby couldn't save it." }; }
     d.saving = false;
@@ -237,7 +341,9 @@
       picker('workflows', 'Workflows', d.all.workflows, w => w.id, w => `⚡ ${w.name}`, w => w.description),
       picker('hooks', 'Hooks (teammates choose whether to add each one)', d.all.hooks, x => x.key, x => x.summary || x.command, x => `${x.event}${x.matcher ? ` · ${x.matcher}` : ''} · ${where[x.source] || x.source}`),
       picker('rules', 'Rules', d.all.rules, x => x.key, x => x.rule, x => `${x.list} · ${where[x.scope] || x.scope}`),
-      !d.all.snippets.length && !d.all.workflows.length && !d.all.hooks.length && !d.all.rules.length
+      picker('mcpServers', 'MCP servers (only the names of their keys and tokens go in: teammates fill in their own)', d.all.mcpServers || [], x => x.name, x => `🔌 ${x.name}`,
+        x => `${x.target.slice(0, 80)}${x.blanks.length ? ` · asks for ${x.blanks.join(', ')}` : ''}`),
+      !d.all.snippets.length && !d.all.workflows.length && !d.all.hooks.length && !d.all.rules.length && !(d.all.mcpServers || []).length
         ? h('p', { class: 'muted small', text: 'You have nothing to share yet: save a snippet or a workflow first.' }) : null,
       h('p', { class: 'muted small', text: 'Anyone who can read the repo can read this file. Shellby won\'t save anything that looks like a password or key.' }),
       h('div', { class: 'row' },
@@ -295,7 +401,7 @@
     lastTry = 0;
     const what = n.name ? `${n.name} (${n.repo})` : n.repo;
     SB.toast(n.first ? `${what} has a team pack: ${n.contents}.` : `The team pack in ${what} changed.`, {
-      action: 'Have a look', ms: 12000, onAction: () => SB.showToolbox('team'),
+      action: n.first ? 'Set it up' : 'See what changed', ms: 12000, onAction: () => SB.showToolbox('team'),
     });
     if (state.view === 'toolbox') rerender();
   });

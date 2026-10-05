@@ -13,10 +13,11 @@
 
   function renderOnboarding() {
     const s = state.status || {};
-    // Two paths: just the crab (no account), or the Claude Code setup steps.
+    // Three paths: just the crab (no account), or the Claude Code setup steps,
+    // with a lively crab or Work mode's quiet one (workmode.js).
     const path = SB.onboardPath || null;
     $('onboardPaths').querySelectorAll('.path').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.path === path)));
-    $('claudeSetup').hidden = path !== 'claude';
+    $('claudeSetup').hidden = path !== 'claude' && path !== 'work';
     const step = (n, done, title, sub, actions) => h('li', { class: `step ${done ? 'done' : 'todo'}` },
       h('span', { class: 'step-badge', text: done ? '✓' : n }),
       h('div', {}, h('div', { class: 'step-title', text: title }), sub ? h('div', { class: 'step-sub' }, sub) : null, !done && actions ? h('div', { class: 'row' }, actions) : null));
@@ -64,7 +65,8 @@
     SB.toast(r.ok ? `Found Claude Code v${r.status?.version || '?'}.` : r.error || "That isn't Claude Code.", { ms: r.ok ? 3000 : 6000 });
   }
   $('letsGoBtn').addEventListener('click', async () => {
-    const r = await api.setSettings({ onboarded: true, crabOnly: false });
+    if (SB.onboardPath === 'work') return SB.chooseWorkMode();
+    const r = await api.setSettings({ onboarded: true, crabOnly: false, workMode: false });
     state.settings = r.settings;
     SB.onboardPath = null;
     SB.applyCrabOnly();
@@ -74,7 +76,7 @@
     const b = e.target.closest('.path');
     if (!b) return;
     if (b.dataset.path === 'crab') return SB.chooseCrabOnly();
-    SB.onboardPath = 'claude';
+    SB.onboardPath = b.dataset.path === 'work' ? 'work' : 'claude';
     renderOnboarding();
     $('claudeSetup').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });

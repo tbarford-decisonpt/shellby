@@ -6,7 +6,8 @@
 // `rand`), so the whole personality is testable. See test/voice.test.js.
 //
 // Three rules keep him a pet instead of a nuisance:
-//   1. 'quiet' says nothing at all, ever — exactly the glyph-only Shellby.
+//   1. 'quiet' says nothing at all, ever — exactly the glyph-only Shellby
+//      ('work' says only what's about the work).
 //   2. Every occasion has a cooldown, and a global gap sits between any two
 //      lines, so he can't chatter.
 //   3. He never repeats a line while another one in the pool is unused.
@@ -20,11 +21,17 @@ const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 
 // How talkative he is. 'quiet' is the pre-voice Shellby, kept as a real choice.
-const CHATTER = Object.freeze(['quiet', 'normal', 'chatty']);
+// 'work' only speaks up about the work (WORK_OCCASIONS) and has no idle habits:
+// Work mode's voice (workmode.js), and a choice of its own.
+const CHATTER = Object.freeze(['quiet', 'work', 'normal', 'chatty']);
 // Smallest gap between any two lines, whatever the occasion.
-const GAP = Object.freeze({ quiet: Infinity, normal: 40 * SECOND, chatty: 12 * SECOND });
+const GAP = Object.freeze({ quiet: Infinity, work: 40 * SECOND, normal: 40 * SECOND, chatty: 12 * SECOND });
 // 'chatty' shortens every cooldown; 'normal' uses them as written.
-const COOLDOWN_SCALE = Object.freeze({ quiet: Infinity, normal: 1, chatty: 0.4 });
+const COOLDOWN_SCALE = Object.freeze({ quiet: Infinity, work: 1, normal: 1, chatty: 0.4 });
+// What 'work' still says: a task done or failed, a new trick, a trophy's one
+// line, a dev server falling over. Asking is the raised claw (see OCCASIONS),
+// and a red build is the renderer's, so both show whatever he's set to.
+const WORK_OCCASIONS = new Set(['success', 'error', 'learned', 'unlocked', 'serverDown']);
 // The bubble holds two short lines. Longer than this and he'd be clipped.
 const MAX_LINE = 24;
 
@@ -325,6 +332,9 @@ function normalize(raw) {
 
 /** The chattiness setting, tolerating anything. */
 const chatterOf = v => (CHATTER.includes(v) ? v : 'normal');
+// Scenes, digging, idle mutters and the rest of his own little life: only at
+// 'normal' and 'chatty'.
+const hasHabits = v => ['normal', 'chatty'].includes(chatterOf(v));
 
 /** Your crab's temperament: stable for a given seed, so it's always the same crab. */
 function temperamentOf(seed) {
@@ -370,6 +380,7 @@ function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, f
   const rule = OCCASIONS[occasion];
   if (!rule || level === 'quiet') return null;
   if (rule.only === 'chatty' && level !== 'chatty') return null;
+  if (level === 'work' && !WORK_OCCASIONS.has(occasion)) return null;
   const t = num(now, NaN);
   if (!Number.isFinite(t)) return null;
   if (!force) {
@@ -436,7 +447,7 @@ function pickBit(seed, rand = Math.random) {
 }
 
 module.exports = {
-  CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, CLUMSY_BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
-  normalize, chatterOf, temperamentOf, poolFor, voiceCovers, say, timeOccasion, absenceOccasion, pickBit,
+  CHATTER, WORK_OCCASIONS, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, CLUMSY_BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
+  normalize, chatterOf, hasHabits, temperamentOf, poolFor, voiceCovers, say, timeOccasion, absenceOccasion, pickBit,
   occasionForTool, occasionForCommand,
 };

@@ -158,7 +158,7 @@ function createStickers(d) {
     if (view) d.send(d.panel, 'stickers:new', view);
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       d.notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
-        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
+        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'stickers'); }, { tone: 'celebrate', pet: true });
     }
   }
 

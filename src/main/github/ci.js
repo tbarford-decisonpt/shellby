@@ -180,7 +180,9 @@ class CiWatcher extends EventEmitter {
     const sha = typeof pull?.head?.sha === 'string' && /^[0-9a-f]{40}$/.test(pull.head.sha) ? pull.head.sha : null;
     // The branch, for a workflow that fixes it there (workflows: the ci trigger's trigger.branch).
     const branch = typeof pull?.head?.ref === 'string' && /^[\w./-]{1,200}$/.test(pull.head.ref) ? pull.head.ref : null;
-    const out = { ...ref, url: this.url(ref.repo, ref.number), sha, branch };
+    // Comments on its code (resolved ones too: only GraphQL says which), for "Address the review".
+    const reviewComments = Number.isInteger(pull?.review_comments) && pull.review_comments > 0 ? pull.review_comments : 0;
+    const out = { ...ref, url: this.url(ref.repo, ref.number), sha, branch, reviewComments };
     if (!sha) return { ...out, state: 'none', failing: [] };
     const [runs, status] = await Promise.all([
       gh.get(`${base}/commits/${sha}/check-runs?per_page=100`).catch(() => null),

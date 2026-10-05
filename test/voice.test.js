@@ -47,6 +47,19 @@ test("'quiet' never says anything at all", () => {
   }
 });
 
+test("'work' only speaks up about the work, and has no idle habits", () => {
+  for (const occasion of Object.keys(voice.OCCASIONS)) {
+    const r = voice.say(null, occasion, T0, { chatter: 'work', rand: first, force: true });
+    assert.equal(!!r, voice.WORK_OCCASIONS.has(occasion), occasion);
+  }
+  assert.equal(voice.say(null, 'memory', T0, { chatter: 'work', text: 'hi', force: true }), null);
+  assert.equal(voice.hasHabits('work'), false);
+  assert.equal(voice.hasHabits('quiet'), false);
+  assert.equal(voice.hasHabits('normal'), true);
+  assert.equal(voice.hasHabits('chatty'), true);
+  assert.equal(voice.hasHabits(undefined), true, 'unset is normal');
+});
+
 test('a line comes back with a ttl, and the state remembers it', () => {
   const r = voice.say(null, 'success', T0, { rand: first });
   assert.equal(r.occasion, 'success');

@@ -181,9 +181,72 @@
     pane.dataset.mounted = 'memory';
     pane.replaceChildren(h('div', { class: 'setup-intro' },
       h('p', { text: 'CLAUDE.md files are instructions Claude Code reads at the start of every session: how you like to work, how a project builds, what to avoid.' }),
-      s.memory.some(m => m.exists) ? askBtn(null, 'Review with Claude') : null));
+      s.memory.some(m => m.exists) ? askBtn(null, 'Review with Claude') : null),
+    learnedSection());
     const items = s.memory.filter(m => !q || m.path.toLowerCase().includes(q) || (MEMORY_TITLE[m.scope] || '').toLowerCase().includes(q));
     list.replaceChildren(...(items.length ? items.map(memoryRow) : [h('li', { class: 'history-empty', text: 'No matches.' })]));
+  }
+
+  // ================================================================ learned from your corrections
+
+  // The rules a learned-rule card added (lessons.js), per project, read from each
+  // CLAUDE.md as it is now, so a hand edit shows up here too. Filled in when the
+  // list arrives; changes go through main, which only touches these projects.
+  let learned = { at: 0, view: null }; // the last list, so typing in the search doesn't re-read every file
+  function learnedSection() {
+    const box = h('div', { class: 'learned', hidden: true });
+    if (Date.now() - learned.at < STALE_MS) fillLearned(box, learned.view);
+    else api.learnedRules().then(view => { learned = { at: Date.now(), view }; fillLearned(box, view); }).catch(() => {});
+    return box;
+  }
+
+  function fillLearned(box, view) {
+    const projects = (view || []).filter(p => p.rules.length);
+    box.hidden = !projects.length;
+    box.replaceChildren(
+      h('h3', { text: 'Learned from your corrections' }),
+      h('p', { class: 'muted small', text: 'When you correct Claude the same way twice, Shellby offers to write it down. These are the rules you added.' }),
+      ...projects.map(p => h('div', { class: 'learned-project' },
+        h('p', { class: 'small' }, h('strong', { text: p.name }), ' · ', h('code', { text: p.where, title: p.file })),
+        h('ul', { class: 'learned-list' }, p.rules.map((rule, i) => learnedRow(box, p, rule, i))))));
+  }
+
+  function learnedRow(box, p, rule, index) {
+    const row = h('li', { class: 'learned-row' });
+    const change = async text => {
+      const r = await api.changeLearnedRule(p.root, index, rule, text).catch(() => null);
+      if (r?.view) { learned = { at: Date.now(), view: r.view }; fillLearned(box, r.view); }
+      if (r?.ok) SB.toast(text == null ? 'Rule removed from CLAUDE.md' : 'Rule saved');
+      else SB.toast(r?.error || "Couldn't change CLAUDE.md");
+    };
+    const show = () => {
+      // Two presses to remove, like Undo, so a stray click can't lose a rule.
+      let armed = null;
+      const remove = h('button', { class: 'btn ghost slim-btn', type: 'button' }, 'Remove');
+      remove.addEventListener('click', () => {
+        if (armed) { clearTimeout(armed); change(null); return; }
+        remove.textContent = 'Remove?';
+        remove.classList.add('deny');
+        armed = setTimeout(() => { armed = null; remove.textContent = 'Remove'; remove.classList.remove('deny'); }, 4000);
+      });
+      row.replaceChildren(h('span', { text: rule }),
+        h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: editing }, 'Edit'), remove);
+    };
+    const editing = () => {
+      const input = h('input', { class: 'field slim', type: 'text', maxlength: '300', 'aria-label': 'The rule' });
+      input.value = rule;
+      const save = () => { const t = input.value.trim(); if (t && t !== rule) change(t); else show(); };
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); save(); }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); show(); }
+      });
+      row.replaceChildren(input,
+        h('button', { class: 'btn primary slim-btn', type: 'button', onclick: save }, 'Save'),
+        h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: show }, 'Cancel'));
+      input.focus();
+    };
+    show();
+    return row;
   }
 
   // ================================================================ permission rules
@@ -297,7 +360,9 @@
     $('toolList').hidden = false;
   }
 
-  SB.toolboxSetup = { owns: k => KINDS.has(k), count, refresh, reload, render, hide };
+  // A card added a rule (lessons.js): the next Memory view reads the files again.
+  const learnedChanged = () => { learned = { at: 0, view: null }; };
+  SB.toolboxSetup = { owns: k => KINDS.has(k), count, refresh, reload, render, hide, learnedChanged };
   // What toolbox-hooks.js shares with the other tabs.
   SB.setupKit = { call, rerender, sourceLabel, WHERE };
 })();

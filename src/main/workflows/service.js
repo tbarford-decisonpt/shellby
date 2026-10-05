@@ -172,7 +172,7 @@ class WorkflowService {
    * in the isolated window first: always for Claude's and a team pack's, and for
    * the panel's when what it may do has changed.
    */
-  async save(input, { source = 'panel' } = {}) {
+  async save(input, { source = 'panel', confirmed = false } = {}) {
     const existing = input && typeof input === 'object' && input.id ? this.get(input.id) : null;
     const r = validateWorkflow({ ...input, createdAt: existing?.createdAt ?? input?.createdAt }, { allowAutonomous: this.deps.allowAutonomous(), now: this.now() });
     if (!r.ok) return { ok: false, errors: r.errors };
@@ -183,7 +183,9 @@ class WorkflowService {
     if (selfLoop) return { ok: false, errors: [{ path: 'when', message: 'A workflow can\'t start itself.' }] };
 
     const risk = riskSignature(wf);
-    const ask = source !== 'panel' || (risk && (risk !== riskSignature(existing) || !this.approved(existing)));
+    // confirmed: main has already shown exactly this in a confirm window of its
+    // own (a team pack's "Set it all up", with saveDetail's words). Never from the panel.
+    const ask = !(confirmed && source === 'team') && (source !== 'panel' || (risk && (risk !== riskSignature(existing) || !this.approved(existing))));
     if (ask) {
       const verdict = await this.confirmSave(wf, existing, source);
       if (verdict === 'too-long') {
@@ -202,7 +204,7 @@ class WorkflowService {
     return { ok: true, workflow: wf, view: this.view() };
   }
 
-  // confirmSave: approvals.js.
+  // saveDetail, confirmText and confirmSave: approvals.js.
 
   async remove(id) {
     const wf = this.get(id);

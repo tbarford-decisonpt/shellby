@@ -86,7 +86,8 @@
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
     renderBillingGuard();
-    $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
+    $('chatterSelect').value = ['quiet', 'work', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
+    $('workModeToggle').checked = !!SB.isWorkMode?.();
     $('soundsToggle').checked = !!state.settings.sounds;
     $('soundFxToggle').checked = !!state.settings.soundFx;
     $('ambientSelect').value = ['off', 'surf', 'tidepool'].includes(state.settings.ambient) ? state.settings.ambient : 'off';
@@ -405,8 +406,18 @@
       h('b', { text: s.project }),
       h('span', { class: 'ext-state', text: s.state === 'working' && s.tool ? `working · ${s.tool}` : STATE_TEXT[s.state] || s.state }),
       s.helpers ? h('span', { class: 'ext-helpers', text: `${s.helpers} helper${s.helpers === 1 ? '' : 's'}` }) : null,
-      h('time', { text: SB.relTime(s.lastAt) }))));
+      h('time', { text: SB.relTime(s.lastAt) }),
+      s.id && !SB.isCrabOnly() ? h('button', { class: 'btn ghost slim-btn ext-bring', type: 'button', 'aria-label': `Bring ${s.project} into Shellby`, onclick: () => bringIn(s) }, 'Bring it into Shellby') : null)));
     renderBackground(v.background || []);
+  }
+
+  // Two copies of one conversation trip over each other, so an open one asks
+  // first: the toast's button is your word that it's closed there now.
+  async function bringIn(s, force = false) {
+    const r = await api.bringIntoShellby(s.id, force);
+    if (r?.ok) return SB.toast('Brought into Shellby.');
+    if (r?.confirm) return SB.toast(r.error, { action: "It's closed, bring it in", onAction: () => bringIn(s, true), ms: 8000 });
+    SB.toast(r?.error || "Couldn't bring it in.", { ms: 5000 });
   }
 
   // Background commands a turn walked away from: what, where, and how long ago.

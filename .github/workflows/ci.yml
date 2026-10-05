@@ -51,3 +51,27 @@ jobs:
       # the real app. Idempotent: it exits immediately when the binary is there.
       - run: node node_modules/electron/install.js
       - run: npm run e2e:ci
+
+  # "Shellby made this slower": cold start, panel open, his share of a reply's
+  # latency, idle CPU and memory, each against scripts/perf-budgets.js (~4 min).
+  # Its own job beside e2e, so it adds no time to it, and never two Electrons
+  # measuring at once. The numbers are kept as an artifact whatever happens:
+  # they're how the budgets get tightened once the runner's real figures are known.
+  perf:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - run: npm run perf -- --out perf-result.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-result
+          path: perf-result.json
+          if-no-files-found: warn

@@ -268,6 +268,9 @@ function demoWeek(now, xp) {
   days[key(1)].fixes = [{ at: at(1, 11), key: 't:3d-rack' }, { at: at(1, 15), key: 'ci:x-salmon/3d-rack#41' }];
   days[key(3)].fixes = [{ at: at(3, 10), key: 't:rack-builder' }];
   days[key(2)].reds = { 't:rack-builder': at(2, 14) };
+  // The week's work: routines overnight, pull requests, branches brought home.
+  Object.assign(days[key(1)], { away: 2, awayMs: Math.round(1.9 * HOUR), pr: 2, home: 2 });
+  Object.assign(days[key(3)], { away: 1, awayMs: Math.round(1.25 * HOUR), pr: 1, home: 1, undone: 2 });
   return {
     weekly: { days, since: key(13), wrapped: null },
     lastUsage: { status: 'allowed', fiveHour: { pct: 22, resetsAt: now + 3 * HOUR }, sevenDay: { pct: 64, resetsAt: now + 2 * DAY }, at: now },

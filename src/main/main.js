@@ -29,6 +29,7 @@ const streaks = require('./streaks');
 const { repoOf, lastCommitAt } = require('./gitinfo');
 const stickers = require('./stickers');
 const weekly = require('./weekly');
+const workmode = require('./workmode');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
 const attach = require('./attachments');
@@ -60,10 +61,14 @@ const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
+const { wireCorrections } = require('./wiring/corrections');
+const { wireHandoff } = require('./wiring/handoff');
+const { wireStartFrom } = require('./wiring/startfrom');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
 const { registerTabsIpc } = require('./ipc/tabs');
+const { registerHandoffIpc } = require('./ipc/handoff');
 const { registerRepoIpc } = require('./ipc/repo');
 const { registerSettingsIpc } = require('./ipc/settings');
 const { registerToolboxIpc } = require('./ipc/toolbox');
@@ -71,6 +76,8 @@ const { registerRoutinesIpc } = require('./ipc/routines');
 const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
+const { registerCorrectionsIpc } = require('./ipc/corrections');
+const { registerStartFromIpc } = require('./ipc/startfrom');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -288,6 +295,7 @@ const usageService = createUsage({
   get manager() { return manager; },
   get workflows() { return workflows; },
   get recapLog() { return awayService.recapLog; },
+  get history() { return history; },
   get notify() { return notify; },
   get refreshCritter() { return refreshCritter; },
   get flashState() { return flashState; },
@@ -381,14 +389,14 @@ const copyService = createCopies({
 
 const {
   checkLimit, onUsage, outlookView, refreshOutlook, saveSpend, sendOutlook,
-  spendSource, usageBreakdown, watchGuards, watchOutlook,
+  spendSource, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
 } = usageService;
 const { heldList, holdForReset, queueTabs, queueTask, queueWaits, reopenForHeld, saveHeld, scheduleHeld, syncKeepAwake } = heldService;
 const {
   chatRoutine, draftRoutine, repairRoutine, routineTabs, routineTestView, routineTests, routines,
   routinesView, runRoutine, saveRoutines, startScheduler, testRoutine,
 } = routineService;
-const { checkAway, checkLeavingSoon, noteRecap, watchAway, watchLeaving } = awayService;
+const { checkAway, checkLeavingSoon, isAway, noteRecap, watchAway, watchLeaving } = awayService;
 const { shellIdOf, shellStickers, shipped, stickerState } = stickerService;
 const { changeRef, retireWorktree } = copyService;
 
@@ -408,6 +416,7 @@ const shared = {
   stickerState, streaksView, syncKeepAwake, testRoutine, togglePanel, usageBreakdown,
   FORECAST_TEST, RECAP_TEST, awayService, copyService, routineService, stickerService, usageService,
   get recapLog() { return awayService.recapLog; }, set recapLog(v) { awayService.recapLog = v; },
+  isAway, tabCost, windowShare,
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
   get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
@@ -435,6 +444,7 @@ const shared = {
   get TOY_PRELOAD() { return TOY_PRELOAD; },
   get TRICKS_KIND() { return TRICKS_KIND; },
   get activeSkin() { return activeSkin; },
+  get addLesson() { return addLesson; },
   get advanceFocus() { return advanceFocus; },
   get allSkins() { return allSkins; },
   get allSnippets() { return allSnippets; },
@@ -459,6 +469,7 @@ const shared = {
   get checkedUp() { return checkedUp; },
   get checkupsView() { return checkupsView; },
   get chirp() { return chirp; },
+  get changeLearned() { return changeLearned; },
   get ci() { return ci; }, set ci(v) { ci = v; },
   get ciView() { return ciView; },
   get claudeConfigDir() { return claudeConfigDir; },
@@ -480,6 +491,7 @@ const shared = {
   get confirmAndUninstallPlugin() { return confirmAndUninstallPlugin; },
   get confirmChannelPlace() { return confirmChannelPlace; },
   get confirmGitHubFeature() { return confirmGitHubFeature; },
+  get correctionFromTurns() { return correctionFromTurns; },
   get crashConsent() { return crashConsent; },
   get crewExtra() { return crewExtra; },
   get crewShown() { return crewShown; },
@@ -492,7 +504,9 @@ const shared = {
   get devServers() { return devServers; }, set devServers(v) { devServers = v; },
   get dialogLook() { return dialogLook; },
   get dictation() { return dictation; }, set dictation(v) { dictation = v; },
+  get dismissLesson() { return dismissLesson; },
   get draftHook() { return draftHook; },
+  get draftLesson() { return draftLesson; },
   get dragging() { return dragging; }, set dragging(v) { dragging = v; },
   get drainCrashQueue() { return drainCrashQueue; },
   get editStickers() { return editStickers; },
@@ -518,6 +532,8 @@ const shared = {
   get friends() { return friends; }, set friends(v) { friends = v; },
   get friendsView() { return friendsView; },
   get github() { return github; }, set github(v) { github = v; },
+  get handoff() { return handoff; },
+  get githubEndpoints() { return githubEndpoints; },
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
   get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
@@ -537,10 +553,15 @@ const shared = {
   get lastStatus() { return lastStatus; }, set lastStatus(v) { lastStatus = v; },
   get lastXp() { return lastXp; }, set lastXp(v) { lastXp = v; },
   get lean() { return lean; },
+  get learnedView() { return learnedView; },
   get levelUpAt() { return levelUpAt; }, set levelUpAt(v) { levelUpAt = v; },
+  get lessonPreview() { return lessonPreview; },
+  get lessonState() { return lessonState; },
   get life() { return life; }, set life(v) { life = v; },
   get linkBusy() { return linkBusy; }, set linkBusy(v) { linkBusy = v; },
   get log() { return log; },
+  get looseEndDraft() { return looseEndDraft; },
+  get looseEnds() { return looseEnds; },
   get longTaskTimer() { return longTaskTimer; }, set longTaskTimer(v) { longTaskTimer = v; },
   get makeIssueCopy() { return makeIssueCopy; },
   get manager() { return manager; }, set manager(v) { manager = v; },
@@ -551,10 +572,13 @@ const shared = {
   get motion() { return motion; }, set motion(v) { motion = v; },
   get motionBox() { return motionBox; },
   get musicHeadphones() { return musicHeadphones; },
+  get noteAwayRun() { return noteAwayRun; },
   get noteFix() { return noteFix; },
+  get noteCorrection() { return noteCorrection; },
   get noteRed() { return noteRed; },
   get noteSnippetUse() { return noteSnippetUse; },
   get noteTestRun() { return noteTestRun; },
+  get noteWeek() { return noteWeek; },
   get noteWorkTime() { return noteWorkTime; },
   get notify() { return notify; },
   get nowPlaying() { return nowPlaying; }, set nowPlaying(v) { nowPlaying = v; },
@@ -624,6 +648,7 @@ const shared = {
   get shopBlocked() { return shopBlocked; },
   get shotsDir() { return shotsDir; },
   get showFlaky() { return showFlaky; },
+  get showBuildFix() { return showBuildFix; },
   get showHealth() { return showHealth; },
   get showListening() { return showListening; },
   get showServer() { return showServer; },
@@ -634,6 +659,8 @@ const shared = {
   get soundMix() { return soundMix; },
   get speak() { return speak; },
   get startFocus() { return startFocus; },
+  get startFromDraft() { return startFromDraft; },
+  get startFromSend() { return startFromSend; },
   get startTask() { return startTask; },
   get startTaskInCopy() { return startTaskInCopy; },
   get startView() { return startView; }, set startView(v) { startView = v; },
@@ -684,7 +711,7 @@ const {
 } = wireSessions(shared);
 const {
   awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-  knownFolder, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
+  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
   runCheckup, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
 const {
@@ -725,10 +752,16 @@ const {
   serversOnQuit, showServer, startTaskInCopy,
 } = wireProjects(shared);
 const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
+const { looseEndDraft, looseEnds, showBuildFix, startFromDraft, startFromSend } = wireStartFrom(shared);
 const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
+const {
+  addLesson, changeLearned, correctionFromTurns, createCorrections, dismissLesson, draftLesson,
+  learnedView, lessonPreview, lessonState, noteCorrection,
+} = wireCorrections(shared);
+const handoff = wireHandoff(shared);
 
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
@@ -951,10 +984,11 @@ async function checkNudges() {
 
 // ================================================================ settings side effects
 
-// Settings as the panel sees them: the spend ledger stays in main (usage-service.js usageBreakdown).
+// Settings as the panel sees them: the spend ledger stays in main (usage-service.js usageBreakdown),
+// and Work mode's settings show as they apply, over your own (workmode.js).
 function panelSettings() {
-  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
-  return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
+  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = workmode.effective(config.data);
+  return { ...rest, dockOrder: workmode.behaviour(config.data).dock, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
 function applyHotkey(accel, previous) {
@@ -1007,7 +1041,8 @@ function registerIpc() {
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
-    toolbox: () => toolbox, lastInit: () => lastInit, stat,
+    toolbox: () => toolbox, lastInit: () => lastInit, stat, correctionFromTurns, noteCorrection,
+    noteUndone: n => noteWeek('undone', null, n),
     turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
     runClaude: (args, timeout, opts) => {
@@ -1019,7 +1054,12 @@ function registerIpc() {
     ipcMain, config, shell, home: os.homedir(), panel: () => panel, send, currentCwd, stat,
     ownSnippets: snippetList, pushSnippets: () => send(panel, 'snippets', snippetsView()),
     workflows: () => (config.get('crabOnly') ? null : workflows),
-    setupView, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    setupView, setupWhere, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
+    runClaude: (args, timeout, opts) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+    },
     log: { warn: msg => log.warn('team pack', msg) },
   });
   // ---- history (ipc/history.js)
@@ -1062,6 +1102,7 @@ function registerIpc() {
   registerLifeIpc(ipcMain, d);
   registerPanelIpc(ipcMain, d);
   registerTabsIpc(ipcMain, d);
+  registerHandoffIpc(ipcMain, d);
   registerRepoIpc(ipcMain, d);
   registerSettingsIpc(ipcMain, d);
   registerToolboxIpc(ipcMain, d);
@@ -1069,6 +1110,8 @@ function registerIpc() {
   registerGithubIpc(ipcMain, d);
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
+  registerCorrectionsIpc(ipcMain, d);
+  registerStartFromIpc(ipcMain, d);
 }
 
 // ================================================================ boot
@@ -1114,7 +1157,7 @@ app.whenReady().then(() => {
     send(panel, 'wardrobe', wardrobe.view());
     if (!(panel?.isVisible() && panel.isFocused())) {
       notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate' });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate', pet: true });
     }
   });
   wardrobe.on('collected', items => {
@@ -1149,6 +1192,7 @@ app.whenReady().then(() => {
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
   createGitHub();
   createManager();
+  createCorrections();
   createHealth();
   registerIpc();
   createCritter();

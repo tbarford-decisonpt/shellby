@@ -38,6 +38,10 @@ Then make sure the Shellby app is running (**Settings → Claude Code everywhere
 
 Run `/shellby:statusline` to put Shellby in Claude Code's status line (mood, level, XP and health), for example `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱`. It asks Claude's statusline-setup agent to add it, keeping any status line you already have. You can also turn it on in the Shellby app: **Settings → Claude Code everywhere → Status line**.
 
+## Handing a session to Shellby
+
+Run `/shellby:handoff` to carry the conversation you're in on in a Shellby tab. It runs `shellby take`, which needs the `shellby` command (**Settings → Claude Code everywhere → the shellby command**). Type `/exit` in the terminal before you send anything in Shellby: two copies of one conversation trip over each other. Going the other way, **Continue in a terminal** on a Shellby tab opens it here with `claude --resume`.
+
 ## How it works
 
 Each hook runs [`hooks/notify.sh`](hooks/notify.sh), which sends the hook's JSON to Shellby at `http://127.0.0.1:47913`:
@@ -45,6 +49,6 @@ Each hook runs [`hooks/notify.sh`](hooks/notify.sh), which sends the hook's JSON
 - **It stays on your PC.** Requests go only to `127.0.0.1`, on your machine.
 - **It never gets in Claude's way.** The script prints nothing and always exits 0, so it can't block or change anything Claude does.
 - **It's instant when Shellby is closed.** It checks for a marker file Shellby leaves while it's running, and skips when the file isn't there.
-- **Shellby keeps almost nothing.** It reads only the event name, tool name, folder name and session id. Commands and file contents in the payload are dropped unread and never stored.
+- **Shellby keeps almost nothing.** It reads only the event name, tool name, folder and session id (the folder and id are what **Bring it into Shellby** needs to open the conversation). Commands and file contents in the payload are dropped unread and never stored.
 
 Requires `bash` and `curl`, which come with Git for Windows (Claude Code on Windows already needs it).

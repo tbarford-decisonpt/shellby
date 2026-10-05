@@ -44,6 +44,7 @@
 .gh-ci-link:hover span, .gh-ci-link:focus-visible span { text-decoration: underline; }
 .gh-ci-tag { flex: none; font-size: var(--fs-11); color: var(--sand-dim); opacity: .8; }
 .gh-ci-pr .slim-btn { flex: none; height: 26px; }
+.gh-ci-acts { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px; max-width: 60%; }
 @media (prefers-reduced-motion: reduce) { .ci-pending .gh-ci-dot { animation: none; } }
 
 /* Visiting crabs */

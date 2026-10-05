@@ -217,7 +217,7 @@ async function create(dir, { home, title, start = 'HEAD' }) {
   const wt = path.join(home, branch.slice(-6), path.basename(root));
   fs.mkdirSync(path.dirname(wt), { recursive: true });
   const add = await git(root, ['worktree', 'add', '--no-track', '-b', branch, wt, start], { timeout: 120000 });
-  if (!add.ok) return { ok: false, error: firstLine(add.error) || "git couldn't make the copy." };
+  if (!add.ok) return { ok: false, error: copyRefusal(add.error), detail: lastLines(add.error) || undefined };
   const rel = prefix.trim().replace(/\/$/, '');
   const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
   return { ok: true, worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base: base.out.trim(), root, originalCwd: path.resolve(dir) } };
@@ -252,7 +252,7 @@ async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, o
   const wt = path.join(home, branch.slice(-6), path.basename(repoRoot));
   fs.mkdirSync(path.dirname(wt), { recursive: true });
   const add = await git(repoRoot, ['worktree', 'add', '-b', branch, wt, head], { timeout: 120000 });
-  if (!add.ok) return { ok: false, error: firstLine(add.error) || "git couldn't make the copy." };
+  if (!add.ok) return { ok: false, error: copyRefusal(add.error), detail: lastLines(add.error) || undefined };
   // The files as the snapshot has them (deletions too), then the index back
   // on `head`: the difference is uncommitted work, as it was at the time.
   const files = await git(wt, ['read-tree', '-u', '--reset', tree], { timeout: 120000 });
@@ -360,6 +360,22 @@ async function bringHome(w, { message }) {
     }
   }
   return { ok: true, merged: commits > 0, commits };
+}
+
+// Why `git worktree add` said no, in a sentence (git's own words go in `detail`).
+const COPY_REFUSALS = [
+  [/already (checked out|used by worktree)|is already registered/i, 'that branch is already open in another copy'],
+  [/filename too long|path too long|name too long/i, 'the path would be too long for Windows (turn on git\'s core.longpaths to allow it)'],
+  [/permission denied|access is denied|operation not permitted/i, "Windows didn't let git write to Shellby's folder of copies"],
+  [/no space left|not enough space|disk full/i, 'the disk is full'],
+  [/invalid reference|not a valid object|unknown revision/i, 'there is no such commit to start from'],
+  [/index\.lock|another git process/i, 'another git command is busy in this repository; try again in a moment'],
+];
+function copyRefusal(said) {
+  const known = COPY_REFUSALS.find(([re]) => re.test(String(said || '')));
+  if (known) return `Couldn't make a copy: ${known[1]}.`;
+  const line = firstLine(said).replace(/^(fatal|error):\s*/i, '');
+  return line ? `Couldn't make a copy: git said "${line.slice(0, 160)}".` : "git couldn't make the copy.";
 }
 
 // What git's refusal to merge means, in a sentence. The usual one: your
@@ -526,6 +542,6 @@ async function bringAllHome(list, { messageFor = () => 'Work from Shellby' } = {
 
 module.exports = {
   git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, checkWorktree, BRANCH,
-  remoteStatus, pushBase, bringAllHome, upstreamOf,
+  remoteStatus, pushBase, bringAllHome, upstreamOf, copyRefusal,
   startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
 };

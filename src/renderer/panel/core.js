@@ -6,6 +6,7 @@ const SB = window.SB = {
   md: window.ShellbyMarkdown,
   Sprite: window.ShellbySprite,
   MiniShell: window.ShellbyMiniShell,
+  shortcuts: window.ShellbyShortcuts, // every shortcut, for the handlers, the palette and the cheat sheet
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
@@ -249,10 +250,16 @@ SB.setView = view => {
 
 // ------------------------------------------------------------------ popovers
 
+// Where the keyboard goes back to when a menu it was in closes: whatever had it
+// before the menu opened (the box, a chip), so Esc or a choice never strands it.
+let menuReturn = null;
+
 SB.openMenu = (menu, anchor, build) => {
   const wasOpen = !menu.hidden;
   SB.closeMenus();
   if (wasOpen) return;
+  const from = document.activeElement;
+  menuReturn = from && from !== document.body && !from.closest('.popover') ? from : anchor;
   menu.replaceChildren(...build().filter(Boolean));
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
@@ -268,22 +275,23 @@ SB.openMenu = (menu, anchor, build) => {
 // Every floating menu is a .popover, or the composer's .slash-menu (slash
 // commands, @-picker): asking the page beats keeping a list of ids in step.
 const OPEN_MENUS = '.popover:not([hidden]), .slash-menu:not([hidden])';
-let menuAnchor = null; // the button that opened the current menu, for focus to go home to
+let menuAnchor = null; // the button that opened the current menu: its aria-expanded goes back to false
 
 SB.anyMenuOpen = () => !!document.querySelector(OPEN_MENUS);
 
-// refocus: put focus back on the button that opened the menu (Esc, a pick from
-// it). A click elsewhere leaves focus where the click put it.
+// refocus: send the keyboard back where it was before the menu opened (Esc, a
+// pick from it), as it does anyway when focus was in the menu. A click
+// elsewhere leaves focus where the click put it.
 SB.closeMenus = ({ refocus = false } = {}) => {
-  const hadFocus = !!document.activeElement?.closest(OPEN_MENUS);
+  const held = !!document.activeElement?.closest(OPEN_MENUS);
   for (const menu of document.querySelectorAll('.popover')) menu.hidden = true;
   for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip', 'tabAllBtn']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();
-  const anchor = menuAnchor;
-  anchor?.setAttribute('aria-expanded', 'false');
+  menuAnchor?.setAttribute('aria-expanded', 'false');
   menuAnchor = null;
-  if ((refocus || hadFocus) && anchor?.isConnected && !anchor.closest('[hidden]')) anchor.focus();
+  if ((refocus || held) && menuReturn?.isConnected && menuReturn.getClientRects().length) menuReturn.focus({ preventScroll: true });
+  menuReturn = null;
 };
 
 document.addEventListener('mousedown', e => {
@@ -291,10 +299,11 @@ document.addEventListener('mousedown', e => {
 });
 
 // Up/Down walk a menu's items (wrapping round), Home/End jump to either end.
-// Every .popover with role=menu gets this; Esc is tabs.js's (SB.closeMenus).
-const MENU_ITEMS = '[role^="menuitem"]:not(:disabled)';
+// Every .popover with role=menu gets this; Esc is tabs.js's (SB.closeMenus). A
+// menu with keys of its own handles them first and says so (defaultPrevented).
+const MENU_ITEMS = 'button:not(:disabled), [role^="menuitem"]:not(:disabled)';
 document.addEventListener('keydown', e => {
-  if (e.altKey || e.ctrlKey || e.metaKey || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
   const menu = e.target.closest?.('.popover[role="menu"]');
   if (!menu) return;
   const items = [...menu.querySelectorAll(MENU_ITEMS)].filter(el => el.getClientRects().length > 0);

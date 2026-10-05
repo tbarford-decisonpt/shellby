@@ -212,6 +212,7 @@
     { id: 'max', title: 'Max', sub: 'Thinks the longest. Uses your limits fastest' },
   ];
   const effortName = id => (EFFORTS.find(x => x.id === (id || '')) || EFFORTS[0]).title;
+  SB.EFFORTS = EFFORTS; // the palette's Effort entries (nav.js)
 
   SB.LOCAL_COMMANDS = [
     { name: 'rewind', kind: 'shellby', description: 'Go back to an earlier message: the conversation, the code, or both (Esc Esc)' },
