@@ -203,12 +203,14 @@
     if (!typed && !(SB.pendingComments?.(t))) { SB.toast('Say what should change first.'); return; }
     const sent = await SB.sendBack(t, typed);
     if (!sent) return;
+    // You've looked at these changes: only new ones bring it back here.
+    api.markReviewed(id, true).catch(() => {});
     drafts.delete(id);
     sendingTo = null;
     picked = Q.landOn(order, id);
     render({ force: true });
     focusPicked();
-    say(`Sent back to "${SB.shownTitle(t)}". It comes back here when he's done.`);
+    say(`Sent back to "${SB.shownTitle(t)}". It comes back here if he changes anything.`);
   }
 
   // ------------------------------------------------------------ keyboard
