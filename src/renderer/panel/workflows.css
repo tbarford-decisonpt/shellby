@@ -219,6 +219,12 @@ body[data-view="workflows"] .view-workflows {
 .wf-check input { margin: 3px 0 0; accent-color: var(--glass); flex: none; }
 .wf-check > span { display: grid; gap: 1px; }
 .wf-check.small { font-size: 12px; align-items: center; white-space: nowrap; }
+
+/* MCP servers a step or routine may use (mcp-picker.js) */
+.mcp-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 12px; }
+.mcp-pick-name { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.mcp-pick > span { display: block; }
+.wf-tool-about { margin-top: -2px; }
 .wf-check.small input { margin: 0; }
 
 .wf-folder { display: flex; gap: 6px; align-items: center; }

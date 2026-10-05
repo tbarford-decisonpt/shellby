@@ -239,3 +239,15 @@ test('Scheduler: start() ticks soon, stop() clears timers', async () => {
   assert.equal(s.immediate, null);
   assert.throws(() => new Scheduler({}), /getRoutines/);
 });
+
+test('a routine can name MCP servers it may use without asking', () => {
+  const base = { name: 'Digest', prompt: 'post it', schedule: { type: 'daily', time: '17:00' } };
+  const { routine } = validateRoutine({ ...base, mcp: ['slack', 'slack', 'linear'], mcpOnly: true });
+  assert.deepEqual(routine.mcp, ['slack', 'linear']);
+  assert.equal(routine.mcpOnly, true);
+  // None named: neither field is kept, so an old routine looks exactly as it did.
+  const none = validateRoutine({ ...base, mcp: [], mcpOnly: true }).routine;
+  assert.equal('mcp' in none, false);
+  assert.equal('mcpOnly' in none, false);
+  assert.match(validateRoutine({ ...base, mcp: ['bad name'] }).errors[0], /isn't an MCP server name/);
+});

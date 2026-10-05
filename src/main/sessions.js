@@ -6,7 +6,10 @@ const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 
-const MAX_TABS = 8;
+// Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
+// one is a running CLI, and nothing limits how many of those run at once. The cap
+// is where routines and workflows start recycling old tabs to make room.
+const MAX_TABS = 32;
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
@@ -19,7 +22,9 @@ class SessionManager extends EventEmitter {
   }
 
   // Creates (or returns) a tab. `historyEntry` resumes a saved conversation.
-  open({ tabId, cwd, historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null }) {
+  // allowedTools / mcpConfig: a routine's or workflow step's MCP servers (mcpservers.js),
+  // fixed for the life of its process.
+  open({ tabId, cwd, historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null }) {
     if (!TAB_ID.test(tabId || '')) throw new Error('bad tab id');
     if (this.tabs.has(tabId)) return this.tabs.get(tabId);
     if (this.tabs.size >= MAX_TABS) throw new Error(`Shellby can run up to ${MAX_TABS} conversations at once. Close one first.`);
@@ -36,6 +41,7 @@ class SessionManager extends EventEmitter {
       resumeAt: historyEntry?.resumeAt || null,
       extraEnv: () => this.getEnv(),
       context: historyEntry?.context || null,
+      allowedTools, mcpConfig,
     });
     const tab = {
       id: tabId, session, routineId,

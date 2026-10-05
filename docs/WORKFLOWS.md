@@ -14,7 +14,8 @@ They live on the **Automate** page (the bottom bar, or <kbd>Ctrl</kbd>+<kbd>4</k
   pushing") and press **Draft it**. Claude writes the workflow and it opens
   in the editor for you to check. Nothing is saved until you press Save.
 - **Start from a template:** red build fixer, morning brief, site watch,
-  downloads sorter, release notes, disk space guard.
+  downloads sorter, release notes, disk space guard, broken build → issue,
+  end-of-day digest, and two for [n8n](N8N.md).
 - **Build it** step by step in the editor, or paste one someone shared
   (**Import**).
 
@@ -124,6 +125,7 @@ Every workflow can also be run by hand with **Run**.
 | **Claude** | gives Claude Code a task, in a mode you pick. Add **output fields** and Claude hands back data (text, numbers, true/false, lists) for the steps after it. |
 | **Command** | runs a PowerShell command and keeps its output and exit code |
 | **Web request** | calls a web address (GET, POST…) and keeps the answer, parsed as JSON when it is |
+| **MCP tool** | calls one tool of one of your MCP servers directly ("create an issue in Linear"), with no Claude turn. See [MCP servers](#mcp-servers). |
 | **Ask me** | stops and asks you, with your own choices or Continue / Stop. A notification and your phone say it's waiting. |
 | **Tell me** | a notification, a message on your phone, a line from the crab, or a line added to a file |
 | **Set values** | names a value for later steps |
@@ -167,6 +169,50 @@ the tab stays so you can read it or reply.
 
 Values from outside (a PR title, a web page, a file) reach Claude marked as
 data, with a note saying they're data, not instructions.
+
+## MCP servers
+
+Your MCP servers (Toolbox → MCP) are how a workflow reaches other apps: Linear,
+Jira, Slack, Notion, a database. There are two ways to use one.
+
+**In a Claude step.** Claude already has your servers in every step. Under
+**MCP servers it can use without asking**, tick the ones the step needs, and
+Claude uses their tools without stopping to ask, so a run at 3am doesn't wait
+for you. That's the only thing ticking does: unticked servers are still there,
+and Claude asks before using one.
+
+- **Only these servers** loads just the ticked ones. Claude starts faster and
+  can't reach for anything else. Servers that come with a plugin can't be loaded
+  on their own, so leave it off for them.
+- Steps that use different servers get separate conversations, because a
+  conversation's servers are fixed when it starts.
+
+**As an MCP tool step.** When you know exactly what should happen ("file an
+issue titled X"), skip Claude: pick the server, press **Read its tools**, pick
+a tool, and **Fill in its arguments** writes the JSON for you to finish:
+
+```json
+{ "title": "{{ diagnose.title }}", "labels": {{ diagnose.labels }} }
+```
+
+Text values go in "quotes" and lists or numbers go in without them, the same
+as a web request's JSON body. The step hands on `{{ id.text }}` (what the tool
+said) and `{{ id.json }}` (its answer as data, when it gives one). It costs
+nothing from your plan. Shellby starts the server, calls the one tool and shuts
+it down again. It works with servers that run on this PC and with HTTP servers
+that take a token in their headers. Servers that need you to sign in through a
+browser, and ones that come with a plugin, work in a Claude step instead.
+
+Routines have the same **MCP servers** box.
+
+A project's own `.mcp.json` comes with its repository, so Shellby only loads
+or starts one of its servers after you've approved that server by name in
+Claude Code. "Allow every project server" doesn't count here. An MCP tool
+step's folder has to be written out, so what started the run can't pick which
+project's servers it uses.
+
+The **Broken build → issue** and **End-of-day digest** templates show both at
+work.
 
 ## From an issue to a pull request
 
@@ -244,6 +290,8 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:47913/v1/flow `
 workflow's inputs fills that input. Only programs on this PC can reach the port.
 Web pages can't, and the token is the workflow's own.
 
+To connect n8n, see [n8n](N8N.md).
+
 ## From the terminal and from Claude
 
 ```powershell
@@ -258,7 +306,8 @@ this way, and Claude can't pick Autonomous for a step.
 ## Safety
 
 - Saving a workflow that can act without asking (a command, a web request, a
-  file write, a Claude step in Smart, Auto-edit or Autonomous) shows exactly
+  file write, an MCP tool step, MCP servers a Claude step may use unasked, a
+  Claude step in Smart, Auto-edit or Autonomous) shows exactly
   what it may do in Shellby's confirmation window. It asks again only when one
   of those things changes.
 - At most 4 runs go at once, and the rest wait their turn. A workflow that

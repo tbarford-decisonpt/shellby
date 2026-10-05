@@ -5,6 +5,7 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { MODES } = require('./config');
+const { checkNames } = require('./mcpservers');
 
 const HOUR = 3600000;
 const ID_RE = /^[\w-]{1,64}$/;
@@ -146,6 +147,10 @@ function validateRoutine(input, { allowAutonomous = false } = {}) {
   if (!MODES.includes(mode)) errors.push('Unknown mode');
   else if (mode === 'autonomous' && !allowAutonomous) errors.push('Autonomous mode is not allowed for routines');
 
+  // MCP servers whose tools it may use without asking (mcpservers.js).
+  const servers = checkNames(input.mcp);
+  if (servers.error) errors.push(servers.error);
+
   const schedule = normaliseSchedule(input.schedule);
   const sErr = scheduleError(schedule);
   if (sErr) errors.push(sErr);
@@ -164,10 +169,12 @@ function validateRoutine(input, { allowAutonomous = false } = {}) {
   const lastStatus = STATUSES.includes(input.lastStatus) ? input.lastStatus : null;
 
   if (errors.length) return { routine: null, errors };
-  return {
-    routine: { id, name, prompt, cwd, mode, schedule, enabled, catchUp, createdAt, lastRunAt, lastStatus },
-    errors: [],
-  };
+  const routine = { id, name, prompt, cwd, mode, schedule, enabled, catchUp, createdAt, lastRunAt, lastStatus };
+  if (servers.list.length) {
+    routine.mcp = servers.list;
+    if (input.mcpOnly === true) routine.mcpOnly = true;
+  }
+  return { routine, errors: [] };
 }
 
 // Copies only known schedule fields; pads 'H:MM' to 'HH:MM' and sorts days.
