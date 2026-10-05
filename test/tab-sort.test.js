@@ -17,6 +17,13 @@ test('standing ranks asking over working over finished over quiet', () => {
   assert.equal(S.standing(tab('g')), 'quiet');
 });
 
+test('activity tells a running turn from background work that outlived it', () => {
+  assert.equal(S.activity(tab('a', { busy: true })), 'turn');
+  assert.equal(S.activity(tab('b', { busy: true, crew: 2 })), 'turn');
+  assert.equal(S.activity(tab('c', { crew: 1, outcome: 'ok', unread: true })), 'background');
+  assert.equal(S.activity(tab('d', { outcome: 'ok' })), null);
+});
+
 test('groups come in urgency order, keep strip order, and drop empty groups', () => {
   const tabs = [tab('q1'), tab('w1', { busy: true }), tab('a1', { pending: 1 }), tab('q2'), tab('f1', { unread: true })];
   const g = S.groups(tabs);
