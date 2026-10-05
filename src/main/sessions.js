@@ -6,7 +6,10 @@ const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 
-const MAX_TABS = 8;
+// Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
+// one is a running CLI, and nothing limits how many of those run at once. The cap
+// is where routines and workflows start recycling old tabs to make room.
+const MAX_TABS = 32;
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
