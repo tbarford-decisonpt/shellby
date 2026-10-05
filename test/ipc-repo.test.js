@@ -12,7 +12,8 @@ const { installFakeElectron, createFakeIpc, fakeConfig, recorder, isStr } = requ
 installFakeElectron();
 const { registerRepoIpc } = require('../src/main/ipc/repo');
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-repo-ipc-'));
+// The long path: CI's temp folder is an 8.3 name (RUNNER~1), and git reports the long one.
+const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-repo-ipc-')));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 const worktreeHome = path.join(root, 'worktrees');
 fs.mkdirSync(worktreeHome);

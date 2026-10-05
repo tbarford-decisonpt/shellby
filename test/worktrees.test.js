@@ -11,7 +11,7 @@ const path = require('path');
 const worktrees = require('../src/main/worktrees');
 
 function setup() {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-wt-')));
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-wt-')));
   const dir = path.join(base, 'proj');
   const home = path.join(base, 'home');
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });

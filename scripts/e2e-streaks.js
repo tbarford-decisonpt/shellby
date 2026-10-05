@@ -18,7 +18,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
 
   // A repo whose newest commit is 6 days old.
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'streak-repo-'));
+  // The long path: CI's temp folder is an 8.3 name (RUNNER~1), and git reports the long one.
+  const repo = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'streak-repo-')));
   const when = new Date(Date.now() - 6 * 24 * 3600e3).toISOString();
   const env = { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
   execFileSync('git', ['init', '-q', repo]);
