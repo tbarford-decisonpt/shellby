@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only by default: nothing here publishes or writes to the repository.
+permissions:
+  contents: read
+
+# A new push to a PR makes the run for the old one pointless. main keeps every
+# run (each commit there gets its own result).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
     runs-on: windows-latest
@@ -16,7 +26,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm test
+      # What ships to users, not the dev tooling: a high-severity advisory in a
+      # runtime dependency fails the build.
+      - run: npm audit --omit=dev --audit-level=high
 
   # The only automated coverage the renderer and main's wiring get: each check
   # launches the real app and drives it over CDP with the fake Claude CLI. Its
@@ -24,7 +38,7 @@ jobs:
   # rather than one hiding behind the other.
   e2e:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

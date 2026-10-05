@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version folder under packaging/winget (e.g. 0.66.0)'
+        # No default: a pinned one goes stale with every release.
+        description: 'Version folder under packaging/winget (e.g. 0.67.0)'
         required: true
-        default: '0.66.0'
 
 jobs:
   submit:

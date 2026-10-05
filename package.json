@@ -19,10 +19,14 @@
     "ai-agent"
   ],
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "electron .",
     "test": "node --test --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",
+    "typecheck": "tsc -p jsconfig.json",
     "e2e:ci": "node scripts/e2e-ci.js",
     "packs": "node scripts/validate-packs.js",
     "packs:format": "node scripts/format-packs.js",
@@ -42,9 +46,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.4",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
-    "eslint": "^10.11.0"
+    "eslint": "^10.11.0",
+    "typescript": "^7.0.2"
   },
   "build": {
     "appId": "com.xsalmon.shellby",

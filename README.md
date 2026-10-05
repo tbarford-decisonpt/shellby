@@ -351,9 +351,9 @@ See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.
 
 ## Code signing policy
 
-Releases are signed with [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/), under the maintainer's verified name.
+Releases will be signed with [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/), under the maintainer's verified name.
 
-> Signing is being set up. Until the first signed release, releases are unsigned (see [Install](#install)).
+> Signing is being set up. Until the first signed release, releases are unsigned (see [Install](#install)). The rest of this section describes how signed releases will work.
 
 Only Shellby's own files are signed, and only when GitHub Actions builds them from a tagged commit in this repository ([release workflow](.github/workflows/release.yml)). The signing key stays in Microsoft's hardware and is never on a PC. Before publishing, the workflow checks that every exe is validly signed by the expected publisher. Before building, it checks that the publisher will match the last release's, so installed copies keep updating. How it works: [docs/SIGNING.md](docs/SIGNING.md).
 

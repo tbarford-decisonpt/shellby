@@ -20,6 +20,8 @@ docs/packs/
 
 # local tooling databases (not part of Shellby)
 *.db
+*.rvf
+*.rvf.lock
 
 # local agent tooling (not part of Shellby)
 .claude/

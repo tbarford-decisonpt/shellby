@@ -8,6 +8,8 @@ Thanks for helping the crab! Skins, fixes, and features are all welcome.
 npm install
 npm start      # run the app
 npm test       # must pass before a PR
+npm run lint   # so must this (CI runs both)
+npm run typecheck
 ```
 
 npm 11 may skip install scripts. If `npm start` says Electron failed to install, run `node node_modules/electron/install.js`.
