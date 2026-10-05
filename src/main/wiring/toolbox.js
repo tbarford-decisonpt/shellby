@@ -8,6 +8,7 @@ const path = require('path');
 const { findClaude, run: runCli } = require('../claude-cli');
 const claudeSetup = require('../claude-setup');
 const confirm = require('../confirm');
+const hookDraft = require('../hook-draft');
 const { describeHook } = require('../hook-recipes');
 const hookTest = require('../hook-test');
 const { Marketplace } = require('../marketplace');
@@ -267,6 +268,21 @@ function wireToolbox(d) {
     } finally { testRunning = false; }
   }
 
+  // Ask Claude: a hook drafted (or changed) from what the person says. It only
+  // fills the form; saving still asks in the confirm window, like any hook.
+  let hookDrafting = false;
+
+  async function draftHook(req = {}) {
+    if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) {
+      return { ok: false, error: 'Asking Claude needs Claude Code set up and signed in, in Settings.' };
+    }
+    if (hookDrafting) return { ok: false, error: 'Claude is already working on one. Give it a moment.' };
+    hookDrafting = true;
+    try {
+      return await hookDraft.askClaude(req, { runClaude: d.runClaudeOnce, home: setupHome(), cwd: setupCwd(), log: d.log });
+    } finally { hookDrafting = false; }
+  }
+
   // ---- skill shop
 
   function createShop() {
@@ -391,7 +407,7 @@ function wireToolbox(d) {
   }
 
   return {
-    askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin,
+    askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin, draftHook,
     confirmAndUninstallPlugin, createShop, createToolbox, forgetPausedHook, pauseHook, pluginView,
     resumeHook, setupCwd, setupView, setupWhere, shopBlocked, testHook,
   };

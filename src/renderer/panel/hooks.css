@@ -70,6 +70,16 @@
 .hook-recipe-note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 11px; border-radius: var(--r); background: var(--ink); }
 .hook-recipe-note p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--sand); }
 .hook-tweak { color: var(--amber); }
+.hook-claude-note { border: 1px solid color-mix(in srgb, var(--glass) 30%, transparent); }
+
+/* Ask Claude: one line that grows, the button beside it */
+.hook-ask { display: grid; gap: 6px; padding: 10px 11px; border-radius: var(--r); border: 1px solid var(--line); background: var(--ink); }
+.hook-ask-row { display: flex; align-items: flex-end; gap: 8px; }
+.hook-ask-row .btn { flex: none; height: 34px; }
+.hook-ask-text { flex: 1; min-width: 0; min-height: 34px; max-height: 140px; padding-block: 7px; resize: none; field-sizing: content; }
+.hook-ask-note { margin: 0; }
+.hook-ask-note.err { color: var(--coral); }
+.hook-fix { justify-self: start; margin-top: 6px; }
 
 .hook-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .hook-chip {

@@ -86,6 +86,9 @@ if (ONE_SHOT) {
       answer = prompt.includes('test run that just finished')
         ? { reply: 'The test run worked: it listed what changed and summed it up. Press Save to switch it on.', changed: false, routine: morning, test: false, needs_workflow: false, why: '' }
         : { reply: 'Set it for weekdays at 8:30, looking only, never changing anything. Let me test it.', changed: true, routine: morning, test: true, needs_workflow: false, why: '' };
+    } else if (schema.properties.command && schema.properties.event) {
+      // Toolbox → Hooks, Ask Claude: a hook that says when Claude finishes.
+      answer = { event: 'Stop', matcher: '', command: "bash -c 'echo done'", timeout: 0, scope: 'user', title: 'Say done', note: 'Prints "done" each time Claude finishes replying.' };
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };
