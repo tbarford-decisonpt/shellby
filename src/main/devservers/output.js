@@ -201,6 +201,6 @@ function fixPrompt(server, lines, note = '') {
 }
 
 module.exports = {
-  LineBuffer, detectUrl, exitOf, redact, redactLines, tail, errorLines, fixPrompt, stripAnsi, clean,
+  LineBuffer, detectUrl, exitOf, redact, redactLines, tail, errorLines, fixPrompt, fence, stripAnsi, clean,
   MAX_LINES, MAX_LINE, TAIL_LINES, MAX_NOTE,
 };

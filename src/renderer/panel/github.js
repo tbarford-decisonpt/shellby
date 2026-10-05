@@ -72,8 +72,11 @@
       h('button', { type: 'button', class: 'gh-ci-link', title: `Open ${pr.repo}#${pr.number} on GitHub`, onclick: () => api.openPr(pr.key) },
         h('b', { text: `${pr.repo}#${pr.number}` }), h('span', { text: pr.title })),
       review ? h('span', { class: 'gh-ci-tag', text: 'Review' })
-        : pr.state === 'failing' ? h('button', { type: 'button', class: 'btn ghost slim-btn', title: pr.failing.join(', '), onclick: () => askWhy(pr) }, 'Ask Shellby why')
-          : h('span', { class: 'gh-ci-tag', text: CI_LABEL[pr.state] || '' }));
+        : h('span', { class: 'gh-ci-acts' },
+          pr.state === 'failing' && h('button', { type: 'button', class: 'btn slim-btn', title: `Failing: ${pr.failing.join(', ')}`, onclick: () => SB.startFrom.open('build', pr.key) }, 'Fix this build'),
+          pr.state === 'failing' && h('button', { type: 'button', class: 'btn ghost slim-btn', title: pr.failing.join(', '), onclick: () => askWhy(pr) }, 'Ask Shellby why'),
+          pr.reviewComments > 0 && h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => SB.startFrom.open('review', pr.key) }, 'Address the review'),
+          pr.state !== 'failing' && h('span', { class: 'gh-ci-tag', text: CI_LABEL[pr.state] || '' })));
     $('ghCiList').replaceChildren(...v.prs.map(pr => row(pr, false)), ...v.reviews.map(pr => row(pr, true)));
   }
   async function askWhy(pr) {

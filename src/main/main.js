@@ -76,6 +76,7 @@ const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
+const { wireStartFrom } = require('./wiring/startfrom');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -89,6 +90,7 @@ const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
 const { registerCorrectionsIpc } = require('./ipc/corrections');
+const { registerStartFromIpc } = require('./ipc/startfrom');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -410,6 +412,7 @@ const shared = {
   get friendsView() { return friendsView; },
   get github() { return github; }, set github(v) { github = v; },
   get handoff() { return handoff; },
+  get githubEndpoints() { return githubEndpoints; },
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
   get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
@@ -441,6 +444,8 @@ const shared = {
   get limitWait() { return limitWait; },
   get linkBusy() { return linkBusy; }, set linkBusy(v) { linkBusy = v; },
   get log() { return log; },
+  get looseEndDraft() { return looseEndDraft; },
+  get looseEnds() { return looseEnds; },
   get longTaskTimer() { return longTaskTimer; }, set longTaskTimer(v) { longTaskTimer = v; },
   get makeIssueCopy() { return makeIssueCopy; },
   get manager() { return manager; }, set manager(v) { manager = v; },
@@ -532,6 +537,7 @@ const shared = {
   get shopBlocked() { return shopBlocked; },
   get shotsDir() { return shotsDir; },
   get showFlaky() { return showFlaky; },
+  get showBuildFix() { return showBuildFix; },
   get showHealth() { return showHealth; },
   get showListening() { return showListening; },
   get showServer() { return showServer; },
@@ -542,6 +548,8 @@ const shared = {
   get soundMix() { return soundMix; },
   get speak() { return speak; },
   get startFocus() { return startFocus; },
+  get startFromDraft() { return startFromDraft; },
+  get startFromSend() { return startFromSend; },
   get startTask() { return startTask; },
   get startTaskInCopy() { return startTaskInCopy; },
   get startView() { return startView; }, set startView(v) { startView = v; },
@@ -635,6 +643,7 @@ const {
   serversOnQuit, showServer, startTaskInCopy,
 } = wireProjects(shared);
 const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
+const { looseEndDraft, looseEnds, showBuildFix, startFromDraft, startFromSend } = wireStartFrom(shared);
 const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
@@ -2295,6 +2304,7 @@ function registerIpc() {
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
   registerCorrectionsIpc(ipcMain, d);
+  registerStartFromIpc(ipcMain, d);
 }
 
 // ================================================================ boot

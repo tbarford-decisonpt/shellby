@@ -254,7 +254,10 @@ function wireGithub(d) {
     if (type === 'failed') {
       d.flashState('error', 5000);
       d.tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
-      d.notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open, { tone: 'problem' });
+      // With Claude set up, a click opens "Fix this build" (what would be sent, to read first); without, the pull request.
+      const canFix = !d.config.get('crabOnly') && !!d.claudeStatus?.installed && !!d.claudeStatus?.loggedIn;
+      d.notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160),
+        canFix ? () => d.showBuildFix(pr.key) : open, { tone: 'problem', action: canFix ? 'Fix this build' : null });
     } else if (type === 'fixed') {
       d.stat('ci-fixed');
       d.flashState('cheer', 6500);
