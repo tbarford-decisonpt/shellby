@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version folder under packaging/winget (e.g. 0.18.0)'
+        description: 'Version folder under packaging/winget (e.g. 0.66.0)'
         required: true
-        default: '0.18.0'
+        default: '0.66.0'
 
 jobs:
   submit:

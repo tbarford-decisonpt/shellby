@@ -268,6 +268,15 @@ shellby time last-week
 2. Download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest) and run it.
 3. Shellby walks you through a two-step check (CLI found ✓, signed in with a Claude account ✓) and asks how much freedom he gets.
 
+**From a package manager:** instead of downloading the installer,
+
+```powershell
+scoop bucket add shellby https://github.com/x-salmon/shellby
+scoop install shellby/shellby
+```
+
+or `winget install x-salmon.Shellby`, once Microsoft's review of the package finishes. Scoop keeps him up to date with `scoop update shellby` (the in-app updater stands aside); a winget install updates itself like the regular installer.
+
 > **"Windows protected your PC"?** That's Microsoft SmartScreen. It warns about any app that isn't code-signed or that few people have downloaded yet, and Shellby releases aren't signed yet.
 >
 > - **To install anyway:** click **More info → Run anyway**.
