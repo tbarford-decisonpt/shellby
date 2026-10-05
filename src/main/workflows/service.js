@@ -259,7 +259,7 @@ class WorkflowService {
    * in the isolated window first: always for Claude's and a team pack's, and for
    * the panel's when what it may do has changed.
    */
-  async save(input, { source = 'panel' } = {}) {
+  async save(input, { source = 'panel', confirmed = false } = {}) {
     const existing = input && typeof input === 'object' && input.id ? this.get(input.id) : null;
     const r = validateWorkflow({ ...input, createdAt: existing?.createdAt ?? input?.createdAt }, { allowAutonomous: this.deps.allowAutonomous(), now: this.now() });
     if (!r.ok) return { ok: false, errors: r.errors };
@@ -270,7 +270,9 @@ class WorkflowService {
     if (selfLoop) return { ok: false, errors: [{ path: 'when', message: 'A workflow can\'t start itself.' }] };
 
     const risk = riskSignature(wf);
-    const ask = source !== 'panel' || (risk && (risk !== riskSignature(existing) || !this.approved(existing)));
+    // confirmed: main has already shown exactly this in a confirm window of its
+    // own (a team pack's "Set it all up", with saveDetail's words). Never from the panel.
+    const ask = !(confirmed && source === 'team') && (source !== 'panel' || (risk && (risk !== riskSignature(existing) || !this.approved(existing))));
     if (ask) {
       const verdict = await this.confirmSave(wf, existing, source);
       if (verdict === 'too-long') {
@@ -289,7 +291,19 @@ class WorkflowService {
     return { ok: true, workflow: wf, view: this.view() };
   }
 
-  async confirmSave(wf, existing, source) {
+  /**
+   * What the confirm window would say about saving this, without asking:
+   * { ok, detail } | { ok: false, errors }. For a team pack's "Set it all up",
+   * which shows it alongside the rest of the pack in one window.
+   */
+  saveDetail(input, { source = 'team' } = {}) {
+    const existing = input && typeof input === 'object' && input.id ? this.get(input.id) : null;
+    const r = validateWorkflow({ ...input, createdAt: existing?.createdAt ?? input?.createdAt }, { allowAutonomous: this.deps.allowAutonomous(), now: this.now() });
+    if (!r.ok) return { ok: false, errors: r.errors };
+    return { ok: true, detail: this.confirmText(r.workflow, existing, source).detail };
+  }
+
+  confirmText(wf, existing, source) {
     const auto = JSON.stringify(wf.steps).includes('"mode":"autonomous"');
     const triggers = wf.when.length ? wf.when.map(describeTrigger) : ['Only when you run it'];
     const steps = [];
@@ -304,6 +318,11 @@ class WorkflowService {
       `\nSteps:\n${steps.join('\n')}`,
       risky ? `\nIn full:\n\n${risky}` : '\nIt only looks and reports, or asks you before it acts.',
     ].filter(Boolean).join('\n');
+    return { auto, who, detail };
+  }
+
+  async confirmSave(wf, existing, source) {
+    const { auto, who, detail } = this.confirmText(wf, existing, source);
     // A proposal too long to show in full is refused, never shortened: the
     // part left off is the part that could hide something.
     if (detail.length > MAX_CONFIRM_DETAIL && source !== 'panel') return 'too-long';

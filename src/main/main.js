@@ -2202,7 +2202,12 @@ function registerIpc() {
     ipcMain, config, shell, home: os.homedir(), panel: () => panel, send, currentCwd, stat,
     ownSnippets: snippetList, pushSnippets: () => send(panel, 'snippets', snippetsView()),
     workflows: () => (config.get('crabOnly') ? null : workflows),
-    setupView, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    setupView, setupWhere, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
+    runClaude: (args, timeout, opts) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+    },
     log: { warn: msg => log.warn('team pack', msg) },
   });
   // ---- history (ipc/history.js)
