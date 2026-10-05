@@ -127,6 +127,8 @@ const captureClock = { now: null };
 // home directory and anything token-shaped, because its last lines are what
 // "Report a problem" offers to paste into an issue. See log.js.
 const log = new Log(path.join(app.getPath('userData'), 'logs'), { home: os.homedir() });
+// An event type a Claude Code update added is noted here, once (session.js).
+require('./session').setLogger(log);
 // ("starting" is written below, once this is known to be the Shellby that stays.)
 
 // Keeping him alive through a stray throw is the right trade for a desk pet:
