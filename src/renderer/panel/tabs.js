@@ -933,6 +933,16 @@
     pushTrouble(tab, r);
   }
 
+  // A merge git refused for some other reason than a clash (files in your
+  // checkout in the way, a lock, a broken index): the copy's Claude can be
+  // asked to find out why and fix it. What git said is already in the conversation.
+  function offerFix(tab, r, base, { ms = 12000, text = r.error } = {}) {
+    SB.toast(text, { ms, action: 'Ask him to find out why', onAction: () => {
+      SB.activate(tab.id);
+      SB.send(`Bringing this copy home into ${base} failed: ${r.error}${r.detail ? `\n\nWhat git said:\n${r.detail}` : ''}\n\nThe merge runs in my checkout at ${r.root}. Find out why and fix it. Don't throw away or overwrite anything uncommitted there: if my own files are in the way, tell me which and ask before committing, stashing or moving them. Then tell me it's ready to bring home.`);
+    } });
+  }
+
   async function bringAll(tab, { push = false } = {}) {
     SB.toast(push ? 'Bringing them all home, then pushing…' : 'Bringing them all home…', { ms: 30000 });
     const r = await api.bringAllHome(tab?.id, { push });
@@ -950,7 +960,8 @@
           SB.send(`Merge ${s.base} into this branch (git merge ${s.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
         } });
       }
-      if (s.conflict) bits.push('Open it from History to sort it out.');
+      if (s.fixable && open) return offerFix(open, s, s.base, { ms: 14000, text: bits.join(' ') });
+      if (s.conflict || s.fixable) bits.push('Open it from History to sort it out.');
       return SB.toast(bits.join(' '), { ms: 14000 });
     }
     if (r.push && !r.push.ok) { SB.toast(bits.join(' '), { ms: 5000 }); return pushTrouble(tab, r.push); }
@@ -1030,6 +1041,7 @@
           SB.send(`Merge ${tab.worktree.base} into this branch (git merge ${tab.worktree.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
         } });
       }
+      if (r?.fixable) return offerFix(tab, r, tab.worktree.base, { text: `${r.error} Nothing was thrown away.` });
       return SB.toast(r?.error || "Couldn't keep it.", { ms: 8000 });
     }
     const home = r.home ? (r.home.merged ? `Merged ${plural(r.home.commits, 'commit')} into ${r.base}.` : `${r.base} already had all of it.`) : '';
@@ -1070,6 +1082,7 @@
       } });
       return;
     }
+    if (r?.fixable) return offerFix(tab, r, tab.worktree.base);
     SB.toast(r?.error || "Couldn't bring it home.", { ms: 8000 });
   }
 

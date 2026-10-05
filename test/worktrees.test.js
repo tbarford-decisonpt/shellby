@@ -124,6 +124,25 @@ test('a clash with the base is backed out, leaving your checkout as it was', asy
   } finally { t.done(); }
 });
 
+test('a merge git refuses for another reason says why, so Claude can be asked to fix it', async () => {
+  const t = setup();
+  try {
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'In the way' });
+    fs.writeFileSync(path.join(w.path, 'a.txt'), 'from the copy\n');
+    fs.writeFileSync(path.join(w.path, 'new.txt'), 'from the copy\n');
+    fs.writeFileSync(path.join(t.dir, 'a.txt'), 'yours, uncommitted\n');
+    const r = await worktrees.bringHome(w, { message: 'Shellby: In the way' });
+    assert.equal(r.ok, false);
+    assert.equal(r.conflict, false);
+    assert.equal(r.fixable, true);
+    assert.equal(r.root, t.dir);
+    assert.match(r.error, /uncommitted.*a\.txt/i);
+    assert.match(r.detail, /would be overwritten by merge/, "git's own words, for Claude to read");
+    assert.equal(fs.readFileSync(path.join(t.dir, 'a.txt'), 'utf8'), 'yours, uncommitted\n', 'your work is untouched');
+    assert.equal(fs.existsSync(path.join(t.dir, 'new.txt')), false, 'nothing was merged');
+  } finally { t.done(); }
+});
+
 test('bring it home refuses when your checkout has moved to another branch', async () => {
   const t = setup();
   try {

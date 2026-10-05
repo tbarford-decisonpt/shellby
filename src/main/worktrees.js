@@ -47,6 +47,7 @@ function git(cwd, args, { timeout = 30000, env = {} } = {}) {
 const longPath = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
 
 const firstLine = s => String(s || '').trim().split('\n').filter(Boolean).pop() || '';
+const lastLines = (s, n = 15) => String(s || '').trim().split('\n').filter(Boolean).slice(-n).join('\n');
 
 /** A branch name from a task's title: "Fix the login bug!" -> "shellby/fix-the-login-bug-1a2b3c". Pure. */
 function branchName(title, suffix = crypto.randomBytes(3).toString('hex')) {
@@ -345,19 +346,31 @@ async function bringHome(w, { message }) {
     if (!on.ok || on.out.trim() !== w.base) {
       return { ok: false, error: `Your checkout is on ${on.out.trim() || 'no branch'} now. Switch back to ${w.base} to bring this home.` };
     }
-    const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', `Bring home ${w.branch}`, w.branch], { timeout: 60000 });
+    // In English whatever git's language, so its refusals can be read below.
+    const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', `Bring home ${w.branch}`, w.branch], { timeout: 60000, env: { LC_ALL: 'C' } });
     if (!merge.ok) {
       const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
       if (conflict) await git(w.root, ['merge', '--abort'], { timeout: 15000 });
-      return {
-        ok: false, conflict,
-        error: conflict
-          ? `${w.base} has changed in ways that clash with this copy. Nothing was merged.`
-          : firstLine(merge.error) || "git couldn't merge it.",
-      };
+      if (conflict) return { ok: false, conflict, error: `${w.base} has changed in ways that clash with this copy. Nothing was merged.` };
+      // Anything else (files in your checkout in the way, a lock, a broken
+      // index): git's own words go along, so Claude can be asked to find out why.
+      // (A timeout has no words from git, only Node's "Command failed: git …".)
+      const said = /^Command failed:/.test(merge.error) ? merge.out : merge.error || merge.out;
+      return { ok: false, conflict, fixable: true, root: w.root, error: refusal(w.base, merge), detail: lastLines(said) || undefined };
     }
   }
   return { ok: true, merged: commits > 0, commits };
+}
+
+// What git's refusal to merge means, in a sentence. The usual one: your
+// checkout has uncommitted (or untracked) files the copy also changed.
+function refusal(base, merge) {
+  const said = `${merge.error}\n${merge.out}`;
+  if (!/would be overwritten by merge/i.test(said)) return `Couldn't merge into ${base}: ${firstLine(merge.error) || "git refused."} Nothing was merged.`;
+  const files = said.split('\n').filter(l => /^\t/.test(l)).map(l => l.trim()).filter(Boolean);
+  const which = files.length ? ` (${files.slice(0, 3).join(', ')}${files.length > 3 ? '…' : ''})` : '';
+  const kind = /untracked working tree files/i.test(said) ? 'Untracked' : 'Uncommitted';
+  return `${kind} files in your checkout are in the way${which}: this copy changes them too. Nothing was merged.`;
 }
 
 /**
@@ -389,7 +402,6 @@ async function remove(w, { force = false } = {}) {
 
 // Branch and remote names as git would print them; nothing that reads as an option.
 const REF = /^(?!-)(?!.*\.\.)[\w./-]{1,200}$/;
-const lastLines = (s, n = 15) => String(s || '').trim().split('\n').filter(Boolean).slice(-n).join('\n');
 
 /** Where a branch pushes to: its upstream, or origin (or the only remote) under the same name. -> { remote, dest, upstream, tracked } | null */
 async function upstreamOf(root, branch) {
