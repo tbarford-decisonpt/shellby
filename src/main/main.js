@@ -1728,7 +1728,7 @@ async function releaseTask(h) {
   const cwd = h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd();
   // From the phone: in its own copy, as if it had started straight away
   // (wiring/phone-tasks.js), so your checkout stays untouched while you're out.
-  let copy = null;
+  let copy;
   try {
     copy = h.fromPhone && !carryOn ? await worktrees.create(cwd, { home: worktreeHome(), title }) : null;
   } catch (err) { return fail(err.message); }
