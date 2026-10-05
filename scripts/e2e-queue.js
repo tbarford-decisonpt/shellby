@@ -81,6 +81,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await ev("!!document.querySelector('#queued .queue-paused')"), 'paused notice with a "Send next now" button');
     await ev("document.querySelector('#queued .queue-paused button').click()");
     check(await until("SB.activeTab().queue.length === 0 && [...document.querySelectorAll('.msg.user')].some(e => e.textContent.includes('after error'))"), '"Send next now" sends it');
+
+    // 6. Steering: queued while a tool runs, it goes in at Claude's next step,
+    // in the same turn, like Claude Code. A /command waits for the turn to end.
+    await until('!SB.activeTab().busy');
+    await type('steps 6 500');
+    await until('SB.activeTab().busy');
+    await type('use tabs');
+    await type('/compact');
+    check(await ev('SB.activeTab().queue.length') === 2, 'both queued, as chips');
+    check(await until("[...document.querySelectorAll('.msg.assistant')].some(e => e.textContent.includes('steered: use tabs'))"), 'Claude read it in the same turn');
+    check(await until("!SB.activeTab().busy && SB.activeTab().queue.length === 0"), 'the /command waited, and went once the turn ended');
+    // The feed from the prompt on: the steer sits inside the turn (no "done" line
+    // before it), right after the step it went in at, with Claude's reply next.
+    const turn = JSON.parse(await ev(`JSON.stringify((els => els.slice(els.findIndex(e => e.textContent.trim() === 'steps 6 500')))([...SB.activeTab().el.querySelectorAll('.msg.user, .msg.assistant, .meta, details.tool')]).map(e => e.matches('.meta') ? 'meta' : e.matches('details.tool') ? 'tool' : e.textContent.trim()))`));
+    check(JSON.stringify(turn.slice(0, 4)) === JSON.stringify(['steps 6 500', 'tool', 'use tabs', 'steered: use tabs']) && turn[4] === 'meta', `the steer went in mid-turn: ${turn.slice(0, 5).join(' | ')}`);
+    const tail = (await users()).slice(-3);
+    check(JSON.stringify(tail) === JSON.stringify(['steps 6 500', 'use tabs', '/compact']), `in order: ${tail.join(' | ')}`);
   } catch (e) {
     check(false, e.message);
   } finally {

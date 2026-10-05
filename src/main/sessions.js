@@ -12,9 +12,10 @@ const TAB_ID = /^[\w-]{1,64}$/;
 class SessionManager extends EventEmitter {
   // prepareTurn(tab): an optional promise each turn waits for before Claude
   // sees it (main.js snapshots the folder, for the turn's diff).
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null }) {
+  // compose(text, files): the content Claude gets for a steer (attachments.js composeContent).
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose });
     this.tabs = new Map();
   }
 
@@ -54,8 +55,11 @@ class SessionManager extends EventEmitter {
       fence: historyEntry?.fence || null,
       preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
       activeAt: Date.now(),        // when it last sent or heard anything, for stopIdle()
+      steers: [],                  // what the panel has queued for this turn's next step (steer())
+      steeredIds: new Set(),       // ...and what of it has gone in already
     };
     this.tabs.set(tabId, tab);
+    session.takeSteers = () => this.takeSteers(tab);
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
@@ -109,6 +113,8 @@ class SessionManager extends EventEmitter {
     userItem = { ...userItem, turnId: userItem.turnId || randomUUID() };
     this.history.append(tab.id, userItem);
     tab.turnId = userItem.turnId; // the turn now starting, for what main.js notes about it (its diff)
+    tab.steers = [];
+    tab.steeredIds = new Set();
     // Who sent it: a routine's run, a workflow's step, a task you queued for
     // the reset, or you (main.js armGuard).
     tab.turnFrom = { routine: userItem.routine || null, workflow: userItem.workflow || null, queued: userItem.queued || null };
@@ -123,6 +129,37 @@ class SessionManager extends EventEmitter {
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();
     return userItem.turnId;
+  }
+
+  /**
+   * The panel's queue while a turn runs, [{ id, text, attachments }] in order:
+   * it goes to Claude at its next step (session.js steer). Only for the turn it
+   * was queued behind: one the panel has since sent on its own isn't steered
+   * in too. What has gone in already this turn stays out, should the panel not
+   * have heard yet. -> whether it was taken.
+   */
+  steer(tabId, turnId, list) {
+    const tab = this.tabs.get(tabId);
+    if (!tab || !tab.session.busy || !turnId || turnId !== tab.turnId) return false;
+    tab.steers = list.filter(m => !tab.steeredIds.has(m.id));
+    return true;
+  }
+
+  // What the session hands Claude now, taken off the list ('steering' tells the
+  // panel, so its chip can't be edited any more). The chip goes once Claude has
+  // read it: the 'user' item carries its steerId. One that can't be put
+  // together stays queued, and so does all after it.
+  takeSteers(tab) {
+    const taken = [];
+    for (const m of tab.steers) {
+      let content;
+      try { content = this.compose(m.text, m.attachments); } catch { break; }
+      taken.push({ content, item: { kind: 'user', text: m.text, attachments: m.attachments, steerId: m.id } });
+    }
+    tab.steers = tab.steers.slice(taken.length);
+    for (const t of taken) tab.steeredIds.add(t.item.steerId);
+    if (taken.length) this.emit('steering', tab.id, taken.map(t => t.item.steerId));
+    return taken;
   }
 
   // A name of your own for an open tab. One not yet sent anything has no History

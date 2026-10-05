@@ -18,6 +18,9 @@ const processJob = require('./process-job');
 // The tools that can change files, for the beforeWork hook.
 const WORK_TOOLS = 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell';
 const WORK_HOOK = 'shellby-before-work';
+// Every finished tool call on the main thread, so what you typed while Claude
+// works can go in before its next step (steer()).
+const STEER_HOOK = 'shellby-steer';
 
 const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
 
@@ -54,6 +57,13 @@ class ClaudeSession extends EventEmitter {
     // in a git project has no copy of its own yet. It sees every tool call that
     // could change files before it runs, and can hold it back (worktrees.js).
     this.beforeWork = null;
+    // takeSteers() -> [{ content, item }]: set by the manager. What you queued
+    // while this turn runs, taken (and so no longer queued) the moment it's
+    // handed to Claude. `steered` is what Claude hasn't read yet, oldest first,
+    // and `openTools` the main thread's tool calls still running.
+    this.takeSteers = null;
+    this.steered = [];
+    this.openTools = new Set();
     this.interrupting = false;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
@@ -67,6 +77,8 @@ class ClaudeSession extends EventEmitter {
     const args = [
       '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
       '--permission-prompt-tool', 'stdio',
+      // Each message echoed back as Claude reads it: how a steer is known to have landed.
+      '--replay-user-messages',
       '--permission-mode', CLI_MODE[this.mode] || 'default',
       // Lets the user switch into Autonomous mid-conversation; it has no effect
       // unless that mode is actually selected.
@@ -93,21 +105,23 @@ class ClaudeSession extends EventEmitter {
     const job = processJob.adopt(proc.pid);
     this.job = job;
     let stderr = '';
-    if (this.beforeWork) {
-      this.write({ type: 'control_request', request_id: randomUUID(), request: {
-        subtype: 'initialize',
-        hooks: { PreToolUse: [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }] },
-      } });
-    }
+    const steerAt = [{ matcher: '.*', hookCallbackIds: [STEER_HOOK] }];
+    const hooks = { PostToolUse: steerAt, PostToolUseFailure: steerAt };
+    if (this.beforeWork) hooks.PreToolUse = [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }];
+    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks } });
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
+      if (this.proc !== proc) return; // dropped: whatever it still says goes unheard
       const { event, items } = parseLine(line);
       if (event?.type === 'control_response') return this.answered(event.response);
       // The newest entry of the conversation's own chain, so a later rewind can
       // resume up to the end of this turn (see result below and rewind()).
       if ((event?.type === 'assistant' || event?.type === 'user') && !event.parent_tool_use_id && typeof event.uuid === 'string') this.lastUuid = event.uuid;
+      if ((event?.type === 'assistant' || event?.type === 'user') && !event.parent_tool_use_id) this.trackSteps(event);
       if (event?.type === 'control_request' && event.request?.subtype === 'hook_callback' && event.request.callback_id === WORK_HOOK) {
         this.answerHook(event.request_id, event.request.input);
+      } else if (event?.type === 'control_request' && event.request?.subtype === 'hook_callback' && event.request.callback_id === STEER_HOOK) {
+        this.steer(event.request_id, event.request.input);
       } else if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
         // Unknown host callbacks (hooks, MCP bridging): answer so the CLI never hangs.
         this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
@@ -129,26 +143,39 @@ class ClaudeSession extends EventEmitter {
       processJob.sweep(job);
       if (this.job === job) this.job = null;
     });
-    proc.on('close', code => {
-      // A stop() asked for isn't a crash, and the tab stays busy for whoever asked.
-      const wasBusy = this.busy && !this.stopping;
-      this.stopping = false;
-      this.proc = null;
-      this.setupChars = null; // a first prompt that never got its call can't size the next one
-      this.waiting = null;
-      this.cancelPending();
-      for (const id of [...this.requests.keys()]) this.answered({ request_id: id, subtype: 'error', error: 'Claude Code stopped.' });
-      let crewChanged = false;
-      for (const [id, t] of this.tasks) {
-        if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
-      }
-      if (crewChanged) this.emit('crew', this.crew);
-      if (wasBusy) {
-        this.emit('item', { kind: 'error', text: stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).` });
-        this.setBusy(false);
-      }
-      this.emit('exit', code);
-    });
+    proc.on('close', code => { if (this.proc === proc) this.ended(code, stderr); });
+  }
+
+  // The process is gone (or let go of): nothing it had going can finish.
+  ended(code, stderr = '') {
+    // A stop() asked for isn't a crash, and the tab stays busy for whoever asked.
+    const wasBusy = this.busy && !this.stopping;
+    this.stopping = false;
+    this.proc = null;
+    this.setupChars = null; // a first prompt that never got its call can't size the next one
+    this.waiting = null;
+    this.steered = [];
+    this.openTools.clear();
+    this.cancelPending();
+    for (const id of [...this.requests.keys()]) this.answered({ request_id: id, subtype: 'error', error: 'Claude Code stopped.' });
+    let crewChanged = false;
+    for (const [id, t] of this.tasks) {
+      if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
+    }
+    if (crewChanged) this.emit('crew', this.crew);
+    if (wasBusy) {
+      this.emit('item', { kind: 'error', text: stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).` });
+      this.setBusy(false);
+    }
+    this.emit('exit', code);
+  }
+
+  // End the process and let go of it at once, not when it has wound down: the
+  // next send starts a fresh one (resuming the conversation) straight away.
+  drop() {
+    if (!this.proc) return;
+    this.kill();
+    this.ended(null);
   }
 
   handle(item) {
@@ -174,6 +201,16 @@ class ClaudeSession extends EventEmitter {
         // Where this turn ends in Claude Code's transcript: rewinding to the
         // message after it resumes up to here.
         if (this.lastUuid) item.anchor = this.lastUuid;
+        this.openTools.clear();
+        // A steer that went in but was never read (Stop landed first): the CLI
+        // would run it as a turn of its own next. Dropping the process drops it
+        // too (and what it had running, so nothing below waits on that). It's
+        // still in the panel's queue, which hands it back or sends it as usual,
+        // and that next message resumes the conversation.
+        if (this.steered.length) {
+          this.setBusy(false); // not a crash: ended() says nothing
+          this.drop();
+        }
         // A command that outran its timeout (or was backgrounded on purpose)
         // is still going: the turn ended, but the work isn't done.
         if (item.ok && !item.interrupted) {
@@ -413,6 +450,43 @@ class ClaudeSession extends EventEmitter {
     if (this.proc) {
       this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'set_permission_mode', mode: CLI_MODE[mode] } });
     }
+  }
+
+  // The main thread's tool calls still running, and the moment Claude reads a
+  // steer: the CLI echoes each message as it takes it in (--replay-user-messages).
+  // A turn's first message is echoed too, but nothing is steered by then.
+  trackSteps(event) {
+    if (event.type === 'user' && event.isReplay) {
+      if (this.steered.length) this.emit('item', this.steered.shift());
+      return;
+    }
+    const content = event.message?.content;
+    if (!Array.isArray(content)) return;
+    for (const b of content) {
+      if (event.type === 'assistant' && b.type === 'tool_use') this.openTools.add(b.id);
+      if (event.type === 'user' && b.type === 'tool_result') this.openTools.delete(b.tool_use_id);
+    }
+  }
+
+  // A tool call on the main thread has finished (or failed). What you queued
+  // meanwhile goes in now, written ahead of this answer so the CLI has it before
+  // it hands the tool's result back: Claude reads it before its next step, like
+  // Claude Code's own queue. Only once nothing else of this step is still
+  // running (until Claude has read it, Stop can't take it back), not for a
+  // subagent's tools, whose steer would wait on the whole subagent, and not
+  // once you've pressed Stop.
+  steer(requestId, input) {
+    try {
+      this.openTools.delete(input?.tool_use_id);
+      const stopping = this.interrupting || input?.is_interrupt;
+      if (this.busy && !stopping && !input?.agent_id && !this.openTools.size && this.proc?.stdin.writable) {
+        for (const s of this.takeSteers?.() || []) {
+          this.write({ type: 'user', message: { role: 'user', content: s.content } });
+          this.steered.push(s.item);
+        }
+      }
+    } catch { /* it waits for the next step, or goes when the turn ends */ }
+    this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: {} } });
   }
 
   async answerHook(requestId, input) {

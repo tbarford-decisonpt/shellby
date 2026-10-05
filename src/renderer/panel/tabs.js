@@ -369,14 +369,49 @@
     const tab = SB.activeTab();
     const busy = !!tab?.busy;
     $('status').hidden = !busy;
-    // While Shellby works you can keep typing: Enter queues the message.
-    $('sendBtn').title = busy ? 'Queue: sends when Shellby finishes' : 'Send';
+    // While Shellby works you can keep typing: Enter queues the message, and
+    // Claude reads it at his next step (or when he finishes, if there's none).
+    $('sendBtn').title = busy ? 'Queue: Claude reads it at his next step' : 'Send';
     $('sendBtn').classList.toggle('queueing', busy);
-    $('sendHint').textContent = busy ? 'Enter to queue · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
+    $('sendHint').textContent = busy ? 'Enter to queue for his next step · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
+    if (tab) syncSteers(tab);
     tickClock();
     renderQueue();
   }
+
+  // What's queued behind a running turn goes to Claude at his next step, the
+  // way Claude Code's queue does (main's session.js steer), so main hears of
+  // every change to it. A /command can only start a turn: it, and everything
+  // after it, wait for this one to end.
+  function syncSteers(tab) {
+    const live = tab.busy && tab.turnId;
+    const upTo = tab.queue.findIndex(m => m.text.startsWith('/'));
+    const items = live ? tab.queue.slice(0, upTo < 0 ? tab.queue.length : upTo) : [];
+    const key = live ? `${tab.turnId}|${items.map(m => m.id).join(',')}` : '';
+    if (key === tab.steerKey) return;
+    tab.steerKey = key;
+    if (live) api.steerTask(tab.id, tab.turnId, items);
+  }
+  SB.syncSteers = syncSteers;
+
+  // Handed to Claude mid-turn: too late to edit or take back. If the turn ends
+  // before he reads them, they're queued as before (onTurnEnded).
+  SB.onSteering = (tab, ids) => {
+    tab.queue = tab.queue.map(m => (ids.includes(m.id) ? { ...m, taken: true } : m));
+    if (tab.isActive) renderQueue();
+  };
+
+  // Claude has read a queued message mid-turn: its chip is now a message in the feed.
+  SB.onSteered = (tab, id) => {
+    const i = tab.queue.findIndex(m => m.id === id);
+    if (i >= 0) tab.queue.splice(i, 1);
+    if (tab.isActive) syncBusyUi(); else syncSteers(tab);
+  };
+
+  // Each queued message has an id of its own, for main to say which went in.
+  let queued = 0;
+  const queueItem = (text, attachments) => ({ id: `q${++queued}`, text, attachments });
 
   // How long the current prompt has been running, like Claude Code's "(12s · esc
   // to interrupt)". One timer, alive only while the tab on screen is working.
@@ -429,6 +464,8 @@
     tab.render({ kind: 'user', text, attachments, turnId });
     tab.busy = true;
     tab.busySince = Date.now();
+    tab.turnId = turnId; // what's queued behind it is steered into this turn
+    syncSteers(tab);
     tab.saved = true;
     tab.statusText = 'Working…';
     if (tab.title === 'New task' && !tab.named) tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || (attachments.every(f => /\.(png|jpe?g|gif|webp)$/i.test(f)) ? 'Screenshot' : 'Attached files');
@@ -470,7 +507,7 @@
       if (r) { snippet = r.name; text = r.prompt; }
     }
     if (tab.busy) {
-      tab.queue.push({ text, attachments });
+      tab.queue.push(queueItem(text, attachments));
       clearComposer(tab);
       syncBusyUi();
       if (snippet) api.snippetUsed(snippet);
@@ -518,11 +555,11 @@
         h('span', { text: limited ? "Paused: you're at your usage limit." : 'Paused: the last turn ended with an error.' }),
         limited ? h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.holdQueue(tab) }, 'Send after the reset') : null,
         h('button', { class: `btn slim-btn${limited ? ' ghost' : ''}`, type: 'button', onclick: () => { tab.queuePaused = false; drain(tab); } }, 'Send next now')) : null,
-      ...q.map((m, i) => h('div', { class: 'queue-item' },
-        h('span', { class: 'queue-tag', text: i === 0 ? 'Next' : `#${i + 1}` }),
-        h('button', { class: 'queue-text', type: 'button', title: 'Edit (puts it back in the box)', onclick: () => editQueued(tab, i) },
+      ...q.map((m, i) => h('div', { class: `queue-item${m.taken ? ' taken' : ''}` },
+        h('span', { class: 'queue-tag', text: m.taken ? 'Sending' : i === 0 ? 'Next' : `#${i + 1}` }),
+        h('button', { class: 'queue-text', type: 'button', disabled: !!m.taken, title: m.taken ? 'Claude is reading this now' : 'Edit (puts it back in the box)', onclick: () => editQueued(tab, i) },
           m.text || `${m.attachments.length} attached file${m.attachments.length === 1 ? '' : 's'}`),
-        h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => { tab.queue.splice(i, 1); syncBusyUi(); } },
+        m.taken ? null : h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => { tab.queue.splice(i, 1); syncBusyUi(); } },
           SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })))),
       ...later,
     ].filter(Boolean));
@@ -531,8 +568,9 @@
 
   // Pull a queued message back into the box to edit (whatever was typed there is queued in its place).
   function editQueued(tab, i) {
+    if (!tab.queue[i] || tab.queue[i].taken) return; // Claude is reading it already
     const [m] = tab.queue.splice(i, 1);
-    if (input.value.trim() || tab.attachments.length) tab.queue.splice(i, 0, { text: input.value.trim(), attachments: [...tab.attachments] });
+    if (input.value.trim() || tab.attachments.length) tab.queue.splice(i, 0, queueItem(input.value.trim(), [...tab.attachments]));
     input.value = m.text;
     tab.attachments = [...m.attachments];
     renderAttachments();
@@ -550,6 +588,8 @@
 
   // A turn ended: send the next queued message, or hand the queue back after Stop.
   SB.onTurnEnded = (tab, result) => {
+    // Handed over but never read (main let that process go): ordinary queued messages again.
+    tab.queue = tab.queue.map(m => (m.taken ? { ...m, taken: false } : m));
     if (!tab.queue.length) return;
     if (result.interrupted) {
       const back = tab.queue.map(m => m.text).filter(Boolean).join('\n\n');

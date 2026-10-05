@@ -4,6 +4,10 @@ const fs = require('fs');
 const changes = require('../changes');
 const ctx = require('../context');
 
+// The most queued messages that go in at once, and files across all of them (as one task:send).
+const MAX_STEERS = 20;
+const MAX_STEER_FILES = 20;
+
 /** d: what main shares with its IPC (main.js ipcDeps). */
 function registerTabsIpc(ipcMain, d) {
   // ---- tabs
@@ -45,6 +49,23 @@ function registerTabsIpc(ipcMain, d) {
     }
     const r = d.sendToTab(tabId, text, files);
     return r.ok ? { ok: true, tabId: r.tabId, turnId: r.turnId } : r;
+  });
+  // What's queued behind the turn that's running, to go in at Claude's next step
+  // (sessions.js steer). A /command can't go in mid-turn: it, and all after it, wait.
+  ipcMain.on('task:steer', (_e, { tabId, turnId, items } = {}) => {
+    if (!d.isStr(tabId) || !d.isStr(turnId) || !Array.isArray(items)) return;
+    const list = [];
+    let filesLeft = MAX_STEER_FILES;
+    for (const m of items.slice(0, MAX_STEERS)) {
+      const text = typeof m?.text === 'string' ? m.text.trim().slice(0, d.PANEL_MAX_TEXT) : '';
+      const files = (Array.isArray(m?.attachments) ? m.attachments : []).filter(d.isStr);
+      // Past the cap, the rest wait for the turn to end and go the usual way.
+      if (!d.isStr(m?.id) || m.id.length > 64 || text.startsWith('/') || (!text && !files.length) || files.length > filesLeft) break;
+      filesLeft -= files.length;
+      // !! sends a message that starts with !, as task:send does.
+      list.push({ id: m.id, text: text.startsWith('!!') ? text.slice(1) : text, attachments: files });
+    }
+    d.manager.steer(tabId, turnId, list);
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (d.isStr(tabId)) d.manager.interrupt(tabId); });
   // A crowded conversation: Claude writes a summary, then onResult starts it fresh.

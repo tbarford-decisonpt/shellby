@@ -267,7 +267,8 @@
       const routine = item.routine ? h('div', { class: 'routine-tag' }, '⟳ ', item.routine.name, item.routine.reason === 'catch-up' ? ' · catch-up run' : '') : null;
       // Messages sent since rewind came in carry an id, and a way back to just
       // before them: in this tab (rewind), or in a new one that leaves this be (branch).
-      this.lastTurnId = item.turnId || null;
+      // One read mid-turn (a steer) is part of the turn it went into, which keeps its id.
+      if (!item.steerId) this.lastTurnId = item.turnId || null;
       const back = item.turnId ? h('button', { class: 'msg-rewind', type: 'button', title: 'Rewind to just before this message', 'aria-label': 'Rewind to just before this message', onclick: () => SB.openRewind(this, item.turnId) }) : null;
       const fork = item.turnId ? h('button', { class: 'msg-branch', type: 'button', title: 'Try again from here, in a new tab', 'aria-label': 'Try again from here, in a new tab', onclick: () => SB.openBranch(this, item.turnId, 'before') }, SB.forkIcon()) : null;
       this.append(h('div', { class: 'msg user' }, back, fork, routine, item.text || '',

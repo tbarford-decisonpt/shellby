@@ -54,6 +54,27 @@ test('after a reply in the middle: later turns stay behind, even their late-note
   assert.equal(p.files.tree, T('1'));
 });
 
+test('a message Claude read mid-turn (a steer) is part of that turn, not a turn of its own', () => {
+  const steered = [
+    user('t1', 'first'),
+    result('u-end-1'),
+    user('t2', 'second'),
+    { kind: 'tool_result', id: 'tu1', text: 'ok' },
+    { kind: 'user', text: 'use tabs', attachments: [], steerId: 'q1' },
+    { kind: 'text', text: 'steered' },
+    result('u-end-2'),
+    change('t2', T('0'), T('2')),
+    point('t2', T('0'), T('2')),
+  ];
+  const p = plan(steered, { turnId: 't2', at: 'after' });
+  assert.equal(p.ok, true, 'the reply after the steer is the end of that turn');
+  assert.equal(p.anchor, 'u-end-2');
+  assert.deepEqual(p.files, { root: 'C:\\repo', tree: T('2'), head: T('e') });
+  assert.ok(p.items.some(i => i.steerId === 'q1'), 'the steer comes along with its turn');
+  const before = plan(steered, { turnId: 't2', at: 'before' });
+  assert.ok(!before.items.some(i => i.steerId), 'and stays behind with it');
+});
+
 test('before the first message: a new conversation, files as they were', () => {
   const p = plan(convo, { turnId: 't1', at: 'before' });
   assert.equal(p.fresh, true);
