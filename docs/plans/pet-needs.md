@@ -313,6 +313,14 @@ back hungry.
 - Upsell copy stays as it is. Snacks never become a reason to need Claude:
   crab-only users get plenty.
 
+### Work mode
+
+Work mode (`workmode.js`) doesn't switch needs off; it rests them. `care.js`
+skips the tick and the wear while it's on, so nothing drops and he never shows
+a need or mopes, but snacks are still earned and Feed / Rinse / Tuck in still
+work. Going in or out starts the clock from then (`restSwitched`), so the time
+spent resting costs him nothing. The Us page says "Resting while you work".
+
 ## 8. How it stays in its lane (state precedence)
 
 The order the critter shows things, highest first. Needs only take the last slot:

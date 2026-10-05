@@ -10,6 +10,7 @@ const ctx = require('../context');
 const { DEFAULT_PORT: HOOK_PORT, ExternalSessions } = require('../external');
 const flaky = require('../flaky');
 const focus = require('../focus');
+const workmode = require('../workmode');
 const gifts = require('../gifts');
 const { projectOf } = require('../gitinfo');
 const { FAKE_SCENARIOS } = require('../health/fake');
@@ -295,8 +296,10 @@ function wireTimetrack(d) {
   // alert) still come through.
   let toastArt; // undefined until the first notification, null if it couldn't be copied
   // tone picks the banner (toast.TONES); urgent ones default to 'alert'. action
-  // adds a button that does what clicking the notification does.
-  function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null } = {}) {
+  // adds a button that does what clicking the notification does. pet: a trophy,
+  // level or sticker, which Work mode leaves in the panel (workmode.js).
+  function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null, pet = false } = {}) {
+    if (pet && d.config && !workmode.behaviourOf(d.config).petToasts) return;
     if (!urgent && d.config && focus.guarding(d.config.get('focus'), Date.now())) {
       d.heldNotices = [...d.heldNotices, title].slice(-20);
       return;

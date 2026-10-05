@@ -3,7 +3,8 @@
    which). A room that opens gets a card and a glow on its button; "More" says
    what opens next and can open everything at once. Going to a screen by any
    other road (Ctrl+K, a link) opens it for good. Just-the-crab mode has its own
-   bar (crabonly.css) and ignores rooms. */
+   bar (crabonly.css) and ignores rooms, and so does Work mode (workmode.js),
+   which shows every tool from the start. */
 'use strict';
 (function () {
   const { api, state, $ } = SB;
@@ -12,7 +13,7 @@
   let view = null; // main's roomsView(); null until it arrives (everything shows)
 
   const lockedIds = () => {
-    if (!view || view.all || SB.isCrabOnly()) return [];
+    if (!view || view.all || SB.isCrabOnly() || SB.isWorkMode?.()) return [];
     const open = new Set(view.open);
     return [...document.querySelectorAll('.dock [data-view-btn]')]
       .map(b => b.dataset.viewBtn)
@@ -50,7 +51,7 @@
     view = v;
     document.body.classList.add('rooms-ready');
     apply();
-    if (SB.isCrabOnly() || !opened.length) return;
+    if (SB.isCrabOnly() || SB.isWorkMode?.() || !opened.length) return;
     opened.forEach(r => glow(r.id));
     const [first] = opened;
     SB.celebrate({

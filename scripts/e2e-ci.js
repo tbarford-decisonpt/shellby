@@ -30,6 +30,7 @@ const SUITE = [
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-tank',         // his tank: decorating by keyboard, what main refuses, the Health porthole, kept after a restart
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
+  'e2e-work-mode',    // Work mode: the tools first, a quiet crab, your own settings back when you leave
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
   'e2e-changes',      // a turn's diff and Undo, a worktree per tab, answering from the phone
   'e2e-push',         // Push from the folder menu: take in the remote's work, send yours, a hook's refusal

@@ -37,14 +37,14 @@ all on **your own Pro or Max plan**, on Windows 10 and 11. No API keys, no per-t
 ## Get started
 
 1. **[Download the installer](https://github.com/x-salmon/shellby/releases/latest)** (`Shellby-Setup-x.y.z.exe`) and run it on Windows 10 or 11.
-2. Pick **Crab + Claude Code** (uses your Claude Pro or Max plan), or **Just the crab**: no Claude, no account, still a desk pet who talks, plays and dresses up.
+2. Pick **Crab + Claude Code** (uses your Claude Pro or Max plan), **Work mode** (the same, with your tools first on the bar and a quiet crab), or **Just the crab**: no Claude, no account, still a desk pet who talks, plays and dresses up.
 3. He moves onto your desktop. Click him to open the panel.
 
 Windows may show a SmartScreen warning the first time; [Install](#install) explains it, along with the Claude Code setup.
 
 ## Everything he can do
 
-You start with just him and a chat box. The rest of his shell opens as he works: **History** and **Projects** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar.
+You start with just him and a chat box. The rest of his shell opens as he works: **History** and **Projects** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar, and [Work mode](docs/DESKTOP.md#work-mode) starts with every one of them.
 
 | | |
 |---|---|
@@ -160,6 +160,7 @@ That's the work. The rest is what makes him good company.
 - **A voice and a temperament of his own:** chipper, fussy, cocky or sleepy. *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push. He never quotes Claude.
 - **He climbs onto your windows,** rides them when you drag them, and gets flung off when you shake them. He **climbs the sides of your screen** and hangs from the top of it, and sticks to the edge when you throw him at it.
 - **Pals and mischief, if you like:** up to five little crabs of his own to keep him company on the floor, and an opt-in **cheeky crab** mode in which he pinches your cursor, shoves a window, leaves sandy footprints and drags notes onto your desktop.
+- **Work mode, for a quiet crab:** your tools lead the bar, he only speaks up about the work, and the pals, pranks, climbing and confetti take the day off. His needs rest, his progress keeps counting, and turning it off puts every setting back as it was. [More →](docs/DESKTOP.md#work-mode)
 - **He guards your focus** in a little helmet, **listens along** in headphones when music plays, **types along** on a little keyboard while you type, **dresses for the weather** outside (a sou'wester in the rain), and hushes when you're on a call.
 - **He knows your limits:** when you'll hit your 5-hour window, and a message held for after the reset goes by itself.
 - **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page. They start when the window resets, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.

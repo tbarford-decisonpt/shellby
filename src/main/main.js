@@ -44,6 +44,7 @@ const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
 const weekly = require('./weekly');
+const workmode = require('./workmode');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
 const { Log } = require('./log');
@@ -1299,7 +1300,7 @@ function slapSticker(p) {
   if (view) send(panel, 'stickers:new', view);
   if (!(panel?.isVisible() && panel.isFocused())) {
     notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate', pet: true });
   }
 }
 
@@ -1378,10 +1379,11 @@ function saveSpend() {
   if (spendLedger) config.set({ spendLedger });
 }
 
-// Settings as the panel sees them: the ledger stays in main (usageBreakdown).
+// Settings as the panel sees them: the ledger stays in main (usageBreakdown),
+// and Work mode's settings show as they apply, over your own (workmode.js).
 function panelSettings() {
-  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
-  return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
+  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = workmode.effective(config.data);
+  return { ...rest, dockOrder: workmode.behaviour(config.data).dock, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
 function usageBreakdown() {
@@ -2270,7 +2272,7 @@ app.whenReady().then(() => {
     send(panel, 'wardrobe', wardrobe.view());
     if (!(panel?.isVisible() && panel.isFocused())) {
       notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate' });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate', pet: true });
     }
   });
   wardrobe.on('collected', items => {

@@ -95,7 +95,9 @@ api.onSkin(msg => {
 const WEATHER_MOODS = ['storm', 'cold', 'hot'];
 let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles
 
-api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
+// Work mode turns the confetti off; the moment still gets his mood and his line.
+let confetti = true;
+api.onBurst(effect => { if (fx && effect && confetti) fx.burst(effect); });
 
 // Shellby himself. While he molts, the molt decides which shell he's in.
 let molt = null; // { shell, bubble, stickers } during a molt
@@ -406,6 +408,7 @@ api.onState(msg => {
   limit = msg.limit || null;
   say = msg.say || null;
   onCall = !!msg.call;
+  confetti = msg.confetti !== false;
   window.ShellbySound.setMix(msg.sound);
   needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;
   const wasGuarding = focusing?.phase === 'focus';

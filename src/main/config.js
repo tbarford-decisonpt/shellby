@@ -1,6 +1,7 @@
 // Persistent settings in %APPDATA%/Shellby/settings.json.
 const fs = require('fs');
 const path = require('path');
+const workmode = require('./workmode');
 
 const MODES = ['ask', 'smart', 'acceptEdits', 'plan', 'autonomous'];
 
@@ -36,6 +37,8 @@ const DEFAULTS = {
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
+  workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)
+  workOverrides: {}, // what you changed while in Work mode; it wins over Work mode's own (workmode.js write)
   wander: true,      // idle strolls near his spot (see motion.js)
   onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop-layer.js)
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
@@ -47,7 +50,7 @@ const DEFAULTS = {
   mischiefLog: null, // { day, count, next }: today's pranks and when the next may be
   mischiefPause: 0,  // "Behave for an hour" from his menu: no mischief until then
   colony: 0,         // pals who hang out with him on the floor, 0 to 5 (see floor.js)
-  chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
+  chatter: 'normal', // how much he says and gets up to: quiet | work | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
   soundFx: false,    // his feet, bumps, landings and a ta-da for big moments (see sounds.js)
   ambient: 'off',    // the background: off | surf | tidepool (src/renderer/critter/ambient.js)
@@ -134,7 +137,9 @@ class Config {
     if (!MODES.includes(this.data.mode)) this.data.mode = DEFAULTS.mode;
   }
 
-  get(key) { return this.data[key]; }
+  // What applies right now: Work mode's settings lay over your own (workmode.js).
+  // `data` keeps your own, untouched.
+  get(key) { return workmode.valueOf(this.data, key); }
 
   set(patch) {
     const prev = this.data;

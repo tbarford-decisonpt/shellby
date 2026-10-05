@@ -106,13 +106,14 @@ class Friends extends EventEmitter {
   /**
    * config: Shellby's Config. github: the GitHubService (can/gh/view).
    * myCard(): your look as a card. canVisit(): is he free for company (idle,
-   * not guarding your focus)? Emits 'change' (view), 'visit' ({ login, card,
+   * not guarding your focus)? dropIns(): may a friend turn up on their own
+   * (not in Work mode); an invite doesn't ask. Emits 'change' (view), 'visit' ({ login, card,
    * until } or null when they leave), 'together' ({ id, line, ms }: do something
    * together, only while he's free), 'wave' ({ from, wave, text }), 'record' (stat event).
    */
-  constructor({ config, github, myCard, canVisit = () => true, now = () => Date.now(), rand = Math.random }) {
+  constructor({ config, github, myCard, canVisit = () => true, dropIns = () => true, now = () => Date.now(), rand = Math.random }) {
     super();
-    Object.assign(this, { config, github, myCard, canVisit, now, rand });
+    Object.assign(this, { config, github, myCard, canVisit, dropIns, now, rand });
     this.timer = null;
     this.leaveTimer = null;
     this.togetherTimers = [];
@@ -155,7 +156,7 @@ class Friends extends EventEmitter {
   async tick() {
     if (!this.enabled) return;
     if (this.now() - this.state.lastRefreshAt >= REFRESH_MS) await this.refresh().catch(() => {});
-    if (this.visiting || !this.canVisit()) return;
+    if (this.visiting || !this.canVisit() || !this.dropIns()) return;
     const f = pickVisitor(this.state, this.now(), this.rand);
     if (f) this.arrive(f);
   }

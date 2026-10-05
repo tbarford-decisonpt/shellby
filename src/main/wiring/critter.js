@@ -2,6 +2,7 @@
 // and what he says (voice.js) and when.
 // Kept out of main.js, which only wires it up.
 const focus = require('../focus');
+const workmode = require('../workmode');
 const shells = require('../shells');
 const sounds = require('../sounds');
 const statusLine = require('../statusline');
@@ -205,6 +206,8 @@ function wireCritter(d) {
       say: d.said,
       call: !!d.life?.onCall(), // you're on a call: he holds up his "shh" sign
       sound: soundMix(), // footsteps, bumps and the background play off this (src/renderer/critter/sound.js)
+      // Work mode: a celebration is his little hop, no confetti (workmode.js).
+      confetti: workmode.behaviourOf(d.config).confetti,
       // Peckish, sandy, sleepy, mopey (needs.js): only ever while he has nothing better to show.
       needs: ['idle', 'sleeping'].includes(state) && !d.CAPTURE ? d.life?.needsLook() || null : null,
     });

@@ -103,7 +103,7 @@ function wireProgress(d) {
     d.send(d.panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
-      d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate' });
+      d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
     }
   }
 
