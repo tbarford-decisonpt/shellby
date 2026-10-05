@@ -91,7 +91,8 @@ Every step can have:
 
 | type | fields | output (`steps.<id>.*` or `<id>.*`) |
 |---|---|---|
-| `claude` | `prompt` (≤8000), `mode` (`ask` `smart` `acceptEdits` `plan` `autonomous`), `model?`, `cwd?`, `fresh?`, `output?`: `{ field: { type: string\|number\|boolean\|list\|object, description } }` (≤20) | `{ reply, tabId, ...fields }` |
+| `claude` | `prompt` (≤8000), `mode` (`ask` `smart` `acceptEdits` `plan` `autonomous`), `model?`, `cwd?`, `fresh?`, `mcp?` (≤10 MCP server names: `--allowedTools mcp__<name>__*`), `mcpOnly?` (`--strict-mcp-config` with just those), `output?`: `{ field: { type: string\|number\|boolean\|list\|object, description } }` (≤20) | `{ reply, tabId, ...fields }` |
+| `mcp` | `server`, `tool`, `args?` (a JSON object as text; values filled in like a JSON `http` body), `cwd?`, `allowFail?` | `{ ok, text, json }`: calls the tool directly (mcpclient.js), no Claude turn; stdio and streamable HTTP servers from local, user or approved project scope |
 | `run` | `command` (≤4000, PowerShell), `cwd?`, `allowFail?` | `{ output, code, ok }` |
 | `http` | `method`, `url` (http/https), `headers?`, `body?`, `allowFail?` | `{ status, ok, body, json }` |
 | `ask` | `question` (≤300), `choices?` (2-4; default Continue/Stop, Stop ends the run) | `{ choice }` |

@@ -10,6 +10,7 @@ const confirm = require('../confirm');
 const depwatch = require('../depwatch');
 const devRunner = require('../devservers/runner');
 const devScripts = require('../devservers/scripts');
+const mcpServers = require('../mcpservers');
 const { DevServers } = require('../devservers/service');
 const native = require('../native-windows');
 const { Projects } = require('../projects/service');
@@ -195,6 +196,7 @@ function wireProjects(d) {
         decrypt: buf => safeStorage.decryptString(buf),
       },
       webhookPort: () => (d.external?.status === 'listening' ? d.external.port : null),
+      liveMcp: () => d.toolbox?.current?.mcp || [],
       // Shellby's own profile: settings, run records, the approval key. Never a workflow's to write.
       forbiddenDirs: () => [app.getPath('userData')],
       log: { info: (...a) => d.log.info(...a), warn: (...a) => d.log.warn(...a) },
@@ -225,6 +227,12 @@ function wireProjects(d) {
     ipcMain.handle('workflows:run-answer', (_e, runId, key, choice) => (d.workflows && isId(runId) && typeof key === 'string' && typeof choice === 'string' ? d.workflows.answer(runId, key, choice) : off));
     ipcMain.handle('workflows:secret-set', (_e, name, value) => (d.workflows ? d.workflows.setSecret(name, value) : off));
     ipcMain.handle('workflows:secret-delete', (_e, name) => (d.workflows && typeof name === 'string' ? d.workflows.deleteSecret(name) : null));
+    // The MCP servers a workflow step or a routine can pick, and one server's
+    // tools (which starts it for a moment). Both editors use them.
+    // Never a network share: reading one makes Windows sign in to that machine.
+    const folderArg = v => (typeof v === 'string' && v.length <= 1024 && path.isAbsolute(v) && !/^[\\/]{2}/.test(v) ? v : null);
+    ipcMain.handle('workflows:mcp-servers', (_e, cwd) => (ready() ? d.workflows.mcpServerList(folderArg(cwd)) : []));
+    ipcMain.handle('workflows:mcp-tools', (_e, server, cwd) => (ready() && typeof server === 'string' && mcpServers.NAME.test(server) ? d.workflows.mcpTools(server, folderArg(cwd)) : off));
   }
 
   return {

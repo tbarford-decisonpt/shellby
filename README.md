@@ -104,6 +104,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Time on each project:** hours worked out from what he already sees, clients and rates, and a PDF or CSV timesheet. Off until you turn it on, and never synced.
 - **Flaky tests** caught and fixed for real, **dependencies** checked weekly with a pull request to bump them, and **Is it safe to leave?** before you lock up or shut down.
 - **Workflows and routines:** a schedule, a red build, a release or a file landing in a folder starts a list of steps: Claude, commands, web requests, a question for you. [Workflows](docs/WORKFLOWS.md).
+- **Your MCP servers in them:** tick the servers a step may use and Claude files the Linear issue or posts to Slack without stopping to ask, or call one tool directly with no Claude turn at all. Pair it with [n8n](docs/N8N.md) for everything else.
 
 <p align="center"><img src="docs/screenshot-time.png" width="420" alt="History → Time: 26 hours this week, $2,730 billable, a bar for each day, and each project with its client"></p>
 

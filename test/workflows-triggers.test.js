@@ -92,7 +92,7 @@ test('every template is a valid workflow', () => {
     const r = validateWorkflow(t.workflow);
     assert.equal(r.ok, true, `${t.key}: ${JSON.stringify(r.errors)}`);
   }
-  assert.equal(templates({}).length, 7);
+  assert.equal(templates({}).length, 11);
 });
 
 test('the draft format names every step and trigger type', () => {

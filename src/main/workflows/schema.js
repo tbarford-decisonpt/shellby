@@ -9,18 +9,19 @@ const { isModel } = require('../models');
 const { scheduleError, normaliseSchedule } = require('../routines');
 const { minutesError, describe: describeSchedule } = require('./schedule');
 const expr = require('./expr');
+const mcpServers = require('../mcpservers');
 
 const LIMITS = Object.freeze({
   name: 60, description: 500, steps: 60, depth: 4, triggers: 8, inputs: 10,
   prompt: 8000, command: 4000, url: 2000, header: 2000, headers: 20, body: 100000,
-  question: 300, choice: 40, slug: 60, text: 1000, title: 100, label: 80, values: 20, fields: 20,
+  question: 300, choice: 40, tool: 128, slug: 60, text: 1000, title: 100, label: 80, values: 20, fields: 20,
   fieldDescription: 200, eachMax: 100, waitSeconds: 604800, retries: 5, retryDelay: 3600, timeoutMin: 720,
 });
 
 const ID = /^[a-z][a-z0-9_]{0,31}$/;
 const WF_ID = /^[\w-]{1,64}$/;
 const SECRET = /^[A-Z][A-Z0-9_]{0,39}$/;
-const STEP_TYPES = ['claude', 'run', 'http', 'ask', 'tell', 'set', 'if', 'each', 'wait', 'file', 'workflow', 'stop', 'worktree', 'pr'];
+const STEP_TYPES = ['claude', 'mcp', 'run', 'http', 'ask', 'tell', 'set', 'if', 'each', 'wait', 'file', 'workflow', 'stop', 'worktree', 'pr'];
 const TRIGGER_TYPES = ['schedule', 'ci', 'issue', 'shipped', 'task', 'health', 'folder', 'workflow', 'startup', 'webhook', 'claude'];
 const CI_EVENTS = ['failed', 'fixed', 'passed', 'merged', 'review', 'any'];
 const ISSUE_EVENTS = ['assigned', 'labelled', 'any'];
@@ -35,6 +36,8 @@ const CONTAINERS = { if: ['then', 'else'], each: ['steps'] };
 // Where a secret may be used: only places that go to a command or a request,
 // never into a prompt, a message or a file.
 const SECRET_FIELDS = { run: ['command'], http: ['url', 'headers', 'body'] };
+// An MCP tool's name: what servers use in practice, and nothing that could break out of one.
+const TOOL_NAME = /^[A-Za-z0-9_][\w./-]{0,127}$/;
 const UNSAFE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2069\ufeff]/g;
 
 // ---------------------------------------------------------------- helpers
@@ -53,6 +56,10 @@ function absPath(v) {
   // Network shares are refused everywhere in Shellby: opening one signs in to that machine.
   if (/^[\\/]{2}/.test(p)) return null;
   return p;
+}
+
+function isJsonObject(text) {
+  try { return isObj(JSON.parse(text)); } catch { return false; }
 }
 
 function intIn(v, min, max) {
@@ -229,8 +236,41 @@ function checkStep(s, at, depth, ctx) {
       if (s.model) { if (typeof s.model === 'string' && isModel(s.model)) step.model = s.model; else err(`${at}.model`, 'Unknown model'); }
       if (s.cwd) { const c = absPath(s.cwd); if (c === null) err(`${at}.cwd`, 'Folder must be a full path'); else if (c) step.cwd = c; }
       if (s.fresh === true) step.fresh = true;
+      // MCP servers whose tools Claude may use here without asking, and
+      // whether they're the only ones it gets.
+      const servers = mcpServers.checkNames(s.mcp);
+      if (servers.error) err(`${at}.mcp`, servers.error);
+      else if (servers.list.length) {
+        step.mcp = servers.list;
+        if (s.mcpOnly === true) step.mcpOnly = true;
+      }
       const output = checkOutputFields(s.output, `${at}.output`, err);
       if (output) step.output = output;
+      break;
+    }
+    case 'mcp': {
+      step.server = line(s.server, 100);
+      if (!step.server) err(`${at}.server`, 'Pick the MCP server');
+      else if (!mcpServers.NAME.test(step.server)) err(`${at}.server`, `“${step.server.slice(0, 40)}” isn't an MCP server name`);
+      step.tool = line(s.tool, LIMITS.tool);
+      if (!step.tool) err(`${at}.tool`, 'Pick the tool to call');
+      else if (!TOOL_NAME.test(step.tool)) err(`${at}.tool`, `“${step.tool.slice(0, 40)}” isn't a tool name`);
+      if (s.args !== undefined && s.args !== null && s.args !== '') {
+        const args = typeof s.args === 'string' ? s.args.trim() : JSON.stringify(s.args);
+        if (args.length > LIMITS.body) err(`${at}.args`, 'The arguments are too long');
+        else if (!/^\{/.test(args)) err(`${at}.args`, 'Arguments are a JSON object, like { "title": "{{ diagnose.cause }}" }');
+        else if (expr.hasTemplate(args) && !expr.parseTemplate(args).ok) err(`${at}.args`, expr.parseTemplate(args).error);
+        else if (!expr.hasTemplate(args) && !isJsonObject(args)) err(`${at}.args`, 'The arguments aren\'t valid JSON');
+        else step.args = args;
+      }
+      // Written out, never a {{ value }}: the folder decides which project's
+      // servers count, and that mustn't be up to whatever started the run.
+      if (s.cwd) {
+        const c = absPath(s.cwd);
+        if (c === null || (c && expr.hasTemplate(c))) err(`${at}.cwd`, 'The folder must be a full path, written out');
+        else if (c) step.cwd = c;
+      }
+      if (s.allowFail === true) step.allowFail = true;
       break;
     }
     case 'run': {
@@ -437,7 +477,7 @@ function checkRefs(wf, err) {
   walkSteps(wf.steps, (s, at, scope) => {
     const fields = [];
     const add = (key, value, kind = 'template') => { if (typeof value === 'string' && value) fields.push({ key, value, kind }); };
-    for (const k of ['prompt', 'command', 'url', 'body', 'question', 'text', 'title', 'message', 'path', 'content', 'over', 'cwd', 'repo', 'branch', 'folder']) add(k, s[k]);
+    for (const k of ['prompt', 'command', 'url', 'body', 'args', 'question', 'text', 'title', 'message', 'path', 'content', 'over', 'cwd', 'repo', 'branch', 'folder']) add(k, s[k]);
     for (const [k, v] of Object.entries(s.headers || {})) add(`headers.${k}`, v);
     for (const [k, v] of Object.entries(s.values || {})) add(`values.${k}`, v);
     for (const [k, v] of Object.entries(s.inputs || {})) add(`inputs.${k}`, v);
@@ -522,6 +562,8 @@ function validateWorkflow(input, { allowAutonomous = false, now = Date.now() } =
 
 // ---------------------------------------------------------------- what it may do
 
+const listOf = names => (names.length === 1 ? `the ${names[0]} MCP server` : `the ${names.slice(0, -1).join(', ')} and ${names.at(-1)} MCP servers`);
+
 /**
  * Plain sentences for the confirm window and the list: everything this
  * workflow can do without asking first. Empty means nothing risky.
@@ -532,6 +574,8 @@ function capabilities(wf) {
   const say = s => { if (!seen.has(s)) { seen.add(s); out.push(s); } };
   const MODE = { smart: 'Smart', acceptEdits: 'Auto-edit', autonomous: 'Autonomous' };
   walkSteps(wf.steps || [], s => {
+    if (s.type === 'claude' && s.mcp?.length) say(`Let Claude use ${listOf(s.mcp)} without asking`);
+    if (s.type === 'mcp') say(`Call ${s.tool} on the ${s.server} MCP server`);
     if (s.type === 'claude' && MODE[s.mode]) say(`Let Claude work in ${MODE[s.mode]} mode${s.mode === 'autonomous' ? ', with no permission prompts at all' : ''} in ${s.cwd || wf.cwd || 'your current folder'}`);
     if (s.type === 'run') say(`Run a command: ${s.command.split('\n')[0].slice(0, 120)}${s.command.includes('\n') || s.command.length > 120 ? '…' : ''}`);
     if (s.type === 'http') {
@@ -559,6 +603,9 @@ function riskDetail(wf) {
   const blocks = [];
   walkSteps(wf.steps || [], s => {
     const name = s.label || s.id;
+    // In Smart and up the block below shows the prompt; in Plan or Ask this one does.
+    if (s.type === 'claude' && s.mcp?.length) blocks.push(`▸ ${name}: Claude may use every tool of ${listOf(s.mcp)} without asking${s.mcpOnly ? ', and no other MCP servers' : ''}${MODE[s.mode] ? '' : `\n${s.prompt}`}`);
+    if (s.type === 'mcp') blocks.push(`▸ ${name}: calls ${s.tool} on the ${s.server} MCP server, in ${s.cwd || wf.cwd || 'your current folder'}${s.args ? `\nArguments:\n${s.args}` : ''}`);
     if (s.type === 'claude' && MODE[s.mode]) blocks.push(`▸ ${name}: Claude in ${MODE[s.mode]} mode, in ${s.cwd || wf.cwd || 'your current folder'}\n${s.prompt}`);
     if (s.type === 'run') blocks.push(`▸ ${name}: runs in ${s.cwd || wf.cwd || 'your current folder'}\n${s.command}`);
     if (s.type === 'http') {
@@ -588,6 +635,9 @@ function riskSignature(wf) {
   const parts = [];
   walkSteps(wf.steps || [], s => {
     if (s.type === 'claude' && s.mode !== 'ask' && s.mode !== 'plan') parts.push(['claude', s.mode, s.prompt, s.cwd || wf.cwd || '']);
+    // The prompt too, whatever the mode: in Plan or Ask it's what steers the servers' tools.
+    if (s.type === 'claude' && s.mcp?.length) parts.push(['claude-mcp', s.mcp, !!s.mcpOnly, s.prompt, s.cwd || wf.cwd || '']);
+    if (s.type === 'mcp') parts.push(['mcp', s.server, s.tool, s.args || '', s.cwd || wf.cwd || '']);
     if (s.type === 'run') parts.push(['run', s.command, s.cwd || wf.cwd || '']);
     if (s.type === 'http') parts.push(['http', s.method, s.url, s.headers || {}, s.body || '']);
     if (s.type === 'file' && s.action !== 'read') parts.push(['file', s.action, s.path, s.content || '']);

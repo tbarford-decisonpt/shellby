@@ -348,3 +348,34 @@ test('a rewind saved in History is honoured when the conversation is reopened', 
   const fresh = new ClaudeSession({ exe: 'x', cwd: os.tmpdir(), mode: 'ask', resumeAt: 'uuid-9' });
   assert.ok(!fresh.buildArgs().some(a => a.startsWith('--resume')), 'nothing to resume into, so no rewind point either');
 });
+
+test('MCP servers a routine or workflow step may use go in as allow rules, and "only these" as a strict config', () => {
+  const plain = new ClaudeSession({ exe: 'x', cwd: '.', mode: 'smart' }).buildArgs();
+  assert.ok(!plain.includes('--allowedTools'));
+  assert.ok(!plain.includes('--strict-mcp-config'));
+  const config = { mcpServers: { linear: { type: 'http', url: 'https://mcp.linear.app/mcp' } } };
+  const args = new ClaudeSession({ exe: 'x', cwd: '.', mode: 'ask', allowedTools: ['mcp__linear__*', 'mcp__slack__*'], mcpConfig: config }).buildArgs();
+  const flag = f => args[args.indexOf(f) + 1];
+  assert.equal(flag('--allowedTools'), 'mcp__linear__*,mcp__slack__*');
+  assert.ok(args.includes('--strict-mcp-config'));
+  assert.deepEqual(JSON.parse(flag('--mcp-config')), config);
+});
+
+test('a strict MCP config reaches Claude Code in a file of its own, gone once the process ends', async () => {
+  const fs = require('fs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-mcpcfg-'));
+  const out = path.join(dir, 'seen.json');
+  const script = path.join(dir, 'cli.js');
+  // A stand-in CLI that copies whatever --mcp-config names, then exits.
+  fs.writeFileSync(script, `const a = process.argv; const f = a[a.indexOf('--mcp-config') + 1];
+require('fs').writeFileSync(${JSON.stringify(out)}, JSON.stringify({ file: f, text: require('fs').readFileSync(f, 'utf8') }));`);
+  const config = { mcpServers: { linear: { type: 'http', url: 'https://x', headers: { Authorization: 'Bearer secret' } } } };
+  const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [script], cwd: dir, mode: 'ask', mcpConfig: config });
+  s.start();
+  assert.ok(!s.buildArgs().join(' ').includes('Bearer secret'), 'the token is not on the command line');
+  await new Promise(r => s.proc.once('exit', r));
+  await new Promise(r => setTimeout(r, 100));
+  const seen = JSON.parse(fs.readFileSync(out, 'utf8'));
+  assert.deepEqual(JSON.parse(seen.text), config);
+  assert.equal(fs.existsSync(seen.file), false, 'the file is removed with the process');
+});
