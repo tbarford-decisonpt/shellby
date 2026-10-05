@@ -31,6 +31,8 @@
       // The tests' last verdict and the latest changes' review (main's review-inbox.js), for the review inbox.
       checks: summary.checks !== undefined ? summary.checks : tab.checks || null,
       ready: summary.ready !== undefined ? summary.ready : tab.ready || null,
+      nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
+      inTerminal: summary.inTerminal !== undefined ? summary.inTerminal : tab.inTerminal || null,
     });
     return tab;
   };
@@ -157,7 +159,12 @@
 
   function tabIcon(t) {
     if (t.pending) return h('span', { class: 'ti ti-ask', title: 'Needs your OK', text: '?' });
-    if (t.busy || t.crew) return h('span', { class: 'ti ti-busy', title: t.crew ? `${t.crew} helper${t.crew > 1 ? 's' : ''} working` : 'Working' }, t.crew ? h('b', { text: t.crew }) : null);
+    if (t.inTerminal) return h('span', { class: 'ti ti-term', title: 'Carrying on in a terminal', text: '›_' });
+    const doing = window.ShellbyTabSort.activity(t);
+    if (doing === 'turn') return h('span', { class: 'ti ti-busy', title: t.crew ? `${t.crew} helper${t.crew > 1 ? 's' : ''} working` : 'Working' }, t.crew ? h('b', { text: t.crew }) : null);
+    // Not done, so not the finished tick; not the working spinner either, which
+    // would say Claude is still replying.
+    if (doing === 'background') return h('span', { class: 'ti ti-bg', title: `Turn finished · ${t.crew} background task${t.crew > 1 ? 's' : ''} still running` });
     if (t.outcome === 'error') return h('span', { class: 'ti ti-err', title: 'Ended with an error', text: '!' });
     if (t.outcome === 'ok' && t.unread) return h('span', { class: 'ti ti-ok', title: 'Finished', text: '✓' });
     if (t.routineId) return h('span', { class: 'ti ti-routine', title: 'Routine', text: '⟳' });
@@ -267,10 +274,43 @@
     SB.openMenu($('tabMenu'), anchor, () => [
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.renameTab(tabId); } },
         h('span', { class: 'mi-check', text: '✎' }), h('span', { class: 'mi-title', text: 'Rename  (F2)' })),
+      handoffItem(tabId),
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.closeTab(tabId); } },
         h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: 'Close  (Ctrl+W)' })),
-    ]);
+    ].filter(Boolean));
   }
+
+  // ------------------------------------------------------------ to a terminal and back (handoff.js)
+
+  // Only once there's a conversation to carry on: a blank tab has nothing to resume.
+  function handoffItem(tabId) {
+    const t = state.tabs.get(tabId);
+    if (!t?.saved) return null;
+    const back = !!t.inTerminal;
+    return h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); (back ? SB.pickUpHere : SB.continueInTerminal)(tabId); } },
+      h('span', { class: 'mi-check', text: back ? '↩' : '›_' }), h('span', { class: 'mi-title', text: back ? 'Pick it up here' : 'Continue in a terminal' }));
+  }
+
+  // id: an open tab, or a History row that may be closed.
+  SB.continueInTerminal = async (id) => {
+    const r = await api.continueInTerminal(id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't open a terminal.", { ms: 5000 });
+    const tab = state.tabs.get(id);
+    if (tab) { tab.inTerminal = Date.now(); SB.renderTabStrip(); }
+    SB.toast(`${r.text} When you're done there, type /exit and pick it up here.`, { ms: 6000 });
+    state.sessions = await api.listSessions();
+    if (state.view === 'history') SB.views.history.redraw?.();
+  };
+
+  SB.pickUpHere = async (tabId) => {
+    const r = await api.pickUpHere(tabId);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't pick it up.");
+    const tab = state.tabs.get(tabId);
+    if (tab) tab.inTerminal = null;
+    SB.renderTabStrip();
+    if (r.warning) SB.toast(r.warning, { ms: 6000 });
+    state.sessions = await api.listSessions();
+  };
 
   // Swaps `el` for a text field holding `current`. Enter or leaving the field
   // saves, Escape doesn't; done(name) gets the new name, or null for no change.
@@ -465,7 +505,14 @@
   // Send to any tab: the active one, or a background tab draining its queue.
   async function sendNow(tab, text, attachments) {
     const r = await api.sendTask(tab.id, text, attachments);
-    if (!r.ok) { SB.toast(r.error); return false; }
+    if (!r.ok) {
+      // Out in a terminal: the way back is one click from the refusal. Not set
+      // up (or signed out): the toast takes you to the fix.
+      const label = { setup: 'Set up Claude Code', 'sign-in': 'Sign in again' }[r.action];
+      if (tab.inTerminal) SB.toast(r.error, { action: 'Pick it up here', onAction: () => SB.pickUpHere(tab.id), ms: 6000 });
+      else SB.toast(r.error, label ? { action: label, ms: 9000, onAction: () => SB.troubleAction(r.action, tab) } : undefined);
+      return false;
+    }
     // !! is how a message that starts with ! reaches Claude; it shows (and is sent) with one.
     markSent(tab, text.startsWith('!!') ? text.slice(1) : text, attachments, r.turnId);
     SB.notePrompt?.(text);
@@ -559,6 +606,17 @@
       return true;
     }
     return sendNow(tab, text, attachments);
+  };
+
+  // Try again after something went wrong: the same words again, leaving
+  // whatever's in the box alone (queued if a turn is running by then). A
+  // message shown with one ! went to Claude as !!, so it does again.
+  SB.resend = (tab, text) => {
+    const words = text.startsWith('!') ? `!${text}` : text;
+    if (!tab.busy) return sendNow(tab, words, []);
+    tab.queue.push(queueItem(words, []));
+    syncBusyUi();
+    return true;
   };
 
   // A snippet set to start a conversation of its own: the one you're in is left
@@ -679,22 +737,61 @@
     tab.setStatus('Stopping…');
   }
 
+  SB.stopTask = stop;
+
+  // Ctrl+W (and the palette) on a conversation that's still working asks first:
+  // a second press within a few seconds stops it and closes it. The × and a
+  // middle-click are aimed, so they close straight away as they always have.
+  const CLOSE_ARM_MS = 4000;
+  let closeArmed = null;
+  SB.closeTabSafely = (tabId) => {
+    const tab = state.tabs.get(tabId);
+    if (!tab) return;
+    if (tab.busy && closeArmed !== tabId) {
+      closeArmed = tabId;
+      setTimeout(() => { if (closeArmed === tabId) closeArmed = null; }, CLOSE_ARM_MS);
+      SB.toast(`"${shownTitle(tab)}" is still working. Press ${SB.shortcuts.primary('closeTab')} again to stop it and close it.`,
+        { ms: CLOSE_ARM_MS, action: 'Stop and close', onAction: () => { closeArmed = null; SB.closeTab(tabId); } });
+      return;
+    }
+    closeArmed = null;
+    SB.closeTab(tabId);
+  };
+
+  // One step along the strip, wrapping round at the ends.
+  function stepTab(step) {
+    const ids = [...state.tabs.keys()];
+    const i = ids.indexOf(state.activeTab);
+    if (ids.length) SB.activate(ids[(i + step + ids.length) % ids.length]);
+  }
+
+  // The newer shortcuts for the conversation you're in (shortcuts.js has their keys).
+  const TAB_KEYS = {
+    tryAgain: tab => SB.tryAgain(tab),
+    showChanges: tab => SB.showChanges(tab),
+    bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
+  };
+
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
-    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); SB.newTab(); return; }
-    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTab(tab.id); return; }
+    const K = SB.shortcuts;
+    if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
-    if (e.ctrlKey && e.shiftKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    if (K.matches(e, 'moveTab')) {
       e.preventDefault();
       if (tab) SB.nudgeTab(tab.id, e.key === 'PageUp' ? -1 : 1);
       return;
     }
-    if (e.ctrlKey && e.key === 'Tab') {
+    if (K.matches(e, 'nextTab')) { e.preventDefault(); stepTab(1); return; }
+    if (K.matches(e, 'prevTab')) { e.preventDefault(); stepTab(-1); return; }
+    const own = Object.keys(TAB_KEYS).find(id => K.matches(e, id));
+    if (own) {
       e.preventDefault();
-      const ids = [...state.tabs.keys()];
-      const i = ids.indexOf(state.activeTab);
-      SB.activate(ids[(i + (e.shiftKey ? -1 : 1) + ids.length) % ids.length]);
+      // Not over a dialog, and not before there's a conversation to act on.
+      if (!tab || state.view === 'onboarding' || SB.isCrabOnly() || document.querySelector('.card-sheet:not([hidden])')) return;
+      SB.inChat(() => TAB_KEYS[own](tab));
       return;
     }
     if (e.key === 'Escape') {
@@ -707,6 +804,7 @@
     }
     // Y / A / N answer the newest open permission card in the active tab.
     if (e.target.closest('textarea, input, select') || e.ctrlKey || e.metaKey || e.altKey || state.view !== 'chat') return;
+    if (e.target.closest('.card-sheet')) return; // not through a dialog (the shortcut list, the share card)
     const open = tab?.openAsk();
     const btn = open?.querySelector(`[data-key="${e.key.toLowerCase()}"]`);
     if (btn) { e.preventDefault(); btn.click(); }
@@ -818,6 +916,38 @@
   }
 
   SB.hideSlash = () => { $('slashMenu').hidden = true; };
+
+  // Run fn on the chat screen. Coming from another screen, after the switch has
+  // put the keyboard in the box, so a menu fn opens keeps it instead.
+  const SWITCH_SETTLE_MS = 60;
+  SB.inChat = (fn) => {
+    if (state.view === 'chat') return fn();
+    SB.setView('chat');
+    setTimeout(fn, SWITCH_SETTLE_MS);
+  };
+
+  // ------------------------------------------------------------ the last turn, from the keyboard
+
+  const lastChanges = tab => [...tab.el.querySelectorAll('details.changes')].pop() || null;
+  SB.hasChanges = tab => !!tab && !!lastChanges(tab);
+
+  // The last turn's "files changed" block: opened, in view, and the keyboard on
+  // its first file, so Enter shows that file's diff and Tab reaches Undo.
+  SB.showChanges = (tab) => {
+    const block = tab && lastChanges(tab);
+    if (!block) return SB.toast('Nothing in this conversation has changed any files yet.');
+    block.open = true;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    block.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    (block.querySelector('.chg-file') || block.querySelector('summary'))?.focus({ preventScroll: true });
+  };
+
+  // Your last message, tried again in a new tab: change it first, or run it as is.
+  SB.tryAgain = (tab) => {
+    if (!tab) return;
+    if (tab.busy) return SB.toast('Let him finish first (or press Stop), then try it another way.');
+    return SB.openBranch(tab, tab.lastTurnId, 'before');
+  };
   // Put text in the box (not sent) with the caret at the end, ready to add to.
   SB.prefill = (text) => {
     SB.setView('chat');
@@ -1210,7 +1340,9 @@
   // ------------------------------------------------------------ how full each conversation is
 
   // Past CROWDED (src/main/context.js) he says so, and the composer offers to
-  // make room. Dismissing it holds until the tab drops back under the mark.
+  // make room; a little before, when the last few turns say it'll be crowded
+  // within a couple more, it offers the same, worded for that (src/main/turncost.js
+  // nudge). Dismissing it holds until it's worded differently or goes away.
   const CROWDED = 80;
   const contextLevel = c => (c.pct >= 95 ? 'hot' : c.pct >= CROWDED ? 'warn' : '');
   const contextText = c => `Context ${c.pct}% full · ${SB.compact(c.tokens)} of ${SB.compact(c.window)} tokens`;
@@ -1247,16 +1379,19 @@
       chip.title = k ? `${contextText(c)}\n${cacheText(k, c)}` : contextText(c);
       chip.setAttribute('aria-label', `${contextText(c)}${k ? `, prompt cache ${k.state}` : ''}: make room`);
     }
-    if (tab && (!c || c.pct < CROWDED)) tab.crowdDismissed = false;
+    const nudge = c ? tab.nudge : null;
+    if (tab && !nudge) tab.crowdDismissed = null;
     const box = $('crowded');
-    const show = !!c && c.pct >= CROWDED && !tab.crowdDismissed;
+    // A dismissed "filling up" still lets "getting crowded" through.
+    const show = !!nudge && tab.crowdDismissed !== nudge.level;
     box.hidden = !show;
     if (!show) { box.replaceChildren(); return; }
+    box.className = `crowded ${nudge.level}`;
     box.replaceChildren(
-      h('span', { class: 'crowded-text', text: `Getting crowded: ${c.pct}% full.` }),
+      h('span', { class: 'crowded-text', text: nudge.text }),
       h('button', { class: 'btn slim-btn', type: 'button', onclick: () => compact(tab) }, 'Compact'),
       h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => startFresh(tab) }, 'Start fresh with a summary'),
-      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = true; syncContextUi(); } },
+      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = nudge.level; syncContextUi(); } },
         SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
   }
   SB.syncContextUi = syncContextUi;
@@ -1282,15 +1417,51 @@
     if (tab.isActive) syncBusyUi();
     SB.renderTabStrip();
   }
+  SB.compactTab = compact;
+  SB.startFresh = startFresh;
 
-  $('ctxChip').addEventListener('click', () => {
+  // What this conversation has cost so far (src/main/turncost.js): tokens, its
+  // share of the 5-hour window, and its costliest turns, each a way back to it.
+  function costRows(tab, cost) {
+    if (!cost?.turns) return [];
+    const turns = `${cost.turns} turn${cost.turns === 1 ? '' : 's'}`;
+    const share = cost.shareText ? ` · ${cost.shareText} of your 5-hour window` : '';
+    const rows = [h('div', { class: 'menu-label cache-note', text: `So far: ${cost.tokensText} tokens over ${turns}${share}.` })];
+    if (cost.top.length < 2) return rows;
+    rows.push(h('div', { class: 'menu-label', text: 'Costliest turns' }),
+      ...cost.top.map(t => h('button', {
+        class: 'menu-item cost-turn', disabled: !t.turnId, title: t.turnId ? 'Show this turn' : null,
+        onclick: () => { SB.closeMenus(); showTurn(tab, t.turnId); },
+      },
+      h('span', { class: 'usage-name', text: t.prompt || 'A turn' }),
+      h('span', { class: 'usage-share', text: [t.tokensText, t.shareText].filter(Boolean).join(' · ') }))));
+    return rows;
+  }
+
+  function showTurn(tab, turnId) {
+    const el = turnId && [...tab.el.querySelectorAll('.turn-cost')].find(c => c.dataset.turn === turnId);
+    if (!el) return SB.toast("That turn is further back than this tab keeps. It's in History.");
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1600);
+  }
+
+  let costLoading = false;
+  $('ctxChip').addEventListener('click', async () => {
     const tab = SB.activeTab();
     const c = tab?.context;
     if (!c) return;
+    if (!$('ctxMenu').hidden) return SB.closeMenus();
+    if (costLoading) return; // a second click while it loads would open and shut it at once
+    costLoading = true;
+    const cost = await api.tabCost(tab.id).catch(() => null);
+    costLoading = false;
     const k = cacheNow(tab.cache);
     SB.openMenu($('ctxMenu'), $('ctxChip'), () => [
       h('div', { class: 'menu-label', text: contextText(c) }),
       k ? h('div', { class: `menu-label cache-note c-${k.state}`, text: cacheText(k, c) }) : null,
+      ...costRows(tab, cost),
+      h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); compact(tab); } },
         h('span', { class: 'mi-check', text: '⇣' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Compact' }), h('div', { class: 'mi-sub', text: 'Claude sums up the conversation so far and carries on in the room it frees' }))),

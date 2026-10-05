@@ -13,7 +13,7 @@ const { validateRoutine } = require('../routines');
 function registerRoutinesIpc(ipcMain, d) {
   // ---- routines
   ipcMain.handle('usage:breakdown', () => d.usageBreakdown());
-  // What the message being typed usually costs (turncost.js). Only its category
+  // What the message being typed usually costs (usage-ledger.js). Only its category
   // is worked out from the text; nothing of it is kept.
   ipcMain.handle('usage:estimate', (_e, req) => {
     const text = typeof req?.text === 'string' ? req.text.slice(0, 50000) : '';

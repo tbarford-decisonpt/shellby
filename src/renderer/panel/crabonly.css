@@ -1,6 +1,6 @@
-/* Shellby panel — onboarding paths and "just the crab" mode. */
+/* Shellby panel — onboarding paths, "just the crab" mode, and Work mode's switch. */
 
-/* ---------- onboarding: two ways to have Shellby ---------- */
+/* ---------- onboarding: three ways to have Shellby ---------- */
 .paths { display: grid; gap: 9px; margin: 18px 0 10px; }
 .path {
   white-space: normal;
@@ -22,6 +22,11 @@ body.crab-only .tabstrip, body.crab-only .subbar, body.crab-only .mode-chip,
 body.crab-only [data-view-btn="chat"], body.crab-only [data-view-btn="toolbox"], body.crab-only [data-view-btn="routines"],
 body.crab-only [data-view-btn="workflows"], body.crab-only [data-view-btn="projects"],
 body.crab-only [data-view-btn="history"] { display: none !important; }
+
+/* ---------- Work mode (workmode.js): its switch leads Personality, and just the crab has no tools for it ---------- */
+.work-mode-row { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
+.work-mode-row .small { margin: 2px 0 0; }
+body.crab-only .work-mode-row { display: none; }
 
 /* Health's "give him a brain" card */
 .hl-claude {
@@ -49,9 +54,10 @@ body.crab-only [data-view-btn="history"] { display: none !important; }
 .ext-status.ok { color: var(--glass); }
 .ext-status.warn { color: var(--amber); }
 .ext-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.ext-session { display: grid; grid-template-columns: 10px auto 1fr auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: var(--reef); font-size: 12.5px; }
+.ext-session { display: grid; grid-template-columns: 10px auto 1fr auto auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: var(--reef); font-size: 12.5px; }
 .ext-session b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ext-state { color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ext-session .ext-bring { grid-column: -2 / -1; height: 24px; }
 .ext-helpers { font: 600 10px var(--font-mono); color: var(--glass); }
 .ext-session time { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
 .ext-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sand-faint); }

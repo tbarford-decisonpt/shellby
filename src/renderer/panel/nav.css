@@ -168,12 +168,27 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .pal-title { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal-sub { font-size: 11.5px; color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal-key { font: 600 10.5px var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
+.pal-kbd { white-space: nowrap; }
+.pal-item[aria-selected="true"] .pal-kbd { color: var(--sand); }
 .pal-empty { padding: 18px 10px; text-align: center; font-size: 12.5px; color: var(--sand-dim); }
 .palette-foot {
   flex: none; display: flex; gap: 14px; margin: 0; padding: 7px 14px;
   border-top: 1px solid var(--line); font-size: 11px; color: var(--sand-faint);
 }
 .palette-foot kbd { font-size: 9.5px; padding: 1px 4px; }
+.palette-foot { flex-wrap: wrap; row-gap: 4px; }
+
+/* ================================================================ Ctrl+/ every shortcut */
+.keys-box { width: min(100%, 460px); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.keys-list { overflow-y: auto; min-height: 0; margin: 0 -6px; padding: 0 6px 4px; border-radius: var(--r-sm); }
+.keys-list:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.keys-group + .keys-group { margin-top: 12px; }
+.keys-group h3 { margin: 0 0 5px; font: 600 10.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--sand-faint); }
+.keys-group dl { margin: 0; display: grid; grid-template-columns: minmax(0, auto) 1fr; gap: 5px 14px; align-items: baseline; }
+.keys-group dt { display: flex; flex-wrap: wrap; gap: 3px 0; justify-content: flex-end; text-align: right; }
+.keys-group dd { margin: 0; font-size: 12.5px; color: var(--sand-dim); }
+.keys-or { font-size: 10.5px; color: var(--sand-faint); white-space: pre; }
+.keys-foot { margin: 10px 0 0; flex: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button, .setting-fold > summary::before { transition: none; }

@@ -14,7 +14,7 @@ const path = require('path');
 
 const SUITE = [
   'e2e-queue',        // queued messages: queue, edit, drain, stop, error pauses
-  'e2e-context',      // the context meter per tab, the crowded offer, Compact and Start fresh
+  'e2e-context',      // the context meter per tab, what each turn cost, the filling-up and crowded offer, Compact and Start fresh
   'e2e-attachments',  // screenshots as tasks: paste a snip, drop a picture, Claude sees it
   'e2e-feed-scroll',  // your prompt stays visible as the Working bar appears
   'e2e-feed-cap',     // a very long conversation stops growing the DOM
@@ -31,6 +31,7 @@ const SUITE = [
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-tank',         // his tank: decorating by keyboard, what main refuses, the Health porthole, kept after a restart
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
+  'e2e-work-mode',    // Work mode: the tools first, a quiet crab, your own settings back when you leave
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking
   'e2e-changes',      // a turn's diff and Undo, a worktree per tab, answering from the phone
   'e2e-push',         // Push from the folder menu: take in the remote's work, send yours, a hook's refusal

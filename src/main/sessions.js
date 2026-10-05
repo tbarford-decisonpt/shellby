@@ -6,20 +6,24 @@ const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
+const turncost = require('./turncost');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
 // one is a running CLI, and nothing limits how many of those run at once. The cap
 // is where routines and workflows start recycling old tabs to make room.
 const MAX_TABS = 32;
+const IN_TERMINAL = 'This conversation is carrying on in a terminal. Close it there (/exit), then choose Pick it up here.';
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
   // prepareTurn(tab): an optional promise each turn waits for before Claude
   // sees it (main.js snapshots the folder, for the turn's diff).
   // compose(text, files): the content Claude gets for a steer (attachments.js composeContent).
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text }) {
+  // windowShare(weight): a turn's share of the 5-hour window, or null (turncost.js),
+  // put on its result before History keeps it.
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare });
     this.tabs = new Map();
   }
 
@@ -63,6 +67,9 @@ class SessionManager extends EventEmitter {
       preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
       // Its latest finished work and whether you've looked (review-inbox.js): the review inbox.
       ready: review.restore(historyEntry?.ready),
+      // When it was carried on in a terminal (handoff.js): until it's picked up
+      // again, nothing is sent from here, or two processes would share it.
+      inTerminal: Number.isFinite(historyEntry?.inTerminal) ? historyEntry.inTerminal : null,
       activeAt: Date.now(),        // when it last sent or heard anything, for stopIdle()
       steers: [],                  // what the panel has queued for this turn's next step (steer())
       steeredIds: new Set(),       // ...and what of it has gone in already
@@ -93,6 +100,13 @@ class SessionManager extends EventEmitter {
       tab.preamble = null;
       tab.preambleSent = false;
       if (tab.saved) this.history.update(tab.id, { preamble: null });
+    }
+    // What the turn cost, in words the panel shows as they are.
+    if (item.kind === 'result' && item.cost) {
+      let share = null;
+      try { share = this.windowShare?.(item.cost.weight, tab) ?? null; } catch { /* no reading to go on: tokens and context still show */ }
+      const cost = { ...item.cost, share: Number.isFinite(share) ? share : null };
+      item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost) };
     }
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
@@ -129,6 +143,7 @@ class SessionManager extends EventEmitter {
     // Before anything below touches History or the turn: session.send would
     // refuse anyway, but only after a message Claude never saw was saved.
     if (tab.session.busy) throw new Error('Shellby is still working on the last task.');
+    if (tab.inTerminal) throw new Error(IN_TERMINAL);
     tab.activeAt = Date.now();
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
@@ -147,7 +162,7 @@ class SessionManager extends EventEmitter {
     // Who sent it: a routine's run, a workflow's step, a task you queued for
     // the reset, or you (main.js armGuard).
     tab.turnFrom = { routine: userItem.routine || null, workflow: userItem.workflow || null, queued: userItem.queued || null };
-    // What was asked, for its category in the per-turn ledger (turncost.js). Read once as the turn starts.
+    // What was asked, for its category in the per-turn ledger (usage-ledger.js). Read once as the turn starts.
     tab.turnText = typeof userItem.text === 'string' ? userItem.text : '';
     tab.outcome = null;
     // The note goes with the first real message (a /command must still start
@@ -201,6 +216,16 @@ class SessionManager extends EventEmitter {
     if (!tab || !t) return false;
     tab.title = t;
     if (tab.saved) this.history.rename(tab.id, t); else tab.named = true;
+    this.changed();
+    return true;
+  }
+
+  /** Mark a tab as carried on in a terminal (at: a time), or picked back up (null). */
+  setInTerminal(tabId, at) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return false;
+    tab.inTerminal = Number.isFinite(at) ? at : null;
+    if (tab.saved) this.history.update(tab.id, { inTerminal: tab.inTerminal });
     this.changed();
     return true;
   }
@@ -305,12 +330,14 @@ class SessionManager extends EventEmitter {
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
+      nudge: turncost.nudge(t.session.context, t.session.growths),
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
       // The last time Shellby ran its tests (wiring/checks.js): for anything that wants a verdict at a glance.
       checks: t.checks ? { status: t.checks.status, after: t.checks.after, at: t.checks.at } : null,
       // Its latest changes and whether you've reviewed them (review-inbox.js): the panel's review inbox.
       ready: t.ready ? { ...t.ready, paths: [...t.ready.paths] } : null,
+      inTerminal: t.inTerminal || null,
     }));
   }
 
@@ -345,4 +372,4 @@ function withPreamble(prompt, preamble) {
   return [{ type: 'text', text: preamble }, ...(Array.isArray(prompt) ? prompt : [{ type: 'text', text: String(prompt) }])];
 }
 
-module.exports = { SessionManager, MAX_TABS, withPreamble };
+module.exports = { SessionManager, MAX_TABS, IN_TERMINAL, withPreamble };

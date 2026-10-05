@@ -21,6 +21,15 @@
     return 'quiet';
   }
 
+  // What a working tab is up to: 'turn' while Claude is mid-reply, 'background'
+  // once the turn has ended but something it started (a backgrounded command, a
+  // background agent) is still running, null when nothing is.
+  function activity(t) {
+    if (t.busy) return 'turn';
+    if (t.crew) return 'background';
+    return null;
+  }
+
   const rank = s => STANDINGS.indexOf(s);
 
   // Every word has to appear in the title or the folder.
@@ -65,7 +74,7 @@
     };
   }
 
-  const api = { STANDINGS, TITLES, standing, toReview, matches, groups, closable, edges };
+  const api = { STANDINGS, TITLES, standing, toReview, activity, matches, groups, closable, edges };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyTabSort = api;
 })(typeof window !== 'undefined' ? window : globalThis);

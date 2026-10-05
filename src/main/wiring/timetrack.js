@@ -10,6 +10,7 @@ const ctx = require('../context');
 const { DEFAULT_PORT: HOOK_PORT, ExternalSessions } = require('../external');
 const flaky = require('../flaky');
 const focus = require('../focus');
+const workmode = require('../workmode');
 const gifts = require('../gifts');
 const { projectOf } = require('../gitinfo');
 const { FAKE_SCENARIOS } = require('../health/fake');
@@ -211,7 +212,7 @@ function wireTimetrack(d) {
     noted.then(() => d.clashTurnEnded?.(tabId), () => {});
     // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
     noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));
-    // What it cost, for estimates next time (turncost.js). Never worth losing the rest of the turn's end over.
+    // What it cost, for estimates next time (usage-ledger.js). Never worth losing the rest of the turn's end over.
     try { d.usagePlan?.endTurn(tab, item); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
     tab.guardRun = null;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
@@ -243,6 +244,9 @@ function wireTimetrack(d) {
       // failed turn's leftovers go with it).
       if (!item.waiting?.length) tab.session.stop().catch(() => {});
     }
+    // Work that got done with nobody at the keyboard, for the weekly card.
+    // A stopped run didn't get it done, so it isn't counted.
+    if ((routineId || waiting) && !item.interrupted && d.isAway()) d.noteAwayRun(item.durationMs, { held: !routineId });
     // Build it with Claude's test run ended: the editor's chat hands it back to Claude.
     if (d.routineTests.has(tabId)) d.send(d.panel, 'routines:test-run', d.routineTestView(tabId));
     d.noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
@@ -274,7 +278,7 @@ function wireTimetrack(d) {
       return;
     }
     notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
-      item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
+      item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.trouble?.message || item.error || 'Click for details.'),
       () => d.showPanel({ tabId }), { tone: item.ok ? 'default' : 'problem' });
   }
 
@@ -302,8 +306,10 @@ function wireTimetrack(d) {
   // alert) still come through.
   let toastArt; // undefined until the first notification, null if it couldn't be copied
   // tone picks the banner (toast.TONES); urgent ones default to 'alert'. action
-  // adds a button that does what clicking the notification does.
-  function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null } = {}) {
+  // adds a button that does what clicking the notification does. pet: a trophy,
+  // level or sticker, which Work mode leaves in the panel (workmode.js).
+  function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null, pet = false } = {}) {
+    if (pet && d.config && !workmode.behaviourOf(d.config).petToasts) return;
     if (!urgent && d.config && focus.guarding(d.config.get('focus'), Date.now())) {
       d.heldNotices = [...d.heldNotices, title].slice(-20);
       return;
@@ -354,7 +360,8 @@ function wireTimetrack(d) {
   // for after the usage reset (releaseMessage). Returns { ok, tabId, turnId,
   // item } or { ok: false, error }.
   function sendToTab(tabId, text, files) {
-    if (!d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
+    if (!d.claudeStatus?.installed) return { ok: false, error: "Shellby can't find Claude Code on this PC, so nothing was sent.", action: 'setup' };
+    if (!d.claudeStatus?.loggedIn) return { ok: false, error: 'Claude Code is signed out, so nothing was sent.', action: 'sign-in' };
     try {
       const tab = d.manager.tabs.get(tabId);
       if (!tab) return { ok: false, error: 'That conversation is closed.' };
@@ -393,6 +400,9 @@ function wireTimetrack(d) {
       getPanel: () => d.panel,
       confirm: spec => confirm.ask(d.panel, { ...d.dialogLook(), ...spec }),
       selfPids: () => app.getAppMetrics().map(m => m.pid),
+      // His own CPU and memory in Health; screenshot runs leave it out, so the
+      // pictures don't carry whatever the capturing PC happened to be doing.
+      appMetrics: d.CAPTURE ? null : () => app.getAppMetrics(),
       ownedPids: () => processJob.ownedPids(),
       fakeScenario: d.CAPTURE ? 'calm' : envFake,
       onMood: mood => { d.healthMood = mood; d.refreshCritter(); },

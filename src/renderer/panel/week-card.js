@@ -36,12 +36,12 @@
   // Anything worth a "What your plan bought you" panel: time counted, or a fix.
   const hasPlan = w => !!(w.plan && (w.plan.ms > 0 || w.plan.fixes > 0));
 
-  // The little extras worth a mention: deploys, releases, merges, clean audits, focus.
+  // The little extras worth a mention: deploys, releases, clean audits, focus.
+  // (Merged pull requests are in the week's work lines, weekly.js workLines.)
   function extras(c) {
     return [
       c.deploys ? `🚀 ${plural(c.deploys, 'deploy')}` : null,
       c.releases ? `🏷️ ${plural(c.releases, 'release')}` : null,
-      c.merges ? `🔀 ${plural(c.merges, 'merged PR', 'merged PRs')}` : null,
       c.checkups ? `🧼 ${plural(c.checkups, 'clean audit')}` : null,
       c.flaky ? `🎲 ${plural(c.flaky, 'flaky test')} caught` : null,
       c.flakeFixes ? `🩹 ${plural(c.flakeFixes, 'flaky test')} fixed` : null,
@@ -67,6 +67,18 @@
       if (ctx.measureText(line).width <= maxW || n === 1) return K.fitText(ctx, line, maxW, font);
     }
     return '';
+  }
+
+  // As many whole items as fit on the line, in order; the first is cut only when it alone won't fit.
+  function fitWhole(ctx, items, maxW, font) {
+    ctx.font = font;
+    let line = '';
+    for (const item of items) {
+      const next = line ? `${line}   ${item}` : item;
+      if (ctx.measureText(next).width > maxW) break;
+      line = next;
+    }
+    return line || K.fitText(ctx, items[0], maxW, font);
   }
 
   // "🦉 Night Owl   🔟 Ten Tasks" when the names fit, else just the icons and a count.
@@ -254,11 +266,13 @@
       ctx.textAlign = 'left';
     });
 
-    // Everything else, on one line above the footer.
-    const more = extras(c);
+    // The week's work (routines while you were away, pull requests, builds
+    // fixed, branches home), then the extras, on one line above the footer:
+    // whole items only, best first, as many as fit.
+    const more = [...(w.work || []).map(l => `${l.icon} ${l.text}`), ...extras(c)];
     if (more.length) {
       ctx.fillStyle = C.sandDim;
-      ctx.fillText(K.fitText(ctx, more.join('   '), colW, '17px "Atkinson Hyperlegible"'), x0, H - 84);
+      ctx.fillText(fitWhole(ctx, more, colW, '17px "Atkinson Hyperlegible"'), x0, H - 84);
     }
 
     await K.drawFooter(ctx);
@@ -321,7 +335,7 @@
 
   const share = () => K.present({
     kind: 'week', draw: render, buttons: '[data-share-week]', post: postText,
-    title: 'Your week', alt: 'Your week with Shellby: what your plan bought you (hours of Claude work, tasks finished, fixes that held, the weekly limit used), your streak, your top project, new trophies, what you shipped and XP for the last seven days',
+    title: 'Your week', alt: 'Your week with Shellby: what your plan bought you (hours of Claude work, tasks finished, fixes that held, the weekly limit used), your streak, your top project, new trophies, what you shipped, the week\'s work (routines that ran while you were away, pull requests, builds fixed, branches brought home) and XP for the last seven days',
   });
 
   // ------------------------------------------------------------ the Trophies & XP page
@@ -343,6 +357,7 @@
       c.tasks && !planned ? plural(c.tasks, 'task') + ' done' : null, // the plan's box says it already
       w.streak.current ? `🔥 ${w.streak.current}-day streak` : null,
       w.topProject?.tasks ? `most work in ${w.topProject.name}` : null,
+      ...(w.work || []).map(l => `${l.icon} ${l.text}`),
       ...w.trophies.map(t => `${t.icon} ${t.name}`),
       ...extras({ ...c, newStickers: 0 }), // the chips below already say which are new
     ].filter(Boolean);

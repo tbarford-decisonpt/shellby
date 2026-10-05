@@ -18,13 +18,14 @@ const { SETTINGS: PERCH_SETTINGS } = require('../perch');
 const { EFFORTS } = require('../session');
 const sounds = require('../sounds');
 const voice = require('../voice');
+const workmode = require('../workmode');
 
 /** d: what main shares with its IPC (main.js ipcDeps). */
 function registerSettingsIpc(ipcMain, d) {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -64,7 +65,7 @@ function registerSettingsIpc(ipcMain, d) {
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('checkTimeoutMin' in allowed && !TIMEOUTS_MIN.includes(allowed.checkTimeoutMin)) delete allowed.checkTimeoutMin;
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
@@ -82,9 +83,18 @@ function registerSettingsIpc(ipcMain, d) {
       const was = new Set(d.config.get('perchIgnore') || []);
       allowed.perchIgnore = Array.isArray(allowed.perchIgnore) ? allowed.perchIgnore.filter(x => d.isStr(x) && was.has(x)) : [...was];
     }
+    // Work mode lays its settings over yours rather than writing them (workmode.js):
+    // while it's on, a change to one of them is kept as Work mode's, not yours.
+    const asked = { ...allowed }; // what changes, as you see it (perch, pals…), wherever it's kept
+    const saving = workmode.write(d.config.data, allowed);
+    for (const k of Object.keys(allowed)) if (!(k in saving)) delete allowed[k];
+    Object.assign(allowed, saving);
+    const workSwitched = workmode.isOn(d.config.data) !== workmode.isOn({ ...d.config.data, ...allowed });
+    const eff = workmode.effective({ ...d.config.data, ...allowed });
+    const changed = k => k in asked || (workSwitched && workmode.KEYS.includes(k));
     // Told to stay down, he hops down off any window rather than freezing up there.
-    if (allowed.wander === false || allowed.perch === 'off') d.perching?.leave('off');
-    if (allowed.wander === false || allowed.climb === 'off') d.climbing?.leave();
+    if (allowed.wander === false || (changed('perch') && eff.perch === 'off')) d.perching?.leave('off');
+    if (allowed.wander === false || (changed('climb') && eff.climb === 'off')) d.climbing?.leave();
     if (allowed.wander === false && !d.perching?.isAway() && !d.climbing?.isAway()) d.motion?.stop(); // off a wall he lets go instead (above)
     const prevHotkey = d.config.get('hotkey');
     let hotkeyError = null;
@@ -107,7 +117,9 @@ function registerSettingsIpc(ipcMain, d) {
     if ('needsOn' in allowed && allowed.needsOn !== neededBefore) d.life?.needsSwitched(allowed.needsOn);
     if (allowed.pushToTalk === false) { d.ptt?.reset(); d.showListening(false); d.dictation?.stop(); }
     // Asked to hush, he stops mid-line rather than finishing it.
-    if (allowed.chatter === 'quiet') { d.said = null; d.refreshCritter(); }
+    if (changed('chatter') && !voice.hasHabits(eff.chatter)) { d.said = null; d.refreshCritter(); }
+    // In or out of Work mode: his needs pick up from now, and his look and the bars follow.
+    if (workSwitched) { d.life?.workModeSwitched(); d.refreshCritter(); }
     if (['sounds', 'soundFx', 'ambient', 'soundVolume'].some(k => k in allowed)) {
       d.refreshCritter(); // the new mix goes with his state
       // Switching a sound on, or changing the volume, plays a taste of it
@@ -128,8 +140,8 @@ function registerSettingsIpc(ipcMain, d) {
     if ('skin' in allowed) d.broadcastSkin();
     if ('onTop' in allowed) d.applyLayer();
     // Mischief on or off starts or stops its loop; pals and footprints open or close the floor strip.
-    if ('mischief' in allowed || 'mischiefPranks' in allowed) d.pranks?.sync();
-    if ('mischief' in allowed || 'mischiefPranks' in allowed || 'colony' in allowed) d.floor?.sync();
+    if (changed('mischief') || 'mischiefPranks' in allowed) d.pranks?.sync();
+    if (changed('mischief') || 'mischiefPranks' in allowed || changed('colony')) d.floor?.sync();
     if ('critterScale' in allowed) {
       const size = d.critterBaseSize();
       const b = d.critter.getBounds();

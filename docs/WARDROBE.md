@@ -37,6 +37,7 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 <p align="center"><img src="screenshot-week.png" width="380" alt="Trophies & XP → This week: tasks, streak, top project, trophies, ships, green tests, deploys and releases"></p>
 
 - **Trophies & XP → This week** sums up the last seven days: tasks done, your streak, your top project (the repo with the most finished tasks), new trophies, projects shipped, tests turned green, flaky tests fixed, deploys, releases and clean audits.
+- **The week's work** sits alongside, counted as it happens and only when it did: routines (and held messages) that ran while you were away and how long Claude worked on them ("Routines worked 3h 10m while you were away"), pull requests opened and merged, builds fixed (a pull request's checks back to green and staying there), branches brought home, and turns taken back with Rewind. It's what ran, not a guess at hours saved. The card has room for the best of these on one line; the Trophies page lists them all.
 - **📅 Share my week** makes a weekly crab card, with the week's stickers on his tank and XP for each day. Every Friday afternoon after a week with something done in it, Shellby hands you the card, ready to share. Projects you keep off your calling card stay off it.
 
 <p align="center"><img src="week-card.png" width="600" alt="A weekly crab card: projects shipped, XP for each day, the week's stickers and trophies"></p>

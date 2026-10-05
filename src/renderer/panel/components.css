@@ -88,9 +88,22 @@ body.reordering .tip { display: none; }
 .ti-ask { background: var(--amber); color: #2a1c02; animation: tipulse 1s ease-in-out infinite; }
 .ti-busy { width: 13px; min-width: 13px; height: 13px; padding: 0; border: 2px solid var(--coral); border-right-color: transparent; animation: spin .8s linear infinite; }
 .ti-busy b { display: none; }
+/* Background work still running after the turn ended: a faint ring with one dot
+   slowly orbiting it, so it reads as "still going" without passing for the
+   working spinner. Standing still (reduced motion) the dot still sets it apart. */
+.ti-bg {
+  position: relative; width: 13px; min-width: 13px; height: 13px; padding: 0;
+  border: 2px solid color-mix(in srgb, var(--coral) 30%, transparent);
+  animation: spin 2.4s linear infinite;
+}
+.ti-bg::before {
+  content: ""; position: absolute; top: -4px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px;
+  border-radius: 50%; background: var(--coral); box-shadow: 0 0 4px var(--coral);
+}
 .ti-ok { background: var(--glass); color: #06201b; }
 .ti-err { background: var(--danger); color: #fff; }
 .ti-routine { color: var(--glass); font-size: 12px; }
+.ti-term { color: var(--sand-dim); font-size: 10px; letter-spacing: -1px; }
 @keyframes tipulse { 50% { transform: scale(1.15); } }
 
 /* ---------------------------------------------------------------- lots of tabs (tab-overview.js)
@@ -611,6 +624,9 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
   border-left: 2px solid var(--amber); font-size: 12px; animation: fadein .18s var(--ease-out);
 }
 .crowded-text { flex: 1; min-width: 0; color: var(--amber); }
+/* Not crowded yet, just heading there: the same offer, said more quietly. */
+.crowded.soon { border-left-color: var(--glass); }
+.crowded.soon .crowded-text { color: var(--sand-dim); }
 .crowded .slim-btn { height: 26px; flex: none; }
 /* Usage forecast / at the limit: hold work for after the reset (outlook.js). */
 .outlook {

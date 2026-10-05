@@ -8,6 +8,7 @@ const { DEFAULT_THRESHOLDS, normalizeThresholds, askPrompt, rank, formatGb } = r
 const space = require('./space');
 const hogs = require('./hogs');
 const startup = require('./startup');
+const { FootprintTracker } = require('./footprint');
 
 const HEALTH_DEFAULTS = Object.freeze({
   enabled: true,   // watch at all
@@ -50,6 +51,7 @@ class HealthService {
    *   confirm(spec) -> index of the button chosen in the isolated confirm window
    *   selfPids() -> every PID of Shellby's own, which End task never touches
    *   ownedPids() -> Set of PIDs Shellby's tasks started and still have running
+   *   appMetrics() -> app.getAppMetrics(), for his own footprint (none: no footprint line)
    */
   constructor(deps) {
     this.deps = deps;
@@ -76,7 +78,10 @@ class HealthService {
     // loop: walking a cache is not something to do every five seconds.
     this.space = deps.spaceProbe || (fake ? createFakeSpace(fake) : space.createSpaceProbe());
     this.spaceSnapshot = null;
-    this.monitor.on('sample', snap => this.toPanel('health', { ...snap, settings: this.settings, space: this.spaceSnapshot }));
+    // His own CPU and memory, read on the monitor's beat: getAppMetrics() is a
+    // cheap call in main, with no process list to walk.
+    this.footprint = deps.appMetrics ? new FootprintTracker({ metrics: deps.appMetrics, panelOpen: () => this.panelOpen() }) : null;
+    this.monitor.on('sample', snap => this.toPanel('health', { ...snap, settings: this.settings, space: this.spaceSnapshot, self: this.self() }));
     this.monitor.on('mood', mood => deps.onMood(this.settings.moods ? mood : null));
     this.monitor.on('change', change => this.onChange(change));
     // readings() is the monitor's own list; this adds the one that doesn't come
@@ -104,6 +109,14 @@ class HealthService {
   }
   stop() { this.monitor.stop(); }
 
+  panelOpen() {
+    const panel = this.deps.getPanel();
+    return !!panel && !panel.isDestroyed() && panel.isVisible();
+  }
+
+  /** Shellby's own footprint (footprint.js), or null before it has two readings. */
+  self() { return this.footprint ? this.footprint.sample() : null; }
+
   toPanel(channel, payload) {
     const panel = this.deps.getPanel();
     if (panel && !panel.isDestroyed() && panel.isVisible()) this.deps.send(panel, channel, payload);
@@ -113,7 +126,7 @@ class HealthService {
     return {
       ...this.monitor.snapshot(),
       settings: this.settings, log: this.log, fake: !!this.sensors.fake,
-      space: this.spaceSnapshot,
+      space: this.spaceSnapshot, self: this.self(),
     };
   }
 

@@ -1,232 +1,189 @@
-// What each turn cost, so usage can plan itself. Every turn that ends leaves a
-// row: which project, what kind of ask it was (a fix, a review, a question…),
-// on which model, and how much of the 5-hour window it took. From those rows
-// estimate() says what a message you're typing usually costs, before you send
-// it, and whether it would carry you past the line you keep for yourself.
+// What a turn cost, and what a conversation has cost so far. On a Pro or Max
+// plan that isn't money: it's tokens, a share of the 5-hour window, and room in
+// the context window. Built from what Shellby already counts: each call's token
+// counts (stream.js spendFrom), the model-weighted spend ledger (spend.js) and
+// the 5-hour reading Claude Code reports (limits.js).
 //
-// The prompt itself is never kept: only its category and a size bucket. The
-// ledger stays on this PC (config.turnCosts) and Clear all history wipes it.
+// A turn's share of the 5-hour window is an estimate. Claude Code only says how
+// full the window is, in whole percents, so a turn's share is its part of what
+// Shellby spent in this window, times how full the window is. Claude used
+// outside Shellby fills the window too, so the estimate leans high, never low.
 //
-// Claude Code only reports how full the window is, so a turn's share comes two
-// ways: the rise in the 5-hour reading its own conversation reported while it
-// ran (pctRise, whole percent, may be null), and the model-weighted tokens it
-// spent (spend.js weightOf). Rows without a rise are turned into percent with
-// the weight-per-percent ratio the rows with both have shown.
-//
-// Pure: callers pass `now` (test/turncost.test.js).
+// Also when to nudge before a conversation gets crowded: the pace it's been
+// filling at says how many turns like the last few it has left.
+// Pure functions: no Electron, no I/O — see test/turncost.test.js.
 
-const DAY = 24 * 60 * 60 * 1000;
-const KEEP_MS = 60 * DAY;
-const MAX_ROWS = 2000;
-const MIN_SAMPLES = 3;     // fewer than this and a guess would only be noise
-const RECENT = 30;         // the newest rows of a tier are the ones that count
-const RATIO_ROWS = 200;    // rows with both a rise and a weight, for the weight→% ratio
-const WINDOW_SLACK_MS = 10 * 60 * 1000;
+const { CROWDED_PCT } = require('./context');
 
-const CATEGORIES = ['question', 'review', 'tests', 'fix', 'feature', 'refactor', 'docs', 'tidy', 'other'];
-const SIZES = ['s', 'm', 'l'];
-const KINDS = ['tab', 'routine', 'workflow'];
+// Past this, a conversation that will be crowded within SOON_TURNS gets a nudge.
+const SOON_PCT = 60;
+const SOON_TURNS = 2;
+const RECENT_TURNS = 3;  // the pace is the average growth of the last few turns
+const TOP_TURNS = 3;     // the costliest turns the context menu lists
 
-// First match wins, so the order settles "fix the failing test" (a fix) and
-// "review the docs" (a review).
-const RULES = [
-  ['review', /\b(review|look over|code review|audit|critique|sanity[- ]check|go over)\b/],
-  ['fix', /\b(fix(es|ed|ing)?|bug(s|gy)?|broken|crash(es|ing)?|error(s)?|fail(s|ing|ed|ure)?|debug|regression|doesn'?t work|not working|issue)\b/],
-  ['tests', /\b(tests?|testing|spec(s)?|coverage|unit test|e2e|jest|vitest|pytest)\b/],
-  ['refactor', /\b(refactor(ing)?|restructure|rename|extract|split (up|out)|clean ?up the code|simplify|reorgani[sz]e|move .* into)\b/],
-  ['docs', /\b(docs?|documentation|readme|changelog|comments?|docstrings?|jsdoc)\b/],
-  ['tidy', /\b(tidy|lint|format(ting)?|prettier|typos?|bump|upgrade|update (the )?dep(endencie)?s|sort|organi[sz]e|summari[sz]e|summary|commit|push)\b/],
-  ['feature', /\b(add|build|create|implement|make|new|support|write|introduce|feature|wire up)\b/],
-];
-const QUESTION = /^(what|why|how|where|when|who|which|is|are|does|do|can|could|should|would|explain|tell me|show me)\b/;
+const num = v => (Number.isFinite(v) && v > 0 ? v : 0);
+const USAGE_FIELDS = ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens'];
 
-/** What kind of ask a prompt is. Only this word is kept, never the prompt. */
-function classify(text) {
-  const t = String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  if (!t) return 'other';
-  const asked = QUESTION.test(t) || t.endsWith('?');
-  for (const [cat, re] of RULES) {
-    // A question about something ("why does this fail?") is still that something,
-    // but "how do I add…" or "what's new" is just a question.
-    if (re.test(t) && !(asked && cat === 'feature')) return cat;
+/**
+ * One call's usage after another event for the same call: Claude Code repeats
+ * a call's usage on each of its events, growing as it writes, so the larger of
+ * each count is the call so far.
+ */
+function mergeUsage(prev, next) {
+  const out = {};
+  for (const f of USAGE_FIELDS) out[f] = Math.max(num(prev?.[f]), num(next?.[f]));
+  return out;
+}
+
+/**
+ * Tokens over a turn's calls: { fresh, read }. fresh is what the turn sent and
+ * wrote for the first time (input, cache writes, output); read is what it
+ * re-read from the prompt cache, at a tenth of the price.
+ */
+function tokensOf(usages) {
+  let fresh = 0, read = 0;
+  for (const u of usages || []) {
+    fresh += num(u?.input_tokens) + num(u?.cache_creation_input_tokens) + num(u?.output_tokens);
+    read += num(u?.cache_read_input_tokens);
   }
-  return asked ? 'question' : 'other';
+  return { fresh, read };
 }
 
-/** A prompt's length as a bucket: short, medium or long. */
-function sizeOf(text) {
-  const n = String(text || '').length;
-  return n < 200 ? 's' : n < 1000 ? 'm' : 'l';
+/**
+ * A share of the 5-hour window, in percent, or null with nothing to go on.
+ * weight: what the turn (or tab) spent; windowWeight: everything Shellby spent
+ * in this window, the turn included; windowPct: how full the window is.
+ */
+function windowShare({ weight, windowWeight, windowPct }) {
+  if (!num(weight) || !Number.isFinite(windowPct) || windowPct < 0) return null;
+  const total = Math.max(num(windowWeight), weight);
+  return Math.min(windowPct, (weight / total) * windowPct);
 }
 
-/** 'claude-opus-4-8' -> 'opus', 'sonnet' -> 'sonnet'; '' when there's nothing to go on. */
-function modelFamily(id) {
-  const m = String(id || '').toLowerCase().match(/opus|sonnet|haiku|fable/);
-  return m ? m[0] : '';
+/**
+ * What one turn cost, as the result item carries it, or null for a turn that
+ * made no calls (a local command, one stopped before it started).
+ * turn: { usages, weight }; context: the conversation's reading after it.
+ */
+function turnCost(turn, context) {
+  const { fresh, read } = tokensOf(turn?.usages);
+  if (!fresh && !read) return null;
+  return { tokens: fresh, read, weight: num(turn?.weight), share: null, contextPct: Number.isFinite(context?.pct) ? context.pct : null };
 }
 
-const num = v => (Number.isFinite(v) && v >= 0 ? v : null);
-const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, n) : '');
-
-function cleanTokens(t) {
-  if (!t || typeof t !== 'object') return null;
-  const out = { input: num(t.input) || 0, output: num(t.output) || 0, cacheRead: num(t.cacheRead) || 0, cacheWrite: num(t.cacheWrite) || 0 };
-  return out.input + out.output + out.cacheRead + out.cacheWrite ? out : null;
+/** 18000 -> "18k", 1240000 -> "1.2M", as the panel's other counts read. */
+function compact(n) {
+  const v = num(n);
+  if (v >= 1e6) return `${(v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1).replace(/\.0$/, '')}k`;
+  return String(Math.round(v));
 }
 
-/** One row read from disk or handed in, cleaned, or null if it can't be used. */
-function normalizeRow(r) {
-  if (!r || typeof r !== 'object' || !Number.isFinite(r.at)) return null;
-  const weight = num(r.weight) || 0;
-  const pctRise = num(r.pctRise);
-  if (!weight && pctRise === null) return null;
+/** A share of the window in words: "<1%", "~3%". Always "~": it's an estimate. */
+const shareText = pct => (!Number.isFinite(pct) ? null : pct < 1 ? '<1%' : `~${Math.round(pct)}%`);
+
+/** "this turn: 18k tokens · ~3% of your 5-hour window · 41% of context" */
+function costLine(cost) {
+  if (!cost) return '';
+  const share = shareText(cost.share);
+  return [
+    `this turn: ${compact(cost.tokens)} tokens`,
+    share ? `${share} of your 5-hour window` : null,
+    Number.isFinite(cost.contextPct) ? `${cost.contextPct}% of context` : null,
+  ].filter(Boolean).join(' · ');
+}
+
+/** The longer version, for the line's tooltip: what each number means. */
+function costDetail(cost) {
+  if (!cost) return '';
+  return [
+    `${cost.tokens.toLocaleString('en-GB')} new tokens: what this turn sent and Claude wrote.`,
+    cost.read ? `Plus ${compact(cost.read)} re-read from the prompt cache, at a tenth of the price.` : null,
+    Number.isFinite(cost.share) ? 'The share of your 5-hour window is an estimate: Claude Code only says how full the window is, and Claude used outside Shellby fills it too.' : null,
+  ].filter(Boolean).join('\n');
+}
+
+const PROMPT_CHARS = 60;
+const promptOf = text => {
+  const t = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim() : '';
+  return t.length > PROMPT_CHARS ? `${t.slice(0, PROMPT_CHARS - 1)}…` : t;
+};
+
+/**
+ * A conversation's turns from its transcript: [{ turnId, prompt, tokens, read,
+ * weight, share }] in order, each result with a cost paired with the message
+ * that started it. A turn with no message id (an old transcript) has turnId null.
+ */
+function turnsOf(items) {
+  const out = [];
+  let turnId = null, prompt = '';
+  for (const it of Array.isArray(items) ? items : []) {
+    if (it?.kind === 'user') {
+      turnId = typeof it.turnId === 'string' ? it.turnId : null;
+      prompt = promptOf(it.text);
+    }
+    if (it?.kind !== 'result' || !it.cost || typeof it.cost !== 'object') continue;
+    out.push({ turnId, prompt, tokens: num(it.cost.tokens), read: num(it.cost.read), weight: num(it.cost.weight), share: Number.isFinite(it.cost.share) ? it.cost.share : null });
+  }
+  return out;
+}
+
+/** The n costliest turns, by weight (what fills the window), then tokens. */
+function topTurns(turns, n = TOP_TURNS) {
+  return [...(turns || [])]
+    .filter(t => t.weight || t.tokens)
+    .sort((a, b) => b.weight - a.weight || b.tokens - a.tokens)
+    .slice(0, n);
+}
+
+/** { tokens, read, turns, top } over a conversation's transcript. */
+function tabTotal(items) {
+  const turns = turnsOf(items);
   return {
-    at: r.at,
-    pk: clip(r.pk, 400).toLowerCase() || null,
-    project: clip(r.project, 80) || null,
-    model: clip(r.model, 60),
-    category: CATEGORIES.includes(r.category) ? r.category : 'other',
-    size: SIZES.includes(r.size) ? r.size : 's',
-    kind: KINDS.includes(r.kind) ? r.kind : 'tab',
-    rid: typeof r.rid === 'string' && /^[\w-]{1,64}$/.test(r.rid) ? r.rid : null,
-    weight: Math.round(weight),
-    pctRise,
-    durationMs: num(r.durationMs),
-    turns: num(r.turns),
-    tokens: cleanTokens(r.tokens),
-    ok: r.ok !== false,
+    tokens: turns.reduce((s, t) => s + t.tokens, 0),
+    read: turns.reduce((s, t) => s + t.read, 0),
+    turns: turns.length,
+    top: topTurns(turns),
   };
 }
 
-/** Whatever was saved, as rows oldest first, within the last 60 days and the cap. */
-function normalize(raw, now) {
-  return (Array.isArray(raw) ? raw : []).map(normalizeRow).filter(r => r && now - r.at < KEEP_MS)
-    .sort((a, b) => a.at - b.at).slice(-MAX_ROWS);
+/** Recent context growth per turn, newest last, for the pace: add one turn's rise. */
+function addGrowth(growths, before, after) {
+  const list = Array.isArray(growths) ? growths : [];
+  if (!Number.isFinite(before) || !Number.isFinite(after) || after <= before) return list;
+  return [...list, after - before].slice(-RECENT_TURNS);
 }
 
-/** The ledger plus one turn's row (a new array; old rows pruned, capped). */
-function record(ledger, row, now) {
-  const kept = (Array.isArray(ledger) ? ledger : []).filter(r => now - r.at < KEEP_MS);
-  const clean = normalizeRow({ ...row, at: now });
-  return (clean ? [...kept, clean] : kept).slice(-MAX_ROWS);
+/** Turns like the last few until the crowded mark: 0 when there already, null with no pace. */
+function turnsLeft(context, growths) {
+  if (!num(context?.tokens) || !num(context?.window)) return null;
+  const room = (CROWDED_PCT / 100) * context.window - context.tokens;
+  if (room <= 0) return 0;
+  const recent = (growths || []).filter(num);
+  if (!recent.length) return null;
+  const pace = recent.reduce((s, g) => s + g, 0) / recent.length;
+  return Math.ceil(room / pace);
 }
 
 /**
- * How far the 5-hour window rose between two readings ({ pct, resetsAt }),
- * or null with nothing to compare. A new window starts from nothing, so all
- * of its level is the rise; resets a few minutes apart are the same window.
+ * The nudge above the box, or null: 'soon' when a conversation past SOON_PCT
+ * will be crowded within a couple of turns at its pace, 'crowded' past the mark.
+ * One nudge, worded for where it is, so there's never a second warning.
  */
-function riseOf(prev, next) {
-  if (!prev || !next || !Number.isFinite(prev.pct) || !Number.isFinite(next.pct)) return null;
-  const same = Number.isFinite(prev.resetsAt) && Number.isFinite(next.resetsAt)
-    ? Math.abs(prev.resetsAt - next.resetsAt) < WINDOW_SLACK_MS
-    : next.pct >= prev.pct;
-  return same ? Math.max(0, next.pct - prev.pct) : next.pct;
-}
-
-/** Percent of the window per unit of weight, from rows that have both; null without enough. */
-function ratioOf(ledger) {
-  const both = ledger.filter(r => r.pctRise !== null && r.weight > 0).slice(-RATIO_ROWS);
-  if (both.length < MIN_SAMPLES) return null;
-  const pct = both.reduce((n, r) => n + r.pctRise, 0);
-  const weight = both.reduce((n, r) => n + r.weight, 0);
-  return pct > 0 && weight > 0 ? pct / weight : null;
-}
-
-/** What one row cost as % of the window, or null when it can't be said. */
-function pctOf(row, ratio) {
-  if (row.pctRise !== null) return row.pctRise;
-  return ratio !== null && row.weight > 0 ? row.weight * ratio : null;
-}
-
-/** The p-th quantile (0..1) of sorted numbers, interpolated. */
-function quantile(sorted, p) {
-  if (!sorted.length) return null;
-  const i = (sorted.length - 1) * p;
-  const lo = Math.floor(i);
-  const hi = Math.ceil(i);
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
-}
-
-const round1 = n => Math.round(n * 10) / 10;
-
-/**
- * What a turn like this usually costs. query: { pk, category, model, now }.
- * -> { pct, low, high, samples, basis } where pct is the median % of the
- * 5-hour window and low/high the middle half. basis says what it's drawn
- * from: 'project+kind' (this project, this kind of ask), 'project', 'kind'
- * (this kind of ask anywhere), or 'none' (fewer than 3 to go on).
- * Within a tier, rows on the same model family are preferred when there are enough.
- */
-function estimate(ledger, { pk = null, category = 'other', model = '', now = Date.now() } = {}) {
-  const rows = (Array.isArray(ledger) ? ledger : []).filter(r => now - r.at < KEEP_MS && r.ok !== false);
-  const ratio = ratioOf(rows);
-  const key = pk ? String(pk).toLowerCase() : null;
-  const family = modelFamily(model);
-  const tiers = [
-    ['project+kind', r => !!key && r.pk === key && r.category === category],
-    ['project', r => !!key && r.pk === key],
-    ['kind', r => r.category === category],
-  ];
-  for (const [basis, match] of tiers) {
-    let costs = rows.filter(match).map(r => ({ r, pct: pctOf(r, ratio) })).filter(x => x.pct !== null);
-    const same = family ? costs.filter(x => modelFamily(x.r.model) === family) : [];
-    if (same.length >= MIN_SAMPLES) costs = same;
-    if (costs.length < MIN_SAMPLES) continue;
-    const sorted = costs.slice(-RECENT).map(x => x.pct).sort((a, b) => a - b);
-    return {
-      pct: round1(quantile(sorted, 0.5)), low: round1(quantile(sorted, 0.25)), high: round1(quantile(sorted, 0.75)),
-      samples: sorted.length, basis,
-    };
+function nudge(context, growths) {
+  const pct = context?.pct;
+  if (!Number.isFinite(pct) || pct < SOON_PCT) return null;
+  if (pct >= CROWDED_PCT) {
+    return { level: 'crowded', text: `Getting crowded: ${pct}% full. Making room now keeps the replies sharp.` };
   }
-  return { pct: null, low: null, high: null, samples: 0, basis: 'none' };
-}
-
-/**
- * Would this estimate carry the 5-hour window past the line? The line is
- * 100 − reserve with the spending guard on (guard.js), else 100. usage is the
- * last reading (limits.js shape); a reading for a window already reset says
- * nothing. -> { over, line, now: current %, left, resetsAt } (over false, the
- * rest null, without a current reading).
- */
-function advise(est, usage, { on = true, reserve = 25 } = {}, now = Date.now()) {
-  const w = usage?.fiveHour;
-  const line = on ? 100 - reserve : 100;
-  if (!w || !Number.isFinite(w.pct) || !Number.isFinite(w.resetsAt) || w.resetsAt <= now) return { over: false, line, now: null, left: null, resetsAt: null };
-  const left = Math.max(0, line - w.pct);
-  const over = est?.basis !== 'none' && Number.isFinite(est?.pct) && est.pct > 0 && w.pct + est.pct > line;
-  return { over, line, now: w.pct, left, resetsAt: w.resetsAt };
-}
-
-/**
- * Should a message be held for the reset instead of sent? Only when you've
- * asked for it, there's an estimate to go on, it would cross the line, and
- * it's yours: routines and workflows have the spending guard instead.
- */
-function shouldHold({ enabled, estimate: est, advice, kind = 'tab' }) {
-  return !!enabled && kind === 'tab' && est?.basis !== 'none' && !!advice?.over;
-}
-
-/**
- * A suggestion for a routine on a top model whose runs are small: 'sonnet'
- * (say "Runs like this usually suit Sonnet"), or null. Never changes anything.
- * routine: { id, model }; defaultModel: what '' means today (config.model).
- */
-const SMALL_RUN_PCT = 3;
-function routineSuggestion(ledger, routine, defaultModel = '', now = Date.now()) {
-  if (!routine?.id) return null;
-  const family = modelFamily(routine.model || defaultModel);
-  // '' with no default set is Claude Code's own pick, which is usually the top model.
-  if (family && family !== 'opus' && family !== 'fable') return null;
-  const rows = (Array.isArray(ledger) ? ledger : []).filter(r => r.rid === routine.id && now - r.at < KEEP_MS);
-  const ratio = ratioOf(Array.isArray(ledger) ? ledger : []);
-  const costs = rows.map(r => pctOf(r, ratio)).filter(p => p !== null);
-  if (costs.length < MIN_SAMPLES) return null;
-  const mean = costs.reduce((n, p) => n + p, 0) / costs.length;
-  return mean <= SMALL_RUN_PCT ? 'sonnet' : null;
+  const left = turnsLeft(context, growths);
+  if (left === null || left > SOON_TURNS) return null;
+  const turns = left <= 1 ? 'a turn' : `${left} turns`;
+  return { level: 'soon', text: `Filling up: ${pct}% full, about ${turns} from crowded at this pace.` };
 }
 
 module.exports = {
-  classify, sizeOf, modelFamily, normalize, normalizeRow, record, riseOf, ratioOf, estimate, advise, shouldHold,
-  routineSuggestion, quantile, CATEGORIES, KEEP_MS, MAX_ROWS, MIN_SAMPLES, SMALL_RUN_PCT,
+  mergeUsage, tokensOf, windowShare, turnCost, compact, shareText, costLine, costDetail,
+  turnsOf, topTurns, tabTotal, addGrowth, turnsLeft, nudge,
+  SOON_PCT, SOON_TURNS, RECENT_TURNS, TOP_TURNS,
 };

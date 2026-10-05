@@ -200,6 +200,10 @@ body:not([data-view="chat"]) .subbar { display: none; }
   border: 0; background: none; text-align: left; padding: 8px 9px; border-radius: var(--r-sm);
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--reef-2); outline: none; }
+/* The context chip's costliest turns: what you asked, and what it took. */
+.menu-item.cost-turn { align-items: center; padding: 5px 9px; font-size: 12.5px; max-width: 300px; }
+.menu-item.cost-turn .usage-name { flex: 1; min-width: 0; }
+.menu-item.cost-turn .usage-share { flex: none; }
 .menu-item:disabled { cursor: default; opacity: .55; }
 .menu-item:disabled:hover { background: none; }
 .menu-item .mi-title { font-weight: 700; font-size: 13px; }
@@ -484,6 +488,13 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .meta::before, .meta::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
 .meta.bad { color: var(--danger); }
 .meta.waiting { color: var(--amber); }
+/* What the turn cost, under its meta line: there to read, never to shout. */
+.meta.has-cost { margin-bottom: 2px; }
+.turn-cost {
+  margin: 0 0 18px; text-align: center; color: var(--sand-faint);
+  font: 500 10.5px var(--font-mono); font-stretch: 88%; border-radius: var(--r-sm);
+}
+.turn-cost.flash { background: var(--reef-2); color: var(--sand); }
 /* ---------------------------------------------------------------- idle cost
    An open panel spends most of a core on animation (scripts/idle-cost.js), and
    most of that while nobody is watching. `calm` (the window isn't focused)
@@ -515,6 +526,10 @@ body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation:
   background: rgba(255, 90, 74, .1); border: 1px solid rgba(255, 90, 74, .4); color: #ffc2bb;
   font: 11.5px/1.55 var(--font-mono); font-stretch: 88%; white-space: pre-wrap;
 }
+/* A sentence and a next step (feed.js troubleBlock), in body text rather than the program's mono. */
+.error-block.trouble { display: grid; gap: 8px; font: 13px/1.45 var(--font-body); font-stretch: normal; white-space: normal; }
+.trouble-text { margin: 0; }
+.trouble-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ================================================================ composer */
 .composer { padding: 8px 12px 10px; border-top: 1px solid var(--line-soft); background: linear-gradient(rgba(7, 16, 18, 0), var(--abyss)); }
@@ -747,6 +762,14 @@ select.field option { background: var(--reef); }
 .history-tick { border: 0; background: none; color: var(--sand-faint); padding: 0 11px; font-size: 13px; }
 .history-tick:hover { color: var(--glass); background: var(--glass-dim); }
 .history-tick[aria-pressed="true"] { color: var(--glass); }
+/* Continue in a terminal: shown on hover, like Rename. */
+.history-term { border: 0; background: none; color: var(--sand-faint); padding: 0 10px; font: 700 11px var(--font-mono); letter-spacing: -1px; opacity: 0; transition: opacity .12s; }
+.history-item:hover .history-term, .history-term:focus-visible { opacity: 1; }
+.history-term:hover { color: var(--sand); background: var(--reef-3); }
+.h-term { color: var(--sand-dim); }
+/* The note where a conversation went to a terminal, with its way back. */
+.handoff-mark { align-items: center; }
+.handoff-mark .handoff-pick { margin-left: auto; flex: none; }
 /* Recently deleted: a quiet way in under the list, a bar on top once inside. */
 .history-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .history-foot .history-note { flex: 1 1 auto; margin: 0; }

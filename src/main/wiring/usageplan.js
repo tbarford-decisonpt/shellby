@@ -1,9 +1,9 @@
 // Usage that plans itself: each turn's cost goes in a small ledger as it ends
-// (turncost.js), and the panel asks what a message usually costs while you
+// (usageLedger.js), and the panel asks what a message usually costs while you
 // type it. Kept out of main.js, which only wires it up. Nothing here leaves
 // the PC, and the prompt itself is never kept, only its category.
 const guard = require('../guard');
-const turncost = require('../turncost');
+const usageLedger = require('../usage-ledger');
 
 const SAVE_DELAY_MS = 5000;   // turns end in bursts (a workflow's steps); one write when they settle
 
@@ -17,7 +17,7 @@ function wireUsagePlan(d) {
   // down to the conversation that reported it (as recap.js does).
   let lastReading;
 
-  const rows = () => (ledger ??= turncost.normalize(d.config.get('turnCosts'), Date.now()));
+  const rows = () => (ledger ??= usageLedger.normalize(d.config.get('turnCosts'), Date.now()));
 
   /** A turn is starting (sessions prepareTurn): note what kind of ask it is. */
   function beginTurn(tab) {
@@ -28,7 +28,7 @@ function wireUsagePlan(d) {
     if (tab.costedTurn === tab.turnId || open.get(tab.id)?.turnId === tab.turnId) return;
     open.set(tab.id, {
       turnId: tab.turnId, startedAt: Date.now(),
-      category: turncost.classify(text), size: turncost.sizeOf(text),
+      category: usageLedger.classify(text), size: usageLedger.sizeOf(text),
       weight: 0, rise: 0, sawUsage: false,
     });
   }
@@ -44,7 +44,7 @@ function wireUsagePlan(d) {
     const w = item?.fiveHour;
     if (!w || !Number.isFinite(w.pct)) return;
     if (lastReading === undefined) lastReading = d.config.get('lastUsage')?.fiveHour || null;
-    const rise = turncost.riseOf(lastReading, w);
+    const rise = usageLedger.riseOf(lastReading, w);
     lastReading = { pct: w.pct, resetsAt: w.resetsAt };
     const t = open.get(tabId);
     if (t && rise !== null) {
@@ -61,7 +61,7 @@ function wireUsagePlan(d) {
     tab.costedTurn = t.turnId;
     if (result?.interrupted || d.CAPTURE) return;
     const src = d.spendSource(tab);
-    ledger = turncost.record(rows(), {
+    ledger = usageLedger.record(rows(), {
       pk: src.pk, project: src.project, kind: src.kind, rid: tab.routineId || null,
       model: tab.session?.lastModel || tab.session?.model || d.config.get('model') || '',
       category: t.category, size: t.size,
@@ -88,7 +88,7 @@ function wireUsagePlan(d) {
   }
 
   /**
-   * What a message usually costs, for the composer: the estimate (turncost.js)
+   * What a message usually costs, for the composer: the estimate (usageLedger.js)
    * plus whether it would cross the line and whether to hold it for you.
    * -> { pct, low, high, samples, basis, category, project, over, line, nowPct,
    *      left, guardOn, resetsAt, hold }
@@ -98,21 +98,21 @@ function wireUsagePlan(d) {
     const tab = tabId ? d.manager?.tabs.get(tabId) : null;
     const src = tab ? d.spendSource(tab) : d.projectKeyOf(d.currentCwd());
     const model = tab?.session?.lastModel || tab?.session?.model || d.config.get('model') || '';
-    const category = turncost.classify(text);
-    const est = turncost.estimate(rows(), { pk: src.pk, category, model, now });
+    const category = usageLedger.classify(text);
+    const est = usageLedger.estimate(rows(), { pk: src.pk, category, model, now });
     const settings = guard.settingsOf(k => d.config.get(k));
-    const advice = turncost.advise(est, d.config.get('lastUsage'), settings, now);
+    const advice = usageLedger.advise(est, d.config.get('lastUsage'), settings, now);
     const kind = tab?.routineId ? 'routine' : tab?.workflowRunId ? 'workflow' : 'tab';
     return {
       ...est, category, project: src.project,
       over: advice.over, line: advice.line, nowPct: advice.now, left: advice.left, guardOn: settings.on, resetsAt: advice.resetsAt,
-      hold: turncost.shouldHold({ enabled: d.config.get('holdBigTasks') === true, estimate: est, advice, kind }),
+      hold: usageLedger.shouldHold({ enabled: d.config.get('holdBigTasks') === true, estimate: est, advice, kind }),
     };
   }
 
   /** A suggestion for the routine editor: 'sonnet' when its runs are small for the model it's on, else null. */
   function routineSuggestion(routine) {
-    return turncost.routineSuggestion(rows(), routine, d.config.get('model') || '', Date.now());
+    return usageLedger.routineSuggestion(rows(), routine, d.config.get('model') || '', Date.now());
   }
 
   return { beginTurn, onSpend, onUsage, endTurn, save, clear, estimateFor, routineSuggestion };

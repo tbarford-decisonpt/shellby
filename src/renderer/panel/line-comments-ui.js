@@ -8,12 +8,13 @@
  * goes with them as an overall note.
  *
  * Kept per conversation in localStorage until sent, so a restart doesn't lose a
- * half-finished review. Nothing here talks to main: the diff is read as before,
- * and the review goes out through SB.send like anything you type (so it queues
- * if Shellby is busy). */
+ * half-finished review. The diff is read as before, and the review goes out
+ * through SB.send like anything you type (so it queues if Shellby is busy).
+ * Once sent, its comments are passed to main as corrections (corrections.js),
+ * so the same one twice can become a rule in CLAUDE.md (lessons.js). */
 'use strict';
 (function () {
-  const { h, $ } = SB;
+  const { h, $, api } = SB;
   const R = window.ShellbyLineComments;
   const STORE = 'shellby.lineComments.v1';
   const DISARM_MS = 4000;
@@ -301,6 +302,8 @@
     // Only what went: a comment added while it was sending waits for the next review.
     // What went is still shown where it was left, marked sent, until the panel reloads.
     const ids = new Set(list.map(c => c.id));
+    // Each comment is a correction: the same one in two reviews and he offers to make it a rule.
+    api.noteReviewComments(tab.id, list.map(c => ({ file: c.file, body: c.body })), list[0].id).catch(() => {});
     tab.sentReview = [...(tab.sentReview || []), ...list];
     setComments(tab, commentsOf(tab).filter(c => !ids.has(c.id)));
   }

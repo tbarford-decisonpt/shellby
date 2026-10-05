@@ -223,6 +223,25 @@ test('friends: a visit signs the guestbook, leaves a souvenir, and the visitor l
   f.stop();
 });
 
+test('friends: in Work mode nobody drops in on their own, but an invite still works', async () => {
+  const world = fakeGitHub('sam');
+  await publishCard(world.gh.as('alex'), { ...looks(), login: 'alex', updatedAt: 1e12 }, null);
+  const { config } = service({ world });
+  const github = { can: () => true, signedIn: true, gh: () => world.gh.as('sam'), view: () => ({ login: 'sam', name: 'Sam' }) };
+  let work = true;
+  const f = new Friends({ config, github, myCard: () => looks(), now: () => 1e12, rand: () => 0, dropIns: () => !work });
+  await f.add('alex');
+  await f.tick();
+  assert.equal(f.view().visiting, null);
+  work = false;
+  await f.tick();
+  assert.equal(f.view().visiting?.login, 'alex', 'out of Work mode, the drop-in comes');
+  f.leave();
+  work = true;
+  assert.equal(f.invite('alex').ok, true);
+  f.stop();
+});
+
 test('friends: drop-ins wait their turn and skip stale cards', () => {
   const now = 1e12;
   const card = { ...cleanCard(looks()), updatedAt: now - 1000 };

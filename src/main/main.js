@@ -31,6 +31,7 @@ const focus = require('./focus');
 const rooms = require('./rooms');
 const limits = require('./limits');
 const spend = require('./spend');
+const turncost = require('./turncost');
 const { createLean } = require('./lean');
 const { createSkillRemover } = require('./skillremove');
 const recap = require('./recap');
@@ -46,6 +47,7 @@ const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
 const weekly = require('./weekly');
+const workmode = require('./workmode');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
 const { Log } = require('./log');
@@ -79,10 +81,14 @@ const { wireUsagePlan } = require('./wiring/usageplan');
 const { wireTries } = require('./wiring/tries');
 const { wireChecks } = require('./wiring/checks');
 const { wireShots } = require('./wiring/shots');
+const { wireCorrections } = require('./wiring/corrections');
+const { wireHandoff } = require('./wiring/handoff');
+const { wireStartFrom } = require('./wiring/startfrom');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
 const { registerTabsIpc } = require('./ipc/tabs');
+const { registerHandoffIpc } = require('./ipc/handoff');
 const { registerRepoIpc } = require('./ipc/repo');
 const { registerSettingsIpc } = require('./ipc/settings');
 const { registerToolboxIpc } = require('./ipc/toolbox');
@@ -91,6 +97,8 @@ const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
 const { registerTriesIpc } = require('./ipc/tries');
+const { registerCorrectionsIpc } = require('./ipc/corrections');
+const { registerStartFromIpc } = require('./ipc/startfrom');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -289,13 +297,13 @@ let focusTick = null;
 // only declared further down. A setter is there only where a module changes it.
 const shared = {
   applyHotkey, applyLoginItem, armCopy, armGuard, changeRef, chatRoutine, checkAway, checkGuards,
-  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, leaveCheck,
+  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, isAway, leaveCheck,
   moveIntoCopy, noteRecap, onSpend, onUsage, outlookView, panelSettings, placeStickers,
   projectKeyOf, proposeRoutine, queueTask, spendSource, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
   repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
   saveCritterPos, saveHeld, saveRoutines, saveStreaks, send, sendOutlook, setCrewSlots,
   setPanelRoomy, shellStickers, shipped, shippedMerge, showPanel, streaksView, syncKeepAwake,
-  testRoutine, togglePanel, updateRoutine, usageBreakdown,
+  tabCost, testRoutine, togglePanel, updateRoutine, usageBreakdown, windowShare,
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
   get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
@@ -325,6 +333,7 @@ const shared = {
   get TOY_PRELOAD() { return TOY_PRELOAD; },
   get TRICKS_KIND() { return TRICKS_KIND; },
   get activeSkin() { return activeSkin; },
+  get addLesson() { return addLesson; },
   get advanceFocus() { return advanceFocus; },
   get afterTurnChecks() { return afterTurnChecks; },
   get allSkins() { return allSkins; },
@@ -358,6 +367,7 @@ const shared = {
   get clashTabsChanged() { return clashTabsChanged; },
   get clashTurnEnded() { return clashTurnEnded; },
   get clashesView() { return clashesView; },
+  get changeLearned() { return changeLearned; },
   get ci() { return ci; }, set ci(v) { ci = v; },
   get ciView() { return ciView; },
   get claudeConfigDir() { return claudeConfigDir; },
@@ -379,6 +389,7 @@ const shared = {
   get confirmAndUninstallPlugin() { return confirmAndUninstallPlugin; },
   get confirmChannelPlace() { return confirmChannelPlace; },
   get confirmGitHubFeature() { return confirmGitHubFeature; },
+  get correctionFromTurns() { return correctionFromTurns; },
   get crashConsent() { return crashConsent; },
   get crewExtra() { return crewExtra; },
   get crewShown() { return crewShown; },
@@ -391,7 +402,9 @@ const shared = {
   get devServers() { return devServers; }, set devServers(v) { devServers = v; },
   get dialogLook() { return dialogLook; },
   get dictation() { return dictation; }, set dictation(v) { dictation = v; },
+  get dismissLesson() { return dismissLesson; },
   get draftHook() { return draftHook; },
+  get draftLesson() { return draftLesson; },
   get dragging() { return dragging; }, set dragging(v) { dragging = v; },
   get drainCrashQueue() { return drainCrashQueue; },
   get editStickers() { return editStickers; },
@@ -418,6 +431,8 @@ const shared = {
   get friendsView() { return friendsView; },
   get gateHome() { return gateHome; },
   get github() { return github; }, set github(v) { github = v; },
+  get handoff() { return handoff; },
+  get githubEndpoints() { return githubEndpoints; },
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
   get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
@@ -440,12 +455,17 @@ const shared = {
   get lastStatus() { return lastStatus; }, set lastStatus(v) { lastStatus = v; },
   get lastXp() { return lastXp; }, set lastXp(v) { lastXp = v; },
   get lean() { return lean; },
+  get learnedView() { return learnedView; },
   get leaveVerdict() { return leaveVerdict; },
   get levelUpAt() { return levelUpAt; }, set levelUpAt(v) { levelUpAt = v; },
+  get lessonPreview() { return lessonPreview; },
+  get lessonState() { return lessonState; },
   get life() { return life; }, set life(v) { life = v; },
   get limitWait() { return limitWait; },
   get linkBusy() { return linkBusy; }, set linkBusy(v) { linkBusy = v; },
   get log() { return log; },
+  get looseEndDraft() { return looseEndDraft; },
+  get looseEnds() { return looseEnds; },
   get longTaskTimer() { return longTaskTimer; }, set longTaskTimer(v) { longTaskTimer = v; },
   get makeIssueCopy() { return makeIssueCopy; },
   get manager() { return manager; }, set manager(v) { manager = v; },
@@ -456,10 +476,13 @@ const shared = {
   get motion() { return motion; }, set motion(v) { motion = v; },
   get motionBox() { return motionBox; },
   get musicHeadphones() { return musicHeadphones; },
+  get noteAwayRun() { return noteAwayRun; },
   get noteFix() { return noteFix; },
+  get noteCorrection() { return noteCorrection; },
   get noteRed() { return noteRed; },
   get noteSnippetUse() { return noteSnippetUse; },
   get noteTestRun() { return noteTestRun; },
+  get noteWeek() { return noteWeek; },
   get noteWorkTime() { return noteWorkTime; },
   get notify() { return notify; },
   get nowPlaying() { return nowPlaying; }, set nowPlaying(v) { nowPlaying = v; },
@@ -544,6 +567,7 @@ const shared = {
   get shotsBeforeTurn() { return shotsBeforeTurn; },
   get shotsDir() { return shotsDir; },
   get showFlaky() { return showFlaky; },
+  get showBuildFix() { return showBuildFix; },
   get showHealth() { return showHealth; },
   get showListening() { return showListening; },
   get showServer() { return showServer; },
@@ -554,6 +578,8 @@ const shared = {
   get soundMix() { return soundMix; },
   get speak() { return speak; },
   get startFocus() { return startFocus; },
+  get startFromDraft() { return startFromDraft; },
+  get startFromSend() { return startFromSend; },
   get startTask() { return startTask; },
   get startTaskInCopy() { return startTaskInCopy; },
   get setPhoneTasks() { return setPhoneTasks; },
@@ -609,7 +635,7 @@ const {
 } = wireSessions(shared);
 const {
   awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-  knownFolder, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
+  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
   runCheckup, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
 const {
@@ -653,6 +679,7 @@ const {
   serversOnQuit, showServer, startTaskInCopy,
 } = wireProjects(shared);
 const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
+const { looseEndDraft, looseEnds, showBuildFix, startFromDraft, startFromSend } = wireStartFrom(shared);
 const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
@@ -662,6 +689,11 @@ const usagePlan = wireUsagePlan(shared);
 const { afterTurnChecks, cancelAllChecks, cancelChecks, checkTry, checksOn, gateHome, runChecksFor } = wireChecks(shared);
 const tries = wireTries(shared); // Try it N ways: only ever from tries:start, after asking
 const { shotImage, shotsAfterTurn, shotsBeforeTurn } = wireShots(shared);
+const {
+  addLesson, changeLearned, correctionFromTurns, createCorrections, dismissLesson, draftLesson,
+  learnedView, lessonPreview, lessonState, noteCorrection,
+} = wireCorrections(shared);
+const handoff = wireHandoff(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -672,6 +704,10 @@ const AWAY_POLL_MS = 60 * 1000;
 const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
 let recapLog = [];
 let away = { since: null };
+
+// Stepped away (idle or locked) as of the last reading: the weekly card's
+// "routines worked … while you were away" counts runs that finish now.
+function isAway() { return away.since !== null; }
 
 function noteRecap(event) {
   if (event) recapLog = recap.record(recapLog, event, Date.now());
@@ -1068,9 +1104,12 @@ async function moveIntoCopy(tab) {
     if (!manager.tabs.has(tab.id)) return;
     try { session.send(text, manager.prepareTurn(tab)); } catch (err) { log.info(`worktree: ${err.message}`); }
   };
-  const stayHere = why => {
+  // why: a sentence; detail: what git said, for Copy details and the log.
+  const stayHere = (why, detail = '') => {
     tab.noCopy = true;
-    manager.note(tab.id, { kind: 'error', text: `Working in your checkout: ${why}` });
+    if (detail) log.warn('worktree', detail);
+    const message = `${why.replace(/\.$/, '')}, so this conversation works in your checkout instead.`;
+    manager.note(tab.id, { kind: 'error', text: detail || why, trouble: { kind: 'no-copy', message, action: detail ? { id: 'copy', label: 'Copy details' } : null } });
     carryOn('Shellby could not make a copy, so this conversation stays in this folder. Carry on with what you were about to do, here.');
   };
 
@@ -1079,12 +1118,12 @@ async function moveIntoCopy(tab) {
     if (made?.ok) worktrees.remove(made.worktree, { force: true });
     return;
   }
-  if (!made?.ok) return stayHere(made?.error || 'this folder is not in a git repository.');
+  if (!made?.ok) return stayHere(made?.error || "Couldn't make a copy: this folder isn't in a git repository.", made?.detail);
   const w = made.worktree;
   await session.stop();
   if (!worktrees.carryTranscript({ configDir: claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
     await worktrees.remove(w, { force: true });
-    return stayHere("Claude Code's record of this conversation couldn't be carried into the copy.");
+    return stayHere("Claude Code's record of this conversation couldn't be carried into the copy");
   }
   tab.worktree = w;
   session.cwd = w.cwd;
@@ -1340,7 +1379,7 @@ function slapSticker(p) {
   if (view) send(panel, 'stickers:new', view);
   if (!(panel?.isVisible() && panel.isFocused())) {
     notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
+      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate', pet: true });
   }
 }
 
@@ -1426,10 +1465,11 @@ function saveSpend() {
   if (spendLedger) config.set({ spendLedger });
 }
 
-// Settings as the panel sees them: the ledger stays in main (usageBreakdown).
+// Settings as the panel sees them: the ledger stays in main (usageBreakdown),
+// and Work mode's settings show as they apply, over your own (workmode.js).
 function panelSettings() {
-  const { spendLedger: _ledger, turnCosts: _t, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, phoneTasksSecret: _pt, ...rest } = config.data;
-  return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
+  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, turnCosts: _t, phoneTasksSecret: _pt, ...rest } = workmode.effective(config.data);
+  return { ...rest, dockOrder: workmode.behaviour(config.data).dock, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
 function usageBreakdown() {
@@ -1447,6 +1487,32 @@ function usageBreakdown() {
       projects: spend.breakdown(spendLedger, since, 'project'),
     };
   });
+}
+
+// ---- what a turn or a tab cost (turncost.js): a share of the current 5-hour window
+
+/** A share of the 5-hour window, in percent: `weight`, or all a source spent in it (key). Null with no current reading. */
+function windowShare({ weight = null, key = null } = {}) {
+  spendLedger ??= spend.normalize(config.get('spendLedger'));
+  const w = config.get('lastUsage')?.fiveHour;
+  const now = Date.now();
+  if (!w || !Number.isFinite(w.pct) || !(w.resetsAt > now)) return null;
+  const since = spend.windowStart('fiveHour', w.resetsAt, now);
+  const spent = key ? spend.weightSince(spendLedger, since, key) : weight;
+  return turncost.windowShare({ weight: spent, windowWeight: spend.weightSince(spendLedger, since), windowPct: w.pct });
+}
+
+/** The context menu's running total for one tab: tokens so far, its share of the window, the costliest turns. */
+function tabCost(tabId) {
+  const tab = manager?.tabs.get(tabId);
+  if (!tab) return null;
+  const total = turncost.tabTotal(tab.saved ? history.load(tabId) : []);
+  const share = windowShare({ key: spendSource(tab).key });
+  return {
+    tokens: total.tokens, tokensText: turncost.compact(total.tokens), read: total.read, turns: total.turns,
+    share, shareText: turncost.shareText(share),
+    top: total.top.map(t => ({ turnId: t.turnId, prompt: t.prompt, tokensText: turncost.compact(t.tokens), shareText: turncost.shareText(t.share) })),
+  };
 }
 
 function scheduleLimit() {
@@ -1967,9 +2033,10 @@ function updateRoutine(id, patch) {
 // Past ROUTINE_TABS_KEPT finished ones, or at the cap, the oldest finished
 // routine tab closes. History keeps its transcript.
 function makeRoomForRoutine() {
-  // A queue tab still on the list (it ran dry, and carries on later) is kept.
+  // A queue tab still on the list (it ran dry, and carries on later) is kept, and
+  // so is one carrying on in a terminal (handoff.js): closing it loses its marker.
   const pending = new Set(heldList().map(h => h.tabId).filter(Boolean));
-  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
+  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id) && !manager.tabs.get(id).inTerminal);
   if (manager.tabs.size < MAX_TABS && finished.length < ROUTINE_TABS_KEPT) return;
   const done = finished[0];
   if (!done) return;
@@ -2261,7 +2328,8 @@ function registerIpc() {
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
-    toolbox: () => toolbox, lastInit: () => lastInit, stat,
+    toolbox: () => toolbox, lastInit: () => lastInit, stat, correctionFromTurns, noteCorrection,
+    noteUndone: n => noteWeek('undone', null, n),
     turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
     runClaude: (args, timeout, opts) => {
@@ -2273,7 +2341,12 @@ function registerIpc() {
     ipcMain, config, shell, home: os.homedir(), panel: () => panel, send, currentCwd, stat,
     ownSnippets: snippetList, pushSnippets: () => send(panel, 'snippets', snippetsView()),
     workflows: () => (config.get('crabOnly') ? null : workflows),
-    setupView, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    setupView, setupWhere, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
+    runClaude: (args, timeout, opts) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+    },
     log: { warn: msg => log.warn('team pack', msg) },
   });
   // ---- history (ipc/history.js)
@@ -2317,6 +2390,7 @@ function registerIpc() {
   registerLifeIpc(ipcMain, d);
   registerPanelIpc(ipcMain, d);
   registerTabsIpc(ipcMain, d);
+  registerHandoffIpc(ipcMain, d);
   registerRepoIpc(ipcMain, d);
   registerSettingsIpc(ipcMain, d);
   registerToolboxIpc(ipcMain, d);
@@ -2325,6 +2399,8 @@ function registerIpc() {
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
   registerTriesIpc(ipcMain, d);
+  registerCorrectionsIpc(ipcMain, d);
+  registerStartFromIpc(ipcMain, d);
 }
 
 // ================================================================ boot
@@ -2368,7 +2444,7 @@ app.whenReady().then(() => {
     send(panel, 'wardrobe', wardrobe.view());
     if (!(panel?.isVisible() && panel.isFocused())) {
       notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate' });
+        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate', pet: true });
     }
   });
   wardrobe.on('collected', items => {
@@ -2401,6 +2477,7 @@ app.whenReady().then(() => {
   createGitHub();
   createManager();
   watchClashes();
+  createCorrections();
   createHealth();
   registerIpc();
   createCritter();

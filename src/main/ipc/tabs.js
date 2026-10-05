@@ -90,6 +90,8 @@ function registerTabsIpc(ipcMain, d) {
       return { ok: false, error: err.message };
     }
   });
+  // What this conversation has cost so far, for the context chip's menu (turncost.js).
+  ipcMain.handle('tab:cost', (_e, tabId) => (d.isStr(tabId) ? d.tabCost(tabId) : null));
   ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
     if (!d.isStr(tabId) || !d.isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
     // AskUserQuestion answers: a small plain object of question -> answer strings.
@@ -109,8 +111,13 @@ function registerTabsIpc(ipcMain, d) {
     if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
     if (ref.retired) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
     if (d.manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
+    // Read before the undo is noted: what that turn changed and what you'd asked for.
+    const lesson = d.correctionFromTurns?.(ref.tabId, 'undo', { afters: [ref.after] });
     const r = await changes.undo(ref);
-    if (r.ok) d.manager.note(ref.tabId, { kind: 'undone', after: ref.after, restored: r.restored });
+    if (r.ok) {
+      d.manager.note(ref.tabId, { kind: 'undone', after: ref.after, restored: r.restored });
+      d.noteCorrection?.(ref.tabId, lesson); // a correction: twice in one place and he offers a rule (corrections.js)
+    }
     return r;
   });
   // The project's own tests, on demand, whatever the setting says (wiring/checks.js).

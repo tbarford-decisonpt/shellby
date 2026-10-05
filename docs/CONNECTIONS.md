@@ -20,7 +20,7 @@ Through [OpenRGB](https://openrgb.org): coral while he works, amber when he need
 
 ## ✅ CI on your pull requests
 
-Sign in with GitHub, and when a build goes red he holds up a ✗ sign, when it's fixed he dances, and a review request makes him raise a claw. **Ask Shellby why** reads the failing logs and explains them without changing anything.
+Sign in with GitHub, and when a build goes red he holds up a ✗ sign, when it's fixed he dances, and a review request makes him raise a claw. **Ask Shellby why** reads the failing logs and explains them without changing anything. **Fix this build** goes further: it shows you the failing part of the log it would send, then Claude fixes it in a copy started from the pull request and pushes to its branch. The red build's notification opens the same sheet. **Address the review** does the same with the review comments still unresolved. More in [Projects](PROJECTS.md).
 
 ## GitHub sign-in
 

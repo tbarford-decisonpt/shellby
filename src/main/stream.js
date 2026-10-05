@@ -203,7 +203,7 @@ function toItems(ev) {
         durationMs: ev.duration_ms ?? null, turns: ev.num_turns ?? null,
         error: ev.is_error ? (ev.result || (ev.errors || []).join('\n') || null) : null,
         sessionId: ev.session_id || null,
-        // What the whole turn used, for the per-turn ledger (turncost.js).
+        // What the whole turn used, for the per-turn ledger (usage-ledger.js).
         tokens: tokensOf(ev.usage),
         costUsd: Number.isFinite(ev.total_cost_usd) ? ev.total_cost_usd : null,
       }];

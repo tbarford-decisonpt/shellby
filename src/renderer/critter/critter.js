@@ -91,11 +91,16 @@ api.onSkin(msg => {
   for (const m of WEATHER_MOODS) flags.delete(`weather-${m}`);
   if (WEATHER_MOODS.includes(outfit.weather?.mood)) flags.add(`weather-${outfit.weather.mood}`);
   paintBody();
+  // The frame after his first drawing is when you can see him: what
+  // scripts/perf-budget.js times a cold start to. One entry, never cleared.
+  if (!performance.getEntriesByName('shellby:crab-painted').length) requestAnimationFrame(() => performance.mark('shellby:crab-painted'));
 });
 const WEATHER_MOODS = ['storm', 'cold', 'hot'];
 let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles
 
-api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
+// Work mode turns the confetti off; the moment still gets his mood and his line.
+let confetti = true;
+api.onBurst(effect => { if (fx && effect && confetti) fx.burst(effect); });
 
 // Shellby himself. While he molts, the molt decides which shell he's in.
 let molt = null; // { shell, bubble, stickers } during a molt
@@ -406,6 +411,7 @@ api.onState(msg => {
   limit = msg.limit || null;
   say = msg.say || null;
   onCall = !!msg.call;
+  confetti = msg.confetti !== false;
   window.ShellbySound.setMix(msg.sound);
   needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;
   const wasGuarding = focusing?.phase === 'focus';

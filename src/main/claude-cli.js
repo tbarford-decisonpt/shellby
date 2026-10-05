@@ -28,6 +28,17 @@ function claudeEnv(base = process.env, { onlyPlan = planOnly } = {}) {
   return env;
 }
 
+// A conversation carried on in a terminal (handoff.js) is outside Shellby from
+// then on: the same scrubbing, but without the marker, so the plugin reports it.
+function terminalEnv(base = process.env, { onlyPlan = planOnly } = {}) {
+  const env = claudeEnv(base, { onlyPlan });
+  delete env.SHELLBY_OWNED;
+  return env;
+}
+
+// The variables a terminal must drop for "Always use my Claude plan" (none when it's off).
+const billingScrub = (onlyPlan = planOnly) => (onlyPlan ? [...BILLING_ENV] : []);
+
 // configured: a path the user picked in Settings when the search below missed
 // (unusual installs, a portable copy, a drive we'd never guess). It's tried
 // first, but it is not trusted to exist — findClaude still checks.
@@ -137,4 +148,4 @@ async function checkStatus({ configured = null } = {}) {
   return status;
 }
 
-module.exports = { findClaude, verifyClaude, checkStatus, claudeEnv, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };

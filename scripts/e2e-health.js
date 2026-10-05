@@ -139,6 +139,12 @@ async function until(fn, ms = 8000) {
         const rows = await panel.ev("document.querySelectorAll('#hlHogList .hl-hog').length");
         check(rows === 8, `calm: "Each" lists single processes (${rows})`);
         await panel.ev("document.getElementById('hlHogsClose').click()");
+        // His own footprint, real (getAppMetrics), above the list: two readings
+        // 5 s apart, so give it a sample or two.
+        const self = await until(() => panel.ev("document.getElementById('hlSelf').hidden ? '' : document.getElementById('hlSelfLine').textContent"), 15000);
+        check(/^Shellby himself: [\d.]+% CPU, \d+(\.\d)? (MB|GB)$/.test(self), `calm: his own footprint is shown (${JSON.stringify(self)})`);
+        const hint = await panel.ev("document.getElementById('hlSelfHint').hidden ? '' : document.getElementById('hlSelfHintText').textContent");
+        check(!/undefined|NaN/.test(hint), `calm: footprint hint reads right (${JSON.stringify(hint) || 'none'})`);
       }
       if (sc.card && sc.name === 'hot') {
         // A live sample must not take focus away from a card's button.

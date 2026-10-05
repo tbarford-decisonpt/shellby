@@ -1,226 +1,197 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const os = require('os');
 const tc = require('../src/main/turncost');
+const spend = require('../src/main/spend');
+const { CROWDED_PCT } = require('../src/main/context');
+const { ClaudeSession } = require('../src/main/session');
 
-const NOW = Date.UTC(2026, 9, 5, 12, 0);
-const DAY = 24 * 60 * 60 * 1000;
-const HOUR = 60 * 60 * 1000;
+const ctxAt = (tokens, window = 200000) => ({ tokens, window, pct: Math.round((tokens / window) * 100) });
 
-// A ledger row as endTurn would leave it, a little before NOW.
-const row = (over = {}) => ({
-  at: NOW - HOUR, pk: 'c:\\code\\shellby', project: 'shellby', model: 'claude-opus-4-8',
-  category: 'fix', size: 's', kind: 'tab', weight: 1000, pctRise: 4, ok: true, ...over,
+test('a call repeated across events counts once, at its largest', () => {
+  const a = tc.mergeUsage(null, { input_tokens: 10, output_tokens: 5 });
+  const b = tc.mergeUsage(a, { input_tokens: 10, output_tokens: 40, cache_read_input_tokens: 900 });
+  assert.deepEqual(b, { input_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: 900, output_tokens: 40 });
+  assert.deepEqual(tc.mergeUsage(b, { output_tokens: 'lots', input_tokens: -3 }), b);
 });
 
-// ---- classify
-
-test('classify sorts prompts into the kind of ask they are', () => {
-  const cases = {
-    'Review the changes on this branch': 'review',
-    'fix the failing login test': 'fix',
-    'Why does the build fail on Windows?': 'fix',
-    'write unit tests for the parser': 'tests',
-    'refactor the auth module into smaller files': 'refactor',
-    'update the README with the new flags': 'docs',
-    'tidy up the imports and run lint': 'tidy',
-    'add a dark mode toggle to settings': 'feature',
-    'what does this function do?': 'question',
-    'explain how the scheduler picks the next run': 'question',
-    'hello there': 'other',
-    '': 'other',
-  };
-  for (const [prompt, want] of Object.entries(cases)) assert.equal(tc.classify(prompt), want, prompt);
+test('new tokens and cache re-reads are kept apart', () => {
+  const t = tc.tokensOf([
+    { input_tokens: 100, cache_creation_input_tokens: 2000, cache_read_input_tokens: 50000, output_tokens: 300 },
+    { input_tokens: 20, cache_read_input_tokens: 52000, output_tokens: 80 },
+  ]);
+  assert.deepEqual(t, { fresh: 2500, read: 102000 });
+  assert.deepEqual(tc.tokensOf(null), { fresh: 0, read: 0 });
 });
 
-test('classify treats "how do I add…" as a question, not a feature', () => {
-  assert.equal(tc.classify('how do I add a new route?'), 'question');
+test("a turn's share of the window is its part of what Shellby spent, times how full it is", () => {
+  assert.equal(tc.windowShare({ weight: 100, windowWeight: 1000, windowPct: 30 }), 3);
+  // Spent nothing else this window: the whole reading is put down to it.
+  assert.equal(tc.windowShare({ weight: 100, windowWeight: 100, windowPct: 12 }), 12);
+  // A ledger that lags the turn can't make it more than the whole window.
+  assert.equal(tc.windowShare({ weight: 500, windowWeight: 100, windowPct: 12 }), 12);
+  assert.equal(tc.windowShare({ weight: 100, windowWeight: 1000, windowPct: 0 }), 0);
 });
 
-test('sizeOf buckets prompt length into short, medium and long', () => {
-  assert.equal(tc.sizeOf('x'.repeat(50)), 's');
-  assert.equal(tc.sizeOf('x'.repeat(500)), 'm');
-  assert.equal(tc.sizeOf('x'.repeat(5000)), 'l');
+test('no share without something spent or a reading to go on', () => {
+  assert.equal(tc.windowShare({ weight: 0, windowWeight: 1000, windowPct: 30 }), null);
+  assert.equal(tc.windowShare({ weight: 100, windowWeight: 1000, windowPct: null }), null);
+  assert.equal(tc.windowShare({ weight: 100, windowWeight: 1000, windowPct: -1 }), null);
 });
 
-test('modelFamily reads the family from an alias or a full id', () => {
-  assert.equal(tc.modelFamily('claude-opus-4-8'), 'opus');
-  assert.equal(tc.modelFamily('sonnet'), 'sonnet');
-  assert.equal(tc.modelFamily(''), '');
-  assert.equal(tc.modelFamily(null), '');
+test('a turn that made no calls has no cost', () => {
+  assert.equal(tc.turnCost({ usages: [], weight: 0 }, ctxAt(1000)), null);
+  assert.equal(tc.turnCost(null, null), null);
+  const c = tc.turnCost({ usages: [{ input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 4000 }], weight: 42 }, ctxAt(82000));
+  assert.deepEqual(c, { tokens: 1500, read: 4000, weight: 42, share: null, contextPct: 41 });
 });
 
-// ---- the ledger
-
-test('record adds a cleaned row stamped now and keeps the prompt out', () => {
-  const out = tc.record([], { ...row(), prompt: 'secret words', pk: 'C:\\Code\\Shellby' }, NOW);
-  assert.equal(out.length, 1);
-  assert.equal(out[0].at, NOW);
-  assert.equal(out[0].pk, 'c:\\code\\shellby');
-  assert.equal('prompt' in out[0], false);
+test('numbers read the way the panel writes them', () => {
+  assert.equal(tc.compact(0), '0');
+  assert.equal(tc.compact(950), '950');
+  assert.equal(tc.compact(1500), '1.5k');
+  assert.equal(tc.compact(2000), '2k');
+  assert.equal(tc.compact(18432), '18k');
+  assert.equal(tc.compact(1240000), '1.2M');
+  assert.equal(tc.compact(23000000), '23M');
+  assert.equal(tc.compact(NaN), '0');
 });
 
-test('record never mutates the ledger it was given', () => {
-  const before = [row()];
-  const out = tc.record(before, row(), NOW);
-  assert.equal(before.length, 1);
-  assert.equal(out.length, 2);
+test('a share is always said as an estimate', () => {
+  assert.equal(tc.shareText(0.4), '<1%');
+  assert.equal(tc.shareText(3.4), '~3%');
+  assert.equal(tc.shareText(12.6), '~13%');
+  assert.equal(tc.shareText(null), null);
 });
 
-test('record drops rows older than 60 days', () => {
-  const old = row({ at: NOW - 61 * DAY });
-  const recent = row({ at: NOW - 59 * DAY });
-  const out = tc.record([old, recent], row(), NOW);
-  assert.deepEqual(out.map(r => r.at), [recent.at, NOW]);
+test('the turn line says what it has and leaves out what it lacks', () => {
+  const full = { tokens: 18000, read: 900000, weight: 1, share: 3.2, contextPct: 41 };
+  assert.equal(tc.costLine(full), 'this turn: 18k tokens · ~3% of your 5-hour window · 41% of context');
+  assert.equal(tc.costLine({ ...full, share: null }), 'this turn: 18k tokens · 41% of context');
+  assert.equal(tc.costLine({ ...full, share: null, contextPct: null }), 'this turn: 18k tokens');
+  assert.equal(tc.costLine(null), '');
+  assert.match(tc.costDetail(full), /18,000 new tokens/);
+  assert.match(tc.costDetail(full), /900k re-read from the prompt cache/);
+  assert.match(tc.costDetail(full), /estimate/);
+  assert.doesNotMatch(tc.costDetail({ ...full, share: null, read: 0 }), /estimate|cache/);
 });
 
-test('record keeps at most MAX_ROWS rows, newest last', () => {
-  const full = Array.from({ length: tc.MAX_ROWS }, (_, i) => row({ at: NOW - tc.MAX_ROWS + i }));
-  const out = tc.record(full, row({ weight: 7 }), NOW);
-  assert.equal(out.length, tc.MAX_ROWS);
-  assert.equal(out[out.length - 1].weight, 7);
-});
-
-test('record skips a turn that spent nothing at all', () => {
-  assert.deepEqual(tc.record([], row({ weight: 0, pctRise: null }), NOW), []);
-});
-
-test('normalize tolerates junk from disk and sorts oldest first', () => {
-  const out = tc.normalize([null, 'x', { at: 'soon' }, row({ at: NOW - 2 }), row({ at: NOW - 5, category: 'nonsense' })], NOW);
-  assert.equal(out.length, 2);
-  assert.equal(out[0].at, NOW - 5);
-  assert.equal(out[0].category, 'other');
-  assert.deepEqual(tc.normalize(undefined, NOW), []);
-});
-
-// ---- rises
-
-test('riseOf measures a rise within one window and none for a fall', () => {
-  const resetsAt = NOW + HOUR;
-  assert.equal(tc.riseOf({ pct: 10, resetsAt }, { pct: 14, resetsAt }), 4);
-  assert.equal(tc.riseOf({ pct: 10, resetsAt }, { pct: 9, resetsAt: resetsAt + 60000 }), 0);
-});
-
-test('riseOf counts all of a new window as its rise', () => {
-  assert.equal(tc.riseOf({ pct: 80, resetsAt: NOW - 1000 }, { pct: 3, resetsAt: NOW + 5 * HOUR }), 3);
-});
-
-test('riseOf has nothing to say without an earlier reading', () => {
-  assert.equal(tc.riseOf(null, { pct: 5, resetsAt: NOW }), null);
-});
-
-// ---- estimate
-
-test('estimate uses this project and this kind of ask when there are 3 or more', () => {
-  const ledger = [row({ pctRise: 2 }), row({ pctRise: 4 }), row({ pctRise: 6 }), row({ category: 'docs', pctRise: 30 })];
-  const e = tc.estimate(ledger, { pk: 'C:\\code\\shellby', category: 'fix', model: 'opus', now: NOW });
-  assert.equal(e.basis, 'project+kind');
-  assert.equal(e.samples, 3);
-  assert.equal(e.pct, 4);
-  assert.equal(e.low, 3);
-  assert.equal(e.high, 5);
-});
-
-test('estimate falls back to the whole project when its kind has too few', () => {
-  const ledger = [row({ category: 'docs', pctRise: 1 }), row({ category: 'tidy', pctRise: 3 }), row({ pctRise: 5 })];
-  const e = tc.estimate(ledger, { pk: 'c:\\code\\shellby', category: 'feature', now: NOW });
-  assert.equal(e.basis, 'project');
-  assert.equal(e.pct, 3);
-});
-
-test('estimate falls back to the kind of ask across projects for a new project', () => {
-  const ledger = [row({ pk: 'c:\\a', pctRise: 8 }), row({ pk: 'c:\\b', pctRise: 10 }), row({ pk: 'c:\\c', pctRise: 12 })];
-  const e = tc.estimate(ledger, { pk: 'c:\\brand-new', category: 'fix', now: NOW });
-  assert.equal(e.basis, 'kind');
-  assert.equal(e.pct, 10);
-});
-
-test('estimate says none with fewer than 3 samples anywhere', () => {
-  const e = tc.estimate([row(), row()], { pk: 'c:\\code\\shellby', category: 'fix', now: NOW });
-  assert.deepEqual(e, { pct: null, low: null, high: null, samples: 0, basis: 'none' });
-  assert.equal(tc.estimate([], {}).basis, 'none');
-});
-
-test('estimate converts weight to percent from rows that have both when a rise is missing', () => {
-  // 1000 weight ~ 2% in the rows with both, so 5000 weight with no reading is ~10%.
-  const ledger = [
-    row({ category: 'docs', pk: 'c:\\other', weight: 1000, pctRise: 2 }),
-    row({ category: 'docs', pk: 'c:\\other', weight: 1000, pctRise: 2 }),
-    row({ category: 'docs', pk: 'c:\\other', weight: 1000, pctRise: 2 }),
-    row({ weight: 5000, pctRise: null }), row({ weight: 5000, pctRise: null }), row({ weight: 5000, pctRise: null }),
+test("a transcript's turns pair each cost with the message that started it", () => {
+  const items = [
+    { kind: 'user', text: 'Fix the login bug', turnId: 'a' },
+    { kind: 'text', text: 'Done.' },
+    { kind: 'result', ok: true, cost: { tokens: 1000, read: 5000, weight: 50, share: 1.5 } },
+    { kind: 'user', text: '/compact', turnId: 'b' },
+    { kind: 'result', ok: true },
+    { kind: 'user', text: `Now write tests for ${'every single module '.repeat(5)}` },
+    { kind: 'result', ok: true, cost: { tokens: 9000, read: 0, weight: 400, share: null } },
   ];
-  const e = tc.estimate(ledger, { pk: 'c:\\code\\shellby', category: 'fix', now: NOW });
-  assert.equal(e.basis, 'project+kind');
-  assert.equal(e.pct, 10);
+  const turns = tc.turnsOf(items);
+  assert.equal(turns.length, 2);
+  assert.deepEqual(turns[0], { turnId: 'a', prompt: 'Fix the login bug', tokens: 1000, read: 5000, weight: 50, share: 1.5 });
+  assert.equal(turns[1].turnId, null, 'an old message without an id');
+  assert.ok(turns[1].prompt.endsWith('…') && turns[1].prompt.length <= 60);
+  assert.deepEqual(tc.turnsOf('junk'), []);
 });
 
-test('estimate leaves out rows without a rise when there is no ratio to convert with', () => {
-  const ledger = [row({ pctRise: null }), row({ pctRise: null }), row({ pctRise: null })];
-  assert.equal(tc.estimate(ledger, { pk: 'c:\\code\\shellby', category: 'fix', now: NOW }).basis, 'none');
-});
-
-test('estimate prefers the same model family when it has enough of them', () => {
-  const ledger = [
-    row({ model: 'sonnet', pctRise: 1 }), row({ model: 'sonnet', pctRise: 1 }), row({ model: 'sonnet', pctRise: 1 }),
-    row({ model: 'opus', pctRise: 9 }), row({ model: 'opus', pctRise: 9 }), row({ model: 'opus', pctRise: 9 }),
+test('the costliest turns come by what they took from the window, then by tokens', () => {
+  const turns = [
+    { turnId: 'a', tokens: 50000, weight: 100 },
+    { turnId: 'b', tokens: 1000, weight: 900 },
+    { turnId: 'c', tokens: 3000, weight: 100 },
+    { turnId: 'd', tokens: 0, weight: 0 },
+    { turnId: 'e', tokens: 10, weight: 5 },
   ];
-  assert.equal(tc.estimate(ledger, { pk: 'c:\\code\\shellby', category: 'fix', model: 'claude-sonnet-5', now: NOW }).pct, 1);
-  assert.equal(tc.estimate(ledger, { pk: 'c:\\code\\shellby', category: 'fix', model: 'claude-opus-5', now: NOW }).pct, 9);
+  assert.deepEqual(tc.topTurns(turns).map(t => t.turnId), ['b', 'a', 'c']);
+  assert.deepEqual(tc.topTurns(turns, 10).map(t => t.turnId), ['b', 'a', 'c', 'e'], 'a turn that cost nothing is never listed');
+  assert.deepEqual(tc.topTurns([]), []);
 });
 
-test('estimate ignores failed turns and ones past 60 days', () => {
-  const ledger = [row({ ok: false }), row({ ok: false }), row({ at: NOW - 70 * DAY }), row()];
-  assert.equal(tc.estimate(ledger, { pk: 'c:\\code\\shellby', category: 'fix', now: NOW }).basis, 'none');
+test("a tab's running total adds up its turns", () => {
+  const items = [
+    { kind: 'user', text: 'one', turnId: 'a' },
+    { kind: 'result', cost: { tokens: 1000, read: 10, weight: 5 } },
+    { kind: 'user', text: 'two', turnId: 'b' },
+    { kind: 'result', cost: { tokens: 2500, read: 20, weight: 50 } },
+  ];
+  const t = tc.tabTotal(items);
+  assert.equal(t.tokens, 3500);
+  assert.equal(t.read, 30);
+  assert.equal(t.turns, 2);
+  assert.equal(t.top[0].turnId, 'b');
+  assert.deepEqual(tc.tabTotal([]), { tokens: 0, read: 0, turns: 0, top: [] });
 });
 
-// ---- the line, and holding
-
-const usage = (pct, resetsAt = NOW + 2 * HOUR) => ({ fiveHour: { pct, resetsAt } });
-const est = pct => ({ pct, low: pct, high: pct, samples: 5, basis: 'project' });
-
-test('advise says it crosses the line when the estimate passes 100 - reserve', () => {
-  const a = tc.advise(est(20), usage(63), { on: true, reserve: 25 }, NOW);
-  assert.deepEqual(a, { over: true, line: 75, now: 63, left: 12, resetsAt: NOW + 2 * HOUR });
+test('the pace keeps the last few turns that grew the context', () => {
+  let g = [];
+  g = tc.addGrowth(g, 1000, 5000);
+  g = tc.addGrowth(g, 5000, 4000);   // compacted: not a pace
+  g = tc.addGrowth(g, null, 9000);   // a brand-new conversation: its first turn is mostly setup
+  assert.deepEqual(g, [4000]);
+  for (let i = 0; i < 5; i++) g = tc.addGrowth(g, 0, i + 1);
+  assert.equal(g.length, tc.RECENT_TURNS);
+  assert.deepEqual(g, [3, 4, 5]);
 });
 
-test('advise uses 100 as the line with the spending guard off', () => {
-  assert.equal(tc.advise(est(20), usage(63), { on: false, reserve: 25 }, NOW).over, false);
-  assert.equal(tc.advise(est(20), usage(85), { on: false, reserve: 25 }, NOW).over, true);
+test('turns left until crowded, at the pace of the last few', () => {
+  const mark = (CROWDED_PCT / 100) * 200000;
+  assert.equal(tc.turnsLeft(ctxAt(mark - 20000), [10000, 10000]), 2);
+  assert.equal(tc.turnsLeft(ctxAt(mark - 20000), [15000]), 2, 'a part turn rounds up');
+  assert.equal(tc.turnsLeft(ctxAt(mark + 1), [10000]), 0);
+  assert.equal(tc.turnsLeft(ctxAt(mark - 20000), []), null, 'no pace yet');
+  assert.equal(tc.turnsLeft(null, [1000]), null);
 });
 
-test('advise has nothing to say for a window that has already reset', () => {
-  const a = tc.advise(est(50), usage(90, NOW - 1), { on: true, reserve: 25 }, NOW);
-  assert.equal(a.over, false);
-  assert.equal(a.now, null);
+test('no nudge while there is room, or while the pace is slow', () => {
+  assert.equal(tc.nudge(ctxAt(100000), [30000]), null, 'under the soon mark');
+  assert.equal(tc.nudge(ctxAt(130000), [1000, 1000]), null, 'past it, but many turns to go');
+  assert.equal(tc.nudge(ctxAt(130000), []), null, 'past it, but no pace to judge');
+  assert.equal(tc.nudge(null, [1000]), null);
 });
 
-test('advise never says over without an estimate', () => {
-  assert.equal(tc.advise({ pct: null, basis: 'none' }, usage(99), { on: true, reserve: 25 }, NOW).over, false);
+test('a nudge before it gets crowded, then the crowded one, never both', () => {
+  const soon = tc.nudge(ctxAt(140000), [10000]);
+  assert.equal(soon.level, 'soon');
+  assert.equal(soon.text, 'Filling up: 70% full, about 2 turns from crowded at this pace.');
+  assert.match(tc.nudge(ctxAt(150000), [10000]).text, /about a turn from crowded/);
+  const crowded = tc.nudge(ctxAt(170000), [1]);
+  assert.equal(crowded.level, 'crowded');
+  assert.match(crowded.text, /^Getting crowded: 85% full\./);
+  assert.equal(tc.nudge(ctxAt(170000), []).level, 'crowded', 'crowded needs no pace');
 });
 
-test('shouldHold only holds your own messages, when asked to, with an estimate that crosses', () => {
-  const over = { over: true };
-  assert.equal(tc.shouldHold({ enabled: true, estimate: est(20), advice: over }), true);
-  assert.equal(tc.shouldHold({ enabled: false, estimate: est(20), advice: over }), false, 'off by default');
-  assert.equal(tc.shouldHold({ enabled: true, estimate: est(20), advice: { over: false } }), false);
-  assert.equal(tc.shouldHold({ enabled: true, estimate: { basis: 'none' }, advice: over }), false, 'no estimate yet');
-  assert.equal(tc.shouldHold({ enabled: true, estimate: est(20), advice: over, kind: 'routine' }), false);
-  assert.equal(tc.shouldHold({ enabled: true, estimate: est(20), advice: over, kind: 'workflow' }), false);
+test("the ledger says what everything, or one tab, spent in a window", () => {
+  const NOW = 1_790_000_000_000;
+  const src = key => ({ key, kind: 'tab', label: key, project: 'p' });
+  let l = [];
+  l = spend.record(l, src('t:a'), 100, NOW - 6 * 60 * 60 * 1000); // before the window
+  l = spend.record(l, src('t:a'), 50, NOW);
+  l = spend.record(l, src('t:b'), 30, NOW);
+  const since = NOW - 60 * 60 * 1000;
+  assert.equal(spend.weightSince(l, since), 80);
+  assert.equal(spend.weightSince(l, since, 't:a'), 50);
+  assert.equal(spend.weightSince(l, since, 't:c'), 0);
+  assert.equal(spend.weightSince(null, since), 0);
 });
 
-// ---- routine suggestion
-
-test('routineSuggestion suggests Sonnet for a routine whose runs on Opus are small', () => {
-  const runs = [1, 2, 1].map(p => row({ rid: 'r1', kind: 'routine', pctRise: p }));
-  assert.equal(tc.routineSuggestion(runs, { id: 'r1', model: 'opus' }, '', NOW), 'sonnet');
-  assert.equal(tc.routineSuggestion(runs, { id: 'r1', model: '' }, '', NOW), 'sonnet', 'the default counts as the top model');
-});
-
-test('routineSuggestion stays quiet for big runs, lighter models, or too few runs', () => {
-  const big = [10, 12, 9].map(p => row({ rid: 'r1', pctRise: p }));
-  const small = [1, 1, 1].map(p => row({ rid: 'r1', pctRise: p }));
-  assert.equal(tc.routineSuggestion(big, { id: 'r1', model: 'opus' }, '', NOW), null);
-  assert.equal(tc.routineSuggestion(small, { id: 'r1', model: 'sonnet' }, '', NOW), null);
-  assert.equal(tc.routineSuggestion(small, { id: 'r1', model: '' }, 'haiku', NOW), null);
-  assert.equal(tc.routineSuggestion(small.slice(0, 2), { id: 'r1', model: 'opus' }, '', NOW), null);
-  assert.equal(tc.routineSuggestion(small, { id: 'other', model: 'opus' }, '', NOW), null);
+test("a session puts the turn's cost on its result, helpers' calls included", () => {
+  const s = new ClaudeSession({ exe: process.execPath, cwd: os.tmpdir(), mode: 'ask' });
+  const items = [];
+  s.on('item', i => items.push(i));
+  s.turn = { usages: new Map(), weight: 0, before: 40000 };
+  s.countSpend({ messageId: 'm1', model: 'claude-haiku-4-5', usage: { input_tokens: 100, output_tokens: 10 } });
+  s.countSpend({ messageId: 'm1', model: 'claude-haiku-4-5', usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 40000 } });
+  s.countSpend({ messageId: 'sub1', model: 'claude-haiku-4-5', usage: { input_tokens: 300 } });
+  s.context = ctxAt(50000);
+  s.handle({ kind: 'result', ok: true });
+  const r = items.find(i => i.kind === 'result');
+  assert.equal(r.cost.tokens, 450);
+  assert.equal(r.cost.read, 40000);
+  assert.equal(r.cost.contextPct, 25);
+  assert.ok(r.cost.weight > 0);
+  assert.deepEqual(s.growths, [10000]);
+  assert.equal(s.turn, null);
+  // A result with no turn behind it (Claude Code's own, after a restart) carries nothing.
+  s.handle({ kind: 'result', ok: true });
+  assert.equal(items.filter(i => i.kind === 'result')[1].cost, undefined);
 });

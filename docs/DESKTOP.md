@@ -37,7 +37,7 @@ Shellby is a polite crab. **Settings → Shellby → Mischief** lets him be a bi
 - **A few words of his own** in his bubble, about the work he's actually doing: *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push, *"this file again?"* on the third visit. He says good morning, notices when you've been away, and mutters to himself when it's quiet. He never quotes Claude; the lines are all his.
 - **A temperament of his own:** chipper, fussy, cocky or sleepy, picked once from your install and kept. It adds lines (a cocky crab says *"obviously"*) and colours his idle habits: digging at your wallpaper, buffing his shell, peeking at what you're doing, stretching, flopping over.
 - **A new voice from a pack:** under **Wardrobe → Voice** he can talk like a Pirate Crab, a Grumpy Crab or in Español, or in any voice from a [community pack](WARDROBE.md#community-wardrobe), with little scenes of their own. A voice in another language stays quiet where it has no line rather than slipping into English. **His own** switches back. Make one with [ADDONS.md](ADDONS.md#voices).
-- **Settings → Personality:** **Quiet** is a single mark in the bubble and never a word. **Normal** (the default) leaves at least 40 seconds between lines and has him mutter to himself now and then when nothing's happening. **Chatty** shortens the gap to 12 seconds, and he mutters and plays out his little scenes more often. **Settings → Personality** also says which of the four temperaments yours is.
+- **Settings → Personality:** **Quiet** is a single mark in the bubble and never a word. **Just about work** only speaks up when a task is done or has failed, he's learned a new trick, a trophy comes in or a dev server falls over, with no idle mutters or scenes. **Normal** (the default) leaves at least 40 seconds between lines and has him mutter to himself now and then when nothing's happening. **Chatty** shortens the gap to 12 seconds, and he mutters and plays out his little scenes more often. **Settings → Personality** also says which of the four temperaments yours is.
 - **On a call he hushes:** while an app has your microphone he holds up a little "shh" sign and says nothing, and asks how it went after. Windows' own record of who's using the microphone tells him; he never listens himself.
 - He never speaks while guarding your focus, never repeats a line while another one is unused, and anything that matters (a health warning, a red build, a countdown) takes the bubble back off him.
 - **A chirp when he speaks,** synthesized on the spot rather than shipped as audio. Off by default, under **Settings → Sound**.
@@ -70,9 +70,20 @@ Shellby is a polite crab. **Settings → Shellby → Mischief** lets him be a bi
 - **Crabs that chat.** When a friend's crab visits, the two of them talk, and what they say depends on both temperaments (a cocky crab meeting a fussy one is a different visit from two sleepy ones), the stickers on their shells, how much each has grown and the finds they're proudest of.
 - **XP and trophies without Claude.** Petting, feeding, games, finds and growing closer all earn XP, and sixteen trophies come with outfits of their own: a sand pail, a metal detector, a leafy disguise, a friendship locket and more.
 
+## Work mode
+
+For when you want the tools and a quiet crab. Pick **Work mode** when you first meet him, or turn it on under **Settings → Personality** (or <kbd>Ctrl</kbd>+<kbd>K</kbd> → **Work mode**). It needs Claude Code; with just the crab there are no tools to put first.
+
+- **The bar leads with your tools:** Chat, Projects, History, Toolbox, Automate and Health, every one of them from the start. **Shellby** moves to the end of the bar, so Outfits, the Tank, the Beach, Trophies and the rest are a click away, and <kbd>Ctrl</kbd>+<kbd>K</kbd> still finds them all.
+- **He keeps himself to himself:** he talks **just about work**, and there are no pals, pranks, climbing onto your windows or up the screen's edges, idle scenes or digging. Friends' crabs don't drop in on their own (an invite still works).
+- **Celebrations are a small beat:** a trophy or a level-up is his little hop and a word, no confetti and no Windows notification. The card still waits in the panel.
+- **His needs rest.** Nothing drops and he doesn't mope while it's on; the Us page says he's resting while you work.
+- **Nothing stops counting:** XP, trophies, streaks, stickers and snacks all keep coming in, so switching back is seamless.
+- **Your settings are your own.** Work mode lays its settings over yours rather than changing them, so turning it off gives you back exactly what you had. Change one of them while it's on (a pal on the floor, say) and your choice wins, and Work mode remembers it for next time without touching your everyday setting.
+
 ## Getting around the panel
 
-- **A bar along the bottom:** Shellby, Chat, Toolbox, Automate (workflows and routines), Health, History and Projects, labeled, with the current screen lit up.
+- **A bar along the bottom:** Shellby, Chat, Toolbox, Automate (workflows and routines), Health, History and Projects, labeled, with the current screen lit up. In [Work mode](#work-mode) the tools come first and Shellby goes last.
 - **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>7</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings is split into four tabs (Shellby, Claude, Connections, General), with <kbd>Ctrl</kbd>+<kbd>K</kbd> finding any setting wherever it lives.
 - **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter (click it to see which tabs, routines and projects used it up), resumable history, a tray menu, notifications and [custom skins](SKINS.md).

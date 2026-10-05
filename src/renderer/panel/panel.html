@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="line-comments.css">
 <link rel="stylesheet" href="turn-checks.css">
 <link rel="stylesheet" href="review.css">
+<link rel="stylesheet" href="lessons.css">
 <link rel="stylesheet" href="hooks.css">
 <link rel="stylesheet" href="workflows.css">
 <link rel="stylesheet" href="workflow-canvas.css">
@@ -422,6 +423,11 @@
         </div>
         <button type="button" class="btn ghost slim-btn" id="hlHogsRefresh" title="Read the process list again">Refresh</button>
         <button type="button" class="btn ghost slim-btn" id="hlHogsClose" title="Stop reading the process list">Hide</button>
+      </div>
+      <!-- His own share, owned up to (health/footprint.js): main, renderers, GPU, all added up. -->
+      <div class="hl-self" id="hlSelf" hidden>
+        <p class="hl-self-line" id="hlSelfLine"></p>
+        <p class="hl-self-hint" id="hlSelfHint" hidden><span id="hlSelfHintText"></span> <button type="button" class="link-btn inline" id="hlSelfSettings">Moving around settings</button></p>
       </div>
       <button type="button" class="hl-hogs-open" id="hlHogsOpen">See what's using the CPU, GPU and memory right now</button>
       <ol class="hl-hogs-list" id="hlHogList" aria-live="polite"></ol>
@@ -1252,16 +1258,21 @@
 
       <section class="setting-group" id="personalityGroup" data-nav="Personality">
         <h3>Personality</h3>
+        <div class="work-mode-row" id="workModeRow">
+          <label class="toggle"><input type="checkbox" id="workModeToggle" aria-describedby="workModeNote"><span class="switch"></span>Work mode</label>
+          <p class="small muted" id="workModeNote">Your tools first on the bar, and a quiet crab: no pals, pranks or climbing, and his needs rest. Anything you change below while it's on wins. Off, everything's as you left it.</p>
+        </div>
         <div class="row wrap">
           <label class="inline-label" for="chatterSelect">How much he talks
             <select id="chatterSelect" class="field slim">
               <option value="quiet">Quiet</option>
+              <option value="work">Just about work</option>
               <option value="normal">Normal</option>
               <option value="chatty">Chatty</option>
             </select>
           </label>
         </div>
-        <p class="small muted" id="chatterNote">Quiet: just a mark in his bubble. Chatty: talks and plays more.</p>
+        <p class="small muted" id="chatterNote">Quiet: just a mark in his bubble. Just about work: done, failed or broken. Chatty: talks and plays more.</p>
         <p class="small temper-note" id="temperNote" hidden></p>
         <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
         <p class="small muted">He gets peckish, sandy, sleepy or mopey, never worse. Snacks come from getting things done.</p>
@@ -1569,6 +1580,7 @@
         </div>
         <p class="small muted ext-lede" id="ghLede">Sync your progress between PCs, watch CI on your pull requests and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby. Tick what you want below and one sign-in asks for all of it.</p>
         <p class="small ext-status bad" id="ghNoCrypto" hidden>Windows can't encrypt a sign-in on this PC, so GitHub sign-in is unavailable.</p>
+        <p class="small ext-status bad" id="ghAuthLost" hidden>GitHub turned down Shellby's sign-in (it expired, or was revoked on github.com). Sign in again to carry on where you left off.</p>
         <button type="button" class="btn primary gh-signin" id="ghSignIn">Sign in with GitHub</button>
         <div class="gh-code" id="ghCode" hidden>
           <p class="small">Enter this code on github.com/login/device:</p>
@@ -1791,6 +1803,11 @@
         <span class="path-title">Crab + Claude Code</span>
         <span class="path-sub">Everything above, plus give me tasks and I'll do them on your PC with helper crabs, using your Claude Pro or Max plan.</span>
       </button>
+      <button type="button" class="path" data-path="work">
+        <span class="path-icon" aria-hidden="true">🛠️</span>
+        <span class="path-title">Work mode</span>
+        <span class="path-sub">The tools, and a quiet crab. Chat, Projects and the Toolbox come first, and I only speak up when something's done, broken or needs you. <b>Switch any time in Settings.</b></span>
+      </button>
     </div>
     <div id="claudeSetup" hidden>
       <ol class="steps" id="steps"></ol>
@@ -1852,7 +1869,21 @@
       <input type="text" class="palette-input" id="paletteInput" placeholder="Jump to a screen, setting, skill or conversation…" autocomplete="off" spellcheck="false"
         role="combobox" aria-expanded="true" aria-controls="paletteList" aria-autocomplete="list">
       <ul class="palette-list" id="paletteList" role="listbox" aria-label="Results"></ul>
-      <p class="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span></p>
+      <p class="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span><span><kbd>Ctrl+/</kbd> every shortcut</span></p>
+    </div>
+  </div>
+
+  <!-- ====================== EVERY SHORTCUT (Ctrl+/ or ?) ====================== -->
+  <div class="card-sheet" id="shortcutsSheet" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" hidden>
+    <div class="card-box keys-box">
+      <div class="card-head">
+        <h2 id="shortcutsTitle">Keyboard shortcuts</h2>
+        <button type="button" class="icon-btn" id="shortcutsClose" aria-label="Close" title="Close (Esc)">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="keys-list" id="shortcutsList" tabindex="0" role="region" aria-label="Every shortcut"></div>
+      <p class="keys-foot muted small">Or press <kbd>Ctrl+K</kbd> and type what you want to do.</p>
     </div>
   </div>
 
@@ -1922,6 +1953,32 @@
     </div>
   </div>
 
+  <!-- a red build or a review on your pull request: exactly what goes to Claude, before it goes (startfrom.js) -->
+  <div class="card-sheet" id="sfSheet" role="dialog" aria-modal="true" aria-labelledby="sfTitle" hidden>
+    <div class="card-box sf-box">
+      <div class="card-head">
+        <h2 id="sfTitle">Fix this build</h2>
+        <button type="button" class="icon-btn" id="sfClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="small sf-lede" id="sfLede" role="status"></p>
+      <pre class="pj-prompt sf-prompt" id="sfPrompt" tabindex="0" aria-label="What will be sent to Claude" hidden></pre>
+      <textarea class="field pj-note" id="sfNote" rows="2" maxlength="500" placeholder="Anything to add? (optional)" aria-label="A note for Claude" hidden></textarea>
+      <p class="muted small pj-where" id="sfWhere" hidden></p>
+      <section class="sf-risk" id="sfRisk" aria-labelledby="sfRiskTitle" hidden>
+        <p class="sf-risk-title" id="sfRiskTitle">Look at these before Claude works in it</p>
+        <div class="small" id="sfRiskBody"></div>
+        <label class="pj-check sf-risk-ack"><input type="checkbox" id="sfAck"><span>I've looked at these</span></label>
+      </section>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="sfGitHub">Open on GitHub</button>
+        <button type="button" class="btn ghost" id="sfCancel">Not now</button>
+        <button type="button" class="btn primary" id="sfSend" disabled>Send to Claude</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../shared/framecap.js"></script>
@@ -1930,6 +1987,7 @@
 <script src="../shared/markdown.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
+<script src="shortcuts.js"></script>
 <script src="core.js"></script>
 <script src="a11y.js"></script>
 <script src="textmenu.js"></script>
@@ -1937,6 +1995,7 @@
 <script src="line-comments.js"></script>
 <script src="line-comments-ui.js"></script>
 <script src="turn-checks.js"></script>
+<script src="lessons.js"></script>
 <script src="tabs.js"></script>
 <script src="clash-text.js"></script>
 <script src="clashes.js"></script>
@@ -1977,12 +2036,14 @@
 <script src="outlook.js"></script>
 <script src="crabonly.js"></script>
 <script src="rooms.js"></script>
+<script src="workmode.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
 <script src="week-card.js"></script>
 <script src="time.js"></script>
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
+<script src="startfrom.js"></script>
 <script src="project-facts.js"></script>
 <script src="projects.js"></script>
 <script src="profile-card.js"></script>

@@ -113,6 +113,10 @@ function wireChannels(d) {
       d.stat('permission-answered');
       if (decision !== 'deny' && pending.runsCreated?.length) d.stat('created-script-approved');
       if (decision !== 'deny' && pending.toolName === 'ExitPlanMode') d.stat('plan-approved');
+      // A no is a correction (corrections.js). Not "Keep planning" or a skipped question: those aren't.
+      if (decision === 'deny' && !['ExitPlanMode', 'AskUserQuestion'].includes(pending.toolName)) {
+        d.noteCorrection?.(tabId, { kind: 'deny', toolName: pending.toolName, input: pending.input });
+      }
     }
     return d.manager.respond(tabId, requestId, decision, message, answers, via);
   }
