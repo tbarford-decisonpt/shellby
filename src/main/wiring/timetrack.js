@@ -238,6 +238,9 @@ function wireTimetrack(d) {
       // failed turn's leftovers go with it).
       if (!item.waiting?.length) tab.session.stop().catch(() => {});
     }
+    // Work that got done with nobody at the keyboard, for the weekly card.
+    // A stopped run didn't get it done, so it isn't counted.
+    if ((routineId || waiting) && !item.interrupted && d.isAway()) d.noteAwayRun(item.durationMs, { held: !routineId });
     // Build it with Claude's test run ended: the editor's chat hands it back to Claude.
     if (d.routineTests.has(tabId)) d.send(d.panel, 'routines:test-run', d.routineTestView(tabId));
     d.noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
@@ -268,7 +271,7 @@ function wireTimetrack(d) {
       return;
     }
     notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
-      item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
+      item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.trouble?.message || item.error || 'Click for details.'),
       () => d.showPanel({ tabId }), { tone: item.ok ? 'default' : 'problem' });
   }
 
@@ -350,7 +353,8 @@ function wireTimetrack(d) {
   // for after the usage reset (releaseMessage). Returns { ok, tabId, turnId,
   // item } or { ok: false, error }.
   function sendToTab(tabId, text, files) {
-    if (!d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
+    if (!d.claudeStatus?.installed) return { ok: false, error: "Shellby can't find Claude Code on this PC, so nothing was sent.", action: 'setup' };
+    if (!d.claudeStatus?.loggedIn) return { ok: false, error: 'Claude Code is signed out, so nothing was sent.', action: 'sign-in' };
     try {
       const tab = d.manager.tabs.get(tabId);
       if (!tab) return { ok: false, error: 'That conversation is closed.' };

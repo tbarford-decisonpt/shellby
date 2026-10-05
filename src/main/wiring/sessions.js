@@ -14,6 +14,7 @@ const outputStyles = require('../outputstyles');
 const recap = require('../recap');
 const { SessionManager } = require('../sessions');
 const stickers = require('../stickers');
+const { detailOf } = require('../trouble');
 const voice = require('../voice');
 const { classifyCommand, markRed } = require('../xp');
 
@@ -83,6 +84,13 @@ function wireSessions(d) {
       if (item.kind === 'decision' && d.routineTests.has(tabId)) d.send(d.panel, 'routines:test-run', d.routineTestView(tabId));
       if (item.kind === 'permission') d.onPermission(tabId, item, tab);
       if (item.kind === 'result') d.onResult(tabId, item, tab);
+      // The panel shows a sentence (trouble.js); what the program really said goes in the log too.
+      // (Not having a copy of the repo isn't a failed turn: main logs that itself.)
+      const failed = item.trouble && item.trouble.kind !== 'no-copy';
+      if (failed) d.log.warn(`turn failed (${item.trouble.kind})`, detailOf(item.kind === 'error' ? item.text : item.error));
+      // Claude Code stopping mid-turn sends no result: a routine's row still has to say it failed
+      // (and offer Fix with Claude), not "started 2h ago" for ever.
+      if (failed && item.kind === 'error' && d.routineTabs.has(tabId)) d.updateRoutine(d.routineTabs.get(tabId), { lastStatus: 'error' });
       if (item.kind === 'task' && item.phase === 'started') d.stat('helper-spawned');
       if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
         const dir = tab.session?.cwd || '';
@@ -111,7 +119,12 @@ function wireSessions(d) {
         const ship = c.dir && stickers.shipOf(kind, c.command);
         if (ship) d.shipped(c.dir, ship.kind, ship.meta);
         // gh pr create: the tab's work is a pull request now, so it gets the badge (github/pr-badge.js).
-        if (!item.isError && prBadges.isPrCreate(c.command)) d.badgePr(`${item.text || ''}\n${tail || ''}`);
+        // And the week's card counts it, once gh has printed the new pull request's address.
+        if (!item.isError && prBadges.isPrCreate(c.command)) {
+          const out = `${item.text || ''}\n${tail || ''}`;
+          if (/\/pull\/\d+\s*$/m.test(out)) d.noteWeek('pr');
+          d.badgePr(out);
+        }
         // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
         const check = checkup.checkupOf(c.command);
         if (check && c.cwd) {

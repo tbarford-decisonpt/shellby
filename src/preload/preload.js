@@ -178,6 +178,9 @@ contextBridge.exposeInMainWorld('shellby', {
   addTeamWorkflow: invoke('team:add-workflow'),
   addTeamHook: (key, scope) => ipcRenderer.invoke('team:add-hook', { key, scope }),
   addTeamRule: (key, scope) => ipcRenderer.invoke('team:add-rule', { key, scope }),
+  // values: what you typed for the server's blanks; main hands them to `claude mcp add` and keeps nothing.
+  addTeamMcp: (name, values) => ipcRenderer.invoke('team:add-mcp', { name, values }),
+  setUpTeamPack: values => ipcRenderer.invoke('team:setup-all', { values }),
   draftTeamPack: invoke('team:draft'),
   writeTeamPack: invoke('team:write'),
   revealTeamPack: fire('team:reveal'),

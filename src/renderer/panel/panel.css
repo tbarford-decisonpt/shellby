@@ -526,6 +526,10 @@ body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation:
   background: rgba(255, 90, 74, .1); border: 1px solid rgba(255, 90, 74, .4); color: #ffc2bb;
   font: 11.5px/1.55 var(--font-mono); font-stretch: 88%; white-space: pre-wrap;
 }
+/* A sentence and a next step (feed.js troubleBlock), in body text rather than the program's mono. */
+.error-block.trouble { display: grid; gap: 8px; font: 13px/1.45 var(--font-body); font-stretch: normal; white-space: normal; }
+.trouble-text { margin: 0; }
+.trouble-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ================================================================ composer */
 .composer { padding: 8px 12px 10px; border-top: 1px solid var(--line-soft); background: linear-gradient(rgba(7, 16, 18, 0), var(--abyss)); }

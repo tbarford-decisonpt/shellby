@@ -2,7 +2,10 @@
 // top project, new trophies and the XP, for the shareable weekly crab card
 // (renderer week-card.js) that he hands you every Friday. Its "What your plan
 // bought you" panel adds Claude's working hours, the fixes that held (no red
-// since under the same key) and the usage meters' last reading.
+// since under the same key) and the usage meters' last reading, and its work
+// line the rest of the week's real work: routines that ran while you were
+// away (and for how long), pull requests opened and merged, builds fixed,
+// branches brought home and turns taken back with Rewind (workLines).
 //
 // Stickers keep running totals and XP keeps a short log, so neither can say
 // what happened *this week*; this keeps a small per-day ledger of it. Days
@@ -14,9 +17,14 @@ const MAX_PROJECTS_A_DAY = 20;
 const WEEK = 7;
 
 // What a day counts. Shipping kinds come from stickers (with the project);
-// the rest from XP events.
+// the rest from XP events, and the work kinds from where each happens: 'pr' a
+// pull request opened, 'home' a branch brought home, 'undone' a turn taken back
+// with Rewind, 'away' a routine run and 'awayHeld' a held message that ran
+// while you were away (their time is awayMs).
 const SHIP_KINDS = ['ship', 'deploy', 'release', 'merge'];
-const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix'];
+const WORK_KINDS = ['pr', 'home', 'undone', 'away', 'awayHeld'];
+const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix', ...WORK_KINDS];
+const MAX_AT_ONCE = 100;         // one rewind can take back many turns, but not more than this
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[0-9a-f]{12}$/;
 const TROPHY_RE = /^[a-z0-9-]{1,40}$/;
@@ -63,6 +71,9 @@ function cleanDay(d) {
   // Claude's working time that day, summed over every finished turn.
   const ms = Math.min(count(d.ms), MAX_DAY_MS);
   if (ms) out.ms = ms;
+  // ...and the part of it routines and held messages worked while you were away.
+  const awayMs = Math.min(count(d.awayMs), MAX_DAY_MS);
+  if (awayMs) out.awayMs = awayMs;
   // Each fix ({ at, key }: tests or CI back to green), and the last time each key went red,
   // so the week can tell which fixes held.
   const fixes = (Array.isArray(d.fixes) ? d.fixes : [])
@@ -97,13 +108,15 @@ function normalizeWeekly(raw) {
 }
 
 /**
- * Count one thing that happened. kind: one of KINDS; project: { id, name } for
- * shipping kinds (so the card can say which projects shipped).
+ * Count one thing that happened (n of them: a rewind takes back several turns).
+ * kind: one of KINDS; project: { id, name } for shipping kinds (so the card can
+ * say which projects shipped).
  */
-function recordDay(stateIn, now, kind, project = null) {
-  if (!KINDS.includes(kind)) return normalizeWeekly(stateIn);
+function recordDay(stateIn, now, kind, project = null, n = 1) {
+  const many = Math.min(count(n), MAX_AT_ONCE);
+  if (!KINDS.includes(kind) || !many) return normalizeWeekly(stateIn);
   return updateDay(stateIn, now, d => {
-    const out = { ...d, [kind]: (d[kind] || 0) + 1 };
+    const out = { ...d, [kind]: (d[kind] || 0) + many };
     if (project && ID_RE.test(project.id || '') && (SHIP_KINDS.includes(kind) || kind === 'minted')) {
       out.projects = { ...(d.projects || {}), [project.id]: clip(project.name, 60) || 'project' };
     }
@@ -141,6 +154,17 @@ function recordTime(stateIn, now, ms) {
 }
 
 /**
+ * A routine run (or, held: true, a held message) that finished while you were
+ * away, and how long Claude worked on it. Counted as it happens, so "while you
+ * were away" is about you, not a guess from the clock.
+ */
+function recordAwayRun(stateIn, now, ms, { held = false } = {}) {
+  const n = Math.min(count(ms), MAX_TURN_MS);
+  const kind = held ? 'awayHeld' : 'away';
+  return updateDay(stateIn, now, d => ({ ...d, [kind]: (d[kind] || 0) + 1, ...(n ? { awayMs: (d.awayMs || 0) + n } : {}) }));
+}
+
+/**
  * Something broken came back green. key: 't:<project>' for a test run, 'ci:<repo>#<pr>'
  * for a pull request's checks. It held if that key hasn't gone red since.
  */
@@ -171,7 +195,7 @@ function tally(s, from, to, { xp, stickers } = {}) {
   const projects = new Map(); // id -> { id, name, days }
   const work = new Map();     // repo name -> tasks finished there
   const trophies = new Map(); // id -> { id, name, icon }, in the order earned
-  let ms = 0;
+  let ms = 0, awayMs = 0;
   const fixes = [];
   const since = s.since ? new Date(`${s.since}T00:00:00`).getTime() : Infinity;
   const kept = t => t >= since;
@@ -186,6 +210,7 @@ function tally(s, from, to, { xp, stickers } = {}) {
     for (const [name, n] of Object.entries(d.work || {})) work.set(name, (work.get(name) || 0) + n);
     for (const [id, tr] of Object.entries(d.trophies || {})) if (!trophies.has(id)) trophies.set(id, { id, ...tr });
     ms += d.ms || 0;
+    awayMs += d.awayMs || 0;
     fixes.push(...(d.fixes || []));
   }
   // Before the ledger: the XP log's events, and stickers that shipped in the window.
@@ -202,7 +227,7 @@ function tally(s, from, to, { xp, stickers } = {}) {
     }
     if (p.firstShipAt >= from && p.firstShipAt < to && !kept(p.firstShipAt)) totals.minted += 1;
   }
-  return { totals, projects: [...projects.values()], work, trophies: [...trophies.values()], ms, fixes };
+  return { totals, projects: [...projects.values()], work, trophies: [...trophies.values()], ms, awayMs, fixes };
 }
 
 // The last time each key went red, over every day kept (a fix from Monday
@@ -228,10 +253,12 @@ function windowNow(u, now) {
  */
 function planOf(s, cur, prev, tasks, usage, now) {
   const reds = lastReds(s);
-  const held = cur.fixes.filter(f => !(reds.get(f.key) > f.at)).length;
+  const holds = f => !(reds.get(f.key) > f.at);
   return {
     hours: Math.round((cur.ms / HOUR) * 10) / 10, ms: cur.ms, msPrev: prev.ms,
-    tasks, fixes: cur.fixes.length, held,
+    tasks, fixes: cur.fixes.length, held: cur.fixes.filter(holds).length,
+    // Pull requests' checks back to green and still green: builds fixed.
+    builds: cur.fixes.filter(f => f.key.startsWith('ci:') && holds(f)).length,
     weekly: windowNow(usage?.sevenDay, now),
     fiveHour: windowNow(usage?.fiveHour, now),
   };
@@ -285,13 +312,46 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
       newStickers: t.minted, green: t.fixed, tests: t.tests + t.fixed, tasks: t.task,
       checkups: t.deps, focus: t.focus, tricks: t.trick, flaky: t.flaky, flakeFixes: t.flakefix,
       trophies: cur.trophies.length,
+      prs: t.pr, homes: t.home, undone: t.undone,
+      awayRuns: t.away + t.awayHeld, awayRoutines: t.away, awayHeld: t.awayHeld, awayMs: cur.awayMs,
     },
     prev: { projects: prev.projects.length, ships: ships(prev), green: prev.totals.fixed, tasks: prev.totals.task },
     streak: { current: count(streak?.current), longest: count(streak?.longest) },
     level: level ? { level: level.level, title: level.title, color: level.rank?.color || null } : null,
     plan: planOf(s, cur, prev, t.task, usage, now),
   };
-  return { ...summary, headline: headline(summary), quiet: isQuiet(summary) };
+  return { ...summary, headline: headline(summary), quiet: isQuiet(summary), work: workLines(summary) };
+}
+
+/** "3h 10m", "45m", "2h": a stretch of work, to the minute. */
+function duration(ms) {
+  const mins = Math.max(1, Math.round(count(ms) / 60000));
+  const h = Math.floor(mins / 60), m = mins % 60;
+  if (!h) return `${m}m`;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+/**
+ * The week's real work in a few short lines, best first, and only what
+ * happened: [{ id, icon, text }]. No "hours saved": what ran, and for how long.
+ */
+function workLines(w, max = 4) {
+  const c = w.counts;
+  const lines = [];
+  if (c.awayRuns) {
+    const who = c.awayRoutines && c.awayHeld ? 'Routines and held messages' : c.awayRoutines ? 'Routines' : 'Held messages';
+    const runs = c.awayRuns === 1 ? 'once' : `${c.awayRuns.toLocaleString('en-US')} times`;
+    const text = c.awayMs >= 60000 ? `${who} worked ${duration(c.awayMs)} while you were away` : `${who} ran ${runs} while you were away`;
+    lines.push({ id: 'away', icon: '⟳', text });
+  }
+  const prs = c.prs && c.merges ? `Opened ${plural(c.prs, 'pull request')}, merged ${c.merges.toLocaleString('en-US')}`
+    : c.merges ? `Merged ${plural(c.merges, 'pull request')}`
+      : c.prs ? `Opened ${plural(c.prs, 'pull request')}` : '';
+  if (prs) lines.push({ id: 'prs', icon: '🔀', text: prs });
+  if (w.plan?.builds) lines.push({ id: 'builds', icon: '✅', text: `Fixed ${plural(w.plan.builds, 'build')}` });
+  if (c.homes) lines.push({ id: 'homes', icon: '🏠', text: `Brought ${plural(c.homes, 'branch', 'branches')} home` });
+  if (c.undone) lines.push({ id: 'undone', icon: '↩', text: `Took back ${plural(c.undone, 'turn')} with Rewind` });
+  return lines.slice(0, max);
 }
 
 const plural = (n, one, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
@@ -302,7 +362,8 @@ function isQuiet(w) {
 }
 
 // Worth a weekly recap: something done, not just XP for showing up.
-const hasNews = w => !!(w.counts.projects || w.counts.green || w.counts.tasks || w.counts.trophies);
+const hasNews = w => !!(w.counts.projects || w.counts.green || w.counts.tasks || w.counts.trophies
+  || w.counts.prs || w.counts.homes || w.counts.awayRuns);
 
 /** The card's big line: the most impressive true thing about the week. */
 function headline(w) {
@@ -333,4 +394,4 @@ function wrapUpDue(stateIn, now, summary) {
   return s.wrapped === key ? null : key;
 }
 
-module.exports = { KINDS, SHIP_KINDS, KEEP_DAYS, MAX_TURN_MS, normalizeWeekly, recordDay, recordWork, recordTrophy, recordTime, recordFix, recordRed, markWrapped, weekSummary, headline, wrapUpDue, dayKey };
+module.exports = { KINDS, SHIP_KINDS, KEEP_DAYS, MAX_TURN_MS, normalizeWeekly, recordDay, recordWork, recordTrophy, recordTime, recordAwayRun, recordFix, recordRed, markWrapped, weekSummary, headline, workLines, duration, wrapUpDue, dayKey };

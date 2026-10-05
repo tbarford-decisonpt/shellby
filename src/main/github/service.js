@@ -15,6 +15,9 @@ const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 
 const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, n) : '');
 
+// fetch's own words when there's no network (Node puts the cause's code beside them).
+const OFFLINE = /fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENETUNREACH|UND_ERR_CONNECT_TIMEOUT/i;
+
 function normalizeState(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const features = {};
@@ -26,6 +29,8 @@ function normalizeState(raw) {
     avatar: typeof r.avatar === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.avatar) ? r.avatar : null,
     lastSyncAt: Number.isFinite(r.lastSyncAt) ? r.lastSyncAt : null,
     lastSyncError: clip(r.lastSyncError, 200) || null,
+    // GitHub turned the sign-in down (401) since it was made: it needs doing again.
+    authLost: r.authLost === true,
   };
 }
 
@@ -69,7 +74,13 @@ class GitHubService extends EventEmitter {
   get state() { return normalizeState(this.config.get('github')); }
   save(patch) { this.config.set({ github: { ...this.state, ...patch } }); this.emit('change', this.view()); }
   get signedIn() { return !!this.auth?.token; }
-  gh() { return new GitHubApi({ token: this.auth.token, api: this.api, fetchImpl: this.fetchImpl }); }
+  gh() { return new GitHubApi({ token: this.auth.token, api: this.api, fetchImpl: this.fetchImpl, onUnauthorized: () => this.lostAuth() }); }
+
+  // Any call that GitHub answers 401 (sync, CI, issues, a pull request): the
+  // sign-in has expired or been revoked, so Settings offers "Sign in again".
+  lostAuth() {
+    if (this.signedIn && !this.state.authLost) this.save({ authLost: true });
+  }
   can(feature) { return this.signedIn && this.state.features[feature] && covers(this.auth.scopes, feature); }
 
   view() {
@@ -83,6 +94,7 @@ class GitHubService extends EventEmitter {
       features: Object.fromEntries(FEATURES.map(f => [f, { on: s.features[f], granted: this.signedIn && covers(this.auth.scopes, f) }])),
       lastSyncAt: s.lastSyncAt,
       lastSyncError: s.lastSyncError,
+      authLost: this.signedIn && s.authLost,
       syncing: !!this.syncing,
       flow: this.flow ? { code: this.flow.user_code, url: this.flow.verification_uri, expiresAt: this.flow.expiresAt } : null,
     };
@@ -129,7 +141,7 @@ class GitHubService extends EventEmitter {
       this.flow = null;
       const features = { ...this.state.features };
       for (const f of wanted) if (covers(got.scopes, f)) features[f] = true;
-      this.save({ features, lastSyncError: null });
+      this.save({ features, lastSyncError: null, authLost: false });
       await this.refreshProfile().catch(() => {});
       if (this.stopped) return;
       this.emit('signed-in', this.view());
@@ -157,7 +169,7 @@ class GitHubService extends EventEmitter {
     clearInterval(this.timer); this.timer = null;
     clearTimeout(this.soon); this.soon = null;
     const f = this.state.features;
-    this.save({ login: null, name: '', avatar: null, lastSyncAt: null, lastSyncError: null, features: { ...f, claude: false, friends: false, profileCard: false, prBadge: false } });
+    this.save({ login: null, name: '', avatar: null, lastSyncAt: null, lastSyncError: null, authLost: false, features: { ...f, claude: false, friends: false, profileCard: false, prBadge: false } });
   }
 
   /** Turn a feature on/off. On needs a wider sign-in when the token lacks the scope. */
@@ -212,7 +224,10 @@ class GitHubService extends EventEmitter {
         if (r.pulled) this.onSynced();
         return { ok: true, ...r };
       } catch (e) {
-        const error = e.status === 401 ? 'GitHub signed Shellby out. Sign in again to keep syncing.' : `Sync failed: ${clip(e.message, 150)}`;
+        const offline = !e.status && OFFLINE.test(`${e.message} ${e.cause?.code || ''}`);
+        const error = e.status === 401 ? 'GitHub signed Shellby out. Sign in again to keep syncing.'
+          : offline ? "Couldn't reach GitHub: this PC looks to be offline. Shellby tries again later."
+            : `Sync failed: ${clip(e.message, 150)}`;
         this.save({ lastSyncError: error });
         return { ok: false, error };
       } finally {

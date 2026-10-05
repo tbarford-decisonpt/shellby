@@ -287,7 +287,7 @@ let focusTick = null;
 // only declared further down. A setter is there only where a module changes it.
 const shared = {
   applyHotkey, applyLoginItem, armCopy, armGuard, changeRef, chatRoutine, checkAway, checkGuards,
-  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, leaveCheck,
+  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, isAway, leaveCheck,
   moveIntoCopy, noteRecap, onSpend, onUsage, outlookView, panelSettings, placeStickers,
   proposeRoutine, queueTask, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
   repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
@@ -456,11 +456,13 @@ const shared = {
   get motion() { return motion; }, set motion(v) { motion = v; },
   get motionBox() { return motionBox; },
   get musicHeadphones() { return musicHeadphones; },
+  get noteAwayRun() { return noteAwayRun; },
   get noteFix() { return noteFix; },
   get noteCorrection() { return noteCorrection; },
   get noteRed() { return noteRed; },
   get noteSnippetUse() { return noteSnippetUse; },
   get noteTestRun() { return noteTestRun; },
+  get noteWeek() { return noteWeek; },
   get noteWorkTime() { return noteWorkTime; },
   get notify() { return notify; },
   get nowPlaying() { return nowPlaying; }, set nowPlaying(v) { nowPlaying = v; },
@@ -602,7 +604,7 @@ const {
 } = wireSessions(shared);
 const {
   awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-  knownFolder, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
+  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
   runCheckup, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
 const {
@@ -663,6 +665,10 @@ const AWAY_POLL_MS = 60 * 1000;
 const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
 let recapLog = [];
 let away = { since: null };
+
+// Stepped away (idle or locked) as of the last reading: the weekly card's
+// "routines worked … while you were away" counts runs that finish now.
+function isAway() { return away.since !== null; }
 
 function noteRecap(event) {
   if (event) recapLog = recap.record(recapLog, event, Date.now());
@@ -1059,9 +1065,12 @@ async function moveIntoCopy(tab) {
     if (!manager.tabs.has(tab.id)) return;
     try { session.send(text, manager.prepareTurn(tab)); } catch (err) { log.info(`worktree: ${err.message}`); }
   };
-  const stayHere = why => {
+  // why: a sentence; detail: what git said, for Copy details and the log.
+  const stayHere = (why, detail = '') => {
     tab.noCopy = true;
-    manager.note(tab.id, { kind: 'error', text: `Working in your checkout: ${why}` });
+    if (detail) log.warn('worktree', detail);
+    const message = `${why.replace(/\.$/, '')}, so this conversation works in your checkout instead.`;
+    manager.note(tab.id, { kind: 'error', text: detail || why, trouble: { kind: 'no-copy', message, action: detail ? { id: 'copy', label: 'Copy details' } : null } });
     carryOn('Shellby could not make a copy, so this conversation stays in this folder. Carry on with what you were about to do, here.');
   };
 
@@ -1070,12 +1079,12 @@ async function moveIntoCopy(tab) {
     if (made?.ok) worktrees.remove(made.worktree, { force: true });
     return;
   }
-  if (!made?.ok) return stayHere(made?.error || 'this folder is not in a git repository.');
+  if (!made?.ok) return stayHere(made?.error || "Couldn't make a copy: this folder isn't in a git repository.", made?.detail);
   const w = made.worktree;
   await session.stop();
   if (!worktrees.carryTranscript({ configDir: claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
     await worktrees.remove(w, { force: true });
-    return stayHere("Claude Code's record of this conversation couldn't be carried into the copy.");
+    return stayHere("Claude Code's record of this conversation couldn't be carried into the copy");
   }
   tab.worktree = w;
   session.cwd = w.cwd;
@@ -2241,6 +2250,7 @@ function registerIpc() {
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
     toolbox: () => toolbox, lastInit: () => lastInit, stat, correctionFromTurns, noteCorrection,
+    noteUndone: n => noteWeek('undone', null, n),
     turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
     runClaude: (args, timeout, opts) => {
@@ -2252,7 +2262,12 @@ function registerIpc() {
     ipcMain, config, shell, home: os.homedir(), panel: () => panel, send, currentCwd, stat,
     ownSnippets: snippetList, pushSnippets: () => send(panel, 'snippets', snippetsView()),
     workflows: () => (config.get('crabOnly') ? null : workflows),
-    setupView, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    setupView, setupWhere, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
+    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
+    runClaude: (args, timeout, opts) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+    },
     log: { warn: msg => log.warn('team pack', msg) },
   });
   // ---- history (ipc/history.js)

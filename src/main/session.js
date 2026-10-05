@@ -10,6 +10,7 @@ const readline = require('readline');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
+const { troubleOf } = require('./trouble');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
 const turncost = require('./turncost');
@@ -162,7 +163,8 @@ class ClaudeSession extends EventEmitter {
 
     proc.on('error', err => {
       removeFile(configFile);
-      this.emit('item', { kind: 'error', text: `Couldn't start Claude Code: ${err.message}` });
+      const text = `Couldn't start Claude Code: ${err.message}`;
+      this.emit('item', { kind: 'error', text, trouble: troubleOf(text, { start: true }) });
     });
     // 'exit', not 'close': a leftover holding one of claude's pipes would hold
     // 'close' back until it ended on its own, which is what this is here to stop.
@@ -192,7 +194,12 @@ class ClaudeSession extends EventEmitter {
     }
     if (crewChanged) this.emit('crew', this.crew);
     if (wasBusy) {
-      this.emit('item', { kind: 'error', text: stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).` });
+      const text = stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).`;
+      const trouble = troubleOf(text, { exited: true });
+      // Its history is gone (or never was): resuming it again would only fail
+      // again, so the next message here starts a new conversation.
+      if (trouble.kind === 'resume-failed') { this.sessionId = null; this.resumeAt = null; }
+      this.emit('item', { kind: 'error', text, trouble });
       this.setBusy(false);
     }
     this.emit('exit', code);
@@ -226,6 +233,8 @@ class ClaudeSession extends EventEmitter {
         if (item.sessionId) this.sessionId = item.sessionId;
         if (this.interrupting) { item.interrupted = true; item.ok = false; item.error = null; }
         this.interrupting = false;
+        // What went wrong, in a sentence and a next step (trouble.js); the CLI's own words stay in `error`.
+        if (!item.ok && !item.interrupted && item.error) item.trouble = troubleOf(item.error);
         // Where this turn ends in Claude Code's transcript: rewinding to the
         // message after it resumes up to here.
         if (this.lastUuid) item.anchor = this.lastUuid;

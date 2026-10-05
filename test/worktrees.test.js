@@ -143,6 +143,15 @@ test('a merge git refuses for another reason says why, so Claude can be asked to
   } finally { t.done(); }
 });
 
+test("a copy git won't make says why in a sentence, not git's own words", () => {
+  assert.equal(worktrees.copyRefusal("fatal: could not create leading directories of 'C:/x': Filename too long"),
+    "Couldn't make a copy: the path would be too long for Windows (turn on git's core.longpaths to allow it).");
+  assert.equal(worktrees.copyRefusal("fatal: 'shellby/x' is already checked out at 'C:/y'"), "Couldn't make a copy: that branch is already open in another copy.");
+  assert.equal(worktrees.copyRefusal('fatal: Unable to create index.lock: File exists.'), "Couldn't make a copy: another git command is busy in this repository; try again in a moment.");
+  assert.equal(worktrees.copyRefusal('fatal: something new'), 'Couldn\'t make a copy: git said "something new".');
+  assert.equal(worktrees.copyRefusal(''), "git couldn't make the copy.");
+});
+
 test('bring it home refuses when your checkout has moved to another branch', async () => {
   const t = setup();
   try {

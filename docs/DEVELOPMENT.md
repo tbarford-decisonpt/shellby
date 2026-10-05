@@ -219,6 +219,7 @@ src/main/        Electron main process
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
   log.js           the log behind "Report a problem" (scrubbed of paths and tokens)
+  trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log
   skins.js         loads and validates skins
   config.js        settings in %APPDATA%\Shellby\settings.json
   workmode.js      Work mode (pure): the settings it lays over yours, where a change made in it is kept, and what else it quiets

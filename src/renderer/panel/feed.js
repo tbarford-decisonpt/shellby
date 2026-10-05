@@ -182,7 +182,7 @@
         case 'branched-off': return this.renderBranchedOff(item);
         case 'checkpoint': return; // where the files stood, for branching: nothing to show
         case 'shell': return this.renderShell(item, replay);
-        case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
+        case 'error': return this.append(this.troubleBlock(item.trouble, item.text));
         case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js
       }
     }
@@ -286,12 +286,33 @@
       this.scrollToEnd();
     }
 
+    // Something went wrong: what happened in a sentence, and the next step as a
+    // button (main's trouble.js picks both). What the program said isn't shown,
+    // it's in the log, and Copy details puts it on the clipboard. A transcript
+    // from before Shellby said it this way shows the program's words, as it did.
+    troubleBlock(trouble, raw) {
+      if (!trouble?.message) return h('div', { class: 'error-block', text: raw });
+      const act = trouble.action && trouble.action.id !== 'copy'
+        ? h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.troubleAction(trouble.action.id, this) }, trouble.action.label)
+        : null;
+      // Only when there's more to it than the sentence already says.
+      const more = raw && !trouble.message.includes(raw.trim().replace(/\.$/, ''));
+      const copy = more ? h('button', { class: 'btn ghost slim-btn', type: 'button', title: 'What the program said, word for word, for a bug report or a search',
+        onclick: () => { api.copyText(raw); SB.toast('Copied the details.', { ms: 2500 }); } }, 'Copy details') : null;
+      return h('div', { class: 'error-block trouble', role: 'alert', dataset: { kind: trouble.kind } },
+        h('p', { class: 'trouble-text', text: trouble.message }),
+        act || copy ? h('div', { class: 'trouble-actions' }, act, copy) : null);
+    }
+
     renderUser(item) {
       const routine = item.routine ? h('div', { class: 'routine-tag' }, '⟳ ', item.routine.name, item.routine.reason === 'catch-up' ? ' · catch-up run' : '') : null;
       // Messages sent since rewind came in carry an id, and a way back to just
       // before them: in this tab (rewind), or in a new one that leaves this be (branch).
       // One read mid-turn (a steer) is part of the turn it went into, which keeps its id.
-      if (!item.steerId) this.lastTurnId = item.turnId || null;
+      if (!item.steerId) {
+        this.lastTurnId = item.turnId || null;
+        this.lastAsk = item.text || ''; // for Try again, after something goes wrong
+      }
       const back = item.turnId ? h('button', { class: 'msg-rewind', type: 'button', title: 'Rewind to just before this message', 'aria-label': 'Rewind to just before this message', onclick: () => SB.openRewind(this, item.turnId) }) : null;
       const fork = item.turnId ? h('button', { class: 'msg-branch', type: 'button', title: 'Try again from here, in a new tab', 'aria-label': 'Try again from here, in a new tab', onclick: () => SB.openBranch(this, item.turnId, 'before') }, SB.forkIcon()) : null;
       this.append(h('div', { class: 'msg user' }, back, fork, routine, item.text || '',
@@ -542,7 +563,7 @@
         h('span', { text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }), fork));
       // What the turn cost (src/main/turncost.js): the context chip's menu scrolls back to it.
       if (cost) this.append(h('div', { class: 'turn-cost', title: cost.detail || null, dataset: turnId ? { turn: turnId } : {}, text: cost.line }));
-      if (!item.ok && !item.interrupted && item.error) this.append(h('div', { class: 'error-block', text: item.error }));
+      if (!item.ok && !item.interrupted && item.error) this.append(this.troubleBlock(item.trouble, item.error));
       if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }
 
@@ -746,6 +767,29 @@
     isPicture(f) ? thumbImg(f) : null,
     h('span', { text: SB.basename(f) }),
     onRemove ? h('button', { type: 'button', 'aria-label': `Remove ${SB.basename(f)}`, onclick: () => onRemove(i) }, '×') : null));
+
+  // The next step after something went wrong, by trouble.js's action id. `tab`
+  // is the conversation it happened in (or null, from a toast).
+  SB.troubleAction = async (id, tab = SB.activeTab()) => {
+    const ask = tab?.lastAsk || '';
+    const signIn = async () => { if (await api.claudeLogin()) SB.toast('Finish signing in in the window that opened. Shellby notices when you’re done.', { ms: 6000 }); };
+    const actions = {
+      retry: () => {
+        if (!tab || !ask) return SB.toast('Type your message again: there was nothing to resend.');
+        SB.activate(tab.id);
+        return SB.resend(tab, ask);
+      },
+      'sign-in': signIn,
+      setup: () => { SB.onboardPath = 'claude'; SB.setView('onboarding'); },
+      'fresh-tab': () => SB.newTabIn({ cwd: tab?.cwd || state.cwd, draft: ask }),
+      hold: async () => {
+        if (!tab || !ask) return SB.toast('Type your message again, then hold it with Ctrl+Shift+Enter.');
+        const r = await api.holdForReset({ kind: 'message', tabId: tab.id, text: ask, attachments: [] });
+        SB.toast(r?.ok ? `Held. It goes at ${r.atText}, once your usage resets.` : r?.error || "Couldn't hold it.", { ms: 5000 });
+      },
+    };
+    return actions[id]?.();
+  };
 
   SB.Tab = Tab;
   SB.Lane = Lane;

@@ -141,6 +141,7 @@ function wireGithub(d) {
     if (!r.ok || r.existing) return r; // a retried step found its pull request already open: paid already
     // Shipping it pays now; the sticker comes when it merges (ci.js sees it, shippedMerge).
     d.flashState('success', 4000);
+    d.noteWeek('pr');
     d.awardXp('issue', { project: r.repo.split('/')[1], label: `Opened ${r.repo}#${r.number}` });
     if (d.github.can('ci')) d.ci?.poll().catch(() => {});
     return r;
