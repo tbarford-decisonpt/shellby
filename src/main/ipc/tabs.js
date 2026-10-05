@@ -1,0 +1,91 @@
+// Conversation tabs: opening, ordering, compacting, and what each turn changed
+// (changes.js). Kept out of main.js, which only wires it up.
+const fs = require('fs');
+const changes = require('../changes');
+const ctx = require('../context');
+
+/** d: what main shares with its IPC (main.js ipcDeps). */
+function registerTabsIpc(ipcMain, d) {
+  // ---- tabs
+  ipcMain.handle('tab:new', (_e, opts = {}) => {
+    // A folder is only accepted if it's a project Shellby already tracks (e.g. a nudge's "pick up where you left off").
+    const known = d.isStr(opts?.cwd) && d.knownFolder(opts.cwd) && fs.existsSync(opts.cwd);
+    try { return { ok: true, tabId: d.openTab(known ? { cwd: opts.cwd } : {}).id }; } catch (err) { return { ok: false, error: err.message }; }
+  });
+  ipcMain.handle('tab:close', (_e, tabId) => {
+    if (!d.isStr(tabId)) return false;
+    // Its held messages go with it, the way its queue does.
+    const list = d.heldList();
+    if (list.some(h => h.kind === 'message' && h.tabId === tabId)) d.saveHeld(list.filter(h => !(h.kind === 'message' && h.tabId === tabId)));
+    d.manager.interrupt(tabId);
+    d.manager.close(tabId);
+    d.routineTabs.delete(tabId);
+    d.queueTabs.delete(tabId);
+    // A queued task you closed mid-run: the queue moves on to the next one.
+    d.queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
+    d.queueWaits.delete(tabId);
+    d.workflows?.onTabClosed(tabId);
+    d.remote?.settleTab(tabId);
+    return true;
+  });
+  // Dragging a tab along the strip. The order lives in the manager, and the
+  // `tabs` listener in main.js writes it back to `openTabs`, so it survives a restart.
+  ipcMain.handle('tab:reorder', (_e, { tabId, beforeId } = {}) =>
+    d.isStr(tabId) && d.manager.reorder(tabId, d.isStr(beforeId) ? beforeId : null));
+  ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
+
+  ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
+    text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
+    const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
+    if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
+    try {
+      if (d.claudeStatus?.installed && d.claudeStatus?.loggedIn && (!d.isStr(tabId) || !d.manager.tabs.has(tabId))) tabId = d.openTab({ tabId: d.isStr(tabId) ? tabId : undefined }).id;
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+    const r = d.sendToTab(tabId, text, files);
+    return r.ok ? { ok: true, tabId: r.tabId, turnId: r.turnId } : r;
+  });
+  ipcMain.on('task:stop', (_e, tabId) => { if (d.isStr(tabId)) d.manager.interrupt(tabId); });
+  // A crowded conversation: Claude writes a summary, then onResult starts it fresh.
+  ipcMain.handle('tab:fresh', (_e, tabId) => {
+    const tab = d.isStr(tabId) && d.manager.tabs.get(tabId);
+    if (!tab?.saved) return { ok: false, error: 'That conversation has nothing to sum up yet.' };
+    if (tab.session.busy) return { ok: false, error: 'Let him finish first.' };
+    try {
+      d.manager.send(tabId, ctx.HANDOFF_ASK, { kind: 'user', text: 'Start fresh with a summary' });
+      tab.freshWanted = true; // after send: its prepareTurn clears the flag
+      // XP only past the crowded mark: starting fresh sooner throws away context for nothing.
+      tab.freshCrowded = (tab.session.context?.pct ?? 0) >= ctx.CROWDED_PCT;
+      d.wake();
+      return { ok: true, text: 'Start fresh with a summary' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
+    if (!d.isStr(tabId) || !d.isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
+    // AskUserQuestion answers: a small plain object of question -> answer strings.
+    const clean = answers && typeof answers === 'object' && !Array.isArray(answers)
+      ? Object.fromEntries(Object.entries(answers).slice(0, 10).filter(([q, a]) => d.isStr(q) && typeof a === 'string'))
+      : undefined;
+    return d.answerPermission(tabId, requestId, decision, { message: typeof message === 'string' ? message.slice(0, 500) : undefined, answers: clean });
+  });
+
+  // ---- what a turn changed
+  ipcMain.handle('changes:diff', (_e, raw) => {
+    const ref = d.changeRef(raw);
+    return ref ? changes.patchFor(ref) : { error: "That isn't a change from this conversation." };
+  });
+  ipcMain.handle('changes:undo', async (_e, raw) => {
+    const ref = d.changeRef(raw);
+    if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
+    if (ref.retired) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
+    if (d.manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
+    const r = await changes.undo(ref);
+    if (r.ok) d.manager.note(ref.tabId, { kind: 'undone', after: ref.after, restored: r.restored });
+    return r;
+  });
+}
+
+module.exports = { registerTabsIpc };
