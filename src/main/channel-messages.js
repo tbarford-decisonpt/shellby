@@ -21,7 +21,7 @@ const EVENTS = Object.freeze({
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
-const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡' };
+const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡', phone: '📱' };
 
 /**
  * One event -> what every provider sends.
@@ -100,6 +100,14 @@ function describeEvent(event) {
         emoji: e.passing ? '✅' : '🔴',
         title: e.passing ? `Build fixed: ${project || 'your pull request'}` : `Build failed: ${project || 'your pull request'}`,
         body: clip(e.body, MAX_BODY) || (e.passing ? 'It went green again.' : 'CI went red.'),
+      };
+    case 'phone':
+      // Shellby answering a message from your phone (phone-tasks.js): a few
+      // short lines, so the line breaks are kept.
+      return {
+        ...base, tags: ['crab', 'iphone'],
+        title: clip(e.title, MAX_TITLE) || 'Shellby',
+        body: String(e.body ?? '').split('\n').map(l => clip(l, MAX_BODY)).filter(Boolean).join('\n').slice(0, MAX_BODY * 2),
       };
     case 'workflow':
       return {

@@ -5,7 +5,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'compacted', 'fresh', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff']);
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'phone', 'checks', 'shots', 'tries', 'compacted', 'fresh', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff']);
 
 // How many conversations the index remembers. Transcripts past this are deleted
 // with their entry, rather than being left in the folder with nothing listing them.
@@ -82,6 +82,18 @@ class History {
     const e = this.get(id);
     if (!e) return null;
     if (done) e.done = true; else delete e.done;
+    this.saveIndex();
+    return e;
+  }
+
+  /**
+   * Where its latest changes stand in the review inbox (review-inbox.js), or null.
+   * Not update() either: reviewing isn't work on the conversation.
+   */
+  setReady(id, ready) {
+    const e = this.get(id);
+    if (!e) return null;
+    if (ready) e.ready = ready; else delete e.ready;
     this.saveIndex();
     return e;
   }

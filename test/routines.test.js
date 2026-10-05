@@ -111,6 +111,19 @@ test('validateRoutine normalises good input and fills defaults', () => {
   assert.equal(routine.lastRunAt, null);
   assert.equal(routine.lastStatus, null);
 });
+test('validateRoutine runs on the usual model unless it names one Shellby offers', () => {
+  assert.equal(validateRoutine(good()).routine.model, '');
+  assert.equal(validateRoutine({ ...good(), model: null }).routine.model, '');
+  assert.equal(validateRoutine({ ...good(), model: 'sonnet' }).routine.model, 'sonnet');
+  assert.equal(validateRoutine({ ...good(), model: 'claude-haiku-4-5' }).routine.model, 'claude-haiku-4-5');
+});
+test('validateRoutine refuses a model Shellby doesn\'t offer', () => {
+  for (const model of ['gpt-5', 'opus --dangerously-skip-permissions', 42, {}]) {
+    const res = validateRoutine({ ...good(), model });
+    assert.equal(res.routine, null, String(model));
+    assert.ok(res.errors.includes('Unknown model'));
+  }
+});
 test('validateRoutine keeps valid id, createdAt, lastRunAt, lastStatus; drops junk fields', () => {
   const cwd = path.resolve(os.tmpdir());
   const { routine } = validateRoutine({ ...good(), id: 'abc-1', createdAt: 5, lastRunAt: 10, lastStatus: 'ok', cwd, evil: 1,

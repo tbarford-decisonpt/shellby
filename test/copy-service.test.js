@@ -25,14 +25,14 @@ function setup({ items = [], entry = null, data = { worktrees: true } } = {}) {
   return createCopies(d);
 }
 
-const change = { kind: 'changes', root: ROOT, before: 'a1', after: 'b2', files: [{ path: 'src/x.js' }] };
+const change = { kind: 'changes', root: ROOT, before: 'a1', after: 'b2', files: [{ path: 'src/x.js', status: 'M' }] };
 
 test('a diff the tab reported is passed through', () => {
   const copies = setup({ items: [change] });
 
   const ref = copies.changeRef({ tabId: 't1', root: ROOT, before: 'a1', after: 'b2', file: 'src/x.js' });
 
-  assert.deepEqual(ref, { tabId: 't1', root: ROOT, before: 'a1', after: 'b2', file: 'src/x.js' });
+  assert.deepEqual(ref, { tabId: 't1', root: ROOT, before: 'a1', after: 'b2', file: 'src/x.js', status: 'M' });
 });
 
 test('a diff the tab never reported, or a file outside it, is refused', () => {

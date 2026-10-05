@@ -35,6 +35,9 @@
       branchOf: summary.branchOf !== undefined ? summary.branchOf : tab.branchOf || null,
       context: summary.context !== undefined ? summary.context : tab.context || null,
       cache: summary.cache !== undefined ? summary.cache : tab.cache || null,
+      // The tests' last verdict and the latest changes' review (main's review-inbox.js), for the review inbox.
+      checks: summary.checks !== undefined ? summary.checks : tab.checks || null,
+      ready: summary.ready !== undefined ? summary.ready : tab.ready || null,
       nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
       inTerminal: summary.inTerminal !== undefined ? summary.inTerminal : tab.inTerminal || null,
     });
@@ -200,10 +203,11 @@
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
+      const clash = SB.clashLine?.(t.id) || '';
       // .tab draws the tab; inside it the role=tab part and its × sit side by
       // side (a button can't live inside a tab).
       const btn = h('div', {
-        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
+        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${clash ? ' clashing' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
         role: 'presentation',
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
@@ -213,11 +217,14 @@
       },
       h('div', {
         class: 'tab-main', role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
-        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
+        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, clash || null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
         onkeydown: e => tabKey(e, t.id),
       },
       tabIcon(t),
-      h('span', { class: 'tab-title', text: shownTitle(t) })),
+      h('span', { class: 'tab-title', text: shownTitle(t) }),
+      // Another copy changed the same files (clashes.js): a shape, not just a colour, and said aloud.
+      clash ? h('span', { class: 'tab-clash', 'aria-hidden': 'true', text: '⚠' }) : null,
+      clash ? h('span', { class: 'sr-only', text: `. ${clash}` }) : null),
       // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
       h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
       t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
@@ -430,7 +437,7 @@
     $('status').hidden = !busy;
     // While Shellby works you can keep typing: Enter queues the message, and
     // Claude reads it at his next step (or when he finishes, if there's none).
-    $('sendBtn').title = busy ? 'Queue: Claude reads it at his next step' : 'Send';
+    $('sendBtn').title = busy ? 'Queue: Claude reads it at his next step' : 'Send · right-click to try it 2, 3 or 4 ways';
     $('sendBtn').classList.toggle('queueing', busy);
     $('sendHint').textContent = busy ? 'Enter to queue for his next step · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
@@ -546,12 +553,14 @@
     renderAttachments();
     autosize();
     SB.composerInput?.();
+    SB.resetEstimate?.(); // what it usually costs was about what's just gone (outlook.js)
   }
   SB.clearComposer = clearComposer;
   SB.renderAttachments = renderAttachments;
 
-  // -> true once it has gone (or is queued to), false if it stayed where it was.
-  SB.send = async (text) => {
+  // -> true once it has gone (or is queued, or held for the reset), false if it
+  // stayed where it was. force: send even if it would be held as a big task.
+  SB.send = async (text, { force = false } = {}) => {
     const tab = SB.activeTab();
     if (!tab) return false;
     text = (text ?? input.value).trim();
@@ -572,6 +581,20 @@
       if (r?.newTab && !tab.isEmpty) return sendInNewTab(tab, text, r, attachments);
       if (r) { snippet = r.name; text = r.prompt; }
     }
+    // "Hold big tasks for the reset" (Settings): one that usually takes more than
+    // the window has left waits for the reset instead (outlook.js).
+    if (!force && state.settings.holdBigTasks) {
+      // A second Enter while main looks it up would send (or hold) it twice.
+      if (tab.holdChecking) return false;
+      tab.holdChecking = true;
+      let held;
+      try { held = await SB.holdIfBig?.(tab, text, attachments); } finally { tab.holdChecking = false; }
+      if (held) {
+        clearComposer(tab);
+        if (snippet) api.snippetUsed(snippet);
+        return true;
+      }
+    }
     if (tab.busy) {
       tab.queue.push(queueItem(text, attachments));
       clearComposer(tab);
@@ -584,6 +607,17 @@
     SB.setView('chat');
     if (snippet) api.snippetUsed(snippet);
     return true;
+  };
+
+  // A message that skips the box (a held one you chose to send now): queued
+  // behind the turn in progress, or sent at once. -> true once it's on its way.
+  SB.sendDirect = async (tab, text, attachments = []) => {
+    if (tab.busy) {
+      tab.queue.push({ text, attachments });
+      syncBusyUi();
+      return true;
+    }
+    return sendNow(tab, text, attachments);
   };
 
   // Try again after something went wrong: the same words again, leaving

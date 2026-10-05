@@ -139,7 +139,7 @@ function createCopies(d) {
     const copy = !fs.existsSync(reported.root) && (history.get(tabId)?.copies || []).find(c => isStr(c?.path) && isStr(c?.root) && samePath(c.path, reported.root));
     return {
       tabId, root: copy ? copy.root : reported.root, before: reported.before, after: reported.after,
-      ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file } : {}),
+      ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file, status: reported.files.find(f => f.path === r.file).status } : {}),
     };
   }
 

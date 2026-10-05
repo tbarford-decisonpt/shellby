@@ -5,6 +5,7 @@ const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
+const review = require('./review-inbox');
 const turncost = require('./turncost');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
@@ -64,6 +65,8 @@ class SessionManager extends EventEmitter {
       branchOf: historyEntry?.branchOf || null,
       fence: historyEntry?.fence || null,
       preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
+      // Its latest finished work and whether you've looked (review-inbox.js): the review inbox.
+      ready: review.restore(historyEntry?.ready),
       // When it was carried on in a terminal (handoff.js): until it's picked up
       // again, nothing is sent from here, or two processes would share it.
       inTerminal: Number.isFinite(historyEntry?.inTerminal) ? historyEntry.inTerminal : null,
@@ -111,8 +114,28 @@ class SessionManager extends EventEmitter {
       if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
     }
     if (tab.saved) this.history.append(tab.id, item);
+    const ready = review.next(tab.ready, item);
+    if (ready !== tab.ready) this.setReady(tab, ready);
     this.emit('item', tab.id, item, tab, tail);
     if (['permission', 'decision', 'result', 'error'].includes(item.kind)) this.changed();
+  }
+
+  // Kept in History without bumping updatedAt (history.setReady): looking at work isn't work on it.
+  setReady(tab, ready) {
+    tab.ready = ready;
+    if (tab.saved) this.history.setReady(tab.id, ready);
+    this.changed();
+  }
+
+  /** Mark a tab's latest changes reviewed (or put them back in the inbox). -> whether anything changed. */
+  setReviewed(tabId, reviewed = true, after = null) {
+    const tab = this.tabs.get(tabId);
+    if (!tab?.ready) return false;
+    if (after && tab.ready.after !== after) return false; // a newer turn's changes: not the ones you saw
+    const ready = review.setReviewed(tab.ready, reviewed);
+    if (ready === tab.ready) return false;
+    this.setReady(tab, ready);
+    return true;
   }
 
   send(tabId, prompt, userItem) {
@@ -139,6 +162,8 @@ class SessionManager extends EventEmitter {
     // Who sent it: a routine's run, a workflow's step, a task you queued for
     // the reset, or you (main.js armGuard).
     tab.turnFrom = { routine: userItem.routine || null, workflow: userItem.workflow || null, queued: userItem.queued || null };
+    // What was asked, for its category in the per-turn ledger (usage-ledger.js). Read once as the turn starts.
+    tab.turnText = typeof userItem.text === 'string' ? userItem.text : '';
     tab.outcome = null;
     // The note goes with the first real message (a /command must still start
     // with its slash), and is only forgotten once Claude has started with it:
@@ -308,6 +333,10 @@ class SessionManager extends EventEmitter {
       nudge: turncost.nudge(t.session.context, t.session.growths),
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
+      // The last time Shellby ran its tests (wiring/checks.js): for anything that wants a verdict at a glance.
+      checks: t.checks ? { status: t.checks.status, after: t.checks.after, at: t.checks.at } : null,
+      // Its latest changes and whether you've reviewed them (review-inbox.js): the panel's review inbox.
+      ready: t.ready ? { ...t.ready, paths: [...t.ready.paths] } : null,
       inTerminal: t.inTerminal || null,
     }));
   }

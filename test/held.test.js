@@ -20,6 +20,13 @@ test('hold adds a cleaned-up item without touching the old list', () => {
   assert.match(r.item.id, /^[\w-]+$/);
 });
 
+test('a queued task keeps a model Shellby offers and drops anything else', () => {
+  const task = model => held.hold([], { kind: 'task', prompt: 'refactor billing', at: RESET, model }, NOW).item;
+  assert.equal(task('sonnet').model, 'sonnet');
+  assert.equal('model' in task(''), false, 'the usual model needs no field');
+  assert.equal('model' in task('gpt-5'), false);
+});
+
 test('nothing to send, or nowhere to send it, is refused', () => {
   assert.ok(held.hold([], msg({ text: '   ' }), NOW).error);
   assert.ok(held.hold([], msg({ tabId: '../etc' }), NOW).error);
@@ -138,4 +145,13 @@ test('summary counts queued tasks too', () => {
   assert.equal(held.summary([task()]), 'a queued task');
   assert.equal(held.summary([task(), task()]), '2 queued tasks');
   assert.equal(held.summary([msg(), routine(), task()]), 'a held message, a routine and a queued task');
+});
+
+test('a task from the phone stays marked as one and always runs in Ask first', () => {
+  const task = over => held.hold([], { kind: 'task', prompt: 'fix the build', at: RESET, mode: 'autonomous', ...over }, NOW).item;
+  const phone = task({ fromPhone: true });
+  assert.equal(phone.fromPhone, true);
+  assert.equal(phone.mode, 'ask', 'whatever mode it came with');
+  assert.equal('fromPhone' in task({ fromPhone: 'yes' }), false, 'only a real true counts');
+  assert.equal(task({}).mode, 'autonomous', 'other tasks keep theirs');
 });

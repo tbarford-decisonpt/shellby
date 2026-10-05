@@ -44,6 +44,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
 | `npm run e2e:ci` | The thirteen end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
+| `node scripts/cli-compat.js` | Checks the installed Claude Code against what Shellby relies on: flags, permission modes, effort levels and the control protocol, with no account needed. `--real` adds one tiny Haiku turn (a Write approved over the protocol) and audits every event it sends. Nightly in CI; see [Keeping up with Claude Code](#keeping-up-with-claude-code) |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
 | `node scripts/e2e-shop.js` | The Skill Shop against your real Claude Code, read-only: plugin list, search and filters, then Install is cancelled in the confirm window, so nothing is installed |
@@ -94,6 +95,27 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `python scripts/make-banners.py` | Compose the README banner and crab lineups from the crabs `npm run screenshots` just captured (needs Pillow) |
 | `npm run icons` | Regenerate the app icons from the classic skin (needs Python + Pillow) |
 | `npm run dist` | Build the NSIS installer and portable exe into `dist/` |
+
+## Keeping up with Claude Code
+
+Claude Code ships often, and Shellby drives it through flags and a protocol that can change under it. So every night `.github/workflows/cli-compat.yml` installs the newest `@anthropic-ai/claude-code` and runs `scripts/cli-compat.js` against it:
+
+- **Flags.** Every flag `ClaudeSession.buildArgs()` can launch with is listed in `src/main/cli-contract.js`, and a unit test fails if the two drift apart. The documented ones must be in `claude --help`. Two (`--permission-prompt-tool`, `--resume-session-at`) are hidden from it, so the check also launches with every flag at once and fails on `unknown option`.
+- **Values.** Each `--permission-mode` Shellby's modes map to, and each `--effort` level, must be accepted (and a made-up one refused, or the check can't tell). Ask mode launches as `default`, which `--help` no longer lists but the CLI still takes.
+- **Protocol.** The `initialize` control request, with the same hook registration Shellby sends, must be answered. It is answered before sign-in, so this needs no account.
+- **A real turn**, only when the `ANTHROPIC_API_KEY` repository secret is set: one Haiku turn writes a file through an approved permission prompt, and every event it sends must be one `stream.js` understands. `KNOWN` in `stream.js` lists the events Shellby reads past on purpose; an event outside it is reported, and the transcript is kept as a run artifact.
+
+A pass updates the **Works with Claude Code** badge in the README (a shields.io endpoint, `cli-compat.json` on the `badges` branch, which the workflow creates on its first run). A failure turns the badge red with the last version that worked, and opens an issue labelled `cli-compat`, or comments on the open one once per new version. The next pass closes it.
+
+The app watches too: a top-level event type Shellby has never seen is written to the log once per run (`session.js`), so a "Report a problem" paste says what a Claude Code update added.
+
+`test/fixtures/cli-transcripts/` holds real transcripts, scrubbed of paths, names, ids and per-user setup, and a unit test audits them on every CI run. To record one for a new version, on a signed-in machine (one tiny Haiku turn):
+
+```
+node scripts/cli-compat.js --real --transcript test/fixtures/cli-transcripts/<version>.jsonl
+```
+
+Read it before committing it.
 
 
 
@@ -183,7 +205,11 @@ src/main/        Electron main process
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
   session.js       one Claude Code process per conversation (stream-json + control protocol)
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
+  checks.js        turn checks: which test commands a folder has, running them (cmd, fixed lines only), the verdict and the bring-home gate
+  shots.js         before/after pictures of a dev server either side of a turn, in a hidden locked-down window
+  editor.js        "Open in VS Code": a turn's file in VS Code's diff, both sides read out of git
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
+  clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
@@ -208,6 +234,8 @@ src/main/        Electron main process
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
   turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
   held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
+  usage-ledger.js  what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
+                   composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), and the service tying them together

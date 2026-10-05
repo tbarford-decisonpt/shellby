@@ -66,6 +66,15 @@ test('result events: success and an interrupted run without result text', () => 
   const [bad] = toItems({ type: 'result', subtype: 'error_during_execution', is_error: true, errors: [], session_id: 's1' });
   assert.equal(bad.ok, false);
   assert.equal(bad.error, null);
+  assert.equal(bad.tokens, null);
+  assert.equal(bad.costUsd, null);
+});
+
+test('a result carries the turn\'s token counts and cost for the per-turn ledger', () => {
+  const [r] = toItems({ type: 'result', is_error: false, total_cost_usd: 0.42,
+    usage: { input_tokens: 10, output_tokens: 200, cache_read_input_tokens: 5000, cache_creation_input_tokens: 300 } });
+  assert.deepEqual(r.tokens, { input: 10, output: 200, cacheRead: 5000, cacheWrite: 300 });
+  assert.equal(r.costUsd, 0.42);
 });
 
 test('rate limit events become usage percentages', () => {

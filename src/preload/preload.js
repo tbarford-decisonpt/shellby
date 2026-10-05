@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('shellby', {
   closeTab: invoke('tab:close'),
   moveTab: (tabId, beforeId) => ipcRenderer.invoke('tab:reorder', { tabId, beforeId }),
   seenTab: fire('tab:seen'),
+  markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
@@ -90,6 +91,11 @@ contextBridge.exposeInMainWorld('shellby', {
   compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
   compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
   keepBranch: invoke('branch:keep'),
+  // Try it N ways (wiring/tries.js): main always asks, with the cost, before any start
+  startTries: (/** @type {string} */ tabId, /** @type {{ n?: number, text?: string, arg?: string, attachments?: string[] }} */ { n, text, arg, attachments } = {}) => ipcRenderer.invoke('tries:start', { tabId, n, text, arg, attachments }),
+  stopTries: invoke('tries:stop'),
+  triesStatus: invoke('tries:status'),
+  onTriesDone: on('tries:done'),                   // { runId, firstId, text }
   // learning from corrections: review comments in, the rule card's buttons, Toolbox → Memory (corrections.js)
   noteReviewComments: (tabId, comments, batch) => ipcRenderer.invoke('corrections:comments', { tabId, comments, batch }),
   lessonState: invoke('lesson:state'),
@@ -103,12 +109,17 @@ contextBridge.exposeInMainWorld('shellby', {
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
+  runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
+  onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
+  openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
+  shotImage: invoke('shots:image'),                // a before/after picture, as a data URL (shots.js)
   worktreeStatus: invoke('worktree:status'),
   bringWorktreeHome: invoke('worktree:home'),
   discardWorktree: invoke('worktree:discard'),
   repoStatus: invoke('repo:status'),
   pushRepo: invoke('repo:push'),
   bringAllHome: invoke('repo:home-all'),
+  listClashes: invoke('clashes:list'), // copies that changed the same files (wiring/clashes.js)
 
   // history
   listSessions: invoke('session:list'),
@@ -425,6 +436,9 @@ contextBridge.exposeInMainWorld('shellby', {
   setChannelSecret: invoke('channels:secret'),
   testChannel: invoke('channels:test'),
   findTelegramChat: invoke('channels:findChat'),
+  getPhoneTasks: invoke('phoneTasks:get'),
+  setPhoneTasks: invoke('phoneTasks:set'),
+  pickPhoneTasksFolder: invoke('phoneTasks:pickFolder'),
 
   // the browser source for a stream
   getObs: invoke('obs:get'),
@@ -484,6 +498,7 @@ contextBridge.exposeInMainWorld('shellby', {
   depRoutine: invoke('depwatch:routine'),
   onDepWatch: on('depwatch'),
   usageBreakdown: invoke('usage:breakdown'),
+  estimateUsage: invoke('usage:estimate'), // { tabId, text } -> what a message like it usually costs (usage-ledger.js)
   // usage forecast, and work held for after the reset (forecast.js, held.js)
   getOutlook: invoke('outlook:get'),
   holdForReset: invoke('held:add'),
@@ -518,6 +533,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),
+  onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files
   onTabOpened: on('tab:opened'),
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),

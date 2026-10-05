@@ -353,6 +353,17 @@ test('the confirm window shows the whole routine', () => {
   assert.equal(routineQuestion(routine, { replacing: { name: 'Friday tidy' } }).title, 'Change a routine?');
 });
 
+test('add_routine may pick a model Shellby offers, and the confirm window says so', () => {
+  const { routine } = parseRequest({ action: 'add_routine', args: { ...ROUTINE, model: 'claude-sonnet-5' } }).intent;
+  assert.equal(routine.model, 'claude-sonnet-5');
+  assert.match(routineQuestion(routine, {}).detail, /\nModel: Sonnet 5\n/);
+  assert.equal(parseRequest({ action: 'add_routine', args: ROUTINE }).intent.routine.model, '');
+  assert.doesNotMatch(routineQuestion(parseRequest({ action: 'add_routine', args: ROUTINE }).intent.routine, {}).detail, /Model:/);
+  assert.equal(parseRequest({ action: 'add_routine', args: { ...ROUTINE, model: 'gpt-5' } }).ok, false);
+  const { toAction } = require(SERVER);
+  assert.equal(toAction('add_routine', { ...ROUTINE, model: ' haiku ' }).args.model, 'haiku');
+});
+
 test('routineReply says whether it was saved', () => {
   const { routine } = parseRequest({ action: 'add_routine', args: ROUTINE }).intent;
   assert.match(routineReply(routine, { added: false }), /decided not to add.*Nothing was saved/);

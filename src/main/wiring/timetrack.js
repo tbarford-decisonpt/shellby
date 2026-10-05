@@ -207,7 +207,13 @@ function wireTimetrack(d) {
   }
 
   function onResult(tabId, item, tab) {
-    d.endTurn(tabId);
+    // Once the turn's diff is noted: did it just change a file another copy has? (wiring/clashes.js)
+    const noted = Promise.resolve(d.endTurn(tabId));
+    noted.then(() => d.clashTurnEnded?.(tabId), () => {});
+    // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
+    noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));
+    // What it cost, for estimates next time (usage-ledger.js). Never worth losing the rest of the turn's end over.
+    try { d.usagePlan?.endTurn(tab, item); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
     tab.guardRun = null;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
     const fresh = tab.freshWanted;
@@ -262,7 +268,8 @@ function wireTimetrack(d) {
       d.recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
     }
     if (!item.interrupted && !inWorkflow && !waiting) {
-      d.tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
+      // A task your phone started always says so there, whatever you ticked.
+      d.tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) }, undefined, { always: !!tab.fromPhone });
     }
     if (item.interrupted || inWorkflow || (d.panel.isVisible() && d.panel.isFocused())) return;
     const secs = Math.round((item.durationMs || 0) / 1000);

@@ -11,8 +11,8 @@
   const allBtn = $('tabAllBtn');
 
   const SHOW_LIST_AT = 2;                              // open conversations before the list button shows
-  const URGENT = new Set(['asking', 'finished']);      // an edge marker jumps straight to these
-  const SAY = { asking: 'needs your OK', finished: 'has finished' };
+  const URGENT = new Set(['asking', 'review', 'finished']);  // an edge marker jumps straight to these
+  const SAY = { asking: 'needs your OK', review: 'is ready to review', finished: 'has finished' };
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const { plural } = SB;
 
@@ -65,6 +65,12 @@
   });
   const rowsEl = h('div', { class: 'tl-rows', id: 'tlRows', role: 'listbox', 'aria-label': 'Open conversations' });
   const foot = h('div', { class: 'tl-foot' });
+  // Finished work waiting for you opens the review inbox (review-view.js).
+  const reviewBar = h('button', {
+    class: 'tl-review', type: 'button', hidden: true, 'aria-keyshortcuts': 'Control+Shift+R',
+    onmousedown: e => e.preventDefault(),         // keep the keyboard in the find field
+    onclick: () => { SB.closeMenus(); SB.openReview?.(); },
+  });
   let query = '';
   let order = [];          // tab ids as listed
   let picked = null;       // the highlighted one, by id so a redraw keeps it
@@ -79,7 +85,8 @@
     h('span', { class: 'tl-icon' }, SB.tabIcon(t) || h('span', { class: 'tl-dot' })),
     h('span', { class: 'tl-text' },
       h('span', { class: 'tl-title', text: SB.shownTitle(t) }),
-      h('span', { class: 'tl-sub', text: SB.shortPath(t.cwd || state.cwd, 36) })),
+      h('span', { class: 'tl-sub', text: SB.shortPath(t.cwd || state.cwd, 36) }),
+      SB.clashLine(t.id) ? h('span', { class: 'tl-clash', text: `⚠ ${SB.clashLine(t.id)}` }) : null),
     // For the pointer; the keyboard closes the highlighted one with Ctrl+Delete.
     h('button', {
       class: 'tl-x', type: 'button', tabindex: '-1', 'aria-hidden': 'true', title: 'Close',
@@ -92,7 +99,7 @@
   // between press and release, and the list doesn't jump while you scroll it.
   function renderRows({ force = false } = {}) {
     const tabs = [...state.tabs.values()];
-    const now = JSON.stringify([query, state.activeTab, tabs.map(t => [t.id, S.standing(t), SB.shownTitle(t), t.cwd, S.closable(t, state.activeTab)])]);
+    const now = JSON.stringify([query, state.activeTab, tabs.map(t => [t.id, S.standing(t), SB.shownTitle(t), t.cwd, S.closable(t, state.activeTab), SB.clashLine(t.id)])]);
     if (!force && now === drawn) return;
     drawn = now;
     const gs = S.groups(tabs, query);
@@ -105,6 +112,16 @@
       : [h('p', { class: 'tl-empty', text: `No open conversation matches "${query.trim()}". Ctrl+K searches History too.` })]));
     paintPick();
     renderFoot(tabs);
+    renderReviewBar();
+  }
+
+  function renderReviewBar() {
+    const n = SB.reviewCount?.() || 0;
+    reviewBar.hidden = !n;
+    reviewBar.replaceChildren(
+      h('span', { class: 'tl-review-n', text: String(n) }),
+      h('span', { text: n === 1 ? 'Review 1 finished conversation' : `Review ${n} finished conversations` }),
+      h('kbd', { text: 'Ctrl+Shift+R' }));
   }
 
   // scroll: bring the highlighted row into view (the keyboard moved it, or the list just opened).
@@ -183,7 +200,7 @@
     query = '';
     field.value = '';
     picked = state.activeTab;
-    SB.openMenu(list, allBtn.hidden ? $('newTabBtn') : allBtn, () => { renderRows({ force: true }); return [field, rowsEl, foot]; });
+    SB.openMenu(list, allBtn.hidden ? $('newTabBtn') : allBtn, () => { renderRows({ force: true }); return [reviewBar, field, rowsEl, foot]; });
     if (list.hidden) return;
     paintPick({ scroll: true });
     field.focus();

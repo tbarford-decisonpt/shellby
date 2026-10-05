@@ -73,6 +73,7 @@ const DEFAULTS = {
   spendGuard: true,  // stop unattended runs before they eat the share of the 5-hour window you keep (see guard.js)
   spendReserve: 25,  // % of the 5-hour window routines, workflows and away-from-the-PC Autonomous tabs leave you
   spendMaxMinutes: 60, // the longest one routine run may take
+  holdBigTasks: false, // hold a message for the reset when it usually takes more than the window has left (usage-ledger.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
@@ -80,6 +81,10 @@ const DEFAULTS = {
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
+  checkEachTurn: false, // run the project's tests after a turn that changed files, and before bringing a copy home (see checks.js)
+  checkTimeoutMin: 5, // the longest one check may run, in minutes (checks.TIMEOUTS_MIN)
+  checksTrusted: {},  // { project root (lower-case): true | false }: asked once before running a project's own tests (checks.js)
+  turnShots: true,   // before/after pictures of a Shellby dev server either side of a turn (see shots.js)
   flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky.js); this PC only
   timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
@@ -92,6 +97,7 @@ const DEFAULTS = {
   autonomousAcknowledged: false,
   lastUsage: null,
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
+  turnCosts: [],      // what each turn cost, by project and kind of ask, never the prompt (see usage-ledger.js); this PC only
   // Lean Shell (efficiency.js, lean.js): cache reads per day, each project's
   // setup weight, what Claude Code used lately, plugins' always-on estimates,
   // what was tidied away (XP once each), and when things were first seen.
@@ -124,6 +130,7 @@ const DEFAULTS = {
   weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
+  clashWarnings: true, // say when two copies (or a copy and your checkout) change the same file (wiring/clashes.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)
   channelsConfirmed: null, // the destination you said yes to in the confirm window; nothing goes anywhere else (main.js channelPlace)
   crashReports: 'ask',        // ask | always | never: whether crash reports go to Sentry (crash-report.js)

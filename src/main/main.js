@@ -53,6 +53,7 @@ const { wireProgress } = require('./wiring/progress');
 const { wireTimetrack } = require('./wiring/timetrack');
 const { wireCrabApi } = require('./wiring/crab-api');
 const { wireChannels } = require('./wiring/channels');
+const { wirePhoneTasks } = require('./wiring/phone-tasks');
 const { wireSurroundings } = require('./wiring/surroundings');
 const { wireToolbox } = require('./wiring/toolbox');
 const { wireGithub } = require('./wiring/github');
@@ -61,6 +62,11 @@ const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
+const { wireClashes } = require('./wiring/clashes');
+const { wireUsagePlan } = require('./wiring/usageplan');
+const { wireTries } = require('./wiring/tries');
+const { wireChecks } = require('./wiring/checks');
+const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
 const { wireStartFrom } = require('./wiring/startfrom');
@@ -76,6 +82,7 @@ const { registerRoutinesIpc } = require('./ipc/routines');
 const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
+const { registerTriesIpc } = require('./ipc/tries');
 const { registerCorrectionsIpc } = require('./ipc/corrections');
 const { registerStartFromIpc } = require('./ipc/startfrom');
 
@@ -121,6 +128,8 @@ const captureClock = { now: null };
 // home directory and anything token-shaped, because its last lines are what
 // "Report a problem" offers to paste into an issue. See log.js.
 const log = new Log(path.join(app.getPath('userData'), 'logs'), { home: os.homedir() });
+// An event type a Claude Code update added is noted here, once (session.js).
+require('./session').setLogger(log);
 // ("starting" is written below, once this is known to be the Shellby that stays.)
 
 // Keeping him alive through a stray throw is the right trade for a desk pet:
@@ -296,6 +305,7 @@ const usageService = createUsage({
   get workflows() { return workflows; },
   get recapLog() { return awayService.recapLog; },
   get history() { return history; },
+  get usagePlan() { return usagePlan; },
   get notify() { return notify; },
   get refreshCritter() { return refreshCritter; },
   get flashState() { return flashState; },
@@ -319,6 +329,8 @@ const heldService = createHeldQueue({
   get sendToTab() { return sendToTab; },
   get currentCwd() { return currentCwd; },
   get dialogLook() { return dialogLook; },
+  get adoptPhoneTab() { return adoptPhoneTab; },
+  worktreeHome: () => worktreeHome(),
   limitWait: usageService.limitWait, resetTarget: usageService.resetTarget,
   clockTime: usageService.clockTime, sendOutlook: usageService.sendOutlook,
   routines: () => routineService.routines(),
@@ -332,6 +344,7 @@ const routineService = createRoutines({
   get panel() { return panel; },
   get manager() { return manager; },
   get history() { return history; },
+  get usagePlan() { return usagePlan; },
   get claudeStatus() { return claudeStatus; },
   get remote() { return remote; },
   get notify() { return notify; },
@@ -388,7 +401,7 @@ const copyService = createCopies({
 });
 
 const {
-  checkLimit, onUsage, outlookView, refreshOutlook, saveSpend, sendOutlook,
+  checkLimit, onUsage, outlookView, projectKeyOf, refreshOutlook, saveSpend, sendOutlook,
   spendSource, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
 } = usageService;
 const { heldList, holdForReset, queueTabs, queueTask, queueWaits, reopenForHeld, saveHeld, scheduleHeld, syncKeepAwake } = heldService;
@@ -417,6 +430,7 @@ const shared = {
   FORECAST_TEST, RECAP_TEST, awayService, copyService, routineService, stickerService, usageService,
   get recapLog() { return awayService.recapLog; }, set recapLog(v) { awayService.recapLog = v; },
   isAway, tabCost, windowShare,
+  projectKeyOf, spendSource,
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
   get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
@@ -446,6 +460,7 @@ const shared = {
   get activeSkin() { return activeSkin; },
   get addLesson() { return addLesson; },
   get advanceFocus() { return advanceFocus; },
+  get afterTurnChecks() { return afterTurnChecks; },
   get allSkins() { return allSkins; },
   get allSnippets() { return allSnippets; },
   get answerPermission() { return answerPermission; },
@@ -462,13 +477,21 @@ const shared = {
   get broadcastWardrobe() { return broadcastWardrobe; },
   get buildMenu() { return buildMenu; },
   get calmReason() { return calmReason; }, set calmReason(v) { calmReason = v; },
+  get channelConfirmed() { return channelConfirmed; },
   get channelPlace() { return channelPlace; },
   get channelSecret() { return channelSecret; }, set channelSecret(v) { channelSecret = v; },
   get channelSettings() { return channelSettings; },
   get channelsView() { return channelsView; },
+  get cancelAllChecks() { return cancelAllChecks; },
+  get cancelChecks() { return cancelChecks; },
+  get checkTry() { return checkTry; },
   get checkedUp() { return checkedUp; },
+  get checksOn() { return checksOn; },
   get checkupsView() { return checkupsView; },
   get chirp() { return chirp; },
+  get clashTabsChanged() { return clashTabsChanged; },
+  get clashTurnEnded() { return clashTurnEnded; },
+  get clashesView() { return clashesView; },
   get changeLearned() { return changeLearned; },
   get ci() { return ci; }, set ci(v) { ci = v; },
   get ciView() { return ciView; },
@@ -531,6 +554,7 @@ const shared = {
   get forgetPausedHook() { return forgetPausedHook; },
   get friends() { return friends; }, set friends(v) { friends = v; },
   get friendsView() { return friendsView; },
+  get gateHome() { return gateHome; },
   get github() { return github; }, set github(v) { github = v; },
   get handoff() { return handoff; },
   get githubEndpoints() { return githubEndpoints; },
@@ -599,11 +623,14 @@ const shared = {
   get pendingCommands() { return pendingCommands; },
   get pendingLink() { return pendingLink; }, set pendingLink(v) { pendingLink = v; },
   get perching() { return perching; }, set perching(v) { perching = v; },
+  get phoneTasksView() { return phoneTasksView; },
+  get pickPhoneTasksFolder() { return pickPhoneTasksFolder; },
   get pinnedTools() { return pinnedTools; },
   get placeCritter() { return placeCritter; },
   get playtime() { return playtime; }, set playtime(v) { playtime = v; },
   get pluginView() { return pluginView; },
   get prBadge() { return prBadge; }, set prBadge(v) { prBadge = v; },
+  get refreshPhoneTasks() { return refreshPhoneTasks; },
   get pranks() { return pranks; }, set pranks(v) { pranks = v; },
   get profileCard() { return profileCard; }, set profileCard(v) { profileCard = v; },
   get projectInsights() { return projectInsights; },
@@ -612,6 +639,7 @@ const shared = {
   get px() { return px; },
   get randomUUID() { return randomUUID; },
   get reachedForShellby() { return reachedForShellby; },
+  get refreshClashes() { return refreshClashes; },
   get refreshCritter() { return refreshCritter; },
   get refreshStatusLine() { return refreshStatusLine; },
   get registerWorkflowIpc() { return registerWorkflowIpc; },
@@ -627,6 +655,7 @@ const shared = {
   get roomTaskDone() { return roomTaskDone; },
   get roomsPanelView() { return roomsPanelView; },
   get runCheckup() { return runCheckup; },
+  get runChecksFor() { return runChecksFor; },
   get runClaudeOnce() { return runClaudeOnce; },
   get said() { return said; }, set said(v) { said = v; },
   get saveChannelSecret() { return saveChannelSecret; },
@@ -646,6 +675,9 @@ const shared = {
   get shop() { return shop; }, set shop(v) { shop = v; },
   get shopAsking() { return shopAsking; }, set shopAsking(v) { shopAsking = v; },
   get shopBlocked() { return shopBlocked; },
+  get shotImage() { return shotImage; },
+  get shotsAfterTurn() { return shotsAfterTurn; },
+  get shotsBeforeTurn() { return shotsBeforeTurn; },
   get shotsDir() { return shotsDir; },
   get showFlaky() { return showFlaky; },
   get showBuildFix() { return showBuildFix; },
@@ -663,6 +695,7 @@ const shared = {
   get startFromSend() { return startFromSend; },
   get startTask() { return startTask; },
   get startTaskInCopy() { return startTaskInCopy; },
+  get setPhoneTasks() { return setPhoneTasks; },
   get startView() { return startView; }, set startView(v) { startView = v; },
   get stat() { return stat; },
   get statusFile() { return statusFile; },
@@ -677,12 +710,14 @@ const shared = {
   get timeTracker() { return timeTracker; }, set timeTracker(v) { timeTracker = v; },
   get toolbox() { return toolbox; }, set toolbox(v) { toolbox = v; },
   get tray() { return tray; }, set tray(v) { tray = v; },
+  get tries() { return tries; },
   get turnEnds() { return turnEnds; },
   get turnStarts() { return turnStarts; },
   get typing() { return typing; }, set typing(v) { typing = v; },
   get typingSettings() { return typingSettings; },
   get updateView() { return updateView; },
   get updates() { return updates; }, set updates(v) { updates = v; },
+  get usagePlan() { return usagePlan; },
   get visitor() { return visitor; }, set visitor(v) { visitor = v; },
   get wake() { return wake; },
   get wardrobe() { return wardrobe; },
@@ -722,10 +757,13 @@ const {
 } = wireTimetrack(shared);
 const { cliBinDir, cliView, createCrabApi, installCli, removeCli, sayText } = wireCrabApi(shared);
 const {
-  answerPermission, askOnPhone, channelPlace, channelSettings, channelsView, confirmChannelPlace,
+  answerPermission, askOnPhone, channelConfirmed, channelPlace, channelSettings, channelsView, confirmChannelPlace,
   createObs, createRemote, loadChannelSecret, obsSettings, obsState, obsView, saveChannelSecret,
   tellChannel,
 } = wireChannels(shared);
+const {
+  adoptPhoneTab, createPhoneTasks, phoneTasksView, pickPhoneTasksFolder, refreshPhoneTasks, setPhoneTasks,
+} = wirePhoneTasks(shared);
 const {
   confirmAndInstallOpenRgb, createDictation, createLifeAndPlay, createMedia, createRgb,
   createTypingAlong, createWeather, ensureOpenRgb, mediaSettings, mediaView, musicHeadphones,
@@ -757,6 +795,11 @@ const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
+const { clashTabsChanged, clashTurnEnded, clashesView, refreshClashes, watchClashes } = wireClashes(shared);
+const usagePlan = wireUsagePlan(shared);
+const { afterTurnChecks, cancelAllChecks, cancelChecks, checkTry, checksOn, gateHome, runChecksFor } = wireChecks(shared);
+const tries = wireTries(shared); // Try it N ways: only ever from tries:start, after asking
+const { shotImage, shotsAfterTurn, shotsBeforeTurn } = wireShots(shared);
 const {
   addLesson, changeLearned, correctionFromTurns, createCorrections, dismissLesson, draftLesson,
   learnedView, lessonPreview, lessonState, noteCorrection,
@@ -987,7 +1030,7 @@ async function checkNudges() {
 // Settings as the panel sees them: the spend ledger stays in main (usage-service.js usageBreakdown),
 // and Work mode's settings show as they apply, over your own (workmode.js).
 function panelSettings() {
-  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = workmode.effective(config.data);
+  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, turnCosts: _t, phoneTasksSecret: _pt, ...rest } = workmode.effective(config.data);
   return { ...rest, dockOrder: workmode.behaviour(config.data).dock, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
@@ -1065,6 +1108,7 @@ function registerIpc() {
   // ---- history (ipc/history.js)
   registerHistoryIpc(ipcMain, {
     history, manager, openTab, log,
+    onCleared: () => usagePlan.clear(), // what each turn cost goes with the conversations
     confirmClear: async (count, openCount) => {
       const r = await dialog.showMessageBox(panel, {
         type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
@@ -1110,6 +1154,7 @@ function registerIpc() {
   registerGithubIpc(ipcMain, d);
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
+  registerTriesIpc(ipcMain, d);
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
 }
@@ -1192,6 +1237,7 @@ app.whenReady().then(() => {
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
   createGitHub();
   createManager();
+  watchClashes();
   createCorrections();
   createHealth();
   registerIpc();
@@ -1230,6 +1276,7 @@ app.whenReady().then(() => {
   // had running counts as said yes to, so an update doesn't silence it.
   if (config.get('channelsConfirmed') == null && channelSettings().enabled) config.set({ channelsConfirmed: channelPlace() });
   createRemote();
+  createPhoneTasks(); // listening again, if your phone may start tasks
   // On, but not to anywhere you said yes to (a question still open when Shellby
   // quit, or a token Windows can no longer read back): ask now rather than
   // stay silently "on" and send nothing.
@@ -1306,6 +1353,7 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   routineService.stop();
   if (config) saveSpend();
+  if (config) usagePlan.save();
   lean?.save();
   toolbox?.stop();
   health?.stop();
@@ -1323,7 +1371,7 @@ app.on('will-quit', () => {
   clearInterval(focusTick);
   usageService.stop(); // the reset tap
   repeating.forEach(clearInterval);
-  remote?.stop();
+  remote?.shutdown();
   dictation?.stop();
   media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
   if (PRIMARY && !CAPTURE) crashReport.endRun(LOG_DIR); // quit on purpose: nothing to report next time
@@ -1333,8 +1381,10 @@ app.on('will-quit', () => {
 // Workflows freeze first: a run cut off by quitting is resumable, not failed.
 app.on('before-quit', () => {
   app.isQuitting = true;
+  remote?.shutdown(); // no task from the phone starts while he's on his way out
   workflows?.shutdown();
   manager?.closeAll({ kill: true });
+  cancelAllChecks(); // a test run Shellby started ends with him
   // Quits that didn't come through quit() (Windows shutting down, say):
   // "Stop them" still holds. taskkill runs on its own, so Shellby exiting
   // can't cut it off halfway down the tree, and the servers are saved as gone.

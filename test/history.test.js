@@ -303,3 +303,13 @@ test('clear() still clears when the index was damaged, since a person asked for 
   assert.deepEqual(transcripts(dir), []);
   assert.equal(new History(dir).indexIntact, true, 'the damaged index is replaced by a clean one');
 });
+
+test('turn check verdicts, before/after pictures and try cards are kept, so they replay and their images load later', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'c', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  h.append('c', { kind: 'checks', after: 'abc', status: 'pass', commands: [] });
+  h.append('c', { kind: 'shots', after: 'abc', url: 'http://localhost:3000/', shots: { before: 'b1', after: 'a1' } });
+  h.append('c', { kind: 'tries', runId: 'r1', firstId: 'c', n: 2, rows: [] });
+  assert.deepEqual(new History(dir).load('c').map(i => i.kind), ['checks', 'shots', 'tries']);
+});

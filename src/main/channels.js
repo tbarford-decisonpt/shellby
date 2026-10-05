@@ -331,11 +331,14 @@ function checkSettings(settings, { hasSecret = false } = {}) {
  * Should this event go out?
  *   event: { kind, seconds? }
  *   { focused }: a focus session is on, and holds everything but the urgent
+ *   { always }: about a task your phone started, which the phone always hears
+ *     about (how it's going, what it needs), whichever kinds you ticked
  */
-function shouldSend(event, settings, { focused = false } = {}) {
+function shouldSend(event, settings, { focused = false, always = false } = {}) {
   const s = normalizeChannelSettings(settings);
   if (!s.enabled) return false;
   const kind = event?.kind;
+  if (always && (kind === 'asking' || kind === 'done')) return true;
   if (!EVENT_NAMES.includes(kind) || !s.events[kind]) return false;
   if (focused && !s.whileFocused && EVENTS[kind].priority !== 'high') return false;
   // A task that took no time at all is not news; the "he needs you" prompts and

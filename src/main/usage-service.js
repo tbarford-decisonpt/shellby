@@ -24,7 +24,7 @@ const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs
 /**
  * d: what this needs from main, read when it's used (most of it is only there
  * once Shellby has booted).
- *   config, panel, manager, workflows, recapLog, history: getters
+ *   config, panel, manager, workflows, recapLog, history, usagePlan: getters
  *   send, notify, showPanel, refreshCritter, flashState, tellChannel, sayText,
  *   markActive (he's just been busy), routines (the saved list), heldViews
  *   (held-service.js), log, every (main's cleared-on-quit interval),
@@ -83,11 +83,17 @@ function createUsage(d) {
   let spendLedger = null;
   let spendSaveTimer = null;
 
-  function spendSource(tab) {
-    const dir = tab.worktree?.originalCwd || tab.session?.cwd || '';
+  // A folder as the ledgers key it: { project (its name), pk (its full path, lowercased) }.
+  function projectKeyOf(dir) {
     const full = dir ? path.resolve(dir) : null;
     const pk = full?.toLowerCase() || null;
     const project = !full ? null : pk === path.resolve(os.homedir()).toLowerCase() ? 'Home folder' : path.basename(full);
+    return { project, pk };
+  }
+
+  // A tab's copy counts for the project it was copied from.
+  function spendSource(tab) {
+    const { project, pk } = projectKeyOf(tab.worktree?.originalCwd || tab.session?.cwd || '');
     if (tab.routineId) {
       // A routine renamed or deleted mid-run still counts as that routine.
       const routine = d.routines().find(r => r.id === tab.routineId);
@@ -104,6 +110,7 @@ function createUsage(d) {
   function onSpend(s, tab) {
     spendLedger ??= spend.normalize(d.config.get('spendLedger'));
     spendLedger = spend.record(spendLedger, spendSource(tab), s.weight, Date.now());
+    d.usagePlan?.onSpend(tab, s.weight); // and towards what this turn cost (turncost.js)
     if (!spendSaveTimer) spendSaveTimer = setTimeout(saveSpend, SPEND_SAVE_MS);
   }
 
@@ -286,7 +293,7 @@ function createUsage(d) {
 
   return {
     armGuard, checkGuards, checkLimit, clockTime, guardSettings, limitWait, onSpend, onUsage,
-    outlookView, refreshOutlook, resetTarget, saveSpend, scheduleLimit, sendOutlook, spendSource,
+    outlookView, projectKeyOf, refreshOutlook, resetTarget, saveSpend, scheduleLimit, sendOutlook, spendSource,
     stop, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
   };
 }

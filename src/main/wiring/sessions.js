@@ -40,6 +40,9 @@ function wireSessions(d) {
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
         d.usageService.armGuard(tab);
+        try { d.usagePlan?.beginTurn(tab); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
+        // Checks never run while Claude works in that folder: a new turn stops them (wiring/checks.js).
+        d.cancelChecks?.(tab.id);
         tab.lastReply = null;
         // Only the summary turn itself may start a conversation fresh (tab:fresh
         // sets it after this runs): a summary turn that died without a result
@@ -63,6 +66,7 @@ function wireSessions(d) {
 
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {
+        d.usagePlan?.onUsage(tabId, item); // before lastUsage moves on: the rise is measured from it
         d.config.set({ lastUsage: { ...item, at: Date.now() } });
         d.noteRecap(recap.usageEvent(tabId, tab.title, item));
         d.send(d.panel, 'usage', item);
@@ -90,7 +94,7 @@ function wireSessions(d) {
       if (failed) d.log.warn(`turn failed (${item.trouble.kind})`, detailOf(item.kind === 'error' ? item.text : item.error));
       // Claude Code stopping mid-turn sends no result: a routine's row still has to say it failed
       // (and offer Fix with Claude), not "started 2h ago" for ever.
-      if (failed && item.kind === 'error' && d.routineTabs.has(tabId)) d.updateRoutine(d.routineTabs.get(tabId), { lastStatus: 'error' });
+      if (failed && item.kind === 'error' && d.routineTabs.has(tabId)) d.routineService.updateRoutine(d.routineTabs.get(tabId), { lastStatus: 'error' });
       if (item.kind === 'task' && item.phase === 'started') d.stat('helper-spawned');
       if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
         const dir = tab.session?.cwd || '';
@@ -135,6 +139,7 @@ function wireSessions(d) {
     });
     d.manager.on('tabs', summary => {
       d.send(d.panel, 'tabs', summary);
+      d.clashTabsChanged?.(); // a copy opened or closed: look for clashes again (wiring/clashes.js)
       const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
       if (!d.CAPTURE) d.config.set({ openTabs: saved });
     });
@@ -162,6 +167,8 @@ function wireSessions(d) {
     turnStarts.delete(tab.id);
     const cwd = tab.session?.cwd;
     if (!cwd || d.CAPTURE) return null;
+    // A picture of the dev server as it is, alongside and never in the way (wiring/shots.js).
+    try { d.shotsBeforeTurn?.(tab); } catch (err) { d.log.info(`shots: ${err.message}`); }
     let late = false;
     const turnId = tab.turnId;
     const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId }); });
@@ -182,7 +189,7 @@ function wireSessions(d) {
     turnStarts.delete(tabId);
     const cwd = d.manager.tabs.get(tabId)?.session.cwd;
     if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
-    if (!start) return;
+    if (!start) { d.shotsAfterTurn?.(tabId, null); return; }
     try {
       const end = await changes.snapshot(start.root);
       const summary = await changes.summarize(start, end);
@@ -193,8 +200,21 @@ function wireSessions(d) {
       // Where the files stood at both ends of the turn, changed or not: a branch
       // from any turn starts its copy from exactly there (branch.js). Not shown.
       if (end && end.root === start.root) d.manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });
+      afterChanges(tabId, summary);
     } catch (err) {
       d.log.info(`changes: ${err.message}`);
+      afterChanges(tabId, null);
+    }
+  }
+
+  // Then what Shellby checks about a turn: the after picture and the tests
+  // (wiring/shots.js, checks.js). Neither may get in the way of the rest.
+  function afterChanges(tabId, summary) {
+    try {
+      d.shotsAfterTurn?.(tabId, summary)?.catch?.(err => d.log.info(`shots: ${err.message}`));
+      if (summary) d.afterTurnChecks?.(tabId, summary);
+    } catch (err) {
+      d.log.info(`checks: ${err.message}`);
     }
   }
 

@@ -10,6 +10,7 @@ const guard = require('./guard');
 const limits = require('./limits');
 const mcpServers = require('./mcpservers');
 const routineDraft = require('./routine-draft');
+const { isModel } = require('./models');
 const { MAX_TABS } = require('./sessions');
 const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 
@@ -29,7 +30,7 @@ const lastLines = s => String(s).trim().split('\n').slice(-3).join(' ');
 
 /**
  * d: what this needs from main, read when it's used.
- *   config, panel, manager, history, claudeStatus, remote: getters
+ *   config, panel, manager, history, claudeStatus, remote, usagePlan: getters
  *   log, send, notify, showPanel, sayText, wake, openTab, currentCwd, stat,
  *   dialogLook, confirm ({ ask }), runClaudeOnce, knownProjects, isFolder,
  *   randomUUID,
@@ -55,6 +56,8 @@ function createRoutines(d) {
       ...r, next: nextRun(r, now), scheduleText: describeSchedule(r.schedule),
       running: [...routineTabs.entries()].some(([tabId, id]) => id === r.id && d.manager.isBusy(tabId)),
       held: heldFor(r.id),
+      // Small runs on a top model: the editor says a lighter one would do (never changes it).
+      suggestModel: d.usagePlan?.routineSuggestion(r),
     }));
   }
 
@@ -114,7 +117,9 @@ function createRoutines(d) {
       makeRoomForRoutine();
       const tabId = d.randomUUID();
       const cwd = r.cwd && fs.existsSync(r.cwd) ? r.cwd : d.currentCwd();
-      d.openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}`, ...routineTools(r, cwd) });
+      const tab = d.openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}`, ...routineTools(r, cwd) });
+      // Its own model, if it has one: set before the first message starts the process (--model).
+      if (r.model && isModel(r.model) && !tab.session.proc) tab.session.model = r.model;
       routineTabs.set(tabId, r.id);
       const userItem = { kind: 'user', text: r.prompt, title: `⟳ ${r.name}`, routine: { id: r.id, name: r.name, reason } };
       d.manager.send(tabId, r.prompt, userItem);
@@ -154,11 +159,14 @@ function createRoutines(d) {
    * routine with the same name is changed in place, keeping its history and
    * whether it's paused.
    */
-  async function proposeRoutine(routine) {
+  async function proposeRoutine(proposed, { modelGiven = true } = {}) {
     if (routineAsking) return { ok: false, error: 'Shellby is already asking the user about a routine. Wait for that answer first.', status: 409 };
     if (Date.now() - routineDeclinedAt < ROUTINE_COOLDOWN_MS) return { ok: false, error: 'The user just turned down a routine. Talk it over with them before proposing another.', status: 429 };
-    if (routine.cwd && !d.isFolder(routine.cwd)) return { ok: false, error: `That folder doesn't exist: ${routine.cwd}`, status: 400 };
-    const replacing = routines().find(r => sameName(r.name, routine.name)) || null;
+    if (proposed.cwd && !d.isFolder(proposed.cwd)) return { ok: false, error: `That folder doesn't exist: ${proposed.cwd}`, status: 400 };
+    const replacing = routines().find(r => sameName(proposed.name, r.name)) || null;
+    // Changing one without naming a model keeps the model it runs on, so a quiet
+    // re-proposal can't move a routine pinned to a lighter model back to the default.
+    const routine = replacing && !modelGiven ? { ...proposed, model: replacing.model || '' } : proposed;
     if (!replacing && routines().length >= MAX_ROUTINES) return { ok: false, error: `The user already has ${MAX_ROUTINES} routines, which is the limit.`, status: 400 };
 
     routineAsking = true;

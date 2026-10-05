@@ -79,12 +79,18 @@
     $('spendReserveSelect').value = String(state.settings.spendReserve || 25);
     $('spendMaxSelect').value = String(state.settings.spendMaxMinutes || 60);
     $('spendGuardOptions').hidden = state.settings.spendGuard === false;
+    $('holdBigToggle').checked = state.settings.holdBigTasks === true;
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('flakyToggle').checked = state.settings.flakyTests !== false;
+    $('checkEachTurnToggle').checked = state.settings.checkEachTurn === true;
+    $('checkEachTurnOptions').hidden = state.settings.checkEachTurn !== true;
+    $('checkTimeoutSelect').value = String([2, 5, 10, 20].includes(state.settings.checkTimeoutMin) ? state.settings.checkTimeoutMin : 5);
+    $('turnShotsToggle').checked = state.settings.turnShots !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     $('onTopToggle').checked = state.settings.onTop === true;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
+    $('clashToggle').checked = state.settings.clashWarnings !== false;
     renderBillingGuard();
     $('chatterSelect').value = ['quiet', 'work', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('workModeToggle').checked = !!SB.isWorkMode?.();
@@ -229,6 +235,12 @@
     state.settings = r.settings;
     SB.toast(e.target.checked ? 'New conversations in a git project will get their own copy.' : 'New conversations will work in your checkout again.');
   });
+  $('clashToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ clashWarnings: e.target.checked });
+    state.settings = r.settings;
+    SB.renderTabStrip();
+    SB.toast(e.target.checked ? "He'll say when two copies change the same file." : 'No more clash warnings. Bring it home still stops on a real clash.');
+  });
   $('planOnlyToggle').addEventListener('change', async e => {
     const r = await api.setSettings({ planOnly: e.target.checked });
     state.settings = r.settings;
@@ -290,8 +302,12 @@
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
   $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
+  $('checkEachTurnToggle').addEventListener('change', async e => { const r = await api.setSettings({ checkEachTurn: e.target.checked }); state.settings = r.settings; $('checkEachTurnOptions').hidden = !state.settings.checkEachTurn; });
+  $('checkTimeoutSelect').addEventListener('change', async e => { const r = await api.setSettings({ checkTimeoutMin: Number(e.target.value) }); state.settings = r.settings; });
+  $('turnShotsToggle').addEventListener('change', async e => { const r = await api.setSettings({ turnShots: e.target.checked }); state.settings = r.settings; });
   $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
   $('spendGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ spendGuard: e.target.checked }); state.settings = r.settings; $('spendGuardOptions').hidden = !state.settings.spendGuard; });
+  $('holdBigToggle').addEventListener('change', async e => { const r = await api.setSettings({ holdBigTasks: e.target.checked }); state.settings = r.settings; });
   $('spendReserveSelect').addEventListener('change', async e => { const r = await api.setSettings({ spendReserve: Number(e.target.value) }); state.settings = r.settings; });
   $('spendMaxSelect').addEventListener('change', async e => { const r = await api.setSettings({ spendMaxMinutes: Number(e.target.value) }); state.settings = r.settings; });
   $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });
@@ -505,7 +521,42 @@
     $('chStatus').textContent = v.problem || '';
     $('chStatus').className = `small ext-status ${v.problem ? 'warn' : ''}`;
     $('chTest').disabled = !!v.problem;
+    $('ptRow').hidden = !v.canReply;
+    if (v.canReply) api.getPhoneTasks().then(renderPhoneTasks);
   }
+
+  // Starting a task from the phone (phone-tasks.js). The switch only asks:
+  // turning it on happens in the confirmation window, never here.
+  function renderPhoneTasks(v) {
+    if (!v) return;
+    $('ptEnabled').checked = !!v.on;
+    $('ptFolder').textContent = v.folder || 'nowhere yet';
+    $('ptFolder').title = v.folder || '';
+    $('ptNtfy').hidden = v.provider !== 'ntfy';
+    $('ptTopic').textContent = v.tasksTopic || '';
+    $('ptNewPass').hidden = !v.hasPassphrase;
+    const pass = v.passphrase || null;
+    $('ptPassBox').hidden = !pass;
+    $('ptPass').textContent = pass || '';
+    $('ptHint').textContent = v.provider === 'ntfy'
+      ? `Post to the topic below and Shellby starts it, in Ask first. Anyone who knows an ntfy topic can post to it and read it, so a passphrase from Shellby has to start every message. At most ${v.perHour} an hour, ${v.atOnce} at once.`
+      : `Message your bot and Shellby starts it, in Ask first: every edit and command still waits for your Allow. Only your private chat with the bot counts. At most ${v.perHour} an hour, ${v.atOnce} at once.`;
+    const off = v.wanted && !v.on;
+    const said = v.error || (v.on ? `On. ${v.provider === 'ntfy' ? 'Post your passphrase then /help' : 'Send /help to your bot'} for how.` : off ? v.problem || 'Off: where notifications go changed. Turn it on again.' : v.problem || '');
+    $('ptStatus').textContent = v.cancelled ? 'Left off.' : said;
+    $('ptStatus').className = `small ext-status ${v.error || (v.problem && v.wanted) ? 'warn' : v.on ? 'ok' : ''}`;
+  }
+  $('ptEnabled').addEventListener('change', async e => {
+    e.target.disabled = true;
+    renderPhoneTasks(await api.setPhoneTasks({ enabled: e.target.checked }));
+    e.target.disabled = false;
+  });
+  $('ptFolderBtn').addEventListener('click', async () => renderPhoneTasks(await api.pickPhoneTasksFolder()));
+  $('ptNewPass').addEventListener('click', async () => renderPhoneTasks(await api.setPhoneTasks({ newPassphrase: true })));
+  $('ptCopyPass').addEventListener('click', () => {
+    api.copyText($('ptPass').textContent);
+    SB.toast('Copied. Paste it somewhere safe on your phone.');
+  });
   $('chEnabled').addEventListener('change', async e => renderChannels(await api.setChannels({ enabled: e.target.checked })));
   $('chProvider').addEventListener('change', async e => renderChannels(await api.setChannels({ provider: e.target.value })));
   $('chTarget').addEventListener('change', async e => renderChannels(await api.setChannels({ target: e.target.value })));

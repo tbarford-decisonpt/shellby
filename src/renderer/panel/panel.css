@@ -597,6 +597,8 @@ textarea:focus-visible { outline: none; }
 .attach-btn:hover { color: var(--glass); background: var(--glass-dim); }
 .input-hint { display: flex; justify-content: space-between; gap: 8px; margin: 6px 4px 0; font-size: var(--fs-11); color: var(--sand-faint); }
 #modeHint.danger { color: #ff9b8f; }
+.cost-hint { color: var(--sand-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }
+.cost-hint[hidden] { display: none; }
 
 /* ================================================================ buttons & fields */
 .btn {

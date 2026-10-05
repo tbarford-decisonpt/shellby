@@ -4,6 +4,8 @@
 // Moved out of main.js; the limit and forecast it waits on are usage-service.js.
 const path = require('path');
 const held = require('./held');
+const { isModel } = require('./models');
+const worktrees = require('./worktrees');
 
 const MAX_TIMER_MS = 2 ** 31 - 1;      // setTimeout's ceiling: a longer wait fires at once
 const HELD_STAGGER_MS = 5000;          // one after another, not all at once
@@ -25,7 +27,7 @@ const pause = ms => new Promise(r => setTimeout(r, ms));
  *   CAPTURE, graceMs (how long after the reset held work goes),
  *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab,
  *   currentCwd, isFolder, isStr, dialogLook, confirm ({ ask }), randomUUID,
- *   powerSaveBlocker (Electron's),
+ *   powerSaveBlocker (Electron's), worktreeHome, adoptPhoneTab (wiring/phone-tasks.js),
  *   from usage-service.js: limitWait, resetTarget, clockTime, sendOutlook,
  *   from routines-service.js: routines, routinesView, runRoutine, makeRoomForRoutine
  */
@@ -68,7 +70,7 @@ function createHeldQueue(d) {
     if (h.kind === 'message') return { ...base, tabId: h.tabId, text: h.text, attachments: h.attachments };
     if (h.kind === 'routine') return { ...base, routineId: h.routineId, name: h.name };
     return {
-      ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode,
+      ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode, model: h.model || '',
       tabId: h.tabId, running: !!h.tabId && queueWaits.has(h.tabId),
       // Started before and still here: it ran dry partway (or Shellby restarted), and carries on.
       resuming: !!h.tabId && !queueWaits.has(h.tabId),
@@ -114,7 +116,8 @@ function createHeldQueue(d) {
       });
       if (response !== 0) return { ok: false, cancelled: true };
     }
-    const res = holdForReset({ kind: 'task', prompt, cwd, mode });
+    const model = typeof input.model === 'string' && isModel(input.model) ? input.model : '';
+    const res = holdForReset({ kind: 'task', prompt, cwd, mode, model });
     if (res.ok) d.log.info('Task queued for the reset', `${held.taskName(prompt)} at ${res.atText}`);
     return res;
   }
@@ -209,20 +212,44 @@ function createHeldQueue(d) {
     if (open && manager.isBusy(h.tabId)) return 'retry'; // you're working in it right now
     const carryOn = !!h.tabId && !!(open || history.get(h.tabId));
     const tabId = carryOn ? h.tabId : d.randomUUID();
-    const title = `🌙 ${h.name}`;
+    const title = `${h.fromPhone ? '📱' : '🌙'} ${h.name}`;
     const prompt = carryOn ? QUEUE_CARRY_ON : h.prompt;
+    const cwd = h.cwd && d.isFolder(h.cwd) ? h.cwd : d.currentCwd();
+    // From the phone: in its own copy, as if it had started straight away
+    // (wiring/phone-tasks.js), so your checkout stays untouched while you're out.
+    let copy;
+    try {
+      copy = h.fromPhone && !carryOn ? await worktrees.create(cwd, { home: d.worktreeHome(), title }) : null;
+    } catch (err) { return fail(err.message); }
+    if (copy && !copy.ok) return fail(copy.error);
     let turnId;
     try {
       if (!open) {
         d.makeRoomForRoutine();
-        d.openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
-          : { tabId, cwd: h.cwd && d.isFolder(h.cwd) ? h.cwd : d.currentCwd(), mode: h.mode, title });
+        const tab = d.openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
+          : { tabId, cwd: copy ? copy.worktree.cwd : cwd, mode: h.mode, title });
+        if (copy) {
+          tab.worktree = copy.worktree;
+          history.update(tabId, { cwd: copy.worktree.cwd, worktree: copy.worktree });
+        }
+        if (h.model && !tab.session.proc) tab.session.model = h.model; // before its process starts (--model)
       }
       turnId = manager.send(tabId, prompt, { kind: 'user', text: prompt, title, queued: { id: h.id, name: h.name } });
+      if (copy) manager.note(tabId, { kind: 'moved', branch: copy.worktree.branch, base: copy.worktree.base });
+      if (h.fromPhone && !carryOn) d.adoptPhoneTab(tabId);
+      else if (h.fromPhone && manager.tabs.get(tabId)) manager.tabs.get(tabId).fromPhone = true; // carrying on: noted when it started
       queueTabs.set(tabId, h.id);
       // Saved as soon as it starts: if Shellby closes mid-task, the next pass carries on here.
       d.config.set({ held: held.started(heldList(), h.id, tabId) });
     } catch (err) {
+      // A copy made for it would point at nothing: tidy it away, as startTaskInCopy does.
+      if (copy?.ok) {
+        try {
+          if (manager.tabs.has(tabId)) await manager.closeAndWait(tabId);
+          if (history.get(tabId)) history.remove(tabId);
+          await worktrees.remove(copy.worktree, { force: true });
+        } catch (e) { d.log.info(`queued phone task cleanup: ${e.message}`); }
+      }
       return fail(err.message);
     }
     const ended = waitForQueued(tabId);

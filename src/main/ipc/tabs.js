@@ -3,6 +3,7 @@
 const fs = require('fs');
 const changes = require('../changes');
 const ctx = require('../context');
+const editor = require('../editor');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
 const MAX_STEERS = 20;
@@ -25,6 +26,7 @@ function registerTabsIpc(ipcMain, d) {
     const list = d.heldList();
     if (list.some(h => h.kind === 'message' && h.tabId === tabId)) d.saveHeld(list.filter(h => !(h.kind === 'message' && h.tabId === tabId)));
     d.manager.interrupt(tabId);
+    d.cancelChecks(tabId); // its tests stop with it
     d.manager.close(tabId);
     d.routineTabs.delete(tabId);
     d.queueTabs.delete(tabId);
@@ -40,6 +42,10 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reorder', (_e, { tabId, beforeId } = {}) =>
     d.isStr(tabId) && d.manager.reorder(tabId, d.isStr(beforeId) ? beforeId : null));
   ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
+  // The review inbox (review-inbox.js): you've looked at its latest changes, or want them back in the list.
+  // after: the changes you looked at. Newer ones that landed meanwhile stay unreviewed.
+  ipcMain.handle('tab:reviewed', (_e, { tabId, reviewed = true, after = null } = {}) =>
+    d.isStr(tabId) && d.manager.setReviewed(tabId, reviewed !== false, d.isStr(after) ? after : null));
 
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
@@ -116,6 +122,23 @@ function registerTabsIpc(ipcMain, d) {
       d.noteCorrection?.(ref.tabId, lesson); // a correction: twice in one place and he offers a rule (corrections.js)
     }
     return r;
+  });
+  // The project's own tests, on demand, whatever the setting says (wiring/checks.js).
+  ipcMain.handle('checks:run', async (_e, raw) => {
+    const ref = d.changeRef(raw);
+    if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
+    return d.runChecksFor(ref);
+  });
+  // One file of a turn in VS Code's diff (editor.js): both sides come out of git, never a path from here.
+  ipcMain.handle('changes:open-editor', async (_e, raw) => {
+    const ref = d.isStr(raw?.file) ? d.changeRef(raw) : null;
+    if (!ref) return { ok: false, error: "That isn't a file from this conversation's changes." };
+    return editor.open(ref);
+  });
+  // A before/after picture of the dev server, by an id a 'shots' item in that tab names (wiring/shots.js).
+  ipcMain.handle('shots:image', (_e, { tabId, id } = {}) => {
+    const url = d.isStr(tabId) && d.isStr(id) ? d.shotImage(tabId, id) : null;
+    return url ? { ok: true, url } : { ok: false, error: 'That picture has been tidied away.' };
   });
 }
 

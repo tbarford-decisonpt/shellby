@@ -24,6 +24,8 @@
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="line-comments.css">
+<link rel="stylesheet" href="turn-checks.css">
+<link rel="stylesheet" href="review.css">
 <link rel="stylesheet" href="lessons.css">
 <link rel="stylesheet" href="hooks.css">
 <link rel="stylesheet" href="workflows.css">
@@ -74,6 +76,10 @@
     <button type="button" class="tab-add" id="newTabBtn" title="New conversation (Ctrl+T)" aria-label="New conversation">
       <svg viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>
+    <button type="button" class="tab-review" id="reviewBtn" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+Shift+R" title="Ready to review (Ctrl+Shift+R)" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.8 2.8 6.2-6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="reviewCount">0</span>
+    </button>
     <button type="button" class="tab-all" id="tabAllBtn" aria-haspopup="dialog" aria-expanded="false" title="Every open conversation (Ctrl+Shift+A)" hidden>
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span id="tabAllCount">0</span>
@@ -113,6 +119,7 @@
   <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
   <div class="popover" id="tabMenu" role="menu" hidden></div>
   <div class="popover tab-list" id="tabList" role="dialog" aria-label="Open conversations" hidden></div>
+  <div class="popover review-list" id="reviewList" role="dialog" aria-label="Ready to review" hidden></div>
   <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
   <div class="popover" id="pjMenu" role="menu" hidden></div>
   <div class="popover" id="snipMenu" role="menu" hidden></div>
@@ -145,7 +152,7 @@
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
       <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
-      <div class="input-hint"><span id="modeHint"></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
+      <div class="input-hint"><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
 
@@ -303,6 +310,11 @@
           <div class="row"><code class="path" id="routineFolder">Default folder</code><button type="button" class="btn slim-btn" id="routineFolderBtn">Change</button></div>
         </div>
       </div>
+      <label class="field-label">Model
+        <select class="field" name="model" aria-describedby="routineModelHint"></select>
+      </label>
+      <p class="muted small routine-model-hint" id="routineModelHint">A lighter model is plenty for tidy-ups and summaries.</p>
+      <p class="routine-model-suggest" id="routineModelSuggest" role="status" hidden></p>
       <div id="routineMcp"></div>
       <label class="toggle"><input type="checkbox" name="catchUp" checked><span class="switch"></span>If the PC was off, run once when Shellby starts</label>
       <p class="form-errors" id="routineErrors" role="alert" hidden></p>
@@ -334,6 +346,7 @@
             <option value="plan">Plan only</option>
             <option value="autonomous">Autonomous</option>
           </select>
+          <select class="field rq-mode" id="resetQueueModel" aria-label="Model" title="The model it runs on"></select>
           <button type="submit" class="btn slim-btn" id="resetQueueAdd">Queue it</button>
         </div>
         <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>
@@ -1437,6 +1450,8 @@
         <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
         <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give a conversation its own copy of a git project when it starts changing things</label>
         <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
+        <label class="toggle"><input type="checkbox" id="clashToggle"><span class="switch"></span>Warn me when two copies change the same file</label>
+        <p class="muted small">Two copies (or a copy and your own uncommitted work) that both change a file will clash when they come home. Shellby looks after each turn, marks both tabs with ⚠ and says so once, so you can sort it out early.</p>
       </section>
 
       <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
@@ -1530,6 +1545,25 @@
           <div id="chRepliesRow" hidden>
             <label class="toggle"><input type="checkbox" id="chReplies"><span class="switch"></span>Let me answer Allow or Deny from my phone</label>
             <p class="small muted ext-status" id="chRepliesHint"></p>
+          </div>
+          <div id="ptRow" hidden>
+            <label class="toggle"><input type="checkbox" id="ptEnabled"><span class="switch"></span>Let my phone start tasks</label>
+            <p class="small muted ext-status" id="ptHint"></p>
+            <div class="row wrap">
+              <span class="small">Phone tasks go to</span>
+              <code class="path" id="ptFolder">nowhere yet</code>
+              <button type="button" class="btn ghost slim-btn" id="ptFolderBtn">Choose…</button>
+            </div>
+            <div id="ptNtfy" hidden>
+              <p class="small">Post tasks to <code id="ptTopic"></code>, starting with your passphrase and a space.</p>
+              <div class="row wrap" id="ptPassBox" hidden>
+                <code id="ptPass"></code>
+                <button type="button" class="btn ghost slim-btn" id="ptCopyPass">Copy</button>
+                <p class="small warn">Shown once: keep it somewhere safe on your phone.</p>
+              </div>
+              <button type="button" class="btn ghost slim-btn" id="ptNewPass">New passphrase</button>
+            </div>
+            <p class="small ext-status" id="ptStatus"></p>
           </div>
           <div class="row wrap">
             <button type="button" class="btn slim-btn" id="chTest">Send a test</button>
@@ -1684,6 +1718,8 @@
           </label>
         </div>
         <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
+        <label class="toggle"><input type="checkbox" id="holdBigToggle"><span class="switch"></span>Hold big tasks for the reset when I'm close to the limit</label>
+        <p class="muted small">Shellby learns what tasks like yours usually take. When a message would carry you past the line (the share you keep, or the limit with the guard off), it waits for the reset instead, with a "Send now" if you change your mind. It needs a few similar tasks to go on first, and it's all worked out on this PC.</p>
       </section>
 
       <section class="setting-group" id="safetyGroup" data-nav="Safety nets">
@@ -1692,6 +1728,20 @@
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
         <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
         <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
+        <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
+        <div class="row wrap" id="checkEachTurnOptions">
+          <label class="inline-label" for="checkTimeoutSelect">Give up after
+            <select id="checkTimeoutSelect" class="field slim">
+              <option value="2">2 minutes</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="20">20 minutes</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">This runs the project's own scripts on this PC: its test script, and a typecheck or build if it has one. He asks once per project before the first run, and keeps sign-in tokens and keys out of their environment. The verdict is stamped on the turn's changes. It also checks a copy before bringing it home, and won't merge red without asking. Off by default: tests use your CPU. "Run checks" on any turn works either way.</p>
+        <label class="toggle"><input type="checkbox" id="turnShotsToggle"><span class="switch"></span>Before/after pictures of your dev server</label>
+        <p class="muted small">When a conversation works in a folder Shellby is running a dev server from, he photographs the page as the turn starts and again if it changed anything you'd see. Kept on this PC: the last 50 per conversation, for two weeks.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">
@@ -1949,13 +1999,19 @@
 <script src="feed.js"></script>
 <script src="line-comments.js"></script>
 <script src="line-comments-ui.js"></script>
+<script src="turn-checks.js"></script>
 <script src="lessons.js"></script>
 <script src="tabs.js"></script>
 <script src="tab-git.js"></script>
 <script src="tab-meters.js"></script>
+<script src="clash-text.js"></script>
+<script src="clashes.js"></script>
 <script src="tab-sort.js"></script>
 <script src="tab-overview.js"></script>
+<script src="review-queue.js"></script>
+<script src="review-view.js"></script>
 <script src="composer.js"></script>
+<script src="tries.js"></script>
 <script src="toolbox-setup.js"></script>
 <script src="toolbox-hooks.js"></script>
 <script src="lean.js"></script>

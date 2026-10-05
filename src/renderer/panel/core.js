@@ -15,6 +15,7 @@ const SB = window.SB = {
     workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
+    clashes: [],          // copies that changed the same files (clashes.js; src/main/clash.js has the shape)
   },
 };
 
@@ -155,14 +156,32 @@ SB.announce = text => {
 // out; one that appears with its words already in it often doesn't), and is
 // emptied rather than hidden.
 let toastTimer;
-SB.toast = (msg, { action, onAction, ms = 2800 } = {}) => {
+// actions: [{ label, onAction }] when there's more than one thing to offer.
+SB.toast = (msg, { action, onAction, actions, ms = 2800 } = {}) => {
   const t = SB.$('toast');
   const clear = () => t.replaceChildren();
-  // (replaceChildren would print a literal "null" for a missing button, so filter it out)
-  t.replaceChildren(...[SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { clear(); onAction(); } }, action) : null].filter(Boolean));
+  const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
+  t.replaceChildren(SB.h('span', { text: msg }),
+    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { clear(); a.onAction(); } }, a.label)));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(clear, action ? ms + 2500 : ms);
+  toastTimer = setTimeout(clear, offers.length ? ms + 2500 : ms);
 };
+
+// A model picker's options, grouped by family, from the list main accepts
+// (src/main/models.js). '' is the default; a saved model that has since left
+// the list still shows rather than a blank.
+SB.fillModels = (select, current = '', defaultText = 'Default') => {
+  const models = SB.state.models || [];
+  const groups = [...new Set(models.map(m => m.group))];
+  const known = current === '' || models.some(m => m.id === current);
+  select.replaceChildren(...[
+    SB.h('option', { value: '', text: defaultText }),
+    ...groups.map(g => SB.h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => SB.h('option', { value: m.id, text: m.label })))),
+    known ? null : SB.h('option', { value: current, text: current }),
+  ].filter(Boolean));
+  select.value = current;
+};
+SB.modelLabel = id => (SB.state.models || []).find(m => m.id === id)?.label || id;
 
 // Stroke icon from path data (built with DOM APIs, never innerHTML).
 SB.icon = (d, { size = 16, width = 1.4 } = {}) => {
@@ -285,7 +304,7 @@ SB.anyMenuOpen = () => !!document.querySelector(OPEN_MENUS);
 SB.closeMenus = ({ refocus = false } = {}) => {
   const held = !!document.activeElement?.closest(OPEN_MENUS);
   for (const menu of document.querySelectorAll('.popover')) menu.hidden = true;
-  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip', 'tabAllBtn']) SB.$(id).setAttribute('aria-expanded', 'false');
+  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip', 'tabAllBtn', 'reviewBtn']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();
   menuAnchor?.setAttribute('aria-expanded', 'false');
@@ -295,7 +314,7 @@ SB.closeMenus = ({ refocus = false } = {}) => {
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .slash-menu, .snip-more, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, #input')) SB.closeMenus();
 });
 
 // Up/Down walk a menu's items (wrapping round), Home/End jump to either end.

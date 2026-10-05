@@ -6,6 +6,7 @@ const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { MODES } = require('./config');
 const { checkNames } = require('./mcpservers');
+const { isModel } = require('./models');
 
 const HOUR = 3600000;
 const ID_RE = /^[\w-]{1,64}$/;
@@ -151,6 +152,10 @@ function validateRoutine(input, { allowAutonomous = false } = {}) {
   const servers = checkNames(input.mcp);
   if (servers.error) errors.push(servers.error);
 
+  // '' (or none) runs on whatever model Settings picks; anything else must be one Shellby offers.
+  const model = input.model === undefined || input.model === null ? '' : input.model;
+  if (typeof model !== 'string' || !isModel(model)) errors.push('Unknown model');
+
   const schedule = normaliseSchedule(input.schedule);
   const sErr = scheduleError(schedule);
   if (sErr) errors.push(sErr);
@@ -169,7 +174,7 @@ function validateRoutine(input, { allowAutonomous = false } = {}) {
   const lastStatus = STATUSES.includes(input.lastStatus) ? input.lastStatus : null;
 
   if (errors.length) return { routine: null, errors };
-  const routine = { id, name, prompt, cwd, mode, schedule, enabled, catchUp, createdAt, lastRunAt, lastStatus };
+  const routine = { id, name, prompt, cwd, mode, model, schedule, enabled, catchUp, createdAt, lastRunAt, lastStatus };
   if (servers.list.length) {
     routine.mcp = servers.list;
     if (input.mcpOnly === true) routine.mcpOnly = true;

@@ -4,14 +4,19 @@
 // DOM. Works in the browser and in Node (for tests).
 (function (root) {
   // Most urgent first. The list and the strip's edge markers both follow it.
-  const STANDINGS = ['asking', 'finished', 'working', 'quiet'];
-  const TITLES = { asking: 'Waiting for your OK', finished: 'Finished', working: 'Working', quiet: 'Quiet' };
+  const STANDINGS = ['asking', 'review', 'finished', 'working', 'quiet'];
+  const TITLES = { asking: 'Waiting for your OK', review: 'Ready to review', finished: 'Finished', working: 'Working', quiet: 'Quiet' };
+
+  // Finished a turn that changed files, and you haven't marked it reviewed
+  // since (main's review-inbox.js keeps `ready`). Working again: not yet.
+  const toReview = t => !!t.ready && !t.ready.reviewed && !t.pending && !t.busy && !t.crew;
 
   // An error ending is "finished" until you've looked; after that it's quiet. A
   // queue paused by an error is waiting on you too.
   function standing(t) {
     if (t.pending) return 'asking';
     if (t.busy || t.crew) return 'working';
+    if (toReview(t)) return 'review';
     if (t.unread || (t.queuePaused && t.queue?.length)) return 'finished';
     return 'quiet';
   }
@@ -69,7 +74,7 @@
     };
   }
 
-  const api = { STANDINGS, TITLES, standing, activity, matches, groups, closable, edges };
+  const api = { STANDINGS, TITLES, standing, toReview, activity, matches, groups, closable, edges };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyTabSort = api;
 })(typeof window !== 'undefined' ? window : globalThis);

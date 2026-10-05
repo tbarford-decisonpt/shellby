@@ -9,6 +9,7 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
  *   manager                       the tab manager (tabs, close, rename)
  *   openTab({ tabId, historyEntry })
  *   confirmClear(count, openCount) -> Promise<boolean>   asks first, Cancel by default
+ *   onCleared()                   optional: what else goes with Clear all history (the per-turn ledger)
  *   log
  * }
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -55,6 +56,7 @@ function registerHistoryIpc(ipcMain, d) {
     if (!(await d.confirmClear(count, open.length))) return answer(false);
     for (const e of open) manager.close(e.id);
     const gone = history.clear();
+    d.onCleared?.();
     d.log.info('history cleared', `${gone} conversation${gone === 1 ? '' : 's'}`);
     return answer(true);
   });

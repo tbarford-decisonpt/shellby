@@ -41,7 +41,16 @@ test('parseDraft turns structured output into normalised editor fields', () => {
     schedule: { type: 'weekly', time: '08:30', days: [1, 2, 3, 4, 5] },
     mode: 'plan',
     cwd: null,
+    model: '',
   });
+});
+
+test('parseDraft keeps a model Claude picked from the list, and the usual one otherwise', () => {
+  assert.equal(parseDraft(reply({ ...good, model: 'sonnet' })).draft.model, 'sonnet');
+  assert.equal(parseDraft(reply({ ...good, model: 'gpt-5' })).draft.model, '');
+  const schema = JSON.parse(draftArgs('x', {})[draftArgs('x', {}).indexOf('--json-schema') + 1]);
+  assert.ok(schema.properties.model.enum.includes(''));
+  assert.ok(schema.required.includes('model'));
 });
 
 test('parseDraft never passes through an id, enabled or Autonomous', () => {
@@ -115,11 +124,18 @@ test('parseChat tells a change from a plain answer', () => {
 test('checkChange normalises the fields and checks the folder', () => {
   assert.deepEqual(checkChange(change, {}), {
     ok: true,
-    routine: { name: 'Morning briefing', prompt: 'List what changed.', schedule: { type: 'daily', time: '08:30' }, mode: 'plan', cwd: null, catchUp: false },
+    routine: { name: 'Morning briefing', prompt: 'List what changed.', schedule: { type: 'daily', time: '08:30' }, mode: 'plan', cwd: null, model: '', catchUp: false },
   });
   assert.match(checkChange({ ...change, folder: 'D:\\nope' }, {}).errors.join(' '), /doesn't exist/);
   assert.equal(checkChange({ ...change, folder: 'D:\\yes' }, {}, { folderOk: () => true }).routine.cwd, 'D:\\yes');
   assert.equal(checkChange({ ...change, schedule: { type: 'weekly', time: '09:00', days: [] } }, {}).ok, false);
+});
+
+test('checkChange keeps the editor\'s model when Claude\'s answer has none it may use', () => {
+  assert.equal(checkChange({ ...change, model: 'haiku' }, {}).routine.model, 'haiku');
+  assert.equal(checkChange({ ...change, model: 'nope' }, { model: 'sonnet' }).routine.model, 'sonnet');
+  assert.equal(checkChange(change, { model: 'claude-opus-5' }).routine.model, 'claude-opus-5');
+  assert.equal(chatSchema().properties.routine.required.includes('model'), true);
 });
 
 test('checkChange keeps Autonomous only when the user gave it the routine', () => {

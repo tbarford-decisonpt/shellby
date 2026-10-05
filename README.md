@@ -2,7 +2,7 @@
 
 <img src="docs/banner.png" width="100%" alt="Shellby: a pixel hermit crab for your Windows desktop who gets things done with Claude Code. Three crabs stand on the sand: one in a tide-pool outfit, one with headphones and a boombox saying 'good one', and a big one saying 'fingers crossed'.">
 
-[![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE) [![Works with Claude Code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/x-salmon/shellby/badges/cli-compat.json)](https://github.com/x-salmon/shellby/actions/workflows/cli-compat.yml)
 
 ## Same Claude Code. Less babysitting.
 
@@ -78,6 +78,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Helper crabs:** every subagent gets its own lane in the panel and its own crab on your desktop.
 - **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
 - **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
+- **Checks it himself:** **Run checks** on a turn runs your tests and stamps the verdict on it, with before/after pictures when your dev server is up. Optionally after every turn, and before a copy comes home.
 - **Comment on the diff:** click a line number in any turn's diff (Shift+click for several) and say what should change: "no, keep this function pure". Comments collect across files and turns, then go back as one follow-up that quotes the code each one is about.
 - **What did that cost me:** each turn ends with its tokens, roughly how much of your 5-hour window it took, and how full the context is. The context chip adds up the whole conversation and its costliest turns, and he offers to make room a turn or two before it gets crowded.
 - **Learns from your corrections:** make the same review comment twice, Deny the same command twice, or undo changes in the same folder twice, and a card offers to add it as a rule to that project's `CLAUDE.md`, in your own words. It shows exactly what goes in before anything is written, and **Not this one** means he won't suggest it again.
