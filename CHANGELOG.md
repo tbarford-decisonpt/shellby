@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.68.0: try it N ways, tasks from your phone, a review inbox, and Shellby checks Claude's work
+
+### New
+- **Try it N ways.** Type `/tries 3` before a message (or right-click Send) and the same task goes to 2 to 4 new tabs, each in its own copy. Shellby always asks first, with what it usually costs. As each try finishes he runs the project's tests, then ranks them (passing, fewest failures, smallest change) with Open, Compare and Keep this one.
+- **Start a task from your phone.** Message your Telegram bot or ntfy topic and Shellby starts it, always in Ask first and in its own copy, so you can answer Allow or Deny from the phone too. Off until you turn it on in the confirm window. At most 10 an hour.
+- **A review inbox.** Tabs that finished with changes wait under **Ready to review** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>), oldest first, with their files, test result and age, until you mark them reviewed, bring them home or send them back.
+- **Shellby checks Claude's work.** **Run checks** on any turn runs the project's own tests and stamps the result on that turn. Turn it on for every turn under **Settings → Safety nets**. **Bring it home** can check the copy first, and won't merge a red one unless you say so.
+- **Before and after pictures.** With a dev server running, the page is photographed before and after a turn that changed it, to compare side by side or with a slider.
+- **Open in VS Code** opens a file's change in VS Code's own diff (Cursor and Insiders too).
+- **Two copies changing the same file** get an amber ⚠ on both tabs as soon as it happens, not when bringing it home stops on a conflict.
+- **What each turn cost:** a quiet line under each turn (tokens, about how much of your 5-hour window), the conversation's total and costliest turns in the context menu, and a heads-up before a message that would push you past the line you keep for yourself. Routines and queued tasks can each run on their own model.
+- **Fix this build, Address the review and loose ends.** Start a task from a red pull request (with the failing part of the log), from unresolved review comments, or from a TODO in your project. You see exactly what goes to Claude before it goes.
+- **Move a conversation between Shellby and the terminal,** both ways: **Continue in a terminal**, then **Pick it up here**; or bring a terminal session into a tab.
+- **Shellby learns from your corrections.** Put Claude right the same way twice in a project and he offers it as a rule for that project's CLAUDE.md. Nothing is written until you press Add.
+- **Work mode:** the tools up front and a quiet crab who only speaks up about work.
+- **Keyboard first.** <kbd>Ctrl</kbd>+<kbd>K</kbd> runs actions on this conversation (Stop, Undo, Rewind, Bring it home…), <kbd>Ctrl</kbd>+<kbd>/</kbd> lists every shortcut, and arrow keys walk every menu.
+- **Team packs set up in one go,** MCP servers included, behind one confirm window that lists everything.
+- **The weekly crab card counts real work:** routines that ran while you were away, pull requests, builds fixed, copies brought home.
+- **Health shows Shellby's own share** of your CPU and memory.
+
+### Changed
+- **When something goes wrong, it says so in one sentence,** with the next step as a button (Try again, Sign in again, Open in a fresh tab), and the raw details a click away.
+- **Easier to read and to use with a screen reader.** Faint text is brighter, a screen reader hears "Claude finished" rather than every step, menus give the keyboard back where it was when they close, and the close button no longer sits inside its tab.
+- **Lighter in the background:** the panel's timers pause while it's hidden, and Shellby no longer rereads every past conversation each time it starts.
+
+### Fixed
+- **Copying the crab card and Task from screenshot work again.** Both broke with Electron 44's new clipboard, and copies that fail now say so.
+- **A routine that ends in an error is marked Failed** instead of leaving its status unchanged.
+- **Links in Claude's replies open where they say,** even with `_` or `*` in the address.
+- **Esc closes any open menu,** including the Projects and snippets menus, instead of leaving the page.
+- **Shellby closes everything he started** when he's stopped from a terminal or crashes, including the music watcher.
+- **Routines start even if the Claude Code check fails** when Shellby starts.
+- **A damaged settings.json is kept** (as `settings.corrupt-….json`) rather than overwritten with defaults, and a briefly locked one no longer stops Shellby starting.
+
+### Security
+- **Every Shellby window refuses pop-ups, navigation and redirects,** not only the ones built a certain way, and pages can't change where forms or links point.
+- **Claude won't start on a pull request that changes Claude Code's own files** (CLAUDE.md, `.claude/`, `.mcp.json`) or has commits from someone else until you've ticked that you've looked.
+
 ## 0.67.0: 32 conversations at once, your MCP servers and n8n in workflows, and Claude drafts your hooks
 
 ### New
