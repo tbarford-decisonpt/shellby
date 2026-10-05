@@ -22,6 +22,13 @@ test('only https links become (inert) anchors', () => {
   assert.ok(!render('[x](https://a.test" onmouseover="bad)').includes('onmouseover="'));
 });
 
+test('emphasis and code markers inside a link URL leave the URL alone', () => {
+  const out = render('[doc](https://ex.com/_draft_/x*y*z) and [**bold** text](https://ex.com/a_b_c)');
+  assert.match(out, /data-href="https:\/\/ex.com\/_draft_\/x\*y\*z" href="#" title="https:\/\/ex.com\/_draft_\/x\*y\*z">doc<\/a>/);
+  assert.match(out, /data-href="https:\/\/ex.com\/a_b_c" href="#" title="https:\/\/ex.com\/a_b_c"><strong>bold<\/strong> text<\/a>/);
+  assert.match(render('[x](https://ex.com/`v`)'), /data-href="https:\/\/ex.com\/`v`"/);
+});
+
 test('lists, headings, emphasis and paragraphs', () => {
   const out = render('# Title\n\n- **one**\n- *two*\n\n1. first\n2. second\n\nplain `code`');
   assert.match(out, /<h3>Title<\/h3>/);

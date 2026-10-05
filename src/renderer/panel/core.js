@@ -218,14 +218,29 @@ SB.openMenu = (menu, anchor, build) => {
   menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - menu.offsetHeight)}px`;
   menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
   anchor.setAttribute('aria-expanded', 'true');
+  menuAnchor = anchor;
   menu.querySelector('button')?.focus();
 };
 
-SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'tabList', 'wfMenu', 'pjMenu', 'snipMenu', 'textMenu']) SB.$(id).hidden = true;
+// Every floating menu is a .popover, or the composer's .slash-menu (slash
+// commands, @-picker): asking the page beats keeping a list of ids in step.
+const OPEN_MENUS = '.popover:not([hidden]), .slash-menu:not([hidden])';
+let menuAnchor = null; // the button that opened the current menu, for focus to go home to
+
+SB.anyMenuOpen = () => !!document.querySelector(OPEN_MENUS);
+
+// refocus: put focus back on the button that opened the menu (Esc, a pick from
+// it). A click elsewhere leaves focus where the click put it.
+SB.closeMenus = ({ refocus = false } = {}) => {
+  const hadFocus = !!document.activeElement?.closest(OPEN_MENUS);
+  for (const menu of document.querySelectorAll('.popover')) menu.hidden = true;
   for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip', 'tabAllBtn']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();
+  const anchor = menuAnchor;
+  anchor?.setAttribute('aria-expanded', 'false');
+  menuAnchor = null;
+  if ((refocus || hadFocus) && anchor?.isConnected && !anchor.closest('[hidden]')) anchor.focus();
 };
 
 document.addEventListener('mousedown', e => {

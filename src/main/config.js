@@ -130,7 +130,10 @@ class Config {
   constructor(dir) {
     this.file = path.join(dir, 'settings.json');
     fs.mkdirSync(dir, { recursive: true });
-    this.data = { ...DEFAULTS, ...readJson(this.file) };
+    const { data, recoveredFrom } = loadSettings(this.file);
+    // Where a damaged settings.json was moved to (main.js logs it), or null.
+    this.recoveredFrom = recoveredFrom;
+    this.data = { ...DEFAULTS, ...data };
     if (!MODES.includes(this.data.mode)) this.data.mode = DEFAULTS.mode;
   }
 
@@ -139,10 +142,7 @@ class Config {
   set(patch) {
     const prev = this.data;
     this.data = { ...this.data, ...patch };
-    // Write via temp file so a crash mid-write can't corrupt settings.
-    const tmp = this.file + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
-    fs.renameSync(tmp, this.file);
+    writeSettings(this.file, JSON.stringify(this.data, null, 2));
     this.onSet?.(patch, prev);
     return this.data;
   }
@@ -155,6 +155,48 @@ class Config {
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; }
+}
+
+// settings.json -> { data, recoveredFrom }. A missing file is a fresh profile.
+// One that can't be read as an object is moved aside rather than treated as
+// empty: the next save would otherwise replace routines, snippets and XP with
+// the defaults, with nothing left to rescue.
+function loadSettings(file) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch (err) {
+    if (err.code === 'ENOENT') return { data: {}, recoveredFrom: null };
+    throw err;
+  }
+  try {
+    const data = JSON.parse(text);
+    if (data && typeof data === 'object' && !Array.isArray(data)) return { data, recoveredFrom: null };
+  } catch { /* damaged: set aside below */ }
+  const aside = file.replace(/\.json$/, `.corrupt-${Date.now()}.json`);
+  fs.renameSync(file, aside);
+  return { data: {}, recoveredFrom: aside };
+}
+
+// Antivirus and search indexers briefly hold new files open on Windows, which
+// makes the rename fail with EPERM/EBUSY/EACCES.
+const RENAME_RETRIES = 5;
+const RENAME_WAIT_MS = 20;
+const BUSY = new Set(['EPERM', 'EBUSY', 'EACCES']);
+const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+// Via a temp file, so a crash mid-write can't leave half a settings.json. A
+// rename that stays blocked falls back to writing in place: better than losing
+// the change.
+function writeSettings(file, text) {
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, text);
+  for (let attempt = 0; attempt < RENAME_RETRIES; attempt++) {
+    try { fs.renameSync(tmp, file); return; } catch (err) {
+      if (!BUSY.has(err.code)) throw err;
+      pause(RENAME_WAIT_MS * (attempt + 1));
+    }
+  }
+  fs.writeFileSync(file, text);
+  fs.rmSync(tmp, { force: true });
 }
 
 module.exports = { Config, MODES, CLI_MODE, DEFAULTS, readJson };

@@ -4,16 +4,26 @@
 // (https only). Works in the browser and in Node (for tests).
 (function (root) {
   const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Link URLs wait behind this marker until emphasis is done, so `_` or `*` in a
+  // URL can't turn into <em> inside the href.
+  const URL_MARK = String.fromCharCode(1);
+  const URL_HELD = new RegExp(`${URL_MARK}(\\d+)${URL_MARK}`, 'g');
+  const CODE_MARK = String.fromCharCode(0);
+  const CODE_HELD = new RegExp(`${CODE_MARK}(\\d+)${CODE_MARK}`, 'g');
 
   function inline(s) {
     const codes = [];
+    const urls = [];
+    // A code span in the URL goes back to its literal backticks: no <code> in an href.
+    const hold = u => `${URL_MARK}${urls.push(u.replace(CODE_HELD, (_m, i) => `\`${codes[i]}\``)) - 1}${URL_MARK}`;
     s = s.replace(/`([^`\n]+)`/g, (_m, c) => `\u0000${codes.push(c) - 1}\u0000`);
     // The title shows where it really goes on hover: the text is Claude's to choose.
-    s = s.replace(/\[([^\]\n]+)\]\((https:\/\/[^)\s]+)\)/g, (_m, t, u) => `<a data-href="${u}" href="#" title="${u}">${t}</a>`);
+    s = s.replace(/\[([^\]\n]+)\]\((https:\/\/[^)\s]+)\)/g, (_m, t, u) => `<a data-href="${hold(u)}" href="#" title="${hold(u)}">${t}</a>`);
     s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     // Emphasis must hug its text (`*word*`), so `2 * 3 * 4` and snake_case stay plain.
     s = s.replace(/(^|[^*\w])\*(?=\S)([^*\n]*?\S)\*(?!\w)/g, '$1<em>$2</em>');
     s = s.replace(/(^|[^_\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, '$1<em>$2</em>');
+    s = s.replace(URL_HELD, (_m, i) => urls[i]);
     return s.replace(/\u0000(\d+)\u0000/g, (_m, i) => `<code>${codes[i]}</code>`);
   }
 

@@ -664,7 +664,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'tabList', 'wfMenu', 'textMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
+      if (SB.anyMenuOpen()) return SB.closeMenus({ refocus: true });
       if (tab?.busy && state.view === 'chat') return stop();
       // Esc twice, like the terminal: back to an earlier message (composer.js).
       if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;

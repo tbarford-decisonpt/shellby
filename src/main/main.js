@@ -148,6 +148,9 @@ function snag(what, detail) {
 }
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
+// Ctrl+C on a dev run, or a polite kill: go through the normal quit so tasks,
+// dev servers and helper processes are stopped instead of left running.
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.quit());
 // A window or a helper process dying: the panel going blank used to be the only
 // sign, and nothing at all when it was the critter.
 app.on('render-process-gone', (_e, _wc, details) => snag('a window died', `${details.reason} (exit code ${details.exitCode})`));
@@ -230,6 +233,10 @@ let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
 let shrinkTimer = null;
+// Shellby's own repeating checks, all cleared on quit so none fires into a
+// half-torn-down app.
+const repeating = [];
+const every = (fn, ms) => { const t = setInterval(fn, ms); repeating.push(t); return t; };
 let guestShown = false;            // room allotted for a friend's visiting crab
 let visitor = null;                // { login, look, until }: a friend's crab dropped by (see friends.js)
 let flash = null;                  // { state, until } — brief success/error/learned reaction
@@ -668,7 +675,7 @@ function watchAway() {
   if (CAPTURE) return;
   for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkAway({ locked: true }));
   for (const here of ['unlock-screen', 'resume']) powerMonitor.on(here, () => checkAway());
-  setInterval(checkAway, AWAY_POLL_MS);
+  every(checkAway, AWAY_POLL_MS);
 }
 
 // Prompts open right now, in Shellby's tabs and in Claude Code elsewhere.
@@ -809,7 +816,7 @@ function watchLeaving() {
   if (CAPTURE) return;
   guardSessionEnd(critter);
   setTimeout(checkLeaving, 90 * 1000);
-  setInterval(checkLeaving, LEAVE_REFRESH_MS);
+  every(checkLeaving, LEAVE_REFRESH_MS);
   // Leaving the desk is when the answer matters next: have it ready.
   for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkLeaving());
 }
@@ -1533,7 +1540,7 @@ function refreshOutlook() {
 
 // The forecast lapses when readings stop, and the reset passes: keep the panel current.
 function watchOutlook() {
-  setInterval(() => {
+  every(() => {
     if (!config || !panel || panel.isDestroyed()) return;
     const view = outlookView();
     const json = JSON.stringify(view);
@@ -2252,6 +2259,7 @@ function registerIpc() {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
+  if (config.recoveredFrom) log.error('settings.json could not be read; started from defaults', `the old copy is at ${config.recoveredFrom}`);
   // Rooms are decided once: everything for someone who was already here, one
   // door at a time for someone new (rooms.js).
   if (config.get('rooms') == null) config.set({ rooms: rooms.initialRooms(!!config.get('onboarded')) });
@@ -2298,17 +2306,20 @@ app.whenReady().then(() => {
   // Credit past usage from history on the Wardrobe's first run (must precede any stat()).
   if (!CAPTURE) {
     const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-    const entries = history.list();
-    welcomeTrophies = wardrobe.backfill({
-      tasksCompleted: entries.reduce((n, e) => n + history.load(e.id).filter(i => i.kind === 'result' && i.ok).length, 0),
-      activeDays: [...new Set(entries.flatMap(e => [e.createdAt, e.updatedAt]).filter(Boolean).map(day))],
+    // A function, so history is only read on the first run (backfill is a no-op after).
+    welcomeTrophies = wardrobe.backfill(() => {
+      const entries = history.list();
+      return {
+        tasksCompleted: entries.reduce((n, e) => n + history.load(e.id).filter(i => i.kind === 'result' && i.ok).length, 0),
+        activeDays: [...new Set(entries.flatMap(e => [e.createdAt, e.updatedAt]).filter(Boolean).map(day))],
+      };
     });
   }
   stat('active');
   // This PC's own XP count, so sync can add PCs together (xp.js).
   if (!CAPTURE && !config.get('xp')?.device) config.set({ xp: withDevice(config.get('xp'), randomUUID()) });
   awardXp('day');
-  setInterval(() => { wardrobe.collectSeasonals(); broadcastWardrobe(); }, 60 * 60 * 1000);
+  every(() => { wardrobe.collectSeasonals(); broadcastWardrobe(); }, 60 * 60 * 1000);
   skins = loadSkins(userSkinsDir());
 
   // Renderers never need camera, mic, geolocation etc.
@@ -2378,13 +2389,17 @@ app.whenReady().then(() => {
   watchGuards();
   setTimeout(checkNudges, 60 * 1000);
   try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
-  setInterval(checkNudges, 60 * 60 * 1000);
+  every(checkNudges, 60 * 60 * 1000);
   setTimeout(checkWrapUp, 2 * 60 * 1000);
-  setInterval(checkWrapUp, 30 * 60 * 1000);
+  every(checkWrapUp, 30 * 60 * 1000);
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
-  checkStatus({ configured: claudePath() }).then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; startScheduler(); });
+  // Routines start either way: a failed CLI check must not silently leave them off.
+  checkStatus({ configured: claudePath() })
+    .then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; })
+    .catch(err => log.warn('Claude CLI status check failed at boot', err?.message || String(err)))
+    .finally(startScheduler);
 
   const reclamp = () => {
     const c = clampToDisplays(critter.getBounds(), workAreas());
@@ -2445,8 +2460,10 @@ app.on('will-quit', () => {
   clearTimeout(focusTimer);
   clearInterval(focusTick);
   clearTimeout(limitTimer);
+  repeating.forEach(clearInterval);
   remote?.stop();
   dictation?.stop();
+  media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
   if (PRIMARY && !CAPTURE) crashReport.endRun(LOG_DIR); // quit on purpose: nothing to report next time
 });
 // close() gives a process 3 s to finish on its own, which Shellby quitting never

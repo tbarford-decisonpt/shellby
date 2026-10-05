@@ -297,8 +297,11 @@ class Wardrobe extends EventEmitter {
   // First run of the Wardrobe: credit what the user already did with Shellby
   // (from conversation history) so long-time users don't start from zero.
   // Unlocks quietly and returns the achievements earned. No-op once stats exist.
-  backfill({ tasksCompleted = 0, activeDays = [] } = {}) {
+  // Takes the counts, or a function giving them: reading every conversation is
+  // slow, so boot passes a function and it only runs on the first launch.
+  backfill(counts = {}) {
     if (this.config.get('stats')) return [];
+    const { tasksCompleted = 0, activeDays = [] } = (typeof counts === 'function' ? counts() : counts) || {};
     const stats = normalizeStats({ tasksCompleted, activeDays });
     this.config.set({ stats });
     const d = this.data;

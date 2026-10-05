@@ -144,6 +144,15 @@ test('history backfill credits past usage once, quietly', () => {
   assert.deepEqual(w.backfill({ tasksCompleted: 500 }), []); // only on first run
 });
 
+test('history backfill only reads history (the function form) on first run', () => {
+  const { w } = make(d(2026, 6, 10));
+  let reads = 0;
+  const fromHistory = () => { reads++; return { tasksCompleted: 1, activeDays: ['2026-06-01'] }; };
+  assert.deepEqual(w.backfill(fromHistory).map(a => a.id), ['first-task']);
+  assert.deepEqual(w.backfill(fromHistory), []);
+  assert.equal(reads, 1);
+});
+
 test('render gives the outfit, the equipped effect and crew hats', () => {
   const { w } = make(d(2026, 12, 10));
   const r = w.render();
