@@ -158,6 +158,8 @@
         case 'result': return this.renderResult(item);
         case 'changes': return this.renderChanges(item);
         case 'undone': return this.markUndone(item);
+        case 'checks': return SB.renderChecks?.(this, item);   // turn-checks.js
+        case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'moved': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
           `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})`));
@@ -561,6 +563,7 @@
       });
       el.undoButton = undo;
       el.undoNote = note;
+      SB.decorateChanges?.(this, el, ref); // Run checks, and room for the verdict and pictures (turn-checks.js)
       SB.markReviewBlock?.(this, el); // comments waiting on this turn (line-comments-ui.js)
       this.append(el);
     }
@@ -585,7 +588,9 @@
         const r = await read(f.path);
         if (r?.error) { loaded = false; diff.replaceChildren(h('p', { class: 'small warn', text: r.error })); return; }
         const shown = reviewable && !f.binary ? SB.reviewDiff(this, r.patch, { file: f.path, ref, binary: f.binary }) : SB.renderDiff(r.patch, { binary: f.binary });
-        diff.replaceChildren(...[shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
+        // A turn's own file opens in VS Code's diff too (turn-checks.js); a comparison's doesn't.
+        const bar = ref ? SB.editorBar?.(this, ref, f) : null;
+        diff.replaceChildren(...[bar, shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
       });
       return h('li', {}, toggle, diff);
     }

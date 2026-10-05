@@ -72,6 +72,8 @@ const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
+const { wireChecks } = require('./wiring/checks');
+const { wireShots } = require('./wiring/shots');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -316,6 +318,7 @@ const shared = {
   get TRICKS_KIND() { return TRICKS_KIND; },
   get activeSkin() { return activeSkin; },
   get advanceFocus() { return advanceFocus; },
+  get afterTurnChecks() { return afterTurnChecks; },
   get allSkins() { return allSkins; },
   get allSnippets() { return allSnippets; },
   get answerPermission() { return answerPermission; },
@@ -336,7 +339,10 @@ const shared = {
   get channelSecret() { return channelSecret; }, set channelSecret(v) { channelSecret = v; },
   get channelSettings() { return channelSettings; },
   get channelsView() { return channelsView; },
+  get cancelAllChecks() { return cancelAllChecks; },
+  get cancelChecks() { return cancelChecks; },
   get checkedUp() { return checkedUp; },
+  get checksOn() { return checksOn; },
   get checkupsView() { return checkupsView; },
   get chirp() { return chirp; },
   get ci() { return ci; }, set ci(v) { ci = v; },
@@ -397,6 +403,7 @@ const shared = {
   get forgetPausedHook() { return forgetPausedHook; },
   get friends() { return friends; }, set friends(v) { friends = v; },
   get friendsView() { return friendsView; },
+  get gateHome() { return gateHome; },
   get github() { return github; }, set github(v) { github = v; },
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
@@ -493,6 +500,7 @@ const shared = {
   get routineTabs() { return routineTabs; },
   get routineTests() { return routineTests; },
   get runCheckup() { return runCheckup; },
+  get runChecksFor() { return runChecksFor; },
   get runClaudeOnce() { return runClaudeOnce; },
   get said() { return said; }, set said(v) { said = v; },
   get saveChannelSecret() { return saveChannelSecret; },
@@ -514,6 +522,9 @@ const shared = {
   get shop() { return shop; }, set shop(v) { shop = v; },
   get shopAsking() { return shopAsking; }, set shopAsking(v) { shopAsking = v; },
   get shopBlocked() { return shopBlocked; },
+  get shotImage() { return shotImage; },
+  get shotsAfterTurn() { return shotsAfterTurn; },
+  get shotsBeforeTurn() { return shotsBeforeTurn; },
   get shotsDir() { return shotsDir; },
   get showFlaky() { return showFlaky; },
   get showHealth() { return showHealth; },
@@ -623,6 +634,8 @@ const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
+const { afterTurnChecks, cancelAllChecks, cancelChecks, checksOn, gateHome, runChecksFor } = wireChecks(shared);
+const { shotImage, shotsAfterTurn, shotsBeforeTurn } = wireShots(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -1097,7 +1110,7 @@ function changeRef(r) {
   const copy = !fs.existsSync(reported.root) && (history.get(tabId)?.copies || []).find(c => isStr(c?.path) && isStr(c?.root) && same(c.path, reported.root));
   return {
     tabId, root: copy ? copy.root : reported.root, before: reported.before, after: reported.after,
-    ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file } : {}),
+    ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file, status: reported.files.find(f => f.path === r.file).status } : {}),
   };
 }
 
@@ -2456,6 +2469,7 @@ app.on('before-quit', () => {
   app.isQuitting = true;
   workflows?.shutdown();
   manager?.closeAll({ kill: true });
+  cancelAllChecks(); // a test run Shellby started ends with him
   // Quits that didn't come through quit() (Windows shutting down, say):
   // "Stop them" still holds. taskkill runs on its own, so Shellby exiting
   // can't cut it off halfway down the tree, and the servers are saved as gone.

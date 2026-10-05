@@ -39,6 +39,8 @@ function wireSessions(d) {
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
         d.armGuard(tab);
+        // Checks never run while Claude works in that folder: a new turn stops them (wiring/checks.js).
+        d.cancelChecks?.(tab.id);
         tab.lastReply = null;
         // Only the summary turn itself may start a conversation fresh (tab:fresh
         // sets it after this runs): a summary turn that died without a result
@@ -148,6 +150,8 @@ function wireSessions(d) {
     turnStarts.delete(tab.id);
     const cwd = tab.session?.cwd;
     if (!cwd || d.CAPTURE) return null;
+    // A picture of the dev server as it is, alongside and never in the way (wiring/shots.js).
+    try { d.shotsBeforeTurn?.(tab); } catch (err) { d.log.info(`shots: ${err.message}`); }
     let late = false;
     const turnId = tab.turnId;
     const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId }); });
@@ -168,7 +172,7 @@ function wireSessions(d) {
     turnStarts.delete(tabId);
     const cwd = d.manager.tabs.get(tabId)?.session.cwd;
     if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
-    if (!start) return;
+    if (!start) { d.shotsAfterTurn?.(tabId, null); return; }
     try {
       const end = await changes.snapshot(start.root);
       const summary = await changes.summarize(start, end);
@@ -176,6 +180,9 @@ function wireSessions(d) {
       // time the next message may already be in the transcript (rewind.js).
       const turn = start.turnId ? { turnId: start.turnId } : {};
       if (summary) d.manager.note(tabId, { kind: 'changes', ...summary, ...turn });
+      // Then what Shellby checks about it: the after picture and the tests (wiring/shots.js, checks.js).
+      d.shotsAfterTurn?.(tabId, summary);
+      if (summary) d.afterTurnChecks?.(tabId, summary);
       // Where the files stood at both ends of the turn, changed or not: a branch
       // from any turn starts its copy from exactly there (branch.js). Not shown.
       if (end && end.root === start.root) d.manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });

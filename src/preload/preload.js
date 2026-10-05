@@ -93,6 +93,10 @@ contextBridge.exposeInMainWorld('shellby', {
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
+  runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
+  onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
+  openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
+  shotImage: invoke('shots:image'),                // a before/after picture, as a data URL (shots.js)
   worktreeStatus: invoke('worktree:status'),
   bringWorktreeHome: invoke('worktree:home'),
   discardWorktree: invoke('worktree:discard'),
