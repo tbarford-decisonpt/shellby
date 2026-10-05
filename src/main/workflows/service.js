@@ -14,6 +14,8 @@ const draft = require('./draft');
 const crypto = require('crypto');
 const fs = require('fs');
 const fx = require('./effects');
+const mcpServers = require('../mcpservers');
+const mcpClient = require('../mcpclient');
 
 const MAX_WORKFLOWS = 100;
 const MAX_ACTIVE = 4;              // top-level runs at once; the rest wait their turn
@@ -42,7 +44,8 @@ class WorkflowService {
    *   makeCopy({ repo, slug }) -> { ok, path, branch, base, repo } (a worktree to work in),
    *   openPullRequest({ folder, title, body, draft, workflow }) -> { ok, url, number, ... },
    *   copy(text), crypto: { available, encrypt, decrypt }, webhookPort() -> number | null,
-   *   log: { info, warn }, now(), fetchImpl?
+   *   log: { info, warn }, now(), liveMcp() -> the Toolbox's MCP servers,
+   *   fetchImpl?, callMcpTool?(def, tool, args, opts), listMcpTools?(def, opts) (tests)
    * }
    */
   constructor(deps) {
@@ -61,6 +64,7 @@ class WorkflowService {
     this.folderTimers = new Map();
     this.rate = new RateLimit();
     this.pushTimers = new Map();
+    this.toolReads = new Map();   // server+folder -> a tools/list still being answered
     this.proposing = false;
     this.declinedAt = 0;
     this.frozen = false;
@@ -439,7 +443,7 @@ class WorkflowService {
     };
     // Never the definition itself: a run only ever runs a workflow from the checked list.
     delete rec.definition;
-    const run = { record: rec, workflowId: wf.id, tabs: new Set(), tabId: null, engine: null, child: depth > 0, origin: rec.origin || origin || trigger.type, budget };
+    const run = { record: rec, workflowId: wf.id, tabs: new Set(), convos: new Map(), engine: null, child: depth > 0, origin: rec.origin || origin || trigger.type, budget };
     run.engine = new Engine({
       workflow: wf, record: rec, effects: this.effectsFor(run), secrets: this.secrets.all(),
       onChange: r => { if (!this.frozen) { this.store.save(r); this.pushRun(r); } },
@@ -552,6 +556,7 @@ class WorkflowService {
     const d = this.deps;
     return {
       claude: args => this.claudeStep(run, args),
+      mcp: args => this.mcpStep(args),
       run: ({ command, env, cwd, timeoutMs, signal }) => d.runCommand(cwd || d.currentCwd(), command, { timeoutMs, signal, env, maxCommand: 12000 }),
       http: args => fx.http({ ...args, fetchImpl: d.fetchImpl || fetch, blockedPorts: [d.webhookPort()].filter(Boolean) }),
       ask: args => this.askStep(run, args),
@@ -565,26 +570,31 @@ class WorkflowService {
     };
   }
 
-  async claudeStep(run, { prompt, followUp, tabId: replyTo, mode, model, cwd, fresh, label, workflow, signal, onTab }) {
+  async claudeStep(run, { prompt, followUp, tabId: replyTo, mode, model, cwd, fresh, label, workflow, signal, onTab, mcp = [], mcpOnly = false }) {
     const d = this.deps;
     if (!d.claudeReady()) throw new Error('Claude Code isn\'t set up and signed in. Set it up in Settings first.');
     const folder = cwd || d.currentCwd();
-    const shared = run.tabId && d.manager.tabs.has(run.tabId) ? d.manager.tabs.get(run.tabId) : null;
     // A follow-up ("you forgot the JSON") goes to the conversation that answered.
     if (followUp) {
       const own = replyTo && d.manager.tabs.get(replyTo);
       if (!own) throw new Error('Its conversation was closed before it finished.');
       return fx.claudeTurn(d.manager, own.id, prompt, { kind: 'user', text: prompt, title: `⚡ ${workflow}`, workflow: { runId: run.record.id, step: label } }, signal);
     }
-    // One conversation per run, unless a step wants a fresh one or works in another folder.
+    // The servers a step may use are fixed when its conversation starts, so a
+    // step that wants different ones gets a conversation of its own.
+    const tools = this.stepTools(mcp, mcpOnly, folder);
+    // One conversation per run for each set of servers, unless a step wants a
+    // fresh one or works in another folder.
+    const sharedId = run.convos.get(tools.key);
+    const shared = sharedId && d.manager.tabs.has(sharedId) ? d.manager.tabs.get(sharedId) : null;
     let tab = !fresh && shared && path.resolve(shared.session.cwd) === path.resolve(folder) ? shared : null;
     if (!tab) {
       this.makeRoom();
       const tabId = randomUUID();
-      tab = d.openTab({ tabId, cwd: folder, mode, workflowRunId: run.record.id, title: `⚡ ${workflow}` });
+      tab = d.openTab({ tabId, cwd: folder, mode, workflowRunId: run.record.id, title: `⚡ ${workflow}`, allowedTools: tools.allowedTools, mcpConfig: tools.mcpConfig });
       run.tabs.add(tabId);
       this.tabRuns.set(tabId, run.record.id);
-      if (!fresh && !shared) run.tabId = tabId;
+      if (!fresh && !shared) run.convos.set(tools.key, tabId);
       d.toPanel('tab:opened', { tabId, entry: null, items: [], background: true });
     }
     onTab(tab.id);
@@ -592,6 +602,59 @@ class WorkflowService {
     if (model && !tab.session.proc) tab.session.model = model;
     const userItem = { kind: 'user', text: prompt, title: `⚡ ${workflow}`, workflow: { runId: run.record.id, step: label } };
     return fx.claudeTurn(d.manager, tab.id, prompt, userItem, signal);
+  }
+
+  /**
+   * A Claude step's MCP servers -> what its conversation starts with: the
+   * rules that let Claude use them unasked, and with "only these", their
+   * definitions alone. Throws when one of them can't be loaded on its own.
+   */
+  stepTools(mcp, mcpOnly, folder) {
+    const key = JSON.stringify([mcp, !!mcpOnly]);
+    if (!mcp.length) return { key, allowedTools: [], mcpConfig: null };
+    let mcpConfig = null;
+    if (mcpOnly) {
+      const r = mcpServers.configFor(mcp, { home: this.deps.home, cwd: folder });
+      if (!r.ok) throw new Error(r.error);
+      mcpConfig = r.config;
+    }
+    return { key, allowedTools: mcpServers.allowRules(mcp), mcpConfig };
+  }
+
+  /** An "MCP tool" step: start the server, call the one tool, shut it down. */
+  async mcpStep({ server, tool, args, cwd, timeoutMs, signal }) {
+    const folder = cwd || this.deps.currentCwd();
+    const r = mcpServers.resolveServer(server, { home: this.deps.home, cwd: folder });
+    if (!r.ok) throw new Error(r.error);
+    const call = this.deps.callMcpTool || mcpClient.callTool;
+    return call(r.def, tool, args, { cwd: folder, timeoutMs, signal });
+  }
+
+  /** The servers a step could pick, for the editor. live: the Toolbox's list. */
+  mcpServerList(cwd, live = this.deps.liveMcp?.() || []) {
+    return mcpServers.listServers({ home: this.deps.home, cwd: cwd || this.deps.currentCwd(), live });
+  }
+
+  /**
+   * A server's tools, for the editor's tool picker. Starts the server for a
+   * moment; asking again while it's still answering waits for that answer.
+   */
+  mcpTools(server, cwd) {
+    const folder = cwd || this.deps.currentCwd();
+    const key = `${server}\n${path.resolve(folder).toLowerCase()}`;
+    if (this.toolReads.has(key)) return this.toolReads.get(key);
+    const read = (async () => {
+      const r = mcpServers.resolveServer(server, { home: this.deps.home, cwd: folder });
+      if (!r.ok) return { ok: false, error: r.error };
+      try {
+        const list = this.deps.listMcpTools ? this.deps.listMcpTools(r.def, { cwd: folder }) : mcpClient.listTools(r.def, { cwd: folder, timeoutMs: 60000 });
+        return { ok: true, tools: await list };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    })().finally(() => this.toolReads.delete(key));
+    this.toolReads.set(key, read);
+    return read;
   }
 
   // A workflow needs a free conversation slot: the oldest idle tab a finished
@@ -732,7 +795,9 @@ class WorkflowService {
 
   draftContext() {
     const d = new Date(this.now());
-    return { home: this.deps.home, defaultFolder: this.deps.currentCwd(), workflows: this.workflows.map(w => w.name), today: d.toDateString() };
+    let mcp = [];
+    try { mcp = this.mcpServerList(null).map(x => x.name); } catch { /* the draft does without */ }
+    return { home: this.deps.home, defaultFolder: this.deps.currentCwd(), workflows: this.workflows.map(w => w.name), today: d.toDateString(), mcpServers: mcp };
   }
 
   /** Describe it: a sentence -> an unsaved workflow for the editor. One try to fix a draft that doesn't validate. */
@@ -900,7 +965,7 @@ class WorkflowService {
     this.tabRuns.delete(tabId);
     fx.tabClosed(tabId);
     for (const run of this.active.values()) {
-      if (run.tabId === tabId) run.tabId = null;
+      for (const [key, id] of run.convos) if (id === tabId) run.convos.delete(key);
       run.tabs.delete(tabId);
     }
   }

@@ -222,14 +222,14 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu', 'pjMenu', 'snipMenu', 'textMenu']) SB.$(id).hidden = true;
-  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip']) SB.$(id).setAttribute('aria-expanded', 'false');
+  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'tabList', 'wfMenu', 'pjMenu', 'snipMenu', 'textMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip', 'tabAllBtn']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .slash-menu, .snip-more, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .slash-menu, .snip-more, #input')) SB.closeMenus();
 });
 
 // ------------------------------------------------------------------ page never scrolls

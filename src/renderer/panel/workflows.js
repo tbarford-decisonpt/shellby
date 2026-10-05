@@ -20,6 +20,7 @@
     claude: { name: 'Ask Claude', sub: 'Claude works on it, and can hand back fields' },
     run: { name: 'Run a command', sub: 'A PowerShell command' },
     http: { name: 'Web request', sub: 'Call a web address' },
+    mcp: { name: 'MCP tool', sub: 'Call one tool of an MCP server, with no Claude turn' },
     file: { name: 'File', sub: 'Read, write or add to a file' },
     ask: { name: 'Ask me', sub: 'Wait for your answer' },
     tell: { name: 'Tell me', sub: 'A notification, your phone, Shellby or a file' },
@@ -32,7 +33,7 @@
     worktree: { name: 'Make a copy', sub: 'A copy of a GitHub repository to work in, on its own branch' },
     pr: { name: 'Open a pull request', sub: 'Push the copy\'s branch and open a draft pull request' },
   };
-  const STEP_GROUPS = [['Claude', ['claude']], ['Do', ['run', 'http', 'file']], ['GitHub', ['worktree', 'pr']], ['Talk', ['ask', 'tell']], ['Logic', ['if', 'each', 'set', 'wait', 'workflow', 'stop']]];
+  const STEP_GROUPS = [['Claude', ['claude']], ['Do', ['run', 'http', 'mcp', 'file']], ['GitHub', ['worktree', 'pr']], ['Talk', ['ask', 'tell']], ['Logic', ['if', 'each', 'set', 'wait', 'workflow', 'stop']]];
   const CONTAINERS = { if: ['then', 'else'], each: ['steps'] };
 
   const TRIGGER_INFO = {
@@ -67,6 +68,7 @@
     claude: s => ({ reply: 'Claude\'s reply', ...Object.fromEntries(Object.entries(s.output || {}).map(([k, f]) => [k, f.description || f.type])) }),
     run: () => ({ output: 'What it printed', code: 'Exit code', ok: 'true if it worked' }),
     http: () => ({ status: 'Status code', ok: 'true for 2xx', body: 'The response', json: 'The response, read as JSON' }),
+    mcp: () => ({ ok: 'true unless the tool reported a problem', text: 'What the tool said', json: 'Its answer as data, when it gives one' }),
     ask: () => ({ choice: 'Your answer' }),
     file: s => (s.action === 'read' || !s.action ? { text: 'What the file says' } : { path: 'The file' }),
     workflow: () => ({ status: 'ok or error', vars: 'Its values' }),
@@ -90,6 +92,7 @@
     run: 'M2.5 3.5h11v9h-11zM4.8 6.4l2 1.6-2 1.6M8.3 9.8h2.9',
     http: 'M8 2.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11M2.5 8h11M8 2.5c-2.2 2.4-2.2 8.6 0 11M8 2.5c2.2 2.4 2.2 8.6 0 11',
     file: 'M4 2h5l3 3v9H4zM9 2v3h3M6 8.5h4M6 11h4',
+    mcp: 'M6 2.5v3M10 2.5v3M4.5 5.5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11.5v2',
     ask: 'M2.5 4c0-.8.7-1.5 1.5-1.5h8c.8 0 1.5.7 1.5 1.5v5c0 .8-.7 1.5-1.5 1.5H7l-3 2.5v-2.5c-.8 0-1.5-.7-1.5-1.5zM6.6 5.4a1.4 1.4 0 1 1 1.9 1.3c-.4.2-.5.5-.5.9M8 8.9v.1',
     tell: 'M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3zM6.6 13.6a1.4 1.4 0 0 0 2.8 0',
     if: 'M4 2.5v11M4 8.5c0-2.2 1.8-3.5 4-3.5h4.5M10.5 3l2 2-2 2',
@@ -816,6 +819,7 @@
     claude: () => ({ prompt: '', mode: 'smart' }),
     run: () => ({ command: '' }),
     http: () => ({ method: 'GET', url: '' }),
+    mcp: () => ({ server: '', tool: '' }),
     file: () => ({ action: 'read', path: '' }),
     ask: () => ({ question: '' }),
     tell: () => ({ to: 'notification', text: '' }),
@@ -901,6 +905,9 @@
       errors: [], failedSave: false, saving: false, json: false, jsonText: '', jsonError: '',
       title: title || (d.id ? `Edit “${d.name || 'workflow'}”` : 'New workflow'), sel: null, map: null, trial: false,
     });
+    mcpLists.clear(); // read again: one may have been added since
+    mcpEpoch++;
+    mcpTools.clear();
     const host = chatHost();
     ed.chat = SB.wfChat.create(host, { greeting: note || '' });
     host.bind(ed.chat);
@@ -1633,6 +1640,7 @@
       case 'claude': return `${MODE_NAME[s.mode || 'smart'] || s.mode} · ${firstLine(s.prompt) || 'Nothing to do yet'}`;
       case 'run': return firstLine(s.command) || 'No command yet';
       case 'http': return `${s.method || 'GET'} ${s.url || '…'}`;
+      case 'mcp': return `${s.server || 'No server yet'} · ${s.tool || 'no tool yet'}`;
       case 'ask': return s.question || 'No question yet';
       case 'tell': return `${(TELL_TO.find(([v]) => v === (s.to || 'notification')) || [])[1] || s.to}: ${firstLine(s.text) || '…'}`;
       case 'set': return Object.keys(s.values || {}).join(', ') || 'Nothing set yet';
@@ -1834,8 +1842,10 @@
         modelField(s, c)),
       folderField('Folder', s.cwd, v => putOrDrop(s, 'cwd', v), { at: `${c.at}.cwd`, placeholder: 'The workflow\'s folder' }),
       check('Fresh conversation', s.fresh, v => putOrDrop(s, 'fresh', v), { hint: 'Otherwise it carries on the conversation earlier Claude steps had, so it knows what they found.' }),
+      SB.mcpPicker.field({ at: `${c.at}.mcp`, value: s, servers: mcpList(s), onChange: changed, rebuild: i => rebuild(`mcp-${keyOf(s)}-${i ?? 0}`), fk: `mcp-${keyOf(s)}`, slot }),
       outputFields(s, c),
     ],
+    mcp: (s, c) => mcpStepFields(s, c),
     run: (s, c) => [
       area('Command (PowerShell)', s.command, v => { s.command = v; }, { at: `${c.at}.command`, insert: ins(c, { secrets: true }), attrs: { rows: 3, maxlength: 4000, class: 'field area wf-mono', placeholder: 'npm test' }, hint: 'Values go in as quoted text, so they can\'t become code.' }),
       folderField('Folder', s.cwd, v => putOrDrop(s, 'cwd', v), { at: `${c.at}.cwd`, placeholder: 'The workflow\'s folder' }),
@@ -1917,6 +1927,66 @@
     const options = [['', 'Default'], ...groups.map(g => ({ group: g, options: models.filter(m => m.group === g).map(m => [m.id, m.label]) }))];
     if (s.model && !models.some(m => m.id === s.model)) options.push([s.model, s.model]);
     return sel('Model', options, s.model || '', v => putOrDrop(s, 'model', v), { at: `${c.at}.model` });
+  }
+
+  // The MCP servers a step can offer, for its folder (a project's own servers
+  // depend on it). Read once per folder each time the editor opens; null while
+  // still being read.
+  const mcpLists = new Map(); // folder -> list, or null while it's read
+  let mcpEpoch = 0;
+  function mcpList(s) {
+    const folder = s?.cwd || ed.def?.cwd || '';
+    if (mcpLists.has(folder)) return mcpLists.get(folder);
+    mcpLists.set(folder, null);
+    const epoch = mcpEpoch;
+    api.mcpServers(folder || null)
+      .then(l => (Array.isArray(l) ? l : []), () => [])
+      .then(l => {
+        if (epoch !== mcpEpoch) return; // another editor has opened since
+        mcpLists.set(folder, l);
+        if (current().name === 'editor') rebuild();
+      });
+    return null;
+  }
+
+  // An MCP tool step: the server, its tool (read from the server on request),
+  // and the arguments as JSON.
+  const mcpTools = new Map(); // server -> [{ name, description, inputSchema }]
+  function mcpStepFields(s, c) {
+    const known = mcpList(s);
+    const servers = (known || []).filter(x => x.direct);
+    const options = [['', servers.length ? 'Pick one…' : known ? 'No servers Shellby can call' : 'Looking…'], ...servers.map(x => [x.name, x.name])];
+    if (s.server && !servers.some(x => x.name === s.server)) options.push([s.server, `${s.server} (not found)`]);
+    const tools = mcpTools.get(s.server) || null;
+    const tool = tools?.find(t => t.name === s.tool) || null;
+    const note = h('p', { class: 'field-hint', 'aria-live': 'polite' });
+    const load = h('button', {
+      type: 'button', class: 'btn slim-btn', disabled: !s.server,
+      onclick: async () => {
+        load.disabled = true;
+        note.textContent = `Starting ${s.server} to ask what it can do…`;
+        let r;
+        try { r = await api.mcpTools(s.server, s.cwd || ed.def.cwd || null); } catch { r = { ok: false, error: 'Couldn\'t reach it. Try again.' }; }
+        load.disabled = false;
+        if (!r?.ok) { note.textContent = r?.error || 'Couldn\'t read its tools.'; return; }
+        mcpTools.set(s.server, r.tools);
+        rebuild(`mt-${keyOf(s)}`);
+      },
+    }, tools ? 'Read again' : 'Read its tools');
+    const toolField = tools?.length
+      ? sel('Tool', [['', 'Pick one…'], ...tools.map(t => [t.name, t.name]), ...(s.tool && !tool ? [[s.tool, `${s.tool} (not found)`]] : [])], s.tool || '', v => { s.tool = v; rebuild(`mt-${keyOf(s)}`); }, { at: `${c.at}.tool`, attrs: { 'data-fk': `mt-${keyOf(s)}` } })
+      : txt('Tool', s.tool, v => { s.tool = v; }, { at: `${c.at}.tool`, attrs: { maxlength: 128, class: 'field wf-mono', placeholder: 'create_issue', 'data-fk': `mt-${keyOf(s)}` } });
+    const skeleton = tool?.inputSchema ? SB.mcpPicker.argsSkeleton(tool.inputSchema) : null;
+    return [
+      sel('Server', options, s.server || '', v => { s.server = v; rebuild(`ms-${keyOf(s)}`); }, { at: `${c.at}.server`, attrs: { 'data-fk': `ms-${keyOf(s)}` }, hint: 'Servers that come with a plugin, or need you to sign in, work in an Ask Claude step instead.' }),
+      h('div', { class: 'row' }, load, note),
+      toolField,
+      tool?.description ? h('p', { class: 'field-hint wf-tool-about', text: tool.description }) : null,
+      area('Arguments (JSON)', s.args, v => putOrDrop(s, 'args', v), { at: `${c.at}.args`, insert: ins(c), attrs: { rows: 4, class: 'field area wf-mono', placeholder: '{ "title": "{{ diagnose.cause }}" }' }, hint: 'Text values go in "quotes", like "{{ fix.reply }}". Lists and numbers go in without them.' }),
+      skeleton && !s.args ? h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => { s.args = skeleton; changed(); rebuild(`ms-${keyOf(s)}`); } }, 'Fill in its arguments') : null,
+      folderField('Folder', s.cwd, v => putOrDrop(s, 'cwd', v), { at: `${c.at}.cwd`, placeholder: 'The workflow\'s folder', hint: 'Where the server starts, and which project\'s servers count.' }),
+      check('Carry on if it fails', s.allowFail, v => putOrDrop(s, 'allowFail', v), { hint: 'Later steps can check {{ id.ok }} and {{ id.text }}.' }),
+    ];
   }
 
   function prefillInputs(s, name) {

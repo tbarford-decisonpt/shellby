@@ -20,6 +20,7 @@ const confirm = require('./confirm');
 const { attachContextMenu } = require('./context-menu');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
 const crabtools = require('./crabtools');
+const mcpServers = require('./mcpservers');
 const changes = require('./changes');
 const worktrees = require('./worktrees');
 const native = require('./native-windows');
@@ -104,6 +105,7 @@ const CREW_WORTH_MENTIONING = 3;         // helpers out before he remarks on the
 // A tab left this long gives its claude process (and MCP servers) back; its next message resumes it.
 const TAB_IDLE_STOP_MS = 30 * 60 * 1000;
 const TAB_IDLE_CHECK_MS = 60 * 1000;
+const ROUTINE_TABS_KEPT = 6;             // finished routine tabs left open before the oldest closes
 const IDLE_BIT_CHANCE = 0.25;            // ...of each idle tick becoming a little habit
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
 const CARD_MAX_BYTES = 8 * 1024 * 1024;
@@ -1887,19 +1889,35 @@ function updateRoutine(id, patch) {
   saveRoutines(routines().map(r => (r.id === id ? { ...r, ...patch } : r)));
 }
 
-// An hourly routine opens a tab every run; left alone they'd fill every slot
-// overnight and the next run (and any tab of yours) couldn't open. At the cap,
-// the oldest finished routine tab closes. History keeps its transcript.
+// An hourly routine opens a tab every run; left alone they'd fill the strip
+// overnight, and at the cap the next run (and any tab of yours) couldn't open.
+// Past ROUTINE_TABS_KEPT finished ones, or at the cap, the oldest finished
+// routine tab closes. History keeps its transcript.
 function makeRoomForRoutine() {
-  if (manager.tabs.size < MAX_TABS) return;
   // A queue tab still on the list (it ran dry, and carries on later) is kept.
   const pending = new Set(heldList().map(h => h.tabId).filter(Boolean));
-  const done = [...routineTabs.keys(), ...queueTabs.keys()].find(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
+  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
+  if (manager.tabs.size < MAX_TABS && finished.length < ROUTINE_TABS_KEPT) return;
+  const done = finished[0];
   if (!done) return;
   manager.close(done);
   routineTabs.delete(done);
   queueTabs.delete(done);
   remote?.settleTab(done);
+}
+
+// A routine's MCP servers -> what its conversation starts with: rules that let
+// Claude use them unasked, and with "only these", just their definitions.
+// Throws (runRoutine reports it) when one can't be loaded on its own.
+function routineTools(r, cwd) {
+  if (!r.mcp?.length) return {};
+  let mcpConfig = null;
+  if (r.mcpOnly) {
+    const res = mcpServers.configFor(r.mcp, { home: os.homedir(), cwd });
+    if (!res.ok) throw new Error(res.error);
+    mcpConfig = res.config;
+  }
+  return { allowedTools: mcpServers.allowRules(r.mcp), mcpConfig };
 }
 
 function runRoutine(r, { reason = 'scheduled' } = {}) {
@@ -1910,7 +1928,7 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     makeRoomForRoutine();
     const tabId = randomUUID();
     const cwd = r.cwd && fs.existsSync(r.cwd) ? r.cwd : currentCwd();
-    openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}` });
+    openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}`, ...routineTools(r, cwd) });
     routineTabs.set(tabId, r.id);
     const userItem = { kind: 'user', text: r.prompt, title: `⟳ ${r.name}`, routine: { id: r.id, name: r.name, reason } };
     manager.send(tabId, r.prompt, userItem);

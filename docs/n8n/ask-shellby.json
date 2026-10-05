@@ -1,0 +1,59 @@
+{
+  "name": "Ask Shellby",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "0b7e2f4c-1d3a-4e5b-9c8d-2a1b3c4d5e01",
+      "name": "Try it",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:47913/v1/flow",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-Shellby", "value": "1" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ hook: 'PASTE_THE_TOKEN_FROM_SHELLBY', data: { item: $json.item || 'A customer says the checkout page has shown a blank screen since this morning.', resume_url: $execution.resumeUrl } }) }}",
+        "options": {}
+      },
+      "id": "1c8f3a5d-2e4b-4f6c-8d9e-3b2c4d5e6f02",
+      "name": "Send to Shellby",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "2d9a4b6e-3f5c-4a7d-9e0f-4c3d5e6f7a03",
+      "name": "Wait for Shellby's answer",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [520, 0],
+      "webhookId": "3e0b5c7f-4a6d-4b8e-8f1a-5d4e6f7a8b04"
+    },
+    {
+      "parameters": {},
+      "id": "4f1c6d8a-5b7e-4c9f-9a2b-6e5f7a8b9c05",
+      "name": "Use the answer (replace me)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [780, 0]
+    }
+  ],
+  "connections": {
+    "Try it": { "main": [[{ "node": "Send to Shellby", "type": "main", "index": 0 }]] },
+    "Send to Shellby": { "main": [[{ "node": "Wait for Shellby's answer", "type": "main", "index": 0 }]] },
+    "Wait for Shellby's answer": { "main": [[{ "node": "Use the answer (replace me)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

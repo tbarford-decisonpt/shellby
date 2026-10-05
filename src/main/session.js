@@ -2,6 +2,9 @@
 // stdin/stdout. Permission prompts, interrupts and mode switches go over the same
 // control protocol the Claude Agent SDK uses, so no API key is ever involved.
 const { spawn, execFile } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { TASKKILL } = require('./system32'); // by full path: Claude runs in project folders
 const readline = require('readline');
 const { EventEmitter } = require('events');
@@ -29,6 +32,14 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 // How long Shellby waits for the CLI to answer one of its own control requests.
 const REQUEST_TIMEOUT_MS = 15000;
 
+// A conversation's --mcp-config, in the temp folder (yours alone). null if it
+// can't be written: the definitions then go on the command line as before.
+function writeConfig(config) {
+  const file = path.join(os.tmpdir(), `shellby-mcp-${randomUUID()}.json`);
+  try { fs.writeFileSync(file, JSON.stringify(config), { mode: 0o600, flag: 'wx' }); return file; } catch { return null; }
+}
+const removeFile = file => { if (file) fs.rm(file, { force: true }, () => {}); };
+
 class ClaudeSession extends EventEmitter {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
   // extraEnv: () => {} of variables to add when the process starts (GitHub access).
@@ -37,9 +48,13 @@ class ClaudeSession extends EventEmitter {
   //
   // effort: one of EFFORTS, or '' for Claude Code's own default. outputStyle: a
   // style name passed as a flag setting, or '' to leave the user's own.
-  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null }) {
+  //
+  // allowedTools: permission rules Claude Code applies without asking (a
+  // routine's or workflow step's MCP servers). mcpConfig: { mcpServers } to load
+  // instead of every configured server, or null for the usual ones.
+  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv });
+    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig });
     // Set by rewindTo(): the next start resumes the conversation only up to this
     // transcript entry, as a fork, so the original is left as it was. Kept in
     // History too (sessions.js), so a restart before the next message honours it.
@@ -87,6 +102,8 @@ class ClaudeSession extends EventEmitter {
     if (this.model) args.push('--model', this.model);
     if (EFFORTS.includes(this.effort)) args.push('--effort', this.effort);
     if (this.outputStyle) args.push('--settings', JSON.stringify({ outputStyle: this.outputStyle }));
+    if (this.allowedTools?.length) args.push('--allowedTools', this.allowedTools.join(','));
+    if (this.mcpConfig) args.push('--strict-mcp-config', '--mcp-config', this.mcpConfigFile || JSON.stringify(this.mcpConfig));
     if (this.sessionId) {
       args.push('--resume', this.sessionId);
       if (this.resumeAt) args.push(`--resume-session-at=${this.resumeAt}`, '--fork-session');
@@ -96,6 +113,10 @@ class ClaudeSession extends EventEmitter {
 
   start() {
     if (this.proc) return;
+    // The servers' definitions can hold tokens, so they go in a file of the
+    // process's own rather than on its command line, and the file goes with it.
+    const configFile = this.mcpConfig ? writeConfig(this.mcpConfig) : null;
+    this.mcpConfigFile = configFile;
     const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
       cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -135,11 +156,13 @@ class ClaudeSession extends EventEmitter {
     proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
 
     proc.on('error', err => {
+      removeFile(configFile);
       this.emit('item', { kind: 'error', text: `Couldn't start Claude Code: ${err.message}` });
     });
     // 'exit', not 'close': a leftover holding one of claude's pipes would hold
     // 'close' back until it ended on its own, which is what this is here to stop.
     proc.on('exit', () => {
+      removeFile(configFile);
       processJob.sweep(job);
       if (this.job === job) this.job = null;
     });

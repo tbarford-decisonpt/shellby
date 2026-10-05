@@ -154,7 +154,7 @@ function routineQuestion(routine, { replacing = null, defaultFolder = '', own = 
     title: replacing ? 'Change a routine?' : 'Add a routine?',
     message: `${who} "${(replacing && !own ? replacing : routine).name}": ${describeSchedule(routine.schedule)}.`,
     // Folder and mode first: they're the facts a long prompt must not push away.
-    detail: `Folder: ${routine.cwd || `${defaultFolder} (default)`}\nMode: ${MODE_NAMES[routine.mode] || routine.mode}\n\n${routine.prompt}`,
+    detail: `Folder: ${routine.cwd || `${defaultFolder} (default)`}\nMode: ${MODE_NAMES[routine.mode] || routine.mode}${routine.mcp?.length ? `\nUses without asking: ${routine.mcp.join(', ')} (MCP${routine.mcpOnly ? ', and no other servers' : ''})` : ''}\n\n${routine.prompt}`,
     note: 'Each run is a Claude Code task on your subscription. You can pause, edit or delete it in Routines.',
   };
 }

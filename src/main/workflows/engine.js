@@ -330,6 +330,26 @@ class Engine {
       case 'claude':
         return this.claude(step, key, ctx, entry, signal);
 
+      case 'mcp': {
+        let args = {};
+        if (step.args) {
+          try { args = JSON.parse(renderJson(step.args, ctx)); } catch { throw new StepFailed('The arguments aren\'t valid JSON once their values are filled in. Text values need "quotes" around {{ them }}.'); }
+          if (!args || typeof args !== 'object' || Array.isArray(args)) throw new StepFailed('The arguments must be a JSON object.');
+        }
+        let r;
+        try {
+          r = await fx.mcp({ server: step.server, tool: step.tool, args, cwd: this.folder(step, ctx), timeoutMs: (step.timeoutMin || 2) * 60000, signal });
+        } catch (e) {
+          // A server that can't be found, won't start or doesn't answer is a
+          // failure "carry on if it fails" covers too. A stop is still a stop.
+          if (!step.allowFail || isAbort(e)) throw e;
+          r = { isError: true, text: errText(e), json: null };
+        }
+        const ok = !r.isError;
+        if (!ok && !step.allowFail) throw new StepFailed(`${step.tool} reported a problem${r.text ? `: ${String(r.text).slice(0, 500)}` : '.'}`);
+        return { ok, text: r.text ?? '', json: r.json ?? null };
+      }
+
       case 'run': {
         // Values reach the command as environment variables, never as its text.
         const { command, env } = expr.renderPowerShell(step.command, ctx);
@@ -494,6 +514,7 @@ class Engine {
     // tabId: a follow-up goes back to the very conversation that gave the first answer.
     const ask = (text, followUp, tabId = null) => this.effects.claude({
       runId: this.record.id, key, prompt: text, followUp, tabId, mode: step.mode, model: step.model || '',
+      mcp: step.mcp || [], mcpOnly: !!step.mcpOnly,
       cwd: this.folder(step, ctx), fresh: !!step.fresh && !followUp, label: step.label || step.id,
       workflow: this.workflow.name, signal,
       onTab: tabId => { if (entry.tabId !== tabId) this.set(entry, { tabId }); },
@@ -565,17 +586,18 @@ function renderRequest(step, ctx) {
   const headers = {};
   for (const [k, v] of Object.entries(step.headers || {})) headers[k] = expr.render(v, ctx).replace(/[\r\n]+/g, ' ');
   let body;
-  if (step.body !== undefined) {
-    const looksJson = /^\s*[[{]/.test(step.body);
-    // In a JSON body, text goes in escaped (write "{{ x }}" with the quotes),
-    // and a list or object goes in as JSON (write {{ x }} without them).
-    body = expr.render(step.body, ctx, {
-      quote: v => (!looksJson ? expr.toText(v)
-        : typeof v === 'string' ? JSON.stringify(v).slice(1, -1)
-          : JSON.stringify(v ?? null)),
-    });
-  }
+  if (step.body !== undefined) body = /^\s*[[{]/.test(step.body) ? renderJson(step.body, ctx) : expr.render(step.body, ctx);
   return { method: step.method, url, headers, body };
+}
+
+/**
+ * JSON with values filled in: text goes in escaped (write "{{ x }}" with the
+ * quotes), and a number, list or object goes in as JSON (write {{ x }} without them).
+ */
+function renderJson(text, ctx) {
+  return expr.render(text, ctx, {
+    quote: v => (typeof v === 'string' ? JSON.stringify(v).slice(1, -1) : JSON.stringify(v ?? null)),
+  });
 }
 
 module.exports = { Engine, StopRun, StepFailed, renderRequest, renderPath, redactor, shrink, MAX_EXECUTIONS, DEFAULT_CHOICES };

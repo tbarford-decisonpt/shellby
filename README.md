@@ -4,9 +4,11 @@
 
 [![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE)
 
-**Hand him a task. He scuttles off with helper crabs and comes back with it done.**<br>
-A pixel hermit crab on your Windows desktop, running Claude Code on **your own Pro or Max plan**.<br>
-No API keys, no per-token billing. No Claude? He's still a desk pet who talks, plays and dresses up.
+## Same Claude Code. Less babysitting.
+
+Parallel tasks on their own branches, undo for any turn, and routines that start the moment your limit resets,<br>
+all on **your own Pro or Max plan**, on Windows 10 and 11. No API keys, no per-token billing.<br>
+**And a pixel hermit crab who scuttles off to do it.**
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
@@ -22,12 +24,20 @@ No API keys, no per-token billing. No Claude? He's still a desk pet who talks, p
 
 </div>
 
+**Already use Claude Code?**
+
+- 🧠 **It's the real `claude`.** The official CLI you installed and signed in to. No model of its own, no fork.
+- 🔁 **Nothing to migrate.** Your skills, agents, hooks, MCP servers, `CLAUDE.md` files and permission rules carry over, and anything you set up in Shellby works in your terminal too.
+- 🛠️ **The difference is the tooling.** Parallel work, undo, review, scheduling and alerts, so you don't have to script them yourself. **[Why Shellby, if you have Claude Code →](docs/WHY-SHELLBY.md)**
+
+**What can it do to my repo without asking?** Only what you've allowed: the default **Ask first** mode asks before every edit and command your own rules don't already permit, and the fenced-off Autonomous mode is never on unless you pick it. A tab can work in its own copy of the repo on its own branch that only merges back when you say so, never with a force-push, and **Undo** puts back every file a turn changed. [Permission modes →](#permission-modes)
+
 ---
 
 ## Get started
 
 1. **[Download the installer](https://github.com/x-salmon/shellby/releases/latest)** (`Shellby-Setup-x.y.z.exe`) and run it on Windows 10 or 11.
-2. Pick **Just the crab** (no account needed) or **Crab + Claude Code** (uses your Claude Pro or Max plan).
+2. Pick **Crab + Claude Code** (uses your Claude Pro or Max plan), or **Just the crab**: no Claude, no account, still a desk pet who talks, plays and dresses up.
 3. He moves onto your desktop. Click him to open the panel.
 
 Windows may show a SmartScreen warning the first time; [Install](#install) explains it, along with the Claude Code setup.
@@ -40,12 +50,17 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 |---|---|
 | ⚡ **[Gets things done](#-he-gets-things-done-with-claude-code)** | Helper crabs, tabs on their own branches, undo any turn, comments on the diff |
 | 🗂️ **[Runs your dev day](#️-he-runs-your-dev-day)** | Every repo and dev server, crash help, flaky tests, time per project |
+| 🌊 **[Gets out more](#-he-gets-out-more)** | Your terminal, your phone, CI on your pull requests, your stream and GitHub |
+| 🔒 **[Keeps you in control](#-you-stay-in-control)** | Permission cards, five modes, a spending guard, nothing leaves your PC |
+
+**And he's good company**
+
+| | |
+|---|---|
 | 🦀 **[Lives on your desktop](#-he-lives-on-your-desktop)** | Behind your windows, a voice of his own, focus guard, usage limits |
 | 💞 **[Just the two of you](#-just-the-two-of-you)** | Gifts he digs up, games, a bond that grows, a tank to decorate, a beach of everything you ship |
 | 🎩 **[Dresses up](#-dress-him-up)** | Outfits, shells and skins you earn, and community packs |
 | 🩺 **[Watches your PC](#-he-watches-your-pc)** | He sweats when the GPU runs hot and gets dizzy when memory's full |
-| 🌊 **[Gets out more](#-he-gets-out-more)** | Your phone, your stream, your RGB lights and GitHub |
-| 🔒 **[Keeps you in control](#-you-stay-in-control)** | Permission cards, five modes, a spending guard, nothing leaves your PC |
 
 ## ⚡ He gets things done with Claude Code
 
@@ -89,10 +104,54 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Time on each project:** hours worked out from what he already sees, clients and rates, and a PDF or CSV timesheet. Off until you turn it on, and never synced.
 - **Flaky tests** caught and fixed for real, **dependencies** checked weekly with a pull request to bump them, and **Is it safe to leave?** before you lock up or shut down.
 - **Workflows and routines:** a schedule, a red build, a release or a file landing in a folder starts a list of steps: Claude, commands, web requests, a question for you. [Workflows](docs/WORKFLOWS.md).
+- **Your MCP servers in them:** tick the servers a step may use and Claude files the Linear issue or posts to Slack without stopping to ask, or call one tool directly with no Claude turn at all. Pair it with [n8n](docs/N8N.md) for everything else.
 
 <p align="center"><img src="docs/screenshot-time.png" width="420" alt="History → Time: 26 hours this week, $2,730 billable, a bar for each day, and each project with its client"></p>
 
 **[Projects, time, tests and dependencies →](docs/PROJECTS.md)**
+
+## 🌊 He gets out more
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+```powershell
+shellby do "tidy my Downloads"
+shellby do @review
+shellby say "all green"
+shellby status
+shellby time last-week
+```
+
+**From any terminal,** and Claude can drive him too, through the plugin's MCP server: have him say what a skill is up to, or celebrate when a release lands. It can't start tasks of its own.
+
+</td>
+<td width="50%" valign="top">
+
+<img src="docs/screenshot-away.png" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked">
+
+</td>
+</tr>
+</table>
+
+- **📱 Your phone:** a permission prompt, a finished run or a red build can reach it. ntfy is one QR scan, and Telegram finds your chat by itself. Answer Allow or Deny from it if you like.
+- **🎥 On stream:** an OBS browser source on a transparent background. **💡 On your desk:** OpenRGB lighting that follows his mood.
+- **✅ CI on your pull requests:** a ✗ sign when a build goes red, a dance when it's fixed.
+- **Sync and visiting crabs,** with an optional GitHub sign-in that only asks for what you turn on.
+
+**[Phone, stream, lights and GitHub →](docs/CONNECTIONS.md)**
+
+## 🔒 You stay in control
+
+- **Permission cards:** **Allow**, **Always allow** or **Deny**, with <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>N</kbd>. The card warns you when a command runs a script Claude wrote, or an edit touches Claude Code's own setup.
+- **Five permission modes,** from Ask first to a fenced-off Autonomous. See [Permission modes](#permission-modes).
+- **Spending guard:** routines and workflows stop before they use the share of your 5-hour window you keep for yourself.
+- **Your plan, your PC:** no API keys, no telemetry, and your history stays on your PC.
+
+---
+
+That's the work. The rest is what makes him good company.
 
 ## 🦀 He lives on your desktop
 
@@ -168,45 +227,6 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 
 **[How Health works →](docs/HEALTH.md)**
 
-## 🌊 He gets out more
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-```powershell
-shellby do "tidy my Downloads"
-shellby do @review
-shellby say "all green"
-shellby status
-shellby time last-week
-```
-
-**From any terminal,** and Claude can drive him too, through the plugin's MCP server: have him say what a skill is up to, or celebrate when a release lands. It can't start tasks of its own.
-
-</td>
-<td width="50%" valign="top">
-
-<img src="docs/screenshot-away.png" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked">
-
-</td>
-</tr>
-</table>
-
-- **📱 Your phone:** a permission prompt, a finished run or a red build can reach it. ntfy is one QR scan, and Telegram finds your chat by itself. Answer Allow or Deny from it if you like.
-- **🎥 On stream:** an OBS browser source on a transparent background. **💡 On your desk:** OpenRGB lighting that follows his mood.
-- **✅ CI on your pull requests:** a ✗ sign when a build goes red, a dance when it's fixed.
-- **Sync and visiting crabs,** with an optional GitHub sign-in that only asks for what you turn on.
-
-**[Phone, stream, lights and GitHub →](docs/CONNECTIONS.md)**
-
-## 🔒 You stay in control
-
-- **Permission cards:** **Allow**, **Always allow** or **Deny**, with <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>N</kbd>. The card warns you when a command runs a script Claude wrote, or an edit touches Claude Code's own setup.
-- **Five permission modes,** from Ask first to a fenced-off Autonomous. See [Permission modes](#permission-modes).
-- **Spending guard:** routines and workflows stop before they use the share of your 5-hour window you keep for yourself.
-- **Your plan, your PC:** no API keys, no telemetry, and your history stays on your PC.
-
 ## What's new
 
 <table>
@@ -267,6 +287,15 @@ shellby time last-week
    ```
 2. Download **Shellby-Setup-x.y.z.exe** (or the portable build) from [Releases](https://github.com/x-salmon/shellby/releases/latest) and run it.
 3. Shellby walks you through a two-step check (CLI found ✓, signed in with a Claude account ✓) and asks how much freedom he gets.
+
+**From a package manager:** instead of downloading the installer,
+
+```powershell
+scoop bucket add shellby https://github.com/x-salmon/shellby
+scoop install shellby/shellby
+```
+
+or `winget install x-salmon.Shellby`, once Microsoft's review of the package finishes. Scoop keeps him up to date with `scoop update shellby` (the in-app updater stands aside); a winget install updates itself like the regular installer.
 
 > **"Windows protected your PC"?** That's Microsoft SmartScreen. It warns about any app that isn't code-signed or that few people have downloaded yet, and Shellby releases aren't signed yet.
 >
