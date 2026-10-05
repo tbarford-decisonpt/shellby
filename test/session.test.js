@@ -147,6 +147,8 @@ test('a crash mid-turn surfaces an error and clears busy', async () => {
   s.send('crash');
   const err = await waitFor(s, i => i.kind === 'error');
   assert.match(err.text, /exited|code 3/);
+  assert.equal(err.trouble.message, 'Claude Code stopped partway through that turn.', 'a sentence for the panel; the raw text stays in text');
+  assert.equal(err.trouble.action.id, 'retry');
   assert.equal(s.busy, false);
 });
 

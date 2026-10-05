@@ -167,6 +167,7 @@ src/main/        Electron main process
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
   log.js           the log behind "Report a problem" (scrubbed of paths and tokens)
+  trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log
   skins.js         loads and validates skins
   config.js        settings in %APPDATA%\Shellby\settings.json
   placement.js     pure geometry for placing the critter and panel across monitors

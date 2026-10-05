@@ -1,8 +1,9 @@
 // A tiny GitHub REST client for Shellby's own calls (profile, gists, pack PRs).
 // Base URLs are injectable so tests run against a local mock GitHub.
 class GitHubApi {
-  constructor({ token, api = 'https://api.github.com', fetchImpl = fetch }) {
-    this.token = token; this.api = api; this.fetchImpl = fetchImpl;
+  // onUnauthorized: GitHub said the sign-in is no good (expired or revoked), whichever call found out.
+  constructor({ token, api = 'https://api.github.com', fetchImpl = fetch, onUnauthorized = null }) {
+    this.token = token; this.api = api; this.fetchImpl = fetchImpl; this.onUnauthorized = onUnauthorized;
   }
 
   async request(method, path, body) {
@@ -21,6 +22,7 @@ class GitHubApi {
     let data;
     try { data = text ? JSON.parse(text) : null; } catch { data = null; }
     if (!res.ok) {
+      if (res.status === 401) this.onUnauthorized?.();
       const err = new Error(data?.message || `GitHub answered ${res.status}`);
       err.status = res.status;
       // "Validation Failed" says little: what failed is in errors[] ("A pull request already exists…").

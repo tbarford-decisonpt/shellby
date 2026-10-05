@@ -14,7 +14,10 @@
     const signedIn = v.signedIn;
     $('ghAccount').hidden = !signedIn;
     $('ghLede').hidden = signedIn;
-    $('ghSignIn').hidden = signedIn || !!v.flow;
+    // Signed in, but GitHub has since said no (401): the same button signs in again.
+    $('ghAuthLost').hidden = !(signedIn && v.authLost) || !!v.flow;
+    $('ghSignIn').hidden = (signedIn && !v.authLost) || !!v.flow;
+    $('ghSignIn').textContent = signedIn ? 'Sign in again' : 'Sign in with GitHub';
     if (signedIn) {
       $('ghAvatar').hidden = !v.avatar;
       if (v.avatar) $('ghAvatar').src = v.avatar; // a data: URL made in main

@@ -458,7 +458,12 @@
   // Send to any tab: the active one, or a background tab draining its queue.
   async function sendNow(tab, text, attachments) {
     const r = await api.sendTask(tab.id, text, attachments);
-    if (!r.ok) { SB.toast(r.error); return false; }
+    if (!r.ok) {
+      // Not set up (or signed out): the toast takes you to the fix.
+      const label = { setup: 'Set up Claude Code', 'sign-in': 'Sign in again' }[r.action];
+      SB.toast(r.error, label ? { action: label, ms: 9000, onAction: () => SB.troubleAction(r.action, tab) } : undefined);
+      return false;
+    }
     // !! is how a message that starts with ! reaches Claude; it shows (and is sent) with one.
     markSent(tab, text.startsWith('!!') ? text.slice(1) : text, attachments, r.turnId);
     SB.notePrompt?.(text);
@@ -524,6 +529,17 @@
     clearComposer(tab);
     SB.setView('chat');
     if (snippet) api.snippetUsed(snippet);
+    return true;
+  };
+
+  // Try again after something went wrong: the same words again, leaving
+  // whatever's in the box alone (queued if a turn is running by then). A
+  // message shown with one ! went to Claude as !!, so it does again.
+  SB.resend = (tab, text) => {
+    const words = text.startsWith('!') ? `!${text}` : text;
+    if (!tab.busy) return sendNow(tab, words, []);
+    tab.queue.push(queueItem(words, []));
+    syncBusyUi();
     return true;
   };
 

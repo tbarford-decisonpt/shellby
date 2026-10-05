@@ -244,6 +244,38 @@ test('service: device-flow sign-in, profile, features, widening and sign-out', a
   } finally { await mock.close(); }
 });
 
+test('service: a sign-in GitHub turns down (401) offers Sign in again, and a new sign-in clears it', async () => {
+  const dir = tmp();
+  const store = new TokenStore(path.join(dir, 'gh.bin'), fakeCrypto);
+  store.save({ token: 'gho_expired', scopes: ['gist', 'read:user'] });
+  const status = 401;
+  const fetchImpl = async () => ({ ok: false, status, text: async () => JSON.stringify({ message: 'Bad credentials' }), headers: { get: () => null } });
+  const config = new MemConfig({ github: { features: { sync: true } } });
+  const svc = new GitHubService({ config, store, api: 'https://api.example', fetchImpl });
+  assert.equal(svc.view().authLost, false);
+  const r = await svc.sync();
+  assert.equal(r.ok, false);
+  assert.match(r.error, /signed Shellby out/);
+  assert.equal(svc.view().authLost, true, 'Settings shows Sign in again');
+  // Any other call that finds out does the same; it's said once.
+  await svc.gh().get('/user').catch(() => {});
+  assert.equal(normalizeState(config.get('github')).authLost, true);
+  svc.signOut();
+  assert.equal(svc.view().authLost, false);
+  svc.stop();
+});
+
+test('service: no network says so, not "fetch failed"', async () => {
+  const store = new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto);
+  store.save({ token: 'gho_ok', scopes: ['gist', 'read:user'] });
+  const fetchImpl = async () => { const e = new TypeError('fetch failed'); e.cause = { code: 'ENOTFOUND' }; throw e; };
+  const svc = new GitHubService({ config: new MemConfig({ github: { features: { sync: true } } }), store, api: 'https://api.example', fetchImpl });
+  const r = await svc.sync();
+  assert.match(r.error, /Couldn't reach GitHub: this PC looks to be offline/);
+  assert.equal(svc.view().authLost, false);
+  svc.stop();
+});
+
 test('service: a declined sign-in reports why; a foreign verification page is refused', async () => {
   const mock = await startMockGitHub();
   try {
