@@ -5,6 +5,7 @@ const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
+const review = require('./review-inbox');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
 // one is a running CLI, and nothing limits how many of those run at once. The cap
@@ -60,6 +61,8 @@ class SessionManager extends EventEmitter {
       branchOf: historyEntry?.branchOf || null,
       fence: historyEntry?.fence || null,
       preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
+      // Its latest finished work and whether you've looked (review-inbox.js): the review inbox.
+      ready: review.restore(historyEntry?.ready),
       activeAt: Date.now(),        // when it last sent or heard anything, for stopIdle()
       steers: [],                  // what the panel has queued for this turn's next step (steer())
       steeredIds: new Set(),       // ...and what of it has gone in already
@@ -97,8 +100,27 @@ class SessionManager extends EventEmitter {
       if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
     }
     if (tab.saved) this.history.append(tab.id, item);
+    const ready = review.next(tab.ready, item);
+    if (ready !== tab.ready) this.setReady(tab, ready);
     this.emit('item', tab.id, item, tab, tail);
     if (['permission', 'decision', 'result', 'error'].includes(item.kind)) this.changed();
+  }
+
+  // Kept in History without bumping updatedAt (history.setReady): looking at work isn't work on it.
+  setReady(tab, ready) {
+    tab.ready = ready;
+    if (tab.saved) this.history.setReady(tab.id, ready);
+    this.changed();
+  }
+
+  /** Mark a tab's latest changes reviewed (or put them back in the inbox). -> whether anything changed. */
+  setReviewed(tabId, reviewed = true) {
+    const tab = this.tabs.get(tabId);
+    if (!tab?.ready) return false;
+    const ready = review.setReviewed(tab.ready, reviewed);
+    if (ready === tab.ready) return false;
+    this.setReady(tab, ready);
+    return true;
   }
 
   send(tabId, prompt, userItem) {
@@ -286,6 +308,8 @@ class SessionManager extends EventEmitter {
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
       // The last time Shellby ran its tests (wiring/checks.js): for anything that wants a verdict at a glance.
       checks: t.checks ? { status: t.checks.status, after: t.checks.after, at: t.checks.at } : null,
+      // Its latest changes and whether you've reviewed them (review-inbox.js): the panel's review inbox.
+      ready: t.ready ? { ...t.ready, paths: [...t.ready.paths] } : null,
     }));
   }
 

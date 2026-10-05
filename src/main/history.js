@@ -87,6 +87,18 @@ class History {
   }
 
   /**
+   * Where its latest changes stand in the review inbox (review-inbox.js), or null.
+   * Not update() either: reviewing isn't work on the conversation.
+   */
+  setReady(id, ready) {
+    const e = this.get(id);
+    if (!e) return null;
+    if (ready) e.ready = ready; else delete e.ready;
+    this.saveIndex();
+    return e;
+  }
+
+  /**
    * Give a conversation a name of your own. Not update(), for the same reason as
    * setDone(): naming a chat isn't work on it. A blank name changes nothing.
    */

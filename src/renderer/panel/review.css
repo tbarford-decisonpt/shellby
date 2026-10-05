@@ -1,0 +1,75 @@
+/* Shellby panel — the review inbox (review-view.js): finished work waiting for
+   you, oldest first. Tokens come from panel.css. */
+
+/* The count at the end of the tab strip; only there when something's waiting. */
+.tab-review {
+  flex: none; height: 28px; margin-bottom: 2px; padding: 0 7px 0 6px;
+  display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--glass); font: 600 11px/1 var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.tab-review svg { width: 14px; height: 14px; }
+.tab-review:hover, .tab-review[aria-expanded="true"] { background: var(--reef-2); }
+
+/* In the Ctrl+Shift+A list. */
+.tl-review {
+  flex: none; display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 6px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: none;
+  color: var(--sand); font: 600 12.5px var(--font-body); text-align: left;
+}
+.tl-review:hover { background: var(--reef-2); }
+.tl-review kbd { margin-left: auto; color: var(--sand-faint); font: 10.5px var(--font-mono); }
+.tl-review-n {
+  min-width: 18px; padding: 2px 5px; border-radius: 9px; background: var(--glass); color: #06201b;
+  font: 700 10.5px/1.2 var(--font-mono); text-align: center;
+}
+.tl-group.review { color: var(--glass); }
+.tab-edge.review.left { box-shadow: inset 2px 0 0 var(--glass); }
+.tab-edge.review.right { box-shadow: inset -2px 0 0 var(--glass); }
+.tab-edge.review .tab-edge-pill { background: var(--glass); border-color: transparent; color: #06201b; }
+
+/* ---------------------------------------------------------------- the inbox */
+.review-list {
+  width: min(440px, calc(100vw - 16px)); max-width: none; min-width: 0;
+  max-height: min(560px, calc(100vh - 130px)); display: flex; flex-direction: column;
+}
+.rv-head { flex: none; display: flex; align-items: baseline; justify-content: space-between; padding: 4px 6px 6px; }
+.rv-heading { margin: 0; font-size: 13px; font-weight: 700; color: var(--sand); }
+.rv-sub { color: var(--sand-faint); font-size: 11px; }
+.rv-items { flex: 1; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+.rv-item {
+  position: relative; display: grid; gap: 4px; margin: 0 0 4px; padding: 8px 9px 8px 11px;
+  border: 1px solid transparent; border-radius: var(--r-sm);
+}
+.rv-item.picked { background: var(--reef-2); }
+.rv-item:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+/* Red tests or a clash: a mark down the side, but it keeps its place in the queue. */
+.rv-item.flagged::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 1px; background: var(--coral);
+}
+.rv-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.rv-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--sand); }
+.rv-age { flex: none; color: var(--sand-faint); font-size: 11px; }
+.rv-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 11.5px; color: var(--sand-dim); }
+.rv-branch { font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-dim); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-files { display: inline-flex; align-items: baseline; gap: 0; }
+.rv-verdict { font-size: 11.5px; }
+.rv-verdict.pass { color: var(--glass); }
+.rv-verdict.fail { color: var(--coral); font-weight: 600; }
+.rv-verdict.error { color: var(--amber); }
+.rv-verdict.running, .rv-verdict.none { color: var(--sand-faint); }
+.rv-paths { margin: 0; padding: 0; list-style: none; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
+.rv-paths li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-paths .rv-more { color: var(--sand-faint); font-family: var(--font-body); }
+.rv-clash { margin: 0; font-size: 11.5px; color: var(--amber); }
+.rv-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.rv-send { display: grid; gap: 4px; margin-top: 2px; }
+.rv-send-row { display: flex; gap: 6px; }
+.rv-send-field {
+  flex: 1; min-width: 0; height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--ink); color: var(--sand); font: 12.5px var(--font-body); outline: none;
+}
+.rv-send-field:focus { border-color: var(--glass); }
+.rv-send-note { margin: 0; color: var(--sand-faint); font-size: 11px; }
+.rv-empty { margin: 0; padding: 18px 9px; color: var(--sand-dim); font-size: 12.5px; line-height: 1.4; }
+.rv-empty:focus { outline: none; }
+.rv-hint { flex: none; margin: 4px 0 0; padding: 7px 6px 1px; border-top: 1px solid var(--line); color: var(--sand-faint); font-size: 11px; }

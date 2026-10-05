@@ -28,6 +28,9 @@
       branchOf: summary.branchOf !== undefined ? summary.branchOf : tab.branchOf || null,
       context: summary.context !== undefined ? summary.context : tab.context || null,
       cache: summary.cache !== undefined ? summary.cache : tab.cache || null,
+      // The tests' last verdict and the latest changes' review (main's review-inbox.js), for the review inbox.
+      checks: summary.checks !== undefined ? summary.checks : tab.checks || null,
+      ready: summary.ready !== undefined ? summary.ready : tab.ready || null,
     });
     return tab;
   };
@@ -695,7 +698,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'tabList', 'wfMenu', 'textMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
+      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'tabList', 'reviewList', 'wfMenu', 'textMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       // Esc twice, like the terminal: back to an earlier message (composer.js).
       if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
@@ -1182,6 +1185,8 @@
     if (r?.fixable) return offerFix(tab, r, tab.worktree.base);
     SB.toast(r?.error || "Couldn't bring it home.", { ms: 8000 });
   }
+
+  SB.bringHome = bringHome; // the review inbox brings a copy home the same way (review-view.js)
 
   let discardArmed = null;
   async function throwAway(tab) {

@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="line-comments.css">
 <link rel="stylesheet" href="turn-checks.css">
+<link rel="stylesheet" href="review.css">
 <link rel="stylesheet" href="hooks.css">
 <link rel="stylesheet" href="workflows.css">
 <link rel="stylesheet" href="workflow-canvas.css">
@@ -73,6 +74,10 @@
     <button type="button" class="tab-add" id="newTabBtn" title="New conversation (Ctrl+T)" aria-label="New conversation">
       <svg viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>
+    <button type="button" class="tab-review" id="reviewBtn" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+Shift+R" title="Ready to review (Ctrl+Shift+R)" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.8 2.8 6.2-6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="reviewCount">0</span>
+    </button>
     <button type="button" class="tab-all" id="tabAllBtn" aria-haspopup="dialog" aria-expanded="false" title="Every open conversation (Ctrl+Shift+A)" hidden>
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span id="tabAllCount">0</span>
@@ -112,6 +117,7 @@
   <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
   <div class="popover" id="tabMenu" role="menu" hidden></div>
   <div class="popover tab-list" id="tabList" role="dialog" aria-label="Open conversations" hidden></div>
+  <div class="popover review-list" id="reviewList" role="dialog" aria-label="Ready to review" hidden></div>
   <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
   <div class="popover" id="pjMenu" role="menu" hidden></div>
   <div class="popover" id="snipMenu" role="menu" hidden></div>
@@ -1936,6 +1942,8 @@
 <script src="clashes.js"></script>
 <script src="tab-sort.js"></script>
 <script src="tab-overview.js"></script>
+<script src="review-queue.js"></script>
+<script src="review-view.js"></script>
 <script src="composer.js"></script>
 <script src="toolbox-setup.js"></script>
 <script src="toolbox-hooks.js"></script>
