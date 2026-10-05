@@ -238,6 +238,16 @@ body[data-view="projects"] .view-projects {
 .sf-lede { margin: 0; line-height: 1.5; color: var(--sand-dim); }
 .sf-prompt { max-height: min(46vh, 320px); }
 .sf-box [hidden] { display: none; }
+.sf-risk {
+  display: grid; gap: 6px; padding: 9px 10px; border-radius: var(--r-sm);
+  border: 1px dashed color-mix(in srgb, var(--coral) 55%, transparent);
+  background: color-mix(in srgb, var(--coral) 7%, var(--abyss));
+}
+.sf-risk-title { margin: 0; font-weight: 700; font-size: 13px; color: var(--coral); }
+.sf-risk p { margin: 0; line-height: 1.45; }
+.sf-risk-list { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.sf-risk-list code { font: 11px var(--font-mono); color: var(--sand); overflow-wrap: anywhere; }
+.sf-risk-ack { font-weight: 600; }
 .sf-loose-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 .sf-loose-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px var(--font-mono); }
 .sf-tag { font: 600 9.5px var(--font-mono); letter-spacing: .04em; padding: 2px 5px; border-radius: 4px; color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line-soft); }

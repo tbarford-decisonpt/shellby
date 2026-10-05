@@ -176,6 +176,55 @@ test('reviewPrompt fences the comments and says when resolution is unknown', () 
   assert.match(sf.reviewPrompt({ pr: PR, threads, resolvedKnown: false, copy: COPY }), /GitHub didn't say which are resolved/);
 });
 
+// ------------------------------------------------------------------ what the copy would load
+
+const HEAD = 'a'.repeat(40);
+const mine = [{ sha: HEAD, author: { login: 'Me' } }];
+
+test('prRisks names Claude Code\'s own files at any depth, renames included', () => {
+  const r = sf.prRisks({
+    files: [
+      { filename: 'src/a.js' }, { filename: 'CLAUDE.md' }, { filename: 'pkg/sub/CLAUDE.md' }, { filename: 'CLAUDE.local.md' },
+      { filename: '.claude/settings.json' }, { filename: 'tools/.claude/hooks/pre.sh' }, { filename: '.mcp.json' },
+      { filename: 'notes.md', previous_filename: '.claude/agents/x.md' },
+      { filename: 'docs/claude.md.bak' }, { filename: 'not.claude/x' }, { filename: 'a.mcp.json.txt' },
+    ],
+    commits: mine, login: 'me', headSha: HEAD,
+  });
+  assert.deepEqual(r.files, ['.claude/agents/x.md', '.claude/settings.json', '.mcp.json', 'CLAUDE.local.md', 'CLAUDE.md', 'pkg/sub/CLAUDE.md', 'tools/.claude/hooks/pre.sh']);
+  assert.deepEqual(r.authors, []);
+  assert.deepEqual(r.unknown, []);
+  assert.equal(sf.needsAck(r), true);
+});
+
+test('prRisks names commits by anyone else, or by no GitHub account', () => {
+  const r = sf.prRisks({
+    files: [{ filename: 'a.js' }],
+    commits: [{ sha: '1'.repeat(40), author: { login: 'helper' } }, { sha: '2'.repeat(40), author: null, commit: { author: { name: 'Who Knows' } } }, ...mine],
+    login: 'me', headSha: HEAD,
+  });
+  assert.deepEqual(r.authors, ['@helper', 'Who Knows (no GitHub account)']);
+});
+
+test('prRisks: only your commits and ordinary files need nothing', () => {
+  const r = sf.prRisks({ files: [{ filename: 'src/a.js' }], commits: mine, login: 'ME', headSha: HEAD });
+  assert.equal(sf.needsAck(r), false, 'logins compare case-insensitively');
+});
+
+test('prRisks treats what GitHub didn\'t say, or a head that moved, as something to check', () => {
+  assert.deepEqual(sf.prRisks({ files: null, commits: null, login: 'me', headSha: HEAD }).unknown, ['which files it changes', 'who made its commits']);
+  const moved = sf.prRisks({ files: [], commits: [{ sha: 'b'.repeat(40), author: { login: 'me' } }], login: 'me', headSha: HEAD });
+  assert.deepEqual(moved.unknown, ['whether it changed while Shellby was looking']);
+  assert.equal(sf.needsAck(moved), true);
+});
+
+test('prRisks lists a dozen files and counts the rest', () => {
+  const files = Array.from({ length: 15 }, (_, i) => ({ filename: `.claude/agents/a${String(i).padStart(2, '0')}.md` }));
+  const r = sf.prRisks({ files, commits: mine, login: 'me', headSha: HEAD });
+  assert.equal(r.files.length, 12);
+  assert.equal(r.moreFiles, 3);
+});
+
 // ------------------------------------------------------------------ loose ends
 
 const z = (...p) => p.join('\0');
