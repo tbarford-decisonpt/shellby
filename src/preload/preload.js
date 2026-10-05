@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('shellby', {
   seenTab: fire('tab:seen'),
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
+  steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
   freshTab: invoke('tab:fresh'),
   // the terminal's conveniences (parity.js)
   suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
@@ -491,6 +492,7 @@ contextBridge.exposeInMainWorld('shellby', {
   setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
 
   onTabItem: on('tab:item'),
+  onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),
   onTabOpened: on('tab:opened'),
   onTabFocus: on('tab:focus'),

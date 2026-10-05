@@ -36,6 +36,7 @@ function wireSessions(d) {
       getEffort: () => d.config.get('effort'),
       getOutputStyle: () => outputStyles.clean(d.config.get('outputStyle')),
       getEnv: () => d.github?.claudeEnv() || {},
+      compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
         d.armGuard(tab);
         tab.lastReply = null;
@@ -54,6 +55,9 @@ function wireSessions(d) {
     d.manager.on('context', (_tabId, now, before, tab) => {
       if (ctx.crossed(before, now) && !tab.routineId && !tab.workflowRunId) d.sayText('Getting crowded in here.', 'crowded');
     });
+
+    // Queued messages just handed to Claude mid-turn: their chips can't be edited now.
+    d.manager.on('steering', (tabId, ids) => d.send(d.panel, 'tab:steering', { tabId, ids }));
 
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {

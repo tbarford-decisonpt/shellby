@@ -85,7 +85,10 @@
   // Everything queued in a tab, held instead (oldest first, so they go in order).
   async function holdQueue(tab) {
     // Taken out first: a turn ending meanwhile would otherwise send them too.
-    const taken = tab.queue.splice(0);
+    // Not what Claude is reading already (main's 'steering').
+    const taken = tab.queue.filter(m => !m.taken);
+    tab.queue = tab.queue.filter(m => m.taken);
+    SB.syncSteers(tab); // nor steer them into the turn that's running
     let n = 0, at = null;
     for (const m of taken) {
       const r = await hold(tab, m.text, m.attachments);

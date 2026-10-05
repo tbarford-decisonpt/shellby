@@ -27,6 +27,7 @@
     const tab = state.tabs.get(tabId);
     if (!tab) return;
     tab.render(item);
+    if (item.kind === 'user' && item.steerId) SB.onSteered(tab, item.steerId);
     if (item.kind === 'result') {
       tab.busy = false;
       if (!tab.isActive) tab.unread = true;
@@ -34,6 +35,10 @@
       api.listSessions().then(s => { state.sessions = s; });
     }
     if (item.kind === 'decision' || item.kind === 'result') SB.syncBusyUi();
+  });
+  api.onTabSteering(({ tabId, ids }) => {
+    const tab = state.tabs.get(tabId);
+    if (tab && Array.isArray(ids)) SB.onSteering(tab, ids);
   });
   api.onTabs(summaries => SB.syncTabs(summaries));
   api.onTabOpened(({ tabId, entry, items, background, busy = true, draft = '', attachments = [] }) => {

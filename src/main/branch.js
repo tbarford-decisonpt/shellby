@@ -31,7 +31,8 @@ const { onlyLooks } = require('./worktrees');
 const TREE = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 const MARK = '⑂';
 
-const isUser = i => i && i.kind === 'user';
+// A message Claude read mid-turn (a steer, session.js) is part of that turn, not one of its own.
+const isUser = i => i && i.kind === 'user' && !i.steerId;
 const tagged = i => i && (i.kind === 'changes' || i.kind === 'checkpoint') && typeof i.turnId === 'string';
 
 /**

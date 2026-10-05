@@ -14,6 +14,7 @@
 //   "args"       -> replies with the command line it was started with (JSON)
 //   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
 //   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
+//   "steps <n> <ms> [late <ms>]" -> n tool calls in a row; see below for messages sent meanwhile
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -24,6 +25,9 @@ let turn = 0;
 let pending = null;   // { requestId, onAnswer }
 let slow = null;
 let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
+let stepHooks = [];   // PostToolUse ones
+let inbox = null;     // messages that came in while a "steps" turn runs, not yet read
+const REPLAY = args.includes('--replay-user-messages');
 let effort = args.includes('--effort') ? args[args.indexOf('--effort') + 1] : '';
 
 // Like the real CLI, it keeps the conversation under <config>/projects/<folder>/<id>.jsonl,
@@ -57,6 +61,11 @@ let messages = 0;
 // Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
 const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId, uuid: `uuid-${sessionId}-${messages}` });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
+// Like the real CLI with --replay-user-messages: each message echoed as it's read.
+const echo = msg => { if (REPLAY) out({ type: 'user', message: msg.message, isReplay: true, session_id: sessionId }); };
+const textOf = msg => (Array.isArray(msg.message.content) ? msg.message.content.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.message.content));
+// Messages left unread when a turn ends: the real CLI runs them next, as a turn of their own.
+const runInbox = () => { const rest = inbox || []; inbox = null; for (const m of rest) onLine(JSON.stringify(m)); };
 
 // `claude -p --output-format json --json-schema …` with the prompt on stdin: one
 // structured answer, then exit. Workflow drafts get a one-step workflow. The
@@ -99,7 +108,7 @@ if (ONE_SHOT) {
   });
 }
 
-if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', line => {
+function onLine(line) {
   const msg = JSON.parse(line);
 
   if (msg.type === 'control_response' && pending && msg.response.request_id === pending.requestId) {
@@ -115,8 +124,10 @@ if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', lin
       if (slow) { clearTimeout(slow); slow = null; }
       out({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] } });
       result(false);
+      runInbox();
     } else if (sub === 'initialize') {
       workHooks = msg.request.hooks?.PreToolUse?.flatMap(m => m.hookCallbackIds) || [];
+      stepHooks = msg.request.hooks?.PostToolUse?.flatMap(m => m.hookCallbackIds) || [];
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
@@ -133,7 +144,9 @@ if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', lin
   }
 
   if (msg.type !== 'user') return;
+  if (inbox) { inbox.push(msg); return; } // read at the next step (see "steps")
   turn++;
+  echo(msg);
   // A message with pictures in it is a list of blocks: the text is in the text one(s).
   // A note from Shellby about where a branch now is comes first, as a block of
   // its own: it's acknowledged on its own line, and the message itself is what
@@ -287,6 +300,41 @@ if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', lin
     return;
   }
 
+  // "steps <n> <ms>" -> n Bash calls in a row, <ms> each, each followed by a
+  // registered PostToolUse hook. A message that comes in meanwhile is read
+  // after the next step's result, like the real CLI (echoed, then the reply
+  // says what it read); one in after the last step runs as a turn of its own.
+  // "... late <ms>" waits that long between a step's hook and its result: a
+  // window for Stop to land in before Claude reads what the hook let in.
+  if (content.startsWith('steps ')) {
+    const [, n, ms, , late] = content.split(' ');
+    inbox = [];
+    let k = 0;
+    const end = t => { slow = null; text(t); result(true); runInbox(); };
+    const step = () => {
+      const id = `tu_step_${turn}_${++k}`;
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command: `step ${k}` } }] }, parent_tool_use_id: null, session_id: sessionId });
+      const finish = () => {
+        slow = setTimeout(() => {
+          out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: `step ${k} ok` }] }, parent_tool_use_id: null, session_id: sessionId });
+          const read = inbox.splice(0);
+          read.forEach(echo);
+          if (read.length) return end(`steered: ${read.map(textOf).join(' | ')}`);
+          if (k < Number(n)) return step();
+          end('steps done');
+        }, Number(late) || 0);
+      };
+      slow = setTimeout(() => {
+        if (!stepHooks.length) return finish();
+        const requestId = `req-step-${turn}-${k}`;
+        out({ type: 'control_request', request_id: requestId, request: { subtype: 'hook_callback', callback_id: stepHooks[0], input: { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: id } } });
+        pending = { requestId, onAnswer: finish };
+      }, Number(ms) || 200);
+    };
+    step();
+    return;
+  }
+
   if (content.startsWith('slow')) {
     out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_slow', name: 'Bash', input: { command: 'sleep 999' } }] } });
     slow = setTimeout(() => { text('never'); result(true); }, 60000);
@@ -351,4 +399,6 @@ if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', lin
 
   text(`echo: ${content} (mode=${mode})`);
   result(true);
-});
+}
+
+if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', onLine);
