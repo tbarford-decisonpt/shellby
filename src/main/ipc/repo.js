@@ -37,7 +37,11 @@ function registerRepoIpc(ipcMain, d) {
     retiring.add(tabId);
     try {
       const merged = await worktrees.bringHome(w, { message: `Shellby: ${d.manager.tabs.get(tabId)?.title || 'work from a tab'}` });
-      if (!merged.ok) return merged;
+      if (!merged.ok) {
+        // What git said goes in the conversation, where it can be read in full.
+        if (merged.detail) d.manager.note(tabId, { kind: 'error', text: `${merged.error}\n\n${merged.detail}` });
+        return { ...merged, base: w.base };
+      }
       d.recordWork(w.originalCwd, { task: false });
       if (merged.merged) d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
       // And on to GitHub. A push that fails leaves the merge where it is: the
@@ -168,11 +172,14 @@ ${r.detail}` });
       const merged = r.results.filter(x => x.ok && x.merged);
       if (merged.length) d.recordWork(root, { task: false });
       const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
+      const last = r.results.at(-1);
+      const clashTab = clash && d.manager.tabs.has(clash.id) ? clash.id : null;
+      if (clashTab && last.detail) d.manager.note(clashTab, { kind: 'error', text: `${last.error}\n\n${last.detail}` });
       const out = {
         ok: r.ok, root, busy,
         merged: merged.length, commits: merged.reduce((n, x) => n + x.commits, 0),
         skipped: r.results.filter(x => x.skipped).length,
-        stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: d.manager.tabs.has(clash.id) ? clash.id : null, base: clash.w.base, error: r.results.at(-1).error, conflict: !!r.results.at(-1).conflict } : null,
+        stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: clashTab, base: clash.w.base, error: last.error, conflict: !!last.conflict, fixable: !!last.fixable, root: last.root, detail: last.detail } : null,
       };
       if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
       return out;
