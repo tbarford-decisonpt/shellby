@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.67.0: 32 conversations at once, your MCP servers and n8n in workflows, and Claude drafts your hooks
+
+### New
+- **Up to 32 conversations open at once,** up from 8. When they don't all fit, each end of the tab strip counts what's out of sight, turns amber if one of those needs your OK (sea-glass if one has finished), and takes you there with a click.
+- **Every open conversation in one list.** Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>, or the count at the end of the strip. They're grouped by what each needs from you: waiting for your OK, finished, working, quiet. Type to find one. **Close quiet conversations** tidies up in one go, and never closes one that's working, unread, or holding something you haven't sent.
+- **Your MCP servers in workflows and routines.** Tick the servers a Claude step or routine may use without asking, so a 3am run doesn't wait for you. Or add an **MCP tool** step that calls one tool directly ("create an issue in Linear") with no Claude turn and nothing from your plan. See [WORKFLOWS.md](docs/WORKFLOWS.md#mcp-servers).
+- **n8n, both ways.** Two templates on the Automate page send a finished task to n8n, or let an n8n workflow hand Shellby something to look at and get Claude's answer back. Setup is in [N8N.md](docs/N8N.md).
+- **Claude drafts your hooks.** In **Toolbox → Hooks**, describe what should happen and **Ask Claude** fills in the form, or ask it to change the hook that's there. You read it, try it with **Test run** and save it the usual way. Claude can't run or save anything itself.
+
+### Changed
+- **Routine tabs tidy themselves sooner.** Past six finished routine tabs, the oldest closes, rather than waiting until every slot is full. History keeps the transcript.
+- **The bottom of History is one quiet row:** Recently deleted, where it's stored, and Clear all history.
+
 ## 0.66.0: eight voices, your crab on your GitHub profile in four steps, and calmer settings
 
 ### New
