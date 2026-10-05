@@ -38,6 +38,7 @@ const secretscan = require('./secretscan');
 const forecast = require('./forecast');
 const guard = require('./guard');
 const held = require('./held');
+const { isModel } = require('./models');
 const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
@@ -71,6 +72,7 @@ const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
+const { wireUsagePlan } = require('./wiring/usageplan');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -279,7 +281,7 @@ const shared = {
   applyHotkey, applyLoginItem, armCopy, armGuard, changeRef, chatRoutine, checkAway, checkGuards,
   checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, leaveCheck,
   moveIntoCopy, noteRecap, onSpend, onUsage, outlookView, panelSettings, placeStickers,
-  proposeRoutine, queueTask, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
+  projectKeyOf, proposeRoutine, queueTask, spendSource, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
   repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
   saveCritterPos, saveHeld, saveRoutines, saveStreaks, send, sendOutlook, setCrewSlots,
   setPanelRoomy, shellStickers, shipped, shippedMerge, showPanel, streaksView, syncKeepAwake,
@@ -547,6 +549,7 @@ const shared = {
   get typingSettings() { return typingSettings; },
   get updateView() { return updateView; },
   get updates() { return updates; }, set updates(v) { updates = v; },
+  get usagePlan() { return usagePlan; },
   get visitor() { return visitor; }, set visitor(v) { visitor = v; },
   get wake() { return wake; },
   get wardrobe() { return wardrobe; },
@@ -621,6 +624,7 @@ const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
+const usagePlan = wireUsagePlan(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -1347,11 +1351,17 @@ function onUsage(u) {
 let spendLedger = null;
 let spendSaveTimer = null;
 
-function spendSource(tab) {
-  const dir = tab.worktree?.originalCwd || tab.session?.cwd || '';
+// A folder as the ledgers key it: { project (its name), pk (its full path, lowercased) }.
+function projectKeyOf(dir) {
   const full = dir ? path.resolve(dir) : null;
   const pk = full?.toLowerCase() || null;
   const project = !full ? null : pk === path.resolve(os.homedir()).toLowerCase() ? 'Home folder' : path.basename(full);
+  return { project, pk };
+}
+
+// A tab's copy counts for the project it was copied from.
+function spendSource(tab) {
+  const { project, pk } = projectKeyOf(tab.worktree?.originalCwd || tab.session?.cwd || '');
   if (tab.routineId) {
     // A routine renamed or deleted mid-run still counts as that routine.
     const routine = routines().find(r => r.id === tab.routineId);
@@ -1368,6 +1378,7 @@ function spendSource(tab) {
 function onSpend(s, tab) {
   spendLedger ??= spend.normalize(config.get('spendLedger'));
   spendLedger = spend.record(spendLedger, spendSource(tab), s.weight, Date.now());
+  usagePlan.onSpend(tab, s.weight); // and towards what this turn cost (turncost.js)
   // Calls come in bursts; one write when they settle is plenty.
   if (!spendSaveTimer) spendSaveTimer = setTimeout(saveSpend, 5000);
 }
@@ -1380,7 +1391,7 @@ function saveSpend() {
 
 // Settings as the panel sees them: the ledger stays in main (usageBreakdown).
 function panelSettings() {
-  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
+  const { spendLedger: _ledger, turnCosts: _t, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
   return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
@@ -1500,7 +1511,7 @@ function heldView(h) {
   if (h.kind === 'message') return { ...base, tabId: h.tabId, text: h.text, attachments: h.attachments };
   if (h.kind === 'routine') return { ...base, routineId: h.routineId, name: h.name };
   return {
-    ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode,
+    ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode, model: h.model || '',
     tabId: h.tabId, running: !!h.tabId && queueWaits.has(h.tabId),
     // Started before and still here: it ran dry partway (or Shellby restarted), and carries on.
     resuming: !!h.tabId && !queueWaits.has(h.tabId),
@@ -1576,7 +1587,8 @@ async function queueTask(input) {
     });
     if (response !== 0) return { ok: false, cancelled: true };
   }
-  const res = holdForReset({ kind: 'task', prompt, cwd, mode });
+  const model = typeof input.model === 'string' && isModel(input.model) ? input.model : '';
+  const res = holdForReset({ kind: 'task', prompt, cwd, mode, model });
   if (res.ok) log.info('Task queued for the reset', `${held.taskName(prompt)} at ${res.atText}`);
   return res;
 }
@@ -1680,8 +1692,9 @@ async function releaseTask(h) {
   try {
     if (!open) {
       makeRoomForRoutine();
-      openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
+      const tab = openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
         : { tabId, cwd: h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd(), mode: h.mode, title });
+      if (h.model && !tab.session.proc) tab.session.model = h.model; // before its process starts (--model)
     }
     turnId = manager.send(tabId, prompt, { kind: 'user', text: prompt, title, queued: { id: h.id, name: h.name } });
     queueTabs.set(tabId, h.id);
@@ -1869,6 +1882,8 @@ function routinesView() {
     ...r, next: nextRun(r, now), scheduleText: describeSchedule(r.schedule),
     running: [...routineTabs.entries()].some(([tabId, id]) => id === r.id && manager.isBusy(tabId)),
     held: heldFor(r.id),
+    // Small runs on a top model: the editor says a lighter one would do (never changes it).
+    suggestModel: usagePlan.routineSuggestion(r),
   }));
 }
 
@@ -1910,7 +1925,9 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     makeRoomForRoutine();
     const tabId = randomUUID();
     const cwd = r.cwd && fs.existsSync(r.cwd) ? r.cwd : currentCwd();
-    openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}` });
+    const tab = openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}` });
+    // Its own model, if it has one: set before the first message starts the process (--model).
+    if (r.model && isModel(r.model) && !tab.session.proc) tab.session.model = r.model;
     routineTabs.set(tabId, r.id);
     const userItem = { kind: 'user', text: r.prompt, title: `⟳ ${r.name}`, routine: { id: r.id, name: r.name, reason } };
     manager.send(tabId, r.prompt, userItem);
@@ -2183,6 +2200,7 @@ function registerIpc() {
   // ---- history (ipc/history.js)
   registerHistoryIpc(ipcMain, {
     history, manager, openTab, log,
+    onCleared: () => usagePlan.clear(), // what each turn cost goes with the conversations
     confirmClear: async (count, openCount) => {
       const r = await dialog.showMessageBox(panel, {
         type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
@@ -2411,6 +2429,7 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   scheduler?.stop();
   if (config) saveSpend();
+  if (config) usagePlan.save();
   lean?.save();
   toolbox?.stop();
   health?.stop();

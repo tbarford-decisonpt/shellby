@@ -207,6 +207,7 @@ function wireTimetrack(d) {
 
   function onResult(tabId, item, tab) {
     d.endTurn(tabId);
+    d.usagePlan?.endTurn(tab, item); // what it cost, for estimates next time (turncost.js)
     tab.guardRun = null;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
     const fresh = tab.freshWanted;

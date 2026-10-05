@@ -174,6 +174,7 @@ const TOOLS = [
         folder: { type: 'string', maxLength: 1024, description: 'Absolute path of the folder it works in. Leave out to use Shellby\'s default folder.' },
         mode: { type: 'string', enum: ROUTINE_MODES, description: 'Permission mode for each run. Defaults to smart. acceptEdits lets it change files without asking; plan only plans.' },
         catchUp: { type: 'boolean', description: 'Run once at startup if a slot was missed while the PC was off. Defaults to true.' },
+        model: { type: 'string', maxLength: 40, description: 'Claude model for each run, e.g. "sonnet" or "haiku" (a lighter model is plenty for tidy-ups and summaries). Leave out to use the user\'s default.' },
       },
       required: ['name', 'prompt', 'schedule'],
       additionalProperties: false,
@@ -331,6 +332,7 @@ function toAction(name, raw) {
       if (typeof args.folder === 'string' && args.folder.trim()) out.folder = args.folder.trim();
       if (args.mode !== undefined) out.mode = args.mode;
       if (typeof args.catchUp === 'boolean') out.catchUp = args.catchUp;
+      if (typeof args.model === 'string' && args.model.trim()) out.model = args.model.trim().slice(0, 40);
       return { action: 'add_routine', args: out };
     }
     case 'list_routines':

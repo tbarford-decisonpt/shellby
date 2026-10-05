@@ -5,6 +5,7 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { MODES } = require('./config');
+const { isModel } = require('./models');
 
 const HOUR = 3600000;
 const ID_RE = /^[\w-]{1,64}$/;
@@ -146,6 +147,10 @@ function validateRoutine(input, { allowAutonomous = false } = {}) {
   if (!MODES.includes(mode)) errors.push('Unknown mode');
   else if (mode === 'autonomous' && !allowAutonomous) errors.push('Autonomous mode is not allowed for routines');
 
+  // '' (or none) runs on whatever model Settings picks; anything else must be one Shellby offers.
+  const model = input.model === undefined || input.model === null ? '' : input.model;
+  if (typeof model !== 'string' || !isModel(model)) errors.push('Unknown model');
+
   const schedule = normaliseSchedule(input.schedule);
   const sErr = scheduleError(schedule);
   if (sErr) errors.push(sErr);
@@ -165,7 +170,7 @@ function validateRoutine(input, { allowAutonomous = false } = {}) {
 
   if (errors.length) return { routine: null, errors };
   return {
-    routine: { id, name, prompt, cwd, mode, schedule, enabled, catchUp, createdAt, lastRunAt, lastStatus },
+    routine: { id, name, prompt, cwd, mode, model, schedule, enabled, catchUp, createdAt, lastRunAt, lastStatus },
     errors: [],
   };
 }

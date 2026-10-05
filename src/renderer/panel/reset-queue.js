@@ -30,7 +30,7 @@
   }
 
   function row(t, i) {
-    const meta = [t.folder, MODE_NAME[t.mode] || 'Default mode'].filter(Boolean).join(' · ');
+    const meta = [t.folder, MODE_NAME[t.mode] || 'Default mode', t.model ? SB.modelLabel(t.model) : null].filter(Boolean).join(' · ');
     return h('li', { class: `rq-item${t.running ? ' running' : ''}` },
       h('span', { class: 'rq-num', 'aria-hidden': 'true', text: String(i + 1) }),
       h('div', { class: 'rq-main' },
@@ -67,6 +67,7 @@
     text.value = r.item.prompt;
     folder = r.item.cwd || null;
     $('resetQueueMode').value = r.item.mode || 'smart';
+    SB.fillModels($('resetQueueModel'), r.item.model || '', 'Usual model');
     renderFolder();
     text.focus();
     note('Out of the queue while you edit it. Press Queue it to put it back (at the end).');
@@ -117,6 +118,9 @@
     renderWhen();
     renderFolder();
     renderPhone();
+    // The models arrive with boot; fill the picker once they're here, keeping your pick.
+    const pick = $('resetQueueModel');
+    if (pick.options.length <= 1 && state.models?.length) SB.fillModels(pick, pick.value || '', 'Usual model');
   }
   SB.renderResetQueue = () => {
     render();
@@ -131,7 +135,7 @@
     adding = true;
     $('resetQueueAdd').disabled = true;
     try {
-      const r = await api.holdForReset({ kind: 'task', prompt, cwd: folderNow(), mode: $('resetQueueMode').value });
+      const r = await api.holdForReset({ kind: 'task', prompt, cwd: folderNow(), mode: $('resetQueueMode').value, model: $('resetQueueModel').value });
       if (r.cancelled) return note('');
       if (!r.ok) {
         // No window running: there's nothing to wait for, so offer the chat box instead.

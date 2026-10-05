@@ -79,6 +79,7 @@
     $('spendReserveSelect').value = String(state.settings.spendReserve || 25);
     $('spendMaxSelect').value = String(state.settings.spendMaxMinutes || 60);
     $('spendGuardOptions').hidden = state.settings.spendGuard === false;
+    $('holdBigToggle').checked = state.settings.holdBigTasks === true;
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('flakyToggle').checked = state.settings.flakyTests !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
@@ -291,6 +292,7 @@
   $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
   $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
   $('spendGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ spendGuard: e.target.checked }); state.settings = r.settings; $('spendGuardOptions').hidden = !state.settings.spendGuard; });
+  $('holdBigToggle').addEventListener('change', async e => { const r = await api.setSettings({ holdBigTasks: e.target.checked }); state.settings = r.settings; });
   $('spendReserveSelect').addEventListener('change', async e => { const r = await api.setSettings({ spendReserve: Number(e.target.value) }); state.settings = r.settings; });
   $('spendMaxSelect').addEventListener('change', async e => { const r = await api.setSettings({ spendMaxMinutes: Number(e.target.value) }); state.settings = r.settings; });
   $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });

@@ -11,6 +11,7 @@
 // starts on an event, or needs steps with decisions between them), so the
 // panel can offer to build it as one instead.
 const { validateRoutine } = require('./routines');
+const { MODELS, isModel } = require('./models');
 
 const MAX_DESCRIPTION = 500;
 const DRAFT_TIMEOUT_MS = 90000;
@@ -18,6 +19,9 @@ const DRAFT_TIMEOUT_MS = 90000;
 const DRAFT_MODEL = 'haiku';
 // Autonomous is never offered: a routine only gets it from the user's own hand.
 const DRAFT_MODES = ['smart', 'ask', 'acceptEdits', 'plan'];
+// '' is the person's own default (Settings); the rest are what Settings offers.
+const ROUTINE_MODELS = ['', ...MODELS.map(m => m.id)];
+const modelOf = (m, fallback = '') => (typeof m === 'string' && isModel(m) ? m : fallback);
 const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g;
 
 const NEEDS_WORKFLOW = {
@@ -42,12 +46,15 @@ const SCHEMA = {
     },
     mode: { enum: DRAFT_MODES },
     folder: { type: 'string', description: 'Absolute path the task should run in, or "" for the default' },
+    model: { enum: ROUTINE_MODELS, description: '"" for the person\'s usual model; "sonnet" or "haiku" when a lighter model is plenty (tidy-ups, summaries, reports)' },
     ...NEEDS_WORKFLOW,
   },
-  required: ['name', 'prompt', 'schedule', 'mode', 'folder', 'needs_workflow', 'why'],
+  required: ['name', 'prompt', 'schedule', 'mode', 'folder', 'model', 'needs_workflow', 'why'],
 };
 
 const WORKFLOW_RULE = 'needs_workflow: true only when this can\'t be one instruction run on a clock: it should start on an event instead (a failed build, a new file, a GitHub issue, another task finishing), needs separate steps with decisions between them, should ask the person something part-way, or must call a web address. Shellby workflows do those. Otherwise false, with why "".';
+
+const MODEL_RULE = 'model: "" to use the person\'s usual model. "sonnet" when the job is light (tidying, summarising, a short report), "haiku" when it is tiny and routine; "" for real coding work. Only pick a specific one if the person asks for it.';
 
 const MAX_PLACES = 20;
 const clipLine = (t, max) => String(t ?? '').replace(UNSAFE, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -72,6 +79,7 @@ function systemPrompt({ home, defaultFolder, places }) {
     'schedule: "daily" with time, "weekly" with time and days (0 = Sunday ... 6 = Saturday; weekdays are 1-5), or "interval" with everyHours. Use 24-hour HH:MM. If no time is given, pick a sensible one.',
     'mode: "plan" if it should only look and report, "acceptEdits" if it edits files in its folder, "ask" if it does something risky, otherwise "smart".',
     `folder: the absolute path to work in if the description names one, else "". The person's home folder is ${home}; the default folder is ${defaultFolder || home}.`,
+    MODEL_RULE,
     WORKFLOW_RULE,
     placesText(places),
   ].filter(Boolean).join('\n');
@@ -117,11 +125,12 @@ function parseDraft(stdout, { folderOk = () => false } = {}) {
     prompt: typeof out.prompt === 'string' ? out.prompt.replace(UNSAFE, '') : out.prompt,
     mode: DRAFT_MODES.includes(out.mode) ? out.mode : 'smart',
     cwd: folder && folderOk(folder) ? folder : null,
+    model: modelOf(out.model),
     schedule: s && { type: s.type, time: s.time, days: s.days, everyHours: s.everyHours },
   }, { allowAutonomous: false });
   if (!routine) return { ok: false, error: `Claude's draft didn't fit: ${errors.join(' ')}` };
-  const { name, prompt, schedule, mode, cwd } = routine;
-  return { ok: true, draft: { name, prompt, schedule, mode, cwd }, workflow: workflowHint(out) };
+  const { name, prompt, schedule, mode, cwd, model } = routine;
+  return { ok: true, draft: { name, prompt, schedule, mode, cwd, model }, workflow: workflowHint(out) };
 }
 
 // Claude thinks it's a workflow's job: { why } for the panel's offer, or null.
@@ -182,9 +191,10 @@ function chatSchema({ keepAutonomous = false } = {}) {
           schedule: SCHEMA.properties.schedule,
           mode: { enum: modes },
           folder: SCHEMA.properties.folder,
+          model: SCHEMA.properties.model,
           catchUp: { type: 'boolean', description: 'Run once when Shellby starts if a run was missed while the PC was off' },
         },
-        required: ['name', 'prompt', 'schedule', 'mode', 'folder', 'catchUp'],
+        required: ['name', 'prompt', 'schedule', 'mode', 'folder', 'model', 'catchUp'],
       },
       test: { type: 'boolean', description: 'true to run the routine now as a test and see what Claude Code does' },
       ...NEEDS_WORKFLOW,
@@ -213,6 +223,7 @@ Fields:
 - schedule: { "type": "daily", "time": "HH:MM" } | { "type": "weekly", "time": "HH:MM", "days": [0-6, 0 = Sunday; weekdays are 1-5] } | { "type": "interval", "everyHours": 1-168 }. 24-hour time.
 - mode: "plan" to only look and report, "acceptEdits" to edit files in its folder, "ask" when it does something risky (it waits for the person to allow each step), "smart" otherwise (a safety check approves routine steps and blocks risky ones).
 - folder: the absolute path it runs in, or "" for Shellby's current folder.
+- ${MODEL_RULE}
 - catchUp: if the PC was off when it was due, run once when Shellby starts.`;
 
 const CHAT_RULES = `How this chat works:
@@ -244,6 +255,7 @@ function shownRoutine(r) {
     schedule: base.schedule && typeof base.schedule === 'object' ? base.schedule : { type: 'daily', time: '09:00' },
     mode: typeof base.mode === 'string' ? base.mode : 'smart',
     folder: typeof base.cwd === 'string' ? base.cwd : '',
+    model: modelOf(base.model),
     catchUp: base.catchUp !== false,
   };
 }
@@ -311,13 +323,15 @@ function checkChange(change, base, { folderOk = () => false, allowAutonomous = f
     prompt: typeof change.prompt === 'string' ? change.prompt.replace(UNSAFE, '') : change.prompt,
     mode: mode || 'smart',
     cwd: folder || null,
+    // An answer without one (or with one Shellby doesn't offer) keeps the editor's.
+    model: modelOf(change.model, modelOf(base?.model)),
     schedule: s && { type: s.type, time: s.time, days: s.days, everyHours: s.everyHours },
     catchUp: typeof change.catchUp === 'boolean' ? change.catchUp : base?.catchUp !== false,
   }, { allowAutonomous: keepAutonomous });
   errors.push(...invalid);
   if (errors.length || !routine) return { ok: false, errors };
-  const { name, prompt, schedule, cwd, catchUp } = routine;
-  return { ok: true, routine: { name, prompt, schedule, mode: routine.mode, cwd, catchUp } };
+  const { name, prompt, schedule, cwd, catchUp, model } = routine;
+  return { ok: true, routine: { name, prompt, schedule, mode: routine.mode, cwd, model, catchUp } };
 }
 
 /**

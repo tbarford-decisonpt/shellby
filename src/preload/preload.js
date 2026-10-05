@@ -458,6 +458,7 @@ contextBridge.exposeInMainWorld('shellby', {
   depRoutine: invoke('depwatch:routine'),
   onDepWatch: on('depwatch'),
   usageBreakdown: invoke('usage:breakdown'),
+  estimateUsage: invoke('usage:estimate'), // { tabId, text } -> what a message like it usually costs (turncost.js)
   // usage forecast, and work held for after the reset (forecast.js, held.js)
   getOutlook: invoke('outlook:get'),
   holdForReset: invoke('held:add'),

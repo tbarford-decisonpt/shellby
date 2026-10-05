@@ -69,7 +69,9 @@
             r.scheduleText,
             ' · ', r.enabled ? h('span', { title: r.next ? new Date(r.next).toLocaleString() : '' }, `next ${SB.untilTime(r.next)}`) : 'paused',
             // Smart is the default for routines: only say the mode when it's something else.
-            r.mode === 'smart' ? null : ` · ${MODE_NAME[r.mode] || r.mode}`)),
+            r.mode === 'smart' ? null : ` · ${MODE_NAME[r.mode] || r.mode}`,
+            // Likewise the model: only one of its own.
+            r.model ? ` · ${SB.modelLabel(r.model)}` : null)),
         h('div', { class: 'ar-desc', text: r.prompt, title: r.prompt })),
       h('div', { class: 'ar-actions routine-actions' },
         h('button', { class: 'icon-btn', type: 'button', title: 'Run now', 'aria-label': `Run ${r.name} now`, disabled: r.running, onclick: async () => {
@@ -245,6 +247,8 @@
     const days = new Set((s.days || [1]).map(String));
     form.querySelectorAll('input[name=day]').forEach(c => { c.checked = days.has(c.value); });
     form.elements.mode.value = r?.mode || 'smart';
+    SB.fillModels(form.elements.model, r?.model || '', 'Your usual model');
+    syncModelSuggest();
     form.elements.catchUp.checked = r ? r.catchUp !== false : true;
     $('routineFolder').textContent = folder ? SB.tildify(folder) : `Default (${SB.tildify(state.cwd)})`;
     syncWhen();
@@ -262,9 +266,27 @@
     return {
       ...(editing ? { id: editing.id, createdAt: editing.createdAt, enabled: editing.enabled } : {}),
       name: form.elements.name.value, prompt: form.elements.prompt.value, cwd: folder,
-      mode: form.elements.mode.value, schedule, catchUp: form.elements.catchUp.checked,
+      mode: form.elements.mode.value, model: form.elements.model.value, schedule, catchUp: form.elements.catchUp.checked,
     };
   }
+
+  // Its past runs were small and it's on the top model: say so, once, and leave the choice to you.
+  const TOP_MODEL = /opus|fable/i;
+  function syncModelSuggest() {
+    const p = $('routineModelSuggest');
+    const picked = form.elements.model.value;
+    const onTop = picked ? TOP_MODEL.test(picked) : TOP_MODEL.test(state.settings.model || 'opus');
+    const show = editing?.suggestModel === 'sonnet' && onTop;
+    p.hidden = !show;
+    if (!show) { p.replaceChildren(); return; }
+    p.replaceChildren('Runs like this usually suit Sonnet. ',
+      h('button', { class: 'link-btn inline', type: 'button', onclick: () => {
+        form.elements.model.value = 'sonnet';
+        syncModelSuggest();
+        form.elements.model.focus();
+      } }, 'Pick Sonnet'));
+  }
+  form.elements.model.addEventListener('change', syncModelSuggest);
 
   function closeEditor() {
     // A new routine Claude tested was saved switched off; it stays in the list that way.

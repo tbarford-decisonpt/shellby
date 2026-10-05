@@ -69,6 +69,14 @@ function usageFrom(ev) {
   return { kind: 'usage', status: info.status || null, fiveHour: win(w.five_hour), sevenDay: win(w.seven_day) };
 }
 
+// A result's token counts for the whole turn, or null when it has none.
+function tokensOf(u) {
+  if (!u || typeof u !== 'object') return null;
+  const n = v => (Number.isFinite(v) && v > 0 ? v : 0);
+  const t = { input: n(u.input_tokens), output: n(u.output_tokens), cacheRead: n(u.cache_read_input_tokens), cacheWrite: n(u.cache_creation_input_tokens) };
+  return t.input + t.output + t.cacheRead + t.cacheWrite ? t : null;
+}
+
 // What one API call cost, for the usage-by-project ledger (spend.js). Claude Code
 // sends one assistant event per content block, each repeating the message's id
 // and usage, so callers count each id once (session.js).
@@ -195,6 +203,9 @@ function toItems(ev) {
         durationMs: ev.duration_ms ?? null, turns: ev.num_turns ?? null,
         error: ev.is_error ? (ev.result || (ev.errors || []).join('\n') || null) : null,
         sessionId: ev.session_id || null,
+        // What the whole turn used, for the per-turn ledger (turncost.js).
+        tokens: tokensOf(ev.usage),
+        costUsd: Number.isFinite(ev.total_cost_usd) ? ev.total_cost_usd : null,
       }];
     case 'rate_limit_event':
       return [usageFrom(ev)];

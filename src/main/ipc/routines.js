@@ -13,6 +13,13 @@ const { validateRoutine } = require('../routines');
 function registerRoutinesIpc(ipcMain, d) {
   // ---- routines
   ipcMain.handle('usage:breakdown', () => d.usageBreakdown());
+  // What the message being typed usually costs (turncost.js). Only its category
+  // is worked out from the text; nothing of it is kept.
+  ipcMain.handle('usage:estimate', (_e, req) => {
+    const text = typeof req?.text === 'string' ? req.text.slice(0, 50000) : '';
+    if (!text.trim() || d.config.get('crabOnly')) return null;
+    return d.usagePlan.estimateFor(d.isStr(req.tabId) ? req.tabId : null, text);
+  });
   ipcMain.handle('routines:list', () => d.routinesView());
   ipcMain.handle('routines:templates', () => routineTemplates.TEMPLATES);
   ipcMain.handle('routines:save', async (_e, input) => {
@@ -23,7 +30,7 @@ function registerRoutinesIpc(ipcMain, d) {
     // step (Smart, Auto-edit, Autonomous) is confirmed in the isolated window
     // whenever what it does, where, or how freely changes.
     const unattended = !['ask', 'plan'].includes(routine.mode);
-    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]);
+    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]) || (existing.model || '') !== routine.model;
     if (unattended && changed) {
       const response = await confirm.ask(d.panel, {
         ...d.dialogLook(), icon: '⟳', danger: routine.mode === 'autonomous',

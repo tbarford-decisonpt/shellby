@@ -7,7 +7,7 @@
 //   { kind: 'message', tabId, cwd, title, text, attachments }: a message for a
 //     conversation; it goes back there, reopening it from History if needed.
 //   { kind: 'routine', routineId, name }: one run of a routine.
-//   { kind: 'task', prompt, cwd, mode, name, tabId, tries }: heavy work queued
+//   { kind: 'task', prompt, cwd, mode, name, tabId, tries, model? }: heavy work queued
 //     for a fresh window ("refactor X overnight"). Tasks go one after another,
 //     each waiting for the last to finish. Once one starts it keeps its tabId:
 //     if the window runs dry partway, or Shellby restarts, it stays queued and
@@ -17,6 +17,7 @@
 // Pure: callers pass `now` (test/held.test.js).
 
 const { randomUUID } = require('crypto');
+const { isModel } = require('./models');
 
 const MAX_HELD = 50;
 const MAX_TEXT = 50000;
@@ -63,6 +64,8 @@ function clean(raw, now) {
       mode: TASK_MODES.includes(raw.mode) ? raw.mode : null,
       tabId: isStr(raw.tabId) && ID_RE.test(raw.tabId) ? raw.tabId : null,
       tries,
+      // Its own model ('' or none: the one Settings picks).
+      ...(isStr(raw.model) && isModel(raw.model) ? { model: raw.model } : {}),
     };
   }
   if (raw.kind === 'message') {

@@ -74,6 +74,11 @@ to three times per message.
   the chat waits for you.
 - Claude never picks Autonomous. If you gave the routine Autonomous yourself,
   Claude can leave it be.
+- Claude can pick the routine's **Model**: Sonnet or Haiku for light jobs
+  (tidying, summing up, a short report), your usual model for real coding
+  work. Say "use Haiku" and it will. Once a routine has run a few times on the
+  top model and every run was small, the editor suggests Sonnet. It never
+  switches it for you.
 
 ## The map
 

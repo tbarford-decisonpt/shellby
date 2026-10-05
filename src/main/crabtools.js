@@ -10,6 +10,9 @@
 // effects. That keeps it pure, so it is all unit-tested.
 
 const { validateRoutine, describeSchedule } = require('./routines');
+const { MODELS } = require('./models');
+
+const modelName = id => MODELS.find(m => m.id === id)?.label || id;
 
 const MAX_TEXT = 120;
 const MAX_ITEM = 60;
@@ -95,6 +98,8 @@ function parseRoutine(args) {
     cwd: args.folder,
     mode: args.mode,
     catchUp: typeof args.catchUp === 'boolean' ? args.catchUp : undefined,
+    // Checked against the models Shellby offers (models.js); '' is the user's default.
+    model: typeof args.model === 'string' ? args.model.trim() : undefined,
     schedule: s && { type: s.type, time: s.time, days: s.days, everyHours: s.everyHours },
   }, { allowAutonomous: false });
   if (!routine) return { ok: false, error: errors.join(' ') };
@@ -154,7 +159,7 @@ function routineQuestion(routine, { replacing = null, defaultFolder = '', own = 
     title: replacing ? 'Change a routine?' : 'Add a routine?',
     message: `${who} "${(replacing && !own ? replacing : routine).name}": ${describeSchedule(routine.schedule)}.`,
     // Folder and mode first: they're the facts a long prompt must not push away.
-    detail: `Folder: ${routine.cwd || `${defaultFolder} (default)`}\nMode: ${MODE_NAMES[routine.mode] || routine.mode}\n\n${routine.prompt}`,
+    detail: `Folder: ${routine.cwd || `${defaultFolder} (default)`}\nMode: ${MODE_NAMES[routine.mode] || routine.mode}${routine.model ? `\nModel: ${modelName(routine.model)}` : ''}\n\n${routine.prompt}`,
     note: 'Each run is a Claude Code task on your subscription. You can pause, edit or delete it in Routines.',
   };
 }

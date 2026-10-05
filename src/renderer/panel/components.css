@@ -335,6 +335,9 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .template span { font-size: 12px; color: var(--sand-dim); line-height: 1.4; }
 .routine-more { margin-top: 8px; }
 .routine-tpl-note { margin: -4px 0 0; font-size: 12px; color: var(--sand-dim); }
+.routine-model-hint { margin: -6px 0 0; }
+.routine-model-suggest { margin: 0; font-size: 12px; color: var(--sand); }
+.routine-model-suggest[hidden] { display: none; }
 
 /* The tools below your routines (reset queue, dependency health, flaky tests,
    dependency watch): one quiet look, so the routines above stay the page. */

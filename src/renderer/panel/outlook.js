@@ -7,6 +7,7 @@
   const { h, api, state, $ } = SB;
   const input = $('input');
   let dismissed = null; // the reset whose warning you closed: it stays closed for that window
+  let dismissedEstimate = null; // the tab whose "this usually takes…" you closed, until its box empties
 
   SB.applyOutlook = o => {
     state.outlook = o || null;
@@ -24,16 +25,23 @@
     const box = $('outlook');
     const o = state.outlook;
     const tab = SB.activeTab();
+    const big = liveEstimate();
+    renderCostHint(big);
     const note = o?.limit
       ? { text: `You're at your ${o.limit.name} limit until ${o.limit.at}.`, key: o.limit.resetsAt, cls: 'limit' }
-      : o?.warning ? { text: o.warning.text, key: o.warning.resetsAt, cls: 'warning' } : null;
-    const show = !!note && !!tab && dismissed !== note.key && !SB.isCrabOnly?.();
+      : big?.over && dismissedEstimate !== big.tabId ? { text: overText(big), key: null, cls: 'warning', estimate: true }
+        : o?.warning ? { text: o.warning.text, key: o.warning.resetsAt, cls: 'warning' } : null;
+    const show = !!note && !!tab && (note.estimate || dismissed !== note.key) && !SB.isCrabOnly?.();
     box.hidden = !show;
     if (!show) { box.replaceChildren(); return; }
     box.className = `outlook ${note.cls}`;
     const typed = !!input.value.trim() || tab.attachments.length > 0;
     const queued = tab.queue.length;
-    const actions = !o.resetAt ? [] : [
+    const actions = note.estimate ? [
+      // A prompt, never a block: Enter still sends, and so does this.
+      h('button', { class: 'btn slim-btn ghost', type: 'button', onclick: () => SB.send(undefined, { force: true }) }, 'Send anyway'),
+      o?.resetAt ? h('button', { class: 'btn slim-btn', type: 'button', title: 'Ctrl+Shift+Enter', onclick: holdTyped }, 'Send after the reset') : null,
+    ].filter(Boolean) : !o?.resetAt ? [] : [
       typed ? h('button', { class: 'btn slim-btn', type: 'button', title: 'Ctrl+Shift+Enter', onclick: holdTyped }, 'Send after the reset') : null,
       queued ? h('button', { class: `btn slim-btn${typed ? ' ghost' : ''}`, type: 'button', onclick: () => holdQueue(tab) }, `Hold ${queued} queued`) : null,
       !typed && !queued ? h('span', { class: 'outlook-hint' }, h('kbd', { text: 'Ctrl+Shift+Enter' }), ' in the box holds a message for then') : null,
@@ -41,14 +49,122 @@
     box.replaceChildren(...[
       SB.icon(SB.ICONS.clock, { width: 1.4 }),
       h('span', { class: 'outlook-text', text: note.text }),
-      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Hide until the reset', title: 'Hide until the reset', onclick: () => { dismissed = note.key; renderOutlook(); } },
+      note.estimate
+        ? h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Hide this for this message', title: 'Hide this for this message', onclick: () => { dismissedEstimate = big.tabId; renderOutlook(); } },
+          SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 }))
+        : h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Hide until the reset', title: 'Hide until the reset', onclick: () => { dismissed = note.key; renderOutlook(); } },
         SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })),
       actions.length ? h('div', { class: 'outlook-actions' }, actions) : null,
     ].filter(Boolean));
   }
   SB.renderOutlook = renderOutlook;
-  // Whether there's anything to send after the reset changes as you type.
-  input.addEventListener('input', () => { if (state.outlook?.warning || state.outlook?.limit) renderOutlook(); });
+  // Whether there's anything to send after the reset changes as you type, and so
+  // does what it usually costs.
+  input.addEventListener('input', () => {
+    if (state.outlook?.warning || state.outlook?.limit || state.estimate) renderOutlook();
+    scheduleEstimate();
+  });
+
+  // ------------------------------------------------------------ what this usually costs (src/main/turncost.js)
+
+  const EST_DELAY_MS = 450;   // after you stop typing for a moment
+  const EST_MIN_CHARS = 15;   // shorter than this says too little to guess from
+  let estTimer = null;
+  let estSeq = 0;
+  state.estimate = null;      // { tabId, text, ...main's estimate }
+
+  const pctText = n => (n < 1 ? 'under 1%' : `${Math.round(n)}%`);
+  const KIND_NOUN = {
+    question: 'questions', review: 'reviews', tests: 'test tasks', fix: 'fixes', feature: 'new features',
+    refactor: 'refactors', docs: 'docs tasks', tidy: 'tidy-ups', other: 'tasks',
+  };
+  const typedNow = () => input.value.trim();
+  const estimable = t => t.length >= EST_MIN_CHARS && !t.startsWith('!') && !t.startsWith('/');
+
+  // The estimate, while it's still about what's in the box of the tab on screen.
+  function liveEstimate() {
+    const e = state.estimate;
+    const tab = SB.activeTab();
+    return e && tab && e.tabId === tab.id && estimable(typedNow()) ? e : null;
+  }
+
+  // "from 12 similar fixes in shellby": what the guess is drawn from.
+  function basisText(e) {
+    const n = e.samples;
+    const kind = KIND_NOUN[e.category] || 'tasks';
+    if (e.basis === 'project+kind') return `From ${n} similar ${kind} in ${e.project}`;
+    if (e.basis === 'project') return `From your last ${n} tasks in ${e.project}`;
+    return `From ${n} similar ${kind} across your projects`;
+  }
+
+  function overText(e) {
+    const until = e.guardOn ? 'before he stops' : 'before your limit';
+    return `This usually takes about ${pctText(e.pct)} and you've ${pctText(e.left)} left ${until}.`;
+  }
+
+  function renderCostHint(e = liveEstimate()) {
+    const el = $('costHint');
+    const show = !!e && !e.over && !SB.isCrabOnly?.();
+    el.hidden = !show;
+    if (!show) { el.textContent = ''; el.removeAttribute('title'); return; }
+    el.textContent = `usually about ${pctText(e.pct)} of your window`;
+    el.title = `${basisText(e)}. Most land between ${pctText(e.low)} and ${pctText(e.high)}.`;
+  }
+
+  function scheduleEstimate() {
+    clearTimeout(estTimer);
+    if (!estimable(typedNow())) {
+      dismissedEstimate = null; // the next message gets its own heads-up
+      if (state.estimate) { state.estimate = null; renderOutlook(); }
+      return;
+    }
+    estTimer = setTimeout(refreshEstimate, EST_DELAY_MS);
+  }
+
+  // The box was emptied (sent, held, cleared): nothing to estimate, and the next
+  // message gets its own heads-up. A lookup still on its way is ignored.
+  SB.resetEstimate = () => {
+    clearTimeout(estTimer);
+    estSeq++;
+    dismissedEstimate = null;
+    if (!state.estimate) return;
+    state.estimate = null;
+    renderOutlook();
+  };
+
+  async function refreshEstimate() {
+    const tab = SB.activeTab();
+    const text = typedNow();
+    const seq = ++estSeq;
+    if (!tab || !estimable(text) || SB.isCrabOnly?.()) return;
+    const r = await api.estimateUsage({ tabId: tab.id, text }).catch(() => null);
+    if (seq !== estSeq) return; // you've typed on since
+    state.estimate = r && r.basis !== 'none' ? { ...r, tabId: tab.id, text } : null;
+    renderOutlook();
+  }
+
+  // "Hold big tasks for the reset" (Settings): SB.send asks before sending.
+  // -> true when it was held, false to send as usual.
+  SB.holdIfBig = async (tab, text, attachments) => {
+    // Commands (/compact, ! runs) go now: holding one would only get in the way.
+    if (!state.settings.holdBigTasks || !text || text.startsWith('!') || text.startsWith('/')) return false;
+    const est = await api.estimateUsage({ tabId: tab.id, text }).catch(() => null);
+    if (!est?.hold) return false;
+    const r = await hold(tab, text, attachments);
+    if (!r.ok) return false; // couldn't hold it (no reset known yet): it goes now, as it would have
+    state.estimate = null;
+    SB.toast(`Held for the reset at ${r.atText} — it usually takes ~${pctText(est.pct)}.`, {
+      ms: 6000, action: 'Send now', onAction: () => sendHeldNow(tab, r.id),
+    });
+    return true;
+  };
+
+  // Changed your mind: out of the hold and on its way.
+  async function sendHeldNow(tab, id) {
+    const r = await api.cancelHeld(id);
+    if (!r.ok) return SB.toast('That one has already gone.');
+    if (!(await SB.sendDirect(tab, r.item.text, r.item.attachments || []))) SB.handBack(tab, r.item.text, r.item.attachments || []);
+  }
 
   // ------------------------------------------------------------ holding
 
