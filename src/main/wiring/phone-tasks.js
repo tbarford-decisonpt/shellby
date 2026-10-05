@@ -68,7 +68,8 @@ function wirePhoneTasks(d) {
 
   /** On, for exactly the destination you said yes to, and nothing missing. */
   function active() {
-    if (!d.config || d.config.get('crabOnly')) return false;
+    // Shellby on his way out (before-quit shuts the poller): nothing new starts.
+    if (!d.config || d.remote?.closed || d.config.get('crabOnly')) return false;
     if (!settings().enabled || d.config.get('phoneTasksConfirmed') !== consentKey()) return false;
     if (problem()) return false;
     return d.channelSettings().provider !== 'ntfy' || !!passphrase;
@@ -274,7 +275,7 @@ function wirePhoneTasks(d) {
     const usage = d.config.get('lastUsage');
     const saving = !w && guard.holdBeforeStart(guard.settingsOf(k => d.config.get(k)), usage, Date.now());
     if (!w && !saving) return false;
-    const res = d.holdForReset({ kind: 'task', prompt, cwd: project.path, mode: pt.MODE });
+    const res = d.holdForReset({ kind: 'task', prompt, cwd: project.path, mode: pt.MODE, fromPhone: true });
     if (!res.ok) { sayOnPhone(`Couldn't queue it: ${res.error}`); return true; }
     d.sendOutlook();
     const why = w ? "You're at your usage limit" : `Your 5-hour window is at ${usage.fiveHour.pct}%, past what you keep for yourself`;
@@ -287,16 +288,23 @@ function wirePhoneTasks(d) {
     const title = pt.titleFor(prompt);
     // Its own copy when it's a repository, so your checkout is untouched;
     // otherwise the folder itself. Ask first either way.
+    if (!active()) return null;
     let r = await d.startTaskInCopy(project.path, title, () => prompt, { mode: pt.MODE });
     if (!r.ok && r.noCopy) r = d.startTask(prompt, title, { mode: pt.MODE, cwd: project.path });
     if (!r.ok) return sayOnPhone(`Couldn't start it: ${r.error || 'something went wrong'}`);
-    const tab = d.manager.tabs.get(r.tabId);
-    if (tab) tab.fromPhone = true;
-    mine.add(r.tabId);
-    d.manager.note(r.tabId, { kind: 'phone' });
-    d.history.update(r.tabId, { fromPhone: true });
+    adoptPhoneTab(r.tabId);
     d.log.info('phone tasks: started', project.name);
     return sayOnPhone(`On it: ${title.slice(pt.TITLE_PREFIX.length + 1)} in ${project.name}. He'll ask here before he changes anything.`);
+  }
+
+  // A tab the phone started, now or held for the reset (main.js releaseTask):
+  // its prompts and its "done" go to the phone, and it counts towards the cap.
+  function adoptPhoneTab(tabId) {
+    const tab = d.manager.tabs.get(tabId);
+    if (tab) tab.fromPhone = true;
+    mine.add(tabId);
+    d.manager.note(tabId, { kind: 'phone' });
+    d.history.update(tabId, { fromPhone: true });
   }
 
   /** A few lines back to the phone, to the confirmed destination only. */
@@ -314,7 +322,7 @@ function wirePhoneTasks(d) {
     d.remote.setInbox(inbox());
   }
 
-  return { createPhoneTasks, phoneTasksView, pickPhoneTasksFolder, refreshPhoneTasks, setPhoneTasks };
+  return { adoptPhoneTab, createPhoneTasks, phoneTasksView, pickPhoneTasksFolder, refreshPhoneTasks, setPhoneTasks };
 }
 
 module.exports = { wirePhoneTasks };

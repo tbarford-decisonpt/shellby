@@ -146,3 +146,12 @@ test('summary counts queued tasks too', () => {
   assert.equal(held.summary([task(), task()]), '2 queued tasks');
   assert.equal(held.summary([msg(), routine(), task()]), 'a held message, a routine and a queued task');
 });
+
+test('a task from the phone stays marked as one and always runs in Ask first', () => {
+  const task = over => held.hold([], { kind: 'task', prompt: 'fix the build', at: RESET, mode: 'autonomous', ...over }, NOW).item;
+  const phone = task({ fromPhone: true });
+  assert.equal(phone.fromPhone, true);
+  assert.equal(phone.mode, 'ask', 'whatever mode it came with');
+  assert.equal('fromPhone' in task({ fromPhone: 'yes' }), false, 'only a real true counts');
+  assert.equal(task({}).mode, 'autonomous', 'other tasks keep theirs');
+});

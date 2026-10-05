@@ -103,7 +103,8 @@ function parseRoutine(args) {
     schedule: s && { type: s.type, time: s.time, days: s.days, everyHours: s.everyHours },
   }, { allowAutonomous: false });
   if (!routine) return { ok: false, error: errors.join(' ') };
-  return { ok: true, intent: { action: 'add_routine', routine } };
+  // modelGiven: left out, a routine being changed keeps the model it had (main.js proposeRoutine).
+  return { ok: true, intent: { action: 'add_routine', routine, modelGiven: typeof args.model === 'string' } };
 }
 
 const isPlainObject = v => !!v && typeof v === 'object' && !Array.isArray(v)

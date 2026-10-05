@@ -114,7 +114,11 @@ function wireChecks(d) {
       const tab = d.manager.tabs.get(tabId);
       // Not a run that's stopped, a routine's or a workflow's, or a turn whose helpers are still at it.
       if (!tab || tab.routineId || tab.workflowRunId || tab.outcome === 'stopped' || tab.session?.runningCrew?.().length) return;
-      run(tabId, { cwd: folderFor(tabId, summary.root), after: summary.after, project: projectOf(tabId, summary.root), quiet: true })
+      const project = projectOf(tabId, summary.root);
+      // Started from the phone, so likely nobody's at the desk: never leave the
+      // "run its tests?" question waiting there. Projects you've said yes to still run.
+      if (tab.fromPhone && checks.trustOf(d.config.get('checksTrusted'), project) !== true) return;
+      run(tabId, { cwd: folderFor(tabId, summary.root), after: summary.after, project, quiet: true })
         .catch(err => d.log.info(`checks: ${err.message}`));
     } catch (err) {
       d.log.info(`checks: ${err.message}`);

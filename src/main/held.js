@@ -61,9 +61,11 @@ function clean(raw, now) {
       ...base, kind: 'task', prompt,
       name: isStr(raw.name) && raw.name.trim() ? taskName(raw.name) : taskName(prompt),
       cwd: isStr(raw.cwd) ? raw.cwd : null,
-      mode: TASK_MODES.includes(raw.mode) ? raw.mode : null,
+      // From the phone: always Ask first, in its own copy, and its prompts go back to the phone.
+      mode: raw.fromPhone === true ? 'ask' : TASK_MODES.includes(raw.mode) ? raw.mode : null,
       tabId: isStr(raw.tabId) && ID_RE.test(raw.tabId) ? raw.tabId : null,
       tries,
+      ...(raw.fromPhone === true ? { fromPhone: true } : {}),
       // Its own model ('' or none: the one Settings picks).
       ...(isStr(raw.model) && isModel(raw.model) ? { model: raw.model } : {}),
     };

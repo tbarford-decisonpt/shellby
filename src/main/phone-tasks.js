@@ -66,6 +66,8 @@ function tasksProblem(settings, { hasSecret = false, confirmed = false, hasFolde
   if (!settings || !REPLY_PROVIDERS.has(settings.provider)) return 'Only Telegram and ntfy can start tasks.';
   if (!settings.enabled || !settings.target) return 'Turn on notifications to your phone first.';
   if (!confirmed) return 'Confirm where notifications go first.';
+  // Every edit and command needs an Allow: without replies the phone couldn't give one.
+  if (!settings.replies) return 'Turn on "Let me answer Allow or Deny from my phone" first: every edit and command needs one.';
   if (settings.provider === 'telegram') {
     if (!hasSecret) return 'Telegram needs the bot token.';
     if (!isPrivateChatId(settings.target)) return 'Starting tasks needs your own private chat with the bot, not a group.';

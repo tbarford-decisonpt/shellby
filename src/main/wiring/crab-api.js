@@ -50,7 +50,7 @@ function wireCrabApi(d) {
     if (intent.action === 'list_routines' || intent.action === 'add_routine') {
       if (d.config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };
       if (intent.action === 'list_routines') return { text: crabtools.routinesReply(d.routinesView()) };
-      return d.proposeRoutine(intent.routine);
+      return d.proposeRoutine(intent.routine, { modelGiven: intent.modelGiven });
     }
 
     if (['list_workflows', 'run_workflow', 'add_workflow'].includes(intent.action)) {

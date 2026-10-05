@@ -621,7 +621,7 @@ const {
   tellChannel,
 } = wireChannels(shared);
 const {
-  createPhoneTasks, phoneTasksView, pickPhoneTasksFolder, refreshPhoneTasks, setPhoneTasks,
+  adoptPhoneTab, createPhoneTasks, phoneTasksView, pickPhoneTasksFolder, refreshPhoneTasks, setPhoneTasks,
 } = wirePhoneTasks(shared);
 const {
   confirmAndInstallOpenRgb, createDictation, createLifeAndPlay, createMedia, createRgb,
@@ -1718,17 +1718,29 @@ async function releaseTask(h) {
   if (open && manager.isBusy(h.tabId)) return 'retry'; // you're working in it right now
   const carryOn = !!h.tabId && !!(open || history.get(h.tabId));
   const tabId = carryOn ? h.tabId : randomUUID();
-  const title = `🌙 ${h.name}`;
+  const title = `${h.fromPhone ? '📱' : '🌙'} ${h.name}`;
   const prompt = carryOn ? QUEUE_CARRY_ON : h.prompt;
+  const cwd = h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd();
+  // From the phone: in its own copy, as if it had started straight away
+  // (wiring/phone-tasks.js), so your checkout stays untouched while you're out.
+  const copy = h.fromPhone && !carryOn ? await worktrees.create(cwd, { home: worktreeHome(), title }) : null;
+  if (copy && !copy.ok) return fail(copy.error);
   let turnId;
   try {
     if (!open) {
       makeRoomForRoutine();
       const tab = openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
-        : { tabId, cwd: h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd(), mode: h.mode, title });
+        : { tabId, cwd: copy ? copy.worktree.cwd : cwd, mode: h.mode, title });
+      if (copy) {
+        tab.worktree = copy.worktree;
+        history.update(tabId, { cwd: copy.worktree.cwd, worktree: copy.worktree });
+      }
       if (h.model && !tab.session.proc) tab.session.model = h.model; // before its process starts (--model)
     }
     turnId = manager.send(tabId, prompt, { kind: 'user', text: prompt, title, queued: { id: h.id, name: h.name } });
+    if (copy) manager.note(tabId, { kind: 'moved', branch: copy.worktree.branch, base: copy.worktree.base });
+    if (h.fromPhone && !carryOn) adoptPhoneTab(tabId);
+    else if (h.fromPhone && manager.tabs.get(tabId)) manager.tabs.get(tabId).fromPhone = true; // carrying on: noted when it started
     queueTabs.set(tabId, h.id);
     // Saved as soon as it starts: if Shellby closes mid-task, the next pass carries on here.
     config.set({ held: held.started(heldList(), h.id, tabId) });
@@ -2006,11 +2018,14 @@ let routineDeclinedAt = 0;
  * routine with the same name is changed in place, keeping its history and
  * whether it's paused.
  */
-async function proposeRoutine(routine) {
+async function proposeRoutine(proposed, { modelGiven = true } = {}) {
   if (routineAsking) return { ok: false, error: 'Shellby is already asking the user about a routine. Wait for that answer first.', status: 409 };
   if (Date.now() - routineDeclinedAt < ROUTINE_COOLDOWN_MS) return { ok: false, error: 'The user just turned down a routine. Talk it over with them before proposing another.', status: 429 };
-  if (routine.cwd && !isFolder(routine.cwd)) return { ok: false, error: `That folder doesn't exist: ${routine.cwd}`, status: 400 };
-  const replacing = routines().find(r => sameName(r.name, routine.name)) || null;
+  if (proposed.cwd && !isFolder(proposed.cwd)) return { ok: false, error: `That folder doesn't exist: ${proposed.cwd}`, status: 400 };
+  const replacing = routines().find(r => sameName(proposed.name, r.name)) || null;
+  // Changing one without naming a model keeps the model it runs on, so a quiet
+  // re-proposal can't move a routine pinned to a lighter model back to the default.
+  const routine = replacing && !modelGiven ? { ...proposed, model: replacing.model || '' } : proposed;
   if (!replacing && routines().length >= MAX_ROUTINES) return { ok: false, error: `The user already has ${MAX_ROUTINES} routines, which is the limit.`, status: 400 };
 
   routineAsking = true;

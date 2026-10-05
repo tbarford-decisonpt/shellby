@@ -39,7 +39,7 @@ function wireSessions(d) {
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
         d.armGuard(tab);
-        d.usagePlan?.beginTurn(tab);
+        try { d.usagePlan?.beginTurn(tab); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
         // Checks never run while Claude works in that folder: a new turn stops them (wiring/checks.js).
         d.cancelChecks?.(tab.id);
         tab.lastReply = null;

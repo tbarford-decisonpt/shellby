@@ -192,7 +192,7 @@ test('a flood of messages is dropped past the hourly cap', () => {
 
 // ------------------------------------------------------------------ who may
 
-const ch = (provider, target, patch = {}) => channels.normalizeChannelSettings(null, { enabled: true, provider, target, ...patch });
+const ch = (provider, target, patch = {}) => channels.normalizeChannelSettings(null, { enabled: true, replies: true, provider, target, ...patch });
 
 test('the yes is bound to the bot, the chat and the topic', () => {
   const key = pt.consentKey(ch('telegram', CHAT), 'TOKEN');
@@ -210,6 +210,7 @@ test('only Telegram and ntfy, set up and confirmed, with a folder', () => {
   assert.match(pt.tasksProblem(ch('slack', 'https://hooks.slack.com/x'), ok), /Only Telegram and ntfy/);
   assert.match(pt.tasksProblem(ch('telegram', CHAT, { enabled: false }), ok), /Turn on/);
   assert.match(pt.tasksProblem(ch('telegram', CHAT), { ...ok, confirmed: false }), /Confirm/);
+  assert.match(pt.tasksProblem(ch('telegram', CHAT, { replies: false }), ok), /Allow or Deny/);
   assert.match(pt.tasksProblem(ch('telegram', CHAT), { ...ok, hasSecret: false }), /bot token/);
   assert.match(pt.tasksProblem(ch('telegram', '-100123'), ok), /private chat/);
   assert.match(pt.tasksProblem(ch('telegram', CHAT), { ...ok, hasFolder: false }), /folder/);
