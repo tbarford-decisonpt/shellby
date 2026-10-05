@@ -9,11 +9,13 @@
   const { h, api, state, $ } = SB;
   const kit = () => SB.setupKit;
 
-  // null: the list. { step: 'pick' } or { step: 'form', entry, recipe, draft, error, test }.
+  // null: the list. { step: 'pick' } or { step: 'form', entry, recipe, draft, error, test, claude }.
   let ed = null;
   const openRows = new Set();        // rows opened up, so a rescan doesn't fold them shut
   const rowTests = new Map();        // row id -> { busy, verdict, error }
   let forgetArmed = null;            // a paused hook's id, for a few seconds after the first click on "Forget it"
+  let asking = false;                // Claude is writing a hook; one ask at a time
+  const askText = { pick: '', form: '' }; // what's typed in each Ask Claude box, kept across redraws
 
   const SCOPE = {
     user: { title: 'Every project', sub: 'Only you. Saved in your own Claude Code settings.' },
@@ -217,6 +219,123 @@
       h('span', { class: 'hook-meta', text: [e?.label, what].filter(Boolean).join(', ') })));
   }
 
+  // ================================================================ ask Claude
+  //
+  // Claude only fills in the form (main's hook-draft.js runs it with no tools).
+  // Saving still goes through the confirm window, and Test run still asks first.
+
+  // Every Ask Claude control on screen: { el, busy(mine), idle(result or null) }.
+  // The pane can be rebuilt while Claude works (a tab away and back), so the
+  // end of an ask settles whichever controls are showing then, not the ones it began from.
+  const askControls = new Set();
+  const liveControls = () => [...askControls].filter(c => c.el.isConnected || (askControls.delete(c), false));
+
+  /** fn() -> { ok, apply } or { ok: false, error }. apply() runs once the controls are free again. */
+  async function ask(owner, fn) {
+    if (asking) return;
+    asking = true;
+    for (const c of liveControls()) c.busy(c === owner);
+    const r = await fn();
+    asking = false;
+    for (const c of liveControls()) c.idle(c === owner ? r : null);
+    if (!r.ok && !r.cancelled && !owner.el.isConnected) SB.toast(r.error || "Claude couldn't write that hook.");
+    if (r.ok) r.apply();
+  }
+
+  /** A box to tell Claude what you want. onAsk(text) answers like ask()'s fn. */
+  function askBox({ key, label, placeholder, button, hint, onAsk }) {
+    const id = `hookAsk-${key}`;
+    const box = h('textarea', { class: 'field area hook-ask-text', id, rows: '1', maxlength: '1000', spellcheck: 'true', placeholder, disabled: asking });
+    box.value = askText[key];
+    const note = h('p', { class: 'field-hint hook-ask-note', id: `${id}-note`, 'aria-live': 'polite', text: asking ? 'Claude is busy with another ask…' : hint });
+    box.setAttribute('aria-describedby', note.id);
+    const btn = h('button', { class: 'btn slim-btn', type: 'button', disabled: asking }, button);
+    const control = {
+      el: box,
+      busy: mine => {
+        box.disabled = true; btn.disabled = true;
+        if (mine) { btn.textContent = 'Asking…'; note.classList.remove('err'); note.textContent = 'Claude is writing it. This takes a few seconds.'; }
+      },
+      idle: r => {
+        box.disabled = false; btn.disabled = false; btn.textContent = button;
+        if (r?.ok) { askText[key] = ''; return; }
+        note.textContent = r ? r.error || "Claude couldn't write that. Try saying it another way." : hint;
+        note.classList.toggle('err', !!r);
+        if (r) box.focus();
+      },
+    };
+    askControls.add(control);
+    const go = () => ask(control, () => onAsk(box.value.trim()));
+    box.addEventListener('input', () => { askText[key] = box.value; });
+    // It looks like one line, so Enter asks; Shift+Enter starts a new line. Never submits the hook form around it.
+    box.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); go(); } });
+    btn.addEventListener('click', go);
+    return h('div', { class: 'hook-ask' },
+      h('label', { class: 'hook-label', for: id, text: label }),
+      h('div', { class: 'hook-ask-row' }, box, btn),
+      note);
+  }
+
+  const freshDraft = (hook, where) => ({ ...hook, where, sample: '', sampleEdited: false, sampleOpen: false });
+  const hookOf = d => ({ event: d.event, matcher: d.matcher, command: d.command, timeout: d.timeout });
+  const sameHook = (a, b) => JSON.stringify(hookOf(a)) === JSON.stringify(hookOf(b));
+
+  async function draftNew(text) {
+    const e0 = ed; // a fresh object per visit to New hook, so a late answer can't land on a later visit
+    const r = await kit().call(() => api.draftHook(text));
+    if (!r.ok) return r;
+    return {
+      ok: true,
+      apply: () => {
+        if (ed !== e0) { SB.toast('Claude wrote a hook, but you moved on. Ask again from New hook.'); return; }
+        askText.form = '';
+        ed = { step: 'form', entry: null, recipe: null, error: '', claude: { title: r.title, note: r.note }, draft: freshDraft(r.hook, r.scope) };
+        kit().rerender();
+      },
+    };
+  }
+
+  /** Change the hook in the form. No words means "fix what the failed test run showed". */
+  async function revise(e0, text) {
+    const before = { ...e0.draft };
+    // A test of a command since changed would only mislead.
+    const test = e0.test?.verdict && e0.test.command === before.command ? { verdict: e0.test.verdict, result: e0.test.result } : null;
+    const r = await kit().call(() => api.draftHook(text, hookOf(before), test));
+    if (!r.ok) return r;
+    return {
+      ok: true,
+      apply: () => {
+        if (ed !== e0) { SB.toast('Claude changed the hook, but you closed it first.'); return; }
+        if (!sameHook(e0.draft, before)) { SB.toast("You changed the hook while Claude worked, so yours was kept. Ask again to use Claude's."); return; }
+        // Where it's saved stays the person's choice. Details typed in for the test stay; the example ones follow the new moment.
+        const kept = e0.draft.sampleEdited ? { sample: e0.draft.sample, sampleEdited: true, sampleOpen: e0.draft.sampleOpen } : {};
+        e0.draft = { ...freshDraft(r.hook, e0.draft.where), ...kept };
+        e0.claude = { title: e0.claude?.title || r.title, note: r.note };
+        e0.test = null;
+        e0.error = '';
+        remount('command');
+        SB.toast('Claude changed it. Check it over, then try it.');
+      },
+    };
+  }
+
+  function fixButton(e0) {
+    if (e0.test?.verdict?.tone !== 'warn' || e0.test.command !== e0.draft.command) return null;
+    const label = '✨ Fix it with Claude';
+    const btn = h('button', { class: 'btn slim-btn hook-fix', type: 'button', disabled: asking }, label);
+    const control = {
+      el: btn,
+      busy: mine => { btn.disabled = true; if (mine) btn.textContent = 'Claude is looking…'; },
+      idle: r => {
+        btn.disabled = false; btn.textContent = label;
+        if (r && !r.ok && !r.cancelled) SB.toast(r.error || "Claude couldn't fix it.");
+      },
+    };
+    askControls.add(control);
+    btn.addEventListener('click', () => ask(control, () => revise(e0, '')));
+    return btn;
+  }
+
   function pickView() {
     const s = state.setup;
     const recipes = s.recipes || [];
@@ -224,7 +343,12 @@
       h('div', { class: 'setup-head' },
         h('button', { class: 'back-btn', type: 'button', onclick: () => { ed = null; kit().rerender(); } }, '← Hooks'),
         h('strong', { text: 'New hook' })),
-      h('p', { class: 'hook-lead', text: "Pick a starting point. Next you'll see exactly what it runs and can change any of it. Nothing is saved until you say so." }),
+      askBox({
+        key: 'pick', label: 'Describe it, and Claude writes it', button: 'Ask Claude', onAsk: draftNew,
+        placeholder: "Don't let Claude edit anything in the migrations folder",
+        hint: "You'll see exactly what it runs, and can test it, before anything is saved.",
+      }),
+      h('p', { class: 'hook-lead', text: "Or pick a starting point. Next you'll see exactly what it runs and can change any of it. Nothing is saved until you say so." }),
       (s.recipeGroups || []).map(g => {
         const mine = recipes.filter(r => r.group === g.id);
         return mine.length ? h('section', { class: 'hook-pick-group' },
@@ -316,7 +440,8 @@
   }
 
   function testField(ed, d) {
-    const box = h('div', { class: 'hook-test-out' }, testOutput(ed.test));
+    const out = () => [testOutput(ed.test), fixButton(ed)].filter(Boolean);
+    const box = h('div', { class: 'hook-test-out' }, out());
     const area = h('textarea', { class: 'field area mono hook-sample', spellcheck: 'false', 'aria-label': 'Test details (JSON)', rows: '8' });
     area.value = d.sample || '';
     area.addEventListener('input', () => { d.sample = area.value; d.sampleEdited = true; });
@@ -331,7 +456,7 @@
     // The form may have been rebuilt meanwhile (another moment picked, a tab away and back): update what's showing.
     const show = () => {
       const pane = $('setupPane');
-      pane.querySelector('.hook-test-out')?.replaceChildren(...[testOutput(ed.test)].filter(Boolean));
+      pane.querySelector('.hook-test-out')?.replaceChildren(...out());
       const btn = pane.querySelector('.hook-test-run');
       if (btn) btn.disabled = !!ed.test?.busy;
     };
@@ -339,8 +464,10 @@
       ed.test = { busy: true };
       show();
       if (!d.sampleEdited) await loadSample(d, true);
-      const r = await kit().call(() => api.testHook({ event: d.event, matcher: d.matcher, command: d.command, timeout: d.timeout }, d.sampleEdited ? d.sample : null));
-      ed.test = r.cancelled ? null : r.ok ? { verdict: r.verdict, result: r.result } : { error: r.error || "Couldn't run it." };
+      const command = d.command; // what ran, so Fix with Claude can tell if it's been changed since
+      const r = await kit().call(() => api.testHook({ event: d.event, matcher: d.matcher, command, timeout: d.timeout }, d.sampleEdited ? d.sample : null));
+      if (ed.draft !== d) return; // Claude rewrote the hook meanwhile: this was a test of the old one
+      ed.test = r.cancelled ? null : r.ok ? { verdict: r.verdict, result: r.result, command } : { error: r.error || "Couldn't run it." };
       show();
     });
     return h('div', { class: 'hook-field hook-test' },
@@ -418,10 +545,19 @@
     },
     h('div', { class: 'setup-head' },
       h('button', { class: 'back-btn', type: 'button', onclick: back }, entry ? '← Hooks' : '← Ideas'),
-      h('strong', { text: recipe ? recipe.title : entry ? 'Edit hook' : 'Your own hook' })),
-    recipe ? h('div', { class: 'hook-recipe-note' },
+      h('strong', { text: recipe ? recipe.title : entry ? 'Edit hook' : e0.claude?.title || 'Your own hook' })),
+    recipe && !e0.claude ? h('div', { class: 'hook-recipe-note' },
       h('span', { class: 'hook-icon', 'aria-hidden': 'true', text: recipe.icon }),
       h('p', {}, recipe.blurb, recipe.tweak ? h('span', { class: 'hook-tweak', text: ` ${recipe.tweak}` }) : null)) : null,
+    e0.claude?.note ? h('div', { class: 'hook-recipe-note hook-claude-note' },
+      h('span', { class: 'hook-icon', 'aria-hidden': 'true', text: '✨' }),
+      h('p', {}, h('strong', { text: 'From Claude: ' }), e0.claude.note,
+        h('span', { class: 'hook-tweak', text: ' Read the command below before you save it.' }))) : null,
+    askBox({
+      key: 'form', label: 'Ask Claude to change it', button: 'Ask Claude', onAsk: text => revise(e0, text),
+      placeholder: entry || recipe || e0.claude ? 'Only for Python files' : 'Describe what it should do, and Claude fills this in',
+      hint: 'Claude changes the fields below. Nothing is saved until you press the button at the bottom.',
+    }),
     h('label', { class: 'hook-field' },
       h('span', { class: 'hook-label', text: 'When should it run?' }),
       event,
@@ -461,6 +597,8 @@
       $('toolList').hidden = true;
       const key = ed.step === 'pick' ? 'hook:pick' : `hook:${ed.entry?.id || ed.recipe?.id || 'new'}`;
       if (pane.dataset.mounted !== key) {
+        // A different hook's form starts with an empty Ask box; mid-ask it's the same one coming back.
+        if (ed.step === 'form' && !asking) askText.form = '';
         pane.replaceChildren(ed.step === 'pick' ? pickView() : hookForm(ed));
         pane.dataset.mounted = key;
         pane.scrollIntoView?.({ block: 'nearest' });

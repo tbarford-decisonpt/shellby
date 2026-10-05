@@ -257,7 +257,7 @@ function noAutonomous(v) {
 }
 
 module.exports = {
-  checkDescription, args, draftPrompt, fixPrompt, withFixes, repairPrompt, runBrief, parse,
+  checkDescription, args, draftPrompt, fixPrompt, withFixes, repairPrompt, runBrief, parse, envelope,
   checkTurns, chatPrompt, parseChat,
   FORMAT, SCHEMA, CHAT_SCHEMA, DRAFT_TIMEOUT_MS, MAX_DESCRIPTION, MAX_MESSAGE,
 };

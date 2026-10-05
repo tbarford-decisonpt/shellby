@@ -81,6 +81,7 @@ function registerToolboxIpc(ipcMain, d) {
   ipcMain.handle('setup:resume-hook', (_e, id) => d.resumeHook(id));
   ipcMain.handle('setup:forget-paused-hook', (_e, id) => d.forgetPausedHook(id));
   ipcMain.handle('setup:test-hook', (_e, req) => d.testHook(req || {}));
+  ipcMain.handle('setup:draft-hook', (_e, req) => d.draftHook(req && typeof req === 'object' ? req : {}));
   // The JSON a hook would get, to show (and change) before a test run.
   ipcMain.handle('setup:sample-hook-input', (_e, hook) => {
     const h = hook && typeof hook === 'object' ? hook : {};

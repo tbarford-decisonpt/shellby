@@ -370,6 +370,7 @@ const shared = {
   get devServers() { return devServers; }, set devServers(v) { devServers = v; },
   get dialogLook() { return dialogLook; },
   get dictation() { return dictation; }, set dictation(v) { dictation = v; },
+  get draftHook() { return draftHook; },
   get dragging() { return dragging; }, set dragging(v) { dragging = v; },
   get drainCrashQueue() { return drainCrashQueue; },
   get editStickers() { return editStickers; },
@@ -490,6 +491,7 @@ const shared = {
   get routineTabs() { return routineTabs; },
   get routineTests() { return routineTests; },
   get runCheckup() { return runCheckup; },
+  get runClaudeOnce() { return runClaudeOnce; },
   get said() { return said; }, set said(v) { said = v; },
   get saveChannelSecret() { return saveChannelSecret; },
   get sayText() { return sayText; },
@@ -597,7 +599,7 @@ const {
 } = wireSurroundings(shared);
 const {
   askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin,
-  confirmAndUninstallPlugin, createShop, createToolbox, forgetPausedHook, pauseHook, pluginView,
+  confirmAndUninstallPlugin, createShop, createToolbox, draftHook, forgetPausedHook, pauseHook, pluginView,
   resumeHook, setupCwd, setupView, setupWhere, shopBlocked, testHook,
 } = wireToolbox(shared);
 const {

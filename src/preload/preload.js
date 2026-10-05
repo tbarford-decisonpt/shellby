@@ -151,6 +151,7 @@ contextBridge.exposeInMainWorld('shellby', {
   forgetPausedHook: id => ipcRenderer.invoke('setup:forget-paused-hook', id),
   testHook: (hook, payload = null) => ipcRenderer.invoke('setup:test-hook', { hook, payload }),
   sampleHookInput: hook => ipcRenderer.invoke('setup:sample-hook-input', hook),
+  draftHook: (request, hook = null, test = null) => ipcRenderer.invoke('setup:draft-hook', { request, hook, test }),
   revealSetupFile: fire('setup:reveal'),
   saveRule: (scope, list, rule) => ipcRenderer.invoke('setup:save-rule', { scope, list, rule }),
   removeRule: (scope, list, rule) => ipcRenderer.invoke('setup:remove-rule', { scope, list, rule }),
