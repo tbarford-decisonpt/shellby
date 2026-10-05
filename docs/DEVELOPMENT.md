@@ -110,7 +110,7 @@ Nearly all of it is CSS animation: with every animation off it drops to **0.4%**
 Roughly 39 points are the critter window, 14 the panel's drifting caustics, 11
 the breathing crab in the empty state.
 
-The `calm` and `calm-deep` classes (see panel.css and `watchIdleCost` in main.js)
+The `calm` and `calm-deep` classes (see panel.css and `watchIdleCost` in wiring/windows.js)
 drop the decorative animations when the panel isn't focused, and everything when
 the screen is locked. Two findings worth keeping if you touch this:
 
@@ -129,7 +129,10 @@ sprite animation (pre-rendered frames, or a canvas) rather than tuning.
 
 ```
 src/main/        Electron main process
-  main.js          windows, tray, hotkey, IPC, notifications, updates
+  main.js          the state everything shares, boot, and the areas that run on load
+  wiring/          one module per area of the app (windows, critter, sessions, progress,
+                   timetrack, toolbox, github, tray…): `wireX(shared)` returns what main uses
+  ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
   session.js       one Claude Code process per conversation (stream-json + control protocol)
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items

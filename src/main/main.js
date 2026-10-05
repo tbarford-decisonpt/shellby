@@ -1,60 +1,33 @@
-const {
-  app, BrowserWindow, ipcMain: electronIpcMain, screen, Menu, Tray, shell, dialog,
-  globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
-  powerSaveBlocker, net,
-} = require('electron');
+const { app, BrowserWindow, ipcMain: electronIpcMain, screen, shell, dialog, globalShortcut, clipboard, session: electronSession, powerMonitor, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 const { randomUUID } = crypto;
 
-const { Config, MODES } = require('./config');
+const { Config } = require('./config');
 const { History } = require('./history');
-const { SessionManager, MAX_TABS } = require('./sessions');
+const { MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
-const { Marketplace, SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('./marketplace');
 const { loadSkins } = require('./skins');
-const { keepOnDesktop, sendToBottom, tuckUnder, setOnTop, pin: pinToDesktop, covers: coversBox, veil, DESKTOP_CLASSES } = require('./desktop-layer');
+const { sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
-const { ToolboxWatcher, samePath } = require('./toolbox');
 const claudeSetup = require('./claude-setup');
-const hookTest = require('./hook-test');
-const { describeHook } = require('./hook-recipes');
 const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const routineDraft = require('./routine-draft');
-const depwatch = require('./depwatch');
-const { WorkflowService } = require('./workflows/service');
-const { Wardrobe, publicItem } = require('./wardrobe/service');
+const { Wardrobe } = require('./wardrobe/service');
 const confirm = require('./confirm');
 const { attachContextMenu } = require('./context-menu');
-const { validatePack } = require('./wardrobe/catalog');
-const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
-const { KNOWN_SEASONS } = require('./wardrobe/seasons');
-const { REGISTRY_URL, PROTOCOL, parseDeepLink, findDeepLink, fetchRegistryPack } = require('./registry');
-const { HealthService } = require('./health/service');
-const processJob = require('./process-job');
-const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
+const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
 const crabtools = require('./crabtools');
-const clipath = require('./clipath');
-const snippets = require('./snippets');
-const channels = require('./channels');
-const { RemoteAnswers, deskOnlyReason } = require('./replies');
 const changes = require('./changes');
 const worktrees = require('./worktrees');
-const { ObsServer } = require('./obs');
-const { OpenRgbClient, colorFor } = require('./rgb');
-const openRgbSetup = require('./openrgb-setup');
-const { qrRows } = require('./qr');
-const { MediaWatcher, trackRemark } = require('./media');
-const { Dictation, PushToTalk, holdKeyOf } = require('./dictation');
 const native = require('./native-windows');
 const { kindOfApp } = require('./surroundings');
-const { award, levelFor, classifyCommand, AWARDS, xpSummary, withDevice, markRed, unlocksBetween, normalizeXp } = require('./xp');
+const { withDevice } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const rooms = require('./rooms');
-const toast = require('./toast');
 const limits = require('./limits');
 const spend = require('./spend');
 const { createLean } = require('./lean');
@@ -65,62 +38,39 @@ const secretscan = require('./secretscan');
 const forecast = require('./forecast');
 const guard = require('./guard');
 const held = require('./held');
-const ctx = require('./context');
-const { CritterMotion } = require('./motion');
-const { createPerching } = require('./perching');
-const { createClimbing } = require('./climbing');
-const { createPranks } = require('./pranks');
-const { createFloor } = require('./floor');
 const voice = require('./voice');
-const sounds = require('./sounds');
-const gifts = require('./gifts');
-const { createLife } = require('./life');
-const { createTyping } = require('./typing');
-const keystrokes = require('./keystrokes');
-const weatherRules = require('./weather');
-const { createWeatherService } = require('./weather-service');
-const { createPlaytime } = require('./playtime');
-const { activeSeasons } = require('./wardrobe/seasons');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
 const stickers = require('./stickers');
-const beach = require('./beach');
-const checkup = require('./checkup');
-const flaky = require('./flaky');
 const weekly = require('./weekly');
-const { TimeTracker } = require('./timetrack-service');
-const timetrack = require('./timetrack');
-const routineTemplates = require('./routine-templates');
 const stickerArt = require('./sticker-art');
 const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
-const { FAKE_SCENARIOS } = require('./health/fake');
-const { GitHubService } = require('./github/service');
-const { TokenStore } = require('./github/auth');
-const { publishPack, UPSTREAM: PACKS_REPO } = require('./github/publish');
-const { CiWatcher } = require('./github/ci');
-const { IssueWatcher } = require('./github/issues');
-const issueWork = require('./github/pullrequest');
-const { Friends, VISIT_MS, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS } = require('./friends');
-const { ProfileCard } = require('./github/profile-card');
-const prBadges = require('./github/pr-badge');
-const { Updates, trayLabel: updateLabel, fakeUpdater } = require('./updates');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
 const attach = require('./attachments');
-const shellCmd = require('./shellcmd');
-const outputStyles = require('./outputstyles');
 const parity = require('./parity');
 const teamIpcModule = require('./team-ipc');
 const { guardIpc, windowPolicy } = require('./ipc-guard');
-const system32 = require('./system32');
 const branch = require('./branch');
-const fileIndex = require('./fileindex');
-const { Projects } = require('./projects/service');
-const { readRepo } = require('./projects/local');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { registerTankIpc } = require('./ipc/tank');
+const { wireWindows } = require('./wiring/windows');
+const { wireCritter } = require('./wiring/critter');
+const { wireSessions } = require('./wiring/sessions');
+const { wireProgress } = require('./wiring/progress');
+const { wireTimetrack } = require('./wiring/timetrack');
+const { wireCrabApi } = require('./wiring/crab-api');
+const { wireChannels } = require('./wiring/channels');
+const { wireSurroundings } = require('./wiring/surroundings');
+const { wireToolbox } = require('./wiring/toolbox');
+const { wireGithub } = require('./wiring/github');
+const { wireFocus } = require('./wiring/focus');
+const { wireSnippets } = require('./wiring/snippets');
+const { wireProjects } = require('./wiring/projects');
+const { wirePacks } = require('./wiring/packs');
+const { wireTray } = require('./wiring/tray');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -132,9 +82,6 @@ const { registerRoutinesIpc } = require('./ipc/routines');
 const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
-const { DevServers } = require('./devservers/service');
-const devRunner = require('./devservers/runner');
-const devScripts = require('./devservers/scripts');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -313,395 +260,365 @@ const queueTabs = new Map();       // tabId -> held task id, for tasks queued fo
 const queueWaits = new Map();      // tabId -> resolve(how its turn ended), while the queue waits on it
 let autonomousOkThisRun = false;   // switching into Autonomous was confirmed since Shellby started (settings:set)
 
-// ================================================================ windows
-
-const px = () => Math.round(BASE_PX * (config.get('critterScale') || 1));
-const helperWidth = () => Math.round(px() * 22 * 0.5) + 10;
-const CREW_PAD = 60; // room for helper name tags at the far left
-const VISITOR_SCALE = 0.7;
-const visitorWidth = () => Math.round(px() * 22 * VISITOR_SCALE) + 16;
-const crewExtra = (slots = crewShown, guest = guestShown) => (slots || guest ? slots * helperWidth() + (guest ? visitorWidth() : 0) + CREW_PAD : 0);
-
-function critterBaseSize() {
-  const p = px();
-  return { width: 22 * p + 72, height: 13 * p + 84 };
-}
-
-function workAreas() { return screen.getAllDisplays().map(d => d.workArea); }
-
-// The critter window's size in DIPs: Shellby plus room for helper crabs.
-function critterSize() {
-  const b = critterBaseSize();
-  return { width: b.width + crewExtra(), height: b.height };
-}
-
-// Windows keeps a window's *physical* size when it crosses onto a monitor with
-// another scale (125% -> 150% shrinks it by a sixth), which clipped Shellby or
-// cut him loose from his effects. So every move sets the size too, and any size
-// Windows imposes afterwards (WM_DPICHANGED) is put back.
-function placeCritter(x, y) {
-  critter.setBounds({ x: Math.round(x), y: Math.round(y), ...critterSize() });
-  keepCritterSize();
-}
-let sizeFixes = [];
-function keepCritterSize() {
-  if (!critter || critter.isDestroyed()) return;
-  const want = critterSize();
-  const b = critter.getBounds();
-  if (b.width === want.width && b.height === want.height) return;
-  const now = Date.now();
-  sizeFixes = sizeFixes.filter(t => now - t < 1000);
-  if (sizeFixes.length >= 4) return; // never fight Windows in a loop
-  sizeFixes.push(now);
-  critter.setBounds({ x: b.x, y: b.y, ...want });
-}
-
-function resetCritterPos() {
-  pranks?.grabbed();
-  climbing?.grabbed(); // put straight back, not dropped from wherever he was
-  motion?.stop();
-  const p = defaultCritterPos(critterBaseSize());
-  placeCritter(p.x - crewExtra(), p.y);
-  config.set({ critterPos: p });
-  settleCritter();
-}
-
-// Back down on the desktop layer, unless he's up on a window (or in the air on
-// his way to one), where he stays put. See perching.js.
-function settleCritter() {
-  if (perching) perching.home();
-  else sendToBottom(critter);
-  floor?.lower();
-}
-
-function defaultCritterPos(size) {
-  const wa = screen.getPrimaryDisplay().workArea;
-  return { x: wa.x + wa.width - size.width - 48, y: wa.y + wa.height - size.height - 24 };
-}
-
-function secureWindow(win) {
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', e => e.preventDefault());
-}
-
-const webPreferences = { preload: PRELOAD, sandbox: true, contextIsolation: true, nodeIntegration: false };
-
-// Throws land on the floor of the screen he's on; strolls stay on it too.
-function motionBox() {
-  const b = critter.getBounds();
-  const wa = screen.getDisplayNearestPoint({ x: b.x + b.width - critterBaseSize().width / 2, y: b.y + b.height / 2 }).workArea;
-  return { minX: wa.x, maxX: wa.x + wa.width - b.width, minY: wa.y, floorY: wa.y + wa.height - b.height };
-}
-
-// His window and body, for perching and climbing. Feet sit 18 DIP above the
-// window's bottom edge (#crab in critter.css); half is half his width, body his height.
-function critterGeo() {
-  const s = critterSize();
-  return { width: s.width, height: s.height, foot: 18, half: 11 * px(), body: 13 * px(), headroom: s.height - 18 };
-}
-
-// What perching needs from here: his size and spot, the motion engine, and his
-// voice, stats and renderer.
-function createPerchingFor() {
-  perching = createPerching({
-    critter: () => critter,
-    veiled: () => crabCalmNow().hide,
-    motion: () => motion,
-    screen,
-    config,
-    capture: CAPTURE,
-    geo: critterGeo,
-    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
-    place: (x, y) => placeCritter(x, y),
-    box: motionBox,
-    homePos: () => {
-      const p = config.get('critterPos') || defaultCritterPos(critterBaseSize());
-      return { x: p.x - crewExtra(), y: p.y };
-    },
-    pin: () => (CAPTURE ? sendToBottom(critter) : pinToDesktop(critter)),
-    onTop: () => onTopNow(),
-    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
-    speak: (occasion, opts) => speak(occasion, opts),
-    stat,
-    toRenderer: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
-    perchView: view => send(critter, 'critter:perch', view),
-    bit: (bit, ms) => send(critter, 'critter:bit', { bit, ms }),
-    refresh: () => refreshCritter(),
-    dragging: () => dragging,
-    crew: () => crewShown + (guestShown ? 1 : 0), // helpers or a visitor beside him: he stays down
-  });
-  climbing = createClimbing({
-    motion: () => motion,
-    screen,
-    config,
-    capture: CAPTURE,
-    geo: critterGeo,
-    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
-    place: (x, y) => placeCritter(x, y),
-    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
-    speak: (occasion, opts) => speak(occasion, opts),
-    stat,
-    toRenderer: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
-    surface: name => send(critter, 'critter:surface', { surface: name }),
-    bit: (bit, ms) => send(critter, 'critter:bit', { bit, ms }),
-    dragging: () => dragging,
-    crew: () => crewShown + (guestShown ? 1 : 0), // the window's wider with them: no room to turn
-    perchingAway: () => !!perching?.isAway(),
-    walkHome: () => perching.walkHome(),
-  });
-}
-
-// The floor strip and mischief: what they need from here. Created after life
-// and play, whose state they read.
-function createMischief() {
-  floor = createFloor({
-    config, screen, capture: CAPTURE,
-    makeWindow: () => {
-      const w = new BrowserWindow({
-        width: 400, height: 80, frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
-        alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
-        title: 'Shellby’s floor', icon: ICON, webPreferences: { ...webPreferences, preload: FLOOR_PRELOAD },
-      });
-      secureWindow(w);
-      w.loadFile(path.join(RENDERER, 'floor', 'floor.html'));
-      return w;
-    },
-    pin: w => pinToDesktop(w),
-    lower: w => tuckUnder(w, critter),
-    critterBounds: () => critter.getBounds(),
-    geo: critterGeo,
-    px,
-    skin: () => ({ skin: activeSkin(), px: px(), outfit: outfit() }),
-    status: () => lastStatus.state,
-    away: () => (climbing?.isAway() ? 'climb' : perching?.isAway() ? 'perch' : null),
-    calm: () => crabCalmNow().calm,
-    hidden: () => crabCalmNow().hide,
-    veil: (w, hide) => veil(w, hide, { lower: x => tuckUnder(x, critter) }),
-  });
-  pranks = createPranks({
-    config, screen, native, capture: CAPTURE,
-    motion: () => motion,
-    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
-    place: (x, y) => placeCritter(x, y),
-    geo: critterGeo,
-    // His claw: in front of him, about halfway up (sprite.js DEFAULT_ANCHORS.claw).
-    clawPoint: () => {
-      if (!critter || critter.isDestroyed()) return null;
-      const g = critterGeo(), [x, y] = critter.getPosition();
-      return { x: x + g.width / 2 + 9 * px(), y: y + g.height - g.foot - 6 * px() };
-    },
-    status: () => lastStatus.state,
-    guarding: () => focus.guarding(config.get('focus'), Date.now()),
-    onCall: () => !!life?.onCall(),
-    locked: () => calmReason === 'locked',
-    // ...or tapping along while you type (typing.js): no pinching mid-sentence.
-    playing: () => !!playtime?.busy() || !!life?.busy() || !!typing?.active(),
-    dragging: () => dragging,
-    crew: () => crewShown + (guestShown ? 1 : 0),
-    perching,
-    climbingBusy: () => !!climbing?.busy(),
-    walkHome: () => perching.walkHome(),
-    speak: (occasion, opts) => speak(occasion, opts),
-    bit: (bit, ms, dir) => send(critter, 'critter:bit', { bit, ms, ...(dir ? { dir } : {}) }),
-    toRenderer: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
-    stat,
-    makeNote: () => {
-      const w = new BrowserWindow({
-        width: 210, height: 150, frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
-        alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
-        title: 'A note from Shellby', icon: ICON, webPreferences: { ...webPreferences, preload: NOTE_PRELOAD },
-      });
-      secureWindow(w);
-      w.loadFile(path.join(RENDERER, 'note', 'note.html'));
-      return w;
-    },
-    pinWindow: w => pinToDesktop(w),
-    systemIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return null; } },
-  });
-  floor.sync();
-  pranks.sync();
-}
-
-function createMotion() {
-  motion = new CritterMotion({
-    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
-    place: (x, y) => placeCritter(x, y),
-    box: motionBox,
-    ledges: () => perching?.flightLedges() || [],
-    grips: () => climbing?.grips() || null,
-    onState: (kind, info = {}) => send(critter, 'critter:motion', { kind, ...info }),
-    onSettled: (kind, info) => {
-      if (playtime?.onSettled(kind)) return; // a walk to fetch the pebble, or back with it
-      if (pranks?.onSettled(kind)) return;   // off the edge of the screen to fetch a note
-      if (climbing?.onSettled(kind, info)) return; // at the foot of a wall, or thrown onto one
-      if (perching?.onSettled(kind, info)) return;
-      if (kind === 'flight') { saveCritterPos(); stat('thrown'); floor?.event('landed'); }
-      settleCritter();
-    },
-    onInterrupted: kind => {
-      perching?.onInterrupted(kind);
-      climbing?.onInterrupted(kind);
-      pranks?.onInterrupted();
-    },
-    // A bump against the screen's edge is only news to the speaker.
-    onBounce: b => { if (soundMix().fx) send(critter, 'critter:motion', { kind: 'bounce', ...b }); },
-  });
-  createPerchingFor();
-  // Now and then an idle, awake Shellby takes a few steps near his spot, hops
-  // up onto one of your windows, finds something to do with his claws, or says
-  // something to nobody. Up on a window, his life has its own rhythm.
-  setInterval(() => {
-    // Tapping along while you type: no wandering off or digging mid-sentence.
-    if (CAPTURE || dragging || playtime?.busy() || life?.busy() || typing?.active()) return;
-    const idle = lastStatus.state === 'idle';
-    const guarding = focus.guarding(config.get('focus'), Date.now());
-    if (perching.isUp()) return void perching.idleTick({ idle, guarding, quiet: voice.chatterOf(config.get('chatter')) === 'quiet' });
-    // Up a wall, or off the edge of the screen fetching a note: busy.
-    if (climbing?.busy() || pranks?.busy()) return;
-    if (motion.busy || crewShown || guestShown || !idle || guarding) return;
-    // A stroll moves his window; the little habits don't, so 'wander' only
-    // governs the strolling (and the climbing), as it always has.
-    if (config.get('wander') !== false && !life?.onCall()) {
-      if (perching.maybeGoUp()) return;
-      if (climbing.maybeClimb()) return;
-      const home = config.get('critterPos');
-      // A bit mopey (needs.js), he doesn't feel much like strolling.
-      if (home && Math.random() < (life?.mopey() ? 0.14 : 0.35)) return void motion.stroll(home.x - crewExtra());
-    }
-    if (voice.chatterOf(config.get('chatter')) === 'quiet' || Math.random() > IDLE_BIT_CHANCE) return;
-    // A scene, a habit, maybe a find or a memory (life.js).
-    if (life?.idleBit()) return;
-    const bit = voice.pickBit(voice.normalize(config.get('voice')).seed);
-    send(critter, 'critter:bit', { bit });
-    speak(voice.CLUMSY_BITS.includes(bit) ? 'oops' : 'idle');
-  }, 15000);
-}
-
-function createCritter() {
-  const size = critterBaseSize();
-  const saved = config.get('critterPos');
-  const pos = clampToDisplays({ ...(saved || defaultCritterPos(size)), ...size }, workAreas());
-  critter = new BrowserWindow({
-    ...size, x: pos.x, y: pos.y,
-    frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
-    alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
-    title: 'Shellby', icon: ICON, webPreferences: { ...webPreferences, preload: CRITTER_PRELOAD },
-  });
-  secureWindow(critter);
-  setOnTop(onTopNow);
-  critter.loadFile(path.join(RENDERER, 'critter', 'critter.html'));
-  critter.once('ready-to-show', () => {
-    keepCritterSize(); // created on a scaled monitor, Windows may have rounded it
-    critterReady = true;
-    if (!crabCalmNow().hide) critter.showInactive(); // started behind a game: the next calm shows him
-    if (!CAPTURE) keepOnDesktop(critter, { isAway: () => !!perching?.isAway() });
-    layerOnTop = onTopNow();
-  });
-  // On top of your apps his window lets the mouse through; a reload forgets that.
-  critter.webContents.on('did-finish-load', () => perching?.layerChanged());
-  critter.on('blur', () => { sendToBottom(critter); floor?.lower(); }); // a no-op while he's up on a window; the floor strip stays under him
-  critter.on('resize', () => setImmediate(keepCritterSize));
-}
-
-// ---------------------------------------------------------------- idle cost
-// An open panel costs about three quarters of a core, nearly all of it CSS
-// animation on pixel sprites (scripts/idle-cost.js measures it). Most of that is
-// spent while nobody is looking: the panel left open behind an editor, or the
-// screen locked. So the decorative animations — the drifting caustics and the
-// breathing crab, never the spinners or progress — are paused when the panel
-// isn't focused, and everything in both windows stops while the screen is locked
-// or the machine is suspended.
-//
-// He also stops while he can't be seen. He lives under every app, so a game or a
-// maximized window hides him completely, but Chromium never learns that (a
-// transparent window owned by the desktop is never reported occluded) and kept
-// compositing his loops at 60 fps: a third of a 3080 Ti behind a game. A cheap
-// poll asks whether a game is up or the window in front covers him; while it
-// does he gets the locked-screen calm, and with a game up the panel does too.
-// Under a game's window, or with the screen locked, calm isn't enough: he and
-// his floor are hidden outright (desktop-layer.js veil). Only when the game
-// covers him: on another monitor he's still in plain sight. And not behind an
-// ordinary window: the poll is two seconds, and a crab missing from the desktop
-// that long after you minimize something would be noticed.
-const COVER_POLL_MS = 2000;
+// ================================================================ wiring
+// Each area of the app lives in wiring/ (and its IPC in ipc/); main keeps the
+// state they share and boots them.
 let calmReason = null; // the panel: 'blur' | 'locked' | null
-let hidden = { crab: false, game: false, underGame: false };
-let calmSent = '';
-let critterReady = false;
-function crabCalmNow() {
-  const locked = calmReason === 'locked';
-  // Covered, he stops animating but can still be heard; locked, he goes quiet too.
-  return { calm: locked || hidden.crab, locked, hide: !CAPTURE && (locked || hidden.underGame) };
-}
-function sendCalm() {
-  const locked = calmReason === 'locked';
-  const panelCalm = { calm: !!calmReason || hidden.game, deep: locked || hidden.game };
-  const crabCalm = crabCalmNow();
-  const key = JSON.stringify([panelCalm, crabCalm]);
-  if (key === calmSent) return;
-  calmSent = key;
-  send(panel, 'panel:calm', panelCalm);
-  send(critter, 'critter:calm', crabCalm);
-  if (critterReady) veil(critter, crabCalm.hide, { lower: sendToBottom }); // until then, ready-to-show decides
-  floor?.calm(crabCalm.calm, crabCalm.hide); // the floor beside him is covered when he is
-}
-function setCalm(reason) {
-  calmReason = reason;
-  sendCalm();
-}
-function crabCovered(info) {
-  // Up on a window, or kept on top of your apps, he's drawn above what's in front.
-  if (!info || onTopNow() || perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
-  if (!info.visible || info.minimized || info.cloaked || !info.frame) return false;
-  const f = info.frame;
-  const frame = screen.screenToDipRect(null, { x: f.left, y: f.top, width: f.right - f.left, height: f.bottom - f.top });
-  return coversBox(frame, critter.getBounds());
-}
-function checkCovered() {
-  if (!critter || critter.isDestroyed() || !native.available()) return;
-  const info = native.describe(native.foreground());
-  const game = gameInFront(info);
-  hidden = { ...hidden, game }; // first: whether he's on top (crabCovered) depends on it
-  const covered = crabCovered(info);
-  hidden = { ...hidden, crab: (game && !perching?.isAway()) || covered, underGame: game && covered };
-  syncLayer(); // a game came up, or went
-  sendCalm();
-}
+let timeTracker = null;
+let heldNotices = [];
+let lastRgbColor = '';
+let shopAsking = false;
+let focusTimer = null;
+let focusTick = null;
 
-// ---------------------------------------------------------------- on top of your apps
-// "Keep him on top of my apps" (Settings) lifts him and his floor out of the
-// desktop layer (desktop-layer.js). He still steps back down behind a game, so
-// he's never drawn over one, and while he's hiding: he needs your windows for that.
-function onTopNow() {
-  return !CAPTURE && config.get('onTop') === true && !hidden.game && !playtime?.hiding();
-}
-let layerOnTop = null; // what applyLayer last put him on
-function applyLayer() {
-  if (!critter || critter.isDestroyed()) return;
-  layerOnTop = onTopNow();
-  // In the air he lands on the right layer; up on a window, perching restacks him.
-  if (!perching?.isAway()) pinToDesktop(critter);
-  floor?.repin();
-  perching?.layerChanged();
-}
-function syncLayer() {
-  if (onTopNow() !== layerOnTop) applyLayer();
-}
-function watchIdleCost() {
-  panel.on('blur', () => setCalm(calmReason === 'locked' ? 'locked' : 'blur'));
-  panel.on('focus', () => setCalm(calmReason === 'locked' ? 'locked' : null));
-  for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
-  powerMonitor.on('unlock-screen', () => setCalm(panel?.isFocused() ? null : 'blur'));
-  // A wake usually lands on the lock screen: stay hidden until it's unlocked.
-  powerMonitor.on('resume', () => {
-    let locked = false;
-    try { locked = powerMonitor.getSystemIdleState(60) === 'locked'; } catch { /* unknown: treat as awake */ }
-    setCalm(locked ? 'locked' : panel?.isFocused() ? null : 'blur');
-  });
-  // The renderers start animated; a reload would forget a calm sent before it.
-  for (const w of [panel, critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
-  if (!CAPTURE) setInterval(checkCovered, COVER_POLL_MS).unref?.();
-}
+// What main shares with the modules in ipc/ and wiring/. Functions declared
+// here are hoisted, so they go as they are; everything else is a getter, read
+// when it's used: most of it is set at boot or changes as he runs, and some is
+// only declared further down. A setter is there only where a module changes it.
+const shared = {
+  applyHotkey, applyLoginItem, armCopy, armGuard, changeRef, chatRoutine, checkAway, checkGuards,
+  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, leaveCheck,
+  moveIntoCopy, noteRecap, onSpend, onUsage, outlookView, panelSettings, placeStickers,
+  proposeRoutine, queueTask, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
+  repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
+  saveCritterPos, saveHeld, saveRoutines, saveStreaks, send, sendOutlook, setCrewSlots,
+  setPanelRoomy, shellStickers, shipped, shippedMerge, showPanel, streaksView, syncKeepAwake,
+  testRoutine, togglePanel, updateRoutine, usageBreakdown,
+  get BASE_PX() { return BASE_PX; },
+  get CAPTURE() { return CAPTURE; },
+  get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
+  get CREW_WORTH_MENTIONING() { return CREW_WORTH_MENTIONING; },
+  get CRITTER_PRELOAD() { return CRITTER_PRELOAD; },
+  get FAKE_CLI() { return FAKE_CLI; },
+  get FLOOR_PRELOAD() { return FLOOR_PRELOAD; },
+  get FORECAST_TEST() { return FORECAST_TEST; },
+  get HEALTH_TIP() { return HEALTH_TIP; },
+  get ICON() { return ICON; },
+  get IDLE_BIT_CHANCE() { return IDLE_BIT_CHANCE; },
+  get ISOLATED() { return ISOLATED; },
+  get LONG_TASK_MS() { return LONG_TASK_MS; },
+  get MAX_CREW_SHOWN() { return MAX_CREW_SHOWN; },
+  get NOTE_PRELOAD() { return NOTE_PRELOAD; },
+  get NUDGE_TEST() { return NUDGE_TEST; },
+  get PANEL_MAX_TEXT() { return PANEL_MAX_TEXT; },
+  get PNG_SIGNATURE() { return PNG_SIGNATURE; },
+  get PRELOAD() { return PRELOAD; },
+  get RECAP_TEST() { return RECAP_TEST; },
+  get RENDERER() { return RENDERER; },
+  get ROOT() { return ROOT; },
+  get SLEEP_AFTER_MS() { return SLEEP_AFTER_MS; },
+  get SNAPSHOT_WAIT_MS() { return SNAPSHOT_WAIT_MS; },
+  get TAB_IDLE_CHECK_MS() { return TAB_IDLE_CHECK_MS; },
+  get TAB_IDLE_STOP_MS() { return TAB_IDLE_STOP_MS; },
+  get TOY_PRELOAD() { return TOY_PRELOAD; },
+  get TRICKS_KIND() { return TRICKS_KIND; },
+  get activeSkin() { return activeSkin; },
+  get advanceFocus() { return advanceFocus; },
+  get allSkins() { return allSkins; },
+  get allSnippets() { return allSnippets; },
+  get answerPermission() { return answerPermission; },
+  get applyLayer() { return applyLayer; },
+  get askOnPhone() { return askOnPhone; },
+  get askOnce() { return askOnce; },
+  get autonomousOkThisRun() { return autonomousOkThisRun; }, set autonomousOkThisRun(v) { autonomousOkThisRun = v; },
+  get awardXp() { return awardXp; },
+  get badgePr() { return badgePr; },
+  get beachSeen() { return beachSeen; },
+  get beachView() { return beachView; },
+  get booted() { return booted; },
+  get broadcastSkin() { return broadcastSkin; },
+  get broadcastWardrobe() { return broadcastWardrobe; },
+  get buildMenu() { return buildMenu; },
+  get calmReason() { return calmReason; }, set calmReason(v) { calmReason = v; },
+  get channelPlace() { return channelPlace; },
+  get channelSecret() { return channelSecret; }, set channelSecret(v) { channelSecret = v; },
+  get channelSettings() { return channelSettings; },
+  get channelsView() { return channelsView; },
+  get checkedUp() { return checkedUp; },
+  get checkupsView() { return checkupsView; },
+  get chirp() { return chirp; },
+  get ci() { return ci; }, set ci(v) { ci = v; },
+  get ciView() { return ciView; },
+  get claudeConfigDir() { return claudeConfigDir; },
+  get claudePath() { return claudePath; },
+  get claudeSettings() { return claudeSettings; },
+  get claudeStatus() { return claudeStatus; }, set claudeStatus(v) { claudeStatus = v; },
+  get cliBinDir() { return cliBinDir; },
+  get cliView() { return cliView; },
+  get climbing() { return climbing; }, set climbing(v) { climbing = v; },
+  get clipboardHasImage() { return clipboardHasImage; },
+  get composePrompt() { return composePrompt; },
+  get config() { return config; },
+  get confirmAndAddMarketplace() { return confirmAndAddMarketplace; },
+  get confirmAndChangeHook() { return confirmAndChangeHook; },
+  get confirmAndInstallOpenRgb() { return confirmAndInstallOpenRgb; },
+  get confirmAndInstallPlugin() { return confirmAndInstallPlugin; },
+  get confirmAndInstallShellbyPlugin() { return confirmAndInstallShellbyPlugin; },
+  get confirmAndPublishPack() { return confirmAndPublishPack; },
+  get confirmAndUninstallPlugin() { return confirmAndUninstallPlugin; },
+  get confirmChannelPlace() { return confirmChannelPlace; },
+  get confirmGitHubFeature() { return confirmGitHubFeature; },
+  get crashConsent() { return crashConsent; },
+  get crewExtra() { return crewExtra; },
+  get crewShown() { return crewShown; },
+  get critter() { return critter; }, set critter(v) { critter = v; },
+  get critterBaseSize() { return critterBaseSize; },
+  get critterGeo() { return critterGeo; },
+  get currentCwd() { return currentCwd; },
+  get currentLevel() { return currentLevel; },
+  get depWatch() { return depWatch; }, set depWatch(v) { depWatch = v; },
+  get devServers() { return devServers; }, set devServers(v) { devServers = v; },
+  get dialogLook() { return dialogLook; },
+  get dictation() { return dictation; }, set dictation(v) { dictation = v; },
+  get dragging() { return dragging; }, set dragging(v) { dragging = v; },
+  get drainCrashQueue() { return drainCrashQueue; },
+  get editStickers() { return editStickers; },
+  get endTurn() { return endTurn; },
+  get ensureOpenRgb() { return ensureOpenRgb; },
+  get expandSnippet() { return expandSnippet; },
+  get exportSnippets() { return exportSnippets; },
+  get external() { return external; }, set external(v) { external = v; },
+  get externalView() { return externalView; },
+  get fileTouches() { return fileTouches; },
+  get flakyAct() { return flakyAct; },
+  get flakyOn() { return flakyOn; },
+  get flakyTree() { return flakyTree; },
+  get flakyView() { return flakyView; },
+  get flash() { return flash; }, set flash(v) { flash = v; },
+  get flashState() { return flashState; },
+  get floor() { return floor; }, set floor(v) { floor = v; },
+  get focusState() { return focusState; },
+  get focusTick() { return focusTick; }, set focusTick(v) { focusTick = v; },
+  get focusTimer() { return focusTimer; }, set focusTimer(v) { focusTimer = v; },
+  get focusView() { return focusView; },
+  get forgetPausedHook() { return forgetPausedHook; },
+  get friends() { return friends; }, set friends(v) { friends = v; },
+  get friendsView() { return friendsView; },
+  get github() { return github; }, set github(v) { github = v; },
+  get guestShown() { return guestShown; },
+  get health() { return health; }, set health(v) { health = v; },
+  get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
+  get heldList() { return heldList; },
+  get heldNotices() { return heldNotices; }, set heldNotices(v) { heldNotices = v; },
+  get helperWidth() { return helperWidth; },
+  get history() { return history; },
+  get homesView() { return homesView; },
+  get importSnippets() { return importSnippets; },
+  get installCli() { return installCli; },
+  get isFolder() { return isFolder; },
+  get isStr() { return isStr; },
+  get issues() { return issues; }, set issues(v) { issues = v; },
+  get knownFolder() { return knownFolder; },
+  get knownProjects() { return knownProjects; },
+  get lastActivity() { return lastActivity; }, set lastActivity(v) { lastActivity = v; },
+  get lastInit() { return lastInit; }, set lastInit(v) { lastInit = v; },
+  get lastRgbColor() { return lastRgbColor; }, set lastRgbColor(v) { lastRgbColor = v; },
+  get lastRun() { return lastRun; },
+  get lastStatus() { return lastStatus; }, set lastStatus(v) { lastStatus = v; },
+  get lastXp() { return lastXp; }, set lastXp(v) { lastXp = v; },
+  get lean() { return lean; },
+  get leaveVerdict() { return leaveVerdict; },
+  get levelUpAt() { return levelUpAt; }, set levelUpAt(v) { levelUpAt = v; },
+  get life() { return life; }, set life(v) { life = v; },
+  get limitWait() { return limitWait; },
+  get linkBusy() { return linkBusy; }, set linkBusy(v) { linkBusy = v; },
+  get log() { return log; },
+  get longTaskTimer() { return longTaskTimer; }, set longTaskTimer(v) { longTaskTimer = v; },
+  get makeIssueCopy() { return makeIssueCopy; },
+  get manager() { return manager; }, set manager(v) { manager = v; },
+  get media() { return media; }, set media(v) { media = v; },
+  get mediaSettings() { return mediaSettings; },
+  get mediaView() { return mediaView; },
+  get mergeSnippets() { return mergeSnippets; },
+  get motion() { return motion; }, set motion(v) { motion = v; },
+  get motionBox() { return motionBox; },
+  get musicHeadphones() { return musicHeadphones; },
+  get noteFix() { return noteFix; },
+  get noteRed() { return noteRed; },
+  get noteSnippetUse() { return noteSnippetUse; },
+  get noteTestRun() { return noteTestRun; },
+  get noteWorkTime() { return noteWorkTime; },
+  get notify() { return notify; },
+  get nowPlaying() { return nowPlaying; }, set nowPlaying(v) { nowPlaying = v; },
+  get obsServer() { return obsServer; }, set obsServer(v) { obsServer = v; },
+  get obsSettings() { return obsSettings; },
+  get obsState() { return obsState; },
+  get obsView() { return obsView; },
+  get onPermission() { return onPermission; },
+  get onResult() { return onResult; },
+  get onToolSpoken() { return onToolSpoken; },
+  get openGitHubUrl() { return openGitHubUrl; },
+  get openIssuePr() { return openIssuePr; },
+  get openTab() { return openTab; },
+  get outfit() { return outfit; },
+  get paintLights() { return paintLights; },
+  get panel() { return panel; },
+  get pauseHook() { return pauseHook; },
+  get pendingCommands() { return pendingCommands; },
+  get pendingLink() { return pendingLink; }, set pendingLink(v) { pendingLink = v; },
+  get perching() { return perching; }, set perching(v) { perching = v; },
+  get pinnedTools() { return pinnedTools; },
+  get placeCritter() { return placeCritter; },
+  get playtime() { return playtime; }, set playtime(v) { playtime = v; },
+  get pluginView() { return pluginView; },
+  get prBadge() { return prBadge; }, set prBadge(v) { prBadge = v; },
+  get pranks() { return pranks; }, set pranks(v) { pranks = v; },
+  get profileCard() { return profileCard; }, set profileCard(v) { profileCard = v; },
+  get projectInsights() { return projectInsights; },
+  get projects() { return projects; }, set projects(v) { projects = v; },
+  get ptt() { return ptt; }, set ptt(v) { ptt = v; },
+  get px() { return px; },
+  get queueTabs() { return queueTabs; },
+  get queueWaits() { return queueWaits; },
+  get randomUUID() { return randomUUID; },
+  get reachedForShellby() { return reachedForShellby; },
+  get recapLog() { return recapLog; }, set recapLog(v) { recapLog = v; },
+  get refreshCritter() { return refreshCritter; },
+  get refreshStatusLine() { return refreshStatusLine; },
+  get registerWorkflowIpc() { return registerWorkflowIpc; },
+  get registryUrl() { return registryUrl; },
+  get remote() { return remote; }, set remote(v) { remote = v; },
+  get removeCli() { return removeCli; },
+  get resetCritterPos() { return resetCritterPos; },
+  get restoreLights() { return restoreLights; },
+  get resumeHook() { return resumeHook; },
+  get rgbClient() { return rgbClient; }, set rgbClient(v) { rgbClient = v; },
+  get rgbSettings() { return rgbSettings; },
+  get rgbView() { return rgbView; },
+  get roomTaskDone() { return roomTaskDone; },
+  get roomsPanelView() { return roomsPanelView; },
+  get routineTabs() { return routineTabs; },
+  get routineTests() { return routineTests; },
+  get runCheckup() { return runCheckup; },
+  get said() { return said; }, set said(v) { said = v; },
+  get saveChannelSecret() { return saveChannelSecret; },
+  get sayText() { return sayText; },
+  get seasonsWhere() { return seasonsWhere; },
+  get secureWindow() { return secureWindow; },
+  get sendToTab() { return sendToTab; },
+  get sentry() { return sentry; },
+  get serversOnQuit() { return serversOnQuit; },
+  get setFolder() { return setFolder; },
+  get setRooms() { return setRooms; },
+  get setSnippets() { return setSnippets; },
+  get settleCritter() { return settleCritter; },
+  get setupCwd() { return setupCwd; },
+  get setupView() { return setupView; },
+  get setupWhere() { return setupWhere; },
+  get shellIdOf() { return shellIdOf; },
+  get shellSpots() { return shellSpots; },
+  get shop() { return shop; }, set shop(v) { shop = v; },
+  get shopAsking() { return shopAsking; }, set shopAsking(v) { shopAsking = v; },
+  get shopBlocked() { return shopBlocked; },
+  get shotsDir() { return shotsDir; },
+  get showFlaky() { return showFlaky; },
+  get showHealth() { return showHealth; },
+  get showListening() { return showListening; },
+  get showServer() { return showServer; },
+  get skins() { return skins; },
+  get sleepTimer() { return sleepTimer; }, set sleepTimer(v) { sleepTimer = v; },
+  get snippetList() { return snippetList; },
+  get snippetsView() { return snippetsView; },
+  get soundMix() { return soundMix; },
+  get speak() { return speak; },
+  get startFocus() { return startFocus; },
+  get startTask() { return startTask; },
+  get startTaskInCopy() { return startTaskInCopy; },
+  get startView() { return startView; }, set startView(v) { startView = v; },
+  get stat() { return stat; },
+  get statusFile() { return statusFile; },
+  get stickerState() { return stickerState; },
+  get stickerStats() { return stickerStats; },
+  get stickersView() { return stickersView; },
+  get stopFocus() { return stopFocus; },
+  get syncLayer() { return syncLayer; },
+  get taskFromClipboard() { return taskFromClipboard; },
+  get teamIpc() { return teamIpc; },
+  get tellChannel() { return tellChannel; },
+  get testHook() { return testHook; },
+  get timeTracker() { return timeTracker; }, set timeTracker(v) { timeTracker = v; },
+  get toolbox() { return toolbox; }, set toolbox(v) { toolbox = v; },
+  get tray() { return tray; }, set tray(v) { tray = v; },
+  get turnEnds() { return turnEnds; },
+  get turnStarts() { return turnStarts; },
+  get typing() { return typing; }, set typing(v) { typing = v; },
+  get typingSettings() { return typingSettings; },
+  get updateView() { return updateView; },
+  get updates() { return updates; }, set updates(v) { updates = v; },
+  get visitor() { return visitor; }, set visitor(v) { visitor = v; },
+  get wake() { return wake; },
+  get wardrobe() { return wardrobe; },
+  get weatherSvc() { return weatherSvc; }, set weatherSvc(v) { weatherSvc = v; },
+  get weatherView() { return weatherView; },
+  get webPreferences() { return webPreferences; },
+  get weekView() { return weekView; },
+  get welcomeTrophies() { return welcomeTrophies; },
+  get workflows() { return workflows; }, set workflows(v) { workflows = v; },
+  get worktreeHome() { return worktreeHome; },
+  get wornShellObj() { return wornShellObj; },
+  get xpView() { return xpView; },
+};
+
+const {
+  applyLayer, createCritter, createMischief, createMotion, crewExtra, critterBaseSize, critterGeo,
+  helperWidth, motionBox, placeCritter, px, resetCritterPos, secureWindow, settleCritter,
+  syncLayer, watchIdleCost, webPreferences, workAreas,
+} = wireWindows(shared);
+const {
+  HEALTH_TIP, activeSkin, allSkins, broadcastSkin, broadcastWardrobe, chirp, currentLevel,
+  dialogLook, flashState, homesView, onToolSpoken, outfit, refreshCritter, refreshStatusLine,
+  seasonsWhere, soundMix, speak, wake, wakeVoice,
+} = wireCritter(shared);
+const {
+  SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, turnEnds, turnStarts,
+} = wireSessions(shared);
+const {
+  awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
+  knownFolder, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
+  runCheckup, setRooms, showFlaky, weekView, xpView,
+} = wireProgress(shared);
+const {
+  beachSeen, beachView, clipboardHasImage, composePrompt, createExternal, createHealth,
+  createTimeTracker, editStickers, externalView, knownProjects, notify, onPermission, onResult,
+  openTab, pendingCommands, projectInsights, sendToTab, shotsDir, showHealth, startTask, stat,
+  stickerStats, stickersView, taskFromClipboard,
+} = wireTimetrack(shared);
+const { cliBinDir, cliView, createCrabApi, installCli, removeCli, sayText } = wireCrabApi(shared);
+const {
+  answerPermission, askOnPhone, channelPlace, channelSettings, channelsView, confirmChannelPlace,
+  createObs, createRemote, loadChannelSecret, obsSettings, obsState, obsView, saveChannelSecret,
+  tellChannel,
+} = wireChannels(shared);
+const {
+  confirmAndInstallOpenRgb, createDictation, createLifeAndPlay, createMedia, createRgb,
+  createTypingAlong, createWeather, ensureOpenRgb, mediaSettings, mediaView, musicHeadphones,
+  onHotkey, paintLights, restoreLights, rgbSettings, rgbView, showListening, typingSettings,
+  weatherView,
+} = wireSurroundings(shared);
+const {
+  askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin,
+  confirmAndUninstallPlugin, createShop, createToolbox, forgetPausedHook, pauseHook, pluginView,
+  resumeHook, setupCwd, setupView, setupWhere, shopBlocked, testHook,
+} = wireToolbox(shared);
+const {
+  badgePr, ciView, confirmAndAddMarketplace, confirmAndPublishPack, confirmGitHubFeature, createCi,
+  createFriends, createGitHub, createIssues, friendsView, githubEndpoints, makeIssueCopy,
+  openGitHubUrl, openIssuePr, pinnedTools, sendVisitor,
+} = wireGithub(shared);
+const { advanceFocus, focusState, focusView, startFocus, stopFocus } = wireFocus(shared);
+const {
+  PANEL_MAX_TEXT, allSnippets, expandSnippet, exportSnippets, importSnippets, mergeSnippets,
+  noteSnippetUse, setSnippets, snippetList, snippetsView,
+} = wireSnippets(shared);
+const {
+  createDepWatch, createProjects, createWorkflows, registerWorkflowIpc, runClaudeOnce,
+  serversOnQuit, showServer, startTaskInCopy,
+} = wireProjects(shared);
+const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
+const {
+  askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
+  setupUpdates, updateView,
+} = wireTray(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -1049,418 +966,6 @@ function send(win, channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-// ================================================================ critter state
-
-// Built-in/user skins plus wardrobe pack skins (which can be locked).
-function allSkins() {
-  const packSkins = wardrobe ? wardrobe.catalog.skins.map(s => ({ ...s, id: s.key, locked: wardrobe.lockInfo(s) })) : [];
-  return [...skins, ...packSkins];
-}
-
-function activeSkin() {
-  const list = allSkins();
-  const chosen = list.find(s => s.id === config.get('skin'));
-  return (chosen && !chosen.locked ? chosen : null) || list.find(s => s.id === 'classic') || list[0];
-}
-
-function outfit() {
-  const o = wardrobe ? wardrobe.render() : { accessories: [], effect: null, confetti: null, crewAccessories: [] };
-  const helmet = wardrobe?.item('guard-helmet'); // worn while he guards your focus
-  const worn = shells.wornShell(config?.get('home'), currentLevel());
-  return {
-    ...o,
-    home: shells.renderShell(worn),
-    stickers: config ? shellStickers(activeSkin(), worn) : [],
-    focusHelmet: helmet ? publicItem(helmet) : null,
-    musicHeadphones: musicHeadphones(),
-    weather: weatherWear(),
-  };
-}
-
-/**
- * What he puts on by himself for the weather outside (weather.js dress): items
- * by slot over his own outfit, an effect instead of his own, and a mood for the
- * renderer. Like the headphones, they don't need unlocking. Null on a plain day.
- */
-function weatherWear() {
-  if (!weatherSvc?.settings().enabled) return null;
-  const w = weatherRules.dress(weatherSvc.reading(), Date.now());
-  if (!w) return null;
-  const pick = id => (id ? publicItem(wardrobe?.item(id)) : null);
-  return {
-    condition: w.condition, mood: w.mood,
-    accessories: ['hat', 'neck', 'face', 'held'].map(slot => pick(w[slot])).filter(Boolean),
-    effect: pick(w.effect),
-  };
-}
-
-// South of the equator, spring comes in September (wardrobe/seasons.js). Known
-// from the town picked for the weather, which is kept with the weather switched
-// off (no network needed for that); north otherwise, as it always was.
-const seasonsWhere = () => ({ south: weatherRules.isSouth(weatherRules.normalizePlace(config?.get('weather')?.place)) });
-
-const currentLevel = () => levelFor(config?.get('xp')?.total || 0).level;
-const homesView = () => shells.homesView(config.get('home'), currentLevel());
-
-function broadcastSkin() {
-  const skin = activeSkin();
-  const o = outfit();
-  send(critter, 'critter:skin', { skin, px: px(), helperWidth: helperWidth(), outfit: o });
-  send(panel, 'skin', { skin, outfit: o });
-  floor?.reskin(); // his pals are his colours, his size
-}
-
-function dialogLook() {
-  const o = outfit();
-  return { skin: activeSkin(), accessories: o.accessories, shell: o.home };
-}
-
-function broadcastWardrobe() {
-  broadcastSkin();
-  if (wardrobe) send(panel, 'wardrobe', wardrobe.view());
-}
-
-function flashState(state, ms = 7000) {
-  flash = { state, until: Date.now() + ms };
-  // Every mood he already had, now with something to say. A trick he taught
-  // himself and a new trophy are rare enough to jump the cooldowns; 'levelup'
-  // and the molt have no lines at all, because the bubble is already busy
-  // showing the level and the new shell.
-  // A level-up has no line to chirp with, so its cheer goes on its own.
-  if (!speak(state, { force: state === 'learned' || state === 'unlocked' })) chirp(state, { blip: false });
-  if (state === 'success' || state === 'error') floor?.event(state); // his pals cheer, or wince
-  refreshCritter();
-  setTimeout(refreshCritter, ms + 50);
-}
-
-// ---------------------------------------------------------------- his voice
-
-// He reacts to what the work actually is, not just that work is happening: a
-// test run, a big write, the third visit to one file. The file tally is kept
-// here so voice.js stays pure.
-function onToolSpoken(item) {
-  if (CAPTURE || !config) return;
-  let touches = 0;
-  if (item.filePath) {
-    touches = (fileTouches.get(item.filePath) || 0) + 1;
-    fileTouches.set(item.filePath, touches);
-    if (fileTouches.size > 400) fileTouches.delete(fileTouches.keys().next().value);
-  }
-  const occasion = voice.occasionForTool(item.name, { command: item.detail, chars: item.writeChars || 0, touches });
-  if (occasion) speak(occasion);
-}
-
-// Shellby says something, if he has something to say and this is the moment for
-// it (see voice.js for the cooldowns). Held back while he guards your focus,
-// exactly like a notification that can wait, and never during screenshots.
-function speak(occasion, { force = false, text = null } = {}) {
-  if (CAPTURE || !config || !critter) return null;
-  if (focus.guarding(config.get('focus'), Date.now())) return null;
-  if (life?.hushed()) return null; // you're on a call: not a peep
-  const now = Date.now();
-  const worn = wardrobe ? wardrobe.dialogue().voice : null; // a pack voice (wardrobe/dialogue.js)
-  const r = voice.say(config.get('voice'), occasion, now, { chatter: config.get('chatter'), force, text, voice: worn });
-  if (!r) return null;
-  config.set({ voice: r.state });
-  said = { text: r.text, occasion: r.occasion, until: r.until };
-  chirp(r.occasion);
-  refreshCritter();
-  setTimeout(refreshCritter, r.until - now + 50); // clear the bubble when it runs out
-  return said;
-}
-
-// What he may sound like right now (see sounds.js): nothing at all while he's
-// on guard, on a call, or posing for screenshots.
-function soundMix() {
-  if (CAPTURE || !config) return sounds.mix();
-  const quiet = focus.guarding(config.get('focus'), Date.now()) || !!life?.hushed();
-  return sounds.mix({
-    sounds: config.get('sounds'), soundFx: config.get('soundFx'),
-    ambient: config.get('ambient'), soundVolume: config.get('soundVolume'),
-  }, { quiet });
-}
-
-// A little blip when he speaks, or a ta-da for a big moment, synthesized in the
-// renderer (no audio files). Both off by default. blip: false plays only a cheer.
-function chirp(occasion, { blip = true } = {}) {
-  const m = soundMix();
-  if (!sounds.anyOn(m)) return;
-  const r = sounds.forOccasion(occasion, m);
-  if (r.cue) send(critter, 'critter:sound', { cue: r.cue });
-  else if (r.chirp && blip) send(critter, 'critter:chirp', { occasion });
-}
-
-// His seed (which decides his temperament) is made once, on first run. The gap
-// since he last ran is what tells him you've been away.
-function wakeVoice() {
-  if (CAPTURE || !config) return;
-  const now = Date.now();
-  const state = voice.normalize(config.get('voice'));
-  const seed = state.seed || randomUUID();
-  config.set({ voice: { ...state, seed, lastRunAt: now } });
-  const occasion = voice.absenceOccasion(state.lastRunAt, now) || voice.timeOccasion(now);
-  if (occasion) setTimeout(() => speak(occasion, { force: true }), 2500); // let him settle onto the desktop first
-  if (occasion === 'back') setTimeout(() => greet(now - state.lastRunAt), 2500);
-}
-
-// Rolls every tab up into one mood: asking > working > flash > idle/sleeping.
-function refreshCritter() {
-  if (!manager || !critter) return;
-  const own = manager.aggregate;
-  const ext = external?.summary || { state: 'idle', busy: 0, crew: [], background: [] };
-  // Shellby's own tabs plus Claude Code sessions elsewhere: asking > working > idle.
-  const agg = {
-    state: own.state === 'asking' || ext.state === 'asking' ? 'asking' : own.state === 'working' || ext.state === 'working' ? 'working' : own.state,
-    busy: own.busy + ext.busy,
-    crew: [...own.crew, ...ext.crew],
-    // Commands a turn backgrounded and walked away from (src/main/external.js).
-    background: ext.background || [],
-  };
-  let state = agg.state;
-  const limited = limitWait();
-  if (state !== 'idle') lastActivity = Date.now();
-  else if (flash && flash.until > Date.now()) state = flash.state;
-  else if (limited && healthMood?.level !== 'critical') state = 'sleeping'; // naps until the limit resets
-  else if (life?.napping() && healthMood?.level !== 'critical') state = 'sleeping'; // a nap of his own (life.js)
-  else if (Date.now() - lastActivity > SLEEP_AFTER_MS && healthMood?.level !== 'critical') state = 'sleeping';
-
-  if (said && said.until <= Date.now()) said = null;
-  send(critter, 'critter:state', {
-    state,
-    busy: agg.busy,
-    crew: agg.crew.slice(0, MAX_CREW_SHOWN),
-    moreCrew: Math.max(0, agg.crew.length - MAX_CREW_SHOWN),
-    health: healthMood,
-    level: levelUpAt,
-    ci: { failing: ci?.view().failing || 0 },
-    background: agg.background.length,
-    // Dev servers: the "up :5173" pill and the sign when one crashed (devservers/service.js).
-    servers: devServers && !config.get('crabOnly') ? devServers.summary() : null,
-    focus: focusState(),
-    limit: limited ? { resetsAt: limited.resetsAt } : null,
-    say: said,
-    call: !!life?.onCall(), // you're on a call: he holds up his "shh" sign
-    sound: soundMix(), // footsteps, bumps and the background play off this (src/renderer/critter/sound.js)
-    // Peckish, sandy, sleepy, mopey (needs.js): only ever while he has nothing better to show.
-    needs: ['idle', 'sleeping'].includes(state) && !CAPTURE ? life?.needsLook() || null : null,
-  });
-  setCrewSlots(Math.min(agg.crew.length, MAX_CREW_SHOWN));
-  const was = lastStatus;
-  lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
-  refreshStatusLine();
-  // Whatever the crab is doing, the stream and the desk lighting follow it.
-  obsServer?.broadcast(obsState());
-  paintLights();
-
-  // Remarks that belong to a change, not a state. lastStatus is already updated,
-  // so the refresh that speaking triggers can't fire these a second time.
-  if (agg.crew.length >= CREW_WORTH_MENTIONING) speak('crew');
-  // Work (or a question) takes him off whatever he was doing on his own.
-  if ((state === 'working' || state === 'asking') && was.state !== state) {
-    life?.cancel();
-    life?.wake();
-    if (playtime?.busy()) playtime.stop('work time!');
-  }
-  if (state === 'working' && was.state !== 'working') {
-    speak('working');
-    // Armed when the task starts, never re-armed: a busy task refreshes this
-    // many times a second, and resetting the clock here would mean the one
-    // remark meant for a long task could only ever fire for a silent one.
-    clearTimeout(longTaskTimer);
-    longTaskTimer = setTimeout(() => { if (lastStatus.state === 'working') speak('longTask'); }, LONG_TASK_MS);
-  } else if (state !== 'working' && was.state === 'working') {
-    clearTimeout(longTaskTimer);
-  }
-
-  clearTimeout(sleepTimer);
-  if (state === 'idle') sleepTimer = setTimeout(refreshCritter, SLEEP_AFTER_MS - (Date.now() - lastActivity) + 100);
-  const tip = agg.busy ? `Shellby: ${agg.busy} task${agg.busy > 1 ? 's' : ''} running` : 'Shellby';
-  tray?.setToolTip(healthMood ? `${tip} · ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : tip);
-}
-
-const HEALTH_TIP = { hot: 'running hot', scorching: 'overheating', dizzy: 'memory nearly full', stuffed: 'drive nearly full' };
-
-// Shellby's face in Claude Code's status line (see statusline.js).
-function refreshStatusLine() {
-  if (CAPTURE || !config) return;
-  const v = xpView();
-  const s = {
-    ...lastStatus, health: healthMood, xp: { level: v.level, title: v.title, progress: v.progress }, lastXp, now: Date.now(),
-    streak: streaks.streakOf(config.get('streaks'), Date.now()).current,
-    ci: ci?.view().failing || 0,
-    focus: focusState(),
-    limit: limitWait(),
-  };
-  statusLine.writeStatus(statusLine.formatStatus(s), statusFile(), statusLine.formatPlain(s));
-}
-
-function wake() {
-  lastActivity = Date.now();
-  life?.wake(); // ends a nap of his own too (life.js)
-  refreshCritter();
-}
-
-// ================================================================ sessions
-
-function currentCwd() {
-  const cwd = config.get('cwd');
-  return cwd && fs.existsSync(cwd) ? cwd : os.homedir();
-}
-
-function createManager() {
-  manager = new SessionManager({
-    argsPrefix: FAKE_CLI ? [FAKE_CLI] : [],
-    history,
-    getExe: () => (FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude(process.env, claudePath())),
-    getMode: () => config.get('mode'),
-    getModel: () => config.get('model'),
-    getEffort: () => config.get('effort'),
-    getOutputStyle: () => outputStyles.clean(config.get('outputStyle')),
-    getEnv: () => github?.claudeEnv() || {},
-    prepareTurn: async tab => {
-      armGuard(tab);
-      tab.lastReply = null;
-      // Only the summary turn itself may start a conversation fresh (tab:fresh
-      // sets it after this runs): a summary turn that died without a result
-      // must not take the next ordinary turn with it.
-      tab.freshWanted = false;
-      await armCopy(tab);
-      await beginTurn(tab);
-    },
-  });
-
-  manager.on('spend', (_tabId, s, tab) => onSpend(s, tab));
-  manager.on('call', (_tabId, c, tab) => { if (!CAPTURE) lean?.onCall(c, tab); });
-  // A conversation past the crowded mark: he says so, and the panel offers to make room.
-  manager.on('context', (_tabId, now, before, tab) => {
-    if (ctx.crossed(before, now) && !tab.routineId && !tab.workflowRunId) sayText('Getting crowded in here.', 'crowded');
-  });
-
-  manager.on('item', (tabId, item, tab, tail) => {
-    if (item.kind === 'usage') {
-      config.set({ lastUsage: { ...item, at: Date.now() } });
-      noteRecap(recap.usageEvent(tabId, tab.title, item));
-      send(panel, 'usage', item);
-      onUsage(item);
-      refreshOutlook();
-      checkGuards();
-      return;
-    }
-    if (item.kind === 'init') {
-      lastInit = item.toolbox;
-      toolbox?.setInit(item.toolbox);
-      return; // toolbox lists are large; the panel doesn't need them per tab
-    }
-    send(panel, 'tab:item', { tabId, item });
-    workflows?.onTabItem(tabId, item);
-    if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
-    if (item.kind === 'decision') remote?.settle(item.requestId, item.decision);
-    // A test run's "waiting for you" ends once you've answered.
-    if (item.kind === 'decision' && routineTests.has(tabId)) send(panel, 'routines:test-run', routineTestView(tabId));
-    if (item.kind === 'permission') onPermission(tabId, item, tab);
-    if (item.kind === 'result') onResult(tabId, item, tab);
-    if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
-    if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
-      const dir = tab.session?.cwd || '';
-      const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
-      // A test run: the code as it was when it started, so a later run can be compared (flaky.js).
-      const tree = inProject && !item.background ? flakyTree(item.detail, dir) : null;
-      pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree });
-      if (pendingCommands.size > 200) pendingCommands.delete(pendingCommands.keys().next().value);
-    }
-    if (item.kind === 'tool') onToolSpoken(item);
-    if (item.kind === 'tool_result' && pendingCommands.has(item.id)) {
-      const c = pendingCommands.get(item.id);
-      pendingCommands.delete(item.id);
-      const meant = classifyCommand(c.command);
-      if (item.isError && meant === 'tests' && c.project && config && !CAPTURE) {
-        config.set({ xp: markRed(config.get('xp'), c.project, Date.now()) });
-        noteRed(`t:${c.project}`);
-      }
-      if (c.tree) noteTestRun(c, item, tail);
-      const kind = !item.isError && meant;
-      if (kind) {
-        awardXp(kind, { project: c.project });
-        speak(voice.occasionForCommand(kind));
-      }
-      // A push, deploy or release ships the project: its sticker (stickers.js).
-      const ship = c.dir && stickers.shipOf(kind, c.command);
-      if (ship) shipped(c.dir, ship.kind, ship.meta);
-      // gh pr create: the tab's work is a pull request now, so it gets the badge (github/pr-badge.js).
-      if (!item.isError && prBadges.isPrCreate(c.command)) badgePr(`${item.text || ''}\n${tail || ''}`);
-      // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
-      const check = checkup.checkupOf(c.command);
-      if (check && c.cwd) {
-        const result = checkup.readCheckup(check, { text: item.text, isError: item.isError, command: c.command });
-        checkedUp(checkup.commandDir(c.command, c.cwd), check, result);
-      }
-    }
-  });
-  manager.on('tabs', summary => {
-    send(panel, 'tabs', summary);
-    const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
-    if (!CAPTURE) config.set({ openTabs: saved });
-  });
-  manager.on('aggregate', agg => {
-    refreshCritter();
-    const s = wardrobe?.stats;
-    if (s && agg.crew.length > s.maxCrew) stat('crew-size', { n: agg.crew.length });
-    if (s && agg.busy > s.maxParallel) stat('parallel', { n: agg.busy });
-  });
-  setInterval(() => {
-    const stopped = manager.stopIdle(TAB_IDLE_STOP_MS);
-    if (stopped.length) log.info('Stopped idle tabs', `${stopped.length} quiet for ${TAB_IDLE_STOP_MS / 60000} min`);
-  }, TAB_IDLE_CHECK_MS).unref?.();
-}
-
-// ================================================================ what each turn changed (changes.js)
-
-// tabId -> the folder as it was when the turn began
-const turnStarts = new Map();
-// A big repo's first snapshot can take a while. Past this the turn goes ahead
-// without one rather than keep you waiting, and simply has no diff.
-const SNAPSHOT_WAIT_MS = 10000;
-
-function beginTurn(tab) {
-  turnStarts.delete(tab.id);
-  const cwd = tab.session?.cwd;
-  if (!cwd || CAPTURE) return null;
-  let late = false;
-  const turnId = tab.turnId;
-  const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId }); });
-  return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(); }, SNAPSHOT_WAIT_MS))]);
-}
-
-// tabId -> the promise of its last turn's diff being noted, for rewind to wait on.
-const turnEnds = new Map();
-
-function endTurn(tabId) {
-  const p = noteTurnChanges(tabId).finally(() => { if (turnEnds.get(tabId) === p) turnEnds.delete(tabId); });
-  turnEnds.set(tabId, p);
-  return p;
-}
-
-async function noteTurnChanges(tabId) {
-  const start = turnStarts.get(tabId);
-  turnStarts.delete(tabId);
-  const cwd = manager.tabs.get(tabId)?.session.cwd;
-  if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
-  if (!start) return;
-  try {
-    const end = await changes.snapshot(start.root);
-    const summary = await changes.summarize(start, end);
-    // Tagged with its turn: the diff is worked out after the turn ends, by which
-    // time the next message may already be in the transcript (rewind.js).
-    const turn = start.turnId ? { turnId: start.turnId } : {};
-    if (summary) manager.note(tabId, { kind: 'changes', ...summary, ...turn });
-    // Where the files stood at both ends of the turn, changed or not: a branch
-    // from any turn starts its copy from exactly there (branch.js). Not shown.
-    if (end && end.root === start.root) manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });
-  } catch (err) {
-    log.info(`changes: ${err.message}`);
-  }
-}
-
 // ================================================================ a copy of the repo per tab (worktrees.js)
 
 const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
@@ -1651,120 +1156,6 @@ async function checkNudges() {
   else notify(streaks.nudgeText(n), 'Click to pick up where you left off.', open);
 }
 
-// ================================================================ XP and levels
-
-function xpView() {
-  return xpSummary(config.get('xp'), Date.now(), currentStreak());
-}
-
-const currentStreak = () => streaks.streakOf(config.get('streaks'), Date.now()).current;
-
-// What a level-up unlocked, in words: "the Reef Warden title and the Kelp badge".
-function unlockedText(list) {
-  const names = list.filter(u => u.kind !== 'shell').map(u => (u.kind === 'title' ? `the ${u.name} title` : `the ${u.name}`));
-  if (!names.length) return '';
-  return `Unlocked ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]}.`;
-}
-
-const LEVELUP_TEXT = {
-  trick: m => `He wrote himself a new trick: ${m.label}.`,
-  tests: m => `Tests passed${m.project ? ` in ${m.project}` : ''}.`,
-  fixed: m => `Tests green again${m.project ? ` in ${m.project}` : ''}.`,
-  ship: m => `Pushed code${m.project ? ` in ${m.project}` : ''}.`,
-  deploy: m => `Deployed${m.project ? ` from ${m.project}` : ''}!`,
-};
-
-// XP kinds that also count toward a trophy (achievements.js), by the stat event they feed.
-const XP_STATS = {
-  deploy: 'deployed', fixed: 'tests-fixed', flakefix: 'flake-fixed', issue: 'issue-shipped',
-  deps: 'deps-clean', tidy: 'toolbox-tidied', fresh: 'started-fresh',
-};
-
-// Rooms (rooms.js): the screens a new user has opened so far. The scripted
-// screenshots always show every one.
-function roomsPanelView() {
-  return rooms.roomsView(CAPTURE ? null : config.get('rooms'));
-}
-
-function setRooms(next) {
-  if (next && !CAPTURE) config.set({ rooms: next });
-  const v = roomsPanelView();
-  send(panel, 'rooms', { view: v, opened: [] });
-  return v;
-}
-
-// A task of his own finished: maybe a new room opens, and the panel says so.
-function roomTaskDone() {
-  if (CAPTURE || !config) return;
-  const r = rooms.taskDone(config.get('rooms'));
-  if (!r.state || r.state.all) return; // every door already open: nothing to count
-  config.set({ rooms: r.state });
-  send(panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(({ id, name, text }) => ({ id, name, text })) });
-}
-
-function awardXp(kind, meta = {}) {
-  if (kind === 'ship') setTimeout(checkNudges, 3000); // a push means a fresh commit: update streak data
-  if (CAPTURE || !config) return;
-  const r = award(config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
-  if (r.changed) config.set({ xp: r.state });
-  // Trophies count the event even when repetition left it paying nothing. Streak
-  // and level are reported every time, so the day's first award credits old progress.
-  if (XP_STATS[r.kind]) stat(XP_STATS[r.kind]);
-  stat('streak', { n: streaks.streakOf(config.get('streaks'), Date.now()).longest });
-  stat('level', { n: r.after.level });
-  // The week-in-review counts it even when repetition left it paying nothing.
-  // Shipping is counted where the project is known (recordShipped).
-  if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
-  if (r.kind === 'fixed' && meta.project) noteFix(`t:${meta.project}`);
-  if (!r.gained) { if (r.changed) send(panel, 'xp', xpView()); return; }
-  send(critter, 'critter:xp', { amount: r.gained, kind: r.kind });
-  for (const b of r.bounties) send(panel, 'xp:bounty', b);
-  lastXp = { amount: r.gained, at: Date.now() };
-  refreshStatusLine();
-  setTimeout(refreshStatusLine, 15500); // let "+25 XP" fade from the status line
-  send(panel, 'xp', xpView());
-  if (!r.levelUp) return;
-  levelUpAt = r.after.level;
-  const text = (LEVELUP_TEXT[r.kind] || (() => `${AWARDS[r.kind].label}.`))(meta);
-  // The new title is already the card's heading.
-  const unlocked = unlockedText(unlocksBetween(r.before.level, r.after.level).filter(u => !(u.kind === 'title' && u.name === r.after.title)));
-  const shell = molt(r.before.level, r.after.level);
-  if (!shell) {
-    flashState('levelup', 6500);
-    send(critter, 'critter:burst', outfit().confetti);
-  }
-  send(panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
-  if (!(panel?.isVisible() && panel.isFocused())) {
-    const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
-    notify(`Level up! Shellby is level ${r.after.level}`, body, () => { showPanel({ focusInput: false }); send(panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate' });
-  }
-}
-
-// A level-up that unlocks a shell: he crawls out of the old one and moves into
-// the newest (see shells.js). Returns the new shell, or null when none unlocked.
-const MOLT_MS = 5200;
-function molt(before, after) {
-  const fresh = shells.unlockedBetween(before, after);
-  if (!fresh.length || CAPTURE) return null;
-  const next = fresh[fresh.length - 1];
-  const was = outfit();
-  const from = was.home;
-  const h = shells.normalizeHome(config.get('home'));
-  // The old shell keeps its stickers; his favourites come with him (stickers.js).
-  const carried = stickers.carryOnMolt(config.get('stickers'), shellIdOf(wornShellObj()), next.id, shellSpots(activeSkin(), next).slots.length, Date.now());
-  config.set({ home: { ...h, worn: next.id }, stickers: carried });
-  flashState('molting', MOLT_MS);
-  send(critter, 'critter:molt', { from, to: shells.renderShell(next), ms: MOLT_MS, fromStickers: was.stickers, toStickers: shellStickers(activeSkin(), next) });
-  setTimeout(() => {
-    broadcastSkin();
-    flashState('levelup', 4000);
-    send(critter, 'critter:burst', outfit().confetti);
-  }, MOLT_MS);
-  send(panel, 'homes', homesView());
-  send(panel, 'stickers', stickersView());
-  return next;
-}
-
 // ================================================================ shell stickers (stickers.js)
 //
 // The first time a project ships, Shellby gets a sticker for it and slaps it
@@ -1921,1826 +1312,6 @@ function stickerNews(r, before) {
   const line = r.tierUp ? `${p.name} went ${r.tierUp.name.toLowerCase()}!` : pressed ? `${p.name}, good as new` : `${marks[0].icon} ${p.name}`;
   sayText(line, 'sticker', 6000);
   send(panel, 'stickers:news', { id: p.id, name: p.name, tier: r.tierUp && { id: r.tierUp.id, name: r.tierUp.name }, marks: marks.map(m => ({ id: m.id, name: m.name, icon: m.icon })), pressed });
-}
-
-// ================================================================ dependency checkups (checkup.js)
-//
-// Claude ran `npm audit`, `cargo outdated` or the like. Each project's latest
-// result is kept for the Routines page; a clean audit pays XP (once a day per
-// project) and earns the project's sticker its 🧼 Fresh mark.
-
-async function checkedUp(dir, check, result) {
-  if (CAPTURE || !config || !dir || path.resolve(dir) === path.resolve(os.homedir())) return;
-  try {
-    const project = await projectOf(dir);
-    const key = project?.root || dir;
-    const name = project?.name || path.basename(key);
-    const r = checkup.recordCheckup(config.get('checkups'), key, name, check, result, Date.now());
-    if (!r.entry) return;
-    config.set({ checkups: r.state });
-    send(panel, 'checkups', checkupsView());
-    if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
-    if (r.clean && project) freshMark(project);
-    else if (result.status === 'issues' && check.check === 'audit') {
-      sayText(result.count ? `${name}: ${result.count} known ${result.count === 1 ? 'vulnerability' : 'vulnerabilities'}` : `${name} has vulnerable dependencies`, 'sticker', 7000);
-    }
-  } catch (e) {
-    log.error('checkup', e);
-  }
-}
-
-// The project's sticker gets 🧼 Fresh the first time an audit comes back clean.
-function freshMark(project) {
-  const r = stickers.addMark(config.get('stickers'), project.id, 'deps');
-  if (!r.added) return;
-  config.set({ stickers: r.state });
-  broadcastSkin();
-  setTimeout(() => send(critter, 'critter:sticker-glint', { id: project.id }), 120);
-  const mark = stickers.MARKS.find(m => m.id === 'deps');
-  sayText(`${mark.icon} ${r.project.name} is fresh!`, 'sticker', 6000);
-  send(panel, 'stickers:news', { id: project.id, name: r.project.name, tier: null, marks: [{ id: mark.id, name: mark.name, icon: mark.icon }], pressed: false });
-  send(panel, 'stickers', stickersView());
-}
-
-function checkupsView() {
-  return checkup.checkupsView(config.get('checkups'), Date.now());
-}
-
-// Folders the panel may open a tab in: ones Shellby itself has seen you work
-// in (streaks), ship from (a sticker's folder) or check up on. All of them
-// are written by main from git or Claude's own commands, never by the panel.
-function knownFolder(dir) {
-  const want = path.resolve(dir).toLowerCase();
-  const same = k => typeof k === 'string' && path.resolve(k).toLowerCase() === want;
-  return Object.keys(streaks.normalize(config.get('streaks')).projects).some(same)
-    || Object.values(stickerState().projects).some(p => same(p.root))
-    || Object.keys(checkup.normalizeCheckups(config.get('checkups')).projects).some(same)
-    || !!projects?.knowsRoot(dir); // a clone on the Projects page ("New conversation here")
-}
-
-// Check one project's dependencies now, in a tab of its own (from the Sticker
-// Book or the Routines page's dependency list).
-function runCheckup(dir) {
-  if (config.get('crabOnly')) return { ok: false, error: 'Checkups need Claude Code: Shellby is in just-the-crab mode.' };
-  if (!isStr(dir) || !isFolder(dir)) return { ok: false, error: "That project's folder isn't there any more." };
-  showPanel();
-  // A draft to press Enter on, like the streak nudge: nothing runs until you say so.
-  send(panel, 'tab:new-in', { cwd: dir, draft: routineTemplates.checkupPrompt({ single: true }) });
-  return { ok: true };
-}
-
-// ================================================================ the flaky test detective (flaky.js)
-
-// One snapshot per repo at a time: Claude often runs two test commands back to back.
-const flakySnapshots = new Map();      // lower-cased folder -> promise of { root, tree } or null
-// What each command hash was, for the fix prompt. This run of Shellby only, never saved.
-const flakyCommands = new Map();       // cmdKey -> the command as Claude ran it
-const MAX_FLAKY_COMMANDS = 100;
-
-const flakyOn = () => !CAPTURE && !!config && config.get('flakyTests') !== false && !config.get('crabOnly');
-// issuable: filing it as a GitHub issue can work (the panel's button).
-const flakyView = () => {
-  const issuable = !!github?.can('claude');
-  return flaky.flakyView(config.get('flaky'), Date.now()).map(r => ({ ...r, issuable }));
-};
-
-/** The folder's git tree now, or null (not a repo, or slower than SNAPSHOT_WAIT_MS). */
-function snapshotWithin(dir) {
-  let late = false;
-  const taken = changes.snapshot(dir).catch(() => null).then(s => (late ? null : s));
-  return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(null); }, SNAPSHOT_WAIT_MS))]);
-}
-
-/** The code as it is now, for a test command about to run; null for anything else. */
-function flakyTree(command, dir) {
-  if (!flakyOn() || classifyCommand(command) !== 'tests') return null;
-  const key = path.resolve(dir).toLowerCase();
-  if (flakySnapshots.has(key)) return flakySnapshots.get(key);
-  const p = snapshotWithin(dir);
-  flakySnapshots.set(key, p);
-  p.finally(() => { if (flakySnapshots.get(key) === p) flakySnapshots.delete(key); });
-  return p;
-}
-
-// A long result is its first 8,000 characters, "… (N more characters)" and,
-// separately, its last 8,000: when the two overlap, that's all of it.
-function testOutput(item, tail) {
-  const text = String(item.text || '');
-  if (!tail) return { output: text, complete: true };
-  const m = text.match(/\n… \((\d+) more characters\)$/);
-  const head = m ? text.slice(0, m.index) : text;
-  const rest = m ? Number(m[1]) : Infinity;
-  return rest <= tail.length ? { output: head + tail.slice(-rest), complete: true } : { output: `${head}\n${tail}`, complete: false };
-}
-
-/** A test command finished in one of Shellby's tabs: was it a flake? */
-async function noteTestRun(c, item, tail) {
-  try {
-    const snap = await c.tree;
-    if (!snap || !flakyOn()) return;
-    // The command was seen before it ran: an edit sent alongside it, or made
-    // while it ran, means the code moved under it. Then it proves nothing.
-    const end = await snapshotWithin(c.dir);
-    if (!end || end.tree !== snap.tree) return;
-    const { output, complete } = testOutput(item, tail);
-    const run = flaky.readRun({ cmd: c.command, output, isError: item.isError, complete });
-    if (!run) return;
-    const project = await projectOf(snap.root);
-    if (!project) return;
-    flakyCommands.delete(run.cmd);
-    flakyCommands.set(run.cmd, flaky.normalizeCmd(c.command));
-    if (flakyCommands.size > MAX_FLAKY_COMMANDS) flakyCommands.delete(flakyCommands.keys().next().value);
-    const now = Date.now();
-    const r = flaky.recordRun(config.get('flaky'), { key: project.id, name: project.name, root: project.root }, { ...run, tree: snap.tree }, now);
-    let state = r.state;
-    r.fresh.forEach(() => noteWeek('flaky'));
-    for (const id of r.fixed) {
-      noteWeek('flakefix');
-      awardXp('flakefix', { project: project.name, label: `Fixed ${flaky.labelOf(id)}` });
-    }
-    const d = flaky.due(state, now);
-    if (d && sayText(flaky.sayLine(d), 'flaky', 9000)) state = flaky.markSaid(state, d.key, d.id, now);
-    config.set({ flaky: state });
-    if (r.flakes.length || r.fixed.length) send(panel, 'flaky', flakyView());
-  } catch (e) {
-    log.error('flaky', e);
-  }
-}
-
-/** The panel, on the flaky list. */
-function showFlaky() {
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'routines');
-  send(panel, 'flaky:focus');
-}
-
-const FLAKY_ACTIONS = {
-  fix: { status: 'fixing', title: row => `Fix flaky ${row.label}`, prompt: flaky.fixPrompt },
-  quarantine: { status: 'quarantined', title: row => `Quarantine ${row.label}`, prompt: flaky.quarantinePrompt },
-  unquarantine: { status: 'watching', title: row => `Bring back ${row.label}`, prompt: flaky.unquarantinePrompt },
-};
-
-/** Fix, quarantine, un-quarantine (each a task in a copy of the repo) or dismiss one flaky test. */
-async function flakyAct(key, id, action) {
-  const row = flaky.findTest(config.get('flaky'), key, id, Date.now());
-  if (!row) return { ok: false, error: "Shellby doesn't know that test any more." };
-  if (action === 'dismiss') {
-    config.set({ flaky: flaky.setStatus(config.get('flaky'), key, id, 'dismissed', Date.now()) });
-    send(panel, 'flaky', flakyView());
-    return { ok: true };
-  }
-  if (action === 'issue') return fileFlakyIssue(key, id, row);
-  const act = Object.hasOwn(FLAKY_ACTIONS, action) ? FLAKY_ACTIONS[action] : null;
-  if (!act) return { ok: false, error: 'Unknown action.' };
-  const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
-  if (!root || !isFolder(root)) return { ok: false, error: "Shellby can't find that project's folder any more." };
-  const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
-  const cmd = latest ? flakyCommands.get(latest) || null : null;
-  // The prompt carries text from the repository (a test's name): never act on it without asking.
-  const mode = config.get('mode') === 'autonomous' ? 'acceptEdits' : null;
-  const res = await startTaskInCopy(root, act.title(row), w => act.prompt(row, { branch: w.branch, base: w.base, cmd }), { mode });
-  if (!res.ok) return res;
-  config.set({ flaky: flaky.setStatus(config.get('flaky'), key, id, act.status, Date.now()) });
-  send(panel, 'flaky', flakyView());
-  showPanel({ focusInput: false, tabId: res.tabId });
-  return res;
-}
-
-/**
- * File a flaky test as a GitHub issue, labelled shellby and assigned to you,
- * so the Issue helper workflow can offer to take it on (and anyone else on the
- * repository can see it). Asks first: an issue can be public.
- */
-async function fileFlakyIssue(key, id, row) {
-  if (row.issue) return { ok: true, ...row.issue, existing: true };
-  if (!github?.can('claude')) return { ok: false, error: 'Filing issues needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
-  const root = flaky.normalizeFlaky(config.get('flaky')).projects[key]?.root;
-  // Its origin on github.com, read from the folder itself (Projects may not list it).
-  const repo = root && isFolder(root) ? (await readRepo(root).catch(() => null))?.remote : null;
-  if (!repo) return { ok: false, error: "This project isn't on GitHub, so there's nowhere to file it." };
-  const latest = flaky.normalizeFlaky(config.get('flaky')).projects[key].tests[id]?.cmds[0];
-  const cmd = latest ? flakyCommands.get(latest) || null : null;
-  const draft = flaky.issueDraft(row, { cmd });
-  const gh = github.gh();
-  const info = await gh.get(`/repos/${repo}`).catch(() => null);
-  const response = await askOnce({
-    icon: '🐛',
-    title: `File an issue on ${repo}?`,
-    message: `“${draft.title}”, with what Shellby saw: the test's name, how often it flaked and how to go about fixing it.`,
-    // The one line that came from a terminal: shown as it will be posted, so a secret the redaction missed can be caught.
-    detail: (cmd ? `The command, as it will appear: ${flaky.redactCmd(cmd)}\n\n` : '')
-      + 'It\'s labelled shellby and assigned to you, so the Issue helper workflow can offer to take a crack at it.',
-    note: info?.private === false ? `${repo} is public: anyone can read the issue.` : 'Anyone who can see the repository can read the issue.',
-    buttons: [{ label: 'File it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-  });
-  if (response == null) return { ok: false, error: 'Another question from Shellby is open. Answer that one first.' };
-  if (response !== 0) return { ok: false, canceled: true };
-  // Filed while the question was open (a second click elsewhere): that one stands.
-  const filed = flaky.findTest(config.get('flaky'), key, id, Date.now())?.issue;
-  if (filed) return { ok: true, ...filed, existing: true };
-  let made;
-  try {
-    made = await gh.post(`/repos/${repo}/issues`, { ...draft, labels: ['shellby'], assignees: [github.view().login].filter(Boolean) });
-  } catch (e) {
-    log.warn('flaky issue', e.message);
-    return { ok: false, error: `GitHub didn't take it: ${e.message}` };
-  }
-  const next = flaky.setIssue(config.get('flaky'), key, id, { number: made?.number, url: made?.html_url }, Date.now());
-  const kept = next.projects[key]?.tests[id]?.issue;
-  if (!kept) {
-    log.warn('flaky issue', 'unexpected answer', JSON.stringify({ number: made?.number, url: made?.html_url }));
-    return { ok: false, error: "GitHub's answer didn't say which issue it made. Check the repository's issues before trying again." };
-  }
-  config.set({ flaky: next });
-  send(panel, 'flaky', flakyView());
-  return { ok: true, number: kept.number, url: kept.url };
-}
-
-// ================================================================ the week in review (weekly.js)
-
-// XP kinds the week-in-review counts (shipping comes from recordShipped instead).
-const WEEK_XP_KINDS = new Set(['fixed', 'tests', 'task', 'deps', 'focus', 'trick']);
-
-function noteWeek(kind, project = null) {
-  if (CAPTURE || !config) return;
-  config.set({ weekly: weekly.recordDay(config.get('weekly'), Date.now(), kind, project && { id: project.id, name: project.name }) });
-}
-
-// What the plan bought (the card's "What your plan bought you"): Claude's
-// working time, and each fix with the failures that would undo it.
-function noteWorkTime(ms) {
-  if (CAPTURE || !config || !(ms > 0)) return;
-  config.set({ weekly: weekly.recordTime(config.get('weekly'), Date.now(), ms) });
-}
-
-function noteFix(key) {
-  if (CAPTURE || !config) return;
-  config.set({ weekly: weekly.recordFix(config.get('weekly'), Date.now(), key) });
-}
-
-function noteRed(key) {
-  if (CAPTURE || !config) return;
-  config.set({ weekly: weekly.recordRed(config.get('weekly'), Date.now(), key) });
-}
-
-function weekView() {
-  const now = Date.now();
-  const xp = normalizeXp(config.get('xp'));
-  return weekly.weekSummary(config.get('weekly'), now, {
-    xp, stickers: stickerState(), streak: streaks.streakOf(config.get('streaks'), now), level: levelFor(xp.total),
-    usage: config.get('lastUsage'),
-  });
-}
-
-// Friday afternoon, a week with something shipped in it: he says so, and the
-// Trophies page has the card ready. Once a week, and never during focus.
-function checkWrapUp() {
-  if (CAPTURE || !config || config.get('crabOnly')) return;
-  const w = weekView();
-  const key = weekly.wrapUpDue(config.get('weekly'), Date.now(), w);
-  if (!key) return;
-  if (!sayText(`What a week: ${w.headline.charAt(0).toLowerCase()}${w.headline.slice(1)}!`, 'sticker', 9000)) return;
-  config.set({ weekly: weekly.markWrapped(config.get('weekly'), key) });
-  send(panel, 'week:ready', w);
-}
-
-// ================================================================ time on each project (timetrack.js)
-//
-// The window in front, Claude's work and git's reflogs say which project you're
-// on; the seconds add up per day for timesheets and invoices. Off until you
-// turn it on, and it never leaves this PC.
-let timeTracker = null;
-
-// Every project Shellby has seen you work in or ship: [{ key, name }], key the
-// repo's folder (case-folded on Windows, as streaks keep it).
-function knownProjects() {
-  const out = new Map();
-  for (const [key, p] of Object.entries(streaks.normalize(config.get('streaks')).projects)) out.set(key, { key, name: p.name });
-  for (const p of Object.values(stickerState().projects)) {
-    if (!p.root || p.from) continue; // a friend's gift has no folder here
-    const key = process.platform === 'win32' ? path.resolve(p.root).toLowerCase() : path.resolve(p.root);
-    if (!out.has(key)) out.set(key, { key, name: p.name });
-  }
-  return [...out.values()];
-}
-
-// `start: false` builds it without the 15-second tick (README screenshots,
-// where the window in front is your real editor, not demo data).
-function createTimeTracker({ start = true } = {}) {
-  timeTracker = new TimeTracker({
-    config,
-    toPanel: (channel, payload) => send(panel, channel, payload),
-    front: () => native.frontWindow(),
-    windowsAvailable: () => native.available(),
-    idle: () => ({ idleMs: powerMonitor.getSystemIdleTime() * 1000, locked: powerMonitor.getSystemIdleState(60) === 'locked' }),
-    selfPid: process.pid,
-    known: knownProjects,
-    // Where Claude is working right now: Shellby's busy tabs by folder, and
-    // sessions elsewhere by the folder name the plugin sends.
-    claudeAt: () => ({
-      dirs: [...(manager?.tabs.values() || [])].filter(t => t.session?.busy).map(t => t.worktree?.originalCwd || t.session?.cwd).filter(Boolean),
-      names: (external?.summary.sessions || []).filter(s => s.state === 'working' || s.state === 'asking').map(s => s.project),
-    }),
-    resolve: dir => projectOf(dir),
-    electron: { dialog, BrowserWindow, clipboard, shell, app },
-    panel: () => panel,
-  });
-  if (start) timeTracker.start();
-}
-
-// Sticker milestones for the trophies (wardrobe/achievements.js).
-function stickerStats(state) {
-  const n = stickers.stats(state);
-  stat('stickers-earned', { n: n.stickers });
-  stat('holo-stickers', { n: n.holo });
-  stat('one-point-oh', { n: n.onePointOh });
-  stat('stickered-shells', { n: n.shells });
-  stat('friend-stickers', { n: n.guests });
-}
-
-// Every shell he can wear, for the Sticker Book's editor: its spots and what's on it.
-function shellsForBook(state) {
-  const skin = activeSkin();
-  const level = currentLevel();
-  const worn = shellIdOf(wornShellObj());
-  const all = [null, ...shells.SHELLS.filter(s => level >= s.level)];
-  return all.map(sh => {
-    const id = shellIdOf(sh);
-    return {
-      id, name: sh ? sh.name : 'His own shell', worn: id === worn,
-      render: shells.renderShell(sh), slots: shellSpots(skin, sh).slots,
-      stickers: shellStickers(skin, sh, state),
-    };
-  });
-}
-
-/** The Sticker Book: every project shipped, its art, and the shells to put them on. */
-function stickersView() {
-  const s = stickerState();
-  const v = stickers.view(s, Date.now());
-  const roots = new Set(Object.values(s.projects).map(p => (p.root || '').toLowerCase()).filter(Boolean));
-  const quiet = streaks.normalize(config.get('streaks')).projects;
-  // Each project's last dependency checkup, by its folder (checkup.js).
-  const checked = new Map(checkupsView().map(c => [c.key.toLowerCase(), c]));
-  return {
-    ...v,
-    projects: v.projects.map(p => {
-      const root = s.projects[p.id].root;
-      const c = root && checked.get(root.toLowerCase());
-      return { ...p, art: drawSticker(s.projects[p.id]).full, deps: c ? { fresh: c.fresh, audit: c.audit, outdated: c.outdated } : null };
-    }),
-    shells: shellsForBook(s),
-    // Projects you work in that haven't shipped yet: silhouettes to earn.
-    waiting: Object.entries(quiet).filter(([key]) => !roots.has(key.toLowerCase()))
-      .sort((a, b) => b[1].lastSeen - a[1].lastSeen).slice(0, 12).map(([key, p]) => ({ key, name: p.name })),
-  };
-}
-
-/** The beach: a castle per project shipped, the tide, his finds (beach.js). Raises the high-water mark as it goes. */
-function beachView() {
-  const now = Date.now();
-  const streakState = streaks.normalize(config.get('streaks'));
-  const before = beach.normalize(config.get('beach'));
-  const state = beach.observe(before, streaks.streakOf(streakState, now).longest);
-  if (state.highWater !== before.highWater) config.set({ beach: state });
-  return beach.view({ stickerState: stickerState(), streakState, findState: gifts.normalize(config.get('finds')), state, now });
-}
-
-/** You've looked at the beach: what's on it now stops rising up as new. */
-function beachSeen() {
-  const v = beachView();
-  config.set({ beach: beach.markSeen(config.get('beach'), v.castles, Date.now()) });
-  return beachView();
-}
-
-// What the Projects page shows about each project, from where each part
-// already lives (projects/insights.js joins them up). Time only while it's on.
-function projectInsights() {
-  const now = Date.now();
-  const s = streaks.normalize(config.get('streaks'));
-  const tt = timetrack.normalize(timeTracker?.state ?? config.get('timeTracking'));
-  let time = null;
-  if (tt.enabled) {
-    const sum = timetrack.summarize(tt, timetrack.ranges(now).find(r => r.id === 'week'));
-    time = {
-      days: sum.days.map(d => d.day),
-      projects: sum.projects.map(p => ({ key: p.key, seconds: p.seconds, days: p.days.map(r => ({ day: r.day, seconds: r.total })) })),
-    };
-  }
-  const fl = flaky.normalizeFlaky(config.get('flaky'));
-  const st = stickerState();
-  return {
-    streaks: s.projects,
-    afterDays: s.afterDays,
-    time,
-    deps: depWatch ? depWatch.view().results : [],
-    flaky: flakyOn() ? flakyView().map(r => ({ ...r, root: fl.projects[r.key]?.root || null })) : [],
-    prs: ciView().prs,
-    stickers: Object.values(st.projects).filter(p => p.root && !p.from && !p.hidden).map(p => {
-      const v = stickers.projectView(st, p, now);
-      return { root: p.root, tierName: v.tierName, ships: v.ships, marks: v.marks.map(m => ({ icon: m.icon, name: m.name })), art: drawSticker(p).full };
-    }),
-  };
-}
-
-// An edit from the Sticker Book. Only shells he can wear right now can be decorated.
-function editStickers(shell, fn) {
-  const id = isStr(shell) ? shell : shellIdOf(wornShellObj());
-  const sh = id === stickers.HOME ? null : shells.SHELLS.find(s => s.id === id);
-  if (id !== stickers.HOME && (!sh || !shells.unlockedAt(id, currentLevel()))) return { ok: false, error: 'He has to grow into that shell first.', view: stickersView() };
-  const slots = shellSpots(activeSkin(), sh).slots.length;
-  const next = fn(config.get('stickers'), id, slots, Date.now());
-  config.set({ stickers: next });
-  stickerStats(next);
-  broadcastSkin();
-  const view = stickersView();
-  send(panel, 'stickers', view);
-  return { ok: true, view };
-}
-
-// Shell commands seen in Shellby's own tabs, so a successful result can be
-// scored (tests passed, pushed, deployed). tool_use id -> { command, project, dir }.
-const pendingCommands = new Map();
-
-// Feed the achievement system; unlocks celebrate via the wardrobe 'unlocked' event.
-function stat(event, payload) {
-  if (CAPTURE) return;
-  try { life?.onStat(event, payload); } catch (e) { log.warn('life stat failed', e.message); }
-  if (!wardrobe) return;
-  try { wardrobe.record(event, payload); } catch (e) { console.warn('[shellby] stat failed:', e.message); }
-}
-
-function onPermission(tabId, item, tab) {
-  wake();
-  askOnPhone(tabId, item, tab);
-  if (routineTests.has(tabId)) send(panel, 'routines:test-run', { id: tabId, status: 'running', waiting: { permission: true } });
-  if (panel.isVisible() && panel.isFocused()) return;
-  const who = item.agent ? `${item.agent.description || item.agent.type} (helper)` : tab.title;
-  if (item.toolName === 'AskUserQuestion') {
-    notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Answer' });
-    return;
-  }
-  notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
-}
-
-function onResult(tabId, item, tab) {
-  endTurn(tabId);
-  tab.guardRun = null;
-  noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
-  const fresh = tab.freshWanted;
-  tab.freshWanted = false;
-  if (tab.copyWanted) {
-    if (!item.interrupted) return moveIntoCopy(tab);
-    tab.copyWanted = false;
-  }
-  if (fresh && item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
-  // A task queued for the reset: the queue is waiting to hear how it went
-  // (releaseTask), and says so on the phone itself, with the result.
-  const waiting = queueWaits.get(tabId);
-  if (waiting) {
-    queueWaits.delete(tabId);
-    waiting({ ok: !!item.ok, interrupted: !!item.interrupted, error: item.error || null, reply: tab.lastReply, seconds: Math.round((item.durationMs || 0) / 1000) });
-    // Nobody's typing into it overnight: its idle process only holds memory.
-    if (!item.waiting?.length) tab.session.stop().catch(() => {});
-  } else if (queueTabs.has(tabId) && !heldList().some(h => h.tabId === tabId)) {
-    // A turn of your own in a finished queue tab: it's yours now, never closed to make room.
-    queueTabs.delete(tabId);
-  }
-  const routineId = routineTabs.get(tabId);
-  if (routineId) {
-    updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
-    // Nobody is typing into a routine's tab, so its idle process just holds
-    // memory until morning. The conversation stays: a reply resumes it. Not
-    // after a good turn that left something running in the background (a
-    // failed turn's leftovers go with it).
-    if (!item.waiting?.length) tab.session.stop().catch(() => {});
-  }
-  // Build it with Claude's test run ended: the editor's chat hands it back to Claude.
-  if (routineTests.has(tabId)) send(panel, 'routines:test-run', routineTestView(tabId));
-  noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));
-  // A workflow's Claude step: the workflow carries on and says what it wants
-  // said, so no "finished" toast or phone ping for each step.
-  const inWorkflow = !!tab.workflowRunId;
-  // A "fix this dev server" tab finished: its card offers the restart.
-  if (!item.interrupted) devServers?.onTabDone(tabId, !!item.ok);
-  if (!inWorkflow && !item.interrupted) {
-    workflows?.event('task', { title: tab.title, outcome: item.ok ? 'ok' : 'error', folder: tab.worktree?.originalCwd || tab.session?.cwd || '', error: item.error || null });
-  }
-  if (!item.interrupted) flashState(item.ok ? 'success' : 'error');
-  if (item.ok && !item.interrupted) {
-    const fx = outfit().effect;
-    if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
-    stat('task-completed');
-    awardXp('task', { label: tab.title });
-    if (!inWorkflow && !routineId) roomTaskDone(); // tasks you gave him, not ones that ran by themselves
-    recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
-  }
-  if (!item.interrupted && !inWorkflow && !waiting) {
-    tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
-  }
-  if (item.interrupted || inWorkflow || (panel.isVisible() && panel.isFocused())) return;
-  const secs = Math.round((item.durationMs || 0) / 1000);
-  if (item.ok && item.waiting?.length) {
-    notify(`Shellby is waiting: ${tab.title}`, `Still running in the background: ${item.waiting.join(', ').slice(0, 120)}`, () => showPanel({ tabId }));
-    return;
-  }
-  notify(item.ok ?`${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
-    item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
-    () => showPanel({ tabId }), { tone: item.ok ? 'default' : 'problem' });
-}
-
-// "Start fresh with a summary": the summary turn has ended, so the same tab
-// begins a new Claude conversation (no --resume) with the summary as its first
-// message. The tab keeps its copy, its History entry and its transcript.
-async function startFresh(tab, summary) {
-  const session = tab.session;
-  session.setBusy(true); // a message typed meanwhile waits for the new conversation
-  await session.stop();
-  if (!manager.tabs.has(tab.id)) return;
-  session.sessionId = null;
-  session.setContext(0);
-  // Until the new conversation reports its id, reopening the tab starts it afresh rather than resuming the old one.
-  history.update(tab.id, { claudeSessionId: null, context: null });
-  manager.note(tab.id, { kind: 'fresh' });
-  if (tab.freshCrowded) awardXp('fresh', { label: tab.title });
-  tab.freshCrowded = false;
-  session.setBusy(false);
-  try { session.send(ctx.handoffPrompt(summary), manager.prepareTurn(tab)); } catch (err) { log.info(`fresh start: ${err.message}`); }
-}
-
-// While Shellby guards your focus, notifications that can wait are held back
-// and summed up afterwards. Urgent ones (a task waiting for your OK, a health
-// alert) still come through.
-let heldNotices = [];
-let toastArt; // undefined until the first notification, null if it couldn't be copied
-// tone picks the banner (toast.TONES); urgent ones default to 'alert'. action
-// adds a button that does what clicking the notification does.
-function notify(title, body, onClick, { urgent = false, tone = urgent ? 'alert' : 'default', action = null } = {}) {
-  if (!urgent && config && focus.guarding(config.get('focus'), Date.now())) {
-    heldNotices = [...heldNotices, title].slice(-20);
-    return;
-  }
-  // Dev, test and screenshot runs never post OS notifications: their toasts
-  // outlive the process, and clicking a stale one relaunches bare electron.exe
-  // (Electron's default page). SHELLBY_ALLOW_NOTIFY=1 opts a dev run back in.
-  if (CAPTURE || (!app.isPackaged && process.env.SHELLBY_ALLOW_NOTIFY !== '1')) return;
-  if (!config.get('notifications') || !Notification.isSupported()) return;
-  const plain = () => {
-    const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
-    if (onClick) n.on('click', onClick);
-    n.show();
-  };
-  if (toastArt === undefined) toastArt = toast.prepareArt(path.join(ROOT, 'assets', 'toast'), path.join(app.getPath('userData'), 'toast-art'));
-  if (!toastArt) return plain();
-  const n = new Notification({ toastXml: toast.xml({ title: title.slice(0, 80), body, tone, action: onClick ? action : null, artDir: toastArt }) });
-  if (onClick) n.on('click', onClick);
-  // If Windows ever turns the Shellby look down, say it plainly instead.
-  n.once('failed', (_e, error) => { log.info(`themed notification failed: ${error}`); plain(); });
-  n.show();
-}
-
-function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null } = {}) {
-  return manager.open({ tabId, cwd, historyEntry, mode, routineId, workflowRunId, title });
-}
-
-// A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
-// in its own tab in the foreground, in the current permission mode. opts.cwd
-// runs it somewhere other than the current folder (a project review).
-function startTask(prompt, title, { mode = null, cwd = null } = {}) {
-  if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
-  try {
-    const tabId = randomUUID();
-    // His own errands work in your real checkout: a copy would start from the
-    // last commit, and "look over my changes" is about what isn't committed yet.
-    openTab({ tabId, title, mode, ...(cwd ? { cwd } : {}) }).noCopy = true;
-    manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
-    wake();
-    send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
-    return { ok: true, tabId };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-}
-
-// A message of yours into an open tab: what you type (task:send), or one held
-// for after the usage reset (releaseMessage). Returns { ok, tabId, turnId,
-// item } or { ok: false, error }.
-function sendToTab(tabId, text, files) {
-  if (!claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, error: 'Finish setup first: Claude Code needs to be installed and signed in.' };
-  try {
-    const tab = manager.tabs.get(tabId);
-    if (!tab) return { ok: false, error: 'That conversation is closed.' };
-    // Nothing typed: the conversation is named for what was attached.
-    const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';
-    // Commands you ran with ! since your last message go to Claude with this one.
-    const ran = shellCmd.contextFor(tab.shellRuns);
-    tab.shellRuns = [];
-    // !! sends a message that starts with !; Up brings it back as typed, still !!.
-    const said = text.startsWith('!!') ? text.slice(1) : text;
-    const turnId = manager.send(tabId, composePrompt(ran + said, files), { kind: 'user', text: said, attachments: files, title });
-    rememberPrompt(text);
-    wake();
-    return { ok: true, tabId, turnId, item: { kind: 'user', text: said, attachments: files, turnId } };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-}
-
-function showHealth() {
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'health');
-}
-
-function createHealth() {
-  // Dev runs can fake a scenario (SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu|hotdrive|cluttered);
-  // screenshot runs always do. Packaged builds only ever read real sensors.
-  const envFake = !app.isPackaged && FAKE_SCENARIOS.includes(process.env.SHELLBY_FAKE_HEALTH) ? process.env.SHELLBY_FAKE_HEALTH : null;
-  health = new HealthService({
-    config, send, stat, startTask, showHealth,
-    notify: (title, body, onClick) => {
-      tellChannel({ kind: 'health', title, body });
-      notify(title, body, onClick, { urgent: true });
-      workflows?.event('health', { title, body });
-    },
-    getPanel: () => panel,
-    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
-    selfPids: () => app.getAppMetrics().map(m => m.pid),
-    ownedPids: () => processJob.ownedPids(),
-    fakeScenario: CAPTURE ? 'calm' : envFake,
-    onMood: mood => { healthMood = mood; refreshCritter(); },
-  });
-}
-
-// Claude Code sessions outside Shellby, reported by the Shellby plugin's hooks.
-function createExternal() {
-  // Isolated dev/test runs never take the real port (that's the installed Shellby's).
-  const port = (!app.isPackaged && Number(process.env.SHELLBY_HOOK_PORT)) || (ISOLATED ? 0 : HOOK_PORT);
-  external = new ExternalSessions({ port });
-  external.on('changed', summary => { refreshCritter(); send(panel, 'external', { ...summary, status: external.status, port: external.port, enabled: !!config.get('externalSessions') }); });
-  external.on('status', () => send(panel, 'external', externalView()));
-  external.on('command-ok', e => {
-    awardXp(e.kind, { project: e.project });
-    if (e.cwd && e.ship) shipped(e.cwd, e.ship.kind, { version: e.ship.version });
-  });
-  external.on('checkup', e => checkedUp(e.dir, e.check, e.result));
-  external.on('turn-done', e => {
-    awardXp('task', { project: e.project });
-    noteWorkTime(e.ms);
-    tellChannel({ kind: 'done', project: e.project, tools: e.tools });
-    recordWork(e.cwd);
-    flashState('success');
-    const fx = outfit().effect;
-    if (fx?.motion === 'burst') send(critter, 'critter:burst', fx);
-    stat('task-completed');
-  });
-  external.on('asking', e => { wake(); tellChannel({ kind: 'asking', project: e.project, message: e.message }); });
-  if (config.get('externalSessions')) external.start();
-}
-
-function externalView() {
-  return { ...(external ? external.summary : { sessions: [], status: 'off' }), enabled: !!config.get('externalSessions') };
-}
-
-// Pictures go inline as image blocks; everything attached is listed by path too.
-// See attachments.js.
-const shotsDir = () => path.join(app.getPath('userData'), 'screenshots');
-const composePrompt = (text, files) => attach.composeContent(text, files, f => attach.loadForClaude(f, { nativeImage }));
-
-// The clipboard's picture (a Win+Shift+S snip) as a new task: from the crab's menu.
-function taskFromClipboard() {
-  const saved = attach.saveNative(clipboard.readImage(), shotsDir());
-  if (saved.error) return notify('No screenshot', `${saved.error} Press Win+Shift+S to snip one.`);
-  stat('files-dropped');
-  showPanel();
-  send(panel, 'panel:attach', [saved.path]);
-}
-const clipboardHasImage = () => { try { return clipboard.availableFormats().some(t => t.startsWith('image/')); } catch { return false; } };
-
-// ================================================================ driving the crab
-
-// The MCP server (claude-plugin/mcp/server.js) and the `shellby` command post
-// here through the hooks port. Everything they ask for is checked again on this
-// side: that port is reachable by anything running on this PC.
-function createCrabApi() {
-  external.onCrab = body => applyCrabIntent(body);
-  external.onCli = (body, { token }) => runCliRequest(body, token);
-}
-
-/**
- * Put a line in his bubble that didn't come from voice.js (an MCP `say`, a
- * track that just started). Held back while he guards your focus, exactly like
- * one of his own remarks.
- */
-function sayText(text, occasion, ms = 9000) {
-  if (CAPTURE || !config || !critter) return false;
-  if (focus.guarding(config.get('focus'), Date.now()) || life?.hushed()) return false;
-  said = { text: String(text).slice(0, 120), occasion, until: Date.now() + ms };
-  chirp(occasion);
-  refreshCritter();
-  setTimeout(refreshCritter, ms + 50);
-  return true;
-}
-
-function applyCrabIntent(body) {
-  const checked = crabtools.parseRequest(body);
-  if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
-  const intent = checked.intent;
-
-  if (intent.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
-
-  if (intent.action === 'list_routines' || intent.action === 'add_routine') {
-    if (config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };
-    if (intent.action === 'list_routines') return { text: crabtools.routinesReply(routinesView()) };
-    return proposeRoutine(intent.routine);
-  }
-
-  if (['list_workflows', 'run_workflow', 'add_workflow'].includes(intent.action)) {
-    if (config.get('crabOnly') || !workflows) return { ok: false, error: 'Workflows are off: Shellby is in just-the-crab mode.', status: 403 };
-    if (intent.action === 'list_workflows') return { text: crabtools.workflowsReply(workflows.claudeList()) };
-    if (intent.action === 'run_workflow') return workflows.runFromClaude(intent.name, intent.inputs, 'claude');
-    wake();
-    return workflows.proposeFromClaude(intent.workflow);
-  }
-
-  if (intent.action === 'wear') {
-    const items = wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
-    const match = crabtools.matchItem(intent.item, items);
-    if (match.item) {
-      const r = wardrobe.setOutfit({ [match.item.slot]: match.item.id });
-      if (!r.ok) return { ok: false, error: r.error, status: 400 };
-    }
-    return { text: crabtools.wearReply(match, intent.item) };
-  }
-
-  // say and celebrate both put something in his bubble. They go through the
-  // same gate his own remarks do, so "guard my focus" still means quiet.
-  wake();
-  if (intent.action === 'celebrate') {
-    flashState('success');
-    const fx = outfit().confetti;
-    if (fx) send(critter, 'critter:burst', fx);
-  }
-  if (intent.text) sayText(intent.text, 'mcp');
-  return { text: crabtools.ackReply(intent) };
-}
-
-/** Everything `status` reports, gathered from the parts that own it. */
-function crabStatusView() {
-  const v = xpView();
-  const own = manager?.aggregate || { state: 'idle', busy: 0 };
-  const ext = external?.summary || { state: 'idle', busy: 0 };
-  return {
-    level: v.level, title: v.title, xp: v.xp,
-    state: own.state === 'asking' || ext.state === 'asking' ? 'asking' : own.state === 'working' || ext.state === 'working' ? 'working' : 'idle',
-    busy: own.busy + ext.busy,
-    mood: healthMood,
-    sample: health?.monitor?.latest || null,
-    limit: limitWait(),
-    focus: focusState(),
-  };
-}
-
-// ================================================================ the shellby command
-
-const cliTokenPath = () => clipath.tokenPath(app.getPath('userData'));
-// An isolated dev/test run keeps its copy of the command inside its own profile:
-// e2e-integrations installs and removes it, and must not delete the real one.
-const cliBinDir = () => clipath.binDir(ISOLATED ? app.getPath('userData')
-  : process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'));
-
-function cliSettings() {
-  const raw = config.get('cli');
-  return { installed: !!(raw && raw.installed) };
-}
-
-/** The token the command authenticates with, made on first install. */
-function readCliToken() {
-  try { return fs.readFileSync(cliTokenPath(), 'utf8').trim() || null; } catch { return null; }
-}
-
-/**
- * A `shellby do` from a terminal. The token keeps out web pages and other
- * accounts; it does not pretend to keep out the user's own programs, which is
- * why the task still shows up as a task they can see and stop.
- */
-function runCliRequest(body, token) {
-  if (!cliSettings().installed) return { ok: false, error: 'The shellby command is turned off.', status: 403 };
-  const expected = readCliToken();
-  if (!expected || !clipath.tokenMatches(expected, token)) return { ok: false, error: 'Wrong token.', status: 401 };
-
-  if (body?.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
-  if (body?.action === 'snippets') return { text: snippets.cliText(allSnippets()) };
-  // Your hours are yours: behind the token, unlike status.
-  if (body?.action === 'time') {
-    const range = ['today', 'week', 'last-week', 'month', 'last-month'].includes(body.range) ? body.range : 'week';
-    if (!timeTracker) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
-    return timeTracker.cliText(range, { estimates: body.estimates === true }).then(text => ({ text }));
-  }
-  if (body?.action === 'flow-list' || body?.action === 'flow-run') {
-    if (config.get('crabOnly') || !workflows) return { ok: false, error: 'Workflows are off: Shellby is in just-the-crab mode.', status: 403 };
-    const flow = clipath.parseFlowRequest(body);
-    if (!flow.ok) return { ok: false, error: flow.error, status: 400 };
-    if (flow.request.action === 'flow-list') return { text: crabtools.workflowsReply(workflows.claudeList()) };
-    return workflows.runFromClaude(flow.request.name, flow.request.inputs, 'terminal');
-  }
-  const checked = clipath.parseTaskRequest(body, { modes: MODES.filter(m => m !== 'autonomous'), isDir: d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } } });
-  if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
-
-  const { cwd, mode, snippet } = checked.task;
-  let { prompt } = checked.task;
-  if (snippet) {
-    const x = expandSnippet(snippet, prompt, { sigil: '@', max: 4000, cwd: cwd || undefined });
-    if (!x) return { ok: false, error: snippets.unknownText(snippet, allSnippets(cwd || undefined)), status: 404 };
-    if (!x.ok) return { ok: false, error: x.error, status: 400 };
-    prompt = x.prompt;
-  }
-  const r = startTask(prompt, snippet ? `@${snippet} from the terminal` : 'From the terminal', { mode, cwd });
-  if (!r.ok) return { ok: false, error: r.error || 'Shellby could not start that.', status: 400 };
-  if (snippet) noteSnippetUse(snippet);
-  showPanel({ focusInput: false, tabId: r.tabId });
-  wake();
-  return { text: 'Shellby is on it.' };
-}
-
-/** Write the command, its shims and its token, and put the folder on PATH. */
-async function installCli() {
-  const dir = cliBinDir();
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.copyFileSync(path.join(__dirname, '..', 'cli', 'shellby.js'), path.join(dir, 'shellby.js'));
-    fs.writeFileSync(path.join(dir, 'cli-version.json'), JSON.stringify({ version: app.getVersion() }));
-    fs.writeFileSync(path.join(dir, 'shellby.cmd'), clipath.cmdShim());
-    fs.writeFileSync(path.join(dir, 'shellby'), clipath.shShim());
-    fs.writeFileSync(path.join(dir, 'shellby.ps1'), clipath.ps1Shim());
-    if (!readCliToken()) fs.writeFileSync(cliTokenPath(), clipath.newToken(), { mode: 0o600 });
-    const onPath = await addToUserPath(dir);
-    config.set({ cli: { installed: true } });
-    return { ok: true, dir, onPath };
-  } catch (e) {
-    return { ok: false, error: `Couldn't set it up: ${e.message}` };
-  }
-}
-
-async function removeCli() {
-  const dir = cliBinDir();
-  try {
-    await removeFromUserPath(dir);
-    for (const f of ['shellby.js', 'shellby.cmd', 'shellby', 'shellby.ps1', 'cli-version.json']) {
-      fs.rmSync(path.join(dir, f), { force: true });
-    }
-    fs.rmSync(cliTokenPath(), { force: true });   // a fresh install gets a fresh token
-    config.set({ cli: { installed: false } });
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
-}
-
-// HKCU only: no admin rights, and the machine PATH is never touched.
-function userPath() {
-  return new Promise(resolve => {
-    runCli(system32.REG, ['query', 'HKCU\\Environment', '/v', 'Path'], 5000).then(r => {
-      const m = r.ok && /\sPath\s+REG_(?:EXPAND_)?SZ\s+(.*)/i.exec(r.stdout || '');
-      resolve(m ? m[1].trim() : '');
-    }).catch(() => resolve(''));
-  });
-}
-
-async function setUserPath(value) {
-  // setx truncates past 1024 characters, so the value goes in through reg.
-  const r = await runCli(system32.REG, ['add', 'HKCU\\Environment', '/v', 'Path', '/t', 'REG_EXPAND_SZ', '/d', value, '/f'], 8000);
-  // Tell Explorer, so a new terminal from the Start menu sees it. Best effort:
-  // the PATH is already written, and signing out would pick it up regardless.
-  if (r.ok) await runCli(system32.POWERSHELL, clipath.settingChangeArgs(), 15000);
-  return !!r.ok;
-}
-
-async function addToUserPath(dir) {
-  // A dev or test run has its own profile; it must not edit the PATH the real
-  // installed Shellby (and the person using this PC) depends on.
-  if (process.platform !== 'win32' || ISOLATED) return false;
-  const current = await userPath();
-  if (clipath.isOnPath(current, dir)) return true;
-  return setUserPath(clipath.pathWith(current, dir));
-}
-
-async function removeFromUserPath(dir) {
-  if (process.platform !== 'win32' || ISOLATED) return false;
-  const current = await userPath();
-  if (!clipath.isOnPath(current, dir)) return true;
-  return setUserPath(clipath.pathWithout(current, dir));
-}
-
-function cliView() {
-  // The command reaches him over the sessions port; with that off it can't.
-  return { ...cliSettings(), dir: cliBinDir(), available: process.platform === 'win32', listening: !!config.get('externalSessions') };
-}
-
-// ================================================================ telling you elsewhere
-
-const channelSettings = () => channels.normalizeChannelSettings(config.get('channels'));
-
-// Where things go, as one string: the place, whether it may answer, and which
-// token (hashed) sends them. Nothing goes out unless you said yes to exactly
-// this in the confirmation window, so a panel that changes any part of it
-// (another topic, a bot of someone else's, replies on) can't quietly get your
-// permission prompts, let alone answer them.
-function channelPlace(s = channelSettings(), secret = channelSecret) {
-  const key = secret ? crypto.createHash('sha256').update(secret).digest('hex').slice(0, 16) : '';
-  return `${s.provider}|${s.target}|${s.replies ? 'replies' : 'tell'}|${key}`;
-}
-const channelConfirmed = (s = channelSettings()) => config.get('channelsConfirmed') === channelPlace(s);
-
-/**
- * After any change: a destination you haven't confirmed is asked about, or
- * switched off. testing: asked for the Test button, which works while it's off
- * (a no then leaves it as it was). Resolves whether it's confirmed now.
- */
-async function confirmChannelPlace({ testing = false } = {}) {
-  const s = channelSettings();
-  if ((!s.enabled && !testing) || !s.target || channelConfirmed(s)) return channelConfirmed(s);
-  // From here on the startup grandfathering (0.46.1) never applies: a question
-  // left open when Shellby quit must not count as a yes next time.
-  if (config.get('channelsConfirmed') == null) config.set({ channelsConfirmed: '' });
-  const label = channels.PROVIDERS[s.provider]?.label || s.provider;
-  const response = await confirm.ask(panel, {
-    ...dialogLook(), icon: '📱', danger: s.replies,
-    title: 'Send notifications here?',
-    message: `${label}: ${s.target}`.slice(0, 200),
-    detail: s.replies
-      ? 'Shellby will send what he is doing there, including his permission prompts, and take Allow or Deny answers back from it.'
-      : 'Shellby will send what he is doing there, including what his permission prompts ask.',
-    note: 'Only say yes if you set this up yourself.',
-    buttons: [{ label: 'Send them there', ...(s.replies ? { style: 'danger' } : {}) }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-  });
-  if (response === 0) { config.set({ channelsConfirmed: channelPlace(s) }); return true; }
-  if (!testing) config.set({ channels: { ...s, enabled: false } });
-  return false;
-}
-
-function loadChannelSecret() {
-  const raw = config.get('channelSecret');
-  if (!raw || !safeStorage.isEncryptionAvailable()) return '';
-  try { return safeStorage.decryptString(Buffer.from(raw, 'base64')); } catch { return ''; }
-}
-
-function saveChannelSecret(secret) {
-  if (!secret) { config.set({ channelSecret: null }); channelSecret = ''; return; }
-  channelSecret = secret;
-  // Encrypted by Windows, exactly like the GitHub token: never in settings.json
-  // in the clear.
-  if (safeStorage.isEncryptionAvailable()) config.set({ channelSecret: safeStorage.encryptString(secret).toString('base64') });
-}
-
-/**
- * Send one event, if the user asked for that kind. Never throws, never waits.
- * onSent(result, message) hears how it went, when it went at all.
- */
-function tellChannel(event, onSent = () => {}) {
-  if (!config) return false;
-  const settings = channelSettings();
-  if (!channels.shouldSend(event, settings, { focused: focus.guarding(config.get('focus'), Date.now()) })) return false;
-  if (!channelConfirmed(settings)) { log.info('channel: destination not confirmed, nothing sent'); return false; }
-  const built = channels.buildRequest(settings, channelSecret, event);
-  if (built.error) { log.info(`channel: ${built.error}`); return false; }
-  channels.deliver(built.request)
-    .then(r => { if (!r.ok) log.info(`channel: ${r.error}`); onSent(r, built.message); })
-    .catch(() => onSent({ ok: false }, built.message));
-  return true;
-}
-
-// A permission prompt goes to the phone, with Allow / Deny on it when you've
-// said it may and the prompt is one the phone is allowed to answer (replies.js).
-function askOnPhone(tabId, item, tab) {
-  const event = { kind: 'asking', project: tab.title, message: `${item.label || ''} ${item.detail || ''}`.trim() };
-  const settings = channelSettings();
-  if (!settings.replies || channels.replyProblem(settings, { hasSecret: !!channelSecret })) return tellChannel(event);
-  const deskOnly = deskOnlyReason(item);
-  if (deskOnly) return tellChannel({ ...event, deskOnly });
-  const nonce = remote.register({ tabId, requestId: item.requestId, provider: settings.provider });
-  const went = tellChannel({ ...event, reply: { nonce } }, (r, m) => {
-    if (r.ok) remote.sent(nonce, { data: r.data, text: `${m.emoji} ${m.title}\n${m.body}` });
-    else remote.forget(nonce);
-  });
-  if (!went) remote.forget(nonce);
-  return went;
-}
-
-// The one way a permission prompt gets answered, from the card or the phone.
-function answerPermission(tabId, requestId, decision, { message, answers, via } = {}) {
-  const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
-  if (pending) {
-    stat('permission-answered');
-    if (decision !== 'deny' && pending.runsCreated?.length) stat('created-script-approved');
-    if (decision !== 'deny' && pending.toolName === 'ExitPlanMode') stat('plan-approved');
-  }
-  return manager.respond(tabId, requestId, decision, message, answers, via);
-}
-
-function createRemote() {
-  remote = new RemoteAnswers({
-    getChannel: () => ({ settings: channelSettings(), secret: channelSecret }),
-    // Belt and braces: replies.js already refuses these, but the phone never
-    // gets to answer anything the card would have warned about.
-    onAnswer: (tabId, requestId, decision) => {
-      const pending = manager.tabs.get(tabId)?.session.pending.get(requestId);
-      if (!pending || deskOnlyReason(pending) || !['allow', 'deny'].includes(decision)) return false;
-      log.info(`replies: ${decision} from the phone for ${pending.toolName}`);
-      return answerPermission(tabId, requestId, decision, { via: 'phone' });
-    },
-    log: m => log.info(`replies: ${m}`),
-  });
-}
-
-function channelsView() {
-  const v = channels.view(channelSettings(), { hasSecret: !!channelSecret });
-  return v.subscribeUrl ? { ...v, qr: qrRows(v.subscribeUrl) } : v;
-}
-
-// ================================================================ on a stream
-
-function obsSettings() {
-  const raw = config.get('obs');
-  const port = Number(raw?.port);
-  return { enabled: !!raw?.enabled, port: Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : 47914 };
-}
-
-function createObs() {
-  obsServer = new ObsServer({
-    srcDir: path.join(__dirname, '..'),
-    assetsDir: path.join(ROOT, 'assets'),
-    port: obsSettings().port,
-    getState: obsState,
-  });
-  obsServer.on('status', v => send(panel, 'obs', { ...v, ...obsSettings() }));
-  obsServer.on('viewers', () => send(panel, 'obs', obsView()));
-  if (obsSettings().enabled) obsServer.start();
-}
-
-// What the browser source draws: the same skin, outfit and state the desktop
-// critter is given.
-function obsState() {
-  if (!config) return null;
-  const own = manager?.aggregate || { state: 'idle', busy: 0, crew: [] };
-  const ext = external?.summary || { state: 'idle', busy: 0, crew: [] };
-  return {
-    skin: activeSkin(),
-    outfit: outfit(),
-    px: px(),
-    state: lastStatus.state,
-    busy: own.busy + ext.busy,
-    crew: [...own.crew, ...ext.crew].slice(0, MAX_CREW_SHOWN),
-    say: said,
-  };
-}
-
-const obsView = () => ({ ...(obsServer ? obsServer.view() : { status: 'off', viewers: 0 }), ...obsSettings() });
-
-// ================================================================ the desk lighting
-
-function rgbSettings() {
-  const raw = config.get('rgb');
-  const port = Number(raw?.port);
-  return { enabled: !!raw?.enabled, port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : 6742 };
-}
-
-function createRgb() {
-  rgbClient = new OpenRgbClient({ port: rgbSettings().port });
-}
-
-let lastRgbColor = '';
-function paintLights() {
-  if (!rgbClient || !rgbSettings().enabled) return;
-  const color = colorFor({ state: lastStatus.state, mood: healthMood?.mood, ciFailing: ci?.view().failing || 0 });
-  if (!color) return;
-  const key = `${color.r},${color.g},${color.b}`;
-  if (key === lastRgbColor) return;      // the crab refreshes many times a second
-  lastRgbColor = key;
-  rgbClient.setAll(color).then(r => {
-    if (!r.ok) { log.info(`rgb: ${r.error}`); return; }
-    // The first paint since switching on: remember how each device was, so
-    // switching off can hand the user's own lighting back.
-    if (!config.get('rgbSaved')) config.set({ rgbSaved: r.devices.map(({ id, name, saved }) => ({ id, name, saved })) });
-  }).catch(() => {});
-}
-
-/** Switching off: put every device back the way the first paint found it. */
-function restoreLights(client) {
-  const saved = config.get('rgbSaved');
-  if (!saved) return Promise.resolve({ ok: true });
-  return client.restore(saved).then(r => {
-    if (r.ok) config.set({ rgbSaved: null });
-    else log.info(`rgb restore: ${r.error}`);
-    return r;
-  });
-}
-
-let rgbSetup = null; // 'installing' | 'starting' while Shellby gets OpenRGB going
-
-const rgbView = () => ({
-  ...rgbSettings(),
-  devices: rgbClient?.devices || null,
-  error: rgbClient?.lastError || null,
-  installed: !!openRgbSetup.findOpenRgb(),
-  setup: rgbSetup,
-});
-
-/**
- * Probe OpenRGB, starting it first if it's installed but not running; then
- * paint. One attempt at a time: startup, the switch and the button can all ask
- * at once, and each launching its own OpenRGB would fight over the port.
- */
-let ensuring = null;
-function ensureOpenRgb() {
-  if (rgbSetup === 'installing') return Promise.resolve({ ok: false, error: 'Installing OpenRGB…' }); // not a half-installed exe
-  if (ensuring) return ensuring;
-  rgbSetup = 'starting';
-  ensuring = openRgbSetup.ensureRunning({ probe: () => rgbClient.probe(), port: rgbSettings().port })
-    .then(r => { if (r.ok) { lastRgbColor = ''; paintLights(); } return r; })
-    .catch(e => ({ ok: false, error: e?.message || "Couldn't reach OpenRGB." }))
-    .finally(() => { ensuring = null; if (rgbSetup === 'starting') rgbSetup = null; });
-  return ensuring;
-}
-
-/** Install OpenRGB (after asking in the isolated confirm window), then start it. */
-let rgbInstallAsking = false;
-async function confirmAndInstallOpenRgb() {
-  // Main decides, not the panel's disabled button: one question, one install.
-  if (rgbInstallAsking || rgbSetup === 'installing') return rgbView();
-  if (openRgbSetup.findOpenRgb()) return { ...rgbView(), ...(await ensureOpenRgb()) };
-  rgbInstallAsking = true;
-  let response;
-  try {
-    response = await confirm.ask(panel, {
-      ...dialogLook(), icon: '💡',
-      title: 'Install OpenRGB?',
-      message: 'Shellby installs OpenRGB with winget, then starts it in the tray with its SDK server on.',
-      detail: `OpenRGB is free and open source (GPL-2.0). winget downloads the official installer (${openRgbSetup.WINGET_ID}) from OpenRGB's GitHub release, and Windows asks for permission to install it.`,
-      note: 'The first time it runs, OpenRGB may ask for admin access too, so it can reach your motherboard and RAM lighting.',
-      buttons: [{ label: 'Install it', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-    });
-  } finally {
-    rgbInstallAsking = false;
-  }
-  if (response !== 0) return rgbView();
-  rgbSetup = 'installing';
-  let installed;
-  try { installed = await openRgbSetup.installOpenRgb(); } finally { rgbSetup = null; }
-  if (!installed.ok) return { ...rgbView(), ok: false, error: installed.error, noWinget: !!installed.noWinget };
-  return { ...rgbView(), ...(await ensureOpenRgb()) };
-}
-
-// ================================================================ listening along
-
-function mediaSettings() {
-  const raw = config.get('nowPlaying');
-  return {
-    enabled: !!raw?.enabled,
-    headphones: raw?.headphones !== false,   // on by default once the feature is
-    remarks: raw?.remarks !== false,
-  };
-}
-
-function createMedia() {
-  media = new MediaWatcher();
-  media.on('track', track => {
-    nowPlaying = track;
-    // The headphones go on and come off with the music, like the focus helmet.
-    broadcastSkin();
-    refreshCritter();
-    send(panel, 'nowplaying', mediaView());
-    if (track?.playing && mediaSettings().remarks) {
-      const remark = trackRemark(track);
-      if (remark) sayText(remark.text, 'music');
-    }
-  });
-  media.on('status', () => send(panel, 'nowplaying', mediaView()));
-  if (mediaSettings().enabled) media.start();
-}
-
-// ---------------------------------------------------------------- push-to-talk
-
-// Tap the hotkey: the panel, as ever. Hold it (with push-to-talk on): he
-// listens, and what you said is in the box when you let go. See dictation.js.
-// ================================================================ his life between tasks
-
-// Free to play: not working or asking (a trophy's celebration or a nap doesn't count), nobody else beside him.
-const playerFree = () => !['working', 'asking'].includes(lastStatus.state) && !crewShown && !guestShown && !dragging
-  && !perching?.isAway() && !focus.guarding(config.get('focus'), Date.now());
-
-// Who has the microphone, from Windows' own list (surroundings.js reads it).
-const readMic = key => new Promise((resolve, reject) => {
-  require('child_process').execFile('reg', ['query', key, '/s'], { windowsHide: true, timeout: 5000, maxBuffer: 2 * 1024 * 1024 }, (err, out) => (err ? reject(err) : resolve(String(out))));
-});
-
-function createLifeAndPlay() {
-  const sendCritter = (channel, payload) => send(critter, channel, payload);
-  const burst = () => send(critter, 'critter:burst', outfit().confetti);
-  life = createLife({
-    config, native,
-    enabled: () => !CAPTURE && !!critter && !critter.isDestroyed(),
-    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
-    speak: (occasion, opts) => speak(occasion, opts),
-    say: (text, ms, occasion) => sayText(text, occasion, ms),
-    dialogue: () => (wardrobe ? wardrobe.dialogue() : null),
-    toCrab: sendCritter,
-    toPanel: (channel, payload) => send(panel, channel, payload),
-    // You're at your PC: he stays up (refreshCritter puts him to sleep SLEEP_AFTER_MS after this).
-    touch: () => { lastActivity = Date.now(); if (lastStatus.state === 'sleeping') refreshCritter(); },
-    refresh: () => refreshCritter(),
-    stat, awardXp, burst,
-    systemIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return null; } },
-    isIdle: () => lastStatus.state === 'idle' && !dragging && !perching?.isUp() && !climbing?.busy() && !pranks?.busy(),
-    working: () => ['working', 'asking'].includes(lastStatus.state),
-    playing: () => !!playtime?.busy(),
-    guarding: () => focus.guarding(config.get('focus'), Date.now()),
-    music: () => !!nowPlaying?.playing,
-    seasons: () => activeSeasons(new Date(), seasonsWhere()).map(x => x.id),
-    calm: () => calmReason === 'locked',
-    // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.
-    eyePoint: () => {
-      if (!critter || critter.isDestroyed()) return null;
-      const b = critter.getBounds();
-      const self = 22 * px() + 72;
-      return { x: b.x + b.width - self / 2 + 4 * px(), y: b.y + b.height - 18 - 12 * px() };
-    },
-    cursor: () => screen.getCursorScreenPoint(),
-    throws: () => wardrobe?.stats.timesThrown || 0,
-    firstDay: () => { const days = wardrobe?.stats.activeDays || []; return days.length ? new Date(`${days[0]}T12:00:00`).getTime() : null; },
-    readMic,
-    ownExes: () => [process.execPath],
-    bootAt: () => Date.now() - os.uptime() * 1000, // mic sessions older than this are stale (surroundings.js)
-    ownPids: () => [process.pid],
-    leavePerch: () => { if (perching?.isUp()) perching.leave('call'); },
-    playView: () => playtime?.view() || null,
-    log: msg => log.warn(msg),
-  });
-  playtime = createPlaytime({
-    config, native, screen,
-    ownPids: () => [process.pid],
-    isFree: playerFree,
-    prepare: () => { life.cancel(); life.wake(); motion?.stop(); wake(); },
-    getPos: () => { const [x, y] = critter.getPosition(); return { x, y }; },
-    bounds: () => critter.getBounds(),
-    place: (x, y) => placeCritter(x, y),
-    pin: () => { pinToDesktop(critter); syncLayer(); }, // hiding, he's back under your apps (onTopNow)
-    float: () => native.float(native.hwndOf(critter)),
-    say: (text, ms, occasion) => sayText(text, occasion, ms),
-    toCrab: sendCritter,
-    burst, stat,
-    chirp: () => chirp('play'),
-    onPlayed: (kind, data) => life.played(kind, data),
-    changed: () => send(panel, 'life', life.view()),
-    refresh: () => refreshCritter(),
-    motion: () => motion,
-    motionBox,
-    px,
-    makeWindow: ({ width, height }) => {
-      const w = new BrowserWindow({
-        width, height, frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
-        alwaysOnTop: false, skipTaskbar: true, focusable: false, hasShadow: false, show: false,
-        title: 'Shellby’s pebble', icon: ICON, webPreferences: { ...webPreferences, preload: TOY_PRELOAD },
-      });
-      secureWindow(w);
-      w.loadFile(path.join(RENDERER, 'toy', 'toy.html'));
-      return w;
-    },
-    pinWindow: w => pinToDesktop(w),
-    favouriteFind: () => gifts.favourite(config.get('finds')),
-  });
-  life.start();
-}
-
-function createDictation() {
-  // SHELLBY_DICTATION_WAV: a recording in place of the microphone (scripts/e2e-push-to-talk.js).
-  dictation = new Dictation({ wav: process.env.SHELLBY_DICTATION_WAV || null });
-  // This press got the mic, so its result (or "didn't catch that") will follow.
-  // A press that didn't (the last one is still finishing) leaves that one alone:
-  // tapping to open the panel straight after speaking mustn't throw the words away.
-  let heard = false;
-  dictation.on('result', ({ text, error }) => onDictated(text, error));
-  dictation.on('error', message => log.warn('Dictation', message));
-  dictation.on('log', line => log.info(`dictation: ${line}`));
-  ptt = new PushToTalk({
-    isDown: () => native.keyDown(holdKeyOf(config.get('hotkey'))),
-    onPress: () => { heard = dictation.begin(); },
-    onTap: () => { if (heard) dictation.cancel(); togglePanel(); },
-    onHold: () => showListening(true),
-    onRelease: () => {
-      showListening(false);
-      if (heard) dictation.finish();
-      else if (!dictation.busy) onDictated('', dictation.lastError);
-    },
-  });
-  if (pushToTalkOn()) dictation.warm();
-}
-
-const pushToTalkOn = () => !!config.get('pushToTalk') && !config.get('crabOnly');
-
-function onHotkey() {
-  // A key we can't watch for the release (or no koffi) can still be tapped.
-  if (!pushToTalkOn() || !ptt || holdKeyOf(config.get('hotkey')) == null || !native.available()) return togglePanel();
-  ptt.press();
-}
-
-// His bubble says he's listening for as long as the key is down. Not held back
-// by focus guard like his own remarks: you asked, so you get the answer.
-const LISTENING = 'listening…';
-function showListening(on) {
-  if (on) said = { text: LISTENING, occasion: 'listening', until: Date.now() + 10 * 60 * 1000 };
-  else if (said?.occasion === 'listening') said = null;
-  refreshCritter();
-}
-
-function onDictated(text, error = null) {
-  if (!text) {
-    // The why is in the log and on the Settings switch; the bubble only has room for the gist.
-    sayText(error ? "can't hear you" : "didn't catch that", 'listening', 4000);
-    return;
-  }
-  // Not sent: it goes in the box, after anything already typed there, to read first.
-  showPanel({ focusInput: false });
-  send(panel, 'panel:dictated', text);
-}
-
-const mediaView = () => ({ ...mediaSettings(), ...(media ? media.view() : { status: 'off', available: process.platform === 'win32', track: null }) });
-
-/** The headphones he puts on by himself while something is playing. */
-function musicHeadphones() {
-  if (!nowPlaying?.playing || !mediaSettings().enabled || !mediaSettings().headphones) return null;
-  const item = wardrobe?.item('headphones');
-  return item ? publicItem(item) : null;
-}
-
-// ================================================================ typing along
-
-function typingSettings() {
-  const raw = config.get('typing');
-  // Off until you turn it on: it hears every key on the PC (never which one).
-  return { enabled: raw?.enabled === true, remarks: raw?.remarks !== false };
-}
-
-function createTypingAlong() {
-  typing = createTyping({
-    watch: onKey => keystrokes.watch(onKey),
-    settings: typingSettings,
-    // Awake, idle and on the ground, with nothing else in his claws: work, a
-    // nap, a game, a scene, a call (his shh sign is up), a ride on your
-    // window, a wall to cling to or a prank all come first.
-    eligible: () => !!critter && !critter.isDestroyed() && lastStatus.state === 'idle' && !(flash?.until > Date.now()) && !dragging
-      && !perching?.isUp() && !climbing?.busy() && !pranks?.busy() && calmReason !== 'locked'
-      && !life?.busy() && !life?.onCall() && !playtime?.busy() && !visitor,
-    toCrab: (channel, payload) => send(critter, channel, payload),
-    speak: (occasion, opts) => speak(occasion, opts),
-    best: () => config.get('typingBest'),
-    setBest: wpm => config.set({ typingBest: wpm }),
-  });
-  if (!CAPTURE) typing.start();
-}
-
-// ================================================================ the weather outside
-
-// Countries that read the thermometer in Fahrenheit.
-const FAHRENHEIT = new Set(['US', 'LR', 'MM', 'BS', 'BZ', 'KY', 'PW']);
-const weatherUnit = () => (FAHRENHEIT.has(app.getLocaleCountryCode()) ? 'f' : 'c');
-
-function weatherView() {
-  const v = weatherSvc.view();
-  return { ...v, label: weatherRules.placeLabel(v.place), summary: weatherRules.describe(v.reading, weatherUnit()), unit: weatherUnit(), south: weatherRules.isSouth(v.place) };
-}
-
-function createWeather() {
-  weatherSvc = createWeatherService({
-    config,
-    fetch: (url, opts) => net.fetch(url, opts),
-    onReading: (prev, next) => {
-      broadcastWardrobe(); // the sou'wester goes on, or comes off
-      send(panel, 'weather', weatherView());
-      const occasion = weatherRules.remarkFor(prev, next);
-      if (occasion && weatherSvc.settings().remarks) speak(occasion);
-    },
-    // A reading too old to trust takes the umbrella off (weather.js dress).
-    onFail: () => broadcastWardrobe(),
-    log: msg => log.warn(msg),
-  });
-  if (CAPTURE) return;
-  weatherSvc.start();
-  // Asleep for hours: the last reading is stale, so ask again on waking.
-  powerMonitor.on('resume', () => weatherSvc.start());
-}
-
-// ================================================================ toolbox
-
-function createToolbox() {
-  toolbox = new ToolboxWatcher({
-    home: os.homedir(),
-    getCwd: currentCwd,
-    getPlugins: () => [],
-    seenFile: CAPTURE ? null : path.join(app.getPath('userData'), 'toolbox-seen.json'),
-    log,
-  });
-  toolbox.on('changed', tb => send(panel, 'toolbox', tb));
-  toolbox.on('learned', trick => {
-    if (!TRICKS_KIND.has(trick.kind)) return;
-    const learned = [{ ...trick, at: Date.now() }, ...(config.get('learnedTricks') || [])].slice(0, 30);
-    config.set({ learnedTricks: learned });
-    send(panel, 'toolbox:learned', trick);
-    flashState('learned', 5000);
-    stat('trick-learned');
-    awardXp('trick', { label: trick.name });
-    const noun = { skill: 'skill', agent: 'helper agent', command: 'command' }[trick.kind];
-    if (!(panel.isVisible() && panel.isFocused())) {
-      notify(`Shellby learned a new ${noun}`, `${trick.name}${trick.description ? `: ${trick.description}` : ''}`.slice(0, 160),
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); }, { tone: 'celebrate' });
-    }
-  });
-  toolbox.start();
-}
-
-// ================================================================ hooks and memory
-
-// Isolated dev/test runs get a pretend home, and only folders inside it count as
-// projects, so they never read above it or edit the real ~/.claude or a real repo.
-const setupHome = () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-home') : os.homedir());
-const setupCwd = () => {
-  const c = currentCwd();
-  // Working in the home folder means "no project": say so with the same home.
-  if (samePath(c, os.homedir())) return setupHome();
-  const rel = path.relative(setupHome(), c);
-  const insideHome = !rel.startsWith('..') && !path.isAbsolute(rel);
-  return ISOLATED && !insideHome ? setupHome() : c;
-};
-const setupWhere = () => ({ home: setupHome(), cwd: setupCwd(), ceiling: ISOLATED ? setupHome() : null });
-const setupView = () => {
-  const where = setupWhere();
-  const view = claudeSetup.scanSetup({ ...where, plugins: toolbox?.plugins() || [] });
-  return { ...view, paused: pausedView(claudeSetup.settingsFiles(where)) };
-};
-const HOOK_WHERE = { user: 'your settings, so every project', project: "this project's shared settings", local: 'your own settings for this project' };
-const isAt = at => !!at && typeof at === 'object' && isStr(at.event) && Number.isInteger(at.group) && Number.isInteger(at.hook);
-// The confirm window wraps text and folds runs of spaces, so spell long runs out:
-// padding can't push the end of a command out of sight.
-const showCommand = c => c.replace(/ {3,}/g, m => ` [${m.length} spaces] `);
-let hookAsking = false; // one hook question at a time, so a flood of them can't be clicked through
-
-// Hooks run programs on their own in every session, so each change is asked in
-// the isolated confirm window, never decided by the panel. The panel names a
-// scope (user / project / local), never a path; `at`+`fp` pin the hook it saw.
-async function confirmAndChangeHook({ scope, at, fp, hook: input } = {}, remove = false) {
-  const fail = error => ({ ok: false, error, setup: setupView() });
-  if (hookAsking) return fail('Answer the open question about a hook first.');
-  const target = claudeSetup.settingsFiles(setupWhere()).find(f => f.scope === scope);
-  if (!target) return fail("Shellby can't save hooks there.");
-  const editing = isAt(at) && isStr(fp);
-  if (remove && !editing) return fail('Pick a hook to remove.');
-  const existing = editing ? setupView().hooks.find(h => h.source === scope && h.fp === fp) : null;
-  if (editing && !existing) return { ...fail('That hook changed on disk since this list was made. Rescan and try again.'), conflict: true };
-  // Only command hooks are edited here (prompt and http hooks can only be removed).
-  if (editing && !remove && !existing.editable) return fail("Shellby can't edit that kind of hook. Open the file to change it.");
-  let hook = existing;
-  if (!remove) {
-    const v = claudeSetup.validateHook(input);
-    if (v.error) return fail(v.error);
-    hook = v.hook;
-  }
-
-  const when = claudeSetup.HOOK_EVENTS.find(e => e.name === hook.event)?.when || `on ${hook.event}`;
-  const matching = hook.matcher ? ` (matching ${hook.matcher})` : '';
-  const [title, label] = remove ? ['Remove this hook?', 'Remove it'] : editing ? ['Change this hook?', 'Save it'] : ['Add this hook?', 'Add it'];
-  // New commands are short and one line (validateHook), so the whole thing is shown.
-  // One being removed may be anything already in the file: shown in part, which is enough to recognise it.
-  const shown = remove && hook.command.length > 400 ? `${showCommand(hook.command.slice(0, 400))}… (+${hook.command.length - 400} more characters)` : showCommand(hook.command);
-  hookAsking = true;
-  let response;
-  try {
-    response = await confirm.ask(panel, {
-      ...dialogLook(), icon: '🪝', danger: !remove, title,
-      message: remove
-        ? `Claude Code will stop running this ${when}${matching}.`
-        : `Claude Code will run this ${when}${matching}, in every session that reads ${HOOK_WHERE[scope]}.`,
-      detail: `${shown}\n\nIn ${target.file.replace(os.homedir(), '~')}`,
-      note: remove
-        ? 'A backup of the file is kept beside it.'
-        : "Hooks run with your Windows account's permissions and don't ask first. Only add commands you understand. A backup of the file is kept beside it.",
-      buttons: [{ label, style: remove ? 'primary' : 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-    });
-  } finally { hookAsking = false; }
-  if (response !== 0) return { ok: false, cancelled: true, setup: setupView() };
-
-  const change = remove ? s => claudeSetup.withoutHook(s, at)
-    : editing ? s => claudeSetup.replaceHook(s, at, hook)
-      : s => claudeSetup.withHook(s, hook);
-  let r;
-  try { r = claudeSetup.changeHooks(target.file, change, editing ? { at, fp } : null); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
-  if (r.ok) stat(remove ? 'hook-removed' : 'hook-saved');
-  return { ...r, setup: setupView() };
-}
-
-// ---- pause, resume and test run
-
-// Claude Code has no off switch for one hook, so Pause takes it out of the
-// settings file and keeps it here, exactly as it was, for Resume to put back.
-// Only main writes this list (the panel can't set it). Resuming one of your own
-// hooks doesn't ask; a project's might be one you paused because you didn't
-// trust it, so that asks first.
-const MAX_PAUSED = 100;
-const pausedList = () => (Array.isArray(config.get('pausedHooks')) ? config.get('pausedHooks') : []);
-const isEntry = p => !!p && isStr(p.id) && isStr(p.scope) && isStr(p.file) && isStr(p.event) && typeof p.matcher === 'string' && !!p.entry && typeof p.entry === 'object' && !Array.isArray(p.entry);
-
-// The paused hooks of the settings files that load here (a project's only show in that project).
-function pausedView(files) {
-  return pausedList().filter(isEntry).flatMap(p => {
-    const f = files.find(x => x.scope === p.scope && samePath(x.file, p.file));
-    if (!f) return [];
-    const type = isStr(p.entry.type) ? p.entry.type : 'command';
-    const command = String(p.entry.command || p.entry.prompt || p.entry.url || '').slice(0, 1000);
-    return [{
-      ...describeHook({ type, command }),
-      id: `paused:${p.id}`, pausedId: p.id, paused: true, pausedAt: p.at || 0,
-      source: p.scope, path: f.file, event: p.event, matcher: p.matcher, type, command,
-      timeout: Number.isFinite(p.entry.timeout) ? p.entry.timeout : null, editable: false,
-    }];
-  });
-}
-
-async function pauseHook({ scope, at, fp } = {}) {
-  const fail = error => ({ ok: false, error, setup: setupView() });
-  const changed = () => ({ ...fail('That hook changed on disk since this list was made. Rescan and try again.'), conflict: true });
-  if (hookAsking) return fail('Answer the open question about a hook first.');
-  const target = claudeSetup.settingsFiles(setupWhere()).find(f => f.scope === scope);
-  if (!target || !isAt(at) || !isStr(fp)) return fail('Pick a hook to pause.');
-  const existing = setupView().hooks.find(h => h.source === scope && h.fp === fp);
-  if (!existing) return changed();
-  if (pausedList().length >= MAX_PAUSED) return fail(`Shellby keeps up to ${MAX_PAUSED} paused hooks. Resume or forget one first.`);
-  const when = claudeSetup.HOOK_EVENTS.find(e => e.name === existing.event)?.when || `on ${existing.event}`;
-  hookAsking = true;
-  let response;
-  try {
-    response = await confirm.ask(panel, {
-      ...dialogLook(), icon: '⏸️', title: 'Pause this hook?',
-      message: `Claude Code will stop running it ${when} until you resume it.`,
-      detail: `${existing.summary}\n\n${showCommand(existing.command.slice(0, 400))}`,
-      note: 'Shellby keeps it, and Resume puts it back exactly as it was. Sessions already open keep the hooks they started with.',
-      buttons: [{ label: 'Pause it', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-    });
-  } finally { hookAsking = false; }
-  if (response !== 0) return { ok: false, cancelled: true, setup: setupView() };
-
-  // Kept first, then taken out: if the write fails, nothing is lost.
-  const found = claudeSetup.hookEntry(claudeSetup.readSettings(target.file).data, at);
-  if (!found) return changed();
-  const id = randomUUID();
-  config.set({ pausedHooks: [...pausedList(), { id, scope, file: target.file, ...found, at: Date.now() }] });
-  let r;
-  try { r = claudeSetup.changeHooks(target.file, s => claudeSetup.withoutHook(s, at), { at, fp }); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
-  if (!r.ok) config.set({ pausedHooks: pausedList().filter(p => p.id !== id) });
-  return { ...r, setup: setupView() };
-}
-
-async function resumeHook(id) {
-  const fail = error => ({ ok: false, error, setup: setupView() });
-  const p = pausedList().find(x => isEntry(x) && x.id === id);
-  if (!p) return fail("That paused hook isn't there any more.");
-  const target = claudeSetup.settingsFiles(setupWhere()).find(f => f.scope === p.scope && samePath(f.file, p.file));
-  if (!target) return fail('Open the project it belongs to, then resume it there.');
-  if (p.scope !== 'user') {
-    if (hookAsking) return fail('Answer the open question about a hook first.');
-    const when = claudeSetup.HOOK_EVENTS.find(e => e.name === p.event)?.when || `on ${p.event}`;
-    const command = String(p.entry.command || p.entry.prompt || p.entry.url || '');
-    hookAsking = true;
-    let response;
-    try {
-      response = await confirm.ask(panel, {
-        ...dialogLook(), icon: '🪝', danger: true, title: 'Resume this hook?',
-        message: `Claude Code will run it ${when} again, in every session that reads ${HOOK_WHERE[p.scope]}.`,
-        detail: `${showCommand(command.slice(0, 1000))}${command.length > 1000 ? `… (+${command.length - 1000} more characters)` : ''}\n\nIn ${target.file.replace(os.homedir(), '~')}`,
-        note: "Hooks run with your Windows account's permissions and don't ask first. Only resume it if you trust where this project came from.",
-        buttons: [{ label: 'Resume it', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-      });
-    } finally { hookAsking = false; }
-    if (response !== 0) return { ok: false, cancelled: true, setup: setupView() };
-  }
-  let r;
-  // Already back in the file (resumed before a crash, or by hand): just stop listing it as paused.
-  const where = { event: p.event, matcher: p.matcher };
-  const back = s => (claudeSetup.hasHook(s, where, p.entry) ? s : claudeSetup.withHook(s, where, p.entry));
-  try { r = claudeSetup.changeHooks(target.file, back); } catch { r = { ok: false, error: "Couldn't save your Claude Code settings." }; }
-  if (r.ok) config.set({ pausedHooks: pausedList().filter(x => x.id !== id) });
-  return { ...r, setup: setupView() };
-}
-
-// A paused hook isn't running, so letting go of it doesn't need the confirm window.
-function forgetPausedHook(id) {
-  if (!isStr(id)) return { ok: false, error: 'Pick a paused hook.', setup: setupView() };
-  config.set({ pausedHooks: pausedList().filter(x => x.id !== id) });
-  return { ok: true, setup: setupView() };
-}
-
-// Commands you've said yes to testing since Shellby started, in that folder
-// (the same `npm test` does something else in another project), so trying again
-// with different test details doesn't ask every time. One test runs at a time.
-const testedCommands = new Set();
-let testRunning = false;
-
-async function testHook({ hook: input, payload } = {}) {
-  const v = claudeSetup.validateHook(input);
-  if (v.error) return { ok: false, error: v.error };
-  const hook = v.hook;
-  const cwd = setupCwd();
-  let body;
-  if (payload === undefined || payload === null || payload === '') body = hookTest.samplePayload(hook, cwd);
-  else {
-    const parsed = hookTest.parsePayload(payload);
-    if (parsed.error) return { ok: false, error: parsed.error };
-    body = parsed.payload;
-  }
-  if (testRunning) return { ok: false, error: 'A test run is still going. Wait for it to finish.' };
-  const tested = `${cwd}\0${hook.command}`;
-  if (!testedCommands.has(tested)) {
-    if (hookAsking) return { ok: false, error: 'Answer the open question about a hook first.' };
-    const when = claudeSetup.HOOK_EVENTS.find(e => e.name === hook.event)?.when || `on ${hook.event}`;
-    hookAsking = true;
-    let response;
-    try {
-      response = await confirm.ask(panel, {
-        ...dialogLook(), icon: '🧪', danger: true, title: 'Run this command once?',
-        message: `Shellby will run it now, the way Claude Code would ${when}, with made-up details for the test.`,
-        detail: `${showCommand(hook.command)}\n\nIn ${cwd.replace(os.homedir(), '~')}`,
-        note: "It runs with your Windows account's permissions, for real: a command that deletes or pushes will do it. Shellby asks once per command and folder until it restarts.",
-        buttons: [{ label: 'Run it', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-      });
-    } finally { hookAsking = false; }
-    if (response !== 0) return { ok: false, cancelled: true };
-    testedCommands.add(tested);
-  }
-  testRunning = true;
-  try {
-    const result = await hookTest.runHook({ command: hook.command, payload: body, cwd, timeout: hook.timeout || 60 });
-    return { ok: true, result, verdict: hookTest.verdict(hook.event, result) };
-  } finally { testRunning = false; }
-}
-
-// ================================================================ skill shop
-
-function createShop() {
-  // Every shop call runs in an empty folder of its own, so a source like
-  // "some/dir" can never resolve to a real folder next to Shellby.
-  const cwd = path.join(app.getPath('userData'), 'plugin-cli');
-  shop = new Marketplace({
-    pluginsRoot: path.join(os.homedir(), '.claude', 'plugins'),
-    run: async (args, timeout) => {
-      // The exe is looked up per call: Claude Code may be installed after Shellby starts.
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-      if (!exe) return { ok: false, notInstalled: true, stdout: '', stderr: '' };
-      try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
-      return runCli(exe, args, timeout, { cwd });
-    },
-  });
-}
-
-// The shop needs Claude Code; just-the-crab mode hides it, and main enforces that too.
-function shopBlocked() {
-  if (!shop) return { ok: false, error: 'Shellby is still starting. Try again in a moment.' };
-  if (config.get('crabOnly')) return { ok: false, error: 'The Skill Shop needs Claude Code. Turn it on in Settings.' };
-  return null;
-}
-
-// One shop dialog at a time, so a busy panel can't stack prompts under your typing.
-let shopAsking = false;
-async function askOnce(spec) {
-  if (shopAsking) return null;
-  shopAsking = true;
-  try { return await confirm.ask(panel, { ...dialogLook(), ...spec }); } finally { shopAsking = false; }
-}
-
-// Plugins can bring hooks and MCP servers that run programs, so installing one
-// is confirmed in an isolated window the panel can't click through. The dialog
-// says where the plugin really comes from, and anything outside Anthropic's
-// marketplaces gets the red warning.
-async function confirmAndInstallPlugin(id) {
-  const blocked = shopBlocked();
-  if (blocked) return blocked;
-  if (!shop.known(id)) return { ok: false, error: "That plugin isn't in your marketplaces." };
-  const p = shop.find(id);
-  if (p.installed) return { ok: true, already: true, id, view: shop.view() };
-  const official = shop.suggestedFor(p.marketplace);
-  const from = official ? `${official.label} by ${official.by}` : (shop.marketplace(p.marketplace)?.source || p.marketplace);
-  const shownAt = shop.cache?.at; // what the dialog shows comes from this catalog
-  const response = await askOnce({
-    icon: '🧰', danger: !official,
-    title: 'Install plugin?',
-    message: `"${p.name}" from ${from}`,
-    detail: [p.description, p.url && `Source: ${p.url}`].filter(Boolean).join('\n\n'),
-    note: official
-      ? 'Plugins can add skills, agents and commands. Some also add hooks or MCP servers that run programs on your PC.'
-      : "This marketplace isn't one of Anthropic's. Plugins can add hooks or MCP servers that run programs on your PC, so only install it if you trust whoever publishes it.",
-    buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-  });
-  if (response === null) return { ok: false, canceled: true, busy: true };
-  if (response !== 0) return { ok: false, canceled: true };
-  // A marketplace refresh that landed while you were deciding could have changed
-  // what "Install" means; ask again rather than install something you didn't see.
-  if (shop.cache?.at !== shownAt) return { ok: false, error: 'The marketplace changed while you were deciding. Check the plugin again and press Install once more.' };
-  const r = await shop.install(id);
-  if (r.ok) {
-    stat('plugin-installed');
-    toolbox?.rescan();
-  }
-  await shop.list().catch(() => {}); // best effort: the cache is already patched
-  return { ...r, view: shop.view() };
-}
-
-async function confirmAndUninstallPlugin(id) {
-  const blocked = shopBlocked();
-  if (blocked) return blocked;
-  const p = shop.known(id) ? shop.find(id) : null;
-  if (!p?.installed) return { ok: false, error: "That plugin isn't installed." };
-  if (p.scope !== 'user') return { ...(await shop.uninstall(id)), view: shop.view() }; // explains the terminal route
-  const response = await askOnce({
-    icon: '🧹',
-    title: 'Remove plugin?',
-    message: `"${p.name}" (${p.marketplace})`,
-    detail: 'Its skills, agents and commands go away in new conversations.',
-    buttons: [{ label: 'Remove', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-  });
-  if (response === null) return { ok: false, canceled: true, busy: true };
-  if (response !== 0) return { ok: false, canceled: true };
-  const r = await shop.uninstall(id);
-  if (r.ok) toolbox?.rescan();
-  await shop.list().catch(() => {});
-  return { ...r, view: shop.view() };
-}
-
-// The Shellby plugin itself, one click from Settings: add our marketplace if it
-// isn't there, then install. Same isolated confirm as any plugin.
-const SHELLBY_SOURCE = 'x-salmon/shellby';
-const pluginView = () => ({ state: statusLine.inspectPlugin(claudeSettings()) });
-async function confirmAndInstallShellbyPlugin() {
-  const blocked = shopBlocked();
-  if (blocked) return { ...pluginView(), ...blocked };
-  if (pluginView().state === 'on') return pluginView();
-  const response = await askOnce({
-    icon: '🦀',
-    title: 'Install the Shellby plugin?',
-    message: `Adds the Shellby marketplace (${SHELLBY_SOURCE}) to Claude Code and installs the Shellby plugin.`,
-    detail: 'Its hooks tell Shellby when a Claude Code session works, asks for permission or finishes, in any terminal or editor on this PC.',
-    note: 'The hooks only talk to Shellby on this PC (127.0.0.1) and do nothing when Shellby is closed.',
-    buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-  });
-  if (response === null) return { ...pluginView(), busy: true };
-  if (response !== 0) return pluginView();
-  await shop.list().catch(() => {});
-  const existing = shop.marketplace('shellby');
-  if (existing && !String(existing.source || '').toLowerCase().includes(SHELLBY_SOURCE)) {
-    return { ...pluginView(), error: `You already have a different marketplace called "shellby" (${existing.source}). Remove it in the Skill Shop first.` };
-  }
-  if (!existing) {
-    const added = await shop.addMarketplace(SHELLBY_SOURCE);
-    if (!added.ok) return { ...pluginView(), error: added.error };
-  }
-  await shop.list({ refresh: true }).catch(() => {});
-  const r = await shop.install(statusLine.PLUGIN_ID);
-  if (r.ok) { stat('plugin-installed'); toolbox?.rescan(); }
-  return { ...pluginView(), ...(r.ok ? { installed: true } : { error: r.error || "Claude Code couldn't install the plugin." }) };
-}
-
-// ================================================================ GitHub
-
-// Dev/test builds can point at a mock GitHub; the installed app always uses github.com.
-function githubEndpoints() {
-  const dev = !app.isPackaged;
-  return {
-    web: (dev && process.env.SHELLBY_GITHUB_WEB) || 'https://github.com',
-    api: (dev && process.env.SHELLBY_GITHUB_API) || 'https://api.github.com',
-    clientId: (dev && process.env.SHELLBY_GITHUB_CLIENT_ID) || undefined,
-  };
-}
-
-function createGitHub() {
-  github = new GitHubService({
-    config,
-    store: new TokenStore(path.join(app.getPath('userData'), 'github.bin'), safeStorage),
-    ...githubEndpoints(),
-    onSynced: () => { broadcastWardrobe(); send(panel, 'xp', xpView()); send(panel, 'homes', homesView()); send(panel, 'stickers', stickersView()); refreshStatusLine(); },
-  });
-  github.on('change', v => send(panel, 'github', v));
-  github.on('signed-in', v => send(panel, 'github:signed-in', v));
-  github.on('error', message => send(panel, 'github:error', message));
-  // Outfit and color changes are stamped so sync keeps the newest, and shared soon.
-  config.onSet = (patch, prev) => {
-    if ('syncStamps' in patch) return; // a sync writing back, not you
-    const stamps = { ...(prev.syncStamps || {}) };
-    let changed = false;
-    if ('skin' in patch && patch.skin !== prev.skin) { stamps.skinAt = Date.now(); changed = true; }
-    if (patch.wardrobe && JSON.stringify(patch.wardrobe.outfit) !== JSON.stringify(prev.wardrobe?.outfit)) { stamps.outfitAt = Date.now(); changed = true; }
-    if (changed) config.set({ syncStamps: stamps });
-    const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
-    if (changed || stickersMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) github?.changedSoon();
-  };
-  github.schedule();
-  if (github.can('sync')) setTimeout(() => github.sync().catch(() => {}), 30 * 1000);
-  profileCard = new ProfileCard({ config, github });
-  prBadge = new prBadges.PrBadge({ config, github, level: currentLevel, web: githubEndpoints().web });
 }
 
 // ================================================================ usage limits
@@ -4286,520 +1857,6 @@ function watchGuards() {
   setInterval(checkGuards, GUARD_TICK_MS).unref?.();
 }
 
-// ================================================================ focus sessions
-
-let focusTimer = null;
-let focusTick = null;
-const focusState = () => { const v = focus.view(config?.get('focus'), Date.now()); return v.phase ? { phase: v.phase, endsAt: v.endsAt, minutes: v.minutes } : null; };
-const focusView = () => ({ ...focus.view(config.get('focus'), Date.now()), sessions: wardrobe?.stats?.focusSessions || 0 });
-
-function broadcastFocus() {
-  send(panel, 'focus', focusView());
-  refreshCritter();
-}
-
-function startFocus(minutes) {
-  if (focus.normalize(config.get('focus'))?.phase === 'focus') return focusView();
-  config.set({ focus: focus.start(Date.now(), Number(minutes)) });
-  heldNotices = [];
-  wake();
-  scheduleFocus();
-  broadcastFocus();
-  return focusView();
-}
-
-// Stop early: no XP, and anything held back is delivered now.
-function stopFocus() {
-  const was = focus.normalize(config.get('focus'));
-  config.set({ focus: null });
-  scheduleFocus();
-  broadcastFocus();
-  if (was?.phase === 'focus') deliverHeld('Focus stopped');
-  return focusView();
-}
-
-function deliverHeld(title) {
-  const held = heldNotices;
-  heldNotices = [];
-  if (!held.length) return;
-  const more = held.length > 3 ? ` and ${held.length - 3} more` : '';
-  notify(`${title}: ${held.length} notification${held.length === 1 ? '' : 's'} waited for you`, `${held.slice(-3).join(' · ')}${more}`.slice(0, 200), () => showPanel({ focusInput: false }));
-}
-
-// One timer for the next phase change, plus a tick to keep the countdown fresh.
-function scheduleFocus() {
-  clearTimeout(focusTimer);
-  clearInterval(focusTick);
-  const s = focus.normalize(config.get('focus'));
-  if (!s) return;
-  focusTimer = setTimeout(advanceFocus, Math.max(0, s.endsAt - Date.now()) + 50);
-  focusTick = setInterval(() => { refreshCritter(); refreshStatusLine(); }, 30 * 1000);
-}
-
-function advanceFocus() {
-  const before = focus.normalize(config.get('focus'));
-  const { session, events } = focus.advance(before, Date.now());
-  config.set({ focus: session });
-  if (events.includes('focus-done')) {
-    awardXp('focus', { label: `Focused for ${before.minutes} minutes` });
-    stat('focus-completed');
-    recordFocusDay();
-    if (!events.includes('break-done')) flashState('success', 5000);
-    deliverHeld('Focus done');
-    notify(`Focus done! ${before.minutes} minutes guarded`, `Take ${before.breakMinutes} minutes. Shellby will tell you when the break is over.`, showFocusCard, { tone: 'celebrate' });
-  }
-  if (events.includes('break-done') && events.length === 1) {
-    notify("Break's over", 'Ready for another round? Right-click Shellby to start one.', showFocusCard);
-  }
-  scheduleFocus();
-  broadcastFocus();
-}
-
-function showFocusCard() {
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'trophies');
-}
-
-// A finished focus session keeps the streak going, like a finished task.
-function recordFocusDay() {
-  if (CAPTURE) return;
-  saveStreaks(streaks.recordWorkDay(config.get('streaks'), Date.now()));
-}
-
-// ================================================================ CI on your pull requests
-
-function createCi() {
-  const ep = githubEndpoints();
-  ci = new CiWatcher({ gh: () => github.gh(), login: () => github.view().login, web: ep.web, api: ep.api });
-  ci.on('change', v => { send(panel, 'ci', v); refreshCritter(); refreshStatusLine(); });
-  ci.on('event', onCiEvent);
-  // Follows the GitHub toggle and sign-in.
-  const follow = () => { if (github.can('ci')) ci.start(); else if (ci.running) ci.stop(); };
-  github.on('change', follow);
-  follow();
-}
-
-// ================================================================ issues he could take on
-
-// Issues assigned to you, or labelled shellby where you decide who labels
-// (github/issues.js). A new one starts the workflows with an Issue trigger:
-// the Issue helper template offers to take a crack at it and turns a yes into
-// a draft pull request (github/pullrequest.js).
-function createIssues() {
-  const ep = githubEndpoints();
-  issues = new IssueWatcher({
-    gh: () => github.gh(), login: () => github.view().login, web: ep.web, api: ep.api,
-    repos: async () => (projects ? (await projects.localRepos()).map(r => r.remote).filter(Boolean) : []),
-    load: () => config.get('issueWatch'),
-    save: v => config.set({ issueWatch: v }),
-  });
-  issues.on('event', ({ type, issue }) => {
-    workflows?.event('issue', {
-      event: type, reasons: issue.reasons, repo: issue.repo, number: issue.number, title: issue.title,
-      body: issue.body, labels: issue.labels, author: issue.author, url: issue.url,
-    });
-  });
-  const follow = () => { if (github.can('issues')) issues.start(); else if (issues.running) issues.stop(); };
-  github.on('change', follow);
-  follow();
-}
-
-// The clone on this PC of a GitHub repository, for a copy to start from.
-async function cloneOf(repo) {
-  if (!projects) return null;
-  const want = String(repo).toLowerCase();
-  return (await projects.localRepos()).find(r => r.remote && r.remote.toLowerCase() === want)?.root || null;
-}
-
-function makeIssueCopy({ repo, slug }) {
-  if (!github?.signedIn) return Promise.resolve({ ok: false, error: 'Sign in with GitHub first (Settings → GitHub).' });
-  return issueWork.makeCopy({ repo, slug }, {
-    findRoot: cloneOf, gh: github.gh(), git: worktrees.git, create: worktrees.create, home: worktreeHome(), env: github.claudeEnv(),
-  });
-}
-
-// "Built with Shellby" on a pull request a tab just opened, when that's on.
-// Best effort: a badge that didn't make it is noted in Settings, nothing more.
-function badgePr(output) {
-  if (CAPTURE || !github?.can('prBadge')) return;
-  const pr = prBadges.prFromOutput(output, githubEndpoints().web);
-  if (!pr) return;
-  prBadge.addTo(pr)
-    .then(r => { if (!r.ok) log.warn('PR badge', r.error); send(panel, 'pr-badge', prBadge.view()); })
-    .catch(e => log.warn('PR badge', e.message));
-}
-
-async function openIssuePr({ folder, title, body: asked, draft }) {
-  if (!github?.can('claude')) return { ok: false, error: 'Opening pull requests needs “Let Claude tasks push code and open pull requests” on in Settings → GitHub.' };
-  // The badge goes in the body it opens with, rather than an edit after.
-  const badge = github.can('prBadge') ? await prBadge.block() : null;
-  const body = badge ? prBadges.withBadge(asked, badge) : asked;
-  const r = await issueWork.openPullRequest({ folder, title, body, draft }, {
-    gh: github.gh(), git: worktrees.git, home: worktreeHome(), env: github.claudeEnv(), web: githubEndpoints().web,
-  });
-  if (!r.ok || r.existing) return r; // a retried step found its pull request already open: paid already
-  // Shipping it pays now; the sticker comes when it merges (ci.js sees it, shippedMerge).
-  flashState('success', 4000);
-  awardXp('issue', { project: r.repo.split('/')[1], label: `Opened ${r.repo}#${r.number}` });
-  if (github.can('ci')) ci?.poll().catch(() => {});
-  return r;
-}
-
-// ================================================================ visiting crabs
-
-// How a card looks on this PC: skins and accessories this PC doesn't know are
-// simply left off, so a friend with a pack you haven't got still visits.
-function lookFor(card) {
-  const list = allSkins();
-  const skin = list.find(s => s.id === card.skin) || list.find(s => s.id === 'classic') || list[0];
-  const accessories = ['shell', 'neck', 'hat', 'face', 'held']
-    .map(slot => card.outfit[slot] && wardrobe?.catalog.accessories.get(card.outfit[slot]))
-    .filter(a => a && SLOT_OK.has(a.slot)).map(publicItem);
-  const home = card.home && shells.SHELLS.find(s => s.id === card.home) || null;
-  // Their stickers by spot, onto however their crab looks here.
-  const onShell = placeStickers(skin, home, (card.stickers?.shell || []).map((e, i) => ({ ...e, id: `guest-${i}`, weather: 'fresh' })));
-  return { skin, accessories, shell: shells.renderShell(home), level: card.level, stickers: onShell };
-}
-const SLOT_OK = new Set(['shell', 'neck', 'hat', 'face', 'held']);
-
-// A swap: when you both share your stickers by name, a friend's visit leaves
-// one of theirs (stickers.js receiveGuest). It goes in the book; the shell is yours to decide.
-function stickerSwap(v) {
-  if (CAPTURE || !config || !visitor || visitor.login !== v.login) return; // gone already
-  if (stickerState().card !== 'names') return; // a swap goes both ways
-  const gift = stickers.pickTrade(v.card?.stickers?.trade, v.login, Date.now());
-  if (!gift) return;
-  const r = stickers.receiveGuest(config.get('stickers'), v.login, gift, Date.now());
-  if (!r.project) return;
-  config.set({ stickers: r.state });
-  stickerStats(r.state);
-  send(panel, 'stickers', stickersView());
-  if (!r.fresh) return;
-  const gifted = stickersView().projects.find(p => p.id === r.project.id);
-  if (!gifted) return; // made room for itself and lost (stickers.js caps friends' gifts)
-  sayText(`@${v.login} left me a sticker!`, 'visit', 7000);
-  send(panel, 'stickers:new', gifted);
-  if (!(panel?.isVisible() && panel.isFocused())) {
-    notify(`@${v.login} left a sticker`, `Their ${gift.name} sticker is in your Sticker Book. Put it on his shell if you like.`,
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
-  }
-}
-
-const friendsView = () => {
-  const v = friends.view();
-  return { ...v, friends: v.friends.map(f => ({ ...f, look: f.card ? lookFor(f.card) : null })) };
-};
-
-function sendVisitor() {
-  send(critter, 'critter:visitor', visitor ? { login: visitor.login, look: visitor.look, until: visitor.until } : null);
-}
-
-function createFriends() {
-  friends = new Friends({
-    config,
-    github,
-    myCard: () => {
-      const worn = shells.wornShell(config.get('home'), currentLevel());
-      return {
-        skin: activeSkin().id, home: worn ? worn.id : null, level: currentLevel(), outfit: wardrobe.effectiveOutfit(),
-        stickers: stickers.forCard(config.get('stickers'), shellIdOf(worn), Date.now()), // as much as you chose to share
-        // What his crab and yours talk about when they meet (banter.js).
-        temperament: voice.temperamentOf(voice.normalize(config.get('voice')).seed),
-        find: gifts.favourite(config.get('finds'))?.id || null,
-      };
-    },
-    // Company only when he's free: not working, not guarding your focus, no helpers out.
-    canVisit: () => lastStatus.state === 'idle' && !lastStatus.crew && !focus.guarding(config.get('focus'), Date.now()) && !playtime?.busy(),
-  });
-  // A refresh saves several times; the panel only needs the last one.
-  let viewTimer = null;
-  friends.on('change', () => {
-    clearTimeout(viewTimer);
-    viewTimer = setTimeout(() => send(panel, 'friends', friendsView()), 150);
-  });
-  friends.on('record', event => stat(event));
-  friends.on('visit', v => {
-    visitor = v ? { login: v.login, look: lookFor(v.card), until: v.until } : null;
-    sendVisitor();
-    refreshCritter();
-    if (v) sayText(`@${v.login} dropped by!`, 'visit', 4000);
-    if (v?.signed) setTimeout(() => stickerSwap(v), 20 * 1000); // once they've said hello
-    // ...and then the two of them talk (banter.js, through life.js).
-    const togetherAt = [];
-    for (let at = TOGETHER_FIRST_MS; at < VISIT_MS; at += TOGETHER_EVERY_MS) togetherAt.push(at);
-    life?.visit(v, { visitMs: VISIT_MS, togetherAt, myCard: friends.myCard() });
-  });
-  // The two of them dance, party, high-five or sing (critter.css: body.together-*).
-  friends.on('together', t => {
-    send(critter, 'critter:together', { activity: t.id, ms: t.ms });
-    if (t.id === 'party') send(critter, 'critter:burst', outfit().confetti);
-    sayText(t.line, 'together', t.ms - 500);
-  });
-  friends.on('wave', w => sayText(w.text, 'wave', 10000));
-  // Follows the GitHub toggle and sign-in, like CI.
-  const follow = () => { if (github.can('friends')) { if (!friends.timer) friends.start(); } else if (friends.timer) friends.stop(); };
-  github.on('change', follow);
-  follow();
-}
-
-function onCiEvent({ type, pr }) {
-  if (!pr) return;
-  const where = `${pr.repo}#${pr.number}`;
-  workflows?.event('ci', { event: type, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
-  const open = () => openGitHubUrl(pr.url);
-  if (type === 'failed') noteRed(`ci:${where}`);
-  if (type === 'fixed') noteFix(`ci:${where}`);
-  if (type === 'failed') {
-    flashState('error', 5000);
-    tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
-    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open, { tone: 'problem' });
-  } else if (type === 'fixed') {
-    stat('ci-fixed');
-    flashState('cheer', 6500);
-    tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });
-    send(critter, 'critter:burst', outfit().confetti);
-    notify(`Back to green: ${where}`, `${pr.title}. Every check passes now.`.slice(0, 160), open, { tone: 'celebrate' });
-  } else if (type === 'passed') {
-    flashState('success', 4000);
-  } else if (type === 'review') {
-    flashState('asking', 5000);
-    notify(`Review requested: ${where}`, pr.title, open);
-  } else if (type === 'merged') {
-    shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
-  }
-}
-
-// Only GitHub's own pages (or the dev mock's) for PRs the watcher reported.
-function openGitHubUrl(url) {
-  const web = githubEndpoints().web;
-  if (typeof url === 'string' && url.startsWith(`${web}/`) && (url.startsWith('https:') || !app.isPackaged)) shell.openExternal(url);
-}
-
-const ciView = () => ({ ...(ci ? ci.view() : { prs: [], reviews: [], failing: 0 }), enabled: !!github?.can('ci') });
-
-// Claude tasks with your GitHub sign-in can push anywhere you can: ask, with the risk spelled out.
-async function confirmGitHubFeature(feature, on) {
-  if (feature === 'claude' && on) {
-    const response = await askOnce({
-      icon: '🔑', danger: true,
-      title: 'Let Claude tasks use your GitHub?',
-      message: 'Claude Code tasks you run in Shellby get your GitHub sign-in, so they can push commits and open pull requests, including in private repos.',
-      detail: 'Claude can also read the sign-in itself, so a task could use it for anything your GitHub account can do. Only turn this on if you check what your tasks do (Ask mode asks before every command).',
-      note: 'Only Shellby\'s own tabs get it. Claude Code in your terminal is unchanged. Turn it off here any time.',
-      buttons: [{ label: 'Allow', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
-  }
-  // A workflow file decides what runs in CI, on GitHub's machines, with whatever
-  // secrets the repository holds. GitHub keeps it behind its own scope for that
-  // reason, and so does Shellby.
-  if (feature === 'workflows' && on) {
-    const response = await askOnce({
-      icon: '⚙️', danger: true,
-      title: 'Let Claude tasks change your CI workflows?',
-      message: 'Tasks will be able to push changes to .github/workflows — the files that decide what GitHub runs on every push.',
-      detail: 'A workflow runs on GitHub with access to that repository\'s secrets, so a task that edits one can make them run anything, in any repo you can push to. Without this, pushes that touch a workflow file are refused by GitHub.',
-      note: 'Needs "Let Claude tasks push" as well. Shellby will ask GitHub for the extra permission, which means signing in again.',
-      buttons: [{ label: 'Allow', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
-  }
-  // The calling card is a public gist, so say what's on it before it goes up.
-  if (feature === 'friends' && on) {
-    const response = await askOnce({
-      icon: '🦀',
-      title: 'Let friends\' crabs visit?',
-      message: 'Shellby puts a small calling card on your GitHub as a public gist: your crab\'s outfit, colors, shell and level, under your GitHub username.',
-      detail: 'Friends you add by GitHub username can then have your crab over, and you theirs. Waves arrive as comments on the card, and only from friends you added. No stats, projects or history go on it, though anyone can see when it was last updated (about once a day while Shellby runs).',
-      note: 'Turning this off deletes the card again.',
-      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
-  }
-  // The profile card is a public gist too, and it shows your level and streak.
-  if (feature === 'profileCard' && on) {
-    const response = await askOnce({
-      icon: '🪪',
-      title: 'Put your crab on your GitHub profile?',
-      message: 'Shellby keeps an image of your crab in a public gist: his outfit, your level, your streak and your five latest stickers (pictures only, no project names).',
-      detail: 'A small GitHub Action in your profile repository copies it in every few hours, so your profile README can show it. Shellby gives you the Action and the README line to paste; it never touches your repositories itself.',
-      note: 'Turning this off deletes the gist. The last copy stays in your profile repo until you remove it.',
-      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
-  }
-  // The badge makes a public repository on your account and edits your pull requests: say so first.
-  if (feature === 'prBadge' && on) {
-    const response = await askOnce({
-      icon: '🦀',
-      title: 'Put your crab on your pull requests?',
-      message: 'When a Shellby tab opens a pull request, Shellby adds a small picture of your crab (dressed as he is now), your level and a link to Shellby at the bottom of its description.',
-      detail: `The picture has to live in a public repository for GitHub to show it, so Shellby makes one on your account, ${github.view().login || 'you'}/${prBadges.REPO}, holding only that picture (each new look is a commit, so earlier looks stay in its history). Only pull requests you open from Shellby get it, and you can delete it from any of them like any other text.\n\nGitHub has no permission for just one repository, so this asks for access to your public repositories (public_repo), the same one publishing Wardrobe packs uses. Shellby only ever writes to ${prBadges.REPO} and your own pull requests with it.`,
-      note: 'Turning this off stops new badges. The repository stays, so the pictures on pull requests you already opened keep working. The permission lasts until you sign out.',
-      buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, canceled: true, view: github.view() };
-  }
-  const r = await github.setFeature(feature, on);
-  if (feature === 'profileCard' && r.ok && !r.needsApproval && !on) {
-    const down = await profileCard.takeDown();
-    if (!down.ok) return { ...r, error: down.error, view: github.view() };
-  }
-  if (feature === 'friends' && r.ok && !r.needsApproval) {
-    if (on) friends?.start();
-    else if (friends) {
-      const down = await friends.takeDown();
-      if (!down.ok) return { ...r, error: down.error, view: github.view() };
-    }
-  }
-  return { ...r, view: github.view() };
-}
-
-async function confirmAndPublishPack(packId) {
-  if (!github?.can('publish')) return { ok: false, error: 'Turn on "Publish Wardrobe packs" in Settings → GitHub first.' };
-  const p = wardrobe.catalog.packs.find(x => x.id === packId && x.source === 'user');
-  if (!p?.file) return { ok: false, error: "That pack isn't one of yours." };
-  let json;
-  try { json = JSON.parse(fs.readFileSync(p.file, 'utf8')); } catch { return { ok: false, error: "Couldn't read that pack's file." }; }
-  const { pack, errors, warnings } = validatePack(json, { source: 'user', knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
-  if (!pack) return { ok: false, error: `The pack has problems: ${errors[0]}` };
-  if (warnings.length) return { ok: false, error: `The gallery needs every item to work. Fix this first: ${warnings[0]}` };
-  if (wardrobe.catalog.packs.some(x => x.source === 'builtin' && x.id === pack.id)) return { ok: false, error: 'That id belongs to a built-in pack.' };
-  const login = github.view().login;
-  const response = await askOnce({
-    icon: '🎁',
-    title: 'Publish to the gallery?',
-    message: `"${pack.name}" v${pack.version} by ${pack.author}, as @${login}`,
-    detail: `This opens a public pull request on github.com/${PACKS_REPO}. Once it's reviewed and merged, anyone can add your pack from the gallery.\n\nPacks are published under CC BY 4.0, credited to "${pack.author}".`,
-    note: 'Original art only: no copyrighted characters, logos or brands. Keep it friendly.',
-    buttons: [{ label: 'Publish', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-  });
-  if (response === null) return { ok: false, canceled: true, busy: true };
-  if (response !== 0) return { ok: false, canceled: true };
-  try {
-    return await publishPack(github.gh(), { login, pack: json });
-  } catch (e) {
-    console.warn('[shellby] publish failed:', e.message);
-    return { ok: false, error: e.status === 401 ? 'GitHub signed Shellby out. Sign in again in Settings.' : `GitHub said: ${String(e.message).slice(0, 200)}` };
-  }
-}
-
-async function confirmAndAddMarketplace(input) {
-  const blocked = shopBlocked();
-  if (blocked) return blocked;
-  // Normalize first: the dialog shows exactly what Claude Code will be given.
-  const source = normalizeSource(input);
-  if (!source) return { ok: false, error: 'Use a GitHub repo like owner/repo, or a public https:// link.' };
-  const suggested = SUGGESTED_MARKETPLACES.find(m => m.source === source);
-  const response = await askOnce({
-    icon: '🏪', danger: !suggested,
-    title: 'Add marketplace?',
-    message: suggested ? `${suggested.label} by ${suggested.by} (${suggested.source})` : source,
-    detail: suggested ? '' : "Anyone can publish a marketplace. Its plugins haven't been reviewed by Anthropic or by Shellby.",
-    note: 'Adding it only lists its plugins. Nothing is installed until you choose to.',
-    buttons: [{ label: 'Add marketplace', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-  });
-  if (response === null) return { ok: false, canceled: true, busy: true };
-  if (response !== 0) return { ok: false, canceled: true };
-  const r = await shop.addMarketplace(source);
-  if (!r.ok) return r;
-  await shop.list().catch(() => {});
-  return { ...r, view: shop.view() };
-}
-
-// Snippets pin to the start screen like skills do, as long as they still exist.
-function pinnedTools() {
-  const names = new Set(snippetList().map(s => s.name));
-  return (config.get('pinnedTools') || []).filter(p => p && typeof p.name === 'string'
-    && (TRICKS_KIND.has(p.kind) || (p.kind === 'snippet' && names.has(p.name))));
-}
-
-// ================================================================ prompt snippets
-
-const PANEL_MAX_TEXT = 50000; // the longest message the box sends (task:send)
-
-function snippetList() {
-  // Once: a list saved before $1 to $9 were blanks keeps sending what it did.
-  if (config.get('snippetFormat') !== snippets.FORMAT) {
-    config.set({ snippets: snippets.migrate(config.get('snippets')), snippetFormat: snippets.FORMAT });
-  }
-  return snippets.normalize(config.get('snippets'));
-}
-/** Yours, then the team pack's for that folder (if you've turned them on there; yours win a name). */
-function allSnippets(cwd = currentCwd()) {
-  const own = snippetList();
-  return [...own, ...(teamIpc?.snippetsFor(cwd, own) || [])];
-}
-const snippetsView = () => ({ snippets: snippets.view(allSnippets(), config.get('snippetUse')), pinned: pinnedTools() });
-
-/** Save the list and tell the panel. A rename or delete carries its pin and its use count along. */
-function setSnippets(list, renamed = null) {
-  const pins = (config.get('pinnedTools') || []).flatMap(p => {
-    if (p?.kind !== 'snippet') return [p];
-    const name = renamed && p.name === renamed.from ? renamed.to : p.name;
-    return list.some(s => s.name === name) ? [{ kind: 'snippet', name }] : [];
-  });
-  config.set({ snippets: list, pinnedTools: pins, snippetUse: snippets.keepUse(config.get('snippetUse'), list, renamed) });
-  const view = snippetsView();
-  send(panel, 'snippets', view);
-  return view;
-}
-
-/**
- * A snippet, filled in and ready to send: /review from the panel, @review from a
- * terminal. null when there's no snippet by that name. `cwd` is where it'll
- * run, for that repo's team snippets.
- */
-function expandSnippet(name, args, { sigil = '/', max, cwd } = {}) {
-  const s = snippets.find(allSnippets(cwd), name);
-  if (!s) return null;
-  const r = snippets.expand(s, args, { sigil, max });
-  return r.ok ? { ...r, name: s.name, newTab: !!s.newTab } : r;
-}
-
-/** Counted once it has gone (or is queued to go), not when it's filled in. */
-function noteSnippetUse(name) {
-  if (!snippets.find(snippetList(), name)) return;
-  config.set({ snippetUse: snippets.noteUse(config.get('snippetUse'), name) });
-  send(panel, 'snippets', snippetsView());
-}
-
-/** Toolbox > Snippets > Export: the whole list, as a file to keep or share. */
-async function exportSnippets() {
-  const list = snippetList();
-  if (!list.length) return { ok: false, error: 'There are no snippets to export.' };
-  const r = await dialog.showSaveDialog(panel, {
-    title: 'Export your snippets',
-    defaultPath: path.join(app.getPath('documents'), 'shellby-snippets.json'),
-    filters: [{ name: 'Shellby snippets', extensions: ['json'] }],
-  });
-  if (r.canceled || !r.filePath) return { ok: false, cancelled: true };
-  try { fs.writeFileSync(r.filePath, snippets.exportJson(list)); } catch (e) { return { ok: false, error: `Couldn't write it: ${e.code || e.message}` }; }
-  return { ok: true, path: r.filePath, count: list.length };
-}
-
-/** Toolbox > Snippets > Import: someone's export, or your own from another PC. */
-async function importSnippets() {
-  const r = await dialog.showOpenDialog(panel, {
-    title: 'Import snippets', properties: ['openFile'],
-    filters: [{ name: 'Shellby snippets', extensions: ['json'] }, { name: 'All files', extensions: ['*'] }],
-  });
-  if (r.canceled || !r.filePaths?.[0]) return { ok: false, cancelled: true };
-  let raw;
-  try {
-    if (fs.statSync(r.filePaths[0]).size > 1024 * 1024) return { ok: false, error: "That file is too big to be snippets (over 1 MB)." };
-    raw = fs.readFileSync(r.filePaths[0], 'utf8');
-  } catch (e) { return { ok: false, error: `Couldn't read it: ${e.code || e.message}` }; }
-  const parsed = snippets.parseImport(raw);
-  if (!parsed.ok) return parsed;
-  return mergeSnippets(parsed.snippets);
-}
-
-function mergeSnippets(incoming) {
-  const m = snippets.merge(snippetList(), incoming);
-  return { ok: true, added: m.added, renamed: m.renamed, skipped: m.skipped, ...(m.added.length ? setSnippets(m.list) : snippetsView()) };
-}
-
 // ================================================================ routines
 
 function routines() { return Array.isArray(config.get('routines')) ? config.get('routines') : []; }
@@ -5052,212 +2109,6 @@ function startScheduler() {
   syncKeepAwake();
 }
 
-// ================================================================ dependency watch
-
-// The projects it looks at: the git repos Shellby has seen you work in, then
-// your recent folders (depwatch.candidates keeps the npm ones).
-function depProjects() {
-  const s = streaks.normalize(config.get('streaks'));
-  return depwatch.candidates({
-    projects: Object.entries(s.projects).map(([key, p]) => ({ key, name: p.name })),
-    recent: config.get('recentFolders') || [],
-    exclude: [worktreeHome()], // a bump task's copy is where the work happens, not a project of its own
-    has: (dir, file) => { try { return fs.statSync(path.join(dir, file)).isFile(); } catch { return false; } },
-  });
-}
-
-// ================================================================ projects and dev servers
-
-function createProjects() {
-  devServers = new DevServers({
-    config,
-    dir: path.join(app.getPath('userData'), 'devservers'),
-    runner: devRunner,
-    info: native.processInfo,
-    readScripts: devScripts.read,
-    startTask,
-    panelFocused: () => !!(panel?.isVisible() && panel.isFocused()),
-    openCard: showServer,
-    notify: n => notify(n.title, n.body, n.onClick, { tone: n.tone || 'default', action: n.action || null }),
-  });
-  devServers.on('change', v => { send(panel, 'servers:changed', v); refreshCritter(); });
-  devServers.on('crashed', () => { if (!config.get('crabOnly')) speak('serverDown'); });
-  devServers.on('installed', ({ project }) => send(panel, 'projects:installed', { project }));
-  projects = new Projects({
-    config,
-    devServers,
-    known: knownProjects,
-    lastWorked: () => new Map(Object.entries(streaks.normalize(config.get('streaks')).projects).map(([key, p]) => [key, p.lastSeen || 0])),
-    github: () => ({
-      signedIn: !!github?.signedIn,
-      login: github?.view().login || null,
-      can: f => !!github?.can(f),
-      gh: () => github.gh(),
-      claudeEnv: () => github.claudeEnv(),
-    }),
-    insights: projectInsights,
-    sessions: () => history?.list() || [],
-  });
-  projects.on('change', () => send(panel, 'projects:changed'));
-  devServers.reattach();
-}
-
-// A server's card on its project's page (the crab's sign, a toast, the tray).
-function showServer(serverId = null) {
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'projects');
-  send(panel, 'projects:show', { serverId: serverId || devServers?.summary().firstId || null });
-}
-
-// Quitting with servers running: they keep running unless you chose otherwise
-// (Settings, the Projects page, the tray, and this note the first time).
-async function serversOnQuit() {
-  if (!devServers?.liveCount()) return;
-  let { onQuit, quitNoteSeen } = devServers.view().settings;
-  if (onQuit === 'keep' && !quitNoteSeen) {
-    const n = devServers.liveCount();
-    const answer = await confirm.ask(panel, {
-      ...dialogLook(),
-      icon: '🖥️',
-      title: `${n} dev server${n === 1 ? '' : 's'} will keep running`,
-      message: `After Shellby closes, ${n === 1 ? 'it keeps' : 'they keep'} running, and Shellby picks ${n === 1 ? 'it' : 'them'} back up, log and all, when it starts again.`,
-      note: 'You can change this any time on the Projects page or in Settings.',
-      buttons: [{ label: 'Leave them running', style: 'primary' }, { label: 'Stop them' }, { label: 'Always stop them' }],
-      defaultId: 0, cancelId: 0,
-    });
-    devServers.setSettings({ quitNoteSeen: true, ...(answer === 2 ? { onQuit: 'stop' } : {}) });
-    if (answer === 1 || answer === 2) onQuit = 'stop';
-  }
-  if (onQuit === 'stop') {
-    await Promise.race([devServers.stopAll(), new Promise(r => setTimeout(r, 3000))]);
-    // Anything still going after that is ended on its own, past Shellby's exit.
-    await devServers.stopAll({ detached: true });
-  }
-}
-
-function createDepWatch() {
-  depWatch = new depwatch.DepWatch({
-    config,
-    projects: depProjects,
-    isOff: () => !!config.get('crabOnly'),
-    toPanel: (channel, payload) => send(panel, channel, payload),
-    notify: n => notify(n.title, n.body, showDepWatch, { urgent: n.urgent, action: 'Have a look' }),
-  });
-  depWatch.start();
-}
-
-function showDepWatch() {
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'routines');
-}
-
-// A task that starts in a copy of its own (worktrees.js), whatever the
-// worktrees setting says: work that ends in a pull request has no business in
-// your checkout. promptFor(worktree) writes the prompt once the branch is known.
-async function startTaskInCopy(dir, title, promptFor, { mode = null } = {}) {
-  if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
-  const made = await worktrees.create(dir, { home: worktreeHome(), title });
-  if (!made) return { ok: false, error: "That folder isn't in a git repository." };
-  if (!made.ok) return { ok: false, error: made.error };
-  const w = made.worktree;
-  const tabId = randomUUID();
-  try {
-    const tab = openTab({ tabId, title, mode, cwd: w.cwd });
-    tab.worktree = w;
-    const prompt = promptFor(w);
-    manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
-    history.update(tabId, { cwd: w.cwd, worktree: w });
-    manager.note(tabId, { kind: 'moved', branch: w.branch, base: w.base });
-    wake();
-    send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: false });
-    return { ok: true, tabId };
-  } catch (err) {
-    // Tidy up without letting a second failure hide the first.
-    try {
-      if (manager.tabs.has(tabId)) await manager.closeAndWait(tabId);
-      if (history.get(tabId)) history.remove(tabId); // it would point at a copy that's gone
-      await worktrees.remove(w, { force: true });
-    } catch (e) { log.info(`dependency task cleanup: ${e.message}`); }
-    return { ok: false, error: err.message };
-  }
-}
-
-// ================================================================ workflows
-
-// One tool-less `claude -p` call (drafts and the editors' chats), in your home
-// folder. Dev and screenshot runs: the fake CLI answers instead.
-function runClaudeOnce(args, timeoutMs, opts) {
-  if (FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
-  const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-  if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
-  return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
-}
-
-// The Automate page (workflows/service.js). Everything Shellby-specific a run
-// needs comes in through these few functions; the engine itself knows nothing
-// of Electron.
-function createWorkflows() {
-  workflows = new WorkflowService({
-    config, home: os.homedir(), manager, maxTabs: MAX_TABS,
-    dataDir: path.join(app.getPath('userData'), 'workflows'),
-    isOff: () => !!config.get('crabOnly'),
-    openTab: opts => openTab(opts),
-    closeTab: tabId => { manager.close(tabId); workflows.onTabClosed(tabId); },
-    currentCwd,
-    claudeReady: () => !config.get('crabOnly') && !!claudeStatus?.installed && !!claudeStatus?.loggedIn,
-    allowAutonomous: () => !!config.get('autonomousAcknowledged'),
-    confirm: spec => { wake(); return confirm.ask(panel, { ...dialogLook(), ...spec }); },
-    notify: (title, body, onClick, opts) => notify(title, body, onClick, opts),
-    tellPhone: event => tellChannel(event),
-    say: text => sayText(text, 'workflow'),
-    showWorkflows: runId => {
-      showPanel({ focusInput: false });
-      if (runId) send(panel, 'workflows:open-run', runId); else send(panel, 'panel:view', 'workflows');
-    },
-    toPanel: (channel, payload) => send(panel, channel, payload),
-    runCommand: (cwd, command, opts) => shellCmd.run(cwd, command, opts),
-    runClaude: runClaudeOnce,
-    makeCopy: makeIssueCopy,
-    openPullRequest: openIssuePr,
-    copy: text => clipboard.writeText(text),
-    crypto: {
-      available: () => safeStorage.isEncryptionAvailable(),
-      encrypt: text => safeStorage.encryptString(text),
-      decrypt: buf => safeStorage.decryptString(buf),
-    },
-    webhookPort: () => (external?.status === 'listening' ? external.port : null),
-    // Shellby's own profile: settings, run records, the approval key. Never a workflow's to write.
-    forbiddenDirs: () => [app.getPath('userData')],
-    log: { info: (...a) => log.info(...a), warn: (...a) => log.warn(...a) },
-  });
-  workflows.start();
-  if (external) external.onFlow = body => (config.get('crabOnly') ? { ok: false, error: 'Workflows are off.', status: 403 } : workflows.webhook(body));
-}
-
-function registerWorkflowIpc(ipcMain) {
-  const isId = v => typeof v === 'string' && v.length > 0 && v.length <= 80;
-  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
-  const off = { ok: false, error: 'Workflows are off in just-the-crab mode.' };
-  const ready = () => !!workflows && !config.get('crabOnly');
-  ipcMain.handle('workflows:list', () => (workflows ? workflows.view() : null));
-  ipcMain.handle('workflows:validate', (_e, def) => (workflows ? workflows.validate(def) : off));
-  ipcMain.handle('workflows:save', (_e, def) => (ready() && isObj(def) ? workflows.save(def, { source: 'panel' }) : { ok: false, errors: [{ path: '', message: off.error }] }));
-  ipcMain.handle('workflows:delete', (_e, id) => (workflows && isId(id) ? workflows.remove(id) : null));
-  ipcMain.handle('workflows:run', (_e, id, inputs) => (ready() && isId(id) ? workflows.runManual(id, isObj(inputs) ? inputs : {}) : off));
-  ipcMain.handle('workflows:draft', (_e, text) => (ready() ? workflows.draft(text) : off));
-  ipcMain.handle('workflows:repair', (_e, runId) => (ready() && isId(runId) ? workflows.repair(runId) : off));
-  ipcMain.handle('workflows:chat', (_e, req) => (ready() && isObj(req) ? workflows.chat({ workflow: isObj(req.workflow) ? req.workflow : {}, messages: req.messages, runId: isId(req.runId) ? req.runId : null }) : off));
-  ipcMain.handle('workflows:import', (_e, text) => (workflows ? workflows.importText(text) : off));
-  ipcMain.handle('workflows:export', (_e, id) => (workflows && isId(id) ? workflows.exportText(id) : off));
-  ipcMain.handle('workflows:runs', (_e, id) => (workflows ? workflows.listRuns(isId(id) ? id : null) : []));
-  ipcMain.handle('workflows:run-get', (_e, runId) => (workflows && isId(runId) ? workflows.getRun(runId) : null));
-  ipcMain.handle('workflows:run-stop', (_e, runId) => (workflows && isId(runId) ? workflows.stopRun(runId) : off));
-  ipcMain.handle('workflows:run-resume', (_e, runId) => (ready() && isId(runId) ? workflows.resumeRun(runId) : off));
-  ipcMain.handle('workflows:run-answer', (_e, runId, key, choice) => (workflows && isId(runId) && typeof key === 'string' && typeof choice === 'string' ? workflows.answer(runId, key, choice) : off));
-  ipcMain.handle('workflows:secret-set', (_e, name, value) => (workflows ? workflows.setSecret(name, value) : off));
-  ipcMain.handle('workflows:secret-delete', (_e, name) => (workflows && typeof name === 'string' ? workflows.deleteSecret(name) : null));
-}
-
 // ================================================================ settings side effects
 
 function applyHotkey(accel, previous) {
@@ -5283,90 +2134,6 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 
 // Remembered for Up and Ctrl+R in the box (parity.js).
 function rememberPrompt(text) { parityIpc?.rememberPrompt(text); }
-
-// What main shares with the IPC modules in ipc/ (registerIpc): its helpers as
-// they are, and its state through getters, since most of it is set at boot or
-// changes as he runs. A setter is there only where a handler changes it.
-function ipcDeps() {
-  return {
-    CAPTURE, CARD_MAX_BYTES, FAKE_CLI, FORECAST_TEST, ISOLATED, NUDGE_TEST, PANEL_MAX_TEXT,
-    PNG_SIGNATURE, RECAP_TEST, TRICKS_KIND, activeSkin, advanceFocus, allSkins, allSnippets,
-    answerPermission, applyHotkey, applyLayer, applyLoginItem, awardXp, beachSeen, beachView,
-    broadcastSkin, broadcastWardrobe, buildMenu, changeRef, channelPlace, channelSettings,
-    channelsView, chatRoutine, checkAway, checkNudges, checkupsView, ciView, claudeConfigDir,
-    claudePath, claudeSettings, cliBinDir, cliView, composePrompt, confirmAndAddMarketplace,
-    confirmAndChangeHook, confirmAndInstallOpenRgb, confirmAndInstallPlugin,
-    confirmAndInstallShellbyPlugin, confirmAndPublishPack, confirmAndUninstallPlugin,
-    confirmChannelPlace, confirmGitHubFeature, crewExtra, critterBaseSize, critterGeo, currentCwd,
-    currentLevel, dialogLook, draftRoutine, drainCrashQueue, editStickers, ensureOpenRgb,
-    expandSnippet, exportSnippets, externalView, flakyAct, flakyView, flashState, focusView,
-    forgetPausedHook, friendsView, heldList, holdForReset, homesView, importSnippets, installCli,
-    isFolder, isStr, knownFolder, log, mediaSettings, mediaView, mergeSnippets, noteSnippetUse,
-    obsSettings, obsView, onUsage, openGitHubUrl, openTab, outfit, outlookView, paintLights,
-    panelSettings, pauseHook, pinnedTools, placeCritter, pluginView, queueTabs, queueTask,
-    queueWaits, reachedForShellby, recordWork, refreshCritter, refreshOutlook, refreshStatusLine,
-    registerWorkflowIpc, registryUrl, removeCli, reopenForHeld, repairRoutine, resetCritterPos,
-    restoreLights, resumeHook, retireWorktree, rgbSettings, rgbView, roomsPanelView, routineTabs,
-    routineTestView, routineTests, routines, routinesView, runCheckup, runRoutine,
-    saveChannelSecret, saveCritterPos, saveHeld, saveRoutines, saveStreaks, send, sendOutlook,
-    sendToTab, setFolder, setPanelRoomy, setRooms, setSnippets, settleCritter, setupCwd, setupView,
-    setupWhere, shipped, shopBlocked, shotsDir, showFlaky, showListening, showPanel, showServer,
-    snippetList, soundMix, speak, startFocus, startTask, startTaskInCopy, stat, stickerState,
-    stickersView, stopFocus, streaksView, syncKeepAwake, testHook, testRoutine, togglePanel,
-    turnEnds, turnStarts, typingSettings, updateView, usageBreakdown, wake, weatherView, weekView,
-    worktreeHome, xpView,
-    get autonomousOkThisRun() { return autonomousOkThisRun; }, set autonomousOkThisRun(v) { autonomousOkThisRun = v; },
-    get channelSecret() { return channelSecret; },
-    get ci() { return ci; },
-    get claudeStatus() { return claudeStatus; }, set claudeStatus(v) { claudeStatus = v; },
-    get climbing() { return climbing; },
-    get config() { return config; },
-    get critter() { return critter; },
-    get depWatch() { return depWatch; },
-    get devServers() { return devServers; },
-    get dictation() { return dictation; },
-    get dragging() { return dragging; }, set dragging(v) { dragging = v; },
-    get external() { return external; },
-    get floor() { return floor; },
-    get friends() { return friends; },
-    get github() { return github; },
-    get health() { return health; },
-    get healthMood() { return healthMood; },
-    get history() { return history; },
-    get lastActivity() { return lastActivity; }, set lastActivity(v) { lastActivity = v; },
-    get lastRgbColor() { return lastRgbColor; }, set lastRgbColor(v) { lastRgbColor = v; },
-    get lastStatus() { return lastStatus; },
-    get life() { return life; },
-    get manager() { return manager; },
-    get media() { return media; },
-    get motion() { return motion; },
-    get nowPlaying() { return nowPlaying; }, set nowPlaying(v) { nowPlaying = v; },
-    get obsServer() { return obsServer; },
-    get panel() { return panel; },
-    get perching() { return perching; },
-    get playtime() { return playtime; },
-    get prBadge() { return prBadge; },
-    get pranks() { return pranks; },
-    get profileCard() { return profileCard; },
-    get projects() { return projects; },
-    get ptt() { return ptt; },
-    get recapLog() { return recapLog; }, set recapLog(v) { recapLog = v; },
-    get remote() { return remote; },
-    get rgbClient() { return rgbClient; }, set rgbClient(v) { rgbClient = v; },
-    get said() { return said; }, set said(v) { said = v; },
-    get shop() { return shop; },
-    get shopAsking() { return shopAsking; },
-    get startView() { return startView; }, set startView(v) { startView = v; },
-    get timeTracker() { return timeTracker; },
-    get toolbox() { return toolbox; },
-    get typing() { return typing; },
-    get updates() { return updates; },
-    get wardrobe() { return wardrobe; },
-    get weatherSvc() { return weatherSvc; },
-    get welcomeTrophies() { return welcomeTrophies; },
-    get workflows() { return workflows; },
-  };
-}
 
 function registerIpc() {
   // Every handler (here, in ipc/, and parity's and branching's) checks which
@@ -5446,7 +2213,7 @@ function registerIpc() {
   });
 
   // The rest, one area per module in ipc/.
-  const d = ipcDeps();
+  const d = shared;
   registerCritterIpc(ipcMain, d);
   registerLifeIpc(ipcMain, d);
   registerPanelIpc(ipcMain, d);
@@ -5458,378 +2225,6 @@ function registerIpc() {
   registerGithubIpc(ipcMain, d);
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
-}
-
-// ================================================================ pack installs
-
-// Preview a pack's text, ask in a native dialog (which renderer code can't click
-// through), then install exactly the previewed bytes. Shared by "Install pack…",
-// drag and drop, and the community gallery. Never echoes JSON parse errors.
-// opts: { sourceLabel?: shown in the dialog, expectId?: the pack id we asked for }
-async function confirmAndInstallPackText(text, { sourceLabel = null, expectId = null } = {}) {
-  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 512 * 1024) return { ok: false, errors: ['That pack is too big (max 512 KB).'] };
-  let preview;
-  try {
-    preview = validatePack(JSON.parse(text.replace(/^﻿/, '')), { source: 'user', knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
-  } catch {
-    return { ok: false, errors: ["That file isn't valid JSON, so it isn't a Shellby pack."] };
-  }
-  if (!preview.pack) return { ok: false, errors: preview.errors };
-  const p = preview.pack;
-  if (expectId && p.id !== expectId) return { ok: false, errors: [`The downloaded pack's id (${p.id}) doesn't match the link (${expectId}), so it was not installed.`] };
-  const SLOT_LABEL = { hat: 'Hat', face: 'Face', neck: 'Neck', held: 'Held', shell: 'Shell' };
-  const response = await confirm.ask(panel, {
-    ...dialogLook(), icon: '📦',
-    title: 'Install wardrobe pack?',
-    message: `"${p.name}" ${p.version} by ${p.author}${sourceLabel ? `, ${sourceLabel}` : ''}`,
-    detail: p.description || '',
-    items: [
-      ...p.accessories.map(a => ({ kind: a.slot, label: SLOT_LABEL[a.slot] || a.slot, name: a.name, pixels: a.pixels, palette: { ...a.palette } })),
-      ...p.effects.map(e => ({ kind: 'effect', label: 'Effect', name: e.name, sprites: e.sprites.map(sp => ({ pixels: sp.pixels, palette: { ...sp.palette } })) })),
-      ...p.skins.map(k => ({ kind: 'skin', label: 'Colors', name: k.name, pixels: k.pixels, palette: { ...k.palette }, parts: { ...k.parts } })),
-      ...p.voices.map(v => ({ kind: 'voice', label: v.lang ? `Voice · ${v.lang}` : 'Voice', name: v.name, glyph: '💬' })),
-      ...p.scenes.map(sc => ({ kind: 'scene', label: 'Scene', name: sc.name, glyph: '🎬' })),
-    ],
-    note: "Packs are pixel art, lines and settings only. They can't run code.",
-    buttons: [{ label: 'Install', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-  });
-  if (response !== 0) return { ok: false, canceled: true };
-  // Install from a private temp copy of the previewed text, so what was shown is
-  // exactly what gets installed (installPack re-validates and picks the final name).
-  let dir = null;
-  try {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-pack-'));
-    const tmp = path.join(dir, 'pack.json');
-    fs.writeFileSync(tmp, text);
-    const r = wardrobe.install(tmp);
-    return { ok: r.ok, errors: r.errors || [], warnings: r.warnings || [], pack: r.pack ? { id: r.pack.id, name: r.pack.name } : null };
-  } catch {
-    return { ok: false, errors: ["Couldn't save the pack. Try again."] };
-  } finally {
-    if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ } }
-  }
-}
-
-// A shellby:// link from the community gallery. Queued until boot has finished.
-// The link only ever supplies a pack id; everything else comes from the registry.
-function onDeepLink(link) {
-  if (CAPTURE || !link) return;
-  if (!booted) { pendingLink = link; return; }
-  const parsed = parseDeepLink(link);
-  if (!parsed) {
-    showPanel({ focusInput: false });
-    reportPackResult({ ok: false, error: "That Shellby link isn't one this version understands." });
-    return;
-  }
-  // The panel must be loaded to switch views and hear the result.
-  const go = () => installFromRegistry(parsed.packId);
-  if (panel.webContents.isLoading()) panel.webContents.once('did-finish-load', go);
-  else go();
-}
-
-async function installFromRegistry(packId) {
-  startView = 'wardrobe'; // survives a panel that is still booting (its init would otherwise reset to chat)
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'wardrobe');
-  if (linkBusy) return reportPackResult({ ok: false, error: 'Shellby is already installing a pack. Try again when it finishes.' });
-  linkBusy = true;
-  try {
-    const got = await fetchRegistryPack(packId, { baseUrl: registryUrl() });
-    if (!got.ok) return reportPackResult({ ok: false, error: got.errors[0] || 'Download failed.' });
-    const have = wardrobe.catalog.packs.find(p => p.id === packId && p.source === 'user');
-    if (have && got.entry.version && have.version === got.entry.version) {
-      return reportPackResult({ ok: true, already: true, name: have.name, version: have.version });
-    }
-    const r = await confirmAndInstallPackText(got.text, { sourceLabel: 'from the Shellby community registry', expectId: packId });
-    if (r.canceled) return reportPackResult({ ok: false, canceled: true });
-    if (!r.ok) return reportPackResult({ ok: false, error: r.errors[0] || 'Install failed.' });
-    return reportPackResult({ ok: true, name: r.pack.name, warnings: r.warnings.length });
-  } catch (e) {
-    console.warn('[shellby] registry install failed:', e.message);
-    return reportPackResult({ ok: false, error: 'Something went wrong installing that pack.' });
-  } finally {
-    linkBusy = false;
-  }
-}
-
-// Tell the panel (it toasts); if nobody is looking, a failure also gets a native box.
-function reportPackResult(result) {
-  send(panel, 'wardrobe:installed', result);
-  if (!result.ok && !result.canceled && !(panel?.isVisible() && panel.isFocused())) {
-    confirm.ask(panel, { ...dialogLook(), icon: '😕', title: "Couldn't install that pack", message: result.error || 'Something went wrong.', buttons: [{ label: 'OK', style: 'primary' }], defaultId: 0, cancelId: 0 }).catch(() => {});
-  }
-  return result;
-}
-
-function setFolder(dir) {
-  config.set({ cwd: dir });
-  config.addRecentFolder(dir);
-  toolbox?.rescan({ plugins: false });
-  // Another repo, other team snippets; and a pack there you haven't seen gets a word.
-  send(panel, 'snippets', snippetsView());
-  teamIpc?.folderChanged(dir);
-  return { cwd: dir, settings: panelSettings() };
-}
-
-// ================================================================ tray + menu
-
-// One line in the tray for whatever the updater is up to: the fastest route to
-// "restart and update" without opening the panel at all.
-function updateMenuItem() {
-  const view = updateView();
-  const label = updateLabel(view);
-  if (!label) return null;
-  if (view.state === 'ready') return { label, click: () => updates.install() };
-  if (view.state === 'downloading') return { label, enabled: false };
-  return { label, enabled: view.state !== 'checking', click: () => { updates.check(); showUpdateSetting(); } };
-}
-
-// Says what the last check found, so a glance at the menu is often enough.
-function leaveMenuLabel() {
-  const v = leaveVerdict();
-  return v.safe ? 'Is it safe to leave?' : `Safe to leave? ${v.headline.replace(/\.$/, '')}`.slice(0, 90);
-}
-
-function buildMenu() {
-  const agg = manager?.aggregate;
-  const claude = !config.get('crabOnly'); // just-the-crab mode has no tasks, toolbox or routines
-  return Menu.buildFromTemplate([
-    { label: 'Open Shellby', click: () => showPanel() },
-    claude && { label: 'New conversation', click: () => { showPanel(); send(panel, 'tab:new-request'); } },
-    claude && clipboardHasImage() && { label: 'Task from screenshot', click: taskFromClipboard },
-    { label: 'Wardrobe', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); } },
-    claude && { label: 'Toolbox', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'toolbox'); } },
-    claude && { label: 'Workflows', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'workflows'); } },
-    claude && { label: 'Routines', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'routines'); } },
-    claude && { label: 'Projects', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'projects'); } },
-    claude && devServers?.liveCount() && { label: `Stop all dev servers (${devServers.liveCount()})`, click: () => devServers.stopAll() },
-    { label: leaveMenuLabel(), click: () => leaveCheck() },
-    { label: 'Lock the PC', click: () => leaveCheck({ lock: true }) },
-    { label: healthMood ? `Health: ${HEALTH_TIP[healthMood.mood]} (${healthMood.text})` : 'Health', click: showHealth },
-    focusMenu(),
-    playMenu(),
-    ...careMenu(),
-    { type: 'separator' },
-    ...(agg?.busy ? [{ label: `${agg.busy} task${agg.busy > 1 ? 's' : ''} running`, enabled: false }, { type: 'separator' }] : []),
-    updateMenuItem(),
-    { label: 'Settings…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'settings'); } },
-    ...(perching?.menuItems() || []),
-    ...(climbing?.menuItems() || []),
-    ...(pranks?.menuItems() || []),
-    { label: 'Reset position', click: resetCritterPos },
-    { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
-    { label: 'Report a problem…', click: reportProblem },
-    { type: 'separator' },
-    { label: 'Quit Shellby', click: quit },
-  ].filter(Boolean));
-}
-
-// Open a new GitHub issue with the facts already filled in: version, Windows
-// build, whether Claude Code was found, and the tail of the log (already scrubbed
-// of the home directory and anything token-shaped). It opens in the browser as a
-// draft, so nothing is sent anywhere until the user reads it and presses submit.
-const ISSUES_URL = 'https://github.com/x-salmon/shellby/issues/new';
-const MAX_URL = 7000; // GitHub starts dropping very long query strings
-
-function reportProblem() {
-  const lines = log.recent(40);
-  const body = [
-    '<!-- What were you doing when it went wrong? -->',
-    '',
-    '',
-    '### Shellby',
-    `- Version: ${app.getVersion()}${app.isPackaged ? '' : ' (dev build)'}`,
-    `- Windows: ${os.release()} (${process.arch})`,
-    `- Electron: ${process.versions.electron}`,
-    `- Claude Code: ${claudeStatus?.installed ? `${claudeStatus.version || 'found'}${claudeStatus.loggedIn ? ', signed in' : ', not signed in'}` : 'not found'}`,
-    `- Mode: ${config?.get('crabOnly') ? 'just the crab' : config?.get('mode') || 'unknown'}`,
-    '',
-    '### Log',
-    'The last lines before reporting. Paths are shortened to `~` and anything',
-    'token-shaped is cut; please still skim it before submitting.',
-    '',
-    '```',
-    ...(lines.length ? lines : ['(nothing logged this run)']),
-    '```',
-    // The run that closed unexpectedly is the one worth reading, not this one.
-    ...(lastRun.unclean ? ['', '### Before Shellby last closed unexpectedly', '', '```', ...crashReport.previousLogTail(log.file, 20), '```'] : []),
-  ].join('\n');
-
-  const url = `${ISSUES_URL}?labels=bug&body=${encodeURIComponent(body)}`;
-  // Too long for a URL: open a blank issue and leave the details on the
-  // clipboard instead of silently truncating the thing they need to paste.
-  if (url.length > MAX_URL) {
-    clipboard.writeText(body);
-    notify('Report copied', 'The details are on your clipboard — paste them into the issue.');
-    shell.openExternal(`${ISSUES_URL}?labels=bug`);
-    return;
-  }
-  shell.openExternal(url);
-}
-
-// The first time something goes wrong, he asks before any report leaves. The
-// answer is a cut-off in time (crash-report.js makeGate): Send lets everything
-// waiting go, Don't send drops it, and either way the next problem asks again.
-let askingToSend = false;
-async function askToSend(kind) {
-  if (!sentry || askingToSend || crashConsent() !== 'ask') return;
-  askingToSend = true;
-  // The answer covers what was waiting when the question appeared, not
-  // whatever goes wrong while it sits on screen.
-  const shownAt = Date.now();
-  try {
-    const response = await confirm.ask(null, {
-      ...dialogLook(), icon: '🩹',
-      title: 'Send a crash report?',
-      message: kind === 'closed' ? 'Shellby closed unexpectedly last time.' : 'Shellby hit a snag.',
-      detail: 'A report helps get it fixed. It has the error and where in Shellby it happened, the versions of Shellby, Windows and Electron, basic facts about your PC (memory, graphics card, screen) and the log\'s last lines, with your home folder and anything token-shaped removed. If Shellby crashed outright, it also has a crash dump: where each part of the app was, which can hold fragments of whatever it was working on.',
-      note: 'Reports go to Sentry, the crash-report service Shellby uses. Change this any time in Settings → About.',
-      buttons: [{ label: 'Send report', style: 'primary' }, { label: 'Always send' }, { label: 'Don\'t send' }], defaultId: 0, cancelId: 2,
-    });
-    const decisions = crashReport.addDecision(config.get('crashReportDecisions'), shownAt, response !== 2);
-    config.set(response === 1 ? { crashReports: 'always', crashReportDecisions: decisions } : { crashReportDecisions: decisions });
-    // What was okayed goes now; what was turned down comes off the disk now,
-    // rather than at the next backed-off retry.
-    drainCrashQueue();
-    log.info('crash report', ['sent', 'sent, and from now on always', 'not sent'][response]);
-  } catch (e) {
-    log.warn('crash report question failed', e);
-  } finally {
-    askingToSend = false;
-  }
-}
-
-// Sentry's queue sends one report per retry and carries on after a success,
-// but a dropped report schedules nothing more. So after an answer (or Never)
-// it's walked once: each flush() takes the next report through the gate.
-// Bounded by the queue's own cap of 30.
-let draining = false;
-async function drainCrashQueue() {
-  if (!sentry || draining) return;
-  draining = true;
-  try {
-    for (let i = 0; i < 30; i++) {
-      await sentry.flush().catch(() => {});
-      await new Promise(r => setTimeout(r, 250));
-    }
-  } finally {
-    draining = false;
-  }
-}
-
-// Shellby's last run ended without quitting: a native crash, the process being
-// ended from outside, or the power going. Before this he came back as if
-// nothing had happened, and there was nothing to go on.
-function reportUncleanExit() {
-  if (!lastRun.unclean) return;
-  const started = lastRun.startedAt ? new Date(lastRun.startedAt).toISOString() : 'unknown';
-  log.warn('the last run ended without quitting', `started ${started}${lastRun.version ? `, version ${lastRun.version}` : ''}`);
-  if (sentry && crashConsent() !== 'never') {
-    sentry.captureMessage('Shellby closed unexpectedly', {
-      level: 'fatal',
-      extra: { lastVersion: lastRun.version, lastStartedAt: started, log: crashReport.previousLogTail(log.file, 40).join('\n') },
-    });
-    if (crashConsent() === 'ask') setTimeout(() => askToSend('closed'), 4000); // once he's on the desk
-  }
-  // Without Sentry it stays in the log, and Report a problem picks it up: an
-  // installer or Task Manager ending him isn't worth a toast to everyone.
-}
-
-// Games and digging (playtime.js, life.js): none of it needs Claude.
-function playMenu() {
-  if (!playtime || !life) return null;
-  return { label: 'Play', submenu: [...playtime.menuItems(), { type: 'separator' }, life.digMenuItem(), { label: 'Finds and memories…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'us'); } }] };
-}
-
-// Feeding him and the rest of looking after him (care.js). Gone entirely with
-// Snacks and naps switched off.
-function careMenu() {
-  const m = life?.needsMenu();
-  if (!m) return [];
-  const us = { label: 'How he\'s doing…', click: () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'us'); } };
-  return [m.feed, { label: 'Care', submenu: [...m.care, { type: 'separator' }, us] }];
-}
-
-function focusMenu() {
-  const s = focus.normalize(config.get('focus'));
-  if (s?.phase === 'focus') return { label: `Stop guarding my focus (${focus.shortLeft(s.endsAt - Date.now())} left)`, click: stopFocus };
-  if (s?.phase === 'break') return { label: `End the break (${focus.shortLeft(s.endsAt - Date.now())} left)`, click: stopFocus };
-  return { label: 'Guard my focus', submenu: focus.LENGTHS.map(m => ({ label: `${m} minutes`, click: () => startFocus(m) })) };
-}
-
-function createTray() {
-  const img = nativeImage.createFromPath(path.join(ROOT, 'assets', 'tray.png'));
-  tray = new Tray(img.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 16, height: 16 }) : img);
-  tray.setToolTip('Shellby');
-  tray.on('click', () => { reachedForShellby(); showPanel(); });
-  tray.on('right-click', reachedForShellby); // its menu's items open the panel too
-  tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
-}
-
-async function quit() {
-  // Dev servers keep running unless you chose otherwise; the first time, he says so.
-  await serversOnQuit().catch(e => log.warn('dev servers on quit', e.message));
-  app.isQuitting = true;
-  manager?.closeAll();
-  app.quit();
-}
-
-// ================================================================ updates
-
-function setupUpdates() {
-  // Dev runs can walk the whole sequence without a release behind it:
-  // SHELLBY_FAKE_UPDATE=1 (or =fail, =current) npm start
-  const fake = !app.isPackaged && process.env.SHELLBY_FAKE_UPDATE;
-  let updater = fake ? fakeUpdater({ mode: fake === '1' ? 'ok' : fake }) : null;
-  if (app.isPackaged) {
-    try {
-      ({ autoUpdater: updater } = require('electron-updater'));
-      updater.logger = null;
-      updater.autoInstallOnAppQuit = true; // quitting still installs whatever he already fetched
-    } catch (e) {
-      console.warn('[shellby] updater unavailable:', e.message);
-    }
-  }
-  updates = new Updates({
-    updater,
-    version: app.getVersion(),
-    // Dev servers are stopped first and started again by the new version
-    // (devservers/service.js stopForUpdate).
-    // The installer relaunches Shellby; the flag has the new version open the
-    // panel rather than come back as just the crab (see boot).
-    prepare: () => {
-      app.isQuitting = true;
-      config.set({ reopenAfterUpdate: true });
-      manager?.closeAll();
-      devServers?.stopForUpdate();
-    },
-  });
-  updates.on('changed', view => {
-    // Offline, no releases yet, rate-limited: it goes to the log and to the
-    // Settings row, never to a dialog you have to dismiss.
-    if (view.state === 'error') console.warn('[shellby] update check failed:', view.error);
-    send(panel, 'updates', view);
-  });
-  updates.on('ready', view => notify(
-    'Shellby update ready',
-    `Version ${view.version} is downloaded. Click to install it now, or it installs when you quit.`,
-    showUpdateSetting,
-  ));
-  updates.start();
-}
-
-const updateView = () => {
-  if (updates) return updates.view();
-  const off = { state: 'off', version: null, percent: 0, error: null, checkedAt: null, current: app.getVersion(), busy: false };
-  // Screenshots show the row as installed users mostly see it, not as a dev run.
-  return CAPTURE ? { ...off, state: 'current', checkedAt: Date.now() } : off;
-};
-
-/** Settings, scrolled to the update button: where the tray item and the notification both point. */
-function showUpdateSetting() {
-  showPanel({ focusInput: false });
-  send(panel, 'panel:view', 'settings');
-  send(panel, 'panel:jump', 'About');
 }
 
 // ================================================================ boot
