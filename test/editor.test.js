@@ -10,25 +10,55 @@ const path = require('path');
 const E = require('../src/main/editor');
 const { snapshot } = require('../src/main/changes');
 
-test('editorCandidates looks on PATH first, then the usual install folders', () => {
-  const env = { PATH: 'C:\\Tools;relative\\bin;"C:\\Quoted Dir"', LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local', ProgramFiles: 'C:\\Program Files' };
-  const list = E.editorCandidates(env);
-  assert.equal(list[0], path.join('C:\\Tools', 'code.cmd'));
-  assert.ok(list.includes(path.join('C:\\Quoted Dir', 'code.cmd')));
-  assert.ok(!list.some(p => p.startsWith('relative')), 'a relative PATH entry is never searched');
+test('editorCandidates tries the usual install folders first, then PATH', () => {
+  const env = { PATH: 'C:\\Tools;relative\\bin;"C:\\Quoted Dir";C:\\Gone', LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local', ProgramFiles: 'C:\\Program Files' };
+  const list = E.editorCandidates(env, dir => dir !== 'C:\\Gone');
   const user = path.join('C:\\Users\\me\\AppData\\Local', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd');
   const machine = path.join('C:\\Program Files', 'Microsoft VS Code', 'bin', 'code.cmd');
-  assert.ok(list.indexOf(user) > list.indexOf(path.join('C:\\Tools', 'cursor.cmd')));
-  assert.ok(list.indexOf(user) < list.indexOf(machine));
+  assert.equal(list[0], user);
+  assert.equal(list[1], machine);
+  assert.ok(list.indexOf(path.join('C:\\Tools', 'code.cmd')) > list.indexOf(machine));
+  assert.ok(list.includes(path.join('C:\\Quoted Dir', 'code.cmd')));
+  assert.ok(!list.some(p => p.startsWith('relative')), 'a relative PATH entry is never searched');
+  assert.ok(!list.some(p => p.startsWith('C:\\Gone')), 'a PATH folder that does not exist is never searched');
   assert.ok(list.some(p => /code-insiders\.cmd$/.test(p)));
   assert.ok(list.some(p => /cursor\.cmd$/.test(p)));
+});
+
+test('findEditor prefers an installed VS Code over a code.cmd on PATH', () => {
+  const env = { PATH: 'C:\\Planted', LOCALAPPDATA: 'C:\\L' };
+  const installed = path.join('C:\\L', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd');
+  const exists = p => p === installed || p === path.join('C:\\Planted', 'code.cmd');
+  assert.equal(E.findEditor(env, exists, () => true), installed);
 });
 
 test('findEditor picks the first that exists, and never one with characters cmd would read', () => {
   const env = { PATH: 'C:\\100%;C:\\ok', LOCALAPPDATA: 'C:\\L' };
   const exists = p => p.startsWith('C:\\100%') || p === path.join('C:\\ok', 'code.cmd');
-  assert.equal(E.findEditor(env, exists), path.join('C:\\ok', 'code.cmd'));
-  assert.equal(E.findEditor(env, () => false), null);
+  assert.equal(E.findEditor(env, exists, () => true), path.join('C:\\ok', 'code.cmd'));
+  assert.equal(E.findEditor(env, () => false, () => true), null);
+});
+
+test('liveFile accepts only a plain file inside the project that still matches', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-live-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-outside-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'same');
+    fs.writeFileSync(path.join(outside, 'secret.txt'), 'same');
+    assert.equal(E.liveFile(dir, 'a.txt', Buffer.from('same')), path.join(dir, 'a.txt'));
+    assert.equal(E.liveFile(dir, 'a.txt', Buffer.from('different')), null);
+    assert.equal(E.liveFile(dir, 'missing.txt', Buffer.from('same')), null);
+    assert.equal(E.liveFile(dir, path.join('..', path.basename(outside), 'secret.txt'), Buffer.from('same')), null);
+    let linked = false;
+    try { fs.symlinkSync(path.join(outside, 'secret.txt'), path.join(dir, 'link.txt'), 'file'); linked = true; } catch { /* no symlink rights on this PC */ }
+    if (linked) assert.equal(E.liveFile(dir, 'link.txt', Buffer.from('same')), null, 'a symlink is never the live side');
+    let junction = false;
+    try { fs.symlinkSync(outside, path.join(dir, 'via'), 'junction'); junction = true; } catch { /* no junctions here */ }
+    if (junction) assert.equal(E.liveFile(dir, path.join('via', 'secret.txt'), Buffer.from('same')), null, 'a file reached through a junction is outside');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
 });
 
 test('safeName keeps letters, digits, dot, dash and underscore only', () => {

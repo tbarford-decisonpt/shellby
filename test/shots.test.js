@@ -29,7 +29,12 @@ test('anyUi reads the file rows of a changes summary', () => {
 test('localOrigin accepts only a dev server on this PC', () => {
   assert.equal(S.localOrigin('http://localhost:5173/'), 'http://localhost:5173');
   assert.equal(S.localOrigin('http://127.0.0.1:3000/app'), 'http://127.0.0.1:3000');
-  for (const bad of ['https://example.com/', 'http://localhost/', 'http://localhost.evil.com:80/', 'file:///C:/x', 'http://192.168.1.2:3000/', 'javascript:alert(1)', null]) {
+  assert.equal(S.localOrigin('http://[::1]:8080/'), 'http://[::1]:8080');
+  const tricks = [
+    'http://localhost:3000@evil.com/', 'http://localhost:3000\\@evil.com/', 'http://localhost:3000 http://evil.com/',
+    'http://localhost:3000.evil.com/', 'http://user:pw@localhost:3000/', 'http://localhost:99999/', 'http://127.0.0.1:3000x/',
+  ];
+  for (const bad of ['https://example.com/', 'http://localhost/', 'http://localhost.evil.com:80/', 'file:///C:/x', 'http://192.168.1.2:3000/', 'javascript:alert(1)', null, ...tricks]) {
     assert.equal(S.localOrigin(bad), null, String(bad));
   }
 });

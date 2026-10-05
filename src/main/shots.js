@@ -16,7 +16,8 @@ const path = require('path');
 
 const TAB_ID_RE = /^[\w-]{1,64}$/;
 const SHOT_ID_RE = /^[0-9a-f-]{8,64}-(before|after)$/;
-const LOCAL_URL_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]):(\d{2,5})\/?/i;
+const LOCAL_URL_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]):\d{2,5}(\/[^\s]*)?$/i;
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const UI_EXT_RE = /\.(css|scss|sass|less|styl|html?|jsx|tsx|vue|svelte|astro|mdx)$/i;
 const UI_DIR_RE = /(^|\/)(components?|pages|app|routes|views|layouts|styles|public|static|ui)\//i;
 const CODE_EXT_RE = /\.(js|mjs|cjs|ts|mts)$/i;
@@ -43,11 +44,14 @@ const anyUi = files => (files || []).some(f => isUiFile(f?.path ?? f));
 
 /** A dev server's url, only if it's on this PC: the window never goes anywhere else. Pure. */
 function localOrigin(url) {
-  const m = LOCAL_URL_RE.exec(String(url || ''));
-  if (!m) return null;
-  const port = Number(m[2]);
-  if (!(port > 0 && port < 65536)) return null;
-  try { return new URL(url).origin; } catch { return null; }
+  const text = String(url || '');
+  if (!LOCAL_URL_RE.test(text) || /[\s\\@]/.test(text)) return null;
+  let u;
+  try { u = new URL(text); } catch { return null; }
+  // What the URL parser makes of it is what's loaded, so that's what's checked.
+  if (!['http:', 'https:'].includes(u.protocol) || !LOCAL_HOSTS.has(u.hostname) || u.username || u.password) return null;
+  const port = Number(u.port);
+  return port > 0 && port < 65536 ? u.origin : null;
 }
 
 const key = p => path.resolve(p).toLowerCase();

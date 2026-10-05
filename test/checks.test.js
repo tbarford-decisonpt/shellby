@@ -169,6 +169,51 @@ test('timeoutMs keeps to the choices offered, defaulting to five minutes', () =>
   assert.equal(C.timeoutMs('20'), 300000);
 });
 
+// ---- what a check runs with
+
+test('checkEnv keeps what a toolchain needs and drops every secret', () => {
+  const env = checksEnvSample();
+  const out = C.checkEnv(env);
+  for (const k of ['Path', 'PATHEXT', 'SystemRoot', 'windir', 'ComSpec', 'TEMP', 'TMP', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'ProgramFiles', 'ProgramFiles(x86)', 'NUMBER_OF_PROCESSORS', 'npm_config_cache', 'CARGO_HOME', 'GOPATH']) {
+    assert.equal(out[k], env[k], k);
+  }
+  for (const k of ['ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'GITHUB_TOKEN', 'GH_TOKEN', 'NPM_TOKEN', 'AWS_SECRET_ACCESS_KEY', 'OPENAI_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'SOME_PASSWORD', 'ELECTRON_RUN_AS_NODE', 'NODE_OPTIONS']) {
+    assert.equal(k in out, false, k);
+  }
+  assert.equal(out.CI, '1');
+  assert.equal(out.NoDefaultCurrentDirectoryInExePath, '1');
+});
+
+function checksEnvSample() {
+  return {
+    Path: 'C:\\Windows;C:\\node', PATHEXT: '.COM;.EXE;.CMD', SystemRoot: 'C:\\Windows', windir: 'C:\\Windows', ComSpec: 'C:\\Windows\\system32\\cmd.exe',
+    TEMP: 'C:\\t', TMP: 'C:\\t', USERPROFILE: 'C:\\Users\\me', APPDATA: 'C:\\a', LOCALAPPDATA: 'C:\\l', ProgramFiles: 'C:\\pf', 'ProgramFiles(x86)': 'C:\\pf86',
+    NUMBER_OF_PROCESSORS: '8', npm_config_cache: 'C:\\npm-cache', CARGO_HOME: 'C:\\cargo', GOPATH: 'C:\\go',
+    ANTHROPIC_API_KEY: 'sk-ant', ANTHROPIC_BASE_URL: 'https://x', GITHUB_TOKEN: 'ghp', GH_TOKEN: 'ghp', NPM_TOKEN: 'n', AWS_SECRET_ACCESS_KEY: 'a',
+    OPENAI_API_KEY: 'o', CLAUDE_CODE_OAUTH_TOKEN: 'c', SOME_PASSWORD: 'p', ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: '--require evil.js',
+  };
+}
+
+test('trustOf remembers a yes or a no per project, case-insensitively', () => {
+  let store = {};
+  assert.equal(C.trustOf(store, 'C:\\code\\site'), null);
+  store = C.withTrust(store, 'C:\\code\\site', true);
+  store = C.withTrust(store, 'C:\\code\\other', false);
+  assert.equal(C.trustOf(store, 'c:\\Code\\Site'), true);
+  assert.equal(C.trustOf(store, 'C:\\code\\other'), false);
+  assert.equal(C.trustOf(store, 'relative'), null);
+  assert.equal(C.trustOf(null, 'C:\\code\\site'), null);
+  assert.equal(C.trustOf({ 'c:\\x': 'yes' }, 'C:\\x'), null);
+});
+
+test('withTrust keeps the newest answers when the list is full', () => {
+  let store = {};
+  for (let i = 0; i < 250; i++) store = C.withTrust(store, `C:\\p${i}`, true);
+  assert.equal(Object.keys(store).length, 200);
+  assert.equal(C.trustOf(store, 'C:\\p249'), true);
+  assert.equal(C.trustOf(store, 'C:\\p0'), null);
+});
+
 // ---- running
 
 function fakeSpawn({ code = 0, out = '', hang = false } = {}) {
@@ -196,6 +241,7 @@ test('runCommand runs cmd.exe with the fixed line, no AutoRun, and the project f
   assert.equal(opts.cwd, 'C:\\proj');
   assert.equal(opts.env.NoDefaultCurrentDirectoryInExePath, '1');
   assert.equal(opts.env.CI, '1');
+  assert.equal(Object.keys(opts.env).some(k => /ANTHROPIC|TOKEN/i.test(k)), false);
   assert.equal(opts.windowsVerbatimArguments, true);
 });
 

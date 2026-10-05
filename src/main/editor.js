@@ -27,18 +27,17 @@ const MAX_NAME = 80;
 // Windows path can't hold anyway): such a path is never put on a command line.
 const UNSAFE_PATH_RE = /["%!^\r\n\0]/;
 
+const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+const isFile = p => { try { return fs.statSync(p).isFile(); } catch { return false; } };
+
 /**
  * Where VS Code (or Insiders, or Cursor) keeps its command-line launcher, in
- * the order to try. PATH entries first, then the usual install folders. Pure.
+ * the order to try: the usual install folders first, then PATH, whose entries
+ * count only when they're absolute folders that exist. Pure but for dirExists.
  */
-function editorCandidates(env = process.env) {
+function editorCandidates(env = process.env, dirExists = isDir) {
   const out = [];
   const add = p => { if (p && path.isAbsolute(p) && !out.some(o => o.toLowerCase() === p.toLowerCase())) out.push(p); };
-  const names = ['code.cmd', 'code-insiders.cmd', 'cursor.cmd'];
-  for (const dir of String(env.PATH || env.Path || '').split(';').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean)) {
-    if (!path.isAbsolute(dir)) continue; // a relative PATH entry means "wherever we happen to be"
-    for (const n of names) add(path.join(dir, n));
-  }
   const local = env.LOCALAPPDATA;
   const pf = [env.ProgramFiles, env['ProgramFiles(x86)']].filter(Boolean);
   if (local) add(path.join(local, 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd'));
@@ -46,12 +45,34 @@ function editorCandidates(env = process.env) {
   if (local) add(path.join(local, 'Programs', 'Microsoft VS Code Insiders', 'bin', 'code-insiders.cmd'));
   for (const p of pf) add(path.join(p, 'Microsoft VS Code Insiders', 'bin', 'code-insiders.cmd'));
   if (local) add(path.join(local, 'Programs', 'cursor', 'resources', 'app', 'bin', 'cursor.cmd'));
+  const names = ['code.cmd', 'code-insiders.cmd', 'cursor.cmd'];
+  for (const dir of String(env.PATH || env.Path || '').split(';').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean)) {
+    // A relative PATH entry means "wherever we happen to be"; a missing one, nothing.
+    if (!path.isAbsolute(dir) || !dirExists(dir)) continue;
+    for (const n of names) add(path.join(dir, n));
+  }
   return out;
 }
 
 /** The first launcher that exists and can go on a command line, or null. */
-function findEditor(env = process.env, exists = p => { try { return fs.statSync(p).isFile(); } catch { return false; } }) {
-  return editorCandidates(env).find(p => !UNSAFE_PATH_RE.test(p) && exists(p)) || null;
+function findEditor(env = process.env, exists = isFile, dirExists = isDir) {
+  return editorCandidates(env, dirExists).find(p => !UNSAFE_PATH_RE.test(p) && exists(p)) || null;
+}
+
+/**
+ * The project's own file, only when it's a plain file (not a link) that really
+ * sits inside the project, and still holds exactly `after`. -> its path | null.
+ */
+function liveFile(root, file, after) {
+  try {
+    const real = path.resolve(root, file);
+    if (UNSAFE_PATH_RE.test(real)) return null;
+    const st = fs.lstatSync(real);
+    if (!st.isFile() || st.isSymbolicLink() || st.size !== after.length) return null;
+    const top = fs.realpathSync.native(root).toLowerCase() + path.sep;
+    if (!fs.realpathSync.native(real).toLowerCase().startsWith(top)) return null;
+    return fs.readFileSync(real).equals(after) ? real : null;
+  } catch { return null; }
 }
 
 /** A file's name, made safe for a temp file: letters, digits, dot, dash, underscore. Pure. */
@@ -113,18 +134,12 @@ async function open(ref, { env = process.env, spawnImpl = spawn, tmp = os.tmpdir
   const left = path.join(dir, `before-${name}`);
   let right = path.join(dir, `after-${name}`);
   // The file in the project, if it's still what the turn left: edits land in the real thing.
-  const real = path.resolve(ref.root, ref.file);
-  let live = false;
+  const real = ref.status === 'D' ? null : liveFile(ref.root, ref.file, after);
+  const live = !!real;
   try {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(left, before);
-    const inside = real.toLowerCase().startsWith(path.resolve(ref.root).toLowerCase() + path.sep);
-    if (inside && ref.status !== 'D' && !UNSAFE_PATH_RE.test(real) && fs.existsSync(real) && fs.statSync(real).size === after.length && fs.readFileSync(real).equals(after)) {
-      right = real;
-      live = true;
-    } else {
-      fs.writeFileSync(right, after);
-    }
+    if (real) right = real; else fs.writeFileSync(right, after);
   } catch (e) {
     return { ok: false, error: `Couldn't write the two sides: ${e.message}` };
   }
@@ -143,4 +158,4 @@ async function open(ref, { env = process.env, spawnImpl = spawn, tmp = os.tmpdir
   return { ok: true, live };
 }
 
-module.exports = { editorCandidates, findEditor, safeName, diffCommandLine, staleTemp, open, UNSAFE_PATH_RE, TEMP_NAME };
+module.exports = { editorCandidates, findEditor, liveFile, safeName, diffCommandLine, staleTemp, open, UNSAFE_PATH_RE, TEMP_NAME };

@@ -180,14 +180,24 @@ function wireSessions(d) {
       // time the next message may already be in the transcript (rewind.js).
       const turn = start.turnId ? { turnId: start.turnId } : {};
       if (summary) d.manager.note(tabId, { kind: 'changes', ...summary, ...turn });
-      // Then what Shellby checks about it: the after picture and the tests (wiring/shots.js, checks.js).
-      d.shotsAfterTurn?.(tabId, summary);
-      if (summary) d.afterTurnChecks?.(tabId, summary);
       // Where the files stood at both ends of the turn, changed or not: a branch
       // from any turn starts its copy from exactly there (branch.js). Not shown.
       if (end && end.root === start.root) d.manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });
+      afterChanges(tabId, summary);
     } catch (err) {
       d.log.info(`changes: ${err.message}`);
+      afterChanges(tabId, null);
+    }
+  }
+
+  // Then what Shellby checks about a turn: the after picture and the tests
+  // (wiring/shots.js, checks.js). Neither may get in the way of the rest.
+  function afterChanges(tabId, summary) {
+    try {
+      d.shotsAfterTurn?.(tabId, summary)?.catch?.(err => d.log.info(`shots: ${err.message}`));
+      if (summary) d.afterTurnChecks?.(tabId, summary);
+    } catch (err) {
+      d.log.info(`checks: ${err.message}`);
     }
   }
 

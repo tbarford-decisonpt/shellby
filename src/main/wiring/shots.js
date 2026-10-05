@@ -57,6 +57,8 @@ function wireShots(d) {
       const before = await p.before;
       if (!before) return;
       await new Promise(r => setTimeout(r, shots.SETTLE_MS)); // hot reload catching up
+      // The next turn has started: an "after" now could show its edits too.
+      if (d.manager.isBusy(tabId)) { shots.remove(dir(), tabId, before); return; }
       const after = await take(tabId, p.turnId, 'after', p.url);
       if (!after || !d.manager.tabs.has(tabId)) return;
       d.manager.note(tabId, { kind: 'shots', after: summary.after, url: p.url, shots: { before, after } });

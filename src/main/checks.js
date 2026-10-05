@@ -197,7 +197,55 @@ function fixPrompt(verdict, { branch = null } = {}) {
   return lines.join('\n');
 }
 
+// ------------------------------------------------------------------ trusting a project
+
+// A project's checks run its own scripts, so the first time in each project
+// you say yes (or no) once. Kept by the clone's root: a copy of it counts too.
+const MAX_TRUSTED = 200;
+const projectKey = root => (typeof root === 'string' && path.isAbsolute(root) ? path.resolve(root).toLowerCase() : null);
+
+/** -> true (yes), false (said no), or null (never asked). Pure. */
+function trustOf(store, root) {
+  const k = projectKey(root);
+  const v = k && store && typeof store === 'object' && !Array.isArray(store) ? store[k] : undefined;
+  return v === true || v === false ? v : null;
+}
+
+/** The store with this project's answer, newest kept when it's full. Pure. */
+function withTrust(store, root, yes) {
+  const k = projectKey(root);
+  const kept = Object.entries(store && typeof store === 'object' && !Array.isArray(store) ? store : {})
+    .filter(([key, v]) => key !== k && typeof v === 'boolean');
+  if (!k) return Object.fromEntries(kept);
+  return Object.fromEntries([...kept.slice(-(MAX_TRUSTED - 1)), [k, !!yes]]);
+}
+
 // ------------------------------------------------------------------ running
+
+// A project's tests are the project's own code, so they get only what a test
+// run needs from Shellby's environment: where Windows and the toolchains are,
+// and nothing that signs in anywhere (no ANTHROPIC_*, GITHUB_TOKEN, keys).
+const ENV_ALLOW = new Set([
+  'PATH', 'PATHEXT', 'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP',
+  'USERPROFILE', 'USERNAME', 'HOME', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA',
+  'PROGRAMFILES', 'PROGRAMFILES(X86)', 'PROGRAMW6432', 'COMMONPROGRAMFILES', 'COMMONPROGRAMFILES(X86)', 'COMMONPROGRAMW6432',
+  'NUMBER_OF_PROCESSORS', 'PROCESSOR_ARCHITECTURE', 'OS', 'LANG', 'TZ',
+  'NVM_HOME', 'NVM_SYMLINK', 'VOLTA_HOME', 'FNM_DIR', 'PNPM_HOME', 'BUN_INSTALL',
+  'NPM_CONFIG_CACHE', 'NPM_CONFIG_PREFIX', 'YARN_CACHE_FOLDER',
+  'GOPATH', 'GOROOT', 'GOCACHE', 'GOMODCACHE', 'CARGO_HOME', 'RUSTUP_HOME', 'RUSTUP_TOOLCHAIN',
+  'VIRTUAL_ENV', 'CONDA_PREFIX', 'PYENV', 'PYENV_ROOT', 'PYENV_HOME', 'JAVA_HOME',
+]);
+const ENV_DENY_RE = /^ANTHROPIC_|^CLAUDE|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|(^|_)KEY$|_KEY_|APIKEY|AUTH/i;
+
+/** Shellby's environment -> the one a check runs with. Pure. */
+function checkEnv(env = process.env) {
+  const out = {};
+  for (const [k, v] of Object.entries(env || {})) {
+    if (typeof v !== 'string' || !ENV_ALLOW.has(k.toUpperCase()) || ENV_DENY_RE.test(k)) continue;
+    out[k] = v;
+  }
+  return { ...out, CI: '1', FORCE_COLOR: '0', NO_COLOR: '1', NoDefaultCurrentDirectoryInExePath: '1' };
+}
 
 /**
  * Run one checked command in a folder. -> { promise, cancel }.
@@ -220,7 +268,7 @@ function runCommand(cmd, cwd, { timeoutMs = DEFAULT_TIMEOUT_MIN * 60000, spawnIm
   try {
     child = spawnImpl(CMD, ['/d', '/s', '/c', `"${cmd}"`], {
       cwd, windowsHide: true, windowsVerbatimArguments: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, CI: '1', FORCE_COLOR: '0', NO_COLOR: '1', NoDefaultCurrentDirectoryInExePath: '1' },
+      env: checkEnv(process.env),
     });
     child.stdout?.on('data', take);
     child.stderr?.on('data', take);
@@ -270,5 +318,5 @@ module.exports = {
   DEFAULT_TIMEOUT_MIN, TIMEOUTS_MIN, STATUSES, FIXED, TAIL_LINES,
   isSafeCommand, pickFromPackage, pickCommands, usesPytest, detect,
   tailOf, commandVerdict, statusOf, buildVerdict, failingOf, homeGate, gatePasses, redHeadline, fixPrompt,
-  runCommand, runAll, timeoutMs,
+  projectKey, trustOf, withTrust, checkEnv, runCommand, runAll, timeoutMs,
 };

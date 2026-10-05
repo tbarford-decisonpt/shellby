@@ -176,11 +176,13 @@ ${r.detail}` });
       const s = await worktrees.status(c.w);
       if (!s.ok || !(s.ahead || s.uncommitted)) continue;
       const gate = await d.gateHome(c.id, c.w, { check, force: false });
+      // Started on something new while its tests ran: what was checked isn't what would merge.
+      if (d.manager.isBusy(c.id)) return { green, red: { ok: false, error: `"${c.title || c.w.branch}" started on something new while its tests ran, so nothing was merged. Try again once it's finished.` } };
       if (gate.red) reds.push({ tabId: d.manager.tabs.has(c.id) ? c.id : null, title: c.title, branch: c.w.branch, checks: gate.checks, fix: gate.fix });
       else if (!gate.ok) return { green, red: { ok: false, error: gate.error } };
       else if (gate.verdict?.status === 'pass') green++;
     }
-    if (!reds.length) return { green, red: null };
+    if (!reds.length) return { green, red: null, checked: true };
     const first = reds[0];
     const error = reds.length === 1
       ? `${checks.redHeadline(first.checks)} on "${first.title || first.branch}", so nothing was merged.`
@@ -200,6 +202,9 @@ ${r.detail}` });
     try {
       const gated = await gateAll(list, opts);
       if (gated.red) return gated.red;
+      // ...or one checked earlier started on something while the others' tests ran.
+      const moved = gated.checked && list.find(c => d.manager.isBusy(c.id));
+      if (moved) return { ok: false, error: `"${moved.title || moved.w.branch}" started on something new while the tests ran, so nothing was merged. Try again once it's finished.` };
       const titles = new Map(list.map(c => [c.w.branch, c.title]));
       const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => `Shellby: ${titles.get(w.branch) || 'work from a tab'}` });
       for (const x of r.results) {

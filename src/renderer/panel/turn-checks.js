@@ -68,8 +68,9 @@
   // While a check runs: "Checking…" on the block it's for (or the newest).
   api.onChecksRunning?.(({ tabId, after, running }) => {
     const tab = state.tabs.get(tabId);
-    if (!tab) return;
-    const block = after ? blockFor(tab, after) : [...tab.el.querySelectorAll('details.changes')].pop();
+    // A check before bringing home (no turn of its own) says so in its toast instead.
+    if (!tab || !after) return;
+    const block = blockFor(tab, after);
     if (!block?.runChecks) return;
     block.classList.toggle('checking', !!running);
     block.runChecks.disabled = !!running;
@@ -90,13 +91,13 @@
 
   SB.decorateChanges = (tab, el, ref) => {
     el.querySelector('summary').append(h('span', { class: 'chg-stamp', hidden: true }));
-    const run = h('button', { class: 'btn ghost slim-btn', type: 'button', title: "Run the project's tests on this, now" }, 'Run checks');
+    const run = h('button', { class: 'btn ghost slim-btn', type: 'button', title: "Runs the project's own test scripts on this PC (its test script, and a typecheck or build). He asks first in a project he hasn't checked before." }, 'Run checks');
     run.addEventListener('click', async () => {
       run.disabled = true;
       const r = await api.runChecks({ tabId: tab.id, ...ref });
       if (r?.ok || r?.cancelled) return; // the verdict (or its absence) arrives on its own
       run.disabled = false;
-      run.textContent = 'Run checks';
+      if (r?.declined) return; // you said no in the question: nothing more to say
       SB.toast(r?.error || "Couldn't run the checks.", { ms: 6000 });
     });
     el.runChecks = run;
@@ -127,7 +128,7 @@
         b.img.src = x.url;
         a.img.src = y.url;
         return { before: x.url, after: y.url };
-      });
+      }).catch(() => { loaded = null; return null; }); // try again next time
       return loaded;
     };
     const open = async () => { const urls = await load(); if (urls) openViewer(urls, item.url); };
@@ -139,7 +140,10 @@
   };
 
   // One at a time: the two pictures over each other with a slider, or side by side.
+  let viewerOpen = false;
   function openViewer({ before, after }, url) {
+    if (viewerOpen) return; // a double click is one viewer
+    viewerOpen = true;
     const back = document.activeElement;
     const top = h('img', { class: 'shot-after', src: after, alt: 'After this turn' });
     const slider = h('input', { type: 'range', min: '0', max: '100', value: '50', class: 'shot-slider', 'aria-label': 'Slide between before and after' });
@@ -160,7 +164,7 @@
         h('div', { class: 'shot-head' }, h('b', { text: 'Before and after' }), h('span', { class: 'small muted', text: url || '' }), side, close),
         stage, slider,
         h('p', { class: 'small muted', text: 'Left of the line is before, right of it is after.' })));
-    const shut = () => { box.remove(); document.removeEventListener('keydown', onKey, true); back?.focus?.(); };
+    const shut = () => { viewerOpen = false; box.remove(); document.removeEventListener('keydown', onKey, true); back?.focus?.(); };
     const onKey = e => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); shut(); }
       if (e.key === 'Tab') { // keep focus inside

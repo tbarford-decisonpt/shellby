@@ -79,7 +79,8 @@ const DEFAULTS = {
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
   checkEachTurn: false, // run the project's tests after a turn that changed files, and before bringing a copy home (see checks.js)
   checkTimeoutMin: 5, // the longest one check may run, in minutes (checks.TIMEOUTS_MIN)
-  turnShots: true,    // before/after pictures of a Shellby dev server either side of a turn (see shots.js)
+  checksTrusted: {},  // { project root (lower-case): true | false }: asked once before running a project's own tests (checks.js)
+  turnShots: true,   // before/after pictures of a Shellby dev server either side of a turn (see shots.js)
   flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky.js); this PC only
   timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
