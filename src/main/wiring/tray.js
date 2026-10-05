@@ -7,7 +7,7 @@ const path = require('path');
 const confirm = require('../confirm');
 const crashReport = require('../crash-report');
 const focus = require('../focus');
-const { Updates, fakeUpdater, trayLabel: updateLabel } = require('../updates');
+const { Updates, fakeUpdater, installedBy, trayLabel: updateLabel } = require('../updates');
 
 /** d: what main shares (main.js `shared`). */
 function wireTray(d) {
@@ -221,7 +221,9 @@ function wireTray(d) {
     // SHELLBY_FAKE_UPDATE=1 (or =fail, =current) npm start
     const fake = !app.isPackaged && process.env.SHELLBY_FAKE_UPDATE;
     let updater = fake ? fakeUpdater({ mode: fake === '1' ? 'ok' : fake }) : null;
-    if (app.isPackaged) {
+    // Scoop unpacks the app and updates it itself; ours would install a second copy.
+    const managedBy = app.isPackaged ? installedBy(process.execPath) : null;
+    if (app.isPackaged && !managedBy) {
       try {
         ({ autoUpdater: updater } = require('electron-updater'));
         updater.logger = null;
@@ -232,6 +234,7 @@ function wireTray(d) {
     }
     d.updates = new Updates({
       updater,
+      managedBy,
       version: app.getVersion(),
       // Dev servers are stopped first and started again by the new version
       // (devservers/service.js stopForUpdate).

@@ -206,7 +206,8 @@ jobs:
       # Opt-in and deliberately last: it hashes the published installer URL,
       # which only resolves once the release is out of draft. Set the
       # WINGET_TOKEN secret to turn it on — a *classic* PAT with the
-      # public_repo scope (fine-grained tokens aren't supported). The package
+      # public_repo and workflow scopes (fine-grained tokens aren't supported;
+      # see packaging/winget/README.md for why workflow). The package
       # must already exist in microsoft/winget-pkgs; the first submission is
       # manual. See packaging/winget/README.md.
       #
@@ -242,3 +243,35 @@ jobs:
             --release-notes-url "https://github.com/x-salmon/shellby/releases/tag/$tag" `
             --submit `
             --no-open
+
+      # The repo is also a Scoop bucket (bucket/shellby.json, see
+      # scripts/scoop-manifest.js): point it at this release and commit that to
+      # main, which is what `scoop update` reads. Last, for the same reasons as
+      # winget: the release is already out, so a failed push shouldn't fail it.
+      #
+      # main requires the `test` check of everyone but admins, so GITHUB_TOKEN
+      # can't push there. WINGET_TOKEN (the owner's PAT) can, and a
+      # PAT push also gets the commit its own CI run. checkout persisted
+      # GITHUB_TOKEN as an extraheader; the empty one clears it.
+      - name: Update Scoop manifest
+        if: ${{ env.WINGET_TOKEN != '' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          remote="https://x-access-token:${WINGET_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for try in 1 2 3; do
+            git fetch --depth=1 origin main
+            git checkout -f -B scoop-update FETCH_HEAD
+            node scripts/scoop-manifest.js "$v" dist/SHA256SUMS.txt
+            git add bucket/shellby.json
+            if git diff --cached --quiet; then echo "bucket/shellby.json needs no change for $v"; exit 0; fi
+            git -c user.name="github-actions[bot]" \
+                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+                commit -q -m "chore: scoop manifest for $v"
+            # Rejected means main moved (or the token can't push): fetch and redo.
+            git -c http.https://github.com/.extraheader= push "$remote" HEAD:main && exit 0
+            sleep $((try * 10))
+          done
+          echo "::warning title=Scoop not updated::Couldn't push bucket/shellby.json for $v to main. Run node scripts/scoop-manifest.js $v SHA256SUMS.txt and commit it by hand."
+          exit 1

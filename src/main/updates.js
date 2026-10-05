@@ -5,6 +5,7 @@
 // test/updates.test.js drive it with a fake.
 
 const { EventEmitter } = require('events');
+const { win32 } = require('path');
 
 const EVERY = 6 * 60 * 60 * 1000;
 
@@ -13,21 +14,41 @@ const versionOf = info => (info && typeof info.version === 'string' ? info.versi
 // electron-updater errors carry a stack and sometimes a whole HTTP response.
 const messageOf = e => String((e && e.message) || e || 'Update check failed').split('\n')[0].slice(0, 200);
 
+const SCOOP_APP = /[\\/]scoop[\\/]apps[\\/]shellby[\\/]/i;
+// Roots come from env vars, which may use forward slashes or end in one.
+const underRoot = (exe, root) => !!root
+  && exe.startsWith(`${win32.normalize(root).toLowerCase().replace(/\\+$/, '')}\\apps\\shellby\\`);
+
 /**
- * States: `off` (a dev run, no updater at all) · `idle` (not asked yet) ·
+ * Who installed this copy, when it isn't our own installer: 'scoop' or null.
+ * Scoop unpacks the app under <root>\apps\shellby\ and updates it with
+ * `scoop update`; electron-updater would install a second copy beside it.
+ */
+function installedBy(execPath, env = process.env) {
+  if (!execPath) return null;
+  const exe = win32.normalize(String(execPath)).toLowerCase();
+  if (SCOOP_APP.test(exe) || underRoot(exe, env.SCOOP) || underRoot(exe, env.SCOOP_GLOBAL)) return 'scoop';
+  return null;
+}
+
+/**
+ * States: `off` (a dev run, no updater at all) · `scoop` (Scoop updates this
+ * copy, so we never ask) · `idle` (not asked yet) ·
  * `checking` · `current` (nothing newer) · `downloading` · `ready` (downloaded,
  * waiting for a restart) · `error` (until the next check).
  */
 class Updates extends EventEmitter {
-  constructor({ updater = null, version = '', every = EVERY, prepare = null, timers = null } = {}) {
+  constructor({ updater = null, managedBy = null, version = '', every = EVERY, prepare = null, timers = null } = {}) {
     super();
-    this.updater = updater;
+    // A package manager owns this install: hold no updater, so check() and
+    // install() are no-ops and start() schedules nothing.
+    this.updater = managedBy ? null : updater;
     this.version = version;
     this.every = every;
     this.prepare = prepare;
     this.timers = timers || { setInterval, clearInterval };
     this.timer = null;
-    this.state = updater ? 'idle' : 'off';
+    this.state = managedBy || (updater ? 'idle' : 'off');
     this.offered = null;     // the version on offer, once the check names one
     this.percent = 0;
     this.error = null;
@@ -125,7 +146,7 @@ class Updates extends EventEmitter {
 
 /** One line for the tray menu, which has no room for a status line and a button. */
 function trayLabel(view) {
-  if (!view || view.state === 'off') return null;
+  if (!view || view.state === 'off' || view.state === 'scoop') return null;
   if (view.state === 'ready') return `Update to ${view.version || 'the new version'} and restart`;
   if (view.state === 'downloading') return `Downloading update… ${view.percent}%`;
   if (view.state === 'checking') return 'Checking for updates…';
@@ -157,4 +178,4 @@ function fakeUpdater({ version = '99.0.0', mode = 'ok', step = 600 } = {}) {
   return u;
 }
 
-module.exports = { Updates, trayLabel, fakeUpdater, EVERY };
+module.exports = { Updates, trayLabel, fakeUpdater, installedBy, EVERY };

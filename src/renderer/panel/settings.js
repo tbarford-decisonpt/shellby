@@ -309,6 +309,7 @@
     error: u => u.error || "Couldn't check for updates.",
     idle: () => 'Shellby updates himself from GitHub Releases.',
     off: () => 'Updates run in the installed app.',
+    scoop: () => 'Scoop keeps Shellby up to date: run scoop update shellby.',
   };
   const UPDATE_BUTTON = { checking: () => 'Checking…', downloading: u => `${u.percent}%`, ready: () => 'Restart and update' };
 
@@ -329,8 +330,9 @@
     status.classList.toggle('bad', u.state === 'error');
     status.classList.toggle('ok', ready);
     const btn = $('updateBtn');
-    // A dev run (npm start) has no updater at all; a button there would lie.
-    btn.hidden = u.state === 'off';
+    // A dev run (npm start) has no updater at all, and Scoop does its own;
+    // a button there would lie.
+    btn.hidden = u.state === 'off' || u.state === 'scoop';
     btn.textContent = (UPDATE_BUTTON[u.state] || (() => 'Check for updates'))(u);
     btn.classList.toggle('primary', ready);
     btn.classList.toggle('ghost', !ready);
