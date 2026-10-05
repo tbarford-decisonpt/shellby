@@ -72,6 +72,7 @@ const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
+const { wireClashes } = require('./wiring/clashes');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -339,6 +340,9 @@ const shared = {
   get checkedUp() { return checkedUp; },
   get checkupsView() { return checkupsView; },
   get chirp() { return chirp; },
+  get clashTabsChanged() { return clashTabsChanged; },
+  get clashTurnEnded() { return clashTurnEnded; },
+  get clashesView() { return clashesView; },
   get ci() { return ci; }, set ci(v) { ci = v; },
   get ciView() { return ciView; },
   get claudeConfigDir() { return claudeConfigDir; },
@@ -476,6 +480,7 @@ const shared = {
   get randomUUID() { return randomUUID; },
   get reachedForShellby() { return reachedForShellby; },
   get recapLog() { return recapLog; }, set recapLog(v) { recapLog = v; },
+  get refreshClashes() { return refreshClashes; },
   get refreshCritter() { return refreshCritter; },
   get refreshStatusLine() { return refreshStatusLine; },
   get registerWorkflowIpc() { return registerWorkflowIpc; },
@@ -623,6 +628,7 @@ const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
+const { clashTabsChanged, clashTurnEnded, clashesView, refreshClashes, watchClashes } = wireClashes(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -2320,6 +2326,7 @@ app.whenReady().then(() => {
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
   createGitHub();
   createManager();
+  watchClashes();
   createHealth();
   registerIpc();
   createCritter();

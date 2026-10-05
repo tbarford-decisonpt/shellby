@@ -121,6 +121,7 @@ function wireSessions(d) {
     });
     d.manager.on('tabs', summary => {
       d.send(d.panel, 'tabs', summary);
+      d.clashTabsChanged?.(); // a copy opened or closed: look for clashes again (wiring/clashes.js)
       const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
       if (!d.CAPTURE) d.config.set({ openTabs: saved });
     });

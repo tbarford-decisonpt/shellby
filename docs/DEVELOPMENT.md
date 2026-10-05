@@ -138,6 +138,7 @@ src/main/        Electron main process
   session.js       one Claude Code process per conversation (stream-json + control protocol)
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
+  clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox

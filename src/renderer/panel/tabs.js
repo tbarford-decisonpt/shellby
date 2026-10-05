@@ -186,10 +186,11 @@
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
+      const clash = SB.clashLine?.(t.id) || '';
       const btn = h('div', {
-        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
+        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${clash ? ' clashing' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
         role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
-        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
+        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, clash || null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
@@ -199,6 +200,9 @@
       },
       tabIcon(t),
       h('span', { class: 'tab-title', text: shownTitle(t) }),
+      // Another copy changed the same files (clashes.js): a shape, not just a colour, and said aloud.
+      clash ? h('span', { class: 'tab-clash', 'aria-hidden': 'true', text: '⚠' }) : null,
+      clash ? h('span', { class: 'sr-only', text: `. ${clash}` }) : null,
       // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
       h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
       t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
@@ -1032,6 +1036,7 @@
       h('div', { class: 'menu-item branch-info' },
         h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
         h('span', {}, h('div', { class: 'mi-branch', text: w.branch }), h('div', { class: 'mi-sub', text: `from ${w.base}` }), status)),
+      ...(SB.clashMenuItems?.(tab) || []), // other copies that changed the same files (clashes.js)
       h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
         h('span', { class: 'mi-check', text: '↩' }),

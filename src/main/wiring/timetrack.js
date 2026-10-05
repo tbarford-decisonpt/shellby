@@ -206,7 +206,8 @@ function wireTimetrack(d) {
   }
 
   function onResult(tabId, item, tab) {
-    d.endTurn(tabId);
+    // Once the turn's diff is noted: did it just change a file another copy has? (wiring/clashes.js)
+    Promise.resolve(d.endTurn(tabId)).then(() => d.clashTurnEnded?.(tabId), () => {});
     tab.guardRun = null;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
     const fresh = tab.freshWanted;

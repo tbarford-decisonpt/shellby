@@ -14,6 +14,7 @@ const SB = window.SB = {
     workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
+    clashes: [],          // copies that changed the same files (clashes.js; src/main/clash.js has the shape)
   },
 };
 

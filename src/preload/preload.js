@@ -99,6 +99,7 @@ contextBridge.exposeInMainWorld('shellby', {
   repoStatus: invoke('repo:status'),
   pushRepo: invoke('repo:push'),
   bringAllHome: invoke('repo:home-all'),
+  listClashes: invoke('clashes:list'), // copies that changed the same files (wiring/clashes.js)
 
   // history
   listSessions: invoke('session:list'),
@@ -494,6 +495,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),
+  onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files
   onTabOpened: on('tab:opened'),
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),

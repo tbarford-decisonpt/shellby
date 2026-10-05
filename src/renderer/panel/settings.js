@@ -85,6 +85,7 @@
     $('onTopToggle').checked = state.settings.onTop === true;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
+    $('clashToggle').checked = state.settings.clashWarnings !== false;
     renderBillingGuard();
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
@@ -227,6 +228,12 @@
     const r = await api.setSettings({ worktrees: e.target.checked });
     state.settings = r.settings;
     SB.toast(e.target.checked ? 'New conversations in a git project will get their own copy.' : 'New conversations will work in your checkout again.');
+  });
+  $('clashToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ clashWarnings: e.target.checked });
+    state.settings = r.settings;
+    SB.renderTabStrip();
+    SB.toast(e.target.checked ? "He'll say when two copies change the same file." : 'No more clash warnings. Bring it home still stops on a real clash.');
   });
   $('planOnlyToggle').addEventListener('change', async e => {
     const r = await api.setSettings({ planOnly: e.target.checked });
