@@ -157,6 +157,7 @@ src/main/        Electron main process
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
+  turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
   held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)

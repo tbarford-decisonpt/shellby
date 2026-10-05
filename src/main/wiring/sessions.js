@@ -47,6 +47,7 @@ function wireSessions(d) {
         await d.armCopy(tab);
         await beginTurn(tab);
       },
+      windowShare: weight => d.windowShare({ weight }),
     });
 
     d.manager.on('spend', (_tabId, s, tab) => d.onSpend(s, tab));

@@ -200,6 +200,10 @@ body:not([data-view="chat"]) .subbar { display: none; }
   border: 0; background: none; text-align: left; padding: 8px 9px; border-radius: var(--r-sm);
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--reef-2); outline: none; }
+/* The context chip's costliest turns: what you asked, and what it took. */
+.menu-item.cost-turn { align-items: center; padding: 5px 9px; font-size: 12.5px; max-width: 300px; }
+.menu-item.cost-turn .usage-name { flex: 1; min-width: 0; }
+.menu-item.cost-turn .usage-share { flex: none; }
 .menu-item:disabled { cursor: default; opacity: .55; }
 .menu-item:disabled:hover { background: none; }
 .menu-item .mi-title { font-weight: 700; font-size: 13px; }
@@ -484,6 +488,13 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .meta::before, .meta::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
 .meta.bad { color: var(--danger); }
 .meta.waiting { color: var(--amber); }
+/* What the turn cost, under its meta line: there to read, never to shout. */
+.meta.has-cost { margin-bottom: 2px; }
+.turn-cost {
+  margin: 0 0 18px; text-align: center; color: var(--sand-faint);
+  font: 500 10.5px var(--font-mono); font-stretch: 88%; border-radius: var(--r-sm);
+}
+.turn-cost.flash { background: var(--reef-2); color: var(--sand); }
 /* ---------------------------------------------------------------- idle cost
    An open panel spends most of a core on animation (scripts/idle-cost.js), and
    most of that while nobody is watching. `calm` (the window isn't focused)

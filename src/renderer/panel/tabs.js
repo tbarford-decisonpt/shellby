@@ -28,6 +28,7 @@
       branchOf: summary.branchOf !== undefined ? summary.branchOf : tab.branchOf || null,
       context: summary.context !== undefined ? summary.context : tab.context || null,
       cache: summary.cache !== undefined ? summary.cache : tab.cache || null,
+      nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
     });
     return tab;
   };
@@ -1144,7 +1145,9 @@
   // ------------------------------------------------------------ how full each conversation is
 
   // Past CROWDED (src/main/context.js) he says so, and the composer offers to
-  // make room. Dismissing it holds until the tab drops back under the mark.
+  // make room; a little before, when the last few turns say it'll be crowded
+  // within a couple more, it offers the same, worded for that (src/main/turncost.js
+  // nudge). Dismissing it holds until it's worded differently or goes away.
   const CROWDED = 80;
   const contextLevel = c => (c.pct >= 95 ? 'hot' : c.pct >= CROWDED ? 'warn' : '');
   const contextText = c => `Context ${c.pct}% full · ${SB.compact(c.tokens)} of ${SB.compact(c.window)} tokens`;
@@ -1181,16 +1184,19 @@
       chip.title = k ? `${contextText(c)}\n${cacheText(k, c)}` : contextText(c);
       chip.setAttribute('aria-label', `${contextText(c)}${k ? `, prompt cache ${k.state}` : ''}: make room`);
     }
-    if (tab && (!c || c.pct < CROWDED)) tab.crowdDismissed = false;
+    const nudge = c ? tab.nudge : null;
+    if (tab && !nudge) tab.crowdDismissed = null;
     const box = $('crowded');
-    const show = !!c && c.pct >= CROWDED && !tab.crowdDismissed;
+    // A dismissed "filling up" still lets "getting crowded" through.
+    const show = !!nudge && tab.crowdDismissed !== nudge.level;
     box.hidden = !show;
     if (!show) { box.replaceChildren(); return; }
+    box.className = `crowded ${nudge.level}`;
     box.replaceChildren(
-      h('span', { class: 'crowded-text', text: `Getting crowded: ${c.pct}% full.` }),
+      h('span', { class: 'crowded-text', text: nudge.text }),
       h('button', { class: 'btn slim-btn', type: 'button', onclick: () => compact(tab) }, 'Compact'),
       h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => startFresh(tab) }, 'Start fresh with a summary'),
-      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = true; syncContextUi(); } },
+      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = nudge.level; syncContextUi(); } },
         SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
   }
   SB.syncContextUi = syncContextUi;
@@ -1217,14 +1223,48 @@
     SB.renderTabStrip();
   }
 
-  $('ctxChip').addEventListener('click', () => {
+  // What this conversation has cost so far (src/main/turncost.js): tokens, its
+  // share of the 5-hour window, and its costliest turns, each a way back to it.
+  function costRows(tab, cost) {
+    if (!cost?.turns) return [];
+    const turns = `${cost.turns} turn${cost.turns === 1 ? '' : 's'}`;
+    const share = cost.shareText ? ` · ${cost.shareText} of your 5-hour window` : '';
+    const rows = [h('div', { class: 'menu-label cache-note', text: `So far: ${cost.tokensText} tokens over ${turns}${share}.` })];
+    if (cost.top.length < 2) return rows;
+    rows.push(h('div', { class: 'menu-label', text: 'Costliest turns' }),
+      ...cost.top.map(t => h('button', {
+        class: 'menu-item cost-turn', disabled: !t.turnId, title: t.turnId ? 'Show this turn' : null,
+        onclick: () => { SB.closeMenus(); showTurn(tab, t.turnId); },
+      },
+      h('span', { class: 'usage-name', text: t.prompt || 'A turn' }),
+      h('span', { class: 'usage-share', text: [t.tokensText, t.shareText].filter(Boolean).join(' · ') }))));
+    return rows;
+  }
+
+  function showTurn(tab, turnId) {
+    const el = turnId && [...tab.el.querySelectorAll('.turn-cost')].find(c => c.dataset.turn === turnId);
+    if (!el) return SB.toast("That turn is further back than this tab keeps. It's in History.");
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1600);
+  }
+
+  let costLoading = false;
+  $('ctxChip').addEventListener('click', async () => {
     const tab = SB.activeTab();
     const c = tab?.context;
     if (!c) return;
+    if (!$('ctxMenu').hidden) return SB.closeMenus();
+    if (costLoading) return; // a second click while it loads would open and shut it at once
+    costLoading = true;
+    const cost = await api.tabCost(tab.id).catch(() => null);
+    costLoading = false;
     const k = cacheNow(tab.cache);
     SB.openMenu($('ctxMenu'), $('ctxChip'), () => [
       h('div', { class: 'menu-label', text: contextText(c) }),
       k ? h('div', { class: `menu-label cache-note c-${k.state}`, text: cacheText(k, c) }) : null,
+      ...costRows(tab, cost),
+      h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); compact(tab); } },
         h('span', { class: 'mi-check', text: '⇣' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Compact' }), h('div', { class: 'mi-sub', text: 'Claude sums up the conversation so far and carries on in the room it frees' }))),

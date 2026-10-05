@@ -12,6 +12,7 @@ const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
+const turncost = require('./turncost');
 const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
@@ -86,6 +87,10 @@ class ClaudeSession extends EventEmitter {
     this.calls = new Map();        // message id -> token counts already reported as 'call'
     this.cache = null;             // { at, ttlMs }: when this conversation last touched the prompt cache
     this.setupChars = null;        // a new conversation's first prompt, in characters, until its first call is measured
+    // What the running turn has cost so far: { usages: message id -> usage, weight,
+    // before: context tokens when it began }. Its result carries it (turncost.js).
+    this.turn = null;
+    this.growths = [];             // how much the last few turns grew the context, for the crowded nudge
   }
 
   buildArgs() {
@@ -225,6 +230,7 @@ class ClaudeSession extends EventEmitter {
         // message after it resumes up to here.
         if (this.lastUuid) item.anchor = this.lastUuid;
         this.openTools.clear();
+        this.closeTurn(item);
         // A steer that went in but was never read (Stop landed first): the CLI
         // would run it as a turn of its own next. Dropping the process drops it
         // too (and what it had running, so nothing below waits on that). It's
@@ -256,13 +262,26 @@ class ClaudeSession extends EventEmitter {
   // lands in the transcript.
   countSpend(s) {
     if (!s) return;
+    if (this.turn) this.turn.usages.set(s.messageId, turncost.mergeUsage(this.turn.usages.get(s.messageId), s.usage));
     const weight = weightOf(s.usage, s.model);
     const before = this.counted.get(s.messageId) || 0;
     if (weight <= before) return;
     this.counted.delete(s.messageId);
     this.counted.set(s.messageId, weight);
     if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
+    if (this.turn) this.turn.weight += weight - before;
     this.emit('spend', { messageId: s.messageId, weight: weight - before });
+  }
+
+  // The turn's cost goes on its result, so History keeps it with the turn.
+  // Helpers' calls count too: they spend from the same window.
+  closeTurn(item) {
+    const turn = this.turn;
+    this.turn = null;
+    if (!turn) return;
+    const cost = turncost.turnCost({ usages: [...turn.usages.values()], weight: turn.weight }, this.context);
+    if (cost) item.cost = cost;
+    this.growths = turncost.addGrowth(this.growths, turn.before, this.context?.tokens);
   }
 
   // The prompt cache and setup weight (efficiency.js), off the transcript like
@@ -361,6 +380,7 @@ class ClaudeSession extends EventEmitter {
   send(content, ready = null) {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
     this.setBusy(true);
+    this.turn = { usages: new Map(), weight: 0, before: this.context?.tokens ?? null };
     // No conversation yet: its first call will show the setup weight. A prompt
     // with an image can't be sized, so that one isn't measured (-1).
     if (!this.sessionId && !this.proc) this.setupChars = eff.promptChars(content) ?? -1;

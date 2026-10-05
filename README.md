@@ -79,6 +79,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
 - **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
 - **Comment on the diff:** click a line number in any turn's diff (Shift+click for several) and say what should change: "no, keep this function pure". Comments collect across files and turns, then go back as one follow-up that quotes the code each one is about.
+- **What did that cost me:** each turn ends with its tokens, roughly how much of your 5-hour window it took, and how full the context is. The context chip adds up the whole conversation and its costliest turns, and he offers to make room a turn or two before it gets crowded.
 - **Try it another way:** branch from any turn into a new tab, run two approaches side by side, and keep the one you like.
 - **A Toolbox for all of it:** every skill, agent, MCP server, hook, rule and `CLAUDE.md`, with an editor for each, a Skill Shop, and **prompt snippets** you can call with `/review`.
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
