@@ -348,11 +348,14 @@ function checkSettings(settings, { hasSecret = false } = {}) {
  * Should this event go out?
  *   event: { kind, seconds? }
  *   { focused }: a focus session is on, and holds everything but the urgent
+ *   { always }: about a task your phone started, which the phone always hears
+ *     about (how it's going, what it needs), whichever kinds you ticked
  */
-function shouldSend(event, settings, { focused = false } = {}) {
+function shouldSend(event, settings, { focused = false, always = false } = {}) {
   const s = normalizeChannelSettings(settings);
   if (!s.enabled) return false;
   const kind = event?.kind;
+  if (always && (kind === 'asking' || kind === 'done')) return true;
   if (!EVENT_NAMES.includes(kind) || !s.events[kind]) return false;
   if (focused && !s.whileFocused && EVENTS[kind].priority !== 'high') return false;
   // A task that took no time at all is not news; the "he needs you" prompts and
@@ -363,7 +366,7 @@ function shouldSend(event, settings, { focused = false } = {}) {
 
 // ------------------------------------------------------------------ messages
 
-const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡' };
+const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡', phone: '📱' };
 
 /**
  * One event -> what every provider sends.
@@ -442,6 +445,14 @@ function describeEvent(event) {
         emoji: e.passing ? '✅' : '🔴',
         title: e.passing ? `Build fixed: ${project || 'your pull request'}` : `Build failed: ${project || 'your pull request'}`,
         body: clip(e.body, MAX_BODY) || (e.passing ? 'It went green again.' : 'CI went red.'),
+      };
+    case 'phone':
+      // Shellby answering a message from your phone (phone-tasks.js): a few
+      // short lines, so the line breaks are kept.
+      return {
+        ...base, tags: ['crab', 'iphone'],
+        title: clip(e.title, MAX_TITLE) || 'Shellby',
+        body: String(e.body ?? '').split('\n').map(l => clip(l, MAX_BODY)).filter(Boolean).join('\n').slice(0, MAX_BODY * 2),
       };
     case 'workflow':
       return {

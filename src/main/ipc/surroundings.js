@@ -47,6 +47,7 @@ function registerSurroundingsIpc(ipcMain, d) {
     }
     d.config.set({ channels: next });
     await d.confirmChannelPlace();
+    d.refreshPhoneTasks(); // somewhere else now: the phone's yes to start tasks doesn't carry over
     return d.channelsView();
   });
   ipcMain.handle('channels:findChat', async () => {
@@ -55,14 +56,25 @@ function registerSurroundingsIpc(ipcMain, d) {
     if (found.chatId) {
       d.config.set({ channels: channels.normalizeChannelSettings(d.channelSettings(), { target: found.chatId }) });
       await d.confirmChannelPlace();
+      d.refreshPhoneTasks();
     }
     return { ...d.channelsView(), found };
   });
   ipcMain.handle('channels:secret', async (_e, secret) => {
     d.saveChannelSecret(typeof secret === 'string' ? secret.trim().slice(0, 400) : '');
     await d.confirmChannelPlace();
+    d.refreshPhoneTasks();
     return d.channelsView();
   });
+
+  // ---- starting a task from your phone (phone-tasks.js): turning it on asks
+  // in the confirmation window, and the folder only comes from the picker.
+  ipcMain.handle('phoneTasks:get', () => d.phoneTasksView());
+  ipcMain.handle('phoneTasks:set', (_e, patch) => d.setPhoneTasks({
+    ...(patch?.enabled === true || patch?.enabled === false ? { enabled: patch.enabled } : {}),
+    ...(patch?.newPassphrase === true ? { newPassphrase: true } : {}),
+  }));
+  ipcMain.handle('phoneTasks:pickFolder', () => d.pickPhoneTasksFolder());
   ipcMain.handle('channels:test', async () => {
     const built = channels.buildRequest(d.channelSettings(), d.channelSecret,
       { kind: 'done', project: 'Shellby', tools: 0, seconds: 0, at: Date.now() });

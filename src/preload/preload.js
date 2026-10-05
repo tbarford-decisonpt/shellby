@@ -399,6 +399,9 @@ contextBridge.exposeInMainWorld('shellby', {
   setChannelSecret: invoke('channels:secret'),
   testChannel: invoke('channels:test'),
   findTelegramChat: invoke('channels:findChat'),
+  getPhoneTasks: invoke('phoneTasks:get'),
+  setPhoneTasks: invoke('phoneTasks:set'),
+  pickPhoneTasksFolder: invoke('phoneTasks:pickFolder'),
 
   // the browser source for a stream
   getObs: invoke('obs:get'),

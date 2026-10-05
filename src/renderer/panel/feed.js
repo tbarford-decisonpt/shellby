@@ -161,6 +161,9 @@
         case 'moved': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
           `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})`));
+        case 'phone': return this.append(h('div', { class: 'home-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '📱' }),
+          'Started from your phone, in Ask first: he asks before he changes anything'));
         case 'home': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
           `Brought home: ${item.commits} commit${item.commits === 1 ? '' : 's'} merged into ${item.base}`));

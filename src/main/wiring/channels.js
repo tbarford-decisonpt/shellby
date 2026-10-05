@@ -72,11 +72,12 @@ function wireChannels(d) {
   /**
    * Send one event, if the user asked for that kind. Never throws, never waits.
    * onSent(result, message) hears how it went, when it went at all.
+   * always: about a task the phone started (channels.shouldSend).
    */
-  function tellChannel(event, onSent = () => {}) {
+  function tellChannel(event, onSent = () => {}, { always = false } = {}) {
     if (!d.config) return false;
     const settings = channelSettings();
-    if (!channels.shouldSend(event, settings, { focused: focus.guarding(d.config.get('focus'), Date.now()) })) return false;
+    if (!channels.shouldSend(event, settings, { focused: focus.guarding(d.config.get('focus'), Date.now()), always })) return false;
     if (!channelConfirmed(settings)) { d.log.info('channel: destination not confirmed, nothing sent'); return false; }
     const built = channels.buildRequest(settings, d.channelSecret, event);
     if (built.error) { d.log.info(`channel: ${built.error}`); return false; }
@@ -90,15 +91,17 @@ function wireChannels(d) {
   // said it may and the prompt is one the phone is allowed to answer (replies.js).
   function askOnPhone(tabId, item, tab) {
     const event = { kind: 'asking', project: tab.title, message: `${item.label || ''} ${item.detail || ''}`.trim() };
+    // A task the phone started always asks there: it's where you are.
+    const opts = { always: !!tab.fromPhone };
     const settings = channelSettings();
-    if (!settings.replies || channels.replyProblem(settings, { hasSecret: !!d.channelSecret })) return tellChannel(event);
+    if (!settings.replies || channels.replyProblem(settings, { hasSecret: !!d.channelSecret })) return tellChannel(event, undefined, opts);
     const deskOnly = deskOnlyReason(item);
-    if (deskOnly) return tellChannel({ ...event, deskOnly });
+    if (deskOnly) return tellChannel({ ...event, deskOnly }, undefined, opts);
     const nonce = d.remote.register({ tabId, requestId: item.requestId, provider: settings.provider });
     const went = tellChannel({ ...event, reply: { nonce } }, (r, m) => {
       if (r.ok) d.remote.sent(nonce, { data: r.data, text: `${m.emoji} ${m.title}\n${m.body}` });
       else d.remote.forget(nonce);
-    });
+    }, opts);
     if (!went) d.remote.forget(nonce);
     return went;
   }
@@ -174,7 +177,7 @@ function wireChannels(d) {
   const obsView = () => ({ ...(d.obsServer ? d.obsServer.view() : { status: 'off', viewers: 0 }), ...obsSettings() });
 
   return {
-    answerPermission, askOnPhone, channelPlace, channelSettings, channelsView, confirmChannelPlace,
+    answerPermission, askOnPhone, channelConfirmed, channelPlace, channelSettings, channelsView, confirmChannelPlace,
     createObs, createRemote, loadChannelSecret, obsSettings, obsState, obsView, saveChannelSecret,
     tellChannel,
   };

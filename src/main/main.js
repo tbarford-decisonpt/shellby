@@ -63,6 +63,7 @@ const { wireProgress } = require('./wiring/progress');
 const { wireTimetrack } = require('./wiring/timetrack');
 const { wireCrabApi } = require('./wiring/crab-api');
 const { wireChannels } = require('./wiring/channels');
+const { wirePhoneTasks } = require('./wiring/phone-tasks');
 const { wireSurroundings } = require('./wiring/surroundings');
 const { wireToolbox } = require('./wiring/toolbox');
 const { wireGithub } = require('./wiring/github');
@@ -330,6 +331,7 @@ const shared = {
   get broadcastWardrobe() { return broadcastWardrobe; },
   get buildMenu() { return buildMenu; },
   get calmReason() { return calmReason; }, set calmReason(v) { calmReason = v; },
+  get channelConfirmed() { return channelConfirmed; },
   get channelPlace() { return channelPlace; },
   get channelSecret() { return channelSecret; }, set channelSecret(v) { channelSecret = v; },
   get channelSettings() { return channelSettings; },
@@ -458,11 +460,14 @@ const shared = {
   get pendingCommands() { return pendingCommands; },
   get pendingLink() { return pendingLink; }, set pendingLink(v) { pendingLink = v; },
   get perching() { return perching; }, set perching(v) { perching = v; },
+  get phoneTasksView() { return phoneTasksView; },
+  get pickPhoneTasksFolder() { return pickPhoneTasksFolder; },
   get pinnedTools() { return pinnedTools; },
   get placeCritter() { return placeCritter; },
   get playtime() { return playtime; }, set playtime(v) { playtime = v; },
   get pluginView() { return pluginView; },
   get prBadge() { return prBadge; }, set prBadge(v) { prBadge = v; },
+  get refreshPhoneTasks() { return refreshPhoneTasks; },
   get pranks() { return pranks; }, set pranks(v) { pranks = v; },
   get profileCard() { return profileCard; }, set profileCard(v) { profileCard = v; },
   get projectInsights() { return projectInsights; },
@@ -526,6 +531,7 @@ const shared = {
   get startFocus() { return startFocus; },
   get startTask() { return startTask; },
   get startTaskInCopy() { return startTaskInCopy; },
+  get setPhoneTasks() { return setPhoneTasks; },
   get startView() { return startView; }, set startView(v) { startView = v; },
   get stat() { return stat; },
   get statusFile() { return statusFile; },
@@ -587,10 +593,13 @@ const {
 } = wireTimetrack(shared);
 const { cliBinDir, cliView, createCrabApi, installCli, removeCli, sayText } = wireCrabApi(shared);
 const {
-  answerPermission, askOnPhone, channelPlace, channelSettings, channelsView, confirmChannelPlace,
+  answerPermission, askOnPhone, channelConfirmed, channelPlace, channelSettings, channelsView, confirmChannelPlace,
   createObs, createRemote, loadChannelSecret, obsSettings, obsState, obsView, saveChannelSecret,
   tellChannel,
 } = wireChannels(shared);
+const {
+  createPhoneTasks, phoneTasksView, pickPhoneTasksFolder, refreshPhoneTasks, setPhoneTasks,
+} = wirePhoneTasks(shared);
 const {
   confirmAndInstallOpenRgb, createDictation, createLifeAndPlay, createMedia, createRgb,
   createTypingAlong, createWeather, ensureOpenRgb, mediaSettings, mediaView, musicHeadphones,
@@ -1380,7 +1389,7 @@ function saveSpend() {
 
 // Settings as the panel sees them: the ledger stays in main (usageBreakdown).
 function panelSettings() {
-  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
+  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, phoneTasksSecret: _pt, ...rest } = config.data;
   return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
@@ -2339,6 +2348,7 @@ app.whenReady().then(() => {
   // had running counts as said yes to, so an update doesn't silence it.
   if (config.get('channelsConfirmed') == null && channelSettings().enabled) config.set({ channelsConfirmed: channelPlace() });
   createRemote();
+  createPhoneTasks(); // listening again, if your phone may start tasks
   // On, but not to anywhere you said yes to (a question still open when Shellby
   // quit, or a token Windows can no longer read back): ask now rather than
   // stay silently "on" and send nothing.
@@ -2427,7 +2437,7 @@ app.on('will-quit', () => {
   clearTimeout(focusTimer);
   clearInterval(focusTick);
   clearTimeout(limitTimer);
-  remote?.stop();
+  remote?.shutdown();
   dictation?.stop();
   if (PRIMARY && !CAPTURE) crashReport.endRun(LOG_DIR); // quit on purpose: nothing to report next time
 });
@@ -2436,6 +2446,7 @@ app.on('will-quit', () => {
 // Workflows freeze first: a run cut off by quitting is resumable, not failed.
 app.on('before-quit', () => {
   app.isQuitting = true;
+  remote?.shutdown(); // no task from the phone starts while he's on his way out
   workflows?.shutdown();
   manager?.closeAll({ kill: true });
   // Quits that didn't come through quit() (Windows shutting down, say):

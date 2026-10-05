@@ -126,8 +126,8 @@ function wireProjects(d) {
   async function startTaskInCopy(dir, title, promptFor, { mode = null } = {}) {
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
     const made = await worktrees.create(dir, { home: d.worktreeHome(), title });
-    if (!made) return { ok: false, error: "That folder isn't in a git repository." };
-    if (!made.ok) return { ok: false, error: made.error };
+    if (!made) return { ok: false, noCopy: true, error: "That folder isn't in a git repository." };
+    if (!made.ok) return { ok: false, noCopy: true, error: made.error };
     const w = made.worktree;
     const tabId = d.randomUUID();
     try {

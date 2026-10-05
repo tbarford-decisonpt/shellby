@@ -113,7 +113,7 @@ test('deliver hands back Telegram\'s reply, and nobody else\'s', async () => {
 
 // ------------------------------------------------------------------ the waiting room
 
-function harness({ provider = 'ntfy', target = 'shellby-abc', enabled = true, replies = true, answer = () => true } = {}) {
+function harness({ provider = 'ntfy', target = 'shellby-abc', enabled = true, replies = true, answer = () => true, inboxPollMs = 0 } = {}) {
   let t = 1_000_000;
   const calls = [];
   const answered = [];
@@ -131,7 +131,7 @@ function harness({ provider = 'ntfy', target = 'shellby-abc', enabled = true, re
   const r = new RemoteAnswers({
     getChannel: () => ({ settings: channels.normalizeChannelSettings(null, { enabled, provider, target, replies }), secret: 'TOKEN' }),
     onAnswer: (tabId, requestId, decision) => { answered.push({ tabId, requestId, decision }); return answer(tabId, requestId, decision); },
-    fetchImpl, now: () => t, ntfyPollMs: 0,
+    fetchImpl, now: () => t, ntfyPollMs: 0, inboxPollMs,
   });
   return { r, calls, answered, queue, tick: ms => { t += ms; } };
 }
@@ -221,4 +221,104 @@ test('turning replies off hands everything back to the desk and stops listening'
   for (let i = 0; i < 5 && r.polling; i++) await settle();
   assert.equal(r.size, 0);
   assert.equal(calls.filter(c => c.url.includes('/json?')).length, 0);
+});
+
+// ------------------------------------------------------------------ phone tasks share the poller
+
+function inboxFor({ on = () => true, since = '1700000000' } = {}) {
+  const got = { telegram: [], ntfy: [], cursor: [] };
+  return {
+    got,
+    inbox: {
+      active: () => on(),
+      onTelegram: u => got.telegram.push(u),
+      ntfyUrl: () => 'https://ntfy.sh/shellby-abc-tasks',
+      ntfySince: () => since,
+      onNtfy: m => got.ntfy.push(m),
+      onNtfyCursor: id => got.cursor.push(id),
+    },
+  };
+}
+
+const spin = async (r, until, max = 50) => { for (let i = 0; i < max && !until(); i++) await settle(); };
+
+test('one getUpdates reader: presses go to prompts, messages to the inbox', async () => {
+  const { r, calls, answered, queue } = harness({ provider: 'telegram', target: '123' });
+  const { inbox, got } = inboxFor();
+  const nonce = r.register({ tabId: 't1', requestId: 'req1', provider: 'telegram' });
+  const message = { update_id: 11, message: { message_id: 3, text: 'fix it', chat: { id: 123, type: 'private' }, from: { id: 123 } } };
+  queue.push({ updates: [
+    { update_id: 10, callback_query: { id: 'cb', data: `a:${nonce}`, from: { id: 123 }, message: { message_id: 42, chat: { id: 123, type: 'private' } } } },
+    message,
+  ] });
+  r.setInbox(inbox);
+  await spin(r, () => got.telegram.length && answered.length);
+  assert.deepEqual(answered, [{ tabId: 't1', requestId: 'req1', decision: 'allow' }]);
+  assert.deepEqual(got.telegram, [message], 'the message, and not the press');
+  assert.equal(r.telegramOffset, 12);
+  assert.equal(r.polling, true, 'still listening: phone tasks are on');
+  r.shutdown();
+  await spin(r, () => !r.polling);
+  assert.equal(r.polling, false, 'stops for good when Shellby quits');
+  const reads = calls.filter(c => c.url.includes('/getUpdates'));
+  assert.ok(reads.every((c, i) => i === 0 || /offset=\d+/.test(c.url)), 'every later read confirms what was read');
+  r.ensurePolling();
+  assert.equal(r.polling, false, 'and never starts again');
+});
+
+test('with phone tasks off, Telegram messages are skipped but still confirmed', async () => {
+  const { r, queue } = harness({ provider: 'telegram', target: '123' });
+  const { inbox, got } = inboxFor({ on: () => false });
+  r.setInbox(inbox);
+  assert.equal(r.polling, false, 'nothing to listen for');
+  const nonce = r.register({ tabId: 't1', requestId: 'req1', provider: 'telegram' });
+  queue.push({ updates: [{ update_id: 20, message: { message_id: 1, text: 'hi', chat: { id: 123, type: 'private' }, from: { id: 123 } } }] });
+  r.sent(nonce, {});
+  await spin(r, () => r.telegramOffset === 21);
+  r.forget(nonce);
+  await spin(r, () => !r.polling);
+  assert.deepEqual(got.telegram, []);
+  assert.equal(r.telegramOffset, 21);
+});
+
+test('ntfy tasks are read from their own topic, from the saved cursor', async () => {
+  const { r, calls, queue } = harness();
+  const { inbox, got } = inboxFor({ since: 'prevId' });
+  queue.push({ lines: [{ id: 'm1', event: 'message', message: 'x', time: 1 }, { id: 'm2', event: 'message', message: 'y', time: 2 }] });
+  r.setInbox(inbox);
+  await spin(r, () => got.cursor.length);
+  r.shutdown();
+  await spin(r, () => !r.polling);
+  const poll = calls.find(c => c.url.includes('-tasks/json?'));
+  assert.match(poll.url, /^https:\/\/ntfy\.sh\/shellby-abc-tasks\/json\?poll=1&since=prevId$/);
+  assert.equal(poll.opts.headers.Authorization, 'Bearer TOKEN');
+  assert.deepEqual(got.ntfy.map(m => m.id), ['m1', 'm2']);
+  assert.deepEqual(got.cursor, ['m2'], 'the last one read, so a restart picks up after it');
+  assert.equal(calls.filter(c => c.url.includes('-reply/json')).length, 0, 'no prompts out: the reply topic is left alone');
+});
+
+test('a prompt answered while phone tasks are on keeps the listening going', async () => {
+  const { r } = harness({ inboxPollMs: 60_000 });
+  const { inbox } = inboxFor();
+  r.setInbox(inbox);
+  const nonce = r.register({ tabId: 't1', requestId: 'req1', provider: 'ntfy' });
+  r.answer(nonce, 'allow');
+  assert.equal(r.polling, true);
+  r.shutdown();
+  await spin(r, () => !r.polling);
+  assert.equal(r.polling, false, 'shutdown wakes it from its wait');
+});
+
+test('an inbox that throws never stops the presses being read', async () => {
+  const { r, answered, queue } = harness({ provider: 'telegram', target: '123' });
+  const nonce = r.register({ tabId: 't1', requestId: 'req1', provider: 'telegram' });
+  queue.push({ updates: [
+    { update_id: 1, message: { text: 'boom' } },
+    { update_id: 2, callback_query: { id: 'cb', data: `d:${nonce}`, from: { id: 123 }, message: { message_id: 4, chat: { id: 123, type: 'private' } } } },
+  ] });
+  r.setInbox({ ...inboxFor().inbox, onTelegram: () => { throw new Error('nope'); } });
+  await spin(r, () => answered.length);
+  r.shutdown();
+  await spin(r, () => !r.polling);
+  assert.deepEqual(answered, [{ tabId: 't1', requestId: 'req1', decision: 'deny' }]);
 });

@@ -258,7 +258,8 @@ function wireTimetrack(d) {
       d.recordWork(tab.worktree?.originalCwd || tab.session?.cwd);
     }
     if (!item.interrupted && !inWorkflow && !waiting) {
-      d.tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) });
+      // A task your phone started always says so there, whatever you ticked.
+      d.tellChannel({ kind: 'done', project: tab.title, tools: item.tools, seconds: Math.round((item.durationMs || 0) / 1000) }, undefined, { always: !!tab.fromPhone });
     }
     if (item.interrupted || inWorkflow || (d.panel.isVisible() && d.panel.isFocused())) return;
     const secs = Math.round((item.durationMs || 0) / 1000);
