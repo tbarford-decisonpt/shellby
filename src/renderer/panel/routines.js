@@ -7,6 +7,8 @@
   let folder = null;       // chosen cwd for the editor (null = default)
   let chat = null;         // Build it with Claude (wf-chat.js), one per editor session
   let trial = false;       // a new routine Claude saved switched off to test it
+  let tools = {};          // { mcp?, mcpOnly? }: MCP servers it may use without asking (mcp-picker.js)
+  let mcpList = null;      // the servers it could pick, for its folder (null while reading)
 
   // Templates live in main (routine-templates.js), so the dependency checkup's
   // prompt and the one the Sticker Book uses can't drift apart.
@@ -247,7 +249,28 @@
     form.elements.mode.value = r?.mode || 'smart';
     form.elements.catchUp.checked = r ? r.catchUp !== false : true;
     $('routineFolder').textContent = folder ? SB.tildify(folder) : `Default (${SB.tildify(state.cwd)})`;
+    tools = { ...(r?.mcp?.length ? { mcp: [...r.mcp] } : {}), ...(r?.mcp?.length && r.mcpOnly ? { mcpOnly: true } : {}) };
     syncWhen();
+    loadMcp();
+  }
+
+  // Its folder decides which project servers count, so they're read again when it changes.
+  let mcpSeq = 0;
+  function loadMcp() {
+    const seq = ++mcpSeq;
+    mcpList = null;
+    drawMcp();
+    api.mcpServers(folder || null)
+      .then(l => { if (seq === mcpSeq) mcpList = Array.isArray(l) ? l : []; })
+      .catch(() => { if (seq === mcpSeq) mcpList = []; })
+      .finally(() => { if (seq === mcpSeq) drawMcp(); });
+  }
+
+  function drawMcp() {
+    const host = $('routineMcp');
+    const at = [...host.querySelectorAll('input')].indexOf(document.activeElement);
+    host.replaceChildren(SB.mcpPicker.field({ at: 'mcp', value: tools, servers: mcpList, onChange: () => {}, rebuild: drawMcp }));
+    if (at >= 0) host.querySelectorAll('input')[at]?.focus();
   }
 
   // The routine as it is in the editor, ready for routines:save. How it last ran
@@ -263,6 +286,8 @@
       ...(editing ? { id: editing.id, createdAt: editing.createdAt, enabled: editing.enabled } : {}),
       name: form.elements.name.value, prompt: form.elements.prompt.value, cwd: folder,
       mode: form.elements.mode.value, schedule, catchUp: form.elements.catchUp.checked,
+      // Always sent, so unticking every server clears them (main merges with what it has).
+      mcp: [...(tools.mcp || [])], mcpOnly: !!tools.mcp?.length && !!tools.mcpOnly,
     };
   }
 
@@ -465,7 +490,7 @@
   $('newRoutineBtn').addEventListener('click', () => openEditor());
   $('routineFolderBtn').addEventListener('click', async () => {
     const dir = await api.pickAnyFolder();
-    if (dir) { folder = dir; $('routineFolder').textContent = SB.tildify(dir); }
+    if (dir) { folder = dir; $('routineFolder').textContent = SB.tildify(dir); loadMcp(); }
   });
 
   // openEditor: Dependency watch (depwatch.js) offers its routine through the same editor.

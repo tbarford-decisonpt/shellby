@@ -42,8 +42,10 @@ Triggers:
 - { "type": "startup" }  { "type": "webhook" }  { "type": "claude" } (Claude Code or the shellby command may start it)
 
 Steps (each may have "id" (snake_case, how later steps refer to it), "label", "if" (condition), "retry": { "times": 0-5, "delaySec": n }, "timeoutMin", "continueOnError"):
-- { "type": "claude", "prompt": "...", "mode": "plan"|"ask"|"smart"|"acceptEdits", "cwd": "", "fresh": false, "output": { "field": { "type": "string"|"number"|"boolean"|"list"|"object", "description": "" } } }
+- { "type": "claude", "prompt": "...", "mode": "plan"|"ask"|"smart"|"acceptEdits", "cwd": "", "fresh": false, "mcp": ["server"], "mcpOnly": false, "output": { "field": { "type": "string"|"number"|"boolean"|"list"|"object", "description": "" } } }
   Claude Code does the work in a conversation the run shares. "output" makes it return those fields as data for later steps. Use "plan" to only look and report, "acceptEdits" to edit files, "smart" otherwise.
+  "mcp" names MCP servers (only ones the person has) whose tools Claude may use here without asking, e.g. ["linear"] to file issues or ["slack"] to post. "mcpOnly": true loads only those servers.
+- { "type": "mcp", "server": "name", "tool": "tool_name", "args": "{ \\"title\\": \\"{{ diagnose.cause }}\\" }", "cwd": "", "allowFail": false }  calls one tool of an MCP server directly, no Claude turn. args is a JSON object as text: text values in "quotes", lists and numbers without. Only use a tool name you know the server has. output: ok, text, json
 - { "type": "run", "command": "PowerShell", "cwd": "", "allowFail": false }  output: output, code, ok
 - { "type": "http", "method": "GET"|"POST"|..., "url": "https://...", "headers": {}, "body": "" }  output: status, ok, body, json
 - { "type": "ask", "question": "...", "choices": ["A","B"] }  asks the person and waits. Without choices it's Continue/Stop. output: choice
@@ -78,9 +80,10 @@ function checkDescription(text) {
   return { ok: true, text: clean };
 }
 
-const context = ({ home, defaultFolder, workflows = [], today }) => [
+const context = ({ home, defaultFolder, workflows = [], today, mcpServers = [] }) => [
   `The person's home folder is ${home}; Shellby's current folder is ${defaultFolder || home}. Today is ${today}.`,
   workflows.length ? `Their other workflows: ${workflows.slice(0, 40).map(n => `"${n}"`).join(', ')}.` : '',
+  mcpServers.length ? `Their MCP servers: ${mcpServers.slice(0, 40).map(n => `"${n}"`).join(', ')}. Only these can go in "mcp" or "server".` : 'They have no MCP servers, so don\'t use "mcp" or MCP steps.',
 ].filter(Boolean).join('\n');
 
 /** CLI arguments. The prompt itself goes to stdin. */

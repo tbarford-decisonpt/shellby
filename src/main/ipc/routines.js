@@ -20,10 +20,12 @@ function registerRoutinesIpc(ipcMain, d) {
     const { routine, errors } = validateRoutine({ ...existing, ...input }, { allowAutonomous: !!d.config.get('autonomousAcknowledged') });
     if (!routine) return { ok: false, errors };
     // A routine runs unattended. One that may act without a prompt for every
-    // step (Smart, Auto-edit, Autonomous) is confirmed in the isolated window
-    // whenever what it does, where, or how freely changes.
-    const unattended = !['ask', 'plan'].includes(routine.mode);
-    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]);
+    // step (Smart, Auto-edit, Autonomous, or MCP servers it may use unasked)
+    // is confirmed in the isolated window whenever what it does, where, or how
+    // freely changes.
+    const unattended = !['ask', 'plan'].includes(routine.mode) || !!routine.mcp?.length;
+    const servers = r => JSON.stringify([r?.mcp || [], !!r?.mcpOnly]);
+    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]) || servers(existing) !== servers(routine);
     if (unattended && changed) {
       const response = await confirm.ask(d.panel, {
         ...d.dialogLook(), icon: '⟳', danger: routine.mode === 'autonomous',

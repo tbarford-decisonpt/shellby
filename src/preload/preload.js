@@ -481,6 +481,8 @@ contextBridge.exposeInMainWorld('shellby', {
   answerRun: invoke('workflows:run-answer'),
   setWorkflowSecret: invoke('workflows:secret-set'),
   deleteWorkflowSecret: invoke('workflows:secret-delete'),
+  mcpServers: invoke('workflows:mcp-servers'), // (cwd) -> [{ name, scope, transport, direct }]
+  mcpTools: invoke('workflows:mcp-tools'),     // (server, cwd) -> { ok, tools } (starts the server)
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),

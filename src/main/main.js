@@ -20,6 +20,7 @@ const confirm = require('./confirm');
 const { attachContextMenu } = require('./context-menu');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
 const crabtools = require('./crabtools');
+const mcpServers = require('./mcpservers');
 const changes = require('./changes');
 const worktrees = require('./worktrees');
 const native = require('./native-windows');
@@ -1900,6 +1901,20 @@ function makeRoomForRoutine() {
   remote?.settleTab(done);
 }
 
+// A routine's MCP servers -> what its conversation starts with: rules that let
+// Claude use them unasked, and with "only these", just their definitions.
+// Throws (runRoutine reports it) when one can't be loaded on its own.
+function routineTools(r, cwd) {
+  if (!r.mcp?.length) return {};
+  let mcpConfig = null;
+  if (r.mcpOnly) {
+    const res = mcpServers.configFor(r.mcp, { home: os.homedir(), cwd });
+    if (!res.ok) throw new Error(res.error);
+    mcpConfig = res.config;
+  }
+  return { allowedTools: mcpServers.allowRules(r.mcp), mcpConfig };
+}
+
 function runRoutine(r, { reason = 'scheduled' } = {}) {
   const busyTab = [...routineTabs.entries()].find(([tabId, id]) => id === r.id && manager.isBusy(tabId));
   if (busyTab) return { ok: false, skipped: true, error: `"${r.name}" is still running from last time.` };
@@ -1908,7 +1923,7 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     makeRoomForRoutine();
     const tabId = randomUUID();
     const cwd = r.cwd && fs.existsSync(r.cwd) ? r.cwd : currentCwd();
-    openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}` });
+    openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}`, ...routineTools(r, cwd) });
     routineTabs.set(tabId, r.id);
     const userItem = { kind: 'user', text: r.prompt, title: `⟳ ${r.name}`, routine: { id: r.id, name: r.name, reason } };
     manager.send(tabId, r.prompt, userItem);
