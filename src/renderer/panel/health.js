@@ -518,6 +518,19 @@
     if (focused) [...list.querySelectorAll('.hl-hog')].find(li => li.dataset.key === focused)?.querySelector('button')?.focus();
   }
 
+  // Shellby's own CPU and memory (health/footprint.js), owned up to above the
+  // list, with a pointer to what makes him lighter when he's costing a lot.
+  function renderSelf() {
+    const self = view?.settings?.enabled ? view.self : null;
+    $('hlSelf').hidden = !self;
+    if (!self) return;
+    setText($('hlSelfLine'), self.line);
+    $('hlSelfLine').title = self.detail;
+    $('hlSelfHint').hidden = !self.hint;
+    setText($('hlSelfHintText'), self.hint || '');
+    $('hlSelfSettings').hidden = !self.jump;
+  }
+
   function hogRow(p, metric, ramTotal) {
     const isGroup = hogMode === 'app';
     const share = metric === 'mem' ? (ramTotal ? p.mem / ramTotal : 0) : p[metric] / 100;
@@ -702,6 +715,7 @@
     renderBadge();
     if (state.view !== 'health') return;
     renderHero();
+    renderSelf();
     renderHogs();
     renderGauges();
     renderFans();
@@ -789,6 +803,7 @@
   $('hlHogsOpen').addEventListener('click', () => { hogsOpen = true; hogsAt = 0; renderHogs(); $('hlHogsSeg').querySelector('[aria-selected="true"]')?.focus(); });
   $('hlHogsClose').addEventListener('click', () => { hogsOpen = false; renderHogs(); $('hlHogsOpen').focus(); });
   $('hlHogsRefresh').addEventListener('click', () => { hogsAt = 0; renderHogs(); });
+  $('hlSelfSettings').addEventListener('click', () => { if (view?.self?.jump) SB.jumpToSettingByName(view.self.jump); });
   $('hlRange').addEventListener('click', e => {
     const b = e.target.closest('button[data-range]');
     if (b) setRange(Number(b.dataset.range));

@@ -74,6 +74,12 @@ Each row has an **End task** button. It does the same as End task in Task Manage
 
 Processes that run as administrator can't be ended without admin rights, and Shellby tells you so.
 
+### What Shellby himself costs
+
+Above the list, one line owns up to his share: **Shellby himself: 1% CPU, 450 MB**. It adds up every process he runs (his window, the panel, and the helpers Electron starts for them), counts CPU as a share of your whole PC like Task Manager does, and updates every 5 seconds. Hover it to see how many processes that is and what it comes to as a share of one core.
+
+Mostly that's the panel: its animations run while you're looking at it, and calm down when another window is in front. If he's using 5% or more of your PC, or over 1 GB, a hint says what helps. With the panel closed he settles to almost nothing, and once he's been measured that way on your PC the hint tells you the actual figure. Fewer pals and less wandering (**Settings → Moving around**) make him lighter still.
+
 GPU use per process needs Windows 10 1709 or later. Reading the list takes a second or two, so it's only read while the Health view is open and something is wrong.
 
 ## Starts with Windows

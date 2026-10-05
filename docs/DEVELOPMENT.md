@@ -83,6 +83,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
 | `node scripts/idle-cost.js [seconds] [--unfocused]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
+| `npm run perf` | The performance budget, ~4 min, run by CI as its own job: cold start, crab click to panel shown, Shellby's own share of the wait for Claude's first word, idle CPU (panel closed, and open behind a window) and memory, each held against `scripts/perf-budgets.js`. Prints a table, writes `perf-result.json` (CI keeps it as an artifact), and fails when a number is over budget twice running. `--only cold,latency,idle`, `--cold N`, `--samples N`, `--settle S`, `--idle S`, `--out file` |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `node scripts/e2e-perch.js [dir]` | Perching against a real Notepad (needs a desktop, so not in CI): the hop up, ownership and click-through, riding a slow drag, shaken off dizzy, the window closing under him, the walk home, Hop down. Screenshots each beat. If a fullscreen window covers his screen, give him another: `SHELLBY_E2E_HOME=x,y` (DIPs) |
 | `npx electron scripts/perch-probe.js` | The Win32 behaviour perching rests on: an owned window above a window of another process, surviving that window closing or crashing, hiding with it when it minimizes |
@@ -125,6 +126,50 @@ What remains is the cost of animating sprites built from ~145 `<rect>` elements
 at the full refresh rate of the display, which needs a different approach to
 sprite animation (pre-rendered frames, or a canvas) rather than tuning.
 
+### The budget CI holds him to
+
+`npm run perf` (scripts/perf-budget.js) measures the numbers above, and a few
+more, on every push, with an isolated profile and the fake Claude CLI. The
+budgets are in `scripts/perf-budgets.js`, each with a comment saying where the
+number comes from:
+
+| Metric | Budget | Local (Ryzen 9 3950X, busy desktop) |
+|---|---|---|
+| Cold start to the crab painted | 8 s | 0.8–1.6 s |
+| Cold start to the panel booted | 10 s | 1.1–1.5 s |
+| Crab clicked to the panel shown and painted | 500 ms | ~20 ms (the very first open, ~1.2 s, is reported but not judged) |
+| Shellby's share of the wait for Claude's first word | 600 ms | ~90 ms |
+| Idle CPU, panel closed | 25% of a core | 1–11% |
+| Idle CPU, panel open behind a window | 60% of a core | 5–37% |
+| Memory, panel closed / open | 900 / 1000 MB | ~500 MB |
+
+They're loose on purpose: CI's runners have a few slow cores, no GPU and reduced
+motion on, so they read several times slower than a desktop and vary between
+runs. They catch a number that doubles, not one that creeps. Over a budget by up
+to 15% prints a warning; past that the phase is measured once more, and the job
+fails only if it's over again. Each run's `perf-result.json` artifact holds every
+sample, so once a few runs show where the runner really sits, tighten the budgets
+towards 1.5x that.
+
+How each is measured, briefly (the header of perf-budget.js has the rest):
+
+- **Cold start** is from spawning electron.exe to the `shellby:crab-painted` and
+  `shellby:panel-ready` performance marks (critter.js, boot.js), read over CDP.
+  The script's clock and the renderers' `performance.timeOrigin` are both the
+  system clock, so the times line up.
+- **First-token overhead** is Enter to the reply painted in the feed, minus the
+  fake CLI's scripted 100 ms. Today most of it is the snapshot of the folder that
+  `beginTurn` (wiring/sessions.js) takes before the message goes out, for the
+  turn's diff.
+- **Idle CPU and memory** use idle-cost.js's method (scripts/process-tree.js, now
+  shared by both) in two launches with **no** debugger attached, for the reason
+  above. The panel-closed launch uses a profile that has done onboarding; the
+  open one is a fresh profile, focused, then Notepad takes focus.
+
+Health shows the same thing to the person running him: **Shellby himself: 1% CPU,
+450 MB** above the hogs list (health/footprint.js, from `app.getAppMetrics()`'s
+`cumulativeCPUUsage`, since its `percentCPUUsage` is reset by anybody's call).
+
 ## Project layout
 
 ```
@@ -145,7 +190,7 @@ src/main/        Electron main process
   workflows/       the workflow engine (docs/plans/workflows.md): schema, expr (templates and conditions),
                    engine (replaying interpreter), effects, triggers, store, draft, templates, service
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
-  health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
+  health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts, his own footprint
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
