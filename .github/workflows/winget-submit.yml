@@ -6,8 +6,8 @@
 # package in the first place. This workflow runs `wingetcreate submit` on the
 # hand-written manifests in packaging/winget instead.
 #
-# Needs the WINGET_TOKEN secret: a *classic* PAT with the public_repo scope
-# (fine-grained tokens aren't supported). Run it from the Actions tab.
+# Needs the WINGET_TOKEN secret: a *classic* PAT with the public_repo and
+# workflow scopes (fine-grained tokens aren't supported). Run it from the Actions tab.
 name: Submit to winget
 
 on:

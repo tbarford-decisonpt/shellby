@@ -206,7 +206,8 @@ jobs:
       # Opt-in and deliberately last: it hashes the published installer URL,
       # which only resolves once the release is out of draft. Set the
       # WINGET_TOKEN secret to turn it on — a *classic* PAT with the
-      # public_repo scope (fine-grained tokens aren't supported). The package
+      # public_repo and workflow scopes (fine-grained tokens aren't supported;
+      # see packaging/winget/README.md for why workflow). The package
       # must already exist in microsoft/winget-pkgs; the first submission is
       # manual. See packaging/winget/README.md.
       #
@@ -249,7 +250,7 @@ jobs:
       # winget: the release is already out, so a failed push shouldn't fail it.
       #
       # main requires the `test` check of everyone but admins, so GITHUB_TOKEN
-      # can't push there. WINGET_TOKEN (the owner's public_repo PAT) can, and a
+      # can't push there. WINGET_TOKEN (the owner's PAT) can, and a
       # PAT push also gets the commit its own CI run. checkout persisted
       # GITHUB_TOKEN as an extraheader; the empty one clears it.
       - name: Update Scoop manifest

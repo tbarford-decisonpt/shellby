@@ -19,8 +19,13 @@ folder and already validated — `winget validate` passes with no warnings.
 
 Two things only you can do, both in the browser:
 
-1. Create a **classic** personal access token with only the **`public_repo`** scope.
-   Fine-grained tokens are [not supported](https://github.com/microsoft/winget-create/issues/595).
+1. Create a **classic** personal access token with the **`public_repo`** and **`workflow`**
+   scopes. Fine-grained tokens are [not supported](https://github.com/microsoft/winget-create/issues/595).
+   `workflow` is for your fork of winget-pkgs: `wingetcreate` brings the fork up to date
+   before every submission, and when upstream has changed its own `.github/workflows`
+   since, GitHub refuses that sync without it ("The forked repository could not be synced
+   with the upstream commits"). With `public_repo` alone, submissions work only until
+   upstream next touches a workflow.
 2. Add it as the repo secret **`WINGET_TOKEN`** (Settings → Secrets and variables →
    Actions).
 
