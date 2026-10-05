@@ -27,6 +27,7 @@ function registerSurroundingsIpc(ipcMain, d) {
   ipcMain.handle('health:hogs', (_e, metric) => d.health.hogs(d.isStr(metric) ? metric : null));
   ipcMain.handle('health:end-task', (_e, pid) => d.health.endTask(Number.isInteger(pid) ? pid : null));
   ipcMain.handle('health:end-group', (_e, name) => d.health.endGroup(d.isStr(name) ? name : null));
+  ipcMain.handle('health:ask-processes', () => d.health.askProcesses());
   ipcMain.handle('health:startup', (_e, force) => d.health.startupItems({ force: force === true }));
   ipcMain.handle('health:ask-startup', () => d.health.askStartup());
   ipcMain.handle('health:set-startup', (_e, id, off) => d.health.setStartup(d.isStr(id) ? id : null, off === true));

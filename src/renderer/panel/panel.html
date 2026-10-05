@@ -412,7 +412,10 @@
       </div>
       <button type="button" class="hl-hogs-open" id="hlHogsOpen">See what's using the CPU, GPU and memory right now</button>
       <ol class="hl-hogs-list" id="hlHogList" aria-live="polite"></ol>
-      <p class="hl-fine" id="hlHogsFine">End task asks first, and won't touch Windows itself or Shellby. Processes marked "Shellby task" end on their own when that task closes.</p>
+      <div class="row wrap" id="hlHogsAskRow">
+        <button type="button" class="btn" id="hlAskProcesses">Ask Shellby what's running and what I don't need</button>
+      </div>
+      <p class="hl-fine" id="hlHogsFine">End task asks first, and won't touch Windows itself or Shellby. Processes marked "Shellby task" end on their own when that task closes. Asking Shellby goes through everything running, not just these, and changes nothing until you pick.</p>
     </section>
 
     <div class="hl-gauges-head">

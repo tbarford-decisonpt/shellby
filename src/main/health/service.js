@@ -156,13 +156,9 @@ class HealthService {
    */
   async hogs(metric) {
     const m = hogs.METRICS.includes(metric) ? metric : hogs.metricFor(this.monitor.mood?.id) || 'cpu';
-    if (!this.hogRead || Date.now() - this.hogRead.at > HOGS_FRESH_MS) {
-      this.hogRead = { at: Date.now(), promise: this.processes.read().catch(() => null) };
-    }
-    const all = await this.hogRead.promise;
+    const all = await this.readProcesses();
     if (!all) return { ok: false, metric: m, procs: [], groups: [], error: "Shellby couldn't read the process list." };
-    let owned;
-    try { owned = this.deps.ownedPids?.() || new Set(); } catch { owned = new Set(); }
+    const owned = this.ownedPids();
     const top = hogs.topBy(all, m);
     const groups = hogs.groupByName(all, m, hogs.TOP_N, owned);
     this.shownHogs = new Map(top.map(p => [p.pid, p]));
@@ -172,6 +168,28 @@ class HealthService {
       procs: top.map(p => ({ ...p, owned: owned.has(p.pid), locked: this.lockedReason(p) })),
       groups: groups.map(({ pids, ...g }) => ({ ...g, locked: g.count > 1 ? this.groupLock(g) : this.lockedReason(all.find(p => p.pid === pids[0])) })),
     };
+  }
+
+  /** The process list, or null. One perf-counter read serves a burst of callers. */
+  readProcesses() {
+    if (!this.hogRead || Date.now() - this.hogRead.at > HOGS_FRESH_MS) {
+      this.hogRead = { at: Date.now(), promise: this.processes.read().catch(() => null) };
+    }
+    return this.hogRead.promise;
+  }
+
+  ownedPids() {
+    try { return this.deps.ownedPids?.() || new Set(); } catch { return new Set(); }
+  }
+
+  /** Start the "what's running and what don't I need" task. */
+  async askProcesses() {
+    const all = await this.readProcesses();
+    if (!all) return { ok: false, error: "Shellby couldn't read the process list." };
+    this.deps.stat('health-asked');
+    // Always in Ask mode: any program can pick its own process name, so
+    // whatever Claude wants to run or end still needs your OK.
+    return this.deps.startTask(hogs.processesPrompt(all, this.ownedPids()), "Health: what's running", { mode: 'ask' });
   }
 
   // A group is ended by name, so a protected name locks the lot; Shellby's own

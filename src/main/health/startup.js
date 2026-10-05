@@ -223,4 +223,4 @@ function createStartupReader({ platform = process.platform, now = () => Date.now
   };
 }
 
-module.exports = { describeLocation, approvalScope, parseApproved, parseStartup, switchFor, approvedBytes, startupPrompt, createStartupReader };
+module.exports = { describeLocation, approvalScope, parseApproved, parseStartup, switchFor, approvedBytes, startupPrompt, createStartupReader, promptLine: line };

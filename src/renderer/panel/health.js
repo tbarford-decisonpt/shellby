@@ -486,7 +486,7 @@
     const open = enabled && (hogsOpen || !!auto);
     $('hlHogs').dataset.open = String(open);
     $('hlHogsOpen').hidden = open;
-    for (const id of ['hlHogsSeg', 'hlHogsGroup', 'hlHogsRefresh', 'hlHogList', 'hlHogsFine']) $(id).hidden = !open;
+    for (const id of ['hlHogsSeg', 'hlHogsGroup', 'hlHogsRefresh', 'hlHogList', 'hlHogsAskRow', 'hlHogsFine']) $(id).hidden = !open;
     $('hlHogsClose').hidden = !open || !!auto;
     setText($('hlHogsTitle'), auto ? "What's hogging it" : "What's using it");
     if (!open) { drawnHogs = null; return; }
@@ -730,6 +730,14 @@
     SB.toast('Shellby is going through your startup list');
   }
 
+  async function askProcesses() {
+    const r = await api.askAboutProcesses();
+    if (r?.needsClaude) return SB.claudeUpsell('health');
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't start that.");
+    SB.setView('chat');
+    SB.toast("Shellby is going through what's running");
+  }
+
   async function save(patch) {
     view = await api.setHealth(patch);
     render();
@@ -774,6 +782,7 @@
   });
   $('hlThresholds').addEventListener('focusout', () => renderSettings());
   $('hlAskStartup').addEventListener('click', askStartup);
+  $('hlAskProcesses').addEventListener('click', askProcesses);
   $('hlHogsSeg').addEventListener('click', e => {
     const b = e.target.closest('button[data-metric]');
     if (!b) return;

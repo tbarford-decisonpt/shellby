@@ -74,6 +74,8 @@ Each row has an **End task** button. It does the same as End task in Task Manage
 
 Processes that run as administrator can't be ended without admin rights, and Shellby tells you so.
 
+**Ask Shellby what's running and what I don't need** starts a task with everything running right now, not just the busiest few. Processes are added up by app and sorted by memory. Claude explains what each one is and who makes it, gives you a table of what to keep, close or stop from starting, and says where the ones you don't need come from (a startup entry, a service, a scheduled task, another app's helper). Then it asks which ones you want dealt with, and changes nothing until you say. Like the startup task, it always runs in **Ask** mode, because any program can choose its own process name. So every command Claude wants to run, including ending a process, still asks you first. The list holds names and usage only, never command lines, which can contain tokens.
+
 GPU use per process needs Windows 10 1709 or later. Reading the list takes a second or two, so it's only read while the Health view is open and something is wrong.
 
 ## Starts with Windows

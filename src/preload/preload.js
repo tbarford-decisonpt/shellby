@@ -386,6 +386,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getHogs: invoke('health:hogs'),
   endTask: invoke('health:end-task'),
   endTaskGroup: invoke('health:end-group'),
+  askAboutProcesses: invoke('health:ask-processes'),
   getStartupApps: invoke('health:startup'),
   askAboutStartup: invoke('health:ask-startup'),
   setStartupApp: invoke('health:set-startup'),
