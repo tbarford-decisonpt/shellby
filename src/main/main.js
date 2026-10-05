@@ -30,6 +30,7 @@ const focus = require('./focus');
 const rooms = require('./rooms');
 const limits = require('./limits');
 const spend = require('./spend');
+const turncost = require('./turncost');
 const { createLean } = require('./lean');
 const { createSkillRemover } = require('./skillremove');
 const recap = require('./recap');
@@ -283,7 +284,7 @@ const shared = {
   repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
   saveCritterPos, saveHeld, saveRoutines, saveStreaks, send, sendOutlook, setCrewSlots,
   setPanelRoomy, shellStickers, shipped, shippedMerge, showPanel, streaksView, syncKeepAwake,
-  testRoutine, togglePanel, updateRoutine, usageBreakdown,
+  tabCost, testRoutine, togglePanel, updateRoutine, usageBreakdown, windowShare,
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
   get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
@@ -1399,6 +1400,32 @@ function usageBreakdown() {
       projects: spend.breakdown(spendLedger, since, 'project'),
     };
   });
+}
+
+// ---- what a turn or a tab cost (turncost.js): a share of the current 5-hour window
+
+/** A share of the 5-hour window, in percent: `weight`, or all a source spent in it (key). Null with no current reading. */
+function windowShare({ weight = null, key = null } = {}) {
+  spendLedger ??= spend.normalize(config.get('spendLedger'));
+  const w = config.get('lastUsage')?.fiveHour;
+  const now = Date.now();
+  if (!w || !Number.isFinite(w.pct) || !(w.resetsAt > now)) return null;
+  const since = spend.windowStart('fiveHour', w.resetsAt, now);
+  const spent = key ? spend.weightSince(spendLedger, since, key) : weight;
+  return turncost.windowShare({ weight: spent, windowWeight: spend.weightSince(spendLedger, since), windowPct: w.pct });
+}
+
+/** The context menu's running total for one tab: tokens so far, its share of the window, the costliest turns. */
+function tabCost(tabId) {
+  const tab = manager?.tabs.get(tabId);
+  if (!tab) return null;
+  const total = turncost.tabTotal(tab.saved ? history.load(tabId) : []);
+  const share = windowShare({ key: spendSource(tab).key });
+  return {
+    tokens: total.tokens, tokensText: turncost.compact(total.tokens), read: total.read, turns: total.turns,
+    share, shareText: turncost.shareText(share),
+    top: total.top.map(t => ({ turnId: t.turnId, prompt: t.prompt, tokensText: turncost.compact(t.tokens), shareText: turncost.shareText(t.share) })),
+  };
 }
 
 function scheduleLimit() {

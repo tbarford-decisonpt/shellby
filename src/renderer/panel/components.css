@@ -498,6 +498,9 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
   border-left: 2px solid var(--amber); font-size: 12px; animation: fadein .18s var(--ease-out);
 }
 .crowded-text { flex: 1; min-width: 0; color: var(--amber); }
+/* Not crowded yet, just heading there: the same offer, said more quietly. */
+.crowded.soon { border-left-color: var(--glass); }
+.crowded.soon .crowded-text { color: var(--sand-dim); }
 .crowded .slim-btn { height: 26px; flex: none; }
 /* Usage forecast / at the limit: hold work for after the reset (outlook.js). */
 .outlook {

@@ -63,6 +63,8 @@ function registerTabsIpc(ipcMain, d) {
       return { ok: false, error: err.message };
     }
   });
+  // What this conversation has cost so far, for the context chip's menu (turncost.js).
+  ipcMain.handle('tab:cost', (_e, tabId) => (d.isStr(tabId) ? d.tabCost(tabId) : null));
   ipcMain.handle('task:permission', (_e, { tabId, requestId, decision, message, answers } = {}) => {
     if (!d.isStr(tabId) || !d.isStr(requestId) || !['allow', 'always', 'deny'].includes(decision)) return false;
     // AskUserQuestion answers: a small plain object of question -> answer strings.

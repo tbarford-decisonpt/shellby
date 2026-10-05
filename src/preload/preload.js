@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('shellby', {
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   freshTab: invoke('tab:fresh'),
+  tabCost: invoke('tab:cost'),
   // the terminal's conveniences (parity.js)
   suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
   promptHistory: invoke('prompt:history'),

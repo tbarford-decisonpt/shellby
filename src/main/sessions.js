@@ -5,6 +5,7 @@ const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
+const turncost = require('./turncost');
 
 const MAX_TABS = 8;
 const TAB_ID = /^[\w-]{1,64}$/;
@@ -12,9 +13,11 @@ const TAB_ID = /^[\w-]{1,64}$/;
 class SessionManager extends EventEmitter {
   // prepareTurn(tab): an optional promise each turn waits for before Claude
   // sees it (main.js snapshots the folder, for the turn's diff).
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null }) {
+  // windowShare(weight): a turn's share of the 5-hour window, or null (turncost.js),
+  // put on its result before History keeps it.
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, windowShare = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, windowShare });
     this.tabs = new Map();
   }
 
@@ -80,6 +83,13 @@ class SessionManager extends EventEmitter {
       tab.preamble = null;
       tab.preambleSent = false;
       if (tab.saved) this.history.update(tab.id, { preamble: null });
+    }
+    // What the turn cost, in words the panel shows as they are.
+    if (item.kind === 'result' && item.cost) {
+      let share = null;
+      try { share = this.windowShare?.(item.cost.weight, tab) ?? null; } catch { /* no reading to go on: tokens and context still show */ }
+      const cost = { ...item.cost, share: Number.isFinite(share) ? share : null };
+      item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost) };
     }
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
@@ -237,6 +247,7 @@ class SessionManager extends EventEmitter {
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
+      nudge: turncost.nudge(t.session.context, t.session.growths),
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
     }));

@@ -1,9 +1,14 @@
 // End-to-end check of the context meter against the dev app over CDP, driven by
 // the fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
-//   1. A reply's token counts fill the hairline under its tab and the chip
-//   2. Past 80% he says it's getting crowded, and the composer offers room
-//   3. "Not now" hides the offer; Compact runs /compact and empties the meter
-//   4. "Start fresh with a summary": a summary turn, then a new conversation
+//   1. A reply's token counts fill the hairline under its tab and the chip,
+//      and the turn ends with what it cost
+//   2. Filling fast: a quieter "filling up" offer before it's crowded
+//   3. Past 80% he says it's getting crowded, and the composer offers room
+//      even after "filling up" was waved away
+//   4. The chip's menu: the running total, and the costliest turns, each a
+//      way back to it; "Not now" hides the offer; Compact runs /compact and
+//      empties the meter
+//   5. "Start fresh with a summary": a summary turn, then a new conversation
 //      in the same tab that's handed it
 //   node scripts/e2e-context.js
 const { spawn } = require('child_process');
@@ -55,24 +60,39 @@ function connect(url) {
     check(await ev("getComputedStyle(document.querySelector('.tab.active .tab-ctx')).getPropertyValue('--fill').trim() === '0.3'"), 'the hairline under the tab is 30% long');
     check(await ev("!SB.$('ctxChip').hidden && SB.$('ctxLabel').textContent === '30%'"), 'the chip reads 30%');
     check(await ev("SB.$('crowded').hidden"), 'no crowded offer at 30%');
+    check(await ev("/^this turn: [\\d.]+k? tokens · .*30% of context$/.test(SB.activeTab().el.querySelector('.turn-cost')?.textContent || '')"), 'the turn ends with what it cost');
 
-    // 2. Past the mark.
+    // 2. A big jump: at that pace it'll be crowded in a turn, so a quieter offer first.
+    await type('big 140000');
+    check(await until("SB.activeTab().context?.pct === 70 && !SB.activeTab().busy"), 'the tab is 70% full');
+    check(await until("!SB.$('crowded').hidden && SB.$('crowded').classList.contains('soon') && /Filling up: 70% full, about a turn from crowded/.test(SB.$('crowded').textContent)"), 'the composer says it is filling up, before it is crowded');
+    check(await ev("SB.$('crowded').textContent.includes('Compact') && SB.$('crowded').textContent.includes('Start fresh')"), 'and offers the same ways to make room');
+    await ev("SB.$('crowded').querySelector('[aria-label=\"Not now\"]').click()");
+    check(await ev("SB.$('crowded').hidden"), '"Not now" hides "filling up"');
+
+    // 3. Past the mark.
     await type('big 170000');
     check(await until("SB.activeTab().context?.pct === 85 && !SB.activeTab().busy"), 'the tab is 85% full');
     check(await ev("document.querySelector('.tab.active .tab-ctx').classList.contains('warn') && SB.$('ctxChip').classList.contains('warn')"), 'bar and chip turn amber');
-    check(await ev("!SB.$('crowded').hidden && /crowded/i.test(SB.$('crowded').textContent)"), 'the composer says it is getting crowded');
+    check(await until("!SB.$('crowded').hidden && /crowded/i.test(SB.$('crowded').textContent) && !SB.$('crowded').classList.contains('soon')"), 'the composer says it is getting crowded, though "filling up" was waved away');
+    check(await ev("SB.$('crowded').querySelectorAll('.crowded-text').length === 1"), 'one offer, never two');
     check(await until.in(critter, "window.__said.some(t => /crowded/i.test(t))", 4000), 'he says "Getting crowded in here."');
 
-    // 3. Not now, then Compact from the chip's menu.
+    // 4. The chip's menu: what the conversation has cost so far, then Not now, then Compact from it.
+    await ev("SB.$('ctxChip').click()");
+    check(await until("!SB.$('ctxMenu').hidden && /So far: [\\d.]+k? tokens over 3 turns/.test(SB.$('ctxMenu').textContent)"), 'the chip menu has the running total');
+    check(await ev("SB.$('ctxMenu').textContent.includes('Costliest turns') && SB.$('ctxMenu').querySelectorAll('.cost-turn').length === 3"), 'and the costliest turns');
+    await ev("SB.$('ctxMenu').querySelector('.cost-turn').click()");
+    check(await until("SB.$('ctxMenu').hidden && !!SB.activeTab().el.querySelector('.turn-cost.flash')"), 'a costliest turn scrolls back to it');
     await ev("SB.$('crowded').querySelector('[aria-label=\"Not now\"]').click()");
     check(await ev("SB.$('crowded').hidden"), '"Not now" hides the offer');
     await ev("SB.$('ctxChip').click()");
-    check(await ev("!SB.$('ctxMenu').hidden && SB.$('ctxMenu').textContent.includes('Compact') && SB.$('ctxMenu').textContent.includes('Start fresh')"), 'the chip opens Compact and Start fresh');
+    check(await until("!SB.$('ctxMenu').hidden && SB.$('ctxMenu').textContent.includes('Compact') && SB.$('ctxMenu').textContent.includes('Start fresh')"), 'the chip opens Compact and Start fresh');
     await ev("[...SB.$('ctxMenu').querySelectorAll('.menu-item')].find(b => b.textContent.includes('Compact')).click()");
     check(await until("!SB.activeTab().busy && SB.activeTab().el.textContent.includes('Compacted the conversation (it was 170k tokens)')"), 'Compact runs /compact and the feed marks it');
     check(await until("!SB.activeTab().context && SB.$('ctxChip').hidden && !document.querySelector('.tab.active .tab-ctx')"), 'the meter empties until the next reply');
 
-    // 4. Start fresh with a summary, from the crowded offer.
+    // 5. Start fresh with a summary, from the crowded offer.
     await type('big 180000');
     check(await until("!SB.$('crowded').hidden && !SB.activeTab().busy"), 'crowded again after the compacted conversation fills back up');
     const tabId = await ev('SB.activeTab().id');
