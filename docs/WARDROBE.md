@@ -29,7 +29,7 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 - **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), turning failing tests green (+40), pushes (+40, and +20 for the first push of the day to a project), a clean dependency audit (+30, once a day per project), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). Petting, games, finds and growing closer earn XP too, so a crab-only Shellby levels up as well. It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop. Doing the same thing over and over within an hour pays half, then a quarter, then nothing, so a test loop can't farm it.
 - **Bonuses:** a streak adds 5% a week (up to +25%), and coming back after three days or more away doubles your next 150 XP.
 - **Daily bounties:** three small goals a day ("Push to 2 different projects", "Turn failing tests green"), the same three on every PC. Each pays XP, and clearing all three pays 50 more.
-- **Trophies & XP:** click the level badge next to him in the title bar to see his level, what the next level unlocks, today's bounties, XP for the last 30 days and by kind, the XP log and your streak. The badge changes colour every ten levels.
+- **Trophies & XP:** click the level badge next to him in the title bar to see his level, what the next level unlocks, today's bounties, XP for the last 30 days and by kind, the XP log and a 🔥 badge with your streak. The badge changes colour every ten levels. Click the 🔥 to see the streak itself, project by project, on **Time**, next to **Guard my focus**.
 - **Across PCs:** with GitHub sync on, XP earned on each PC adds up.
 
 ## Your week

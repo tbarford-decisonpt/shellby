@@ -604,6 +604,7 @@
           <h3 id="xpTitle">Hatchling</h3>
         </div>
         <span class="xp-total" id="xpTotal">0 XP</span>
+        <button type="button" class="xp-streak" id="xpStreak" hidden></button>
       </div>
       <div class="xp-bar" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="100" id="xpBarWrap"><i id="xpBar"></i></div>
       <div class="xp-meta">
@@ -633,36 +634,6 @@
         <summary class="xp-sub">How to earn XP <span id="xpWaysCount"></span></summary>
         <ul class="xp-ways" id="xpWays"></ul>
       </details>
-    </section>
-    <section class="streak-card" id="streakCard" aria-label="Streaks">
-      <div class="streak-head">
-        <span class="streak-flame" id="streakFlame">🔥</span>
-        <div>
-          <p class="xp-eyebrow streak-eyebrow">Streak</p>
-          <h3 id="streakTitle">No streak yet</h3>
-        </div>
-        <span class="xp-total" id="streakBest"></span>
-      </div>
-      <p class="streak-sub" id="streakSub"></p>
-      <ul class="streak-projects" id="streakProjects"></ul>
-      <div class="streak-settings">
-        <label class="toggle"><input type="checkbox" id="nudgeToggle"><span class="switch"></span>Nudge me when a project goes quiet for</label>
-        <select class="field slim" id="nudgeDays" aria-label="Days before a nudge">
-          <option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">a week</option><option value="14">2 weeks</option>
-        </select>
-      </div>
-    </section>
-    <section class="focus-card" id="focusCard" aria-label="Focus">
-      <div class="focus-head">
-        <span class="focus-badge" aria-hidden="true">⛑️</span>
-        <div class="focus-titles">
-          <p class="xp-eyebrow focus-eyebrow">Focus</p>
-          <h3 id="focusTitle">Guard my focus</h3>
-        </div>
-        <span class="focus-clock" id="focusClock" hidden></span>
-      </div>
-      <p class="streak-sub" id="focusSub"></p>
-      <div class="focus-actions" id="focusActions"></div>
     </section>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
@@ -1016,6 +987,18 @@
       <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere.</p>
     </section>
     <p class="tm-now" id="timeNow" aria-live="polite"></p>
+    <section class="focus-card" id="focusCard" aria-label="Focus">
+      <div class="focus-head">
+        <span class="focus-badge" aria-hidden="true">⛑️</span>
+        <div class="focus-titles">
+          <p class="xp-eyebrow focus-eyebrow">Focus</p>
+          <h3 id="focusTitle">Guard my focus</h3>
+        </div>
+        <span class="focus-clock" id="focusClock" hidden></span>
+      </div>
+      <p class="streak-sub" id="focusSub"></p>
+      <div class="focus-actions" id="focusActions"></div>
+    </section>
     <div id="timeBody">
       <div class="seg tm-ranges" id="timeRanges" role="tablist" aria-label="Period" data-roving></div>
       <section class="tm-overview" aria-labelledby="timeTotal">
@@ -1027,6 +1010,25 @@
       </section>
       <p class="tm-fill" id="timeFill" hidden></p>
       <ul class="tm-projects" id="timeProjects"></ul>
+
+      <section class="streak-card" id="streakCard" aria-label="Streaks">
+        <div class="streak-head">
+          <span class="streak-flame" id="streakFlame">🔥</span>
+          <div>
+            <p class="xp-eyebrow streak-eyebrow">Streak</p>
+            <h3 id="streakTitle">No streak yet</h3>
+          </div>
+          <span class="xp-total" id="streakBest"></span>
+        </div>
+        <p class="streak-sub" id="streakSub"></p>
+        <ul class="streak-projects" id="streakProjects"></ul>
+        <div class="streak-settings">
+          <label class="toggle"><input type="checkbox" id="nudgeToggle"><span class="switch"></span>Nudge me when a project goes quiet for</label>
+          <select class="field slim" id="nudgeDays" aria-label="Days before a nudge">
+            <option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">a week</option><option value="14">2 weeks</option>
+          </select>
+        </div>
+      </section>
 
       <section class="setting-group tm-export" aria-labelledby="timeExportTitle">
         <h3 id="timeExportTitle">Timesheet</h3>
@@ -1075,7 +1077,7 @@
         <p class="muted small" id="timeIgnored" hidden></p>
       </section>
     </div>
-    <p class="muted small history-note">Kept only on this PC, never synced or sent anywhere.</p>
+    <p class="muted small history-note">Hours are kept only on this PC, never synced or sent anywhere.</p>
   </main>
 
   <!-- ====================== PROJECTS (projects.js) ====================== -->
@@ -1922,9 +1924,9 @@
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
 <script src="week-card.js"></script>
+<script src="time.js"></script>
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
-<script src="time.js"></script>
 <script src="project-facts.js"></script>
 <script src="projects.js"></script>
 <script src="profile-card.js"></script>
