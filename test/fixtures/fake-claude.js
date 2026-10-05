@@ -245,6 +245,15 @@ function onLine(line) {
   if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'args') { text(JSON.stringify(args)); result(true); return; }
+  // "novel <type>" -> an event type no Shellby knows, twice, then a normal reply
+  if (content.startsWith('novel ')) {
+    const type = content.split(' ')[1];
+    out({ type, session_id: sessionId });
+    out({ type, session_id: sessionId });
+    text('still here');
+    result(true);
+    return;
+  }
   if (content === 'effort') { text(`effort:${effort || 'default'}`); result(true); return; }
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)

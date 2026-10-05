@@ -28,7 +28,7 @@ const STEER_HOOK = 'shellby-steer';
 const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
 
 // Effort levels Claude Code takes (--effort). '' leaves it to Claude Code.
-const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+const { EFFORTS, unknownType } = require('./cli-contract');
 // How long Shellby waits for the CLI to answer one of its own control requests.
 const REQUEST_TIMEOUT_MS = 15000;
 
@@ -39,6 +39,28 @@ function writeConfig(config) {
   try { fs.writeFileSync(file, JSON.stringify(config), { mode: 0o600, flag: 'wx' }); return file; } catch { return null; }
 }
 const removeFile = file => { if (file) fs.rm(file, { force: true }, () => {}); };
+
+// The hooks Shellby registers with initialize: steering always, the work hook
+// when something watches work (beforeWork). scripts/cli-compat.js sends the same.
+function initHooks(watchWork) {
+  const steerAt = [{ matcher: '.*', hookCallbackIds: [STEER_HOOK] }];
+  const hooks = { PostToolUse: steerAt, PostToolUseFailure: steerAt };
+  if (watchWork) hooks.PreToolUse = [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }];
+  return hooks;
+}
+
+// Where an event type Shellby has never seen gets noted (main.js passes its
+// log, which scrubs it). Once per type per run: a chatty new event mustn't fill
+// the log, and the type name alone says what a Claude Code update added.
+let logger = null;
+const loggedTypes = new Set();
+function setLogger(log) { logger = log || null; }
+function noteUnknown(event) {
+  const type = unknownType(event);
+  if (!type || loggedTypes.has(type)) return;
+  loggedTypes.add(type);
+  try { logger?.warn('Claude Code sent an event Shellby does not know yet', type); } catch { /* the log never matters more than the turn */ }
+}
 
 class ClaudeSession extends EventEmitter {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
@@ -126,14 +148,12 @@ class ClaudeSession extends EventEmitter {
     const job = processJob.adopt(proc.pid);
     this.job = job;
     let stderr = '';
-    const steerAt = [{ matcher: '.*', hookCallbackIds: [STEER_HOOK] }];
-    const hooks = { PostToolUse: steerAt, PostToolUseFailure: steerAt };
-    if (this.beforeWork) hooks.PreToolUse = [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }];
-    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks } });
+    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks: initHooks(!!this.beforeWork) } });
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
       if (this.proc !== proc) return; // dropped: whatever it still says goes unheard
       const { event, items } = parseLine(line);
+      noteUnknown(event);
       if (event?.type === 'control_response') return this.answered(event.response);
       // The newest entry of the conversation's own chain, so a later rewind can
       // resume up to the end of this turn (see result below and rewind()).
@@ -548,4 +568,4 @@ class ClaudeSession extends EventEmitter {
   }
 }
 
-module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS };
+module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, initHooks, setLogger };

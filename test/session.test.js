@@ -2,7 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const os = require('os');
-const { ClaudeSession } = require('../src/main/session');
+const { ClaudeSession, setLogger } = require('../src/main/session');
 
 const FAKE = path.join(__dirname, 'fixtures', 'fake-claude.js');
 
@@ -378,4 +378,37 @@ require('fs').writeFileSync(${JSON.stringify(out)}, JSON.stringify({ file: f, te
   const seen = JSON.parse(fs.readFileSync(out, 'utf8'));
   assert.deepEqual(JSON.parse(seen.text), config);
   assert.equal(fs.existsSync(seen.file), false, 'the file is removed with the process');
+});
+
+test('an event type Shellby has never seen is logged once, and the turn carries on', async () => {
+  const warned = [];
+  setLogger({ warn: (what, detail) => warned.push([what, detail]) });
+  try {
+    const { s, items } = makeSession();
+    s.send('novel shiny_new_event');
+    await waitFor(s, i => i.kind === 'result');
+    s.send('novel shiny_new_event');
+    await waitFor(s, i => i.kind === 'result');
+    const mine = warned.filter(([, d]) => d === 'shiny_new_event');
+    assert.equal(mine.length, 1, 'once per type, however often it comes');
+    assert.match(mine[0][0], /does not know/);
+    assert.deepEqual(texts(items), ['still here', 'still here']);
+    assert.ok(!warned.some(([, d]) => ['system', 'assistant', 'result', 'rate_limit_event'].includes(d)), 'known events are never logged');
+    s.close();
+  } finally {
+    setLogger(null);
+  }
+});
+
+test('a logger that throws never breaks the session', async () => {
+  setLogger({ warn: () => { throw new Error('disk full'); } });
+  try {
+    const { s, items } = makeSession();
+    s.send('novel another_new_event');
+    await waitFor(s, i => i.kind === 'result');
+    assert.deepEqual(texts(items), ['still here']);
+    s.close();
+  } finally {
+    setLogger(null);
+  }
 });

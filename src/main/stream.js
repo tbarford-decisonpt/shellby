@@ -217,6 +217,19 @@ function toItems(ev) {
   }
 }
 
+// The events Shellby knows, including the ones it reads past on purpose. Anything
+// else is new from Claude Code: session.js logs it once, and the nightly CLI
+// check (cli-contract.js, scripts/cli-compat.js) flags it before a user meets it.
+const KNOWN = Object.freeze({
+  // control_response is read by session.js (answers to Shellby's own requests).
+  types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response']),
+  // init, task_*, compact_boundary become items; the rest is progress chatter.
+  system: new Set(['init', 'task_started', 'task_progress', 'task_updated', 'task_notification', 'compact_boundary',
+    'hook_started', 'hook_progress', 'hook_response', 'status', 'api_retry', 'thinking_tokens']),
+  // can_use_tool becomes a permission card; hook_callback is answered by session.js.
+  control: new Set(['can_use_tool', 'hook_callback']),
+});
+
 // Line-oriented parser: feed raw stdout lines, get items back.
 function parseLine(line) {
   const t = line.trim();
@@ -226,4 +239,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS };
+module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

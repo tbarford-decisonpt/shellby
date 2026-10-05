@@ -100,7 +100,7 @@ It works the other way too. `shellby do "write tests for src/app.js"` starts a t
 | 🍎 You're on **macOS or Linux** | Shellby is Windows 10 and 11 only. |
 | 📝 You want **diffs inline in your editor** | The official IDE extensions show changes in the file you're editing. Shellby's diff view is great for reviewing a whole turn, but it isn't your editor. |
 | 🖥️ It's **headless**: CI, a server, SSH | `claude -p` is the right tool there. |
-| 🚀 You want **every new feature on day one** | Shellby drives the CLI, so new features reach the terminal first. Now and then a CLI change needs a Shellby update to catch up. |
+| 🚀 You want **every new feature on day one** | Shellby drives the CLI, so new features reach the terminal first. Now and then a CLI change needs a Shellby update to catch up; a [nightly check](DEVELOPMENT.md#keeping-up-with-claude-code) against the newest release catches those early. |
 | 🪶 You want the **lightest footprint** | Shellby is an Electron app with a desktop layer. [What he costs when idle](DEVELOPMENT.md#what-he-costs-when-idle) has the numbers. |
 
 ## ❓ Questions developers ask
