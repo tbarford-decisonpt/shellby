@@ -160,6 +160,7 @@
         case 'undone': return this.markUndone(item);
         case 'checks': return SB.renderChecks?.(this, item);   // turn-checks.js
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
+        case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
         case 'moved': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
           `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})`));

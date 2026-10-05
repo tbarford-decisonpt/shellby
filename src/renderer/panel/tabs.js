@@ -382,7 +382,7 @@
     $('status').hidden = !busy;
     // While Shellby works you can keep typing: Enter queues the message, and
     // Claude reads it at his next step (or when he finishes, if there's none).
-    $('sendBtn').title = busy ? 'Queue: Claude reads it at his next step' : 'Send';
+    $('sendBtn').title = busy ? 'Queue: Claude reads it at his next step' : 'Send · right-click to try it 2, 3 or 4 ways';
     $('sendBtn').classList.toggle('queueing', busy);
     $('sendHint').textContent = busy ? 'Enter to queue for his next step · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
@@ -1095,7 +1095,7 @@
         ...others.slice(0, 7).map(o => h('button', { class: 'menu-item branch-family', onclick: () => { SB.closeMenus(); compareWith(tab, o); } },
           h('span', { class: 'mi-check', text: '⇄' }),
           h('span', {}, h('div', { class: 'mi-title', text: `Compare with "${o.title}"` }),
-            h('div', { class: 'mi-sub', text: [o.depth === 0 ? 'the original' : o.at === 'after' ? 'branched after a reply' : 'branched before a message', o.copy ? o.copy.branch : 'in your checkout', o.busy ? 'working' : o.open ? 'open' : 'in History'].join(' · ') })))),
+            h('div', { class: 'mi-sub', text: [o.tries ? 'another try' : o.depth === 0 ? 'the original' : o.at === 'after' ? 'branched after a reply' : 'branched before a message', o.copy ? o.copy.branch : 'in your checkout', o.busy ? 'working' : o.open ? 'open' : 'in History'].join(' · ') })))),
         others.some(o => o.copy)
           ? h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); keepThisOne(tab); } },
             h('span', { class: 'mi-check', text: '★' }),
@@ -1104,6 +1104,10 @@
       ] : []),
     ]);
   });
+
+  // The Tries card (tries.js) uses both.
+  SB.compareWith = (tab, other) => compareWith(tab, other);
+  SB.keepThisOne = tab => keepThisOne(tab);
 
   // What this try has that the other doesn't, file by file, into the feed.
   async function compareWith(tab, other) {

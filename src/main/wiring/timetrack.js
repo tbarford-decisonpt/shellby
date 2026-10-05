@@ -207,7 +207,10 @@ function wireTimetrack(d) {
 
   function onResult(tabId, item, tab) {
     // Once the turn's diff is noted: did it just change a file another copy has? (wiring/clashes.js)
-    Promise.resolve(d.endTurn(tabId)).then(() => d.clashTurnEnded?.(tabId), () => {});
+    const noted = Promise.resolve(d.endTurn(tabId));
+    noted.then(() => d.clashTurnEnded?.(tabId), () => {});
+    // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
+    noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item));
     d.usagePlan?.endTurn(tab, item); // what it cost, for estimates next time (turncost.js)
     tab.guardRun = null;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not

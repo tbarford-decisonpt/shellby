@@ -41,7 +41,13 @@ function wireChecks(d) {
     const was = checks.trustOf(d.config.get('checksTrusted'), project);
     if (was === true) return true;
     if (was === false && quiet) return false;
-    if (asking) return false; // one question at a time
+    if (asking) {
+      // One question at a time. One you asked for waits its turn (its
+      // project's answer may be the one being given), an automatic run doesn't.
+      if (quiet) return false;
+      await asking;
+      return trusted(project, commands, { quiet });
+    }
     asking = confirm.ask(d.panel, {
       ...d.dialogLook(), icon: '🧪',
       title: `Run ${path.basename(project)}'s tests?`,
@@ -85,7 +91,8 @@ function wireChecks(d) {
     if (!await trusted(project || cwd, commands, { quiet })) return { declined: true };
     if (d.manager.isBusy(tabId)) return { cancelled: true };
     running.get(tabId)?.cancel(); // the newest wins
-    const entry = { after, open: d.manager.tabs.has(tabId), cancel: () => { entry.cancelled = true; entry.handle?.cancel(); } };
+    let settle;
+    const entry = { after, open: d.manager.tabs.has(tabId), done: new Promise(r => { settle = r; }), cancel: () => { entry.cancelled = true; entry.handle?.cancel(); } };
     watchCloses();
     running.set(tabId, entry);
     try {
@@ -100,6 +107,7 @@ function wireChecks(d) {
       remember(tabId, verdict);
       return { verdict };
     } finally {
+      settle();
       const now = running.get(tabId);
       if (now === entry) running.delete(tabId);
       // A newer run for the same turn has already said "Checking…": leave that be.
@@ -131,6 +139,26 @@ function wireChecks(d) {
     if (r.declined) return { ok: false, declined: true };
     if (r.cancelled) return { ok: false, cancelled: true, error: 'Stopped: he started on something new.' };
     return { ok: true, status: r.verdict.status };
+  }
+
+  /**
+   * One of "Try it N ways"' tries has finished its turn (wiring/tries.js): its
+   * checks, whatever the "check each turn" setting says, sharing a run already
+   * going for the same turn. Asks once per project, like "Run checks".
+   * ref: from changeRef. -> { status, failing } | { none } | { declined } | { cancelled } | { error }
+   */
+  async function checkTry(ref) {
+    if (!ref) return { error: 'That turn changed nothing that was noted.' };
+    if (ref.retired) return { error: 'That copy has been tidied away.' };
+    const going = running.get(ref.tabId);
+    if (going && going.after === ref.after) {
+      await going.done;
+      const v = verdicts.get(ref.tabId);
+      return v && v.after === ref.after && !going.cancelled ? { status: v.status, failing: checks.failingOf(v).count } : { cancelled: true };
+    }
+    if (d.manager.isBusy(ref.tabId)) return { cancelled: true };
+    const r = await run(ref.tabId, { cwd: folderFor(ref.tabId, ref.root), after: ref.after, project: projectOf(ref.tabId, ref.root) });
+    return r.verdict ? { status: r.verdict.status, failing: checks.failingOf(r.verdict).count } : r;
   }
 
   /**
@@ -175,7 +203,7 @@ function wireChecks(d) {
     });
   }
 
-  return { checksOn, afterTurnChecks: afterTurn, runChecksFor: runFor, gateHome, cancelChecks: cancel, cancelAllChecks: cancelAll };
+  return { checksOn, afterTurnChecks: afterTurn, runChecksFor: runFor, checkTry, gateHome, cancelChecks: cancel, cancelAllChecks: cancelAll };
 }
 
 module.exports = { wireChecks };

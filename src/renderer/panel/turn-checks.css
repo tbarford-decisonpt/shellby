@@ -64,3 +64,21 @@
 
 /* Open in VS Code, above a file's diff */
 .chg-diff-bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 2px 0 6px; }
+
+/* Try it N ways (tries.js): the card in the first try's tab */
+.tries-card { margin: 6px 0 14px 16px; padding: 8px 11px 9px; border: 1px solid var(--line-soft); border-left: 2px solid var(--glass); border-radius: var(--r-sm); background: var(--ink); font-size: 12px; color: var(--sand-dim); }
+.tries-head { display: flex; align-items: baseline; gap: 8px; font-weight: 600; color: var(--sand); }
+.tries-rows { list-style: none; margin: 6px 0 0; padding: 0; }
+.tries-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line-soft); }
+.tries-row:first-child { border-top: 0; }
+.tries-place { flex: none; width: 18px; font-weight: 700; color: var(--sand-faint); text-align: center; }
+.tries-card.final .tries-row:first-child .tries-place { color: var(--glass); }
+.tries-main { flex: 1; min-width: 0; }
+.tries-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand); }
+.tries-facts { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.tries-verdict.pass { color: var(--glass); }
+.tries-verdict.fail { color: var(--coral); }
+.tries-verdict.warn, .tries-verdict.busy { color: var(--amber); }
+.tries-actions { display: flex; flex: none; gap: 4px; }
+.tries-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.tries-note { margin: 6px 0 0; }

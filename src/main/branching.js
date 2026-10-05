@@ -253,7 +253,7 @@ function register(deps) {
       const w = open ? open.worktree : e.worktree;
       return {
         id: e.id, title: open?.title || e.title, depth: e.depth, open: !!open, busy: !!open?.session.busy,
-        current: e.id === tabId, at: e.branchOf?.at || null,
+        current: e.id === tabId, at: e.branchOf?.at || null, tries: !!e.branchOf?.tries,
         copy: ours(w) ? { branch: w.branch, base: w.base } : null,
       };
     });
