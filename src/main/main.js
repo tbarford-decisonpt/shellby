@@ -105,6 +105,7 @@ const CREW_WORTH_MENTIONING = 3;         // helpers out before he remarks on the
 // A tab left this long gives its claude process (and MCP servers) back; its next message resumes it.
 const TAB_IDLE_STOP_MS = 30 * 60 * 1000;
 const TAB_IDLE_CHECK_MS = 60 * 1000;
+const ROUTINE_TABS_KEPT = 6;             // finished routine tabs left open before the oldest closes
 const IDLE_BIT_CHANCE = 0.25;            // ...of each idle tick becoming a little habit
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
 const CARD_MAX_BYTES = 8 * 1024 * 1024;
@@ -1888,14 +1889,16 @@ function updateRoutine(id, patch) {
   saveRoutines(routines().map(r => (r.id === id ? { ...r, ...patch } : r)));
 }
 
-// An hourly routine opens a tab every run; left alone they'd fill every slot
-// overnight and the next run (and any tab of yours) couldn't open. At the cap,
-// the oldest finished routine tab closes. History keeps its transcript.
+// An hourly routine opens a tab every run; left alone they'd fill the strip
+// overnight, and at the cap the next run (and any tab of yours) couldn't open.
+// Past ROUTINE_TABS_KEPT finished ones, or at the cap, the oldest finished
+// routine tab closes. History keeps its transcript.
 function makeRoomForRoutine() {
-  if (manager.tabs.size < MAX_TABS) return;
   // A queue tab still on the list (it ran dry, and carries on later) is kept.
   const pending = new Set(heldList().map(h => h.tabId).filter(Boolean));
-  const done = [...routineTabs.keys(), ...queueTabs.keys()].find(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
+  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
+  if (manager.tabs.size < MAX_TABS && finished.length < ROUTINE_TABS_KEPT) return;
+  const done = finished[0];
   if (!done) return;
   manager.close(done);
   routineTabs.delete(done);

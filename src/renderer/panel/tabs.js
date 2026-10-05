@@ -8,6 +8,7 @@
 
   let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
   let renaming = null;  // the tab whose name is being edited in the strip (see "rename")
+  let shownActive = null;  // the tab the strip last scrolled into view
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
 
@@ -136,7 +137,7 @@
   };
   api.onNewTabIn(o => { if (o?.cwd) SB.newTabIn(o); });
 
-  SB.closeTab = async (tabId) => {
+  SB.closeTab = async (tabId, { quiet = false } = {}) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
     tab.destroy();
@@ -148,7 +149,7 @@
     }
     await api.closeTab(tabId);
     SB.renderTabStrip();
-    if (tab.saved) SB.toast('Closed. It is still in History.');
+    if (tab.saved && !quiet) SB.toast('Closed. It is still in History.');
   };
 
   function tabIcon(t) {
@@ -159,6 +160,7 @@
     if (t.routineId) return h('span', { class: 'ti ti-routine', title: 'Routine', text: '⟳' });
     return null;
   }
+  SB.tabIcon = tabIcon;
 
   // The strip is one Tab stop: arrow keys, Home and End walk the conversations.
   function tabKey(e, id) {
@@ -206,14 +208,19 @@
       const tab = [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === keep.id);
       (keep.x ? tab?.querySelector('.tab-x') : tab)?.focus({ preventScroll: true });
     }
-    // Not while dragging: following the active tab would fight the strip's own
-    // scrolling as the dragged tab is pulled past the edge.
-    if (!drag) strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Only when the open tab changes, so a working tab redrawing the strip doesn't
+    // snap it back while you're scrolling through the rest. Not while dragging:
+    // following the active tab would fight the strip's own scrolling.
+    if (!drag && shownActive !== state.activeTab) {
+      shownActive = state.activeTab;
+      strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
     // Title bar shows total running count at a glance.
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
   };
   const shownTitle = t => t.isEmpty && !t.saved && !t.named ? 'New task' : t.title;
+  SB.shownTitle = shownTitle;
 
   // ------------------------------------------------------------ rename
 
@@ -349,7 +356,7 @@
     return null;
   }
 
-  // Eight conversations don't fit at the default width, so holding a tab against
+  // A full strip of conversations doesn't fit at the default width, so holding a tab against
   // either edge scrolls the strip until the slot you want comes into view.
   function edgeScroll() {
     if (!drag?.moved) return;
@@ -617,7 +624,7 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu', 'textMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
+      if (['slashMenu', 'pickMenu', 'modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'tabList', 'wfMenu', 'textMenu'].some(id => !$(id).hidden)) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       // Esc twice, like the terminal: back to an earlier message (composer.js).
       if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
