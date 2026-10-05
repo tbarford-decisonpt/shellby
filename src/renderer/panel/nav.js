@@ -11,8 +11,13 @@
   SB.goBack = () => SB.setView(SB.PARENT_VIEW[state.view] || SB.homeView());
 
   const navButtons = [...document.querySelectorAll('[data-view-btn]')];
-  const dockButtons = [...document.querySelectorAll('.dock [data-view-btn]')];
-  dockButtons.forEach((b, i) => { b.title = `${b.textContent.trim()} (Ctrl+${i + 1})`; });
+  // In bar order, which Work mode changes (workmode.js), so Ctrl+1… follow it.
+  const dockButtons = () => [...document.querySelectorAll('.dock [data-view-btn]')];
+  SB.retitleDock = () => dockButtons().forEach((b, i) => {
+    b.title = `${b.textContent.trim()} (Ctrl+${i + 1})`;
+    b.setAttribute('aria-keyshortcuts', `Control+${i + 1}`);
+  });
+  SB.retitleDock();
 
   for (const b of navButtons) {
     b.addEventListener('click', () => {
@@ -30,7 +35,7 @@
     if (document.querySelector('.card-sheet:not([hidden])')) return;
     if (e.key.toLowerCase() === 'k') { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
     const n = Number(e.key);
-    const b = n >= 1 && n <= dockButtons.length ? dockButtons[n - 1] : null;
+    const b = dockButtons()[n - 1] || null;
     if (!b || getComputedStyle(b).display === 'none') return;
     e.preventDefault();
     closePalette();
@@ -255,6 +260,9 @@
       { icon: '🏖️', title: 'Shellby: beach', sub: 'A sandcastle for every project you’ve shipped', keys: 'beach sandcastle castles shipped projects tide streak snapshot share', run: go('beach') },
       { icon: '🙈', title: 'Play hide and seek', sub: 'He hides behind your windows', keys: 'game play hide seek', run: () => SB.play('hide') },
       { icon: '🎾', title: 'Play fetch', sub: 'Throw him a pebble', keys: 'game play fetch ball throw', run: () => SB.play('fetch') },
+      claude() && (SB.isWorkMode?.()
+        ? { icon: '🦀', title: 'Leave Work mode', sub: 'Everything back as it was', keys: 'work mode off crab pet lively', run: () => SB.setWorkMode(false) }
+        : { icon: '🛠️', title: 'Work mode', sub: 'The tools up front, and a quiet crab', keys: 'work mode quiet calm developer tools focus', run: () => SB.setWorkMode(true) }),
       claude() && { icon: '💬', title: 'Chat', sub: 'Give Shellby a task', keys: 'home task conversation', run: go('chat') },
       claude() && { icon: '➕', title: 'New conversation', sub: 'A fresh tab, in the usual folder', keys: 'tab chat', shortcut: 'newTab', run: () => { SB.setView('chat'); SB.newTab(); } },
       claude() && { icon: '🧰', title: 'Toolbox', sub: 'Skills, agents, commands, MCP servers, hooks and memory', keys: 'tools mcp hooks memory claude.md', run: go('toolbox') },

@@ -5,6 +5,7 @@ const { app, safeStorage, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const focus = require('../focus');
+const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS } = require('../friends');
 const gifts = require('../gifts');
 const { TokenStore } = require('../github/auth');
@@ -181,7 +182,7 @@ function wireGithub(d) {
     d.send(d.panel, 'stickers:new', gifted);
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       d.notify(`@${v.login} left a sticker`, `Their ${gift.name} sticker is in your Sticker Book. Put it on his shell if you like.`,
-        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
+        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'stickers'); }, { tone: 'celebrate', pet: true });
     }
   }
 
@@ -210,6 +211,7 @@ function wireGithub(d) {
       },
       // Company only when he's free: not working, not guarding your focus, no helpers out.
       canVisit: () => d.lastStatus.state === 'idle' && !d.lastStatus.crew && !focus.guarding(d.config.get('focus'), Date.now()) && !d.playtime?.busy(),
+      dropIns: () => workmode.behaviourOf(d.config).dropIns, // Work mode: only when you invite them
     });
     // A refresh saves several times; the panel only needs the last one.
     let viewTimer = null;

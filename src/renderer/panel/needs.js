@@ -48,7 +48,8 @@
     const n = v?.needs;
     sec.hidden = !n?.on;
     if (!n?.on) return;
-    $('usNeedsMood').textContent = MOOD_TEXT[n.mood] || '';
+    // Work mode: nothing drops while you work (src/main/care.js).
+    $('usNeedsMood').textContent = n.resting ? 'Resting while you work' : MOOD_TEXT[n.mood] || '';
     $('usNeedsIntro').hidden = n.introduced;
     $('usNeedsIntroFrom').textContent = SB.isCrabOnly?.() ? 'focus sessions, fixing things in Health, and games' : 'finished tasks, focus sessions and games';
     $('usMeters').replaceChildren(...n.meters.map(meter));

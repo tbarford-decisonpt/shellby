@@ -10,8 +10,13 @@
 // life.js creates it and hands it `h`, the bits of his life it needs: the scene
 // slot (so a drag or a task cuts a munch short like any scene), the bond and
 // the journal, and naps.
+//
+// In Work mode (workmode.js) his needs rest: nothing drops and he doesn't mope
+// or show a need, but snacks still come in, and feeding, rinsing and tucking
+// him in still work if you want to.
 
 const needs = require('./needs');
+const workmode = require('./workmode');
 
 const MINUTE = 60 * 1000;
 const SAVE_EVERY = 5 * MINUTE;        // settings.json is written synchronously; not every 15 s tick
@@ -31,6 +36,7 @@ function createCare(d, h) {
 
   const on = () => d.config.get('needsOn') !== false;
   const crabOnly = () => !!d.config.get('crabOnly');
+  const resting = () => workmode.behaviourOf(d.config).needsRest;
   const get = () => (state ??= needs.normalize(d.config.get('needs')));
   function set(next, { save = false } = {}) {
     state = next;
@@ -43,7 +49,7 @@ function createCare(d, h) {
   }
 
   /** { mood, low } for critter:state, or null when needs are off. */
-  const look = () => (on() ? needs.mood(get()) : null);
+  const look = () => (on() && !resting() ? needs.mood(get()) : null);
   // His look only changes the critter when the mood or a low meter does.
   function lookChanged() {
     const key = JSON.stringify(look());
@@ -58,7 +64,7 @@ function createCare(d, h) {
 
   /** life.js watch(), every 15 s. */
   function tick() {
-    if (!on()) return;
+    if (!on() || resting()) return;
     const here = present();
     const r = needs.tick(get(), h.now(), { present: here, napping: h.napping() });
     let next = r.state;
@@ -76,7 +82,7 @@ function createCare(d, h) {
   function onStat(event, payload = {}) {
     if (!on()) return;
     const w = event === 'ride' ? (payload.n >= RIDE_PX ? 'ride' : null) : STAT_WEAR[event];
-    if (w && present()) set(needs.wear(get(), w)); // work done while you're away costs him nothing
+    if (w && present() && !resting()) set(needs.wear(get(), w)); // work done while you're away costs him nothing
     if (needs.SOURCES[event]) earn(event);
     lookChanged();
   }
@@ -101,7 +107,7 @@ function createCare(d, h) {
 
   // ---------------------------------------------------------------- the day wears on
   // Only while you're here: nothing goes down while you're away (needs.js).
-  const wear = kind => { if (on() && present()) { set(needs.wear(get(), kind)); lookChanged(); } };
+  const wear = kind => { if (on() && present() && !resting()) { set(needs.wear(get(), kind)); lookChanged(); } };
 
   function attend(kind) {
     if (!on()) return;
@@ -112,13 +118,13 @@ function createCare(d, h) {
   }
 
   /** How much likelier he is to nod off (life.js maybeNap). */
-  const napChance = () => (on() ? needs.napChance(get()) : 1);
+  const napChance = () => (on() && !resting() ? needs.napChance(get()) : 1);
   /** He mopes about a bit less far. */
-  const mopey = () => on() && needs.mood(get()).mood === 'mopey';
+  const mopey = () => on() && !resting() && needs.mood(get()).mood === 'mopey';
 
   /** life.js idleBit(): now and then a habit is his need showing, and maybe a word about it. */
   function idleBit() {
-    if (!on()) return false;
+    if (!on() || resting()) return false;
     const m = needs.mood(get()).mood;
     if (!NEED_BITS[m] || Math.random() >= NEED_BIT_CHANCE) return false;
     d.toCrab('critter:bit', { bit: NEED_BITS[m] });
@@ -223,11 +229,18 @@ function createCare(d, h) {
     };
   }
 
-  const view = () => (on() ? { on: true, ...needs.view(get(), h.now(), { crabOnly: crabOnly() }) } : { on: false });
+  const view = () => (on() ? { on: true, resting: resting(), ...needs.view(get(), h.now(), { crabOnly: crabOnly() }) } : { on: false });
 
   /** Settings: switched on again, he comes back full rather than hungry. */
   function switched(isOn) {
     if (isOn) set(needs.refill(get(), h.now()), { save: true });
+    lookChanged();
+    h.changed();
+  }
+
+  /** Work mode on or off: the clock starts from now either way, so the time spent resting costs him nothing. */
+  function restSwitched() {
+    set({ ...get(), updatedAt: h.now(), awayAt: null }, { save: true });
     lookChanged();
     h.changed();
   }
@@ -246,7 +259,7 @@ function createCare(d, h) {
     return view();
   }
 
-  return { tick, onStat, earn, wear, attend, napChance, mopey, idleBit, feed, rinse, tuckIn, menu, view, look, switched, seenIntro, flush, setForTest };
+  return { tick, onStat, earn, wear, attend, napChance, mopey, idleBit, feed, rinse, tuckIn, menu, view, look, switched, restSwitched, seenIntro, flush, setForTest };
 }
 
 module.exports = { createCare, NEED_BITS };
