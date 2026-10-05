@@ -192,9 +192,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await wait(200);
     check(await panel.ev("document.getElementById('shortcutsSheet').hidden") && await focused() === 'input', `Esc closes it and the keyboard is back in the box (${await focused()})`);
 
+    // The drag test left only blank tabs, which have nothing to act on: give
+    // this one a message, so it has the actions a conversation in use offers.
+    await panel.ev("SB.activeTab().render({ kind: 'user', text: 'hello there' })");
     await press('k', { ctrl: true });
     await wait(200);
-    const pal = JSON.parse(await panel.ev(`JSON.stringify({
+    const pal =JSON.parse(await panel.ev(`JSON.stringify({
       group: document.querySelector('#paletteList .pal-group')?.textContent,
       close: [...document.querySelectorAll('#paletteList .pal-item')].find(li => /Close this conversation/.test(li.textContent))?.querySelector('kbd')?.textContent,
     })`));

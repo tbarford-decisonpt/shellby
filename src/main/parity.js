@@ -162,7 +162,9 @@ function register(deps) {
     // Undoing turns' code is a correction (corrections.js): what they changed,
     // read now, before the transcript is cut.
     const lesson = code && plan.changes.length ? deps.correctionFromTurns?.(tab.id, 'rewind', { afters: plan.changes.map(c => c.after) }) : null;
-    const learn = () => { if (lesson && restored) deps.noteCorrection?.(tab.id, lesson); };
+    // Awaited, so a lesson card is in the feed before the panel redraws from `kept`;
+    // a failure to note one never fails the rewind itself.
+    const learn = async () => { if (lesson && restored) await Promise.resolve(deps.noteCorrection?.(tab.id, lesson)).catch(() => {}); };
 
     // The code first: if a file changed since and can't go back, the
     // conversation is left as it was. Every turn that did go back is marked
@@ -191,7 +193,7 @@ function register(deps) {
     const marker = { t: Date.now(), kind: 'rewound', conversation: !!conversation, code: !!code, restored };
     if (!conversation) {
       manager.note(tab.id, marker);
-      learn();
+      await learn();
       if (turnsBack) deps.noteUndone?.(turnsBack);
       return { ok: true, restored, kept: true };
     }
@@ -210,7 +212,7 @@ function register(deps) {
     tab.shellRuns = [];
     manager.changed();
     deps.stat('rewound');
-    learn();
+    await learn();
     deps.noteUndone?.(items.slice(plan.index).filter(i => i.kind === 'user').length);
     return { ok: true, restored, items: kept, text: plan.text, attachments: plan.attachments };
   }

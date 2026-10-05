@@ -1960,9 +1960,10 @@ function updateRoutine(id, patch) {
 // Past ROUTINE_TABS_KEPT finished ones, or at the cap, the oldest finished
 // routine tab closes. History keeps its transcript.
 function makeRoomForRoutine() {
-  // A queue tab still on the list (it ran dry, and carries on later) is kept.
+  // A queue tab still on the list (it ran dry, and carries on later) is kept, and
+  // so is one carrying on in a terminal (handoff.js): closing it loses its marker.
   const pending = new Set(heldList().map(h => h.tabId).filter(Boolean));
-  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
+  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id) && !manager.tabs.get(id).inTerminal);
   if (manager.tabs.size < MAX_TABS && finished.length < ROUTINE_TABS_KEPT) return;
   const done = finished[0];
   if (!done) return;
