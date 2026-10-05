@@ -7,12 +7,16 @@ const native = require('../native-windows');
 const rooms = require('../rooms');
 const voice = require('../voice');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerCritterIpc(ipcMain, d) {
   // ---- critter
   // The grab offset is fixed at drag start; moves follow the real cursor (the
   // renderer's screenX lags and rescales while its own window moves under it).
   // Recent cursor samples tell a drop from a throw (see motion.js).
+  /** @type {{ dx: number, dy: number } | null} where in the crab you took hold of him */
   let grab = null;
   let samples = [];
   ipcMain.on('critter:drag-start', () => {

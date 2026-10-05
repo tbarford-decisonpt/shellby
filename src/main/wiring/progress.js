@@ -118,7 +118,7 @@ function wireProgress(d) {
     const from = was.home;
     const h = shells.normalizeHome(d.config.get('home'));
     // The old shell keeps its stickers; his favourites come with him (stickers.js).
-    const carried = stickers.carryOnMolt(d.config.get('stickers'), d.shellIdOf(d.wornShellObj()), next.id, d.shellSpots(d.activeSkin(), next).slots.length, Date.now());
+    const carried = stickers.carryOnMolt(d.config.get('stickers'), d.shellIdOf(d.stickerService.wornShellObj()), next.id, d.stickerService.shellSpots(d.activeSkin(), next).slots.length, Date.now());
     d.config.set({ home: { ...h, worn: next.id }, stickers: carried });
     d.flashState('molting', MOLT_MS);
     d.send(d.critter, 'critter:molt', { from, to: shells.renderShell(next), ms: MOLT_MS, fromStickers: was.stickers, toStickers: d.shellStickers(d.activeSkin(), next) });

@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>Shellby</title>
+<link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
@@ -1089,7 +1090,7 @@
 
     <!-- The list -->
     <div id="pjListScreen">
-      <p class="pj-summary" id="pjSummary" aria-live="polite"></p>
+      <p class="pj-summary" id="pjSummary"></p>
       <!-- Shown while servers run: how many, what happens to them when Shellby quits. -->
       <section class="pj-quit" id="pjQuit" aria-label="Dev servers running" hidden>
         <span class="pj-dot up" aria-hidden="true"></span>
@@ -1118,7 +1119,7 @@
           </select>
         </div>
       </div>
-      <ul class="pj-list" id="pjProjects" aria-live="polite"></ul>
+      <ul class="pj-list" id="pjProjects"></ul>
       <div class="pj-empty" id="pjEmpty" hidden>
         <p class="muted" id="pjEmptyText"></p>
         <div class="row wrap" id="pjEmptyActions">
@@ -1872,7 +1873,8 @@
     </div>
   </div>
 
-  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="toast" id="toast" role="status"></div>
+  <p class="sr-only" id="announcer" role="status" aria-live="polite"></p>
 
 <script src="../shared/framecap.js"></script>
 <script src="../shared/sprite.js"></script>
@@ -1880,6 +1882,9 @@
 <script src="../shared/markdown.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
+<script src="../shared/outlook-format.js"></script>
+<script src="../shared/time-format.js"></script>
+<script src="../shared/streaks-format.js"></script>
 <script src="core.js"></script>
 <script src="a11y.js"></script>
 <script src="textmenu.js"></script>
@@ -1887,6 +1892,8 @@
 <script src="line-comments.js"></script>
 <script src="line-comments-ui.js"></script>
 <script src="tabs.js"></script>
+<script src="tab-git.js"></script>
+<script src="tab-meters.js"></script>
 <script src="tab-sort.js"></script>
 <script src="tab-overview.js"></script>
 <script src="composer.js"></script>
@@ -1904,8 +1911,17 @@
 <script src="wf-graph.js"></script>
 <script src="workflow-canvas.js"></script>
 <script src="wf-chat.js"></script>
+<script src="wf-kit.js"></script>
+<script src="wf-model.js"></script>
+<script src="wf-list.js"></script>
+<script src="wf-fields.js"></script>
+<script src="wf-steps.js"></script>
+<script src="wf-runs.js"></script>
+<script src="wf-save.js"></script>
 <script src="workflows.js"></script>
 <script src="settings.js"></script>
+<script src="history.js"></script>
+<script src="onboarding.js"></script>
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
 <script src="together.js"></script>

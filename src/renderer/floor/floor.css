@@ -1,4 +1,4 @@
-:root { --ink: #0c1719; --sand: #f3e6cc; --glass: #7fd6c2; }
+/* Colour tokens come from ../shared/tokens.css. */
 html, body {
   margin: 0; height: 100%; background: transparent; overflow: hidden;
   user-select: none; -webkit-user-drag: none;
@@ -39,15 +39,15 @@ html, body {
 
 .pal .tag, .pal .say, .pal .zz {
   position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%);
-  font: 600 10px/1.2 "Pixelify Sans", monospace; white-space: nowrap; pointer-events: none;
+  font: 600 var(--fs-10)/1.2 "Pixelify Sans", monospace; white-space: nowrap; pointer-events: none;
 }
 .pal .tag {
   padding: 1px 5px; border-radius: 5px; color: var(--ink); background: var(--sand);
   box-shadow: 0 1px 0 rgba(0, 0, 0, .35); opacity: 0; transition: opacity .15s;
 }
 .pal:hover .tag, .pal.fresh .tag, .pal.mode-poked .tag { opacity: 1; }
-.pal .say { bottom: calc(100% + 20px); padding: 1px 5px; border-radius: 6px; color: var(--ink); background: #fff; opacity: 0; }
-.pal .zz { color: var(--sand); opacity: 0; font-size: 11px; }
+.pal .say { bottom: calc(100% + 20px); padding: 1px 5px; border-radius: var(--r-sm); color: var(--ink); background: #fff; opacity: 0; }
+.pal .zz { color: var(--sand); opacity: 0; font-size: var(--fs-11); }
 
 /* idle: a gentle bob */
 .pal.mode-idle svg { animation: bob 1.9s ease-in-out infinite; }

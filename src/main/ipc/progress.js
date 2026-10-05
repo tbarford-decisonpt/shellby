@@ -11,7 +11,10 @@ const { reviewPrompt } = require('../review');
 const stickers = require('../stickers');
 const streaks = require('../streaks');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerProgressIpc(ipcMain, d) {
   // ---- streaks and nudges
   ipcMain.handle('streaks:get', () => d.streaksView());

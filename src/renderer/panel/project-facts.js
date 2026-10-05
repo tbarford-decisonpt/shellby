@@ -7,7 +7,7 @@
 (function () {
   const { h, api } = SB;
 
-  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const { plural } = SB;
   const ago = t => (t ? SB.relTime(t) : '');
 
   /** 9000 -> "2h 30m", 600 -> "10m", under a minute -> "". */
@@ -180,5 +180,5 @@
     return projects.filter(p => (p.insights?.attention || 0) > 0).length;
   }
 
-  SB.pjFacts = { hours, chips, chipRow, tile, pulse, health, conversations, needsYou, plural };
+  SB.pjFacts = { hours, chips, chipRow, tile, pulse, health, conversations, needsYou };
 })();

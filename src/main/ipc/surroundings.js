@@ -2,16 +2,19 @@
 // when you're away (channels.js), the stream overlay (obs.js), desk lighting
 // (rgb.js), music, typing, the weather, the shellby command and the crab card.
 // Kept out of main.js, which only wires it up.
-const { app, clipboard, nativeImage, shell } = require('electron');
+const { app, clipboard, ClipboardItem, nativeImage, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const channels = require('../channels');
 const { OpenRgbClient } = require('../rgb');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerSurroundingsIpc(ipcMain, d) {
   // ---- Claude Code sessions elsewhere
-  ipcMain.on('clipboard:text', (_e, text) => { if (d.isStr(text) && text.length <= 2000) clipboard.writeText(text); });
+  ipcMain.on('clipboard:text', (_e, text) => { if (d.isStr(text) && text.length <= 2000) clipboard.writeText(text).catch(e => d.log.warn("couldn't copy text", e?.message)); });
   ipcMain.handle('external:get', () => d.externalView());
   ipcMain.handle('external:set', (_e, enabled) => {
     d.config.set({ externalSessions: !!enabled });
@@ -161,6 +164,7 @@ function registerSurroundingsIpc(ipcMain, d) {
 
   // ---- shareable crab card: the renderer draws it; main checks it's a PNG,
   // picks the path itself, saves it and puts it on the clipboard.
+  /** @type {string | null} */
   let lastCard = null;
   // Isolated dev/test runs keep cards in their throwaway profile and never touch the clipboard.
   const isolated = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
@@ -170,11 +174,15 @@ function registerSurroundingsIpc(ipcMain, d) {
     const img = isPng ? nativeImage.createFromBuffer(buf) : null;
     return img && !img.isEmpty() ? { buf, img } : null;
   };
-  const copyCard = img => {
+  // Electron 44's clipboard is the W3C one: no writeImage, a ClipboardItem of PNG bytes instead.
+  const copyCard = async buf => {
     if (isolated) return true;
-    try { clipboard.writeImage(img); return true; } catch (e) { d.log.warn("couldn't copy a crab card", e?.message); return false; }
+    try {
+      await clipboard.write([new ClipboardItem({ 'image/png': new Blob([buf], { type: 'image/png' }) })]);
+      return true;
+    } catch (e) { d.log.warn("couldn't copy a crab card", e?.message); return false; }
   };
-  ipcMain.handle('card:save', (_e, bytes, kind) => {
+  ipcMain.handle('card:save', async (_e, bytes, kind) => {
     const card = cardImage(bytes);
     if (!card) return { ok: false, error: "That card didn't come out right." };
     try {
@@ -191,12 +199,12 @@ function registerSurroundingsIpc(ipcMain, d) {
     // The file is the save; the clipboard is a bonus. Another app holding the
     // clipboard (clipboard history, a screenshot tool) mustn't turn a saved
     // card into a "couldn't save" — the sheet's Copy button can try again.
-    const copied = copyCard(card.img);
+    const copied = await copyCard(card.buf);
     return { ok: true, copied, name: path.join('Pictures', 'Shellby', path.basename(lastCard)) };
   });
-  ipcMain.handle('card:copy', (_e, bytes) => {
+  ipcMain.handle('card:copy', async (_e, bytes) => {
     const card = cardImage(bytes);
-    return { ok: !!card && copyCard(card.img) };
+    return { ok: !!card && await copyCard(card.buf) };
   });
   ipcMain.on('card:reveal', () => { if (lastCard && fs.existsSync(lastCard)) shell.showItemInFolder(lastCard); });
 

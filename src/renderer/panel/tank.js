@@ -35,7 +35,7 @@
 
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clone = o => JSON.parse(JSON.stringify(o));
-  const plural = (n, one, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  const plural = (n, one, many) => SB.plural(n, one, many, x => x.toLocaleString());
   const listOf = parts => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`);
   const editing = () => !!draft;
   const layout = () => draft || v.layout;
@@ -187,9 +187,9 @@
       'aria-label': `${p.name}, ${rowName(p)}${p.flip ? ', flipped' : ''}`,
       'aria-describedby': edit ? 'tkKeys' : null,
       'aria-pressed': edit ? String(selected === p.uid) : null,
-      dataset: { uid: String(p.uid), name: p.name },
+      dataset: { uid: String(p.uid), name: p.name, keep: `hit:${p.uid}` },
     }));
-    if (crab) buttons.push(h('button', { type: 'button', class: 'tk-hit tk-hit-crab', 'aria-label': 'Pet Shellby', dataset: { name: 'Shellby' }, style: `width:${crab.w * u}px;height:${crab.h * u}px` }));
+    if (crab) buttons.push(h('button', { type: 'button', class: 'tk-hit tk-hit-crab', 'aria-label': 'Pet Shellby', dataset: { name: 'Shellby', keep: 'crab' }, style: `width:${crab.w * u}px;height:${crab.h * u}px` }));
     hits.replaceChildren(...buttons, h('span', { class: 'tk-tag', id: 'tkTag', 'aria-hidden': 'true', hidden: true }));
   }
 
@@ -237,19 +237,8 @@
   }
 
   // Rebuilding the buttons mustn't throw away where the keyboard was.
-  function keepingFocus(render) {
-    const el = document.activeElement;
-    const was = el?.closest?.('.tk-hit') ? { uid: el.dataset.uid, crab: el.classList.contains('tk-hit-crab') }
-      : el?.closest?.('.tk-item') ? { ref: el.dataset.ref }
-        : el?.closest?.('[data-shelf]') ? { shelf: el.dataset.shelf } : null;
-    render();
-    if (!was) return;
-    const back = was.crab ? hits.querySelector('.tk-hit-crab')
-      : was.uid ? hitFor(was.uid)
-        : was.ref ? [...$('tkItems').querySelectorAll('.tk-item')].find(b => b.dataset.ref === was.ref)
-          : [...$('tkShelves').querySelectorAll('[data-shelf]')].find(b => b.dataset.shelf === was.shelf);
-    back?.focus({ preventScroll: true });
-  }
+  // The pieces, the crab, the tray's items and its shelves carry data-keep for it.
+  const keepingFocus = render => SB.keepFocus($('tankView'), render, { preventScroll: true });
 
   function afterChange(keepFocus = true) {
     const focused = keepFocus && document.activeElement?.closest?.('.tk-hit')?.dataset.uid;
@@ -616,7 +605,7 @@
     if (!list.some(c => c.id === shelf)) shelf = list[0]?.id || null;
     $('tkShelves').replaceChildren(...list.map(c => {
       const fresh = v.tray.some(t => t.category === c.id && t.isNew && !t.locked && t.kind === 'decor' && !seen.has(t.ref));
-      return h('button', { type: 'button', role: 'tab', 'aria-selected': String(c.id === shelf), tabindex: c.id === shelf ? '0' : '-1', dataset: { shelf: c.id } },
+      return h('button', { type: 'button', role: 'tab', 'aria-selected': String(c.id === shelf), tabindex: c.id === shelf ? '0' : '-1', dataset: { shelf: c.id, keep: `shelf:${c.id}` } },
         c.name, fresh ? h('i', { class: 'dot-badge', 'aria-hidden': 'true' }) : null);
     }));
     const lay = draft;
@@ -635,7 +624,7 @@
         type: 'button', class: `tk-item${t.locked ? ' locked' : ''}${chosen ? ' chosen' : ''}`,
         disabled: off, 'aria-pressed': style ? String(chosen) : null,
         title: t.locked ? `Locked: ${t.locked.text}` : t.description,
-        dataset: style ? { ref: t.ref, style: shelf } : { ref: t.ref },
+        dataset: style ? { ref: t.ref, style: shelf, keep: `item:${t.ref}` } : { ref: t.ref, keep: `item:${t.ref}` },
       },
       h('span', { class: 'tk-thumb', 'aria-hidden': 'true' }, P.thumb(t, THUMB)),
       h('span', { class: 'tk-item-name', text: t.name }),

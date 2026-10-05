@@ -23,7 +23,7 @@ body[data-view="onboarding"] .dock { display: none; }
   position: relative; flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   border: 0; background: none; padding: 0 2px;
-  color: var(--sand-dim); font: 700 11px/1 var(--font-body); letter-spacing: .01em;
+  color: var(--sand-dim); font: 700 var(--fs-11)/1 var(--font-body); letter-spacing: .01em;
   transition: color .15s;
 }
 .dock-btn > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -106,9 +106,9 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .settings-sub {
   display: flex; align-items: baseline; gap: 10px;
   margin: 6px 0 0; padding: 18px 0 4px; border-top: 1px solid var(--line-soft);
-  font-size: 13px; font-weight: 700; color: var(--sand);
+  font-size: var(--fs-13); font-weight: 700; color: var(--sand);
 }
-.settings-sub span { font-size: 11.5px; font-weight: 400; color: var(--sand-faint); }
+.settings-sub span { font-size: var(--fs-11-5); font-weight: 400; color: var(--sand-faint); }
 .setting-group.setting-fold { padding: 0; }
 .setting-fold > summary {
   display: flex; align-items: center; gap: 8px; padding: 11px 0;
@@ -116,14 +116,14 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 }
 .setting-fold > summary::-webkit-details-marker { display: none; }
 .setting-fold > summary::before {
-  content: "▸" / ""; flex: none; width: 10px; font-size: 10px; color: var(--sand-faint);
+  content: "▸" / ""; flex: none; width: 10px; font-size: var(--fs-10); color: var(--sand-faint);
   transition: transform .15s var(--ease-out);
 }
 .setting-fold[open] > summary::before { transform: rotate(90deg); }
 .setting-fold > summary h3 { margin: 0; flex: 1; }
 .setting-fold > summary:hover h3 { color: var(--sand); }
 .setting-fold > summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 4px; }
-.fold-state { font: 600 10.5px var(--font-mono); color: var(--sand-faint); }
+.fold-state { font: 600 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
 .fold-state.on { color: var(--glass); }
 .setting-group.setting-fold[open] { padding-bottom: 14px; }
 .setting-fold[open] > summary { padding-bottom: 6px; }
@@ -151,29 +151,29 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 }
 .palette-input {
   flex: none; width: 100%; border: 0; border-bottom: 1px solid var(--line);
-  background: transparent; color: var(--sand); font: 14px var(--font-body);
+  background: transparent; color: var(--sand); font: var(--fs-14) var(--font-body);
   padding: 13px 15px; outline: none;
 }
 .palette-input::placeholder { color: var(--sand-faint); }
 .palette-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; min-height: 0; }
-.pal-group { padding: 8px 9px 4px; font: 600 10.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--sand-faint); }
+.pal-group { padding: 8px 9px 4px; font: 600 var(--fs-10-5) var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--sand-faint); }
 .pal-item {
   display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center;
   width: 100%; border: 0; background: none; text-align: left; color: var(--sand);
   padding: 7px 9px; border-radius: var(--r-sm);
 }
 .pal-item[aria-selected="true"] { background: var(--reef-2); }
-.pal-icon { font-size: 14px; text-align: center; color: var(--sand-dim); }
+.pal-icon { font-size: var(--fs-14); text-align: center; color: var(--sand-dim); }
 .pal-text { display: grid; min-width: 0; line-height: 1.3; }
-.pal-title { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pal-sub { font-size: 11.5px; color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pal-key { font: 600 10.5px var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
-.pal-empty { padding: 18px 10px; text-align: center; font-size: 12.5px; color: var(--sand-dim); }
+.pal-title { font-size: var(--fs-13); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-sub { font-size: var(--fs-11-5); color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-key { font: 600 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); white-space: nowrap; }
+.pal-empty { padding: 18px 10px; text-align: center; font-size: var(--fs-12-5); color: var(--sand-dim); }
 .palette-foot {
   flex: none; display: flex; gap: 14px; margin: 0; padding: 7px 14px;
-  border-top: 1px solid var(--line); font-size: 11px; color: var(--sand-faint);
+  border-top: 1px solid var(--line); font-size: var(--fs-11); color: var(--sand-faint);
 }
-.palette-foot kbd { font-size: 9.5px; padding: 1px 4px; }
+.palette-foot kbd { font-size: var(--fs-9-5); padding: 1px 4px; }
 
 @media (prefers-reduced-motion: reduce) {
   .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button, .setting-fold > summary::before { transition: none; }

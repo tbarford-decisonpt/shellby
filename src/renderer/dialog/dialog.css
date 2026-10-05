@@ -1,15 +1,6 @@
-/* Shellby confirmation window. Same tokens as the panel. */
-:root {
-  --abyss: #071012; --ink: #0c1719; --reef: #11232a; --reef-2: #173039; --reef-3: #1e3d47;
-  --line: #214049; --sand: #f3e6cc; --sand-dim: #b3a892; --sand-faint: #7d7566;
-  --glass: #7fd6c2; --glass-dim: rgba(127, 214, 194, .14);
-  --coral: #ff7a5c; --coral-deep: #e2573a; --amber: #ffc15e; --danger: #ff5a4a;
-  --font-body: "Atkinson Hyperlegible", "Segoe UI", sans-serif;
-  --font-pixel: "Pixelify Sans", "Atkinson Hyperlegible", monospace;
-  --font-mono: "Martian Mono", "Cascadia Code", Consolas, monospace;
-}
+/* Shellby confirmation window. Tokens come from ../shared/tokens.css, same as the panel. */
 * { box-sizing: border-box; }
-html, body { margin: 0; background: transparent; color: var(--sand); font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased; user-select: none; }
+html, body { margin: 0; background: transparent; color: var(--sand); font: var(--fs-14)/1.5 var(--font-body); -webkit-font-smoothing: antialiased; user-select: none; }
 body { padding: 10px; }
 .dialog {
   border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
@@ -20,14 +11,14 @@ body { padding: 10px; }
 @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.97); } }
 .bar { -webkit-app-region: drag; display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: var(--abyss); border-bottom: 1px solid rgba(127, 214, 194, .1); }
 .crab svg { width: 30px; height: auto; display: block; overflow: visible; }
-.app { font: 600 14px var(--font-pixel); color: var(--sand-dim); }
+.app { font: 600 var(--fs-14) var(--font-pixel); color: var(--sand-dim); }
 .content { padding: 18px 20px 6px; }
-.badge { font-size: 26px; line-height: 1; margin-bottom: 8px; }
-h1 { margin: 0 0 6px; font: 600 19px/1.25 var(--font-pixel); }
-#message { margin: 0 0 10px; color: var(--sand); font-size: 14.5px; }
+.badge { font-size: var(--fs-26); line-height: 1; margin-bottom: 8px; }
+h1 { margin: 0 0 6px; font: 600 var(--fs-19)/1.25 var(--font-pixel); }
+#message { margin: 0 0 10px; color: var(--sand); font-size: var(--fs-14-5); }
 /* Capped and scrolling, so a long detail can never push the buttons out of the window. */
-.detail { margin: 0 0 10px; color: var(--sand-dim); white-space: pre-line; overflow-wrap: anywhere; font-size: 13px; max-height: 320px; overflow-y: auto; }
-.note { margin: 0 0 12px; padding: 8px 11px; border-radius: 8px; font-size: 12.5px; color: var(--sand-dim); background: var(--glass-dim); border: 1px solid rgba(127, 214, 194, .25); }
+.detail { margin: 0 0 10px; color: var(--sand-dim); white-space: pre-line; overflow-wrap: anywhere; font-size: var(--fs-13); max-height: 320px; overflow-y: auto; }
+.note { margin: 0 0 12px; padding: 8px 11px; border-radius: 8px; font-size: var(--fs-12-5); color: var(--sand-dim); background: var(--glass-dim); border: 1px solid rgba(127, 214, 194, .25); }
 .dialog.danger .note { color: #ffc2bb; background: rgba(255, 90, 74, .1); border-color: rgba(255, 90, 74, .4); }
 .dialog.danger h1 { color: #ff9b8f; }
 
@@ -36,15 +27,15 @@ h1 { margin: 0 0 6px; font: 600 19px/1.25 var(--font-pixel); }
 .item { display: grid; justify-items: center; gap: 3px; padding: 8px 4px 6px; border-radius: 9px; background: var(--reef); border: 1px solid var(--line); }
 .item .art { height: 34px; display: grid; place-items: center; }
 .item .art svg { max-width: 60px; max-height: 34px; width: auto; height: 34px; overflow: visible; }
-.item .art .glyph { font-size: 22px; line-height: 1; }
-.item .nm { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.2; }
-.item .kd { font: 600 9px var(--font-mono); color: var(--sand-faint); text-transform: uppercase; letter-spacing: .04em; }
+.item .art .glyph { font-size: var(--fs-22); line-height: 1; }
+.item .nm { font-size: var(--fs-11); font-weight: 700; text-align: center; line-height: 1.2; }
+.item .kd { font: 600 var(--fs-9) var(--font-mono); color: var(--sand-faint); text-transform: uppercase; letter-spacing: .04em; }
 .preview::-webkit-scrollbar { width: 8px; }
 .preview::-webkit-scrollbar-thumb { background: var(--reef-3); border-radius: 4px; }
 
 .actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 18px; }
 button {
-  font: 700 13.5px var(--font-body); padding: 9px 18px; border-radius: 9px; cursor: pointer;
+  font: 700 var(--fs-13-5) var(--font-body); padding: 9px 18px; border-radius: 9px; cursor: pointer;
   border: 1px solid var(--line); background: var(--reef-2); color: var(--sand);
   transition: transform .15s cubic-bezier(.3, 1.5, .5, 1), background .12s, border-color .12s;
 }

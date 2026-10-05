@@ -26,6 +26,8 @@ const NOT_A_CODE = "That doesn't look like an outfit code.";
  *   broadcastSkin()
  *   openPath(p), userSkinsDir()
  * }
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d
  */
 function registerWardrobeIpc(ipcMain, d) {
   const W = () => d.wardrobe();

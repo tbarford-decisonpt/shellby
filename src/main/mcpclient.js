@@ -36,6 +36,7 @@ class McpError extends Error {}
  * PATHEXT only. Never the working folder: that's a project, and a program of
  * the same name could be waiting there.
  */
+// (A path that can't be stat'ed is one that isn't there: that's the answer, not an error.)
 function findCommand(cmd, env = process.env, exists = f => { try { return fs.statSync(f).isFile(); } catch { return false; } }) {
   if (path.isAbsolute(cmd)) return exists(cmd) ? cmd : null;
   if (/[\\/]/.test(cmd)) return null;
@@ -109,8 +110,9 @@ function stdioSession(def, { cwd, env, spawnImpl = spawn, find } = {}) {
 
   function end() {
     rl.close();
-    try { child.stdin.end(); } catch { /* ignore */ }
+    try { child.stdin.end(); } catch { /* already destroyed: the server is gone, which is the point */ }
     if (processJob.sweep(job)) return;
+    // taskkill fails only when the tree has already exited; nothing to report.
     if (child.pid && child.exitCode === null) execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
   }
 
@@ -176,6 +178,7 @@ async function readCapped(res, enough = () => false) {
     const { done, value } = await reader.read();
     if (done) break;
     text += dec.decode(value, { stream: true });
+    // Cancelling is only to stop reading; one that fails changes nothing we return or throw.
     if (text.length > MAX_BODY) { reader.cancel().catch(() => {}); throw new McpError('The server sent more than Shellby will read.'); }
     if (enough(text)) { reader.cancel().catch(() => {}); break; }
   }
@@ -212,6 +215,7 @@ function httpSession(def, { env, fetchImpl = fetch, signal } = {}) {
       const isAnswer = m => isObj(m) && m.id === id && (m.result !== undefined || m.error);
       const sse = /text\/event-stream/i.test(res.headers.get('content-type') || '');
       const text = await readCapped(res, sse ? t => sseMessages(t).some(isAnswer) : undefined);
+      // A body that isn't JSON has no answer in it: reported just below as "didn't answer".
       const msgs = sse ? sseMessages(text) : (() => { try { const j = JSON.parse(text); return Array.isArray(j) ? j : [j]; } catch { return []; } })();
       const answer = msgs.find(isAnswer);
       if (!answer) throw new McpError('The server didn\'t answer.');
@@ -219,9 +223,12 @@ function httpSession(def, { env, fetchImpl = fetch, signal } = {}) {
       if (method === 'initialize') protocol = typeof answer.result?.protocolVersion === 'string' ? answer.result.protocolVersion : PROTOCOL;
       return answer.result;
     },
+    // A notification has no answer to wait for; if the server is unreachable
+    // the request that follows fails with the reason, so this one stays quiet.
     notify(method, params) {
       post({ jsonrpc: '2.0', method, params }).then(r => r.body?.cancel?.()).catch(() => {});
     },
+    // Ending the session is a courtesy: the server times it out anyway.
     close() {
       if (!session) return;
       fetchImpl(url.href, { method: 'DELETE', headers: { ...base, 'Mcp-Session-Id': session }, signal: AbortSignal.timeout(5000) }).catch(() => {});
@@ -251,7 +258,7 @@ async function withServer(def, fn, opts = {}) {
     onAbort = () => { reject(abortError()); controller.abort(); };
     opts.signal?.addEventListener('abort', onAbort, { once: true });
   });
-  deadline.catch(() => {});
+  deadline.catch(() => {}); // handled by the race below; this only keeps a late one from going unhandled
   try {
     s = transport === 'stdio'
       ? stdioSession(def, { cwd: opts.cwd, env, spawnImpl: opts.spawnImpl, find: opts.find })
@@ -265,7 +272,9 @@ async function withServer(def, fn, opts = {}) {
   } finally {
     clearTimeout(timer);
     opts.signal?.removeEventListener('abort', onAbort);
-    try { s?.close(); } catch { /* ignore */ }
+    // The call's own result or error is what the caller needs; a failed shutdown
+    // mustn't replace it (process-job still ends the tree with Shellby).
+    try { s?.close(); } catch { /* see above */ }
   }
 }
 
@@ -295,7 +304,7 @@ function readResult(r) {
   const parts = Array.isArray(r?.content) ? r.content : [];
   const text = parts.filter(p => p?.type === 'text' && typeof p.text === 'string').map(p => p.text).join('\n');
   let json = isObj(r?.structuredContent) ? r.structuredContent : null;
-  if (json === null && /^\s*[[{]/.test(text)) { try { json = JSON.parse(text); } catch { json = null; } }
+  if (json === null && /^\s*[[{]/.test(text)) { try { json = JSON.parse(text); } catch { json = null; /* text that only looks like JSON: the text stands */ } }
   return { text, json, isError: r?.isError === true };
 }
 

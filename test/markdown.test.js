@@ -29,6 +29,13 @@ test('emphasis and code markers inside a link URL leave the URL alone', () => {
   assert.match(render('[x](https://ex.com/`v`)'), /data-href="https:\/\/ex.com\/`v`"/);
 });
 
+test('placeholder characters in the text are dropped, not taken as placeholders', () => {
+  const [code, url] = [String.fromCharCode(0), String.fromCharCode(1)];
+  const out = render(`a ${code}0${code} b ${url}0${url} [x](https://ex.com/y)`);
+  assert.equal(out.includes(code) || out.includes(url), false);
+  assert.match(out, /a 0 b 0 <a data-href="https:\/\/ex.com\/y"/);
+});
+
 test('lists, headings, emphasis and paragraphs', () => {
   const out = render('# Title\n\n- **one**\n- *two*\n\n1. first\n2. second\n\nplain `code`');
   assert.match(out, /<h3>Title<\/h3>/);

@@ -9,7 +9,10 @@ const { checkStatus, findClaude, run: runCli, verifyClaude } = require('../claud
 const { MODELS } = require('../models');
 const snippets = require('../snippets');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerPanelIpc(ipcMain, d) {
   // ---- pictures and files for the composer (see attachments.js)
   // A pasted snip, or a picture dropped with no file behind it: saved, then attached by path.

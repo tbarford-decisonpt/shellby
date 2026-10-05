@@ -5,7 +5,10 @@ const { clipboard, shell } = require('electron');
 const confirm = require('../confirm');
 const statusLine = require('../statusline');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerGithubIpc(ipcMain, d) {
   // ---- Claude Code status line
   const statusLineView = () => ({ ...statusLine.inspectSettings(d.claudeSettings()), preview: statusLine.formatStatus({ ...d.lastStatus, health: d.healthMood, xp: d.xpView(), now: Date.now() }).replace(/\x1b\[[0-9;]*m/g, '') });
@@ -26,7 +29,7 @@ function registerGithubIpc(ipcMain, d) {
   const openDeviceCode = () => {
     const f = d.github.view().flow;
     if (!f) return;
-    clipboard.writeText(f.code);
+    clipboard.writeText(f.code).catch(e => d.log.warn("couldn't copy the device code", e?.message));
     // Checked against GitHub's own device page in the service; a dev mock (http) isn't opened.
     if (f.url.startsWith('https:')) shell.openExternal(f.url);
   };

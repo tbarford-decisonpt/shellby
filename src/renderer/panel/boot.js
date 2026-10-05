@@ -130,7 +130,7 @@
   });
 
   // Routine "next run" times drift into the past while the panel is open.
-  setInterval(() => { if (state.view === 'routines') api.listRoutines().then(l => { state.routines = l; SB.views.routines.render(); }); }, 60000);
+  setInterval(() => { if (state.view === 'routines' && !document.hidden) api.listRoutines().then(l => { state.routines = l; SB.views.routines.render(); }); }, 60000);
 
   // ------------------------------------------------------------ boot
 

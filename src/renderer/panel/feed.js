@@ -41,7 +41,9 @@
       this.taskLane = new Map();  // task_id -> Agent tool_use_id
       this.trimmed = 0;           // blocks dropped off the top (see trim())
       this.trimmedNotice = null;
-      this.el = h('section', { class: 'feed', role: 'tabpanel', 'aria-live': 'polite', dataset: { tab: id } });
+      // Not a live region: every tool step would be read out. The turn's end
+      // and permission asks are announced instead (SB.announce).
+      this.el = h('section', { class: 'feed', role: 'tabpanel', dataset: { tab: id } });
       this.empty = SB.$('emptyTemplate').content.firstElementChild.cloneNode(true);
       this.el.append(this.empty); // its links open through core.js's a[data-href] handler
       this.renderEmpty();
@@ -52,7 +54,8 @@
       // would slide under them.
       this.stuck = true;
       this.el.addEventListener('scroll', () => { this.stuck = this.distanceFromEnd() < 40; }, { passive: true });
-      new ResizeObserver(() => { if (this.stuck && this.isActive) this.scrollToEnd(); }).observe(this.el);
+      this.resizer = new ResizeObserver(() => { if (this.stuck && this.isActive) this.scrollToEnd(); });
+      this.resizer.observe(this.el);
     }
 
     distanceFromEnd() { return this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight; }
@@ -153,9 +156,13 @@
           return item.agent ? this.renderLane(item, replay) : this.renderTool(item, replay);
         case 'tool_result': return this.renderToolResult(item);
         case 'task': return this.renderTask(item, replay);
-        case 'permission': return this.renderAsk(item, replay);
+        case 'permission':
+          if (!replay && this.isActive) SB.announce(item.toolName === 'AskUserQuestion' ? 'Claude has a question for you' : 'Claude is asking for your OK');
+          return this.renderAsk(item, replay);
         case 'decision': return this.markDecision(item);
-        case 'result': return this.renderResult(item);
+        case 'result':
+          if (!replay && this.isActive) SB.announce(item.interrupted ? 'Claude stopped' : item.ok ? 'Claude finished' : 'Claude ended with an error');
+          return this.renderResult(item);
         case 'changes': return this.renderChanges(item);
         case 'undone': return this.markUndone(item);
         case 'moved': return this.append(h('div', { class: 'home-mark' },
@@ -599,7 +606,10 @@
       if (el.undoNote) el.undoNote.textContent = 'These files are back the way they were before this turn.';
     }
 
-    destroy() { this.el.remove(); }
+    destroy() {
+      this.resizer.disconnect();
+      this.el.remove();
+    }
   }
 
   const STATUS_WORDS = { A: 'Added', M: 'Modified', D: 'Deleted', T: 'Type changed' };

@@ -7,7 +7,10 @@ const { sendToBottom } = require('../desktop-layer');
 const { registerProjectsIpc } = require('../projects/ipc');
 const shells = require('../shells');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerLifeIpc(ipcMain, d) {
   // ---- his life between tasks: the Us and Finds pages (life.js), and games (playtime.js)
   ipcMain.handle('life:get', () => d.life?.view() || null);
@@ -60,7 +63,12 @@ function registerLifeIpc(ipcMain, d) {
     showItem: p => shell.showItemInFolder(p),
     openExternal: url => shell.openExternal(url),
   });
-  ipcMain.on('critter:menu', () => { d.reachedForShellby(); d.buildMenu().popup({ window: d.critter }); });
+  ipcMain.on('critter:menu', () => {
+    d.reachedForShellby();
+    d.buildMenu() // async: it checks the clipboard for a screenshot first
+      .then(menu => menu.popup({ window: d.critter }))
+      .catch(e => d.log.warn("couldn't open the crab's menu", e?.message));
+  });
   ipcMain.on('critter:drop', (_e, paths) => {
     d.reachedForShellby();
     const files = (Array.isArray(paths) ? paths : []).filter(d.isStr).slice(0, 20);

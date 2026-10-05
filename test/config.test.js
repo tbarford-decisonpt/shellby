@@ -37,6 +37,39 @@ test('settings that parse but are not an object are set aside too', () => {
   assert.equal(c.get('mode'), DEFAULTS.mode);
 });
 
+test('a settings file that stays locked: defaults for now, and the real file is never overwritten', () => {
+  const dir = tempDir();
+  const file = path.join(dir, 'settings.json');
+  fs.writeFileSync(file, '{"routines": [{"id": "r1"}]}');
+  const realRead = fs.readFileSync;
+  fs.readFileSync = (p, ...rest) => {
+    if (p === file) throw Object.assign(new Error('locked'), { code: 'EBUSY' });
+    return realRead(p, ...rest);
+  };
+  let c;
+  try { c = new Config(dir); } finally { fs.readFileSync = realRead; }
+  assert.match(c.unreadable, /locked/);
+  assert.equal(c.get('mode'), DEFAULTS.mode);
+  c.set({ routines: [] });
+  assert.equal(fs.readFileSync(file, 'utf8'), '{"routines": [{"id": "r1"}]}');
+});
+
+test('a read blocked for a moment is retried', () => {
+  const dir = tempDir();
+  const file = path.join(dir, 'settings.json');
+  fs.writeFileSync(file, '{"routines": [{"id": "r1"}]}');
+  const realRead = fs.readFileSync;
+  let blocked = 2;
+  fs.readFileSync = (p, ...rest) => {
+    if (p === file && blocked-- > 0) throw Object.assign(new Error('busy'), { code: 'EPERM' });
+    return realRead(p, ...rest);
+  };
+  let c;
+  try { c = new Config(dir); } finally { fs.readFileSync = realRead; }
+  assert.equal(c.unreadable, null);
+  assert.deepEqual(c.get('routines'), [{ id: 'r1' }]);
+});
+
 test('a rename blocked for a moment (antivirus) is retried', () => {
   const dir = tempDir();
   const c = new Config(dir);

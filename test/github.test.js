@@ -265,13 +265,20 @@ test('service: a sign-in that finishes after stop() starts no sync timer', async
   const mock = await startMockGitHub();
   try {
     // A slow runner: the profile is still loading when the service is stopped.
-    const fetchImpl = async (u, o) => { if (String(u).endsWith('/user')) await new Promise(r => setTimeout(r, 300)); return fetch(u, o); };
+    // The profile request waits on a gate the test opens only after stop(), so
+    // the order is certain rather than left to a sleep.
+    let openGate;
+    const gate = new Promise(r => { openGate = r; });
+    const fetchImpl = async (u, o) => { if (String(u).endsWith('/user')) await gate; return fetch(u, o); };
     const svc = new GitHubService({ config: new MemConfig({}), store: new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto), web: mock.base, api: mock.base, fetchImpl });
     await svc.signIn(['sync']);
     mock.approve();
     assert.ok(await until(() => svc.view().signedIn));
     svc.stop();
-    await new Promise(r => setTimeout(r, 600));
+    const profileSaved = new Promise(r => svc.once('change', r)); // refreshProfile's save, the last step before schedule()
+    openGate();
+    await profileSaved;
+    await new Promise(r => setImmediate(r));
     assert.equal(svc.timer, null, 'no sync timer left to keep the process alive');
   } finally { await mock.close(); }
 });

@@ -48,7 +48,7 @@
 
   const sameChange = (c, ref) => c.root === ref.root && c.before === ref.before && c.after === ref.after;
   const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const { plural } = SB;
 
   // Everything showing comments in this tab: open diffs, change blocks, the bar.
   function refresh(tab) {

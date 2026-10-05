@@ -14,7 +14,7 @@
   const URGENT = new Set(['asking', 'finished']);      // an edge marker jumps straight to these
   const SAY = { asking: 'needs your OK', finished: 'has finished' };
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const { plural } = SB;
 
   // ------------------------------------------------------------ edge markers
 

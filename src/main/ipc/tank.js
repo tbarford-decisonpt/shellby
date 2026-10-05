@@ -19,6 +19,8 @@ const MAX_SEEN = 200;
  *   shipped()      projects shipped (stickers.js), for the reef tank
  *   stat(event, payload)   feeds the achievements
  * }
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d
  */
 function registerTankIpc(ipcMain, d) {
   const lib = () => tank.library({

@@ -28,8 +28,8 @@
   const ENDED = new Set(['ok', 'error', 'stopped', 'interrupted']);
   const RUN_WORD = { ok: 'worked', error: 'failed', stopped: 'was stopped', interrupted: 'was interrupted' };
   const PREF_TESTS = 'shellby.wf.chatTests';
-  const testsPref = () => { try { return window.localStorage.getItem(PREF_TESTS) !== 'off'; } catch { return true; } };
-  const setTestsPref = on => { try { window.localStorage.setItem(PREF_TESTS, on ? 'on' : 'off'); } catch { /* lasts this session */ } };
+  const testsPref = () => SB.pref(PREF_TESTS, 'on') !== 'off';
+  const setTestsPref = on => SB.pref.set(PREF_TESTS, on ? 'on' : 'off');
 
   let chatN = 0;
 

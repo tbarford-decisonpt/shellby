@@ -8,12 +8,18 @@ const hookTest = require('../hook-test');
 const snippets = require('../snippets');
 const { samePath } = require('../toolbox');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerToolboxIpc(ipcMain, d) {
+  // A payload that should be an object: null or a string from the panel reads as {} rather than throwing.
+  const obj = v => (v && typeof v === 'object' ? v : {});
   // ---- toolbox
   ipcMain.handle('toolbox:get', () => d.toolbox.current);
   ipcMain.handle('toolbox:rescan', () => { d.toolbox.rescan(); return d.toolbox.current; });
-  ipcMain.handle('toolbox:pin', (_e, { kind, name, pinned } = {}) => {
+  ipcMain.handle('toolbox:pin', (_e, req) => {
+    const { kind, name, pinned } = obj(req);
     if (!(d.TRICKS_KIND.has(kind) || kind === 'snippet') || !d.isStr(name)) return d.pinnedTools();
     if (kind === 'snippet' && pinned && !snippets.find(d.snippetList(), name)) return d.pinnedTools();
     const rest = d.pinnedTools().filter(p => !(p.kind === kind && p.name === name));
@@ -21,7 +27,8 @@ function registerToolboxIpc(ipcMain, d) {
     return d.pinnedTools();
   });
   // ---- prompt snippets (Toolbox → Snippets, /name in the box)
-  ipcMain.handle('snippets:save', (_e, { snippet, was } = {}) => {
+  ipcMain.handle('snippets:save', (_e, req) => {
+    const { snippet, was } = obj(req);
     const list = d.snippetList();
     const r = snippets.save(list, snippet, typeof was === 'string' ? was : null);
     if (!r.ok) return r;
@@ -67,7 +74,8 @@ function registerToolboxIpc(ipcMain, d) {
     const m = knownMemory(p);
     return m ? claudeSetup.readMemory(m.path) : { ok: false, error: "Shellby doesn't edit that file." };
   });
-  ipcMain.handle('setup:write-memory', (_e, { path: p, text, mtimeMs } = {}) => {
+  ipcMain.handle('setup:write-memory', (_e, req) => {
+    const { path: p, text, mtimeMs } = obj(req);
     const m = knownMemory(p);
     if (!m || typeof text !== 'string' || !Number.isFinite(mtimeMs)) return { ok: false, error: "Shellby doesn't edit that file." };
     let r;
@@ -97,7 +105,7 @@ function registerToolboxIpc(ipcMain, d) {
 
   // ---- skill shop (Claude Code plugin marketplaces)
   // No marketplace refresh (git pull) while an install confirmation is open.
-  ipcMain.handle('shop:list', (_e, { refresh = false } = {}) => d.shopBlocked() || d.shop.list({ refresh: !!refresh && !d.shopAsking }));
+  ipcMain.handle('shop:list', (_e, req) => d.shopBlocked() || d.shop.list({ refresh: !!obj(req).refresh && !d.shopAsking }));
   ipcMain.handle('shop:install', (_e, id) => d.confirmAndInstallPlugin(id));
   ipcMain.handle('shop:uninstall', (_e, id) => d.confirmAndUninstallPlugin(id));
   ipcMain.handle('shop:add-marketplace', (_e, source) => d.confirmAndAddMarketplace(source));

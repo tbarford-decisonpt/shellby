@@ -92,11 +92,13 @@
 
   // ------------------------------------------------------------ dialogs
 
-  // The share card, the upsell and "Wear a code" are modal: Tab stays inside
-  // them, and closing one goes back to whatever opened it.
-  const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  // The share card, the upsell, "Wear a code" and any sheet a view adds later
+  // (Import a workflow) are modal: Tab stays inside them, and closing one of the
+  // page's own goes back to whatever opened it.
+  const FOCUSABLE = 'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
   const sheets = [...document.querySelectorAll('.card-sheet')];
-  const openSheet = () => sheets.find(s => !s.hidden);
+  // Looked up on every key press: sheets come and go.
+  const openSheet = () => document.querySelector('.card-sheet:not([hidden])');
   let returnTo = null;
 
   document.addEventListener('focusin', e => { if (!e.target.closest('.card-sheet')) returnTo = e.target; });

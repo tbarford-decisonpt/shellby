@@ -16,18 +16,11 @@
 
   // ------------------------------------------------------------------ words
 
-  const dur = s => {
-    const m = Math.round(Math.max(0, s || 0) / 60);
-    const hrs = Math.floor(m / 60);
-    return hrs ? `${hrs}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
-  };
-  const decimal = s => (Math.round(((s || 0) / 3600) * 100) / 100).toFixed(2);
-  const money = (n, cur) => {
-    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(n); } catch { return `${n.toFixed(2)} ${cur}`; }
-  };
-  const dateOf = day => { const [y, m, d] = day.split('-').map(Number); return new Date(y, m - 1, d); };
+  // The pure part (durations, money, days, form checks) lives in shared/time-format.js.
+  const F = window.ShellbyTimeFormat;
+  const { dur, decimal, money, dateOf } = F;
   const shortDay = day => dateOf(day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const today = () => F.dayKey();
   const WHY = {
     window: 'from the window in front', shellby: "while Claude works in it, here in Shellby", claude: 'while Claude works in it',
     recent: "you were just in it", idle: '', other: '', none: '',
@@ -84,12 +77,11 @@
     const peak = days.reduce((a, d) => (d.seconds > a.seconds ? d : a), days[0] || { seconds: 0 });
     $('timeChart').classList.toggle('many', many);
     $('timeChart').replaceChildren(...days.map(d => {
-      const date = dateOf(d.day);
-      const label = many ? (date.getDate() === 1 || date.getDay() === 1 ? String(date.getDate()) : '') : date.toLocaleDateString(undefined, { weekday: 'short' });
+      const label = F.chartLabel(d.day, many);
       const words = `${shortDay(d.day)}: ${d.seconds ? dur(d.seconds) : 'nothing'}`;
       return h('li', { class: `tm-bar${d.seconds ? '' : ' zero'}${d.day === today() ? ' today' : ''}`, title: words, 'aria-label': words },
         h('span', { class: 'tm-bar-value', text: d === peak && d.seconds && !many ? dur(d.seconds) : '' }),
-        h('span', { class: 'tm-bar-track' }, h('i', { style: `height:${d.seconds ? Math.max(4, Math.round((d.seconds / max) * 100)) : 0}%` })),
+        h('span', { class: 'tm-bar-track' }, h('i', { style: `height:${F.barPercent(d.seconds, max, 4)}%` })),
         h('span', { class: 'tm-bar-day', text: label }));
     }));
   }
@@ -130,12 +122,12 @@
     const note = h('input', { class: 'field tm-note', value: r.note, maxlength: '200', placeholder: r.commits.length ? r.commits.map(c => c.subject).slice(0, 3).join('; ') : 'What it was for', 'aria-label': `What ${shortDay(r.day)} was for` });
     note.addEventListener('change', () => api.addTime({ key: p.key, day: r.day, minutes: 0, note: note.value.trim() }).then(x => (x?.ok ? load() : SB.toast(x?.error || "Couldn't save that."))));
     const nudge = minutes => api.addTime({ key: p.key, day: r.day, minutes }).then(x => (x?.ok ? load() : SB.toast(x?.error || "Couldn't change that.")));
-    const parts = [r.tracked ? `${dur(r.tracked)} tracked` : '', r.manual ? `${r.manual > 0 ? '+' : '−'}${dur(Math.abs(r.manual))} by hand` : '', !r.tracked && !r.manual && r.estimate ? `~${dur(r.estimate)} from commits` : ''].filter(Boolean);
-    const commitsTip = r.commits.length ? r.commits.map(c => `• ${c.subject}`).join('\n') + (r.commitCount > r.commits.length ? `\n…and ${r.commitCount - r.commits.length} more` : '') : '';
+    const parts = F.dayParts(r);
+    const commitsTip = F.commitsTip(r);
     return h('li', { class: `tm-day${r.total ? '' : ' empty'}${r.estimated ? ' est' : ''}` },
       h('span', { class: 'tm-day-date', text: shortDay(r.day) }),
       h('span', { class: 'tm-day-hours' }, h('b', { text: r.total ? dur(r.total) : '—' }), h('small', { text: parts.join(' · ') })),
-      r.commitCount ? h('span', { class: 'tm-commits', title: commitsTip, tabindex: '0', 'aria-label': `${r.commitCount} commit${r.commitCount === 1 ? '' : 's'}: ${r.commits.map(c => c.subject).join('; ')}` }, `${r.commitCount} commit${r.commitCount === 1 ? '' : 's'}`) : h('span'),
+      r.commitCount ? h('span', { class: 'tm-commits', title: commitsTip, tabindex: '0', 'aria-label': `${F.plural(r.commitCount, 'commit')}: ${r.commits.map(c => c.subject).join('; ')}` }, F.plural(r.commitCount, 'commit')) : h('span'),
       note,
       h('span', { class: 'tm-nudge' },
         h('button', { type: 'button', class: 'icon-btn', title: 'Take 15 minutes off', 'aria-label': `Take 15 minutes off ${shortDay(r.day)}`, disabled: !r.total || r.estimated, onclick: () => nudge(-15) }, '−'),
@@ -143,12 +135,12 @@
   }
 
   function projectRow(p, max, sum) {
-    const pay = p.billable && p.rate ? money(p.amount, sum.currency) : p.billable ? '' : 'not billable';
+    const pay = F.payLabel(p, sum.currency);
     const details = h('details', { class: 'tm-project', open: open.has(p.key) },
       h('summary', {},
         h('span', { class: 'tm-p-name' }, h('b', { text: p.name }), p.client ? h('small', { text: p.client }) : null),
         h('span', { class: 'tm-p-hours' }, h('b', { text: p.seconds ? dur(p.seconds) : '—' }), h('small', { text: [p.billed && p.billed !== p.seconds ? `${decimal(p.billed)} h billed` : '', pay].filter(Boolean).join(' · ') })),
-        h('span', { class: 'tm-p-bar', 'aria-hidden': 'true' }, h('i', { style: `width:${p.seconds ? Math.max(2, Math.round((p.seconds / max) * 100)) : 0}%` }))),
+        h('span', { class: 'tm-p-bar', 'aria-hidden': 'true' }, h('i', { style: `width:${F.barPercent(p.seconds, max, 2)}%` }))),
       h('div', { class: 'tm-p-body' },
         !p.seconds && p.unfilled ? h('p', { class: 'muted small', text: `Commits here but no time kept: about ${dur(p.unfilled)} going by them.` }) : null,
         h('ul', { class: 'tm-days' }, p.days.map(r => dayRow(p, r))),
@@ -213,11 +205,8 @@
       sel.value = String(current);
     };
     setOptions($('timeIdle'), view.choices.idle, m => `${m} minutes away`, s.idleMinutes);
-    const rounds = view.choices.round.flatMap(m => (m ? view.choices.roundModes.map(mode => `${m}|${mode}`) : ['0|nearest']));
-    setOptions($('timeRound'), rounds, r => {
-      const [m, mode] = r.split('|');
-      return m === '0' ? "Don't round" : `${mode === 'up' ? 'Up' : 'To the nearest'} ${m} min`;
-    }, s.roundMinutes ? `${s.roundMinutes}|${s.roundMode}` : '0|nearest');
+    const rounds = F.roundValues(view.choices.round, view.choices.roundModes);
+    setOptions($('timeRound'), rounds, F.roundLabel, s.roundMinutes ? `${s.roundMinutes}|${s.roundMode}` : '0|nearest');
     if (document.activeElement !== $('timeCurrency')) $('timeCurrency').value = s.currency;
     // Projects you said not to track, with the way back.
     const ignored = view.projects.filter(p => p.ignored);
@@ -255,8 +244,8 @@
     api.setTimeSettings({ roundMinutes: Number(m), roundMode: mode }).then(load);
   });
   $('timeCurrency').addEventListener('change', async e => {
-    const cur = e.target.value.trim().toUpperCase();
-    if (!/^[A-Z]{3}$/.test(cur)) { SB.toast('A currency is three letters, like USD or EUR.'); e.target.value = view.settings.currency; return; }
+    const cur = F.currencyCode(e.target.value);
+    if (!cur) { SB.toast('A currency is three letters, like USD or EUR.'); e.target.value = view.settings.currency; return; }
     await api.setTimeSettings({ currency: cur });
     load();
   });
@@ -276,7 +265,7 @@
     const minutes = (Number($('timeAddHours').value) || 0) * 60 + (Number($('timeAddMinutes').value) || 0);
     const key = $('timeAddProject').value;
     const note = $('timeAddNote').value.trim();
-    const problem = !key ? 'Pick a project.' : !$('timeAddDay').value ? 'Pick a day.' : !minutes && !note ? 'How much time?' : minutes > 24 * 60 ? "That's more than a day." : null;
+    const problem = F.addTimeProblem({ key, day: $('timeAddDay').value, minutes, note });
     err.hidden = !problem;
     err.textContent = problem || '';
     if (problem) return;

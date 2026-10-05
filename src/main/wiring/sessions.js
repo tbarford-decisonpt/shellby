@@ -38,18 +38,18 @@ function wireSessions(d) {
       getEnv: () => d.github?.claudeEnv() || {},
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
-        d.armGuard(tab);
+        d.usageService.armGuard(tab);
         tab.lastReply = null;
         // Only the summary turn itself may start a conversation fresh (tab:fresh
         // sets it after this runs): a summary turn that died without a result
         // must not take the next ordinary turn with it.
         tab.freshWanted = false;
-        await d.armCopy(tab);
+        await d.copyService.armCopy(tab);
         await beginTurn(tab);
       },
     });
 
-    d.manager.on('spend', (_tabId, s, tab) => d.onSpend(s, tab));
+    d.manager.on('spend', (_tabId, s, tab) => d.usageService.onSpend(s, tab));
     d.manager.on('call', (_tabId, c, tab) => { if (!d.CAPTURE) d.lean?.onCall(c, tab); });
     // A conversation past the crowded mark: he says so, and the panel offers to make room.
     d.manager.on('context', (_tabId, now, before, tab) => {
@@ -66,7 +66,7 @@ function wireSessions(d) {
         d.send(d.panel, 'usage', item);
         d.onUsage(item);
         d.refreshOutlook();
-        d.checkGuards();
+        d.usageService.checkGuards();
         return;
       }
       if (item.kind === 'init') {

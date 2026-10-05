@@ -44,20 +44,20 @@ body[data-view="stickers"] .view-stickers { display: block; overflow-y: auto; pa
 
 .st-hero-text { text-align: center; display: grid; justify-items: center; gap: 4px; }
 .st-eyebrow { color: var(--amber); }
-.st-hero-text h3 { margin: 0; font: 600 19px var(--font-pixel); }
-.st-sub { margin: 0; max-width: 36ch; font-size: 12.5px; color: var(--sand-dim); }
+.st-hero-text h3 { margin: 0; font: 600 var(--fs-19) var(--font-pixel); }
+.st-sub { margin: 0; max-width: 36ch; font-size: var(--fs-12-5); color: var(--sand-dim); }
 .st-shells { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 6px; }
 .st-shell-chip {
   display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 99px;
-  border: 1px solid var(--line); background: var(--reef); color: var(--sand-dim); font-size: 12px; font-weight: 700;
+  border: 1px solid var(--line); background: var(--reef); color: var(--sand-dim); font-size: var(--fs-12); font-weight: 700;
 }
 .st-shell-chip:hover { color: var(--sand); border-color: var(--reef-3); }
 .st-shell-chip.on { color: var(--sand); border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim); }
-.st-shell-chip .n { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
-.st-worn { color: var(--glass); font-size: 8px; }
+.st-shell-chip .n { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.st-worn { color: var(--glass); font-size: var(--fs-8); }
 .st-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; margin-top: 6px; }
-.st-auto { font-size: 12.5px; }
-.st-hint { min-height: 1.4em; margin: 8px 2px; font-size: 12.5px; color: var(--amber); text-align: center; }
+.st-auto { font-size: var(--fs-12-5); }
+.st-hint { min-height: 1.4em; margin: 8px 2px; font-size: var(--fs-12-5); color: var(--amber); text-align: center; }
 
 /* ---------------------------------------------------------------- one sticker's page */
 .st-detail {
@@ -80,18 +80,18 @@ body[data-view="stickers"] .view-stickers { display: block; overflow-y: auto; pa
 .st-big.weather-faded svg { filter: saturate(.45) drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); opacity: .82; }
 .st-ribbon {
   position: absolute; right: 2px; bottom: 8px; padding: 1px 7px; border-radius: 4px;
-  font: 700 10.5px var(--font-mono); color: #3d2a00; background: #ffd23f; box-shadow: 0 2px 0 #b38a00; transform: rotate(6deg);
+  font: 700 var(--fs-10-5) var(--font-mono); color: #3d2a00; background: #ffd23f; box-shadow: 0 2px 0 #b38a00; transform: rotate(6deg);
 }
 .st-info { min-width: 0; display: grid; gap: 3px; padding-right: 18px; }
-.st-info h3 { margin: 0; font: 600 18px var(--font-pixel); overflow-wrap: anywhere; }
-.st-when, .st-stats { margin: 0; font-size: 12.5px; color: var(--sand-dim); }
-.st-stats { font: 11.5px var(--font-mono); color: var(--sand-faint); }
-.st-weather { margin: 2px 0 0; font-size: 12px; color: var(--amber); }
-.st-deps { margin: 2px 0 0; font-size: 12px; color: var(--sand-dim); }
+.st-info h3 { margin: 0; font: 600 var(--fs-18) var(--font-pixel); overflow-wrap: anywhere; }
+.st-when, .st-stats { margin: 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.st-stats { font: var(--fs-11-5) var(--font-mono); color: var(--sand-faint); }
+.st-weather { margin: 2px 0 0; font-size: var(--fs-12); color: var(--amber); }
+.st-deps { margin: 2px 0 0; font-size: var(--fs-12); color: var(--sand-dim); }
 .st-mark-list { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 0; padding: 0; }
-.st-mark-list li { display: inline-flex; gap: 4px; align-items: center; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--abyss); font-size: 11.5px; font-weight: 700; }
+.st-mark-list li { display: inline-flex; gap: 4px; align-items: center; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--abyss); font-size: var(--fs-11-5); font-weight: 700; }
 .st-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.st-hide { margin-top: 6px; font-size: 12px; color: var(--sand-dim); }
+.st-hide { margin-top: 6px; font-size: var(--fs-12); color: var(--sand-dim); }
 .st-close { position: absolute; top: 8px; right: 8px; }
 
 /* ---------------------------------------------------------------- the book */
@@ -112,16 +112,16 @@ body[data-view="stickers"] .view-stickers { display: block; overflow-y: auto; pa
 .st-tile.tier-foil .st-art svg { animation: st-foil 4s ease-in-out infinite; }
 .st-tile.weather-peeling .st-art svg { opacity: .88; }
 .st-tile.weather-faded .st-art svg { filter: saturate(.45); opacity: .8; }
-.st-name { font-size: 11.5px; font-weight: 700; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
-.st-tier { font: 600 9.5px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-faint); }
+.st-name { font-size: var(--fs-11-5); font-weight: 700; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+.st-tier { font: 600 var(--fs-9-5) var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-faint); }
 .st-tile .new-pill { position: absolute; top: 5px; right: 5px; }
-.st-marks { position: absolute; top: 5px; left: 6px; font-size: 10px; letter-spacing: -1px; }
-.st-on { position: absolute; bottom: 5px; right: 6px; font-size: 10px; }
+.st-marks { position: absolute; top: 5px; left: 6px; font-size: var(--fs-10); letter-spacing: -1px; }
+.st-on { position: absolute; bottom: 5px; right: 6px; font-size: var(--fs-10); }
 
-.st-waiting h3, .st-options h3 { margin: 14px 0 2px; font-size: 13px; }
+.st-waiting h3, .st-options h3 { margin: 14px 0 2px; font-size: var(--fs-13); }
 .st-waiting-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 7px; }
 .st-ghost { display: grid; justify-items: center; gap: 5px; padding: 10px 6px 8px; border-radius: var(--r); border: 1px dashed var(--line); color: var(--sand-faint); }
-.st-ghost-art { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 2px dashed var(--line); font: 600 18px var(--font-pixel); }
+.st-ghost-art { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 2px dashed var(--line); font: 600 var(--fs-18) var(--font-pixel); }
 .st-card-mode { margin-top: 8px; }
 .st-card-mode button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 

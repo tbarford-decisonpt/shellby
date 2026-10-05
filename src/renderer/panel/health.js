@@ -14,8 +14,7 @@
   let history = [];
   let fx = null;
   let saveTimer = null;
-  const pref = () => { try { return window.localStorage.getItem(RANGE_KEY); } catch { return null; } };
-  let rangeMs = Number(pref()) === HOUR ? HOUR : 10 * MIN;
+  let rangeMs = Number(SB.pref(RANGE_KEY)) === HOUR ? HOUR : 10 * MIN;
   let mark = null;                   // { id, at, until }: an alert picked from the log
   const HOGS_REFRESH_MS = 30 * 1000; // the process list is a ~3 s read; don't add to the heat
   let hogs = null;                   // { ok, metric, procs, groups } from main
@@ -352,7 +351,7 @@
 
   function setRange(ms) {
     rangeMs = ms;
-    try { window.localStorage.setItem(RANGE_KEY, String(ms)); } catch { /* lasts this session */ }
+    SB.pref.set(RANGE_KEY, ms);
     renderGauges();
   }
 

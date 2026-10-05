@@ -99,7 +99,7 @@
     const now = performance.now();
     const dt = now - last;
     last = now;
-    if (calm || !pals.length) return;
+    if (calm || !pals.length || document.hidden) return;
     pals = brain.tick(pals, world(), now, dt);
     paint();
   }, TICK_MS);

@@ -10,7 +10,7 @@
   const { W, H, C } = K;
   const DAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const fmt = n => Number(n || 0).toLocaleString();
-  const plural = (n, one, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
+  const plural = (n, one, many) => SB.plural(n, one, many, fmt);
   const dateOf = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); };
   const shortDate = key => dateOf(key).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const range = w => `${shortDate(w.fromDay)} – ${shortDate(w.toDay)}`;

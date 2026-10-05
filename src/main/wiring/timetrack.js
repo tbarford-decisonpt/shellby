@@ -84,13 +84,13 @@ function wireTimetrack(d) {
   function shellsForBook(state) {
     const skin = d.activeSkin();
     const level = d.currentLevel();
-    const worn = d.shellIdOf(d.wornShellObj());
+    const worn = d.shellIdOf(d.stickerService.wornShellObj());
     const all = [null, ...shells.SHELLS.filter(s => level >= s.level)];
     return all.map(sh => {
       const id = d.shellIdOf(sh);
       return {
         id, name: sh ? sh.name : 'His own shell', worn: id === worn,
-        render: shells.renderShell(sh), slots: d.shellSpots(skin, sh).slots,
+        render: shells.renderShell(sh), slots: d.stickerService.shellSpots(skin, sh).slots,
         stickers: d.shellStickers(skin, sh, state),
       };
     });
@@ -109,7 +109,7 @@ function wireTimetrack(d) {
       projects: v.projects.map(p => {
         const root = s.projects[p.id].root;
         const c = root && checked.get(root.toLowerCase());
-        return { ...p, art: d.drawSticker(s.projects[p.id]).full, deps: c ? { fresh: c.fresh, audit: c.audit, outdated: c.outdated } : null };
+        return { ...p, art: d.stickerService.drawSticker(s.projects[p.id]).full, deps: c ? { fresh: c.fresh, audit: c.audit, outdated: c.outdated } : null };
       }),
       shells: shellsForBook(s),
       // Projects you work in that haven't shipped yet: silhouettes to earn.
@@ -160,17 +160,17 @@ function wireTimetrack(d) {
       prs: d.ciView().prs,
       stickers: Object.values(st.projects).filter(p => p.root && !p.from && !p.hidden).map(p => {
         const v = stickers.projectView(st, p, now);
-        return { root: p.root, tierName: v.tierName, ships: v.ships, marks: v.marks.map(m => ({ icon: m.icon, name: m.name })), art: d.drawSticker(p).full };
+        return { root: p.root, tierName: v.tierName, ships: v.ships, marks: v.marks.map(m => ({ icon: m.icon, name: m.name })), art: d.stickerService.drawSticker(p).full };
       }),
     };
   }
 
   // An edit from the Sticker Book. Only shells he can wear right now can be decorated.
   function editStickers(shell, fn) {
-    const id = d.isStr(shell) ? shell : d.shellIdOf(d.wornShellObj());
+    const id = d.isStr(shell) ? shell : d.shellIdOf(d.stickerService.wornShellObj());
     const sh = id === stickers.HOME ? null : shells.SHELLS.find(s => s.id === id);
     if (id !== stickers.HOME && (!sh || !shells.unlockedAt(id, d.currentLevel()))) return { ok: false, error: 'He has to grow into that shell first.', view: stickersView() };
-    const slots = d.shellSpots(d.activeSkin(), sh).slots.length;
+    const slots = d.stickerService.shellSpots(d.activeSkin(), sh).slots.length;
     const next = fn(d.config.get('stickers'), id, slots, Date.now());
     d.config.set({ stickers: next });
     stickerStats(next);
@@ -212,7 +212,7 @@ function wireTimetrack(d) {
     const fresh = tab.freshWanted;
     tab.freshWanted = false;
     if (tab.copyWanted) {
-      if (!item.interrupted) return d.moveIntoCopy(tab);
+      if (!item.interrupted) return d.copyService.moveIntoCopy(tab);
       tab.copyWanted = false;
     }
     if (fresh && item.ok && !item.interrupted && tab.lastReply) return startFresh(tab, tab.lastReply);
@@ -230,7 +230,7 @@ function wireTimetrack(d) {
     }
     const routineId = d.routineTabs.get(tabId);
     if (routineId) {
-      d.updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
+      d.routineService.updateRoutine(routineId, { lastStatus: item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error' });
       // Nobody is typing into a routine's tab, so its idle process just holds
       // memory until morning. The conversation stays: a reply resumes it. Not
       // after a good turn that left something running in the background (a
@@ -428,14 +428,31 @@ function wireTimetrack(d) {
   const composePrompt = (text, files) => attach.composeContent(text, files, f => attach.loadForClaude(f, { nativeImage }));
 
   // The clipboard's picture (a Win+Shift+S snip) as a new task: from the crab's menu.
-  function taskFromClipboard() {
-    const saved = attach.saveNative(clipboard.readImage(), shotsDir());
+  // Electron 44's clipboard is the W3C one: no readImage or availableFormats,
+  // just read() -> ClipboardItems, each with the MIME types it can give.
+  const imageType = item => item.types.find(t => t.startsWith('image/'));
+  async function readClipboardImage() {
+    for (const item of await clipboard.read()) {
+      const type = imageType(item);
+      if (!type) continue;
+      const blob = await item.getType(type);
+      return nativeImage.createFromBuffer(Buffer.from(await blob.arrayBuffer()));
+    }
+    return null;
+  }
+  async function taskFromClipboard() {
+    let img = null;
+    try { img = await readClipboardImage(); } catch (e) { d.log.warn("couldn't read the clipboard", e?.message); }
+    const saved = attach.saveNative(img, shotsDir());
     if (saved.error) return notify('No screenshot', `${saved.error} Press Win+Shift+S to snip one.`);
     stat('files-dropped');
     d.showPanel();
     d.send(d.panel, 'panel:attach', [saved.path]);
   }
-  const clipboardHasImage = () => { try { return clipboard.availableFormats().some(t => t.startsWith('image/')); } catch { return false; } };
+  // Async now (see above): the crab's menu waits for it before it's built.
+  const clipboardHasImage = async () => {
+    try { return (await clipboard.read()).some(item => !!imageType(item)); } catch { return false; }
+  };
 
   return {
     beachSeen, beachView, clipboardHasImage, composePrompt, createExternal, createHealth,

@@ -11,6 +11,8 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
  *   confirmClear(count, openCount) -> Promise<boolean>   asks first, Cancel by default
  *   log
  * }
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d
  */
 function registerHistoryIpc(ipcMain, d) {
   const { history, manager } = d;

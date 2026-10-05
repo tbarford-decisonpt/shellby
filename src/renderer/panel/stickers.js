@@ -20,7 +20,7 @@
   const onSpot = (sh, i) => (sh?.stickers || []).filter(s => s.slot % (sh.slots.length || 1) === i).sort((a, b) => b.z - a.z);
   const art = (p, k) => SB.Sprite.grid(p.art.pixels, p.art.palette, { px: k });
   const when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
-  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const { plural } = SB;
 
   function hint(text) { $('stHint').textContent = text || ''; }
 

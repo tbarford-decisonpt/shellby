@@ -47,6 +47,7 @@ function routeTable(srcDir, assetsDir) {
     '/shared/effects.js': path.join(srcDir, 'renderer', 'shared', 'effects.js'),
     '/shared/effects.css': path.join(srcDir, 'renderer', 'shared', 'effects.css'),
     '/shared/fonts.css': path.join(srcDir, 'renderer', 'shared', 'fonts.css'),
+    '/shared/tokens.css': path.join(srcDir, 'renderer', 'shared', 'tokens.css'),
     '/shared/health.css': path.join(srcDir, 'renderer', 'shared', 'health.css'),
     '/shared/health-fx.js': path.join(srcDir, 'renderer', 'shared', 'health-fx.js'),
     '/critter/critter.css': path.join(srcDir, 'renderer', 'critter', 'critter.css'),

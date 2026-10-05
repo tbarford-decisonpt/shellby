@@ -15,14 +15,14 @@
 }
 @keyframes card-pop { from { transform: translateY(10px) scale(.96); opacity: 0; } }
 .card-head { display: flex; align-items: center; margin-bottom: 10px; }
-.card-head h2 { margin: 0; font: 600 18px var(--font-pixel); }
+.card-head h2 { margin: 0; font: 600 var(--fs-18) var(--font-pixel); }
 .card-head .icon-btn { margin-left: auto; }
 .card-img {
   display: block; width: 100%; aspect-ratio: 1200 / 630; border-radius: var(--r);
   border: 1px solid var(--line-soft); background: var(--abyss);
   image-rendering: auto;
 }
-.card-note { margin: 10px 0 10px; font-size: 12.5px; color: var(--sand-dim); }
+.card-note { margin: 10px 0 10px; font-size: var(--fs-12-5); color: var(--sand-dim); }
 .card-note b { color: var(--sand); font-weight: 700; overflow-wrap: anywhere; }
 .card-box .row.wrap { gap: 8px; }
 [data-share-card]:disabled { opacity: .5; cursor: progress; }
@@ -58,14 +58,14 @@
 }
 .cel-medal span {
   width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-  background: #2b2006; font-size: 22px; line-height: 1;
+  background: #2b2006; font-size: var(--fs-22); line-height: 1;
 }
 @keyframes cel-medal { 0% { transform: scale(.3) rotate(-30deg); } 60% { transform: scale(1.12) rotate(6deg); } 100% { transform: none; } }
 
 .cel-body { min-width: 0; padding-right: 18px; }
-.cel-eyebrow { margin: 1px 0 1px; font: 600 10px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
-.cel-title { margin: 0; font: 600 19px/1.15 var(--font-pixel); color: var(--sand); overflow-wrap: anywhere; }
-.cel-text { margin: 3px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--sand-dim); }
+.cel-eyebrow { margin: 1px 0 1px; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+.cel-title { margin: 0; font: 600 var(--fs-19)/1.15 var(--font-pixel); color: var(--sand); overflow-wrap: anywhere; }
+.cel-text { margin: 3px 0 0; font-size: var(--fs-12-5); line-height: 1.4; color: var(--sand-dim); }
 
 .cel-rewards { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .cel-rewards li {
@@ -79,8 +79,8 @@
 }
 .cel-thumb svg { display: block; max-width: 32px; max-height: 32px; }
 .cel-rname { display: grid; min-width: 0; line-height: 1.25; }
-.cel-rname b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cel-rname small { font: 600 9.5px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.cel-rname b { font-size: var(--fs-13); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cel-rname small { font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
 
 .cel-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
 .cel-actions .slim-btn { height: 30px; }
@@ -111,13 +111,13 @@
 .recap.leaving { animation: cel-out .22s ease-in forwards; }
 body.celebrating .recap-host { visibility: hidden; } /* back once the trophy has had its moment */
 .recap .cel-eyebrow { color: var(--glass); padding-right: 26px; }
-.recap-title { margin: 0 0 6px; font: 600 19px/1.15 var(--font-pixel); color: var(--sand); }
+.recap-title { margin: 0 0 6px; font: 600 var(--fs-19)/1.15 var(--font-pixel); color: var(--sand); }
 .recap-body { min-height: 0; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
 .recap-sec h4 {
   display: flex; align-items: center; gap: 6px; margin: 0 0 5px;
-  font: 600 10px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sand-dim);
+  font: 600 var(--fs-10) var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sand-dim);
 }
-.recap-ico { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; background: var(--abyss); color: var(--glass); }
+.recap-ico { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-10); background: var(--abyss); color: var(--glass); }
 .recap-n { color: var(--sand-faint); }
 .recap-list, .recap-usage { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .recap-row-body {
@@ -127,21 +127,21 @@ body.celebrating .recap-host { visibility: hidden; } /* back once the trophy has
 }
 button.recap-row-body { cursor: pointer; }
 button.recap-row-body:hover, button.recap-row-body:focus-visible { background: rgba(127, 214, 194, .08); border-color: var(--line); }
-.recap-row-body b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recap-row-body small { font-size: 11.5px; color: var(--sand-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recap-row-body b { font-size: var(--fs-13); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recap-row-body small { font-size: var(--fs-11-5); color: var(--sand-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recap-row.ok .recap-row-body { border-left-color: var(--glass); }
 .recap-row.fail .recap-row-body { border-left-color: var(--danger); }
 .recap-row.wait .recap-row-body { border-left-color: var(--amber); }
-.recap-more { font-size: 11.5px; color: var(--sand-faint); padding-left: 4px; }
-.recap-text { margin: 0 0 6px; font-size: 12.5px; line-height: 1.4; color: var(--sand-dim); }
-.recap-text.muted { font-size: 11.5px; color: var(--sand-faint); margin: 6px 0 0; }
+.recap-more { font-size: var(--fs-11-5); color: var(--sand-faint); padding-left: 4px; }
+.recap-text { margin: 0 0 6px; font-size: var(--fs-12-5); line-height: 1.4; color: var(--sand-dim); }
+.recap-text.muted { font-size: var(--fs-11-5); color: var(--sand-faint); margin: 6px 0 0; }
 .recap-limit { color: var(--amber); }
 .recap-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--abyss); margin-bottom: 6px; }
 .recap-bar i { flex-basis: 0; min-width: 3px; }
-.recap-usage li { display: grid; grid-template-columns: 10px 1fr auto; gap: 7px; align-items: center; font-size: 12px; }
+.recap-usage li { display: grid; grid-template-columns: 10px 1fr auto; gap: 7px; align-items: center; font-size: var(--fs-12); }
 .recap-key { width: 8px; height: 8px; border-radius: 2px; }
 .recap-uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand); }
-.recap-pct { font: 600 11px var(--font-mono); color: var(--sand-dim); }
+.recap-pct { font: 600 var(--fs-11) var(--font-mono); color: var(--sand-dim); }
 .seg-0 { background: var(--glass); }
 .seg-1 { background: var(--amber); }
 .seg-2 { background: var(--coral); }
@@ -152,9 +152,9 @@ body.celebrating .toast { bottom: auto; top: 64px; }
 
 /* Ordinary toasts: a rounded card rather than a pill once text wraps, and the
    action never gets squeezed. */
-.toast { border-radius: 14px; max-width: min(86%, 380px); line-height: 1.35; text-align: left; padding: 9px 12px 9px 14px; }
+.toast { border-radius: var(--r-lg); max-width: min(86%, 380px); line-height: 1.35; text-align: left; padding: 9px 12px 9px 14px; }
 .toast > span { min-width: 0; }
 .toast-action { flex: none; white-space: nowrap; padding: 5px 12px; }
 
 /* Shellby screen headers are tight: the share button is icon-only there. */
-.view-head .share-icon { padding: 0 9px; font-size: 15px; }
+.view-head .share-icon { padding: 0 9px; font-size: var(--fs-15); }

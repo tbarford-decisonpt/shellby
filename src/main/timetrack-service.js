@@ -391,7 +391,10 @@ class TimeTracker {
   async copyText(opts) {
     const { range, summary } = await this.exportData(opts);
     if (!summary.projects.some(p => p.seconds)) return { ok: false, error: 'No time in that range to copy.' };
-    this.deps.electron.clipboard.writeText(tt.toText(summary, range.label));
+    // Electron 44's writeText is a promise: a busy clipboard is a failed copy, not a silent one.
+    try { await this.deps.electron.clipboard.writeText(tt.toText(summary, range.label)); } catch {
+      return { ok: false, error: "Couldn't copy it: something else is holding the clipboard. Try again." };
+    }
     return { ok: true };
   }
 

@@ -1,7 +1,7 @@
 /* Line comments on a turn's diff (line-comments-ui.js). Sand is yours: the
    lines you picked, the notes you left, the bar that sends them. */
 
-.rv-hint { margin: 0 0 4px; font-size: 11px; }
+.rv-hint { margin: 0 0 4px; font-size: var(--fs-11); }
 
 /* Its notes and boxes stay put while the code scrolls sideways under them. */
 .diff.reviewable { container-type: inline-size; }
@@ -25,40 +25,40 @@
   margin: 3px 0 5px; padding: 7px 9px;
   border-radius: var(--r-sm); border-left: 2px solid var(--sand);
   background: var(--reef-2);
-  font: 12.5px/1.45 var(--font-body); font-stretch: normal; color: var(--sand);
+  font: var(--fs-12-5)/1.45 var(--font-body); font-stretch: normal; color: var(--sand);
   white-space: normal;
   animation: fadein .15s var(--ease-out);
 }
-.rv-where { font: 600 10px var(--font-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--sand-dim); }
+.rv-where { font: 600 var(--fs-10) var(--font-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--sand-dim); }
 .rv-box { display: grid; gap: 6px; }
 .rv-text {
   width: 100%; box-sizing: border-box; min-height: 52px; max-height: 180px; resize: vertical;
   padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-sm);
-  background: var(--abyss); color: var(--sand); font: 12.5px/1.45 var(--font-body);
+  background: var(--abyss); color: var(--sand); font: var(--fs-12-5)/1.45 var(--font-body);
 }
 .rv-text:focus { outline: none; border-color: var(--sand-dim); }
 .rv-text::placeholder { color: var(--sand-faint); }
 .rv-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .rv-actions .slim-btn { height: 26px; }
-.rv-actions .muted { margin-left: auto; font-size: 11px; }
+.rv-actions .muted { margin-left: auto; font-size: var(--fs-11); }
 
 .rv-note-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
 .rv-note-head .rv-where { margin-right: auto; }
 .rv-body { white-space: pre-wrap; overflow-wrap: anywhere; }
-.rv-link { border: 0; padding: 0; background: none; font: 11px var(--font-body); color: var(--sand-dim); cursor: pointer; }
+.rv-link { border: 0; padding: 0; background: none; font: var(--fs-11) var(--font-body); color: var(--sand-dim); cursor: pointer; }
 .rv-link:hover { color: var(--sand); text-decoration: underline; }
 .rv-link:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 2px; }
 .rv-note.sent { border-left-color: var(--line); opacity: .7; }
-.rv-sent { font: 600 10px var(--font-mono); text-transform: uppercase; color: var(--glass); }
+.rv-sent { font: 600 var(--fs-10) var(--font-mono); text-transform: uppercase; color: var(--glass); }
 
 /* How many comments a turn has waiting, beside its +/− counts. */
-.chg-notes { flex: none; margin-left: auto; padding: 0 6px; border-radius: 8px; background: rgba(243, 230, 204, .14); font: 10.5px/16px var(--font-mono); font-stretch: 88%; color: var(--sand); }
+.chg-notes { flex: none; margin-left: auto; padding: 0 6px; border-radius: 8px; background: rgba(243, 230, 204, .14); font: var(--fs-10-5)/16px var(--font-mono); font-stretch: 88%; color: var(--sand); }
 
 /* Above the box: the review so far, and sending it. */
 .review-bar {
   display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 4px 4px 4px 10px;
   border-radius: var(--r-sm); background: var(--reef); border: 1px solid var(--line);
-  border-left: 2px solid var(--sand); font-size: 12px; animation: fadein .18s var(--ease-out);
+  border-left: 2px solid var(--sand); font-size: var(--fs-12); animation: fadein .18s var(--ease-out);
 }
 .review-bar[hidden] { display: none; }
 .review-bar > svg { flex: none; width: 14px; height: 14px; color: var(--sand); }

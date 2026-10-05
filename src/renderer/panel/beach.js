@@ -38,7 +38,7 @@
   const risen = new Set();   // castles that have already come up this session
 
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const plural = (n, one, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  const plural = (n, one, many) => SB.plural(n, one, many, x => x.toLocaleString());
   const when = t => new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
   const monthYear = t => new Date(t).toLocaleDateString([], { month: 'long', year: 'numeric' });
   const clamp = (x, a, b) => Math.min(b, Math.max(a, x));

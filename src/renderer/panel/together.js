@@ -13,7 +13,7 @@
 
   const life = () => state.life;
   const when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
-  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const { plural } = SB;
   const until = t => {
     const m = Math.max(1, Math.ceil((t - Date.now()) / 60000));
     return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;

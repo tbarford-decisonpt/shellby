@@ -208,7 +208,11 @@ function register(deps) {
     const entry = isStr(id) ? history.get(id) : null;
     if (!entry) return { ok: false, error: 'Send it something first: there is nothing to export yet.' };
     const md = exporter.toMarkdown(entry, history.load(id));
-    if (to === 'clipboard') { clipboard.writeText(md); return { ok: true, to }; }
+    if (to === 'clipboard') {
+      // Electron 44's writeText is a promise: report what actually happened.
+      try { await clipboard.writeText(md); } catch { return { ok: false, error: "Couldn't copy it: something else is holding the clipboard. Try again." }; }
+      return { ok: true, to };
+    }
     const r = await dialog.showSaveDialog(deps.panel(), {
       title: 'Export conversation', defaultPath: path.join(app.getPath('documents'), exporter.fileName(entry)),
       filters: [{ name: 'Markdown', extensions: ['md'] }, { name: 'Text', extensions: ['txt'] }],

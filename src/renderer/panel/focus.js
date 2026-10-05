@@ -19,7 +19,7 @@
     $('focusClock').hidden = !v.phase;
     clearInterval(ticker);
     if (v.phase) {
-      const tick = () => { $('focusClock').textContent = clock(v.endsAt - Date.now()); };
+      const tick = () => { if (!document.hidden) $('focusClock').textContent = clock(v.endsAt - Date.now()); };
       tick();
       ticker = setInterval(tick, 1000);
     }

@@ -1,8 +1,5 @@
+/* Colour tokens come from ../shared/tokens.css. --px is the crab's own pixel size. */
 :root {
-  --ink: #0c1719;
-  --sand: #f3e6cc;
-  --coral: #ff7a5c;
-  --glass: #7fd6c2;
   --px: 4px;
 }
 html, body {
@@ -39,8 +36,8 @@ html, body {
 }
 .helper .tag {
   position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
-  max-width: 100px; padding: 2px 6px; border-radius: 6px;
-  font: 600 10px/1.2 "Pixelify Sans", monospace; color: var(--ink); background: var(--sand);
+  max-width: 100px; padding: 2px 6px; border-radius: var(--r-sm);
+  font: 600 var(--fs-10)/1.2 "Pixelify Sans", monospace; color: var(--ink); background: var(--sand);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   box-shadow: 0 1px 0 rgba(0,0,0,.35);
   opacity: 0; transition: opacity .15s; pointer-events: none;
@@ -52,7 +49,7 @@ html, body {
 .helper.leaving { position: absolute; bottom: 0; animation: helper-out .9s ease-in forwards; pointer-events: none; }
 .more {
   align-self: center; padding: 2px 7px; border-radius: 99px;
-  font: 700 11px "Pixelify Sans", monospace; color: var(--ink); background: var(--glass);
+  font: 700 var(--fs-11) "Pixelify Sans", monospace; color: var(--ink); background: var(--glass);
 }
 /* a friend's crab, visiting: strolls in from the left, bobs, waves now and then */
 .helper.visitor { cursor: default; margin-right: 6px; animation: visitor-in 1.1s cubic-bezier(.2,.8,.3,1) backwards; }
@@ -71,8 +68,8 @@ html, body {
 /* ---------- busy count ---------- */
 #count {
   position: absolute; left: 10px; bottom: 12px; min-width: 20px; height: 20px; padding: 0 6px;
-  border-radius: 10px; display: grid; place-items: center;
-  font: 700 11px "Martian Mono", monospace; color: var(--ink); background: var(--glass);
+  border-radius: var(--r); display: grid; place-items: center;
+  font: 700 var(--fs-11) "Martian Mono", monospace; color: var(--ink); background: var(--glass);
   box-shadow: 0 1px 0 rgba(0,0,0,.35);
   transform: scale(0); transition: transform .3s cubic-bezier(.3,1.7,.5,1);
 }
@@ -83,23 +80,23 @@ html, body {
    until you say you've checked (see renderBackground in panel/settings.js). */
 #bgBadge {
   position: absolute; left: 6px; top: 6px; height: 20px; padding: 0 7px;
-  border: 0; border-radius: 10px; display: flex; align-items: center; gap: 4px;
-  font: 700 11px "Martian Mono", monospace; color: #3d2a00; background: #ffd23f;
+  border: 0; border-radius: var(--r); display: flex; align-items: center; gap: 4px;
+  font: 700 var(--fs-11) "Martian Mono", monospace; color: #3d2a00; background: #ffd23f;
   box-shadow: 0 1px 0 rgba(0,0,0,.35); cursor: pointer;
   animation: bg-breathe 2.4s ease-in-out infinite;
 }
 #bgBadge[hidden] { display: none; } /* display:flex above would otherwise beat the attribute */
 #bgBadge:hover { filter: brightness(1.08); }
 #bgBadge:focus-visible { outline: 2px dashed var(--glass); outline-offset: 3px; }
-#bgBadge::before { content: "⚙"; font-size: 12px; animation: bg-turn 3.6s linear infinite; }
+#bgBadge::before { content: "⚙"; font-size: var(--fs-12); animation: bg-turn 3.6s linear infinite; }
 @keyframes bg-turn { to { transform: rotate(360deg); } }
 @keyframes bg-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 
 /* ---------- your dev servers: ":5173" while one's up, red when one crashed ---------- */
 #srvPill {
   position: absolute; right: 6px; top: 6px; height: 20px; padding: 0 7px;
-  border: 0; border-radius: 10px; display: flex; align-items: center; gap: 5px;
-  font: 700 11px "Martian Mono", monospace; color: #06201b; background: var(--glass);
+  border: 0; border-radius: var(--r); display: flex; align-items: center; gap: 5px;
+  font: 700 var(--fs-11) "Martian Mono", monospace; color: #06201b; background: var(--glass);
   box-shadow: 0 1px 0 rgba(0,0,0,.35); cursor: pointer;
 }
 #srvPill[hidden] { display: none; }
@@ -172,7 +169,7 @@ html, body {
   position: absolute; right: 6px; top: 6px;
   min-width: 26px; height: 26px; padding: 0 8px;
   display: grid; place-items: center;
-  font: 700 15px/1 "Pixelify Sans", monospace; color: var(--ink);
+  font: 700 var(--fs-15)/1 "Pixelify Sans", monospace; color: var(--ink);
   background: var(--sand);
   border-radius: 8px;
   box-shadow: 0 2px 0 rgba(0,0,0,.35);
@@ -208,14 +205,14 @@ html, body {
 #zzz { position: absolute; left: 34%; top: 14px; opacity: 0; transition: opacity .6s; pointer-events: none; }
 .state-sleeping #zzz { opacity: 1; }
 #zzz i {
-  position: absolute; font: 700 13px "Pixelify Sans", monospace; font-style: normal;
+  position: absolute; font: 700 var(--fs-13) "Pixelify Sans", monospace; font-style: normal;
   color: var(--sand); text-shadow: 0 1px 0 rgba(0,0,0,.5);
   opacity: 0;
 }
 /* only while he sleeps: a loop under an invisible parent still costs every frame */
 .state-sleeping #zzz i { animation: float 3s ease-in infinite; }
 #zzz i:nth-child(2) { animation-delay: 1s; left: 8px; }
-#zzz i:nth-child(3) { animation-delay: 2s; left: 16px; font-size: 16px; }
+#zzz i:nth-child(3) { animation-delay: 2s; left: 16px; font-size: var(--fs-16); }
 
 @keyframes breathe { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-2px) } }
 @keyframes perk { 40% { transform: translateY(-4px) } }
@@ -259,21 +256,21 @@ html, body {
 #fx { position: absolute; left: 0; right: 0; top: 0; bottom: 14px; pointer-events: none; --fall-h: 150px; }
 
 /* ---------- health readings in the bubble (see shared/health.css for the moods) ---------- */
-.health-warn.state-idle #bubble, .health-warn.state-sleeping #bubble { background: #ffb347; color: #3d2200; font-size: 12px; }
+.health-warn.state-idle #bubble, .health-warn.state-sleeping #bubble { background: #ffb347; color: #3d2200; font-size: var(--fs-12); }
 .health-warn.state-idle #bubble::after, .health-warn.state-sleeping #bubble::after { border-top-color: #ffb347; }
-.health-critical.state-idle #bubble, .health-critical.state-sleeping #bubble { background: #ff5a4a; color: #fff; font-size: 12px; animation: pulse 1s ease-in-out infinite; }
+.health-critical.state-idle #bubble, .health-critical.state-sleeping #bubble { background: #ff5a4a; color: #fff; font-size: var(--fs-12); animation: pulse 1s ease-in-out infinite; }
 .health-critical.state-idle #bubble::after, .health-critical.state-sleeping #bubble::after { border-top-color: #ff5a4a; }
 
 /* ---------- XP: "+25 XP" floats up; level-up bubble ---------- */
 #xpFloat { position: absolute; left: 0; right: 0; bottom: calc(var(--px) * 13 + 30px); display: grid; justify-items: center; pointer-events: none; }
 #xpFloat span {
-  grid-area: 1 / 1; font: 700 13px "Pixelify Sans", monospace; color: #ffd23f;
+  grid-area: 1 / 1; font: 700 var(--fs-13) "Pixelify Sans", monospace; color: #ffd23f;
   text-shadow: 0 1px 0 #3d2a00, 0 0 6px rgba(255, 210, 63, .5);
   animation: xp-rise 1.8s cubic-bezier(.2, .8, .3, 1) forwards;
 }
-#xpFloat span.big { font-size: 17px; }
+#xpFloat span.big { font-size: var(--fs-17); }
 @keyframes xp-rise { 0% { transform: translateY(8px) scale(.6); opacity: 0; } 15% { transform: translateY(0) scale(1.1); opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-34px); opacity: 0; } }
-.state-levelup #bubble { background: #ffd23f; color: #3d2a00; font-size: 13px; animation: pulse .5s ease-in-out 5; }
+.state-levelup #bubble { background: #ffd23f; color: #3d2a00; font-size: var(--fs-13); animation: pulse .5s ease-in-out 5; }
 .state-levelup #bubble::after { border-top-color: #ffd23f; }
 .state-levelup #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) 3; }
 .state-levelup .part-claw { animation: wave .45s ease-in-out 6; }
@@ -289,7 +286,7 @@ html, body {
 .molt-in .part-shell { animation: molt-drop .7s cubic-bezier(.3, 1.5, .5, 1) backwards; }
 .molt-in #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) .65s 2; }
 .molt-in .part-claw { animation: wave .45s ease-in-out .65s 4; }
-.molt-out #bubble, .molt-bare #bubble, .molt-in #bubble { background: #ffd23f; color: #3d2a00; font-size: 12px; }
+.molt-out #bubble, .molt-bare #bubble, .molt-in #bubble { background: #ffd23f; color: #3d2a00; font-size: var(--fs-12); }
 .molt-out #bubble::after, .molt-bare #bubble::after, .molt-in #bubble::after { border-top-color: #ffd23f; }
 @keyframes molt-leave { 0% { transform: none; opacity: 1; } 100% { transform: translateX(-9px) translateY(2px) rotate(-14deg); opacity: 0; } }
 @keyframes molt-wriggle { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1px); } }
@@ -304,7 +301,7 @@ html, body {
 .state-petted #bubble::after { border-top-color: #ff8fab; }
 #hearts { position: absolute; left: 0; right: 0; bottom: calc(var(--px) * 12 + 26px); display: grid; justify-items: center; pointer-events: none; }
 #hearts span {
-  grid-area: 1 / 1; font: 700 15px "Pixelify Sans", monospace; color: #ff6b8b;
+  grid-area: 1 / 1; font: 700 var(--fs-15) "Pixelify Sans", monospace; color: #ff6b8b;
   text-shadow: 0 1px 0 #6b1d33; animation: heart-rise 1.5s cubic-bezier(.2, .8, .3, 1) backwards;
 }
 @keyframes purr { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-1px); } }
@@ -333,7 +330,7 @@ html, body {
    claw's group and pivot: one rotation sways arm and placard together. */
 .ci-red.state-idle:not(.tossing) .part-claw, .ci-red.state-working:not(.tossing) .part-claw { animation: sign-bob 1.6s ease-in-out infinite; }
 .ci-red.state-idle .part-eyes { transform: scaleY(.75) translateY(1px); }
-.ci-red.state-idle #bubble { background: #ff5a4a; color: #fff; font-size: 12px; }
+.ci-red.state-idle #bubble { background: #ff5a4a; color: #fff; font-size: var(--fs-12); }
 .ci-red.state-idle #bubble::after { border-top-color: #ff5a4a; }
 @keyframes sign-bob { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(3deg); } }
 
@@ -366,7 +363,7 @@ html, body {
 .state-cheer #sprite { animation: dance .5s ease-in-out infinite; }
 .state-cheer .part-claw { animation: wave .25s ease-in-out infinite; }
 .state-cheer [class*="part-legs"] { animation: leg .14s steps(1) infinite; }
-.state-cheer #bubble { background: #2dc653; color: #fff; font-size: 12px; animation: pulse .5s ease-in-out 6; }
+.state-cheer #bubble { background: #2dc653; color: #fff; font-size: var(--fs-12); animation: pulse .5s ease-in-out 6; }
 .state-cheer #bubble::after { border-top-color: #2dc653; }
 @keyframes dance { 0%, 100% { transform: rotate(-6deg) translateY(0); } 25% { transform: rotate(0) translateY(-6px); } 50% { transform: rotate(6deg) translateY(0); } 75% { transform: rotate(0) translateY(-6px); } }
 
@@ -374,18 +371,18 @@ html, body {
 .focus-focus.state-idle #sprite { animation: guard 2.4s ease-in-out infinite; }
 .focus-focus.state-idle .part-claw { transform: rotate(-12deg); animation: none; }
 .focus-focus.state-idle .part-eyes { animation: guard-look 5s steps(1) infinite; }
-.focus-focus.state-idle #bubble { background: #3a86ff; color: #fff; font: 700 12px "Martian Mono", monospace; }
+.focus-focus.state-idle #bubble { background: #3a86ff; color: #fff; font: 700 var(--fs-12) "Martian Mono", monospace; }
 .focus-focus.state-idle #bubble::after { border-top-color: #3a86ff; }
 .focus-break.state-idle #sprite { animation: breathe 4.5s ease-in-out infinite; }
 .focus-break.state-idle .part-eyes { transform: scaleY(.25); animation: none; }
 .focus-break.state-idle .part-claw { transform: rotate(10deg); animation: none; }
-.focus-break.state-idle #bubble { background: var(--glass); font: 700 12px "Martian Mono", monospace; }
+.focus-break.state-idle #bubble { background: var(--glass); font: 700 var(--fs-12) "Martian Mono", monospace; }
 .focus-break.state-idle #bubble::after { border-top-color: var(--glass); }
 @keyframes guard { 0%, 100% { transform: translateY(0) scaleY(1.02); } 50% { transform: translateY(-1px) scaleY(1.04); } }
 @keyframes guard-look { 0%, 100% { transform: translateX(0); } 40% { transform: translateX(-1px); } 70% { transform: translateX(1px); } }
 
 /* ---------- usage limit: napping with a countdown, then a big stretch when it resets ---------- */
-.limited.state-sleeping #bubble { background: #ffb347; color: #3d2200; font: 700 12px "Martian Mono", monospace; }
+.limited.state-sleeping #bubble { background: #ffb347; color: #3d2200; font: 700 var(--fs-12) "Martian Mono", monospace; }
 .limited.state-sleeping #bubble::after { border-top-color: #ffb347; }
 .state-refreshed #sprite { animation: stretch 1s cubic-bezier(.3, 1.4, .5, 1), jump .7s cubic-bezier(.3,1.6,.5,1) 1s 2; }
 .state-refreshed .part-claw { animation: wave .4s ease-in-out .2s 6; }
@@ -401,7 +398,7 @@ html, body {
 .saying #bubble {
   height: auto; min-height: 26px; max-width: 150px;
   padding: 4px 8px;
-  font: 700 12px/1.25 "Pixelify Sans", monospace;
+  font: 700 var(--fs-12)/1.25 "Pixelify Sans", monospace;
   white-space: normal; text-align: center;
   place-items: center;
 }
@@ -571,7 +568,7 @@ body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
 @keyframes coyote-claw { 0%, 55% { transform: none; } 100% { transform: rotate(-75deg) translateY(-3px); } }
 #alert {
   position: absolute; left: 50%; bottom: calc(18px + var(--px) * 14 + 6px);
-  font: 700 22px/1 "Pixelify Sans", monospace; color: #ffd23f;
+  font: 700 var(--fs-22)/1 "Pixelify Sans", monospace; color: #ffd23f;
   text-shadow: 0 2px 0 #3d2a00, 0 0 8px rgba(255, 210, 63, .6);
   opacity: 0; transform: translateX(-50%) scale(.2); pointer-events: none;
 }
@@ -605,7 +602,7 @@ body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
 #stars { position: absolute; z-index: 3; left: calc(50% + var(--px) * 4); bottom: calc(18px + var(--px) * 14); width: 0; height: 0; pointer-events: none; opacity: 0; transition: opacity .25s; }
 .dizzy #stars { opacity: 1; }
 #stars i {
-  position: absolute; font: 700 14px/1 "Pixelify Sans", monospace; font-style: normal; color: #ffd23f;
+  position: absolute; font: 700 var(--fs-14)/1 "Pixelify Sans", monospace; font-style: normal; color: #ffd23f;
   text-shadow: 0 1px 0 #3d2a00;
   offset-path: path('M -24 0 A 24 7 0 1 0 24 0 A 24 7 0 1 0 -24 0'); offset-rotate: 0deg;
 }
@@ -665,7 +662,7 @@ body.together-sing .part-eyes, body.together-sing .helper.visitor .part-eyes { a
 @keyframes together-blink { 0%, 80% { transform: none; } 90% { transform: scaleY(.3); } }
 .together-bit {
   position: fixed; z-index: 5; pointer-events: none;
-  font: 700 16px "Pixelify Sans", monospace; color: var(--glass); text-shadow: 0 1px 0 rgba(0,0,0,.45);
+  font: 700 var(--fs-16) "Pixelify Sans", monospace; color: var(--glass); text-shadow: 0 1px 0 rgba(0,0,0,.45);
   animation: together-rise 1.5s cubic-bezier(.2, .8, .3, 1) backwards;
 }
 body.together-party .together-bit { color: #ffd166; }
@@ -693,7 +690,7 @@ body.together-party .together-bit { color: #ffd166; }
 .sticker-land .part-shell { animation: sticker-squash .45s cubic-bezier(.3, 1.6, .5, 1); }
 .sticker-land #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) .35s 1; }
 @keyframes sticker-squash { 0% { transform: scale(1.14, .82); } 60% { transform: scale(.97, 1.04); } 100% { transform: none; } }
-.state-stickered #bubble { background: #ffd23f; color: #3d2a00; font-size: 12px; }
+.state-stickered #bubble { background: #ffd23f; color: #3d2a00; font-size: var(--fs-12); }
 .state-stickered #bubble::after { border-top-color: #ffd23f; }
 #stickerFly { position: absolute; pointer-events: none; transform-origin: 0 0; }
 #stickerFly svg { display: block; }

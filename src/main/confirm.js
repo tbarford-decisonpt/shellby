@@ -39,6 +39,24 @@ const MAX_WAITING = 3;
 let queue = Promise.resolve();
 let waiting = 0;
 
+/**
+ * @typedef {object} ConfirmSpec
+ * @property {string} title
+ * @property {string} [message]
+ * @property {string} [detail]
+ * @property {string} [note]
+ * @property {string} [icon]
+ * @property {boolean} [danger]
+ * @property {{ label: string, style?: string }[]} buttons
+ * @property {number} [defaultId]
+ * @property {number} [cancelId]  defaults to the last button
+ */
+
+/**
+ * @param {import('electron').BrowserWindow | null} parent  centred on it (and modal to it) when it's showing
+ * @param {ConfirmSpec} spec
+ * @returns {Promise<number>} the chosen button's index; cancelId if closed, refused or past MAX_WAITING
+ */
 function ask(parent, spec) {
   const cancelId = spec.cancelId ?? spec.buttons.length - 1;
   if (waiting >= MAX_WAITING) return Promise.resolve(cancelId);

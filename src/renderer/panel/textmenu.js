@@ -58,21 +58,12 @@
   // Keeps the field's caret and selection while you click an item.
   menu.addEventListener('mousedown', e => e.preventDefault());
 
+  // Arrows, Home and End are core.js's, as in every menu.
   menu.addEventListener('keydown', e => {
-    const items = [...menu.querySelectorAll('.menu-item:not(:disabled)')];
-    const i = items.indexOf(document.activeElement);
-    let to;
-    if (e.key === 'ArrowDown') to = items[(i + 1) % items.length];
-    else if (e.key === 'ArrowUp') to = items[(i - 1 + items.length) % items.length];
-    else if (e.key === 'Home') to = items[0];
-    else if (e.key === 'End') to = items[items.length - 1];
-    else if (e.key === 'Escape' || e.key === 'Tab') {
-      e.preventDefault();
-      e.stopPropagation(); // Esc closes the menu, not the panel
-      return close();
-    } else return;
+    if (e.key !== 'Escape' && e.key !== 'Tab') return;
     e.preventDefault();
-    to?.focus();
+    e.stopPropagation(); // Esc closes the menu, not the panel
+    close();
   });
 
   // Mouse users keep focus in the field, so Esc arrives there, not in the menu.

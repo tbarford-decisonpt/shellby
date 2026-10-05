@@ -10,6 +10,7 @@
   const URL_HELD = new RegExp(`${URL_MARK}(\\d+)${URL_MARK}`, 'g');
   const CODE_MARK = String.fromCharCode(0);
   const CODE_HELD = new RegExp(`${CODE_MARK}(\\d+)${CODE_MARK}`, 'g');
+  const MARKS = new RegExp(`[${CODE_MARK}${URL_MARK}]`, 'g');
 
   function inline(s) {
     const codes = [];
@@ -45,7 +46,8 @@
   };
 
   function render(src) {
-    const text = esc(String(src ?? '').replace(/\r\n?/g, '\n'));
+    // The placeholder characters can't come from the text itself, so no one can forge one.
+    const text = esc(String(src ?? '').replace(/\r\n?/g, '\n').replace(MARKS, ''));
     const lines = text.split('\n');
     const out = [];
     let para = [];

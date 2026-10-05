@@ -157,7 +157,7 @@ function wireGithub(d) {
       .filter(a => a && SLOT_OK.has(a.slot)).map(publicItem);
     const home = card.home && shells.SHELLS.find(s => s.id === card.home) || null;
     // Their stickers by spot, onto however their crab looks here.
-    const onShell = d.placeStickers(skin, home, (card.stickers?.shell || []).map((e, i) => ({ ...e, id: `guest-${i}`, weather: 'fresh' })));
+    const onShell = d.stickerService.placeStickers(skin, home, (card.stickers?.shell || []).map((e, i) => ({ ...e, id: `guest-${i}`, weather: 'fresh' })));
     return { skin, accessories, shell: shells.renderShell(home), level: card.level, stickers: onShell };
   }
   const SLOT_OK = new Set(['shell', 'neck', 'hat', 'face', 'held']);
@@ -265,7 +265,7 @@ function wireGithub(d) {
       d.flashState('asking', 5000);
       d.notify(`Review requested: ${where}`, pr.title, open);
     } else if (type === 'merged') {
-      d.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
+      d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
     }
   }
 

@@ -18,7 +18,10 @@ const { EFFORTS } = require('../session');
 const sounds = require('../sounds');
 const voice = require('../voice');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerSettingsIpc(ipcMain, d) {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
@@ -85,6 +88,7 @@ function registerSettingsIpc(ipcMain, d) {
     if (allowed.wander === false || allowed.climb === 'off') d.climbing?.leave();
     if (allowed.wander === false && !d.perching?.isAway() && !d.climbing?.isAway()) d.motion?.stop(); // off a wall he lets go instead (above)
     const prevHotkey = d.config.get('hotkey');
+    /** @type {string | null} */
     let hotkeyError = null;
     if ('hotkey' in allowed && allowed.hotkey !== prevHotkey) {
       if (typeof allowed.hotkey !== 'string' || !d.applyHotkey(allowed.hotkey, prevHotkey)) {
@@ -94,6 +98,7 @@ function registerSettingsIpc(ipcMain, d) {
       }
     }
     // Push-to-talk only goes on once Windows has shown it can listen.
+    /** @type {string | null} */
     let pushToTalkError = null;
     if (allowed.pushToTalk && !d.config.get('pushToTalk')) {
       const r = await d.dictation.warm();

@@ -15,8 +15,8 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 
 /* ---------------------------------------------------------------- the scene */
 .tk-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; }
-.tk-head h3 { margin: 0; font: 600 22px/1.15 var(--font-pixel); color: var(--sand); }
-.tk-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--sand-dim); }
+.tk-head h3 { margin: 0; font: 600 var(--fs-22)/1.15 var(--font-pixel); color: var(--sand); }
+.tk-sub { margin: 2px 0 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
 .tk-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .tk-stage {
@@ -27,7 +27,7 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 }
 /* The tank itself: a thin rim of glass around the water. */
 .tk-frame {
-  position: relative; line-height: 0; border-radius: 6px; overflow: hidden;
+  position: relative; line-height: 0; border-radius: var(--r-sm); overflow: hidden;
   box-shadow: 0 0 0 2px rgba(127, 214, 194, .18), 0 0 0 3px rgba(0, 0, 0, .5), 0 10px 24px -12px rgba(0, 0, 0, .7);
 }
 .tk-canvas { display: block; image-rendering: pixelated; }
@@ -48,8 +48,8 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 .tk-hit-crab:hover { outline-color: transparent; }
 .tk-tag { /* the name over whatever you're pointing at */
   position: absolute; z-index: 4; translate: -50% calc(-100% - 6px); padding: 2px 7px; pointer-events: none; white-space: nowrap; line-height: 1.4;
-  font: 600 11.5px var(--font-body); color: var(--sand); background: rgba(6, 19, 22, .88);
-  border: 1px solid var(--line); border-radius: 6px;
+  font: 600 var(--fs-11-5) var(--font-body); color: var(--sand); background: rgba(6, 19, 22, .88);
+  border: 1px solid var(--line); border-radius: var(--r-sm);
 }
 
 .tk-empty {
@@ -57,14 +57,14 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
   display: grid; gap: 2px; padding: 9px 13px; pointer-events: none; text-align: center;
   background: rgba(6, 19, 22, .82); border: 1px solid var(--line); border-radius: var(--r);
 }
-.tk-empty b { font: 600 15px var(--font-pixel); color: var(--sand); }
-.tk-empty span { font-size: 12px; color: var(--sand-dim); }
+.tk-empty b { font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); }
+.tk-empty span { font-size: var(--fs-12); color: var(--sand-dim); }
 
 /* The piece you've picked, and what you can do to it. */
 .tk-picked { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
-.tk-picked-name { margin-right: auto; font: 600 14px var(--font-pixel); color: var(--sand); }
+.tk-picked-name { margin-right: auto; font: 600 var(--fs-14) var(--font-pixel); color: var(--sand); }
 .tk-keys { margin: 8px 0 0; }
-.tk-note { margin: 8px 0 0; font-size: 12.5px; color: var(--sand-dim); }
+.tk-note { margin: 8px 0 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
 
 /* ---------------------------------------------------------------- the tray */
 .tk-tray { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
@@ -87,18 +87,18 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 .tk-item.locked .tk-thumb canvas { filter: brightness(0) opacity(.45); } /* a silhouette until it's earned */
 .tk-thumb { display: grid; place-items: end center; width: 100%; height: 48px; }
 .tk-thumb canvas { display: block; max-width: 100%; max-height: 48px; image-rendering: pixelated; }
-.tk-item-name { font-size: 12px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
-.tk-item-meta { font-size: 11px; line-height: 1.3; color: var(--sand-dim); }
+.tk-item-name { font-size: var(--fs-12); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.tk-item-meta { font-size: var(--fs-11); line-height: 1.3; color: var(--sand-dim); }
 .tk-item .dot-badge { top: 5px; right: 5px; }
 
 .tk-settings { display: grid; gap: 10px; margin-top: 14px; }
 .tk-setting { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; }
-.tk-setting-label { font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.tk-setting-label { font: 600 var(--fs-10) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
 .tk-sizes { flex-wrap: wrap; }
 .tk-sizes button, .tk-light button { padding: 0 8px; white-space: nowrap; }
 .tk-sizes button[aria-checked="true"], .tk-light button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 .tk-sizes button[disabled] { cursor: not-allowed; opacity: .5; }
-.tk-lock { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
+.tk-lock { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
 
 /* ---------------------------------------------------------------- where decor comes from */
 #tkKeyMeta { display: inline-flex; align-items: center; gap: 8px; }
@@ -109,9 +109,9 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 .tk-src { display: grid; gap: 4px; padding: 9px 12px 10px; }
 .tk-src + .tk-src { border-top: 1px solid var(--line-soft); }
 .tk-src-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.tk-src-name { font: 600 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
-.tk-src-n { font: 600 14px var(--font-pixel); color: var(--sand); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tk-src p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--sand-dim); max-width: 60ch; }
+.tk-src-name { font: 600 var(--fs-10) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.tk-src-n { font: 600 var(--fs-14) var(--font-pixel); color: var(--sand); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tk-src p { margin: 0; font-size: var(--fs-12); line-height: 1.45; color: var(--sand-dim); max-width: 60ch; }
 .tk-src p b { font-weight: 700; color: var(--sand); }
 /* How much of a source is his: the panel's meter look, filled by --fill (0 to 1). */
 .tk-bar { position: relative; display: block; height: 4px; border-radius: 2px; background: var(--reef-2); overflow: hidden; }

@@ -170,10 +170,7 @@
     } });
   }
 
-  function menuItem(title, sub, onclick, { tone = '', disabled = false } = {}) {
-    return h('button', { class: `menu-item${tone ? ` ${tone}` : ''}`, type: 'button', role: 'menuitem', disabled, onclick: () => { SB.closeMenus(); onclick(); } },
-      h('span', {}, h('div', { class: 'mi-title', text: title }), sub ? h('div', { class: 'mi-sub', text: sub }) : null));
-  }
+  const { menuItem } = SB;
 
   function openMenu(anchor, build) {
     SB.openMenu($('snipMenu'), anchor, build);

@@ -110,14 +110,57 @@ SB.compact = n => (n == null ? '' : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000
 
 SB.prettyAccel = a => String(a || '').replace(/Control/g, 'Ctrl').replace(/\+/g, ' + ');
 
+// "1 file", "3 files", "2 children". format writes the number (n => n.toLocaleString()
+// for counts that can run into the thousands).
+SB.plural = (n, one, many = `${one}s`, format = String) => `${format(n)} ${n === 1 ? one : many}`;
+
+// A preference kept on this PC. Storage can refuse (then it lasts this session),
+// and an empty value reads as no value.
+SB.pref = (key, fallback = null) => { try { return window.localStorage.getItem(key) || fallback; } catch { return fallback; } };
+SB.pref.set = (key, value) => { try { window.localStorage.setItem(key, String(value)); } catch { /* storage refused: it lasts this session */ } };
+
+// Redraw part of a screen without losing your place: draw(), then focus goes back
+// to the control with the same data-<attr> (data-keep unless told otherwise),
+// and `scroller` keeps its scroll position.
+SB.focusKept = (box, key, { attr = 'keep', preventScroll = false } = {}) => {
+  const el = [...box.querySelectorAll(`[data-${attr}]`)].find(e => e.dataset[attr] === key);
+  if (!el) return false;
+  el.focus({ preventScroll });
+  return document.activeElement === el;
+};
+SB.keepFocus = (box, draw, { attr = 'keep', scroller = null, preventScroll = false } = {}) => {
+  const a = document.activeElement;
+  const key = a && box.contains(a) ? a.dataset[attr] : null;
+  const top = scroller ? scroller.scrollTop : 0;
+  draw();
+  if (scroller) scroller.scrollTop = top;
+  if (key) SB.focusKept(box, key, { attr, preventScroll });
+};
+
+// ------------------------------------------------------------------ announcements
+// One polite status line for screen readers, so lists and feeds that redraw all
+// the time don't have to be live regions themselves. Emptied first, so saying
+// the same thing twice is still heard twice.
+let announceTimer;
+SB.announce = text => {
+  const el = SB.$('announcer');
+  if (!el) return;
+  el.textContent = '';
+  clearTimeout(announceTimer);
+  if (text) announceTimer = setTimeout(() => { el.textContent = text; }, 60);
+};
+
+// The toast stays in the page (a status region that is always there gets read
+// out; one that appears with its words already in it often doesn't), and is
+// emptied rather than hidden.
 let toastTimer;
 SB.toast = (msg, { action, onAction, ms = 2800 } = {}) => {
   const t = SB.$('toast');
+  const clear = () => t.replaceChildren();
   // (replaceChildren would print a literal "null" for a missing button, so filter it out)
-  t.replaceChildren(...[SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { t.hidden = true; onAction(); } }, action) : null].filter(Boolean));
-  t.hidden = false;
+  t.replaceChildren(...[SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { clear(); onAction(); } }, action) : null].filter(Boolean));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, action ? ms + 2500 : ms);
+  toastTimer = setTimeout(clear, action ? ms + 2500 : ms);
 };
 
 // Stroke icon from path data (built with DOM APIs, never innerHTML).
@@ -247,6 +290,39 @@ document.addEventListener('mousedown', e => {
   if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .slash-menu, .snip-more, #input')) SB.closeMenus();
 });
 
+// Up/Down walk a menu's items (wrapping round), Home/End jump to either end.
+// Every .popover with role=menu gets this; Esc is tabs.js's (SB.closeMenus).
+const MENU_ITEMS = '[role^="menuitem"]:not(:disabled)';
+document.addEventListener('keydown', e => {
+  if (e.altKey || e.ctrlKey || e.metaKey || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const menu = e.target.closest?.('.popover[role="menu"]');
+  if (!menu) return;
+  const items = [...menu.querySelectorAll(MENU_ITEMS)].filter(el => el.getClientRects().length > 0);
+  if (!items.length) return;
+  e.preventDefault();
+  const i = items.indexOf(document.activeElement);
+  const n = items.length;
+  const next = { ArrowDown: i + 1, ArrowUp: i < 0 ? n - 1 : i - 1, Home: 0, End: n - 1 }[e.key];
+  items[(next + n) % n].focus();
+});
+
+// One item for a popover menu: picking it closes the menu (focus goes back to the
+// button that opened it), then runs onPick. Two shapes:
+//   SB.menuItem(title, onPick)
+//   SB.menuItem(title, sub, onPick, { glyph, disabled, mono, tone })
+// glyph: a check column (pass '' for an empty one, so the titles line up).
+SB.menuItem = (title, sub, onPick, opts = {}) => {
+  if (typeof sub === 'function') return SB.menuItem(title, null, sub, onPick || {});
+  const { glyph, disabled = false, mono = false, tone = '' } = opts;
+  const h = SB.h;
+  return h('button', {
+    class: tone ? `menu-item ${tone}` : 'menu-item', type: 'button', role: 'menuitem', disabled: !!disabled,
+    onclick: () => { SB.closeMenus({ refocus: true }); onPick(); },
+  },
+  glyph === undefined ? null : h('span', { class: 'mi-check', 'aria-hidden': 'true' }, glyph || ''),
+  h('span', {}, h('div', { class: mono ? 'mi-title wf-mono' : 'mi-title', text: title }), sub ? h('div', { class: 'mi-sub', text: sub }) : null));
+};
+
 // ------------------------------------------------------------------ page never scrolls
 // Only the views scroll. If anything ever scrolls the page itself (e.g. a
 // scrollIntoView that runs out of room), snap it back so the title bar stays put.
@@ -266,11 +342,28 @@ for (const target of [window, document.body]) {
 (function tooltips() {
   const tip = document.createElement('div');
   tip.className = 'tip';
+  tip.id = 'sbTip';
   tip.setAttribute('role', 'tooltip');
   tip.hidden = true;
   document.body.append(tip);
   let target = null;
   let timer = null;
+  // The element the tip is showing for: it's described by the tip while it shows
+  // (the title it came from is gone), and gets back what it had before.
+  let described = null;
+  let describedBefore = null;
+  const undescribe = () => {
+    if (!described) return;
+    if (describedBefore == null) described.removeAttribute('aria-describedby');
+    else described.setAttribute('aria-describedby', describedBefore);
+    described = null;
+  };
+  const describe = el => {
+    undescribe();
+    described = el;
+    describedBefore = el.getAttribute('aria-describedby');
+    el.setAttribute('aria-describedby', describedBefore ? `${describedBefore} ${tip.id}` : tip.id);
+  };
 
   const claim = el => {
     const t = el.getAttribute('title');
@@ -302,8 +395,9 @@ for (const target of [window, document.body]) {
     tip.textContent = text;
     tip.hidden = false;
     place(el);
+    if (el.getAttribute('aria-label') !== text) describe(el); // else it would be read out twice
   };
-  const hide = () => { clearTimeout(timer); target = null; tip.hidden = true; };
+  const hide = () => { clearTimeout(timer); target = null; tip.hidden = true; undescribe(); };
 
   document.addEventListener('mouseover', e => {
     const el = e.target.closest?.('[title], [data-tip]');

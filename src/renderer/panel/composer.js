@@ -7,7 +7,7 @@
 (function () {
   const { h, api, state, $ } = SB;
   const input = $('input');
-  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const { plural } = SB;
 
   // ------------------------------------------------------------ the pick menu (@ files, Ctrl+R history)
 

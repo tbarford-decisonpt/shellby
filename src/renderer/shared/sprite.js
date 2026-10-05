@@ -3,6 +3,10 @@
 // can animate it; legs are split into alternating groups so they can scuttle.
 (function (root) {
   const SVG_NS = 'http://www.w3.org/2000/svg';
+  // A pack's colours become fill attributes: only plain #rrggbb ones are used
+  // (the same check minishell.js makes); anything else leaves the pixel empty.
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const colourOf = (pal, ch) => { const c = pal?.[ch]; return typeof c === 'string' && HEX.test(c) ? c : null; };
 
   // Connected components (8-neighbour) of all pixels belonging to `part`.
   function components(pixels, parts, part) {
@@ -71,7 +75,7 @@
         let x = 0;
         while (x < row.length) {
           const ch = row[x];
-          const color = pal[ch];
+          const color = colourOf(pal, ch);
           if (!color) { x++; continue; }
           const gname = groupName(ch, x, y);
           if (!gname) { x++; continue; }
@@ -181,7 +185,7 @@
     pixelsIn.forEach((row, y) => {
       let x = 0;
       while (x < row.length) {
-        const color = pal[row[x]];
+        const color = colourOf(pal, row[x]);
         if (!color) { x++; continue; }
         let end = x + 1;
         while (end < row.length && row[end] === row[x]) end++;

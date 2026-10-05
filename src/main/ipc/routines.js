@@ -9,7 +9,10 @@ const held = require('../held');
 const routineTemplates = require('../routine-templates');
 const { validateRoutine } = require('../routines');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerRoutinesIpc(ipcMain, d) {
   // ---- routines
   ipcMain.handle('usage:breakdown', () => d.usageBreakdown());

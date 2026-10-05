@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const os = require('os');
 const path = require('path');
@@ -189,7 +189,16 @@ test('list({ stale }): answers from the last list while a slow refresh runs', as
   assert.equal((await m.list()).ok, true);
   t += 10 * 60 * 1000; // the cache has gone stale, and the Skill Shop starts a refresh
   const refreshing = m.list({ refresh: true });
-  const r = await Promise.race([m.list({ stale: true }), new Promise(res => setTimeout(() => res('waited'), 500))]);
+  // Mocked clock: the stale answer gets every pending tick of work first, then
+  // the 500 ms "it waited" deadline passes at once instead of in real time.
+  mock.timers.enable({ apis: ['setTimeout'] });
+  let r;
+  try {
+    const raced = Promise.race([m.list({ stale: true }), new Promise(res => setTimeout(() => res('waited'), 500))]);
+    for (let i = 0; i < 10; i++) await new Promise(res => setImmediate(res));
+    mock.timers.tick(500);
+    r = await raced;
+  } finally { mock.timers.reset(); }
   assert.notEqual(r, 'waited', "didn't wait behind the marketplace update");
   assert.equal(r.plugins.length, 3);
   release();

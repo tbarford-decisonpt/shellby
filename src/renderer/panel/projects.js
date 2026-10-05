@@ -28,7 +28,7 @@
 
   // ------------------------------------------------------------------ words
 
-  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const { plural } = SB;
   const ago = t => (t ? SB.relTime(t) : '');
   const STATUS = {
     starting: s => (s.kind === 'install' ? 'Installing…' : 'Starting…'),
@@ -61,14 +61,9 @@
     if (openKey) await openProject(openKey, { quiet: true });
   }
 
-  // Redraw `box` with draw(), then put focus back on the same button and
-  // reopen the <details> that were open. Elements opt in with data-keep.
+  // Redraws go through SB.keepFocus, which puts focus back on the same button;
+  // these reopen the <details> that were open. Elements opt in with data-keep.
   const openDetails = new Set();
-  function keepingFocus(box, draw) {
-    const focused = box.contains(document.activeElement) ? document.activeElement.dataset.keep : null;
-    draw();
-    if (focused) [...box.querySelectorAll('[data-keep]')].find(el => el.dataset.keep === focused)?.focus();
-  }
   function keptDetails(keep, summary, ...body) {
     const d = h('details', { class: 'pj-more', dataset: { keep } }, h('summary', { text: summary }), ...body);
     d.open = openDetails.has(keep);
@@ -98,7 +93,8 @@
       return scope !== 'all' || !p.github?.archived || q;
     });
     const ordered = shown.map((p, i) => [p, i]).sort(([a, i], [b, j]) => SORTS[sort](a, b) || i - j).map(([p]) => p);
-    keepingFocus($('pjProjects'), () => $('pjProjects').replaceChildren(...ordered.map(projectRow)));
+    SB.keepFocus($('pjProjects'), () => $('pjProjects').replaceChildren(...ordered.map(projectRow)));
+    announceCount(ordered.length);
     renderSummary();
     const empty = $('pjEmpty');
     const none = !data.projects.length;
@@ -113,6 +109,20 @@
     renderGitHubNote();
   }
 
+  // The list redraws on every keystroke in the search box, so it isn't a live
+  // region; a screen reader hears how many are showing once you pause.
+  let countSaid = '';
+  let countTimer = null;
+  function announceCount(n) {
+    clearTimeout(countTimer);
+    countTimer = setTimeout(() => {
+      const text = plural(n, 'project');
+      if (text === countSaid || SB.state.view !== 'projects') return;
+      countSaid = text;
+      SB.announce(text);
+    }, 500);
+  }
+
   // "12 projects · 2 need you · 1 server up": the page's answer at a glance.
   function renderSummary() {
     const n = data.projects.filter(p => !p.github?.archived).length;
@@ -120,10 +130,10 @@
     const up = (servers?.servers || []).filter(isLive).length;
     const down = (servers?.servers || []).filter(s => s.status === 'crashed').length;
     $('pjSummary').replaceChildren(...[
-      h('span', { text: F.plural(n, 'project') }),
+      h('span', { text: plural(n, 'project') }),
       need && h('button', { type: 'button', class: 'pj-sum-need', text: `${need} need${need === 1 ? 's' : ''} you`, onclick: () => setSort('attention') }),
-      down && h('span', { class: 'pj-sum-down', text: `${F.plural(down, 'server')} down` }),
-      up && h('span', { text: `${F.plural(up, 'server')} up` }),
+      down && h('span', { class: 'pj-sum-down', text: `${plural(down, 'server')} down` }),
+      up && h('span', { text: `${plural(up, 'server')} up` }),
     ].filter(Boolean).flatMap((el, i) => (i ? [h('span', { class: 'pj-sep', 'aria-hidden': 'true', text: '·' }), el] : [el])));
     $('pjSummary').hidden = !data.projects.length;
   }
@@ -212,8 +222,7 @@
       menuItem('Project page', () => openProject(p.key)),
     ]);
   }
-  const menuItem = (text, run) => h('button', { type: 'button', class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); run(); } },
-    h('span', { class: 'mi-title', text }));
+  const { menuItem } = SB;
 
   function newHere(cwd, draft) {
     SB.setView('chat');
@@ -321,7 +330,7 @@
             p.github?.fork && h('span', { class: 'pj-tag', text: 'fork' }),
             p.github?.archived && h('span', { class: 'pj-tag', text: 'archived' })),
           sticker && h('span', { class: 'pj-hero-sticker', title: sticker.marks.map(m => m.name).join(', ') },
-            `${sticker.tierName} sticker · ${F.plural(sticker.ships, 'ship')}`,
+            `${sticker.tierName} sticker · ${plural(sticker.ships, 'ship')}`,
             sticker.marks.length ? ` · ${sticker.marks.map(m => m.icon).join(' ')}` : ''))),
       p.github?.description && h('p', { class: 'muted small pj-desc', text: p.github.description }),
       h('div', { class: 'row wrap pj-hero-acts' },
@@ -340,7 +349,7 @@
       : [h('section', { class: 'pj-clone' }, h('p', { class: 'muted', text: 'Not on this PC. Clone it to run it, and to see its git, tests and dependencies here.' }))];
     const foot = h('div', { class: 'row wrap pj-detail-foot' },
       h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Remove from Projects', onclick: () => removeProject(p) }));
-    keepingFocus($('pjDetailScreen'), () => $('pjDetailScreen').replaceChildren(head, ...cards.filter(Boolean), ...clones, foot));
+    SB.keepFocus($('pjDetailScreen'), () => $('pjDetailScreen').replaceChildren(head, ...cards.filter(Boolean), ...clones, foot));
   }
 
   function cloneSection(c, p) {
@@ -349,7 +358,7 @@
       c.branch && `on ${c.branch}`,
       git && (git.dirty ? plural(git.dirty, 'uncommitted change') : 'nothing uncommitted'),
       git?.unpushed && `${git.unpushed} unpushed`,
-      git?.stashes && F.plural(git.stashes, 'stash', 'stashes'),
+      git?.stashes && plural(git.stashes, 'stash', 'stashes'),
     ].filter(Boolean).join(' · ');
     const atRisk = !!(git && (git.dirty || git.unpushed)); // a boolean: h() would draw a bare 0
     return h('section', { class: 'pj-clone', dataset: { root: c.root } },
@@ -373,7 +382,7 @@
     const list = git?.copyList || [];
     if (!list.length) return null;
     const changed = list.filter(w => w.changed).length;
-    const d = keptDetails(`copies:${root}`, `${F.plural(list.length, 'copy', 'copies')} Shellby made${changed ? ` · ${changed} with changes` : ''}`,
+    const d = keptDetails(`copies:${root}`, `${plural(list.length, 'copy', 'copies')} Shellby made${changed ? ` · ${changed} with changes` : ''}`,
       h('ul', { class: 'pj-copy-list' }, list.map(w => h('li', {},
         h('code', { text: w.branch || 'detached', title: w.path }),
         w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' })))));

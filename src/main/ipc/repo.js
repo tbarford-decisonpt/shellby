@@ -10,7 +10,10 @@ const secretscan = require('../secretscan');
 const { MAX_TABS } = require('../sessions');
 const worktrees = require('../worktrees');
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerRepoIpc(ipcMain, d) {
   // ---- a copy of the repo per tab
   // Only a copy in Shellby's own folder: a History entry edited by hand can't
@@ -116,6 +119,10 @@ function registerRepoIpc(ipcMain, d) {
     return { ok: false, cancelled: true, secrets: n, error: 'Not pushed: it had something that looks like a secret.' };
   }
 
+  /**
+   * @param {string} root  the checkout to push
+   * @param {{ base?: string, tabId?: string }} [opts]  the branch to push, and the tab to note it in
+   */
   async function pushHome(root, { base, tabId } = {}) {
     if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
     const stopped = await secretGate(root);

@@ -50,7 +50,7 @@ function wireCrabApi(d) {
     if (intent.action === 'list_routines' || intent.action === 'add_routine') {
       if (d.config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };
       if (intent.action === 'list_routines') return { text: crabtools.routinesReply(d.routinesView()) };
-      return d.proposeRoutine(intent.routine);
+      return d.routineService.proposeRoutine(intent.routine);
     }
 
     if (['list_workflows', 'run_workflow', 'add_workflow'].includes(intent.action)) {
@@ -94,7 +94,7 @@ function wireCrabApi(d) {
       busy: own.busy + ext.busy,
       mood: d.healthMood,
       sample: d.health?.monitor?.latest || null,
-      limit: d.limitWait(),
+      limit: d.usageService.limitWait(),
       focus: d.focusState(),
     };
   }

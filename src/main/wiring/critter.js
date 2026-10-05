@@ -164,7 +164,7 @@ function wireCritter(d) {
     d.config.set({ voice: { ...state, seed, lastRunAt: now } });
     const occasion = voice.absenceOccasion(state.lastRunAt, now) || voice.timeOccasion(now);
     if (occasion) setTimeout(() => speak(occasion, { force: true }), 2500); // let him settle onto the desktop first
-    if (occasion === 'back') setTimeout(() => d.greet(now - state.lastRunAt), 2500);
+    if (occasion === 'back') setTimeout(() => d.awayService.greet(now - state.lastRunAt), 2500);
   }
 
   // Rolls every tab up into one mood: asking > working > flash > idle/sleeping.
@@ -181,7 +181,7 @@ function wireCritter(d) {
       background: ext.background || [],
     };
     let state = agg.state;
-    const limited = d.limitWait();
+    const limited = d.usageService.limitWait();
     if (state !== 'idle') d.lastActivity = Date.now();
     else if (d.flash && d.flash.until > Date.now()) state = d.flash.state;
     else if (limited && d.healthMood?.level !== 'critical') state = 'sleeping'; // naps until the limit resets
@@ -253,7 +253,7 @@ function wireCritter(d) {
       streak: streaks.streakOf(d.config.get('streaks'), Date.now()).current,
       ci: d.ci?.view().failing || 0,
       focus: d.focusState(),
-      limit: d.limitWait(),
+      limit: d.usageService.limitWait(),
     };
     statusLine.writeStatus(statusLine.formatStatus(s), d.statusFile(), statusLine.formatPlain(s));
   }

@@ -1,8 +1,15 @@
-/* Shellby panel — tabs, composer, mode/folder chips, usage meter, slash menu. */
+/* Shellby panel — tabs, composer, mode/folder chips, slash menu. The folder
+   chip's repository items live in tab-git.js, the context and usage meters in
+   tab-meters.js (both loaded after this). */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
   const input = $('input');
+  // Theirs, reached when they're called (the files load after this one).
+  const repoItems = tab => SB.repoItems(tab);
+  const syncContextUi = () => SB.syncContextUi();
+  const contextText = c => SB.contextText(c);
+  const contextLevel = c => SB.contextLevel(c);
 
   // ------------------------------------------------------------ tabs
 
@@ -164,7 +171,7 @@
 
   // The strip is one Tab stop: arrow keys, Home and End walk the conversations.
   function tabKey(e, id) {
-    if (e.target !== e.currentTarget) return; // its × button handles its own keys
+    if (e.target !== e.currentTarget) return; // keys in the rename box are the box's
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); return SB.activate(id); }
     if (e.key === 'F2') { e.preventDefault(); return SB.renameTab(id); }
     const ids = [...state.tabs.keys()];
@@ -174,7 +181,7 @@
     e.preventDefault();
     const to = ids[(next + ids.length) % ids.length];
     SB.activate(to);
-    [...$('tabs').querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === to)?.focus();
+    [...$('tabs').querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === to)?.querySelector('[role="tab"]').focus();
   }
 
   SB.renderTabStrip = () => {
@@ -186,19 +193,24 @@
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
+      // .tab draws the tab; inside it the role=tab part and its × sit side by
+      // side (a button can't live inside a tab).
       const btn = h('div', {
         class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
-        role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
-        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
+        role: 'presentation',
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
         onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
         onpointerdown: e => dragStart(e, t.id),
-        oncontextmenu: e => { e.preventDefault(); openTabMenu(t.id, e.currentTarget); },
+        oncontextmenu: e => { e.preventDefault(); openTabMenu(t.id, e.currentTarget.querySelector('[role="tab"]')); },
+      },
+      h('div', {
+        class: 'tab-main', role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
+        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
         onkeydown: e => tabKey(e, t.id),
       },
       tabIcon(t),
-      h('span', { class: 'tab-title', text: shownTitle(t) }),
+      h('span', { class: 'tab-title', text: shownTitle(t) })),
       // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
       h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
       t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
@@ -206,7 +218,7 @@
     }));
     if (keep?.id) {
       const tab = [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === keep.id);
-      (keep.x ? tab?.querySelector('.tab-x') : tab)?.focus({ preventScroll: true });
+      tab?.querySelector(keep.x ? '.tab-x' : '[role="tab"]')?.focus({ preventScroll: true });
     }
     // Only when the open tab changes, so a working tab redrawing the strip doesn't
     // snap it back while you're scrolling through the rest. Not while dragging:
@@ -900,401 +912,4 @@
       ...repoItems(tab),
     ];
   }));
-
-  // ------------------------------------------------------------ the repository: push it, bring every copy home
-
-  const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
-
-  // Filled in as the status comes back: first as of the last fetch, then
-  // again once the remote has been asked.
-  function repoItems(tab) {
-    const sep = h('div', { class: 'menu-sep', hidden: true });
-    const label = h('div', { class: 'menu-label', text: 'This repository', hidden: true });
-    const pushTitle = h('div', { class: 'mi-title', text: 'Push' });
-    const pushSub = h('div', { class: 'mi-sub' });
-    const pushBtn = h('button', { class: 'menu-item', hidden: true, disabled: true, onclick: () => { SB.closeMenus(); pushRepo(tab); } },
-      h('span', { class: 'mi-check', text: '⇡' }), h('span', {}, pushTitle, pushSub));
-    const homeSub = h('div', { class: 'mi-sub' });
-    const homeBtn = h('button', { class: 'menu-item', hidden: true, onclick: () => { SB.closeMenus(); bringAll(tab); } },
-      h('span', { class: 'mi-check', text: '↩' }), h('span', {}, h('div', { class: 'mi-title', text: 'Bring all home' }), homeSub));
-    const bothSub = h('div', { class: 'mi-sub' });
-    const bothBtn = h('button', { class: 'menu-item', hidden: true, onclick: () => { SB.closeMenus(); bringAll(tab, { push: true }); } },
-      h('span', { class: 'mi-check', text: '⇈' }), h('span', {}, h('div', { class: 'mi-title', text: 'Bring all home and push' }), bothSub));
-
-    const show = s => {
-      if (!s?.ok) return; // not a repository, or not on a branch: nothing to offer
-      sep.hidden = label.hidden = pushBtn.hidden = false;
-      pushTitle.textContent = `Push ${s.branch}`;
-      const checking = s.fetched || !s.remote ? '' : ' (checking…)';
-      const bits = [];
-      if (s.ahead) bits.push(`${plural(s.ahead, 'commit')} to push`);
-      if (s.behind) bits.push(`${s.behind} to take in from ${s.remote} first`);
-      pushSub.textContent = !s.remote ? 'No remote to push to.' : bits.length ? `${bits.join(' · ')}${checking}` : `Up to date with ${s.upstream}${checking}`;
-      pushBtn.disabled = !s.remote || (!s.ahead && !s.behind);
-
-      homeBtn.hidden = bothBtn.hidden = !s.copies;
-      const ready = s.copies - s.copiesBusy;
-      const busy = s.copiesBusy ? `; ${s.copiesBusy} still working, left for later` : '';
-      homeSub.textContent = `${plural(s.copies, 'copy', 'copies')} with work not in ${s.branch} yet${busy}. Merged one at a time`;
-      bothSub.textContent = s.remote ? `Then push ${s.branch} to ${s.remote}` : 'No remote to push to.';
-      homeBtn.disabled = !ready;
-      bothBtn.disabled = !ready || !s.remote;
-    };
-    api.repoStatus(tab?.id).then(s => {
-      show(s);
-      if (s?.ok && s.remote) api.repoStatus(tab?.id, { fetch: true }).then(f => show(f?.ok ? f : { ...s, fetched: true }));
-    });
-    return [sep, label, pushBtn, homeBtn, bothBtn];
-  }
-
-  function pushNews(r) {
-    if (r.pushed) return `Pushed ${plural(r.pushed, 'commit')} to ${r.remote}/${r.branch}${r.pulled ? `, after taking in ${r.pulled} from ${r.remote}` : ''}.`;
-    if (r.pulled) return `Took in ${plural(r.pulled, 'commit')} from ${r.remote}; nothing of yours to push.`;
-    return `${r.branch} is already up to date with ${r.remote}.`;
-  }
-
-  // A push that fails: a clash can be handed to Claude; a hook's refusal is
-  // written into the conversation by main, in full.
-  function pushTrouble(tab, r) {
-    if (r?.conflict && tab) {
-      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
-        SB.activate(tab.id);
-        SB.send(`Run git fetch, then merge ${r.upstream} into this branch (git merge ${r.upstream}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready${tab.worktree ? ' to bring home and push' : ' to push'}.`);
-      } });
-      return;
-    }
-    SB.toast(`${r?.error || "Couldn't push."}${r?.detail ? ' What git said is in the conversation.' : ''}`, { ms: 10000 });
-  }
-
-  async function pushRepo(tab) {
-    SB.toast('Pushing…', { ms: 30000 });
-    const r = await api.pushRepo(tab?.id);
-    if (r?.ok) return SB.toast(pushNews(r), { ms: 6000 });
-    pushTrouble(tab, r);
-  }
-
-  // A merge git refused for some other reason than a clash (files in your
-  // checkout in the way, a lock, a broken index): the copy's Claude can be
-  // asked to find out why and fix it. What git said is already in the conversation.
-  function offerFix(tab, r, base, { ms = 12000, text = r.error } = {}) {
-    SB.toast(text, { ms, action: 'Ask him to find out why', onAction: () => {
-      SB.activate(tab.id);
-      SB.send(`Bringing this copy home into ${base} failed: ${r.error}${r.detail ? `\n\nWhat git said:\n${r.detail}` : ''}\n\nThe merge runs in my checkout at ${r.root}. Find out why and fix it. Don't throw away or overwrite anything uncommitted there: if my own files are in the way, tell me which and ask before committing, stashing or moving them. Then tell me it's ready to bring home.`);
-    } });
-  }
-
-  async function bringAll(tab, { push = false } = {}) {
-    SB.toast(push ? 'Bringing them all home, then pushing…' : 'Bringing them all home…', { ms: 30000 });
-    const r = await api.bringAllHome(tab?.id, { push });
-    if (!r || (r.error && !r.results && !r.stopped && r.merged === undefined)) return SB.toast(r?.error || "Couldn't bring them home.", { ms: 8000 });
-    const bits = [r.merged ? `Merged ${plural(r.merged, 'copy', 'copies')} (${plural(r.commits, 'commit')}).` : 'Nothing new to merge.'];
-    if (r.skipped) bits.push(`${r.skipped} started from another branch and ${r.skipped === 1 ? 'was' : 'were'} left alone.`);
-    if (r.busy) bits.push(`${r.busy} still working, left for later.`);
-    const s = r.stopped;
-    if (s) {
-      const open = s.tabId && state.tabs.get(s.tabId);
-      bits.push(s.conflict ? `"${s.title || s.branch}" clashes with ${s.base}, so it stopped there.` : `Stopped at "${s.title || s.branch}": ${s.error}`);
-      if (s.conflict && open) {
-        return SB.toast(bits.join(' '), { ms: 14000, action: 'Ask him to sort it out', onAction: () => {
-          SB.activate(open.id);
-          SB.send(`Merge ${s.base} into this branch (git merge ${s.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
-        } });
-      }
-      if (s.fixable && open) return offerFix(open, s, s.base, { ms: 14000, text: bits.join(' ') });
-      if (s.conflict || s.fixable) bits.push('Open it from History to sort it out.');
-      return SB.toast(bits.join(' '), { ms: 14000 });
-    }
-    if (r.push && !r.push.ok) { SB.toast(bits.join(' '), { ms: 5000 }); return pushTrouble(tab, r.push); }
-    if (r.push) bits.push(pushNews(r.push));
-    SB.toast(bits.join(' '), { ms: 8000 });
-  }
-
-  // ------------------------------------------------------------ its own copy (worktrees.js)
-
-  $('branchChip').addEventListener('click', async () => {
-    const tab = SB.activeTab();
-    const w = tab?.worktree;
-    if (!w) return;
-    // Other tries at the same thing (branching.js): compare with them, or keep this one.
-    const family = $('branchMenu').hidden ? await api.branchFamily(tab.id).catch(() => []) : [];
-    const others = family.filter(f => !f.current);
-    const status = h('span', { class: 'mi-sub', text: 'Looking at the copy…' });
-    api.worktreeStatus(tab.id).then(s => {
-      if (!s?.ok) { status.textContent = s?.error || ''; return; }
-      const bits = [];
-      if (s.ahead) bits.push(`${s.ahead} commit${s.ahead === 1 ? '' : 's'}`);
-      if (s.uncommitted) bits.push(`${s.uncommitted} uncommitted file${s.uncommitted === 1 ? '' : 's'}`);
-      status.textContent = (bits.length ? `${bits.join(' and ')} not in ${w.base} yet.` : 'Nothing new in it yet.')
-        + (s.ignored?.length ? ` Ignored files (${s.ignored.slice(0, 3).join(', ')}${s.ignored.length > 3 ? '…' : ''}) go with the copy.` : '');
-    });
-    SB.openMenu($('branchMenu'), $('branchChip'), () => [
-      h('div', { class: 'menu-label', text: 'This conversation works in its own copy' }),
-      h('div', { class: 'menu-item branch-info' },
-        h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
-        h('span', {}, h('div', { class: 'mi-branch', text: w.branch }), h('div', { class: 'mi-sub', text: `from ${w.base}` }), status)),
-      h('div', { class: 'menu-sep' }),
-      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
-        h('span', { class: 'mi-check', text: '↩' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home' }), h('div', { class: 'mi-sub', text: `Commit what's left and merge into ${w.base}. The conversation carries on` }))),
-      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { push: true }); } },
-        h('span', { class: 'mi-check', text: '⇡' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and push' }), h('div', { class: 'mi-sub', text: `Merge into ${w.base}, then push ${w.base} to its remote. The conversation carries on` }))),
-      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
-        h('span', { class: 'mi-check', text: '✓' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs move to Done in History' }))),
-      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
-        h('span', { class: 'mi-check', text: '✕' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
-      ...(others.length ? [
-        h('div', { class: 'menu-sep' }),
-        h('div', { class: 'menu-label', text: `Other tries at this (${others.length})` }),
-        ...others.slice(0, 7).map(o => h('button', { class: 'menu-item branch-family', onclick: () => { SB.closeMenus(); compareWith(tab, o); } },
-          h('span', { class: 'mi-check', text: '⇄' }),
-          h('span', {}, h('div', { class: 'mi-title', text: `Compare with "${o.title}"` }),
-            h('div', { class: 'mi-sub', text: [o.depth === 0 ? 'the original' : o.at === 'after' ? 'branched after a reply' : 'branched before a message', o.copy ? o.copy.branch : 'in your checkout', o.busy ? 'working' : o.open ? 'open' : 'in History'].join(' · ') })))),
-        others.some(o => o.copy)
-          ? h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); keepThisOne(tab); } },
-            h('span', { class: 'mi-check', text: '★' }),
-            h('span', {}, h('div', { class: 'mi-title', text: 'Keep this one' }), h('div', { class: 'mi-sub', text: `Bring it home into ${w.base}, and throw away the other tries' copies` })))
-          : null,
-      ] : []),
-    ]);
-  });
-
-  // What this try has that the other doesn't, file by file, into the feed.
-  async function compareWith(tab, other) {
-    SB.toast(`Comparing with "${other.title}"…`, { ms: 8000 });
-    const r = await api.compareBranches(tab.id, other.id);
-    if (!r?.ok) return SB.toast(r?.error || "Couldn't compare them.", { ms: 8000 });
-    SB.toast(r.same ? 'Exactly the same files.' : `${plural(r.files.length + (r.more || 0), 'file')} differ: see below.`);
-    tab.renderCompare(other, r);
-  }
-
-  async function keepThisOne(tab) {
-    if (tab.busy) return SB.toast('Let him finish first.');
-    const r = await api.keepBranch(tab.id);
-    if (r?.cancelled) return;
-    if (!r?.ok) {
-      if (r?.conflict) {
-        return SB.toast(`${r.error} Nothing was thrown away.`, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
-          SB.activate(tab.id);
-          SB.send(`Merge ${tab.worktree.base} into this branch (git merge ${tab.worktree.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
-        } });
-      }
-      if (r?.fixable) return offerFix(tab, r, tab.worktree.base, { text: `${r.error} Nothing was thrown away.` });
-      return SB.toast(r?.error || "Couldn't keep it.", { ms: 8000 });
-    }
-    const home = r.home ? (r.home.merged ? `Merged ${plural(r.home.commits, 'commit')} into ${r.base}.` : `${r.base} already had all of it.`) : '';
-    const gone = r.discarded ? ` Threw away ${plural(r.discarded, 'other try', 'other tries')}.` : '';
-    const failed = r.failed?.length ? ` Couldn't remove ${r.failed.join(', ')}.` : '';
-    if (r.home?.tidied) await SB.closeTab(tab.id);
-    // Coming home ticks this one off (the thrown-away tries aren't done, just gone).
-    if (!r.home) return SB.toast(`${home}${gone}${failed} The conversations stay in History.`.trim(), { ms: 8000 });
-    SB.toast(`${home}${gone}${failed} This one is marked done: it's under Done in History.`.trim(), { ms: 10000, action: 'Show me', onAction: SB.showDoneHistory });
-  }
-
-  async function bringHome(tab, { finish = false, push = false } = {}) {
-    if (tab.busy) return SB.toast('Let him finish first.');
-    SB.toast(push ? 'Bringing it home, then pushing…' : 'Bringing it home…', { ms: push ? 30000 : 8000 });
-    const r = await api.bringWorktreeHome(tab.id, { finish, push });
-    const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.`;
-    if (r?.ok && r.push) {
-      if (r.push.ok) return SB.toast(`${r.merged ? `${merged} ` : ''}${pushNews(r.push)}`, { ms: 7000 });
-      if (r.merged) SB.toast(`${merged} The push didn't go through, so it's only on this computer for now.`, { ms: 5000 });
-      return pushTrouble(tab, r.push);
-    }
-    if (r?.ok && r.kept) {
-      SB.toast(r.merged ? `${merged} Carry on here and bring it home again any time.` : `Nothing new to merge; ${r.base} already has all of it.`, { ms: 6000 });
-      return;
-    }
-    if (r?.ok) {
-      // Finishing ticks the conversation off either way (main.js), and History
-      // hides done ones by default, so say where it went.
-      await SB.closeTab(tab.id);
-      SB.toast(`${r.merged ? merged : 'Nothing new to merge, so the copy was just tidied away.'} Marked done: it's under Done in History.`, { ms: 8000, action: 'Show me', onAction: SB.showDoneHistory });
-      return;
-    }
-    if (r?.conflict) {
-      // Nothing was merged; the copy's own branch is the safe place to sort it out.
-      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
-        SB.activate(tab.id);
-        SB.send(`Merge ${tab.worktree.base} into this branch (git merge ${tab.worktree.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
-      } });
-      return;
-    }
-    if (r?.fixable) return offerFix(tab, r, tab.worktree.base);
-    SB.toast(r?.error || "Couldn't bring it home.", { ms: 8000 });
-  }
-
-  let discardArmed = null;
-  async function throwAway(tab) {
-    if (discardArmed !== tab.id) {
-      discardArmed = tab.id;
-      setTimeout(() => { if (discardArmed === tab.id) discardArmed = null; }, 6000);
-      SB.toast('Throw away everything this copy did? Its branch is deleted too.', { ms: 6000, action: 'Throw it away', onAction: () => throwAway(tab) });
-      return;
-    }
-    discardArmed = null;
-    const r = await api.discardWorktree(tab.id);
-    if (!r?.ok) return SB.toast(r?.error || "Couldn't remove the copy.", { ms: 8000 });
-    await SB.closeTab(tab.id);
-    SB.toast('Thrown away. The conversation is still in History.');
-  }
-
-  // ------------------------------------------------------------ how full each conversation is
-
-  // Past CROWDED (src/main/context.js) he says so, and the composer offers to
-  // make room. Dismissing it holds until the tab drops back under the mark.
-  const CROWDED = 80;
-  const contextLevel = c => (c.pct >= 95 ? 'hot' : c.pct >= CROWDED ? 'warn' : '');
-  const contextText = c => `Context ${c.pct}% full · ${SB.compact(c.tokens)} of ${SB.compact(c.window)} tokens`;
-
-  // The prompt cache, as efficiency.js cacheState() reads it: warm, cooling in
-  // its last fifth, or cold. Only ever shown, never acted on: a cold cache just
-  // means the next reply re-reads the conversation at full price once.
-  const CACHE_TTL = 5 * 60 * 1000;
-  const COOLING_SHARE = 0.2;
-  function cacheNow(cache) {
-    if (!cache || !Number.isFinite(cache.at)) return null;
-    const ttl = cache.ttlMs > 0 ? cache.ttlMs : CACHE_TTL;
-    const left = cache.at + ttl - Date.now();
-    return { state: left <= 0 ? 'cold' : left <= ttl * COOLING_SHARE ? 'cooling' : 'warm', mins: Math.max(1, Math.ceil(left / 60000)) };
-  }
-  function cacheText(k, c) {
-    const whole = c ? `the whole conversation (${SB.compact(c.tokens)} tokens)` : 'the whole conversation';
-    if (k.state === 'warm') return `Prompt cache warm for about ${k.mins} more min: each reply re-reads the conversation at a tenth of the price.`;
-    if (k.state === 'cooling') return `Prompt cache cools in about ${k.mins} min. After that, the next message re-reads ${whole} at full price, once.`;
-    return `Prompt cache has cooled: the next message re-reads ${whole} at full price, once, and then it's warm again.`;
-  }
-
-  function syncContextUi() {
-    const tab = SB.activeTab();
-    const c = tab?.context;
-    const chip = $('ctxChip');
-    chip.hidden = !c;
-    if (c) {
-      chip.className = `ctx-chip ${contextLevel(c)}`;
-      chip.querySelector('.meter-fill').style.transform = `scaleX(${c.pct / 100})`;
-      $('ctxLabel').textContent = `${c.pct}%`;
-      const k = cacheNow(tab.cache);
-      chip.dataset.cache = k ? k.state : '';
-      chip.title = k ? `${contextText(c)}\n${cacheText(k, c)}` : contextText(c);
-      chip.setAttribute('aria-label', `${contextText(c)}${k ? `, prompt cache ${k.state}` : ''}: make room`);
-    }
-    if (tab && (!c || c.pct < CROWDED)) tab.crowdDismissed = false;
-    const box = $('crowded');
-    const show = !!c && c.pct >= CROWDED && !tab.crowdDismissed;
-    box.hidden = !show;
-    if (!show) { box.replaceChildren(); return; }
-    box.replaceChildren(
-      h('span', { class: 'crowded-text', text: `Getting crowded: ${c.pct}% full.` }),
-      h('button', { class: 'btn slim-btn', type: 'button', onclick: () => compact(tab) }, 'Compact'),
-      h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => startFresh(tab) }, 'Start fresh with a summary'),
-      h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Not now', title: 'Not now', onclick: () => { tab.crowdDismissed = true; syncContextUi(); } },
-        SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
-  }
-  SB.syncContextUi = syncContextUi;
-  // The cache dot cools on its own between replies.
-  setInterval(() => { if (SB.activeTab()?.cache && !document.hidden) syncContextUi(); }, 20000);
-
-  // Claude Code's own /compact: it sums the conversation up in place and carries on.
-  function compact(tab) {
-    if (tab.busy) return SB.toast('Let him finish first.');
-    SB.activate(tab.id);
-    SB.send('/compact');
-  }
-
-  // Claude writes a handoff summary, then the tab starts a new conversation with it.
-  async function startFresh(tab) {
-    if (tab.busy) return SB.toast('Let him finish first.');
-    const r = await api.freshTab(tab.id);
-    if (!r?.ok) return SB.toast(r?.error || "Couldn't start fresh.");
-    tab.render({ kind: 'user', text: r.text });
-    tab.busy = true;
-    tab.busySince = Date.now();
-    tab.statusText = 'Writing a summary…';
-    if (tab.isActive) syncBusyUi();
-    SB.renderTabStrip();
-  }
-
-  $('ctxChip').addEventListener('click', () => {
-    const tab = SB.activeTab();
-    const c = tab?.context;
-    if (!c) return;
-    const k = cacheNow(tab.cache);
-    SB.openMenu($('ctxMenu'), $('ctxChip'), () => [
-      h('div', { class: 'menu-label', text: contextText(c) }),
-      k ? h('div', { class: `menu-label cache-note c-${k.state}`, text: cacheText(k, c) }) : null,
-      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); compact(tab); } },
-        h('span', { class: 'mi-check', text: '⇣' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Compact' }), h('div', { class: 'mi-sub', text: 'Claude sums up the conversation so far and carries on in the room it frees' }))),
-      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); startFresh(tab); } },
-        h('span', { class: 'mi-check', text: '↻' }),
-        h('span', {}, h('div', { class: 'mi-title', text: 'Start fresh with a summary' }), h('div', { class: 'mi-sub', text: 'Claude writes a handoff note, then a new conversation picks it up in this tab' }))),
-    ]);
-  });
-
-  // ------------------------------------------------------------ usage meter
-
-  let lastUsage = null;
-  SB.applyUsage = (u) => {
-    if (!u || (!u.fiveHour && !u.sevenDay)) return;
-    lastUsage = u;
-    $('usage').hidden = false;
-    const set = (el, win, name, pace = null) => {
-      if (!win) { el.hidden = true; return; }
-      el.hidden = false;
-      el.querySelector('.meter-fill').style.transform = `scaleX(${Math.min(100, win.pct) / 100})`;
-      // On pace to fill before it resets is as worth a glance as nearly full (forecast.js).
-      el.classList.toggle('warn', (win.pct >= 70 || !!pace?.warn) && win.pct < 90);
-      el.classList.toggle('hot', win.pct >= 90);
-      const reset = win.resetsAt ? ` · resets ${new Date(win.resetsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '';
-      const fills = pace && pace.hitAt < pace.resetsAt ? ` · at this pace, full around ${pace.hitText}` : '';
-      el.title = `${name} usage: ${win.pct}%${reset}${fills}`;
-    };
-    set($('meter5h'), u.fiveHour, '5-hour', state.outlook?.pace);
-    set($('meter7d'), u.sevenDay, 'Weekly');
-  };
-  // A new forecast changes what the 5-hour meter says.
-  SB.refreshUsage = () => SB.applyUsage(lastUsage);
-
-  // Who used it: each window's split by tab and routine, or by project (src/main/spend.js).
-  let usageBy = 'task';
-  const pctText = share => (share >= 0.995 ? '100%' : share < 0.01 ? '<1%' : `${Math.round(share * 100)}%`);
-
-  function usageRows(windows) {
-    const toggle = h('div', { class: 'usage-by', role: 'group', 'aria-label': 'Group by' },
-      ...[['task', 'Tabs & routines'], ['project', 'Projects']].map(([by, text]) => h('button', {
-        type: 'button', class: `usage-by-btn${usageBy === by ? ' on' : ''}`, 'aria-pressed': String(usageBy === by), text,
-        onclick: () => { usageBy = by; $('usageMenu').replaceChildren(...usageRows(windows)); $('usageMenu').querySelector('.usage-by-btn.on')?.focus(); },
-      })));
-    const sections = windows.map(w => {
-      const rows = usageBy === 'project' ? w.projects : w.tasks;
-      const head = h('div', { class: 'menu-label', text: `${w.name}${w.pct != null ? ` · ${w.pct}% used` : ''}` });
-      if (!rows.length) return [head, h('div', { class: 'usage-empty', text: 'Nothing Shellby ran in this window yet.' })];
-      return [head, ...rows.map(r => h('div', { class: `usage-row kind-${r.kind}`, title: r.detail ? SB.tildify(r.detail) : r.label },
-        h('span', { class: 'usage-name', text: r.kind === 'routine' ? `⟳ ${r.label}` : r.label }),
-        h('span', { class: 'usage-bar' }, h('span', { class: 'usage-bar-fill', style: `transform: scaleX(${r.share})` })),
-        h('span', { class: 'usage-share', text: pctText(r.share) })))];
-    });
-    return [toggle, ...sections.flat(), h('div', { class: 'menu-sep' }),
-      h('div', { class: 'usage-empty', text: 'Shares of what Shellby ran. Claude used elsewhere fills the meters too.' })];
-  }
-
-  let usageLoading = false;
-  $('usage').addEventListener('click', async () => {
-    const menu = $('usageMenu');
-    if (!menu.hidden) return SB.closeMenus();
-    if (usageLoading) return; // a second click while it loads would open and shut it at once
-    usageLoading = true;
-    const windows = await api.usageBreakdown().catch(() => []);
-    usageLoading = false;
-    SB.openMenu(menu, $('usage'), () => usageRows(windows));
-  });
-
-  // The plan's usage limit: Shellby naps until it resets, then says so (src/main/limits.js).
-  api.onLimit(e => {
-    if (e.phase === 'hit') SB.toast(`Your ${e.name} Claude limit is reached. Shellby will tap you when it resets, ${e.at}.`, { ms: 8000 });
-    if (e.phase === 'reset') SB.toast(`Your ${e.name} limit just reset. Go ahead!`, { ms: 6000 });
-  });
 })();

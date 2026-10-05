@@ -8,7 +8,10 @@ const ctx = require('../context');
 const MAX_STEERS = 20;
 const MAX_STEER_FILES = 20;
 
-/** d: what main shares with its IPC (main.js ipcDeps). */
+/**
+ * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
+ * @param d  what main shares with its IPC (main.js ipcDeps)
+ */
 function registerTabsIpc(ipcMain, d) {
   // ---- tabs
   ipcMain.handle('tab:new', (_e, opts = {}) => {

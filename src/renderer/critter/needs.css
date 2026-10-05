@@ -63,4 +63,4 @@ body.bit-munch .part-eyes { animation: none; transform: scaleY(.3); }
 .prop-suds .sud { left: calc(var(--px) * -10 + var(--x)); bottom: calc(var(--px) * 6); width: var(--s); height: var(--s); border-radius: 50%; border: 1.5px solid rgba(220, 245, 255, .9); background: radial-gradient(circle at 30% 30%, #fff, rgba(200, 240, 255, .3)); animation: sud-pop 1.2s ease-out var(--d) backwards; }
 @keyframes sud-pop { 0% { transform: scale(.2); opacity: 0; } 30% { transform: scale(1); opacity: 1; } 100% { transform: translateY(-22px) scale(1.15); opacity: 0; } }
 /* a heart or two after a snack */
-.prop-hearts .love { left: calc(var(--px) * -8 + var(--x)); bottom: calc(var(--px) * 14); font: 700 13px "Pixelify Sans", monospace; font-style: normal; color: #ff8fab; text-shadow: 0 1px 0 rgba(0, 0, 0, .35); animation: float 1.4s ease-out var(--d) backwards; }
+.prop-hearts .love { left: calc(var(--px) * -8 + var(--x)); bottom: calc(var(--px) * 14); font: 700 var(--fs-13) "Pixelify Sans", monospace; font-style: normal; color: #ff8fab; text-shadow: 0 1px 0 rgba(0, 0, 0, .35); animation: float 1.4s ease-out var(--d) backwards; }

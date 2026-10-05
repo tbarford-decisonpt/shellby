@@ -7,53 +7,41 @@ const { randomUUID } = crypto;
 
 const { Config } = require('./config');
 const { History } = require('./history');
-const { MAX_TABS } = require('./sessions');
 const { checkStatus, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { loadSkins } = require('./skins');
 const { sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
 const claudeSetup = require('./claude-setup');
-const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
-const routineDraft = require('./routine-draft');
 const { Wardrobe } = require('./wardrobe/service');
 const confirm = require('./confirm');
 const { attachContextMenu } = require('./context-menu');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
-const crabtools = require('./crabtools');
-const mcpServers = require('./mcpservers');
-const changes = require('./changes');
-const worktrees = require('./worktrees');
 const native = require('./native-windows');
 const { kindOfApp } = require('./surroundings');
 const { withDevice } = require('./xp');
-const shells = require('./shells');
 const focus = require('./focus');
 const rooms = require('./rooms');
-const limits = require('./limits');
-const spend = require('./spend');
 const { createLean } = require('./lean');
 const { createSkillRemover } = require('./skillremove');
-const recap = require('./recap');
-const leaving = require('./leaving');
-const secretscan = require('./secretscan');
-const forecast = require('./forecast');
-const guard = require('./guard');
-const held = require('./held');
 const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
-const { repoOf, lastCommitAt, projectOf, trackedFiles, stickerFile } = require('./gitinfo');
+const { repoOf, lastCommitAt } = require('./gitinfo');
 const stickers = require('./stickers');
 const weekly = require('./weekly');
-const stickerArt = require('./sticker-art');
-const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
 const attach = require('./attachments');
 const parity = require('./parity');
 const teamIpcModule = require('./team-ipc');
 const { guardIpc, windowPolicy } = require('./ipc-guard');
-const branch = require('./branch');
+const { guardAllWebContents } = require('./web-guard');
+const { createUsage } = require('./usage-service');
+const { createHeldQueue } = require('./held-service');
+const { createRoutines } = require('./routines-service');
+const { createAway } = require('./away-service');
+const { createStickers } = require('./sticker-service');
+const { createCopies } = require('./copy-service');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { registerTankIpc } = require('./ipc/tank');
@@ -105,7 +93,6 @@ const CREW_WORTH_MENTIONING = 3;         // helpers out before he remarks on the
 // A tab left this long gives its claude process (and MCP servers) back; its next message resumes it.
 const TAB_IDLE_STOP_MS = 30 * 60 * 1000;
 const TAB_IDLE_CHECK_MS = 60 * 1000;
-const ROUTINE_TABS_KEPT = 6;             // finished routine tabs left open before the oldest closes
 const IDLE_BIT_CHANCE = 0.25;            // ...of each idle tick becoming a little habit
 const TRICKS_KIND = new Set(['skill', 'agent', 'command']);
 const CARD_MAX_BYTES = 8 * 1024 * 1024;
@@ -151,6 +138,8 @@ process.on('unhandledRejection', reason => snag('unhandled rejection', reason in
 // Ctrl+C on a dev run, or a polite kill: go through the normal quit so tasks,
 // dev servers and helper processes are stopped instead of left running.
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.quit());
+// Every page, however it was made: no pop-ups, navigation, redirects or webviews (web-guard.js).
+guardAllWebContents(app);
 // A window or a helper process dying: the panel going blank used to be the only
 // sign, and nothing at all when it was the critter.
 app.on('render-process-gone', (_e, _wc, details) => snag('a window died', `${details.reason} (exit code ${details.exitCode})`));
@@ -217,7 +206,7 @@ const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) 
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
 
-let config, history, skins, manager, toolbox, scheduler, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard, prBadge;
+let config, history, skins, manager, toolbox, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard, prBadge;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
 let projects = null;               // the Projects page (projects/service.js)
@@ -264,9 +253,6 @@ let booted = false;                // deep links wait for this
 let pendingLink = null;
 let startView = null;              // view the panel should open on at boot (e.g. a deep link wants the Wardrobe)            // a shellby:// link that arrived before boot finished
 let linkBusy = false;              // one registry install at a time
-const routineTabs = new Map();     // tabId -> routine id (for lastStatus bookkeeping)
-const queueTabs = new Map();       // tabId -> held task id, for tasks queued for the reset (held.js)
-const queueWaits = new Map();      // tabId -> resolve(how its turn ended), while the queue waits on it
 let autonomousOkThisRun = false;   // switching into Autonomous was confirmed since Shellby started (settings:set)
 
 // ================================================================ wiring
@@ -280,19 +266,148 @@ let shopAsking = false;
 let focusTimer = null;
 let focusTick = null;
 
+const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
+const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } }; // missing or unreadable: not a folder
+// Dev/e2e only: 5-hour readings from dev:usage, backdated so a pace builds up
+// without an hour's wait, and held work going a second after the reset.
+const FORECAST_TEST = !app.isPackaged && process.env.SHELLBY_FORECAST_TEST === '1';
+// Held work goes a minute after the reset, so the server has rolled over too.
+const HELD_GRACE_MS = FORECAST_TEST ? 1000 : 60 * 1000;
+// Dev/e2e only: the idle readings come from dev:away instead of Windows.
+const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
+
+// ================================================================ services
+// The areas with state of their own, each given exactly what it uses. Most of
+// that only exists once Shellby has booted (or is a wiring/ export declared
+// below), so it goes as a getter, read when it's used.
+
+const usageService = createUsage({
+  log, send, showPanel, every, powerMonitor,
+  get config() { return config; },
+  get panel() { return panel; },
+  get manager() { return manager; },
+  get workflows() { return workflows; },
+  get recapLog() { return awayService.recapLog; },
+  get notify() { return notify; },
+  get refreshCritter() { return refreshCritter; },
+  get flashState() { return flashState; },
+  get tellChannel() { return tellChannel; },
+  get sayText() { return sayText; },
+  markActive: () => { lastActivity = Date.now(); },
+  routines: () => routineService.routines(),
+  heldViews: () => heldService.heldViews(),
+});
+const heldService = createHeldQueue({
+  log, send, showPanel, isFolder, isStr, randomUUID, confirm, powerSaveBlocker, CAPTURE, graceMs: HELD_GRACE_MS,
+  get config() { return config; },
+  get panel() { return panel; },
+  get manager() { return manager; },
+  get history() { return history; },
+  get claudeStatus() { return claudeStatus; },
+  get notify() { return notify; },
+  get tellChannel() { return tellChannel; },
+  get wake() { return wake; },
+  get openTab() { return openTab; },
+  get sendToTab() { return sendToTab; },
+  get currentCwd() { return currentCwd; },
+  get dialogLook() { return dialogLook; },
+  limitWait: usageService.limitWait, resetTarget: usageService.resetTarget,
+  clockTime: usageService.clockTime, sendOutlook: usageService.sendOutlook,
+  routines: () => routineService.routines(),
+  routinesView: () => routineService.routinesView(),
+  runRoutine: (r, opts) => routineService.runRoutine(r, opts),
+  makeRoomForRoutine: () => routineService.makeRoomForRoutine(),
+});
+const routineService = createRoutines({
+  log, send, showPanel, isFolder, randomUUID, confirm,
+  get config() { return config; },
+  get panel() { return panel; },
+  get manager() { return manager; },
+  get history() { return history; },
+  get claudeStatus() { return claudeStatus; },
+  get remote() { return remote; },
+  get notify() { return notify; },
+  get sayText() { return sayText; },
+  get wake() { return wake; },
+  get openTab() { return openTab; },
+  get currentCwd() { return currentCwd; },
+  get stat() { return stat; },
+  get dialogLook() { return dialogLook; },
+  get runClaudeOnce() { return runClaudeOnce; },
+  get knownProjects() { return knownProjects; },
+  limitWait: usageService.limitWait, guardSettings: usageService.guardSettings, clockTime: usageService.clockTime,
+  heldList: heldService.heldList, holdForReset: heldService.holdForReset, scheduleHeld: heldService.scheduleHeld,
+  syncKeepAwake: heldService.syncKeepAwake, queueTabs: heldService.queueTabs,
+});
+const awayService = createAway({
+  log, send, showPanel, every, powerMonitor, native, confirm, CAPTURE, RECAP_TEST,
+  get config() { return config; },
+  get critter() { return critter; },
+  get panel() { return panel; },
+  get manager() { return manager; },
+  get external() { return external; },
+  get devServers() { return devServers; },
+  get speak() { return speak; },
+  get notify() { return notify; },
+  get dialogLook() { return dialogLook; },
+  limitWait: usageService.limitWait,
+});
+const stickerService = createStickers({
+  log, send, showPanel, CAPTURE,
+  get config() { return config; },
+  get critter() { return critter; },
+  get panel() { return panel; },
+  get workflows() { return workflows; },
+  get notify() { return notify; },
+  get flashState() { return flashState; },
+  get sayText() { return sayText; },
+  get broadcastSkin() { return broadcastSkin; },
+  get currentLevel() { return currentLevel; },
+  get activeSkin() { return activeSkin; },
+  get githubEndpoints() { return githubEndpoints; },
+  get noteWeek() { return noteWeek; },
+  get stickersView() { return stickersView; },
+  get stickerStats() { return stickerStats; },
+});
+const copyService = createCopies({
+  log, isStr, CAPTURE, worktreeHome: () => worktreeHome(), claudeConfigDir: () => claudeConfigDir(),
+  routineTabs: routineService.routineTabs, queueTabs: heldService.queueTabs, queueWaits: heldService.queueWaits,
+  get config() { return config; },
+  get manager() { return manager; },
+  get history() { return history; },
+  get remote() { return remote; },
+  get turnStarts() { return turnStarts; },
+});
+
+const {
+  checkLimit, onUsage, outlookView, refreshOutlook, saveSpend, sendOutlook,
+  spendSource, usageBreakdown, watchGuards, watchOutlook,
+} = usageService;
+const { heldList, holdForReset, queueTabs, queueTask, queueWaits, reopenForHeld, saveHeld, scheduleHeld, syncKeepAwake } = heldService;
+const {
+  chatRoutine, draftRoutine, repairRoutine, routineTabs, routineTestView, routineTests, routines,
+  routinesView, runRoutine, saveRoutines, startScheduler, testRoutine,
+} = routineService;
+const { checkAway, checkLeavingSoon, noteRecap, watchAway, watchLeaving } = awayService;
+const { shellIdOf, shellStickers, shipped, stickerState } = stickerService;
+const { changeRef, retireWorktree } = copyService;
+
 // What main shares with the modules in ipc/ and wiring/. Functions declared
-// here are hoisted, so they go as they are; everything else is a getter, read
-// when it's used: most of it is set at boot or changes as he runs, and some is
-// only declared further down. A setter is there only where a module changes it.
+// here are hoisted, and the services above already exist, so they go as they
+// are; everything else is a getter, read when it's used: most of it is set at
+// boot or changes as he runs, and some is only declared further down. A setter
+// is there only where a module changes it. wiring/ reaches the services whole
+// (d.usageService.limitWait()); the flat names are what ipc/ reads.
 const shared = {
-  applyHotkey, applyLoginItem, armCopy, armGuard, changeRef, chatRoutine, checkAway, checkGuards,
-  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, leaveCheck,
-  moveIntoCopy, noteRecap, onSpend, onUsage, outlookView, panelSettings, placeStickers,
-  proposeRoutine, queueTask, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
-  repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
-  saveCritterPos, saveHeld, saveRoutines, saveStreaks, send, sendOutlook, setCrewSlots,
-  setPanelRoomy, shellStickers, shipped, shippedMerge, showPanel, streaksView, syncKeepAwake,
-  testRoutine, togglePanel, updateRoutine, usageBreakdown,
+  applyHotkey, applyLoginItem, changeRef, chatRoutine, checkAway, checkNudges, draftRoutine,
+  gameInFront, heldList, holdForReset, isFolder, isStr, noteRecap, onUsage, outlookView,
+  panelSettings, queueTabs, queueTask, queueWaits, recordWork, refreshOutlook, rememberPrompt,
+  reopenForHeld, repairRoutine, retireWorktree, routineTabs, routineTestView, routineTests,
+  routines, routinesView, runRoutine, saveCritterPos, saveHeld, saveRoutines, saveStreaks, send,
+  sendOutlook, setCrewSlots, setPanelRoomy, shellIdOf, shellStickers, shipped, showPanel,
+  stickerState, streaksView, syncKeepAwake, testRoutine, togglePanel, usageBreakdown,
+  FORECAST_TEST, RECAP_TEST, awayService, copyService, routineService, stickerService, usageService,
+  get recapLog() { return awayService.recapLog; }, set recapLog(v) { awayService.recapLog = v; },
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
   get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
@@ -300,7 +415,6 @@ const shared = {
   get CRITTER_PRELOAD() { return CRITTER_PRELOAD; },
   get FAKE_CLI() { return FAKE_CLI; },
   get FLOOR_PRELOAD() { return FLOOR_PRELOAD; },
-  get FORECAST_TEST() { return FORECAST_TEST; },
   get HEALTH_TIP() { return HEALTH_TIP; },
   get ICON() { return ICON; },
   get IDLE_BIT_CHANCE() { return IDLE_BIT_CHANCE; },
@@ -312,7 +426,6 @@ const shared = {
   get PANEL_MAX_TEXT() { return PANEL_MAX_TEXT; },
   get PNG_SIGNATURE() { return PNG_SIGNATURE; },
   get PRELOAD() { return PRELOAD; },
-  get RECAP_TEST() { return RECAP_TEST; },
   get RENDERER() { return RENDERER; },
   get ROOT() { return ROOT; },
   get SLEEP_AFTER_MS() { return SLEEP_AFTER_MS; },
@@ -408,15 +521,12 @@ const shared = {
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
   get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
-  get heldList() { return heldList; },
   get heldNotices() { return heldNotices; }, set heldNotices(v) { heldNotices = v; },
   get helperWidth() { return helperWidth; },
   get history() { return history; },
   get homesView() { return homesView; },
   get importSnippets() { return importSnippets; },
   get installCli() { return installCli; },
-  get isFolder() { return isFolder; },
-  get isStr() { return isStr; },
   get issues() { return issues; }, set issues(v) { issues = v; },
   get knownFolder() { return knownFolder; },
   get knownProjects() { return knownProjects; },
@@ -427,10 +537,8 @@ const shared = {
   get lastStatus() { return lastStatus; }, set lastStatus(v) { lastStatus = v; },
   get lastXp() { return lastXp; }, set lastXp(v) { lastXp = v; },
   get lean() { return lean; },
-  get leaveVerdict() { return leaveVerdict; },
   get levelUpAt() { return levelUpAt; }, set levelUpAt(v) { levelUpAt = v; },
   get life() { return life; }, set life(v) { life = v; },
-  get limitWait() { return limitWait; },
   get linkBusy() { return linkBusy; }, set linkBusy(v) { linkBusy = v; },
   get log() { return log; },
   get longTaskTimer() { return longTaskTimer; }, set longTaskTimer(v) { longTaskTimer = v; },
@@ -478,11 +586,8 @@ const shared = {
   get projects() { return projects; }, set projects(v) { projects = v; },
   get ptt() { return ptt; }, set ptt(v) { ptt = v; },
   get px() { return px; },
-  get queueTabs() { return queueTabs; },
-  get queueWaits() { return queueWaits; },
   get randomUUID() { return randomUUID; },
   get reachedForShellby() { return reachedForShellby; },
-  get recapLog() { return recapLog; }, set recapLog(v) { recapLog = v; },
   get refreshCritter() { return refreshCritter; },
   get refreshStatusLine() { return refreshStatusLine; },
   get registerWorkflowIpc() { return registerWorkflowIpc; },
@@ -497,8 +602,6 @@ const shared = {
   get rgbView() { return rgbView; },
   get roomTaskDone() { return roomTaskDone; },
   get roomsPanelView() { return roomsPanelView; },
-  get routineTabs() { return routineTabs; },
-  get routineTests() { return routineTests; },
   get runCheckup() { return runCheckup; },
   get runClaudeOnce() { return runClaudeOnce; },
   get said() { return said; }, set said(v) { said = v; },
@@ -516,8 +619,6 @@ const shared = {
   get setupCwd() { return setupCwd; },
   get setupView() { return setupView; },
   get setupWhere() { return setupWhere; },
-  get shellIdOf() { return shellIdOf; },
-  get shellSpots() { return shellSpots; },
   get shop() { return shop; }, set shop(v) { shop = v; },
   get shopAsking() { return shopAsking; }, set shopAsking(v) { shopAsking = v; },
   get shopBlocked() { return shopBlocked; },
@@ -538,7 +639,6 @@ const shared = {
   get startView() { return startView; }, set startView(v) { startView = v; },
   get stat() { return stat; },
   get statusFile() { return statusFile; },
-  get stickerState() { return stickerState; },
   get stickerStats() { return stickerStats; },
   get stickersView() { return stickersView; },
   get stopFocus() { return stopFocus; },
@@ -566,7 +666,6 @@ const shared = {
   get welcomeTrophies() { return welcomeTrophies; },
   get workflows() { return workflows; }, set workflows(v) { workflows = v; },
   get worktreeHome() { return worktreeHome; },
-  get wornShellObj() { return wornShellObj; },
   get xpView() { return xpView; },
 };
 
@@ -630,196 +729,6 @@ const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
-
-// ---------------------------------------------------------------- while you were away (recap.js)
-// What finished, failed and used the window is noted as it happens; whether
-// you're at the keyboard comes from Windows' idle time, read once a minute and
-// on lock, unlock, sleep and wake.
-const AWAY_POLL_MS = 60 * 1000;
-// Dev/e2e only: the idle readings come from dev:away instead of Windows.
-const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
-let recapLog = [];
-let away = { since: null };
-
-function noteRecap(event) {
-  if (event) recapLog = recap.record(recapLog, event, Date.now());
-}
-
-function checkAway({ locked = false, idleMs = null } = {}) {
-  if (CAPTURE || !config) return;
-  if (idleMs === null) {
-    if (RECAP_TEST) return;
-    try {
-      idleMs = powerMonitor.getSystemIdleTime() * 1000;
-      // Asked each time rather than tracked from events: a nudge of the mouse
-      // on the lock screen, or a wake nobody is there for, still reads as locked.
-      locked = locked || powerMonitor.getSystemIdleState(60) === 'locked';
-    } catch { return; }
-  }
-  const r = recap.watch(away, { now: Date.now(), idleMs, locked });
-  away = r.state;
-  if (r.back) {
-    greet(r.back.until - r.back.since);
-    welcomeBack(r.back);
-  }
-}
-
-// He runs to the front of his window and waves you back in, both claws once
-// you've been gone a good while. Never a sulk, however long it was.
-function greet(awayMs) {
-  if (CAPTURE || !critter || critter.isDestroyed()) return;
-  send(critter, 'critter:greet', { awayMs: Math.max(0, Number(awayMs) || 0) });
-}
-
-function watchAway() {
-  if (CAPTURE) return;
-  for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkAway({ locked: true }));
-  for (const here of ['unlock-screen', 'resume']) powerMonitor.on(here, () => checkAway());
-  every(checkAway, AWAY_POLL_MS);
-}
-
-// Prompts open right now, in Shellby's tabs and in Claude Code elsewhere.
-function waitingOnYou() {
-  const kindOf = items => (items.some(i => i.toolName === 'AskUserQuestion') ? 'question' : items.some(i => i.toolName === 'ExitPlanMode') ? 'plan' : 'approval');
-  const own = [...(manager?.tabs.values() || [])]
-    .filter(t => t.session.pending.size)
-    .map(t => ({ tabId: t.id, title: t.title, what: kindOf([...t.session.pending.values()]) }));
-  const elsewhere = (external?.summary.sessions || [])
-    .filter(s => s.state === 'asking')
-    .map(s => ({ tabId: null, title: s.where || s.project, what: 'approval', external: true }));
-  return [...own, ...elsewhere];
-}
-
-function welcomeBack({ since, until }) {
-  if (config.get('recap') === false || !panel || panel.isDestroyed()) return;
-  const digest = recap.build(recapLog, { since, until, waiting: waitingOnYou(), limit: limitWait() });
-  if (!digest) return;
-  send(panel, 'recap', digest);
-  speak('back', { force: true });
-  if (panel.isVisible() && panel.isFocused()) return;
-  notify(`While you were away (${recap.awayFor(digest.awayMs)})`, recap.headline(digest), () => showPanel({ focusInput: false }));
-}
-
-// ---------------------------------------------------------------- is it safe to leave? (leaving.js)
-// Unpushed, uncommitted and stashed work in the projects you've been in lately,
-// plus anything still running. Asked from the menu ("Is it safe to leave?" and
-// "Lock the PC", which checks first), and kept fresh in the background so that
-// a shutdown or sign-out can be held up with the reason beside Shellby's name:
-// Windows can't tell an app the screen is about to lock, but it does ask before
-// ending the session.
-const LEAVE_RECENT_MS = 14 * 24 * 60 * 60 * 1000; // projects worked in this recently are checked
-const LEAVE_REFRESH_MS = 10 * 60 * 1000;
-const LEAVE_AFTER_WORK_MS = 30 * 1000;            // a finished turn usually committed or changed something
-let leaveProjects = [];   // the last git check, for the shutdown guard (which can't wait for git)
-let leaveChecking = null; // the check in flight, shared by everyone who asks meanwhile
-let leaveSoon = null;
-
-function leaveFolders() {
-  const now = Date.now();
-  const recent = Object.entries(streaks.normalize(config.get('streaks')).projects)
-    .filter(([, p]) => now - p.lastSeen < LEAVE_RECENT_MS)
-    .sort((a, b) => b[1].lastSeen - a[1].lastSeen)
-    .map(([key]) => key);
-  const tabs = [...(manager?.tabs.values() || [])].map(t => t.session?.cwd);
-  return [...tabs, ...(config.get('recentFolders') || []), ...recent].filter(Boolean);
-}
-
-// What's in flight right now, in Shellby and in Claude Code elsewhere. Live, so cheap.
-function runningNow() {
-  const tabs = [...(manager?.tabs.values() || [])];
-  const ext = external?.summary || { sessions: [], background: [] };
-  return {
-    working: [
-      ...tabs.filter(t => t.session.busy && !t.session.pending.size).map(t => t.title),
-      ...(ext.sessions || []).filter(s => s.state === 'working').map(s => s.where || s.project),
-    ],
-    waiting: waitingOnYou().map(w => w.title),
-    background: (ext.background || []).map(b => ({ program: b.program, project: b.project })),
-    servers: devServers?.runningList() || [],
-  };
-}
-
-// fresh: don't settle for a check that started before you asked (a push you
-// made a moment ago must count), so wait for that one and run another.
-async function checkLeaving({ fresh = false } = {}) {
-  if (CAPTURE || !config) return [];
-  if (fresh && leaveChecking) await leaveChecking;
-  leaveChecking ||= leaving.check(leaveFolders(), undefined, { scan: secretscan.atRisk })
-    .then(projects => { leaveProjects = projects; return projects; })
-    .catch(e => { log.warn('safe-to-leave check failed', e.message); return leaveProjects; })
-    .finally(() => { leaveChecking = null; });
-  return leaveChecking;
-}
-
-// The cached answer, with what's running read fresh.
-const leaveVerdict = () => leaving.verdict(leaveProjects, runningNow());
-
-function checkLeavingSoon() {
-  clearTimeout(leaveSoon);
-  leaveSoon = setTimeout(checkLeaving, LEAVE_AFTER_WORK_MS);
-}
-
-// lock: asked from "Lock the PC". Safe locks straight away; anything at risk is
-// listed first, with the choice to lock anyway or have Claude tidy it up.
-async function leaveCheck({ lock = false } = {}) {
-  const v = leaving.verdict(await checkLeaving({ fresh: true }), runningNow());
-  if (v.safe && lock) { native.lockScreen(); return; }
-  const fixable = leaveProjects.find(p => p.ok && leaving.verdict([p]).lines.length);
-  const canFix = !v.safe && !!fixable && !config.get('crabOnly');
-  const buttons = v.safe
-    ? [{ label: 'Lock the PC' }, { label: 'Close' }]
-    : [{ label: 'Lock anyway', style: 'danger' }, ...(canFix ? [{ label: `Tidy up ${fixable.name}` }] : []), { label: 'Stay' }];
-  const cancelId = buttons.length - 1;
-  const response = await confirm.ask(panel, {
-    ...dialogLook(), icon: v.safe ? '🐚' : '🧳',
-    title: v.safe ? 'Safe to leave' : 'Not quite safe to leave',
-    message: v.headline,
-    detail: v.lines.slice(0, 12).join('\n') + (v.lines.length > 12 ? `\n…and ${v.lines.length - 12} more` : ''),
-    note: v.safe ? '' : 'Locking never loses any of this, but a shutdown or a dead battery can.',
-    buttons, defaultId: v.safe ? 0 : cancelId, cancelId,
-  });
-  if (response === 0) native.lockScreen();
-  else if (canFix && response === 1) {
-    showPanel();
-    // Never "commit and push everything" past a secret: Claude is told what Shellby found, and to stop there.
-    const found = fixable.secrets?.findings.map(secretscan.describe) || [];
-    const secrets = found.length
-      ? ` Shellby found what look like secrets in work that hasn't gone out yet: ${found.join('; ')}. Don't commit or push those: tell me about them first.`
-      : '';
-    send(panel, 'tab:new-in', { cwd: fixable.root, draft: `I'm about to leave my PC. In ${fixable.name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key.${secrets} Ask me before anything destructive.` });
-  }
-}
-
-// Windows asks every window before a shutdown, restart or sign-out. While work
-// is at risk Shellby says no, with the reason, and Windows shows it beside his
-// name with "Shut down anyway". Only for work this PC alone has, or Claude
-// mid-turn (leaving.verdict's hold); never for a critical shutdown or an
-// installer asking apps to close (close-app). With no reason to show (koffi
-// missing), he never holds it up: a nameless "an app is preventing shutdown"
-// would just look broken.
-function guardSessionEnd(win) {
-  const release = () => { try { if (!win.isDestroyed()) native.unblockShutdown(native.hwndOf(win)); } catch { /* best effort */ } };
-  win.on('query-session-end', e => {
-    try {
-      const reasons = e.reasons || [];
-      const v = leaveVerdict();
-      if (config.get('leaveGuard') === false || reasons.includes('critical') || reasons.includes('close-app') || !v.hold) { release(); return; }
-      if (native.blockShutdown(native.hwndOf(win), `Shellby: ${v.headline}`)) e.preventDefault();
-      // What it said may be up to ten minutes old: look again, so the next try is right.
-      checkLeaving();
-    } catch (err) { log.warn('shutdown guard failed', err.message); }
-  });
-  win.on('session-end', release);
-}
-
-function watchLeaving() {
-  if (CAPTURE) return;
-  guardSessionEnd(critter);
-  setTimeout(checkLeaving, 90 * 1000);
-  every(checkLeaving, LEAVE_REFRESH_MS);
-  // Leaving the desk is when the answer matters next: have it ready.
-  for (const gone of ['lock-screen', 'suspend']) powerMonitor.on(gone, () => checkLeaving());
-}
 
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
@@ -977,136 +886,9 @@ function send(win, channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-// ================================================================ a copy of the repo per tab (worktrees.js)
-
+// Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
 const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
-
-// A conversation in a git project starts in your checkout, and moves into a
-// copy of its own (worktrees.js) the first time it goes to change something:
-// a question makes no branch, and by then Claude knows enough to name one.
-//
-// armCopy, before each turn: while the tab has no copy, a hook on the tools
-// that change files sees each call first. The first real change is held back,
-// Claude is asked for a branch name, and when that turn ends moveIntoCopy makes
-// the copy, carries the conversation across and lets Claude carry on there.
-async function armCopy(tab) {
-  // A branch (branch.js) already has its copy, but Claude remembers the
-  // original's paths: the same hook keeps its changes out of them. Only while
-  // that copy is the one it works in: once it's gone, so is the fence.
-  if (tab.fence && tab.worktree && !CAPTURE && path.resolve(tab.fence.home || '').toLowerCase() === path.resolve(tab.worktree.path).toLowerCase()) {
-    tab.session.beforeWork = input => {
-      const why = branch.fenceDenies(tab.fence, input.tool_name, input.tool_input);
-      return why ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: why } } : {};
-    };
-    return;
-  }
-  if (!config.get('worktrees') || CAPTURE || tab.noCopy || tab.routineId || tab.workflowRunId || tab.worktree) {
-    tab.session.beforeWork = null;
-    return;
-  }
-  if (tab.session.beforeWork) return;
-  const root = await changes.rootOf(tab.session.cwd);
-  const home = path.resolve(worktreeHome()).toLowerCase() + path.sep;
-  // Not a repo, already one of our copies, or a conversation that has already
-  // changed files here: it stays where it is.
-  if (!root || (path.resolve(root) + path.sep).toLowerCase().startsWith(home)) return;
-  if (tab.saved && history.load(tab.id).some(i => i.kind === 'changes')) return;
-  tab.session.beforeWork = input => {
-    if (tab.worktree || tab.noCopy || !config.get('worktrees')) return {};
-    if (!worktrees.startsWork(input.tool_name, input.tool_input)) return {};
-    tab.copyWanted = true;
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: NAME_THE_BRANCH } };
-  };
-}
-
-const NAME_THE_BRANCH = 'Not yet: before anything changes, Shellby moves this conversation into its own copy of the repository, on a new branch. '
-  + 'Run no more tools this turn. Reply with one line, "Branch: <name>", where <name> is 2 to 5 lowercase words joined by hyphens that say what this work is '
-  + '(for example "Branch: fix-login-redirect"). You will carry on from where you were, in the copy.';
-
 const claudeConfigDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-
-async function moveIntoCopy(tab) {
-  tab.copyWanted = false;
-  const session = tab.session;
-  const from = session.cwd;
-  // Busy throughout, so a message typed meanwhile waits for the move.
-  session.setBusy(true);
-  const carryOn = text => {
-    session.setBusy(false);
-    if (!manager.tabs.has(tab.id)) return;
-    try { session.send(text, manager.prepareTurn(tab)); } catch (err) { log.info(`worktree: ${err.message}`); }
-  };
-  const stayHere = why => {
-    tab.noCopy = true;
-    manager.note(tab.id, { kind: 'error', text: `Working in your checkout: ${why}` });
-    carryOn('Shellby could not make a copy, so this conversation stays in this folder. Carry on with what you were about to do, here.');
-  };
-
-  const made = await worktrees.create(from, { home: worktreeHome(), title: worktrees.suggestedName(tab.lastReply) || tab.title });
-  if (!manager.tabs.has(tab.id)) { // closed while the copy was being made
-    if (made?.ok) worktrees.remove(made.worktree, { force: true });
-    return;
-  }
-  if (!made?.ok) return stayHere(made?.error || 'this folder is not in a git repository.');
-  const w = made.worktree;
-  await session.stop();
-  if (!worktrees.carryTranscript({ configDir: claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
-    await worktrees.remove(w, { force: true });
-    return stayHere("Claude Code's record of this conversation couldn't be carried into the copy.");
-  }
-  tab.worktree = w;
-  session.cwd = w.cwd;
-  session.beforeWork = null;
-  history.update(tab.id, { cwd: w.cwd, worktree: w });
-  log.info(`worktree: ${w.branch} for ${path.basename(w.root)}`);
-  manager.note(tab.id, { kind: 'moved', branch: w.branch, base: w.base });
-  manager.changed();
-  carryOn(`Shellby has moved this conversation into its own copy of the repository, at ${w.path}, on branch ${w.branch}, started from ${w.base} at its last commit. `
-    + `Work there from now on: the project that was at ${w.root} is at ${w.path} in this copy, so use paths under it. `
-    + "It has every committed file; anything uncommitted or ignored in the original (node_modules, build output) isn't in it. "
-    + 'Carry on with what you were about to do.');
-}
-
-// Done with the copy: the tab closes (its process has to be gone before
-// Windows lets the folder go), and its History entry points home again.
-async function retireWorktree(tabId, w, { force }) {
-  remote?.settleTab(tabId);
-  await manager.closeAndWait(tabId);
-  routineTabs.delete(tabId);
-  queueTabs.delete(tabId);
-  queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
-  queueWaits.delete(tabId);
-  turnStarts.delete(tabId);
-  const removed = await worktrees.remove(w, { force });
-  // The conversation was Claude's in the copy's folder, and can't be resumed
-  // from another one: History keeps the transcript and starts afresh there.
-  // The copy's diffs were snapshots in the repository's shared object store,
-  // so they still read from your checkout once the folder is gone.
-  const copies = (history.get(tabId)?.copies || []).filter(c => c.path !== w.path);
-  // A branch's fence and note were about its copy (branch.js): with the copy
-  // gone it works in your checkout like any conversation, so they go too.
-  history.update(tabId, { cwd: w.originalCwd, worktree: null, claudeSessionId: null, fence: null, preamble: null, copies: [...copies, { path: w.path, root: w.root }] });
-  return removed;
-}
-
-// What the renderer hands back about a diff block, and nothing else. It has to
-// be a change main reported in that tab's transcript (and, for one file's diff,
-// one of its files): the renderer can't point git at any repo or tree it likes.
-// A change made in a copy that has since been tidied away reads from the repo
-// the copy came from (retired: there's no copy left to undo it in).
-function changeRef(r) {
-  const tabId = isStr(r?.tabId) ? r.tabId : null;
-  if (!tabId) return null;
-  const reported = history.load(tabId).find(i => i.kind === 'changes' && i.root === r.root && i.before === r.before && i.after === r.after);
-  if (!reported) return null;
-  if (r.file != null && !reported.files?.some(f => f.path === r.file)) return null;
-  const same = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
-  const copy = !fs.existsSync(reported.root) && (history.get(tabId)?.copies || []).find(c => isStr(c?.path) && isStr(c?.root) && same(c.path, reported.root));
-  return {
-    tabId, root: copy ? copy.root : reported.root, before: reported.before, after: reported.after,
-    ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file } : {}),
-  };
-}
 
 // ================================================================ streaks and nudges
 
@@ -1167,981 +949,18 @@ async function checkNudges() {
   else notify(streaks.nudgeText(n), 'Click to pick up where you left off.', open);
 }
 
-// ================================================================ shell stickers (stickers.js)
-//
-// The first time a project ships, Shellby gets a sticker for it and slaps it
-// on his shell; shipping it again makes the sticker better. The drawing is
-// generated from the project (sticker-art.js), so only the counts and where
-// each one sits are stored.
+// ================================================================ settings side effects
 
-const SLAP_MS = 3200;                // the critter's slap, from holding it up to the squash
-const FACTS_MS = 24 * 60 * 60 * 1000; // a project's language and own sticker, looked up at most daily
-const drawings = new Map();          // look -> drawing (sticker-art.js)
-const projectFacts = new Map();      // repo root -> { lang, custom, at }
-
-const shellIdOf = shell => (shell ? shell.id : stickers.HOME);
-const wornShellObj = () => shells.wornShell(config?.get('home'), currentLevel());
-const stickerState = () => stickers.normalize(config.get('stickers'));
-
-function drawSticker(p) {
-  const key = JSON.stringify([p.id, p.name, p.lang, p.custom]);
-  let d = drawings.get(key);
-  if (!d) {
-    d = stickerArt.draw(p);
-    drawings.set(key, d);
-    if (drawings.size > 400) drawings.delete(drawings.keys().next().value);
-  }
-  return d;
-}
-
-// Where stickers can go on a shell, for whichever skin he's wearing.
-const shellSpots = (skin, shell) => {
-  const mask = shellMask(skin, shell);
-  return { mask, slots: stickerSlots(mask) };
-};
-const covers = (mask, x, y) => {
-  for (let dy = 0; dy < STICKER; dy++) for (let dx = 0; dx < STICKER; dx++) if (!mask[y + dy]?.[x + dx]) return false;
-  return true;
-};
-
-/** The stickers on a shell, placed in sprite pixels and stacked, for sprite.js. */
-function shellStickers(skin, shell, state = stickerState()) {
-  const layout = state.layouts[shellIdOf(shell)] || [];
-  const now = Date.now();
-  return placeStickers(skin, shell, layout.map(e => {
-    const p = state.projects[e.id];
-    const tier = stickers.tierFor(p.ships).id;
-    const weather = stickers.weathering(p, now);
-    return { id: p.id, tier, weather, slot: e.slot, z: e.z, flip: e.flip, nudge: e.nudge, ...stickerArt.onShell(drawSticker(p), { tier, weather, flip: e.flip }) };
-  }));
-}
-
-// Stickers by spot number onto this skin's shell, in sprite pixels: the same
-// spot means the same place on any crab (a visiting friend's too).
-function placeStickers(skin, shell, list) {
-  if (!list.length || !skin) return [];
-  const { mask, slots } = shellSpots(skin, shell);
-  if (!slots.length) return [];
-  return list.map(e => {
-    let [x, y] = slots[e.slot % slots.length];
-    // Shifted a pixel so the one underneath peeks out, unless that would hang off the shell.
-    if (covers(mask, x + e.nudge[0], y + e.nudge[1])) { x += e.nudge[0]; y += e.nudge[1]; }
-    return { ...e, x, y };
-  });
-}
-
-// What the repo itself says about its sticker: its main language, and its own
-// drawing if it ships one (.shellby/sticker.json, validated in stickers.js).
-async function factsOf(root) {
-  const f = projectFacts.get(root);
-  if (f && Date.now() - f.at < FACTS_MS) return f;
-  const [files, custom] = await Promise.all([trackedFiles(root), stickerFile(root)]);
-  const next = { lang: stickerArt.languageOf(files), custom: stickers.cleanCustom(custom), at: Date.now() };
-  projectFacts.set(root, next);
-  if (projectFacts.size > 100) projectFacts.delete(projectFacts.keys().next().value);
-  return next;
-}
-
-/** Something in `dir` shipped: 'ship' | 'deploy' | 'release' | 'merge'. */
-async function shipped(dir, kind, meta = {}) {
-  if (CAPTURE || !config || typeof dir !== 'string' || !dir) return;
-  try {
-    const project = await projectOf(dir);
-    if (!project) return;
-    const facts = await factsOf(project.root);
-    recordShipped({ ...project, lang: facts.lang, custom: facts.custom }, kind, meta);
-  } catch (e) {
-    log.error('sticker', e);
-  }
-}
-
-// A pull request merged on GitHub (ci.js). It's the project's sticker whether
-// or not it's cloned here; if it is (Shellby has seen you work in it), the
-// sticker learns its language and folder from that copy.
-async function shippedMerge(pr) {
-  if (CAPTURE || !config) return;
-  try {
-    const remote = stickers.normalizeRemote(`${githubEndpoints().web}/${pr.repo}`);
-    if (!remote) return;
-    const id = stickers.projectId(remote);
-    const known = stickerState().projects[id];
-    let root = known?.root && fs.existsSync(known.root) ? known.root : null;
-    for (const key of root ? [] : Object.keys(streaks.normalize(config.get('streaks')).projects).slice(0, 50)) {
-      if ((await projectOf(key))?.id === id) { root = key; break; }
-    }
-    if (root) return shipped(root, 'merge', { fixed: !!pr.fixed });
-    recordShipped({ id, name: remote.split('/').pop(), remote }, 'merge', { fixed: !!pr.fixed });
-  } catch (e) {
-    log.error('sticker (merge)', e);
-  }
-}
-
-function recordShipped(project, kind, meta) {
-  const shell = wornShellObj();
-  // Known by its folder until it got a remote: it keeps its sticker under the new id.
-  let state = config.get('stickers');
-  if (project.remote && project.root) state = stickers.rekey(state, stickers.projectId(null, project.root), project.id);
-  const before = stickers.normalize(state).projects[project.id] || null;
-  const r = stickers.recordShip(state, project, kind, Date.now(), meta,
-    { shell: shellIdOf(shell), slots: shellSpots(activeSkin(), shell).slots.length });
-  workflows?.event('shipped', { kind: kind === 'ship' ? 'push' : kind, project: project.name || '', version: meta?.version || null });
-  if (!r.project) return;
-  config.set({ stickers: r.state });
-  noteWeek(kind, r.project);
-  if (r.minted) noteWeek('minted', r.project);
-  if (r.minted) slapSticker(r.project);
-  else stickerNews(r, before);
-  send(panel, 'stickers', stickersView());
-  // A trophy this earns waits for the slap to land, so the two don't talk over each other.
-  setTimeout(() => stickerStats(config.get('stickers')), r.minted ? SLAP_MS + 900 : 0);
-}
-
-// A brand-new sticker: he holds it up, turns his shell to you and slaps it on.
-function slapSticker(p) {
-  const d = drawSticker(p);
-  const placed = shellStickers(activeSkin(), wornShellObj()).find(s => s.id === p.id);
-  flashState('stickered', SLAP_MS + 600);
-  sayText(`shipped ${p.name}!`, 'sticker', SLAP_MS + 1200);
-  send(critter, 'critter:sticker', { id: p.id, small: d.small, at: placed ? { x: placed.x, y: placed.y } : null });
-  broadcastSkin(); // already includes it; the critter keeps it off until the slap lands
-  const view = stickersView().projects.find(x => x.id === p.id);
-  if (view) send(panel, 'stickers:new', view);
-  if (!(panel?.isVisible() && panel.isFocused())) {
-    notify(`New sticker: ${p.name}`, placed ? 'You shipped it, so Shellby slapped its sticker on his shell.' : 'You shipped it. Its sticker is in the Sticker Book.',
-      () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'stickers'); }, { tone: 'celebrate' });
-  }
-}
-
-// One he already had got better: a tier, a mark, or pressed back down after peeling.
-function stickerNews(r, before) {
-  const p = r.project;
-  const pressed = before && stickers.weathering(before, Date.now()) !== 'fresh';
-  if (!r.tierUp && !r.newMarks.length && !pressed) return;
-  broadcastSkin();
-  setTimeout(() => send(critter, 'critter:sticker-glint', { id: p.id }), 120);
-  const marks = stickers.MARKS.filter(m => r.newMarks.includes(m.id));
-  const line = r.tierUp ? `${p.name} went ${r.tierUp.name.toLowerCase()}!` : pressed ? `${p.name}, good as new` : `${marks[0].icon} ${p.name}`;
-  sayText(line, 'sticker', 6000);
-  send(panel, 'stickers:news', { id: p.id, name: p.name, tier: r.tierUp && { id: r.tierUp.id, name: r.tierUp.name }, marks: marks.map(m => ({ id: m.id, name: m.name, icon: m.icon })), pressed });
-}
-
-// ================================================================ usage limits
-
-// When your plan's limit is reached Shellby naps until it resets, then wakes
-// up and taps you (see limits.js).
-let limitTimer = null;
-const limitWait = () => (limits.status(config?.get('limitWait'), Date.now()) === 'waiting' ? limits.normalize(config.get('limitWait')) : null);
-const clockTime = t => new Date(t).toLocaleString([], { weekday: new Date(t).toDateString() === new Date().toDateString() ? undefined : 'short', hour: 'numeric', minute: '2-digit' });
-
-function onUsage(u) {
-  const hit = limits.limitFrom(u, Date.now());
-  const saved = limits.normalize(config.get('limitWait'));
-  if (hit) {
-    if (saved?.resetsAt === hit.resetsAt) return;
-    config.set({ limitWait: hit });
-    scheduleLimit();
-    refreshCritter();
-    const name = limits.windowName(hit.window);
-    send(panel, 'limit', { phase: 'hit', ...hit, name, at: clockTime(hit.resetsAt) });
-    notify(`Your ${name} Claude limit is reached`, `Shellby will nap and tap you when it resets, ${clockTime(hit.resetsAt)}.`, () => showPanel({ focusInput: false }));
-  } else if (saved && limits.cleared(u)) {
-    config.set({ limitWait: null }); // lifted early (e.g. extra usage)
-    scheduleLimit();
-    refreshCritter();
-  }
-}
-
-// ---- who used it (spend.js): the meters' breakdown by tab, routine and project
-
-let spendLedger = null;
-let spendSaveTimer = null;
-
-function spendSource(tab) {
-  const dir = tab.worktree?.originalCwd || tab.session?.cwd || '';
-  const full = dir ? path.resolve(dir) : null;
-  const pk = full?.toLowerCase() || null;
-  const project = !full ? null : pk === path.resolve(os.homedir()).toLowerCase() ? 'Home folder' : path.basename(full);
-  if (tab.routineId) {
-    // A routine renamed or deleted mid-run still counts as that routine.
-    const routine = routines().find(r => r.id === tab.routineId);
-    return { key: `r:${tab.routineId}`, kind: 'routine', label: routine?.name || tab.title.replace(/^⟳\s*/, ''), project, pk };
-  }
-  if (tab.workflowRunId) {
-    // Counted per workflow, not per run, so an hourly one is one line on the meter.
-    const name = tab.title.replace(/^⚡\s*/, '');
-    return { key: `w:${name.toLowerCase()}`, kind: 'workflow', label: name, project, pk };
-  }
-  return { key: `t:${tab.id}`, kind: 'tab', label: tab.title, project, pk };
-}
-
-function onSpend(s, tab) {
-  spendLedger ??= spend.normalize(config.get('spendLedger'));
-  spendLedger = spend.record(spendLedger, spendSource(tab), s.weight, Date.now());
-  // Calls come in bursts; one write when they settle is plenty.
-  if (!spendSaveTimer) spendSaveTimer = setTimeout(saveSpend, 5000);
-}
-
-function saveSpend() {
-  clearTimeout(spendSaveTimer);
-  spendSaveTimer = null;
-  if (spendLedger) config.set({ spendLedger });
-}
-
-// Settings as the panel sees them: the ledger stays in main (usageBreakdown).
+// Settings as the panel sees them: the spend ledger stays in main (usage-service.js usageBreakdown).
 function panelSettings() {
   const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, ...rest } = config.data;
   return { ...rest, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
 }
 
-function usageBreakdown() {
-  spendLedger ??= spend.normalize(config.get('spendLedger'));
-  const u = config.get('lastUsage') || {};
-  const now = Date.now();
-  return Object.keys(spend.WINDOW_MS).map(window => {
-    const resetsAt = u[window]?.resetsAt;
-    const since = spend.windowStart(window, resetsAt, now);
-    // A reading from before the last reset says nothing about this window.
-    const current = Number.isFinite(resetsAt) && resetsAt > now;
-    return {
-      window, name: limits.windowName(window), pct: current ? u[window].pct ?? null : null,
-      tasks: spend.breakdown(spendLedger, since, 'task'),
-      projects: spend.breakdown(spendLedger, since, 'project'),
-    };
-  });
-}
-
-function scheduleLimit() {
-  clearTimeout(limitTimer);
-  const w = limitWait();
-  if (w) limitTimer = setTimeout(checkLimit, Math.min(w.resetsAt - Date.now() + 1500, 2 ** 31 - 1));
-}
-
-// Runs at the reset time, after the PC wakes up, and at startup.
-function checkLimit() {
-  const raw = config.get('limitWait');
-  const st = limits.status(raw, Date.now());
-  if (st === 'waiting') return scheduleLimit();
-  config.set({ limitWait: null });
-  refreshCritter();
-  sendOutlook();
-  if (st !== 'reset') return;
-  const name = limits.windowName(limits.normalize(raw).window);
-  lastActivity = Date.now();
-  flashState('refreshed', 6500);
-  tellChannel({ kind: 'limit' });
-  send(panel, 'limit', { phase: 'reset', name });
-  notify(`Your ${name} Claude limit just reset`, "Shellby's awake and ready. Anything you queued can go now.", () => showPanel());
-}
-
-// ---- the forecast (forecast.js), and what's held for after the reset (held.js)
-
-// Dev/e2e only: 5-hour readings from dev:usage, backdated so a pace builds up
-// without an hour's wait, and held work going a second after the reset.
-const FORECAST_TEST = !app.isPackaged && process.env.SHELLBY_FORECAST_TEST === '1';
-// Held work goes a minute after the reset, so the server has rolled over too.
-const HELD_GRACE_MS = FORECAST_TEST ? 1000 : 60 * 1000;
-const HELD_STAGGER_MS = 5000;          // one after another, not all at once
-const HELD_BUSY_RETRY_MS = 60 * 1000;  // its conversation is still working: try again shortly
-const HELD_SETTLE_MS = 45 * 1000;      // how long to wait for word on the window between held messages
-const QUEUE_WATCH_MS = 20 * 1000;      // how often a running queued task is checked on, in case its end goes unheard
-const OUTLOOK_TICK_MS = 60 * 1000;     // a forecast goes stale with no new readings
-let heldTimer = null;
-let releasing = false;
-let lastOutlook = '';
-let keepAwakeId = null;
-
-const heldList = () => held.normalize(config.get('held'), Date.now());
-const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 10 * 60 * 1000;
-
-function saveHeld(list) {
-  config.set({ held: list });
-  scheduleHeld();
-  syncKeepAwake();
-  sendOutlook();
-  send(panel, 'routines', routinesView()); // routines show their own "after the reset"
-}
-
-// Queued tasks are mostly for overnight, and a PC that falls asleep at 1am
-// runs nothing at 3. While one waits or runs, Windows is asked not to sleep
-// when idle (the screen still turns off). A lid shut or Sleep chosen still
-// wins: the queue then goes when the PC wakes (powerMonitor 'resume').
-function syncKeepAwake() {
-  if (!config || CAPTURE) return;
-  const want = config.get('queueKeepAwake') !== false && (queueWaits.size > 0 || heldList().some(h => h.kind === 'task'));
-  if (want && keepAwakeId === null) {
-    keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
-    log.info('Keeping the PC awake for the reset queue');
-  } else if (!want && keepAwakeId !== null) {
-    powerSaveBlocker.stop(keepAwakeId);
-    keepAwakeId = null;
-    log.info('Reset queue empty: the PC may sleep again');
-  }
-}
-
-// When "after the reset" is: the limit you're held at, else the 5-hour window's
-// next reset as last reported. null until Claude Code has said.
-function resetTarget(now = Date.now()) {
-  const w = limitWait();
-  if (w) return w.resetsAt;
-  const r = config.get('lastUsage')?.fiveHour?.resetsAt;
-  return Number.isFinite(r) && r > now ? r : null;
-}
-
-// Everything the panel shows about where the window's heading and what's waiting on it.
-function outlookView() {
-  const now = Date.now();
-  const o = forecast.outlook(recapLog, now);
-  const w = limitWait();
-  const resetAt = resetTarget(now);
-  const warn = !!o?.warn && config.get('forecast') !== false && !w;
-  return {
-    pace: o ? { pct: o.pct, perHour: o.perHour, hitAt: o.hitAt, hitText: clockTime(o.hitAt), resetsAt: o.resetsAt, warn } : null,
-    warning: warn ? { text: forecast.message(o, now, clockTime), resetsAt: o.resetsAt } : null,
-    limit: w ? { window: w.window, name: limits.windowName(w.window), resetsAt: w.resetsAt, at: clockTime(w.resetsAt) } : null,
-    resetAt, resetText: resetAt ? clockTime(resetAt) : null,
-    held: heldList().map(heldView),
-    keepAwake: config.get('queueKeepAwake') !== false,
-  };
-}
-
-function heldView(h) {
-  const base = { id: h.id, kind: h.kind, at: h.at, atText: clockTime(h.at) };
-  if (h.kind === 'message') return { ...base, tabId: h.tabId, text: h.text, attachments: h.attachments };
-  if (h.kind === 'routine') return { ...base, routineId: h.routineId, name: h.name };
-  return {
-    ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode,
-    tabId: h.tabId, running: !!h.tabId && queueWaits.has(h.tabId),
-    // Started before and still here: it ran dry partway (or Shellby restarted), and carries on.
-    resuming: !!h.tabId && !queueWaits.has(h.tabId),
-  };
-}
-
-function sendOutlook() {
-  if (!config) return;
-  const view = outlookView();
-  lastOutlook = JSON.stringify(view);
-  send(panel, 'outlook', view);
-}
-
-// A new reading: show the forecast, and the first time a window's pace says
-// it'll run out before the reset, say so (once per window).
-function refreshOutlook() {
-  sendOutlook();
-  if (config.get('forecast') === false || limitWait()) return;
-  const now = Date.now();
-  const o = forecast.outlook(recapLog, now);
-  if (!o?.warn || sameReset(config.get('forecastWarned'), o.resetsAt)) return;
-  config.set({ forecastWarned: o.resetsAt });
-  log.info('Usage forecast', `${o.pct}% at ${o.perHour}%/h: full ~${new Date(o.hitAt).toISOString()}, resets ${new Date(o.resetsAt).toISOString()}`);
-  sayText(`At this pace we run dry around ${clockTime(o.hitAt)}.`, 'forecast');
-  if (panel?.isVisible() && panel.isFocused()) return; // the panel's banner says it
-  notify('Heading for your 5-hour limit', `${forecast.message(o, now, clockTime)} You can hold work for after the reset.`, () => showPanel());
-}
-
-// The forecast lapses when readings stop, and the reset passes: keep the panel current.
-function watchOutlook() {
-  every(() => {
-    if (!config || !panel || panel.isDestroyed()) return;
-    const view = outlookView();
-    const json = JSON.stringify(view);
-    if (json !== lastOutlook) { lastOutlook = json; send(panel, 'outlook', view); }
-  }, OUTLOOK_TICK_MS).unref?.();
-}
-
-/** Hold a message or a routine run for after the reset. raw: { kind, ... } from held.js. */
-function holdForReset(raw) {
-  const at = resetTarget();
-  // A window seen before and since run out: you're on a fresh one already.
-  if (!at && raw.kind === 'task' && config.get('lastUsage')?.fiveHour) return { ok: false, idle: true, error: "There's no 5-hour window running to wait for, so it would just start now. Run it as a normal task instead." };
-  if (!at) return { ok: false, error: "Shellby doesn't know when your window resets yet. He finds out with your next message." };
-  const res = held.hold(heldList(), { ...raw, at: at + HELD_GRACE_MS }, Date.now());
-  if (res.error) return { ok: false, error: res.error };
-  const added = res.list.length > heldList().length;
-  if (added) saveHeld(res.list);
-  return { ok: true, id: res.item.id, at: res.item.at, atText: clockTime(res.item.at), added };
-}
-
-/**
- * "Run it when my limit resets": a task from the Routines page's queue.
- * input: { prompt, cwd?, mode? }. Autonomous is only allowed once you've
- * acknowledged it, and asked about each time: it runs while you sleep.
- */
-async function queueTask(input) {
-  const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
-  if (!prompt) return { ok: false, error: 'Say what Shellby should do.' };
-  if (prompt.length > 50000) return { ok: false, error: 'That task is too long to queue (50,000 characters at most).' };
-  const cwd = isStr(input.cwd) ? input.cwd : currentCwd();
-  if (!isFolder(cwd)) return { ok: false, error: "That folder doesn't exist any more." };
-  const mode = held.TASK_MODES.includes(input.mode) ? input.mode : null;
-  if (mode === 'autonomous') {
-    if (!config.get('autonomousAcknowledged')) return { ok: false, error: 'Turn on Autonomous in Settings first.' };
-    const response = await confirm.ask(panel, {
-      ...dialogLook(), icon: '🌙', danger: true,
-      title: 'Queue an Autonomous task?',
-      message: "It runs after your usage resets, likely while you're away, and won't ask before it acts.",
-      detail: `Folder: ${cwd}\n\n${prompt}`,
-      note: 'You can cancel it from the queue on the Routines page until it starts.',
-      buttons: [{ label: 'Queue it', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-    });
-    if (response !== 0) return { ok: false, cancelled: true };
-  }
-  const res = holdForReset({ kind: 'task', prompt, cwd, mode });
-  if (res.ok) log.info('Task queued for the reset', `${held.taskName(prompt)} at ${res.atText}`);
-  return res;
-}
-
-function scheduleHeld() {
-  clearTimeout(heldTimer);
-  const at = held.next(heldList());
-  if (at === null) return;
-  heldTimer = setTimeout(() => releaseHeld().catch(err => log.warn('Held release failed', err.message)), Math.min(Math.max(0, at - Date.now()), 2 ** 31 - 1));
-}
-
-// After a held message goes, wait to hear how the window looks (a usage
-// reading, or the limit) before the next: if the reset wasn't the one that
-// mattered (the weekly window is full too), the rest mustn't all go and fail.
-async function heardSince(t) {
-  for (let waited = 0; waited < HELD_SETTLE_MS; waited += 500) {
-    if (!config || limitWait() || (config.get('lastUsage')?.at || 0) > t) return;
-    await new Promise(r => setTimeout(r, 500));
-  }
-}
-
-// Due: send what's held, one at a time. Still limited (a reset later than
-// expected, or the weekly window): wait for that reset instead.
-async function releaseHeld() {
-  if (releasing || !config) return;
-  const ready = held.due(heldList(), Date.now());
-  if (!ready.length) return scheduleHeld();
-  const w = limitWait();
-  if (w) return saveHeld(held.defer(heldList(), ready.map(h => h.id), w.resetsAt + HELD_GRACE_MS));
-  releasing = true;
-  const went = [];
-  try {
-    for (const [i, h] of ready.entries()) {
-      if (i) {
-        if (went.length && went[went.length - 1].kind === 'message') await heardSince(went[went.length - 1].sentAt);
-        await new Promise(r => setTimeout(r, HELD_STAGGER_MS));
-      }
-      if (!config) return; // quitting
-      if (!heldList().some(x => x.id === h.id)) continue; // cancelled in the meantime
-      if (limitWait()) break; // limited again: the next pass moves the rest to that reset
-      let outcome;
-      try {
-        // A task is waited on until it finishes, so heavy ones go one at a
-        // time and whatever the window can't fit waits for the next reset.
-        outcome = h.kind === 'routine' ? releaseRoutine(h) : h.kind === 'task' ? await releaseTask(h) : releaseMessage(h);
-      } catch (err) {
-        // Dropped rather than left due: a failure that repeats would retry forever.
-        log.warn('Held item failed', err.message);
-        outcome = 'failed';
-      }
-      if (!config) return; // quit while a task ran: it carries on next time
-      const list = heldList();
-      // 'resume': a task that ran dry partway stays queued, and carries on in its conversation.
-      if (outcome !== 'resume') config.set({ held: outcome === 'retry' ? held.defer(list, [h.id], Date.now() + HELD_BUSY_RETRY_MS) : held.without(list, h.id) });
-      sendOutlook(); // its chip goes now, not when the whole batch is done
-      if (outcome === 'sent') went.push({ ...h, sentAt: Date.now() });
-    }
-  } finally {
-    releasing = false;
-    if (config) saveHeld(heldList());
-  }
-  if (!went.length) return;
-  const what = held.summary(went);
-  log.info('Held work released', what);
-  if (!went.some(h => h.kind === 'task')) return notify('Your usage window reset', `Shellby sent ${what}.`, () => showPanel());
-  const left = heldList().filter(h => h.kind === 'task').length;
-  notify(left ? 'Shellby got through part of your queue' : 'Your reset queue is done',
-    `Shellby got through ${what}.${left ? ` ${left} more wait${left === 1 ? 's' : ''} for the next reset.` : ''}`, () => showPanel());
-}
-
-// The first message of a task that was started before and is still queued:
-// the window ran dry partway, or Shellby closed while it worked.
-const QUEUE_CARRY_ON = 'This task was cut off partway through (the usage limit ran out, or Shellby was closed), and your usage window has reset since. Carry on from where you stopped and finish it. If it was already finished, say so briefly and recap what you did.';
-
-/**
- * One queued task: started (or carried on in its conversation), then waited
- * on until it ends, and the result sent to your phone. -> 'sent' | 'failed'
- * | 'retry' (its conversation is busy with you) | 'resume' (ran dry partway:
- * stays queued for the next reset).
- */
-async function releaseTask(h) {
-  const left = () => heldList().filter(x => x.kind === 'task' && x.id !== h.id).length;
-  const project = h.cwd ? path.basename(h.cwd) : '';
-  const tell = (status, extra = {}) => tellChannel({ kind: 'queue', status, title: h.name, project, left: left(), ...extra });
-  const fail = why => {
-    log.warn('Queued task failed', `${h.name}: ${why}`);
-    notify(`Queued task didn't run: ${h.name}`, why, () => showPanel({ focusInput: false }), { tone: 'problem' });
-    tell('error', { body: why });
-    return 'failed';
-  };
-  if (config.get('crabOnly') || !claudeStatus?.installed || !claudeStatus?.loggedIn) return fail('Claude Code isn\'t set up and signed in, so it couldn\'t start. Queue it again once it is.');
-  if (held.spent(h)) return fail(`It was cut off ${held.MAX_TRIES} times, so Shellby stopped retrying. Its conversation is in History.`);
-
-  const open = h.tabId ? manager.tabs.get(h.tabId) : null;
-  if (open && manager.isBusy(h.tabId)) return 'retry'; // you're working in it right now
-  const carryOn = !!h.tabId && !!(open || history.get(h.tabId));
-  const tabId = carryOn ? h.tabId : randomUUID();
-  const title = `🌙 ${h.name}`;
-  const prompt = carryOn ? QUEUE_CARRY_ON : h.prompt;
-  let turnId;
-  try {
-    if (!open) {
-      makeRoomForRoutine();
-      openTab(carryOn ? { tabId, historyEntry: history.get(tabId) }
-        : { tabId, cwd: h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd(), mode: h.mode, title });
-    }
-    turnId = manager.send(tabId, prompt, { kind: 'user', text: prompt, title, queued: { id: h.id, name: h.name } });
-    queueTabs.set(tabId, h.id);
-    // Saved as soon as it starts: if Shellby closes mid-task, the next pass carries on here.
-    config.set({ held: held.started(heldList(), h.id, tabId) });
-  } catch (err) {
-    return fail(err.message);
-  }
-  const ended = waitForQueued(tabId);
-  syncKeepAwake();
-  sendOutlook();
-  wake();
-  if (open) send(panel, 'tab:sent', { tabId, item: { kind: 'user', text: prompt, attachments: [], turnId } });
-  else send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true, busy: true });
-  log.info('Queued task started', `${h.name}${carryOn ? ' (carrying on)' : ''}`);
-
-  const end = await ended;
-  syncKeepAwake();
-  if (!config) return 'resume';
-  // The limit arrives as a usage reading, separately from the result: an
-  // error might be the window running dry before that reading is in.
-  if (!end.ok && !end.interrupted && !limitWait()) await heardSince(Date.now());
-  if (!config) return 'resume';
-  // Limited now: it most likely ran dry partway. It stays queued and carries
-  // on after this reset; if it had in fact finished, the next turn says so.
-  const w = limitWait();
-  if (w && !end.interrupted) {
-    tell('paused', { resumeAt: w.resetsAt + HELD_GRACE_MS, seconds: end.seconds });
-    return 'resume';
-  }
-  const status = end.ok ? 'ok' : end.interrupted ? 'stopped' : 'error';
-  tell(status, { body: end.ok ? end.reply : end.closed ? 'Its tab was closed.' : end.error, seconds: end.seconds });
-  return end.ok ? 'sent' : 'failed';
-}
-
-// How a queued task's turn ended: onResult answers, closing its tab answers,
-// and if neither is heard (its process died quietly), finding it idle twice does.
-function waitForQueued(tabId) {
-  return new Promise(resolve => {
-    let idle = 0;
-    const watch = setInterval(() => {
-      const gone = !manager?.tabs.has(tabId);
-      idle = !gone && !manager.isBusy(tabId) ? idle + 1 : 0;
-      if (gone || idle >= 2) finish({ ok: false, interrupted: gone, closed: gone, error: gone ? null : 'It stopped without saying how it went.' });
-    }, QUEUE_WATCH_MS);
-    watch.unref?.();
-    function finish(end) {
-      clearInterval(watch);
-      if (queueWaits.get(tabId) === finish) queueWaits.delete(tabId);
-      resolve(end);
-    }
-    queueWaits.set(tabId, finish);
-  });
-}
-
-function releaseRoutine(h) {
-  const r = routines().find(x => x.id === h.routineId);
-  if (!r) return 'dropped'; // deleted while it waited
-  // Held only because it came due at the limit, then paused: it stays paused.
-  if (h.auto && !r.enabled) return 'dropped';
-  const res = runRoutine(r, { reason: 'after-reset' });
-  if (res.ok) return 'sent';
-  if (res.skipped) notify(`Routine "${r.name}" didn't run`, res.error);
-  return 'failed';
-}
-
-// Back to its conversation, reopened from History if it was closed. If it
-// can't go, it lands back in that conversation's box rather than vanishing.
-function releaseMessage(h) {
-  const open = manager.tabs.get(h.tabId);
-  if (open?.session.busy) return 'retry';
-  if (!open) {
-    try {
-      reopenForHeld(h);
-    } catch (err) {
-      notify("A held message couldn't be sent", `${err.message} It was: ${h.text.slice(0, 140)}`);
-      return 'failed';
-    }
-  }
-  const r = sendToTab(h.tabId, h.text, h.attachments);
-  if (!open) {
-    send(panel, 'tab:opened', {
-      tabId: h.tabId, entry: history.get(h.tabId), items: history.load(h.tabId), background: true, busy: r.ok,
-      ...(r.ok ? {} : { draft: h.text, attachments: h.attachments }),
-    });
-  } else if (r.ok) send(panel, 'tab:sent', { tabId: h.tabId, item: r.item });
-  else send(panel, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
-  if (!r.ok) notify("A held message couldn't be sent", `${r.error} It's back in its conversation's box.`, () => showPanel());
-  return r.ok ? 'sent' : 'failed';
-}
-
-// The conversation a held message belongs to, open again under its own id:
-// from History, or (never sent anything yet) as a fresh tab in its folder.
-function reopenForHeld(h) {
-  const entry = history.get(h.tabId);
-  makeRoomForRoutine();
-  return openTab(entry
-    ? { tabId: h.tabId, historyEntry: entry }
-    : { tabId: h.tabId, cwd: h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd(), title: h.title });
-}
-
-// A scheduled routine that comes due while you're at your limit would only
-// fail, and one past the spending guard's ceiling would eat the share you kept
-// for yourself: either way it waits for the reset, and says so the first time.
-function runOrHoldRoutine(r, reason) {
-  const w = limitWait();
-  const usage = config.get('lastUsage');
-  const saving = !w && guard.holdBeforeStart(guardSettings(), usage, Date.now());
-  if (!w && !saving) return runRoutine(r, { reason });
-  const res = holdForReset({ kind: 'routine', routineId: r.id, name: r.name, auto: true });
-  if (!res.ok) return { ok: false, skipped: true, error: res.error };
-  if (res.added) {
-    log.info('Routine held for the reset', `${r.name}${saving ? ' (spending guard)' : ''}`);
-    const why = w ? `You're at your ${limits.windowName(w.window)} limit.`
-      : `Your 5-hour window is at ${usage.fiveHour.pct}%, and you asked to keep ${guardSettings().reserve}% for yourself.`;
-    notify(`Routine "${r.name}" will run after the reset`, `${why} It runs at ${res.atText}.`, () => showPanel({ focusInput: false }));
-  }
-  return { ok: true, held: true };
-}
-
-// ---- the spending guard (guard.js): unattended runs stop before they eat
-// the share of the 5-hour window you keep for yourself, and a routine that
-// runs far too long stops too.
-const GUARD_TICK_MS = 30 * 1000;
-const guardSettings = () => guard.settingsOf(k => config.get(k));
-
-// Each turn as it starts: what kind of unattended run it is, by who sent it
-// (sessions.js turnFrom). What you type yourself, even in a routine's or a
-// workflow's tab, is yours. A run you started by hand (Run now, a manual
-// workflow run) is never stopped on the ceiling: only a routine's time cap
-// still applies to it.
-// A task queued for the reset counts as yours: you queued it to spend that
-// window, overnight, in whatever mode you picked, so the ceiling and the
-// "you've walked away" rule don't stop it (the limit itself still does).
-function armGuard(tab) {
-  const { routine, workflow, queued } = tab.turnFrom || {};
-  const kind = routine ? 'routine' : workflow ? 'workflow' : null;
-  const byHand = queued ? true : routine ? routine.reason === 'manual' : !!workflow && workflows?.originOf(workflow.runId) === 'manual';
-  tab.guardRun = { kind, startedAt: Date.now(), exempt: byHand, stopped: null };
-}
-
-function idleForGuard() {
-  try {
-    return powerMonitor.getSystemIdleState(60) === 'locked' ? Infinity : powerMonitor.getSystemIdleTime() * 1000;
-  } catch { return 0; }
-}
-
-// On each usage reading and every half minute: stop any run the guard says
-// should stop. Autonomous is read off the tab now, not when the turn started,
-// so switching into it mid-turn counts.
-function checkGuards() {
-  if (!manager || !config) return;
-  const settings = guardSettings();
-  if (!settings.on) return;
-  const now = Date.now();
-  const usage = config.get('lastUsage');
-  let idleMs = null;
-  for (const [tabId, tab] of manager.tabs) {
-    const run = tab.guardRun;
-    if (!run || run.stopped || !manager.isBusy(tabId)) continue;
-    const kind = run.kind || (tab.session.mode === 'autonomous' ? 'autonomous' : null);
-    if (!kind) continue;
-    if (kind === 'autonomous' && idleMs === null) idleMs = idleForGuard();
-    const v = guard.verdict({ ...run, kind }, settings, { usage, now, idleMs: idleMs ?? 0 });
-    if (!v) continue;
-    run.stopped = v;
-    log.info('Spending guard stopped a run', `${tab.title}: ${v.reason}${v.pct ? ` at ${v.pct}%` : ''}`);
-    manager.interrupt(tabId);
-    const m = guard.message(v, tab.title, settings, clockTime);
-    notify(m.title, m.body, () => showPanel({ tabId }), { tone: 'problem' });
-  }
-}
-
-function watchGuards() {
-  setInterval(checkGuards, GUARD_TICK_MS).unref?.();
-}
-
-// ================================================================ routines
-
-function routines() { return Array.isArray(config.get('routines')) ? config.get('routines') : []; }
-
-function routinesView() {
-  const now = Date.now();
-  return routines().map(r => ({
-    ...r, next: nextRun(r, now), scheduleText: describeSchedule(r.schedule),
-    running: [...routineTabs.entries()].some(([tabId, id]) => id === r.id && manager.isBusy(tabId)),
-    held: heldFor(r.id),
-  }));
-}
-
-// A run of this routine waiting for the usage reset: { id, at, atText } or null.
-function heldFor(routineId) {
-  const h = heldList().find(x => x.kind === 'routine' && x.routineId === routineId);
-  return h ? { id: h.id, at: h.at, atText: clockTime(h.at) } : null;
-}
-
-function saveRoutines(list) {
-  config.set({ routines: list });
-  send(panel, 'routines', routinesView());
-}
-
-function updateRoutine(id, patch) {
-  saveRoutines(routines().map(r => (r.id === id ? { ...r, ...patch } : r)));
-}
-
-// An hourly routine opens a tab every run; left alone they'd fill the strip
-// overnight, and at the cap the next run (and any tab of yours) couldn't open.
-// Past ROUTINE_TABS_KEPT finished ones, or at the cap, the oldest finished
-// routine tab closes. History keeps its transcript.
-function makeRoomForRoutine() {
-  // A queue tab still on the list (it ran dry, and carries on later) is kept.
-  const pending = new Set(heldList().map(h => h.tabId).filter(Boolean));
-  const finished = [...routineTabs.keys(), ...queueTabs.keys()].filter(id => manager.tabs.has(id) && !manager.isBusy(id) && !pending.has(id));
-  if (manager.tabs.size < MAX_TABS && finished.length < ROUTINE_TABS_KEPT) return;
-  const done = finished[0];
-  if (!done) return;
-  manager.close(done);
-  routineTabs.delete(done);
-  queueTabs.delete(done);
-  remote?.settleTab(done);
-}
-
-// A routine's MCP servers -> what its conversation starts with: rules that let
-// Claude use them unasked, and with "only these", just their definitions.
-// Throws (runRoutine reports it) when one can't be loaded on its own.
-function routineTools(r, cwd) {
-  if (!r.mcp?.length) return {};
-  let mcpConfig = null;
-  if (r.mcpOnly) {
-    const res = mcpServers.configFor(r.mcp, { home: os.homedir(), cwd });
-    if (!res.ok) throw new Error(res.error);
-    mcpConfig = res.config;
-  }
-  return { allowedTools: mcpServers.allowRules(r.mcp), mcpConfig };
-}
-
-function runRoutine(r, { reason = 'scheduled' } = {}) {
-  const busyTab = [...routineTabs.entries()].find(([tabId, id]) => id === r.id && manager.isBusy(tabId));
-  if (busyTab) return { ok: false, skipped: true, error: `"${r.name}" is still running from last time.` };
-  if (!claudeStatus?.loggedIn) return { ok: false, skipped: true, error: 'Claude Code is not signed in.' };
-  try {
-    makeRoomForRoutine();
-    const tabId = randomUUID();
-    const cwd = r.cwd && fs.existsSync(r.cwd) ? r.cwd : currentCwd();
-    openTab({ tabId, cwd, mode: r.mode, routineId: r.id, title: `⟳ ${r.name}`, ...routineTools(r, cwd) });
-    routineTabs.set(tabId, r.id);
-    const userItem = { kind: 'user', text: r.prompt, title: `⟳ ${r.name}`, routine: { id: r.id, name: r.name, reason } };
-    manager.send(tabId, r.prompt, userItem);
-    updateRoutine(r.id, { lastRunAt: Date.now(), lastStatus: null });
-    stat('routine-run');
-    send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true });
-    return { ok: true, tabId };
-  } catch (err) {
-    notify(`Routine "${r.name}" couldn't start`, err.message, null, { tone: 'problem' });
-    return { ok: false, error: err.message };
-  }
-}
-
-const MAX_ROUTINES = 50;
-const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } };
-const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
-
-// One routine question at a time, so a chatty session can't stack dialogs, and
-// a quiet spell after a no, so anything on the port can't keep asking.
-const ROUTINE_COOLDOWN_MS = 30 * 1000;
-let routineAsking = false;
-let routineDeclinedAt = 0;
-
-/**
- * An `add_routine` from Claude (MCP). A routine spends the user's subscription
- * on a schedule, and anything on this PC can reach the port it came in on, so
- * it is only saved once the user says yes in the isolated confirm window. A
- * routine with the same name is changed in place, keeping its history and
- * whether it's paused.
- */
-async function proposeRoutine(routine) {
-  if (routineAsking) return { ok: false, error: 'Shellby is already asking the user about a routine. Wait for that answer first.', status: 409 };
-  if (Date.now() - routineDeclinedAt < ROUTINE_COOLDOWN_MS) return { ok: false, error: 'The user just turned down a routine. Talk it over with them before proposing another.', status: 429 };
-  if (routine.cwd && !isFolder(routine.cwd)) return { ok: false, error: `That folder doesn't exist: ${routine.cwd}`, status: 400 };
-  const replacing = routines().find(r => sameName(r.name, routine.name)) || null;
-  if (!replacing && routines().length >= MAX_ROUTINES) return { ok: false, error: `The user already has ${MAX_ROUTINES} routines, which is the limit.`, status: 400 };
-
-  routineAsking = true;
-  let response;
-  try {
-    wake();
-    response = await confirm.ask(panel, {
-      ...dialogLook(), icon: '⟳',
-      ...crabtools.routineQuestion(routine, { replacing, defaultFolder: currentCwd() }),
-      buttons: [{ label: replacing ? 'Change it' : 'Add routine', style: 'primary' }, { label: 'No thanks' }], defaultId: 0, cancelId: 1,
-    });
-  } finally { routineAsking = false; }
-  if (response !== 0) {
-    routineDeclinedAt = Date.now();
-    return { text: crabtools.routineReply(routine, { added: false, replaced: !!replacing }) };
-  }
-
-  // The list may have changed while the dialog was up. The yes was to adding,
-  // or to changing one particular routine: anything else needs asking again.
-  const current = routines().find(r => sameName(r.name, routine.name));
-  if ((current?.id || null) !== (replacing?.id || null)) {
-    return { ok: false, error: "The user's routines changed while they were deciding, so nothing was saved. Check list_routines and try again.", status: 409 };
-  }
-  const saved = current
-    ? { ...routine, id: current.id, createdAt: current.createdAt, lastRunAt: current.lastRunAt, lastStatus: current.lastStatus, enabled: current.enabled }
-    : routine;
-  if (!current && routines().length >= MAX_ROUTINES) return { ok: false, error: `The user already has ${MAX_ROUTINES} routines, which is the limit.`, status: 400 };
-  saveRoutines(current ? routines().map(r => (r.id === current.id ? saved : r)) : [...routines(), saved]);
-  sayText(current ? `Updated the "${saved.name}" routine.` : `New routine: ${saved.name}.`, 'mcp');
-  return { text: crabtools.routineReply(saved, { added: true, replaced: !!current, next: nextRun(saved, Date.now()) }) };
-}
-
-/**
- * "Describe it" on the Routines page: Claude fills in the editor from a
- * sentence. Only a draft comes back; the user saves it from the editor, so no
- * confirm window is needed. One at a time, since each is a (small) Claude call.
- */
-let routineDrafting = false;
-async function draftRoutine(text) {
-  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
-  const checked = routineDraft.checkDescription(text);
-  if (!checked.ok) return checked;
-  if (routineDrafting) return { ok: false, error: 'Already drafting one. Give it a moment.' };
-  routineDrafting = true;
-  try {
-    const res = await runClaudeOnce(routineDraft.draftArgs(checked.text, { home: os.homedir(), defaultFolder: currentCwd(), places: routinePlaces() }),
-      routineDraft.DRAFT_TIMEOUT_MS);
-    if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
-    if (!res.stdout.trim()) {
-      log.warn('Routine draft failed', res.stderr.trim().split('\n').slice(-3).join(' ') || res.err?.message);
-      return { ok: false, error: 'Claude Code didn\'t answer. Check it\'s signed in, in Settings.' };
-    }
-    return routineDraft.parseDraft(res.stdout, { folderOk: isFolder });
-  } finally { routineDrafting = false; }
-}
-
-// Build it with Claude's test runs: tab id -> routine id. Kept apart from
-// routineTabs, which forgets a tab once it closes, so a test is still read
-// after you've closed its tab. Only the last few are remembered.
-const routineTests = new Map();
-const MAX_ROUTINE_TESTS = 20;
-
-/**
- * Build it with Claude, one turn of the routine editor's chat. `runId` is the
- * test run that just finished: its transcript is read here, and only if it was
- * a test of this same saved routine. Nothing is saved or run here.
- */
-async function chatRoutine({ routine, messages, runId } = {}) {
-  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
-  if (routineDrafting) return { ok: false, error: 'Claude is already working on one. Give it a moment.' };
-  const saved = routine && typeof routine.id === 'string' ? routines().find(r => r.id === routine.id) : null;
-  const run = runId && saved && routineTests.get(runId) === saved.id ? routineDraft.runBrief(history.load(runId)).text : '';
-  routineDrafting = true;
-  try {
-    const res = await routineDraft.chat({ routine, messages, run }, routineClaudeDeps());
-    if (res.stderr) log.warn('Routine chat failed', String(res.stderr).trim().split('\n').slice(-3).join(' '));
-    const { stderr: _stderr, ...out } = res;
-    return out;
-  } finally { routineDrafting = false; }
-}
-
-const routineClaudeDeps = () => ({
-  runClaude: runClaudeOnce, folderOk: isFolder, allowAutonomous: !!config.get('autonomousAcknowledged'),
-  context: { home: os.homedir(), defaultFolder: currentCwd(), today: new Date().toDateString(), places: routinePlaces() },
-});
-
-// Where you work, so "my shellby repo" finds a real folder: recent conversations' folders first, then known projects.
-function routinePlaces() {
-  const home = path.resolve(os.homedir()).toLowerCase();
-  const seen = new Set();
-  const out = [];
-  const add = (dir, name) => {
-    const key = path.resolve(dir).toLowerCase();
-    if (seen.has(key) || key === home || !isFolder(dir)) return;
-    seen.add(key);
-    out.push({ name: name || path.basename(dir), path: dir });
-  };
-  for (const e of history.list().slice(0, 200)) if (e.cwd) add(e.cwd);
-  for (const p of knownProjects()) add(p.key, p.name);
-  return out.slice(0, 20);
-}
-
-/**
- * Fix with Claude, on a routine whose last run failed: Claude reads that run
- * (the newest History entry of this routine, a test run included) and the
- * corrected routine opens in the editor. Nothing is saved here.
- */
-async function repairRoutine(id) {
-  if (config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };
-  const r = routines().find(x => x.id === id);
-  if (!r) return { ok: false, error: 'That routine is gone.' };
-  const runs = history.list().filter(e => e.routineId === id);
-  const latest = runs.reduce((a, b) => (!a || (b.createdAt || 0) > (a.createdAt || 0) ? b : a), null);
-  const items = latest ? history.load(latest.id) : [];
-  if (!items.length) return { ok: false, error: 'Shellby no longer has that run\'s conversation, so there\'s nothing to go on. Run it again, then try.' };
-  if (routineDrafting) return { ok: false, error: 'Claude is already working on one. Give it a moment.' };
-  routineDrafting = true;
-  try {
-    const res = await routineDraft.repair({ routine: r, brief: routineDraft.runBrief(items).text }, routineClaudeDeps());
-    if (res.stderr) log.warn('Routine fix failed', String(res.stderr).trim().split('\n').slice(-3).join(' '));
-    const { stderr: _stderr, ...out } = res;
-    return out;
-  } finally { routineDrafting = false; }
-}
-
-// How a test run is going, in the shape the editor's chat follows (wf-chat.js).
-function routineTestView(tabId) {
-  const tab = manager.tabs.get(tabId);
-  if (tab && manager.isBusy(tabId)) return { id: tabId, status: 'running', waiting: tab.session?.pending?.size ? { permission: true } : null };
-  const { status, error } = routineDraft.runBrief(history.load(tabId));
-  // No result: its tab was closed, or Claude Code quit partway (that tab is still open, and idle).
-  if (status === 'unfinished') return tab ? { id: tabId, status: 'error', error: 'Claude Code stopped before it finished.' } : { id: tabId, status: 'interrupted' };
-  return { id: tabId, status, error };
-}
-
-function testRoutine(id) {
-  const r = routines().find(x => x.id === id);
-  if (!r) return { ok: false, error: 'Save it first.' };
-  const res = runRoutine(r, { reason: 'test' });
-  if (!res.ok) return res;
-  routineTests.set(res.tabId, r.id);
-  while (routineTests.size > MAX_ROUTINE_TESTS) routineTests.delete(routineTests.keys().next().value);
-  return { ok: true, runId: res.tabId };
-}
-
-function startScheduler() {
-  scheduler = new Scheduler({ getRoutines: routines });
-  scheduler.on('due', r => {
-    // A start that fails outright (runRoutine catch) already said so; a skip
-    // (signed out, last run still going) would otherwise vanish without a word.
-    const res = runOrHoldRoutine(r, 'scheduled');
-    if (!res.ok && res.skipped) {
-      log.info('Routine skipped', `${r.name}: ${res.error}`);
-      notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
-    }
-  });
-  scheduler.start();
-  // Catch up on slots missed while the PC was off, staggered so they don't stampede.
-  const missed = routines().filter(r => missedOnStartup(r, Date.now()));
-  missed.forEach((r, i) => setTimeout(() => runOrHoldRoutine(r, 'catch-up'), 8000 + i * 5000));
-  // Anything held for a reset that came while Shellby was closed goes now.
-  scheduleHeld();
-  syncKeepAwake();
-}
-
-// ================================================================ settings side effects
-
 function applyHotkey(accel, previous) {
-  if (previous) { try { globalShortcut.unregister(previous); } catch { /* ignore */ } }
+  if (previous) { try { globalShortcut.unregister(previous); } catch (err) { log.warn('old hotkey could not be released', err?.message); } }
   if (!accel) return true;
-  try { return globalShortcut.register(accel, onHotkey); } catch { return false; }
+  try { return globalShortcut.register(accel, onHotkey); } catch (err) { log.warn('hotkey could not be registered', err?.message); return false; }
 }
 
 function applyLoginItem(open) {
@@ -2156,8 +975,6 @@ function userSkinsDir() {
 }
 
 // ================================================================ IPC
-
-const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 
 // Remembered for Up and Ctrl+R in the box (parity.js).
 function rememberPrompt(text) { parityIpc?.rememberPrompt(text); }
@@ -2260,6 +1077,7 @@ app.whenReady().then(() => {
   const userData = app.getPath('userData');
   config = new Config(userData);
   if (config.recoveredFrom) log.error('settings.json could not be read; started from defaults', `the old copy is at ${config.recoveredFrom}`);
+  if (config.unreadable) log.error('settings.json is locked; running on defaults and not saving this session', config.unreadable);
   // Rooms are decided once: everything for someone who was already here, one
   // door at a time for someone new (rooms.js).
   if (config.get('rooms') == null) config.set({ rooms: rooms.initialRooms(!!config.get('onboarded')) });
@@ -2374,7 +1192,7 @@ app.whenReady().then(() => {
   confirmChannelPlace().catch(e => log.warn('channel confirm failed', e.message));
   createObs();
   createRgb();
-  if (rgbSettings().enabled) ensureOpenRgb().catch(() => {}); // lighting on: start OpenRGB if it isn't running
+  if (rgbSettings().enabled) ensureOpenRgb().catch(err => log.warn('OpenRGB could not be started', err?.message)); // lighting on: start OpenRGB if it isn't running
   createWeather();
   createMedia();
   createLifeAndPlay();
@@ -2384,11 +1202,11 @@ app.whenReady().then(() => {
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
   // Timers don't run while the PC sleeps: catch up on wake.
-  powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); if (scheduler) scheduleHeld(); });
+  powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); if (routineService.isScheduling()) scheduleHeld(); });
   watchOutlook();
   watchGuards();
   setTimeout(checkNudges, 60 * 1000);
-  try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch { /* leave it */ }
+  try { if (statusLine.upgradeStatusLine(claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch (err) { log.warn('status line command could not be updated; left as it was', err?.message); }
   every(checkNudges, 60 * 60 * 1000);
   setTimeout(checkWrapUp, 2 * 60 * 1000);
   every(checkWrapUp, 30 * 60 * 1000);
@@ -2442,7 +1260,7 @@ app.on('will-quit', () => {
   typing?.stop(); // lets go of the keyboard (keystrokes.js)
   statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
   globalShortcut.unregisterAll();
-  scheduler?.stop();
+  routineService.stop();
   if (config) saveSpend();
   lean?.save();
   toolbox?.stop();
@@ -2459,7 +1277,7 @@ app.on('will-quit', () => {
   ci?.stop();
   clearTimeout(focusTimer);
   clearInterval(focusTick);
-  clearTimeout(limitTimer);
+  usageService.stop(); // the reset tap
   repeating.forEach(clearInterval);
   remote?.stop();
   dictation?.stop();
@@ -2476,6 +1294,6 @@ app.on('before-quit', () => {
   // Quits that didn't come through quit() (Windows shutting down, say):
   // "Stop them" still holds. taskkill runs on its own, so Shellby exiting
   // can't cut it off halfway down the tree, and the servers are saved as gone.
-  if (devServers?.view().settings.onQuit === 'stop') devServers.stopAll({ detached: true }).catch(() => {});
+  if (devServers?.view().settings.onQuit === 'stop') devServers.stopAll({ detached: true }).catch(err => log.warn('dev servers could not be stopped at quit', err?.message));
   devServers?.shutdown();
 });

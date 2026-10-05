@@ -26,25 +26,27 @@ function wireTray(d) {
 
   // Says what the last check found, so a glance at the menu is often enough.
   function leaveMenuLabel() {
-    const v = d.leaveVerdict();
+    const v = d.awayService.leaveVerdict();
     return v.safe ? 'Is it safe to leave?' : `Safe to leave? ${v.headline.replace(/\.$/, '')}`.slice(0, 90);
   }
 
-  function buildMenu() {
+  // Async: whether there's a screenshot to offer is an async clipboard read.
+  async function buildMenu() {
     const agg = d.manager?.aggregate;
     const claude = !d.config.get('crabOnly'); // just-the-crab mode has no tasks, toolbox or routines
+    const hasShot = claude && await d.clipboardHasImage();
     return Menu.buildFromTemplate([
       { label: 'Open Shellby', click: () => d.showPanel() },
       claude && { label: 'New conversation', click: () => { d.showPanel(); d.send(d.panel, 'tab:new-request'); } },
-      claude && d.clipboardHasImage() && { label: 'Task from screenshot', click: d.taskFromClipboard },
+      hasShot && { label: 'Task from screenshot', click: d.taskFromClipboard },
       { label: 'Wardrobe', click: () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'wardrobe'); } },
       claude && { label: 'Toolbox', click: () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'toolbox'); } },
       claude && { label: 'Workflows', click: () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'workflows'); } },
       claude && { label: 'Routines', click: () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'routines'); } },
       claude && { label: 'Projects', click: () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'projects'); } },
       claude && d.devServers?.liveCount() && { label: `Stop all dev servers (${d.devServers.liveCount()})`, click: () => d.devServers.stopAll() },
-      { label: leaveMenuLabel(), click: () => d.leaveCheck() },
-      { label: 'Lock the PC', click: () => d.leaveCheck({ lock: true }) },
+      { label: leaveMenuLabel(), click: () => d.awayService.leaveCheck() },
+      { label: 'Lock the PC', click: () => d.awayService.leaveCheck({ lock: true }) },
       { label: d.healthMood ? `Health: ${d.HEALTH_TIP[d.healthMood.mood]} (${d.healthMood.text})` : 'Health', click: d.showHealth },
       focusMenu(),
       playMenu(),
@@ -99,7 +101,7 @@ function wireTray(d) {
     // Too long for a URL: open a blank issue and leave the details on the
     // clipboard instead of silently truncating the thing they need to paste.
     if (url.length > MAX_URL) {
-      clipboard.writeText(body);
+      clipboard.writeText(body).catch(e => d.log.warn("couldn't copy the problem report", e?.message));
       d.notify('Report copied', 'The details are on your clipboard — paste them into the issue.');
       shell.openExternal(`${ISSUES_URL}?labels=bug`);
       return;
@@ -202,8 +204,12 @@ function wireTray(d) {
     d.tray = new Tray(img.isEmpty() ? nativeImage.createFromPath(d.ICON).resize({ width: 16, height: 16 }) : img);
     d.tray.setToolTip('Shellby');
     d.tray.on('click', () => { d.reachedForShellby(); d.showPanel(); });
-    d.tray.on('right-click', d.reachedForShellby); // its menu's items open the panel too
-    d.tray.on('right-click', () => d.tray.popUpContextMenu(buildMenu()));
+    d.tray.on('right-click', () => {
+      d.reachedForShellby(); // its menu's items open the panel too
+      buildMenu()
+        .then(menu => d.tray.popUpContextMenu(menu))
+        .catch(e => d.log.warn("couldn't open the tray menu", e?.message));
+    });
   }
 
   async function quit() {

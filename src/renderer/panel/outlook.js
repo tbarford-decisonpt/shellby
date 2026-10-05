@@ -15,8 +15,9 @@
     if (state.view === 'routines') SB.views.routines?.render();
   };
 
-  const heldFor = tab => (state.outlook?.held || []).filter(x => x.kind === 'message' && x.tabId === tab.id);
-  const describe = m => m.text || `${m.attachments.length} attached file${m.attachments.length === 1 ? '' : 's'}`;
+  // Which note, which actions and the words for them live in shared/outlook-format.js.
+  const W = window.ShellbyOutlookFormat;
+  const heldFor = tab => W.heldFor(state.outlook, tab.id);
 
   // ------------------------------------------------------------ banner
 
@@ -24,20 +25,17 @@
     const box = $('outlook');
     const o = state.outlook;
     const tab = SB.activeTab();
-    const note = o?.limit
-      ? { text: `You're at your ${o.limit.name} limit until ${o.limit.at}.`, key: o.limit.resetsAt, cls: 'limit' }
-      : o?.warning ? { text: o.warning.text, key: o.warning.resetsAt, cls: 'warning' } : null;
+    const note = W.noteFor(o);
     const show = !!note && !!tab && dismissed !== note.key && !SB.isCrabOnly?.();
     box.hidden = !show;
     if (!show) { box.replaceChildren(); return; }
     box.className = `outlook ${note.cls}`;
     const typed = !!input.value.trim() || tab.attachments.length > 0;
     const queued = tab.queue.length;
-    const actions = !o.resetAt ? [] : [
-      typed ? h('button', { class: 'btn slim-btn', type: 'button', title: 'Ctrl+Shift+Enter', onclick: holdTyped }, 'Send after the reset') : null,
-      queued ? h('button', { class: `btn slim-btn${typed ? ' ghost' : ''}`, type: 'button', onclick: () => holdQueue(tab) }, `Hold ${queued} queued`) : null,
-      !typed && !queued ? h('span', { class: 'outlook-hint' }, h('kbd', { text: 'Ctrl+Shift+Enter' }), ' in the box holds a message for then') : null,
-    ].filter(Boolean);
+    const actions = W.actionsFor({ resetAt: o.resetAt, typed, queued }).map(kind => (
+      kind === 'send-typed' ? h('button', { class: 'btn slim-btn', type: 'button', title: 'Ctrl+Shift+Enter', onclick: holdTyped }, 'Send after the reset')
+        : kind === 'hold-queue' ? h('button', { class: `btn slim-btn${typed ? ' ghost' : ''}`, type: 'button', onclick: () => holdQueue(tab) }, `Hold ${queued} queued`)
+          : h('span', { class: 'outlook-hint' }, h('kbd', { text: 'Ctrl+Shift+Enter' }), ' in the box holds a message for then')));
     box.replaceChildren(...[
       SB.icon(SB.ICONS.clock, { width: 1.4 }),
       h('span', { class: 'outlook-text', text: note.text }),
@@ -68,9 +66,9 @@
     const text = input.value.trim();
     const attachments = [...tab.attachments];
     if (!text && !attachments.length) return;
-    if (!state.outlook?.resetAt) return SB.toast("Shellby doesn't know when your window resets yet. He finds out with your next message.", { ms: 5000 });
-    // A command you run yourself happens here and now, never later (composer.js).
-    if (text.startsWith('!') && !text.startsWith('!!')) return SB.toast('Commands you run with ! can\'t wait for the reset.');
+    // Not before the reset time is known, and never a ! command (composer.js runs those now).
+    const refusal = W.holdRefusal(text, state.outlook?.resetAt);
+    if (refusal) return SB.toast(refusal.text, refusal.ms ? { ms: refusal.ms } : undefined);
     holding = true;
     SB.clearComposer(tab);
     try {
@@ -98,7 +96,7 @@
     }
     if (!tab.queue.length) tab.queuePaused = false;
     if (tab.isActive) SB.syncBusyUi();
-    if (n) SB.toast(`${n === 1 ? 'Your queued message goes' : `${n} queued messages go`} at ${at}, once your usage resets.`, { ms: 4000 });
+    if (n) SB.toast(W.queueHeldText(n, at), { ms: 4000 });
   }
   SB.holdQueue = holdQueue;
 
@@ -114,7 +112,7 @@
   // back to the box and is no longer held), ✕ to drop it.
   SB.heldChips = tab => heldFor(tab).map(m => h('div', { class: 'queue-item held' },
     h('span', { class: 'queue-tag', title: `Held until your usage resets: goes at ${m.atText}`, text: m.atText }),
-    h('button', { class: 'queue-text', type: 'button', title: 'Edit (puts it back in the box; it won\'t wait for the reset)', onclick: () => unhold(tab, m.id, true) }, describe(m)),
+    h('button', { class: 'queue-text', type: 'button', title: 'Edit (puts it back in the box; it won\'t wait for the reset)', onclick: () => unhold(tab, m.id, true) }, W.describe(m)),
     h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Don\'t send after the reset', onclick: () => unhold(tab, m.id, false) },
       SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 }))));
 

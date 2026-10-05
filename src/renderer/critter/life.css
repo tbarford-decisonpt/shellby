@@ -195,18 +195,18 @@ body.bit-peekaboo .part-claw { animation: wave .25s ease-in-out infinite; }
 /* the spray from a sneeze (critter.css's sand-puff) */
 .prop-achoo .grit { left: 0; bottom: calc(var(--px) * 6); width: calc(var(--px) * .75); height: calc(var(--px) * .75); background: #e9d8a6; animation: sand-puff .7s cubic-bezier(.2, .8, .4, 1) var(--d) forwards; }
 /* zz, notes, sweat and sparkles: little things rising off him */
-.prop-zz .z, .prop-notes .note { left: calc(var(--px) * -8 + var(--x, 0px)); bottom: calc(var(--px) * 13); font: 700 13px "Pixelify Sans", monospace; font-style: normal; color: #cfd8ff; text-shadow: 0 1px 0 rgba(0, 0, 0, .4); animation: float 1.6s ease-out var(--d) backwards; }
+.prop-zz .z, .prop-notes .note { left: calc(var(--px) * -8 + var(--x, 0px)); bottom: calc(var(--px) * 13); font: 700 var(--fs-13) "Pixelify Sans", monospace; font-style: normal; color: #cfd8ff; text-shadow: 0 1px 0 rgba(0, 0, 0, .4); animation: float 1.6s ease-out var(--d) backwards; }
 .prop-notes .note { color: var(--glass); }
 .prop-sweat .drop { left: calc(var(--px) * -4 + var(--x)); bottom: calc(var(--px) * 13); width: 4px; height: 6px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #a8dadc; animation: drip 1s ease-in var(--d) infinite; }
 @keyframes drip { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(18px); opacity: 0; } }
-.prop-sparkle .spark { left: calc(var(--px) * -1 + var(--x)); bottom: calc(var(--px) * 12 + var(--y)); font: 700 12px "Pixelify Sans", monospace; font-style: normal; color: #ffd23f; text-shadow: 0 0 6px rgba(255, 210, 63, .8); animation: twinkle 1s ease-in-out var(--d) infinite; }
+.prop-sparkle .spark { left: calc(var(--px) * -1 + var(--x)); bottom: calc(var(--px) * 12 + var(--y)); font: 700 var(--fs-12) "Pixelify Sans", monospace; font-style: normal; color: #ffd23f; text-shadow: 0 0 6px rgba(255, 210, 63, .8); animation: twinkle 1s ease-in-out var(--d) infinite; }
 @keyframes twinkle { 0%, 100% { transform: scale(.4); opacity: 0; } 50% { transform: scale(1.2); opacity: 1; } }
 
 /* ---------- a visiting crab talking back (src/main/banter.js) ---------- */
 .helper.visitor .vbubble {
   position: absolute; left: 50%; bottom: calc(100% + 24px); transform: translateX(-50%) translateY(4px);
   width: max-content; max-width: 120px; padding: 3px 7px; border-radius: 8px; white-space: normal; text-align: center;
-  font: 700 11px/1.25 "Pixelify Sans", monospace; color: var(--ink); background: #fff4e4;
+  font: 700 var(--fs-11)/1.25 "Pixelify Sans", monospace; color: var(--ink); background: #fff4e4;
   box-shadow: 0 1px 0 rgba(0, 0, 0, .35); opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; z-index: 3;
 }
 .helper.visitor .vbubble::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #fff4e4; }

@@ -305,10 +305,19 @@ test('web hooks start the workflow with the matching token only', async () => {
   assert.deepEqual(calls.say, ['hi / there']);
 });
 
+test('export says so when the clipboard refuses the copy', async () => {
+  const { svc } = make();
+  const { workflow } = await svc.save({ name: 'Share me', when: [{ type: 'webhook' }], steps: [{ type: 'tell', text: 'x' }] });
+  svc.deps.copy = async () => { throw new Error('clipboard busy'); };
+  const r = await svc.exportText(workflow.id);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /clipboard/);
+});
+
 test('import and export round-trip, without ids or hook tokens', async () => {
   const { svc, calls } = make();
   const { workflow } = await svc.save({ name: 'Share me', when: [{ type: 'webhook' }], steps: [{ type: 'tell', text: 'x' }] });
-  assert.equal(svc.exportText(workflow.id).ok, true);
+  assert.equal((await svc.exportText(workflow.id)).ok, true);
   const text = calls.copy[0];
   assert.equal(text.includes(workflow.id), false);
   assert.equal(text.includes(workflow.when[0].token), false);

@@ -130,9 +130,13 @@ class Config {
   constructor(dir) {
     this.file = path.join(dir, 'settings.json');
     fs.mkdirSync(dir, { recursive: true });
-    const { data, recoveredFrom } = loadSettings(this.file);
+    const { data, recoveredFrom, unreadable } = loadSettings(this.file);
     // Where a damaged settings.json was moved to (main.js logs it), or null.
     this.recoveredFrom = recoveredFrom;
+    // Why settings.json couldn't be read at all (still locked after retries), or
+    // null. Then this session runs on defaults and never saves: writing would
+    // replace the real settings, which are fine, just out of reach.
+    this.unreadable = unreadable;
     this.data = { ...DEFAULTS, ...data };
     if (!MODES.includes(this.data.mode)) this.data.mode = DEFAULTS.mode;
   }
@@ -142,7 +146,7 @@ class Config {
   set(patch) {
     const prev = this.data;
     this.data = { ...this.data, ...patch };
-    writeSettings(this.file, JSON.stringify(this.data, null, 2));
+    if (!this.unreadable) writeSettings(this.file, JSON.stringify(this.data, null, 2));
     this.onSet?.(patch, prev);
     return this.data;
   }
@@ -157,31 +161,44 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; }
 }
 
-// settings.json -> { data, recoveredFrom }. A missing file is a fresh profile.
-// One that can't be read as an object is moved aside rather than treated as
-// empty: the next save would otherwise replace routines, snippets and XP with
-// the defaults, with nothing left to rescue.
+// Antivirus and search indexers briefly hold files open on Windows, which makes
+// a read or rename fail with EPERM/EBUSY/EACCES. A few short waits (100 ms in
+// all: this blocks the main process) usually see it through.
+const BUSY_WAITS_MS = [10, 20, 30, 40];
+const BUSY = new Set(['EPERM', 'EBUSY', 'EACCES']);
+const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+function retryBusy(fn) {
+  for (const wait of BUSY_WAITS_MS) {
+    try { return fn(); } catch (err) {
+      if (!BUSY.has(err.code)) throw err;
+      pause(wait);
+    }
+  }
+  return fn();
+}
+
+// settings.json -> { data, recoveredFrom, unreadable }. A missing file is a
+// fresh profile. One that can't be read as an object is moved aside rather than
+// treated as empty: the next save would otherwise replace routines, snippets and
+// XP with the defaults, with nothing left to rescue. One that can't be read or
+// moved at all is left exactly where it is (unreadable: why).
 function loadSettings(file) {
   let text;
-  try { text = fs.readFileSync(file, 'utf8'); } catch (err) {
-    if (err.code === 'ENOENT') return { data: {}, recoveredFrom: null };
-    throw err;
+  try { text = retryBusy(() => fs.readFileSync(file, 'utf8')); } catch (err) {
+    if (err.code === 'ENOENT') return { data: {}, recoveredFrom: null, unreadable: null };
+    return { data: {}, recoveredFrom: null, unreadable: err.message };
   }
   try {
     const data = JSON.parse(text);
-    if (data && typeof data === 'object' && !Array.isArray(data)) return { data, recoveredFrom: null };
+    if (data && typeof data === 'object' && !Array.isArray(data)) return { data, recoveredFrom: null, unreadable: null };
   } catch { /* damaged: set aside below */ }
   const aside = file.replace(/\.json$/, `.corrupt-${Date.now()}.json`);
-  fs.renameSync(file, aside);
-  return { data: {}, recoveredFrom: aside };
+  try { retryBusy(() => fs.renameSync(file, aside)); } catch (err) {
+    return { data: {}, recoveredFrom: null, unreadable: `damaged, and couldn't be set aside: ${err.message}` };
+  }
+  return { data: {}, recoveredFrom: aside, unreadable: null };
 }
-
-// Antivirus and search indexers briefly hold new files open on Windows, which
-// makes the rename fail with EPERM/EBUSY/EACCES.
-const RENAME_RETRIES = 5;
-const RENAME_WAIT_MS = 20;
-const BUSY = new Set(['EPERM', 'EBUSY', 'EACCES']);
-const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 // Via a temp file, so a crash mid-write can't leave half a settings.json. A
 // rename that stays blocked falls back to writing in place: better than losing
@@ -189,11 +206,8 @@ const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0,
 function writeSettings(file, text) {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, text);
-  for (let attempt = 0; attempt < RENAME_RETRIES; attempt++) {
-    try { fs.renameSync(tmp, file); return; } catch (err) {
-      if (!BUSY.has(err.code)) throw err;
-      pause(RENAME_WAIT_MS * (attempt + 1));
-    }
+  try { retryBusy(() => fs.renameSync(tmp, file)); return; } catch (err) {
+    if (!BUSY.has(err.code)) throw err;
   }
   fs.writeFileSync(file, text);
   fs.rmSync(tmp, { force: true });
