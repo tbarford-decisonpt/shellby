@@ -91,6 +91,9 @@ api.onSkin(msg => {
   for (const m of WEATHER_MOODS) flags.delete(`weather-${m}`);
   if (WEATHER_MOODS.includes(outfit.weather?.mood)) flags.add(`weather-${outfit.weather.mood}`);
   paintBody();
+  // The frame after his first drawing is when you can see him: what
+  // scripts/perf-budget.js times a cold start to. One entry, never cleared.
+  if (!performance.getEntriesByName('shellby:crab-painted').length) requestAnimationFrame(() => performance.mark('shellby:crab-painted'));
 });
 const WEATHER_MOODS = ['storm', 'cold', 'hot'];
 let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles

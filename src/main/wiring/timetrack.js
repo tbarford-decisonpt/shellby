@@ -389,6 +389,9 @@ function wireTimetrack(d) {
       getPanel: () => d.panel,
       confirm: spec => confirm.ask(d.panel, { ...d.dialogLook(), ...spec }),
       selfPids: () => app.getAppMetrics().map(m => m.pid),
+      // His own CPU and memory in Health; screenshot runs leave it out, so the
+      // pictures don't carry whatever the capturing PC happened to be doing.
+      appMetrics: d.CAPTURE ? null : () => app.getAppMetrics(),
       ownedPids: () => processJob.ownedPids(),
       fakeScenario: d.CAPTURE ? 'calm' : envFake,
       onMood: mood => { d.healthMood = mood; d.refreshCritter(); },
