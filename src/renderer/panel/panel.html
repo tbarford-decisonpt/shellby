@@ -1857,6 +1857,27 @@
     </div>
   </div>
 
+  <!-- a red build or a review on your pull request: exactly what goes to Claude, before it goes (startfrom.js) -->
+  <div class="card-sheet" id="sfSheet" role="dialog" aria-modal="true" aria-labelledby="sfTitle" hidden>
+    <div class="card-box sf-box">
+      <div class="card-head">
+        <h2 id="sfTitle">Fix this build</h2>
+        <button type="button" class="icon-btn" id="sfClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="small sf-lede" id="sfLede" role="status"></p>
+      <pre class="pj-prompt sf-prompt" id="sfPrompt" tabindex="0" aria-label="What will be sent to Claude" hidden></pre>
+      <textarea class="field pj-note" id="sfNote" rows="2" maxlength="500" placeholder="Anything to add? (optional)" aria-label="A note for Claude" hidden></textarea>
+      <p class="muted small pj-where" id="sfWhere" hidden></p>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="sfGitHub">Open on GitHub</button>
+        <button type="button" class="btn ghost" id="sfCancel">Not now</button>
+        <button type="button" class="btn primary" id="sfSend" disabled>Send to Claude</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../shared/framecap.js"></script>
@@ -1909,6 +1930,7 @@
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
 <script src="time.js"></script>
+<script src="startfrom.js"></script>
 <script src="project-facts.js"></script>
 <script src="projects.js"></script>
 <script src="profile-card.js"></script>

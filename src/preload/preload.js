@@ -236,6 +236,12 @@ contextBridge.exposeInMainWorld('shellby', {
   openPr: fire('ci:open'),
   askAboutCi: invoke('ci:ask'),
   onCi: on('ci'),
+  // Start a task from a red build, a review or a loose end (startfrom.js): drafts are shown before anything is sent.
+  startFromDraft: invoke('startfrom:draft'),
+  startFromSend: invoke('startfrom:send'),
+  onStartFromOpen: on('startfrom:open'),
+  looseEnds: invoke('startfrom:loose-ends'),
+  looseEndDraft: invoke('startfrom:loose-end'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   getStatusLine: invoke('statusline:get'),

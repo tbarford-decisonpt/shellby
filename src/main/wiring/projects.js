@@ -123,9 +123,10 @@ function wireProjects(d) {
   // A task that starts in a copy of its own (worktrees.js), whatever the
   // worktrees setting says: work that ends in a pull request has no business in
   // your checkout. promptFor(worktree) writes the prompt once the branch is known.
-  async function startTaskInCopy(dir, title, promptFor, { mode = null } = {}) {
+  // start: the commit the copy starts from (a pull request's head, startfrom.js), else your HEAD.
+  async function startTaskInCopy(dir, title, promptFor, { mode = null, start = 'HEAD' } = {}) {
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
-    const made = await worktrees.create(dir, { home: d.worktreeHome(), title });
+    const made = await worktrees.create(dir, { home: d.worktreeHome(), title, start });
     if (!made) return { ok: false, error: "That folder isn't in a git repository." };
     if (!made.ok) return { ok: false, error: made.error };
     const w = made.worktree;

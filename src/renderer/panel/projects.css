@@ -12,9 +12,12 @@ body[data-view="projects"] .view-projects {
 }
 .view-projects .view-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .view-projects .link-btn,
+.sf-box .link-btn,
 #devServersGroup .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--glass); text-decoration: underline dotted; cursor: pointer; }
 .view-projects .link-btn:hover,
-.view-projects .link-btn:focus-visible { color: var(--sand); }
+.view-projects .link-btn:focus-visible,
+.sf-box .link-btn:hover,
+.sf-box .link-btn:focus-visible { color: var(--sand); }
 
 /* ---------- the line at the top: how it's all going ---------- */
 .pj-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin: 2px 0 12px; font-size: 13px; color: var(--sand-dim); }
@@ -228,6 +231,18 @@ body[data-view="projects"] .view-projects {
 .pj-prompt { max-height: 180px; color: var(--sand); }
 .pj-note { width: 100%; box-sizing: border-box; resize: vertical; min-height: 44px; font-size: 12.5px; }
 .pj-where { line-height: 1.5; }
+
+/* ---------- start from where the work is (startfrom.js): the pull request sheet, loose ends ---------- */
+.sf-box { display: grid; gap: 10px; }
+.sf-box .card-head { margin-bottom: 0; }
+.sf-lede { margin: 0; line-height: 1.5; color: var(--sand-dim); }
+.sf-prompt { max-height: min(46vh, 320px); }
+.sf-box [hidden] { display: none; }
+.sf-loose-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+.sf-loose-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px var(--font-mono); }
+.sf-tag { font: 600 9.5px var(--font-mono); letter-spacing: .04em; padding: 2px 5px; border-radius: 4px; color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line-soft); }
+.sf-tag.fixme, .sf-tag.hack { color: var(--coral); border-color: color-mix(in srgb, var(--coral) 40%, transparent); }
+.sf-loose-foot { margin-top: 6px; gap: 10px; align-items: center; }
 
 /* ---------- scan and clone sheets ---------- */
 .pj-sheet { display: grid; gap: 10px; }

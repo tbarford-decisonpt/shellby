@@ -28,6 +28,8 @@
     health: 'With Claude Code, Shellby can find out why and report back, without changing anything.',
     files: 'With Claude Code, drop files on Shellby and he works on them: sorts, renames, summarizes, converts.',
     ci: 'With Claude Code, Shellby reads the failing logs and tells you why the build is red, without changing anything.',
+    fix: "With Claude Code, Shellby hands Claude the failing log or the review comments, in a copy of the project on the pull request's branch, and it pushes the fix there.",
+    loose: 'With Claude Code, a TODO left in the code becomes a task: the file, the line and the code around it, ready to send.',
     deps: 'With Claude Code, Shellby bumps the packages in a copy of the project, runs the tests and opens a pull request for you to look over.',
     review: "With Claude Code, Shellby can look over the changes you haven't committed or pushed yet and say what looks risky, without changing anything.",
     lhm: 'With Claude Code, Shellby can install LibreHardwareMonitor and switch on its web server for you. Until then, the steps in the Health view do the same by hand.',
