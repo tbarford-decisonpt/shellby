@@ -121,6 +121,22 @@ SB.toast = (msg, { action, onAction, ms = 2800 } = {}) => {
   toastTimer = setTimeout(() => { t.hidden = true; }, action ? ms + 2500 : ms);
 };
 
+// A model picker's options, grouped by family, from the list main accepts
+// (src/main/models.js). '' is the default; a saved model that has since left
+// the list still shows rather than a blank.
+SB.fillModels = (select, current = '', defaultText = 'Default') => {
+  const models = SB.state.models || [];
+  const groups = [...new Set(models.map(m => m.group))];
+  const known = current === '' || models.some(m => m.id === current);
+  select.replaceChildren(...[
+    SB.h('option', { value: '', text: defaultText }),
+    ...groups.map(g => SB.h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => SB.h('option', { value: m.id, text: m.label })))),
+    known ? null : SB.h('option', { value: current, text: current }),
+  ].filter(Boolean));
+  select.value = current;
+};
+SB.modelLabel = id => (SB.state.models || []).find(m => m.id === id)?.label || id;
+
 // Stroke icon from path data (built with DOM APIs, never innerHTML).
 SB.icon = (d, { size = 16, width = 1.4 } = {}) => {
   const NS = 'http://www.w3.org/2000/svg';

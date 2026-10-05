@@ -181,6 +181,8 @@ src/main/        Electron main process
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
   held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
+  turncost.js      what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
+                   composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), and the service tying them together

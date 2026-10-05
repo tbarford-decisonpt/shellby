@@ -20,6 +20,13 @@ test('hold adds a cleaned-up item without touching the old list', () => {
   assert.match(r.item.id, /^[\w-]+$/);
 });
 
+test('a queued task keeps a model Shellby offers and drops anything else', () => {
+  const task = model => held.hold([], { kind: 'task', prompt: 'refactor billing', at: RESET, model }, NOW).item;
+  assert.equal(task('sonnet').model, 'sonnet');
+  assert.equal('model' in task(''), false, 'the usual model needs no field');
+  assert.equal('model' in task('gpt-5'), false);
+});
+
 test('nothing to send, or nowhere to send it, is refused', () => {
   assert.ok(held.hold([], msg({ text: '   ' }), NOW).error);
   assert.ok(held.hold([], msg({ tabId: '../etc' }), NOW).error);

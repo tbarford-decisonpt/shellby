@@ -491,12 +491,14 @@
     renderAttachments();
     autosize();
     SB.composerInput?.();
+    SB.resetEstimate?.(); // what it usually costs was about what's just gone (outlook.js)
   }
   SB.clearComposer = clearComposer;
   SB.renderAttachments = renderAttachments;
 
-  // -> true once it has gone (or is queued to), false if it stayed where it was.
-  SB.send = async (text) => {
+  // -> true once it has gone (or is queued, or held for the reset), false if it
+  // stayed where it was. force: send even if it would be held as a big task.
+  SB.send = async (text, { force = false } = {}) => {
     const tab = SB.activeTab();
     if (!tab) return false;
     text = (text ?? input.value).trim();
@@ -517,6 +519,20 @@
       if (r?.newTab && !tab.isEmpty) return sendInNewTab(tab, text, r, attachments);
       if (r) { snippet = r.name; text = r.prompt; }
     }
+    // "Hold big tasks for the reset" (Settings): one that usually takes more than
+    // the window has left waits for the reset instead (outlook.js).
+    if (!force && state.settings.holdBigTasks) {
+      // A second Enter while main looks it up would send (or hold) it twice.
+      if (tab.holdChecking) return false;
+      tab.holdChecking = true;
+      let held;
+      try { held = await SB.holdIfBig?.(tab, text, attachments); } finally { tab.holdChecking = false; }
+      if (held) {
+        clearComposer(tab);
+        if (snippet) api.snippetUsed(snippet);
+        return true;
+      }
+    }
     if (tab.busy) {
       tab.queue.push(queueItem(text, attachments));
       clearComposer(tab);
@@ -529,6 +545,17 @@
     SB.setView('chat');
     if (snippet) api.snippetUsed(snippet);
     return true;
+  };
+
+  // A message that skips the box (a held one you chose to send now): queued
+  // behind the turn in progress, or sent at once. -> true once it's on its way.
+  SB.sendDirect = async (tab, text, attachments = []) => {
+    if (tab.busy) {
+      tab.queue.push({ text, attachments });
+      syncBusyUi();
+      return true;
+    }
+    return sendNow(tab, text, attachments);
   };
 
   // A snippet set to start a conversation of its own: the one you're in is left

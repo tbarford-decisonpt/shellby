@@ -13,6 +13,13 @@ const { validateRoutine } = require('../routines');
 function registerRoutinesIpc(ipcMain, d) {
   // ---- routines
   ipcMain.handle('usage:breakdown', () => d.usageBreakdown());
+  // What the message being typed usually costs (turncost.js). Only its category
+  // is worked out from the text; nothing of it is kept.
+  ipcMain.handle('usage:estimate', (_e, req) => {
+    const text = typeof req?.text === 'string' ? req.text.slice(0, 50000) : '';
+    if (!text.trim() || d.config.get('crabOnly')) return null;
+    return d.usagePlan.estimateFor(d.isStr(req.tabId) ? req.tabId : null, text);
+  });
   ipcMain.handle('routines:list', () => d.routinesView());
   ipcMain.handle('routines:templates', () => routineTemplates.TEMPLATES);
   ipcMain.handle('routines:save', async (_e, input) => {
@@ -21,11 +28,11 @@ function registerRoutinesIpc(ipcMain, d) {
     if (!routine) return { ok: false, errors };
     // A routine runs unattended. One that may act without a prompt for every
     // step (Smart, Auto-edit, Autonomous, or MCP servers it may use unasked)
-    // is confirmed in the isolated window whenever what it does, where, or how
-    // freely changes.
+    // is confirmed in the isolated window whenever what it does, where, how
+    // freely, or on which model changes.
     const unattended = !['ask', 'plan'].includes(routine.mode) || !!routine.mcp?.length;
     const servers = r => JSON.stringify([r?.mcp || [], !!r?.mcpOnly]);
-    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]) || servers(existing) !== servers(routine);
+    const changed = !existing || ['mode', 'prompt', 'cwd'].some(k => existing[k] !== routine[k]) || servers(existing) !== servers(routine) || (existing.model || '') !== routine.model;
     if (unattended && changed) {
       const response = await confirm.ask(d.panel, {
         ...d.dialogLook(), icon: '⟳', danger: routine.mode === 'autonomous',

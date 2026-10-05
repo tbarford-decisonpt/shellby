@@ -39,6 +39,7 @@ function wireSessions(d) {
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
         d.armGuard(tab);
+        d.usagePlan?.beginTurn(tab);
         tab.lastReply = null;
         // Only the summary turn itself may start a conversation fresh (tab:fresh
         // sets it after this runs): a summary turn that died without a result
@@ -61,6 +62,7 @@ function wireSessions(d) {
 
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {
+        d.usagePlan?.onUsage(tabId, item); // before lastUsage moves on: the rise is measured from it
         d.config.set({ lastUsage: { ...item, at: Date.now() } });
         d.noteRecap(recap.usageEvent(tabId, tab.title, item));
         d.send(d.panel, 'usage', item);

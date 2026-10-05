@@ -143,7 +143,7 @@
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
       <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
-      <div class="input-hint"><span id="modeHint"></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
+      <div class="input-hint"><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
 
@@ -301,6 +301,11 @@
           <div class="row"><code class="path" id="routineFolder">Default folder</code><button type="button" class="btn slim-btn" id="routineFolderBtn">Change</button></div>
         </div>
       </div>
+      <label class="field-label">Model
+        <select class="field" name="model" aria-describedby="routineModelHint"></select>
+      </label>
+      <p class="muted small routine-model-hint" id="routineModelHint">A lighter model is plenty for tidy-ups and summaries.</p>
+      <p class="routine-model-suggest" id="routineModelSuggest" role="status" hidden></p>
       <div id="routineMcp"></div>
       <label class="toggle"><input type="checkbox" name="catchUp" checked><span class="switch"></span>If the PC was off, run once when Shellby starts</label>
       <p class="form-errors" id="routineErrors" role="alert" hidden></p>
@@ -332,6 +337,7 @@
             <option value="plan">Plan only</option>
             <option value="autonomous">Autonomous</option>
           </select>
+          <select class="field rq-mode" id="resetQueueModel" aria-label="Model" title="The model it runs on"></select>
           <button type="submit" class="btn slim-btn" id="resetQueueAdd">Queue it</button>
         </div>
         <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>
@@ -1692,6 +1698,8 @@
           </label>
         </div>
         <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
+        <label class="toggle"><input type="checkbox" id="holdBigToggle"><span class="switch"></span>Hold big tasks for the reset when I'm close to the limit</label>
+        <p class="muted small">Shellby learns what tasks like yours usually take. When a message would carry you past the line (the share you keep, or the limit with the guard off), it waits for the reset instead, with a "Send now" if you change your mind. It needs a few similar tasks to go on first, and it's all worked out on this PC.</p>
       </section>
 
       <section class="setting-group" id="safetyGroup" data-nav="Safety nets">

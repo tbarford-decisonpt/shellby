@@ -70,6 +70,7 @@ const DEFAULTS = {
   spendGuard: true,  // stop unattended runs before they eat the share of the 5-hour window you keep (see guard.js)
   spendReserve: 25,  // % of the 5-hour window routines, workflows and away-from-the-PC Autonomous tabs leave you
   spendMaxMinutes: 60, // the longest one routine run may take
+  holdBigTasks: false, // hold a message for the reset when it usually takes more than the window has left (turncost.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
@@ -89,6 +90,7 @@ const DEFAULTS = {
   autonomousAcknowledged: false,
   lastUsage: null,
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
+  turnCosts: [],      // what each turn cost, by project and kind of ask, never the prompt (see turncost.js); this PC only
   // Lean Shell (efficiency.js, lean.js): cache reads per day, each project's
   // setup weight, what Claude Code used lately, plugins' always-on estimates,
   // what was tidied away (XP once each), and when things were first seen.
