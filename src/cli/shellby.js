@@ -9,6 +9,7 @@
 //   shellby flow run "Red build fixer" branch=main   start a workflow
 //   shellby time last-week                  hours on each project, for an invoice
 //   shellby do @review                      run a saved prompt snippet
+//   shellby take                            open this folder's Claude Code session in Shellby
 //
 // Self-contained plain Node (builtins only): Shellby copies this file next to
 // its shim in %LOCALAPPDATA%\Shellby\bin, so it never has to be read out of the
@@ -40,6 +41,8 @@ const TIME_RANGES = ['today', 'week', 'last-week', 'month', 'last-month'];
 // A saved snippet, as Shellby names them (snippets.js NAME). Lowercase only, so
 // `shellby do @Makefile ...` and `@src/app.js` stay file mentions for Claude.
 const SNIPPET = /^@([a-z0-9][a-z0-9-]{0,31})$/;
+// A Claude Code session id, as Shellby checks it (handoff.js isSessionId).
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const EXIT = { ok: 0, error: 1, usage: 2, notRunning: 3, denied: 4 };
 
@@ -49,6 +52,8 @@ const USAGE = `shellby - the desktop crab, from your terminal
   shellby do @<snippet> [more...]
                               run one of your saved prompt snippets, like @review
   shellby snippets            your snippets
+  shellby take [session-id]   carry the Claude Code session in this folder on in
+                              Shellby (or /shellby:handoff from inside it)
   shellby say <text...>       put a short line in his speech bubble
   shellby status              how the crab and this PC are doing
   shellby flow list           your workflows, and which ones Claude Code may run
@@ -182,6 +187,12 @@ function parseArgs(argv) {
 
   if (first === 'flow') return parseFlowArgs(args);
 
+  if (first === 'take') {
+    if (args.length > 1) return { error: 'shellby take takes at most a session id.' };
+    if (args.length && !SESSION_ID.test(args[0])) return { error: `"${String(args[0]).slice(0, 40)}" isn't a Claude Code session id.` };
+    return args.length ? { cmd: 'take', id: args[0] } : { cmd: 'take' };
+  }
+
   if (first === 'time') {
     const opts = { cmd: 'time', range: 'week', estimates: false };
     for (const a of args) {
@@ -262,6 +273,9 @@ async function main(argv) {
   if (cmd.cmd === 'time') return cliRequest({ action: 'time', range: cmd.range, estimates: cmd.estimates }, token, { fallback: 'No time to show.' });
   if (cmd.cmd === 'snippets') return cliRequest({ action: 'snippets' }, token, { fallback: 'No snippets yet.' });
   if (cmd.cmd === 'flow-list') return cliRequest({ action: 'flow-list' }, token, { fallback: 'No answer.' });
+  if (cmd.cmd === 'take') {
+    return cliRequest({ action: 'take', args: { cwd: process.cwd(), ...(cmd.id ? { id: cmd.id } : {}) } }, token, { fallback: 'Opened in Shellby.' });
+  }
   if (cmd.cmd === 'flow-run') return cliRequest({ action: 'flow-run', name: cmd.name, inputs: cmd.inputs }, token, { fallback: 'Started.' });
 
   // do
@@ -307,4 +321,4 @@ if (require.main === module) {
     .catch(e => { err(`shellby: ${e?.message || e}`); process.exit(EXIT.error); });
 }
 
-module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, SNIPPET };
+module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, SNIPPET, SESSION_ID };

@@ -72,6 +72,7 @@ More out of your Claude plan, without asking Claude to do any less. Nothing here
 
 - **The plugin:** one click in **Settings → Claude Code everywhere**, or `/plugin marketplace add x-salmon/shellby` then `/plugin install shellby@shellby` in Claude Code. He scuttles while Claude works, raises a claw when it needs permission, celebrates finished turns and sends out helper crabs for subagents, in your terminal and editor sessions too: *"shellby in Cursor"*, VS Code, Windsurf, Zed, JetBrains, Windows Terminal. See [claude-plugin/](../claude-plugin/).
 - **Status line:** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on in **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and restores your old status line if you remove it), or run `/shellby:statusline`. In the classic cmd.exe console, which can't draw emoji, it switches to a plain-text line.
+- **To the terminal and back:** right-click a tab (or press <kbd>Ctrl</kbd>+<kbd>K</kbd>, or hover a row in History) and choose **Continue in a terminal**. Once he's finished his turn, Shellby ends that conversation's process and opens Windows Terminal (or PowerShell, or cmd, if that's what you have) in its folder, or in its own copy of the repo, running `claude --resume` on the same conversation, with the same Claude Code and the same **Always use my Claude plan** setting. The tab is marked with `›_` and won't send anything while you're out there. When you're done, type `/exit` and choose **Pick it up here**. The other way works too: every session in **Settings → Claude Code everywhere** has **Bring it into Shellby**, which opens it in a tab. If it's still open in its terminal, he asks you to `/exit` there first, because two copies of one conversation trip over each other. From inside a terminal session, `/shellby:handoff` (or `shellby take`) does the same in one go.
 - **Claude Code somewhere unusual?** **Find it myself…** in setup takes a portable copy or another drive, and checks the file really is Claude Code before keeping it.
 
 ### ⌨️ From any terminal
@@ -84,6 +85,7 @@ shellby say "all green"          # a line in his bubble
 shellby status                   # him, and how this PC is doing
 shellby flow run "Release notes" version=1.2.0   # start a workflow that allows it
 shellby time last-week           # hours on each project, ready for an invoice
+shellby take                     # carry this folder's Claude Code session on in Shellby
 ```
 
 **Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**

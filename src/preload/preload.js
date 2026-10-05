@@ -110,6 +110,11 @@ contextBridge.exposeInMainWorld('shellby', {
   setSessionDone: (id, done) => ipcRenderer.invoke('session:done', { id, done }),
   renameSession: (id, title) => ipcRenderer.invoke('session:rename', { id, title }),
 
+  // between Shellby and a terminal (src/main/handoff.js)
+  continueInTerminal: invoke('handoff:terminal'),
+  pickUpHere: invoke('handoff:pickup'),
+  bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
+
   // settings
   setSettings: invoke('settings:set'),
   pickFolder: invoke('folder:pick'),

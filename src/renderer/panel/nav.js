@@ -212,17 +212,24 @@
     }));
   }
 
-  // Reordering the tab strip without a pointer — the drag gesture's keyboard twin,
-  // and the only way there is for anyone who can't drag.
+  // The open conversation: carrying it on in a terminal, and reordering the tab
+  // strip without a pointer (the drag gesture's keyboard twin, and the only way
+  // there is for anyone who can't drag).
   function tabEntries() {
-    if (!claude() || state.tabs.size < 2 || !state.tabs.has(state.activeTab)) return [];
-    const here = state.tabs.get(state.activeTab).title;
-    return [[-1, 'left', 'PageUp'], [1, 'right', 'PageDown']].map(([step, where, key]) => ({
+    const tab = state.tabs.get(state.activeTab);
+    if (!claude() || !tab) return [];
+    // To a terminal and back (handoff.js), once there's a conversation to carry on.
+    const handoff = !tab.saved ? [] : [tab.inTerminal
+      ? { group: 'Conversations', icon: '↩', title: 'Pick this conversation up here', sub: `${tab.title} · back from the terminal`, keys: 'terminal handoff resume back return', run: () => { SB.setView('chat'); SB.pickUpHere(tab.id); } }
+      : { group: 'Conversations', icon: '›_', title: 'Continue this conversation in a terminal', sub: `${tab.title} · Windows Terminal, claude --resume`, keys: 'terminal handoff resume cli console powershell wt', run: () => SB.continueInTerminal(tab.id) }];
+    if (state.tabs.size < 2) return handoff;
+    const here = tab.title;
+    return [...handoff, ...[[-1, 'left', 'PageUp'], [1, 'right', 'PageDown']].map(([step, where, key]) => ({
       group: 'Conversations', icon: step < 0 ? '⬅️' : '➡️',
       title: `Move this conversation ${where}`, sub: `${here} · Ctrl+Shift+${key}`,
       keys: 'tab strip reorder order move drag position',
       run: () => { SB.setView('chat'); SB.nudgeTab(state.activeTab, step); },
-    }));
+    }))];
   }
 
   // Every word has to appear somewhere; titles that start with the query rank first.

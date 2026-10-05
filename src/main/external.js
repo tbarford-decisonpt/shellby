@@ -3,7 +3,8 @@
 // we keep a tiny picture of every live session so the crab can work, ask and
 // celebrate along with them.
 //
-// Only the event name, tool name, folder name and session id are kept. Tool
+// Only the event name, tool name, folder and session id are kept (the folder and
+// id so "Bring it into Shellby" can open the conversation where it lives). Tool
 // inputs (commands, file contents) arrive in the payload and are dropped unread.
 // The one exception is a backgrounded command, where the program it runs ('node',
 // 'npm') is kept so Shellby can say what was left running -- never its arguments.
@@ -28,6 +29,9 @@ const MAX_BG = 8;                        // more than anyone leaves running on p
 const BG_FORGET_MS = 30 * 60 * 1000;     // long enough to notice, short enough not to haunt
 const MAX_SESSIONS = 64;                 // nobody runs more; a flood of fake ids evicts the oldest
 const MAX_CONNECTIONS = 16;
+const MAX_ENDED = 16;                    // sessions just closed, still bringable into Shellby
+const MAX_CWD = 400;
+const LOCAL_DIR = /^[A-Za-z]:[\\/][^\u0000-\u001f\u007f]*$/;
 const ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
 
 // While listening, Shellby leaves a marker the plugin's hook checks first, so
@@ -65,6 +69,11 @@ function applyHookEvent(sessions, evt, now, client = null) {
   const prev = next.get(id);
   const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, helpers: 0, tools: 0, bg: [], startedAt: now };
   if (evt.cwd) s.project = projectOf(evt.cwd);
+  // Where Claude Code keeps the conversation is decided by the folder it started
+  // in, so that one is kept: from SessionStart, or else the first one heard.
+  // Only a folder on a local drive: this port takes events from anything on the
+  // PC, and a \\host\share would have Shellby reach out to another machine.
+  if (LOCAL_DIR.test(evt.cwd || '') && evt.cwd.length <= MAX_CWD && (name === 'SessionStart' || !s.cwd)) s.cwd = evt.cwd;
   // The hook sends this on every event; keep the last one that named an app, so
   // a session doesn't lose its label to one event that arrived without it.
   if (client?.label) s.client = client;
@@ -171,6 +180,16 @@ function expire(sessions, now) {
   return next;
 }
 
+/** One session as the panel sees it. */
+function viewOf(s) {
+  return {
+    id: s.id, cwd: s.cwd || null,
+    project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt,
+    client: s.client?.label || null, clientKind: s.client?.kind || null,
+    where: describeClient(s.project, s.client),
+  };
+}
+
 /** Roll the sessions up for the critter: state, busy count and helper crabs. */
 function summarize(sessions) {
   const list = [...sessions.values()];
@@ -184,11 +203,7 @@ function summarize(sessions) {
     .sort((a, b) => b.at - a.at);
   return {
     state, busy: busy.length, crew, background,
-    sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(s => ({
-      project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt,
-      client: s.client?.label || null, clientKind: s.client?.kind || null,
-      where: describeClient(s.project, s.client),
-    })),
+    sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(viewOf),
   };
 }
 
@@ -233,6 +248,7 @@ class ExternalSessions extends EventEmitter {
     this.owner = `${process.pid}-${Math.random().toString(36).slice(2)}`; // whose marker it is
     this.now = now;
     this.sessions = new Map();
+    this.ended = new Map();  // id -> view: closed lately, so "Bring it into Shellby" still works once you've typed /exit
     this.server = null;
     this.status = 'off'; // 'off' | 'listening' | 'busy' | 'error'
     this.timer = null;
@@ -279,6 +295,7 @@ class ExternalSessions extends EventEmitter {
       clearInterval(this.timer);
       this.timer = setInterval(() => {
         this.update(expire(this.sessions, this.now()));
+        for (const [k, v] of this.ended) if (this.now() - v.endedAt > FORGET_MS) this.ended.delete(k);
         this.marker(true); // self-healing: put it back if anything removed it
       }, 60 * 1000);
       this.emit('status', this.status);
@@ -293,6 +310,7 @@ class ExternalSessions extends EventEmitter {
     this.server = null;
     this.marker(false);
     this.status = 'off';
+    this.ended.clear();
     this.update(new Map());
     this.emit('status', this.status);
   }
@@ -358,7 +376,22 @@ class ExternalSessions extends EventEmitter {
       .catch(() => reply(500, { error: 'Shellby could not do that.' }));
   }
 
+  /**
+   * One session by id, for handoff.js: live while it's open, or one that ended
+   * lately (closing it is exactly what "Bring it into Shellby" asks you to do).
+   */
+  known(id) {
+    const s = this.sessions.get(id);
+    if (s) return { ...viewOf(s), live: true };
+    const gone = this.ended.get(id);
+    return gone ? { ...gone, live: false } : null;
+  }
+
   ingest(evt, headers = {}) {
+    if (evt?.hook_event_name === 'SessionEnd' && this.sessions.has(evt.session_id)) {
+      this.ended.set(evt.session_id, { ...viewOf(this.sessions.get(evt.session_id)), state: 'idle', endedAt: this.now() });
+      while (this.ended.size > MAX_ENDED) this.ended.delete(this.ended.keys().next().value);
+    }
     // Which app the session is running in, worked out by the hook (see
     // claude-plugin/hooks/notify.sh) and named in clients.js.
     const client = clientOf({ host: headers['x-shellby-host'], entry: headers['x-shellby-entry'] });

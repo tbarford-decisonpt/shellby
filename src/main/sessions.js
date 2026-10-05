@@ -7,6 +7,7 @@ const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 
 const MAX_TABS = 8;
+const IN_TERMINAL = 'This conversation is carrying on in a terminal. Close it there (/exit), then choose Pick it up here.';
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
@@ -53,6 +54,9 @@ class SessionManager extends EventEmitter {
       branchOf: historyEntry?.branchOf || null,
       fence: historyEntry?.fence || null,
       preamble: typeof historyEntry?.preamble === 'string' ? historyEntry.preamble : null,
+      // When it was carried on in a terminal (handoff.js): until it's picked up
+      // again, nothing is sent from here, or two processes would share it.
+      inTerminal: Number.isFinite(historyEntry?.inTerminal) ? historyEntry.inTerminal : null,
       activeAt: Date.now(),        // when it last sent or heard anything, for stopIdle()
     };
     this.tabs.set(tabId, tab);
@@ -96,6 +100,7 @@ class SessionManager extends EventEmitter {
     // Before anything below touches History or the turn: session.send would
     // refuse anyway, but only after a message Claude never saw was saved.
     if (tab.session.busy) throw new Error('Shellby is still working on the last task.');
+    if (tab.inTerminal) throw new Error(IN_TERMINAL);
     tab.activeAt = Date.now();
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
@@ -133,6 +138,16 @@ class SessionManager extends EventEmitter {
     if (!tab || !t) return false;
     tab.title = t;
     if (tab.saved) this.history.rename(tab.id, t); else tab.named = true;
+    this.changed();
+    return true;
+  }
+
+  /** Mark a tab as carried on in a terminal (at: a time), or picked back up (null). */
+  setInTerminal(tabId, at) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return false;
+    tab.inTerminal = Number.isFinite(at) ? at : null;
+    if (tab.saved) this.history.update(tab.id, { inTerminal: tab.inTerminal });
     this.changed();
     return true;
   }
@@ -239,6 +254,7 @@ class SessionManager extends EventEmitter {
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
+      inTerminal: t.inTerminal || null,
     }));
   }
 
@@ -273,4 +289,4 @@ function withPreamble(prompt, preamble) {
   return [{ type: 'text', text: preamble }, ...(Array.isArray(prompt) ? prompt : [{ type: 'text', text: String(prompt) }])];
 }
 
-module.exports = { SessionManager, MAX_TABS, withPreamble };
+module.exports = { SessionManager, MAX_TABS, IN_TERMINAL, withPreamble };

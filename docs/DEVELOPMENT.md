@@ -147,6 +147,7 @@ src/main/        Electron main process
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
+  handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
   shells.js        the shells he grows into as he levels up (molting)

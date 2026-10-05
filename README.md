@@ -83,6 +83,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **A Toolbox for all of it:** every skill, agent, MCP server, hook, rule and `CLAUDE.md`, with an editor for each, a Skill Shop, and **prompt snippets** you can call with `/review`.
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
 - **In your terminal and editor too:** with the plugin he reacts to Claude Code in VS Code, Cursor, Windsurf, Zed, JetBrains and Windows Terminal, and sits in its status line.
+- **To the terminal and back:** **Continue in a terminal** carries a conversation on in Windows Terminal with `claude --resume`, and **Bring it into Shellby** (or `/shellby:handoff`) brings a terminal session into a tab.
 
 **[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)** · **[Already use Claude Code in a terminal or editor? Here's what he adds →](docs/WHY-SHELLBY.md)**
 

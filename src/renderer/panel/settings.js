@@ -403,8 +403,18 @@
       h('b', { text: s.project }),
       h('span', { class: 'ext-state', text: s.state === 'working' && s.tool ? `working · ${s.tool}` : STATE_TEXT[s.state] || s.state }),
       s.helpers ? h('span', { class: 'ext-helpers', text: `${s.helpers} helper${s.helpers === 1 ? '' : 's'}` }) : null,
-      h('time', { text: SB.relTime(s.lastAt) }))));
+      h('time', { text: SB.relTime(s.lastAt) }),
+      s.id && !SB.isCrabOnly() ? h('button', { class: 'btn ghost slim-btn ext-bring', type: 'button', 'aria-label': `Bring ${s.project} into Shellby`, onclick: () => bringIn(s) }, 'Bring it into Shellby') : null)));
     renderBackground(v.background || []);
+  }
+
+  // Two copies of one conversation trip over each other, so an open one asks
+  // first: the toast's button is your word that it's closed there now.
+  async function bringIn(s, force = false) {
+    const r = await api.bringIntoShellby(s.id, force);
+    if (r?.ok) return SB.toast('Brought into Shellby.');
+    if (r?.confirm) return SB.toast(r.error, { action: "It's closed, bring it in", onAction: () => bringIn(s, true), ms: 8000 });
+    SB.toast(r?.error || "Couldn't bring it in.", { ms: 5000 });
   }
 
   // Background commands a turn walked away from: what, where, and how long ago.
@@ -810,7 +820,10 @@
           h('span', { text: SB.relTime(s.updatedAt) }),
           h('span', { text: SB.shortPath(s.cwd, 30) }),
           s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
+          s.inTerminal ? h('span', { class: 'h-term', text: 'in a terminal' }) : null,
           open ? h('span', { class: 'h-open', text: 'open' }) : null)),
+      // Only a conversation Claude Code has a record of can carry on elsewhere.
+      s.claudeSessionId ? h('button', { class: 'history-term', type: 'button', title: 'Continue in a terminal', 'aria-label': `Continue ${s.title} in a terminal`, onclick: () => SB.continueInTerminal(s.id) }, '›_') : null,
       h('button', { class: 'history-rename', type: 'button', title: 'Rename', 'aria-label': `Rename ${s.title}`, onclick: e => renameHistory(s, e.currentTarget) }, '✎'),
       h('button', { class: 'history-tick', type: 'button', title: tick, 'aria-pressed': String(!!s.done), 'aria-label': `${tick}: ${s.title}`, onclick: () => markDone(s.id, !s.done) }, '✓'),
       h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'));
@@ -824,7 +837,7 @@
     if (state.tabs.has(id)) { SB.activate(id); return; }
     const r = await api.openSession(id);
     if (!r || r.error) return SB.toast(r?.error || "Couldn't open that conversation.");
-    const tab = SB.ensureTab({ id: r.tabId, title: r.entry.title, cwd: r.entry.cwd, saved: true, routineId: r.entry.routineId });
+    const tab = SB.ensureTab({ id: r.tabId, title: r.entry.title, cwd: r.entry.cwd, saved: true, routineId: r.entry.routineId, inTerminal: r.entry.inTerminal || null });
     for (const item of r.items) tab.render(item, { replay: true });
     tab.cancelOpenAsks();
     for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
