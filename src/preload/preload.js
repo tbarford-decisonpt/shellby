@@ -90,6 +90,11 @@ contextBridge.exposeInMainWorld('shellby', {
   compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
   compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
   keepBranch: invoke('branch:keep'),
+  // Try it N ways (wiring/tries.js): main always asks, with the cost, before any start
+  startTries: (tabId, { n, text, arg, attachments } = {}) => ipcRenderer.invoke('tries:start', { tabId, n, text, arg, attachments }),
+  stopTries: invoke('tries:stop'),
+  triesStatus: invoke('tries:status'),
+  onTriesDone: on('tries:done'),                   // { runId, firstId, text }
   listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),

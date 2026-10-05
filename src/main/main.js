@@ -76,6 +76,7 @@ const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
 const { wireClashes } = require('./wiring/clashes');
 const { wireUsagePlan } = require('./wiring/usageplan');
+const { wireTries } = require('./wiring/tries');
 const { wireChecks } = require('./wiring/checks');
 const { wireShots } = require('./wiring/shots');
 const { registerCritterIpc } = require('./ipc/critter');
@@ -89,6 +90,7 @@ const { registerRoutinesIpc } = require('./ipc/routines');
 const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
+const { registerTriesIpc } = require('./ipc/tries');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -348,6 +350,7 @@ const shared = {
   get channelsView() { return channelsView; },
   get cancelAllChecks() { return cancelAllChecks; },
   get cancelChecks() { return cancelChecks; },
+  get checkTry() { return checkTry; },
   get checkedUp() { return checkedUp; },
   get checksOn() { return checksOn; },
   get checkupsView() { return checkupsView; },
@@ -569,6 +572,7 @@ const shared = {
   get timeTracker() { return timeTracker; }, set timeTracker(v) { timeTracker = v; },
   get toolbox() { return toolbox; }, set toolbox(v) { toolbox = v; },
   get tray() { return tray; }, set tray(v) { tray = v; },
+  get tries() { return tries; },
   get turnEnds() { return turnEnds; },
   get turnStarts() { return turnStarts; },
   get typing() { return typing; }, set typing(v) { typing = v; },
@@ -655,7 +659,8 @@ const {
 } = wireTray(shared);
 const { clashTabsChanged, clashTurnEnded, clashesView, refreshClashes, watchClashes } = wireClashes(shared);
 const usagePlan = wireUsagePlan(shared);
-const { afterTurnChecks, cancelAllChecks, cancelChecks, checksOn, gateHome, runChecksFor } = wireChecks(shared);
+const { afterTurnChecks, cancelAllChecks, cancelChecks, checkTry, checksOn, gateHome, runChecksFor } = wireChecks(shared);
+const tries = wireTries(shared); // Try it N ways: only ever from tries:start, after asking
 const { shotImage, shotsAfterTurn, shotsBeforeTurn } = wireShots(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
@@ -2308,6 +2313,7 @@ function registerIpc() {
   registerGithubIpc(ipcMain, d);
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
+  registerTriesIpc(ipcMain, d);
 }
 
 // ================================================================ boot
