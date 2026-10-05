@@ -5,6 +5,7 @@
 const path = require('path');
 const branching = require('../branching');
 const changes = require('../changes');
+const checks = require('../checks');
 const confirm = require('../confirm');
 const secretscan = require('../secretscan');
 const { MAX_TABS } = require('../sessions');
@@ -29,6 +30,11 @@ function registerRepoIpc(ipcMain, d) {
   // you can carry on and bring it home again. finish: also tidy the copy away
   // (the tab closes; the conversation stays in History).
   ipcMain.handle('worktree:home', (_e, tabId, opts) => bringTabHome(tabId, opts));
+  // Red checks: nothing merged, and what failed, for the panel to offer "anyway" or "fix them".
+  const redResult = (gate, w) => ({
+    ok: false, red: true, checks: gate.checks, fix: gate.fix, base: w.base, branch: w.branch,
+    error: `${checks.redHeadline(gate.checks)} on this branch, so it stayed in its copy.`,
+  });
   async function bringTabHome(tabId, opts) {
     const w = worktreeOf(tabId);
     if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
@@ -36,7 +42,12 @@ function registerRepoIpc(ipcMain, d) {
     if (retiring.has(tabId)) return { ok: false, error: 'Already on it.' };
     retiring.add(tabId);
     try {
-      const merged = await worktrees.bringHome(w, { message: `Shellby: ${d.manager.tabs.get(tabId)?.title || 'work from a tab'}` });
+      // The tests first, when you've asked for that (wiring/checks.js): red stops here, unless forced.
+      const gate = await d.gateHome(tabId, w, { check: typeof opts?.check === 'boolean' ? opts.check : undefined, force: opts?.force === true });
+      if (!gate.ok) return gate.red ? redResult(gate, w) : gate;
+      if (d.manager.isBusy(tabId)) return { ok: false, error: 'He started on something new. Bring it home once he has finished.' };
+      const green = gate.verdict?.status === 'pass' ? { green: true } : {};
+      const merged = { ...await worktrees.bringHome(w, { message: `Shellby: ${d.manager.tabs.get(tabId)?.title || 'work from a tab'}` }), ...green };
       if (!merged.ok) {
         // What git said goes in the conversation, where it can be read in full.
         if (merged.detail) d.manager.note(tabId, { kind: 'error', text: `${merged.error}\n\n${merged.detail}` });
@@ -154,6 +165,32 @@ ${r.detail}` });
     repoBusy = true;
     try { return await pushHome(root, { tabId }); } finally { repoBusy = false; }
   });
+  // Every copy with something to bring home gets its checks first, one at a
+  // time (wiring/checks.js). Any red: nothing is merged, and the panel hears
+  // which. -> { green: copies that passed, red: the result to return, or null }
+  async function gateAll(list, opts) {
+    const check = typeof opts?.check === 'boolean' ? opts.check : undefined;
+    if (opts?.force === true || !(check ?? d.checksOn())) return { green: 0, red: null };
+    const reds = [];
+    let green = 0;
+    for (const c of list) {
+      const s = await worktrees.status(c.w);
+      if (!s.ok || !(s.ahead || s.uncommitted)) continue;
+      const gate = await d.gateHome(c.id, c.w, { check, force: false });
+      // Started on something new while its tests ran: what was checked isn't what would merge.
+      if (d.manager.isBusy(c.id)) return { green, red: { ok: false, error: `"${c.title || c.w.branch}" started on something new while its tests ran, so nothing was merged. Try again once it's finished.` } };
+      if (gate.red) reds.push({ tabId: d.manager.tabs.has(c.id) ? c.id : null, title: c.title, branch: c.w.branch, checks: gate.checks, fix: gate.fix });
+      else if (!gate.ok) return { green, red: { ok: false, error: gate.error } };
+      else if (gate.verdict?.status === 'pass') green++;
+    }
+    if (!reds.length) return { green, red: null, checked: true };
+    const first = reds[0];
+    const error = reds.length === 1
+      ? `${checks.redHeadline(first.checks)} on "${first.title || first.branch}", so nothing was merged.`
+      : `The checks failed on ${reds.length} copies, so nothing was merged.`;
+    return { green, red: { ok: false, red: true, reds, error } };
+  }
+
   ipcMain.handle('repo:home-all', async (_e, tabId, opts) => {
     const root = await repoOf(tabId);
     if (!root) return { ok: false, error: 'Not a git repository.' };
@@ -164,6 +201,11 @@ ${r.detail}` });
     repoBusy = true;
     for (const c of list) retiring.add(c.id);
     try {
+      const gated = await gateAll(list, opts);
+      if (gated.red) return gated.red;
+      // ...or one checked earlier started on something while the others' tests ran.
+      const moved = gated.checked && list.find(c => d.manager.isBusy(c.id));
+      if (moved) return { ok: false, error: `"${moved.title || moved.w.branch}" started on something new while the tests ran, so nothing was merged. Try again once it's finished.` };
       const titles = new Map(list.map(c => [c.w.branch, c.title]));
       const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => `Shellby: ${titles.get(w.branch) || 'work from a tab'}` });
       for (const x of r.results) {
@@ -181,6 +223,7 @@ ${r.detail}` });
         merged: merged.length, commits: merged.reduce((n, x) => n + x.commits, 0),
         skipped: r.results.filter(x => x.skipped).length,
         stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: clashTab, base: clash.w.base, error: last.error, conflict: !!last.conflict, fixable: !!last.fixable, root: last.root, detail: last.detail } : null,
+        green: gated.green,
       };
       if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
       return out;

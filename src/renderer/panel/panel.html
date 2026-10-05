@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="line-comments.css">
+<link rel="stylesheet" href="turn-checks.css">
 <link rel="stylesheet" href="hooks.css">
 <link rel="stylesheet" href="workflows.css">
 <link rel="stylesheet" href="workflow-canvas.css">
@@ -1708,6 +1709,20 @@
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
         <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
         <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
+        <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
+        <div class="row wrap" id="checkEachTurnOptions">
+          <label class="inline-label" for="checkTimeoutSelect">Give up after
+            <select id="checkTimeoutSelect" class="field slim">
+              <option value="2">2 minutes</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="20">20 minutes</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">This runs the project's own scripts on this PC: its test script, and a typecheck or build if it has one. He asks once per project before the first run, and keeps sign-in tokens and keys out of their environment. The verdict is stamped on the turn's changes. It also checks a copy before bringing it home, and won't merge red without asking. Off by default: tests use your CPU. "Run checks" on any turn works either way.</p>
+        <label class="toggle"><input type="checkbox" id="turnShotsToggle"><span class="switch"></span>Before/after pictures of your dev server</label>
+        <p class="muted small">When a conversation works in a folder Shellby is running a dev server from, he photographs the page as the turn starts and again if it changed anything you'd see. Kept on this PC: the last 50 per conversation, for two weeks.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">
@@ -1915,6 +1930,7 @@
 <script src="feed.js"></script>
 <script src="line-comments.js"></script>
 <script src="line-comments-ui.js"></script>
+<script src="turn-checks.js"></script>
 <script src="tabs.js"></script>
 <script src="clash-text.js"></script>
 <script src="clashes.js"></script>

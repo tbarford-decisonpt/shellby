@@ -82,6 +82,10 @@
     $('holdBigToggle').checked = state.settings.holdBigTasks === true;
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('flakyToggle').checked = state.settings.flakyTests !== false;
+    $('checkEachTurnToggle').checked = state.settings.checkEachTurn === true;
+    $('checkEachTurnOptions').hidden = state.settings.checkEachTurn !== true;
+    $('checkTimeoutSelect').value = String([2, 5, 10, 20].includes(state.settings.checkTimeoutMin) ? state.settings.checkTimeoutMin : 5);
+    $('turnShotsToggle').checked = state.settings.turnShots !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
     $('onTopToggle').checked = state.settings.onTop === true;
     renderPerch();
@@ -297,6 +301,9 @@
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
   $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
+  $('checkEachTurnToggle').addEventListener('change', async e => { const r = await api.setSettings({ checkEachTurn: e.target.checked }); state.settings = r.settings; $('checkEachTurnOptions').hidden = !state.settings.checkEachTurn; });
+  $('checkTimeoutSelect').addEventListener('change', async e => { const r = await api.setSettings({ checkTimeoutMin: Number(e.target.value) }); state.settings = r.settings; });
+  $('turnShotsToggle').addEventListener('change', async e => { const r = await api.setSettings({ turnShots: e.target.checked }); state.settings = r.settings; });
   $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
   $('spendGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ spendGuard: e.target.checked }); state.settings = r.settings; $('spendGuardOptions').hidden = !state.settings.spendGuard; });
   $('holdBigToggle').addEventListener('change', async e => { const r = await api.setSettings({ holdBigTasks: e.target.checked }); state.settings = r.settings; });

@@ -159,6 +159,9 @@ src/main/        Electron main process
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
   session.js       one Claude Code process per conversation (stream-json + control protocol)
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
+  checks.js        turn checks: which test commands a folder has, running them (cmd, fixed lines only), the verdict and the bring-home gate
+  shots.js         before/after pictures of a dev server either side of a turn, in a hidden locked-down window
+  editor.js        "Open in VS Code": a turn's file in VS Code's diff, both sides read out of git
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
   clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher

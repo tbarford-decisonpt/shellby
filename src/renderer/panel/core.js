@@ -112,13 +112,15 @@ SB.compact = n => (n == null ? '' : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000
 SB.prettyAccel = a => String(a || '').replace(/Control/g, 'Ctrl').replace(/\+/g, ' + ');
 
 let toastTimer;
-SB.toast = (msg, { action, onAction, ms = 2800 } = {}) => {
+// actions: [{ label, onAction }] when there's more than one thing to offer.
+SB.toast = (msg, { action, onAction, actions, ms = 2800 } = {}) => {
   const t = SB.$('toast');
-  // (replaceChildren would print a literal "null" for a missing button, so filter it out)
-  t.replaceChildren(...[SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { t.hidden = true; onAction(); } }, action) : null].filter(Boolean));
+  const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
+  t.replaceChildren(SB.h('span', { text: msg }),
+    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { t.hidden = true; a.onAction(); } }, a.label)));
   t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, action ? ms + 2500 : ms);
+  toastTimer = setTimeout(() => { t.hidden = true; }, offers.length ? ms + 2500 : ms);
 };
 
 // A model picker's options, grouped by family, from the list main accepts

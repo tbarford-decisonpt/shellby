@@ -1014,11 +1014,20 @@
     } });
   }
 
-  async function bringAll(tab, { push = false } = {}) {
-    SB.toast(push ? 'Bringing them all home, then pushing…' : 'Bringing them all home…', { ms: 30000 });
-    const r = await api.bringAllHome(tab?.id, { push });
+  async function bringAll(tab, { push = false, force = false } = {}) {
+    const checking = state.settings?.checkEachTurn === true && !force;
+    SB.toast(checking ? 'Running the tests in each copy first…' : push ? 'Bringing them all home, then pushing…' : 'Bringing them all home…', { ms: checking ? 120000 : 30000 });
+    const r = await api.bringAllHome(tab?.id, { push, force });
+    if (r?.red) {
+      // Nothing merged: anyway, or the first red copy that's open gets the failures.
+      const open = r.reds.map(x => x.tabId && state.tabs.get(x.tabId) && x).find(Boolean);
+      return SB.toast(r.error, { ms: 14000, actions: [
+        { label: 'Bring them all home anyway', onAction: () => bringAll(tab, { push, force: true }) },
+        open ? { label: 'Ask him to fix them', onAction: () => { SB.activate(open.tabId); SB.send(open.fix); } } : null,
+      ] });
+    }
     if (!r || (r.error && !r.results && !r.stopped && r.merged === undefined)) return SB.toast(r?.error || "Couldn't bring them home.", { ms: 8000 });
-    const bits = [r.merged ? `Merged ${plural(r.merged, 'copy', 'copies')} (${plural(r.commits, 'commit')}).` : 'Nothing new to merge.'];
+    const bits = [r.merged ? `Merged ${plural(r.merged, 'copy', 'copies')} (${plural(r.commits, 'commit')}).${r.green ? ` Tests green on ${plural(r.green, 'branch', 'branches')}.` : ''}` : 'Nothing new to merge.'];
     if (r.skipped) bits.push(`${r.skipped} started from another branch and ${r.skipped === 1 ? 'was' : 'were'} left alone.`);
     if (r.busy) bits.push(`${r.busy} still working, left for later.`);
     const s = r.stopped;
@@ -1074,6 +1083,9 @@
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
         h('span', { class: 'mi-check', text: '✓' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs move to Done in History' }))),
+      h('button', { class: 'menu-item', role: 'menuitemcheckbox', 'aria-checked': String(checksHome(tab)), onclick: () => { SB.closeMenus(); tab.checkHome = !checksHome(tab); SB.toast(tab.checkHome ? "He'll run the tests in this copy before bringing it home." : "He won't run the tests before bringing this one home."); } },
+        h('span', { class: 'mi-check', 'aria-hidden': 'true', text: checksHome(tab) ? '✓' : '' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Check before bringing home' }), h('div', { class: 'mi-sub', text: 'Run the tests in the copy first, and stop if any fail' }))),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
         h('span', { class: 'mi-check', text: '✕' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
@@ -1125,11 +1137,24 @@
     SB.toast(`${home}${gone}${failed} This one is marked done: it's under Done in History.`.trim(), { ms: 10000, action: 'Show me', onAction: SB.showDoneHistory });
   }
 
-  async function bringHome(tab, { finish = false, push = false } = {}) {
+  // Checking before bringing home: ticked for this copy, or what Settings says (src/main/checks.js).
+  const checksHome = tab => (typeof tab.checkHome === 'boolean' ? tab.checkHome : state.settings?.checkEachTurn === true);
+
+  // Red checks: nothing was merged. Bring it home anyway, or hand him the failures.
+  function redHome(tab, r, retry) {
+    SB.toast(r.error, { ms: 14000, actions: [
+      { label: 'Bring it home anyway', onAction: retry },
+      r.fix ? { label: 'Ask him to fix them', onAction: () => { SB.activate(tab.id); SB.send(r.fix); } } : null,
+    ] });
+  }
+
+  async function bringHome(tab, { finish = false, push = false, force = false } = {}) {
     if (tab.busy) return SB.toast('Let him finish first.');
-    SB.toast(push ? 'Bringing it home, then pushing…' : 'Bringing it home…', { ms: push ? 30000 : 8000 });
-    const r = await api.bringWorktreeHome(tab.id, { finish, push });
-    const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.`;
+    const check = checksHome(tab);
+    SB.toast(check && !force ? 'Running the tests in the copy first…' : push ? 'Bringing it home, then pushing…' : 'Bringing it home…', { ms: check && !force ? 60000 : push ? 30000 : 8000 });
+    const r = await api.bringWorktreeHome(tab.id, { finish, push, force, check });
+    if (r?.red) return redHome(tab, r, () => bringHome(tab, { finish, push, force: true }));
+    const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.${r?.green ? ' Tests green on this branch.' : ''}`;
     if (r?.ok && r.push) {
       if (r.push.ok) return SB.toast(`${r.merged ? `${merged} ` : ''}${pushNews(r.push)}`, { ms: 7000 });
       if (r.merged) SB.toast(`${merged} The push didn't go through, so it's only on this computer for now.`, { ms: 5000 });
