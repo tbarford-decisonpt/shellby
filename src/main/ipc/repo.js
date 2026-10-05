@@ -203,6 +203,7 @@ ${r.detail}` });
     panel: () => d.panel, worktreeHome: d.worktreeHome, claudeConfigDir: d.claudeConfigDir,
     turnEnding: tabId => d.turnEnds.get(tabId) || Promise.resolve(),
     turnStart: tabId => d.turnStarts.get(tabId) || null,
+    correctionFromTurns: d.correctionFromTurns, noteCorrection: d.noteCorrection,
     ask: async spec => {
       if (branchAsking) return null;
       branchAsking = true;

@@ -182,6 +182,7 @@
         case 'checkpoint': return; // where the files stood, for branching: nothing to show
         case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
+        case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js
       }
     }
 

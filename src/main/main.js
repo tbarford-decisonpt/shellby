@@ -74,6 +74,7 @@ const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
+const { wireCorrections } = require('./wiring/corrections');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -85,6 +86,7 @@ const { registerRoutinesIpc } = require('./ipc/routines');
 const { registerGithubIpc } = require('./ipc/github');
 const { registerProgressIpc } = require('./ipc/progress');
 const { registerSurroundingsIpc } = require('./ipc/surroundings');
+const { registerCorrectionsIpc } = require('./ipc/corrections');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -317,6 +319,7 @@ const shared = {
   get TOY_PRELOAD() { return TOY_PRELOAD; },
   get TRICKS_KIND() { return TRICKS_KIND; },
   get activeSkin() { return activeSkin; },
+  get addLesson() { return addLesson; },
   get advanceFocus() { return advanceFocus; },
   get allSkins() { return allSkins; },
   get allSnippets() { return allSnippets; },
@@ -341,6 +344,7 @@ const shared = {
   get checkedUp() { return checkedUp; },
   get checkupsView() { return checkupsView; },
   get chirp() { return chirp; },
+  get changeLearned() { return changeLearned; },
   get ci() { return ci; }, set ci(v) { ci = v; },
   get ciView() { return ciView; },
   get claudeConfigDir() { return claudeConfigDir; },
@@ -362,6 +366,7 @@ const shared = {
   get confirmAndUninstallPlugin() { return confirmAndUninstallPlugin; },
   get confirmChannelPlace() { return confirmChannelPlace; },
   get confirmGitHubFeature() { return confirmGitHubFeature; },
+  get correctionFromTurns() { return correctionFromTurns; },
   get crashConsent() { return crashConsent; },
   get crewExtra() { return crewExtra; },
   get crewShown() { return crewShown; },
@@ -374,7 +379,9 @@ const shared = {
   get devServers() { return devServers; }, set devServers(v) { devServers = v; },
   get dialogLook() { return dialogLook; },
   get dictation() { return dictation; }, set dictation(v) { dictation = v; },
+  get dismissLesson() { return dismissLesson; },
   get draftHook() { return draftHook; },
+  get draftLesson() { return draftLesson; },
   get dragging() { return dragging; }, set dragging(v) { dragging = v; },
   get drainCrashQueue() { return drainCrashQueue; },
   get editStickers() { return editStickers; },
@@ -422,8 +429,11 @@ const shared = {
   get lastStatus() { return lastStatus; }, set lastStatus(v) { lastStatus = v; },
   get lastXp() { return lastXp; }, set lastXp(v) { lastXp = v; },
   get lean() { return lean; },
+  get learnedView() { return learnedView; },
   get leaveVerdict() { return leaveVerdict; },
   get levelUpAt() { return levelUpAt; }, set levelUpAt(v) { levelUpAt = v; },
+  get lessonPreview() { return lessonPreview; },
+  get lessonState() { return lessonState; },
   get life() { return life; }, set life(v) { life = v; },
   get limitWait() { return limitWait; },
   get linkBusy() { return linkBusy; }, set linkBusy(v) { linkBusy = v; },
@@ -439,6 +449,7 @@ const shared = {
   get motionBox() { return motionBox; },
   get musicHeadphones() { return musicHeadphones; },
   get noteFix() { return noteFix; },
+  get noteCorrection() { return noteCorrection; },
   get noteRed() { return noteRed; },
   get noteSnippetUse() { return noteSnippetUse; },
   get noteTestRun() { return noteTestRun; },
@@ -625,6 +636,10 @@ const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
 } = wireTray(shared);
+const {
+  addLesson, changeLearned, correctionFromTurns, createCorrections, dismissLesson, draftLesson,
+  learnedView, lessonPreview, lessonState, noteCorrection,
+} = wireCorrections(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -2212,7 +2227,7 @@ function registerIpc() {
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
-    toolbox: () => toolbox, lastInit: () => lastInit, stat,
+    toolbox: () => toolbox, lastInit: () => lastInit, stat, correctionFromTurns, noteCorrection,
     turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
     runClaude: (args, timeout, opts) => {
@@ -2274,6 +2289,7 @@ function registerIpc() {
   registerGithubIpc(ipcMain, d);
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
+  registerCorrectionsIpc(ipcMain, d);
 }
 
 // ================================================================ boot
@@ -2349,6 +2365,7 @@ app.whenReady().then(() => {
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
   createGitHub();
   createManager();
+  createCorrections();
   createHealth();
   registerIpc();
   createCritter();
