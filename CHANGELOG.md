@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.66.0: eight voices, your crab on your GitHub profile in four steps, and calmer settings
+
+### New
+- **Five more voices.** On top of the pirate, the grump and Spanish, he can now talk like a robot, a surfer, royalty or a cowboy, or speak French. Pick one under **Wardrobe → Voice**.
+- **Putting him on your GitHub profile, step by step.** Turn on the profile card and **Settings → GitHub** now walks you through it: create your profile repository, add the card Action (GitHub opens with the file already filled in), run it once, and paste the line into your README. Each step ticks itself off when it's done. To check, Shellby reads that public repository and never writes to it ([PRIVACY.md](PRIVACY.md)).
+- **Uninstalling asks about your data.** It asks whether to delete Shellby's data too. **No** is the default and keeps it, so a reinstall picks up where he left off. If Claude's copies of your projects are in there, it says they may hold changes you haven't pushed. Updates never ask and never delete anything.
+
+### Changed
+- **Settings are easier to take in.** **Shellby** settings are split into Look, Moving around, Personality, Sound and the extras. Each extra (music, typing along, the weather, desk lighting, the stream overlay) folds to a single line that says whether it's on. **General** gains **Usage limit** and **Safety nets**, and the wording throughout is shorter.
+- **Routines and the tank editor look tidier,** and the Automate page explains its kinds of step in a sentence rather than a row of badges.
+- **Unlock everything** is no longer in the Wardrobe. Outfits come from trophies, seasons and his digging.
+- **A lighter panel while you game.** Its looping animations run at 12 frames a second, like the crab's. With a game running, the panel's share of the 3D engine drops from about 12% to about 1%.
+
+### Security
+- **The installed app can't be borrowed as a script runner.** Shellby.exe no longer runs scripts as Node.js or accepts a debugger, and it only loads its own checked code. Dev servers no longer need that ability, and they still keep running after Shellby quits.
+
 ## 0.65.2: a crab to look after, a tank and a beach of his own, and your crab on GitHub
 
 ### New
