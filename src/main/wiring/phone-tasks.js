@@ -116,6 +116,17 @@ function wirePhoneTasks(d) {
     }
     if (patch.newPassphrase === true) {
       if (d.channelSettings().provider !== 'ntfy') return { ...phoneTasksView(), error: 'Only ntfy uses a passphrase.' };
+      // The panel only ever sees a passphrase after a yes in the isolated window,
+      // so a compromised panel can't quietly read one while phone tasks are on.
+      d.wake();
+      const response = await confirm.ask(d.panel, {
+        ...d.dialogLook(), icon: '📱',
+        title: 'Make a new passphrase?',
+        message: 'The old one stops working straight away.',
+        detail: 'Shellby shows the new one once. Put it at the start of every post to your tasks topic.',
+        buttons: [{ label: 'Make a new one' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+      if (response !== 0) return { ...phoneTasksView(), cancelled: true };
       const fresh = newPassphrase();
       if (!fresh) return { ...phoneTasksView(), error: "Windows can't keep a passphrase safe on this PC." };
       return { ...phoneTasksView(), passphrase: fresh };
