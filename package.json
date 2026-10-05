@@ -64,6 +64,14 @@
       "node_modules/koffi/**",
       "node_modules/@koromix/**"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true
+    },
     "protocols": [
       {
         "name": "Shellby",
@@ -93,6 +101,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "packaging/nsis/installer.nsh",
       "artifactName": "Shellby-Setup-${version}.${ext}"
     },
     "portable": {

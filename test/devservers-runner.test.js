@@ -1,4 +1,4 @@
-// Running a dev server for real (src/main/devservers/runner.js + supervisor.js):
+// Running a dev server for real (src/main/devservers/runner.js + launch.js):
 // the fixture server (test/fixtures/devservers/server.js) says where it is like
 // Vite does, and dies with code 3 when its flag file appears. Node runs it
 // directly, not through npm, so the test is quick and works offline.
@@ -10,6 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const runner = require('../src/main/devservers/runner');
+const nativeLaunch = require('../src/main/devservers/launch');
 const native = require('../src/main/native-windows');
 const out = require('../src/main/devservers/output');
 
@@ -54,11 +55,11 @@ test('up, then a crash: the URL, the output and the exit code all reach the log'
   assert.equal(code, 3);
   assert.ok(s.buf.all().includes('Error: something broke'), 'stderr is in the log too');
   // Gone means this very process, start time and all. isAlive allows a few
-  // seconds of slack on the start time, and the supervisor lives about one, so
+  // seconds of slack on the start time, and cmd lives about one, so
   // a process that gets its pid straight after would pass for it.
   const gone = () => { const i = native.processInfo(s.pid); return !i?.alive || i.createdAt !== s.createdAt; };
   await until(gone, 5000);
-  assert.equal(gone(), true, 'the supervisor ended with the server');
+  assert.equal(gone(), true, 'cmd ended with the server');
 });
 
 test('stop ends the whole tree, and leaves no exit marker (it was asked to go)', { skip }, async () => {
@@ -88,6 +89,58 @@ test("a project's own npm.cmd is never run in place of the real one", { skip }, 
   assert.equal(ended?.c, 0, buf.all().join('\n'));
   assert.ok(!buf.all().some(l => /PLANTED/.test(l)), buf.all().join('\n'));
   assert.ok(buf.all().some(l => /^\d+\.\d+\.\d+/.test(l)), 'the real npm answered');
+});
+
+test('a server outlives the process that started it', { skip }, async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby runner '));
+  const log = path.join(dir, 'srv-orphan.log');
+  const kid = path.join(dir, 'orphan.kid');
+  const command = `"${process.execPath}" "${FIXTURE}" "${path.join(dir, 'orphan.flag')}" "${kid}"`;
+  // A throwaway node starts it and exits at once, the way Shellby quits.
+  const starter = `const r = require(${JSON.stringify(require.resolve('../src/main/devservers/runner'))}).start(${JSON.stringify({ root: dir, command, logFile: log })}); process.stdout.write(String(r.pid || ''))`;
+  const pid = Number(require('child_process').execFileSync(process.execPath, ['-e', starter], { encoding: 'utf8' }));
+  assert.ok(pid > 0, 'it started');
+  started.push(pid);
+  await until(() => fs.existsSync(kid) && fs.readFileSync(kid, 'utf8'));
+  assert.equal(native.processInfo(pid)?.alive, true, 'cmd is still running');
+  const tail = new runner.LogTail(log);
+  const buf = new out.LineBuffer();
+  assert.ok(await until(() => buf.push(tail.read()).map(out.detectUrl).find(Boolean)), 'and the server still writes its log');
+});
+
+test('the command line ends with the exit marker, the command untouched', () => {
+  const line = runner.commandLine('npm run dev', 'C:\\Windows\\System32\\cmd.exe');
+  assert.equal(line, '"C:\\Windows\\System32\\cmd.exe" /d /s /c "npm run dev & echo(& call echo [shellby-exit %^errorlevel%]"');
+});
+
+test('start hands cmd the log, the project and a clean environment', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-start-'));
+  const log = path.join(dir, 'logs', 'srv-x.log');
+  let got = null;
+  const r = runner.start({ root: dir, command: 'npm run dev', logFile: log, env: { EXTRA: '1' }, launchImpl: o => { got = o; return { pid: 77 }; } });
+  assert.deepEqual(r, { ok: true, pid: 77 });
+  assert.equal(got.cwd, dir);
+  assert.equal(got.logFile, log);
+  assert.equal(fs.readFileSync(log, 'utf8'), '', 'a fresh log');
+  assert.equal(got.env.NoDefaultCurrentDirectoryInExePath, '1');
+  assert.equal(got.env.BROWSER, 'none');
+  assert.equal(got.env.EXTRA, '1');
+  assert.ok(!('ELECTRON_RUN_AS_NODE' in got.env), 'nothing asks for Shellby as Node');
+  assert.match(got.commandLine, /\/c "npm run dev & /);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('a launch Windows refuses is reported, not thrown', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-start-'));
+  const r = runner.start({ root: dir, command: 'npm run dev', logFile: path.join(dir, 'srv-y.log'), launchImpl: () => null });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /couldn't be started/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('the environment block is sorted, one entry per variable, and double-terminated', () => {
+  const block = nativeLaunch.envBlock({ b: '2', A: '1', skip: null, 'bad\0': 'x' }).toString('utf16le');
+  assert.equal(block, 'A=1\0b=2\0\0');
 });
 
 test('a reused pid is not the server, and an unconfirmed one is not either', () => {

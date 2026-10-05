@@ -2,48 +2,56 @@
 //
 // A server outlives Shellby (unless you chose otherwise), so it is not a piped
 // child: quitting would close its pipes, and a Node server dies on its next
-// write. Instead a detached supervisor (supervisor.js) runs it, writing to a
-// log file of its own, and Shellby reads that file. The same reading works for
-// a server started this session and for one picked back up after Shellby
-// restarts.
+// write. Instead cmd.exe runs it detached (launch.js), writing to a log file
+// of its own, and Shellby reads that file. The same reading works for a server
+// started this session and for one picked back up after Shellby restarts.
 //
-// The supervisor writes the exit code into the log when the server ends
+// cmd writes the exit code into the log when the server ends
 // ("[shellby-exit 1]", output.js), so Shellby learns how it ended even if it
-// wasn't running when it did. The pid Shellby tracks is the supervisor's, and
-// it is only trusted together with its start time
-// (native-windows.processInfo): pids are reused, and a reused one must never be
-// taken for, or stopped as, the server.
+// wasn't running when it did. The pid Shellby tracks is that cmd's, and it is
+// only trusted together with its start time (native-windows.processInfo):
+// pids are reused, and a reused one must never be taken for, or stopped as,
+// the server.
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
 const { StringDecoder } = require('string_decoder');
 const { CMD, TASKKILL } = require('../system32');
+const native = require('./launch');
 
 const READ_CHUNK = 256 * 1024;
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
 const KEEP_LOG_BYTES = 1024 * 1024;
 const REATTACH_BYTES = 64 * 1024;
 const START_SLACK_MS = 3000;           // how far a pid's start time may be from the one recorded
-const SUPERVISOR = path.join(__dirname, 'supervisor.js');
-let supervisorSource = null;
+
+/**
+ * cmd's whole command line: the command, then the exit marker on a line of its
+ * own. `&` runs the marker whatever the command did (`&&`/`||` inside it
+ * bind tighter), and control comes back after a batch file like npm.cmd.
+ * `call` expands %errorlevel% only once the command has finished; the caret
+ * keeps cmd from expanding it while it reads the line. /d: no AutoRun
+ * commands. /s /c "…": the command exactly as given.
+ */
+function commandLine(command, cmd = CMD) {
+  return `"${cmd}" /d /s /c "${command} & echo(& call echo [shellby-exit %^errorlevel%]"`;
+}
 
 /**
  * Start `command` in `root`, output appended to `logFile` (a fresh one).
- * -> { ok: true, pid, child } | { ok: false, error }. Never throws.
- * command: already checked (scripts.commandFor), or a test's own. It goes to
- * the supervisor in the environment, never into another command line.
- * node: the program that runs the supervisor (Shellby's own exe, as Node).
+ * -> { ok: true, pid } | { ok: false, error }. Never throws.
+ * command: already checked (scripts.commandFor), or a test's own.
+ * launchImpl: launch.js's launch, or a test's.
  */
-function start({ root, command, logFile, env = {}, spawnImpl = spawn, node = process.execPath, cmd = CMD }) {
+function start({ root, command, logFile, env = {}, launchImpl = native.launch, cmd = CMD }) {
   try {
-    supervisorSource ||= fs.readFileSync(SUPERVISOR, 'utf8');
     fs.mkdirSync(path.dirname(logFile), { recursive: true });
     fs.writeFileSync(logFile, ''); // each run starts its own log
-    const child = spawnImpl(node, ['-e', supervisorSource], {
+    const r = launchImpl({
+      app: cmd,
+      commandLine: commandLine(command, cmd),
       cwd: root,
-      detached: true,
-      windowsHide: true,
-      stdio: 'ignore',
+      logFile,
       env: {
         ...process.env,
         // BROWSER=none: no new browser tab on every restart. FORCE_COLOR: a log
@@ -51,14 +59,14 @@ function start({ root, command, logFile, env = {}, spawnImpl = spawn, node = pro
         // colour; output.js strips it again.
         BROWSER: 'none', FORCE_COLOR: '1',
         ...env,
-        ELECTRON_RUN_AS_NODE: '1', // Shellby's exe runs the supervisor as Node; the supervisor takes it back out
-        SHELLBY_LOG: logFile, SHELLBY_COMMAND: command, SHELLBY_CMD_EXE: cmd,
+        // cmd looks in the current folder (the project) before PATH, so a
+        // repository holding its own npm.cmd or node.exe would run that
+        // instead. This tells cmd, and every program under it, not to.
+        NoDefaultCurrentDirectoryInExePath: '1',
       },
     });
-    child.on('error', () => {}); // reported through the liveness check instead
-    child.unref();
-    if (!child.pid) return { ok: false, error: "The server couldn't be started." };
-    return { ok: true, pid: child.pid, child };
+    if (!r?.pid) return { ok: false, error: "The server couldn't be started." };
+    return { ok: true, pid: r.pid };
   } catch (e) {
     return { ok: false, error: String(e?.message || e).slice(0, 200) };
   }
@@ -84,8 +92,7 @@ function isAlive(pid, createdAt, info, { trustBare = false } = {}) {
 }
 
 /**
- * End the server and everything it started (supervisor -> cmd -> npm -> node
- * -> esbuild). -> Promise<void>
+ * End the server and everything it started (cmd -> npm -> node -> esbuild). -> Promise<void>
  * detached: fire taskkill off on its own and don't wait. For quitting: a
  * child of Shellby's is ended with it, and could be cut off mid-tree.
  */
@@ -191,4 +198,4 @@ function cleanLogs(dir, keep, { maxAgeMs = 7 * 24 * 3600 * 1000, now = Date.now(
   return removed;
 }
 
-module.exports = { start, stop, isAlive, LogTail, trimLog, cleanLogs, MAX_LOG_BYTES, KEEP_LOG_BYTES };
+module.exports = { start, commandLine, stop, isAlive, LogTail, trimLog, cleanLogs, MAX_LOG_BYTES, KEEP_LOG_BYTES };

@@ -200,7 +200,7 @@ scriptsOf(pkgJsonText, files) -> {
 - Stop and Restart mark the server `stopping` first, so the exit they cause is never a crash.
 - Servers are persisted in `config.devServers.servers` (id, project, root, script, manager, pid, pidStartedAt, log, status, port, …) so they can be re-attached, and checked on the way back in (`normalize`): settings.json is not trusted. `config.devServers.last[root]` remembers the script you last ran there.
 
-### Running one (`runner.js` + `supervisor.js`)
+### Running one (`runner.js` + `launch.js`)
 
 Servers outlive Shellby, so a server is **not** a piped child of Shellby. If it
 were, quitting would close its pipes, and Node servers die on their next write
@@ -214,22 +214,30 @@ were, quitting would close its pipes, and Node servers die on their next write
 | cmd **detached**, `>> "%LOG%" 2>&1` inside | **no**, for the same reason | yes | yes |
 | cmd **not detached**, stdio = the log | yes | **no**: libuv puts a non-detached child in a kill-on-close job, so cmd dies with Shellby (its children break away and live on, unwatched) | half |
 | a console-less parent that **stays**, cmd not detached | yes | yes | yes, if that parent does |
+| cmd started with `CREATE_NO_WINDOW` (+ `CREATE_BREAKAWAY_FROM_JOB`), stdio = the log | yes: cmd gets a hidden console its children share | yes, written by cmd itself | yes |
 
-So a server runs under a **supervisor**: a few lines of plain Node
-(`supervisor.js`) that Shellby starts **detached** (`process.execPath` with
-`ELECTRON_RUN_AS_NODE=1`, the script passed with `-e` so it runs from inside
-app.asar). The supervisor opens the log, starts `cmd.exe /d /s /c "<manager> run <script>"`
-(not detached, so cmd shares a hidden console and passes the log on), waits,
-and writes `[shellby-exit <code>]` when cmd ends.
+Up to 0.65 a server ran under a **supervisor**: a few lines of plain Node run
+by Shellby's own exe with `ELECTRON_RUN_AS_NODE=1`, which started cmd not
+detached. The packaged app now turns that off (the `runAsNode` fuse: a signed
+exe that runs any script as Node is a gift to malware), so the last row
+replaced it.
 
-- `/d` skips AutoRun. The command reaches the supervisor in its environment (`SHELLBY_COMMAND`), never inside another command line, and it is only ever `commandFor(manager, script)`: one of four managers, a name that passed the regex. (Node can't spawn `npm.cmd` without a shell since the CVE-2024-27980 fix, so cmd is needed. Never `shell: true` with a built string.)
-- The supervisor takes `ELECTRON_RUN_AS_NODE` and its own `SHELLBY_*` variables back out of the server's environment: an Electron project's own `electron .` would otherwise start as plain Node.
+`launch.js` calls `CreateProcessW` (koffi) for `cmd.exe /d /s /c "<command> & echo(& call echo [shellby-exit %^errorlevel%]"`,
+with `CREATE_NO_WINDOW` (a hidden console that npm and node share, so the log
+keeps their output), `CREATE_BREAKAWAY_FROM_JOB` (out of any job Shellby is
+in; retried without it if the job refuses), stdin on `NUL` and stdout/stderr on
+the log, opened `FILE_APPEND_DATA` so every write lands at the end. `&` runs
+the marker whatever the command did, control comes back after a batch file like
+`npm.cmd`, and `call` expands `%errorlevel%` only once it has finished.
+
+- `/d` skips AutoRun. The command is only ever `commandFor(manager, script)`: one of four managers, a name that passed the regex. (Node can't spawn `npm.cmd` without a shell since the CVE-2024-27980 fix, so cmd is needed. Never `shell: true` with a built string.)
+- `NoDefaultCurrentDirectoryInExePath=1`: a project's own `npm.cmd` or `node.exe` is never run in place of the real one.
 - `cwd` = the clone's root. Env: `BROWSER=none` (no new browser tab every restart), `FORCE_COLOR=1` (stripped for display and for Claude).
 - **Each run has a fresh log** (`%APPDATA%\Shellby\devservers\<id>.log`).
 - **Tailing**: polled every 750 ms while anything runs (fs.watch is unreliable on some drives, and eight small stat calls a second cost nothing), reading from the last offset with a `StringDecoder`. The last **500 lines** stay in memory (each ≤ 2,000 chars).
 - **Log files**: past 5 MB, trimmed to the last 1 MB once a minute, and deleted 7 days after the server stops. "Open the log file" is on the card.
-- **Is it alive?** The exit marker in the log, plus a check every 3 s that the supervisor's pid exists *and* has the recorded creation time (koffi `OpenProcess` + `GetProcessTimes`, `native-windows.processInfo`). A pid that's gone with no marker = crashed, exit code unknown.
-- **Stop**: `taskkill /PID <supervisor pid> /T /F` (by full path). The tree matters: supervisor -> cmd -> npm -> node -> esbuild. Only a pid whose creation time still matches. A stopped server leaves no marker, and Shellby already knows it asked.
+- **Is it alive?** The exit marker in the log, plus a check every 3 s that cmd's pid exists *and* has the recorded creation time (koffi `OpenProcess` + `GetProcessTimes`, `native-windows.processInfo`). A pid that's gone with no marker = crashed, exit code unknown.
+- **Stop**: `taskkill /PID <cmd pid> /T /F` (by full path). The tree matters: cmd -> npm -> node -> esbuild. Only a pid whose creation time still matches. A stopped server leaves no marker, and Shellby already knows it asked.
 - Restart = stop, wait for it to be gone (≤ 5 s), start.
 - Limit: 8 running at once. A ninth Start says so instead of starting.
 

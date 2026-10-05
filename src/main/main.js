@@ -7110,9 +7110,8 @@ function setupUpdates() {
   updates = new Updates({
     updater,
     version: app.getVersion(),
-    // The installer ends every Shellby.exe, dev server supervisors included,
-    // which would leave the servers running unwatched: they're stopped first
-    // and started again by the new version (devservers/service.js).
+    // Dev servers are stopped first and started again by the new version
+    // (devservers/service.js stopForUpdate).
     // The installer relaunches Shellby; the flag has the new version open the
     // panel rather than come back as just the crab (see boot).
     prepare: () => {

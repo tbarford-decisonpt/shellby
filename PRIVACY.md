@@ -67,7 +67,7 @@ What these services do with your data is up to them, under their own policies: [
 
 ### Deleting your data
 
-Uninstalling Shellby removes the app but **keeps your data**, so a reinstall picks up where you left off. To remove everything, uninstall and then delete `%APPDATA%\Shellby`, `%LOCALAPPDATA%\Shellby` and `Pictures\Shellby`.
+When you uninstall Shellby, it asks whether to delete your data too. **No** is the default and keeps it, so a reinstall picks up where you left off. **Yes** deletes `%APPDATA%\Shellby` and `%LOCALAPPDATA%\Shellby`. Updates never ask and never delete anything. A silent uninstall (`/S`, as winget runs it) keeps your data unless you add `--delete-app-data`. `Pictures\Shellby` holds cards you saved, so it's always left alone. Delete it yourself if you don't want them.
 
 Things stored in your GitHub account stay there until you remove them: turn off Visiting crabs to delete your calling card, turn off Profile card to delete its gist (and remove `shellby-profile.svg` from your profile repository yourself), delete the `shellby-badge` repository if you used the pull request badge (badges on earlier pull requests then show a broken image), delete the `shellby-sync.json` gist from [your gists](https://gist.github.com), and revoke Shellby under [GitHub → Settings → Applications](https://github.com/settings/applications).
 

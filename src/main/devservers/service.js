@@ -14,7 +14,7 @@ const scripts = require('./scripts');
 const MAX_RUNNING = 8;
 const TICK_MS = 750;
 const ALIVE_EVERY_MS = 3000;
-const MARKER_RECHECK_MS = 300;        // the supervisor writes its marker, then exits a moment later
+const MARKER_RECHECK_MS = 300;        // cmd writes its marker, then exits a moment later
 const TRIM_EVERY_MS = 60 * 1000;
 const LOOP_WINDOW_MS = 5 * 60 * 1000;
 const LOOP_CRASHES = 3;
@@ -336,10 +336,10 @@ class DevServers extends EventEmitter {
   }
 
   /**
-   * An update is about to install. The installer ends every Shellby.exe, and a
-   * server's supervisor is one, which would leave the server itself running
-   * with nobody watching. So they're stopped now, and started again when the
-   * new version starts (resumeAfterUpdate).
+   * An update is about to install. Servers are stopped now and started again
+   * when the new version starts (resumeAfterUpdate), so each comes back under
+   * the version that runs it. (Up to 0.65 a server's supervisor was a
+   * Shellby.exe, which the installer would end, leaving the server unwatched.)
    */
   stopForUpdate() {
     const live = [...this.servers.values()].filter(s => s.kind === 'server' && LIVE.has(s.status));
@@ -391,7 +391,7 @@ class DevServers extends EventEmitter {
 
   /**
    * Read what one server said since last time, and see if it's still there.
-   * An exit marker only counts once the supervisor is really gone: a server can
+   * An exit marker only counts once the cmd running it is really gone: a server can
    * print "[shellby-exit 0]" itself, and believing it would leave the real one
    * running with nobody watching.
    */
@@ -420,7 +420,7 @@ class DevServers extends EventEmitter {
         }
         return this.ended(s, rt.marker ?? null);
       }
-      // A marker with the supervisor still there: it may be on its way out, or
+      // A marker with that cmd still there: it may be on its way out, or
       // the server printed it. Look again shortly; only its absence decides.
       if (sawMarker) setTimeout(() => this.poll(id, { checkAlive: true }), MARKER_RECHECK_MS).unref?.();
     }

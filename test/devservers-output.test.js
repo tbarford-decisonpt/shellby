@@ -45,7 +45,7 @@ test('0.0.0.0 and [::] become localhost, which a browser can open', () => {
   assert.equal(out.detectUrl('Local: http://[::1]:5000/').url, 'http://localhost:5000/');
 });
 
-test('the exit marker the supervisor leaves, and nothing else', () => {
+test('the exit marker cmd leaves, and nothing else', () => {
   assert.equal(out.exitOf('[shellby-exit 1]'), 1);
   assert.equal(out.exitOf('  [shellby-exit -1]  '), -1);
   assert.equal(out.exitOf('[shellby-exit 0]'), 0);
