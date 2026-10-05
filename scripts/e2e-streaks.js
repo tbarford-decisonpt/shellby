@@ -59,10 +59,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(proj.quietDays === 6, `real last-commit time read with git (${proj.quietDays} days)`);
     check(v.current === 1 && v.today, `a 1-day streak started (${v.current})`);
 
-    // 2. The Streaks card in Trophies.
+    // 2. The Streaks card on Time, and its badge on Trophies.
     await ev("SB.setView('trophies')");
     await wait(600);
-    check(/1-day streak/.test(await ev("document.getElementById('streakTitle').textContent")), 'Trophies shows the streak');
+    check(await ev("!document.getElementById('xpStreak').hidden && /🔥 1/.test(document.getElementById('xpStreak').textContent)"), 'Trophies shows the streak badge');
+    await ev("document.getElementById('xpStreak').click()");
+    await wait(600);
+    check(await ev('SB.state.view') === 'time', 'the badge opens Time');
+    check(/1-day streak/.test(await ev("document.getElementById('streakTitle').textContent")), 'Time shows the streak');
     const row = await ev("document.querySelector('#streakProjects .streak-project')?.textContent || ''");
     check(row.includes(name) && /6 days since a commit/.test(row), `project row: "${row}"`);
     check(await ev("document.querySelector('#streakProjects .streak-project').classList.contains('late')"), 'a quiet project is highlighted');

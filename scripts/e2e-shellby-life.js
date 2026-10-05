@@ -143,7 +143,7 @@ async function connect(url) {
     check((await panel.ev('shellby.dev.critterPos()')).x !== x0, 'he moved a little');
 
     // ------------------------------------------------------------ 3. focus
-    await panel.ev("SB.setView('trophies')");
+    await panel.ev("SB.setView('time')");
     await panel.ev("[...document.querySelectorAll('#focusActions button')].find(b => b.textContent === '15 min').click()");
     check(await until(critter, "document.body.classList.contains('focus-focus')", 3000), 'focus: he stands guard');
     check(await until(critter, "document.getElementById('bubbleText').textContent === '15m'", 3000), 'the bubble counts down (15m)');

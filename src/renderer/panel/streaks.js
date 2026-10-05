@@ -1,5 +1,5 @@
-/* Shellby panel — streaks and nudges: the Trophies streak card, and nudges
-   shown in the panel when it's open. */
+/* Shellby panel — streaks and nudges: the streak card on Time, the streak
+   badge on Trophies, and nudges shown in the panel when it's open. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -15,10 +15,20 @@
     SB.toast('Shellby is looking over your changes');
   }
 
+  // Trophies keeps just the count, as a badge in the XP card that links here.
+  function renderBadge(v) {
+    const badge = $('xpStreak');
+    badge.hidden = !(v.current > 0);
+    badge.textContent = `🔥 ${v.current}`;
+    badge.title = `${v.current}-day streak${v.longest ? `, best ${v.longest}` : ''}. See your projects on Time`;
+    badge.setAttribute('aria-label', `${v.current}-day streak. Open it on Time`);
+  }
+
   function render(v) {
     if (!v) return;
     state.streaks = v;
-    if (state.view !== 'trophies') return;
+    if (state.view === 'trophies') renderBadge(v);
+    if (state.view !== 'time') return;
     const on = v.current > 0;
     $('streakCard').classList.toggle('cold', !on);
     $('streakTitle').textContent = on ? `${v.current}-day streak` : 'No streak yet';
@@ -42,6 +52,7 @@
     }) : [h('li', { class: 'xp-empty', text: 'Projects show up here once Shellby sees you working in a git repo.' })]));
   }
 
+  $('xpStreak').addEventListener('click', () => SB.setView('time'));
   $('nudgeToggle').addEventListener('change', async e => render(await api.setStreaks({ nudges: e.target.checked })));
   $('nudgeDays').addEventListener('change', async e => render(await api.setStreaks({ afterDays: Number(e.target.value) })));
   api.onStreaks(render);
@@ -49,4 +60,6 @@
 
   const renderTrophies = SB.views.trophies.render;
   SB.views.trophies.render = () => { renderTrophies(); api.getStreaks().then(render); };
+  const renderTime = SB.views.time.render;
+  SB.views.time.render = () => { renderTime(); api.getStreaks().then(render); };
 })();

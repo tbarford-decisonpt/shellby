@@ -71,5 +71,5 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 
 ## Streaks and nudges
 
-- **Streaks:** finish a Claude task on consecutive days for a 🔥 streak (it's in the status line too).
+- **Streaks:** finish a Claude task on consecutive days for a 🔥 streak (it's in the status line too). It lives on **Time**, with how long since each project's last commit and the nudge setting.
 - **Nudges:** when a repo you work in goes quiet, he says so: *"You haven't committed to 3d-rack in 5 days 🐚"*. **Pick it up** opens a tab there with a "where did we leave off?" prompt. At most one nudge a day, only in the daytime, and each project can be muted.

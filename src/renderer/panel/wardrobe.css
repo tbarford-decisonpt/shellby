@@ -218,6 +218,15 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-eyebrow { margin: 0; font: 600 10px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: #ffd23f; }
 .xp-titles h3 { margin: 0; font: 600 20px var(--font-pixel); }
 .xp-total { margin-left: auto; font: 600 12px var(--font-mono); color: var(--sand-dim); white-space: nowrap; }
+/* The streak lives on Time; this is just its count, and a way there. */
+.xp-streak {
+  flex: none; padding: 0 8px; border-radius: 99px; cursor: pointer;
+  font: 600 11px/22px var(--font-mono); color: var(--coral);
+  background: rgba(255, 122, 92, .12); border: 1px solid rgba(255, 122, 92, .3);
+  transition: background .15s var(--ease-out);
+}
+.xp-streak:hover { background: rgba(255, 122, 92, .22); }
+.xp-streak:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
 .xp-bar { height: 8px; margin: 12px 0 5px; border-radius: 99px; background: var(--abyss); overflow: hidden; border: 1px solid rgba(255, 210, 63, .2); }
 .xp-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--rank, #ffd23f) 75%, #000), var(--rank, #ffd23f)); transform-origin: left; transform: scaleX(0); transition: transform .8s var(--ease-out); }
 /* Under the bar: what's next on the left, boosts as pills on the right. */
@@ -276,49 +285,3 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-log time { font: 500 10px var(--font-mono); color: var(--sand-faint); }
 .xp-empty { color: var(--sand-faint); font-size: 12px; }
 .xp-log li.xp-empty { display: block; } /* one line, not squeezed into the log's first column */
-
-/* ---------- streaks ---------- */
-.streak-card {
-  margin: 0 0 14px; padding: 14px; border-radius: var(--r-lg);
-  background: radial-gradient(120% 140% at 0% 0%, rgba(255, 122, 92, .14), transparent 55%), var(--reef);
-  border: 1px solid rgba(255, 122, 92, .3);
-}
-.streak-card.cold { background: var(--reef); border-color: var(--line); }
-.streak-card.cold .streak-flame { filter: grayscale(1); opacity: .5; }
-.streak-head { display: flex; align-items: center; gap: 12px; }
-.streak-flame { width: 48px; height: 48px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: rgba(255, 122, 92, .14); }
-.streak-eyebrow { color: var(--coral) !important; }
-.streak-head h3 { margin: 0; font: 600 20px var(--font-pixel); }
-.streak-sub { margin: 8px 0 10px; font-size: 12.5px; color: var(--sand-dim); }
-.streak-projects { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
-.streak-project { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 4px 4px 4px 10px; border-radius: var(--r-sm); background: rgba(6, 19, 22, .5); }
-.sp-name { border: 0; background: none; padding: 2px 0; color: var(--sand); font: 700 12.5px var(--font-mono); text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-name:hover { color: var(--glass); text-decoration: underline; text-underline-offset: 3px; }
-.sp-quiet { font-size: 12px; color: var(--sand-dim); }
-.streak-project.late .sp-quiet { color: var(--amber); }
-.streak-project.muted { opacity: .6; }
-.sp-mute, .sp-review { width: 26px; height: 26px; font-size: 12px; }
-.streak-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; border-top: 1px solid var(--line-soft); padding-top: 8px; }
-.streak-settings .toggle { font-size: 12.5px; padding: 0; }
-
-/* ---------- focus sessions ---------- */
-.focus-card {
-  margin: 0 0 14px; padding: 14px; border-radius: var(--r-lg);
-  background: var(--reef); border: 1px solid var(--line);
-  transition: border-color .3s, background .3s;
-}
-.focus-card.on.focus {
-  background: radial-gradient(120% 140% at 0% 0%, rgba(90, 169, 255, .16), transparent 55%), var(--reef);
-  border-color: rgba(90, 169, 255, .4);
-}
-.focus-card.on.break { background: radial-gradient(120% 140% at 0% 0%, var(--glass-dim), transparent 55%), var(--reef); border-color: rgba(127, 214, 194, .35); }
-.focus-head { display: flex; align-items: center; gap: 12px; }
-.focus-badge { width: 48px; height: 48px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 24px; background: rgba(90, 169, 255, .14); }
-.focus-card:not(.on) .focus-badge { filter: saturate(.6); }
-.focus-titles { min-width: 0; }
-.focus-titles h3 { margin: 0; font: 600 20px var(--font-pixel); }
-.focus-eyebrow { color: #7cb8ff !important; }
-.focus-card.break .focus-eyebrow { color: var(--glass) !important; }
-.focus-clock { margin-left: auto; font: 600 26px/1 var(--font-mono); letter-spacing: .02em; color: #9ccaff; font-variant-numeric: tabular-nums; }
-.focus-card.break .focus-clock { color: var(--glass); }
-.focus-actions { display: flex; flex-wrap: wrap; gap: 6px; }

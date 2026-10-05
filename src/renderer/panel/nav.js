@@ -139,7 +139,7 @@
     const go = view => () => SB.setView(view);
     return [
       { icon: '🎩', title: 'Shellby: outfits', sub: 'Dress him up', keys: 'crab wardrobe hats skins colors effects packs', run: go('wardrobe') },
-      { icon: '🏆', title: 'Shellby: trophies & XP', sub: 'Level, XP, streaks and trophies', keys: 'level achievements streak', run: go('trophies') },
+      { icon: '🏆', title: 'Shellby: trophies & XP', sub: 'Level, XP and trophies', keys: 'level achievements', run: go('trophies') },
       { icon: '🐚', title: 'Shellby: finds', sub: 'Everything he’s dug up for you', keys: 'gifts shelf treasure dig collection sets', run: go('finds') },
       { icon: '💞', title: 'Shellby: us', sub: 'How close you are, your story, games, your birthday', keys: 'bond friendship memories journal birthday temperament scenes', run: go('us') },
       { icon: '🪸', title: 'Shellby: tank', sub: 'Decorate his tank with castles, plants and his finds', keys: 'tank aquarium home decorate decor castle plants treasure chest room furniture', run: go('tank') },
@@ -157,7 +157,7 @@
       claude() && { icon: '⏰', title: 'New routine', sub: 'Schedule a recurring task', keys: 'schedule add', run: () => { SB.setView('routines'); $('newRoutineBtn').click(); } },
       { icon: '📈', title: 'Health', sub: 'Temperatures, memory and drives', keys: 'gpu cpu ram disk temperature vitals', run: go('health') },
       claude() && { icon: '🗂️', title: 'History', sub: 'Past conversations', keys: 'sessions old', run: go('history') },
-      { icon: '⏱️', title: 'Time', sub: 'Hours on each project, timesheets and invoices', keys: 'time tracking hours timesheet invoice billing clients rate freelance', run: go('time') },
+      { icon: '⏱️', title: 'Time', sub: 'Hours on each project, your streak, focus sessions and timesheets', keys: 'time tracking hours timesheet invoice billing clients rate freelance streak nudge quiet focus pomodoro', run: go('time') },
       claude() && { icon: '📁', title: 'Projects', sub: 'Your repos and their dev servers', keys: 'projects repos repositories github clone dev server vite next npm run localhost port', run: go('projects') },
       { icon: '⚙️', title: 'Settings', sub: 'Everything else', keys: 'preferences options', run: go('settings') },
       SB.hasLockedRooms?.() && { icon: '🚪', title: 'Show every screen', sub: 'Put all of them on the bar now', keys: 'rooms unlock more dock bar all screens', run: () => SB.openAllRooms() },
