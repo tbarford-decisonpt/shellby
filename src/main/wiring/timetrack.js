@@ -237,6 +237,9 @@ function wireTimetrack(d) {
       // failed turn's leftovers go with it).
       if (!item.waiting?.length) tab.session.stop().catch(() => {});
     }
+    // Work that got done with nobody at the keyboard, for the weekly card.
+    // A stopped run didn't get it done, so it isn't counted.
+    if ((routineId || waiting) && !item.interrupted && d.isAway()) d.noteAwayRun(item.durationMs, { held: !routineId });
     // Build it with Claude's test run ended: the editor's chat hands it back to Claude.
     if (d.routineTests.has(tabId)) d.send(d.panel, 'routines:test-run', d.routineTestView(tabId));
     d.noteRecap(recap.runEvent(tabId, tab.title, item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error', { routine: !!routineId, error: item.error }));

@@ -110,7 +110,12 @@ function wireSessions(d) {
         const ship = c.dir && stickers.shipOf(kind, c.command);
         if (ship) d.shipped(c.dir, ship.kind, ship.meta);
         // gh pr create: the tab's work is a pull request now, so it gets the badge (github/pr-badge.js).
-        if (!item.isError && prBadges.isPrCreate(c.command)) d.badgePr(`${item.text || ''}\n${tail || ''}`);
+        // And the week's card counts it, once gh has printed the new pull request's address.
+        if (!item.isError && prBadges.isPrCreate(c.command)) {
+          const out = `${item.text || ''}\n${tail || ''}`;
+          if (/\/pull\/\d+\s*$/m.test(out)) d.noteWeek('pr');
+          d.badgePr(out);
+        }
         // npm audit, pip-audit, cargo outdated...: read what it found (checkup.js).
         const check = checkup.checkupOf(c.command);
         if (check && c.cwd) {

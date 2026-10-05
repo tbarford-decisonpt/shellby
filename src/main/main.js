@@ -279,7 +279,7 @@ let focusTick = null;
 // only declared further down. A setter is there only where a module changes it.
 const shared = {
   applyHotkey, applyLoginItem, armCopy, armGuard, changeRef, chatRoutine, checkAway, checkGuards,
-  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, leaveCheck,
+  checkNudges, draftRoutine, drawSticker, gameInFront, greet, holdForReset, isAway, leaveCheck,
   moveIntoCopy, noteRecap, onSpend, onUsage, outlookView, panelSettings, placeStickers,
   proposeRoutine, queueTask, recordWork, refreshOutlook, rememberPrompt, reopenForHeld,
   repairRoutine, retireWorktree, routineTestView, routines, routinesView, runRoutine,
@@ -436,10 +436,12 @@ const shared = {
   get motion() { return motion; }, set motion(v) { motion = v; },
   get motionBox() { return motionBox; },
   get musicHeadphones() { return musicHeadphones; },
+  get noteAwayRun() { return noteAwayRun; },
   get noteFix() { return noteFix; },
   get noteRed() { return noteRed; },
   get noteSnippetUse() { return noteSnippetUse; },
   get noteTestRun() { return noteTestRun; },
+  get noteWeek() { return noteWeek; },
   get noteWorkTime() { return noteWorkTime; },
   get notify() { return notify; },
   get nowPlaying() { return nowPlaying; }, set nowPlaying(v) { nowPlaying = v; },
@@ -578,7 +580,7 @@ const {
 } = wireSessions(shared);
 const {
   awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-  knownFolder, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
+  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
   runCheckup, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
 const {
@@ -633,6 +635,10 @@ const AWAY_POLL_MS = 60 * 1000;
 const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
 let recapLog = [];
 let away = { since: null };
+
+// Stepped away (idle or locked) as of the last reading: the weekly card's
+// "routines worked … while you were away" counts runs that finish now.
+function isAway() { return away.since !== null; }
 
 function noteRecap(event) {
   if (event) recapLog = recap.record(recapLog, event, Date.now());
@@ -2184,6 +2190,7 @@ function registerIpc() {
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,
     panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
     toolbox: () => toolbox, lastInit: () => lastInit, stat,
+    noteUndone: n => noteWeek('undone', null, n),
     turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
     runClaude: (args, timeout, opts) => {
