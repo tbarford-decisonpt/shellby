@@ -16,12 +16,17 @@
 // and anything already flagged on the desktop card stay at the desk.
 //
 // Shellby only listens while something is actually waiting: no prompts out,
-// no polling.
+// no polling. The one exception is phone tasks (phone-tasks.js), which you turn
+// on to be heard while you're away: then this same poller also reads messages.
+// A bot has one getUpdates queue, and two readers would each confirm (and so
+// eat) the other's updates, so there is only ever one, and it hands presses
+// to the prompts here and messages to the inbox.
 const crypto = require('crypto');
 const { ntfyReplyUrl } = require('./channels');
 
 const TTL_MS = 30 * 60 * 1000;     // a prompt left this long is the desk's again
 const NTFY_POLL_MS = 5000;         // ntfy.sh allows a request every 5s per visitor, sustained
+const INBOX_POLL_MS = 15000;       // only listening for tasks: no need to ask as often
 const TELEGRAM_LONGPOLL_S = 25;    // Telegram holds the request open until a press or this
 const REQUEST_TIMEOUT_MS = 8000;
 const NONCE = /^[A-Za-z0-9_-]{22}$/;
@@ -83,16 +88,53 @@ function parseTelegramCallback(update, chatId) {
  *   onAnswer(tabId, requestId, decision): true if the prompt was still open
  */
 class RemoteAnswers {
-  constructor({ getChannel, onAnswer, log = () => {}, fetchImpl = fetch, now = Date.now, ntfyPollMs = NTFY_POLL_MS }) {
-    Object.assign(this, { getChannel, onAnswer, log, fetchImpl, now, ntfyPollMs });
+  constructor({ getChannel, onAnswer, log = () => {}, fetchImpl = fetch, now = Date.now, ntfyPollMs = NTFY_POLL_MS, inboxPollMs = INBOX_POLL_MS }) {
+    Object.assign(this, { getChannel, onAnswer, log, fetchImpl, now, ntfyPollMs, inboxPollMs });
     this.open = new Map();      // nonce -> { tabId, requestId, expiresAt, provider, messageId?, text? }
     this.polling = false;
     this.abort = null;
     this.telegramOffset = null;
     this.ntfySince = null;
+    this.inbox = null;
+    this.closed = false;
+    this.wakeSleep = null;
   }
 
   get size() { return this.open.size; }
+
+  /**
+   * Phone tasks: messages as well as presses.
+   *   inbox: {
+   *     active() -> bool                 on, for this destination, right now
+   *     onTelegram(update)               every Telegram update that isn't a button press
+   *     ntfyUrl() -> url | null          the tasks topic
+   *     ntfySince() -> id | seconds      where to read from (persisted, so a restart doesn't replay)
+   *     onNtfy(msg), onNtfyCursor(id)    each message, then the last id read
+   *   }
+   */
+  setInbox(inbox) {
+    this.inbox = inbox || null;
+    this.listen();
+  }
+
+  inboxOn() {
+    if (this.closed || !this.inbox) return false;
+    try { return !!this.inbox.active(); } catch (err) { this.log(`inbox: ${err.message}`); return false; }
+  }
+
+  /** Something to listen for: a prompt out, or phone tasks on. */
+  wanted() { return !this.closed && (this.open.size > 0 || this.inboxOn()); }
+
+  /** Start listening if there's anything to hear (after phone tasks are turned on, say). */
+  listen() { this.ensurePolling(); }
+
+  /** Shellby is quitting: stop for good, mid-request or mid-wait. */
+  shutdown() {
+    this.closed = true;
+    this.abort?.abort();
+    this.abort = null;
+    this.wakeSleep?.();
+  }
 
   /** A prompt is about to go out with buttons. -> the nonce to put on them. */
   register({ tabId, requestId, provider }) {
@@ -170,39 +212,55 @@ class RemoteAnswers {
   // ---------------------------------------------------------------- listening
 
   ensurePolling() {
-    if (this.polling || !this.open.size) return;
+    if (this.polling || !this.wanted()) return;
     this.polling = true;
     this.loop().catch(err => this.log(`polling stopped: ${err.message}`)).finally(() => { this.polling = false; });
   }
 
+  /** Nothing left to answer. Phone tasks on: the listening carries on regardless. */
   stop() {
+    if (!this.open.size) this.ntfySince = null;
+    if (this.inboxOn()) return;
     this.abort?.abort();
     this.abort = null;
-    if (!this.open.size) this.ntfySince = null;
   }
 
   async loop() {
-    while (this.open.size) {
+    while (this.wanted()) {
       this.expire();
-      if (!this.open.size) break;
       const { settings, secret } = this.getChannel();
-      if (!settings?.enabled || !settings.replies || !supportsReplies(settings.provider)) {
+      if (this.open.size && (!settings?.enabled || !settings.replies || !supportsReplies(settings.provider))) {
         // Turned off (or switched provider) with prompts out: they're the desk's now.
         for (const [nonce, e] of this.open) { this.open.delete(nonce); this.markTelegram(e, 'Answer it at the desk'); }
-        break;
       }
+      const listening = this.inboxOn();
+      if (!this.open.size && !listening) break;
       const started = this.now();
       try {
         if (settings.provider === 'telegram') await this.pollTelegram(settings.target, secret);
-        else await this.pollNtfy(settings.target, secret);
+        else if (settings.provider === 'ntfy') {
+          if (this.open.size) await this.pollNtfy(settings.target, secret);
+          if (listening && !this.closed) await this.pollNtfyTasks(secret);
+        }
       } catch (err) {
         if (err?.name !== 'AbortError') this.log(err.message);
       }
       // Never spin: a failing network waits like a quiet one does. (Telegram's
       // long poll has usually used the whole interval up by itself.)
-      const rest = this.ntfyPollMs - (this.now() - started);
-      if (this.open.size) await new Promise(r => setTimeout(r, Math.max(0, rest)));
+      // ntfy with both topics read: twice the wait, to stay inside its rate limit.
+      const every = settings.provider === 'telegram' ? this.ntfyPollMs
+        : this.open.size ? this.ntfyPollMs * (listening ? 2 : 1) : this.inboxPollMs;
+      const rest = every - (this.now() - started);
+      if (this.wanted()) await this.sleep(Math.max(0, rest));
     }
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => {
+      const timer = setTimeout(done, ms);
+      function done() { clearTimeout(timer); resolve(); }
+      this.wakeSleep = done;
+    }).finally(() => { this.wakeSleep = null; });
   }
 
   async get(url, { headers = {}, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
@@ -224,13 +282,41 @@ class RemoteAnswers {
     const res = await this.get(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates?${q}`, { timeoutMs: (TELEGRAM_LONGPOLL_S + 10) * 1000 });
     const reply = await res.json().catch(() => null);
     if (!reply?.ok || !Array.isArray(reply.result)) return;
+    const listening = this.inboxOn();
     for (const update of reply.result) {
       if (Number.isSafeInteger(update?.update_id)) this.telegramOffset = Math.max(this.telegramOffset ?? 0, update.update_id + 1);
       const press = parseTelegramCallback(update, chatId);
-      if (!press) continue;
+      if (!press) {
+        // Not a press: a message, perhaps a task (phone-tasks.js decides). With
+        // phone tasks off it is skipped, but still confirmed above.
+        if (listening && !update?.callback_query) this.handOver(() => this.inbox.onTelegram(update));
+        continue;
+      }
       const said = this.answer(press.nonce, press.decision);
       this.telegram(token, 'answerCallbackQuery', { callback_query_id: press.callbackId, text: said });
     }
+  }
+
+  // The inbox's own failures are its own: they never stop the presses being read.
+  handOver(fn) {
+    try { fn(); } catch (err) { this.log(`inbox: ${err.message}`); }
+  }
+
+  async pollNtfyTasks(secret) {
+    const url = this.inbox.ntfyUrl();
+    if (!url) return;
+    const q = new URLSearchParams({ poll: '1', since: String(this.inbox.ntfySince() || 'all') });
+    const res = await this.get(`${url}/json?${q}`, { headers: secret ? { Authorization: `Bearer ${secret}` } : {} });
+    if (!res.ok) return;
+    const text = await res.text();
+    let last = null;
+    for (const line of text.split('\n')) {
+      let msg;
+      try { msg = JSON.parse(line); } catch { continue; }
+      if (typeof msg?.id === 'string' && /^[A-Za-z0-9]{1,32}$/.test(msg.id)) last = msg.id;
+      this.handOver(() => this.inbox.onNtfy(msg));
+    }
+    if (last) this.handOver(() => this.inbox.onNtfyCursor(last));
   }
 
   async pollNtfy(target, secret) {
@@ -275,5 +361,5 @@ class RemoteAnswers {
 
 module.exports = {
   RemoteAnswers, supportsReplies, newNonce, deskOnlyReason,
-  parseNtfyMessage, parseTelegramCallback, NONCE, TTL_MS, PHONE_MAX,
+  parseNtfyMessage, parseTelegramCallback, NONCE, TTL_MS, PHONE_MAX, INBOX_POLL_MS,
 };

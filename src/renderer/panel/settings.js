@@ -501,7 +501,42 @@
     $('chStatus').textContent = v.problem || '';
     $('chStatus').className = `small ext-status ${v.problem ? 'warn' : ''}`;
     $('chTest').disabled = !!v.problem;
+    $('ptRow').hidden = !v.canReply;
+    if (v.canReply) api.getPhoneTasks().then(renderPhoneTasks);
   }
+
+  // Starting a task from the phone (phone-tasks.js). The switch only asks:
+  // turning it on happens in the confirmation window, never here.
+  function renderPhoneTasks(v) {
+    if (!v) return;
+    $('ptEnabled').checked = !!v.on;
+    $('ptFolder').textContent = v.folder || 'nowhere yet';
+    $('ptFolder').title = v.folder || '';
+    $('ptNtfy').hidden = v.provider !== 'ntfy';
+    $('ptTopic').textContent = v.tasksTopic || '';
+    $('ptNewPass').hidden = !v.hasPassphrase;
+    const pass = v.passphrase || null;
+    $('ptPassBox').hidden = !pass;
+    $('ptPass').textContent = pass || '';
+    $('ptHint').textContent = v.provider === 'ntfy'
+      ? `Post to the topic below and Shellby starts it, in Ask first. Anyone who knows an ntfy topic can post to it and read it, so a passphrase from Shellby has to start every message. At most ${v.perHour} an hour, ${v.atOnce} at once.`
+      : `Message your bot and Shellby starts it, in Ask first: every edit and command still waits for your Allow. Only your private chat with the bot counts. At most ${v.perHour} an hour, ${v.atOnce} at once.`;
+    const off = v.wanted && !v.on;
+    const said = v.error || (v.on ? `On. ${v.provider === 'ntfy' ? 'Post your passphrase then /help' : 'Send /help to your bot'} for how.` : off ? v.problem || 'Off: where notifications go changed. Turn it on again.' : v.problem || '');
+    $('ptStatus').textContent = v.cancelled ? 'Left off.' : said;
+    $('ptStatus').className = `small ext-status ${v.error || (v.problem && v.wanted) ? 'warn' : v.on ? 'ok' : ''}`;
+  }
+  $('ptEnabled').addEventListener('change', async e => {
+    e.target.disabled = true;
+    renderPhoneTasks(await api.setPhoneTasks({ enabled: e.target.checked }));
+    e.target.disabled = false;
+  });
+  $('ptFolderBtn').addEventListener('click', async () => renderPhoneTasks(await api.pickPhoneTasksFolder()));
+  $('ptNewPass').addEventListener('click', async () => renderPhoneTasks(await api.setPhoneTasks({ newPassphrase: true })));
+  $('ptCopyPass').addEventListener('click', () => {
+    api.copyText($('ptPass').textContent);
+    SB.toast('Copied. Paste it somewhere safe on your phone.');
+  });
   $('chEnabled').addEventListener('change', async e => renderChannels(await api.setChannels({ enabled: e.target.checked })));
   $('chProvider').addEventListener('change', async e => renderChannels(await api.setChannels({ provider: e.target.value })));
   $('chTarget').addEventListener('change', async e => renderChannels(await api.setChannels({ target: e.target.value })));

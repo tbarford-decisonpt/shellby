@@ -1521,6 +1521,25 @@
             <label class="toggle"><input type="checkbox" id="chReplies"><span class="switch"></span>Let me answer Allow or Deny from my phone</label>
             <p class="small muted ext-status" id="chRepliesHint"></p>
           </div>
+          <div id="ptRow" hidden>
+            <label class="toggle"><input type="checkbox" id="ptEnabled"><span class="switch"></span>Let my phone start tasks</label>
+            <p class="small muted ext-status" id="ptHint"></p>
+            <div class="row wrap">
+              <span class="small">Phone tasks go to</span>
+              <code class="path" id="ptFolder">nowhere yet</code>
+              <button type="button" class="btn ghost slim-btn" id="ptFolderBtn">Choose…</button>
+            </div>
+            <div id="ptNtfy" hidden>
+              <p class="small">Post tasks to <code id="ptTopic"></code>, starting with your passphrase and a space.</p>
+              <div class="row wrap" id="ptPassBox" hidden>
+                <code id="ptPass"></code>
+                <button type="button" class="btn ghost slim-btn" id="ptCopyPass">Copy</button>
+                <p class="small warn">Shown once: keep it somewhere safe on your phone.</p>
+              </div>
+              <button type="button" class="btn ghost slim-btn" id="ptNewPass">New passphrase</button>
+            </div>
+            <p class="small ext-status" id="ptStatus"></p>
+          </div>
           <div class="row wrap">
             <button type="button" class="btn slim-btn" id="chTest">Send a test</button>
             <p class="small ext-status" id="chStatus"></p>
