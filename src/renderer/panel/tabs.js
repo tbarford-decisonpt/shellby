@@ -29,6 +29,7 @@
       context: summary.context !== undefined ? summary.context : tab.context || null,
       cache: summary.cache !== undefined ? summary.cache : tab.cache || null,
       nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
+      inTerminal: summary.inTerminal !== undefined ? summary.inTerminal : tab.inTerminal || null,
     });
     return tab;
   };
@@ -155,6 +156,7 @@
 
   function tabIcon(t) {
     if (t.pending) return h('span', { class: 'ti ti-ask', title: 'Needs your OK', text: '?' });
+    if (t.inTerminal) return h('span', { class: 'ti ti-term', title: 'Carrying on in a terminal', text: '›_' });
     if (t.busy || t.crew) return h('span', { class: 'ti ti-busy', title: t.crew ? `${t.crew} helper${t.crew > 1 ? 's' : ''} working` : 'Working' }, t.crew ? h('b', { text: t.crew }) : null);
     if (t.outcome === 'error') return h('span', { class: 'ti ti-err', title: 'Ended with an error', text: '!' });
     if (t.outcome === 'ok' && t.unread) return h('span', { class: 'ti ti-ok', title: 'Finished', text: '✓' });
@@ -261,10 +263,43 @@
     SB.openMenu($('tabMenu'), anchor, () => [
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.renameTab(tabId); } },
         h('span', { class: 'mi-check', text: '✎' }), h('span', { class: 'mi-title', text: 'Rename  (F2)' })),
+      handoffItem(tabId),
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.closeTab(tabId); } },
         h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: 'Close  (Ctrl+W)' })),
-    ]);
+    ].filter(Boolean));
   }
+
+  // ------------------------------------------------------------ to a terminal and back (handoff.js)
+
+  // Only once there's a conversation to carry on: a blank tab has nothing to resume.
+  function handoffItem(tabId) {
+    const t = state.tabs.get(tabId);
+    if (!t?.saved) return null;
+    const back = !!t.inTerminal;
+    return h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); (back ? SB.pickUpHere : SB.continueInTerminal)(tabId); } },
+      h('span', { class: 'mi-check', text: back ? '↩' : '›_' }), h('span', { class: 'mi-title', text: back ? 'Pick it up here' : 'Continue in a terminal' }));
+  }
+
+  // id: an open tab, or a History row that may be closed.
+  SB.continueInTerminal = async (id) => {
+    const r = await api.continueInTerminal(id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't open a terminal.", { ms: 5000 });
+    const tab = state.tabs.get(id);
+    if (tab) { tab.inTerminal = Date.now(); SB.renderTabStrip(); }
+    SB.toast(`${r.text} When you're done there, type /exit and pick it up here.`, { ms: 6000 });
+    state.sessions = await api.listSessions();
+    if (state.view === 'history') SB.views.history.redraw?.();
+  };
+
+  SB.pickUpHere = async (tabId) => {
+    const r = await api.pickUpHere(tabId);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't pick it up.");
+    const tab = state.tabs.get(tabId);
+    if (tab) tab.inTerminal = null;
+    SB.renderTabStrip();
+    if (r.warning) SB.toast(r.warning, { ms: 6000 });
+    state.sessions = await api.listSessions();
+  };
 
   // Swaps `el` for a text field holding `current`. Enter or leaving the field
   // saves, Escape doesn't; done(name) gets the new name, or null for no change.
@@ -459,7 +494,11 @@
   // Send to any tab: the active one, or a background tab draining its queue.
   async function sendNow(tab, text, attachments) {
     const r = await api.sendTask(tab.id, text, attachments);
-    if (!r.ok) { SB.toast(r.error); return false; }
+    if (!r.ok) {
+      // Out in a terminal: the way back is one click from the refusal.
+      SB.toast(r.error, tab.inTerminal ? { action: 'Pick it up here', onAction: () => SB.pickUpHere(tab.id), ms: 6000 } : undefined);
+      return false;
+    }
     // !! is how a message that starts with ! reaches Claude; it shows (and is sent) with one.
     markSent(tab, text.startsWith('!!') ? text.slice(1) : text, attachments, r.turnId);
     SB.notePrompt?.(text);

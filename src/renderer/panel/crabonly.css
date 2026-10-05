@@ -54,9 +54,10 @@ body.crab-only .work-mode-row { display: none; }
 .ext-status.ok { color: var(--glass); }
 .ext-status.warn { color: var(--amber); }
 .ext-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.ext-session { display: grid; grid-template-columns: 10px auto 1fr auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: var(--reef); font-size: 12.5px; }
+.ext-session { display: grid; grid-template-columns: 10px auto 1fr auto auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: var(--reef); font-size: 12.5px; }
 .ext-session b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ext-state { color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ext-session .ext-bring { grid-column: -2 / -1; height: 24px; }
 .ext-helpers { font: 600 10px var(--font-mono); color: var(--glass); }
 .ext-session time { font: 500 10.5px var(--font-mono); color: var(--sand-faint); }
 .ext-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sand-faint); }

@@ -75,10 +75,12 @@ const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireTray } = require('./wiring/tray');
 const { wireCorrections } = require('./wiring/corrections');
+const { wireHandoff } = require('./wiring/handoff');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
 const { registerTabsIpc } = require('./ipc/tabs');
+const { registerHandoffIpc } = require('./ipc/handoff');
 const { registerRepoIpc } = require('./ipc/repo');
 const { registerSettingsIpc } = require('./ipc/settings');
 const { registerToolboxIpc } = require('./ipc/toolbox');
@@ -407,6 +409,7 @@ const shared = {
   get friends() { return friends; }, set friends(v) { friends = v; },
   get friendsView() { return friendsView; },
   get github() { return github; }, set github(v) { github = v; },
+  get handoff() { return handoff; },
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
   get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
@@ -640,6 +643,7 @@ const {
   addLesson, changeLearned, correctionFromTurns, createCorrections, dismissLesson, draftLesson,
   learnedView, lessonPreview, lessonState, noteCorrection,
 } = wireCorrections(shared);
+const handoff = wireHandoff(shared);
 
 // ---------------------------------------------------------------- while you were away (recap.js)
 // What finished, failed and used the window is noted as it happens; whether
@@ -2282,6 +2286,7 @@ function registerIpc() {
   registerLifeIpc(ipcMain, d);
   registerPanelIpc(ipcMain, d);
   registerTabsIpc(ipcMain, d);
+  registerHandoffIpc(ipcMain, d);
   registerRepoIpc(ipcMain, d);
   registerSettingsIpc(ipcMain, d);
   registerToolboxIpc(ipcMain, d);

@@ -177,6 +177,7 @@
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↶' }),
           item.conversation === false ? `Rewound the code: put ${item.restored || 0} file${item.restored === 1 ? '' : 's'} back`
             : `Rewound to an earlier message${item.code && item.restored ? `, and put ${item.restored} file${item.restored === 1 ? '' : 's'} back` : ''}`));
+        case 'handoff': return this.renderHandoff(item, replay);
         case 'branched': return this.renderBranched(item);
         case 'branched-off': return this.renderBranchedOff(item);
         case 'checkpoint': return; // where the files stood, for branching: nothing to show
@@ -184,6 +185,27 @@
         case 'error': return this.append(h('div', { class: 'error-block', text: item.text }));
         case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js
       }
+    }
+
+    // ------------------------------------------------------------ to a terminal and back (handoff.js)
+    // Off to a terminal: Pick it up here sits on the note while it's out there
+    // (in a replay, only if it still is). Coming back takes the button away.
+    renderHandoff(item, replay) {
+      if (item.to === 'terminal') {
+        const shell = { wt: 'Windows Terminal', powershell: 'PowerShell', cmd: 'Command Prompt' }[item.shell] || 'a terminal';
+        const pick = !replay || this.inTerminal
+          ? h('button', { class: 'btn slim-btn handoff-pick', type: 'button', onclick: () => SB.pickUpHere(this.id) }, 'Pick it up here')
+          : null;
+        return this.append(h('div', { class: 'home-mark handoff-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '›_' }),
+          h('span', { text: `Carried on in ${shell}. Nothing is sent from here until you pick it up again.` }), pick));
+      }
+      for (const b of this.el.querySelectorAll('.handoff-pick')) b.remove();
+      return this.append(h('div', { class: 'home-mark handoff-mark' },
+        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
+        item.from
+          ? `Brought in from ${item.from}. Type /exit there before you send anything here.`
+          : "Picked up again here. Whatever was said in the terminal, Claude remembers, but it isn't shown above."));
     }
 
     // ------------------------------------------------------------ branches (branching.js)
