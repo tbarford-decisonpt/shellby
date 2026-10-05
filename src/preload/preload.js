@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('shellby', {
   closeTab: invoke('tab:close'),
   moveTab: (tabId, beforeId) => ipcRenderer.invoke('tab:reorder', { tabId, beforeId }),
   seenTab: fire('tab:seen'),
+  markReviewed: (tabId, reviewed = true) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),

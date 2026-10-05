@@ -39,6 +39,9 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reorder', (_e, { tabId, beforeId } = {}) =>
     d.isStr(tabId) && d.manager.reorder(tabId, d.isStr(beforeId) ? beforeId : null));
   ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
+  // The review inbox (review-inbox.js): you've looked at its latest changes, or want them back in the list.
+  ipcMain.handle('tab:reviewed', (_e, { tabId, reviewed = true } = {}) =>
+    d.isStr(tabId) && d.manager.setReviewed(tabId, reviewed !== false));
 
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);

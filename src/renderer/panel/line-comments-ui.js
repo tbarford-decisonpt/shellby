@@ -304,4 +304,29 @@
     tab.sentReview = [...(tab.sentReview || []), ...list];
     setComments(tab, commentsOf(tab).filter(c => !ids.has(c.id)));
   }
+
+  // ------------------------------------------------------------ from the review inbox
+
+  /** How many comments are waiting to go to this tab. */
+  SB.pendingComments = tab => commentsOf(tab).length;
+
+  /**
+   * The review inbox's "Send back" (review-view.js): a note for a tab you may
+   * not be in, with every comment waiting on it written up the usual way.
+   * Goes like a queued message (SB.sendDirect). -> true once it's on its way.
+   */
+  SB.sendBack = async (tab, note) => {
+    const list = commentsOf(tab);
+    const text = list.length ? R.compose(list, note) : String(note || '').trim();
+    if (!text || tab.sendingReview) return false;
+    tab.sendingReview = true;
+    if (tab.isActive) renderBar();
+    let sent;
+    try { sent = await SB.sendDirect(tab, text); } finally { tab.sendingReview = false; }
+    if (!sent) { if (tab.isActive) renderBar(); return false; }
+    const ids = new Set(list.map(c => c.id));
+    if (ids.size) tab.sentReview = [...(tab.sentReview || []), ...list];
+    setComments(tab, commentsOf(tab).filter(c => !ids.has(c.id)));
+    return true;
+  };
 })();
