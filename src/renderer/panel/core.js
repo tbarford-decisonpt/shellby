@@ -6,6 +6,7 @@ const SB = window.SB = {
   md: window.ShellbyMarkdown,
   Sprite: window.ShellbySprite,
   MiniShell: window.ShellbyMiniShell,
+  shortcuts: window.ShellbyShortcuts, // every shortcut, for the handlers, the palette and the cheat sheet
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
@@ -206,11 +207,18 @@ SB.setView = view => {
 
 // ------------------------------------------------------------------ popovers
 
+// Where the keyboard goes back to when a menu it was in closes: whatever had it
+// before the menu opened (the box, a chip), so Esc or a choice never strands it.
+let menuReturn = null;
+
 SB.openMenu = (menu, anchor, build) => {
   const wasOpen = !menu.hidden;
   SB.closeMenus();
   if (wasOpen) return;
+  const from = document.activeElement;
+  menuReturn = from && from !== document.body && !from.closest('.popover') ? from : anchor;
   menu.replaceChildren(...build().filter(Boolean));
+  menu.dataset.arrows = '';
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
   // Below the button, or above it when there isn't room (a row near the bottom of the list).
@@ -222,11 +230,28 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu', 'pjMenu', 'snipMenu', 'textMenu']) SB.$(id).hidden = true;
+  const menus = ['modeMenu', 'folderMenu', 'branchMenu', 'ctxMenu', 'usageMenu', 'effortMenu', 'rewindMenu', 'tabMenu', 'wfMenu', 'pjMenu', 'snipMenu', 'textMenu'].map(SB.$);
+  const held = menus.some(m => !m.hidden && m.contains(document.activeElement));
+  for (const m of menus) m.hidden = true;
   for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
   SB.hidePick?.();
+  if (held && menuReturn?.isConnected && menuReturn.getClientRects().length) menuReturn.focus({ preventScroll: true });
+  menuReturn = null;
 };
+
+// Up and Down (Home, End) walk a menu's items. Menus with keys of their own
+// (workflows, the text menu) handle them first and say so.
+document.addEventListener('keydown', e => {
+  const menu = e.target.closest?.('.popover[data-arrows]');
+  if (!menu || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
+  const items = [...menu.querySelectorAll('button:not(:disabled)')];
+  const i = items.indexOf(document.activeElement);
+  const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (next === undefined || !items.length) return;
+  e.preventDefault();
+  items[(next + items.length) % items.length].focus();
+});
 
 document.addEventListener('mousedown', e => {
   if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .slash-menu, .snip-more, #input')) SB.closeMenus();

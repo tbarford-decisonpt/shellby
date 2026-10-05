@@ -3,6 +3,8 @@
 //  2. hovering a titled button shows the themed tooltip, not the OS one
 //  3. the title bar fits at every width in every mode (see titlebar-fit.js)
 //  4. dragging a tab along the strip reorders it, and main keeps the new order
+//  5. keyboard only: Ctrl+PageUp/PageDown, the Ctrl+/ shortcut list, the palette's
+//     actions and their keys, focus landing back in the box, Ctrl+W asking first
 //   node scripts/ui-regressions.js
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -160,6 +162,62 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await panel.ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', ctrlKey: true, shiftKey: true, bubbles: true }))");
     await wait(300);
     check((await strip())[0] === first, 'and PageUp puts it back');
+
+    // 6. keyboard only: tabs, the shortcut list, the palette's actions, Ctrl+W's safety.
+    // Keys go to whatever has focus, the way a real press does.
+    const press = (key, mods = {}) => panel.ev(`(document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true, ctrlKey: ${!!mods.ctrl}, shiftKey: ${!!mods.shift} }))`);
+    const focused = () => panel.ev("(document.activeElement && (document.activeElement.id || document.activeElement.className)) || 'body'");
+    await panel.ev("SB.activate(SB.state.tabs.keys().next().value)");
+    await wait(200);
+    const ids = await panel.ev('JSON.stringify([...SB.state.tabs.keys()])').then(JSON.parse);
+    await press('PageDown', { ctrl: true });
+    await wait(200);
+    check(await panel.ev('SB.state.activeTab') === ids[1], 'Ctrl+PageDown goes to the next conversation');
+    await press('PageUp', { ctrl: true });
+    await wait(200);
+    check(await panel.ev('SB.state.activeTab') === ids[0], 'Ctrl+PageUp comes back');
+    check(await focused() === 'input', `switching tabs leaves the keyboard in the box (${await focused()})`);
+
+    await press('/', { ctrl: true });
+    await wait(200);
+    const sheet = JSON.parse(await panel.ev(`JSON.stringify({
+      open: !document.getElementById('shortcutsSheet').hidden,
+      rows: document.querySelectorAll('#shortcutsList dt').length,
+      table: SB.shortcuts.SHORTCUTS.length,
+      inside: document.getElementById('shortcutsSheet').contains(document.activeElement),
+    })`));
+    check(sheet.open && sheet.rows === sheet.table, `Ctrl+/ lists every shortcut in the table (${sheet.rows} of ${sheet.table})`);
+    check(sheet.inside, 'and the keyboard is in the list');
+    await press('Escape');
+    await wait(200);
+    check(await panel.ev("document.getElementById('shortcutsSheet').hidden") && await focused() === 'input', `Esc closes it and the keyboard is back in the box (${await focused()})`);
+
+    await press('k', { ctrl: true });
+    await wait(200);
+    const pal = JSON.parse(await panel.ev(`JSON.stringify({
+      group: document.querySelector('#paletteList .pal-group')?.textContent,
+      close: [...document.querySelectorAll('#paletteList .pal-item')].find(li => /Close this conversation/.test(li.textContent))?.querySelector('kbd')?.textContent,
+    })`));
+    check(pal.group === 'This conversation', `Ctrl+K on the chat starts with this conversation's actions (${pal.group})`);
+    check(pal.close === 'Ctrl+W', `and shows an action's shortcut (${pal.close})`);
+    await panel.ev("(() => { const i = document.getElementById('paletteInput'); i.value = 'keyboard shortcuts'; i.dispatchEvent(new Event('input')); })()");
+    await press('Enter');
+    await wait(250);
+    check(await panel.ev("!document.getElementById('shortcutsSheet').hidden"), 'typing "keyboard shortcuts" and Enter opens the list');
+    await press('Escape');
+    await wait(200);
+    check(await focused() === 'input', `closing it from there lands in the box too (${await focused()})`);
+
+    // A conversation that's working isn't closed by one stray Ctrl+W.
+    const count = () => panel.ev('SB.state.tabs.size');
+    const n = await count();
+    await panel.ev('SB.activeTab().busy = true');
+    await press('w', { ctrl: true });
+    await wait(300);
+    check(await count() === n && /still working/.test(await panel.ev("document.getElementById('toast').textContent")), 'Ctrl+W on a working conversation asks first');
+    await press('w', { ctrl: true });
+    await wait(600);
+    check(await count() === n - 1, 'and a second Ctrl+W closes it');
 
     panel.ws.close(); critter.ws.close();
   } catch (e) {
