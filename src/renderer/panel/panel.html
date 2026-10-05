@@ -1915,6 +1915,11 @@
       <pre class="pj-prompt sf-prompt" id="sfPrompt" tabindex="0" aria-label="What will be sent to Claude" hidden></pre>
       <textarea class="field pj-note" id="sfNote" rows="2" maxlength="500" placeholder="Anything to add? (optional)" aria-label="A note for Claude" hidden></textarea>
       <p class="muted small pj-where" id="sfWhere" hidden></p>
+      <section class="sf-risk" id="sfRisk" aria-labelledby="sfRiskTitle" hidden>
+        <p class="sf-risk-title" id="sfRiskTitle">Look at these before Claude works in it</p>
+        <div class="small" id="sfRiskBody"></div>
+        <label class="pj-check sf-risk-ack"><input type="checkbox" id="sfAck"><span>I've looked at these</span></label>
+      </section>
       <div class="row wrap end">
         <button type="button" class="btn ghost" id="sfGitHub">Open on GitHub</button>
         <button type="button" class="btn ghost" id="sfCancel">Not now</button>

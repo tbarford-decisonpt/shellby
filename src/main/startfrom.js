@@ -250,6 +250,52 @@ function reviewPrompt({ pr, threads, resolvedKnown = true, note = '', copy }) {
   ].join('\n');
 }
 
+// ------------------------------------------------------------------ what Claude Code would load from the copy
+
+// Claude Code reads these from the folder it works in: instructions (CLAUDE.md),
+// hooks and permissions (.claude/), MCP servers that start programs (.mcp.json).
+// A pull request that changes one, or that someone else pushed to, could make
+// the copy run something you never wrote, so the sheet names them first.
+const CONFIG_FILE = /(^|\/)(CLAUDE(\.local)?\.md|\.mcp\.json)$|(^|\/)\.claude(\/|$)/i;
+const MAX_LISTED = 12;
+
+/**
+ * What needs your eyes before Claude works in a copy of this pull request.
+ *   files: GitHub's pulls/:n/files (filename, previous_filename), null if unread
+ *   commits: pulls/:n/commits (author.login, commit.author.name), null if unread
+ *   login: you. headSha: the commit the copy will start from.
+ * -> { files, moreFiles, authors, unknown } (all empty: nothing to check)
+ * unknown says what GitHub didn't tell Shellby, so it can't be called safe.
+ */
+function prRisks({ files, commits, login, headSha }) {
+  const me = String(login || '').toLowerCase();
+  const hit = new Set();
+  for (const f of Array.isArray(files) ? files : []) {
+    for (const name of [f?.filename, f?.previous_filename]) {
+      if (typeof name === 'string' && CONFIG_FILE.test(name)) hit.add(oneLine(name, 200));
+    }
+  }
+  const authors = new Set();
+  for (const c of Array.isArray(commits) ? commits : []) {
+    const who = c?.author?.login;
+    if (typeof who === 'string' && LOGIN_RE.test(who)) {
+      if (who.toLowerCase() !== me) authors.add(`@${who}`);
+    } else {
+      // A commit email GitHub can't tie to an account: it could be anyone.
+      authors.add(`${oneLine(c?.commit?.author?.name, 60) || 'someone'} (no GitHub account)`);
+    }
+  }
+  const unknown = [
+    !Array.isArray(files) && 'which files it changes',
+    !Array.isArray(commits) && 'who made its commits',
+    // The lists are of the pull request now; the copy starts at headSha. They must agree.
+    Array.isArray(commits) && commits.length && commits[commits.length - 1]?.sha !== headSha && 'whether it changed while Shellby was looking',
+  ].filter(Boolean);
+  return { files: [...hit].sort().slice(0, MAX_LISTED), moreFiles: Math.max(0, hit.size - MAX_LISTED), authors: [...authors].sort().slice(0, MAX_LISTED), unknown };
+}
+
+const needsAck = r => !!r && (r.files.length > 0 || r.authors.length > 0 || r.unknown.length > 0);
+
 // ------------------------------------------------------------------ loose ends (TODO / FIXME / HACK)
 
 // The tag must follow a comment marker, so `const TODO = []` and "todo app" don't count.
@@ -308,7 +354,7 @@ function todoPrompt({ project, item, around }) {
 
 module.exports = {
   cleanLog, trimLog, redactLog, failedStep, buildPrompt,
-  openThreads, threadsFromRest, formatThreads, reviewPrompt,
+  openThreads, threadsFromRest, formatThreads, reviewPrompt, prRisks, needsAck,
   parseTodoLine, parseTodos, todoPrompt,
   TODO_TAGS, AROUND, MAX_LOG_LINES, MAX_LOG_CHARS, MAX_NOTE, MAX_THREADS,
 };

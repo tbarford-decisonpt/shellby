@@ -121,4 +121,29 @@ async function reviewThreads(gh, { repo, number }) {
   }
 }
 
-module.exports = { pullOf, failingBuild, reviewThreads, whyNoLog };
+const PAGES = 3; // of 100: past 300 files or commits, Shellby says it couldn't check them all
+
+// Every page of a list, or null if GitHub wouldn't give all of it.
+async function allPages(gh, path) {
+  const out = [];
+  for (let page = 1; page <= PAGES; page++) {
+    const list = await gh.get(`${path}?per_page=100&page=${page}`).catch(() => null);
+    if (!Array.isArray(list)) return null;
+    out.push(...list);
+    if (list.length < 100) return out;
+  }
+  return null;
+}
+
+/**
+ * The files a pull request changes and its commits, for startfrom.prRisks.
+ * -> { files: [] | null, commits: [] | null } (null: couldn't read all of it)
+ */
+async function prChanges(gh, { repo, number }) {
+  if (!REPO_RE.test(String(repo)) || !Number.isInteger(number)) return { files: null, commits: null };
+  const base = `/repos/${repo}/pulls/${number}`;
+  const [files, commits] = await Promise.all([allPages(gh, `${base}/files`), allPages(gh, `${base}/commits`)]);
+  return { files, commits };
+}
+
+module.exports = { pullOf, failingBuild, reviewThreads, prChanges, whyNoLog };

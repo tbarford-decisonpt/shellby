@@ -49,8 +49,13 @@ function wireStartFrom(d) {
     const data = kind === 'build'
       ? await prwork.failingBuild(gh, { repo: pr.repo, number: pr.number, web: web() })
       : await prwork.reviewThreads(gh, { repo: pr.repo, number: pr.number });
-    if (!data.error) fetched.set(id, { at: Date.now(), data });
-    return data;
+    if (data.error) return data;
+    // What Claude Code would load in the copy, and whose commits it holds (startfrom.prRisks).
+    const changes = await prwork.prChanges(gh, { repo: pr.repo, number: pr.number });
+    const risk = startfrom.prRisks({ ...changes, login: d.github.view().login, headSha: data.pull.sha });
+    const full = { ...data, risk };
+    fetched.set(id, { at: Date.now(), data: full });
+    return full;
   }
 
   /**
@@ -67,40 +72,49 @@ function wireStartFrom(d) {
     if (m.error) return { ok: false, error: m.error };
     const facts = { repo: pr.repo, number: pr.number, title: m.pull.title || pr.title, url: pr.url };
     const copy = { headRef: m.pull.headRef, headRepo: m.pull.headRepo };
-    const base = { ok: true, kind, key, where: root, url: pr.url, branch: m.pull.headRef };
+    // The checks to tick go in the hash too: a different list is a different draft.
+    const ack = startfrom.needsAck(m.risk) ? m.risk : null;
+    const sign = prompt => hashOf(`${prompt}\n${JSON.stringify(ack)}`);
+    const base = { ok: true, kind, key, where: root, url: pr.url, branch: m.pull.headRef, risk: ack };
     if (kind === 'build') {
       const log = m.log ? startfrom.trimLog(m.log) : null;
       const shown = log?.lines.length ? log : null;
       const why = shown ? '' : m.why || 'it was empty';
       const prompt = startfrom.buildPrompt({ pr: facts, job: m.job, log: shown, why, note, copy });
-      return { ...base, prompt, hash: hashOf(prompt), title: `Fix the build on ${pr.repo}#${pr.number}`, job: m.job.name, step: m.job.step, jobUrl: m.job.url, logShown: !!shown, why };
+      return { ...base, prompt, hash: sign(prompt), title: `Fix the build on ${pr.repo}#${pr.number}`, job: m.job.name, step: m.job.step, jobUrl: m.job.url, logShown: !!shown, why };
     }
     const threads = startfrom.openThreads(m.threads);
     if (!threads.length) return { ok: false, error: `Every review comment on ${pr.repo}#${pr.number} is resolved.` };
     const prompt = startfrom.reviewPrompt({ pr: facts, threads, resolvedKnown: m.resolvedKnown, note, copy });
-    return { ...base, prompt, hash: hashOf(prompt), title: `Address the review on ${pr.repo}#${pr.number}`, comments: threads.length, resolvedKnown: m.resolvedKnown };
+    return { ...base, prompt, hash: sign(prompt), title: `Address the review on ${pr.repo}#${pr.number}`, comments: threads.length, resolvedKnown: m.resolvedKnown };
   }
 
-  // The pull request's head in the clone, to start the copy from. Fetched as
-  // refs/pull/N/head, which GitHub keeps for forks' pull requests too.
+  // The pull request's head in the clone, to start the copy from: exactly the
+  // commit the sheet's checks were made against, never whatever was pushed
+  // since. Fetched as refs/pull/N/head, which GitHub keeps for forks' too.
   async function prStart(root, pr, sha) {
+    if (!/^[0-9a-f]{40}$/.test(String(sha))) return { ok: false, error: "GitHub didn't say which commit that pull request is on." };
     const ref = `refs/remotes/origin/shellby-pr/${pr.number}`;
     const got = await worktrees.git(root, ['fetch', '--quiet', '--no-tags', 'origin', `+refs/pull/${pr.number}/head:${ref}`], { timeout: 120000, env: d.github.claudeEnv() });
-    if (got.ok) return { ok: true, start: ref };
     // Offline, or the fetch was refused: the commit may be here already.
-    const have = /^[0-9a-f]{40}$/.test(String(sha)) && (await worktrees.git(root, ['cat-file', '-e', `${sha}^{commit}`], { timeout: 5000 })).ok;
-    return have ? { ok: true, start: sha } : { ok: false, error: `Couldn't get the pull request's branch from GitHub: ${firstLine(got.error) || 'git refused.'}` };
+    if ((await worktrees.git(root, ['cat-file', '-e', `${sha}^{commit}`], { timeout: 5000 })).ok) return { ok: true, start: sha };
+    return got.ok
+      ? { ok: false, stale: true, error: 'The pull request has changed since Shellby looked. Check it again, then send.' }
+      : { ok: false, error: `Couldn't get the pull request's branch from GitHub: ${firstLine(got.error) || 'git refused.'}` };
   }
 
   /**
    * Send: exactly the draft you were shown (by its hash), in a copy started
-   * from the pull request. -> { ok, tabId } | { ok: false, error, stale? }
+   * from the pull request. ack: you ticked "I've looked at these", needed
+   * when the draft names risky files or other people's commits.
+   * -> { ok, tabId } | { ok: false, error, stale?, needsAck? }
    */
-  async function send({ kind, key, note = '', hash }) {
+  async function send({ kind, key, note = '', hash, ack = false }) {
     if (!claudeReady()) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
     const r = await draft({ kind, key, note });
     if (!r.ok) return r;
     if (r.hash !== hash) return { ok: false, stale: true, error: 'What would be sent has changed. Check it again, then send.' };
+    if (r.risk && ack !== true) return { ok: false, needsAck: true, error: "Tick “I've looked at these” first: this pull request could change what Claude Code runs." };
     const pr = knownPr(key);
     if (!pr) return { ok: false, error: 'That pull request has just closed or merged.' };
     const m = fetched.get(`${kind}:${key}`)?.data;

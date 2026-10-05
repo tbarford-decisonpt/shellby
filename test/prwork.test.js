@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { failingBuild, reviewThreads } = require('../src/main/github/prwork');
+const { failingBuild, reviewThreads, prChanges } = require('../src/main/github/prwork');
 const { GitHubApi } = require('../src/main/github/api');
 
 const SHA = 'e'.repeat(40);
@@ -100,6 +100,22 @@ test('reviewThreads falls back to REST and says resolution is unknown', async ()
   const r = await reviewThreads(gh, { repo: 'me/crab', number: 3 });
   assert.equal(r.resolvedKnown, false);
   assert.equal(r.threads[0].comments[0].body, 'Why?');
+});
+
+test('prChanges reads every page of files and commits, and null when it can\'t', async () => {
+  const page = n => Array.from({ length: n }, (_, i) => ({ filename: `f${i}` }));
+  const gh = { get: async p => {
+    if (p === '/repos/me/crab/pulls/3/files?per_page=100&page=1') return page(100);
+    if (p === '/repos/me/crab/pulls/3/files?per_page=100&page=2') return page(7);
+    if (p.startsWith('/repos/me/crab/pulls/3/commits?')) throw err(403);
+    throw err(404);
+  } };
+  const r = await prChanges(gh, { repo: 'me/crab', number: 3 });
+  assert.equal(r.files.length, 107);
+  assert.equal(r.commits, null);
+  const huge = await prChanges({ get: async () => page(100) }, { repo: 'me/crab', number: 3 });
+  assert.equal(huge.files, null, 'past three full pages it can\'t say it saw them all');
+  assert.deepEqual(await prChanges(gh, { repo: '../x', number: 3 }), { files: null, commits: null });
 });
 
 test('GitHubApi.text follows the redirect to storage without the token, and keeps the end', async () => {

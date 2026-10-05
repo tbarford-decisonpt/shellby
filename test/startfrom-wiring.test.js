@@ -43,11 +43,17 @@ function setup() {
   return { base, dir, home, env, sha, g, done: () => fs.rmSync(base, { recursive: true, force: true }) };
 }
 
-function shared(s, { log = 'line\n##[group]Run npm test\nboom\n##[error]Process completed with exit code 1.\n' } = {}) {
+function shared(s, {
+  log = 'line\n##[group]Run npm test\nboom\n##[error]Process completed with exit code 1.\n',
+  files = [{ filename: 'b.js' }],
+  commits = [{ sha: s.sha, author: { login: 'me' } }],
+} = {}) {
   const pr = { key: 'me/crab#3', repo: 'me/crab', number: 3, title: 'Fix it', url: 'https://github.com/me/crab/pull/3', state: 'failing', failing: ['test'] };
   const started = [];
   const gh = {
     get: async p => {
+      if (p.startsWith('/repos/me/crab/pulls/3/files?')) return files;
+      if (p.startsWith('/repos/me/crab/pulls/3/commits?')) return commits;
       if (p === '/repos/me/crab/pulls/3') return { title: 'Fix it', head: { sha: s.sha, ref: 'fix/it', repo: { full_name: 'me/crab' } } };
       if (p.includes('/check-runs')) return { check_runs: [{ id: 9, name: 'test', status: 'completed', conclusion: 'failure', app: { slug: 'github-actions' }, html_url: 'https://github.com/me/crab/actions/runs/1/job/9' }] };
       if (p.endsWith('/status')) return { statuses: [] };
@@ -63,7 +69,7 @@ function shared(s, { log = 'line\n##[group]Run npm test\nboom\n##[error]Process 
     config: { get: () => false },
     claudeStatus: { installed: true, loggedIn: true },
     githubEndpoints: () => ({ web: 'https://github.com' }),
-    github: { signedIn: true, gh: () => gh, claudeEnv: () => s.env },
+    github: { signedIn: true, gh: () => gh, claudeEnv: () => s.env, view: () => ({ login: 'me' }) },
     ci: { view: () => ({ prs: [pr] }) },
     projects: {
       localRepos: async () => [{ root: s.dir, remote: 'me/crab' }],
@@ -99,9 +105,43 @@ test('Fix this build: the draft shows the failing step, and Send sends exactly i
     const sent = await sf.startFromSend({ kind: 'build', key: 'me/crab#3', hash: r.hash });
     assert.equal(sent.ok, true, sent.error);
     assert.equal(started[0].prompt, r.prompt);
-    assert.equal(started[0].start, 'refs/remotes/origin/shellby-pr/3');
+    assert.equal(r.risk, null, 'only your own commits, no Claude Code files: nothing to tick');
+    assert.equal(started[0].start, s.sha, 'pinned to the commit the sheet was checked against');
     assert.equal(s.g(started[0].made.worktree.path, 'rev-parse', 'HEAD'), s.sha, 'the copy starts at the pull request\'s head');
     assert.ok(fs.existsSync(path.join(started[0].made.worktree.path, 'b.js')));
+  } finally { s.done(); }
+});
+
+test('a pull request touching Claude Code\'s files or with someone else\'s commits needs the tick, and main enforces it', async () => {
+  const s = setup();
+  try {
+    const { d, started } = shared(s, {
+      files: [{ filename: 'b.js' }, { filename: '.claude/settings.json' }, { filename: 'docs/CLAUDE.md' }],
+      commits: [{ sha: 'f'.repeat(40), author: { login: 'mallory' } }, { sha: s.sha, author: { login: 'me' } }],
+    });
+    const sf = wireStartFrom(d);
+    const r = await sf.startFromDraft({ kind: 'build', key: 'me/crab#3' });
+    assert.deepEqual(r.risk.files, ['.claude/settings.json', 'docs/CLAUDE.md']);
+    assert.deepEqual(r.risk.authors, ['@mallory']);
+    const unticked = await sf.startFromSend({ kind: 'build', key: 'me/crab#3', hash: r.hash });
+    assert.equal(unticked.needsAck, true);
+    assert.equal(started.length, 0, 'nothing made or sent without the tick');
+    const ticked = await sf.startFromSend({ kind: 'build', key: 'me/crab#3', hash: r.hash, ack: true });
+    assert.equal(ticked.ok, true, ticked.error);
+
+    // The same prompt without anything to check hashes differently: the list is part of what you agreed to.
+    const clean = await wireStartFrom(shared(s).d).startFromDraft({ kind: 'build', key: 'me/crab#3' });
+    assert.equal(clean.prompt, r.prompt);
+    assert.notEqual(clean.hash, r.hash);
+  } finally { s.done(); }
+});
+
+test('when GitHub won\'t list the files or commits, the tick is still asked for', async () => {
+  const s = setup();
+  try {
+    const sf = wireStartFrom(shared(s, { files: null, commits: null }).d);
+    const r = await sf.startFromDraft({ kind: 'review', key: 'me/crab#3' });
+    assert.deepEqual(r.risk.unknown, ['which files it changes', 'who made its commits']);
   } finally { s.done(); }
 });
 
