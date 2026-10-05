@@ -36,17 +36,21 @@ function wireChecks(d) {
 
   // ---- asking once per project
   let asking = null;
-  /** -> true to run. quiet: an automatic run, which never asks again after a no. */
-  async function trusted(project, commands, { quiet = false } = {}) {
+  /**
+   * -> true to run. quiet: an automatic run, which never asks at all once there's
+   * a question open, nor again after a no. once: asked for, but a no already
+   * given stands (each of several tries finishing mustn't ask it again).
+   */
+  async function trusted(project, commands, { quiet = false, once = false } = {}) {
     const was = checks.trustOf(d.config.get('checksTrusted'), project);
     if (was === true) return true;
-    if (was === false && quiet) return false;
+    if (was === false && (quiet || once)) return false;
     if (asking) {
       // One question at a time. One you asked for waits its turn (its
       // project's answer may be the one being given), an automatic run doesn't.
       if (quiet) return false;
       await asking;
-      return trusted(project, commands, { quiet });
+      return trusted(project, commands, { quiet, once });
     }
     asking = confirm.ask(d.panel, {
       ...d.dialogLook(), icon: '🧪',
@@ -85,10 +89,10 @@ function wireChecks(d) {
    * -> { verdict } | { none: true } | { cancelled: true } | { declined: true }.
    * after: the turn's tree the verdict stamps (null: the folder as it is).
    */
-  async function run(tabId, { cwd, after = null, project, quiet = false }) {
+  async function run(tabId, { cwd, after = null, project, quiet = false, once = false }) {
     const commands = checks.detect(cwd);
     if (!commands.length) return { none: true };
-    if (!await trusted(project || cwd, commands, { quiet })) return { declined: true };
+    if (!await trusted(project || cwd, commands, { quiet, once })) return { declined: true };
     if (d.manager.isBusy(tabId)) return { cancelled: true };
     running.get(tabId)?.cancel(); // the newest wins
     let settle;
@@ -161,7 +165,7 @@ function wireChecks(d) {
       return v && v.after === ref.after && !going.cancelled ? { status: v.status, failing: checks.failingOf(v).count } : { cancelled: true };
     }
     if (d.manager.isBusy(ref.tabId)) return { cancelled: true };
-    const r = await run(ref.tabId, { cwd: folderFor(ref.tabId, ref.root), after: ref.after, project: projectOf(ref.tabId, ref.root) });
+    const r = await run(ref.tabId, { cwd: folderFor(ref.tabId, ref.root), after: ref.after, project: projectOf(ref.tabId, ref.root), once: true });
     return r.verdict ? { status: r.verdict.status, failing: checks.failingOf(r.verdict).count } : r;
   }
 

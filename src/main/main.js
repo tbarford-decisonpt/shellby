@@ -1728,7 +1728,10 @@ async function releaseTask(h) {
   const cwd = h.cwd && isFolder(h.cwd) ? h.cwd : currentCwd();
   // From the phone: in its own copy, as if it had started straight away
   // (wiring/phone-tasks.js), so your checkout stays untouched while you're out.
-  const copy = h.fromPhone && !carryOn ? await worktrees.create(cwd, { home: worktreeHome(), title }) : null;
+  let copy = null;
+  try {
+    copy = h.fromPhone && !carryOn ? await worktrees.create(cwd, { home: worktreeHome(), title }) : null;
+  } catch (err) { return fail(err.message); }
   if (copy && !copy.ok) return fail(copy.error);
   let turnId;
   try {
@@ -1750,6 +1753,14 @@ async function releaseTask(h) {
     // Saved as soon as it starts: if Shellby closes mid-task, the next pass carries on here.
     config.set({ held: held.started(heldList(), h.id, tabId) });
   } catch (err) {
+    // A copy made for it would point at nothing: tidy it away, as startTaskInCopy does.
+    if (copy?.ok) {
+      try {
+        if (manager.tabs.has(tabId)) await manager.closeAndWait(tabId);
+        if (history.get(tabId)) history.remove(tabId);
+        await worktrees.remove(copy.worktree, { force: true });
+      } catch (e) { log.info(`queued phone task cleanup: ${e.message}`); }
+    }
     return fail(err.message);
   }
   const ended = waitForQueued(tabId);

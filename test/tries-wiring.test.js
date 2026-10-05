@@ -161,3 +161,24 @@ test('turns in other tabs, and later turns in a try, are not counted', async () 
   await f.wired.turnEnded('try-1', { kind: 'result', ok: true });
   assert.deepEqual(f.checked, []);
 });
+
+test('a try that finishes while the next is still being copied counts, and the run still finishes', async () => {
+  const f = fake();
+  const realStart = f.d.startTaskInCopy;
+  // The first try is done before the second copy exists.
+  f.d.startTaskInCopy = async (...args) => {
+    const r = await realStart(...args);
+    if (r.tabId === 'try-2') {
+      f.items.set('try-1', [...(f.items.get('try-1') || []), changesFor('try-1', 1, 3, 1)]);
+      await f.wired.turnEnded('try-1', { kind: 'result', ok: true, durationMs: 500 });
+    }
+    return r;
+  };
+  const r = await f.wired.start({ tabId: 'src', n: 2, text: 'fix it' });
+  assert.equal(r.ok, true);
+  assert.deepEqual(f.checked, ['try-1'], 'its checks ran, though the run was still starting');
+  assert.equal(f.items.get('try-1').at(-1).final, false, 'not finished with one still to go');
+  f.items.set('try-2', [changesFor('try-2', 2, 5, 0)]);
+  await f.wired.turnEnded('try-2', { kind: 'result', ok: true, durationMs: 900 });
+  assert.equal(f.items.get('try-1').at(-1).final, true);
+});

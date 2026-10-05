@@ -114,9 +114,10 @@ class SessionManager extends EventEmitter {
   }
 
   /** Mark a tab's latest changes reviewed (or put them back in the inbox). -> whether anything changed. */
-  setReviewed(tabId, reviewed = true) {
+  setReviewed(tabId, reviewed = true, after = null) {
     const tab = this.tabs.get(tabId);
     if (!tab?.ready) return false;
+    if (after && tab.ready.after !== after) return false; // a newer turn's changes: not the ones you saw
     const ready = review.setReviewed(tab.ready, reviewed);
     if (ready === tab.ready) return false;
     this.setReady(tab, ready);

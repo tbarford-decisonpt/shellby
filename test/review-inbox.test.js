@@ -113,3 +113,16 @@ test('an unsaved tab tracks its review without touching History', () => {
   assert.equal(mgr.setReviewed('nope', true), false);
   mgr.closeAll();
 });
+
+test('marking reviewed only counts for the changes you saw, not newer ones that landed meanwhile', () => {
+  const history = new History(tmp());
+  const mgr = manager(history);
+  mgr.open({ tabId: 'rv-3', cwd: os.tmpdir() });
+  mgr.note('rv-3', changes(A, [file('a.js')]));
+  mgr.note('rv-3', changes(B, [file('b.js')]));
+  assert.equal(mgr.setReviewed('rv-3', true, A), false, 'you looked at A; B is new');
+  assert.equal(mgr.summary[0].ready.reviewed, false);
+  assert.equal(mgr.setReviewed('rv-3', true, B), true);
+  assert.equal(mgr.summary[0].ready.reviewed, true);
+  mgr.closeAll();
+});

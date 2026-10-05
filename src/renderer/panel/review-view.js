@@ -162,6 +162,7 @@
     const t = state.tabs.get(id);
     if (!t?.ready) return;
     const title = SB.shownTitle(t);
+    const { after } = t.ready;
     picked = Q.landOn(order, id);
     t.ready = { ...t.ready, reviewed: true };      // straight away; main agrees in a moment
     render({ force: true });
@@ -169,8 +170,12 @@
     SB.renderTabStrip();
     const left = waiting().length;
     say(`Marked "${title}" reviewed. ${left ? Q.countLine(left) : 'That was the last one.'}`);
-    const ok = await api.markReviewed(id, true).catch(() => false);
-    if (ok) SB.toast(`"${title}" marked reviewed.`, { ms: 5000, action: 'Undo', onAction: () => api.markReviewed(id, false) });
+    const ok = await api.markReviewed(id, true, after).catch(() => false);
+    if (ok) { SB.toast(`"${title}" marked reviewed.`, { ms: 5000, action: 'Undo', onAction: () => api.markReviewed(id, false, after) }); return; }
+    // Main said no (new changes landed, or the tab closed): put it back as it was.
+    if (t.ready?.after === after) t.ready = { ...t.ready, reviewed: false };
+    render({ force: true });
+    SB.renderTabStrip();
   }
 
   function bringHome(id) {
@@ -201,10 +206,11 @@
     if (!t) return;
     const typed = String(note || '').trim();
     if (!typed && !(SB.pendingComments?.(t))) { SB.toast('Say what should change first.'); return; }
+    const after = t.ready?.after || null; // the changes you were looking at
     const sent = await SB.sendBack(t, typed);
     if (!sent) return;
     // You've looked at these changes: only new ones bring it back here.
-    api.markReviewed(id, true).catch(() => {});
+    if (after) api.markReviewed(id, true, after).catch(() => {});
     drafts.delete(id);
     sendingTo = null;
     picked = Q.landOn(order, id);

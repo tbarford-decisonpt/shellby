@@ -74,7 +74,8 @@ function wireTries(d, opts = {}) {
   }
 
   function settle(run) {
-    if (tries.allDone(run.tries)) finish(run);
+    // Still starting the rest: a quick first try mustn't finish the run early.
+    if (!run.launching && tries.allDone(run.tries)) finish(run);
     else publish(run);
   }
 
@@ -120,7 +121,8 @@ function wireTries(d, opts = {}) {
       if (!root || inHome(root)) return { ok: false, error: "Tries need a git project: each one works in its own copy, and this folder isn't in a git repository." };
 
       const mode = tab.session?.mode || null; // the same as this tab's, never more
-      const estimate = d.usagePlan?.estimateFor(tabId, text) || null;
+      let estimate = null; // no guess is fine: the question says so (tries.costQuestion)
+      try { estimate = d.usagePlan?.estimateFor(tabId, text) || null; } catch (err) { d.log.info(`tries: estimate: ${err.message}`); }
       const q = tries.costQuestion({ n, estimate, mode });
       const { over, total: _total, ...spec } = q;
       d.wake?.();
@@ -137,7 +139,11 @@ function wireTries(d, opts = {}) {
 
   async function launch({ n, text, dir, mode, over }) {
     const title = tries.titleFor(text);
-    const run = { id: d.randomUUID(), title, startedAt: Date.now(), firstId: null, tries: [], finished: false };
+    const run = { id: d.randomUUID(), title, startedAt: Date.now(), firstId: null, tries: [], finished: false, launching: true };
+    // Known before the first copy is made: a try can finish (or close) while the
+    // next is still being copied, and turnEnded must find it.
+    runs.set(run.id, run);
+    watchCloses();
     let error = null;
     for (let i = 1; i <= n; i++) {
       const name = tries.tryTitle(i, n, title);
@@ -154,11 +160,10 @@ function wireTries(d, opts = {}) {
       run.tries.push({ tabId: r.tabId, title: name, turnId: open?.turnId || null, startedAt: Date.now(), state: 'running', files: 0, added: 0, removed: 0, durationMs: null, checks: null, failing: 0 });
       byTab.set(r.tabId, run.id);
     }
-    if (!run.tries.length) return { ok: false, error: error || "Couldn't start the tries." };
-    runs.set(run.id, run);
-    watchCloses();
+    run.launching = false;
+    if (!run.tries.length) { runs.delete(run.id); return { ok: false, error: error || "Couldn't start the tries." }; }
     d.manager.changed?.();
-    publish(run);
+    settle(run); // any that finished while the others were starting
     d.stat?.('tries', { n: run.tries.length, over: !!over });
     d.log.info(`tries: started ${run.tries.length} of ${n}`);
     return {
