@@ -161,3 +161,17 @@ test('usageEvent ignores reports without a 5-hour reading', () => {
   assert.equal(recap.usageEvent('a', 'A', { sevenDay: { pct: 3 } }), null);
   assert.equal(recap.usageEvent('a', 'A', null), null);
 });
+
+test('bugs caught while you were away ride along with the runs, by count only', () => {
+  let log = [];
+  log = recap.record(log, recap.bugEvent('nullfish', true), NOW - 2 * H); // before you left
+  log = recap.record(log, recap.runEvent('t1', 'Fix it', 'ok'), NOW + 10 * MIN);
+  log = recap.record(log, recap.bugEvent('nullfish', false), NOW + 10 * MIN);
+  log = recap.record(log, recap.bugEvent('syntax-slug', true), NOW + 20 * MIN);
+  const d = recap.build(log, { since: NOW, until: NOW + H });
+  assert.deepEqual(d.bugs, { caught: 2, kinds: 2, fresh: 1 });
+  assert.match(recap.headline(d), /2 bugs caught/);
+  assert.equal(recap.bugEvent('<script>'), null);
+  // A catch alone never makes a recap (one always comes with a finished turn).
+  assert.equal(recap.build([{ t: NOW + MIN, ...recap.bugEvent('nullfish') }], { since: NOW, until: NOW + H }), null);
+});

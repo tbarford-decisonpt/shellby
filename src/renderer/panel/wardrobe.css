@@ -250,6 +250,24 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-ways-box > summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
 .xp-ways-box[open] > summary { margin-bottom: 6px; }
 @media (prefers-reduced-motion: reduce) { .xp-ways-box > summary::before { transition: none; } }
+/* The character sheet: his class, then one row per stat (character.js). */
+.xp-class { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 210, 63, .22); background: linear-gradient(120deg, rgba(255, 210, 63, .09), rgba(127, 214, 194, .05)); }
+.xp-class-icon { font-size: var(--fs-20); line-height: 1; }
+.xp-class-text { min-width: 0; }
+.xp-class-eyebrow { margin: 0; font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--sand-faint); }
+.xp-class h4 { margin: 0; font: 600 var(--fs-16) var(--font-pixel); color: #ffd23f; }
+.xp-class-blurb { margin: 0; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.xp-stats { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 5px; }
+.xp-stats li { display: grid; grid-template-columns: 18px 64px 1fr 26px 30px; gap: 8px; align-items: center; font-size: var(--fs-12); cursor: default; }
+.xp-stats li.top .xp-stat-name { color: #ffd23f; }
+.xp-stat-bar { height: 6px; border-radius: 99px; background: var(--abyss); border: 1px solid var(--line-soft); overflow: hidden; }
+.xp-stat-bar i { display: block; height: 100%; border-radius: inherit; background: var(--glass); transform-origin: left; transition: transform .8s var(--ease-out); }
+.xp-stats li.top .xp-stat-bar i { background: #ffd23f; }
+.xp-stats b { font: 700 var(--fs-12) var(--font-mono); text-align: right; color: var(--sand); }
+.xp-stat-gain { font: 600 var(--fs-10-5) var(--font-mono); color: #7bd389; }
+.xp-classes { margin: 8px 0 0; font-size: var(--fs-11); color: var(--sand-faint); }
+@media (prefers-reduced-motion: reduce) { .xp-stat-bar i { transition: none; } }
+
 /* the week in review (week-card.js) */
 .xp-week-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .xp-week-head .btn { margin-top: 4px; }

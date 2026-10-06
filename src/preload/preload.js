@@ -322,6 +322,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onXp: on('xp'),
   onLevelUp: on('xp:levelup'),
   onXpBounty: on('xp:bounty'),
+  onXpClass: on('xp:class'),
 
   // rooms: which screens are open yet (rooms.js)
   getRooms: invoke('rooms:get'),
@@ -375,6 +376,15 @@ contextBridge.exposeInMainWorld('shellby', {
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),
   onCheckups: on('checkups'),
+  // the Bugdex: the bugs Claude has fixed for you, in jars (bugdex.js)
+  getBugdex: invoke('bugdex:get'),
+  bugdexSeen: fire('bugdex:seen'),
+  setFavouriteBug: invoke('bugdex:favourite'),
+  openBugTab: fire('bugdex:open-tab'),
+  forgetBugdex: invoke('bugdex:forget'),
+  onBugdex: on('bugdex'),
+  onBugdexCaught: on('bugdex:caught'),
+  onBugdexFocus: on('bugdex:focus'),
   // the flaky test detective (flaky.js)
   getFlaky: invoke('flaky:get'),
   flakyAct: invoke('flaky:act'),

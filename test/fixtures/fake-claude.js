@@ -325,6 +325,24 @@ function onLine(line) {
     setTimeout(() => { text(`fixed ${n}: all green`); result(true); }, 7500);
     return;
   }
+  // "bug <fixture>" -> a Bash call whose command, output and error flag come from
+  // test/fixtures/bugdex/<fixture>.json (the Bugdex's e2e).
+  if (content.startsWith('bug ')) {
+    const name = content.slice(4).trim();
+    const fx = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'bugdex', `${name.replace(/[^a-z0-9-]/g, '')}.json`), 'utf8'));
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_bug_${turn}`, name: 'Bash', input: { command: fx.command } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_bug_${turn}`, is_error: !!fx.isError, content: fx.output }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(`ran: ${fx.command}`);
+    result(true);
+    return;
+  }
+  // "delete <file>" -> removes a file from the working folder
+  if (content.startsWith('delete ')) {
+    require('fs').rmSync(require('path').join(process.cwd(), content.slice(7).trim()), { force: true });
+    text(`deleted ${content.slice(7).trim()}`);
+    result(true);
+    return;
+  }
   // "run <command>" -> runs it with the Bash tool; it "fails" if the command contains "FAIL"
   if (content.startsWith('run ')) {
     const command = content.slice(4);

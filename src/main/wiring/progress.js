@@ -4,8 +4,10 @@
 const os = require('os');
 const path = require('path');
 const changes = require('../changes');
+const character = require('../character');
 const checkup = require('../checkup');
 const flaky = require('../flaky');
+const { fullOutput } = require('../bugdex/detect');
 const { projectOf } = require('../gitinfo');
 const { readRepo } = require('../projects/local');
 const quests = require('../quests');
@@ -117,6 +119,7 @@ function wireProgress(d) {
     d.lastXp = { amount: r.gained, at: Date.now() };
     d.refreshStatusLine();
     setTimeout(d.refreshStatusLine, 15500); // let "+25 XP" fade from the status line
+    if (character.isStatKind(r.kind)) newClassFound(r.state);
     d.send(d.panel, 'xp', xpView());
     if (!r.levelUp) return;
     d.levelUpAt = r.after.level;
@@ -132,6 +135,23 @@ function wireProgress(d) {
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
       d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
+    }
+  }
+
+  // The character sheet (character.js): the first time his stats make him a
+  // class he has never been, it's kept and celebrated. Once per class, so two
+  // close stats trading places can't announce it over and over. Only stat XP
+  // can change his class, so it's announced just after the thing that did it.
+  function newClassFound(state) {
+    if (d.config.get('crabOnly')) return; // the sheet is hidden then: it waits until he's back
+    const cls = character.newClass(state, Date.now());
+    if (!cls) return;
+    d.config.set({ xp: character.noteClass(d.config.get('xp'), cls.id) });
+    const view = { id: cls.id, name: cls.name, icon: cls.icon, blurb: cls.blurb };
+    d.sayText(`${cls.icon} I'm a ${cls.name} now!`, 'levelup', 7000);
+    d.send(d.panel, 'xp:class', view);
+    if (!(d.panel?.isVisible() && d.panel.isFocused())) {
+      d.notify(`New class: ${cls.name}`, `${cls.blurb} See his character sheet on the Trophies page.`, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'trophies'); }, { tone: 'celebrate', pet: true });
     }
   }
 
@@ -177,6 +197,9 @@ function wireProgress(d) {
       d.config.set({ checkups: r.state });
       d.send(d.panel, 'checkups', checkupsView());
       if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
+      // Known vulnerabilities are a Barnacled Anchor in the Bugdex: seen, then caught once patched.
+      if (project && r.patched) d.bugdex?.auditPatched(project);
+      else if (project && result.status === 'issues' && check.check === 'audit') d.bugdex?.auditIssues(project);
       if (r.clean && project) freshMark(project);
       else if (result.status === 'issues' && check.check === 'audit') {
         d.sayText(result.count ? `${name}: ${result.count} known ${result.count === 1 ? 'vulnerability' : 'vulnerabilities'}` : `${name} has vulnerable dependencies`, 'sticker', 7000);
@@ -262,17 +285,6 @@ function wireProgress(d) {
     return p;
   }
 
-  // A long result is its first 8,000 characters, "… (N more characters)" and,
-  // separately, its last 8,000: when the two overlap, that's all of it.
-  function testOutput(item, tail) {
-    const text = String(item.text || '');
-    if (!tail) return { output: text, complete: true };
-    const m = text.match(/\n… \((\d+) more characters\)$/);
-    const head = m ? text.slice(0, m.index) : text;
-    const rest = m ? Number(m[1]) : Infinity;
-    return rest <= tail.length ? { output: head + tail.slice(-rest), complete: true } : { output: `${head}\n${tail}`, complete: false };
-  }
-
   /** A test command finished in one of Shellby's tabs: was it a flake? Did it go green? */
   async function noteTestRun(c, item, tail) {
     try {
@@ -282,7 +294,7 @@ function wireProgress(d) {
       // while it ran, means the code moved under it. Then it proves nothing.
       const end = await snapshotWithin(c.dir);
       if (!end || end.tree !== snap.tree) return;
-      const { output, complete } = testOutput(item, tail);
+      const { output, complete } = fullOutput(item, tail);
       const run = flaky.readRun({ cmd: c.command, output, isError: item.isError, complete });
       if (!run) return;
       d.surprises?.noteRun(c.tabId, { via: 'claude', cmd: run.cmd, tree: snap.tree, ok: run.ok, failing: run.parsed ? run.failed.length : 0, names: run.failed });
@@ -296,9 +308,12 @@ function wireProgress(d) {
       const r = flaky.recordRun(d.config.get('flaky'), { key: project.id, name: project.name, root: project.root }, { ...run, tree: snap.tree }, now);
       let state = r.state;
       r.fresh.forEach(() => noteWeek('flaky'));
+      // The Bugdex's ghosts (wiring/bugdex.js): a flake is a Flaky Phantom seen; fixed for good, it's caught.
+      for (const f of r.flakes) d.bugdex?.flakySeen(project, f.id);
       for (const id of r.fixed) {
         noteWeek('flakefix');
         awardXp('flakefix', { project: project.name, label: `Fixed ${flaky.labelOf(id)}` });
+        d.bugdex?.flakyFixed(project, id, flaky.normalizeFlaky(state).projects[project.id]?.tests[id]?.flakes || []);
       }
       const due = flaky.due(state, now);
       if (due && d.sayText(flaky.sayLine(due), 'flaky', 9000)) state = flaky.markSaid(state, due.key, due.id, now);

@@ -51,7 +51,11 @@ function wireProjects(d) {
       notify: n => d.notify(n.title, n.body, n.onClick, { tone: n.tone || 'default', action: n.action || null }),
     });
     d.devServers.on('change', v => { d.send(d.panel, 'servers:changed', v); d.refreshCritter(); });
-    d.devServers.on('crashed', () => { if (!d.config.get('crabOnly')) d.speak('serverDown'); });
+    d.devServers.on('crashed', v => {
+      if (!d.config.get('crabOnly')) d.speak('serverDown');
+      d.bugdex?.serverCrashed(v); // a Beached Whale (or what its log says it was) on the loose
+    });
+    d.devServers.on('up', v => d.bugdex?.serverUp(v));
     d.devServers.on('installed', ({ project }) => d.send(d.panel, 'projects:installed', { project }));
     d.projects = new Projects({
       config: d.config,

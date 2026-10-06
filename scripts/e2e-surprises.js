@@ -97,7 +97,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     const badge = await critter.ev('window.__badges[0]');
     check(/^CRIT!\|/.test(badge || ''), `it says CRIT! (${badge})`);
     check(/surprise-crit/.test(badge || ''), 'and he jumps for it');
-    check(/[Cc]rit/.test(await critter.ev('window.__said.join(" | ")')), `he says so (${await critter.ev('window.__said.slice(-2).join(" | ")')})`);
+    check(/crit/i.test(await critter.ev('window.__said.join(" | ")')), `he says so (${await critter.ev('window.__said.slice(-2).join(" | ")')})`);
     await until(panel, '!SB.activeTab().busy', 15000);
     // The first crit is also a hidden trophy; its card (and a first task's) sit over the chat.
     let trophy = false;

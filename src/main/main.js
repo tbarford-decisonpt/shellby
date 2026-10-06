@@ -52,6 +52,7 @@ const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
 const { wireProgress } = require('./wiring/progress');
+const { wireBugdex } = require('./wiring/bugdex');
 const { wireTimetrack } = require('./wiring/timetrack');
 const { wireCrabApi } = require('./wiring/crab-api');
 const { wireChannels } = require('./wiring/channels');
@@ -482,6 +483,7 @@ const shared = {
   get booted() { return booted; },
   get broadcastSkin() { return broadcastSkin; },
   get broadcastWardrobe() { return broadcastWardrobe; },
+  get bugdex() { return bugdex; },
   get buildMenu() { return buildMenu; },
   get calmReason() { return calmReason; }, set calmReason(v) { calmReason = v; },
   get channelConfirmed() { return channelConfirmed; },
@@ -765,6 +767,7 @@ const {
   knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, questDone, questsPanelView,
   roomTaskDone, roomsPanelView, runCheckup, setQuests, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
+const bugdex = wireBugdex(shared); // the bugs Claude has fixed for you, in jars
 const {
   beachSeen, beachView, clipboardHasImage, composePrompt, createExternal, createHealth,
   createTimeTracker, editStickers, externalView, knownProjects, notify, onPermission, onResult,

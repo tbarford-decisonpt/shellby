@@ -53,6 +53,7 @@ function registerRepoIpc(ipcMain, d) {
       // Asked before "Brought home" goes in the conversation, which would count against it.
       const firstTry = !!d.surprises?.firstLanding(tabId, gate.verdict);
       const merged = { ...await worktrees.bringHome(w, { message: `Shellby: ${d.manager.tabs.get(tabId)?.title || 'work from a tab'}` }), ...green };
+      d.bugdex?.homeResult(tabId, w, merged); // a clash is a Two-Headed Crab; home at last, it's caught
       if (!merged.ok) {
         // What git said goes in the conversation, where it can be read in full.
         if (merged.detail) d.manager.note(tabId, { kind: 'error', text: `${merged.error}\n\n${merged.detail}` });
@@ -130,8 +131,9 @@ function registerRepoIpc(ipcMain, d) {
       note: scan.partial ? 'The changes were too big to check all of it, so there may be more.' : 'Shellby only shows where it is, never the value. A real key that has been pushed should be rotated.',
       buttons, defaultId: cancelId, cancelId,
     });
-    if (response === 0) { d.log.info(`push: sent anyway past ${n} possible secret(s)`); return null; }
+    if (response === 0) { d.log.info(`push: sent anyway past ${n} possible secret(s)`); d.bugdex?.secretIgnored(root); return null; }
     if (canFix && response === 1) {
+      d.bugdex?.secretSpotted(root, scan.findings.map(f => f.kind)); // a Leaky Clam, caught when the next push goes out clean
       d.showPanel();
       d.send(d.panel, 'tab:new-in', { cwd: root, draft: `Before I push: Shellby found what look like secrets in commits that haven't been pushed yet: ${list.join('; ')}. Take them out of the code (an environment variable, or a .env file that .gitignore covers), and since they're in commits that haven't left this PC, rewrite those commits so the secret isn't in the history either. Don't push. Ask me before anything destructive, and tell me which keys I should rotate.` });
     }
@@ -148,6 +150,7 @@ function registerRepoIpc(ipcMain, d) {
     if (stopped) return stopped;
     const r = await worktrees.pushBase(root, { base });
     if (r.ok && r.pushed) {
+      d.bugdex?.pushedClean(root);
       d.awardXp('ship', { project: path.basename(root) });
       d.shipped(root, 'ship');
       if (tabId) d.manager.note(tabId, { kind: 'pushed', branch: r.branch, remote: r.remote, commits: r.pushed, pulled: r.pulled });

@@ -1,7 +1,8 @@
 // His tank (Shellby's screen → Tank): a home you decorate. Castles, plants,
 // rocks and treasures come from wardrobe packs (the `decor` kind in
 // wardrobe/catalog.js), so they unlock, badge and sync like everything else in
-// the Wardrobe; his finds (gifts.js) can go in too, as many as he's dug up.
+// the Wardrobe; his finds (gifts.js) can go in too, as many as he's dug up,
+// and every bug Claude has fixed, in a specimen jar from the Bugdex (bugdex.js).
 // This only keeps where things stand.
 //
 // The floor has three rows: the back, the middle (where he walks) and the
@@ -11,6 +12,9 @@
 //
 // Not called `home`: that's the shell he wears (config.home, shells.js).
 // Pure: no I/O, no clock (callers pass `now`). See test/tank.test.js.
+
+const bugdex = require('./bugdex');
+const { speciesById } = require('./bugdex/species');
 
 const SIZES = Object.freeze([
   { id: 'nano', name: 'Nano tank', w: 96, h: 56, cap: 10, level: 1, shipped: 0 },
@@ -35,12 +39,12 @@ const DEFAULT_STYLE = Object.freeze({ substrate: 'soft-sand', backdrop: 'plain-w
 // The tray's order, and what each shelf of it is called.
 const CATEGORIES = Object.freeze([
   ['structure', 'Structures'], ['plant', 'Plants'], ['rock', 'Rocks'], ['treasure', 'Treasures'],
-  ['bubbler', 'Bubblers & lights'], ['find', 'His finds'], ['substrate', 'Floor'], ['backdrop', 'Back glass'],
+  ['bubbler', 'Bubblers & lights'], ['find', 'His finds'], ['jar', 'Specimen jars'], ['substrate', 'Floor'], ['backdrop', 'Back glass'],
 ]);
 const CATEGORY_ORDER = new Map(CATEGORIES.map(([id], i) => [id, i]));
 
-// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), or "find:<id>".
-const REF_RE = /^(?:find:[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
+// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>" or "jar:<species>".
+const REF_RE = /^(?:(?:find|jar):[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const isRef = v => typeof v === 'string' && REF_RE.test(v);
@@ -119,8 +123,10 @@ const sizeOfPixels = pixels => ({ w: Math.max(1, ...pixels.map(r => r.length)), 
  * Everything that could go in the tank, by ref: the wardrobe's decor (from
  * Wardrobe#decorView, with `locked` and `isNew`) and the finds on his shelf
  * (gifts.js state and FINDS). A find can be placed as many times as he has it.
+ * Every bug caught (the Bugdex's state, anything; bugdex.normalize cleans it)
+ * is a specimen jar, as many as times it's been caught.
  */
-function library({ decor = [], findState = null, finds = [] } = {}) {
+function library({ decor = [], findState = null, finds = [], bugState = null } = {}) {
   const lib = new Map();
   for (const d of decor) {
     if (!d || !isRef(d.key) || !d.category || !Array.isArray(d.pixels)) continue;
@@ -142,6 +148,20 @@ function library({ decor = [], findState = null, finds = [] } = {}) {
       category: 'find', layer: 'floor',
       palette: f.palette, pixels: f.pixels, frames: [], fps: 0, spots: [],
       ...sizeOfPixels(f.pixels), max: have, locked: null, isNew: unseen.has(f.id),
+      unlock: null,
+    });
+  }
+  const bugs = bugdex.normalize(bugState);
+  for (const [id, entry] of Object.entries(bugs.species)) {
+    const have = bugdex.caughtOf(entry);
+    const sp = speciesById(id);
+    if (!have || !sp) continue; // only what Claude has actually fixed
+    const jar = bugdex.jarFor(id, entry.forms);
+    lib.set(`jar:${id}`, {
+      ref: `jar:${id}`, kind: 'jar', name: `${sp.name} jar`, description: sp.blurb || '', rarity: sp.rarity,
+      category: 'jar', layer: 'floor',
+      palette: jar.palette, pixels: jar.pixels, frames: [], fps: 0, spots: [],
+      ...sizeOfPixels(jar.pixels), max: have, locked: null, isNew: bugs.unseen.includes(id),
       unlock: null,
     });
   }

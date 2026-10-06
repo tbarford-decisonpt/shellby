@@ -3,7 +3,9 @@
 // (stickers.js); your streak is the tide, and the best one you've had leaves a
 // high-water line of seaweed that never goes back out (streaks.js); his finds
 // wash up along it (gifts.js); projects you're working on but haven't shipped
-// are plots with a bucket and spade waiting for a castle.
+// are plots with a bucket and spade waiting for a castle. Past them all, once
+// Claude has fixed a bug or two, a rock pool where the Bugdex's catches swim
+// (bugdex.js).
 //
 // Everything here is laid out in "art pixels" (one unit is one pixel of the
 // scene), so the renderer only paints (src/renderer/panel/beach-paint.js).
@@ -18,6 +20,7 @@
 const stickers = require('./stickers');
 const streaks = require('./streaks');
 const gifts = require('./gifts');
+const bugdex = require('./bugdex');
 
 const HEIGHT = 100;            // the scene, top of the sky to the front of the sand
 const SEA_TOP = 36;            // the horizon
@@ -28,6 +31,11 @@ const START = 14;              // sand before the first castle
 const CRAB_ROOM = 34;          // the spot beside the newest castle where he sits
 const TAIL = 26;               // sand after the last thing on it
 const MAX_PLOTS = 8;
+// The tide pool: its water grows a pixel wider with each kind of bug caught,
+// from 4 to 12, with a rim of rock round it. Swimmers are 3×3 specks.
+const POOL_MIN = 4, POOL_MAX = 12, POOL_RIM = 1, POOL_GAP = 4;
+const POOL_Y = 87;             // its baseline, between the castle rows
+const MAX_SWIMMERS = 8, SPECK = 3;
 
 // The tide comes further up the sand the longer the streak, quickly at first,
 // then more slowly: a week is most of the way, a month nearly all of it.
@@ -246,10 +254,39 @@ function placeFinds(owned, width, line, taken) {
 const overflow = finds => finds.filter(f => f.piled).length;
 
 /**
- * The whole beach. stickerState: stickers.normalize(); streakState:
- * streaks.normalize(); findState: gifts.normalize(); state: this module's.
+ * The tide pool, starting at x: the water sized by the kinds caught, and the
+ * newest of them swimming in it, each in a spot of its own while there's room
+ * (a lane of 3-pixel slots, and a second one below once the first is full),
+ * then wherever its id puts it. y is the pool's baseline, like a castle's.
  */
-function view({ stickerState, streakState, findState, state: stateIn, now }) {
+function placePool(bugState, x) {
+  const swim = bugdex.poolOf(bugState, MAX_SWIMMERS);
+  if (!swim.length) return null;
+  const kinds = Math.max(bugdex.summary(bugState).caught, swim.length);
+  const water = Math.max(POOL_MIN, Math.min(POOL_MAX, POOL_MIN + kinds - 1));
+  const perLane = Math.floor(water / SPECK);
+  const lanes = swim.length > perLane ? 2 : 1;
+  const deep = lanes * (SPECK + 1);
+  const w = water + POOL_RIM * 2, h = deep + POOL_RIM * 2;
+  const top = POOL_Y - h;
+  const order = seeded(swim.map(s => s.id).join(','));
+  const slots = [];
+  for (let lane = 0; lane < lanes; lane++) for (let i = 0; i < perLane; i++) slots.push([i * SPECK, lane * (SPECK + 1)]);
+  for (let i = slots.length - 1; i > 0; i--) { const j = Math.floor(order() * (i + 1)); [slots[i], slots[j]] = [slots[j], slots[i]]; }
+  const swimmers = swim.map((s, i) => {
+    const rand = seeded(s.id);
+    const [sx, sy] = slots[i] || [Math.floor(rand() * (water - SPECK + 1)), Math.floor(rand() * (deep - SPECK + 1))];
+    return { id: s.id, name: s.name, x: x + POOL_RIM + sx, y: top + POOL_RIM + sy, pixels: s.pixels, palette: s.palette };
+  });
+  return { x, y: POOL_Y, w, h, water: { x: x + POOL_RIM, y: top + POOL_RIM, w: water, h: deep }, kinds, swimmers };
+}
+
+/**
+ * The whole beach. stickerState: stickers.normalize(); streakState:
+ * streaks.normalize(); findState: gifts.normalize(); bugState: the Bugdex's
+ * (anything; bugdex.normalize cleans it); state: this module's.
+ */
+function view({ stickerState, streakState, findState, bugState = null, state: stateIn, now }) {
   const state = normalize(stateIn);
   const since = state.seenAt;
   const own = Object.values(stickerState.projects).filter(p => !p.from).sort((a, b) => a.firstShipAt - b.firstShipAt || a.id.localeCompare(b.id));
@@ -283,7 +320,9 @@ function view({ stickerState, streakState, findState, state: stateIn, now }) {
   });
   const stake = castles.length ? null : { x: START + 6, y: ROWS[0], w: STAKE_ART[0].length, h: STAKE_ART.length };
   const ends = [...castles, ...plots, crab].map(o => o.x + (o.w || CRAB_ROOM - 8));
-  let width = Math.max(MIN_WIDTH, Math.max(0, ...ends) + TAIL);
+  // The tide pool sits past everything else on the sand, so it's never in front of a castle.
+  const pool = placePool(bugState, Math.max(0, ...ends) + POOL_GAP);
+  let width = Math.max(MIN_WIDTH, Math.max(0, ...ends, pool ? pool.x + pool.w : 0) + TAIL);
 
   const run = streaks.streakOf(streakState, now);
   const best = Math.max(state.highWater, run.longest);
@@ -310,18 +349,22 @@ function view({ stickerState, streakState, findState, state: stateIn, now }) {
     finds = placeFinds(ownedFinds, width, line, taken);
   }
 
+  const bugs = bugdex.normalize(bugState);
+  const newBugs = since > 0 ? Object.values(bugs.species).filter(e => bugdex.caughtOf(e) > 0 && e.first > since).length : 0;
+
   return {
     world: { width, height: HEIGHT, seaTop: SEA_TOP, shore: SHORE, rows: ROWS },
-    castles, plots, stake, crab, finds, tide,
+    castles, plots, stake, crab, finds, tide, pool,
     art: { plot: PLOT_ART, stake: STAKE_ART },
     stats: {
       castles: castles.length,
       ships: castles.reduce((n, c) => n + c.ships, 0),
       finds: finds.length,
       plots: plots.length,
+      bugs: pool ? pool.kinds : 0,
       since: castles.length ? castles[0].firstShipAt : null,
     },
-    news: castles.filter(c => c.isNew || c.grew).length + finds.filter(f => f.isNew).length,
+    news: castles.filter(c => c.isNew || c.grew).length + finds.filter(f => f.isNew).length + newBugs,
     firstVisit: since === 0,
   };
 }

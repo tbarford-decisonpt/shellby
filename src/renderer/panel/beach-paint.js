@@ -277,6 +277,38 @@
     }
   }
 
+  // The tide pool: a rim of rock with the corners knocked off, the sea's own
+  // water in it, and the Bugdex's catches bobbing about (still when motion's off).
+  function drawPool(ctx, T, pool, t, still) {
+    const { x, w, h } = pool, top = pool.y - h;
+    const rock = mix(T.sandLo, '#5d6670', 0.6);
+    shadow(ctx, x, pool.y, w);
+    ctx.fillStyle = rock;
+    ctx.fillRect(x + 1, top, w - 2, h);
+    ctx.fillRect(x, top + 1, w, h - 2);
+    ctx.fillStyle = mix(rock, '#ffffff', 0.2); // light on the near-side stones
+    for (let i = 1; i < w - 1; i += 3) ctx.fillRect(x + i, top, 1 + (i % 2), 1);
+    const water = pool.water;
+    for (let i = 0; i < water.h; i++) {
+      ctx.fillStyle = mix(T.seaHi, T.sea, water.h > 1 ? i / (water.h - 1) : 0);
+      ctx.fillRect(water.x, water.y + i, water.w, 1);
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(water.x, water.y, water.w, water.h);
+    ctx.clip();
+    pool.swimmers.forEach((s, i) => {
+      const bob = still ? 0 : Math.round(Math.sin(t * 1.3 + i * 1.7) * 0.6);
+      ctx.drawImage(sprite(s.pixels, s.palette), s.x, s.y + bob);
+    });
+    // A glint drifting across the top of the water.
+    ctx.fillStyle = T.foam;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(water.x + (still ? 1 : Math.floor(t * 0.8) % water.w), water.y, 2, 1);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
   /**
    * Paint the beach into ctx (already scaled to art pixels), from x0 to x1.
    * opts: { time, t (seconds), crab: { img, w, h, hop }, reveal: id -> 0..1,
@@ -296,6 +328,7 @@
       ...v.plots.map(p => ({ ...p, draw: () => { shadow(ctx, p.x, p.y, p.w); ctx.drawImage(sprite(v.art.plot, { ...T.castle, k: FIXED.k, i: FIXED.i, b: FIXED.b, B: FIXED.B }), p.x, p.y - p.h); } })),
       ...(v.stake ? [{ ...v.stake, draw: () => ctx.drawImage(sprite(v.art.stake, { f: FIXED.stakeFlag, p: FIXED.p, S: T.castle.S }), v.stake.x, v.stake.y - v.stake.h) }] : []),
       ...v.castles.map(c => ({ ...c, draw: () => drawCastle(ctx, T, c, reveal ? reveal.get(c.id) ?? 1 : 1, t) })),
+      ...(v.pool ? [{ x: v.pool.x, y: v.pool.y, w: v.pool.w, draw: () => drawPool(ctx, T, v.pool, t, still) }] : []),
       ...(crab ? [{ x: v.crab.x, y: v.crab.y, w: crab.w, draw: () => {
         shadow(ctx, v.crab.x + 2, v.crab.y, crab.w - 4);
         ctx.drawImage(crab.img, v.crab.x, v.crab.y - crab.h - (crab.hop || 0), crab.w, crab.h);
@@ -315,6 +348,7 @@
     const T = THEMES[time] || THEMES.night;
     if (kind === 'castle') return sprite(['....pff.', '....p...', '.s.sSs.S', '.ssssssS', '.sswsssS', '.sssdssS', 'SSSSSSSS'], { ...T.castle, w: T.lights ? FIXED.lit : T.castle.d, p: FIXED.p, f: '#ff7a5c' });
     if (kind === 'tide') return sprite(['........', '.ff..ff.', 'ffffffff', 'wwwwwwww', '.g.g.gg.'], { f: T.foam, w: mix(T.sand, T.sea, 0.42), g: T.weed });
+    if (kind === 'pool') return sprite(['.rrrrrr.', 'rhhhhhhr', 'rwbwwwwr', 'rwwwwbwr', '.rrrrrr.'], { r: mix(T.sandLo, '#5d6670', 0.6), h: T.seaHi, w: T.sea, b: '#ff8fab' });
     if (kind === 'plot') return sprite(['.......kk', '........k', '.BBB....k', '.bbb.s.si', 'SSSSSSSSS'], { ...T.castle, k: FIXED.k, i: FIXED.i, b: FIXED.b, B: FIXED.B });
     return sprite(['.bbb.', 'bcbba', 'bbbba', '.aaa.'], { a: '#8d99ae', b: '#b8c2d1', c: '#dfe5ec' });
   }

@@ -355,6 +355,14 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   await show('finds');
   await shot(panel, path.join(out, 'screenshot-finds.png'));
 
+  // The Bugdex: its demo book, answered here (the wiring never runs in capture mode).
+  config.set({ bugdex: demo.demoBugdex(now) });
+  const bugdex = require('./bugdex');
+  fake('bugdex:get', () => ({ ...bugdex.view(config.get('bugdex'), now, { names: { '5b1c0de0a1f2': 'shellby', '9e3a7c21d4b8': 'rack-builder' } }), on: true }));
+  send(panel, 'bugdex', bugdex.view(config.get('bugdex'), now, { names: { '5b1c0de0a1f2': 'shellby', '9e3a7c21d4b8': 'rack-builder' } }));
+  await show('bugdex');
+  await shot(panel, path.join(out, 'screenshot-bugdex.png'));
+
   // demoWeek's stickers are the ones run() put on his shell.
   config.set(demo.demoWeek(now, config.get('xp')));
   send(panel, 'xp', xpSummary(config.get('xp'), now, streaks.streakOf(config.get('streaks'), now).current));

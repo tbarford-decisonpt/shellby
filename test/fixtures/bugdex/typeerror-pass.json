@@ -1,0 +1,5 @@
+{
+  "command": "node lib.js",
+  "isError": false,
+  "output": "rendered 3 items"
+}

@@ -164,7 +164,7 @@ const PLUGIN_ID = 'shellby@shellby';
 // test/statusline.test.js keeps them equal). Claude Code doesn't update plugins
 // from other marketplaces by itself, so an install can sit on a version from
 // before the features this app relies on, its MCP server among them.
-const PLUGIN_VERSION = '1.4.0';
+const PLUGIN_VERSION = '1.5.0';
 const PLUGIN_SOURCE = 'x-salmon/shellby';
 
 const versionParts = v => (typeof v === 'string' && /^\d{1,9}\.\d{1,9}\.\d{1,9}$/.test(v) ? v.split('.').map(Number) : null);

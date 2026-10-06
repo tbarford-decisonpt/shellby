@@ -106,10 +106,14 @@ function wireSessions(d) {
         const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
         // A test run: the code as it was when it started, so a later run can be compared (flaky.js).
         const tree = inProject && !item.background ? d.flakyTree(item.detail, dir) : null;
-        d.pendingCommands.set(item.id, { tabId, command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree });
+        // ...and for a command that could catch a bug still on the loose (wiring/bugdex.js).
+        const bugTree = inProject && !item.background ? d.bugdex?.commandStart({ command: item.detail, dir }) : null;
+        d.pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree, bugTree, tabId, background: !!item.background });
         if (d.pendingCommands.size > 200) d.pendingCommands.delete(d.pendingCommands.keys().next().value);
       }
       if (item.kind === 'tool') d.onToolSpoken(item);
+      // Claude writing code: whatever bug is on the loose in that project is being worked on.
+      if (item.kind === 'tool' && item.filePath) d.bugdex?.wrote(tabId);
       if (item.kind === 'tool_result' && d.pendingCommands.has(item.id)) {
         const c = d.pendingCommands.get(item.id);
         d.pendingCommands.delete(item.id);
@@ -119,6 +123,7 @@ function wireSessions(d) {
           d.noteRed(`t:${c.project}`);
         }
         if (c.tree) d.noteTestRun(c, item, tail);
+        d.bugdex?.commandResult(c, item, tail); // a bug seen, or one caught (wiring/bugdex.js)
         const kind = !item.isError && meant;
         if (kind) {
           d.awardXp(kind, { project: c.project });
@@ -176,7 +181,10 @@ function wireSessions(d) {
     try { d.shotsBeforeTurn?.(tab); } catch (err) { d.log.info(`shots: ${err.message}`); }
     let late = false;
     const turnId = tab.turnId;
-    const taken = changes.snapshot(cwd).then(snap => { if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId }); });
+    const taken = changes.snapshot(cwd).then(snap => {
+      if (snap) d.bugdex?.treeSeen(snap.root, snap.tree); // the code before: a later "fix" back to it is an undo
+      if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId });
+    });
     return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(); }, SNAPSHOT_WAIT_MS))]);
   }
 
@@ -202,6 +210,8 @@ function wireSessions(d) {
       // time the next message may already be in the transcript (rewind.js).
       const turn = start.turnId ? { turnId: start.turnId } : {};
       if (summary) d.manager.note(tabId, { kind: 'changes', ...summary, ...turn });
+      if (summary) d.bugdex?.changed(start.root);
+      if (end) d.bugdex?.treeSeen(end.root, end.tree);
       // Where the files stood at both ends of the turn, changed or not: a branch
       // from any turn starts its copy from exactly there (branch.js). Not shown.
       if (end && end.root === start.root) d.manager.note(tabId, { kind: 'checkpoint', root: start.root, head: start.head, start: start.tree, endHead: end.head, end: end.tree, ...turn });

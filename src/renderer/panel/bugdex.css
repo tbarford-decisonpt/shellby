@@ -1,0 +1,84 @@
+/* Shellby — the Bugdex (bugdex.js). A sibling of the Finds shelf: the hero,
+   habitat rows, tiles and detail card are together.css's fd-* pieces, and this
+   file only adds what a dex has that a shelf doesn't (dex numbers, the loose
+   ones, stages, forms, types). Tokens come from panel.css. */
+
+body[data-view="bugdex"] .view-bugdex { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-bugdex {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.shellby-tabs .bd-badge { top: 3px; right: 4px; }
+
+/* ---------------------------------------------------------------- hero */
+.bd-hero { background: radial-gradient(50% 70% at 18% 60%, rgba(127, 214, 194, .12), transparent 70%), linear-gradient(var(--abyss), var(--reef)); }
+.bd-hero .fd-fav-art { background: radial-gradient(closest-side, rgba(127, 214, 194, .16), rgba(127, 214, 194, .04) 70%, transparent); box-shadow: inset 0 -10px 0 rgba(127, 214, 194, .1); }
+.bd-eyebrow { color: #7fd6c2; }
+
+/* nothing seen yet */
+.bd-empty { margin: 12px 0 0; padding: 12px 14px; border-radius: var(--r); border: 1px dashed var(--line); background: var(--reef); font-size: var(--fs-12-5); color: var(--sand-dim); }
+.bd-empty b { display: block; margin-bottom: 2px; font-size: var(--fs-13-5); color: var(--sand); }
+.bd-empty p { margin: 0; }
+
+/* ---------------------------------------------------------------- on the loose */
+.bd-loose { margin: 12px 0 0; }
+.bd-loose h3, .bd-section-title { margin: 0 0 6px; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--sand-faint); }
+.bd-loose ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.bd-loose-row {
+  display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center;
+  padding: 6px 10px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef);
+}
+.bd-loose-row.refused { border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); }
+.bd-loose-art { display: grid; place-items: center; width: 36px; height: 30px; }
+.bd-loose-art svg { image-rendering: pixelated; animation: bd-lurk 2.6s ease-in-out infinite; }
+@keyframes bd-lurk { 50% { transform: translateX(2px) translateY(-1px); } }
+.bd-loose-text { min-width: 0; display: grid; gap: 1px; font-size: var(--fs-12-5); }
+.bd-loose-text b { font-weight: 700; }
+.bd-loose-why { color: var(--sand-dim); font-size: var(--fs-12); }
+.bd-loose-row.refused .bd-loose-why { color: var(--amber); }
+
+/* ---------------------------------------------------------------- habitats and filters */
+.bd-habitats { margin-bottom: 10px; }
+.fd-set-new { position: absolute; top: 6px; right: 9px; }
+.fd-set.done .fd-set-new { right: 26px; }
+.bd-filters { margin: 0 0 10px; }
+
+/* ---------------------------------------------------------------- the grid */
+.bd-tile { min-height: 112px; padding-top: 18px; }
+.bd-no { position: absolute; top: 4px; left: 6px; font: 600 var(--fs-9-5) var(--font-mono); color: var(--sand-faint); }
+.bd-tile .fd-count-pill { top: auto; bottom: 4px; left: auto; right: 6px; }
+.bd-unknown { font: 600 var(--fs-17) var(--font-pixel); color: var(--sand-faint); letter-spacing: .08em; }
+.bd-tile.seen .fd-rarity { color: var(--sand-dim); }
+.bd-meta { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 5px; min-height: 14px; }
+.bd-pips { display: inline-flex; gap: 2px; }
+.bd-pips i { width: 5px; height: 5px; border-radius: 50%; border: 1px solid var(--rarity-ink, var(--sand-faint)); }
+.bd-pips i.on { background: var(--rarity-ink, var(--sand-faint)); }
+.bd-crown { font-size: var(--fs-10); line-height: 1; }
+.bd-forms { font-size: var(--fs-10); line-height: 1; letter-spacing: 1px; }
+
+/* ---------------------------------------------------------------- one bug, up close */
+.bd-detail .fd-big svg { transform: rotate(-3deg); }
+.bd-detail.seen .fd-big svg { transform: none; }
+.bd-detail .fd-big .bd-unknown { font-size: var(--fs-34); }
+.bd-where { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.bd-type {
+  display: inline-block; padding: 0 7px; border-radius: 99px; font: 600 var(--fs-9-5)/16px var(--font-mono); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--type, var(--sand-dim)); background: color-mix(in srgb, var(--type, var(--sand-dim)) 16%, transparent); border: 1px solid color-mix(in srgb, var(--type, var(--sand-dim)) 45%, transparent);
+}
+.bd-next { margin: 0; font-size: var(--fs-12); color: var(--sand-faint); }
+.bd-next b { font-weight: 700; color: var(--sand-dim); opacity: .7; }
+.bd-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.bd-chip { padding: 0 7px; border-radius: 99px; font: 600 var(--fs-10-5)/18px var(--font-mono); color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line); }
+.bd-chip.form { color: var(--sand); }
+.bd-chip.form-golden { color: #ffd23f; border-color: #c9a227; }
+.bd-chip.form-shiny { color: #a9b8ff; border-color: #6f8cff; }
+.bd-chip.form-spectral { color: #b8ffd9; border-color: #57cc99; }
+
+/* ---------------------------------------------------------------- the quiet way out */
+.bd-over { margin: 18px 0 0; text-align: center; font-size: var(--fs-12); color: var(--sand-faint); }
+.bd-over .link-btn { color: var(--sand-faint); }
+.bd-over .link-btn:hover, .bd-over .link-btn:focus-visible { color: var(--sand); }
+
+@media (prefers-reduced-motion: reduce) {
+  .view-bugdex, .bd-loose-art svg, .bd-detail { animation: none !important; transition: none !important; }
+}

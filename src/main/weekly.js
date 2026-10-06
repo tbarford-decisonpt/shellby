@@ -12,7 +12,9 @@
 // from before the ledger existed are filled in from what was already stored:
 // XP per day (xp.daily), the XP log, and each sticker's last ship. Pure: no
 // I/O, no clock (callers pass `now`). See test/weekly.test.js.
-const KEEP_DAYS = 70;            // ten weeks: this one, last one, and room to spare
+const { characterSheet } = require('./character');
+
+const KEEP_DAYS = 70;           // ten weeks: this one, last one, and room to spare
 const MAX_PROJECTS_A_DAY = 20;
 const WEEK = 7;
 
@@ -23,7 +25,7 @@ const WEEK = 7;
 // while you were away (their time is awayMs).
 const SHIP_KINDS = ['ship', 'deploy', 'release', 'merge'];
 const WORK_KINDS = ['pr', 'home', 'undone', 'away', 'awayHeld'];
-const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix', 'crit', 'landing', ...WORK_KINDS];
+const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix', 'crit', 'landing', 'caught', 'newbug', ...WORK_KINDS];
 const MAX_AT_ONCE = 100;         // one rewind can take back many turns, but not more than this
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[0-9a-f]{12}$/;
@@ -312,6 +314,7 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
       newStickers: t.minted, green: t.fixed, tests: t.tests + t.fixed, tasks: t.task,
       checkups: t.deps, focus: t.focus, tricks: t.trick, flaky: t.flaky, flakeFixes: t.flakefix,
       crits: t.crit, landings: t.landing,
+      caught: t.caught, newBugs: t.newbug,
       trophies: cur.trophies.length,
       prs: t.pr, homes: t.home, undone: t.undone,
       awayRuns: t.away + t.awayHeld, awayRoutines: t.away, awayHeld: t.awayHeld, awayMs: cur.awayMs,
@@ -319,6 +322,8 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
     prev: { projects: prev.projects.length, ships: ships(prev), green: prev.totals.fixed, tasks: prev.totals.task },
     streak: { current: count(streak?.current), longest: count(streak?.longest) },
     level: level ? { level: level.level, title: level.title, color: level.rank?.color || null } : null,
+    // The character sheet (character.js): stats, class, and what this week added.
+    character: xp ? characterSheet(xp, now) : null,
     plan: planOf(s, cur, prev, t.task, usage, now),
   };
   return { ...summary, headline: headline(summary), quiet: isQuiet(summary), work: workLines(summary) };

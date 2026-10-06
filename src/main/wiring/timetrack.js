@@ -126,7 +126,7 @@ function wireTimetrack(d) {
     const before = beach.normalize(d.config.get('beach'));
     const state = beach.observe(before, streaks.streakOf(streakState, now).longest);
     if (state.highWater !== before.highWater) d.config.set({ beach: state });
-    return beach.view({ stickerState: d.stickerState(), streakState, findState: gifts.normalize(d.config.get('finds')), state, now });
+    return beach.view({ stickerState: d.stickerState(), streakState, findState: gifts.normalize(d.config.get('finds')), bugState: d.config.get('bugdex'), state, now });
   }
 
   /** You've looked at the beach: what's on it now stops rising up as new. */
@@ -255,6 +255,7 @@ function wireTimetrack(d) {
     const inWorkflow = !!tab.workflowRunId;
     // A "fix this dev server" tab finished: its card offers the restart.
     if (!item.interrupted) d.devServers?.onTabDone(tabId, !!item.ok);
+    d.bugdex?.turnEnded(tabId, item); // ...and the Bugdex counts it as working on that bug
     if (!inWorkflow && !item.interrupted) {
       d.workflows?.event('task', { title: tab.title, outcome: item.ok ? 'ok' : 'error', folder: tab.worktree?.originalCwd || tab.session?.cwd || '', error: item.error || null });
     }
@@ -421,6 +422,10 @@ function wireTimetrack(d) {
       if (e.cwd && e.ship) d.shipped(e.cwd, e.ship.kind, { version: e.ship.version });
     });
     d.external.on('checkup', e => d.checkedUp(e.dir, e.check, e.result));
+    // The Bugdex, outside Shellby too: readings only, never what a command printed (external.js bugsOf).
+    d.external.on('bug-start', e => d.bugdex?.outsideStart(e));
+    d.external.on('bug-read', e => d.bugdex?.outsideResult(e));
+    d.external.on('bug-wrote', e => d.bugdex?.outsideWrote(e));
     d.external.on('turn-done', e => {
       d.awardXp('task', { project: e.project });
       d.noteWorkTime(e.ms);

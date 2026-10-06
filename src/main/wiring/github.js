@@ -252,6 +252,9 @@ function wireGithub(d) {
     const open = () => openGitHubUrl(pr.url);
     if (type === 'failed') d.noteRed(`ci:${where}`);
     if (type === 'fixed') d.noteFix(`ci:${where}`);
+    // A Red Tide (or a Kraken...) on the loose; caught when it goes green with Shellby's help.
+    if (type === 'failed') d.bugdex?.ciFailed(pr);
+    if (type === 'fixed') d.bugdex?.ciFixed(pr);
     if (type === 'failed') {
       d.flashState('error', 5000);
       d.tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });

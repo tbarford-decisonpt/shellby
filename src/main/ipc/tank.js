@@ -27,6 +27,7 @@ function registerTankIpc(ipcMain, d) {
     decor: d.wardrobe()?.decorView() || [],
     findState: gifts.normalize(d.config.get('finds')),
     finds: gifts.FINDS,
+    bugState: d.config.get('bugdex'),
   });
   const view = (l = lib()) => tank.view({ state: d.config.get('tank'), lib: l, level: d.level(), shipped: d.shipped() });
 
@@ -48,7 +49,7 @@ function registerTankIpc(ipcMain, d) {
   // Decor you've seen in the tray stops being new (the wardrobe keeps the dots).
   ipcMain.on('tank:seen', (_e, refs) => {
     if (!Array.isArray(refs)) return;
-    const keys = refs.slice(0, MAX_SEEN).filter(r => isRef(r) && !r.startsWith('find:'));
+    const keys = refs.slice(0, MAX_SEEN).filter(r => isRef(r) && !r.startsWith('find:') && !r.startsWith('jar:'));
     if (keys.length) d.wardrobe()?.markSeen(keys);
   });
 }
