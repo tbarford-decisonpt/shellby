@@ -61,6 +61,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 | 💞 **[Just the two of you](#-just-the-two-of-you)** | Gifts he digs up, games, a bond that grows, a tank to decorate, a beach of everything you ship |
 | 🎩 **[Dresses up](#-dress-him-up)** | Outfits, shells and skins you earn, and community packs |
 | 🩺 **[Watches your PC](#-he-watches-your-pc)** | He sweats when the GPU runs hot and gets dizzy when memory's full |
+| 🎪 **[Things to try](#-things-to-try-with-him)** | Throw him, fling him off a window, play fetch, catch him typing along |
 
 ## ⚡ He gets things done with Claude Code
 
@@ -233,6 +234,40 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 <p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
 
 **[How Health works →](docs/HEALTH.md)**
+
+## 🎪 Things to try with him
+
+Nobody reads a feature list to find out a crab can be thrown. Have a go:
+
+<table>
+<tr>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-ride.gif" alt="Shellby hops onto a Notepad title bar, hangs on while the window is dragged, then is shaken off and lands dizzy"><br><sub><b>Throw him at a title bar</b> and he climbs on. Drag the window and he hangs on; shake it and off he goes</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-close.gif" alt="Shellby sits on a Notepad window; it closes under him, he hangs in mid-air for a beat, then falls to the floor"><br><sub><b>Close the window</b> under him: a beat in mid-air, a look down, and down he goes</sub></td>
+</tr>
+<tr>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-wall.gif" alt="Shellby is thrown at the left edge of the screen, sticks to it and climbs up"><br><sub><b>Throw him hard</b> at the side of the screen and he sticks to it, then climbs</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-pals.gif" alt="Shellby is thrown up among his four little pals, who scatter when he lands"><br><sub><b>Pals on the floor</b> keep him company, and scatter when you throw him down among them</sub></td>
+</tr>
+<tr>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses</sub></td>
+</tr>
+</table>
+
+And a few more:
+
+| Do this | And he... |
+|---|---|
+| **Flick him** while you drag him | tumbles across the screen, bonks off the edges and lands on the taskbar |
+| **Throw him at the top** of the screen | sticks to it and walks along it upside down, legs swinging |
+| **Rub the mouse** back and forth over him | gets petted, and you two grow a little closer |
+| **Play some music** | puts his headphones on |
+| **Right-click → Play → Dig for treasure** | digs, and every so often holds up a find: sea glass, a pearl, and very rarely a gold doubloon |
+| **Right-click → Play → Hide and seek** | burrows into the sand and pops up behind one of your windows |
+| **Right-click → Play → Fetch** | waits for you to throw the pebble, scuttles after it and brings it back |
+| **Turn on Mischief** (if you dare) | pinches your cursor, shoves a window and drags notes onto your desktop: *"nice cursor. mine now"* |
+
+Work mode leaves out the climbing, pals and pranks; switch it off to get them back. **[All of it in detail →](docs/DESKTOP.md)**
 
 ## What's new
 

@@ -35,6 +35,7 @@
     "icons": "python scripts/make-icons.py",
     "screenshots": "electron . --capture-screenshots",
     "reel": "electron . --capture-screenshots --reel && python scripts/make-reel.py",
+    "tricks": "node scripts/record-tricks.js",
     "dist": "electron-builder --win",
     "release": "electron-builder --win --publish always",
     "release:ready": "node scripts/release-guard.js ready --wait"
