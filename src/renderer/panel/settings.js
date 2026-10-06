@@ -147,11 +147,12 @@
   }
 
   // Claude Code's own version, and what to do when there's a newer one
-  // (src/main/claude-update.js). Hidden with the account row: nothing to update
+  // (src/main/claude-update.js). In About, under Shellby's own update; hidden
   // until Claude Code is found.
   function renderClaudeUpdate() {
     const u = state.claudeUpdate;
     const st = state.status || {};
+    renderUpdateDots();
     const row = $('claudeUpdateRow');
     row.hidden = !u || !st.installed || SB.isCrabOnly?.();
     if (row.hidden) return;
@@ -324,7 +325,8 @@
   // Pushed as the daily check or an update moves along: follow it wherever it shows.
   api.onClaudeUpdate(view => {
     state.claudeUpdate = view;
-    if (state.view === 'settings') { renderClaudeUpdate(); renderFacts(); }
+    renderClaudeUpdate(); // the gear's dot, from any screen
+    if (state.view === 'settings') renderFacts();
   });
   // Pushed after the sign-in window closes, or a sign-out: follow it wherever it shows.
   api.onClaudeStatus(status => {
@@ -389,14 +391,23 @@
   };
   const UPDATE_BUTTON = { checking: () => 'Checking…', downloading: u => `${u.percent}%`, ready: () => 'Restart and update' };
 
+  // The gear carries the news from any screen, so this runs even when Settings
+  // is nowhere in sight: Shellby's update ready to install, or a newer Claude Code.
+  function renderUpdateDots() {
+    const u = state.updates;
+    const ready = u?.state === 'ready';
+    const cu = state.claudeUpdate;
+    const claude = !!cu?.available && !!state.status?.installed && !SB.isCrabOnly?.();
+    $('updateDot').hidden = !ready && !claude;
+    $('updateTabDot').hidden = !ready && !claude;
+    $('settingsBtn').title = ready ? `Settings — update ${u.version} is ready`
+      : claude ? `Settings — Claude Code ${cu.latest} is out` : 'Settings';
+  }
+
   function renderUpdates() {
     const u = state.updates;
     const ready = u?.state === 'ready';
-    // The gear carries the news from any screen, so this part runs even when
-    // Settings is nowhere in sight.
-    $('updateDot').hidden = !ready;
-    $('updateTabDot').hidden = !ready;
-    $('settingsBtn').title = ready ? `Settings — update ${u.version} is ready` : 'Settings';
+    renderUpdateDots();
     const row = $('updateRow');
     row.hidden = !u;
     if (!u) return;

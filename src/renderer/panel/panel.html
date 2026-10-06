@@ -1402,16 +1402,6 @@
           <button type="button" class="btn ghost slim-btn" id="claudeSignOut">Sign out</button>
           <button type="button" class="btn primary slim-btn" id="claudeSignIn" hidden>Sign in</button>
         </div>
-        <div class="gh-account" id="claudeUpdateRow" hidden>
-          <div class="gh-who"><b id="claudeUpdateTitle"></b><span class="small muted" id="claudeUpdateNote"></span></div>
-          <select id="claudeUpdateMode" class="field slim" aria-label="When Claude Code has a new version">
-            <option value="tell">Tell me</option>
-            <option value="auto">Update it for me</option>
-            <option value="off">Leave it to me</option>
-          </select>
-          <button type="button" class="btn ghost slim-btn" id="claudeUpdateCheck">Check now</button>
-          <button type="button" class="btn primary slim-btn" id="claudeUpdateBtn" hidden>Update</button>
-        </div>
         <div class="billing-guard" id="billingGuard" data-state="off">
           <div class="billing-guard-head">
             <span class="billing-guard-icon" aria-hidden="true"></span>
@@ -1774,6 +1764,20 @@
             <button type="button" class="btn ghost slim-btn" id="updateBtn">Check for updates</button>
           </div>
           <div class="update-bar" id="updateBar" hidden><i></i></div>
+        </div>
+        <div class="update" id="claudeUpdateRow" hidden>
+          <div class="update-head">
+            <p class="small ext-status"><b id="claudeUpdateTitle"></b> <span class="muted" id="claudeUpdateNote"></span></p>
+            <button type="button" class="btn ghost slim-btn" id="claudeUpdateCheck">Check now</button>
+            <button type="button" class="btn primary slim-btn" id="claudeUpdateBtn" hidden>Update</button>
+          </div>
+          <label class="inline-label update-mode" for="claudeUpdateMode">When Claude Code has a new version
+            <select id="claudeUpdateMode" class="field slim">
+              <option value="tell">Tell me</option>
+              <option value="auto">Update it for me</option>
+              <option value="off">Leave it to me</option>
+            </select>
+          </label>
         </div>
         <div id="crashReportsRow" hidden>
           <div class="row wrap">

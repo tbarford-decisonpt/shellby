@@ -724,6 +724,7 @@ select.field option { background: var(--reef); }
 .update-head { display: flex; align-items: center; gap: 10px; }
 .update-head .ext-status { flex: 1; min-width: 0; margin: 0 !important; }
 .update-head .slim-btn { flex: none; }
+.update-mode { margin-top: 9px; }
 .update-bar { height: 4px; margin-top: 9px; border-radius: 2px; background: var(--reef-3); overflow: hidden; }
 .update-bar i { display: block; height: 100%; border-radius: 2px; background: var(--glass); transition: width .3s linear; }
 

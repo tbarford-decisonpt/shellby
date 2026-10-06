@@ -30,11 +30,11 @@ function wireClaudeUpdates(d) {
     d.claudeUpdates.start();
   }
 
-  /** Settings → Claude Code, where the notification points. */
+  /** Settings → About, beside Shellby's own update: where the notification points. */
   function showClaudeSetting() {
     d.showPanel({ focusInput: false });
     d.send(d.panel, 'panel:view', 'settings');
-    d.send(d.panel, 'panel:jump', 'Claude Code');
+    d.send(d.panel, 'panel:jump', 'About');
   }
 
   const claudeUpdateView = () => (d.claudeUpdates ? d.claudeUpdates.view() : null);

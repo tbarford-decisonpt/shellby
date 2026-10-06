@@ -7,7 +7,7 @@
 // Once a day Shellby asks the npm registry which version is newest (one small
 // GET with nothing about you in it), and compares it with the one he found.
 // With "Tell me" (the default) a newer one is said once, in a notification and
-// in Settings → Claude Code, with an Update button. With "Update automatically"
+// in Settings → About, with an Update button. With "Update it for me"
 // he runs `claude update` himself, but only while no conversation is working.
 // "Leave it to me" asks the registry nothing.
 //
@@ -217,7 +217,7 @@ class ClaudeUpdates extends EventEmitter {
         const v = this.view();
         if (v.available && this.settings.mode === 'tell' && this.settings.told !== latest) {
           this.save({ told: latest });
-          this.deps.notify('Claude Code update', `Claude Code ${latest} is out; you have ${v.installed}. Update it from Settings → Claude Code.`);
+          this.deps.notify('Claude Code update', `Claude Code ${latest} is out; you have ${v.installed}. Update it from Settings → About.`);
         }
       } catch (err) {
         this.save({ lastAttemptAt: now, error: messageOf(err) });

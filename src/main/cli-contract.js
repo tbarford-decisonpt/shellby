@@ -195,6 +195,9 @@ function emptyLike(v) {
   return typeof v === 'string' ? '' : v;
 }
 
+// A user folder in its 8.3 short form: one segment under Users ending in ~ and a number.
+const SHORT_USER_DIR = /([\\/])Users([\\/]+)[^\\/]+~\d+(?=[\\/]|$)/gi;
+
 /**
  * Makes a recorded transcript safe to commit: the home folder, user name and
  * any email become placeholders, ids become stable fakes, and the lists that
@@ -203,9 +206,6 @@ function emptyLike(v) {
  * @param {{ home?: string, user?: string }} who
  * @returns {string[]} JSON lines
  */
-// A user folder in its 8.3 short form: one segment under Users ending in ~ and a number.
-const SHORT_USER_DIR = /([\\/])Users([\\/]+)[^\\/]+~\d+(?=[\\/]|$)/gi;
-
 function scrubTranscript(lines, { home = '', user = '' } = {}) {
   const ids = new Map();
   const fakeId = id => {
