@@ -278,6 +278,7 @@
       claude() && { icon: '📁', title: 'Projects', sub: 'Your repos and their dev servers', keys: 'projects repos repositories github clone dev server vite next npm run localhost port', run: go('projects') },
       { icon: '⚙️', title: 'Settings', sub: 'Everything else', keys: 'preferences options', run: go('settings') },
       { icon: '⌨️', title: 'Keyboard shortcuts', sub: 'Every key, in one list', keys: 'keys keyboard hotkeys cheat sheet help', shortcut: 'shortcuts', run: () => SB.openShortcuts() },
+      claude() && { icon: '🗺️', title: 'Quests', sub: 'Find his best tricks, one at a time', keys: 'quests quest tutorial learn tips tricks hidden features guide diff comment branch copy home reset queue', run: () => SB.showQuests() },
       SB.hasLockedRooms?.() && { icon: '🚪', title: 'Show every screen', sub: 'Put all of them on the bar now', keys: 'rooms unlock more dock bar all screens', run: () => SB.openAllRooms() },
     ].filter(Boolean).map(e => ({ ...e, group: 'Screens' }));
   }

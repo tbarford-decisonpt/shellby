@@ -59,6 +59,7 @@ function register(deps) {
       const lesson = where === 'before' ? deps.correctionFromTurns?.(tabId, 'retry', { turnIds: [turnId] }) : null;
       const r = await makeBranch({ tabId, turnId, at: where, send: !!send });
       if (r?.ok && lesson) deps.noteCorrection?.(tabId, lesson);
+      if (r?.ok && where === 'before') deps.questDone?.('branch'); // "Try it another way" (quests.js)
       return r;
     } catch (err) {
       deps.log.info(`branch: ${err.message}`);

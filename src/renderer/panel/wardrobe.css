@@ -268,6 +268,27 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .xp-bounty-check { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line); display: grid; place-items: center; font-size: var(--fs-10); line-height: 1; }
 .xp-bounties li.done .xp-bounty-check { background: #7bd389; border-color: #7bd389; color: #0d2a14; }
 .xp-bounties li.done > span:nth-child(2) { color: var(--sand-faint); text-decoration: line-through; }
+
+/* The quest line (quests.js): a trail of numbered stops, joined by a dotted path. */
+.xp-quests-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.quest-trail { list-style: none; margin: 0; padding: 0; display: grid; }
+.quest-trail li { position: relative; display: grid; grid-template-columns: 20px 1fr; gap: 9px; padding-bottom: 9px; font-size: var(--fs-12); }
+.quest-trail li:last-child { padding-bottom: 0; }
+.quest-trail li:not(:last-child)::before { content: ''; position: absolute; left: 9px; top: 21px; bottom: 1px; border-left: 2px dotted var(--reef-3); }
+.quest-trail li.done:not(:last-child)::before { border-left-style: solid; border-color: rgba(123, 211, 137, .55); }
+.quest-node {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 var(--fs-10) var(--font-mono); color: var(--sand-dim); border: 1px solid var(--line); background: var(--abyss);
+}
+.quest-trail li.done .quest-node { background: #7bd389; border-color: #7bd389; color: #0d2a14; }
+.quest-trail li.now .quest-node { color: var(--amber); border: 2px solid var(--amber); box-shadow: 0 0 0 3px rgba(255, 193, 94, .14); }
+.quest-body { min-width: 0; padding-top: 2px; }
+.quest-body b { font-size: var(--fs-12-5); color: var(--sand); }
+.quest-trail li.done .quest-body b { color: var(--sand-faint); }
+.quest-trail li.now .quest-body b { color: #ffd28a; }
+.quest-body p { margin: 2px 0 0; line-height: 1.45; color: var(--sand-faint); }
+.quest-trail li.now .quest-body p { color: var(--sand-dim); }
+.quest-body .quest-go { margin-top: 6px; }
 .xp-spark { display: flex; align-items: flex-end; gap: 2px; height: 36px; padding: 2px 0; }
 .xp-spark i { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0; background: var(--rank, #ffd23f); opacity: .85; }
 .xp-spark i.zero { background: var(--line-soft); opacity: 1; }

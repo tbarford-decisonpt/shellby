@@ -15,11 +15,13 @@ const { progressBounties, bountiesView, CLEAR_ALL_XP } = require('./bounties');
 // `claude`: only Claude Code work earns it, so just-the-crab mode leaves it off
 // the list of ways to earn (panel/xp.js).
 const AWARDS = Object.freeze({
+  questline: { xp: 150, perHour: 1, label: 'Finished the quest line', way: 'Finishes the whole quest line', claude: true },
   trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick', way: 'Writes himself a new skill or agent', claude: true },
   deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes', claude: true },
   bond: { xp: 50, perHour: 1, label: 'Grew closer', way: 'The two of you grow closer' },
   fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green', claude: true },
   flakefix: { xp: 40, perHour: 2, label: 'Fixed a flaky test', way: 'Fixes a flaky test for good', claude: true },
+  quest: { xp: 40, perHour: 4, label: 'Finished a quest', way: 'Finishes a quest (each one teaches a hidden trick)', claude: true },
   issue: { xp: 40, perHour: 3, label: 'Turned an issue into a pull request', way: 'Takes an issue all the way to a pull request', claude: true },
   ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)', claude: true },
   deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean', claude: true },

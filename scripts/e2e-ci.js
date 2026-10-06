@@ -56,6 +56,7 @@ const SUITE = [
   'e2e-projects',     // projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
   'e2e-streaks',      // streaks and nudges in a throwaway git repo: the streak, the nudge, Pick it up
   'e2e-rooms',        // rooms: a newcomer's short bar, rooms opening as they're earned, Show every screen
+  'e2e-quests',       // quests: the card after his first task, a real review finishing one, the line complete, hide and bring back
   'e2e-recap',        // While you were away, from scripted idle readings: finished, failed and asking
   'e2e-team',         // team packs in throwaway repos: noticed, listed, snippets scoped to the repo, Make a team pack
   'e2e-statusline',   // the Claude Code status line, with an isolated status file and settings.json

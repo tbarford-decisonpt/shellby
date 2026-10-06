@@ -658,6 +658,8 @@ const shared = {
   get rgbClient() { return rgbClient; }, set rgbClient(v) { rgbClient = v; },
   get rgbSettings() { return rgbSettings; },
   get rgbView() { return rgbView; },
+  get questDone() { return questDone; },
+  get questsPanelView() { return questsPanelView; },
   get roomTaskDone() { return roomTaskDone; },
   get roomsPanelView() { return roomsPanelView; },
   get runCheckup() { return runCheckup; },
@@ -672,6 +674,7 @@ const shared = {
   get sentry() { return sentry; },
   get serversOnQuit() { return serversOnQuit; },
   get setFolder() { return setFolder; },
+  get setQuests() { return setQuests; },
   get setRooms() { return setRooms; },
   get setSnippets() { return setSnippets; },
   get settleCritter() { return settleCritter; },
@@ -752,8 +755,8 @@ const {
 } = wireSessions(shared);
 const {
   awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
-  runCheckup, setRooms, showFlaky, weekView, xpView,
+  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, questDone, questsPanelView,
+  roomTaskDone, roomsPanelView, runCheckup, setQuests, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
 const {
   beachSeen, beachView, clipboardHasImage, composePrompt, createExternal, createHealth,

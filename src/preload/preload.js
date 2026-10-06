@@ -303,7 +303,7 @@ contextBridge.exposeInMainWorld('shellby', {
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
   devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), climb: invoke('dev:climb'), prank: invoke('dev:prank'), edges: invoke('dev:edges'), scene: invoke('dev:scene'), life: invoke('dev:life') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), climb: invoke('dev:climb'), prank: invoke('dev:prank'), edges: invoke('dev:edges'), scene: invoke('dev:scene'), life: invoke('dev:life'), quest: invoke('dev:quest') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions
@@ -327,6 +327,11 @@ contextBridge.exposeInMainWorld('shellby', {
   openRoom: invoke('rooms:open'),
   openAllRooms: invoke('rooms:all'),
   onRooms: on('rooms'),
+
+  // quests: the features worth finding, one at a time (quests.js)
+  getQuests: invoke('quests:get'),
+  hideQuests: invoke('quests:hide'),
+  onQuests: on('quests'),
 
   // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
   getLife: invoke('life:get'),

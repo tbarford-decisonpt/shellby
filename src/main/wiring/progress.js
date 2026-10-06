@@ -1,4 +1,4 @@
-// What adds up: XP and levels (and the rooms they open), dependency checkups,
+// What adds up: XP and levels (and the rooms they open), quests, dependency checkups,
 // the flaky test detective and the week in review.
 // Kept out of main.js, which only wires it up.
 const os = require('os');
@@ -8,6 +8,7 @@ const checkup = require('../checkup');
 const flaky = require('../flaky');
 const { projectOf } = require('../gitinfo');
 const { readRepo } = require('../projects/local');
+const quests = require('../quests');
 const rooms = require('../rooms');
 const routineTemplates = require('../routine-templates');
 const shells = require('../shells');
@@ -67,6 +68,33 @@ function wireProgress(d) {
     if (!r.state || r.state.all) return; // every door already open: nothing to count
     d.config.set({ rooms: r.state });
     d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(({ id, name, text }) => ({ id, name, text })) });
+  }
+
+  // Quests (quests.js): the features worth finding, done the first time each
+  // really succeeds. The scripted screenshots show a fresh line.
+  function questsPanelView() {
+    return quests.questsView(d.CAPTURE ? null : d.config.get('quests'));
+  }
+
+  function setQuests(next) {
+    if (next && !d.CAPTURE) d.config.set({ quests: next });
+    const v = questsPanelView();
+    d.send(d.panel, 'quests', { view: v });
+    return v;
+  }
+
+  // Called where each feature succeeds (a review sent, a branch made, a copy
+  // merged home, work held for the reset). Only the first time counts.
+  function questDone(id) {
+    if (d.CAPTURE || !d.config) return;
+    const r = quests.completeQuest(d.config.get('quests'), id, Date.now());
+    if (!r.quest) return;
+    d.config.set({ quests: r.state });
+    const pick = q => q && { id: q.id, icon: q.icon, title: q.title, why: q.why, go: q.go };
+    // The card first, so a level-up the XP brings lands after it.
+    d.send(d.panel, 'quests', { view: questsPanelView(), done: pick(r.quest), next: pick(r.next), finished: r.finished });
+    awardXp('quest', { label: r.quest.title });
+    if (r.finished) awardXp('questline');
   }
 
   function awardXp(kind, meta = {}) {
@@ -423,8 +451,8 @@ function wireProgress(d) {
 
   return {
     awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-    knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone,
-    roomsPanelView, runCheckup, setRooms, showFlaky, weekView, xpView,
+    knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, questDone, questsPanelView,
+    roomTaskDone, roomsPanelView, runCheckup, setQuests, setRooms, showFlaky, weekView, xpView,
   };
 }
 

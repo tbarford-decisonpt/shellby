@@ -270,6 +270,29 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 .suggestion .glyph { font: 600 var(--fs-13) var(--font-pixel); color: var(--coral); width: 16px; text-align: center; }
 .empty-hint { margin-top: 20px; color: var(--sand-faint); font-size: var(--fs-12); }
 
+/* The next quest (quests.js): a note pinned above the suggestions, amber like a trophy. */
+.quest-card {
+  margin: 0 0 12px; padding: 10px 12px 11px; text-align: left;
+  border-radius: var(--r); border: 1px solid rgba(255, 193, 94, .28); border-left: 3px solid var(--amber);
+  background: linear-gradient(rgba(255, 193, 94, .07), rgba(17, 35, 42, .6));
+  animation: rise .5s var(--ease-out) backwards;
+}
+.quest-top { display: flex; align-items: center; gap: 8px; }
+.quest-step { font: 600 var(--fs-10) var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--amber); }
+.quest-pips { display: flex; gap: 3px; }
+.quest-pips i { width: 6px; height: 6px; border-radius: 2px; background: var(--reef-3); }
+.quest-pips i.done { background: #7bd389; }
+.quest-pips i.now { background: var(--amber); }
+.quest-x { margin-left: auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; color: var(--sand-faint); font-size: var(--fs-13); line-height: 1; }
+.quest-x:hover { color: var(--sand); background: var(--reef-2); }
+.quest-x:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+.quest-title { display: flex; align-items: center; gap: 7px; margin: 6px 0 3px; font: 600 var(--fs-15)/1.25 var(--font-pixel); }
+.quest-icon { width: 18px; text-align: center; color: var(--amber); }
+.quest-why { margin: 0; font-size: var(--fs-12-5); line-height: 1.45; color: var(--sand); }
+.quest-how { margin: 4px 0 0; font-size: var(--fs-12); line-height: 1.45; color: var(--sand-dim); }
+.quest-go { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .quest-card { animation: none; } }
+
 /* messages */
 .msg { margin: 0 0 14px; animation: rise .25s var(--ease-out); }
 .msg.user {
