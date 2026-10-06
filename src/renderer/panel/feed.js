@@ -562,10 +562,29 @@
         card.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
         card.append(h('div', { class: `ask-verdict ${a ? 'allow' : 'deny'}`, text }));
       } else {
-        card.append(h('div', { class: `ask-verdict ${item.decision === 'deny' || item.decision === 'cancelled' ? 'deny' : 'allow'}`, text: `→ ${words[item.decision] || item.decision}${item.via === 'phone' ? ' from your phone' : ''}` }));
+        card.append(h('div', { class: `ask-verdict ${item.decision === 'deny' || item.decision === 'cancelled' ? 'deny' : 'allow'}` },
+          `→ ${words[item.decision] || item.decision}${item.via === 'phone' ? ' from your phone' : ''}`,
+          this.expandToggle(card)));
       }
       for (const lane of this.lanes.values()) if (lane.body.contains(card)) lane.setAsking(false);
       if (this.busy) this.setStatus('Working…');
+    }
+
+    // A decided card shrinks its command to a few lines; this brings the rest
+    // back. Only offered when something is actually cut off (a card replayed
+    // into a hidden tab has no layout yet, so judge by the text there).
+    expandToggle(card) {
+      const cmd = card.querySelector('.ask-cmd');
+      if (!cmd) return null;
+      const clipped = cmd.clientHeight ? cmd.scrollHeight > cmd.clientHeight + 1 : cmd.textContent.length > 120 || cmd.textContent.includes('\n');
+      if (!clipped) return null;
+      const btn = h('button', { class: 'ask-more', type: 'button', 'aria-expanded': 'false' }, 'show all');
+      btn.onclick = () => {
+        const open = card.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? 'show less' : 'show all';
+      };
+      return btn;
     }
 
     cancelOpenAsks() {

@@ -467,6 +467,10 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .ask.decided { box-shadow: none; opacity: .75; background: var(--reef); border-color: var(--line); animation: none; }
 .ask.decided .ask-actions, .ask.decided .ask-keys, .ask.decided .ask-desc { display: none; }
 .ask.decided .ask-cmd { max-height: 60px; }
+.ask.decided.open { opacity: 1; }
+.ask.decided.open .ask-cmd { max-height: none; }
+.ask-more { margin-left: 8px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: none; font: inherit; font-weight: 400; color: var(--sand-faint); cursor: pointer; }
+.ask-more:hover, .ask-more:focus-visible { background: var(--reef-2); color: var(--sand); outline: none; }
 .ask-verdict { padding: 0 12px 10px; font: 600 var(--fs-12) var(--font-mono); }
 .ask-verdict.allow { color: var(--glass); }
 .ask-verdict.deny { color: var(--amber); }
