@@ -35,6 +35,17 @@ test('line names the other copy by branch and the files', () => {
   assert.equal(T.line([pair], 'other'), '');
 });
 
+test('byCopy lists each other copy once with every file it shares', () => {
+  const a = m('t1', 'shellby/a-1a2b3c'), b = m('t2', 'shellby/b-1a2b3c'), c = m('t3', 'shellby/c-1a2b3c');
+  const clashes = [clash([a, b], ['package.json']), clash([a, b, c], ['README.md']), clash([a, c], ['src/main.js', 'README.md'], { more: 2 })];
+  const r = T.byCopy(clashes, 't1');
+  assert.deepEqual(r.map(x => x.copy.tabId), ['t2', 't3']);
+  assert.deepEqual(r[0].files, ['package.json', 'README.md']);
+  assert.deepEqual(r[1].files, ['README.md', 'src/main.js']);
+  assert.equal(r[1].more, 2);
+  assert.equal(T.line(clashes, 't1'), 'Also changed in ⑂ b: package.json and README.md; ⑂ c: README.md, src/main.js and 2 more');
+});
+
 test('line names your checkout when that is the clash', () => {
   assert.equal(T.line([clash([m('t1', 'shellby/a-1a2b3c'), yours], ['x.js'])], 't1'), 'Also changed in your checkout: x.js');
 });

@@ -28,14 +28,32 @@
       .map(c => ({ clash: c, others: c.copies.filter(m => m.checkout || m.tabId !== tabId) }));
   }
 
+  /** The same, turned round: each other copy once, with every file it shares
+      with this tab. Several clashes with one tab read as one, not a pile. */
+  function byCopy(clashes, tabId) {
+    const seen = new Map();
+    for (const { clash, others } of forTab(clashes, tabId)) {
+      for (const copy of others) {
+        const key = copy.checkout ? 'checkout' : copy.tabId;
+        const got = seen.get(key) || { copy, files: [], more: 0 };
+        seen.set(key, {
+          ...got,
+          files: [...new Set([...got.files, ...(clash.files || [])])],
+          more: Math.max(got.more, clash.more || 0), // the unlisted ones may be the same files
+        });
+      }
+    }
+    return [...seen.values()];
+  }
+
   // "⑂ new-nav" for a copy, "your checkout" for yours.
   const otherLabel = m => (m.checkout ? 'your checkout' : `⑂ ${shortBranch(m.branch) || m.title}`);
 
   /** One line for a tab: "Also changed in ⑂ new-nav: src/main/merge.js". */
   function line(clashes, tabId) {
-    const mine = forTab(clashes, tabId);
+    const mine = byCopy(clashes, tabId);
     if (!mine.length) return '';
-    return 'Also changed in ' + mine.map(({ clash, others }) => `${others.map(otherLabel).join(', ')}: ${fileList(clash.files, clash.more, 2)}`).join('; ');
+    return 'Also changed in ' + mine.map(({ copy, files, more }) => `${otherLabel(copy)}: ${fileList(files, more, 2)}`).join('; ');
   }
 
   /** The toast when a clash first appears. */
@@ -74,7 +92,7 @@
     return bits.join(' ');
   }
 
-  const api = { shortBranch, fileList, forTab, line, toast, prompt };
+  const api = { shortBranch, fileList, forTab, byCopy, line, toast, prompt };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyClashText = api;
 })(typeof window !== 'undefined' ? window : globalThis);
