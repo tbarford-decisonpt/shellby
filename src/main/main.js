@@ -23,6 +23,8 @@ const focus = require('./focus');
 const rooms = require('./rooms');
 const { createLean } = require('./lean');
 const { createSkillRemover } = require('./skillremove');
+const { createModsService } = require('./mods-service');
+const editor = require('./editor');
 const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
@@ -1090,6 +1092,23 @@ function registerIpc() {
     trash: p => shell.trashItem(p),
     usage: () => lean.usage(),
     unpin: (kind, name) => config.set({ pinnedTools: (config.get('pinnedTools') || []).filter(p => !(p?.kind === kind && p?.name === name)) }),
+  }).register(ipcMain);
+  // Toolbox → Mods (mods-service.js): the CLI runs in the shop's empty folder.
+  createModsService({
+    toolbox: () => toolbox, shop: () => shop, askOnce, home: os.homedir(), log,
+    // Just-the-crab mode leaves Claude Code alone, mods' checks and tests included.
+    blocked: () => (config.get('crabOnly') ? { ok: false, error: 'Mods need Claude Code. Turn it on in Settings.' } : null),
+    runClaude: (args, timeout) => {
+      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      if (!exe) return Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+      const cwd = path.join(app.getPath('userData'), 'plugin-cli');
+      try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
+      return runCli(exe, args, timeout, { cwd });
+    },
+    uninstallPlugin: id => confirmAndUninstallPlugin(id),
+    trash: p => shell.trashItem(p),
+    openFolder: dir => editor.openFolder(dir),
+    reveal: dir => { shell.openPath(dir); },
   }).register(ipcMain);
   parityIpc = parity.register({
     ipcMain, manager, history, config, confirm, dialog, clipboard, app,

@@ -7,6 +7,7 @@ const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
 const turncost = require('./turncost');
+const mods = require('./mods');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
 // one is a running CLI, and nothing limits how many of those run at once. The cap
@@ -85,7 +86,11 @@ class SessionManager extends EventEmitter {
     session.on('busy', () => this.changed());
     session.on('tokens', () => this.changed());
     session.on('crew', () => this.changed());
-    session.on('exit', () => this.changed());
+    session.on('exit', () => {
+      // Its mods ended with it: their status lines go too (plugin null: all of them).
+      this.emit('item', tab.id, { kind: 'modstatus', plugin: null, text: null }, tab);
+      this.changed();
+    });
     this.changed();
     return tab;
   }
@@ -93,7 +98,15 @@ class SessionManager extends EventEmitter {
   onItem(tab, raw) {
     // A long tool result's tail is only for main to read (flaky.js): it's
     // neither saved with the tab nor sent to the panel.
-    const { tail, ...item } = raw;
+    let { tail, ...item } = raw;
+    // A mod's lines and toasts, within its budget: one that says something on
+    // every step would bury the conversation and its history (mods.js).
+    if (item.kind === 'modlog' || item.kind === 'modtoast') {
+      tab.modLines ??= new Map();
+      const say = mods.modLineAllowed(tab.modLines, item.plugin);
+      if (say === 'drop') return;
+      if (say === 'last') item = { kind: 'modlog', plugin: item.plugin, text: 'is saying a lot, so Shellby hides the rest of what it says this minute.' };
+    }
     tab.activeAt = Date.now();
     // A rewind's fork exists once Claude Code reports its id: from then on it's an ordinary resume.
     if (item.kind === 'init' && tab.saved) this.history.update(tab.id, { claudeSessionId: item.sessionId, resumeAt: null });

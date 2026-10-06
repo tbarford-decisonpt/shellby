@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
+const { scanMods } = require('./mods');
 
 const MAX_FILE = 256 * 1024;   // bigger than this isn't a real skill/agent/command file
 const MAX_ITEMS = 1000;        // per list
@@ -285,28 +286,35 @@ const BUILTIN_COMMANDS = {
 };
 
 const strings = a => (Array.isArray(a) ? a.filter(s => typeof s === 'string' && s) : []);
-const cliTool = (kind, name) => ({
-  kind, name, description: kind === 'command' && Object.hasOwn(BUILTIN_COMMANDS, name) ? BUILTIN_COMMANDS[name] : '', source: 'cli', path: null,
+const cliTool = (kind, name, description = '') => ({
+  kind, name, description: description || (kind === 'command' && Object.hasOwn(BUILTIN_COMMANDS, name) ? BUILTIN_COMMANDS[name] : ''), source: 'cli', path: null,
 });
 
+// init: a conversation's init event, plus `commands` ([{ name, description }]):
+// its latest commands_changed list, which is where commands a mod registers
+// once the session has started show up.
 function mergeInit(toolbox, init) {
   const tb = toolbox || {};
   const copy = k => (Array.isArray(tb[k]) ? tb[k].map(t => ({ ...t })) : []);
-  const out = { skills: copy('skills'), agents: copy('agents'), commands: copy('commands'), mcp: [], scannedAt: tb.scannedAt || Date.now() };
+  const out = { skills: copy('skills'), agents: copy('agents'), commands: copy('commands'), mcp: [], mods: copy('mods'), scannedAt: tb.scannedAt || Date.now() };
   if (!init || typeof init !== 'object') {
     out.mcp = copy('mcp');
     return out;
   }
   const have = { skill: new Set(out.skills.map(t => t.name)), agent: new Set(out.agents.map(t => t.name)), command: new Set(out.commands.map(t => t.name)) };
-  const add = (list, kind, name) => {
+  const add = (list, kind, name, description) => {
     if (have[kind].has(name)) return;
     have[kind].add(name);
-    list.push(cliTool(kind, name));
+    list.push(cliTool(kind, name, description));
   };
   for (const n of strings(init.skills)) add(out.skills, 'skill', n);
   for (const n of strings(init.agents)) add(out.agents, 'agent', n);
-  for (const n of strings(init.slash_commands)) {
-    if (!have.skill.has(n)) add(out.commands, 'command', n);
+  const said = new Map();
+  for (const c of Array.isArray(init.commands) ? init.commands : []) {
+    if (c && typeof c.name === 'string' && c.name && !said.has(c.name)) said.set(c.name, typeof c.description === 'string' ? cleanDesc(c.description) : '');
+  }
+  for (const n of [...strings(init.slash_commands), ...said.keys()]) {
+    if (!have.skill.has(n)) add(out.commands, 'command', n, said.get(n));
   }
   const seen = new Set();
   for (const s of Array.isArray(init.mcp_servers) ? init.mcp_servers : []) {
@@ -320,12 +328,14 @@ function mergeInit(toolbox, init) {
 
 // ---- watcher
 
-const ALL = tb => [...(tb.skills || []), ...(tb.agents || []), ...(tb.commands || []), ...(tb.mcp || [])];
-const key = t => `${t.kind}:${t.name}`;
-const signature = tb => ALL(tb).map(t => `${key(t)}:${t.description}:${t.path}:${t.status || ''}`).join('\n');
+const ALL = tb => [...(tb.skills || []), ...(tb.agents || []), ...(tb.commands || []), ...(tb.mcp || []), ...(tb.mods || [])];
+// A mod is known by its plugin id: two marketplaces can each have one called "tidy".
+const key = t => (t.kind === 'mod' ? `mod:${t.id}` : `${t.kind}:${t.name}`);
+const signature = tb => ALL(tb).map(t => `${key(t)}:${t.description}:${t.path}:${t.status || ''}${t.kind === 'mod' ? `:${t.enabled}:${t.version}:${t.tests}` : ''}`).join('\n');
 
 const MAX_SEEN = 5000;
 const MAX_LAUNCH_NEWS = 3;
+const MODS_MARK = 'mod:*';      // in seen once mods have been looked for: later ones are news
 const PLUGIN_EVERY_POLLS = 10;   // with the minute's poll: plugin dirs re-read every ten minutes
 
 // null: no file (or a broken one), so this is as good as a first launch.
@@ -342,11 +352,20 @@ class ToolboxWatcher extends EventEmitter {
    * seenFile: where the keys of everything seen are kept between launches, so a
    * skill written while Shellby was closed is still news when it starts.
    */
-  constructor({ home, getCwd, getPlugins, debounceMs = 800, pollMs = 60000, fsImpl = fs, seenFile = null, log = null } = {}) {
+  /**
+   * getInstalled: () => marketplace plugins as the Skill Shop last listed them
+   * ({ id, marketplace, dir, enabled, scope }), for the mods among them.
+   * getSettings: () => [user, project, local] Claude Code settings objects, for
+   * which of your own mods are turned off.
+   */
+  constructor({ home, getCwd, getPlugins, getInstalled, getSettings, debounceMs = 800, pollMs = 60000, fsImpl = fs, seenFile = null, log = null } = {}) {
     super();
     this.home = home;
     this.getCwd = typeof getCwd === 'function' ? getCwd : () => null;
     this.getPlugins = typeof getPlugins === 'function' ? getPlugins : () => [];
+    this.getInstalled = typeof getInstalled === 'function' ? getInstalled : () => [];
+    this.getSettings = typeof getSettings === 'function' ? getSettings : () => [];
+    this.commands = null;   // the last commands_changed list, which is where mods' commands show up
     this.debounceMs = debounceMs;
     this.pollMs = pollMs;
     this.fs = fsImpl;
@@ -370,7 +389,11 @@ class ToolboxWatcher extends EventEmitter {
   }
 
   get current() {
-    return this.merged || mergeInit({ skills: [], agents: [], commands: [], mcp: [], scannedAt: 0 }, this.init);
+    return this.merged || mergeInit({ skills: [], agents: [], commands: [], mcp: [], mods: [], scannedAt: 0 }, this.initWithCommands());
+  }
+
+  initWithCommands() {
+    return this.commands ? { ...(this.init || {}), commands: this.commands } : this.init;
   }
 
   start() {
@@ -405,10 +428,24 @@ class ToolboxWatcher extends EventEmitter {
 
   setInit(init) {
     this.init = init && typeof init === 'object' ? init : null;
+    this.commands = null; // a new conversation's list starts from its own init
     // Init may bring a plugin list we haven't scanned yet: pick it up now.
     if (this.scan && this.pluginsKey(this.plugins()) !== this.pluginKey) this.refresh(false);
-    this.merged = mergeInit(this.scan || { skills: [], agents: [], commands: [], mcp: [], scannedAt: 0 }, this.init);
-    this.sig = signature(this.merged);
+    this.remerge(true);
+  }
+
+  // A conversation's commands_changed: every command it has now, mods' included.
+  setCommands(commands) {
+    if (!Array.isArray(commands)) return;
+    this.commands = commands;
+    this.remerge(false);
+  }
+
+  remerge(always) {
+    this.merged = mergeInit(this.scan || { skills: [], agents: [], commands: [], mcp: [], mods: [], scannedAt: 0 }, this.initWithCommands());
+    const sig = signature(this.merged);
+    if (!always && sig === this.sig) return;
+    this.sig = sig;
     this.emit('changed', this.merged);
   }
 
@@ -419,6 +456,16 @@ class ToolboxWatcher extends EventEmitter {
     try { p = this.getPlugins(); } catch {}
     if (Array.isArray(p) && p.length) return p;
     return this.init && Array.isArray(this.init.plugins) ? this.init.plugins : [];
+  }
+
+  scanMods() {
+    const get = fn => { try { const v = fn(); return Array.isArray(v) ? v : []; } catch { return []; } };
+    try {
+      return scanMods({ home: this.home, installed: get(this.getInstalled), loaded: this.init && Array.isArray(this.init.plugins) ? this.init.plugins : [], settings: get(this.getSettings) });
+    } catch (err) {
+      this.log?.warn?.(`toolbox: couldn't look for mods: ${err.message}`);
+      return [];
+    }
   }
 
   pluginsKey(plugins) {
@@ -432,10 +479,11 @@ class ToolboxWatcher extends EventEmitter {
     const prevPlugins = this.pluginKey;
     let scan;
     try { scan = scanToolbox({ home: this.home, cwd, plugins, metaCache: this.metaCache, pluginCache: this.pluginCache }); } catch { return; }
+    scan.mods = this.scanMods();
     const prev = this.scan;
     this.scan = scan;
     this.pluginKey = this.pluginsKey(plugins);
-    this.merged = mergeInit(scan, this.init);
+    this.merged = mergeInit(scan, this.initWithCommands());
     this.syncWatchers(cwd);
 
     // Diff against everything seen, not just the last scan: items can flicker
@@ -461,6 +509,21 @@ class ToolboxWatcher extends EventEmitter {
       if (t.source.startsWith('plugin:') && !knownDirs.some(d => isInside(t.path, d))) continue;
       this.emit('learned', { kind: t.kind, name: t.name, description: t.description, path: t.path, source: t.source });
     }
+    // A mod of your own that wasn't here before: Claude Code loads it in every
+    // session without asking, so it's news even at launch (a handful of its
+    // own). One from a marketplace came with an install you confirmed, or is an
+    // update. The first look ever (a first launch, or the first since Shellby
+    // knew about mods) only takes note: those were already there.
+    const modsKnown = this.seen.has(MODS_MARK);
+    let modNews = 0;
+    for (const m of scan.mods) {
+      if (this.seen.has(key(m))) continue;
+      this.seen.add(key(m));
+      grew = true;
+      if (m.source !== 'user' || !modsKnown || (atLaunch && ++modNews > MAX_LAUNCH_NEWS)) continue;
+      this.emit('learned', { kind: 'mod', id: m.id, name: m.name, description: m.description, path: m.path, source: m.source, enabled: m.enabled });
+    }
+    if (!modsKnown) { this.seen.add(MODS_MARK); grew = true; }
     // A first launch saves even an empty list, so the next one has something to compare with.
     if (grew || (initial && !this.restored)) this.saveSeen();
     const sig = signature(this.merged);

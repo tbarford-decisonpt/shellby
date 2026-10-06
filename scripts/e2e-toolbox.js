@@ -68,7 +68,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev("SB.showToolbox('tool')");
     check(await until(`SB.state.toolbox?.skills.filter(t => t.source === 'project').length === ${SKILLS}`), `the scan finds the project's ${SKILLS} skills`);
     check(await ev("[...document.querySelectorAll('#toolGroups [role=tab]')].map(b => b.firstChild.textContent.trim()).join()") === 'Tools,Setup,Lean,Team', 'the sections sit in one row');
-    check(await chips() === 'All,Skills,Agents,Commands,MCP,Snippets', 'Tools shows its six kinds');
+    check(await chips() === 'All,Skills,Agents,Commands,MCP,Mods,Snippets', 'Tools shows its seven kinds');
     check(await ev("[...document.querySelectorAll('#toolGroups [role=tab], #toolTabs [role=tab]')].filter(b => !b.hidden).every(b => b.scrollWidth <= b.clientWidth + 1)"), 'no tab label is cut off');
     check(await ev("SB.$('toolSearch').placeholder") === 'Search skills, agents and commands…', 'All searches skills, agents and commands');
 

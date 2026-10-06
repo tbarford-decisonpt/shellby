@@ -242,6 +242,12 @@ class Marketplace {
 
   find(id) { return this.cache?.plugins.find(p => p.id === id) || null; }
 
+  /** Installed plugins unpacked in Claude Code's plugins folder, as last listed (the Toolbox looks for mods among them). */
+  installed() { return (this.cache?.plugins || []).filter(p => p.installed && p.dir); }
+
+  /** The next list() asks the CLI again: something changed outside the shop (a mod written to ~/.claude/skills). */
+  invalidate() { if (this.cache) this.cache.at = 0; }
+
   /** The configured marketplace by name, as the CLI reported it. */
   marketplace(name) { return this.cache?.marketplaces.find(m => m.name === name) || null; }
 

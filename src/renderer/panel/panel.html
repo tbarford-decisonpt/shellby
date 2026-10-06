@@ -137,6 +137,7 @@
         <button type="button" class="stop-btn" id="stopBtn">Stop <kbd>Esc</kbd></button>
       </div>
       <div class="crowded" id="crowded" role="status" hidden></div>
+      <div class="mod-status" id="modStatus" role="status" aria-label="What your mods say" hidden></div>
       <div class="outlook" id="outlook" role="status" hidden></div>
       <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
       <div class="queued" id="queued" hidden></div>
@@ -191,6 +192,7 @@
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="mod" title="Code that runs inside every Claude Code conversation">Mods <span class="n"></span></button>
         <button type="button" role="tab" data-kind="snippet" title="Saved prompts: /name here, shellby do @name in a terminal">Snippets <span class="n"></span></button>
         <button type="button" role="tab" data-kind="hook" hidden>Hooks <span class="n"></span></button>
         <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny" hidden>Rules <span class="n"></span></button>
@@ -2017,6 +2019,7 @@
 <script src="lean.js"></script>
 <script src="toolbox-snippets.js"></script>
 <script src="toolbox-team.js"></script>
+<script src="toolbox-mods.js"></script>
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="mcp-picker.js"></script>

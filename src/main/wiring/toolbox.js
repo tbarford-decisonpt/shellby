@@ -15,6 +15,9 @@ const { Marketplace } = require('../marketplace');
 const statusLine = require('../statusline');
 const { ToolboxWatcher, samePath } = require('../toolbox');
 
+const FIRST_SHOP_LIST_MS = 30 * 1000;
+const FIRST_SHOP_LIST_TRIES = 4;
+
 /** d: what main shares (main.js `shared`). */
 function wireToolbox(d) {
   // ---- toolbox
@@ -24,11 +27,16 @@ function wireToolbox(d) {
       home: os.homedir(),
       getCwd: d.currentCwd,
       getPlugins: () => [],
+      // Mods: marketplace plugins as the shop last listed them, and the settings
+      // that say which of your own are off (mods.js).
+      getInstalled: () => d.shop?.installed() || [],
+      getSettings: () => claudeSetup.settingsFiles({ home: os.homedir(), cwd: d.currentCwd() }).map(f => claudeSetup.readSettings(f.file).data || {}),
       seenFile: d.CAPTURE ? null : path.join(app.getPath('userData'), 'toolbox-seen.json'),
       log: d.log,
     });
     d.toolbox.on('changed', tb => d.send(d.panel, 'toolbox', tb));
     d.toolbox.on('learned', trick => {
+      if (trick.kind === 'mod') return newMod(trick);
       if (!d.TRICKS_KIND.has(trick.kind)) return;
       const learned = [{ ...trick, at: Date.now() }, ...(d.config.get('learnedTricks') || [])].slice(0, 30);
       d.config.set({ learnedTricks: learned });
@@ -43,6 +51,22 @@ function wireToolbox(d) {
       }
     });
     d.toolbox.start();
+  }
+
+  // A mod of your own showed up in ~/.claude/skills. Claude Code loads it in
+  // every session without asking anyone, so say so, wherever it came from, and
+  // point at where to look it over (and turn it off). Learning one is still a trick.
+  function newMod(mod) {
+    // Kept like a trick, so its "new" tag outlasts a restart.
+    d.config.set({ learnedTricks: [{ ...mod, at: Date.now() }, ...(d.config.get('learnedTricks') || [])].slice(0, 30) });
+    d.send(d.panel, 'toolbox:learned', mod);
+    d.flashState('learned', 5000);
+    d.stat('trick-learned');
+    d.awardXp('trick', { label: mod.name });
+    if (!(d.panel.isVisible() && d.panel.isFocused())) {
+      d.notify(`New mod: ${mod.name}`, `It runs inside every Claude Code conversation${mod.enabled ? '' : ' once turned on'}. Look it over in Toolbox → Mods.`.slice(0, 160),
+        () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'toolbox'); });
+    }
   }
 
   // ---- hooks and memory
@@ -299,6 +323,17 @@ function wireToolbox(d) {
         return runCli(exe, args, timeout, { cwd });
       },
     });
+    // Mods installed from a marketplace are found among the plugins the shop
+    // lists. A little after launch, so starting up doesn't wait on the CLI, and
+    // again a few times while Claude Code's status isn't known yet.
+    let tries = 0;
+    const firstList = () => {
+      if (shopBlocked()) return;
+      if (!d.claudeStatus) { if (++tries < FIRST_SHOP_LIST_TRIES) setTimeout(firstList, FIRST_SHOP_LIST_MS).unref?.(); return; }
+      if (!d.claudeStatus.installed) return;
+      d.shop.list({ stale: true }).then(r => { if (r?.ok) d.toolbox?.rescan({ plugins: false }); }).catch(() => {});
+    };
+    setTimeout(firstList, FIRST_SHOP_LIST_MS).unref?.();
   }
 
   // The shop needs Claude Code; just-the-crab mode hides it, and main enforces that too.
@@ -349,6 +384,8 @@ function wireToolbox(d) {
       d.toolbox?.rescan();
     }
     await d.shop.list().catch(() => {}); // best effort: the cache is already patched
+    // Where it was unpacked comes with that list: if it's a mod, the Toolbox finds it now.
+    if (r.ok) d.toolbox?.rescan({ plugins: false });
     return { ...r, view: d.shop.view() };
   }
 
