@@ -847,17 +847,23 @@
       none: 'Not installed on this PC yet, so Claude Code in the terminal can\'t tell Shellby what it\'s doing.',
       unreadable: "Couldn't read your Claude Code settings.json.",
     }[v.state];
-    $('pluginText').textContent = v.error || text;
-    $('pluginBtn').hidden = v.state === 'on' || v.state === 'off';
+    const old = v.outdated
+      ? `Installed, but it's version ${v.outdated.from} and this Shellby needs ${v.outdated.to}. Until it's updated, Claude and your mods can't make him react.`
+      : '';
+    state.pluginOutdated = !!v.outdated;
+    $('pluginText').textContent = v.error || old || text;
+    $('pluginBtn').hidden = (v.state === 'on' && !v.outdated) || v.state === 'off';
     $('pluginBtn').disabled = false;
-    $('pluginBtn').textContent = 'Install the plugin';
+    $('pluginBtn').textContent = v.outdated ? 'Update the plugin' : 'Install the plugin';
   }
   $('pluginBtn').addEventListener('click', async () => {
+    const isUpdate = state.pluginOutdated;
     $('pluginBtn').disabled = true;
-    $('pluginBtn').textContent = 'Installing…';
-    const v = await api.installPlugin();
+    $('pluginBtn').textContent = isUpdate ? 'Updating…' : 'Installing…';
+    const v = await (isUpdate ? api.updatePlugin() : api.installPlugin());
     renderPlugin(v);
     if (v.installed) SB.toast('Plugin installed. Start a new Claude Code session and Shellby will follow along.', { ms: 5000 });
+    if (v.updated) SB.toast('Plugin updated. Restart any Claude Code sessions that are open to pick it up.', { ms: 5000 });
   });
 
   // ------------------------------------------------------------ status line

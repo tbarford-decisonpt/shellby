@@ -288,6 +288,7 @@ contextBridge.exposeInMainWorld('shellby', {
   looseEndDraft: invoke('startfrom:loose-end'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
+  updatePlugin: invoke('plugin:update'),
   getStatusLine: invoke('statusline:get'),
   installStatusLine: invoke('statusline:install'),
   removeStatusLine: invoke('statusline:remove'),
@@ -303,7 +304,7 @@ contextBridge.exposeInMainWorld('shellby', {
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only
   devAway: invoke('dev:away'), // dev builds with SHELLBY_RECAP_TEST only: a fake idle reading
   devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
-  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), climb: invoke('dev:climb'), prank: invoke('dev:prank'), edges: invoke('dev:edges'), scene: invoke('dev:scene'), life: invoke('dev:life') }, // SHELLBY_MOTION_TEST only
+  dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), climb: invoke('dev:climb'), prank: invoke('dev:prank'), edges: invoke('dev:edges'), scene: invoke('dev:scene'), life: invoke('dev:life'), quest: invoke('dev:quest') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
 
   // focus sessions
@@ -328,6 +329,11 @@ contextBridge.exposeInMainWorld('shellby', {
   openAllRooms: invoke('rooms:all'),
   onRooms: on('rooms'),
 
+  // quests: the features worth finding, one at a time (quests.js)
+  getQuests: invoke('quests:get'),
+  hideQuests: invoke('quests:hide'),
+  onQuests: on('quests'),
+
   // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
   getLife: invoke('life:get'),
   setBirthday: invoke('life:birthday'),
@@ -339,6 +345,12 @@ contextBridge.exposeInMainWorld('shellby', {
   onLifeMoment: on('life:moment'), // a day worth marking, a closer bond, a finished set
   // looking after him (care.js, needs.js): each answers { ok, error?, life }
   needs: { feed: invoke('needs:feed'), rinse: invoke('needs:rinse'), tuck: invoke('needs:tuck'), introSeen: fire('needs:intro-seen') },
+
+  // the crew: one lasting helper crab per agent type (crew-roster.js)
+  getCrew: invoke('crew:get'),
+  renameCrew: invoke('crew:rename'),
+  setCrewHat: invoke('crew:hat'),
+  onCrew: on('crew'),
 
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),

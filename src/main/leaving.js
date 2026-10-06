@@ -81,6 +81,63 @@ function parseStatus(out) {
   return { changed, untracked };
 }
 
+/** Where a remote's work lands: its HEAD, else its main, else its master (origin's, if there is an origin). */
+async function landingRef(root, remotes, run) {
+  const remote = remotes.includes('origin') ? 'origin' : remotes[0];
+  const out = await run(['-C', root, 'for-each-ref', '--format=%(refname)',
+    ...['HEAD', 'main', 'master'].map(b => `refs/remotes/${remote}/${b}`)]);
+  return lines(out)[0] || null; // sorted by name, which is that order
+}
+
+/**
+ * Commits on local branches that no remote-tracking branch has, less those
+ * whose change already landed on the remote's main line under another hash:
+ * a rebase merge, or a squash of a one-commit branch, on GitHub leaves the
+ * branch's own commits behind, and they aren't work only this PC has.
+ * `git cherry` matches them by patch, one commit at a time, so a squash of
+ * several commits still counts (too many, never too few).
+ * -> { commits, branches: [names] } | null when git couldn't say.
+ */
+async function branchWork(root, remotes, run) {
+  const listed = await run(['-C', root, 'rev-list', '--branches', '--not', '--remotes']);
+  if (listed === null) {
+    // Too many to list (git()'s buffer): just count them, unmatched and unnamed.
+    const n = await run(['-C', root, 'rev-list', '--count', '--branches', '--not', '--remotes']);
+    return n === null ? null : { commits: Number(n.trim()) || 0, branches: [] };
+  }
+  const pending = new Set(lines(listed));
+  if (!pending.size) return { commits: 0, branches: [] };
+
+  // A branch has commits no remote has exactly when its tip is one of them
+  // (a tip a remote has brings all its history along). Newest first, so the
+  // line names what you were just working on.
+  const tips = lines(await run(['-C', root, 'for-each-ref', '--sort=-committerdate', '--format=%(objectname) %(refname)', 'refs/heads']))
+    .map(l => l.split(' '))
+    .filter(([sha]) => pending.has(sha))
+    .slice(0, MAX_BRANCHES);
+  const base = await landingRef(root, remotes, run);
+  const mine = []; // [name, tip, its commits no remote has | null: couldn't match them by patch]
+  for (const [tip, ref] of tips) {
+    const name = ref.replace(/^refs\/heads\//, '');
+    const marked = base && (await run(['-C', root, 'cherry', base, ref]));
+    if (!marked) { mine.push([name, tip, null]); continue; } // no landing branch, or cherry failed: count it all
+    const kept = [];
+    for (const l of lines(marked)) {
+      const [mark, sha] = l.split(' ');
+      if (mark === '-') pending.delete(sha);
+      else if (pending.has(sha)) kept.push(sha);
+    }
+    mine.push([name, tip, kept]);
+  }
+  // Checked after every branch's matches are in: a later branch can show one
+  // this branch kept has landed. cherry leaves merge commits out, so a pending
+  // tip names its branch either way.
+  const branches = mine
+    .filter(([, tip, kept]) => kept === null || pending.has(tip) || kept.some(sha => pending.has(sha)))
+    .map(([name]) => name);
+  return { commits: pending.size, branches };
+}
+
 /**
  * Everything at risk in one repository:
  * { root, name, ok, worktrees: [{ path, branch, main, changed, untracked }],
@@ -112,16 +169,10 @@ async function probe(root, run = git) {
   const remotes = await run(['-C', root, 'remote']);
   if (remotes === null) return unreadable;
   if (lines(remotes).length) {
-    let commits = count(await run(['-C', root, 'rev-list', '--count', '--branches', '--not', '--remotes']));
-    if (commits === null) return unreadable;
-    const branches = [];
-    if (commits) {
-      // Newest first, so the line names what you were just working on.
-      const refs = lines(await run(['-C', root, 'for-each-ref', '--sort=-committerdate', '--format=%(refname)', 'refs/heads'])).slice(0, MAX_BRANCHES);
-      for (const ref of refs) {
-        if (await run(['-C', root, 'rev-list', '--count', ref, '--not', '--remotes']).then(count)) branches.push(ref.replace(/^refs\/heads\//, ''));
-      }
-    }
+    const local = await branchWork(root, lines(remotes), run);
+    if (local === null) return unreadable;
+    let { commits } = local;
+    const { branches } = local;
     for (const wt of worktrees.filter(w => !w.branch)) {
       const n = count(await run(['-C', wt.path, 'rev-list', '--count', 'HEAD', '--not', '--branches', '--remotes']));
       if (n === null) return unreadable;

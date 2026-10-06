@@ -77,6 +77,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 </table>
 
 - **Helper crabs:** every subagent gets its own lane in the panel and its own crab on your desktop.
+- **Your crew:** each type of agent (Explore, a code reviewer, the ones you write yourself) is a lasting crab with a name, a hat and a record: *Level 14, 212 runs, 38 acted on*. They level up and earn new hats on **Shellby → Crew**.
 - **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
 - **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
 - **Checks it himself:** **Run checks** on a turn runs your tests and stamps the verdict on it, with before/after pictures when your dev server is up. Optionally after every turn, and before a copy comes home.
@@ -227,10 +228,14 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 <img src="docs/critter-hot.png" width="150" alt="Shellby sweating and fanning himself with his claw, a speech bubble reading 83 degrees"> <img src="docs/critter-dizzy.png" width="150" alt="Shellby with stars circling his eyes because memory is nearly full"> <img src="docs/critter-stuffed.png" width="150" alt="Shellby with boxes, papers and a floppy disk jammed into his shell because a drive is full">
 </p>
 
-- **Live vitals:** GPU and CPU temperature and load, memory, every drive, drive temperatures, fans and the battery, with 10-minute sparklines.
-- **His mood follows your hardware:** he sweats past 80°C, gets dizzy when memory fills up, and overstuffs his shell when a drive is full.
-- **What's hogging it,** what starts with Windows, and what Docker, WSL and the package caches are sitting on.
-- **"Ask Shellby why"** runs a read-only Claude task that finds the cause. He never deletes or kills anything himself.
+- **Live vitals:** GPU and CPU temperature and load, VRAM, memory, every drive, drive temperatures, fans and the battery, with sparklines over the last 10 minutes or the last hour. Shellby needs no admin rights, and nothing leaves your PC.
+- **CPU temperature too:** Windows hides it, so he reads it from LibreHardwareMonitor or HWiNFO. **Let Claude set it up** writes the install task for you to read before it runs.
+- **His mood follows your hardware:** he sweats past 80°C, pants under a heat shimmer when it gets scorching, gets dizzy when memory fills up, and overstuffs his shell when a drive is full. He waits out a spike before he reacts, and you set every line yourself.
+- **A heads-up, once:** one Windows notification when something crosses the line, another only if it gets worse, and a log of the last 40 alerts, including when things calmed down.
+- **What's hogging it:** while he's sweating or dizzy, the busiest processes by GPU, CPU or memory, each with an **End task** that asks first and won't touch Windows itself. He owns up to his own share too: *Shellby himself: 1% CPU, 450 MB*.
+- **What starts with Windows:** every startup entry, with a **Switch off** that works like Task Manager's, so switching it back on puts things as they were.
+- **Developer clutter:** what Docker, WSL's virtual disks and the npm, pnpm, pip, Cargo, Gradle and other caches are sitting on. Tens of gigabytes to get back, and he overstuffs his shell over that too.
+- **"Ask Shellby"** about any of it: why it's hot, what's running that you don't need, which startup apps to keep, what's safe to clear. Each one is a Claude task that reports back. He never deletes, kills or switches anything off himself.
 
 <p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
 
@@ -238,37 +243,39 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 
 ## 🎪 Things to try with him
 
-Nobody reads a feature list to find out a crab can be thrown. Have a go:
+Nobody reads a feature list to find out a crab can be thrown. Have a go.
+
+> **⚙️ Every one of these is a setting.** Turn up the ones you like and switch off any you don't. The pals, the typing and the pranks stay off until you turn them on. Each trick below says where its switch is.
 
 <table>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-ride.gif" alt="Shellby hops onto a Notepad title bar, hangs on while the window is dragged, then is shaken off and lands dizzy"><br><sub><b>Throw him at a title bar</b> and he climbs on. Drag the window and he hangs on; shake it and off he goes</sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-close.gif" alt="Shellby sits on a Notepad window; it closes under him, he hangs in mid-air for a beat, then falls to the floor"><br><sub><b>Close the window</b> under him: a beat in mid-air, a look down, and down he goes</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-ride.gif" alt="Shellby hops onto a Notepad title bar, hangs on while the window is dragged, then is shaken off and lands dizzy"><br><sub><b>Throw him at a title bar</b> and he climbs on. Drag the window and he hangs on; shake it and off he goes<br>⚙️ <i>Settings → Shellby → Climbing onto your windows</i></sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-close.gif" alt="Shellby sits on a Notepad window; it closes under him, he hangs in mid-air for a beat, then falls to the floor"><br><sub><b>Close the window</b> under him: a beat in mid-air, a look down, and down he goes<br>⚙️ <i>Settings → Shellby → Climbing onto your windows</i></sub></td>
 </tr>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-wall.gif" alt="Shellby is thrown at the left edge of the screen, sticks to it and climbs up"><br><sub><b>Throw him hard</b> at the side of the screen and he sticks to it, then climbs</sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-pals.gif" alt="Shellby is thrown up among his four little pals, who scatter when he lands"><br><sub><b>Pals on the floor</b> keep him company, and scatter when you throw him down among them</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-wall.gif" alt="Shellby is thrown at the left edge of the screen, sticks to it and climbs up"><br><sub><b>Throw him hard</b> at the side of the screen and he sticks to it, then climbs<br>⚙️ <i>Settings → Shellby → Climbing the edges of the screen</i></sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-pals.gif" alt="Shellby is thrown up among his four little pals, who scatter when he lands"><br><sub><b>Pals on the floor</b> keep him company, and scatter when you throw him down among them<br>⚙️ <i>Settings → Shellby → Pals on the floor</i> (off until you pick some)</sub></td>
 </tr>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was</sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was<br>⚙️ <i>Settings → Typing along</i> (off until you turn it on)</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses<br>⚙️ <i>Settings → Personality → How much he talks</i> (Quiet stops his little scenes)</sub></td>
 </tr>
 </table>
 
 And a few more:
 
-| Do this | And he... |
-|---|---|
-| **Flick him** while you drag him | tumbles across the screen, bonks off the edges and lands on the taskbar |
-| **Throw him at the top** of the screen | sticks to it and walks along it upside down, legs swinging |
-| **Rub the mouse** back and forth over him | gets petted, and you two grow a little closer |
-| **Play some music** | puts his headphones on |
-| **Right-click → Play → Dig for treasure** | digs, and every so often holds up a find: sea glass, a pearl, and very rarely a gold doubloon |
-| **Right-click → Play → Hide and seek** | burrows into the sand and pops up behind one of your windows |
-| **Right-click → Play → Fetch** | waits for you to throw the pebble, scuttles after it and brings it back |
-| **Turn on Mischief** (if you dare) | pinches your cursor, shoves a window and drags notes onto your desktop: *"nice cursor. mine now"* |
+| Do this | And he... | Switch |
+|---|---|---|
+| **Flick him** while you drag him | tumbles across the screen, bonks off the edges and lands on the taskbar | always on: you started it |
+| **Throw him at the top** of the screen | sticks to it and walks along it upside down, legs swinging | Settings → Shellby → Climbing the edges of the screen |
+| **Rub the mouse** back and forth over him | gets petted, and you two grow a little closer | always on |
+| **Play some music** | puts his headphones on | Settings → Listening along |
+| **Right-click → Play → Dig for treasure** | digs, and every so often holds up a find: sea glass, a pearl, and very rarely a gold doubloon | only when you ask |
+| **Right-click → Play → Hide and seek** | burrows into the sand and pops up behind one of your windows | only when you ask |
+| **Right-click → Play → Fetch** | waits for you to throw the pebble, scuttles after it and brings it back | only when you ask |
+| **Turn on Mischief** (if you dare) | pinches your cursor, shoves a window and drags notes onto your desktop: *"nice cursor. mine now"* | Settings → Shellby → Mischief (off until you turn it on) |
 
-Work mode leaves out the climbing, pals and pranks; switch it off to get them back. **[All of it in detail →](docs/DESKTOP.md)**
+Want a quieter crab in one click? **Work mode** switches off the climbing, pals and pranks together, and gives you back exactly what you had when you turn it off. **[All of it in detail →](docs/DESKTOP.md)**
 
 ## What's new
 

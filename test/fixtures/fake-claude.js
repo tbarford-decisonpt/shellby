@@ -381,6 +381,22 @@ function onLine(line) {
     return;
   }
 
+  if (content.startsWith('review crew')) {
+    // A code-reviewer helper that reports back, then Claude acts on it with an
+    // edit of its own: the crew member's run, and a finding acted on (crew-roster.js).
+    out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_rev', name: 'Agent', input: { subagent_type: 'code-reviewer', description: 'Review the diff', prompt: 'review it' } }] } });
+    out({ type: 'system', subtype: 'task_started', task_id: `rev-${turn}`, tool_use_id: 'tu_rev', description: 'Review the diff', subagent_type: 'code-reviewer', is_backgrounded: false, spawn_depth: 1 });
+    setTimeout(() => {
+      out({ type: 'system', subtype: 'task_notification', task_id: `rev-${turn}`, tool_use_id: 'tu_rev', status: 'completed', summary: 'one bug on line 3', usage: { total_tokens: 1800, tool_uses: 4, duration_ms: 900 } });
+      out({ type: 'user', parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_rev', content: [{ type: 'text', text: 'one bug on line 3' }] }] } });
+      out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_fix', name: 'Edit', input: { file_path: 'C:\\tmp\\a.js', old_string: 'a', new_string: 'b' } }] } });
+      out({ type: 'user', parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_fix', content: 'edited' }] } });
+      text('REVIEW FIXED');
+      result(true);
+    }, Number(process.env.SHELLBY_FAKE_REVIEW_MS || 400));
+    return;
+  }
+
   if (content.startsWith('crew')) {
     // A subagent that needs permission, with the real CLI's event shapes.
     out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_agent', name: 'Agent', input: { subagent_type: 'general-purpose', description: 'Write crew file', prompt: 'write it' } }] } });

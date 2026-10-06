@@ -35,6 +35,7 @@ const DEFAULTS = {
   planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude-cli.js)
   onboarded: false,
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
+  quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)
@@ -64,6 +65,7 @@ const DEFAULTS = {
   needsOn: true,     // "Snacks and naps": off keeps him content all the time
   scenesSeen: null,  // which of his little scenes he's done (see scenes.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
+  crew: null,        // { members }: one lasting helper crab per agent type, with its record (see crew-roster.js)
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
   focus: null,       // the focus session in progress (see focus.js)
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
