@@ -82,6 +82,8 @@ const DEFAULTS = {
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
+  surprises: true,    // now and then a fanfare for a real outcome: a critical hit, a clean landing (see surprises.js)
+  crits: null,        // the surprises' luck: when the last one was, misses since, how many (see surprises.js); this PC only
   checkEachTurn: false, // run the project's tests after a turn that changed files, and before bringing a copy home (see checks.js)
   checkTimeoutMin: 5, // the longest one check may run, in minutes (checks.TIMEOUTS_MIN)
   checksTrusted: {},  // { project root (lower-case): true | false }: asked once before running a project's own tests (checks.js)

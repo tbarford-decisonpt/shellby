@@ -82,6 +82,7 @@
     $('holdBigToggle').checked = state.settings.holdBigTasks === true;
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('flakyToggle').checked = state.settings.flakyTests !== false;
+    $('surprisesToggle').checked = state.settings.surprises !== false;
     $('checkEachTurnToggle').checked = state.settings.checkEachTurn === true;
     $('checkEachTurnOptions').hidden = state.settings.checkEachTurn !== true;
     $('checkTimeoutSelect').value = String([2, 5, 10, 20].includes(state.settings.checkTimeoutMin) ? state.settings.checkTimeoutMin : 5);
@@ -353,6 +354,7 @@
   $('crashReportsSelect').addEventListener('change', async e => { const r = await api.setSettings({ crashReports: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
   $('soundFxToggle').addEventListener('change', async e => { const r = await api.setSettings({ soundFx: e.target.checked }); state.settings = r.settings; });
+  $('surprisesToggle').addEventListener('change', async e => { const r = await api.setSettings({ surprises: e.target.checked }); state.settings = r.settings; });
   $('ambientSelect').addEventListener('change', async e => { const r = await api.setSettings({ ambient: e.target.value }); state.settings = r.settings; });
   $('soundVolumeSelect').addEventListener('change', async e => { const r = await api.setSettings({ soundVolume: Number(e.target.value) }); state.settings = r.settings; });
   // His needs (src/main/needs.js). Back on, he comes back full; the Us page follows.

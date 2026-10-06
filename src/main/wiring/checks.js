@@ -82,6 +82,7 @@ function wireChecks(d) {
     tab.checks = { status: verdict.status, after: verdict.after, tree: verdict.tree, at: verdict.at };
     d.manager.note(tabId, verdict);
     d.manager.changed();
+    d.surprises?.noteChecks(tabId, verdict); // red, then a turn, then green: a crit
   }
 
   /**

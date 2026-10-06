@@ -44,7 +44,7 @@ function wireProgress(d) {
   // XP kinds that also count toward a trophy (achievements.js), by the stat event they feed.
   const XP_STATS = {
     deploy: 'deployed', fixed: 'tests-fixed', flakefix: 'flake-fixed', issue: 'issue-shipped',
-    deps: 'deps-clean', tidy: 'toolbox-tidied', fresh: 'started-fresh',
+    deps: 'deps-clean', tidy: 'toolbox-tidied', fresh: 'started-fresh', crit: 'crit-hit', landing: 'clean-landing',
   };
 
   // Rooms (rooms.js): the screens a new user has opened so far. The scripted
@@ -220,9 +220,12 @@ function wireProgress(d) {
     return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(null); }, d.SNAPSHOT_WAIT_MS))]);
   }
 
+  // Test runs on known code are also how a crit is proven (wiring/surprises.js).
+  const watchTests = () => flakyOn() || !!d.surprises?.surprisesOn();
+
   /** The code as it is now, for a test command about to run; null for anything else. */
   function flakyTree(command, dir) {
-    if (!flakyOn() || classifyCommand(command) !== 'tests') return null;
+    if (!watchTests() || classifyCommand(command) !== 'tests') return null;
     const key = path.resolve(dir).toLowerCase();
     if (flakySnapshots.has(key)) return flakySnapshots.get(key);
     const p = snapshotWithin(dir);
@@ -242,11 +245,11 @@ function wireProgress(d) {
     return rest <= tail.length ? { output: head + tail.slice(-rest), complete: true } : { output: `${head}\n${tail}`, complete: false };
   }
 
-  /** A test command finished in one of Shellby's tabs: was it a flake? */
+  /** A test command finished in one of Shellby's tabs: was it a flake? Did it go green? */
   async function noteTestRun(c, item, tail) {
     try {
       const snap = await c.tree;
-      if (!snap || !flakyOn()) return;
+      if (!snap || !watchTests()) return;
       // The command was seen before it ran: an edit sent alongside it, or made
       // while it ran, means the code moved under it. Then it proves nothing.
       const end = await snapshotWithin(c.dir);
@@ -254,6 +257,8 @@ function wireProgress(d) {
       const { output, complete } = testOutput(item, tail);
       const run = flaky.readRun({ cmd: c.command, output, isError: item.isError, complete });
       if (!run) return;
+      d.surprises?.noteRun(c.tabId, { via: 'claude', cmd: run.cmd, tree: snap.tree, ok: run.ok, failing: run.parsed ? run.failed.length : 0, names: run.failed });
+      if (!flakyOn()) return;
       const project = await projectOf(snap.root);
       if (!project) return;
       flakyCommands.delete(run.cmd);
@@ -368,7 +373,7 @@ function wireProgress(d) {
   // ---- the week in review (weekly.js)
 
   // XP kinds the week-in-review counts (shipping comes from recordShipped instead).
-  const WEEK_XP_KINDS = new Set(['fixed', 'tests', 'task', 'deps', 'focus', 'trick']);
+  const WEEK_XP_KINDS = new Set(['fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'crit', 'landing']);
 
   // n: how many at once (a rewind takes back several turns).
   function noteWeek(kind, project = null, n = 1) {

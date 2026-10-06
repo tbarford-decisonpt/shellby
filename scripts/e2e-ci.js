@@ -23,6 +23,7 @@ const SUITE = [
   'e2e-xp',           // XP, levels, the desktop float and the level-up
   'e2e-flaky',        // flaky tests: fail then pass on the same code, the list, his line, Fix it in a copy
   'e2e-flaky-issue',  // a flaky test filed as a GitHub issue: no button without GitHub, asks first, labelled and linked
+  'e2e-surprises',    // crit hits: red, a fix and green in one turn; the badge, the note, the trophy; cooldown; off
   'e2e-acknowledge',  // new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
   'e2e-voice',        // what he says, his idle habits, and what outranks him
   'e2e-sound',        // footsteps, bumps, ta-das and the background: on, off, on guard and on a call

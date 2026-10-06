@@ -402,6 +402,10 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .changes.undone .chg-icon { color: var(--sand-faint); }
 /* a conversation moving into its copy, or brought home from it */
 .home-mark { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 12px 16px; padding: 4px 11px; font-size: var(--fs-12); color: var(--sand-dim); border-left: 2px solid var(--glass); }
+/* A crit hit or a clean landing: the same quiet mark, in its own colour. */
+.surprise-mark.crit { border-left-color: var(--amber); }
+.surprise-mark.crit b { color: var(--amber); font-family: var(--font-pixel); }
+.surprise-mark.landing b { color: var(--glass); font-family: var(--font-pixel); }
 .chg-files { list-style: none; margin: 0; padding: 4px 0; }
 .chg-file {
   display: flex; align-items: baseline; gap: 8px; width: 100%;

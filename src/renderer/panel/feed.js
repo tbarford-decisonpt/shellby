@@ -178,6 +178,10 @@
         case 'home': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
           `Brought home: ${item.commits} commit${item.commits === 1 ? '' : 's'} merged into ${item.base}`));
+        // A crit hit or a clean landing (src/main/surprises.js), kept with the turn that earned it.
+        case 'surprise': return this.append(h('div', { class: `home-mark surprise-mark ${item.what === 'landing' ? 'landing' : 'crit'}` },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: item.what === 'landing' ? '🛬' : '🎲' }),
+          h('span', {}, h('b', { text: item.title || (item.what === 'landing' ? 'Clean landing' : 'Critical hit!') }), ` ${item.text || ''}`)));
         case 'pushed': return this.append(h('div', { class: 'home-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇡' }),
           `Pushed ${item.branch} to ${item.remote}: ${item.commits} commit${item.commits === 1 ? '' : 's'}${item.pulled ? `, after taking in ${item.pulled} from ${item.remote}` : ''}`));

@@ -17,6 +17,8 @@ const CHEERS = Object.freeze({
   milestone: 'tada',
   unlocked: 'tada',
   levelup: 'fanfare',
+  crit: 'crit',         // surprises.js: rarer than any of these, so a sound of its own
+  landing: 'landing',
   learned: 'sparkle',
 });
 

@@ -308,6 +308,28 @@ api.onXp(({ amount }) => {
   setTimeout(() => el.remove(), 1800);
 });
 
+// A crit hit or a clean landing (src/main/surprises.js): rare, so it gets a
+// little show of its own. The badge pops up over him and he jumps (a crit) or
+// comes in to land (a clean landing); main sends the line, sound and confetti.
+const SURPRISE_MS = { crit: 2200, landing: 2400 };
+const surpriseHost = document.getElementById('surprise');
+let surpriseTimer = null;
+api.onSurprise(msg => {
+  const kind = msg?.kind === 'landing' ? 'landing' : 'crit';
+  const badge = typeof msg?.badge === 'string' ? msg.badge.slice(0, 20) : '';
+  if (!badge) return;
+  clearTimeout(surpriseTimer);
+  flags.delete('surprise-crit');
+  flags.delete('surprise-landing');
+  const el = document.createElement('span');
+  el.className = `surprise-${kind}${msg.big ? ' big' : ''}`;
+  el.textContent = badge;
+  surpriseHost.replaceChildren(el);
+  flags.add(`surprise-${kind}`);
+  paintBody();
+  surpriseTimer = setTimeout(() => { el.remove(); flags.delete(`surprise-${kind}`); paintBody(); }, SURPRISE_MS[kind]);
+});
+
 // A crew member's own hat (src/main/wiring/crew.js) for each helper on the desktop.
 const helperHats = new WeakMap();
 

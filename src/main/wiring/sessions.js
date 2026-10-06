@@ -106,7 +106,7 @@ function wireSessions(d) {
         const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
         // A test run: the code as it was when it started, so a later run can be compared (flaky.js).
         const tree = inProject && !item.background ? d.flakyTree(item.detail, dir) : null;
-        d.pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree });
+        d.pendingCommands.set(item.id, { tabId, command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree });
         if (d.pendingCommands.size > 200) d.pendingCommands.delete(d.pendingCommands.keys().next().value);
       }
       if (item.kind === 'tool') d.onToolSpoken(item);
@@ -217,6 +217,7 @@ function wireSessions(d) {
   function afterChanges(tabId, summary) {
     try {
       d.shotsAfterTurn?.(tabId, summary)?.catch?.(err => d.log.info(`shots: ${err.message}`));
+      if (summary) d.surprises?.noteTurn(tabId, summary); // before its checks, which may be the green that proves it
       if (summary) d.afterTurnChecks?.(tabId, summary);
     } catch (err) {
       d.log.info(`checks: ${err.message}`);

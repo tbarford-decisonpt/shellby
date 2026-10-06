@@ -306,6 +306,25 @@ function onLine(line) {
     result(true);
     return;
   }
+  // "crit <n> <file> <words...>" -> one turn that fixes a red suite: Jest with
+  // <n> failing, then <words> written into <file>, then Jest all green. Paced so
+  // Shellby's snapshot of each run sees the code it ran on (surprises.js).
+  if (content.startsWith('crit ')) {
+    const [, nText, file, ...words] = content.split(' ');
+    const n = Math.max(1, Math.min(20, parseInt(nText, 10) || 1));
+    const names = Array.from({ length: n }, (_, i) => `case ${i + 1}`);
+    const red = `FAIL src/auth.spec.js\n  auth\n${names.map(t => `    ✕ ${t} (12 ms)`).join('\n')}\n\n${names.map(t => `  ● auth › ${t}\n\n    expected true, got false\n`).join('\n')}\nTest Suites: 1 failed, 1 total\nTests:       ${n} failed, 3 passed, ${n + 3} total`;
+    const green = `PASS src/auth.spec.js\n\nTest Suites: 1 passed, 1 total\nTests:       ${n + 3} passed, ${n + 3} total`;
+    const jest = (id, output) => {
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command: 'npm test 2>&1 | tail -40' } }] }, parent_tool_use_id: null, session_id: sessionId });
+      setTimeout(() => out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, is_error: false, content: output }] }, parent_tool_use_id: null, session_id: sessionId }), 1200);
+    };
+    jest(`tu_crit_red_${turn}`, red);
+    setTimeout(() => require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`), 3000);
+    setTimeout(() => jest(`tu_crit_green_${turn}`, green), 4500);
+    setTimeout(() => { text(`fixed ${n}: all green`); result(true); }, 7500);
+    return;
+  }
   // "run <command>" -> runs it with the Bash tool; it "fails" if the command contains "FAIL"
   if (content.startsWith('run ')) {
     const command = content.slice(4);

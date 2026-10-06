@@ -18,6 +18,9 @@ const AWARDS = Object.freeze({
   trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick', way: 'Writes himself a new skill or agent', claude: true },
   deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes', claude: true },
   bond: { xp: 50, perHour: 1, label: 'Grew closer', way: 'The two of you grow closer' },
+  // Surprises (surprises.js): rare, so the roll is the limit, not the hour.
+  crit: { xp: 60, perHour: 3, label: 'Critical hit', way: 'Now and then, when one turn takes a red suite to green', claude: true },
+  landing: { xp: 40, perHour: 3, label: 'Clean landing', way: 'Now and then, when a copy comes home green on the first try', claude: true },
   fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green', claude: true },
   flakefix: { xp: 40, perHour: 2, label: 'Fixed a flaky test', way: 'Fixes a flaky test for good', claude: true },
   issue: { xp: 40, perHour: 3, label: 'Turned an issue into a pull request', way: 'Takes an issue all the way to a pull request', claude: true },

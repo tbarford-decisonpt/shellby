@@ -72,6 +72,10 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'launch-day', name: 'Launch Day', icon: '🛰️', description: 'Deploy or publish something', stat: 'deploys', goal: 1, rewards: ['mission-patch'] },
   { id: 'back-to-green', name: 'Back to Green', icon: '🧪', description: 'Turn failing tests green 10 times', stat: 'testsFixed', goal: 10, rewards: ['test-tube'] },
   { id: 'ghostbuster', name: 'Ghostbuster', icon: '👻', description: 'Fix a flaky test for good', stat: 'flakesFixed', goal: 1, rewards: ['proton-pack'], hidden: true },
+  // Surprises (src/main/surprises.js): rare on purpose, so hidden until they happen.
+  { id: 'critical-hit', name: 'Critical Hit', icon: '🎲', description: 'One turn takes a red test suite all the way to green, and he makes a fuss', stat: 'critHits', goal: 1, rewards: ['lucky-d20'], hidden: true },
+  { id: 'natural-twenty', name: 'Natural Twenty', icon: '✨', description: 'Land 20 critical hits', stat: 'critHits', goal: 20, rewards: ['golden-d20'], hidden: true },
+  { id: 'clean-landing', name: 'Clean Landing', icon: '🛬', description: 'A copy comes home with its checks green on the first try, and he makes a fuss', stat: 'cleanLandings', goal: 1, rewards: ['pilot-wings'], hidden: true },
   { id: 'issue-to-ship', name: 'Issue to Ship', icon: '🧭', description: 'Take an issue all the way to a pull request', stat: 'issuesShipped', goal: 1, rewards: ['ships-wheel'] },
   { id: 'clean-bill', name: 'Clean Bill', icon: '📋', description: 'Get a clean dependency audit', stat: 'cleanAudits', goal: 1, rewards: ['clipboard'] },
   { id: 'tidy-shell', name: 'Tidy Shell', icon: '🪶', description: 'Turn off a plugin or MCP server that sits idle', stat: 'toolsTidied', goal: 1, rewards: ['feather-duster'] },
@@ -95,7 +99,7 @@ const COUNTERS = [
   'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
   'snacksFed', 'rinsesGiven', 'tuckIns', 'goldenSnacks',
   'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
-  'tankPieces',
+  'tankPieces', 'critHits', 'cleanLandings',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -147,6 +151,8 @@ const INCREMENTS = {
   'deps-clean': 'cleanAudits',
   'toolbox-tidied': 'toolsTidied',
   'started-fresh': 'freshStarts',
+  'crit-hit': 'critHits',
+  'clean-landing': 'cleanLandings',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {

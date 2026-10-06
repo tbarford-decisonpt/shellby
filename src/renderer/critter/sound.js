@@ -12,7 +12,7 @@
   const STEP_MAX_MS = 160;
   // The least time between two of the same cue, so a flurry of bounces is a
   // patter rather than a buzz.
-  const MIN_GAP_MS = { bounce: 70, land: 250, hop: 150, tada: 1500, fanfare: 2500, sparkle: 800, slap: 400 };
+  const MIN_GAP_MS = { bounce: 70, land: 250, hop: 150, tada: 1500, fanfare: 2500, sparkle: 800, slap: 400, crit: 2500, landing: 2500 };
 
   let ctx = null;
   let bus = null;
@@ -126,6 +126,19 @@
     fanfare(ac, at) {
       [3, 7, 10, 15].forEach((s, i) => horn(ac, at + i * 0.09, s, 110, 0.022));
       [15, 19, 22].forEach(s => horn(ac, at + 0.4, s, 700, 0.016));
+    },
+    // A critical hit (src/main/surprises.js): a quick run up the scale, then
+    // the chord with a glint on top. Short, because the surprise is the point.
+    crit(ac, at) {
+      [0, 4, 7, 12, 16].forEach((s, i) => tone(ac, { at: at + i * 0.045, freq: hz(s + 15), ms: 70, gain: 0.018 }));
+      [15, 19, 22, 27].forEach(s => horn(ac, at + 0.25, s, 620, 0.014));
+      [34, 39].forEach((s, i) => tone(ac, { at: at + 0.3 + i * 0.09, freq: hz(s), ms: 220, type: 'triangle', gain: 0.02 }));
+    },
+    // A clean landing: swooping in, a soft touchdown, then the chord.
+    landing(ac, at) {
+      tone(ac, { at, freq: hz(22), to: hz(10), ms: 280, type: 'triangle', gain: 0.025 });
+      noise(ac, { at: at + 0.28, ms: 70, freq: 450, type: 'lowpass', gain: 0.05 });
+      [10, 15, 19].forEach(s => horn(ac, at + 0.34, s, 520, 0.015));
     },
     sparkle(ac, at) {
       [24, 28, 31, 36].forEach((s, i) => tone(ac, { at: at + i * 0.05, freq: hz(s), ms: 140, type: 'triangle', gain: 0.03 }));

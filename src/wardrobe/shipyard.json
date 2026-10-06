@@ -5,7 +5,7 @@
   "name": "Shipyard",
   "author": "x-salmon",
   "version": "1.0.0",
-  "description": "Rewards for the everyday work: deploys, green tests, flaky fixes, issues turned into pull requests, clean audits, a tidy toolbox, fresh starts, streaks and level 10.",
+  "description": "Rewards for the everyday work: deploys, green tests, critical hits and clean landings, flaky fixes, issues turned into pull requests, clean audits, a tidy toolbox, fresh starts, streaks and level 10.",
   "homepage": "https://github.com/x-salmon/shellby",
   "accessories": [
     {
@@ -181,6 +181,60 @@
         "ccccycccc"
       ],
       "unlock": { "achievement": "double-digits" }
+    },
+    {
+      "id": "lucky-d20",
+      "name": "Lucky D20",
+      "description": "Rolled a crit: one turn, red to green.",
+      "slot": "held",
+      "rarity": "epic",
+      "pivot": [3, 6],
+      "palette": { "K": "#5c0f14", "r": "#e63946", "R": "#ff8fa3", "w": "#fff4e6" },
+      "pixels": [
+        "...K...",
+        "..KRK..",
+        ".KRwRK.",
+        "KRwwwRK",
+        "KrrrrrK",
+        ".KrrrK.",
+        "..KKK.."
+      ],
+      "unlock": { "achievement": "critical-hit" }
+    },
+    {
+      "id": "golden-d20",
+      "name": "Golden D20",
+      "description": "Twenty critical hits. The dice like you.",
+      "slot": "held",
+      "rarity": "legendary",
+      "pivot": [3, 6],
+      "palette": { "K": "#7a5200", "r": "#ffc300", "R": "#fff1a8", "w": "#ffffff" },
+      "pixels": [
+        "...K...",
+        "..KRK..",
+        ".KRwRK.",
+        "KRwwwRK",
+        "KrrrrrK",
+        ".KrrrK.",
+        "..KKK.."
+      ],
+      "unlock": { "achievement": "natural-twenty" }
+    },
+    {
+      "id": "pilot-wings",
+      "name": "Pilot Wings",
+      "description": "Brought a copy home green on the first try. Smooth skies.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [4, 0],
+      "palette": { "s": "#dfe7ec", "S": "#8d99ae", "y": "#ffd166" },
+      "pixels": [
+        "S.......S",
+        "sSs.y.sSs",
+        ".ssSySss.",
+        "...sss..."
+      ],
+      "unlock": { "achievement": "clean-landing" }
     }
   ]
 }

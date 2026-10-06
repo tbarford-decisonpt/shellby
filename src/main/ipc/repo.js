@@ -50,6 +50,8 @@ function registerRepoIpc(ipcMain, d) {
       if (!gate.ok) return gate.red ? redResult(gate, w) : gate;
       if (d.manager.isBusy(tabId)) return { ok: false, error: 'He started on something new. Bring it home once he has finished.' };
       const green = gate.verdict?.status === 'pass' ? { green: true } : {};
+      // Asked before "Brought home" goes in the conversation, which would count against it.
+      const firstTry = !!d.surprises?.firstLanding(tabId, gate.verdict);
       const merged = { ...await worktrees.bringHome(w, { message: `Shellby: ${d.manager.tabs.get(tabId)?.title || 'work from a tab'}` }), ...green };
       if (!merged.ok) {
         // What git said goes in the conversation, where it can be read in full.
@@ -60,6 +62,7 @@ function registerRepoIpc(ipcMain, d) {
       if (merged.merged) {
         d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
         d.noteWeek('home'); // the weekly card's "brought N branches home"
+        if (firstTry) d.surprises.landed(tabId, { branch: w.branch, base: w.base });
       }
       d.refreshClashes?.(w.root); // its work is in the base now, so it clashes with nothing
       // And on to GitHub. A push that fails leaves the merge where it is: the
@@ -180,8 +183,9 @@ ${r.detail}` });
   // which. -> { green: copies that passed, red: the result to return, or null }
   async function gateAll(list, opts) {
     const check = typeof opts?.check === 'boolean' ? opts.check : undefined;
-    if (opts?.force === true || !(check ?? d.checksOn())) return { green: 0, red: null };
+    if (opts?.force === true || !(check ?? d.checksOn())) return { green: 0, red: null, firstTries: new Set() };
     const reds = [];
+    const firstTries = new Set(); // copies green on their first try, asked before any of them is home
     let green = 0;
     for (const c of list) {
       const s = await worktrees.status(c.w);
@@ -191,9 +195,12 @@ ${r.detail}` });
       if (d.manager.isBusy(c.id)) return { green, red: { ok: false, error: `"${c.title || c.w.branch}" started on something new while its tests ran, so nothing was merged. Try again once it's finished.` } };
       if (gate.red) reds.push({ tabId: d.manager.tabs.has(c.id) ? c.id : null, title: c.title, branch: c.w.branch, checks: gate.checks, fix: gate.fix });
       else if (!gate.ok) return { green, red: { ok: false, error: gate.error } };
-      else if (gate.verdict?.status === 'pass') green++;
+      else if (gate.verdict?.status === 'pass') {
+        green++;
+        if (d.surprises?.firstLanding(c.id, gate.verdict)) firstTries.add(c.w.branch);
+      }
     }
-    if (!reds.length) return { green, red: null, checked: true };
+    if (!reds.length) return { green, red: null, checked: true, firstTries };
     const first = reds[0];
     const error = reds.length === 1
       ? `${checks.redHeadline(first.checks)} on "${first.title || first.branch}", so nothing was merged.`
@@ -227,6 +234,12 @@ ${r.detail}` });
         d.recordWork(root, { task: false });
         d.noteWeek('home', null, merged.length);
         d.refreshClashes?.(root);
+      }
+      // One fanfare for the lot, in the first of them that's open.
+      const clean = merged.map(x => list.find(c => c.w.branch === x.branch)).filter(c => c && gated.firstTries?.has(c.w.branch));
+      if (clean.length) {
+        const where = clean.find(c => d.manager.tabs.has(c.id)) || clean[0];
+        d.surprises.landed(where.id, { branch: where.w.branch, base: where.w.base, copies: clean.length });
       }
       const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
       const last = r.results.at(-1);

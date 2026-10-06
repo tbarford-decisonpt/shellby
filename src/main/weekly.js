@@ -23,7 +23,7 @@ const WEEK = 7;
 // while you were away (their time is awayMs).
 const SHIP_KINDS = ['ship', 'deploy', 'release', 'merge'];
 const WORK_KINDS = ['pr', 'home', 'undone', 'away', 'awayHeld'];
-const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix', ...WORK_KINDS];
+const KINDS = [...SHIP_KINDS, 'minted', 'fixed', 'tests', 'task', 'deps', 'focus', 'trick', 'flaky', 'flakefix', 'crit', 'landing', ...WORK_KINDS];
 const MAX_AT_ONCE = 100;         // one rewind can take back many turns, but not more than this
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[0-9a-f]{12}$/;
@@ -311,6 +311,7 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
       projects: shipped.length, ships: ships(cur), deploys: t.deploy, releases: t.release, merges: t.merge,
       newStickers: t.minted, green: t.fixed, tests: t.tests + t.fixed, tasks: t.task,
       checkups: t.deps, focus: t.focus, tricks: t.trick, flaky: t.flaky, flakeFixes: t.flakefix,
+      crits: t.crit, landings: t.landing,
       trophies: cur.trophies.length,
       prs: t.pr, homes: t.home, undone: t.undone,
       awayRuns: t.away + t.awayHeld, awayRoutines: t.away, awayHeld: t.awayHeld, awayMs: cur.awayMs,

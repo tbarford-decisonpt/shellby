@@ -45,6 +45,8 @@
       c.checkups ? `🧼 ${plural(c.checkups, 'clean audit')}` : null,
       c.flaky ? `🎲 ${plural(c.flaky, 'flaky test')} caught` : null,
       c.flakeFixes ? `🩹 ${plural(c.flakeFixes, 'flaky test')} fixed` : null,
+      c.crits ? `🎲 ${plural(c.crits, 'critical hit')}` : null,
+      c.landings ? `🛬 ${plural(c.landings, 'clean landing')}` : null,
       c.newStickers ? `✨ ${plural(c.newStickers, 'new sticker')}` : null,
       c.focus ? `⛑️ ${plural(c.focus, 'focus session')}` : null,
     ].filter(Boolean);

@@ -72,6 +72,7 @@ const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
 const { wireCrew } = require('./wiring/crew');
+const { wireSurprises } = require('./wiring/surprises');
 const { wireStartFrom } = require('./wiring/startfrom');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { registerCritterIpc } = require('./ipc/critter');
@@ -698,6 +699,7 @@ const shared = {
   get snippetList() { return snippetList; },
   get snippetsView() { return snippetsView; },
   get soundMix() { return soundMix; },
+  get surprises() { return surprises; },
   get speak() { return speak; },
   get startFocus() { return startFocus; },
   get startFromDraft() { return startFromDraft; },
@@ -816,6 +818,7 @@ const {
 } = wireCorrections(shared);
 const handoff = wireHandoff(shared);
 const crewRoster = wireCrew(shared); // one lasting helper crab per agent type
+const surprises = wireSurprises(shared); // crit hits and clean landings, now and then
 
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
