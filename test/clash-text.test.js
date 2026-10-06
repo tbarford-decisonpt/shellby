@@ -50,19 +50,35 @@ test('line names your checkout when that is the clash', () => {
   assert.equal(T.line([clash([m('t1', 'shellby/a-1a2b3c'), yours], ['x.js'])], 't1'), 'Also changed in your checkout: x.js');
 });
 
-test('toast names both tabs and says bringing them home will clash', () => {
-  assert.equal(T.toast(pair), 'Tab ‘fix-login’ and ‘new-nav’ both changed src/main/merge.js. Bringing both home will clash.');
+test('toast heads with the file and names both tabs in the text', () => {
+  assert.deepEqual(T.toast(pair), {
+    title: 'Clash in src/main/merge.js',
+    text: 'Tabs ‘fix-login’ and ‘new-nav’ both changed it. Bringing both home will clash.',
+  });
 });
 
 test('toast uses the name a tab has now', () => {
-  assert.match(T.toast(pair, id => (id === 't2' ? 'Renamed' : null)), /‘fix-login’ and ‘Renamed’/);
+  assert.match(T.toast(pair, id => (id === 't2' ? 'Renamed' : null)).text, /‘fix-login’ and ‘Renamed’/);
+});
+
+test('toast cuts long tab titles short', () => {
+  const long = id => (id === 't1' ? 'Can we integrate this fully? 1. Helper crabs that build up a record' : null);
+  assert.match(T.toast(pair, long).text, /^Tabs ‘Can we integrate this…’ and ‘new-nav’/);
+});
+
+test('toast says "them" when several files overlap', () => {
+  const many = clash([m('a', 'shellby/a-1a2b3c'), m('b', 'shellby/b-1a2b3c')], ['x.js', 'y.js', 'z.js']);
+  assert.deepEqual(T.toast(many), {
+    title: 'Clash in x.js, y.js and 1 more',
+    text: 'Tabs ‘a’ and ‘b’ both changed them. Bringing both home will clash.',
+  });
 });
 
 test('toast for three tabs and for your checkout', () => {
   const three = clash([m('a', 'shellby/a-1a2b3c'), m('b', 'shellby/b-1a2b3c'), m('c', 'shellby/c-1a2b3c')], ['x.js']);
-  assert.equal(T.toast(three), 'Tabs ‘a’, ‘b’ and ‘c’ all changed x.js. Bringing them all home will clash.');
+  assert.equal(T.toast(three).text, 'Tabs ‘a’, ‘b’ and ‘c’ all changed it. Bringing them all home will clash.');
   const mine = clash([m('a', 'shellby/a-1a2b3c'), yours], ['x.js']);
-  assert.equal(T.toast(mine), 'Tab ‘a’ changed x.js, and so has your checkout (not committed). Bringing it home will clash.');
+  assert.equal(T.toast(mine).text, 'Tab ‘a’ and your checkout (not committed) both changed it. Bringing it home will clash.');
 });
 
 test('prompt names the other branch, the files, and how to see its changes', () => {

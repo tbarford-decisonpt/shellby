@@ -56,20 +56,37 @@
     return 'Also changed in ' + mine.map(({ copy, files, more }) => `${otherLabel(copy)}: ${fileList(files, more, 2)}`).join('; ');
   }
 
-  /** The toast when a clash first appears. */
+  // A toast is a glance, not a read: long tab titles are cut to a recognisable start.
+  const TOAST_NAME = 24;
+  function clip(name) { // name is quoted: ‘…’
+    if (name.length <= TOAST_NAME + 2) return name;
+    const cut = name.slice(0, TOAST_NAME + 2);
+    const space = cut.lastIndexOf(' ');
+    return `${(space > TOAST_NAME / 2 ? cut.slice(0, space) : cut).replace(/[\s.,:;?!-]+$/, '')}…’`;
+  }
+
+  /** The toast when a clash first appears: { title, text }. The title says
+      which files; the text says who changed them and what that means. */
   function toast(clash, titleOf) {
-    const files = fileList(clash.files, clash.more);
+    const title = `Clash in ${fileList(clash.files, clash.more, 2)}`;
+    const it = (clash.files || []).length + (clash.more || 0) > 1 ? 'them' : 'it';
     const tabs = clash.copies.filter(m => !m.checkout);
     const yours = clash.copies.some(m => m.checkout);
-    const names = tabs.map(m => nameOf(m, titleOf));
+    const names = tabs.map(m => clip(nameOf(m, titleOf)));
     if (yours) {
-      return tabs.length === 1
-        ? `Tab ${names[0]} changed ${files}, and so has your checkout (not committed). Bringing it home will clash.`
-        : `Tabs ${joinNames(names)} and your checkout all changed ${files}. Bringing them home will clash.`;
+      return {
+        title,
+        text: tabs.length === 1
+          ? `Tab ${names[0]} and your checkout (not committed) both changed ${it}. Bringing it home will clash.`
+          : `Tabs ${joinNames(names)} and your checkout all changed ${it}. Bringing them home will clash.`,
+      };
     }
-    return tabs.length === 2
-      ? `Tab ${names[0]} and ${names[1]} both changed ${files}. Bringing both home will clash.`
-      : `Tabs ${joinNames(names)} all changed ${files}. Bringing them all home will clash.`;
+    return {
+      title,
+      text: tabs.length === 2
+        ? `Tabs ${names[0]} and ${names[1]} both changed ${it}. Bringing both home will clash.`
+        : `Tabs ${joinNames(names)} all changed ${it}. Bringing them all home will clash.`,
+    };
   }
 
   /** What "Ask him to look" puts in the tab's box, unsent. */
