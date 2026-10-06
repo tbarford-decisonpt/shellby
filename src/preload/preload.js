@@ -322,6 +322,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onXp: on('xp'),
   onLevelUp: on('xp:levelup'),
   onXpBounty: on('xp:bounty'),
+  onXpClass: on('xp:class'),
 
   // rooms: which screens are open yet (rooms.js)
   getRooms: invoke('rooms:get'),

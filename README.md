@@ -205,6 +205,7 @@ None of this needs Claude or an account.
 
 - **138 accessories, 21 effects and 16 crabs,** head-to-tail sets, and costumes for every season.
 - **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
+- **A character sheet:** Shipping, Rigour, Craft and Tidiness stats from the work he does, and a class from the highest: Shipper, Tester, Toolsmith, Curator or a dual class. [See](docs/WARDROBE.md#character-sheet)
 - **A sticker for every project you ship,** drawn from the repo itself, going vinyl, holo and foil as you keep shipping.
 - **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 66 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves.
 - **Cards to share:** a crab card of him as he's dressed, and a weekly one every Friday.
@@ -284,7 +285,7 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <td width="33%" valign="top">
 
 **📅 The weekly crab card** · 0.62<br>
-<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project and the trophies you earned. [See one](docs/WARDROBE.md#your-week)</sub>
+<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project, the trophies you earned and his character sheet. [See one](docs/WARDROBE.md#your-week)</sub>
 
 </td>
 <td width="33%" valign="top">

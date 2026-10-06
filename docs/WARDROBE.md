@@ -32,13 +32,28 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 - **Trophies & XP:** click the level badge next to him in the title bar to see his level, what the next level unlocks, today's bounties, XP for the last 30 days and by kind, the XP log and a 🔥 badge with your streak. The badge changes colour every ten levels. Click the 🔥 to see the streak itself, project by project, on **Time**, next to **Guard my focus**.
 - **Across PCs:** with GitHub sync on, XP earned on each PC adds up.
 
+## Character sheet
+
+Trophies & XP also has his **character sheet**: four RPG-style stats worked out from the XP he already keeps, nothing new to track.
+
+| Stat | Grows with |
+|---|---|
+| ⬆️ **Shipping** | pushes, deploys, and issues taken all the way to a pull request |
+| ✅ **Rigour** | passing test runs, failing tests turned green, flaky tests fixed, clean dependency audits |
+| 🧠 **Craft** | skills, agents and mods he writes for himself |
+| 🧹 **Tidiness** | Lean Shell: idle plugins and MCP servers turned off, crowded conversations started fresh |
+
+A stat grows with the square root of its XP, so quadrupling the XP doubles the stat (99 at most). Each stat is scaled so that a rare thing, like writing a trick, counts about as much as a common one, like a test run. A small green **+3** beside a stat is what the last seven days added.
+
+His **class** comes from his highest stat: 🚢 **Shipper**, 🧪 **Tester**, 🛠️ **Toolsmith** or 🧹 **Curator**. When the runner-up is close behind, the two make a dual class (🏁 Release Engineer, 💡 Inventor, ⚡ Streamliner, ⚙️ Artificer, 🔍 Auditor, 📐 Architect). When all four are close he's a 🦀 **Polymath**. Until one stat reaches 5 he's a 🐚 **Wanderer**. He celebrates the first time he becomes each class, and the sheet lists the classes he has been before. If this week looks different from all time, the sheet says so ("played as a Shipper this week"). Every stat comes from Claude Code work, so the sheet is hidden in just-the-crab mode. The stats are counted on each PC separately and aren't synced.
+
 ## Your week
 
 <p align="center"><img src="screenshot-week.png" width="380" alt="Trophies & XP → This week: tasks, streak, top project, trophies, ships, green tests, deploys and releases"></p>
 
 - **Trophies & XP → This week** sums up the last seven days: tasks done, your streak, your top project (the repo with the most finished tasks), new trophies, projects shipped, tests turned green, flaky tests fixed, deploys, releases and clean audits.
 - **The week's work** sits alongside, counted as it happens and only when it did: routines (and held messages) that ran while you were away and how long Claude worked on them ("Routines worked 3h 10m while you were away"), pull requests opened and merged, builds fixed (a pull request's checks back to green and staying there), branches brought home, and turns taken back with Rewind. It's what ran, not a guess at hours saved. The card has room for the best of these on one line; the Trophies page lists them all.
-- **📅 Share my week** makes a weekly crab card, with the week's stickers on his tank and XP for each day. Every Friday afternoon after a week with something done in it, Shellby hands you the card, ready to share. Projects you keep off your calling card stay off it.
+- **📅 Share my week** makes a weekly crab card, with the week's stickers on his tank, his character sheet as a nameplate under his feet (his class, his four stats and what the week added to each) and XP for each day. Every Friday afternoon after a week with something done in it, Shellby hands you the card, ready to share. Projects you keep off your calling card stay off it.
 
 <p align="center"><img src="week-card.png" width="600" alt="A weekly crab card: projects shipped, XP for each day, the week's stickers and trophies"></p>
 

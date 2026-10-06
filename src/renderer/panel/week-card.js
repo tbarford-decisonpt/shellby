@@ -201,6 +201,59 @@
     ctx.fillText(K.fitText(ctx, note, noteW, ctx.font), x + pad + barW + 16, my + 2);
   }
 
+  // The character sheet as a nameplate across the foot of his tank: the class
+  // on the left, then a column per stat with its value, a bar against the top
+  // stat (the shape that picks the class) and what this week added.
+  function drawSheet(ctx, ch, x, y, pw, ph) {
+    K.roundRect(ctx, x, y, pw, ph, 14);
+    ctx.fillStyle = 'rgba(6,19,22,.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,210,63,.45)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const pad = 16, classW = 150;
+    ctx.fillStyle = C.sandFaint;
+    ctx.font = '600 11px "Martian Mono"';
+    ctx.fillText('CLASS', x + pad, y + 24);
+    // "Release Engineer" is long: shrunk before it's cut, like the headline.
+    const name = `${ch.cls.icon} ${ch.cls.name}`;
+    let size = 21;
+    ctx.font = `600 ${size}px "Pixelify Sans"`;
+    while (size > 14 && ctx.measureText(name).width > classW - 8) ctx.font = `600 ${--size}px "Pixelify Sans"`;
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillText(K.fitText(ctx, name, classW - 8, ctx.font), x + pad, y + 52);
+
+    const top = Math.max(10, ...ch.stats.map(s => s.value));
+    const sx = x + pad + classW, colW = (pw - pad * 2 - classW) / ch.stats.length;
+    ctx.fillStyle = 'rgba(243,230,204,.10)';
+    ctx.fillRect(sx - 12, y + 12, 1, ph - 24);
+    ch.stats.forEach((s, i) => {
+      const cx = sx + i * colW, barW = colW - 14;
+      const lead = ch.cls.stats.includes(s.id);
+      ctx.fillStyle = lead ? '#ffd23f' : C.sandFaint;
+      ctx.font = '600 11px "Martian Mono"';
+      ctx.fillText(s.short, cx, y + 24);
+      ctx.fillStyle = C.sand;
+      ctx.font = '500 20px "Martian Mono"';
+      ctx.fillText(String(s.value), cx, y + 47);
+      if (s.gain) {
+        const vw = ctx.measureText(String(s.value)).width;
+        ctx.fillStyle = '#7bd389';
+        ctx.font = '600 11px "Martian Mono"';
+        ctx.fillText(`+${s.gain}`, cx + vw + 4, y + 46);
+      }
+      K.roundRect(ctx, cx, y + ph - 16, barW, 5, 2.5);
+      ctx.fillStyle = 'rgba(127,214,194,.14)';
+      ctx.fill();
+      if (s.value) {
+        K.roundRect(ctx, cx, y + ph - 16, Math.max(5, Math.round(barW * s.value / top)), 5, 2.5);
+        ctx.fillStyle = lead ? '#ffd23f' : C.glass;
+        ctx.fill();
+      }
+    });
+  }
+
   async function render() {
     await K.loadFonts();
     SB.applyStickers?.(await api.getStickers());
@@ -210,6 +263,9 @@
     const { canvas, ctx } = K.newCanvas();
     K.drawWater(ctx);
     await K.drawTank(ctx, shipped.filter(p => p.art));
+    // Below the crab's feet, over the sand and the gap under the tank. Every stat
+    // is Claude Code work, so just the crab leaves it off.
+    if (w.character && !state.settings.crabOnly) drawSheet(ctx, w.character, 64, 486, 438, 72);
 
     const x0 = 568, right = W - 56, colW = right - x0;
     ctx.textBaseline = 'alphabetic';
@@ -308,7 +364,9 @@
       w.streak.current >= 2 ? `kept a ${w.streak.current}-day streak 🔥` : null,
     ].filter(Boolean);
     const said = bits.length ? `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]}` : `earned ${fmt(w.xp)} XP`;
-    return `${planText(w)}My week with Shellby 🦀 ${said}. A pixel hermit crab that runs Claude Code on my desktop.`;
+    const cls = w.character?.cls;
+    const classed = cls && cls.id !== 'wanderer' && !state.settings.crabOnly ? ` Class: ${cls.name} ${cls.icon}.` : '';
+    return `${planText(w)}My week with Shellby 🦀 ${said}.${classed} A pixel hermit crab that runs Claude Code on my desktop.`;
   };
 
   // "My Claude plan bought me 31 hours of work this week: 42 tasks finished, 5 of 6 fixes held. "
@@ -336,7 +394,7 @@
 
   const share = () => K.present({
     kind: 'week', draw: render, buttons: '[data-share-week]', post: postText,
-    title: 'Your week', alt: 'Your week with Shellby: what your plan bought you (hours of Claude work, tasks finished, fixes that held, the weekly limit used), your streak, your top project, new trophies, what you shipped, the week\'s work (routines that ran while you were away, pull requests, builds fixed, branches brought home) and XP for the last seven days',
+    title: 'Your week', alt: 'Your week with Shellby: what your plan bought you (hours of Claude work, tasks finished, fixes that held, the weekly limit used), your streak, his character sheet (class and Shipping, Rigour, Craft and Tidiness stats), your top project, new trophies, what you shipped, the week\'s work (routines that ran while you were away, pull requests, builds fixed, branches brought home) and XP for the last seven days',
   });
 
   // ------------------------------------------------------------ the Trophies & XP page
