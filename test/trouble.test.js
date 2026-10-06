@@ -21,7 +21,19 @@ test('signed out: the ways Claude Code says it', () => {
     'API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}',
     'OAuth token has expired. Please obtain a new token or refresh your existing token.',
     'Not logged in · Please run /login',
+    // A sign-in that lapsed while Shellby was open, as the CLI's result reports it.
+    'Failed to authenticate: OAuth session expired and could not be refreshed',
+    'Failed to authenticate: OAuth token revoked. Please log in again or contact your administrator.',
+    'Sign in again to continue',
+    'Skipping: OAuth token expired and refresh failed (re-login required)',
   ]) assert.equal(kindOf(said), 'signed-out', said);
+  // Other things expire too, and none of them is the Claude sign-in.
+  for (const said of [
+    'MCP session expired (server no longer recognizes session ID), triggering reconnection',
+    'Remote Control session expired.',
+    'plugin (built in) could not be refreshed and was skipped (see --debug)',
+    "failed to authenticate with registry 'npm'",
+  ]) assert.notEqual(kindOf(said), 'signed-out', said);
   assert.deepEqual(troubleOf('Invalid API key').action, { id: 'sign-in', label: 'Sign in again' });
   assert.notEqual(kindOf('Wrote 401 lines to app.js'), 'signed-out', 'a number on its own is not a sign-in');
 });
