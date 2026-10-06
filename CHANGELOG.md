@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.69.0: Mods, and a live token count
+## 0.69.0: Mods, a live token count, and Claude Code stays current
 
 ### New
+- **Claude Code stays current.** The CLI checks for its own updates only in an interactive terminal session, so under Shellby it stayed on whatever version you installed. Now he asks the npm registry once a day and, when there's a newer one, says so once and puts an **Update** button in **Settings → About**, beside Shellby's own, that runs `claude update`. **Update it for me** has him do it himself while nothing is running; **Leave it to me** switches the check off.
 - **Mods in the Toolbox.** Claude Code mods (plugins whose hooks are a code module) are listed in the Toolbox next to skills and plugins. Each says in plain words what it can do, and has a switch that asks first, its tests, Open in VS Code and remove. **New mod** starts a conversation that builds one. Shellby tells you when a new mod turns up in `~/.claude/skills`, since Claude Code loads it without asking, and permission cards flag Claude writing one.
 - **Mods in your conversations.** A mod's log lines, toasts and status show under its name, and its slash commands join the <kbd>/</kbd> menu.
 - **A live token count** next to the running timer, like Claude Code's "12s · 4.2k tokens".
@@ -12,6 +13,7 @@
 - **Working spinners keep spinning** when the panel is behind another window, instead of freezing as if the task had hung.
 - **The tab spinners no longer restart** every time the tab strip redraws, and the background-task symbol looks better.
 - **Lots of clashes with one copy read as one line,** with every shared file, not one line per clash.
+- Recorded CLI transcripts now scrub the home folder in its short form too (`C:\Users\TYLERB~1`, how the CLI's scratchpad paths spell it).
 
 ## 0.68.1: 0.68.0, delivered
 

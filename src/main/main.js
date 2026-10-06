@@ -72,6 +72,7 @@ const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
 const { wireStartFrom } = require('./wiring/startfrom');
+const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
 const { registerPanelIpc } = require('./ipc/panel');
@@ -227,6 +228,7 @@ const claudePath = () => config?.get('claudePath') || null;
 let config, history, skins, manager, toolbox, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard, prBadge;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
 let depWatch = null;               // the weekly look at your projects' packages (depwatch.js)
+let claudeUpdates = null;          // the daily look at Claude Code's own version (claude-update.js)
 let projects = null;               // the Projects page (projects/service.js)
 let devServers = null;             // the dev servers in them (devservers/service.js)
 let parityIpc = null;
@@ -501,6 +503,8 @@ const shared = {
   get claudePath() { return claudePath; },
   get claudeSettings() { return claudeSettings; },
   get claudeStatus() { return claudeStatus; }, set claudeStatus(v) { claudeStatus = v; },
+  get claudeUpdateView() { return claudeUpdateView; },
+  get claudeUpdates() { return claudeUpdates; }, set claudeUpdates(v) { claudeUpdates = v; },
   get cliBinDir() { return cliBinDir; },
   get cliView() { return cliView; },
   get climbing() { return climbing; }, set climbing(v) { climbing = v; },
@@ -793,6 +797,7 @@ const {
 } = wireProjects(shared);
 const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
 const { looseEndDraft, looseEnds, showBuildFix, startFromDraft, startFromSend } = wireStartFrom(shared);
+const { claudeUpdateView, createClaudeUpdates } = wireClaudeUpdates(shared);
 const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
   setupUpdates, updateView,
@@ -1333,6 +1338,7 @@ app.whenReady().then(() => {
   if (!applyHotkey(config.get('hotkey'))) console.warn('[shellby] hotkey unavailable:', config.get('hotkey'));
   applyLoginItem(config.get('openAtLogin'));
   setupUpdates();
+  createClaudeUpdates();
   // Routines start either way: a failed CLI check must not silently leave them off.
   checkStatus({ configured: claudePath() })
     .then(s => { claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; })

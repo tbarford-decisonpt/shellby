@@ -420,7 +420,7 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
 }
 
 const FAKE_STATUS = {
-  installed: true, exe: 'claude.exe', version: '2.1.286', loggedIn: true,
+  installed: true, exe: 'claude.exe', version: '2.1.290', loggedIn: true,
   authMethod: 'claude.ai', subscriptionType: 'max', email: 'you@example.com',
 };
 

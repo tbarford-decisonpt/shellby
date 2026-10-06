@@ -245,6 +245,7 @@ src/main/        Electron main process
                    and redaction, review threads quoted, TODO parsing; github/prwork.js fetches them
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
+  claude-update.js keeps the CLI itself current: the daily registry check, `claude update` on request or by itself while idle, tell | auto | off (fetch and run are injected; wiring/claude-updates.js)
   history.js       local conversation index + transcripts
   log.js           the log behind "Report a problem" (scrubbed of paths and tokens)
   trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log

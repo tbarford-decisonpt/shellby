@@ -195,6 +195,9 @@ function emptyLike(v) {
   return typeof v === 'string' ? '' : v;
 }
 
+// A user folder in its 8.3 short form: one segment under Users ending in ~ and a number.
+const SHORT_USER_DIR = /([\\/])Users([\\/]+)[^\\/]+~\d+(?=[\\/]|$)/gi;
+
 /**
  * Makes a recorded transcript safe to commit: the home folder, user name and
  * any email become placeholders, ids become stable fakes, and the lists that
@@ -222,6 +225,9 @@ function scrubTranscript(lines, { home = '', user = '' } = {}) {
   const text = s => {
     let t = s;
     if (homeRe) t = t.replace(homeRe, 'C:\\Users\\user');
+    // Windows' short names (C:\Users\TYLERB~1, how os.tmpdir() and the CLI's
+    // scratchpad paths spell the home folder) never match the long one above.
+    t = t.replace(SHORT_USER_DIR, '$1Users$2user');
     if (userRe) t = t.replace(userRe, 'user');
     for (const [re, to] of SECRETS) t = t.replace(re, to);
     return t.replace(EMAIL, 'user@example.com').replace(UUID, fakeId);

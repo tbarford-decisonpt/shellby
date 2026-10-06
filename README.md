@@ -346,6 +346,8 @@ or `winget install x-salmon.Shellby`, once Microsoft's review of the package fin
 
 **Updating:** the installed version updates itself. He checks GitHub Releases, downloads in the background, and puts a dot on the ⚙ gear when an update is ready. Click **Restart and update** in **Settings → About** or the tray menu, or just quit and it installs on the way out. Your settings live in `%APPDATA%\Shellby`, so they carry over. The portable build can't update itself: download the new `Shellby-Portable-x.y.z.exe` from [Releases](https://github.com/x-salmon/shellby/releases/latest) and replace the old one.
 
+**Keeping Claude Code current:** Claude Code checks for its own updates only in an interactive terminal session, and the sessions Shellby starts aren't interactive, so a copy that only ever runs under Shellby would stay on the version you installed. Once a day Shellby asks the npm registry which version is newest and, if yours is older, says so once and puts an **Update** button in **Settings → About**, beside Shellby's own. It runs Claude Code's own `claude update`. Pick **Update it for me** there and he does it himself, only while no conversation is running; **Leave it to me** and he never asks the registry.
+
 **Requirements:** Windows 10 or 11 (x64). For the Claude side: Claude Code 2.1+ and a Claude Pro or Max plan.
 
 ## How it works

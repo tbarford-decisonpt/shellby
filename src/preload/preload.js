@@ -66,6 +66,12 @@ contextBridge.exposeInMainWorld('shellby', {
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
   onClaudeStatus: on('claude:status'), // re-checked after the sign-in window closes, or a sign-out
   locateClaude: invoke('claude:locate'), // when the search missed it (unusual install)
+  // Keeping Claude Code itself current (claude-update.js): the daily look at the
+  // registry, `claude update` on request, and tell | auto | off.
+  checkClaudeUpdate: invoke('claude:update-check'),
+  updateClaude: invoke('claude:update'),
+  setClaudeUpdateMode: mode => ipcRenderer.invoke('claude:update-mode', String(mode)),
+  onClaudeUpdate: on('claude:update'),
 
   // tabs + tasks
   newTab: invoke('tab:new'),
