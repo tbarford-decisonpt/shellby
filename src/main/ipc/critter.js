@@ -1,9 +1,11 @@
 // The crab's own window: dragging, throwing, poking and petting him, and the
-// dev/e2e-only handlers that drive him (rooms.js decides which screens are open).
+// dev/e2e-only handlers that drive him (rooms.js decides which screens are open,
+// quests.js which tricks he has shown you).
 // Kept out of main.js, which only wires it up.
 const { app, screen } = require('electron');
 const focus = require('../focus');
 const native = require('../native-windows');
+const quests = require('../quests');
 const rooms = require('../rooms');
 const voice = require('../voice');
 
@@ -76,6 +78,9 @@ function registerCritterIpc(ipcMain, d) {
   ipcMain.handle('rooms:get', () => d.roomsPanelView());
   ipcMain.handle('rooms:open', (_e, id) => d.setRooms(rooms.openRoom(d.config.get('rooms'), String(id || ''))));
   ipcMain.handle('rooms:all', () => d.setRooms(rooms.openAll(d.config.get('rooms'))));
+  // ---- quests: the features worth finding, and the chat's card for the next one (quests.js)
+  ipcMain.handle('quests:get', () => d.questsPanelView());
+  ipcMain.handle('quests:hide', (_e, hidden) => d.setQuests(quests.setHidden(d.config.get('quests'), hidden === true)));
 
   // Dev/e2e only: throw him, send him for a stroll, finish a focus session now,
   // make him say something or do one of his idle habits.
@@ -98,6 +103,7 @@ function registerCritterIpc(ipcMain, d) {
       if (what === 'needs') return d.life.needsForTest(args); // { meters, pantry }
       return d.life.view();
     });
+    ipcMain.handle('dev:quest', (_e, id) => (d.questDone(String(id || '')), d.questsPanelView()));
     ipcMain.handle('dev:throw', (_e, { vx = 0, vy = 0 } = {}) => {
       const t = Date.now();
       return d.motion.release([{ x: 0, y: 0, t: t - 50 }, { x: vx * 0.05, y: vy * 0.05, t }]);

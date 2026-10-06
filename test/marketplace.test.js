@@ -381,6 +381,52 @@ test('uninstall: user-scope plugins only; project installs point to the terminal
   assert.equal(m.view().plugins.find(p => p.name === 'frontend-design').installed, false);
 });
 
+test('update: refreshes its marketplace first, then updates the user install, and the cache shows the new version', async () => {
+  const { run, calls } = fakeRun(listAnswers({
+    // The real line from `claude plugin update shellby@shellby --json` (2.1.291).
+    'plugin update': { ok: true, stdout: '{"command":"update","outcome":"ok","pluginId":"frontend-design@claude-plugins-official","scope":"user","updateOutcome":"updated","oldVersion":"1.2.0","newVersion":"1.3.0"}' },
+  }));
+  const m = new Marketplace({ run });
+  assert.equal((await m.update('frontend-design@claude-plugins-official')).ok, false, 'nothing listed yet');
+  await m.list();
+  assert.equal((await m.update('42crunch-api-security-testing@claude-plugins-official')).ok, false, 'not installed');
+  const r = await m.update('frontend-design@claude-plugins-official');
+  assert.deepEqual(r, { ok: true, id: 'frontend-design@claude-plugins-official', updated: true, from: '1.2.0', to: '1.3.0' });
+  const changes = calls.filter(c => c[1] === 'update' || c[2] === 'update');
+  assert.deepEqual(changes, [
+    ['plugin', 'marketplace', 'update', 'claude-plugins-official'],
+    ['plugin', 'update', 'frontend-design@claude-plugins-official', '--scope', 'user', '--json'],
+  ]);
+  assert.ok(!calls.flat().includes('-y') && !calls.flat().includes('--yes'));
+  assert.equal(m.view().plugins.find(p => p.name === 'frontend-design').version, '1.3.0');
+});
+
+test('update: already current is not a failure; failures, command sources and project installs are reported', async () => {
+  const current = fakeRun(listAnswers({ 'plugin update': { ok: true, stdout: '{"outcome":"ok","updateOutcome":"up_to_date","oldVersion":"1.2.0","newVersion":"1.2.0"}' } }));
+  const m1 = new Marketplace({ run: current.run });
+  await m1.list();
+  assert.deepEqual(await m1.update('frontend-design@claude-plugins-official'), { ok: true, id: 'frontend-design@claude-plugins-official', updated: false, from: '1.2.0', to: '1.2.0' });
+
+  const fail = fakeRun(listAnswers({ 'plugin update': { ok: false, stdout: '{"outcome":"failed","failureCode":"not_found","message":"Plugin not found"}' } }));
+  const m2 = new Marketplace({ run: fail.run });
+  await m2.list();
+  assert.deepEqual(await m2.update('frontend-design@claude-plugins-official'), { ok: false, error: 'Plugin not found' });
+
+  const cmd = fakeRun(listAnswers({ 'plugin update': { ok: false, stdout: '{"outcome":"failed","shownCommand":{"sha256":"ab"}}' } }));
+  const m3 = new Marketplace({ run: cmd.run });
+  await m3.list();
+  const r3 = await m3.update('frontend-design@claude-plugins-official');
+  assert.deepEqual([r3.ok, r3.needsTerminal, r3.command], [false, true, 'claude plugin update frontend-design@claude-plugins-official']);
+
+  const catalog = { ...CATALOG, installed: [{ id: 'frontend-design@claude-plugins-official', scope: 'project', enabled: true, version: '1.2.0' }] };
+  const proj = fakeRun(listAnswers({ 'plugin list --available': { ok: true, stdout: JSON.stringify(catalog) } }));
+  const m4 = new Marketplace({ run: proj.run });
+  await m4.list();
+  const r4 = await m4.update('frontend-design@claude-plugins-official');
+  assert.deepEqual([r4.ok, r4.needsTerminal, r4.command], [false, true, 'claude plugin update frontend-design@claude-plugins-official --scope project']);
+  assert.ok(!proj.calls.some(c => c[1] === 'update'));
+});
+
 test('addMarketplace: validates before calling the CLI', async () => {
   const { run, calls } = fakeRun(listAnswers());
   const m = new Marketplace({ run });

@@ -518,6 +518,7 @@ const shared = {
   get confirmAndInstallOpenRgb() { return confirmAndInstallOpenRgb; },
   get confirmAndInstallPlugin() { return confirmAndInstallPlugin; },
   get confirmAndInstallShellbyPlugin() { return confirmAndInstallShellbyPlugin; },
+  get confirmAndUpdateShellbyPlugin() { return confirmAndUpdateShellbyPlugin; },
   get confirmAndPublishPack() { return confirmAndPublishPack; },
   get confirmAndUninstallPlugin() { return confirmAndUninstallPlugin; },
   get confirmChannelPlace() { return confirmChannelPlace; },
@@ -638,6 +639,7 @@ const shared = {
   get placeCritter() { return placeCritter; },
   get playtime() { return playtime; }, set playtime(v) { playtime = v; },
   get pluginView() { return pluginView; },
+  get pluginViewListed() { return pluginViewListed; },
   get prBadge() { return prBadge; }, set prBadge(v) { prBadge = v; },
   get refreshPhoneTasks() { return refreshPhoneTasks; },
   get pranks() { return pranks; }, set pranks(v) { pranks = v; },
@@ -661,6 +663,8 @@ const shared = {
   get rgbClient() { return rgbClient; }, set rgbClient(v) { rgbClient = v; },
   get rgbSettings() { return rgbSettings; },
   get rgbView() { return rgbView; },
+  get questDone() { return questDone; },
+  get questsPanelView() { return questsPanelView; },
   get roomTaskDone() { return roomTaskDone; },
   get roomsPanelView() { return roomsPanelView; },
   get runCheckup() { return runCheckup; },
@@ -675,6 +679,7 @@ const shared = {
   get sentry() { return sentry; },
   get serversOnQuit() { return serversOnQuit; },
   get setFolder() { return setFolder; },
+  get setQuests() { return setQuests; },
   get setRooms() { return setRooms; },
   get setSnippets() { return setSnippets; },
   get settleCritter() { return settleCritter; },
@@ -755,8 +760,8 @@ const {
 } = wireSessions(shared);
 const {
   awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, roomTaskDone, roomsPanelView,
-  runCheckup, setRooms, showFlaky, weekView, xpView,
+  knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, questDone, questsPanelView,
+  roomTaskDone, roomsPanelView, runCheckup, setQuests, setRooms, showFlaky, weekView, xpView,
 } = wireProgress(shared);
 const {
   beachSeen, beachView, clipboardHasImage, composePrompt, createExternal, createHealth,
@@ -780,8 +785,8 @@ const {
   weatherView,
 } = wireSurroundings(shared);
 const {
-  askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin,
-  confirmAndUninstallPlugin, createShop, createToolbox, draftHook, forgetPausedHook, pauseHook, pluginView,
+  askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin, confirmAndUpdateShellbyPlugin,
+  confirmAndUninstallPlugin, createShop, createToolbox, draftHook, forgetPausedHook, pauseHook, pluginView, pluginViewListed,
   resumeHook, setupCwd, setupView, setupWhere, shopBlocked, testHook,
 } = wireToolbox(shared);
 const {

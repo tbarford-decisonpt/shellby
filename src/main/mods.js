@@ -265,6 +265,8 @@ const CALL_POWERS = [
   { re: /^\$\.prompt\.submit/, text: 'Starts turns on its own, which use your plan', risk: 'high' },
   { re: /^\$\.(model|agent\.spawn)/, text: 'Asks Claude things of its own, which uses your plan', risk: 'medium' },
   { re: /^\$\.session\.append/, text: "Adds to the conversation Claude reads", risk: 'medium' },
+  // Shellby's own (docs/MODS.md) or anyone's: validate doesn't say which.
+  { re: /^\$\.mcp\./, text: 'Uses tools from your MCP servers', risk: 'medium' },
   { re: /^\$\.prompt\.fill/, text: 'Fills in the message box', risk: 'low' },
   { re: /^\$\.tool\.register/, text: 'Gives Claude new tools', risk: 'low' },
   { re: /^\$\.agent\.register/, text: 'Adds helper agents', risk: 'low' },
@@ -371,6 +373,9 @@ function buildPrompt({ name, idea, home }) {
     '',
     `Then run \`claude plugin validate "${dir}"\` and \`claude plugin test "${dir}"\`, and fix anything they report.`,
     "In Shellby, a mod's log lines, toasts, status lines and slash commands show up; panes and bands above the prompt only draw in a terminal.",
+    '',
+    "The desktop crab reacts to $.mcp.call('plugin:shellby:shellby', tool, args): say { text, mood? }, celebrate { reason? }, wear { item }, status {}.",
+    "Don't await it in a hook's path, and catch its errors and carry on (Shellby may be closed; it needs an allow rule): https://github.com/x-salmon/shellby/blob/main/docs/MODS.md",
   ].join('\n');
 }
 

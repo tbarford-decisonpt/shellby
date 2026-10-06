@@ -363,6 +363,29 @@ class Marketplace {
     });
   }
 
+  // Bring an installed plugin up to its marketplace's newest. Claude Code only
+  // knows what's newest after pulling that marketplace, so that goes first.
+  update(id) {
+    const p = this.find(id);
+    if (!this.known(id) || !p?.installed) return Promise.resolve({ ok: false, error: "That plugin isn't installed." });
+    if (p.scope !== 'user') {
+      return Promise.resolve({ ok: false, needsTerminal: true, command: `claude plugin update ${id} --scope ${p.scope}`, error: `This plugin is installed for one project. Update it from a terminal in that project's folder.` });
+    }
+    return this.change(async () => {
+      await this.run(['plugin', 'marketplace', 'update', p.marketplace], CHANGE_TIMEOUT_MS); // best effort
+      const r = await this.run(['plugin', 'update', id, '--scope', 'user', '--json'], CHANGE_TIMEOUT_MS);
+      if (r.notInstalled) return { ok: false, error: NOT_INSTALLED };
+      const res = parseResultLine(r.stdout);
+      if (res?.shownCommand || res?.failureCode === 'command_confirmation_required') {
+        return { ok: false, needsTerminal: true, command: `claude plugin update ${id}`, error: 'This plugin updates by running a command. To review that command first, update it from a terminal.' };
+      }
+      if (failed(r, res)) return { ok: false, error: str(res?.message, 300) || 'Claude Code could not update that plugin.' };
+      const to = str(res?.newVersion, 24);
+      if (to) this.patch(id, { version: to });
+      return { ok: true, id, updated: res?.updateOutcome !== 'up_to_date', from: str(res?.oldVersion, 24), to };
+    });
+  }
+
   // Turn an installed plugin off or back on. It stays installed, so either way
   // is one click to undo (the Lean tab offers this, never uninstall).
   setEnabled(id, on) {
