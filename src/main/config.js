@@ -63,6 +63,7 @@ const DEFAULTS = {
   needsOn: true,     // "Snacks and naps": off keeps him content all the time
   scenesSeen: null,  // which of his little scenes he's done (see scenes.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
+  crew: null,        // { members }: one lasting helper crab per agent type, with its record (see crew-roster.js)
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
   focus: null,       // the focus session in progress (see focus.js)
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)

@@ -71,6 +71,7 @@ const { wireChecks } = require('./wiring/checks');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
+const { wireCrew } = require('./wiring/crew');
 const { wireStartFrom } = require('./wiring/startfrom');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { registerCritterIpc } = require('./ipc/critter');
@@ -88,6 +89,7 @@ const { registerSurroundingsIpc } = require('./ipc/surroundings');
 const { registerTriesIpc } = require('./ipc/tries');
 const { registerCorrectionsIpc } = require('./ipc/corrections');
 const { registerStartFromIpc } = require('./ipc/startfrom');
+const { registerCrewIpc } = require('./ipc/crew');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -523,6 +525,7 @@ const shared = {
   get correctionFromTurns() { return correctionFromTurns; },
   get crashConsent() { return crashConsent; },
   get crewExtra() { return crewExtra; },
+  get crewRoster() { return crewRoster; },
   get crewShown() { return crewShown; },
   get critter() { return critter; }, set critter(v) { critter = v; },
   get critterBaseSize() { return critterBaseSize; },
@@ -812,6 +815,7 @@ const {
   learnedView, lessonPreview, lessonState, noteCorrection,
 } = wireCorrections(shared);
 const handoff = wireHandoff(shared);
+const crewRoster = wireCrew(shared); // one lasting helper crab per agent type
 
 // The critter window grows to the left to make room for helper crabs, keeping
 // Shellby himself anchored in place.
@@ -1191,6 +1195,7 @@ function registerIpc() {
   registerTriesIpc(ipcMain, d);
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
+  registerCrewIpc(ipcMain, d);
 }
 
 // ================================================================ boot

@@ -100,6 +100,7 @@ function wireSessions(d) {
       // (and offer Fix with Claude), not "started 2h ago" for ever.
       if (failed && item.kind === 'error' && d.routineTabs.has(tabId)) d.routineService.updateRoutine(d.routineTabs.get(tabId), { lastStatus: 'error' });
       if (item.kind === 'task' && item.phase === 'started') d.stat('helper-spawned');
+      d.crewRoster?.onItem(tabId, item, tab); // each helper's run goes on its crew member's record (wiring/crew.js)
       if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
         const dir = tab.session?.cwd || '';
         const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());

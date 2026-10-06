@@ -81,7 +81,7 @@ api.onSkin(msg => {
   document.documentElement.style.setProperty('--px', `${px}px`);
   document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
   drawSelf();
-  for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue));
+  for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, helperHats.get(el)));
   // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
   if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
   // Real rain outside beats the snow he chose to wear.
@@ -308,11 +308,22 @@ api.onXp(({ amount }) => {
   setTimeout(() => el.remove(), 1800);
 });
 
-function helperSprite(hue) {
-  // Helpers wear the same hat as Shellby when "crew outfits" is on.
-  const svg = window.ShellbySprite.build(skin, { px: Math.max(1, px * 0.5), accessories: outfit.crewAccessories || [] });
+// A crew member's own hat (src/main/wiring/crew.js) for each helper on the desktop.
+const helperHats = new WeakMap();
+
+function helperSprite(hue, hats) {
+  // A crew member wears its own hat; a helper from another app wears Shellby's
+  // when "crew outfits" is on.
+  const svg = window.ShellbySprite.build(skin, { px: Math.max(1, px * 0.5), accessories: hats || outfit.crewAccessories || [] });
   svg.style.filter = `hue-rotate(${hue}deg) saturate(1.1)`;
   return svg;
+}
+
+const lookKey = c => (c.accessories || []).map(a => a.key).join(',');
+// "Clawdia Lv 4 · Review the diff", or, for a helper with no crew record, its job and type.
+function helperTag(c) {
+  if (c.name) return `${c.name} Lv ${c.level} · ${c.label}`;
+  return c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
 }
 
 function renderCrew(crew, more) {
@@ -330,7 +341,8 @@ function renderCrew(crew, more) {
   crew.forEach((c, i) => {
     let el = helpers.get(c.id);
     if (!el) {
-      const hue = HUES[helpers.size % HUES.length];
+      // A crew member keeps its colour run after run; anyone else takes the next one.
+      const hue = Number.isFinite(c.hue) ? c.hue : HUES[helpers.size % HUES.length];
       el = document.createElement('div');
       el.className = 'helper fresh';
       el.dataset.hue = hue;
@@ -338,15 +350,23 @@ function renderCrew(crew, more) {
       el.style.animationDelay = `${i * 80}ms`;
       const tag = document.createElement('span');
       tag.className = 'tag';
-      el.append(tag, helperSprite(hue));
+      helperHats.set(el, c.accessories);
+      el.dataset.look = lookKey(c);
+      el.append(tag, helperSprite(hue, c.accessories));
       el.addEventListener('click', () => api.crewClick(el.dataset.tab));
       setTimeout(() => el.classList.remove('fresh'), 2500);
       helpers.set(c.id, el);
       crewHost.append(el);
     }
+    // A level reached or a hat changed mid-run: redraw it.
+    if (el.dataset.look !== lookKey(c) && !el.classList.contains('leaving')) {
+      el.dataset.look = lookKey(c);
+      helperHats.set(el, c.accessories);
+      el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, c.accessories));
+    }
     // Themed name tag only: a native `title` would pop an unstyled OS tooltip.
-    el.querySelector('.tag').textContent = c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
-    el.setAttribute('aria-label', `Helper ${c.type}: ${c.label}`);
+    el.querySelector('.tag').textContent = helperTag(c);
+    el.setAttribute('aria-label', c.name ? `${c.name}, level ${c.level} ${c.type}: ${c.label}` : `Helper ${c.type}: ${c.label}`);
   });
   crewHost.querySelector('.more')?.remove();
   if (more > 0) {

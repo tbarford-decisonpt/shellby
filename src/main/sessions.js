@@ -364,7 +364,7 @@ class SessionManager extends EventEmitter {
       pending += t.session.pending.size;
       if (t.session.busy) busy++;
       for (const c of t.session.runningCrew()) {
-        crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'agent' });
+        crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose' }); // Claude Code's own default
       }
     }
     return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew };

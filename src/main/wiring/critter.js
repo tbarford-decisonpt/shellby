@@ -168,6 +168,8 @@ function wireCritter(d) {
     if (occasion === 'back') setTimeout(() => d.awayService.greet(now - state.lastRunAt), 2500);
   }
 
+  const dressCrew = crew => (crew.length && d.crewRoster ? d.crewRoster.dress(crew) : crew);
+
   // Rolls every tab up into one mood: asking > working > flash > idle/sleeping.
   function refreshCritter() {
     if (!d.manager || !d.critter) return;
@@ -193,7 +195,8 @@ function wireCritter(d) {
     d.send(d.critter, 'critter:state', {
       state,
       busy: agg.busy,
-      crew: agg.crew.slice(0, d.MAX_CREW_SHOWN),
+      // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
+      crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
       health: d.healthMood,
       level: d.levelUpAt,

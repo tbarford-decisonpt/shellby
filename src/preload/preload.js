@@ -340,6 +340,12 @@ contextBridge.exposeInMainWorld('shellby', {
   // looking after him (care.js, needs.js): each answers { ok, error?, life }
   needs: { feed: invoke('needs:feed'), rinse: invoke('needs:rinse'), tuck: invoke('needs:tuck'), introSeen: fire('needs:intro-seen') },
 
+  // the crew: one lasting helper crab per agent type (crew-roster.js)
+  getCrew: invoke('crew:get'),
+  renameCrew: invoke('crew:rename'),
+  setCrewHat: invoke('crew:hat'),
+  onCrew: on('crew'),
+
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),
   placeSticker: (id, slot, shell) => ipcRenderer.invoke('stickers:place', { id, slot, shell }),
