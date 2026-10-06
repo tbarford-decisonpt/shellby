@@ -21,6 +21,9 @@ const AWARDS = Object.freeze({
   fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green', claude: true },
   flakefix: { xp: 40, perHour: 2, label: 'Fixed a flaky test', way: 'Fixes a flaky test for good', claude: true },
   issue: { xp: 40, perHour: 3, label: 'Turned an issue into a pull request', way: 'Takes an issue all the way to a pull request', claude: true },
+  // The Bugdex (bugdex.js): a kind of bug it hadn't caught yet, then repeats. Small,
+  // because the same fix usually pays 'fixed' or 'tests' too.
+  newbug: { xp: 40, perHour: 3, label: 'A new bug for the Bugdex', way: 'Catches a kind of bug the Bugdex hasn\'t caught yet', claude: true },
   ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)', claude: true },
   deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean', claude: true },
   // Lean Shell (efficiency.js): only for things that cost nothing in quality. Never
@@ -32,6 +35,7 @@ const AWARDS = Object.freeze({
   fresh: { xp: 20, perHour: 2, label: 'Started a crowded chat fresh', way: 'Starts a crowded conversation fresh with a summary', claude: true },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },
   task: { xp: 10, perHour: 60, label: 'Finished a task', way: 'Finishes a task', claude: true },
+  catch: { xp: 10, perHour: 6, label: 'Caught a bug', way: 'Fixes a bug and catches it for the Bugdex', claude: true },
   play: { xp: 10, perHour: 4, label: 'Played a game with him', way: 'Plays hide and seek or fetch with you' },
   find: { xp: 8, perHour: 4, label: 'He dug you up a gift', way: 'Digs you up a gift' },
   day: { xp: 5, perHour: 1, label: 'Another day together', way: 'Each day you use him' },

@@ -1,0 +1,174 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "bug-hunter",
+  "name": "Bug Hunter",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rewards for the Bugdex: a net and a jar for the first catch, a magnifier, a terrarium for his tank, a trainer's cap, a sprayer, and three rare finds for golden, ghostly and legendary bugs.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "bug-net",
+      "name": "Bug Net",
+      "description": "First bug in the jar. Fixed, not just spotted.",
+      "slot": "held",
+      "pivot": [2, 6],
+      "palette": { "K": "#8d99ae", "w": "#f1faee", "v": "#ced4da", "b": "#a47148" },
+      "pixels": [
+        ".KKK.",
+        "KwvwK",
+        "KvwvK",
+        ".KwK.",
+        "..b..",
+        "..b..",
+        "..b.."
+      ],
+      "unlock": { "achievement": "gotcha" }
+    },
+    {
+      "id": "specimen-jar",
+      "name": "Specimen Jar",
+      "description": "Cork in, label on. Exhibit A.",
+      "slot": "shell",
+      "pivot": [2, 6],
+      "palette": { "c": "#b08968", "s": "#caf0f8", "g": "#8ac926", "k": "#2b2d42" },
+      "pixels": [
+        ".ccc.",
+        "sssss",
+        "s.g.s",
+        "sgkgs",
+        "s...s",
+        ".sss."
+      ],
+      "unlock": { "achievement": "gotcha" }
+    },
+    {
+      "id": "magnifier",
+      "name": "Magnifier",
+      "description": "Ten kinds of bug in the Bugdex. He takes a closer look at everything now.",
+      "slot": "face",
+      "rarity": "rare",
+      "pivot": [4, 1],
+      "palette": { "k": "#495057", "w": "#caf0f8", "W": "#ffffff", "b": "#8b5a2b" },
+      "pixels": [
+        ".kkk.....",
+        "kWww.k...",
+        "kwww.k...",
+        ".kkk.....",
+        "....b....",
+        ".....b..."
+      ],
+      "unlock": { "achievement": "field-notes" }
+    },
+    {
+      "id": "trainer-cap",
+      "name": "Trainer Cap",
+      "description": "Forty kinds of bug caught. Gotta fix 'em all.",
+      "slot": "hat",
+      "rarity": "epic",
+      "pivot": [5, 3],
+      "palette": { "r": "#e63946", "R": "#9d0208", "w": "#f8f9fa", "k": "#2b2d42" },
+      "pixels": [
+        "...rrrr....",
+        "..rrwwwr...",
+        ".rrwwkwwr..",
+        ".kkkkkkkkRR"
+      ],
+      "unlock": { "achievement": "fix-em-all" }
+    },
+    {
+      "id": "bug-sprayer-pack",
+      "name": "Bug Sprayer",
+      "description": "A hundred bugs caught. He keeps it topped up, just in case.",
+      "slot": "shell",
+      "rarity": "rare",
+      "pivot": [2, 5],
+      "palette": { "y": "#ffd166", "Y": "#e9a23b", "k": "#2b2d42", "K": "#6c757d" },
+      "pixels": [
+        ".KK..",
+        "yyyK.",
+        "ykyYK",
+        "yyyY.",
+        "YYYY."
+      ],
+      "unlock": { "achievement": "exterminator" }
+    },
+    {
+      "id": "golden-net",
+      "name": "Golden Net",
+      "description": "Caught a golden bug. Some catches come with a shine.",
+      "slot": "held",
+      "rarity": "legendary",
+      "pivot": [2, 7],
+      "palette": { "Y": "#ffd166", "y": "#e9c46a", "w": "#fff3c4", "s": "#ffffff" },
+      "pixels": [
+        "....s",
+        ".YYY.",
+        "YwywY",
+        "YywyY",
+        ".YwY.",
+        "..y..",
+        "..y..",
+        "..y.."
+      ],
+      "unlock": { "achievement": "golden-touch" }
+    },
+    {
+      "id": "ghost-jar",
+      "name": "Ghost Jar",
+      "description": "Three kinds of ghost from the wreck, caught and kept. This one glows a little.",
+      "slot": "held",
+      "rarity": "epic",
+      "pivot": [3, 6],
+      "palette": { "b": "#7f5539", "s": "#b8c0ff", "w": "#f8f9fa", "k": "#3d405b" },
+      "pixels": [
+        "..bbb..",
+        ".sssss.",
+        "s.www.s",
+        "swkwkws",
+        "s.www.s",
+        "s.w.w.s",
+        ".sssss."
+      ],
+      "unlock": { "achievement": "ghost-whisperer" }
+    },
+    {
+      "id": "quantum-goggles",
+      "name": "Quantum Goggles",
+      "description": "Caught a legendary bug. It was there until he looked, and then it was in the jar.",
+      "slot": "face",
+      "rarity": "legendary",
+      "pivot": [4, 2],
+      "palette": { "y": "#ffd166", "K": "#22223b", "c": "#4cc9f0", "w": "#e0fbfc", "p": "#9d4edd", "P": "#e0aaff" },
+      "pixels": [
+        "..y...y..",
+        ".KKK.KKK.",
+        "KcwcKpPpK",
+        ".KKK.KKK."
+      ],
+      "unlock": { "achievement": "heisenberg" }
+    }
+  ],
+  "decor": [
+    {
+      "id": "bug-terrarium",
+      "name": "Bug Terrarium",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "A whole habitat of the Bugdex, finished. The bugs in here are fixed, so they behave.",
+      "palette": { "S": "#a8dadc", "g": "#52b788", "G": "#2d6a4f", "s": "#7f5539", "W": "#5e3b1a", "r": "#e63946" },
+      "pixels": [
+        ".SSSSSSSS.",
+        "S........S",
+        "S.....r..S",
+        "S..g.....S",
+        "S.gGg..g.S",
+        "SgGGGg.gGS",
+        "SssssssssS",
+        "WWWWWWWWWW"
+      ],
+      "unlock": { "achievement": "naturalist" }
+    }
+  ]
+}

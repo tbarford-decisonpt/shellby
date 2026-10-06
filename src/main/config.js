@@ -57,6 +57,7 @@ const DEFAULTS = {
   soundVolume: 60,   // 25 | 60 | 100: soft, normal, loud
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
+  bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
   play: null,        // hide and seek and fetch scores (see play.js)
   needs: null,       // his tummy, shine, pep and cheer, and the snack pantry (see needs.js); this PC only
@@ -81,6 +82,7 @@ const DEFAULTS = {
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
+  catchBugs: true,    // the Bugdex: catch each kind of bug Claude fixes (see bugdex.js)
   checkEachTurn: false, // run the project's tests after a turn that changed files, and before bringing a copy home (see checks.js)
   checkTimeoutMin: 5, // the longest one check may run, in minutes (checks.TIMEOUTS_MIN)
   checksTrusted: {},  // { project root (lower-case): true | false }: asked once before running a project's own tests (checks.js)

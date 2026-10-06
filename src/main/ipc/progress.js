@@ -132,6 +132,13 @@ function registerProgressIpc(ipcMain, d) {
     d.send(d.panel, 'flaky', d.flakyView());
     return { ok: true };
   });
+  // ---- the Bugdex (bugdex.js, wiring/bugdex.js). The panel only ever names a species or an open tab.
+  const speciesId = id => (id === null || (typeof id === 'string' && /^[a-z0-9-]{1,40}$/.test(id)) ? id : undefined);
+  ipcMain.handle('bugdex:get', () => ({ ...d.bugdex.view(), on: d.bugdex.on() }));
+  ipcMain.on('bugdex:seen', () => d.bugdex.seen());
+  ipcMain.handle('bugdex:favourite', (_e, id) => (speciesId(id) === undefined ? d.bugdex.view() : d.bugdex.setFavourite(id)));
+  ipcMain.on('bugdex:open-tab', (_e, tabId) => { if (typeof tabId === 'string' && tabId.length <= 80) d.bugdex.openTab(tabId); });
+  ipcMain.handle('bugdex:forget', () => d.bugdex.forget());
   ipcMain.handle('week:get', () => d.weekView());
 
   // ---- time on each project (timetrack-service.js). Everything from the panel is checked here.

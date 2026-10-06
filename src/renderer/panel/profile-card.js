@@ -79,7 +79,9 @@
     const barW = Math.round(colW * Math.max(0, Math.min(1, xp.progress || 0)));
     const tank = { x: 16, y: 16, w: 164, h: H - 32 };
     const sandY = tank.y + tank.h - 30;
-    const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}`;
+    // The Bugdex as a bare count (no species, no projects), once there's a catch to show.
+    const dex = state.bugdex?.caught > 0 ? { caught: state.bugdex.caught, of: state.bugdex.of } : null;
+    const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}${dex ? `, Bugdex ${dex.caught} of ${dex.of}` : ''}`;
 
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="t">
 <title id="t">${esc(alt)}</title>
@@ -114,6 +116,7 @@
 <rect x="${x0}" y="82" width="${colW}" height="5" rx="2.5" fill="${C.glass}" fill-opacity=".15"/>
 <rect x="${x0}" y="82" width="${barW}" height="5" rx="2.5" fill="${C.glass}"/>
 <text x="${x0}" y="110" class="sans" font-size="14" fill="${days ? C.amber : C.sandDim}">${esc(streak)}</text>
+${dex ? `<text x="${W - 20}" y="110" text-anchor="end" class="mono" font-size="11" font-weight="600" fill="${C.glass}">${esc(`Bugdex ${dex.caught}/${dex.of}`)}</text>` : ''}
 <text x="${x0}" y="134" class="mono" font-size="10" font-weight="600" letter-spacing="1" fill="${C.sandFaint}">${stickers.length ? 'LATEST STICKERS' : 'NO STICKERS YET'}</text>
 ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="156" class="sans" font-size="12" fill="${C.sandDim}">Ship a project to earn the first one</text>`}
 <text x="${W - 20}" y="${H - 14}" text-anchor="end" class="mono" font-size="9" fill="${C.sandFaint}">shellby · ${esc(updated)}</text>
@@ -257,6 +260,7 @@ ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="
   api.onStickers(() => checkSoon());
   api.onWardrobe(() => checkSoon());
   api.onXp(() => checkSoon());
+  api.onBugdex?.(() => checkSoon());
 
   const copy = (text, what) => { if (!text) return; api.copyText(text); SB.toast(`${what} copied.`); };
 

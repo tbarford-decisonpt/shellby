@@ -3,11 +3,13 @@
 // and the skin. Merging only ever adds progress (unions and maxima), so a sync
 // can't lose anything on either side. XP is counted per PC and the PCs are
 // added together (xp.js mergeXpCounts), so XP earned on two PCs adds up. The
-// outfit, skin and sticker layouts follow whichever PC changed them last. The gist is yours but is still
+// outfit, skin and sticker layouts follow whichever PC changed them last. The
+// Bugdex's catches are counted per PC like XP (bugdex.js merge). The gist is yours but is still
 // treated as untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
+const bugdex = require('../bugdex');
 
 const FILE = 'shellby-sync.json';
 const FORMAT = 1;
@@ -32,6 +34,8 @@ function snapshot(get) {
     days: streaks.days,
     stickers: get('stickers'),
     skin: get('skin'), skinAt: stamps.skinAt,
+    // Catches made before this PC had its id count as this PC's.
+    bugdex: bugdex.syncable(bugdex.withDevice(get('bugdex'), xp.device)),
   });
 }
 
@@ -59,6 +63,8 @@ function clean(raw) {
     stickers: stickers.syncable(r.stickers),
     skin: typeof r.skin === 'string' && /^[a-z0-9][a-z0-9/-]{0,80}$/.test(r.skin) ? r.skin : null,
     skinAt: num(r.skinAt),
+    // Species counts and habitats only: no projects, bugs or open encounters.
+    bugdex: bugdex.normalizeSync(r.bugdex),
   };
 }
 
@@ -86,6 +92,7 @@ function merge(aIn, bIn) {
     days: union(a.days, b.days).sort().slice(-400),
     stickers: stickers.merge(a.stickers, b.stickers),
     skin: newerSkin.skin, skinAt: newerSkin.skinAt,
+    bugdex: bugdex.merge(a.bugdex, b.bugdex),
   });
 }
 
@@ -104,6 +111,8 @@ function patchFor(merged, get) {
     // Merged into this PC's own, so its folders, options and badges stay.
     stickers: stickers.merge(get('stickers'), merged.stickers),
     syncStamps: { outfitAt: merged.wardrobe.outfitAt, skinAt: merged.skinAt },
+    // Merged into this PC's own book, so its open bugs and projects stay.
+    bugdex: bugdex.applySync(bugdex.withDevice(get('bugdex'), normalizeXp(xp).device), merged.bugdex),
   };
   if (merged.skin) patch.skin = merged.skin;
   return patch;

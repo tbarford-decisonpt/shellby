@@ -68,6 +68,16 @@
       h('h4', {}, h('span', { class: 'recap-ico', 'aria-hidden': 'true', text: '◔' }), 'Usage'), ...parts);
   }
 
+  // Bugs Claude fixed while you were out, in the Bugdex's jars (src/main/bugdex.js).
+  function bugsBlock(b) {
+    if (!b?.caught) return null;
+    const line = `${b.caught} ${b.caught === 1 ? 'bug' : 'bugs'} caught${b.fresh ? `, ${b.fresh} new to the Bugdex` : ''}.`;
+    return h('section', { class: 'recap-sec' },
+      h('h4', {}, h('span', { class: 'recap-ico', 'aria-hidden': 'true', text: '🫙' }), 'Bugdex'),
+      h('p', { class: 'recap-text' }, line, ' ',
+        h('button', { type: 'button', class: 'link-btn', onclick: () => { dismiss(); SB.setView('bugdex'); } }, 'See them')));
+  }
+
   function card(d) {
     return h('section', { class: 'recap', role: 'region', 'aria-label': 'While you were away' },
       h('p', { class: 'cel-eyebrow', text: `While you were away · ${awayFor(d.awayMs)}` }),
@@ -76,6 +86,7 @@
         section('?', 'Waiting on you', d.waiting, w => row(w, w.external ? `${WAITING[w.what] || WAITING.approval} (outside Shellby)` : WAITING[w.what] || WAITING.approval, 'wait')),
         section('✕', 'Failed', d.failed, r => row(r, r.error ? `${r.error}` : runSub(r), 'fail')),
         section('✓', 'Finished', d.finished, r => row(r, runSub(r), 'ok')),
+        bugsBlock(d.bugs),
         usageBlock(d.usage, d.limit)),
       h('div', { class: 'cel-actions' },
         h('button', { class: 'btn primary slim-btn', type: 'button', onclick: dismiss }, 'Got it')),

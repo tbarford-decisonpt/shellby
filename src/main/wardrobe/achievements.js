@@ -82,6 +82,15 @@ const ACHIEVEMENTS = Object.freeze([
   // His tank (src/main/tank.js): the most pieces it's held at once.
   { id: 'moving-in', name: 'Moving In', icon: '🪴', description: 'Put the first piece of decor in his tank', stat: 'tankPieces', goal: 1, rewards: ['sunken-chest'] },
   { id: 'interior-designer', name: 'Interior Designer', icon: '🏰', description: 'Have 15 pieces in his tank at once', stat: 'tankPieces', goal: 15, rewards: ['coral-fan'] },
+  // The Bugdex (src/main/bugdex.js).
+  { id: 'gotcha', name: 'Gotcha!', icon: '🫙', description: 'Catch your first bug for the Bugdex', stat: 'bugsCaught', goal: 1, rewards: ['bug-net', 'specimen-jar'] },
+  { id: 'field-notes', name: 'Field Notes', icon: '📓', description: 'Catch 10 different kinds of bug', stat: 'bugSpecies', goal: 10, rewards: ['magnifier'] },
+  { id: 'naturalist', name: 'Naturalist', icon: '🌿', description: 'Catch every bug in one habitat of the Bugdex', stat: 'habitatsDone', goal: 1, rewards: ['bug-terrarium'] },
+  { id: 'fix-em-all', name: "Fix 'Em All", icon: '🧢', description: 'Catch 40 different kinds of bug', stat: 'bugSpecies', goal: 40, rewards: ['trainer-cap'] },
+  { id: 'exterminator', name: 'Pest Control', icon: '🧯', description: 'Catch 100 bugs', stat: 'bugsCaught', goal: 100, rewards: ['bug-sprayer-pack'] },
+  { id: 'golden-touch', name: 'Golden Touch', icon: '✨', description: 'Catch a golden bug', stat: 'goldenCatches', goal: 1, rewards: ['golden-net'], hidden: true },
+  { id: 'ghost-whisperer', name: 'Ghost Whisperer', icon: '🏮', description: 'Catch 3 different ghosts from the wreck', stat: 'ghostSpecies', goal: 3, rewards: ['ghost-jar'] },
+  { id: 'heisenberg', name: 'Uncertainty Principle', icon: '🥽', description: 'Catch a legendary bug', stat: 'legendaryBugs', goal: 1, rewards: ['quantum-goggles'], hidden: true },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -96,6 +105,7 @@ const COUNTERS = [
   'snacksFed', 'rinsesGiven', 'tuckIns', 'goldenSnacks',
   'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
   'tankPieces',
+  'bugsCaught', 'habitatsDone', 'legendaryBugs', 'goldenCatches', 'bugSpecies', 'ghostSpecies',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -147,6 +157,10 @@ const INCREMENTS = {
   'deps-clean': 'cleanAudits',
   'toolbox-tidied': 'toolsTidied',
   'started-fresh': 'freshStarts',
+  'bug-caught': 'bugsCaught',
+  'habitat-done': 'habitatsDone',
+  'legendary-bug': 'legendaryBugs',
+  'golden-catch': 'goldenCatches',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
@@ -159,6 +173,8 @@ const MAXIMA = {
   streak: 'longestStreak', level: 'level',
   // The pieces in his tank (src/main/tank.js), reported when you save it.
   'tank-pieces': 'tankPieces',
+  // The Bugdex (src/main/bugdex.js) reports how many kinds of bug, and of ghost, it has caught.
+  'bug-species': 'bugSpecies', 'ghost-species': 'ghostSpecies',
 };
 
 function emptyStats() {

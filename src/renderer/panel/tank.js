@@ -559,6 +559,7 @@
     const nextUp = earned.find(t => t.locked && t.locked.reason === 'achievement');
     const seasonal = decor.filter(t => t.unlock?.season);
     const finds = v.tray.filter(t => t.kind === 'find');
+    const jars = v.tray.filter(t => t.kind === 'jar');
     const bar = (n, of) => h('span', { class: 'tk-bar', 'aria-hidden': 'true', style: `--fill: ${of ? n / of : 0}` });
     $('tkKeyMeta').replaceChildren(`${have.length} of ${plural(decor.length, 'piece')} are his`, bar(have.length, decor.length));
     // One source per row: what it is, how many, and a line on how they arrive.
@@ -576,7 +577,8 @@
       row('Seasons', `${seasonal.filter(t => !t.locked).length} of ${seasonal.length}`,
         `${one ? 'Turns' : 'Turn'} up in ${one ? 'its' : 'their'} season, then ${one ? 'stays' : 'stay'} for good.`),
       row('His finds', String(finds.length),
-        finds.length ? 'Everything he digs up can go in, as many as he’s found.' : 'Whatever he digs up for you can go in. Nothing yet: give him time.'));
+        finds.length ? 'Everything he digs up can go in, as many as he’s found.' : 'Whatever he digs up for you can go in. Nothing yet: give him time.'),
+      ...(jars.length ? [row('Specimen jars', String(jars.length), 'Every kind of bug Claude has fixed, in a jar from the Bugdex.')] : []));
   }
 
   function renderTools() {

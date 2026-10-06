@@ -36,7 +36,7 @@
   // Anything worth a "What your plan bought you" panel: time counted, or a fix.
   const hasPlan = w => !!(w.plan && (w.plan.ms > 0 || w.plan.fixes > 0));
 
-  // The little extras worth a mention: deploys, releases, clean audits, focus.
+  // The little extras worth a mention: deploys, releases, clean audits, bugs caught, focus.
   // (Merged pull requests are in the week's work lines, weekly.js workLines.)
   function extras(c) {
     return [
@@ -45,6 +45,7 @@
       c.checkups ? `🧼 ${plural(c.checkups, 'clean audit')}` : null,
       c.flaky ? `🎲 ${plural(c.flaky, 'flaky test')} caught` : null,
       c.flakeFixes ? `🩹 ${plural(c.flakeFixes, 'flaky test')} fixed` : null,
+      c.caught ? `🫙 ${plural(c.caught, 'bug')} caught${c.newBugs ? ` (${c.newBugs} new to the Bugdex)` : ''}` : null,
       c.newStickers ? `✨ ${plural(c.newStickers, 'new sticker')}` : null,
       c.focus ? `⛑️ ${plural(c.focus, 'focus session')}` : null,
     ].filter(Boolean);

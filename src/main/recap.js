@@ -5,8 +5,8 @@
 // Three pieces, all pure (callers pass `now`; see test/recap.test.js):
 //   - watch():  is anyone at the keyboard? Turns idle readings into "you left
 //               at X and you're back now".
-//   - record(): a small ledger of finished runs and usage readings, kept in
-//               memory for the last day.
+//   - record(): a small ledger of finished runs, usage readings and bugs
+//               caught for the Bugdex, kept in memory for the last day.
 //   - build():  the digest for one absence, or null when nothing happened.
 //
 // Usage is attributed by difference. Claude Code only ever reports how full
@@ -60,6 +60,19 @@ function usageEvent(tabId, title, usage) {
   const w = usage?.fiveHour;
   if (!w || !Number.isFinite(w.pct)) return null;
   return { kind: 'usage', tabId, title: String(title || 'Untitled'), pct: w.pct, resetsAt: Number.isFinite(w.resetsAt) ? w.resetsAt : null };
+}
+
+/** A bug caught for the Bugdex (bugdex.js): its species id, and whether it's new to the book. Nothing about the bug itself. */
+function bugEvent(species, isNew = false) {
+  if (typeof species !== 'string' || !/^[a-z0-9-]{1,40}$/.test(species)) return null;
+  return { kind: 'bug', species, isNew: !!isNew };
+}
+
+/** Bugs caught between since and until: { caught, kinds, fresh } or null for none. */
+function bugsDuring(log, since, until) {
+  const bugs = log.filter(e => e.kind === 'bug' && e.t >= since && e.t <= until);
+  if (!bugs.length) return null;
+  return { caught: bugs.length, kinds: new Set(bugs.map(b => b.species)).size, fresh: bugs.filter(b => b.isNew).length };
 }
 
 // Same 5-hour window? Resets a few minutes apart are the same reset; with no
@@ -130,11 +143,14 @@ function build(log, { since, until, waiting = [], limit = null }) {
   const failed = runs.filter(r => r.outcome === 'error');
   const usage = usageDuring(Array.isArray(log) ? log : [], since, until);
   if (!finished.length && !failed.length && !waiting.length && !usage?.spent && !limit) return null;
+  // Bugs ride along with the rest: a catch is always a turn that finished, so they never make a recap alone.
+  const bugs = bugsDuring(Array.isArray(log) ? log : [], since, until);
   return {
     since, until, awayMs: until - since,
     finished: capped(finished), failed: capped(failed), waiting: capped(waiting),
     usage: usage && (usage.spent || usage.rolledOver) ? { ...usage, by: usage.by.slice(0, MAX_LISTED) } : null,
     limit,
+    bugs,
   };
 }
 
@@ -155,11 +171,12 @@ function headline(d) {
   if (total(d.failed)) parts.push(`${total(d.failed)} failed`);
   if (total(d.waiting)) parts.push(`${total(d.waiting)} waiting on you`);
   if (d.usage?.spent) parts.push(`about ${d.usage.spent}% of your 5-hour window used`);
+  if (d.bugs?.caught) parts.push(`${d.bugs.caught} ${d.bugs.caught === 1 ? 'bug' : 'bugs'} caught`);
   if (!parts.length && d.limit) parts.push('Paused at your usage limit');
   return parts.join(' · ');
 }
 
 module.exports = {
-  watch, record, runEvent, usageEvent, usageDuring, build, awayFor, headline,
+  watch, record, runEvent, usageEvent, bugEvent, usageDuring, build, awayFor, headline,
   AWAY_MS, IDLE_MS, KEEP_MS, MAX_EVENTS, MAX_LISTED,
 };

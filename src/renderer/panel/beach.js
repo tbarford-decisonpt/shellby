@@ -192,11 +192,14 @@
 
   // ------------------------------------------------------------ what you can point at
 
+  const poolLabel = () => `Tide pool: ${plural(v.pool.kinds, 'kind')} of bug Claude has fixed`;
+
   function things() {
     const out = [
       ...v.castles.map(c => ({ kind: 'castle', id: c.id, x: c.x, y: c.y, w: c.w, h: c.h, name: c.name, label: `${c.name}, a ${c.kind.toLowerCase()} from ${plural(c.ships, 'ship')}` })),
       ...v.plots.map(p => ({ kind: 'plot', id: p.key, x: p.x, y: p.y, w: p.w, h: p.h, name: p.name, label: `${p.name}, a plot waiting for its castle` })),
       ...v.finds.map(f => ({ kind: 'find', id: f.id, x: f.x, y: f.y, ...sizeOf(f.pixels), name: f.name, label: `${f.name}, washed up` })),
+      ...(v.pool ? [{ kind: 'pool', id: 'pool', x: v.pool.x, y: v.pool.y, w: v.pool.w, h: v.pool.h, name: 'Tide pool', label: poolLabel() }] : []),
     ];
     if (crab) out.push({ kind: 'crab', id: 'crab', x: v.crab.x, y: v.crab.y, w: crab.w, h: crab.h, name: 'Shellby', label: 'Pet Shellby' });
     return out.sort((a, b) => a.x - b.x || a.y - b.y);
@@ -344,6 +347,7 @@
       v.tide.current ? `the tide in for ${plural(v.tide.current, 'day')}` : 'the tide out',
       plural(s.finds, 'find'),
       s.plots ? plural(s.plots, 'plot') : null,
+      v.pool ? poolLabel().replace(/^T/, 't') : null,
     ].filter(Boolean))}.`);
   }
 
@@ -369,7 +373,9 @@
       row('find', s.finds ? `${plural(s.finds, 'find')} washed up` : 'Nothing washed up yet',
         'Everything he digs up lands along the high-water line.'),
       row('plot', s.plots ? `${plural(s.plots, 'plot')} waiting` : 'No plots right now',
-        'Projects you’re working on that haven’t shipped. Ship one and he builds on it.'));
+        'Projects you’re working on that haven’t shipped. Ship one and he builds on it.'),
+      ...(s.bugs ? [row('pool', `${plural(s.bugs, 'kind')} of bug in the tide pool`,
+        'Every kind of bug Claude fixes with him around goes in the Bugdex. The pool grows with each new one.')] : []));
   }
 
   function bigArt(src, box) {
@@ -386,7 +392,8 @@
     const T = P.THEMES[P.timeOfDay()];
     const item = selected && (selected.kind === 'castle' ? v.castles.find(c => c.id === selected.id)
       : selected.kind === 'plot' ? v.plots.find(p => p.key === selected.id)
-        : v.finds.find(f => f.id === selected.id));
+        : selected.kind === 'pool' ? v.pool
+          : v.finds.find(f => f.id === selected.id));
     if (!item) { selected = null; box.hidden = true; box.replaceChildren(); return; }
     box.hidden = false;
     const close = h('button', { type: 'button', class: 'icon-btn bc-detail-close', 'aria-label': 'Close', onclick: () => {
@@ -418,6 +425,17 @@
         h('h3', { text: p.name }),
         h('p', { text: `You worked on it ${p.lastSeen ? `on ${when(p.lastSeen)}` : 'lately'}, but it hasn’t shipped yet. Push it, deploy it, release it or merge a PR, and he builds its castle here.` }),
       ];
+    } else if (selected.kind === 'pool') {
+      const pool = item;
+      art = P.glyph('pool', P.timeOfDay());
+      const names = pool.swimmers.map(s => s.name);
+      lines = [
+        h('p', { class: 'bc-detail-kind', text: 'A tide pool' }),
+        h('h3', { text: `${plural(pool.kinds, 'kind')} of bug Claude has fixed` }),
+        h('p', { text: `Every bug Claude fixes with him around goes in the Bugdex, and the newest swim here: ${listOf(names)}.` }),
+        h('p', { text: 'The pool grows with every new kind you catch.' }),
+      ];
+      if (SB.views.bugdex) actions = [h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => SB.setView('bugdex') }, 'Open the Bugdex')];
     } else {
       const f = item;
       art = P.sprite(f.pixels, f.palette);

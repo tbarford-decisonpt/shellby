@@ -255,6 +255,7 @@
       { icon: '🎩', title: 'Shellby: outfits', sub: 'Dress him up', keys: 'crab wardrobe hats skins colors effects packs', run: go('wardrobe') },
       { icon: '🏆', title: 'Shellby: trophies & XP', sub: 'Level, XP and trophies', keys: 'level achievements', run: go('trophies') },
       { icon: '🐚', title: 'Shellby: finds', sub: 'Everything he’s dug up for you', keys: 'gifts shelf treasure dig collection sets', run: go('finds') },
+      claude() && { icon: '🫙', title: 'Shellby: Bugdex', sub: 'Every kind of bug Claude has fixed for you', keys: 'bugdex bugs errors caught collection dex', run: go('bugdex') },
       { icon: '💞', title: 'Shellby: us', sub: 'How close you are, your story, games, your birthday', keys: 'bond friendship memories journal birthday temperament scenes', run: go('us') },
       { icon: '🪸', title: 'Shellby: tank', sub: 'Decorate his tank with castles, plants and his finds', keys: 'tank aquarium home decorate decor castle plants treasure chest room furniture', run: go('tank') },
       { icon: '🏖️', title: 'Shellby: beach', sub: 'A sandcastle for every project you’ve shipped', keys: 'beach sandcastle castles shipped projects tide streak snapshot share', run: go('beach') },

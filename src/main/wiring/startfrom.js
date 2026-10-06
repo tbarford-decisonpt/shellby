@@ -122,6 +122,7 @@ function wireStartFrom(d) {
     if (!at.ok) return at;
     const res = await d.startTaskInCopy(r.where, r.title, () => r.prompt, { start: at.start });
     if (res.ok) fetched.delete(`${kind}:${key}`);
+    if (res.ok && kind === 'build') d.bugdex?.ciEngaged(key); // Shellby's on that red build: it can be caught
     return res;
   }
 

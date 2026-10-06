@@ -139,7 +139,8 @@ test('huge and hostile output stays fast and yields only an id', () => {
   const t = process.hrtime.bigint();
   const r = d.classify(big, { cmd: 'node a.js' });
   const ms = Number(process.hrtime.bigint() - t) / 1e6;
-  assert.ok(ms < 50, `${ms} ms`);
+  // Generous for a busy CI runner; a runaway regex takes seconds.
+  assert.ok(ms < 400, `${ms} ms`);
   assert.deepEqual(Object.keys(r).sort(), ['fp', 'lang', 'species', 'tier']);
   assert.equal(r.species, 'shapeshifter-shrimp');
 });

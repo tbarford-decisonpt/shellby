@@ -255,7 +255,8 @@
   const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...(wd()?.voices || []), ...homes()].filter(i => i.isNew && !i.locked);
   const refreshBadge = () => {
     const fresh = freshItems().length > 0;
-    $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length && !state.life?.finds?.unseen?.length; // new stickers (stickers.js) and finds (together.js) too
+    // New stickers (stickers.js), finds (together.js) and bugs in the Bugdex (bugdex.js) too.
+    $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length && !state.life?.finds?.unseen?.length && !state.bugdex?.unseen?.length;
     $('markSeenBtn').hidden = !fresh;
     document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.classList.toggle('has-new', itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked)));
   };

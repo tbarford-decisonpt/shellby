@@ -83,6 +83,7 @@ const SOURCES = Object.freeze({
   'legendary-find': { group: 'treasure', snack: 'golden', n: 1, perDay: 1 },
   'set-completed': { group: 'treasure', snack: 'golden', n: 1, perDay: 1 },
   'ci-fixed': { group: 'work', snack: 'plankton', n: 1, perDay: 3, claude: true },
+  'bug-caught': { group: 'work', snack: 'plankton', n: 1, perDay: 3, claude: true },
   'routine-run': { group: 'work', snack: 'plankton', n: 1, perDay: 3, claude: true },
   'bond-up': { group: 'bond', snack: 'golden', n: 1, perDay: 3 },
 });

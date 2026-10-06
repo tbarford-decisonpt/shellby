@@ -177,3 +177,27 @@ test('pieces already in the tank keep their room before anything new goes in', (
   assert.ok(state.placed.some(p => p.ref === 'gone-pack/statue'), 'the kept piece is never the one squeezed out');
   assert.equal(dropped.length, 3);
 });
+
+test('caught bugs can go in the tank as jars, as many as times caught', () => {
+  const bugState = { species: { nullfish: { byDevice: { local: 2 }, first: 1, last: 2, forms: ['golden'] } } };
+  const withBugs = T.library({ decor, findState, finds, bugState });
+  const jar = withBugs.get('jar:nullfish');
+  assert.ok(jar, 'a jar for the nullfish');
+  assert.equal(jar.category, 'jar');
+  assert.equal(jar.max, 2);
+  assert.ok(jar.pixels.every(r => r.length === jar.w) && jar.h === jar.pixels.length);
+  assert.ok(T.CATEGORIES.some(([id]) => id === 'jar'), 'the tray has a shelf for them');
+  const { state, dropped } = T.sanitize({ placed: [piece('jar:nullfish'), piece('jar:nullfish'), piece('jar:nullfish')] }, { lib: withBugs });
+  assert.deepEqual(state.placed.map(p => p.ref), ['jar:nullfish', 'jar:nullfish']);
+  assert.deepEqual(dropped.map(d => d.reason), ['not-enough']);
+});
+
+test('uncaught bugs cannot go in the tank', () => {
+  const seenOnly = { species: { nullfish: { byDevice: {}, seen: 3 }, 'no-such-bug': { byDevice: { local: 9 } } } };
+  const l = T.library({ decor, findState, finds, bugState: seenOnly });
+  assert.equal(l.has('jar:nullfish'), false, 'seen is not caught');
+  assert.equal(l.has('jar:no-such-bug'), false);
+  assert.equal(T.library({ decor }).has('jar:nullfish'), false, 'no Bugdex at all');
+  const { dropped } = T.sanitize({ placed: [piece('jar:nullfish')] }, { lib: l });
+  assert.deepEqual(dropped.map(d => `${d.ref}:${d.reason}`), ['jar:nullfish:unknown']);
+});

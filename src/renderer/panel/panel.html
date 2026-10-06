@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
+<link rel="stylesheet" href="bugdex.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
 <link rel="stylesheet" href="tank.css">
@@ -543,6 +544,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -612,6 +614,7 @@
         <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -670,6 +673,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -721,6 +725,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -743,6 +748,44 @@
     <ul class="fd-grid" id="fdGrid" role="list" aria-label="Every find"></ul>
   </main>
 
+  <!-- ====================== BUGDEX: the bugs Claude has fixed for you (bugdex.js, src/main/bugdex.js) ====================== -->
+  <main class="view view-bugdex" id="bugdexView">
+    <div class="view-head">
+      <h2 class="sr-only">Bugdex</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="bugdex">Bugdex <span class="n bd-count"></span></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <section class="fd-hero bd-hero" aria-label="The Bugdex">
+      <div class="fd-fav" id="bdFav"></div>
+      <div class="fd-hero-text">
+        <p class="xp-eyebrow bd-eyebrow">The Bugdex</p>
+        <h3 id="bdTotal">No bugs in the jars yet</h3>
+        <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
+      </div>
+    </section>
+    <section class="bd-empty" id="bdEmpty" hidden>
+      <b>The jars are empty, for now.</b>
+      <p>When a command fails in one of Shellby's tabs, that kind of bug shows up here as a silhouette. Once Claude fixes it and the command passes, it's caught and goes in a jar, in colour.</p>
+    </section>
+    <section class="bd-loose" id="bdLooseBox" hidden aria-labelledby="bdLooseTitle">
+      <h3 id="bdLooseTitle">On the loose</h3>
+      <ul id="bdLoose"></ul>
+    </section>
+    <ul class="fd-sets bd-habitats" id="bdHabitats" aria-label="Habitats"></ul>
+    <div class="kind-chips bd-filters" id="bdFilters" role="tablist" aria-label="Show" data-roving></div>
+    <section class="fd-detail bd-detail" id="bdDetail" hidden aria-live="polite"></section>
+    <ul class="fd-grid bd-grid" id="bdGrid" role="list" aria-label="Every kind of bug"></ul>
+    <p class="bd-over"><button type="button" class="link-btn inline" id="bdForget">Start the Bugdex over</button></p>
+  </main>
+
   <!-- ====================== US: the two of you (together.js, src/main/bond.js, playtime.js) ====================== -->
   <main class="view view-us" id="usView">
     <div class="view-head">
@@ -752,6 +795,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -850,6 +894,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" aria-current="page" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -892,6 +937,7 @@
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
         <button type="button" data-goto="us">Us</button>
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
@@ -1734,6 +1780,8 @@
         <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
         <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
         <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
+        <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
+        <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
         <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
         <div class="row wrap" id="checkEachTurnOptions">
           <label class="inline-label" for="checkTimeoutSelect">Give up after
@@ -2061,6 +2109,7 @@
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
 <script src="together.js"></script>
+<script src="bugdex.js"></script>
 <script src="needs.js"></script>
 <script src="health.js"></script>
 <script src="card.js"></script>

@@ -192,6 +192,7 @@ function createLife(d) {
     if (day && d.isIdle() && !onCall) d.speak(day);
     newDay();
     maybeNap();
+    jarIfFree();
   }
 
   function setCall(on) {
@@ -383,6 +384,37 @@ function createLife(d) {
 
   const isNight = t => { const h = new Date(t).getHours(); return h >= 20 || h < 6; };
 
+  // A bug Claude fixed, in a jar (bugdex.js): he lunges, corks it and holds it
+  // up. Catches land while he's working, so one waits until he's free; a newer
+  // one replaces it, and it goes stale after JAR_WAIT_MS.
+  let jarWaiting = null;
+  const JAR_MS = 2600;
+  const JAR_WAIT_MS = 10 * MINUTE;
+  function presentJar(card) {
+    if (!card?.pixels || !card.palette) return;
+    jarWaiting = { ...card, at: now() };
+    jarIfFree();
+  }
+  function jarIfFree() {
+    if (!jarWaiting) return;
+    if (now() - jarWaiting.at > JAR_WAIT_MS) { jarWaiting = null; return; }
+    if (!free() || napping()) return;
+    const j = jarWaiting;
+    jarWaiting = null;
+    presenting = `jar:${j.species}`;
+    d.toCrab('critter:bit', { bit: 'catch', ms: JAR_MS });
+    d.toCrab('critter:prop', { prop: 'jar', ms: JAR_MS, wobbles: j.wobbles || 1, ghost: !!j.ghost });
+    later(700, () => d.toCrab('critter:hold', { pixels: j.pixels, palette: j.palette }));
+    if (j.line) d.speak('found', { force: true, text: j.line });
+    presentDone = () => {
+      presentDone = null;
+      presenting = null;
+      d.toCrab('critter:hold', null);
+      d.toCrab('critter:prop', { prop: null });
+    };
+    later(PRESENT_MS + 700, () => presentDone?.());
+  }
+
   function present(find, r) {
     presenting = find.id;
     d.toCrab('critter:bit', { bit: 'present', ms: PRESENT_MS });
@@ -568,6 +600,7 @@ function createLife(d) {
 
   return {
     start, stop, idleBit, cancel, onPet, onStat, played, visit, digNow, digMenuItem, view, setBirthday, setFavourite, findsSeen,
+    presentJar, jarIfFree,
     hushed: () => onCall, onCall: () => onCall, playing: () => playing, napping, wake,
     busy: () => !!scene || !!presenting,
     lookNow: () => look,

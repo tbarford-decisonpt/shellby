@@ -6,6 +6,7 @@ const path = require('path');
 const changes = require('../changes');
 const checkup = require('../checkup');
 const flaky = require('../flaky');
+const { fullOutput } = require('../bugdex/detect');
 const { projectOf } = require('../gitinfo');
 const { readRepo } = require('../projects/local');
 const rooms = require('../rooms');
@@ -149,6 +150,9 @@ function wireProgress(d) {
       d.config.set({ checkups: r.state });
       d.send(d.panel, 'checkups', checkupsView());
       if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
+      // Known vulnerabilities are a Barnacled Anchor in the Bugdex: seen, then caught once patched.
+      if (project && r.patched) d.bugdex?.auditPatched(project);
+      else if (project && result.status === 'issues' && check.check === 'audit') d.bugdex?.auditIssues(project);
       if (r.clean && project) freshMark(project);
       else if (result.status === 'issues' && check.check === 'audit') {
         d.sayText(result.count ? `${name}: ${result.count} known ${result.count === 1 ? 'vulnerability' : 'vulnerabilities'}` : `${name} has vulnerable dependencies`, 'sticker', 7000);
@@ -231,17 +235,6 @@ function wireProgress(d) {
     return p;
   }
 
-  // A long result is its first 8,000 characters, "… (N more characters)" and,
-  // separately, its last 8,000: when the two overlap, that's all of it.
-  function testOutput(item, tail) {
-    const text = String(item.text || '');
-    if (!tail) return { output: text, complete: true };
-    const m = text.match(/\n… \((\d+) more characters\)$/);
-    const head = m ? text.slice(0, m.index) : text;
-    const rest = m ? Number(m[1]) : Infinity;
-    return rest <= tail.length ? { output: head + tail.slice(-rest), complete: true } : { output: `${head}\n${tail}`, complete: false };
-  }
-
   /** A test command finished in one of Shellby's tabs: was it a flake? */
   async function noteTestRun(c, item, tail) {
     try {
@@ -251,7 +244,7 @@ function wireProgress(d) {
       // while it ran, means the code moved under it. Then it proves nothing.
       const end = await snapshotWithin(c.dir);
       if (!end || end.tree !== snap.tree) return;
-      const { output, complete } = testOutput(item, tail);
+      const { output, complete } = fullOutput(item, tail);
       const run = flaky.readRun({ cmd: c.command, output, isError: item.isError, complete });
       if (!run) return;
       const project = await projectOf(snap.root);
@@ -263,9 +256,12 @@ function wireProgress(d) {
       const r = flaky.recordRun(d.config.get('flaky'), { key: project.id, name: project.name, root: project.root }, { ...run, tree: snap.tree }, now);
       let state = r.state;
       r.fresh.forEach(() => noteWeek('flaky'));
+      // The Bugdex's ghosts (wiring/bugdex.js): a flake is a Flaky Phantom seen; fixed for good, it's caught.
+      for (const f of r.flakes) d.bugdex?.flakySeen(project, f.id);
       for (const id of r.fixed) {
         noteWeek('flakefix');
         awardXp('flakefix', { project: project.name, label: `Fixed ${flaky.labelOf(id)}` });
+        d.bugdex?.flakyFixed(project, id, flaky.normalizeFlaky(state).projects[project.id]?.tests[id]?.flakes || []);
       }
       const due = flaky.due(state, now);
       if (due && d.sayText(flaky.sayLine(due), 'flaky', 9000)) state = flaky.markSaid(state, due.key, due.id, now);

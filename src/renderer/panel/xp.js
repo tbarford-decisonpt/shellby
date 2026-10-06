@@ -4,8 +4,8 @@
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', ship: '⬆️', issue: '🎫', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯', pet: '♥', play: '🙈', find: '🐚', treasure: '🏴‍☠️', bond: '💞' };
-  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', flakefix: 'Flaky fixes', issue: 'Issues taken on', tidy: 'Tidying', fresh: 'Fresh starts', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties', pet: 'Pets', play: 'Games', find: 'Finds', treasure: 'Treasure', bond: 'Bond' };
+  const KIND_ICON = { trick: '🧠', deploy: '🚀', fixed: '🟢', newbug: '🫙', catch: '🫙', ship: '⬆️', issue: '🎫', tests: '✅', deps: '🧼', trophy: '🏆', task: '🦀', day: '☀️', focus: '⛑️', bounty: '🎯', pet: '♥', play: '🙈', find: '🐚', treasure: '🏴‍☠️', bond: '💞' };
+  const KIND_NAME = { trick: 'Tricks', deploy: 'Deploys', fixed: 'Fixes', flakefix: 'Flaky fixes', newbug: 'New bugs', catch: 'Bugs caught', issue: 'Issues taken on', tidy: 'Tidying', fresh: 'Fresh starts', ship: 'Pushes', tests: 'Tests', deps: 'Checkups', trophy: 'Trophies', task: 'Tasks', day: 'Days', focus: 'Focus', bounty: 'Bounties', pet: 'Pets', play: 'Games', find: 'Finds', treasure: 'Treasure', bond: 'Bond' };
   const UNLOCK_NAME = { shell: 'shell', title: 'title', rank: '' };
   const TOP_KINDS = 3;   // where the XP came from, under the 30-day chart
   const LOG_ROWS = 5;    // latest XP rows; the chart above covers the rest

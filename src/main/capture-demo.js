@@ -315,6 +315,40 @@ function demoBeach(now) {
 // ---------------------------------------------------------------- Lean
 // What lean:report returns (lean.js buildReport). Keep token counts under a
 // million: SB.compact has no M suffix.
+/**
+ * The Bugdex for the screenshots: 17 kinds caught (one golden, the Nullfish
+ * evolved, the Burrows finished), a few only seen, and two on the loose.
+ */
+function demoBugdex(now) {
+  const bugdex = require('./bugdex');
+  const SHELLBY = '5b1c0de0a1f2', RACK = '9e3a7c21d4b8';
+  const fp = i => i.toString(16).padStart(12, '0');
+  let s = null;
+  let i = 0;
+  const caught = (species, daysAgo, opts = {}) => {
+    const t = now - daysAgo * DAY;
+    s = bugdex.recordCatch(s, { species, fp: fp(++i), project: opts.project || SHELLBY, name: opts.name || 'shellby', firstAt: t - (opts.took || 9 * 60 * 1000), firstTry: !!opts.firstTry, device: 'demo-pc', rand: () => 0.5, lang: opts.lang || 'js' }, t).state;
+  };
+  for (let n = 0; n < 6; n++) caught('nullfish', 60 - n * 9, { lang: n % 2 ? 'ts' : 'js' });
+  ['shell-less-hermit', 'locked-limpet', 'clingy-barnacle', 'mixed-up-mussel', 'overstuffed-pufferfish'].forEach((id, n) => caught(id, 40 - n * 3));
+  caught('shapeshifter-shrimp', 31, { firstTry: true, took: 3 * 60 * 1000 }); // golden
+  caught('syntax-slug', 29);
+  caught('two-headed-crab', 27, { lang: 'git' });
+  caught('red-snapper', 25, { name: 'rack-builder', project: RACK });
+  caught('flaky-phantom', 22, { name: 'rack-builder', project: RACK });
+  caught('red-tide', 18, { lang: 'ci' });
+  caught('beached-whale', 15);
+  caught('stray-module-minnow', 12);
+  caught('port-squatter', 9);
+  caught('type-tangle', 6, { lang: 'ts' });
+  caught('segfault-squid', 3, { lang: 'rust', name: 'rack-builder', project: RACK });
+  for (const species of ['ouroboros-eel', 'keyless-krill', 'closed-clam', 'lint-louse']) s = bugdex.recordSeen(s, { species, fp: fp(++i), project: SHELLBY }, now - 2 * DAY).state;
+  s = bugdex.spot(s, { species: 'slowpoke-snail', fp: fp(++i), project: SHELLBY, name: 'shellby', source: 'bash', keys: [], kind: 'tests' }, now - 25 * 60 * 1000).state;
+  s = bugdex.engage(s, SHELLBY, now - 20 * 60 * 1000);
+  s = bugdex.spot(s, { species: 'assertive-lobster', fp: fp(++i), project: RACK, name: 'rack-builder', source: 'bash', keys: [], kind: 'tests' }, now - 7 * 60 * 1000).state;
+  return { ...bugdex.setFavourite(s, 'segfault-squid'), unseen: ['segfault-squid', 'type-tangle'] };
+}
+
 function demoLean(now) {
   return {
     ok: true,
@@ -353,4 +387,4 @@ function demoLean(now) {
   };
 }
 
-module.exports = { demoProjects, demoTime, demoLife, demoWeek, demoBeach, demoLean };
+module.exports = { demoProjects, demoTime, demoLife, demoWeek, demoBeach, demoLean, demoBugdex };

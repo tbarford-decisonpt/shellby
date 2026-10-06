@@ -98,7 +98,11 @@ function closeKey(listIn, source, key, project = null) {
   return { list: list.filter(e => !hit(e)), closed: list.filter(hit) };
 }
 
-/** Slip away after a day, quietly. */
-const prune = (listIn, now) => normalizeOpen(listIn).filter(e => now - e.at <= ENCOUNTER_TTL);
+// A red build or a branch that won't come home can take longer than a day to see to.
+const TTL = { ci: 7 * ENCOUNTER_TTL, home: 7 * ENCOUNTER_TTL, push: 3 * ENCOUNTER_TTL };
+const ttlOf = source => TTL[source] || ENCOUNTER_TTL;
 
-module.exports = { ENCOUNTER_TTL, MAX_OPEN, encId, normalizeOpen, open, engage, engageKey, candidates, byKey, refuse, close, closeKey, prune };
+/** Slip away after a day (a week for CI and copies), quietly. */
+const prune = (listIn, now) => normalizeOpen(listIn).filter(e => now - e.at <= ttlOf(e.source));
+
+module.exports = { ENCOUNTER_TTL, MAX_OPEN, encId, ttlOf, normalizeOpen, open, engage, engageKey, candidates, byKey, refuse, close, closeKey, prune };

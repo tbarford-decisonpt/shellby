@@ -196,6 +196,20 @@ const TIERS = [TIER1, TIER2, TIER3];
 // What a failing command of each kind is when nothing more specific matched.
 const BY_KIND = { tests: 'red-snapper', lint: 'lint-louse', build: 'collapsed-castle' };
 
+/**
+ * A tool result's whole output. A long result is its first 8,000 characters,
+ * "… (N more characters)" and, separately, its last 8,000: when the two
+ * overlap, that's all of it. -> { output, complete }
+ */
+function fullOutput(item, tail) {
+  const text = String(item?.text || '');
+  if (!tail) return { output: text, complete: true };
+  const m = text.match(/\n… \((\d+) more characters\)$/);
+  const head = m ? text.slice(0, m.index) : text;
+  const rest = m ? Number(m[1]) : Infinity;
+  return rest <= tail.length ? { output: head + tail.slice(-rest), complete: true } : { output: `${head}\n${tail}`, complete: false };
+}
+
 /** The lines worth reading: the end of the output, cleaned and clipped. */
 function windowOf(output) {
   const raw = typeof output === 'string' ? output.slice(-MAX_TEXT) : '';
@@ -314,5 +328,5 @@ function conflictFiles(output) {
 module.exports = {
   TIER1, TIER2, TIER3, REMEDY,
   commandKind, gate, outcomeOf, matchKeys, remedyOf, isResolve, isFlee, isFairPush, isHookedCommit,
-  classify, stillShows, fingerprint, normMessage, fileBase, windowOf, passedCount, conflictFiles,
+  classify, stillShows, fingerprint, normMessage, fileBase, windowOf, fullOutput, passedCount, conflictFiles,
 };

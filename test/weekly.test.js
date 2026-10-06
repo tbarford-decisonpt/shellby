@@ -35,6 +35,22 @@ test('flaky tests caught and fixed are counted for the card', () => {
   assert.equal(w.counts.flakeFixes, 1);
 });
 
+test('bugs caught for the Bugdex, and the new kinds among them, are counted for the card', () => {
+  let s = recordDay(null, at(2), 'caught');
+  s = recordDay(s, at(2), 'newbug');
+  s = recordDay(s, at(0), 'caught');
+  s = recordDay(s, at(0), 'caught');
+  s = recordDay(s, at(8), 'caught'); // last week
+  s = recordDay(s, at(8), 'newbug');
+  assert.equal(s.days[dayKey(at(0))].caught, 2);
+  const w = weekSummary(s, FRI, { xp: normalizeXp(null) });
+  assert.equal(w.counts.caught, 3);
+  assert.equal(w.counts.newBugs, 1);
+  const quiet = weekSummary(normalizeWeekly(null), FRI, { xp: normalizeXp(null) });
+  assert.equal(quiet.counts.caught, 0);
+  assert.equal(quiet.counts.newBugs, 0);
+});
+
 test('junk kinds, clocks and state are ignored', () => {
   assert.deepEqual(recordDay(null, at(0), 'nap'), normalizeWeekly(null));
   assert.deepEqual(recordDay(null, NaN, 'ship'), normalizeWeekly(null));
