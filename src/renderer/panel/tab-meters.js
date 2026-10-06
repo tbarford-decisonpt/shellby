@@ -169,20 +169,43 @@
   let usageBy = 'task';
   const pctText = share => (share >= 0.995 ? '100%' : share < 0.01 ? '<1%' : `${Math.round(share * 100)}%`);
 
+  // Windows whose "N more" row is unfolded, as `${window}:${usageBy}`; cleared each time the menu opens.
+  const unfolded = new Set();
+
   function usageRows(windows) {
+    const redraw = focus => {
+      const menu = $('usageMenu');
+      menu.replaceChildren(...usageRows(windows));
+      // It was placed for its height when it opened; unfolded, it scrolls in the room left below.
+      menu.style.maxHeight = `${Math.max(160, window.innerHeight - menu.getBoundingClientRect().top - 8)}px`;
+      menu.querySelector(focus)?.focus();
+    };
     const toggle = h('div', { class: 'usage-by', role: 'group', 'aria-label': 'Group by' },
       ...[['task', 'Tabs & routines'], ['project', 'Projects']].map(([by, text]) => h('button', {
         type: 'button', class: `usage-by-btn${usageBy === by ? ' on' : ''}`, 'aria-pressed': String(usageBy === by), text,
-        onclick: () => { usageBy = by; $('usageMenu').replaceChildren(...usageRows(windows)); $('usageMenu').querySelector('.usage-by-btn.on')?.focus(); },
+        onclick: () => { usageBy = by; redraw('.usage-by-btn.on'); },
       })));
+    const row = r => h('div', { class: `usage-row kind-${r.kind}`, title: r.detail ? SB.tildify(r.detail) : r.label },
+      h('span', { class: 'usage-name', text: r.kind === 'routine' ? `⟳ ${r.label}` : r.label }),
+      h('span', { class: 'usage-bar' }, h('span', { class: 'usage-bar-fill', style: `transform: scaleX(${r.share})` })),
+      h('span', { class: 'usage-share', text: pctText(r.share) }));
+    // The folded tail: a button that unfolds it in place, and one at its end that folds it back.
+    const fold = (id, open, r) => h('button', {
+      type: 'button', class: `usage-row usage-fold kind-rest`, 'data-fold': `${id}:${open}`, 'aria-expanded': String(open),
+      onclick: () => { if (open) unfolded.delete(id); else unfolded.add(id); redraw(`[data-fold="${id}:${!open}"]`); },
+    },
+    h('span', { class: 'usage-name', text: open ? 'Show fewer' : r.label }),
+    open ? h('span') : h('span', { class: 'usage-bar' }, h('span', { class: 'usage-bar-fill', style: `transform: scaleX(${r.share})` })),
+    h('span', { class: 'usage-share', text: open ? '' : pctText(r.share) }));
     const sections = windows.map(w => {
       const rows = usageBy === 'project' ? w.projects : w.tasks;
       const head = h('div', { class: 'menu-label', text: `${w.name}${w.pct != null ? ` · ${w.pct}% used` : ''}` });
       if (!rows.length) return [head, h('div', { class: 'usage-empty', text: 'Nothing Shellby ran in this window yet.' })];
-      return [head, ...rows.map(r => h('div', { class: `usage-row kind-${r.kind}`, title: r.detail ? SB.tildify(r.detail) : r.label },
-        h('span', { class: 'usage-name', text: r.kind === 'routine' ? `⟳ ${r.label}` : r.label }),
-        h('span', { class: 'usage-bar' }, h('span', { class: 'usage-bar-fill', style: `transform: scaleX(${r.share})` })),
-        h('span', { class: 'usage-share', text: pctText(r.share) })))];
+      const id = `${w.window}:${usageBy}`;
+      return [head, ...rows.flatMap(r => {
+        if (r.kind !== 'rest' || !r.rows?.length) return [row(r)];
+        return unfolded.has(id) ? [...r.rows.map(row), fold(id, true, r)] : [fold(id, false, r)];
+      })];
     });
     return [toggle, ...sections.flat(), h('div', { class: 'menu-sep' }),
       h('div', { class: 'usage-empty', text: 'Shares of what Shellby ran. Claude used elsewhere fills the meters too.' })];
@@ -196,6 +219,8 @@
     usageLoading = true;
     const windows = await api.usageBreakdown().catch(() => []);
     usageLoading = false;
+    unfolded.clear();
+    menu.style.maxHeight = '';
     SB.openMenu(menu, $('usage'), () => usageRows(windows));
   });
 

@@ -78,6 +78,9 @@ test('a long tail folds into one "more" row', () => {
   assert.deepEqual(rows.at(-1).kind, 'rest');
   assert.equal(rows.at(-1).label, '4 more');
   assert.ok(Math.abs(rows.reduce((n, r) => n + r.share, 0) - 1) < 1e-9);
+  // ...and keeps the folded rows, biggest first, so the panel can unfold them.
+  assert.deepEqual(rows.at(-1).rows.map(r => r.label), ['Task 6', 'Task 7', 'Task 8', 'Task 9']);
+  assert.ok(Math.abs(rows.at(-1).rows.reduce((n, r) => n + r.share, 0) - rows.at(-1).share) < 1e-9);
 });
 
 test('a window starts at its reset minus its length, or looks back without one', () => {

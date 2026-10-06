@@ -98,8 +98,10 @@ function breakdown(ledger, since, by = 'task') {
   const sorted = [...rows.values()].sort((a, b) => b.weight - a.weight);
   const shown = sorted.length > TOP + 1 ? sorted.slice(0, TOP) : sorted;
   const rest = sorted.slice(shown.length).reduce((n, r) => n + r.weight, 0);
-  const out = shown.map(r => ({ key: r.key, label: r.label, kind: r.kind, detail: r.detail, share: r.weight / total }));
-  if (rest) out.push({ key: 'rest', label: `${sorted.length - shown.length} more`, kind: 'rest', detail: null, share: rest / total });
+  const row = r => ({ key: r.key, label: r.label, kind: r.kind, detail: r.detail, share: r.weight / total });
+  const out = shown.map(row);
+  // The folded rows ride along, so the panel can unfold them.
+  if (rest) out.push({ key: 'rest', label: `${sorted.length - shown.length} more`, kind: 'rest', detail: null, share: rest / total, rows: sorted.slice(shown.length).map(row) });
   return out;
 }
 
