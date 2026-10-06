@@ -205,6 +205,7 @@ None of this needs Claude or an account.
 - **138 accessories, 21 effects and 16 crabs,** head-to-tail sets, and costumes for every season.
 - **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
 - **A sticker for every project you ship,** drawn from the repo itself, going vinyl, holo and foil as you keep shipping.
+- **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 66 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves.
 - **Cards to share:** a crab card of him as he's dressed, and a weekly one every Friday.
 
 <p align="center"><img src="docs/week-card.png" width="700" alt="A weekly crab card: Shipped 3 projects, 22 tasks done, a 5-day streak, XP for each day, the top project and three new trophies"></p>

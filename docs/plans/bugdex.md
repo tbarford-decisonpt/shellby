@@ -1,7 +1,41 @@
 # The Bugdex: catch the bugs you've beaten
 
-> Status: **planned, not built.** Phase 1 is the first build. Version numbers are
-> settled at merge time (the next minor after whatever is current then).
+> Status: **built, all four phases, in one release.** The plan below is kept as
+> written; where the build differs, it's listed here. The version is settled at
+> merge time (the next minor after whatever is current then).
+
+## What changed from the plan
+
+- **One release, not four.** Every species is live (`LIVE_PHASE = 3`); `phase` stays on
+  each entry as the record of which group it came in with.
+- **Phase 4 shipped too.** The plugin (1.5.0) forwards `PostToolUseFailure` for Bash and
+  PowerShell. `external.js bugsOf()` reads each command with `detect.read()` and only a
+  *reading* leaves it (hashes, a species, yes/no flags), never the command or its output.
+  Shellby's own tabs use the same reading, so both go through one catch pipeline
+  (`wiring/bugdex.js handle`).
+- **Sprites are at most 8×8** (like finds), so the jar (`art.jarArt`) is the art plus a
+  glass rim and a cork, at most 12×11, with no scaling.
+- **Flaky ghosts and audits don't open encounters.** A flake is a Flaky Phantom *seen*; the
+  detective's own "fixed for good" (20 clean runs over 3 new trees) is the proof, so it
+  catches directly. A patched audit catches the Barnacled Anchor the same way.
+- **Encounter lifetimes differ by source**: a day for commands and dev servers, three
+  days for a secret stopped at the push, a week for CI and a copy that clashed.
+- **Refusal order**: a deleted or skipped test is named before "that just put the code
+  back how it was", because it says more.
+- **The jar waits for him.** Catches land mid-turn, so the moment is queued
+  (`life.presentJar`) until he's free (checked when a turn ends and on the idle tick);
+  a newer catch replaces a waiting one, and it goes stale after 10 minutes.
+- **The card count** went on the profile card (`renderer/panel/profile-card.js`), not the
+  calling card, which promises "no stats".
+- **Recap** gained a `bug` event (`recap.bugEvent`) and a Bugdex line in the
+  while-you-were-away card.
+- `bug-terrarium` (not `terrarium`, which `shell-cargo.json` already has) is the
+  Naturalist reward.
+
+The code: `src/main/bugdex.js` (state, pure), `src/main/bugdex/` (`species`, `detect`,
+`lifecycle`, `cheats`, `art`), `src/main/wiring/bugdex.js`, and the panel's
+`src/renderer/panel/bugdex.js`. Tests: `test/bugdex*.test.js`, `scripts/e2e-bugdex.js`
+(fixtures in `test/fixtures/bugdex/`).
 
 A collection book of the kinds of failure Claude has fixed for you. Every kind of failure is a pixel creature: a TypeError is a shapeshifting shrimp, ENOENT is a hermit crab that lost its shell, a merge conflict is a crab with two heads, and a flaky test is a ghost. **You don't catch one by seeing the error. You catch it by fixing it.** Shellby sees the failure (the creature turns up as a silhouette, "spotted"). Claude works on it. Then the same command passes on changed code, CI goes green, the server comes back up, or the conflict is committed cleanly, and the crab scoops the bug into a jar.
 
