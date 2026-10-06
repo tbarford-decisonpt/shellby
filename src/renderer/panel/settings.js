@@ -155,8 +155,15 @@
     renderUpdateDots();
     const row = $('claudeUpdateRow');
     row.hidden = !u || !st.installed || SB.isCrabOnly?.();
+    // The Claude tab only mentions it when there's something to do; the
+    // choices live in About.
+    const hint = $('claudeUpdateHint');
+    hint.hidden = row.hidden || (!u.available && !u.updating);
     if (row.hidden) return;
     const installed = u.installed || st.version;
+    $('claudeUpdateHintText').textContent = u.updating ? 'Updating Claude Code…' : `Claude Code v${u.latest} is out.`;
+    $('claudeUpdateHintBtn').disabled = !!u.updating;
+    $('claudeUpdateHintBtn').textContent = u.updating ? 'Updating…' : 'Update';
     $('claudeUpdateTitle').textContent = u.updating ? `Updating Claude Code v${installed || '?'}…`
       : u.available ? `Claude Code v${u.latest} is out` : `Claude Code v${installed || '?'}`;
     $('claudeUpdateNote').textContent = u.error ? u.error
@@ -315,13 +322,17 @@
     if (v?.error) SB.toast(`Couldn't check: ${v.error}`, { ms: 5000 });
     else if (v && !v.available) SB.toast(`Claude Code v${v.installed || '?'} is the latest.`);
   });
-  $('claudeUpdateBtn').addEventListener('click', async () => {
+  // Update in About and the Claude tab's notice do the same thing.
+  async function updateClaude() {
     const r = await api.updateClaude();
     if (r?.cancelled) return;
     if (r?.ok && r.updated) SB.toast(`Claude Code is now v${r.to}. New conversations use it.`, { ms: 6000 });
     else if (r?.ok) SB.toast(`Claude Code says v${r.to || '?'} is the latest it can install.`, { ms: 5000 });
     else SB.toast(r?.error || "Claude Code didn't update. Try `claude update` in a terminal.", { ms: 6000 });
-  });
+  }
+  $('claudeUpdateBtn').addEventListener('click', updateClaude);
+  $('claudeUpdateHintBtn').addEventListener('click', updateClaude);
+  $('claudeUpdateHintMore').addEventListener('click', () => SB.jumpToSettingByName('About'));
   // Pushed as the daily check or an update moves along: follow it wherever it shows.
   api.onClaudeUpdate(view => {
     state.claudeUpdate = view;
