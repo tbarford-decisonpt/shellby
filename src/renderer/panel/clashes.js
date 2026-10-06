@@ -78,8 +78,9 @@
     const first = news.find(goTarget);
     if (!first) return;
     const rest = news.length - 1;
-    const text = T.toast(first, titleOf) + (rest > 0 ? ` (And ${rest} more: look for ⚠ on the tabs.)` : '');
-    SB.toast(text, { ms: 9000, action: 'Go to it', onAction: () => { const id = goTarget(first); if (id) SB.activate(id); } });
+    const { title, text } = T.toast(first, titleOf);
+    const note = rest > 0 ? `${rest} more: look for ⚠ on the tabs.` : '';
+    SB.toast(text, { title, note, ms: 9000, action: 'Go to it', onAction: () => { const id = goTarget(first); if (id) SB.activate(id); } });
   }
 
   api.onClashes(apply);

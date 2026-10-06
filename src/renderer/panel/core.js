@@ -157,11 +157,19 @@ SB.announce = text => {
 // emptied rather than hidden.
 let toastTimer;
 // actions: [{ label, onAction }] when there's more than one thing to offer.
-SB.toast = (msg, { action, onAction, actions, ms = 2800 } = {}) => {
+// title / note: a bold headline above msg and a quiet line under it, for
+// toasts with more to say than one sentence.
+SB.toast = (msg, { title, note, action, onAction, actions, ms = 2800 } = {}) => {
   const t = SB.$('toast');
   const clear = () => t.replaceChildren();
   const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
-  t.replaceChildren(SB.h('span', { text: msg }),
+  const body = title || note
+    ? SB.h('span', { class: 'toast-body' },
+      title ? SB.h('strong', { class: 'toast-title', text: title }) : null,
+      SB.h('span', { class: 'toast-text', text: msg }),
+      note ? SB.h('span', { class: 'toast-note', text: note }) : null)
+    : SB.h('span', { text: msg });
+  t.replaceChildren(body,
     ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { clear(); a.onAction(); } }, a.label)));
   clearTimeout(toastTimer);
   toastTimer = setTimeout(clear, offers.length ? ms + 2500 : ms);
