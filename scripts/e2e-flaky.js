@@ -62,9 +62,14 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     const task = async text => {
       await panel.ev(`SB.send(${JSON.stringify(text)})`);
       await until(panel, '!SB.activeTab().busy', 10000);
-      await wait(700); // the snapshot and the ledger are written after the result
+      // The snapshot and the ledger are written after the result. CI's runners
+      // are slow at git (and the Bugdex snapshots each test command too), so
+      // give it time to settle before the next step edits a file under it.
+      await wait(1500);
     };
     const flakyList = () => panel.ev('shellby.getFlaky().then(v => v.list)');
+    // What should be on the list: waited for rather than read once.
+    const listUntil = cond => until(panel, `shellby.getFlaky().then(v => (${cond})(v.list))`, 8000);
 
     await wait(3000);
     await panel.ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
@@ -79,6 +84,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     await task('jest fail signs in');
     check((await flakyList()).length === 0, 'a failing run alone is not a flake');
     await task('jest pass');
+    await listUntil('l => l.length === 1');
     let rows = await flakyList();
     check(rows.length === 1 && rows[0].label === 'auth.spec › signs in' && rows[0].week === 1, `fail then pass with the code unchanged is a flake (${JSON.stringify(rows.map(r => [r.label, r.week]))})`);
     check(rows[0]?.framework === 'jest', 'the runner is known from its output');
@@ -102,6 +108,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     await task('edit a.txt once more');
     await task('jest fail signs in');
     await task('jest pass');
+    await listUntil('l => l[0]?.week === 2');
     rows = await flakyList();
     check(rows[0]?.week === 2, `a second flake on the new code (week ${rows[0]?.week})`);
     check(await until(critter, 'window.__said.some(s => /auth\\.spec › signs in flaked 2 times this week/.test(s))', 4000), `he says "auth.spec › signs in flaked 2 times this week" (said: ${await said()})`);
