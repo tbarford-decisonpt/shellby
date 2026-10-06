@@ -332,6 +332,7 @@
   api.onClaudeStatus(status => {
     const was = state.status || {};
     state.status = status;
+    renderUpdateDots(); // a newer Claude Code only counts once it's found
     if (state.view === 'settings') renderSettings();
     if (state.view === 'onboarding') SB.views.onboarding.render();
     if (status?.loggedIn && (!was.loggedIn || was.email !== status.email)) SB.toast(`Signed in${status.email ? ` as ${status.email}` : ''}.`);
