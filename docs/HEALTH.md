@@ -11,6 +11,7 @@ Nothing here needs administrator rights, and nothing leaves your PC.
 | GPU temperature, load, VRAM | `nvidia-smi`, which comes with every NVIDIA driver | Read every 5 seconds; takes about 50 ms |
 | CPU temperature | [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'s local web server | See below. Windows doesn't expose CPU temperature to normal apps |
 | AMD / Intel GPU temperature | LibreHardwareMonitor | Used when there's no NVIDIA card |
+| Fans, drive temperatures, battery | LibreHardwareMonitor or HWiNFO | Shown when your sensor app reports them |
 | CPU load | Windows (per-core time counters) | |
 | Memory | Windows ("available" memory) | |
 | Drives | Windows: local fixed drives only | The drive list refreshes every 15 minutes; free space every minute |
@@ -28,6 +29,12 @@ The quick way: press **Let Claude set it up** in the Health view. It fills in a 
 Shellby only ever asks `http://127.0.0.1:<port>/data.json`, which is your own PC. If LHM's web server has authentication turned on, Shellby will tell you to turn it off. When LHM isn't running, Shellby tries again once a minute.
 
 For AMD CPUs, Shellby uses the `Core (Tctl/Tdie)` sensor. For Intel CPUs it uses `CPU Package`. Otherwise it uses the hottest core.
+
+### Already run HWiNFO?
+
+Then you don't need LibreHardwareMonitor. Run HWiNFO's companion **Remote Sensor Monitor** on its default port, `60000`, and Shellby reads the same sensors from it at `http://127.0.0.1:60000`. When LHM isn't answering he tries HWiNFO, and **Sensors** in the Health view says which one he's reading.
+
+The graphs under each gauge cover the last 10 minutes or the last hour: switch with **10 min / 1 hour** above them. The figures beside a graph are the lowest and highest over that time.
 
 ## When he reacts
 
@@ -96,6 +103,18 @@ The Health view lists what launches when you sign in: the Run entries in the reg
 
 **Ask Shellby which ones I need** starts a task with that list. Claude explains what each one is, also looks (read-only) at scheduled tasks that run at logon and at non-Microsoft services that start automatically, and gives you a table of what to keep, what to switch off, and how to do it yourself. Like the other Ask Shellby tasks, it's told not to disable or change anything. It always runs in **Ask** mode, whatever mode you're in, because the list comes from the registry and any installer can write there. So anything Claude wants to run still asks you first.
 
+## Developer clutter
+
+On a developer's PC, the biggest things on the drive are often ones you can't point at in Explorer. Every few hours Shellby measures:
+
+- **Docker:** what `docker system df` says is in use and how much of it could be freed.
+- **Virtual disks:** Docker Desktop's and each WSL distro's `ext4.vhdx`. Freeing space inside them doesn't shrink these files, so they're listed apart.
+- **Package caches:** npm, pnpm, Yarn, pip, uv, Cargo, Go modules, NuGet, Gradle, Electron, electron-builder, Playwright and Puppeteer.
+
+Once **40 GB** or more could come back (set it under **Alert settings**), he overstuffs his shell as he does for a full drive, and the **Developer clutter** card says where it is. **Ask Shellby what's safe to clear** starts a task that plans the cleanup and gives you the exact commands, without running them. Pruning Docker or wiping a cache is your call.
+
+Measuring is read-only, and each cache walk stops after 2 seconds, so the sizes are a floor rather than exact. Turn it off with **Measure Docker, WSL and package caches** under **Alert settings**.
+
 ## Trophies
 
 | Trophy | How | Reward |
@@ -120,5 +139,7 @@ In the Health view:
 - `src/main/health/service.js`: settings, notifications, the alert log, trophies and IPC.
 - `src/main/health/hogs.js`: the process list, sorting and the End task guards. Covered in `test/hogs.test.js`.
 - `src/main/health/startup.js`: the startup list, its on/off switch and the audit prompt. Also covered in `test/hogs.test.js`.
+- `src/main/health/hwinfo.js`: HWiNFO's readings through Remote Sensor Monitor.
+- `src/main/health/space.js`: Docker, WSL and the package caches, and the cleanup prompt.
 - **Fake sensors.** `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu npm start` runs a dev build with scripted sensors and no waiting. It's ignored by installed builds.
 - **End-to-end check.** `node scripts/e2e-health.js` launches each scenario and checks the desktop mood, the bubble, the Health view and the badge on Health in the panel's bottom bar.
