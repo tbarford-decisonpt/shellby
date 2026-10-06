@@ -77,6 +77,7 @@ function registerPanelIpc(ipcMain, d) {
       packaged: app.isPackaged,
       models: MODELS,
       updates: d.updateView(),
+      claudeUpdate: d.claudeUpdateView(),
       registryUrl: d.registryUrl(),
       startView: (() => { const v = d.startView; d.startView = null; return v; })(),
     };
@@ -168,6 +169,25 @@ function registerPanelIpc(ipcMain, d) {
   // ---- updates
   ipcMain.handle('updates:check', () => (d.updates ? d.updates.check() : d.updateView()));
   ipcMain.handle('updates:install', () => !!d.updates?.install());
+
+  // ---- keeping Claude Code itself up to date (claude-update.js)
+  ipcMain.handle('claude:update-check', async () => (d.claudeUpdates ? d.claudeUpdates.check() : null));
+  ipcMain.handle('claude:update-mode', (_e, mode) => (d.claudeUpdates ? d.claudeUpdates.setMode(mode) : null));
+  // Runs Claude Code's own `claude update`. A conversation mid-turn keeps the
+  // copy it started with, so it isn't stopped, but you're told before it's swapped.
+  ipcMain.handle('claude:update', async () => {
+    if (!d.claudeUpdates) return { ok: false, error: 'Not available in this run.' };
+    const busy = d.manager?.aggregate?.busy || 0;
+    if (busy) {
+      const r = await dialog.showMessageBox(d.panel, {
+        type: 'warning', buttons: ['Update anyway', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+        message: `${busy === 1 ? 'A task is' : `${busy} tasks are`} still running.`,
+        detail: 'They carry on with the version they started with; new conversations get the update. Let them finish first if you can.',
+      });
+      if (r.response !== 0) return { ok: false, cancelled: true };
+    }
+    return d.claudeUpdates.update();
+  });
 }
 
 module.exports = { registerPanelIpc };

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### New
+- **Claude Code stays current.** The CLI checks for its own updates only in an interactive terminal session, so under Shellby it stayed on whatever version you installed. Now he asks the npm registry once a day and, when there's a newer one, says so once and puts an **Update** button in **Settings → Claude Code** that runs `claude update`. **Update it for me** has him do it himself while nothing is running; **Leave it to me** switches the check off.
+
+### Fixed
+- Recorded CLI transcripts now scrub the home folder in its short form too (`C:\Users\TYLERB~1`, how the CLI's scratchpad paths spell it).
+
 ## 0.68.1: 0.68.0, delivered
 
 0.68.0 didn't make it out of the build, so this is the first version to bring everything in it (below). Nothing else has changed.
