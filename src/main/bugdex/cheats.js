@@ -60,29 +60,34 @@ function onlyBiggerNumbers(parts) {
  *   species: the encounter's species id
  *   remedy:  whether a remedy command ran in between (a same-tree catch)
  *   revert:  whether the pass tree is one the project had before the failure
- *   passCmd: the command that passed
+ *   passCmd: the command that passed, or passFlags: flagsOf(it) (a reading carries only those)
  *   counts:  { before, after } tests that passed, when the runner said so
  * -> { ok: true } | { ok: false, reason }
  */
-function judge({ files = [], patch = '', species, remedy = false, revert = false, passCmd = '', counts = null } = {}) {
+function judge({ files = [], patch = '', species, remedy = false, revert = false, passCmd = '', passFlags = null, counts = null } = {}) {
+  const flags = passFlags || flagsOf(passCmd);
   if (!files.length) return remedy ? { ok: true } : { ok: false, reason: 'no-change' };
-  if (revert) return { ok: false, reason: 'revert' };
+  // What was done to the tests says the most, so it's named first, even when it's also an undo.
   if (files.some(f => f.status === 'D' && isTestFile(f.path))) return { ok: false, reason: 'deleted-tests' };
   const parts = splitPatch(patch);
   const addedIn = pred => Object.entries(parts).some(([p, x]) => pred(p) && x.added.some(l => l));
   const adds = (re, pred = () => true) => Object.entries(parts).some(([p, x]) => pred(p) && x.added.some(l => re.test(l)));
   if (adds(SKIP_ADD, isTestFile)) return { ok: false, reason: 'skipped' };
+  if (revert) return { ok: false, reason: 'revert' };
   // Every species is refused when a suppression is the whole change; the type
   // and lint ones whenever one is added at all.
   const codeLines = Object.values(parts).flatMap(x => x.added).filter(l => l.trim());
   if (adds(SUPPRESS_ADD) && (SUPPRESSIBLE.has(species) || codeLines.every(l => SUPPRESS_ADD.test(l)))) return { ok: false, reason: 'suppressed' };
   if (TEST_SPECIES.has(species) && counts && Number.isFinite(counts.before) && Number.isFinite(counts.after) && counts.after < counts.before) return { ok: false, reason: 'fewer-tests' };
-  if (species === 'mirror-mullet' && (UPDATE_SNAPSHOT.test(passCmd) || files.every(f => SNAP_PATH.test(f.path)))) return { ok: false, reason: 'snapshots-only' };
+  if (species === 'mirror-mullet' && (flags.snapshotUpdate || files.every(f => SNAP_PATH.test(f.path)))) return { ok: false, reason: 'snapshots-only' };
   if ((species === 'slowpoke-snail' || species === 'heap-leviathan') && onlyBiggerNumbers(parts)) return { ok: false, reason: 'bigger-number' };
-  if (species === 'cert-cuttlefish' && (adds(INSECURE_ADD) || INSECURE_ADD.test(` ${passCmd} `))) return { ok: false, reason: 'insecure' };
+  if (species === 'cert-cuttlefish' && (adds(INSECURE_ADD) || flags.insecure)) return { ok: false, reason: 'insecure' };
   if (species === 'border-crab' && !addedIn(p => !isTestFile(p))) return { ok: false, reason: 'tests-only' };
   return { ok: true };
 }
+
+/** What about the passing command itself matters to the rules: updating snapshots, skipping certificate checks. */
+const flagsOf = cmd => ({ snapshotUpdate: UPDATE_SNAPSHOT.test(String(cmd || '')), insecure: INSECURE_ADD.test(` ${String(cmd || '')} `) });
 
 // The panel's words for a refusal ("Not like that: ...").
 const REASONS = Object.freeze({
@@ -98,4 +103,4 @@ const REASONS = Object.freeze({
   'tests-only': 'only the tests changed',
 });
 
-module.exports = { judge, splitPatch, isTestFile, onlyBiggerNumbers, REASONS, TEST_PATH };
+module.exports = { judge, flagsOf, splitPatch, isTestFile, onlyBiggerNumbers, REASONS, TEST_PATH };

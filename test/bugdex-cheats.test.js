@@ -20,6 +20,10 @@ test('going back to how the code was before it broke is not a fix', () => {
   assert.equal(c.judge({ files: [{ path: 'a.js', status: 'M' }], species: 'nullfish', revert: true }).reason, 'revert');
 });
 
+test('a deleted test is named as such, even when it is also an undo', () => {
+  assert.equal(c.judge({ files: [{ path: 'add.test.js', status: 'D' }], species: 'assertive-lobster', revert: true }).reason, 'deleted-tests');
+});
+
 test('a deleted test file is refused', () => {
   assert.equal(c.judge({ files: [{ path: 'test/auth.test.js', status: 'D' }], species: 'red-snapper' }).reason, 'deleted-tests');
   assert.equal(c.judge({ files: [{ path: 'pkg/auth_test.go', status: 'D' }], species: 'red-snapper' }).reason, 'deleted-tests');

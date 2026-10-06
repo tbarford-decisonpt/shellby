@@ -120,22 +120,25 @@ function wireBugdex(d) {
     return r;
   }
 
-  /** A failed command showed a bug: open its encounter. */
-  async function observe(c, output) {
-    const hit = detect.classify(output, { cmd: c.command, source: 'bash', live: LIVE });
+  /**
+   * A failed command showed a bug: open its encounter.
+   *   r: detect.read()'s reading; at: { dir, tabId, bugTree }
+   */
+  async function observe(r, at) {
+    const hit = r.hit;
     if (!hit) return;
-    const p = await project(c.dir);
+    const p = await project(at.dir);
     if (!p) return;
-    const snap = await snapshotWithin(c.dir);
+    const snap = await snapshotWithin(at.dir);
     if (snap) rememberTree(p.id, snap.tree);
     const conflict = hit.species === 'two-headed-crab';
     const enc = {
       species: hit.species, fp: hit.fp, project: p.id, name: p.name, source: 'bash',
       // A conflict is caught by settling it, not by the same command passing.
-      keys: conflict ? [] : detect.matchKeys(c.command), kind: detect.commandKind(c.command),
-      failTree: snap?.tree || null, tabId: c.tabId || null, lang: hit.lang, passed: detect.passedCount(output),
+      keys: conflict ? [] : r.keys, kind: r.kind,
+      failTree: snap?.tree || null, tabId: at.tabId || null, lang: hit.lang, passed: r.passed,
     };
-    if (conflict) conflicts.set(lifecycle.encId(enc), { files: detect.conflictFiles(output) });
+    if (conflict) conflicts.set(lifecycle.encId(enc), { files: r.conflictFiles });
     await spot(enc);
   }
 
@@ -210,21 +213,20 @@ function wireBugdex(d) {
   }
 
   /** A passing command: does it catch anything open for it? */
-  async function tryCatch(c, output) {
-    const key = cmdKey(c.command);
-    const p = await project(c.dir);
-    if (!p || !key) return;
-    const cands = lifecycle.candidates(state().open, { project: p.id, key });
+  async function tryCatch(r, at) {
+    const p = await project(at.dir);
+    if (!p || !r.key) return;
+    const cands = lifecycle.candidates(state().open, { project: p.id, key: r.key });
     if (!cands.length) return;
     // The code as it was when the command started and as it ended: if it moved
     // while it ran, the pass proves nothing.
-    const start = await c.bugTree;
-    const end = await snapshotWithin(c.dir);
+    const start = await at.bugTree;
+    const end = await snapshotWithin(at.dir);
     if (!start || !end || start.tree !== end.tree) return;
     rememberTree(p.id, end.tree);
     const caught = [];
     for (const e of cands) {
-      if (!e.failTree || detect.stillShows(output, e.fp, { cmd: c.command, live: LIVE })) continue;
+      if (!e.failTree || r.fps.includes(e.fp)) continue;
       const sp = speciesById(e.species);
       const same = e.failTree === end.tree;
       const remedy = same && !!sp.remedies && remediesSince(p.id, e.firstAt).some(k => sp.remedies.includes(k));
@@ -236,7 +238,7 @@ function wireBugdex(d) {
       }
       const verdict = judge({
         files, patch, species: e.species, remedy, revert: !same && wasBefore(p.id, end.tree, e.firstAt),
-        passCmd: c.command, counts: { before: e.passed, after: detect.passedCount(output) },
+        passFlags: r.passFlags, counts: { before: e.passed, after: r.passed },
       });
       if (!verdict.ok) {
         update(s => bugdex.refuse(s, lifecycle.encId(e), verdict.reason));
@@ -261,29 +263,28 @@ function wireBugdex(d) {
   }
 
   /** Remedies, walking away from a merge, settling one, pushes and commits. */
-  async function sideEffects(c) {
-    const p = await project(c.dir);
+  async function sideEffects(r, at) {
+    const p = await project(at.dir);
     if (!p) return;
-    const kind = detect.remedyOf(c.command);
-    if (kind) ringPush(remedies, p.id, { kind, at: Date.now() }, MAX_REMEDIES);
+    if (r.remedy) ringPush(remedies, p.id, { kind: r.remedy, at: Date.now() }, MAX_REMEDIES);
     const open = state().open.filter(e => e.project === p.id && e.source === 'bash');
-    if (detect.isFlee(c.command)) {
+    if (r.flee) {
       const fled = open.filter(e => e.species === 'two-headed-crab');
       if (fled.length) update(s => fled.reduce((acc, e) => bugdex.closeEncounter(acc, lifecycle.encId(e)), s));
       return;
     }
-    if (detect.isResolve(c.command)) await settleConflicts(p, c, open.filter(e => e.species === 'two-headed-crab'));
-    if (detect.isFairPush(c.command)) {
+    if (r.resolve) await settleConflicts(p, at.dir, open.filter(e => e.species === 'two-headed-crab'));
+    if (r.fairPush) {
       for (const e of open.filter(x => x.species === 'bounced-bottle')) catchIt(e);
       engageCi(p.id);
     }
-    if (detect.isHookedCommit(c.command)) for (const e of open.filter(x => x.species === 'gatekeeper-goby' && x.engaged)) catchIt(e);
+    if (r.hookedCommit) for (const e of open.filter(x => x.species === 'gatekeeper-goby' && x.engaged)) catchIt(e);
   }
 
   /** A merge was committed: caught, if git agrees nothing is left unmerged and no markers are left. */
-  async function settleConflicts(p, c, list) {
+  async function settleConflicts(p, dir, list) {
     if (!list.length) return;
-    const root = await changes.rootOf(c.dir).catch(() => null);
+    const root = await changes.rootOf(dir).catch(() => null);
     if (!root) return;
     const unmerged = await worktrees.git(root, ['ls-files', '-u'], { timeout: GIT_MS });
     if (!unmerged.ok || unmerged.out.trim()) return;
@@ -317,19 +318,54 @@ function wireBugdex(d) {
     if (p) update(s => bugdex.engage(s, p.id, Date.now()));
   }
 
-  /** A command finished. c: the pending entry from sessions.js. */
-  async function commandResult(c, item, tail) {
+  /**
+   * What one finished command amounts to, wherever it ran.
+   *   r: detect.read()'s reading (no output in it); at: { dir, tabId, bugTree }
+   */
+  async function handle(r, at) {
     try {
-      if (!on() || !c.dir || c.background) return;
-      const { output, complete } = detect.fullOutput(item, tail);
-      const outcome = detect.outcomeOf({ cmd: c.command, output, isError: item.isError, complete });
-      if (outcome === 'fail') return await observe(c, output);
-      if (outcome !== 'pass') return;
-      await sideEffects(c);
-      await tryCatch(c, output);
+      if (!on() || !r || !at.dir) return;
+      if (r.outcome === 'fail') return await observe(r, at);
+      await sideEffects(r, at);
+      await tryCatch(r, at);
     } catch (e) {
       d.log.error('bugdex', e);
     }
+  }
+
+  /** A command finished in a tab. c: the pending entry from sessions.js. */
+  function commandResult(c, item, tail) {
+    if (!on() || !c.dir || c.background) return Promise.resolve();
+    const { output, complete } = detect.fullOutput(item, tail);
+    const r = detect.read({ cmd: c.command, output, isError: item.isError, complete, live: LIVE });
+    return handle(r, { dir: c.dir, tabId: c.tabId, bugTree: c.bugTree });
+  }
+
+  // ---- Claude Code outside Shellby (external.js): the same, from the plugin's hooks
+
+  const outsideStarts = new Map();   // tool_use_id -> promise of the tree when it started
+  const MAX_OUTSIDE = 50;
+
+  /** A command is starting in a session outside Shellby: its tree, if it could catch something. */
+  function outsideStart({ toolUseId, key, cwd }) {
+    if (!on() || !toolUseId || !key || !cwd) return;
+    if (!state()?.open?.some(e => e.source === 'bash' && e.keys.includes(key))) return;
+    outsideStarts.set(toolUseId, snapshotWithin(cwd));
+    if (outsideStarts.size > MAX_OUTSIDE) outsideStarts.delete(outsideStarts.keys().next().value);
+  }
+
+  /** ...and finished: external.js has already read it down to a reading. */
+  function outsideResult({ toolUseId, reading, cwd }) {
+    const bugTree = outsideStarts.get(toolUseId) || null;
+    outsideStarts.delete(toolUseId);
+    return handle(reading, { dir: cwd, tabId: null, bugTree });
+  }
+
+  /** Claude wrote a file in a session outside Shellby. */
+  async function outsideWrote({ cwd }) {
+    if (!on() || !state()?.open?.length) return;
+    const p = await project(cwd);
+    if (p) update(s => bugdex.engage(s, p.id, Date.now()));
   }
 
   // ---- turns (wiring/sessions.js, timetrack.js)
@@ -351,6 +387,8 @@ function wireBugdex(d) {
   /** A turn ended in a tab: a copy's clash or a dev server's fix is being seen to. */
   function turnEnded(tabId, item) {
     if (!on() || item?.interrupted) return;
+    // A catch made mid-turn waits for him to be free: he usually is a moment after.
+    setTimeout(() => d.life?.jarIfFree?.(), 1500);
     const open = state()?.open || [];
     if (open.some(e => e.source === 'home' && e.tabId === tabId)) update(s => ({ ...s, open: s.open.map(e => (e.source === 'home' && e.tabId === tabId ? { ...e, engaged: true } : e)) }));
     if (!item?.ok) return;
@@ -543,7 +581,7 @@ function wireBugdex(d) {
 
   return {
     on, view, push, openPage, seen, setFavourite, openTab, forget,
-    commandStart, commandResult, wrote, treeSeen, changed, turnEnded,
+    commandStart, commandResult, wrote, treeSeen, changed, turnEnded, outsideStart, outsideResult, outsideWrote,
     serverCrashed, serverUp, ciFailed, ciFixed, ciEngaged, homeResult, secretSpotted, secretIgnored, pushedClean,
     flakySeen, flakyFixed, auditIssues, auditPatched,
     // For the tests: the species a red build would be.

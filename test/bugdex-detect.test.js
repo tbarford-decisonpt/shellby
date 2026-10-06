@@ -144,3 +144,17 @@ test('huge and hostile output stays fast and yields only an id', () => {
   assert.deepEqual(Object.keys(r).sort(), ['fp', 'lang', 'species', 'tier']);
   assert.equal(r.species, 'shapeshifter-shrimp');
 });
+
+test('read: a reading carries no text, only what the Bugdex needs', () => {
+  const fail = d.read({ cmd: 'node src/user.js', output: NODE_NULL, isError: true });
+  assert.equal(fail.outcome, 'fail');
+  assert.equal(fail.hit.species, 'nullfish');
+  assert.ok(!JSON.stringify(fail).includes('session.user'));
+  const pass = d.read({ cmd: 'npm install', output: 'added 3 packages', isError: false });
+  assert.equal(pass.outcome, 'pass');
+  assert.equal(pass.remedy, 'install');
+  assert.deepEqual(d.read({ cmd: 'npx jest -u', output: 'Tests: 3 passed', isError: false }).passFlags, { snapshotUpdate: true, insecure: false });
+  assert.equal(d.read({ cmd: 'cat x.log', output: 'TypeError: x', isError: false }), null);
+  const still = d.read({ cmd: 'node src/user.js', output: NODE_NULL, isError: false });
+  assert.ok(still.fps.includes(fail.hit.fp), 'a pass still printing the bug lists it');
+});

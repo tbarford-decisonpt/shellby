@@ -1,0 +1,5 @@
+{
+  "command": "node lib.js",
+  "isError": true,
+  "output": "TypeError: items.map is not a function\n    at render (/proj/lib.js:7:15)"
+}

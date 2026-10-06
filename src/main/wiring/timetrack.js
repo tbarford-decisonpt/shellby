@@ -422,6 +422,10 @@ function wireTimetrack(d) {
       if (e.cwd && e.ship) d.shipped(e.cwd, e.ship.kind, { version: e.ship.version });
     });
     d.external.on('checkup', e => d.checkedUp(e.dir, e.check, e.result));
+    // The Bugdex, outside Shellby too: readings only, never what a command printed (external.js bugsOf).
+    d.external.on('bug-start', e => d.bugdex?.outsideStart(e));
+    d.external.on('bug-read', e => d.bugdex?.outsideResult(e));
+    d.external.on('bug-wrote', e => d.bugdex?.outsideWrote(e));
     d.external.on('turn-done', e => {
       d.awardXp('task', { project: e.project });
       d.noteWorkTime(e.ms);

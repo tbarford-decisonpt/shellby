@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { ANSI_RE, cmdKey, masked, normalizeCmd } = require('../flaky/ids');
 const { readRun } = require('../flaky/parsers');
 const { classifyCommand } = require('../xp');
+const { flagsOf } = require('./cheats');
 
 const MAX_TEXT = 64 * 1024;    // only the end of a long output: the error is near the bottom
 const MAX_LINES = 200;
@@ -288,20 +289,51 @@ function classify(output, { cmd = '', source = 'bash', live = null } = {}) {
  * fingerprint asked about. Used on a pass, where the run succeeding isn't
  * enough if the same error is still printed.
  */
-function stillShows(output, fp, { cmd = '', live = null } = {}) {
+const stillShows = (output, fp, opts = {}) => fingerprintsIn(output, opts).includes(fp);
+
+/** Every bug fingerprint an output shows, whichever tier: a pass still printing one hasn't fixed it. */
+function fingerprintsIn(output, { cmd = '', live = null } = {}) {
   const lines = windowOf(output);
   const ctx = { kind: commandKind(cmd), cmd: normalizeCmd(cmd) };
   const file = fileBase(lines);
+  const fps = new Set();
   for (const tier of TIERS) {
     for (const line of lines) {
       if (!line) continue;
       for (const [species, re, , when] of tier) {
         if ((live && !live.has(species)) || (when && !when(ctx)) || !re.test(line)) continue;
-        if (fingerprint(species, line, file) === fp) return true;
+        fps.add(fingerprint(species, line, file));
       }
     }
   }
-  return false;
+  return [...fps].slice(0, 50);
+}
+
+/**
+ * Everything the Bugdex needs from one finished command, with none of its
+ * text: Shellby's tabs and Claude Code sessions outside Shellby
+ * (external.js) both hand this over instead of the output.
+ * -> null (it can't show anything) | {
+ *      outcome: 'fail' | 'pass', key, keys, kind, hit (classify) | null,
+ *      fps (on a pass: bugs it still prints), passed, conflictFiles,
+ *      remedy, flee, resolve, fairPush, hookedCommit, passFlags }
+ */
+function read({ cmd, output, isError, background = false, complete = true, live = null }) {
+  const outcome = outcomeOf({ cmd, output, isError, background, complete });
+  if (!outcome) return null;
+  const hit = outcome === 'fail' ? classify(output, { cmd, source: 'bash', live }) : null;
+  return {
+    outcome, key: cmdKey(cmd), keys: matchKeys(cmd), kind: commandKind(cmd), hit,
+    fps: outcome === 'pass' ? fingerprintsIn(output, { cmd, live }) : [],
+    passed: passedCount(output),
+    conflictFiles: hit?.species === 'two-headed-crab' ? conflictFiles(output) : [],
+    remedy: outcome === 'pass' ? remedyOf(cmd) : null,
+    flee: outcome === 'pass' && isFlee(cmd),
+    resolve: outcome === 'pass' && isResolve(cmd),
+    fairPush: outcome === 'pass' && isFairPush(cmd),
+    hookedCommit: outcome === 'pass' && isHookedCommit(cmd),
+    passFlags: flagsOf(cmd),
+  };
 }
 
 /** How many tests passed, when the runner says (for the "fewer tests" check), else null. */
@@ -328,5 +360,5 @@ function conflictFiles(output) {
 module.exports = {
   TIER1, TIER2, TIER3, REMEDY,
   commandKind, gate, outcomeOf, matchKeys, remedyOf, isResolve, isFlee, isFairPush, isHookedCommit,
-  classify, stillShows, fingerprint, normMessage, fileBase, windowOf, fullOutput, passedCount, conflictFiles,
+  classify, stillShows, fingerprintsIn, read, fingerprint, normMessage, fileBase, windowOf, fullOutput, passedCount, conflictFiles,
 };

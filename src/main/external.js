@@ -17,6 +17,8 @@ const { classifyCommand } = require('./xp');
 const { shipOf } = require('./stickers');
 const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
+const bugRead = require('./bugdex/detect');
+const { cmdKey } = require('./flaky/ids');
 
 const DEFAULT_PORT = 47913;
 const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file contents
@@ -129,6 +131,9 @@ function applyHookEvent(sessions, evt, now, client = null) {
       }
       break;
     }
+    case 'PostToolUseFailure':
+      if (s.state === 'asking') s.state = 'working'; // it was allowed, and then failed
+      break;
     case 'SubagentStop':
       s.helpers = Math.max(0, s.helpers - 1);
       break;
@@ -165,6 +170,39 @@ function applyHookEvent(sessions, evt, now, client = null) {
     next.delete(oldest[0]);
   }
   return { sessions: next, effects };
+}
+
+// Tools that write code: Claude working on whatever bug is on the loose there.
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const TOOL_USE_RE = /^[A-Za-z0-9_-]{1,80}$/;
+
+/**
+ * What the Bugdex takes from one hook event (bugdex/detect.js read()): a
+ * command starting, a command's reading (a bug it showed, or what its pass
+ * means) or a write. Pure. The command and its output are read here and
+ * dropped: only hashes, a species and yes/no answers leave.
+ *   -> [{ type: 'bug-start', toolUseId, key, cwd } | { type: 'bug-read', toolUseId, reading, cwd } | { type: 'bug-wrote', cwd }]
+ */
+function bugsOf(evt) {
+  const name = evt?.hook_event_name;
+  const cwd = typeof evt?.cwd === 'string' && LOCAL_DIR.test(evt.cwd) && evt.cwd.length <= MAX_CWD ? evt.cwd : null;
+  if (!cwd || typeof evt.session_id !== 'string' || !ID_RE.test(evt.session_id)) return [];
+  if (WRITE_TOOLS.has(evt.tool_name) && name === 'PostToolUse') return [{ type: 'bug-wrote', cwd }];
+  if (!SHELL_TOOLS.has(evt.tool_name)) return [];
+  const command = typeof evt.tool_input?.command === 'string' ? evt.tool_input.command : '';
+  const toolUseId = typeof evt.tool_use_id === 'string' && TOOL_USE_RE.test(evt.tool_use_id) ? evt.tool_use_id : null;
+  const background = evt.tool_input?.run_in_background === true;
+  if (!command || background) return [];
+  if (name === 'PreToolUse') return toolUseId ? [{ type: 'bug-start', toolUseId, key: cmdKey(command), cwd }] : [];
+  let reading = null;
+  if (name === 'PostToolUse') {
+    const res = evt.tool_response;
+    const output = res && typeof res === 'object' ? [res.stdout, res.stderr].filter(x => typeof x === 'string').join('\n') : (typeof res === 'string' ? res : '');
+    reading = bugRead.read({ cmd: command, output, isError: false });
+  } else if (name === 'PostToolUseFailure' && evt.is_interrupt !== true) {
+    reading = bugRead.read({ cmd: command, output: typeof evt.error === 'string' ? evt.error : '', isError: true });
+  }
+  return reading ? [{ type: 'bug-read', toolUseId, reading, cwd }] : [];
 }
 
 /** Quiet down sessions that stopped sending events (Claude killed, laptop slept). */
@@ -398,6 +436,8 @@ class ExternalSessions extends EventEmitter {
     const { sessions, effects } = applyHookEvent(this.sessions, evt, this.now(), client);
     this.update(sessions);
     for (const e of effects) this.emit(e.type, e);
+    // The Bugdex's own reading of it (wiring/bugdex.js): never on the effects, which the crab reacts to.
+    for (const e of bugsOf(evt)) this.emit(e.type, e);
   }
 
   update(sessions) {
@@ -410,4 +450,4 @@ class ExternalSessions extends EventEmitter {
   get summary() { return { ...summarize(this.sessions), status: this.status, port: this.port }; }
 }
 
-module.exports = { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT, ROUTES };
+module.exports = { ExternalSessions, applyHookEvent, bugsOf, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT, ROUTES };
