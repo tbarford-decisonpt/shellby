@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.70.2: An expired sign-in says so
+
+### Fixed
+- **An expired Claude sign-in gets the Sign in again button.** When your Claude sign-in lapsed while Shellby was open, Claude Code answered every turn with "Failed to authenticate: OAuth session expired" and the panel showed only a generic "Something went wrong" with **Copy details**. Now it says Claude Code is signed out and offers **Sign in again**, which runs Claude Code's own sign-in. Thanks to @tbarford-decisonpt (#25).
+
 ## 0.70.1: 0.70.0, delivered
 
 0.70.0 never shipped: a slow test check stopped its release. This is 0.70.0's crit hits, Bugdex, character sheet, quests and crew, with nothing else changed for you.
