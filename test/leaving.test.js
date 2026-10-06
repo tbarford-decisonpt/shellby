@@ -64,6 +64,60 @@ test('unpushed commits are counted and their branches named', async () => {
   } finally { r.done(); }
 });
 
+test('a branch squash-merged on the remote is not unpushed, even with its branch deleted there', async () => {
+  const r = setup();
+  try {
+    // The PR's own commits stay on the local branch; the remote gets one squash
+    // commit with the same change under a different hash.
+    r.g(r.dir, 'checkout', '-q', '-b', 'feature');
+    commit(r, 'c.txt', 'c\n');
+    r.g(r.dir, 'checkout', '-q', 'main');
+    r.g(r.dir, 'merge', '-q', '--squash', 'feature');
+    r.g(r.dir, 'commit', '-qm', 'feature (#1)');
+    r.g(r.dir, 'push', '-q', 'origin', 'main');
+    // A branch with real work alongside still counts.
+    r.g(r.dir, 'checkout', '-q', '-b', 'wip');
+    commit(r, 'd.txt', 'd\n');
+    r.g(r.dir, 'checkout', '-q', 'main');
+    const [p] = await leaving.check([r.dir]);
+    assert.equal(p.unpushed.commits, 1);
+    assert.deepEqual(p.unpushed.branches, ['wip']);
+  } finally { r.done(); }
+});
+
+test('a branch whose only unpushed commit is a merge is still named', async () => {
+  const r = setup();
+  try {
+    r.g(r.dir, 'checkout', '-q', '-b', 'side');
+    commit(r, 'c.txt', 'c\n');
+    r.g(r.dir, 'push', '-q', 'origin', 'side');
+    r.g(r.dir, 'checkout', '-q', 'main');
+    commit(r, 'b.txt', 'b\n');
+    r.g(r.dir, 'push', '-q', 'origin', 'main');
+    r.g(r.dir, 'checkout', '-q', 'side');
+    r.g(r.dir, 'merge', '-q', '--no-edit', 'main');
+    r.g(r.dir, 'checkout', '-q', 'main');
+    const [p] = await leaving.check([r.dir]);
+    assert.equal(p.unpushed.commits, 1);
+    assert.deepEqual(p.unpushed.branches, ['side']);
+  } finally { r.done(); }
+});
+
+test('too many unpushed commits to list are still counted', async () => {
+  const run = async args => {
+    if (args.includes('--show-toplevel')) return 'C:/code/proj\n';
+    if (args.includes('--git-common-dir')) return '.git\n';
+    if (args.includes('worktree')) return 'worktree C:/code/proj\nHEAD 1\nbranch refs/heads/main\n';
+    if (args.includes('status')) return '';
+    if (args[2] === 'remote') return 'origin\n';
+    if (args.includes('rev-list')) return args.includes('--count') ? '30000\n' : null; // the list overflowed
+    return '';
+  };
+  const [p] = await leaving.check([path.resolve('/code/proj')], run);
+  assert.equal(p.ok, true);
+  assert.deepEqual(p.unpushed, { commits: 30000, branches: [] });
+});
+
 test('uncommitted and untracked files, and stashes, each count', async () => {
   const r = setup();
   try {
