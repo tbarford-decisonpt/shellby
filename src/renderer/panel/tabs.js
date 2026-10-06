@@ -165,14 +165,19 @@
     if (tab.saved && !quiet) SB.toast('Closed. It is still in History.');
   };
 
+  // The strip is redrawn from scratch, and a new element starts its animation
+  // from the top. Backdated to when the page loaded, every redraw picks the
+  // spin up where the last one left off.
+  const onPageClock = () => `animation-delay: -${Math.round(performance.now())}ms`;
+
   function tabIcon(t) {
     if (t.pending) return h('span', { class: 'ti ti-ask', title: 'Needs your OK', text: '?' });
     if (t.inTerminal) return h('span', { class: 'ti ti-term', title: 'Carrying on in a terminal', text: '›_' });
     const doing = window.ShellbyTabSort.activity(t);
-    if (doing === 'turn') return h('span', { class: 'ti ti-busy', title: t.crew ? `${t.crew} helper${t.crew > 1 ? 's' : ''} working` : 'Working' }, t.crew ? h('b', { text: t.crew }) : null);
+    if (doing === 'turn') return h('span', { class: 'ti ti-busy', style: onPageClock(), title: t.crew ? `${t.crew} helper${t.crew > 1 ? 's' : ''} working` : 'Working' }, t.crew ? h('b', { text: t.crew }) : null);
     // Not done, so not the finished tick; not the working spinner either, which
     // would say Claude is still replying.
-    if (doing === 'background') return h('span', { class: 'ti ti-bg', title: `Turn finished · ${t.crew} background task${t.crew > 1 ? 's' : ''} still running` });
+    if (doing === 'background') return h('span', { class: 'ti ti-bg', style: onPageClock(), title: `Turn finished · ${t.crew} background task${t.crew > 1 ? 's' : ''} still running` });
     if (t.outcome === 'error') return h('span', { class: 'ti ti-err', title: 'Ended with an error', text: '!' });
     if (t.outcome === 'ok' && t.unread) return h('span', { class: 'ti ti-ok', title: 'Finished', text: '✓' });
     if (t.routineId) return h('span', { class: 'ti ti-routine', title: 'Routine', text: '⟳' });

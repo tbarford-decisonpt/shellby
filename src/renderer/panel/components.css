@@ -74,18 +74,26 @@ body.reordering .tip { display: none; }
 .ti-ask { background: var(--amber); color: #2a1c02; animation: tipulse 1s ease-in-out infinite; }
 .ti-busy { width: 13px; min-width: 13px; height: 13px; padding: 0; border: 2px solid var(--coral); border-right-color: transparent; animation: spin .8s linear infinite; }
 .ti-busy b { display: none; }
-/* Background work still running after the turn ended: a faint ring with one dot
-   slowly orbiting it, so it reads as "still going" without passing for the
-   working spinner. Standing still (reduced motion) the dot still sets it apart. */
+/* Background work still running after the turn ended: a comet sweeping slowly
+   round a faint track, its tail fading behind a rounded head, so it reads as
+   "still going" without passing for the working spinner. The ring is cut out of
+   a conic gradient by the mask; the track is an inset shadow inside that ring.
+   tabs.js backdates both spinners' animation-delay to the page clock, so the
+   strip redrawing (every tab summary) doesn't snap them back to the top.
+   Standing still (reduced motion), the faded tail still sets it apart. */
 .ti-bg {
-  position: relative; width: 13px; min-width: 13px; height: 13px; padding: 0;
-  border: 2px solid color-mix(in srgb, var(--coral) 30%, transparent);
+  position: relative; width: 13px; min-width: 13px; height: 13px; padding: 0; border-radius: 50%;
+  background: conic-gradient(transparent 0 40%, color-mix(in srgb, var(--coral) 85%, transparent));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--coral) 16%, transparent);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
   animation: spin 2.4s linear infinite;
 }
 .ti-bg::before {
-  content: ""; position: absolute; top: -4px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px;
-  border-radius: 50%; background: var(--coral); box-shadow: 0 0 4px var(--coral);
+  content: ""; position: absolute; top: 0; left: 50%; width: 2px; height: 2px; margin-left: -1px;
+  border-radius: 50%; background: var(--coral);
 }
+@media (prefers-reduced-motion: reduce) { .ti-bg { animation: none; } }
 .ti-ok { background: var(--glass); color: #06201b; }
 .ti-err { background: var(--danger); color: #fff; }
 .ti-routine { color: var(--glass); font-size: var(--fs-12); }
