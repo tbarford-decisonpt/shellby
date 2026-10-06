@@ -852,6 +852,16 @@ function createPanel() {
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
   panel.on('focus', reachedForShellby); // clicked into it yourself
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
+  // The loops are stepped by a 12 fps timer (shared/framecap.js), and Chromium
+  // slows a background window's timers to a crawl: behind another window the
+  // spinners froze, which reads as a hung task. Unthrottled only while it's on
+  // screen, since this also keeps `document.hidden` false, and the tank, beach
+  // and polls rely on that to stop once the panel is put away.
+  const throttle = on => { if (!panel.isDestroyed()) panel.webContents.backgroundThrottling = on; };
+  panel.on('show', () => throttle(false));
+  panel.on('restore', () => throttle(false));
+  panel.on('hide', () => throttle(true));
+  panel.on('minimize', () => throttle(true));
   panel.on('resized', () => {
     if (Date.now() - roomyAt < ROOMY.settleMs) return; // it was us, not you
     // Resizing it yourself while it's made room keeps your size: there's nothing to put back,
