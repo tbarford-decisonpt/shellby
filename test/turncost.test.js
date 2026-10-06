@@ -174,6 +174,23 @@ test("the ledger says what everything, or one tab, spent in a window", () => {
   assert.equal(spend.weightSince(null, since), 0);
 });
 
+test('a running turn reports its tokens so far, once per growth, as its result will count them', () => {
+  const s = new ClaudeSession({ exe: process.execPath, cwd: os.tmpdir(), mode: 'ask' });
+  const seen = [];
+  s.on('tokens', n => seen.push(n));
+  s.turn = { usages: new Map(), weight: 0, tokens: 0, before: null };
+  s.countSpend({ messageId: 'm1', model: 'claude-haiku-4-5', usage: { input_tokens: 100, output_tokens: 10 } });
+  s.countSpend({ messageId: 'm1', model: 'claude-haiku-4-5', usage: { input_tokens: 100, output_tokens: 10 } }); // repeated: no news
+  s.countSpend({ messageId: 'm1', model: 'claude-haiku-4-5', usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 40000 } });
+  s.countSpend({ messageId: 'sub1', model: 'claude-haiku-4-5', usage: { input_tokens: 300 } });
+  assert.deepEqual(seen, [110, 150, 450]);
+  assert.equal(s.turn.tokens, 450);
+  // Between turns there's nothing running to count.
+  s.turn = null;
+  s.countSpend({ messageId: 'm2', model: 'claude-haiku-4-5', usage: { input_tokens: 5 } });
+  assert.deepEqual(seen, [110, 150, 450]);
+});
+
 test("a session puts the turn's cost on its result, helpers' calls included", () => {
   const s = new ClaudeSession({ exe: process.execPath, cwd: os.tmpdir(), mode: 'ask' });
   const items = [];

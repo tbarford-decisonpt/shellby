@@ -291,7 +291,7 @@ class ClaudeSession extends EventEmitter {
   // lands in the transcript.
   countSpend(s) {
     if (!s) return;
-    if (this.turn) this.turn.usages.set(s.messageId, turncost.mergeUsage(this.turn.usages.get(s.messageId), s.usage));
+    if (this.turn) this.countTurnTokens(s);
     const weight = weightOf(s.usage, s.model);
     const before = this.counted.get(s.messageId) || 0;
     if (weight <= before) return;
@@ -300,6 +300,17 @@ class ClaudeSession extends EventEmitter {
     if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
     if (this.turn) this.turn.weight += weight - before;
     this.emit('spend', { messageId: s.messageId, weight: weight - before });
+  }
+
+  // The running turn's tokens so far, counted as its result's cost will count
+  // them, for the panel's live "12s · 4.2k tokens". 'tokens' only when it grows.
+  countTurnTokens(s) {
+    const turn = this.turn;
+    turn.usages.set(s.messageId, turncost.mergeUsage(turn.usages.get(s.messageId), s.usage));
+    const { fresh } = turncost.tokensOf([...turn.usages.values()]);
+    if (fresh <= turn.tokens) return;
+    turn.tokens = fresh;
+    this.emit('tokens', fresh);
   }
 
   // The turn's cost goes on its result, so History keeps it with the turn.
@@ -409,7 +420,7 @@ class ClaudeSession extends EventEmitter {
   send(content, ready = null) {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
     this.setBusy(true);
-    this.turn = { usages: new Map(), weight: 0, before: this.context?.tokens ?? null };
+    this.turn = { usages: new Map(), weight: 0, tokens: 0, before: this.context?.tokens ?? null };
     // No conversation yet: its first call will show the setup weight. A prompt
     // with an image can't be sized, so that one isn't measured (-1).
     if (!this.sessionId && !this.proc) this.setupChars = eff.promptChars(content) ?? -1;

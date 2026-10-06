@@ -29,6 +29,7 @@
     }
     Object.assign(tab, {
       title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy, busySince: summary.busySince ?? (summary.busy ? tab.busySince : null),
+      turnTokens: summary.turnTokens ?? tab.turnTokens ?? 0,
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
       unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
@@ -479,13 +480,16 @@
   let queued = 0;
   const queueItem = (text, attachments) => ({ id: `q${++queued}`, text, attachments });
 
-  // How long the current prompt has been running, like Claude Code's "(12s · esc
-  // to interrupt)". One timer, alive only while the tab on screen is working.
+  // How long the current prompt has been running and the tokens it's used so far,
+  // like Claude Code's "(12s · ↓ 4.2k tokens · esc to interrupt)". One timer,
+  // alive only while the tab on screen is working; main's tab summaries bring
+  // the tokens (sessions.js turnTokens) and re-render it between ticks.
   let clockTimer = null;
   function tickClock() {
     const tab = SB.activeTab();
     const since = tab?.busy && tab.busySince;
-    $('statusTime').textContent = since ? SB.clock(Date.now() - since) : '';
+    const tokens = since && tab.turnTokens ? `${SB.compact(tab.turnTokens)} tokens` : '';
+    $('statusTime').textContent = since ? [SB.clock(Date.now() - since), tokens].filter(Boolean).join(' · ') : '';
     if (since && !clockTimer) clockTimer = setInterval(tickClock, 1000);
     if (!since && clockTimer) { clearInterval(clockTimer); clockTimer = null; }
   }
@@ -537,6 +541,7 @@
     tab.render({ kind: 'user', text, attachments, turnId });
     tab.busy = true;
     tab.busySince = Date.now();
+    tab.turnTokens = 0;
     tab.turnId = turnId; // what's queued behind it is steered into this turn
     syncSteers(tab);
     tab.saved = true;

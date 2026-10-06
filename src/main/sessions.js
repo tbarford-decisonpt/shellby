@@ -83,6 +83,7 @@ class SessionManager extends EventEmitter {
     session.on('cache', () => this.changed());
     session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
+    session.on('tokens', () => this.changed());
     session.on('crew', () => this.changed());
     session.on('exit', () => this.changed());
     this.changed();
@@ -328,6 +329,7 @@ class SessionManager extends EventEmitter {
   get summary() {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
+      turnTokens: t.session.turn?.tokens || 0, // the running turn's so far, beside its clock
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       nudge: turncost.nudge(t.session.context, t.session.growths),
