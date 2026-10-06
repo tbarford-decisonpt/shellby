@@ -28,7 +28,9 @@ const ACTIONS = {
 };
 
 // Most specific first: a signed-out CLI also says "API Error", and a resume
-// that fails also exits.
+// that fails also exits. A sign-in that lapsed is a signed-out one: the CLI
+// says "Failed to authenticate: OAuth session expired and could not be
+// refreshed" (or "OAuth token revoked"), and the next step is the same sign-in.
 const KINDS = [
   {
     kind: 'cli-missing',
@@ -38,7 +40,7 @@ const KINDS = [
   },
   {
     kind: 'signed-out',
-    test: /invalid api key|please run \/login|run \/login|not logged in|log ?in again|oauth token (has )?(expired|been revoked)|token (has )?expired|authentication_error|invalid bearer token|\b401\b.{0,40}unauthori[sz]ed|unauthori[sz]ed.{0,40}\b401\b/i,
+    test: /invalid api key|please run \/login|run \/login|not logged in|(log|sign) ?in again|failed to authenticate(?:[:.]|$)|oauth session (has )?expired|oauth token (has )?(expired|(been )?revoked)|token (has )?expired|re-login required|authentication_error|invalid bearer token|\b401\b.{0,40}unauthori[sz]ed|unauthori[sz]ed.{0,40}\b401\b/im,
     message: 'Claude Code is signed out, so it couldn\'t take that turn.',
     action: 'sign-in',
   },
