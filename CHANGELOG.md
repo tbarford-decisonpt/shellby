@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.70.0: Crit hits, the Bugdex, quests and your crew
+
+### New
+- **Crit hits and small surprises.** Now and then a real win gets a short fanfare: **Critical hit!** when one turn takes a red test suite all the way to green, **Clean landing** when a copy comes home with its checks green on the first try. A CRIT! badge pops onto him, he jumps, there's confetti and a chord, and the conversation keeps a note. They're rare and never predictable, tied to quality and never to speed, and never for skipping, deleting or removing tests. Each kind has a hidden trophy (a Lucky D20, a Golden D20 after 20 crits, and Pilot Wings). Switch: **Settings → Safety nets → Small surprises for real wins**.
+- **The Bugdex.** Every kind of bug Claude fixes for you is a pixel creature he scoops into a jar: a TypeError is a Shapeshifter Shrimp, a merge conflict a crab with two heads, a flaky test a ghost. There are 66 to catch in twelve habitats, and each only counts once it's really fixed. A skipped test or an `@ts-ignore` doesn't fool him. It catches bugs fixed outside Shellby too.
+- **A character sheet.** Shipping, Rigour, Craft and Tidiness stats from the work he does, and a class from the highest: Shipper, Tester, Toolsmith, Curator or a dual class. It's on the week card too.
+- **Quests.** A short quest line that walks you through features you'd otherwise never find: comment on a diff line, try it another way, bring a copy home, queue a routine for the reset. Do them in any order, each the first time the real thing works.
+- **Your crew.** Each type of helper agent is a lasting crab with a name, a hat and a record (runs, tokens, findings Claude acted on). They level up, earn hats and wear them on the desktop. Rename them and pick their hats on **Shellby → Crew**.
+- **Make him react from your own mods.** A Claude Code mod can now have Shellby say something, celebrate or put on a hat, from any conversation on your PC. There's a guide and an example mod in `docs/MODS.md`.
+- **Every trick is a setting.** The README's "Things to try" now says where each trick's switch is.
+
+### Fixed
+- **"N unpushed" after you'd pushed everything.** He now counts only commits no remote has.
+- **Approved commands can be expanded again.** A permission card you've answered shrinks its command; now you can unfold the rest.
+- **The usage menu shows everything.** Its "N more" rows unfold in place.
+- **The clash warning is easier to read**: a short headline and a lighter body, instead of one big block.
+
 ## 0.69.0: Mods, a live token count, and Claude Code stays current
 
 ### New
