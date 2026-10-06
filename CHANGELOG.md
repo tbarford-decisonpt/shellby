@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.69.0: Mods, and a live token count
+
+### New
+- **Mods in the Toolbox.** Claude Code mods (plugins whose hooks are a code module) are listed in the Toolbox next to skills and plugins. Each says in plain words what it can do, and has a switch that asks first, its tests, Open in VS Code and remove. **New mod** starts a conversation that builds one. Shellby tells you when a new mod turns up in `~/.claude/skills`, since Claude Code loads it without asking, and permission cards flag Claude writing one.
+- **Mods in your conversations.** A mod's log lines, toasts and status show under its name, and its slash commands join the <kbd>/</kbd> menu.
+- **A live token count** next to the running timer, like Claude Code's "12s · 4.2k tokens".
+- **Things to try with him:** a new README section, with clips, of the tricks nobody would find in a feature list.
+
+### Fixed
+- **Working spinners keep spinning** when the panel is behind another window, instead of freezing as if the task had hung.
+- **The tab spinners no longer restart** every time the tab strip redraws, and the background-task symbol looks better.
+- **Lots of clashes with one copy read as one line,** with every shared file, not one line per clash.
+
 ## 0.68.1: 0.68.0, delivered
 
 0.68.0 didn't make it out of the build, so this is the first version to bring everything in it (below). Nothing else has changed.
