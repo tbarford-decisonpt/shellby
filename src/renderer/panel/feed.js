@@ -31,6 +31,7 @@
       this.outcome = null;
       this.unread = false;
       this.statusText = 'Working…';
+      this.modStatus = new Map(); // mod name -> its status line ($.ui.status), under the box while this tab shows
       this.draft = '';
       this.attachments = [];
       this.queue = [];            // messages typed while busy: [{ text, attachments }]
@@ -197,6 +198,20 @@
         case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(this.troubleBlock(item.trouble, item.text));
         case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js
+        // What a mod shows (toolbox-mods.js): always under its own name, so it can't pass for Claude or Shellby.
+        case 'modlog': return this.append(h('div', { class: 'home-mark mod-mark' },
+          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🧩' }),
+          h('span', {}, h('b', { class: 'mod-name', text: item.plugin }), h('span', { class: 'mod-tag', text: 'mod' }), item.text)));
+        case 'modtoast':
+          if (!replay && this.isActive && state.view === 'chat') SB.toast(`🧩 ${item.plugin} (mod): ${item.text}`, { ms: item.ms });
+          return;
+        case 'modstatus':
+          // plugin null: the conversation's process ended, and its mods with it.
+          if (!item.plugin) this.modStatus.clear();
+          else if (item.text) this.modStatus.set(item.plugin, item.text);
+          else this.modStatus.delete(item.plugin);
+          if (this.isActive) SB.renderModStatus?.(this);
+          return;
       }
     }
 

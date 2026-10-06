@@ -370,7 +370,7 @@ test('watcher: a skill written while Shellby was closed is news at the next laun
   };
   // The first launch ever has nothing to compare with.
   assert.deepEqual(launch(), []);
-  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), ['skill:old']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), ['skill:old', 'mod:*']);
 
   put(path.join(home, '.claude', 'skills', 'new', 'SKILL.md'), md('', 'new'));
   put(path.join(home, '.claude', 'agents', 'helper.md'), md('', 'helps'));
@@ -412,7 +412,7 @@ test('watcher: a first launch with nothing at all still counts as one', () => {
     return learned;
   };
   assert.deepEqual(launch(), []);
-  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), ['mod:*']);
   put(path.join(home, '.claude', 'skills', 'first', 'SKILL.md'), md('', 'first'));
   assert.deepEqual(launch(), ['first']);
 });
@@ -424,4 +424,160 @@ test('mergeInit: Claude Code built-in commands get a description, unknown ones n
   assert.match(by.compact, /Summarize/);
   assert.equal(by['brand-new-thing'], '');
   assert.equal(by.constructor, '');
+});
+
+// ---- mods in the Toolbox
+
+const putMod = (home, name, extra = {}) => {
+  const dir = path.join(home, '.claude', 'skills', name);
+  put(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ name, version: '1.0.0', description: `${name} mod`, ...extra }));
+  put(path.join(dir, 'hooks', 'hooks.json'), JSON.stringify({ modules: ['./register.ts'] }));
+  return dir;
+};
+
+test('mergeInit: init.commands adds commands with their descriptions, once each', () => {
+  const out = mergeInit({ skills: [], agents: [], commands: [], mcp: [] }, {
+    slash_commands: ['probe', 'compact'],
+    commands: [{ name: 'probe', description: 'Says hello from the probe mod.' }, { name: 'later', description: 'Added after start' }, { name: 'later', description: 'dupe' }, { name: '' }, null],
+  });
+  const byName = Object.fromEntries(out.commands.map(c => [c.name, c]));
+  assert.deepEqual(Object.keys(byName).sort(), ['compact', 'later', 'probe']);
+  assert.equal(out.commands.length, 3);
+  assert.equal(byName.probe.description, 'Says hello from the probe mod.');
+  assert.equal(byName.later.description, 'Added after start');
+  assert.equal(byName.probe.source, 'cli');
+  assert.ok(byName.compact.description, 'a built-in command keeps its own description');
+});
+
+test('mergeInit: a command already in the Toolbox, or named like a skill, is not added again', () => {
+  const tb = { skills: [{ kind: 'skill', name: 'plan' }], agents: [], commands: [{ kind: 'command', name: 'deploy', description: 'mine', source: 'user', path: 'p' }], mcp: [] };
+  const out = mergeInit(tb, { commands: [{ name: 'deploy', description: 'other' }, { name: 'plan', description: 'x' }] });
+  assert.deepEqual(names(out.commands), ['deploy']);
+  assert.equal(out.commands[0].description, 'mine');
+});
+
+test('mergeInit: the result carries the mods it was given, as copies', () => {
+  const mods = [{ kind: 'mod', id: 'a@skills-dir', name: 'a' }];
+  const out = mergeInit({ skills: [], agents: [], commands: [], mcp: [], mods }, null);
+  assert.deepEqual(out.mods, mods);
+  assert.notEqual(out.mods[0], mods[0]);
+  assert.deepEqual(mergeInit({}, {}).mods, []);
+});
+
+test('watcher: a mod written later is "learned" and listed in current.mods', () => {
+  const home = tmp();
+  putMod(home, 'old');
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+  const learned = [];
+  w.on('learned', l => learned.push(l));
+  w.start();
+  try {
+    assert.deepEqual(names(w.current.mods), ['old']);
+    assert.deepEqual(learned, [], 'the first scan is quiet');
+    const dir = putMod(home, 'fresh');
+    w.rescan();
+    assert.deepEqual(names(w.current.mods), ['fresh', 'old']);
+    assert.equal(learned.length, 1);
+    assert.deepEqual(learned[0], { kind: 'mod', id: 'fresh@skills-dir', name: 'fresh', description: 'fresh mod', path: dir, source: 'user', enabled: true });
+    w.rescan();
+    assert.equal(learned.length, 1, 'a second rescan with nothing new says nothing');
+  } finally { w.stop(); }
+});
+
+test('watcher: getSettings turning a mod off shows as enabled false in current.mods', () => {
+  const home = tmp();
+  putMod(home, 'tidy');
+  let settings = [];
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getSettings: () => settings });
+  let changed = 0;
+  w.on('changed', () => changed++);
+  w.start();
+  try {
+    assert.equal(w.current.mods[0].enabled, true);
+    settings = [{ enabledPlugins: { 'tidy@skills-dir': false } }];
+    const before = changed;
+    w.rescan();
+    assert.equal(w.current.mods[0].enabled, false);
+    assert.ok(changed > before, 'turning it off is a change');
+  } finally { w.stop(); }
+});
+
+test('watcher: installed marketplace mods are listed but are not "learned"', () => {
+  const home = tmp();
+  const root = tmp();
+  const dir = path.join(root, 'shopmod');
+  put(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'shopmod' }));
+  put(path.join(dir, 'hooks', 'hooks.json'), JSON.stringify({ modules: ['./m.ts'] }));
+  let installed = [];
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getInstalled: () => installed });
+  const learned = [];
+  w.on('learned', l => learned.push(l));
+  w.start();
+  try {
+    installed = [{ id: 'shopmod@shop', marketplace: 'shop', dir, enabled: true }];
+    w.rescan();
+    assert.equal(w.current.mods[0].source, 'plugin');
+    assert.deepEqual(learned, []);
+  } finally { w.stop(); }
+});
+
+test('watcher: a getInstalled or getSettings that throws just means no mods from there', () => {
+  const home = tmp();
+  putMod(home, 'tidy');
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getInstalled: () => { throw new Error('boom'); }, getSettings: () => { throw new Error('boom'); } });
+  w.start();
+  try { assert.deepEqual(names(w.current.mods), ['tidy']); } finally { w.stop(); }
+});
+
+test('watcher: setCommands emits changed only when the list changes, and shows the commands', () => {
+  const home = tmp();
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+  w.start();
+  try {
+    let changed = 0;
+    w.on('changed', () => changed++);
+    const list = [{ name: 'probe', description: 'Says hello.' }];
+    w.setCommands(list);
+    assert.equal(changed, 1);
+    const probe = w.current.commands.find(c => c.name === 'probe');
+    assert.equal(probe.description, 'Says hello.');
+    w.setCommands([{ name: 'probe', description: 'Says hello.' }]);
+    assert.equal(changed, 1, 'the same list again is not a change');
+    w.setCommands([...list, { name: 'second', description: 'More.' }]);
+    assert.equal(changed, 2);
+    w.setCommands('not a list');
+    assert.equal(changed, 2);
+  } finally { w.stop(); }
+});
+
+test('watcher: a mod written while Shellby was closed is news at the next launch, but ones from before mods were known are not', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  putMod(home, 'before');
+  const launch = () => {
+    const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+    const learned = [];
+    w.on('learned', l => learned.push(l.kind === 'mod' ? l.name : `other:${l.name}`));
+    w.start();
+    w.stop();
+    return learned;
+  };
+  assert.deepEqual(launch(), [], 'the first look only takes note');
+  assert.ok(JSON.parse(fs.readFileSync(seenFile, 'utf8')).includes('mod:before@skills-dir'));
+  putMod(home, 'after');
+  assert.deepEqual(launch(), ['after']);
+  assert.deepEqual(launch(), []);
+});
+
+test('watcher: a seen file from before mods existed treats the mods already installed as seen, not as news', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  fs.writeFileSync(seenFile, JSON.stringify(['skill:old']));
+  putMod(home, 'installed');
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+  const learned = [];
+  w.on('learned', l => learned.push(l.name));
+  w.start();
+  w.stop();
+  assert.deepEqual(learned, []);
 });

@@ -158,6 +158,14 @@ contextBridge.exposeInMainWorld('shellby', {
   removeTool: (kind, name) => ipcRenderer.invoke('toolbox:remove', { kind, name }),
   readTool: (kind, path) => ipcRenderer.invoke('toolbox:read', { kind, path }),
   writeTool: (kind, path, text, mtimeMs) => ipcRenderer.invoke('toolbox:write', { kind, path, text, mtimeMs }),
+  // Toolbox → Mods (mods-service.js): named by plugin id; turning one on and running its tests ask first
+  checkMod: invoke('mods:check'),
+  setModEnabled: (id, on) => ipcRenderer.invoke('mods:set-enabled', { id, on }),
+  testMod: invoke('mods:test'),
+  removeMod: invoke('mods:remove'),
+  openMod: invoke('mods:open'),
+  revealMod: fire('mods:reveal'),
+  draftMod: (name, idea) => ipcRenderer.invoke('mods:draft', { name, idea }),
   // prompt snippets: /name in the box, @name from a terminal
   saveSnippet: (snippet, was = null) => ipcRenderer.invoke('snippets:save', { snippet, was }),
   removeSnippet: invoke('snippets:remove'),

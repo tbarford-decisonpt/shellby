@@ -165,3 +165,68 @@ test('open refuses a ref that is not a snapshot or names a path outside the proj
   assert.equal((await E.open({ ...base, before: 'HEAD', file: 'a' }, { spawnImpl: s.impl, editor: 'C:\\VS\\code.cmd' })).ok, false);
   assert.equal(s.calls.length, 0);
 });
+
+// ---- folders (a mod's, from the Toolbox)
+
+test('folderCommandLine quotes the editor and the folder for cmd', () => {
+  assert.equal(E.folderCommandLine('C:\\VS Code\\bin\\code.cmd', 'C:\\Users\\me\\.claude\\skills\\tidy'), '""C:\\VS Code\\bin\\code.cmd" "C:\\Users\\me\\.claude\\skills\\tidy""');
+});
+
+test('folderCommandLine refuses relative paths and characters cmd would act on', () => {
+  const code = 'C:\\VS\\code.cmd';
+  assert.equal(E.folderCommandLine(code, 'relative\\dir'), null);
+  assert.equal(E.folderCommandLine('code.cmd', 'C:\\x'), null);
+  for (const bad of ['C:\\a"b', 'C:\\a%PATH%', 'C:\\a!b', 'C:\\a^b', 'C:\\a\nb', 'C:\\a\0b']) {
+    assert.equal(E.folderCommandLine(code, bad), null, JSON.stringify(bad));
+    assert.equal(E.folderCommandLine(bad, 'C:\\x'), null, JSON.stringify(bad));
+  }
+  assert.equal(E.folderCommandLine(code, undefined), null);
+});
+
+test('openFolder starts the editor on the folder, detached, from that folder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-editor-folder-'));
+  try {
+    const s = fakeSpawn();
+    assert.deepEqual(E.openFolder(dir, { spawnImpl: s.impl, editor: 'C:\\VS\\code.cmd', env: { PATH: 'x' } }), { ok: true });
+    assert.equal(s.calls.length, 1);
+    assert.match(s.calls[0].exe, /cmd\.exe$/i);
+    assert.deepEqual(s.calls[0].args.slice(0, 3), ['/d', '/s', '/c']);
+    assert.equal(s.calls[0].args[3], `""C:\\VS\\code.cmd" "${dir}""`);
+    assert.equal(s.calls[0].opts.cwd, dir);
+    assert.equal(s.calls[0].opts.detached, true);
+    assert.equal(s.calls[0].opts.windowsHide, true);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('openFolder says so when the folder is gone, and starts nothing', () => {
+  const s = fakeSpawn();
+  const r = E.openFolder(path.join(os.tmpdir(), 'shellby-no-such-folder-xyz'), { spawnImpl: s.impl, editor: 'C:\\VS\\code.cmd' });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /isn't there/);
+  assert.equal(s.calls.length, 0);
+});
+
+test('openFolder reports notFound when there is no editor, and refuses a path cmd would misread', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-editor-folder-'));
+  try {
+    const s = fakeSpawn();
+    const none = E.openFolder(dir, { spawnImpl: s.impl, editor: null });
+    assert.equal(none.ok, false);
+    assert.equal(none.notFound, true);
+    assert.match(none.error, /VS Code/);
+    const unsafe = path.join(dir, 'a%b');
+    fs.mkdirSync(unsafe);
+    const r = E.openFolder(unsafe, { spawnImpl: s.impl, editor: 'C:\\VS\\code.cmd' });
+    assert.equal(r.ok, false);
+    assert.equal(s.calls.length, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('openFolder turns a failed start into an error instead of throwing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-editor-folder-'));
+  try {
+    const r = E.openFolder(dir, { spawnImpl: () => { throw new Error('spawn denied'); }, editor: 'C:\\VS\\code.cmd' });
+    assert.equal(r.ok, false);
+    assert.match(r.error, /spawn denied/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

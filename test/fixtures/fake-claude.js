@@ -10,6 +10,7 @@
 //   "edit <file> <words>" -> writes <words> into <file> in its working folder
 //   "editabs <path> <words>" -> writes to that absolute path, if a work hook allows it
 //   "big <tokens>" -> a reply whose call used <tokens> of a 200k window
+//   "mod"        -> a mod's log line, toast and status line, and its slash command (ui_*, commands_changed)
 //   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
 //   "args"       -> replies with the command line it was started with (JSON)
 //   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
@@ -242,6 +243,18 @@ function onLine(line) {
   const fakeJson = /FAKE_JSON:(\{[^\n]*\})/.exec(content);
   if (fakeJson) { text(`Here you go.\n\`\`\`json\n${fakeJson[1]}\n\`\`\``); result(true); return; }
   // "look ..." -> says how many pictures came with the message, and what kind
+  // What a mod says, as Claude Code 2.1.288 sends it: a log line, a toast, a
+  // status line and the command list with the command it registered.
+  if (content === 'mod') {
+    const ui = (subtype, extra) => out({ type: 'system', subtype, plugin: 'e2e-mod', ...extra, uuid: `ui-${subtype}-${turn}`, session_id: sessionId });
+    ui('ui_log', { text: 'saw the turn start' });
+    ui('ui_toast', { text: 'hello from a mod', timeout_ms: 4000 });
+    ui('ui_status', { text: 'watching 1 turn' });
+    out({ type: 'system', subtype: 'commands_changed', commands: [{ name: 'e2e-hello', description: 'Says hello from the e2e mod.', argumentHint: '' }], uuid: `cmds-${turn}`, session_id: sessionId });
+    text('echo: mod');
+    result(true);
+    return;
+  }
   if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'args') { text(JSON.stringify(args)); result(true); return; }

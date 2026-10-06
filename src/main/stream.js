@@ -1,6 +1,8 @@
 // Turns Claude Code stream-json events into a small set of UI items.
 // Pure functions: no Electron, no I/O — see test/stream.test.js.
 
+const { clean } = require('./mods');
+
 const MAX_RESULT_CHARS = 8000;
 
 const TOOL_VERBS = {
@@ -144,6 +146,29 @@ function taskItem(ev) {
   return item;
 }
 
+// What a mod shows (mods.js): $.ui.log is a line in the conversation, $.ui.toast
+// a toast, $.ui.status its line under the box (empty clears it). Claude Code
+// sends each with the plugin's name, which is shown with it, so a mod can't
+// pass its words off as Claude's or Shellby's.
+const MOD_UI = { ui_log: 'modlog', ui_toast: 'modtoast', ui_status: 'modstatus' };
+const MAX_MOD_TEXT = 500;
+const MAX_COMMANDS = 1000;
+// What the / menu can show as a command: no spaces, no line breaks, nothing that hides.
+const COMMAND_NAME = /^[\w:.-]{1,120}$/;
+// One line: no control, bidi-override or zero-width characters (mods.js).
+const oneLine = clean;
+
+function modItem(ev) {
+  const plugin = oneLine(ev.plugin, 80);
+  if (!plugin) return [];
+  const text = oneLine(ev.text, MAX_MOD_TEXT);
+  const kind = MOD_UI[ev.subtype];
+  if (kind === 'modstatus') return [{ kind, plugin, text: text || null }];
+  if (!text) return [];
+  if (kind === 'modtoast') return [{ kind, plugin, text, ms: Number.isFinite(ev.timeout_ms) ? Math.min(Math.max(ev.timeout_ms, 1500), 15000) : 4000 }];
+  return [{ kind, plugin, text }];
+}
+
 // Returns an array of UI items for one parsed stream-json event.
 function toItems(ev) {
   if (!ev || typeof ev !== 'object') return [];
@@ -166,6 +191,15 @@ function toItems(ev) {
       if (ev.subtype === 'compact_boundary') {
         const m = ev.compact_metadata || {};
         return [{ kind: 'compacted', trigger: m.trigger === 'auto' ? 'auto' : 'manual', preTokens: Number.isFinite(m.pre_tokens) ? m.pre_tokens : null }];
+      }
+      if (MOD_UI[ev.subtype]) return modItem(ev);
+      // Every command the conversation has now, with what each one does: how a
+      // command a mod registers after the session started becomes known.
+      if (ev.subtype === 'commands_changed') {
+        const commands = (Array.isArray(ev.commands) ? ev.commands : []).slice(0, MAX_COMMANDS)
+          .filter(c => c && typeof c.name === 'string' && COMMAND_NAME.test(c.name))
+          .map(c => ({ name: c.name, description: oneLine(c.description, 300) }));
+        return [{ kind: 'commands', commands }];
       }
       return [];
     case 'assistant': {
@@ -234,8 +268,9 @@ function toItems(ev) {
 const KNOWN = Object.freeze({
   // control_response is read by session.js (answers to Shellby's own requests).
   types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response']),
-  // init, task_*, compact_boundary become items; the rest is progress chatter.
+  // init, task_*, compact_boundary, a mod's ui_* and commands_changed become items; the rest is progress chatter.
   system: new Set(['init', 'task_started', 'task_progress', 'task_updated', 'task_notification', 'compact_boundary',
+    'ui_log', 'ui_toast', 'ui_status', 'commands_changed',
     'hook_started', 'hook_progress', 'hook_response', 'status', 'api_retry', 'thinking_tokens']),
   // can_use_tool becomes a permission card; hook_callback is answered by session.js.
   control: new Set(['can_use_tool', 'hook_callback']),

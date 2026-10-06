@@ -10,6 +10,9 @@
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 
 const SELF_CONFIG = [
+  // A mod's code runs inside every Claude Code conversation (mods.js): ahead of the skill it sits beside.
+  { re: /[\\/]\.claude[\\/]skills[\\/][^\\/]+[\\/](hooks|\.claude-plugin)([\\/]|$)/i, what: 'a mod, code that runs inside every Claude Code conversation' },
+  { re: /[\\/]\.claude[\\/]dev-mods[\\/]/i, what: 'a mod, code that runs inside every Claude Code conversation' },
   { re: /[\\/]\.claude[\\/]skills[\\/]/i, what: 'a skill' },
   { re: /[\\/]\.claude[\\/]agents[\\/]/i, what: 'a subagent' },
   { re: /[\\/]\.claude[\\/]commands[\\/]/i, what: 'a slash command' },

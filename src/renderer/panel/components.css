@@ -650,3 +650,26 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
 .qa-other { margin-top: 6px; height: 32px; font-size: var(--fs-13); }
 .ask.question .ask-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .ask.question .ask-actions .btn { flex: 0 0 auto; }
+
+/* Toolbox → Mods (toolbox-mods.js): on or off, and what each one can do. */
+.mod-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; border: 1px solid var(--sand-faint-deco); }
+.mod-dot.on { background: var(--glass); border-color: var(--glass); box-shadow: 0 0 6px var(--glass); }
+.tool-item.is-off .tool-name code { color: var(--sand-dim); }
+.mod-form .field-label { display: grid; gap: 4px; font-size: var(--fs-12); color: var(--sand-dim); }
+.mod-report { display: grid; gap: 4px; margin: 6px 0; font-size: var(--fs-12); }
+.mod-report ul { margin: 0; padding-left: 4px; list-style: none; }
+.mod-powers .risk-high { color: var(--amber); }
+.mod-problems { padding: 6px 8px; border-left: 2px solid var(--danger); background: var(--reef); }
+.mod-problems ul { padding-left: 16px; list-style: disc; }
+.mod-tests summary.err, .mod-problems.err b { color: var(--danger); }
+.mod-tests pre { max-height: 220px; overflow: auto; margin: 4px 0 0; padding: 6px 8px; border-radius: var(--r-sm); background: var(--reef); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* What a mod says in a conversation: its status lines under the box, its log lines in the feed. */
+.mod-status {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 6px; padding: 2px 10px;
+  font-size: var(--fs-12); color: var(--sand-dim); border-left: 2px solid var(--glass);
+}
+.mod-status[hidden] { display: none; }
+.mod-status-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.mod-status b, .mod-mark .mod-name { font-weight: 600; color: var(--sand); }
+/* "mod" beside a mod's name wherever it speaks: a mod called "Shellby" still reads as a mod. */
+.mod-tag { margin: 0 6px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--fs-11); line-height: 1.5; color: var(--sand-dim); }

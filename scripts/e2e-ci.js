@@ -47,6 +47,7 @@ const SUITE = [
   'e2e-setup',        // Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
   'e2e-snippets',     // prompt snippets: the Toolbox tab, /name in the box, pinned chips, shellby do @name
   'e2e-toolbox',      // the skill list: labelled tabs, a page at a time, where-from and order, editing your own
+  'e2e-mods',         // Toolbox → Mods: what one can do, the confirm before it's on, its lines in a conversation (skips without Claude Code)
   'e2e-parity',       // the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
   'e2e-branch',       // try again from any turn: a new tab in its own copy, the fence, compare, keep one
   'e2e-workflows',    // workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook

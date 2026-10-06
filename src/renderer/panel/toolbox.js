@@ -6,8 +6,8 @@
    Skills, agents and commands show how often they're used and what they cost
    (lean.js usage), can be filtered by where they come from and sorted by use,
    and open up to show the rest: where they live, edit, remove (skillremove.js).
-   The Hooks, Rules and Memory tabs live in toolbox-setup.js, and Team (the
-   repo's .shellby/team.json) in toolbox-team.js. */
+   The Hooks, Rules and Memory tabs live in toolbox-setup.js, Team (the
+   repo's .shellby/team.json) in toolbox-team.js, and Mods in toolbox-mods.js. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -16,19 +16,19 @@
   const SEARCH_WAIT_MS = 120;
   const USAGE_RETRY_MS = 30 * 1000;
   const MIN_BAR_PCT = 3;          // a cost bar never shrinks to nothing, so every row has one to compare
-  const listKey = { skill: 'skills', agent: 'agents', command: 'commands', mcp: 'mcp' };
+  const listKey = { skill: 'skills', agent: 'agents', command: 'commands', mcp: 'mcp', mod: 'mods' };
   const MERGED = ['skill', 'agent', 'command'];   // listed together under All ('tool')
   const LISTED = new Set(['tool', ...MERGED]);     // the kinds with source and order pickers
   // Which section each kind sits in, and the kind a section opens on (the one you left it on).
   const GROUP = {
-    tool: 'tools', skill: 'tools', agent: 'tools', command: 'tools', mcp: 'tools', snippet: 'tools',
+    tool: 'tools', skill: 'tools', agent: 'tools', command: 'tools', mcp: 'tools', mod: 'tools', snippet: 'tools',
     hook: 'setup', rule: 'setup', memory: 'setup', lean: 'lean', team: 'team',
   };
   const lastKind = { tools: 'tool', setup: 'hook', lean: 'lean', team: 'team' };
   const ALIAS = { permissions: 'rule' }; // /permissions in the composer
   let kind = 'tool';
   const SEARCH_WHAT = {
-    tool: 'skills, agents and commands', skill: 'skills', agent: 'agents', command: 'commands', mcp: 'MCP servers', snippet: 'snippets',
+    tool: 'skills, agents and commands', skill: 'skills', agent: 'agents', command: 'commands', mcp: 'MCP servers', mod: 'mods', snippet: 'snippets',
     hook: 'hooks', rule: 'rules', memory: 'memory files', lean: 'plugins, servers and skills', team: 'the team pack',
   };
   const LIST_NAME = { tool: 'All tools', skill: 'Skills', agent: 'Agents', command: 'Commands' };
@@ -515,6 +515,7 @@
     setup.hide();
     if (kind === 'lean') return SB.lean.render(q);
     if (kind === 'snippet') return SB.toolboxSnippets.render(q);
+    if (kind === 'mod') return SB.toolboxMods.render(q);
     if (kind === 'team') return SB.toolboxTeam.render(q);
     if (toolEd && toolEd.view === kind) {
       // Rebuilt only for another file, so a toolbox update can't take the cursor out of it,
@@ -640,6 +641,7 @@
 
   SB.onLearned = (trick) => {
     state.learned = [{ ...trick, at: Date.now() }, ...(state.learned || []).filter(l => !(l.kind === trick.kind && l.name === trick.name))];
+    if (trick.kind === 'mod') return newMod(trick);
     const noun = { skill: 'skill', agent: 'helper agent', command: 'command' }[trick.kind] || 'trick';
     if (state.view === 'toolbox') render();
     else $('toolboxBadge').hidden = false;
@@ -649,6 +651,16 @@
       SB.toast(`Pinned ${trick.name}`);
     } });
   };
+
+  // A mod showed up in ~/.claude/skills (main's toolbox.js): it loads in every
+  // conversation without asking, so the toast says so and offers a look.
+  function newMod(mod) {
+    if (state.view === 'toolbox') render();
+    else $('toolboxBadge').hidden = false;
+    SB.toast(`🧩 New mod: ${mod.name}. It runs inside every Claude Code conversation${mod.enabled ? '' : ' once turned on'}.`, {
+      ms: 9000, action: 'Look at it', onAction: () => SB.toolboxMods.show(mod.id),
+    });
+  }
 
   // /permissions, /mcp: straight to that tab.
   SB.showToolbox = (k) => {

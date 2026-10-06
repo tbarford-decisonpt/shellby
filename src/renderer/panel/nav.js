@@ -265,7 +265,7 @@
         : { icon: '🛠️', title: 'Work mode', sub: 'The tools up front, and a quiet crab', keys: 'work mode quiet calm developer tools focus', run: () => SB.setWorkMode(true) }),
       claude() && { icon: '💬', title: 'Chat', sub: 'Give Shellby a task', keys: 'home task conversation', run: go('chat') },
       claude() && { icon: '➕', title: 'New conversation', sub: 'A fresh tab, in the usual folder', keys: 'tab chat', shortcut: 'newTab', run: () => { SB.setView('chat'); SB.newTab(); } },
-      claude() && { icon: '🧰', title: 'Toolbox', sub: 'Skills, agents, commands, MCP servers, hooks and memory', keys: 'tools mcp hooks memory claude.md', run: go('toolbox') },
+      claude() && { icon: '🧰', title: 'Toolbox', sub: 'Skills, agents, commands, MCP servers, mods, hooks and memory', keys: 'tools mcp mods plugins hooks memory claude.md', run: go('toolbox') },
       claude() && { icon: '🛒', title: 'Skill Shop', sub: 'Install skills from plugin marketplaces', keys: 'get more plugins install marketplace', run: () => SB.openShop() },
       claude() && { icon: '⚡', title: 'Workflows', sub: 'Triggers that start a list of steps', keys: 'automate automation flow trigger steps webhook', run: go('workflows') },
       claude() && { icon: '⚡', title: 'New workflow', sub: 'Build one step by step', keys: 'automate add create flow trigger', run: () => SB.workflows.create() },

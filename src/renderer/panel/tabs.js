@@ -442,6 +442,7 @@
     $('sendHint').textContent = busy ? 'Enter to queue for his next step · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
     if (tab) syncSteers(tab);
+    SB.renderModStatus?.(tab);
     tickClock();
     renderQueue();
   }

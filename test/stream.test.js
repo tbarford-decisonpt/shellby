@@ -144,3 +144,65 @@ test('writeChars reads each write tool, and MultiEdit sums its edits', () => {
   assert.equal(writeChars('Read', { file_path: 'a' }), 0);
   assert.equal(writeChars('Write', null), 0);
 });
+
+// ---- mods: what a mod's $.ui.* calls and registered commands become
+
+const { KNOWN } = require('../src/main/stream');
+const UUIDS = { uuid: 'u-1', session_id: 's-1' };
+
+test('mod ui_log becomes a modlog line named for its plugin', () => {
+  const items = toItems({ type: 'system', subtype: 'ui_log', plugin: 'shellby-probe', text: 'probe: session.start surface=null', ...UUIDS });
+  assert.deepEqual(items, [{ kind: 'modlog', plugin: 'shellby-probe', text: 'probe: session.start surface=null' }]);
+});
+
+test('mod ui_toast becomes a modtoast, its time kept inside 1.5 to 15 seconds', () => {
+  const toast = ms => toItems({ type: 'system', subtype: 'ui_toast', plugin: 'shellby-probe', text: 'probe toast', timeout_ms: ms, ...UUIDS })[0];
+  assert.deepEqual(toast(4000), { kind: 'modtoast', plugin: 'shellby-probe', text: 'probe toast', ms: 4000 });
+  assert.equal(toast(10).ms, 1500);
+  assert.equal(toast(10 * 60 * 1000).ms, 15000);
+  assert.equal(toast(undefined).ms, 4000);
+  assert.equal(toast('soon').ms, 4000);
+});
+
+test('mod ui_status becomes a modstatus, and empty text clears it', () => {
+  const status = text => toItems({ type: 'system', subtype: 'ui_status', plugin: 'shellby-probe', text, ...UUIDS });
+  assert.deepEqual(status('probe status'), [{ kind: 'modstatus', plugin: 'shellby-probe', text: 'probe status' }]);
+  assert.deepEqual(status(''), [{ kind: 'modstatus', plugin: 'shellby-probe', text: null }]);
+  assert.deepEqual(status('   '), [{ kind: 'modstatus', plugin: 'shellby-probe', text: null }]);
+  assert.deepEqual(status(undefined), [{ kind: 'modstatus', plugin: 'shellby-probe', text: null }]);
+});
+
+test('mod ui events without a plugin name, or a log or toast without text, show nothing', () => {
+  for (const subtype of ['ui_log', 'ui_toast', 'ui_status']) {
+    assert.deepEqual(toItems({ type: 'system', subtype, text: 'who said this' }), [], `${subtype} with no plugin`);
+    assert.deepEqual(toItems({ type: 'system', subtype, plugin: '  ', text: 'x' }), [], `${subtype} with a blank plugin`);
+  }
+  assert.deepEqual(toItems({ type: 'system', subtype: 'ui_log', plugin: 'p', text: '' }), []);
+  assert.deepEqual(toItems({ type: 'system', subtype: 'ui_toast', plugin: 'p' }), []);
+});
+
+test('mod text is one clean line: control and bidi characters are stripped, and it is capped', () => {
+  const bidi = String.fromCharCode(0x202e);
+  const zeroWidth = String.fromCharCode(0x200b);
+  const bell = String.fromCharCode(7);
+  const [log] = toItems({ type: 'system', subtype: 'ui_log', plugin: `p${bidi}q`, text: `a${bell}b\nc${zeroWidth}d${bidi}e` });
+  assert.equal(log.plugin, 'p q');
+  assert.equal(log.text, 'a b c d e');
+  const [long] = toItems({ type: 'system', subtype: 'ui_log', plugin: 'p', text: 'x'.repeat(2000) });
+  assert.equal(long.text.length, 500);
+});
+
+test('commands_changed becomes one commands item with each name and description', () => {
+  const items = toItems({ type: 'system', subtype: 'commands_changed', commands: [{ name: 'probe', description: 'Says hello from the probe mod.', argumentHint: '' }], ...UUIDS });
+  assert.deepEqual(items, [{ kind: 'commands', commands: [{ name: 'probe', description: 'Says hello from the probe mod.' }] }]);
+});
+
+test('commands_changed drops entries with no usable name and tolerates a missing list', () => {
+  const items = toItems({ type: 'system', subtype: 'commands_changed', commands: [null, {}, { name: '' }, { name: 5 }, { name: 'x'.repeat(200) }, { name: 'ok' }] });
+  assert.deepEqual(items, [{ kind: 'commands', commands: [{ name: 'ok', description: '' }] }]);
+  assert.deepEqual(toItems({ type: 'system', subtype: 'commands_changed' }), [{ kind: 'commands', commands: [] }]);
+});
+
+test('the stream knows the four mod system subtypes', () => {
+  for (const s of ['ui_log', 'ui_toast', 'ui_status', 'commands_changed']) assert.ok(KNOWN.system.has(s), s);
+});

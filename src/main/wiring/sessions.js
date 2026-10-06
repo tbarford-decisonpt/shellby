@@ -80,6 +80,10 @@ function wireSessions(d) {
         d.toolbox?.setInit(item.toolbox);
         return; // toolbox lists are large; the panel doesn't need them per tab
       }
+      if (item.kind === 'commands') {
+        d.toolbox?.setCommands(item.commands); // a mod's slash commands, for the / menu
+        return;
+      }
       d.send(d.panel, 'tab:item', { tabId, item });
       d.workflows?.onTabItem(tabId, item);
       if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
