@@ -412,8 +412,15 @@ function wireToolbox(d) {
 
   // The Shellby plugin itself, one click from Settings: add our marketplace if it
   // isn't there, then install. Same isolated confirm as any plugin.
-  const SHELLBY_SOURCE = 'x-salmon/shellby';
-  const pluginView = () => ({ state: statusLine.inspectPlugin(d.claudeSettings()) });
+  const SHELLBY_SOURCE = statusLine.PLUGIN_SOURCE;
+  // outdated comes from the shop's last list, so it's only known once that has run.
+  const pluginView = () => statusLine.pluginStatus(statusLine.inspectPlugin(d.claudeSettings()), d.shop?.find(statusLine.PLUGIN_ID), d.shop?.marketplace('shellby'));
+  // For Settings: any earlier list will do. Not in just-the-crab mode, where
+  // there's no Claude Code to ask.
+  async function pluginViewListed() {
+    if (!shopBlocked()) await d.shop.list({ stale: true }).catch(() => {});
+    return pluginView();
+  }
   async function confirmAndInstallShellbyPlugin() {
     const blocked = shopBlocked();
     if (blocked) return { ...pluginView(), ...blocked };
@@ -443,9 +450,35 @@ function wireToolbox(d) {
     return { ...pluginView(), ...(r.ok ? { installed: true } : { error: r.error || "Claude Code couldn't install the plugin." }) };
   }
 
+  // An old Shellby plugin, brought up to date from the marketplace it came from.
+  // Same isolated confirm as installing: new versions bring new code.
+  async function confirmAndUpdateShellbyPlugin() {
+    const blocked = shopBlocked();
+    if (blocked) return { ...pluginView(), ...blocked };
+    const was = pluginView();
+    if (!was.outdated) return was;
+    const response = await askOnce({
+      icon: '🦀',
+      title: 'Update the Shellby plugin?',
+      message: `Updates the Shellby plugin in Claude Code from ${was.outdated.from} to the newest from its marketplace (${SHELLBY_SOURCE}).`,
+      detail: 'Newer versions bring what this Shellby relies on, such as the tools Claude and your mods use to make the crab react.',
+      note: 'Claude Code sessions that are already open keep the old version until you restart them.',
+      buttons: [{ label: 'Update', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+    });
+    if (response === null) return { ...pluginView(), busy: true };
+    if (response !== 0) return pluginView();
+    const r = await d.shop.update(statusLine.PLUGIN_ID);
+    if (!r.ok) return { ...pluginView(), error: r.error || "Claude Code couldn't update the plugin." };
+    d.toolbox?.rescan();
+    const now = pluginView();
+    // The marketplace itself can still be behind this Shellby (a release not pushed yet).
+    if (now.outdated) return { ...now, error: `The Shellby marketplace only has version ${r.to || now.outdated.from} so far. Try again after the next Shellby release.` };
+    return { ...now, updated: true };
+  }
+
   return {
-    askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin, draftHook,
-    confirmAndUninstallPlugin, createShop, createToolbox, forgetPausedHook, pauseHook, pluginView,
+    askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin, confirmAndUpdateShellbyPlugin, draftHook,
+    confirmAndUninstallPlugin, createShop, createToolbox, forgetPausedHook, pauseHook, pluginView, pluginViewListed,
     resumeHook, setupCwd, setupView, setupWhere, shopBlocked, testHook,
   };
 }

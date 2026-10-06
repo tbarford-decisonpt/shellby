@@ -106,7 +106,13 @@ function registerRoutinesIpc(ipcMain, d) {
 
   // ---- usage forecast, and work held for after the reset
   ipcMain.handle('outlook:get', () => d.outlookView());
+  // Anything held for the reset finishes that quest (quests.js).
   ipcMain.handle('held:add', async (_e, input = {}) => {
+    const r = await holdOne(input);
+    if (r?.ok) d.questDone?.('reset');
+    return r;
+  });
+  async function holdOne(input) {
     if (d.config.get('crabOnly')) return { ok: false, error: 'That needs Claude Code.' };
     if (input?.kind === 'task') return d.queueTask(input);
     if (input?.kind === 'routine') {
@@ -119,7 +125,7 @@ function registerRoutinesIpc(ipcMain, d) {
     const text = String(input.text || '').trim().slice(0, 50000);
     const files = (Array.isArray(input.attachments) ? input.attachments : []).filter(d.isStr).slice(0, 20);
     return d.holdForReset({ kind: 'message', tabId: tab.id, cwd: tab.session.cwd, title: tab.title, text, attachments: files });
-  });
+  }
   // Answers with what was held, so a message can go back in the box to edit.
   ipcMain.handle('held:cancel', (_e, id) => {
     const list = d.heldList();

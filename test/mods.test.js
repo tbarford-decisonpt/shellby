@@ -277,6 +277,7 @@ test('powers: writing files and using the network are high, reading files is med
   assert.equal(risk('$.fs.read'), 'medium');
   assert.equal(risk('$.http.fetch'), 'high');
   assert.equal(risk('$.process.spawn'), 'high');
+  assert.equal(risk('$.mcp.call (via tell)'), 'medium', "MCP tools can be anyone's, Shellby's among them");
   assert.equal(M.powers({ hooks: ['classic.PermissionRequest'] }).list[0].risk, 'high');
   assert.equal(M.powers({ hooks: ['tool.call'] }).list[0].risk, 'medium');
 });
@@ -410,6 +411,13 @@ test('buildPrompt: names the mod, where it goes, the authoring skill and the che
   assert.match(p, /claude plugin validate/);
   assert.match(p, /claude plugin test/);
   assert.match(p, /"name": "tidy"/);
+});
+
+test('buildPrompt: says how a mod can make Shellby react, and that it must not depend on him', () => {
+  const p = M.buildPrompt({ name: 'tidy', idea: 'cheers when CI goes green', home: tmp() });
+  assert.match(p, /\$\.mcp\.call\('plugin:shellby:shellby'/);
+  assert.match(p, /say.*celebrate.*wear.*status/);
+  assert.match(p, /https:\/\/github\.com\/x-salmon\/shellby\/blob\/main\/docs\/MODS\.md/, 'a link that works from any folder');
 });
 
 test('buildPrompt: a missing idea still gives a usable first line', () => {

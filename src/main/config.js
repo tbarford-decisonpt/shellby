@@ -35,6 +35,7 @@ const DEFAULTS = {
   planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude-cli.js)
   onboarded: false,
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
+  quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)

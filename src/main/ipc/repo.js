@@ -62,6 +62,7 @@ function registerRepoIpc(ipcMain, d) {
       if (merged.merged) {
         d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
         d.noteWeek('home'); // the weekly card's "brought N branches home"
+        d.questDone?.('home');
         if (firstTry) d.surprises.landed(tabId, { branch: w.branch, base: w.base });
       }
       d.refreshClashes?.(w.root); // its work is in the base now, so it clashes with nothing
@@ -233,6 +234,7 @@ ${r.detail}` });
       if (merged.length) {
         d.recordWork(root, { task: false });
         d.noteWeek('home', null, merged.length);
+        d.questDone?.('home');
         d.refreshClashes?.(root);
       }
       // One fanfare for the lot, in the first of them that's open.
@@ -276,7 +278,7 @@ ${r.detail}` });
     panel: () => d.panel, worktreeHome: d.worktreeHome, claudeConfigDir: d.claudeConfigDir,
     turnEnding: tabId => d.turnEnds.get(tabId) || Promise.resolve(),
     turnStart: tabId => d.turnStarts.get(tabId) || null,
-    correctionFromTurns: d.correctionFromTurns, noteCorrection: d.noteCorrection,
+    correctionFromTurns: d.correctionFromTurns, noteCorrection: d.noteCorrection, questDone: id => d.questDone?.(id),
     ask: async spec => {
       if (branchAsking) return null;
       branchAsking = true;

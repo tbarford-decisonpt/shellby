@@ -72,10 +72,12 @@
       e.querySelector('.empty-crab').replaceChildren(SB.sprite());
       e.querySelector('.empty-folder').textContent = SB.tildify(this.cwd || state.cwd);
       e.querySelector('.hotkey-hint').textContent = SB.prettyAccel(state.settings.hotkey) || 'The tray icon';
-      const picks = [...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, 3);
+      // A quest card takes the third suggestion's room.
+      const picks = [...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, SB.questCardShows?.() ? 2 : 3);
       e.querySelector('.suggestions').replaceChildren(...picks.map((s, i) =>
         h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick: () => SB.send(s) },
           h('span', { class: 'glyph', text: '›' }), s)));
+      SB.renderQuestCard?.(e.querySelector('.quest-card'));
       const pinned = state.pinned || [];
       e.querySelector('.pinned-row').hidden = !pinned.length;
       e.querySelector('.pinned-chips').replaceChildren(...pinned.map(p => SB.toolChip(p)));
