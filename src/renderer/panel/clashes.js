@@ -9,6 +9,9 @@
   const { h, api, state, $ } = SB;
   const T = window.ShellbyClashText;
 
+  const MAX_COPIES = 4; // rows in the branch menu before "and N more"
+  const MAX_FILES = 6;
+
   const on = () => state.settings?.clashWarnings !== false;
   const titleOf = id => {
     const t = state.tabs.get(id);
@@ -36,24 +39,30 @@
   /** Lines for the branch chip's menu: what clashes, where, and what to do. */
   SB.clashMenuItems = tab => {
     if (!on() || !tab) return [];
-    const mine = T.forTab(state.clashes, tab.id);
+    const mine = T.byCopy(state.clashes, tab.id);
     if (!mine.length) return [];
     const items = [
       h('div', { class: 'menu-sep' }),
       h('div', { class: 'menu-label', text: 'Will clash when it comes home' }),
     ];
-    for (const { clash, others } of mine) {
-      const who = others.map(o => (o.checkout ? 'your checkout (not committed)' : `‘${titleOf(o.tabId) || o.title}’ on ⑂ ${T.shortBranch(o.branch)}`)).join(', ');
-      items.push(h('div', { class: 'menu-item branch-info clash-info' },
+    // One row per other copy, every shared file under it; a tab's row takes you there.
+    for (const { copy, files, more } of mine.slice(0, MAX_COPIES)) {
+      const isTab = !copy.checkout && state.tabs.has(copy.tabId);
+      const who = copy.checkout ? 'your checkout (not committed)' : `‘${titleOf(copy.tabId) || copy.title}’ on ⑂ ${T.shortBranch(copy.branch)}`;
+      const body = [
         h('span', { class: 'mi-check', 'aria-hidden': 'true', text: '⚠' }),
         h('span', {},
           h('div', { class: 'mi-title', text: `Also changed in ${who}` }),
-          h('div', { class: 'mi-sub clash-files', text: T.fileList(clash.files, clash.more, 6) }))));
-      for (const o of others.filter(m => !m.checkout && state.tabs.has(m.tabId))) {
-        items.push(h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); SB.activate(o.tabId); } },
-          h('span', { class: 'mi-check', text: '→' }),
-          h('span', {}, h('div', { class: 'mi-title', text: 'Go to it' }), h('div', { class: 'mi-sub', text: `‘${titleOf(o.tabId) || o.title}’` }))));
-      }
+          h('div', { class: 'mi-sub clash-files', text: T.fileList(files, more, MAX_FILES) })),
+      ];
+      items.push(isTab
+        ? h('button', { class: 'menu-item clash-info', title: 'Go to it', onclick: () => { SB.closeMenus(); SB.activate(copy.tabId); } }, ...body)
+        : h('div', { class: 'menu-item branch-info clash-info' }, ...body));
+    }
+    if (mine.length > MAX_COPIES) {
+      items.push(h('div', { class: 'menu-item branch-info' },
+        h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
+        h('span', {}, h('div', { class: 'mi-sub', text: `And ${mine.length - MAX_COPIES} more: look for ⚠ on the tabs` }))));
     }
     items.push(h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); SB.askAboutClash(tab.id); } },
       h('span', { class: 'mi-check', text: '?' }),
