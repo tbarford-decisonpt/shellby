@@ -13,7 +13,7 @@ function registerGithubIpc(ipcMain, d) {
   // ---- Claude Code status line
   const statusLineView = () => ({ ...statusLine.inspectSettings(d.claudeSettings()), preview: statusLine.formatStatus({ ...d.lastStatus, health: d.healthMood, xp: d.xpView(), now: Date.now() }).replace(/\x1b\[[0-9;]*m/g, '') });
   ipcMain.handle('statusline:get', () => statusLineView());
-  ipcMain.handle('plugin:get', () => d.pluginView());
+  ipcMain.handle('plugin:get', () => d.pluginViewListed());
 
   // ---- GitHub
   const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
@@ -82,6 +82,7 @@ function registerGithubIpc(ipcMain, d) {
   ipcMain.handle('github:publish', (_e, packId) => (d.isStr(packId) && /^[a-z0-9][a-z0-9-]{1,39}$/.test(packId) ? d.confirmAndPublishPack(packId) : { ok: false }));
   ipcMain.on('github:manage', () => shell.openExternal('https://github.com/settings/applications'));
   ipcMain.handle('plugin:install', () => d.confirmAndInstallShellbyPlugin());
+  ipcMain.handle('plugin:update', () => d.confirmAndUpdateShellbyPlugin());
   ipcMain.handle('statusline:install', async () => {
     const now = statusLine.inspectSettings(d.claudeSettings());
     if (now.state === 'unreadable') return { ...statusLineView(), error: "Couldn't read your Claude Code settings.json, so Shellby left it alone." };

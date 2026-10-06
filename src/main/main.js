@@ -518,6 +518,7 @@ const shared = {
   get confirmAndInstallOpenRgb() { return confirmAndInstallOpenRgb; },
   get confirmAndInstallPlugin() { return confirmAndInstallPlugin; },
   get confirmAndInstallShellbyPlugin() { return confirmAndInstallShellbyPlugin; },
+  get confirmAndUpdateShellbyPlugin() { return confirmAndUpdateShellbyPlugin; },
   get confirmAndPublishPack() { return confirmAndPublishPack; },
   get confirmAndUninstallPlugin() { return confirmAndUninstallPlugin; },
   get confirmChannelPlace() { return confirmChannelPlace; },
@@ -638,6 +639,7 @@ const shared = {
   get placeCritter() { return placeCritter; },
   get playtime() { return playtime; }, set playtime(v) { playtime = v; },
   get pluginView() { return pluginView; },
+  get pluginViewListed() { return pluginViewListed; },
   get prBadge() { return prBadge; }, set prBadge(v) { prBadge = v; },
   get refreshPhoneTasks() { return refreshPhoneTasks; },
   get pranks() { return pranks; }, set pranks(v) { pranks = v; },
@@ -783,8 +785,8 @@ const {
   weatherView,
 } = wireSurroundings(shared);
 const {
-  askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin,
-  confirmAndUninstallPlugin, createShop, createToolbox, draftHook, forgetPausedHook, pauseHook, pluginView,
+  askOnce, confirmAndChangeHook, confirmAndInstallPlugin, confirmAndInstallShellbyPlugin, confirmAndUpdateShellbyPlugin,
+  confirmAndUninstallPlugin, createShop, createToolbox, draftHook, forgetPausedHook, pauseHook, pluginView, pluginViewListed,
   resumeHook, setupCwd, setupView, setupWhere, shopBlocked, testHook,
 } = wireToolbox(shared);
 const {
