@@ -117,6 +117,7 @@ const DEFAULTS = {
   corrections: null,  // { events, offers }: corrections noted and rules offered from them (see corrections.js); this PC only
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
+  claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude-update.js); null -> tell me
   health: null,       // health monitor settings (see health/service.js); null -> defaults
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)

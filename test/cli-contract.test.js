@@ -214,3 +214,18 @@ test('scrubTranscript catches a home folder named apart from the user, and keys'
   assert.equal(out.b, 'key sk-ant-… and ghp_…');
   assert.equal(contract.scrubTranscript(['{"type":"x","s":"user"}'], { home: 'C:\\Users\\user', user: 'user' })[0], '{"type":"x","s":"user"}');
 });
+
+test('scrubTranscript catches the home folder in its 8.3 short form too', () => {
+  // os.tmpdir() and the CLI's scratchpad paths spell it this way; it matches
+  // neither the long home folder nor the user name.
+  const raw = [JSON.stringify({
+    type: 'x',
+    a: 'C:\\Users\\JOHNSM~1\\AppData\\Local\\Temp\\x',
+    b: 'C:/Users/JOHNSM~1/AppData',
+    c: 'C:\\Users\\user\\Documents\\tilde~2',
+  })];
+  const [out] = contract.scrubTranscript(raw, { home: 'C:\\Users\\john.smith', user: 'john.smith' }).map(l => JSON.parse(l));
+  assert.equal(out.a, 'C:\\Users\\user\\AppData\\Local\\Temp\\x');
+  assert.equal(out.b, 'C:/Users/user/AppData');
+  assert.equal(out.c, 'C:\\Users\\user\\Documents\\tilde~2', 'only the segment right under Users');
+});
