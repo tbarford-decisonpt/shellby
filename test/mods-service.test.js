@@ -502,7 +502,8 @@ test('draft: blocked wins, and a very long idea is cut', () => {
   assert.deepEqual(blocked.svc.draft({ name: 'fresh', idea: 'x' }), { ok: false, error: 'Busy.' });
   const long = rig({ home, mods: [] }).svc.draft({ name: 'fresh', idea: 'y'.repeat(5000) });
   assert.equal(long.ok, true);
-  assert.ok(long.prompt.length < 3000);
+  assert.ok(long.prompt.includes('y'.repeat(2000)) && !long.prompt.includes('y'.repeat(2001)), 'the idea is cut at 2,000 characters');
+  assert.ok(long.prompt.length < 4000);
 });
 
 // ---- register

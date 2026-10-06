@@ -288,6 +288,7 @@ contextBridge.exposeInMainWorld('shellby', {
   looseEndDraft: invoke('startfrom:loose-end'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
+  updatePlugin: invoke('plugin:update'),
   getStatusLine: invoke('statusline:get'),
   installStatusLine: invoke('statusline:install'),
   removeStatusLine: invoke('statusline:remove'),

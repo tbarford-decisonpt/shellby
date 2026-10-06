@@ -1,0 +1,8 @@
+{
+  "name": "shellby-cheer",
+  "version": "0.1.0",
+  "description": "Shellby frets when your tests go red and celebrates when they're green again.",
+  "author": { "name": "x-salmon" },
+  "homepage": "https://github.com/x-salmon/shellby/blob/main/docs/MODS.md",
+  "license": "GPL-3.0-only"
+}

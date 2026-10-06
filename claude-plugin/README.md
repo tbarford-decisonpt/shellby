@@ -21,6 +21,8 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 | `add_workflow` / `list_workflows` | Proposes a workflow (you confirm it) / lists your workflows and which ones Claude may run. |
 | `run_workflow` | Starts a workflow that has the **Claude Code** trigger, with its inputs. Returns once it has started. |
 
+Claude Code mods can call `say`, `celebrate`, `wear` and `status` too, with `$.mcp.call('plugin:shellby:shellby', …)`: see [Making Shellby react from a mod](../docs/MODS.md).
+
 The same workflows can be listed and started from a terminal with `shellby flow list` and `shellby flow run <name> [key=value ...]`.
 
 ## Install
