@@ -13,7 +13,9 @@ const SUPPRESS_ADD = /@ts-ignore|@ts-expect-error|@ts-nocheck|\bas any\b|:\s*any
 const INSECURE_ADD = /rejectUnauthorized\s*:\s*false|NODE_TLS_REJECT_UNAUTHORIZED|verify\s*=\s*False|--insecure\b|\s-k\s|InsecureSkipVerify\s*:\s*true|strict-ssl\s*(=|:)\s*false/;
 const UPDATE_SNAPSHOT = /(^|\s)(-u|--update-?snapshots?|--snapshot-update|--updateSnapshot)\b/;
 const MEMORY_FLAG = /--max-old-space-size|NODE_OPTIONS|-Xmx\d/;
-const MEMORY_FLAG_ARG = /\s*--max-old-space-size[= ]\d+|\s*NODE_OPTIONS=("[^"]*"|\S+)|\s*-Xmx\d+[kmgKMG]?/g;
+// No leading \s*: numbersOnly() collapses the spaces left behind, and a run of
+// spaces before nothing would be scanned once per space.
+const MEMORY_FLAG_ARG = /--max-old-space-size[= ]\d+|NODE_OPTIONS=("[^"]*"|\S+)|-Xmx\d+[kmgKMG]?/g;
 
 // Species whose "fix" is too often a suppression: any added suppression refuses.
 const SUPPRESSIBLE = new Set(['type-tangle', 'mismatched-mantis', 'missing-fin-pipefish', 'undeclared-urchin', 'anything-anemone', 'optional-oarfish', 'hinted-hermit', 'lint-louse', 'rusty-nautilus', 'borrowing-hermit']);

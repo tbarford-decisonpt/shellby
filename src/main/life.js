@@ -395,10 +395,14 @@ function createLife(d) {
     jarWaiting = { ...card, at: now() };
     jarIfFree();
   }
+  let jarRetry = null;
+  const JAR_RETRY_MS = 3000;
   function jarIfFree() {
+    clearTimeout(jarRetry);
     if (!jarWaiting) return;
     if (now() - jarWaiting.at > JAR_WAIT_MS) { jarWaiting = null; return; }
-    if (!free() || napping()) return;
+    // Busy (a scene, a dig, a task): look again shortly, rather than at the next idle tick.
+    if (!free() || napping()) { jarRetry = setTimeout(jarIfFree, JAR_RETRY_MS); return; }
     const j = jarWaiting;
     jarWaiting = null;
     presenting = `jar:${j.species}`;
@@ -594,6 +598,8 @@ function createLife(d) {
   function stop() {
     clearInterval(watchTimer); clearInterval(micTimer); clearInterval(lookTimer);
     watchTimer = micTimer = lookTimer = null;
+    clearTimeout(jarRetry);
+    jarWaiting = null;
     cancel();
     care.flush();
   }

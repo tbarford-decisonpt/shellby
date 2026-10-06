@@ -98,6 +98,18 @@ test('fingerprints ignore line numbers, ports, hex and folders, but not the file
   assert.equal(d.fileBase(['    at x (/repo/node_modules/lib/a.js:1:1)', '    at y (/repo/src/b.ts:2:2)']), 'b.ts');
 });
 
+test('fileBase reads node, python and tsc locations, and stays linear on junk', () => {
+  assert.equal(d.fileBase(['  File "C:\\work\\app.py", line 3, in <module>']), 'app.py');
+  assert.equal(d.fileBase(['src/a.ts(3,7): error TS2322: nope']), 'a.ts');
+  assert.equal(d.fileBase(['see readme.md for help']), '');
+  const junk = Array.from({ length: 200 }, () => 'a.'.repeat(240));
+  const t = process.hrtime.bigint();
+  d.fileBase(junk);
+  d.read({ cmd: 'node a.js', output: junk.join('\n'), isError: false });
+  const ms = Number(process.hrtime.bigint() - t) / 1e6;
+  assert.ok(ms < 400, `${ms} ms`);
+});
+
 test('stillShows finds the same bug in a later output', () => {
   const r = d.classify(NODE_NULL, { cmd: 'node src/user.js' });
   assert.equal(d.stillShows(NODE_NULL, r.fp, { cmd: 'node src/user.js' }), true);

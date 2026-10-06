@@ -221,14 +221,27 @@ function windowOf(output) {
 // ------------------------------------------------------------------ fingerprints
 
 const LIB = /node_modules|site-packages|dist-packages|[\\/]rustc[\\/]|[\\/]go[\\/]src[\\/]|<anonymous>|node:internal|internal[\\/]|[\\/]lib[\\/]python/i;
-const SOURCE_FILE = /((?:[A-Za-z]:)?[\w.@~/\\-]*?([\w.@-]+\.(?:[cm]?[jt]sx?|py|rs|go|rb|java|kt|cs|php|vue|svelte|swift|c|cc|cpp|h)))(?::\d+|", line \d+|\(\d+,\d+\))/;
+// A source file in a trace, one whitespace- or bracket-separated token at a
+// time: anchored, with one open-ended run, so it's linear on any line (a
+// lazy prefix before a greedy name backtracked for seconds on minified junk).
+const SOURCE_TOKEN = /^(?:[A-Za-z]:)?[\w.@~/\\-]*\.(?:[cm]?[jt]sx?|py|rs|go|rb|java|kt|cs|php|vue|svelte|swift|c|cc|cpp|h)(?::\d+){0,2}$/;
+// ...that a location follows: `:12`, `", line 12` (Python) or `(3,7)` (tsc).
+const LOCATED = /^(?::\d|", line \d|\(\d)/;
 const basename = p => String(p).split(/[\\/]/).pop();
+const MAX_FILE_LINES = 60;
 
 /** The first file of yours in the trace, as a basename ('' when none). */
 function fileBase(lines) {
-  for (const l of lines) {
-    const m = SOURCE_FILE.exec(l);
-    if (m && !LIB.test(m[1])) return basename(m[2]).toLowerCase();
+  for (const l of lines.slice(-MAX_FILE_LINES)) {
+    let from = 0;
+    for (const token of l.split(/[\s"'(),<>[\]]+/)) {
+      if (!token) continue;
+      const at = l.indexOf(token, from);
+      from = at + token.length;
+      if (token.length > 300 || !SOURCE_TOKEN.test(token) || LIB.test(token)) continue;
+      const located = /:\d+$/.test(token) || LOCATED.test(l.slice(from, from + 10));
+      if (located) return basename(token.replace(/(?::\d+)+$/, '')).toLowerCase();
+    }
   }
   return '';
 }
@@ -351,7 +364,8 @@ function passedCount(output) {
 function conflictFiles(output) {
   const files = new Set();
   for (const l of windowOf(output)) {
-    const m = /^CONFLICT \([\w/ -]+\): .*?(?:Merge conflict in |in )(\S+)/.exec(l);
+    // The rest of the line is the path, spaces and all ("Merge conflict in my file.txt").
+    const m = /^CONFLICT \([\w/ -]+\): .*?(?:Merge conflict in |in )(\S.*)$/.exec(l);
     if (m) files.add(m[1]);
   }
   return [...files].slice(0, 50);

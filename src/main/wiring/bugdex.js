@@ -8,6 +8,7 @@
 // species id and a short hash. A catch needs the code to have changed (or a
 // remedy to have run) and the change to be a fix (cheats.js), so a false
 // catch is rarer than a missed one.
+const fs = require('fs');
 const path = require('path');
 const changes = require('../changes');
 const focus = require('../focus');
@@ -38,11 +39,11 @@ const GIT_MS = 5000;
 function wireBugdex(d) {
   const on = () => !d.CAPTURE && !!d.config && d.config.get('catchBugs') !== false && !d.config.get('crabOnly');
   const device = () => normalizeXp(d.config.get('xp')).device || 'local';
+  // Always a whole book, even before the first bug (config starts it as null).
   const state = () => {
-    const s = d.config.get('bugdex');
     const dev = device();
-    // Catches from before this PC had its id move onto it, once.
-    return dev !== 'local' && s ? bugdex.withDevice(s, dev) : s;
+    // Catches from before this PC had its id move onto it.
+    return dev !== 'local' ? bugdex.withDevice(d.config.get('bugdex'), dev) : bugdex.normalize(d.config.get('bugdex'));
   };
   const save = s => d.config.set({ bugdex: s });
   const seasons = () => { try { return activeSeasons(new Date(), d.seasonsWhere?.() || {}).map(x => x.id); } catch { return []; } };
@@ -62,7 +63,7 @@ function wireBugdex(d) {
     const key = path.resolve(dir).toLowerCase();
     const hit = projects.get(key);
     if (hit && Date.now() - hit.at < PROJECT_TTL_MS) return hit.p;
-    const p = projectOf(dir).catch(() => null).then(x => { if (x) names.set(x.id, x.name); return x; });
+    const p = projectOf(dir).catch(() => null).then(x => { if (x) { names.set(x.id, x.name); bound(names); } return x; });
     projects.set(key, { at: Date.now(), p });
     if (projects.size > 200) projects.delete(projects.keys().next().value);
     return p;
@@ -71,11 +72,16 @@ function wireBugdex(d) {
   /** The folder's git tree now, or null (not a repo, or slower than SNAPSHOT_WAIT_MS). */
   function snapshotWithin(dir) {
     let late = false;
+    let timer = null;
     const taken = changes.snapshot(dir).catch(() => null).then(s => (late ? null : s));
-    return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(null); }, d.SNAPSHOT_WAIT_MS))]);
+    const slow = new Promise(r => { timer = setTimeout(() => { late = true; r(null); }, d.SNAPSHOT_WAIT_MS); });
+    return Promise.race([taken, slow]).finally(() => clearTimeout(timer));
   }
 
-  const ringPush = (map, id, row, max) => map.set(id, [...(map.get(id) || []), row].slice(-max));
+  const ringPush = (map, id, row, max) => { map.set(id, [...(map.get(id) || []), row].slice(-max)); bound(map); };
+  // None of these may grow for as long as Shellby runs.
+  const MAX_KEYS = 200;
+  const bound = map => { while (map.size > MAX_KEYS) map.delete(map.keys().next().value); };
   // The first time a tree was seen is what counts: seeing it again after a
   // failure must not make an undo look new.
   const rememberTree = (projectId, tree, at = Date.now()) => {
@@ -103,11 +109,25 @@ function wireBugdex(d) {
 
   /** Change the book, then tell the panel. */
   function update(fn) {
-    const next = fn(bugdex.prune(state(), Date.now()));
+    const before = bugdex.prune(state(), Date.now());
+    const next = fn(before);
+    // Every file Claude writes engages what's open: most of the time that's already so.
+    if (JSON.stringify(next) === JSON.stringify(before)) return before;
     save(next);
     push();
     return next;
   }
+
+  /** An entry point main calls without waiting: a failure is logged, never a snag. */
+  const guarded = fn => (...args) => {
+    try {
+      const out = fn(...args);
+      return out && typeof out.catch === 'function' ? out.catch(e => d.log.error('bugdex', e)) : out;
+    } catch (e) {
+      d.log.error('bugdex', e);
+      return undefined;
+    }
+  };
 
   // ---- seeing
 
@@ -132,13 +152,20 @@ function wireBugdex(d) {
     const snap = await snapshotWithin(at.dir);
     if (snap) rememberTree(p.id, snap.tree);
     const conflict = hit.species === 'two-headed-crab';
+    // No picture of the code (not a repo, or too slow): nothing could ever prove
+    // it fixed, so it's only seen, not left on the loose for a day saying "waiting".
+    if (!snap && !conflict) {
+      save(bugdex.recordSeen(state(), { species: hit.species, fp: hit.fp, project: p.id }, Date.now(), { device: device() }).state);
+      push();
+      return;
+    }
     const enc = {
       species: hit.species, fp: hit.fp, project: p.id, name: p.name, source: 'bash',
       // A conflict is caught by settling it, not by the same command passing.
       keys: conflict ? [] : r.keys, kind: r.kind,
       failTree: snap?.tree || null, tabId: at.tabId || null, lang: hit.lang, passed: r.passed,
     };
-    if (conflict) conflicts.set(lifecycle.encId(enc), { files: r.conflictFiles });
+    if (conflict) { conflicts.set(lifecycle.encId(enc), { files: r.conflictFiles }); bound(conflicts); }
     await spot(enc);
   }
 
@@ -176,7 +203,8 @@ function wireBugdex(d) {
     d.noteWeek('caught');
     if (r.isNew) d.noteWeek('newbug');
     d.noteRecap?.(recap.bugEvent(e.species, r.isNew)); // "3 bugs caught" in the while-you-were-away card
-    if (r.pays && !quiet) {
+    // A catch that came along quietly with another still pays: only the moment is shared.
+    if (r.pays) {
       const label = r.isNew ? `Caught a ${sp.name} (${sp.rarity === 'special' ? 'mystery' : sp.rarity})` : `Caught a ${sp.name}`;
       d.awardXp(r.isNew ? 'newbug' : 'catch', { project: projectName, label });
     }
@@ -229,7 +257,10 @@ function wireBugdex(d) {
       if (!e.failTree || r.fps.includes(e.fp)) continue;
       const sp = speciesById(e.species);
       const same = e.failTree === end.tree;
-      const remedy = same && !!sp.remedies && remediesSince(p.id, e.firstAt).some(k => sp.remedies.includes(k));
+      // A fix that isn't code: the species' own remedies, or a cleared cache, which
+      // makes whatever it was a Cache Ghoul (reveal).
+      const ran = same ? remediesSince(p.id, e.firstAt) : [];
+      const remedy = ran.some(k => sp.remedies?.includes(k)) || ran.includes('cache');
       let files = [], patch = '';
       if (!same) {
         const sum = await changes.summarize({ root: end.root, tree: e.failTree }, end).catch(() => null);
@@ -257,8 +288,10 @@ function wireBugdex(d) {
   function reveal(e, remedy) {
     if (!remedy) return e;
     const kinds = remediesSince(e.project, e.firstAt);
-    if ((e.species === 'port-squatter' || e.species === 'clingy-barnacle') && kinds.includes('kill')) return { ...e, species: 'zombie-process' };
-    if (kinds.includes('cache') && e.species !== 'overstuffed-pufferfish') return { ...e, species: 'cache-ghoul' };
+    const own = kinds.filter(k => speciesById(e.species).remedies?.includes(k));
+    if ((e.species === 'port-squatter' || e.species === 'clingy-barnacle') && own.includes('kill')) return { ...e, species: 'zombie-process' };
+    // Only when nothing of its own fixed it: a cleared cache did.
+    if (!own.length && kinds.includes('cache')) return { ...e, species: 'cache-ghoul' };
     return e;
   }
 
@@ -274,11 +307,13 @@ function wireBugdex(d) {
       return;
     }
     if (r.resolve) await settleConflicts(p, at.dir, open.filter(e => e.species === 'two-headed-crab'));
+    // Read again: settling a conflict took a while, and caught what it caught.
+    const now = state().open.filter(e => e.project === p.id && e.source === 'bash');
     if (r.fairPush) {
-      for (const e of open.filter(x => x.species === 'bounced-bottle')) catchIt(e);
+      for (const e of now.filter(x => x.species === 'bounced-bottle')) catchIt(e);
       engageCi(p.id);
     }
-    if (r.hookedCommit) for (const e of open.filter(x => x.species === 'gatekeeper-goby' && x.engaged)) catchIt(e);
+    if (r.hookedCommit) for (const e of now.filter(x => x.species === 'gatekeeper-goby' && x.engaged)) catchIt(e);
   }
 
   /** A merge was committed: caught, if git agrees nothing is left unmerged and no markers are left. */
@@ -290,13 +325,27 @@ function wireBugdex(d) {
     if (!unmerged.ok || unmerged.out.trim()) return;
     for (const e of list) {
       const files = conflicts.get(lifecycle.encId(e))?.files || [];
-      if (files.length) {
-        // git grep exits 1 when nothing matches: no output is what we want.
-        const left = await worktrees.git(root, ['grep', '-l', '-e', '^<<<<<<< ', '-e', '^>>>>>>> ', '--', ...files.map(f => `:(literal)${f}`)], { timeout: GIT_MS });
-        if (left.ok && left.out.trim()) continue;
-      }
+      if (files.some(f => markersLeft(root, f))) continue;
       conflicts.delete(lifecycle.encId(e));
       catchIt(e);
+    }
+  }
+
+  // Conflict markers still in a file git named. Read here rather than with
+  // `git grep`, whose "nothing found" and "couldn't look" both come back as a
+  // failure; a file that can't be read counts as still marked (no catch).
+  const MARKER = /^(<{7}|>{7})( |$)/m;
+  const MAX_MARKED_BYTES = 2 * 1024 * 1024;
+  function markersLeft(root, file) {
+    const full = path.resolve(root, file);
+    if (!(full.toLowerCase() + path.sep).startsWith(path.resolve(root).toLowerCase() + path.sep)) return true; // outside the repo
+    try {
+      const st = fs.statSync(full);
+      if (!st.isFile()) return false; // deleted to settle it
+      if (st.size > MAX_MARKED_BYTES) return true;
+      return MARKER.test(fs.readFileSync(full, 'utf8'));
+    } catch (e) {
+      return e.code !== 'ENOENT';
     }
   }
 
@@ -395,6 +444,7 @@ function wireBugdex(d) {
     for (const s of d.devServers?.view?.().servers || []) {
       if (s.fixTabId !== tabId) continue;
       fixTurns.set(s.id, Date.now());
+      bound(fixTurns);
       update(st => bugdex.engageKey(st, 'server', s.id));
     }
   }
@@ -574,16 +624,24 @@ function wireBugdex(d) {
       buttons: [{ label: 'Start over', style: 'danger' }, { label: 'Keep it' }], defaultId: 1, cancelId: 1,
     });
     if (response !== 0) return { ok: false, canceled: true };
-    save(null);
+    // A reset marker, not nothing: sync carries it, so other PCs start over too
+    // instead of handing the old counts back (bugdex.js merge).
+    save(bugdex.normalize({ resetAt: Date.now() }));
     push();
     return { ok: true };
   }
 
-  return {
-    on, view, push, openPage, seen, setFavourite, openTab, forget,
+  // Main calls these from its own events and never waits: each one logs its
+  // own failure instead of letting it reach main's "snag" handler.
+  const hooks = Object.fromEntries(Object.entries({
     commandStart, commandResult, wrote, treeSeen, changed, turnEnded, outsideStart, outsideResult, outsideWrote,
     serverCrashed, serverUp, ciFailed, ciFixed, ciEngaged, homeResult, secretSpotted, secretIgnored, pushedClean,
     flakySeen, flakyFixed, auditIssues, auditPatched,
+  }).map(([k, fn]) => [k, guarded(fn)]));
+
+  return {
+    on, view, push, openPage, seen, setFavourite, openTab, forget,
+    ...hooks,
     // For the tests: the species a red build would be.
     ciSpecies,
   };

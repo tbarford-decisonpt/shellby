@@ -243,3 +243,36 @@ test('poolOf lists the latest catches as specks', () => {
   assert.deepEqual(pool.map(p => p.id), ['syntax-slug', 'nullfish']);
   assert.equal(pool[0].pixels.length, 3);
 });
+
+test('a bug that keeps failing after it got away got away once', () => {
+  let s = b.recordCatch(null, catchOf(), T0).state;
+  let escapes = 0;
+  for (let i = 1; i <= 4; i++) {
+    const r = b.spot(s, enc(), T0 + i * HOUR, { device: 'pc-one' });
+    s = r.state;
+    if (r.escaped) escapes++;
+  }
+  assert.equal(escapes, 1);
+  assert.equal(b.view(s, T0 + 5 * HOUR).species.find(x => x.id === 'nullfish').escapes, 1);
+});
+
+test('starting over wins over older counts from other PCs, and later catches still sync', () => {
+  const old = b.syncable(b.recordCatch(null, catchOf({ device: 'pc-two' }), T0).state);
+  const fresh = b.normalize({ resetAt: T0 + DAY });
+  const merged = b.merge(old, b.syncable(fresh));
+  assert.deepEqual(merged.species, {});
+  assert.equal(merged.resetAt, T0 + DAY);
+  // The other PC hears of it and starts over too, keeping its own open bugs.
+  const other = b.spot(b.recordCatch(null, catchOf({ device: 'pc-two' }), T0).state, enc({ fp: '00000000000e' }), T0 + HOUR).state;
+  const applied = b.applySync(other, merged);
+  assert.equal(b.caughtOf(applied.species.nullfish), 0);
+  assert.equal(applied.open.length, 1);
+  // A catch after the reset counts.
+  const later = b.syncable(b.recordCatch(applied, catchOf({ device: 'pc-two', fp: '00000000000d' }), T0 + 2 * DAY).state);
+  assert.equal(b.caughtOf(b.merge(merged, later).species.nullfish), 1);
+});
+
+test('counts from a hostile gist are bounded', () => {
+  const m = b.merge({ species: { nullfish: { byDevice: { 'pc-one': 1e308 } } } }, null);
+  assert.ok(Number.isFinite(b.caughtOf(m.species.nullfish)) && b.caughtOf(m.species.nullfish) <= 1e6);
+});

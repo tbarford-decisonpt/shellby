@@ -42,7 +42,9 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const LOCAL = 'local';
 
 const pos = v => (Number.isFinite(v) && v > 0 ? v : 0);
-const count = v => Math.floor(pos(v));
+// Bounded: a corrupt or hostile gist can't make a count Infinity (merge keeps the larger).
+const MAX_COUNT = 1e6;
+const count = v => Math.min(MAX_COUNT, Math.floor(pos(v)));
 const own = (map, key) => (Object.hasOwn(map, key) ? map[key] : 0);
 const sum = map => Object.values(map).reduce((n, v) => n + v, 0);
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -86,7 +88,7 @@ function normalize(raw) {
   const recent = {};
   for (const [k, v] of Object.entries(obj(r.recent)).slice(-MAX_RECENT)) {
     const [p, fp] = k.split('|');
-    if (PROJECT_RE.test(p || '') && HEX12.test(fp || '')) recent[k] = { caughtAt: pos(v?.caughtAt), paidAt: pos(v?.paidAt) };
+    if (PROJECT_RE.test(p || '') && HEX12.test(fp || '')) recent[k] = { caughtAt: pos(v?.caughtAt), paidAt: pos(v?.paidAt), escapedAt: pos(v?.escapedAt) };
   }
   const day = typeof r.day === 'string' && DAY_RE.test(r.day) ? r.day : null;
   const todayBySpecies = Object.fromEntries(Object.entries(obj(r.todayBySpecies)).filter(([k, v]) => BY_ID.has(k) && count(v)).map(([k, v]) => [k, count(v)]));
@@ -102,6 +104,8 @@ function normalize(raw) {
     favourite: BY_ID.has(r.favourite) && caughtOf(species[r.favourite]) > 0 ? r.favourite : null,
     unseen: (Array.isArray(r.unseen) ? r.unseen : []).filter(id => caughtOf(species[id]) > 0).slice(-60),
     lastMomentAt: pos(r.lastMomentAt),
+    // When the book was started over: sync drops counts from before it (see merge).
+    resetAt: pos(r.resetAt),
   };
 }
 
@@ -120,14 +124,17 @@ function recordSeen(stateIn, { species, fp, project }, now, { device = LOCAL } =
   const state = normalize(stateIn);
   if (!BY_ID.has(species)) return { state, escaped: false };
   const e = entryOf(state, species);
-  const r = state.recent[`${project}|${fp}`];
-  const escaped = !!r?.caughtAt && now - r.caughtAt < ESCAPE_MS && caughtOf(e) > 0;
+  const key = `${project}|${fp}`;
+  const r = state.recent[key];
+  // Once per catch: a bug that keeps failing after it got away got away once.
+  const escaped = !!r?.caughtAt && now - r.caughtAt < ESCAPE_MS && caughtOf(e) > 0 && !(r.escapedAt > r.caughtAt);
   const dev = DEVICE_RE.test(device) ? device : LOCAL;
   const next = {
     ...e, seen: e.seen + 1, seenAt: now,
     ...(escaped ? { escapes: { ...e.escapes, [dev]: own(e.escapes, dev) + 1 }, lastEscapeAt: now } : {}),
   };
-  return { state: { ...state, species: { ...state.species, [species]: next } }, escaped };
+  const recent = escaped ? { ...state.recent, [key]: { ...r, escapedAt: now } } : state.recent;
+  return { state: { ...state, species: { ...state.species, [species]: next }, recent }, escaped };
 }
 
 // ------------------------------------------------------------------ catching
@@ -202,7 +209,7 @@ function recordCatch(stateIn, c, now) {
   state = {
     ...state,
     species: { ...state.species, [sp.id]: next },
-    recent: Object.fromEntries([...Object.entries(state.recent).filter(([k]) => k !== key), [key, { caughtAt: now, paidAt: pays ? now : r.paidAt }]].slice(-MAX_RECENT)),
+    recent: Object.fromEntries([...Object.entries(state.recent).filter(([k]) => k !== key), [key, { caughtAt: now, paidAt: pays ? now : r.paidAt, escapedAt: 0 }]].slice(-MAX_RECENT)),
     today: state.today + 1,
     todayBySpecies: { ...state.todayBySpecies, [sp.id]: own(state.todayBySpecies, sp.id) + 1 },
     unseen: [...state.unseen.filter(id => id !== sp.id), sp.id].slice(-60),
@@ -388,7 +395,7 @@ function syncable(stateIn) {
     const { byDevice, seen, first, last, fastest, escapes, forms, langs } = e;
     species[id] = { byDevice, seen, first, last, fastest, escapes, forms, langs };
   }
-  return { species, habitats: s.habitats };
+  return { species, habitats: s.habitats, resetAt: s.resetAt };
 }
 
 /** Another PC's syncable part, cleaned (its 'local' bucket means nothing here). */
@@ -400,7 +407,7 @@ function normalizeSync(raw) {
     const { projects: _p, seenAt: _s, lastEscapeAt: _l, ...rest } = cleanEntry(e, { keepLocal: false });
     species[id] = rest;
   }
-  return { species, habitats: normalize({ habitats: r.habitats }).habitats };
+  return { species, habitats: normalize({ habitats: r.habitats }).habitats, resetAt: Math.min(pos(r.resetAt), 8.64e15) };
 }
 
 const minPos = (a, b) => (a && b ? Math.min(a, b) : a || b);
@@ -408,7 +415,10 @@ const maxMap = (a, b) => Object.fromEntries([...new Set([...Object.keys(a), ...O
 
 /** Two PCs' books together: each PC's own count, the larger; firsts the earliest; forms joined. Only ever grows. */
 function merge(aIn, bIn) {
-  const a = normalizeSync(aIn), b = normalizeSync(bIn);
+  // A book started over wins: whatever the other side counted before that is gone.
+  const resetAt = Math.max(normalizeSync(aIn).resetAt, normalizeSync(bIn).resetAt);
+  const kept = raw => { const x = normalizeSync(raw); return x.resetAt >= resetAt ? x : { species: {}, habitats: {}, resetAt }; };
+  const a = kept(aIn), b = kept(bIn);
   const species = {};
   for (const id of new Set([...Object.keys(a.species), ...Object.keys(b.species)])) {
     const x = a.species[id] || cleanEntry(null), y = b.species[id] || cleanEntry(null);
@@ -424,13 +434,15 @@ function merge(aIn, bIn) {
     const x = a.habitats[id], y = b.habitats[id];
     habitats[id] = { doneAt: minPos(x?.doneAt || 0, y?.doneAt || 0), of: Math.max(x?.of || 0, y?.of || 0) };
   }
-  return { species, habitats };
+  return { species, habitats, resetAt };
 }
 
 /** This PC's book with the merged counts in, keeping what never leaves it. */
 function applySync(localIn, merged) {
-  const local = normalize(localIn);
   const m = normalizeSync(merged);
+  const was = normalize(localIn);
+  // Started over on another PC: this one starts over too (what's on the loose here stays).
+  const local = was.resetAt < m.resetAt ? normalize({ open: was.open, resetAt: m.resetAt }) : was;
   const species = { ...local.species };
   for (const [id, e] of Object.entries(m.species)) {
     const mine = local.species[id] || cleanEntry(null);
