@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="wardrobe.css">
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
+<link rel="stylesheet" href="crew.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
 <link rel="stylesheet" href="tank.css">
@@ -541,6 +542,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -586,7 +588,7 @@
     <section class="setting-group wd-options">
       <h3>Options</h3>
       <label class="toggle"><input type="checkbox" id="seasonalToggle"><span class="switch"></span>Seasonal outfits: dress up automatically for Halloween, winter and more</label>
-      <label class="toggle"><input type="checkbox" id="crewToggle"><span class="switch"></span>Helper crabs wear matching hats</label>
+      <label class="toggle"><input type="checkbox" id="crewToggle"><span class="switch"></span>Helper crabs wear hats: each crew member its own (pick them on the Crew page)</label>
       <label class="toggle" id="unlockAllOption" hidden><input type="checkbox" id="unlockAllToggle"><span class="switch"></span>Unlock everything (skip the achievements)</label>
     </section>
     <section class="setting-group wd-packs">
@@ -610,6 +612,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -661,6 +664,35 @@
     <ul class="trophy-list" id="trophyList"></ul>
   </main>
 
+  <!-- ====================== CREW: one lasting helper crab per agent type (crew.js, src/main/crew-roster.js) ====================== -->
+  <main class="view view-crew" id="crewView">
+    <div class="view-head">
+      <h2 class="sr-only">Crew</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" aria-current="page" data-goto="crew">Crew <span class="n" id="crewCount"></span></button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <p class="view-lede">Every agent Claude sends out gets a crab, one for each type of agent, and they keep their record. They level up with every run, and more when Claude acts on what they found.</p>
+    <div class="cr-dock" id="crewDock" role="group" aria-label="The crew" hidden></div>
+    <p class="cr-totals muted small" id="crewTotals" hidden></p>
+    <div class="cr-empty" id="crewEmpty" hidden>
+      <div class="cr-empty-crab" id="crewEmptyCrab" aria-hidden="true"></div>
+      <div>
+        <h3>No crew yet</h3>
+        <p>When Claude hands part of a task to a helper agent (Explore, a code reviewer, one you wrote yourself), that helper joins the crew here and keeps its record from then on.</p>
+      </div>
+    </div>
+    <ul class="cr-list" id="crewList" aria-label="Crew members"></ul>
+    <p class="muted small cr-note">“Acted on” means Claude went on to change files after that helper reported back, in the same turn.</p>
+  </main>
+
   <!-- ====================== STICKERS ====================== -->
   <main class="view view-stickers" id="stickersView">
     <div class="view-head">
@@ -668,6 +700,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -719,6 +752,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -750,6 +784,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -848,6 +883,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -890,6 +926,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -2060,6 +2097,7 @@
 <script src="onboarding.js"></script>
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
+<script src="crew.js"></script>
 <script src="together.js"></script>
 <script src="needs.js"></script>
 <script src="health.js"></script>

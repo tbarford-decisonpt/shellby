@@ -77,6 +77,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 </table>
 
 - **Helper crabs:** every subagent gets its own lane in the panel and its own crab on your desktop.
+- **Your crew:** each type of agent (Explore, a code reviewer, the ones you write yourself) is a lasting crab with a name, a hat and a record: *Level 14, 212 runs, 38 acted on*. They level up and earn new hats on **Shellby → Crew**.
 - **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
 - **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
 - **Checks it himself:** **Run checks** on a turn runs your tests and stamps the verdict on it, with before/after pictures when your dev server is up. Optionally after every turn, and before a copy comes home.
