@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.70.1: 0.70.0, delivered
+
+0.70.0 never shipped: a slow test check stopped its release. This is 0.70.0's crit hits, Bugdex, character sheet, quests and crew, with nothing else changed for you.
+
 ## 0.70.0: Crit hits, the Bugdex, quests and your crew
 
 ### New
