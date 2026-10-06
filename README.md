@@ -226,10 +226,14 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 <img src="docs/critter-hot.png" width="150" alt="Shellby sweating and fanning himself with his claw, a speech bubble reading 83 degrees"> <img src="docs/critter-dizzy.png" width="150" alt="Shellby with stars circling his eyes because memory is nearly full"> <img src="docs/critter-stuffed.png" width="150" alt="Shellby with boxes, papers and a floppy disk jammed into his shell because a drive is full">
 </p>
 
-- **Live vitals:** GPU and CPU temperature and load, memory, every drive, drive temperatures, fans and the battery, with 10-minute sparklines.
-- **His mood follows your hardware:** he sweats past 80°C, gets dizzy when memory fills up, and overstuffs his shell when a drive is full.
-- **What's hogging it,** what starts with Windows, and what Docker, WSL and the package caches are sitting on.
-- **"Ask Shellby why"** runs a read-only Claude task that finds the cause. He never deletes or kills anything himself.
+- **Live vitals:** GPU and CPU temperature and load, VRAM, memory, every drive, drive temperatures, fans and the battery, with sparklines over the last 10 minutes or the last hour. Shellby needs no admin rights, and nothing leaves your PC.
+- **CPU temperature too:** Windows hides it, so he reads it from LibreHardwareMonitor or HWiNFO. **Let Claude set it up** writes the install task for you to read before it runs.
+- **His mood follows your hardware:** he sweats past 80°C, pants under a heat shimmer when it gets scorching, gets dizzy when memory fills up, and overstuffs his shell when a drive is full. He waits out a spike before he reacts, and you set every line yourself.
+- **A heads-up, once:** one Windows notification when something crosses the line, another only if it gets worse, and a log of the last 40 alerts, including when things calmed down.
+- **What's hogging it:** while he's sweating or dizzy, the busiest processes by GPU, CPU or memory, each with an **End task** that asks first and won't touch Windows itself. He owns up to his own share too: *Shellby himself: 1% CPU, 450 MB*.
+- **What starts with Windows:** every startup entry, with a **Switch off** that works like Task Manager's, so switching it back on puts things as they were.
+- **Developer clutter:** what Docker, WSL's virtual disks and the npm, pnpm, pip, Cargo, Gradle and other caches are sitting on. Tens of gigabytes to get back, and he overstuffs his shell over that too.
+- **"Ask Shellby"** about any of it: why it's hot, what's running that you don't need, which startup apps to keep, what's safe to clear. Each one is a Claude task that reports back. He never deletes, kills or switches anything off himself.
 
 <p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
 
