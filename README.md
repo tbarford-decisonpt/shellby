@@ -205,6 +205,7 @@ None of this needs Claude or an account.
 
 - **138 accessories, 21 effects and 16 crabs,** head-to-tail sets, and costumes for every season.
 - **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
+- **A character sheet:** Shipping, Rigour, Craft and Tidiness stats from the work he does, and a class from the highest: Shipper, Tester, Toolsmith, Curator or a dual class. [See](docs/WARDROBE.md#character-sheet)
 - **A sticker for every project you ship,** drawn from the repo itself, going vinyl, holo and foil as you keep shipping.
 - **Cards to share:** a crab card of him as he's dressed, and a weekly one every Friday.
 
@@ -283,7 +284,7 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <td width="33%" valign="top">
 
 **📅 The weekly crab card** · 0.62<br>
-<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project and the trophies you earned. [See one](docs/WARDROBE.md#your-week)</sub>
+<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project, the trophies you earned and his character sheet. [See one](docs/WARDROBE.md#your-week)</sub>
 
 </td>
 <td width="33%" valign="top">

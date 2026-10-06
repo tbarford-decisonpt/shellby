@@ -4,6 +4,7 @@
 const os = require('os');
 const path = require('path');
 const changes = require('../changes');
+const character = require('../character');
 const checkup = require('../checkup');
 const flaky = require('../flaky');
 const { projectOf } = require('../gitinfo');
@@ -89,6 +90,7 @@ function wireProgress(d) {
     d.lastXp = { amount: r.gained, at: Date.now() };
     d.refreshStatusLine();
     setTimeout(d.refreshStatusLine, 15500); // let "+25 XP" fade from the status line
+    if (character.isStatKind(r.kind)) newClassFound(r.state);
     d.send(d.panel, 'xp', xpView());
     if (!r.levelUp) return;
     d.levelUpAt = r.after.level;
@@ -104,6 +106,23 @@ function wireProgress(d) {
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
       d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
+    }
+  }
+
+  // The character sheet (character.js): the first time his stats make him a
+  // class he has never been, it's kept and celebrated. Once per class, so two
+  // close stats trading places can't announce it over and over. Only stat XP
+  // can change his class, so it's announced just after the thing that did it.
+  function newClassFound(state) {
+    if (d.config.get('crabOnly')) return; // the sheet is hidden then: it waits until he's back
+    const cls = character.newClass(state, Date.now());
+    if (!cls) return;
+    d.config.set({ xp: character.noteClass(d.config.get('xp'), cls.id) });
+    const view = { id: cls.id, name: cls.name, icon: cls.icon, blurb: cls.blurb };
+    d.sayText(`${cls.icon} I'm a ${cls.name} now!`, 'levelup', 7000);
+    d.send(d.panel, 'xp:class', view);
+    if (!(d.panel?.isVisible() && d.panel.isFocused())) {
+      d.notify(`New class: ${cls.name}`, `${cls.blurb} See his character sheet on the Trophies page.`, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'trophies'); }, { tone: 'celebrate', pet: true });
     }
   }
 

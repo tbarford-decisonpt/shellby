@@ -11,6 +11,7 @@
 // larger of each. XP earned before that existed sits in the 'legacy' bucket.
 const shells = require('./shells');
 const { progressBounties, bountiesView, CLEAR_ALL_XP } = require('./bounties');
+const { characterSheet } = require('./character');
 
 // `claude`: only Claude Code work earns it, so just-the-crab mode leaves it off
 // the list of ways to earn (panel/xp.js).
@@ -72,6 +73,8 @@ const STREAK_MAX = 0.25;         // ...up to +25%
 const RESTED_AFTER = 3 * DAY;    // away this long and the next XP is doubled...
 const RESTED_POOL = 150;         // ...until this much extra has been paid
 const DAILY_DAYS = 30;
+const CLASS_RE = /^[a-z-]{1,24}$/;
+const MAX_CLASSES = 16;
 // Within an hour: full XP up to perHour, then half, then a quarter, then none.
 const FALLOFF = [[1, 1], [2, 0.5], [4, 0.25]];
 
@@ -179,6 +182,19 @@ function numberMap(raw, re, max, keep = (a, b) => b[0].localeCompare(a[0])) {
   return Object.fromEntries(Object.entries(src).filter(([k, v]) => re.test(k) && count(v) > 0).map(([k, v]) => [k, count(v)]).sort(keep).slice(0, max));
 }
 
+// XP per kind per day, for the last DAILY_DAYS days: what the character sheet's
+// "this week" is made of (character.js). byKind alone is all time.
+function cleanDailyKinds(raw) {
+  const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const days = Object.keys(src).filter(k => DAY_RE.test(k)).sort().slice(-DAILY_DAYS);
+  const out = {};
+  for (const k of days) {
+    const day = numberMap(src[k], /^[a-z]{1,12}$/, LOG_KINDS.size);
+    if (Object.keys(day).length) out[k] = day;
+  }
+  return out;
+}
+
 /** Tolerate anything read from disk. */
 function normalizeXp(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
@@ -204,7 +220,10 @@ function normalizeXp(raw) {
     lastAt: count(src.lastAt), rested: Math.min(RESTED_POOL, count(src.rested)),
     red, shipped,
     daily: numberMap(src.daily, DAY_RE, DAILY_DAYS),
+    dailyKinds: cleanDailyKinds(src.dailyKinds),
     byKind: numberMap(src.byKind, /^[a-z]{1,12}$/, LOG_KINDS.size, (a, b) => b[1] - a[1]),
+    // The character sheet's classes he has been (character.js), each announced once.
+    classes: [...new Set((Array.isArray(src.classes) ? src.classes : []).filter(c => typeof c === 'string' && CLASS_RE.test(c)))].slice(0, MAX_CLASSES),
     bounties: src.bounties && typeof src.bounties === 'object' ? src.bounties : null,
   };
 }
@@ -295,6 +314,8 @@ function award(stateIn, kindIn, now, meta = {}) {
     next.total = next.total + gained;
     next.daily = numberMap(addTo(next.daily, today, gained), DAY_RE, DAILY_DAYS);
     next.byKind = addTo(addTo(next.byKind, kind, gainedEvent), 'bounty', b.xp);
+    // The event's own XP only: bounty XP is in `daily`, not a kind's, so the two needn't add up.
+    if (gainedEvent) next.dailyKinds = cleanDailyKinds({ ...next.dailyKinds, [today]: addTo(next.dailyKinds[today] || {}, kind, gainedEvent) });
     // Newest first: the event, then the bounties it finished, then the clear-all on top.
     const entries = [
       ...(b.cleared ? [{ at: t, kind: 'bounty', xp: CLEAR_ALL_XP, label: "All of today's bounties", project: null }] : []),
@@ -338,6 +359,7 @@ function xpSummary(stateIn, now, streak = 0) {
     bounties: bountiesView(s.bounties, today),
     daily: days,
     byKind: Object.entries(s.byKind).map(([kind, xp]) => ({ kind, xp })),
+    character: characterSheet(s, t),
     ways: Object.entries(AWARDS).map(([kind, a]) => ({ kind, text: a.way, xp: a.xp, claude: !!a.claude })),
   };
 }
