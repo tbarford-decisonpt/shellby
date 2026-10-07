@@ -9,6 +9,7 @@ const confirm = require('../confirm');
 const { pin: pinToDesktop } = require('../desktop-layer');
 const { Dictation, PushToTalk, holdKeyOf } = require('../dictation');
 const focus = require('../focus');
+const { watchesDesktop } = require('../test-desktop');
 const gifts = require('../gifts');
 const keystrokes = require('../keystrokes');
 const { createLife } = require('../life');
@@ -158,7 +159,13 @@ function wireSurroundings(d) {
     && !d.perching?.isAway() && !focus.guarding(d.config.get('focus'), Date.now());
 
   // Who has the microphone, from Windows' own list (surroundings.js reads it).
-  const readMic = key => new Promise((resolve, reject) => {
+  // Read in place (native-windows.js regQwords, a few ms); reg.exe only if that
+  // can't, since it costs ~300 ms of CPU a time, every 20 seconds.
+  const readMic = key => {
+    const text = native.regQwords(key, ['LastUsedTimeStart', 'LastUsedTimeStop']);
+    return text != null ? Promise.resolve(text) : readMicWithReg(key);
+  };
+  const readMicWithReg = key => new Promise((resolve, reject) => {
     require('child_process').execFile('reg', ['query', key, '/s'], { windowsHide: true, timeout: 5000, maxBuffer: 2 * 1024 * 1024 }, (err, out) => (err ? reject(err) : resolve(String(out))));
   });
 
@@ -171,6 +178,7 @@ function wireSurroundings(d) {
       temperament: () => voice.temperamentOf(voice.normalize(d.config.get('voice')).seed),
       speak: (occasion, opts) => d.speak(occasion, opts),
       say: (text, ms, occasion) => d.sayText(text, occasion, ms),
+      tankRemark: () => d.tankRemark?.() || null, // a word about his tank (ipc/tank.js)
       dialogue: () => (d.wardrobe ? d.wardrobe.dialogue() : null),
       toCrab: sendCritter,
       toPanel: (channel, payload) => d.send(d.panel, channel, payload),
@@ -196,7 +204,7 @@ function wireSurroundings(d) {
       cursor: () => screen.getCursorScreenPoint(),
       throws: () => d.wardrobe?.stats.timesThrown || 0,
       firstDay: () => { const days = d.wardrobe?.stats.activeDays || []; return days.length ? new Date(`${days[0]}T12:00:00`).getTime() : null; },
-      readMic,
+      readMic: watchesDesktop(process.env, app.isPackaged) ? readMic : null, // a test run ignores whoever has the mic (test-desktop.js)
       ownExes: () => [process.execPath],
       bootAt: () => Date.now() - os.uptime() * 1000, // mic sessions older than this are stale (surroundings.js)
       ownPids: () => [process.pid],

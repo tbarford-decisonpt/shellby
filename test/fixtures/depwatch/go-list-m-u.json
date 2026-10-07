@@ -1,0 +1,299 @@
+{
+	"Path": "github.com/holomush/holomush",
+	"Main": true,
+	"GoVersion": "1.26.4"
+}
+{
+	"Path": "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go",
+	"Version": "v1.36.11-20260415201107-50325440f8f2.1",
+	"Time": "0001-01-01T00:00:00Z",
+	"Update": {
+		"Path": "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go",
+		"Version": "v1.36.11-20260709200747-435963d16310.1",
+		"Time": "0001-01-01T00:00:00Z"
+	},
+	"GoVersion": "1.23",
+	"Sum": "h1:s6hzCXtND/ICdGPTMGk7C+/BFlr2Jg5GyH0NKf4XGXg=",
+	"GoModSum": "h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM="
+}
+{
+	"Path": "buf.build/go/hyperpb",
+	"Version": "v0.1.3",
+	"Time": "2025-09-24T22:08:34Z",
+	"Indirect": true
+}
+{
+	"Path": "buf.build/go/protovalidate",
+	"Version": "v1.2.0",
+	"Time": "2026-04-17T12:30:59Z",
+	"GoVersion": "1.24.0",
+	"Sum": "h1:DQVrUWkmGTBij+kOYv/x2LLxwcLaGKMdzShj1/6/3H0=",
+	"GoModSum": "h1:7rYiQEhqvAipoazpVNBBH2S2f8bjG4huMVy1V2Yofn4="
+}
+{
+	"Path": "cel.dev/expr",
+	"Version": "v0.25.1",
+	"Time": "2025-11-08T22:07:56Z",
+	"Update": {
+		"Path": "cel.dev/expr",
+		"Version": "v0.25.2",
+		"Time": "2026-03-12T16:46:44Z"
+	},
+	"Indirect": true,
+	"GoVersion": "1.23.0",
+	"Sum": "h1:1KrZg61W6TWSxuNZ37Xy49ps13NUovb66QLprthtwi4=",
+	"GoModSum": "h1:hrXvqGP6G6gyx8UAHSHJ5RGk//1Oj5nXQ2NI02Nrsg4="
+}
+{
+	"Path": "cloud.google.com/go",
+	"Version": "v0.121.6",
+	"Time": "2025-08-14T14:42:16Z",
+	"Update": {
+		"Path": "cloud.google.com/go",
+		"Version": "v0.123.0",
+		"Time": "2025-09-22T16:26:20Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/auth",
+	"Version": "v0.16.4",
+	"Time": "2025-08-06T21:42:36Z",
+	"Update": {
+		"Path": "cloud.google.com/go/auth",
+		"Version": "v0.21.0",
+		"Time": "2026-07-07T20:38:34Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/auth/oauth2adapt",
+	"Version": "v0.2.8",
+	"Time": "2025-03-20T15:18:21Z",
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/compute/metadata",
+	"Version": "v0.9.0",
+	"Time": "2025-09-24T19:41:55Z",
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/iam",
+	"Version": "v1.5.2",
+	"Time": "2025-04-15T16:02:36Z",
+	"Update": {
+		"Path": "cloud.google.com/go/iam",
+		"Version": "v1.11.0",
+		"Time": "2026-05-07T21:21:33Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/longrunning",
+	"Version": "v0.6.7",
+	"Time": "2025-04-15T16:02:36Z",
+	"Update": {
+		"Path": "cloud.google.com/go/longrunning",
+		"Version": "v1.2.0",
+		"Time": "2026-07-08T18:05:14Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/monitoring",
+	"Version": "v1.24.2",
+	"Time": "2025-04-15T16:02:36Z",
+	"Update": {
+		"Path": "cloud.google.com/go/monitoring",
+		"Version": "v1.29.0",
+		"Time": "2026-05-07T21:21:33Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/spanner",
+	"Version": "v1.85.0",
+	"Time": "2025-08-28T06:34:30Z",
+	"Update": {
+		"Path": "cloud.google.com/go/spanner",
+		"Version": "v1.92.0",
+		"Time": "2026-06-15T08:00:05Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "cloud.google.com/go/storage",
+	"Version": "v1.56.0",
+	"Time": "2025-07-25T00:51:21Z",
+	"Update": {
+		"Path": "cloud.google.com/go/storage",
+		"Version": "v1.63.0",
+		"Time": "2026-06-26T04:25:24Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "connectrpc.com/connect",
+	"Version": "v1.20.0",
+	"Time": "2026-05-20T21:15:32Z",
+	"GoVersion": "1.25.0",
+	"Sum": "h1:6TNDAB+WeNd2uolWNlYczB5E0KNNaVMNUEx8JEUsPmQ=",
+	"GoModSum": "h1:A2ygJrukXwWy32vkCAAHNVguZrqZ+jeZ9rGRnGR4dN4="
+}
+{
+	"Path": "dario.cat/mergo",
+	"Version": "v1.0.2",
+	"Time": "2025-05-07T20:15:06Z",
+	"Indirect": true,
+	"GoVersion": "1.13",
+	"Sum": "h1:85+piFYR1tMbRrLcDwR18y4UKJ3aH1Tbzi24VRW1TK8=",
+	"GoModSum": "h1:E/hbnu0NxMFBjpMIE34DRGLWqDy0g5FuKDhCb31ngxA="
+}
+{
+	"Path": "github.com/99designs/go-keychain",
+	"Version": "v0.0.0-20191008050251-8e49817e8af4",
+	"Time": "2019-10-08T05:02:51Z",
+	"Indirect": true
+}
+{
+	"Path": "github.com/99designs/keyring",
+	"Version": "v1.2.1",
+	"Time": "2022-03-07T11:25:09Z",
+	"Update": {
+		"Path": "github.com/99designs/keyring",
+		"Version": "v1.2.2",
+		"Time": "2022-12-19T05:13:41Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "github.com/AdaLogics/go-fuzz-headers",
+	"Version": "v0.0.0-20240806141605-e8a1dd7889d6",
+	"Time": "2024-08-06T14:16:05Z",
+	"Indirect": true,
+	"GoVersion": "1.20",
+	"Sum": "h1:He8afgbRMd7mFxO99hRNu+6tazq8nFF9lIwo9JFroBk=",
+	"GoModSum": "h1:8o94RPi1/7XTJvwPpRSzSUedZrtlirdB3r9Z20bi2f8="
+}
+{
+	"Path": "github.com/Azure/azure-sdk-for-go/sdk/azcore",
+	"Version": "v1.4.0",
+	"Time": "2023-03-01T18:02:23Z",
+	"Update": {
+		"Path": "github.com/Azure/azure-sdk-for-go/sdk/azcore",
+		"Version": "v1.22.0",
+		"Time": "2026-06-04T17:26:12Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "github.com/Azure/azure-sdk-for-go/sdk/internal",
+	"Version": "v1.1.2",
+	"Time": "2022-12-12T23:02:11Z",
+	"Update": {
+		"Path": "github.com/Azure/azure-sdk-for-go/sdk/internal",
+		"Version": "v1.12.0",
+		"Time": "2026-04-01T16:23:48Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob",
+	"Version": "v1.0.0",
+	"Time": "2023-02-07T19:37:28Z",
+	"Update": {
+		"Path": "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob",
+		"Version": "v1.8.0",
+		"Time": "2026-06-15T09:20:47Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "github.com/Azure/go-ansiterm",
+	"Version": "v0.0.0-20250102033503-faa5f7b0171c",
+	"Time": "2025-01-02T03:35:03Z",
+	"Indirect": true,
+	"GoVersion": "1.16",
+	"Sum": "h1:udKWzYgxTojEKWjV8V+WSxDXJ4NFATAsZjh8iIbsQIg=",
+	"GoModSum": "h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E="
+}
+{
+	"Path": "github.com/Azure/go-autorest",
+	"Version": "v14.2.0+incompatible",
+	"Time": "2020-06-23T16:10:07Z",
+	"Indirect": true
+}
+{
+	"Path": "github.com/Azure/go-autorest/autorest/adal",
+	"Version": "v0.9.16",
+	"Time": "2021-09-10T15:04:31Z",
+	"Update": {
+		"Path": "github.com/Azure/go-autorest/autorest/adal",
+		"Version": "v0.9.24",
+		"Time": "2024-05-30T14:04:49Z"
+	},
+	"Indirect": true,
+	"Retracted": [
+		"retracted due to token refresh errors"
+	],
+	"Deprecated": "use github.com/Azure/azure-sdk-for-go/sdk/azidentity instead."
+}
+{
+	"Path": "github.com/Azure/go-autorest/autorest/date",
+	"Version": "v0.3.0",
+	"Time": "2020-06-23T18:36:26Z",
+	"Update": {
+		"Path": "github.com/Azure/go-autorest/autorest/date",
+		"Version": "v0.3.1",
+		"Time": "2025-01-28T16:29:15Z"
+	},
+	"Indirect": true,
+	"Deprecated": "this module has been deprecated and is no longer supported."
+}
+{
+	"Path": "github.com/Azure/go-autorest/logger",
+	"Version": "v0.2.1",
+	"Time": "2021-02-05T22:21:48Z",
+	"Update": {
+		"Path": "github.com/Azure/go-autorest/logger",
+		"Version": "v0.2.2",
+		"Time": "2025-01-28T16:29:15Z"
+	},
+	"Indirect": true,
+	"Deprecated": "this module has been deprecated and is no longer supported."
+}
+{
+	"Path": "github.com/Azure/go-autorest/tracing",
+	"Version": "v0.6.0",
+	"Time": "2020-06-23T18:36:26Z",
+	"Update": {
+		"Path": "github.com/Azure/go-autorest/tracing",
+		"Version": "v0.6.1",
+		"Time": "2025-01-28T16:29:15Z"
+	},
+	"Indirect": true,
+	"Deprecated": "use github.com/Azure/azure-sdk-for-go/sdk/azcore/tracing instead."
+}
+{
+	"Path": "github.com/ClickHouse/clickhouse-go",
+	"Version": "v1.4.3",
+	"Time": "2020-08-12T20:55:36Z",
+	"Update": {
+		"Path": "github.com/ClickHouse/clickhouse-go",
+		"Version": "v1.5.4",
+		"Time": "2022-02-08T13:41:28Z"
+	},
+	"Indirect": true
+}
+{
+	"Path": "github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp",
+	"Version": "v1.5.3",
+	"Time": "2025-05-27T16:38:23Z",
+	"Update": {
+		"Path": "github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp",
+		"Version": "v1.6.0",
+		"Time": "2025-11-05T18:04:03Z"
+	},
+	"Indirect": true
+}

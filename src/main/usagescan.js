@@ -67,8 +67,10 @@ function totalUses(counts) {
 }
 
 /**
- * Scan transcripts changed since `since`. seen ({ file: mtimeMs }) lists files
- * already read, unchanged ones are skipped. Returns { used, from, seen, counts }
+ * Scan transcripts changed since `since`. seen ({ file: 'mtimeMs:size' }) lists
+ * files already read, unchanged ones are skipped. The size is in it because a
+ * transcript can grow within one tick of its modified time; an older seen with
+ * only the time just means one more read. Returns { used, from, seen, counts }
  * where from is the oldest moment the scan can vouch for (null when it can't)
  * and counts holds each file's uses since `since` (totalUses adds them up).
  */
@@ -84,20 +86,21 @@ async function scanTranscripts({ configDir, since, used = {}, from = null, seen 
   const nextCounts = Object.fromEntries(Object.entries(counts && typeof counts === 'object' ? counts : {}).filter(([file]) => listed.has(file)));
   let bytes = 0;
   let missedUpTo = null;   // the newest file left unread
+  const stamp = f => `${f.mtimeMs}:${f.size}`;
   for (const f of files) {
-    if (nextSeen[f.file] === f.mtimeMs) continue;
+    if (nextSeen[f.file] === stamp(f)) continue;
     if (bytes + f.size > maxBytes) { missedUpTo = Math.max(missedUpTo ?? -Infinity, f.mtimeMs); continue; }
     bytes += f.size;
     try {
       const r = await scanFile(f.file, state.used, state.from, since);
       state = r;
-      nextSeen[f.file] = f.mtimeMs;
+      nextSeen[f.file] = stamp(f);
       if (Object.keys(r.counts).length) nextCounts[f.file] = r.counts;
       else delete nextCounts[f.file];
     } catch { missedUpTo = Math.max(missedUpTo ?? -Infinity, f.mtimeMs); }
   }
   // The oldest transcript read (or read before) bounds how far back "unused" can be judged.
-  const read = files.filter(f => nextSeen[f.file] === f.mtimeMs).map(f => f.mtimeMs);
+  const read = files.filter(f => nextSeen[f.file] === stamp(f)).map(f => f.mtimeMs);
   const covered = [state.from, ...read].filter(Number.isFinite);
   let reach = covered.length ? Math.min(...covered) : null;
   if (reach !== null && missedUpTo !== null) reach = Math.max(reach, missedUpTo);

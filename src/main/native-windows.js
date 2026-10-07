@@ -15,6 +15,7 @@ function load() {
     const kernel32 = koffi.load('kernel32.dll');
     const dwmapi = koffi.load('dwmapi.dll');
     const shell32 = koffi.load('shell32.dll');
+    const advapi32 = koffi.load('advapi32.dll');
     koffi.struct('SHELLBY_RECT', { left: 'int', top: 'int', right: 'int', bottom: 'int' });
     const EnumProc = koffi.proto('bool __stdcall ShellbyEnumProc(intptr_t hwnd, intptr_t lParam)');
     api = {
@@ -54,6 +55,10 @@ function load() {
       LockWorkStation: user32.func('bool __stdcall LockWorkStation()'),
       ShutdownBlockReasonCreate: user32.func('bool __stdcall ShutdownBlockReasonCreate(intptr_t hwnd, str16 reason)'),
       ShutdownBlockReasonDestroy: user32.func('bool __stdcall ShutdownBlockReasonDestroy(intptr_t hwnd)'),
+      RegOpenKeyExW: advapi32.func('long __stdcall RegOpenKeyExW(intptr_t key, str16 sub, uint32_t opts, uint32_t sam, _Out_ intptr_t *out)'),
+      RegEnumKeyExW: advapi32.func('long __stdcall RegEnumKeyExW(intptr_t key, uint32_t i, _Out_ uint16_t *name, _Inout_ uint32_t *len, intptr_t r, intptr_t c, intptr_t cl, intptr_t ft)'),
+      RegQueryValueExW: advapi32.func('long __stdcall RegQueryValueExW(intptr_t key, str16 name, intptr_t r, _Out_ uint32_t *type, _Out_ uint8_t *data, _Inout_ uint32_t *size)'),
+      RegCloseKey: advapi32.func('long __stdcall RegCloseKey(intptr_t key)'),
     };
   } catch (e) {
     console.warn('[shellby] window tracking unavailable:', e.message);
@@ -325,7 +330,71 @@ const lockScreen = () => safe(a => a.LockWorkStation(), false);
 const blockShutdown = (h, reason) => safe(a => a.ShutdownBlockReasonCreate(h, String(reason).slice(0, 250)), false);
 const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 
+// ---- the registry, read in place
+const HKEY_CURRENT_USER = -2147483647; // (HKEY)(LONG)0x80000001, sign-extended
+const KEY_READ = 0x20019, REG_QWORD = 11, MAX_DEPTH = 4, MAX_KEYS = 5000, ERROR_FILE_NOT_FOUND = 2;
+
+/**
+ * Every REG_QWORD named in `names` under an HKCU key and its subkeys, written
+ * out as `reg query <key> /s` would print them, so the same parser reads both:
+ *   HKEY_CURRENT_USER\<path>
+ *       <Name>    REG_QWORD    0x<hex>
+ * `reg.exe` costs ~300 ms of CPU for the microphone's list; this, a few ms.
+ * '' when there's no such key; null when it can't be read (not Windows, no koffi,
+ * access denied), which is when the caller falls back to reg.exe.
+ */
+function regQwords(path, names) {
+  const sub = String(path).replace(/^HKCU\\|^HKEY_CURRENT_USER\\/i, '');
+  return safe(a => {
+    const lines = [];
+    let keys = 0;
+    const open = (parent, rel) => {
+      const out = [0];
+      if (a.RegOpenKeyExW(parent, rel, 0, KEY_READ, out) !== 0) return false;
+      const h = out[0];
+      try {
+        keys++;
+        const found = [];
+        for (const name of names) {
+          const data = Buffer.alloc(8);
+          const type = [0], size = [8];
+          if (a.RegQueryValueExW(h, name, 0, type, data, size) === 0 && type[0] === REG_QWORD) found.push(`    ${name}    REG_QWORD    0x${data.readBigUInt64LE(0).toString(16)}`);
+        }
+        return { h, found };
+      } catch (e) {
+        a.RegCloseKey(h);
+        throw e;
+      }
+    };
+    const visit = (parent, rel, full, depth) => {
+      const k = open(parent, rel);
+      if (!k) return;
+      try {
+        if (k.found.length) lines.push(`HKEY_CURRENT_USER\\${full}`, ...k.found);
+        if (depth >= MAX_DEPTH) return;
+        for (let i = 0; keys < MAX_KEYS; i++) {
+          const name = new Uint16Array(512);
+          const len = [512];
+          if (a.RegEnumKeyExW(k.h, i, name, len, 0, 0, 0, 0) !== 0) break; // ERROR_NO_MORE_ITEMS, or anything else
+          const child = String.fromCharCode(...name.slice(0, len[0]));
+          visit(k.h, child, `${full}\\${child}`, depth + 1);
+        }
+      } finally {
+        a.RegCloseKey(k.h);
+      }
+    };
+    const out = [0];
+    const opened = a.RegOpenKeyExW(HKEY_CURRENT_USER, sub, 0, KEY_READ, out);
+    if (opened === ERROR_FILE_NOT_FOUND) return ''; // no such key: nothing to list, and reg.exe would say the same
+    if (opened !== 0) return null;
+    a.RegCloseKey(out[0]);
+    visit(HKEY_CURRENT_USER, sub, sub, 0);
+    return lines.join('\r\n');
+  }, null);
+}
+
 module.exports = {
+  regQwords,
   load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, mouseDown, setCursor, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
   lockScreen, blockShutdown, unblockShutdown, processInfo,

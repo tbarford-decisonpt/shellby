@@ -21,6 +21,7 @@ const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 
 const WATCH_MS = 15 * SECOND;       // what's in front, the day, the special days
+const TANK_REMARK_GAP = 47 * 60 * SECOND; // how often he even thinks of mentioning his tank
 const MIC_MS = 20 * SECOND;         // who has the microphone (a `reg query`)
 const LOOK_MS = 280;                // where your cursor is, for his eyes
 const HERE_IDLE_S = 90;             // input within this long: you're at your PC, so he's awake
@@ -190,9 +191,22 @@ function createLife(d) {
     // What kind of day it is: Friday afternoon, the weekend, Monday morning.
     const day = surroundings.dayOccasion(new Date(now()));
     if (day && d.isIdle() && !onCall) d.speak(day);
+    else if (d.tankRemark && d.isIdle() && !onCall) tankRemark();
     newDay();
     maybeNap();
     jarIfFree();
+  }
+
+  // Now and then a word about his tank (tank-life.js remark). The voice's own
+  // cooldown for 'tank' keeps it rare and the chatter setting applies; the
+  // check here is only a time stamp until that cooldown could be over.
+  let tankAfter = 0;
+  function tankRemark() {
+    const t = now();
+    if (t < tankAfter) return;
+    tankAfter = t + TANK_REMARK_GAP;
+    const text = d.tankRemark();
+    if (text) d.speak('tank', { text });
   }
 
   function setCall(on) {
@@ -607,6 +621,7 @@ function createLife(d) {
   return {
     start, stop, idleBit, cancel, onPet, onStat, played, visit, digNow, digMenuItem, view, setBirthday, setFavourite, findsSeen,
     presentJar, jarIfFree,
+    remember: (kind, data) => remember(kind, data), // a moment for the journal (bond.js MEMORIES)
     hushed: () => onCall, onCall: () => onCall, playing: () => playing, napping, wake,
     busy: () => !!scene || !!presenting,
     lookNow: () => look,

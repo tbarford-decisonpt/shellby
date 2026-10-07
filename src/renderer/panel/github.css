@@ -88,7 +88,11 @@
 .fr-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .fr-who b, .fr-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* actions on their own line, under the name: the panel is too narrow for one row */
-.fr-actions { flex: 1 0 100%; display: flex; align-items: center; gap: 4px; padding-left: 58px; }
+.fr-actions { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-left: 58px; }
+/* Peek at their tank: drawn under their row, at whole art pixels */
+.fr-peek { flex: 1 0 100%; display: grid; gap: 4px; padding-left: 58px; }
+.fr-peek[hidden] { display: none; }
+.fr-peek-tank { max-width: 100%; height: auto; image-rendering: pixelated; border-radius: var(--r); border: 1px solid var(--line-soft); }
 .fr-actions .slim-btn { height: 26px; }
 .fr-wave { flex: 1; min-width: 0; height: 26px; padding: 0 6px; font-size: var(--fs-12); }
 .fr-remove { width: 26px; padding: 0; margin-left: 4px; }

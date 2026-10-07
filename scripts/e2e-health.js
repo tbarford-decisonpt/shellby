@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9343;
@@ -176,8 +177,7 @@ async function until(fn, ms = 8000) {
 
       await wait(1600); // let a sparkline point or two land and the overlays animate in
       for (const [who, page] of [['panel', panel], ['critter', critter]]) {
-        const shot = await page.send('Page.captureScreenshot', { format: 'png' });
-        fs.writeFileSync(path.join(OUT, `${sc.name}-${who}.png`), Buffer.from(shot.data, 'base64'));
+        await savePng((m, p) => page.send(m, p), path.join(OUT, `${sc.name}-${who}.png`));
       }
     } catch (e) {
       check(false, `${sc.name}: ${e.message}`);

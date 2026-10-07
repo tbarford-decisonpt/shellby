@@ -8,6 +8,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9361;
@@ -77,7 +78,7 @@ function repo(base, name, pack) {
     const x = await ev("shellby.expandSnippet('/ship main')");
     check(x?.ok && x.prompt === 'Get main ready to merge and write the PR description.', `/ship main expands ("${x?.prompt}")`);
     check(await until("document.getElementById('setupPane').textContent.includes('On in this repo')"), 'the Team tab says they are on');
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng(send, process.argv[2]);
 
     // 4. Another repo: no team snippets there, and Make a team pack writes one.
     await ev(`shellby.setFolder(${JSON.stringify(other)})`);

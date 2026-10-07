@@ -406,8 +406,9 @@ function wireTimetrack(d) {
       appMetrics: d.CAPTURE ? null : () => app.getAppMetrics(),
       ownedPids: () => processJob.ownedPids(),
       fakeScenario: d.CAPTURE ? 'calm' : envFake,
-      onMood: mood => { d.healthMood = mood; d.refreshCritter(); },
+      onMood: mood => { d.healthMood = mood; d.refreshCritter(); d.tankGauges?.mood(mood); },
     });
+    d.health.monitor.on('sample', snap => d.tankGauges?.health(snap)); // the tank's thermometer and bubbler
   }
 
   // Claude Code sessions outside Shellby, reported by the Shellby plugin's hooks.

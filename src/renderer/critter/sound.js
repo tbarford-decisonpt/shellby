@@ -10,6 +10,7 @@
   const TICK_MS_PER_SPEED = 5000;  // footstep gap = this / walking speed (DIP/s)
   const STEP_MIN_MS = 50;
   const STEP_MAX_MS = 160;
+  const QUIET_SUSPEND_MS = 5000;   // past the longest cue (a fanfare, ~1.2 s) and the sea's fade-out
   // The least time between two of the same cue, so a flurry of bounces is a
   // patter rather than a buzz.
   const MIN_GAP_MS = { bounce: 70, land: 250, hop: 150, tada: 1500, fanfare: 2500, sparkle: 800, slap: 400, crit: 2500, landing: 2500 };
@@ -19,6 +20,7 @@
   let mix = { voice: false, fx: false, ambient: 'off', volume: BASE_VOLUME };
   let calm = false;
   let suspendTimer = null;
+  let suspending = null; // the suspend() under way, until it settles
   let stepTimer = null;
   let stepN = 0;
   const lastAt = {};
@@ -38,9 +40,36 @@
       bus.connect(ctx.destination);
     }
     // A window that was never clicked (he's focusable: false) can start
-    // suspended; resuming is a no-op once it's running.
-    if (ctx.state === 'suspended' && !calm) ctx.resume().catch(() => {});
+    // suspended, and a quiet spell suspends it (below); resuming is a no-op once
+    // it's running. A suspended context's clock is stopped too, so whatever is
+    // scheduled now plays from its start once the device is back: nothing clipped.
+    clearTimeout(suspendTimer);
+    if (!calm) wake();
+    restLater();
     return ctx;
+  }
+
+  // suspend() takes a moment, and the state still reads 'running' until it's done:
+  // a sound arriving then would be scheduled on a clock about to stop. So a
+  // sound in that moment resumes once the suspend has gone through.
+  function rest() {
+    suspending = ctx.suspend().catch(() => {}).finally(() => { suspending = null; });
+  }
+  function wake() {
+    if (suspending) suspending.then(() => { if (!calm) ctx.resume().catch(() => {}); });
+    else if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }
+
+  // A running AudioContext keeps the audio device and its thread busy mixing
+  // silence (about 1% of a core between this window and the audio service), so
+  // a few quiet seconds after the last sound it's suspended. The sea, or his
+  // feet still scuttling, keep it going.
+  function restLater() {
+    clearTimeout(suspendTimer);
+    suspendTimer = setTimeout(() => {
+      if (!ctx || ctx.state !== 'running' || stepTimer || (root.ShellbyAmbient?.kind || 'off') !== 'off') return;
+      rest();
+    }, QUIET_SUSPEND_MS);
   }
 
   const out = () => (audio() ? bus : null);
@@ -193,6 +222,7 @@
     if (!mix.fx) scuttle(0);
     if (bus) bus.gain.setTargetAtTime(busGain(), ctx.currentTime, 0.05);
     root.ShellbyAmbient?.set(calm ? 'off' : mix.ambient);
+    if (ctx && !calm) restLater(); // the sea just switched off: rest once it has faded
   }
 
   /** The screen is locked (not merely covered): nothing to hear. Let the audio device rest. */
@@ -202,8 +232,8 @@
     root.ShellbyAmbient?.set(calm ? 'off' : mix.ambient);
     if (!ctx) return;
     clearTimeout(suspendTimer);
-    if (calm) suspendTimer = setTimeout(() => ctx.suspend().catch(() => {}), 1500); // after the fade-out
-    else ctx.resume().catch(() => {});
+    if (calm) suspendTimer = setTimeout(rest, 1500); // after the fade-out
+    else if (mix.ambient !== 'off') wake(); // the next sound resumes it otherwise
   }
 
   root.ShellbySound = {

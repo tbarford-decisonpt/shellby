@@ -42,7 +42,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm start` | Run in development |
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
-| `npm run e2e:ci` | The end-to-end checks that need no Claude account, no GitHub and no network, one after another. This is what CI runs, and the only automated coverage the renderer has. Words narrow it (`npm run e2e:ci -- queue voice`); `--shard=i/n` takes every nth check, which is how CI splits them across four machines |
+| `npm run e2e:ci` | The end-to-end checks that need no Claude account, no GitHub and no network, one after another. This is what CI runs, and the only automated coverage the renderer has. It sets `SHELLBY_E2E=1`, so the app ignores what else is open on your desktop (src/main/test-desktop.js). Words narrow it (`npm run e2e:ci -- queue voice`); `--shard=i/n` takes every nth check, which is how CI splits them across four machines |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/cli-compat.js` | Checks the installed Claude Code against what Shellby relies on: flags, permission modes, effort levels and the control protocol, with no account needed. `--real` adds one tiny Haiku turn (a Write approved over the protocol) and audits every event it sends. Nightly in CI; see [Keeping up with Claude Code](#keeping-up-with-claude-code) |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
@@ -60,8 +60,8 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-streaks.js` | Streaks and nudges with a real throwaway git repo (last commit 6 days ago): the streak starts, the repo root is found from a subfolder, the nudge fires once, and "Pick it up" opens a tab there |
 | `node scripts/e2e-inbox.js` | The Projects inbox with a real throwaway repo: a merged branch and one with a commit nowhere else under Stale branches, Delete takes the merged one at once, Keep files the other away (still in git, still away after a refresh), and the pull-request half says how to turn it on |
 | `node scripts/e2e-github-workflows.js` | The CI-workflow permission toggle: present, gated on "Let Claude tasks push", never on by default, and the right wording in each state (a fake signed-in view, so no account or network) |
-| `node scripts/e2e-friends.js` | Visiting crabs against a mock GitHub: asked first, a public calling card with only the look, a friend added by username, their crab on the desktop in their outfit, guestbook and souvenir, the Open House trophy, waves both ways (strangers ignored), and the card deleted when it's turned off |
-| `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist, publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
+| `node scripts/e2e-friends.js` | Visiting crabs against a mock GitHub: asked first, a public calling card with only the look, a friend added by username, their crab on the desktop in their outfit, guestbook and souvenir, the Open House trophy, Peek at their tank (a hostile card's bits never drawn), his own tank on the card only once you choose and House Guest, waves both ways (strangers ignored), and the card deleted when it's turned off |
+| `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist (his tank's layout included, its sharing left behind), publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
 | `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
 | `node scripts/e2e-forecast.js` | The usage forecast with backdated readings (SHELLBY_FORECAST_TEST): the composer warning and the meter, the setting, Ctrl+Shift+Enter holding a message (edit it back, drop it), then at the limit a held message and a held routine that both go by themselves at the reset |
 | `node scripts/e2e-recap.js` | "While you were away" with fake idle readings: two hours away while one task finishes, one fails and one asks; the recap lists all three, a row opens its conversation, a 20-minute break or the setting turned off says nothing, and the usage block splits the window by conversation |
@@ -78,7 +78,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-history-done.js` | The Done tick in History: a ticked conversation leaves the default list, the Not done / Done / All tabs only appear once something is done, Undo puts it back, and sending a done conversation more work un-ticks it |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-work-mode.js` | A brand-new user with a lively crab picks Work mode: the Claude setup, a bar that leads with the tools, Work mode's quiet settings on show while the file keeps theirs, a pal added in Work mode kept as its own, his needs resting, and Ctrl+K → Leave Work mode putting everything back |
-| `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused |
+| `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused, his tank painted on it, and on the profile card only once you share it |
 | `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
 | `node scripts/e2e-voice.js` | His voice and his little habits with the fake CLI: Quiet says nothing at all, Normal puts words in his bubble (and clears them), the bubble never clips or resizes his window, he remarks on a test run and a push, each idle habit plays, he keeps quiet on guard, a health warning outranks him, and he's the same crab after a restart |
 | `node scripts/e2e-push-to-talk.js` | Push-to-talk, pressing the real hotkey through Windows with a recording in place of the microphone: the Settings switch, a tap still opens and closes the panel, a hold shows *listening…* and puts the words in the box after what's typed (not sent), and switched off a hold is just a tap |
@@ -87,7 +87,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones; dragging a tab; keyboard only: switching tabs, the Ctrl+/ list, the palette's actions, where focus lands, Ctrl+W on a working tab |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
-| `node scripts/idle-cost.js [seconds] [--unfocused]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
+| `node scripts/idle-cost.js [seconds] [--unfocused \| --awake] [--closed]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
 | `npm run perf` | The performance budget, ~4 min, run by CI as its own job: cold start, crab click to panel shown, Shellby's own share of the wait for Claude's first word, idle CPU (panel closed, and open behind a window) and memory, each held against `scripts/perf-budgets.js`. Prints a table, writes `perf-result.json` (CI keeps it as an artifact), and fails when a number is over budget twice running. `--only cold,latency,idle`, `--cold N`, `--samples N`, `--settle S`, `--idle S`, `--out file` |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `node scripts/e2e-perch.js [dir]` | Perching against a real Notepad (needs a desktop, so not in CI): the hop up, ownership and click-through, riding a slow drag, shaken off dizzy, the window closing under him, the walk home, Hop down. Screenshots each beat. If a fullscreen window covers his screen, give him another: `SHELLBY_E2E_HOME=x,y` (DIPs) |
@@ -126,17 +126,61 @@ Read it before committing it.
 
 He is on the wallpaper all day, so this is the number that decides whether a
 laptop user keeps him. Measure with `node scripts/idle-cost.js`, which reports a
-share of **one core** (so 100% is one core saturated).
+share of **one core** (so 100% is one core saturated). `--closed` never opens
+the panel; `--awake` keeps him and the panel as if focused and uncovered
+(`SHELLBY_IDLE_AWAKE`) without taking focus from anything, so it's safe with a
+game up. Never `--unfocused` while someone is playing: it starts Notepad in front.
+
+Ryzen 9 3950X, October 2026 (all processes added up, no debugger, medians of
+interleaved runs on a shared, busy desktop: expect ±1 point):
 
 | State | CPU | Resident |
 |---|---|---|
-| Panel closed, just the crab | ~1% | ~450 MB |
-| Panel open, another window in front | ~37% | ~560 MB |
-| Panel open and focused | ~75% | ~580 MB |
+| Panel closed, crab visible, the October bats (default) | ~1.6–2.1% (GPU process 0.7–1.4, main 0.3, crab 0.1–0.3) | ~495 MB |
+| Panel open behind your windows, no outfit | ~0.5–0.8% (crab and panel both calm or covered) | ~490 MB |
+| Panel open and focused | ~4% (the panel's drifting light ticks at 12 fps) | ~500 MB |
+| Nobody at the desk for 5 minutes (any outfit) | ~0.1% | ~490 MB |
 
-Nearly all of it is CSS animation: with every animation off it drops to **0.4%**.
-Roughly 39 points are the critter window, 14 the panel's drifting caustics, 11
-the breathing crab in the empty state.
+The first row was ~3.4–4.2% before the bats flew in flights and the idle went
+to pixel-art frames (interleaved with the same build minus those, same hour).
+Of what's left, about half is his idle (about one frame a second: the breathe,
+a blink, the snap) and half is life: a habit (dig, polish, peek...) about once
+a minute at 12 fps for two or three seconds, a stroll, and a bat flight every
+three minutes. Under 1% would mean fewer of those, which is a call about how
+alive he looks rather than a fix. `--unfocused` on a busy desktop may leave the
+panel focused (Notepad doesn't always get the foreground): if the panel's body
+has no `calm` class, you measured the focused row.
+
+Before this round (0.71.0) the crab alone was ~7% and a panel opened behind
+your windows ~3.8%; the 37% / 75% of earlier releases went with the 12 fps
+frame clock. Not counted above, because they aren't electron.exe: every
+child process he starts. Until 0.71 that was `reg.exe` every 20 s (~330 ms of
+CPU each, the microphone check) and `nvidia-smi` every 5 s (~50 ms each), about
+2.6% of a core between them; now the registry is read in place and nvidia-smi
+runs every 15 s while all is well and the panel is closed (~0.35%).
+
+Where the rest goes: nearly all of it is the GPU process presenting frames of
+the transparent crab window, roughly 0.5% of a core per frame per second. So
+the work is in drawing fewer frames, not cheaper ones:
+
+- **shared/framecap.js** ticks 12 times a second but only moves an animation
+  when that tick changes the picture (it reads the keyframes once). A loop that
+  eases the whole way round (the bats' orbit, a working hop) still draws every
+  tick; one that steps (the idle breathe, blink and claw snap) draws a few
+  frames a cycle. Prefer `steps()` for anything that runs all day. A step at
+  the start of a hold changes nothing, so `steps(n)` (jump-end) isn't moved there.
+- **Particle effects** (the seasonal bats are on by default in October) cost
+  ~2 points while they play, so on the crab's window they come in flights
+  (effects.js `FLIGHT`: 8 s every 3 min, fading in and out) and the particles
+  are removed in between. Previews (the wardrobe, the OBS overlay) play them
+  all the time. They stop with everything else when he's covered, the screen
+  is locked, or nobody is at the desk.
+- **The window in front** is read once for the game and cover checks
+  (front-poll.js): its exe is kept while it stays in front, and the poll goes
+  from 2 s to 5 s after half a minute without a change.
+- **Away**: no key or mouse for five minutes (`powerMonitor.getSystemIdleTime`,
+  in the front poll in wiring/windows.js) is treated like being covered.
+  Isolated dev and test runs never count as away unless `SHELLBY_AWAY_S` is set.
 
 The `calm` and `calm-deep` classes (see panel.css and `watchIdleCost` in wiring/windows.js)
 drop the decorative animations when the panel isn't focused, and everything when
@@ -149,9 +193,13 @@ the screen is locked. Two findings worth keeping if you touch this:
   renderer and compositor awake; it turns 1% into 80% and will send you chasing
   the wrong thing.
 
-What remains is the cost of animating sprites built from ~145 `<rect>` elements
-at the full refresh rate of the display, which needs a different approach to
-sprite animation (pre-rendered frames, or a canvas) rather than tuning.
+- **Calm has to survive a repaint.** critter.js rebuilds the body's classes on
+  every state push, so `calm-deep` is part of that list (`stillNow`), not a
+  class toggled on the side.
+
+Redrawing the sprite as a canvas or pre-rendered frames was the plan here, but
+the SVG isn't what costs: the renderer is ~0.1–0.5% of a core, and the price is
+per presented frame, whatever draws it. Fewer frames was the win.
 
 ### The budget CI holds him to
 
@@ -166,8 +214,8 @@ number comes from:
 | Cold start to the panel booted | 10 s | 1.1–1.5 s |
 | Crab clicked to the panel shown and painted | 500 ms | ~20 ms (the very first open, ~1.2 s, is reported but not judged) |
 | Shellby's share of the wait for Claude's first word | 600 ms | ~90 ms |
-| Idle CPU, panel closed | 25% of a core | 1–11% |
-| Idle CPU, panel open behind a window | 60% of a core | 5–37% |
+| Idle CPU, panel closed | 25% of a core | 1.5–5% (more with a particle outfit on) |
+| Idle CPU, panel open behind a window | 60% of a core | 0.5–6% (the same) |
 | Memory, panel closed / open | 900 / 1000 MB | ~500 MB |
 
 They're loose on purpose: CI's runners have a few slow cores, no GPU and reduced
@@ -201,10 +249,23 @@ Health shows the same thing to the person running him: **Shellby himself: 1% CPU
 
 ```
 src/main/        Electron main process
-  main.js          the state everything shares, boot, and the areas that run on load
-  wiring/          one module per area of the app (windows, critter, sessions, progress,
-                   timetrack, toolbox, github, tray…): `wireX(shared)` returns what main uses
-  ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`
+  main.js          `shared` (the state every area reads and changes), the order areas are
+                   wired in, and boot; nothing else. `share(wireX(shared))` adds an area's
+                   exports to shared and stops boot if two areas give the same name
+  wiring/          one module per area of the app: `wireX(shared)` returns its functions,
+                   which only run once boot calls them. Besides windows, critter, sessions,
+                   progress, timetrack, toolbox, github, tray and the rest:
+    crash.js         snags (all logged, the first few said out loud) and starting Sentry
+    profile.js       settings and history, opened first at boot
+    panel.js         the panel's window: beside the crab, behind a game, making room
+    crew-slots.js    room in the crab's window for helper and visiting crabs; saving his spot
+    streaks.js       streaks and the hourly nudge check
+    settings.js      settings' side effects: the hotkey, opening at login, the skins folder
+    wardrobe.js      the Wardrobe at boot, its unlocks, the first-run credit from history
+    services.js      usage, held work, routines, away, stickers and copies (the *-service.js files)
+    quit.js          what quitting stops, in order
+  ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`;
+                   index.js registers them all behind the window check (ipc-guard.js)
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
   session.js       one Claude Code process per conversation (stream-json + control protocol)
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
@@ -236,7 +297,7 @@ src/main/        Electron main process
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
   turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
-  held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
+  held.js          messages and routine runs held for after the usage reset (pure list ops; held-service.js sends them)
   usage-ledger.js  what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
                    composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
@@ -261,6 +322,7 @@ src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
   panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · workmode · outfitcode · github · boot
+                   a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI

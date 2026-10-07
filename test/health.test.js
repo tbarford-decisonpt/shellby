@@ -326,6 +326,45 @@ test('monitor: a full disk makes him stuffed straight away; stop() clears the mo
   assert.deepEqual(moods, ['stuffed/critical', null]);
 });
 
+test('monitor: polls slowly only while all is well and nobody is looking', async () => {
+  const state = { gpuTemp: 50, cFreeGb: 300 };
+  let looking = false;
+  let now = 0;
+  const m = new HealthMonitor({ sensors: fakeSensors(state), getThresholds: () => T, now: () => now, pollMs: 5000, quietPollMs: 15000, unwatched: () => !looking });
+  await m.poll();
+  assert.equal(m.nextDelay(), 15000, 'all clear, panel closed');
+  looking = true;
+  assert.equal(m.nextDelay(), 5000, 'the panel open');
+  looking = false;
+  state.gpuTemp = 84;
+  now = 5000;
+  await m.poll();
+  assert.equal(m.nextDelay(), 5000, 'a reading turning hot (still pending) keeps the fast beat');
+  for (now = 10000; now <= 30000; now += 5000) await m.poll();
+  assert.equal(m.snapshot().worst, 'warn');
+  assert.equal(m.nextDelay(), 5000, 'a warning keeps it');
+  const plain = new HealthMonitor({ sensors: fakeSensors(state), getThresholds: () => T, now: () => 0 });
+  assert.equal(plain.nextDelay(), plain.pollMs, 'no unwatched(): always the fast beat');
+});
+
+test('monitor: no checks yet is not "all is well", so the beat stays fast', () => {
+  const m = new HealthMonitor({ sensors: fakeSensors({}), getThresholds: () => T, now: () => 0, pollMs: 5000, quietPollMs: 15000, unwatched: () => true });
+  assert.equal(m.nextDelay(), 5000);
+});
+
+test('monitor: opening the panel brings the next read onto the fast beat', async () => {
+  let now = 0;
+  const m = new HealthMonitor({ sensors: fakeSensors({ gpuTemp: 50, cFreeGb: 300 }), getThresholds: () => T, now: () => now, pollMs: 5000, quietPollMs: 15000, unwatched: () => true });
+  await m.poll();
+  const delays = [];
+  m.wake = d => delays.push(d);
+  now = 4000;
+  m.watched();
+  now = 9000;
+  m.watched();
+  assert.deepEqual(delays, [1000, 0], 'a 4 s old reading waits out the rest of 5 s, not the 15 s already queued; a stale one reads now');
+});
+
 test('monitor: nvidia-smi wins over LHM for NVIDIA cards, LHM adds the rest', () => {
   const m = new HealthMonitor({ sensors: fakeSensors({}), getThresholds: () => T });
   const s = m.compose(0,

@@ -1,0 +1,30 @@
+{
+  "minimist": {
+    "current": "1.2.0",
+    "latest": "1.2.8",
+    "wanted": "1.2.0",
+    "isDeprecated": false,
+    "dependencyType": "dependencies"
+  },
+  "lodash": {
+    "current": "4.17.15",
+    "latest": "4.18.1",
+    "wanted": "4.17.15",
+    "isDeprecated": false,
+    "dependencyType": "dependencies"
+  },
+  "chalk": {
+    "current": "4.1.2",
+    "latest": "6.0.1",
+    "wanted": "4.1.2",
+    "isDeprecated": false,
+    "dependencyType": "dependencies"
+  },
+  "semver": {
+    "current": "5.7.0",
+    "latest": "7.8.5",
+    "wanted": "5.7.0",
+    "isDeprecated": false,
+    "dependencyType": "devDependencies"
+  }
+}

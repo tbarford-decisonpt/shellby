@@ -3,11 +3,13 @@
 // so a friend's Shellby can have him over, plus the two things the crabs chat
 // about when they meet (src/main/banter.js): his temperament and the find he's
 // proudest of. Nothing else goes in it: no stats, no history. Stickers are only colour patches unless you choose to share their
-// names (stickers.js forCard), and never the projects you've hidden.
+// names (stickers.js forCard), and never the projects you've hidden. His tank
+// is on it only if you share it, as built-in decor ids and where they stand (tank-share.js).
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
 const { findGist } = require('./sync');
 const { cleanCardStickers } = require('../stickers');
+const { cleanCardTank } = require('../tank-share');
 
 const CARD_FILE = 'shellby-card.json';
 const FORMAT = 1;
@@ -39,14 +41,15 @@ function cleanCard(raw) {
     stickers: cleanCardStickers(r.stickers),
     temperament: TEMPERAMENTS.includes(r.temperament) ? r.temperament : null,
     find: typeof r.find === 'string' && FIND_RE.test(r.find) ? r.find : null,
+    tank: cleanCardTank(r.tank),
     updatedAt: Number.isFinite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0,
   };
 }
 
 /** Just the look, for "did anything change since we last published?" */
-const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find]); };
+const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find, c.tank]); };
 
-const content = card => JSON.stringify({ ...cleanCard(card), note: "Shellby calling card: how this crab looks, so friends' crabs can visit. Turn off Visiting crabs in Shellby to delete it." }, null, 1);
+const content = card => JSON.stringify({ ...cleanCard(card), note: "Shellby calling card: how this crab looks (and his tank, if shared), so friends' crabs can visit. Turn off Visiting crabs in Shellby to delete it." }, null, 1);
 
 /** Create or update your card; returns its gist id. */
 async function publishCard(gh, card, knownId) {

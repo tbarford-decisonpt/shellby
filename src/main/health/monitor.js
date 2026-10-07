@@ -7,6 +7,10 @@ const { EventEmitter } = require('events');
 const { step, moodFor, describe, normalizeThresholds, rank } = require('./rules');
 
 const POLL_MS = 5000;
+// While every reading is fine and nobody has the panel open, a third as often:
+// each nvidia-smi is a process start (~50 ms of CPU), all day. A reading that
+// turns, or the panel opening, brings back the fast beat at the next poll.
+const QUIET_POLL_MS = 15000;
 const DISK_EVERY_MS = 60000;
 const LHM_RETRY_MS = 60000;      // when LHM isn't answering, don't hammer the port
 const MISS_GRACE = 3;            // failed reads tolerated before a sensor counts as gone
@@ -20,12 +24,19 @@ class HealthMonitor extends EventEmitter {
    * getThresholds: () => thresholds object
    * now: () => ms (injectable for tests)
    */
-  constructor({ sensors, getThresholds, now = () => Date.now(), pollMs = POLL_MS, timing }) {
+  /**
+   * unwatched: () => true while nobody is looking (the panel closed), which
+   * lets an all-clear poll slow to quietPollMs. Without it, always pollMs.
+   */
+  constructor({ sensors, getThresholds, now = () => Date.now(), pollMs = POLL_MS, quietPollMs = QUIET_POLL_MS, unwatched = null, timing }) {
     super();
     this.sensors = sensors;
     this.getThresholds = getThresholds;
     this.now = now;
     this.pollMs = pollMs;
+    this.quietPollMs = quietPollMs;
+    this.unwatched = unwatched;
+    this.wake = null;             // resolves the slow wait early (the panel opened)
     this.timing = timing;           // undefined -> rules.TIMING
     this.timer = null;
     this.running = false;
@@ -53,9 +64,31 @@ class HealthMonitor extends EventEmitter {
     const loop = async () => {
       if (!this.running || epoch !== this.epoch) return;
       await this.poll();
-      if (this.running && epoch === this.epoch) this.timer = setTimeout(loop, this.pollMs);
+      if (this.running && epoch === this.epoch) this.timer = setTimeout(loop, this.nextDelay());
+    };
+    this.wake = (delay = 0) => {
+      if (!this.running || epoch !== this.epoch || this.inflight) return;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(loop, delay);
     };
     loop();
+  }
+
+  /** How long until the next poll: slow only when all is well and nobody is looking. */
+  nextDelay() {
+    let quiet = false;
+    try { quiet = !!this.unwatched?.(); } catch { /* unknown: stay on the fast beat */ }
+    if (!quiet) return this.pollMs;
+    // No checks yet (every sensor missed) isn't "all is well": keep the fast beat until they answer.
+    const checks = Object.values(this.checks);
+    const settled = checks.length > 0 && checks.every(c => c.level === 'ok' && !c.pending);
+    return settled ? this.quietPollMs : this.pollMs;
+  }
+
+  /** Someone is looking now (the panel opened): back on the fast beat, not up to 15 s away. */
+  watched() {
+    const age = this.latest ? this.now() - this.latest.at : Infinity;
+    this.wake?.(Math.max(0, this.pollMs - age)); // a fresh reading still counts, the slow wait doesn't
   }
 
   stop() {
@@ -240,4 +273,4 @@ function historyPoint(s) {
   return p;
 }
 
-module.exports = { HealthMonitor, historyPoint, POLL_MS, HISTORY_MS };
+module.exports = { HealthMonitor, historyPoint, POLL_MS, QUIET_POLL_MS, HISTORY_MS };

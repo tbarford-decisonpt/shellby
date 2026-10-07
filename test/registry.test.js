@@ -2,7 +2,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const crypto = require('crypto');
-const { parseDeepLink, findDeepLink, fetchRegistryPack, REGISTRY_URL } = require('../src/main/registry');
+const { parseDeepLink, findDeepLink, fetchRegistryPack, fetchRegistryCatalog, REGISTRY_URL } = require('../src/main/registry');
 
 // ------------------------------------------------------------ deep links
 
@@ -289,4 +289,16 @@ test('a redirect off the registry is refused', async () => {
   const r = await get();
   assert.equal(r.ok, false);
   assert.match(r.errors[0], /redirected/);
+});
+
+// ------------------------------------------------------------ the gallery's catalog
+
+test('fetchRegistryCatalog lists tank decor as its own category, next to hats, effects and skins', async () => {
+  const cat = { packs: [
+    { id: 'reef-things', name: 'Reef Things', accessories: [{ id: 'kelp-hat', name: 'Kelp Hat', slot: 'hat' }], effects: [{ id: 'bubbles', name: 'Bubbles' }], decor: [{ id: 'coral-arch', name: 'Coral Arch' }, { id: '../evil', name: 'Bad' }, 'nope'] },
+    { id: 'Bad Pack', decor: [{ id: 'arch', name: 'Arch' }] },
+  ] };
+  const r = await fetchRegistryCatalog({ fetchImpl: async () => new Response(JSON.stringify(cat)) });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.items.map(i => `${i.slot}:${i.key}`), ['hat:reef-things/kelp-hat', 'effect:reef-things/bubbles', 'decor:reef-things/coral-arch']);
 });

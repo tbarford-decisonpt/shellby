@@ -17,6 +17,13 @@
   /** A tab's held messages, from the outlook main sent. */
   const heldFor = (outlook, tabId) => (outlook?.held || []).filter(x => x.kind === 'message' && x.tabId === tabId);
 
+  /**
+   * Nothing in it yet, so it can be reused or moved (New task, a new folder).
+   * A message held for the reset leaves the feed empty, but the tab is spoken
+   * for: closing it would drop the message (ipc/tabs.js).
+   */
+  const isBlank = (tab, outlook) => !!tab && tab.isEmpty && !tab.busy && !heldFor(outlook, tab.id).length;
+
   /** A held message as its chip shows it: its text, or what's attached. */
   const describe = m => m.text || `${m.attachments.length} attached file${m.attachments.length === 1 ? '' : 's'}`;
 
@@ -31,7 +38,7 @@
   /** The toast after holding a tab's queue. */
   const queueHeldText = (n, at) => `${n === 1 ? 'Your queued message goes' : `${n} queued messages go`} at ${at}, once your usage resets.`;
 
-  const api = { noteFor, actionsFor, heldFor, describe, holdRefusal, queueHeldText };
+  const api = { noteFor, actionsFor, heldFor, isBlank, describe, holdRefusal, queueHeldText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyOutlookFormat = api;
 })(typeof window !== 'undefined' ? window : globalThis);

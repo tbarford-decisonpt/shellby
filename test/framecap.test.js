@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { cap, loops, DEFAULT_FPS } = require('../src/renderer/shared/framecap');
+const ShellbyFrameCap = require('../src/renderer/shared/framecap');
+const { cap, loops, DEFAULT_FPS } = ShellbyFrameCap;
 
 // A stand-in for a Web Animation: enough of the API for the clock.
 function anim({ endTime = Infinity, iterations = Infinity, rate = 1, playState = 'running' } = {}) {
@@ -97,6 +98,80 @@ test('with the loops filter, takes the loops and leaves a hover to the screen', 
   r.advance(100);
   assert.equal(spinner.currentTime, 100);
   assert.equal(hover.currentTime, 0);
+});
+
+// A CSS-like animation with keyframes, as getKeyframes() reports them.
+function keyed(frames, timing = {}) {
+  const a = anim();
+  const t = { duration: 1000, delay: 0, iterations: Infinity, direction: 'normal', easing: 'linear', iterationStart: 0, endTime: Infinity, ...timing };
+  a.effect = { getKeyframes: () => frames, getComputedTiming: () => t };
+  return a;
+}
+const kf = (offset, transform, easing = 'linear') => ({ offset, computedOffset: offset, easing, composite: 'auto', transform });
+
+test('a blink is only moved around the moment the eyes shut', () => {
+  // blink: open for 95%, shut at 97%, open again; steps(1)
+  const a = keyed([kf(0, 'scaleY(1)', 'steps(1)'), kf(0.95, 'scaleY(1)', 'steps(1)'), kf(0.97, 'scaleY(0.1)', 'steps(1)'), kf(1, 'scaleY(1)', 'steps(1)')]);
+  const r = rig([a]);
+  r.advance(0); // caught
+  const writes = [];
+  let last = a.currentTime;
+  for (let i = 0; i < 12; i++) { r.advance(83); if (a.currentTime !== last) { writes.push(i); last = a.currentTime; } }
+  assert.equal(writes.length, 1, 'one move in a second: just before the iteration ends'); // the shut at 950-970 ms
+  assert.ok(a.currentTime >= 950);
+});
+
+test('a smooth stretch moves every tick', () => {
+  const a = keyed([kf(0, 'translateY(0px)'), kf(1, 'translateY(-2px)')]);
+  const r = rig([a]);
+  r.advance(0);
+  r.advance(83);
+  r.advance(83);
+  assert.equal(a.currentTime, 166);
+});
+
+test('a stepped breathe moves only when it crosses a step', () => {
+  const info = ShellbyFrameCap.changesOf(keyed([kf(0, 'translateY(0px)', 'steps(2)'), kf(0.5, 'translateY(-2px)', 'steps(2)'), kf(1, 'translateY(0px)', 'steps(2)')]).effect);
+  assert.deepEqual(info.live, []);
+  const timing = { duration: 1000, iterations: Infinity, direction: 'normal' };
+  assert.equal(ShellbyFrameCap.changes(info, timing, 0, 200), false);
+  assert.equal(ShellbyFrameCap.changes(info, timing, 200, 260), true); // the step at 250
+  assert.equal(ShellbyFrameCap.changes(info, timing, 900, 1100), true); // coming round
+});
+
+test('a step easing jumps where its position says, so a hold costs no move at its start', () => {
+  const { stepsOf } = ShellbyFrameCap;
+  assert.deepEqual(stepsOf('steps(2)'), [0.5, 1]);
+  assert.deepEqual(stepsOf('steps(2, end)'), [0.5, 1]);
+  assert.deepEqual(stepsOf('steps(2, jump-start)'), [0, 0.5]);
+  assert.deepEqual(stepsOf('steps(2, jump-both)'), [0, 0.5, 1]);
+  assert.deepEqual(stepsOf('step-end'), [1]);
+  assert.deepEqual(stepsOf('step-start'), [0]);
+  assert.equal(stepsOf('ease'), null);
+});
+
+test('a stepped claw snap is not moved where it only holds', () => {
+  // snap-idle: still until 94%, then rotated, still, rotated, still: four real changes
+  const info = ShellbyFrameCap.changesOf(keyed([kf(0, 'none', 'steps(1)'), kf(0.94, 'none', 'steps(1)'), kf(0.955, 'rotate(-18deg)', 'steps(1)'), kf(0.97, 'none', 'steps(1)'), kf(0.985, 'rotate(-18deg)', 'steps(1)'), kf(1, 'none', 'steps(1)')]).effect);
+  assert.deepEqual(info.jumps.sort(), [0.955, 0.97, 0.985, 1]);
+  const timing = { duration: 1000, iterations: Infinity, direction: 'normal' };
+  assert.equal(ShellbyFrameCap.changes(info, timing, 900, 950), false, 'the hold up to 94% and the start of the first snap draw nothing');
+});
+
+test('keyframes it cannot read keep the old every-tick behaviour', () => {
+  assert.equal(ShellbyFrameCap.changesOf(keyed([kf(0.2, 'none'), kf(1, 'rotate(1deg)')]).effect), null); // no 0% keyframe
+  assert.equal(ShellbyFrameCap.changesOf(keyed([kf(0, 'none'), kf(1, 'rotate(1deg)')], { easing: 'ease-in' }).effect), null);
+  assert.equal(ShellbyFrameCap.changes(null, {}, 0, 10), true);
+});
+
+test('carries on from where a script moved it', () => {
+  const a = keyed([kf(0, 'translateY(0px)'), kf(1, 'translateY(-2px)')]);
+  const r = rig([a]);
+  r.advance(0);
+  r.advance(100);
+  a.currentTime = 500;
+  r.advance(100);
+  assert.equal(a.currentTime, 600);
 });
 
 test('loops is false for an animation without timing', () => {

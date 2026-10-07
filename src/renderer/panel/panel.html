@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
 <link rel="stylesheet" href="tank.css">
+<link rel="stylesheet" href="tank-layouts.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -387,7 +388,7 @@
         <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
       </div>
       <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects' packages every week</label>
-      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby runs <code>npm outdated</code> and <code>npm audit</code> in the npm projects you work in, which asks the npm registry about their packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
+      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
       <ul class="dw-list" id="depWatchList"></ul>
     </section>
   </main>
@@ -1073,6 +1074,36 @@
     <section class="us-sec" id="tkKeySec" aria-labelledby="tkKeyTitle">
       <div class="us-h"><h3 id="tkKeyTitle">Where his decor comes from</h3><span class="us-h-meta" id="tkKeyMeta"></span></div>
       <ul class="tk-key" id="tkKey"></ul>
+    </section>
+    <section class="us-sec tk-layouts" id="tkLayoutsSec" aria-labelledby="tkLayoutsTitle">
+      <div class="us-h"><h3 id="tkLayoutsTitle">Layouts</h3><span class="us-h-meta" id="tkLayoutsMeta"></span></div>
+      <p class="muted small">Keep up to three. One tagged to a season goes up when the season starts and comes down when it ends.</p>
+      <ul class="tk-layout-list" id="tkLayouts"></ul>
+      <form class="tk-layout-save" id="tkLayoutForm">
+        <label class="sr-only" for="tkLayoutName">Name this layout</label>
+        <input type="text" id="tkLayoutName" maxlength="24" placeholder="Name this layout" autocomplete="off">
+        <button type="submit" class="btn ghost slim-btn" id="tkLayoutSave">Save the tank as it is</button>
+      </form>
+    </section>
+    <section class="us-sec tk-tidy" aria-labelledby="tkTidyTitle">
+      <div class="us-h"><h3 id="tkTidyTitle">Tidying up</h3></div>
+      <label class="toggle"><input type="checkbox" id="tkTidyOn" checked><span class="switch"></span>Let him tidy up: now and then he moves one of his finds a little, never anything else</label>
+      <p class="tk-note" id="tkTidyNote" hidden><span id="tkTidyText"></span> <button type="button" class="btn ghost slim-btn" id="tkTidyUndo">Put it back</button></p>
+    </section>
+    <section class="us-sec tk-live" aria-labelledby="tkLiveTitle">
+      <div class="us-h"><h3 id="tkLiveTitle">Gauges in disguise</h3></div>
+      <p class="muted small">A few things in his tank quietly show what Shellby knows about your PC. They stay on this PC: never synced, never on a card.</p>
+      <label class="toggle"><input type="checkbox" data-live="thermometer"><span class="switch"></span>Thermometer on the glass: your GPU (or CPU) temperature, red past your Health line</label>
+      <label class="toggle"><input type="checkbox" data-live="bubbler"><span class="switch"></span>Bubblers hurry when the CPU is busy</label>
+      <label class="toggle"><input type="checkbox" data-live="lighthouse"><span class="switch"></span>The lighthouse is lit while a dev server runs, and blinks when one crashes</label>
+      <label class="toggle"><input type="checkbox" data-live="moods"><span class="switch"></span>His Health moods reach the water</label>
+      <p class="muted small" id="tkLiveNow"></p>
+    </section>
+    <section class="us-sec tk-share" aria-labelledby="tkShareTitle">
+      <div class="us-h"><h3 id="tkShareTitle">On your cards</h3></div>
+      <p class="muted small">Your calling card (Visiting crabs) and profile card are public. His tank stays off them unless you turn this on.</p>
+      <label class="toggle"><input type="checkbox" id="tkShare" aria-describedby="tkShareHelp"><span class="switch"></span>Show his tank: friends can peek at it, and it’s on your profile card</label>
+      <p class="muted small" id="tkShareHelp"></p>
     </section>
   </main>
 
@@ -2140,12 +2171,23 @@
 <script src="core.js"></script>
 <script src="a11y.js"></script>
 <script src="textmenu.js"></script>
+<script src="feed-logic.js"></script>
 <script src="feed.js"></script>
+<script src="feed-notes.js"></script>
+<script src="feed-asks.js"></script>
+<script src="feed-changes.js"></script>
+<script src="feed-lanes.js"></script>
 <script src="line-comments.js"></script>
 <script src="line-comments-ui.js"></script>
 <script src="turn-checks.js"></script>
 <script src="lessons.js"></script>
+<script src="tab-logic.js"></script>
 <script src="tabs.js"></script>
+<script src="tab-strip.js"></script>
+<script src="tab-send.js"></script>
+<script src="tab-queue.js"></script>
+<script src="slash-menu.js"></script>
+<script src="tab-chips.js"></script>
 <script src="tab-git.js"></script>
 <script src="tab-meters.js"></script>
 <script src="clash-text.js"></script>
@@ -2179,7 +2221,12 @@
 <script src="wf-runs.js"></script>
 <script src="wf-save.js"></script>
 <script src="workflows.js"></script>
+<script src="settings-text.js"></script>
 <script src="settings.js"></script>
+<script src="settings-account.js"></script>
+<script src="settings-everywhere.js"></script>
+<script src="settings-channels.js"></script>
+<script src="settings-desk.js"></script>
 <script src="history.js"></script>
 <script src="onboarding.js"></script>
 <script src="wardrobe.js"></script>
@@ -2188,12 +2235,20 @@
 <script src="together.js"></script>
 <script src="bugdex.js"></script>
 <script src="needs.js"></script>
+<script src="health-logic.js"></script>
 <script src="health.js"></script>
+<script src="health-gauges.js"></script>
+<script src="health-drives.js"></script>
+<script src="health-hogs.js"></script>
 <script src="card.js"></script>
 <script src="beach-paint.js"></script>
 <script src="beach.js"></script>
 <script src="tank-paint.js"></script>
+<script src="tank-gauges.js"></script>
+<script src="tank-life.js"></script>
 <script src="tank.js"></script>
+<script src="tank-layouts.js"></script>
+<script src="tank-tidy.js"></script>
 <script src="celebrate.js"></script>
 <script src="recap.js"></script>
 <script src="outlook.js"></script>
@@ -2213,7 +2268,10 @@
 <script src="inbox.js"></script>
 <script src="releases.js"></script>
 <script src="project-report.js"></script>
+<script src="projects-logic.js"></script>
 <script src="projects.js"></script>
+<script src="projects-servers.js"></script>
+<script src="projects-add.js"></script>
 <script src="profile-card.js"></script>
 <script src="pr-badge.js"></script>
 <script src="github.js"></script>

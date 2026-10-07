@@ -25,7 +25,7 @@
 
   // ------------------------------------------------------------ laying out
 
-  const depthOf = p => (p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row);
+  const depthOf = p => (p.category === 'sticker' ? 6 : p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row); // stickers: on the front glass
 
   function baseline(world, layer, row) {
     if (layer === 'float') return world.floatY[row] ?? world.floatY[0];
@@ -172,21 +172,26 @@
     ctx.globalAlpha = 1;
   }
 
+  // lift (art px up) and crop (rows of him from the top, 0 for none of him)
+  // come from his life in the tank (tank-life.js): sitting on things, peeking out.
   function crabOn(ctx, scene, crab) {
-    const y = scene.world.crabY - crab.h + 1 - (crab.hop || 0);
+    const y = scene.world.crabY - crab.h + 1 - (crab.hop || 0) - (crab.lift || 0);
     const alpha = crab.alpha ?? 1;
+    const rows = crab.crop == null ? crab.h : Math.max(0, Math.min(crab.h, crab.crop));
+    if (!rows) return;
     ctx.fillStyle = '#000';
     ctx.globalAlpha = 0.22 * alpha;
-    ctx.fillRect(Math.round(crab.x) + 3, scene.world.crabY + 1, crab.w - 6, 1);
+    if (!crab.lift && rows === crab.h) ctx.fillRect(Math.round(crab.x) + 3, scene.world.crabY + 1, crab.w - 6, 1);
     ctx.globalAlpha = alpha;
+    const sh = rows * ((crab.img.height || crab.h) / crab.h);
     if (crab.flip) {
       ctx.save();
       ctx.translate(Math.round(crab.x) + crab.w, y);
       ctx.scale(-1, 1);
-      ctx.drawImage(crab.img, 0, 0, crab.w, crab.h);
+      ctx.drawImage(crab.img, 0, 0, crab.img.width || crab.w, sh, 0, 0, crab.w, rows);
       ctx.restore();
     } else {
-      ctx.drawImage(crab.img, Math.round(crab.x), y, crab.w, crab.h);
+      ctx.drawImage(crab.img, 0, 0, crab.img.width || crab.w, sh, Math.round(crab.x), y, crab.w, rows);
     }
     ctx.globalAlpha = 1;
   }
@@ -205,20 +210,24 @@
    * Paint a resolved scene into ctx (already scaled to art pixels).
    * opts: { t (seconds), still, crab: { img, w, h, x, flip, hop, alpha } | null,
    *         ghost: a piece being dragged in, drawn see-through,
-   *         dim: uid -> alpha (the piece you're dragging, faded where it was) }
+   *         dim: uid -> alpha (the piece you're dragging, faded where it was),
+   *         gauges: live decor from tank-gauges.js, or null }
    */
-  function paint(ctx, scene, { t = 0, still = false, crab = null, ghost = null, dim = null } = {}) {
+  function paint(ctx, scene, { t = 0, still = false, crab = null, ghost = null, dim = null, gauges = null } = {}) {
     const W = WATER[timeOf(scene.style.light)] || WATER.night;
+    const G = gauges && SB.tankGauges;
     ctx.imageSmoothingEnabled = false;
     water(ctx, scene, W, t, still);
     floor(ctx, scene);
+    if (G) G.under(ctx, scene, gauges, t, still);
     const behind = scene.pieces.filter(p => depthOf(p) <= 2);
     const front = scene.pieces.filter(p => depthOf(p) > 2);
     const alphaOf = p => (dim && dim.has(p.uid) ? dim.get(p.uid) : 1);
     for (const p of behind) piece(ctx, p, t, still, alphaOf(p));
-    if (crab) crabOn(ctx, scene, crab);
+    if (crab && !crab.front) crabOn(ctx, scene, crab);
     for (const p of front.filter(p => p.layer !== 'float')) piece(ctx, p, t, still, alphaOf(p));
-    bubbles(ctx, scene, t, still);
+    if (crab && crab.front) crabOn(ctx, scene, crab); // up on something in the front row
+    bubbles(ctx, scene, G ? t * G.bubbleSpeed(gauges) : t, still);
     // After dark the room dims, but lamps and bubblers keep their glow.
     if (W.shade) {
       ctx.fillStyle = '#020a10';
@@ -236,6 +245,7 @@
       piece(ctx, p, t, still, alphaOf(p));
     }
     if (ghost) piece(ctx, ghost, t, true, 0.6);
+    if (G) G.over(ctx, scene, gauges, t, still);
     glass(ctx, scene.world);
   }
 
@@ -252,5 +262,38 @@
     return c;
   }
 
-  SB.tankPaint = { WATER, timeOf, resolve, paint, thumb, baseline };
+  /**
+   * A still picture of a scene ({ world, style, pieces }), one canvas px per art
+   * pixel: for the crab card and a friend's tank, which scale it up themselves.
+   * crab: as paint() takes it, or null.
+   */
+  function still(scene, crab = null) {
+    const c = document.createElement('canvas');
+    c.width = scene.world.w;
+    c.height = scene.world.h;
+    paint(c.getContext('2d'), scene, { still: true, crab });
+    return c;
+  }
+
+  /**
+   * Where a card's view of a tank starts, and where he stands in it: beside
+   * its biggest piece (on the right, or the left when there's no room), with
+   * the two of them in the middle of a `cropW`-wide window. Art pixels.
+   */
+  function framing(v, cropW, crabW) {
+    const { world } = v;
+    const clampTo = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+    const anchor = v.pieces.filter(p => p.layer !== 'float').sort((a, b) => b.w * b.h - a.w * a.h)[0];
+    if (!anchor) {
+      const x0 = clampTo(Math.round(v.focusX - cropW / 2), 0, Math.max(0, world.w - cropW));
+      return { x0, crabX: clampTo(Math.round(x0 + (cropW - crabW) / 2), 0, Math.max(0, world.w - crabW)) };
+    }
+    const right = anchor.x + anchor.w + 2 + crabW <= world.w;
+    const crabX = right ? anchor.x + anchor.w + 2 : Math.max(0, anchor.x - crabW - 2);
+    const lo = Math.min(anchor.x, crabX), hi = Math.max(anchor.x + anchor.w, crabX + crabW);
+    const x0 = clampTo(Math.round((lo + hi - cropW) / 2), 0, Math.max(0, world.w - cropW));
+    return { x0, crabX: clampTo(crabX, x0, Math.max(x0, Math.min(world.w, x0 + cropW) - crabW)) };
+  }
+
+  SB.tankPaint = { WATER, timeOf, resolve, paint, thumb, baseline, still, framing };
 })();

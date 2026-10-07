@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.72.0: A lighter crab, a tank he lives in, and every package manager
+
+### New
+- **Dependency watch beyond npm.** The weekly check now reads pnpm, Yarn (1 and 2+), Python (`uv.lock`, `poetry.lock`, `pylock.toml`, `Pipfile.lock` or pinned `requirements.txt`, through pip-audit), Rust (cargo-audit) and Go (`go list` and govulncheck) projects too, each by its own lockfile, and names the package manager on every row. A project whose checker isn't installed says what to install instead of failing, and **Bump & open a PR** asks Claude to use that project's own commands. Nothing a project ships gets to run while it's checked: no install scripts, no `.pnpmfile.cjs`, no Yarn release or plugins of its own, and Python packages are never installed or built.
+- **Gauges in disguise.** His tank quietly shows what Shellby knows about your PC: a thermometer on the glass with your GPU's temperature (red past your Health line), bubblers that hurry when the CPU is busy, and a lighthouse that's lit while a dev server runs and blinks when one crashes. Each has its own switch, and none of it ever leaves your PC.
+- **His moods reach the water.** When he's hot the tank warms up, when he's dizzy it swirls, and when he's stuffed boxes pile up in a corner. It clears the moment the mood does, on the Health view's porthole too.
+- **Stickers on the glass.** Put any project from your Sticker Book on the front of his tank. They sync with the tank but stay off your calling card and profile card.
+- **Saved layouts.** Keep up to three tanks by name and put one up whenever you like. Tag one to a season and it goes up when the season starts, then the tank you had comes back when it ends. They sync to your other PCs.
+- **He tidies up.** Some days he's nudged one of his finds closer to its neighbour. Only finds, never anything you changed that day. **Put it back** (or Ctrl+Z) undoes it, and **Let him tidy up** turns it off.
+- **He lives in his tank now.** While you watch the Tank, he uses what you've put in it: he hides in the castle and peeks out of the window, sits on rocks and the chest, clambers over the driftwood, nibbles the plants, checks inside the chest (nothing, again), pops out of the sunken ship's porthole, and at night tucks himself into his cave with a few z's. The one he uses most becomes his favourite: it's named under the tank's title, the Health view's porthole looks at it, and it's where he sits when motion is turned down.
+- **New pieces get a proper look.** Put something in and he scuttles straight over to inspect it, and says something about it on your desktop ("a rock cave! for me?"). The first piece you give him goes in your journal on the Us page.
+- **Moving day.** Move him into a bigger tank than he's ever had and the pieces hop across one by one before he scuttles in last. That goes in the journal too.
+- **Sets on display.** Put every find of a set in his tank and it's on display, named under the title. Taking it down later loses nothing.
+- **Four new tank trophies:** *Aquascaper* (5 different plants at once, for an Anubias), *On Display* (3 complete sets on display, for a Display Plinth), *Upsized* (the 30 gallon, for an Old Anchor) and a secret one for watching him fall asleep.
+- **Decor for every season:** a Heart Shell for Valentine's, a Cherry Blossom in spring, a Beach Ball in summer and a Pile of Leaves in autumn (he hides in it), alongside the Carved Pumpkin and the Snow Globe. Each turns up in its season and stays.
+- **Now and then, on the desktop, he mentions his tank:** his favourite piece, a plant he nibbled, a find he moved back. It's rare, and the chatter setting decides as always.
+- **His tank on your crab card.** Once there's something in his tank, 📸 Share shows him standing in it, castle, kelp and all, with your best stickers on the glass.
+- **Show his tank to friends.** Turn on **Show his tank** at the bottom of the Tank and friends with Visiting crabs get a **Peek at their tank** button next to your name, and your profile card shows him at home too. It's off until you choose, and it carries only where his decor and finds stand: no specimen jars, no decor from packs.
+- **Peek at a friend's tank.** In Settings → GitHub → Visiting crabs, a friend who shares theirs has a **Peek at their tank** button. Their crab is in it, and anything your Shellby doesn't have yet shows up as a rock.
+- **House Guest.** A friend's crab dropping by while his tank is on show earns a new trophy, and a Guest Bench for the tank.
+- **His tank syncs.** With Sync on, decorate on one PC and the tank looks the same on the others. Whether it's on show stays up to each PC.
+
+### Fixed
+- **He gets out of your game's way.** With a game in front, everything Shellby's conversations are running (Claude, and the tests, installs and app copies it starts) drops to idle priority and a small share of the CPU, and stays there until two minutes after the game leaves the front. Four conversations released at once when your usage reset could run test suites flat out and freeze a game for minutes.
+- **Signing in no longer leaves Claude Code running in the background.** Every press of Sign in started another sign-in that waited for the browser forever if you didn't finish it: eight of them, nearly 2 GB, after switching accounts. There's now one at a time, it gives up after ten minutes, and it ends when Shellby quits.
+- **New task works after you hold a message for the reset.** If the first thing you said in a conversation was waiting for your usage to reset, New task kept landing you back in that same conversation. It now opens a fresh one, and changing folder no longer closes that conversation and drops the message you held.
+- **A new prompt is never left half-hidden.** Sending a message could, now and then, leave its last lines tucked under the Working bar until you scrolled. The conversation now keeps following the end unless you scroll up yourself.
+- **Muting a project's nudges sticks.** Muting one, or finishing a task, in the few seconds while Shellby was checking your projects' latest commits could be quietly undone when the check finished.
+- **A panel that opened behind your windows (a task from the terminal, a routine) no longer animates its decorations until you click it.** Behind your windows it's about 0.6% of a core now, down from 3.8%.
+- **He stays still while the screen is locked or a game covers him,** instead of starting to move again with the next thing that happened.
+
+### Faster
+- **He's much lighter on your PC while nothing's happening.** He only draws a new frame when he actually moves: the breathe and the claw snap now go a whole pixel at a time, and the still moments in between cost nothing. Alone on the desktop with no seasonal outfit he's down from about 7% of one core to about 1.5–3%.
+- **He holds still when you're away.** After five minutes without the keyboard or mouse he and the panel stop animating, the seasonal bats too, and pick up again the moment you're back: about 0.1% of a core while you're gone.
+- **No more reg.exe every 20 seconds.** Checking whether you're on a call now reads Windows' list directly instead of starting a program that cost about a third of a second of CPU each time.
+- **Health checks your GPU a third as often while all is well and the panel is closed,** and goes back to every five seconds the moment a reading turns or you open the panel.
+- **The sound device rests between sounds.** With sounds on, it used to keep running for good after the first chirp; now it sleeps a few seconds after the last one and wakes for the next.
+- **The seasonal bats (and snow, leaves, fireflies, rain) come for a flight now and then** instead of circling him all day: eight seconds every three minutes, fading in and out. They were about half of what he cost in October.
+- **His idle is pixel-art frames.** The breathe is two frames (up, down) over 4.4 seconds, a blink two, and the claw snap comes round every 18 seconds instead of 9: about one new frame a second while he idles. The breathe on a call and on a focus break is stepped too; it used to draw every tick.
+- **One check of the window in front instead of two.** Whether a game is up and whether he's covered are read together, the window's program is remembered while it stays in front, and the check slows from every 2 to every 5 seconds once nothing has changed for half a minute.
+
+### Changed
+- **Try it N ways takes attachments.** Screenshots and files attached to the message go to every try. A file from the project points at each try's own copy of it, and one your last commit doesn't have goes to each try as a copy of its own, so no try edits your checkout.
+
 ## 0.71.0: Next up, the inbox, Releases and where you left off
 
 ### New
