@@ -9,7 +9,7 @@
   const { api, state } = SB;
 
   const BUBBLE_SPEED = [1, 1.5, 2.2, 3];      // per tank-gauges.js LOAD_STEPS step
-  const MOOD_TINT = { hot: ['#ff8a3d', 0.12], scorching: ['#ff4a2a', 0.2], dizzy: ['#b48cff', 0.08], stuffed: null };
+  const MOOD_TINT = { hot: ['#ff8a3d', 0.16], scorching: ['#ff4a2a', 0.24], dizzy: ['#b48cff', 0.08], stuffed: null };
   const BOX = { k: '#5b3d1e', b: '#a87a45', l: '#c99b62' };
   const LAMP = '#ffe27a';
   const TEMP_LO = 20, TEMP_HI = 100;          // °C at the bottom and the top of the thermometer
