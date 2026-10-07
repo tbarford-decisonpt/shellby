@@ -9,8 +9,9 @@
   const { h, api, state, $ } = SB;
   const T = window.ShellbyClashText;
 
-  const MAX_COPIES = 4; // rows in the branch menu before "and N more"
-  const MAX_FILES = 6;
+  // The branch menu's actions sit under this list: keep it a glance, not a page.
+  const MAX_COPIES = 3; // rows before "and N more"
+  const MAX_FILES = 3; // named per row; the rest are "and N more", all of them on hover
 
   const on = () => state.settings?.clashWarnings !== false;
   const titleOf = id => {
@@ -49,15 +50,17 @@
     for (const { copy, files, more } of mine.slice(0, MAX_COPIES)) {
       const isTab = !copy.checkout && state.tabs.has(copy.tabId);
       const who = copy.checkout ? 'your checkout (not committed)' : `‘${titleOf(copy.tabId) || copy.title}’ on ⑂ ${T.shortBranch(copy.branch)}`;
+      // Titles are often a whole first prompt: one line here, the lot on hover.
+      const full = `Also changed in ${who}\n${T.fileList(files, more, files.length)}`;
       const body = [
         h('span', { class: 'mi-check', 'aria-hidden': 'true', text: '⚠' }),
         h('span', {},
-          h('div', { class: 'mi-title', text: `Also changed in ${who}` }),
+          h('div', { class: 'mi-title clash-who', text: `Also changed in ${who}` }),
           h('div', { class: 'mi-sub clash-files', text: T.fileList(files, more, MAX_FILES) })),
       ];
       items.push(isTab
-        ? h('button', { class: 'menu-item clash-info', title: 'Go to it', onclick: () => { SB.closeMenus(); SB.activate(copy.tabId); } }, ...body)
-        : h('div', { class: 'menu-item branch-info clash-info' }, ...body));
+        ? h('button', { class: 'menu-item clash-info', title: `${full}\n\nGo to it`, onclick: () => { SB.closeMenus(); SB.activate(copy.tabId); } }, ...body)
+        : h('div', { class: 'menu-item branch-info clash-info', title: full }, ...body));
     }
     if (mine.length > MAX_COPIES) {
       items.push(h('div', { class: 'menu-item branch-info' },
