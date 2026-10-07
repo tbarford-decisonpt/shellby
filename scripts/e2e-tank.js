@@ -189,6 +189,9 @@ async function quit(app, ms = 20000) {
     check(['hide', 'sit', 'open', 'nibble'].every(k => spots.includes(k)), 'the pieces offer him somewhere to hide, sit, open and nibble');
     const lifeAfter = await panel.ev('shellby.tankLived({ uses: { 1: 5, 3: 1, 99: 40 } })');
     check(lifeAfter.favourite === 1, 'what he uses most becomes his favourite');
+    const favView = await panel.ev('shellby.getTank()');
+    const keep = favView.pieces.find(p => p.uid === 1);
+    check(favView.favourite === 1 && favView.focusX === keep.x + Math.round(keep.w / 2), 'the porthole looks at his favourite');
     await panel.ev("SB.setView('tank')");
     await until("(document.getElementById('tkLife')?.textContent || '').includes('sandcastle keep')", 'his favourite on the Tank tab');
     check(true, 'the Tank tab names his favourite');

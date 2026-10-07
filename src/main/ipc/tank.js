@@ -36,7 +36,13 @@ function registerTankIpc(ipcMain, d) {
     finds: gifts.FINDS,
     bugState: d.config.get('bugdex'),
   });
-  const view = (l = lib()) => tank.view({ state: d.config.get('tank'), lib: l, level: d.level(), shipped: d.shipped() });
+  // The Health porthole looks at his favourite piece, once he has one (tank-life.js).
+  const view = (l = lib()) => {
+    const v = tank.view({ state: d.config.get('tank'), lib: l, level: d.level(), shipped: d.shipped() });
+    const fav = tankLife.favourite(d.config.get('tankLife'), v.layout.placed);
+    const p = fav && v.pieces.find(x => x.uid === fav && x.layer !== 'float');
+    return p ? { ...v, focusX: p.x + Math.round(p.w / 2), favourite: fav } : { ...v, favourite: null };
+  };
 
   ipcMain.handle('tank:get', () => view());
 

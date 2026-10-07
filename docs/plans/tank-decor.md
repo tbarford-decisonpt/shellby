@@ -34,8 +34,9 @@
   piece for each of the six seasons.
 - **Bond moments:** `tank-gift` (first piece only), `moving-day` and
   `set-shown` in `bond.js` MEMORIES.
-- **Not done:** the Health porthole still centres on the biggest piece, not his
-  favourite, and `scripts/idle-cost.js` has no tank case yet.
+- **The Health porthole looks at his favourite** once he has one
+  (`ipc/tank.js` sets `focusX` from it). **Not done:**
+  `scripts/idle-cost.js` has no tank case yet.
 
 ## What changed from the plan (Phase 4, "Open house")
 

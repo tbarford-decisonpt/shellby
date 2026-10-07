@@ -35,7 +35,7 @@ While the Tank is on screen, he uses what you've put in it. Each piece has its o
 | Sunken Chest | Checks inside. Nothing, again. He looks at you |
 | Amphora, Sunken Ship | Pokes his head out |
 
-- **His favourite** is the piece he uses most. It's named under the tank's title, and with motion turned down he sits by it.
+- **His favourite** is the piece he uses most. It's named under the tank's title, the Health porthole looks at it, and with motion turned down he sits by it.
 - **Something new** gets a look first: after **Done** he goes straight to what you put in, and says something about it on your desktop. The first piece you give him goes in the journal on the **Us** page.
 - **Moving day:** when you move him into a bigger tank than he's had before, the pieces hop across one by one and he scuttles in last. It goes in the journal too.
 - **Sets on display:** with every find of a set in the tank, the set is on display, named under the title (and in the journal the first time). Take it down later and nothing is lost.
