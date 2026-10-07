@@ -71,9 +71,35 @@ function wireProjects(d) {
       }),
       insights: d.projectInsights,
       sessions: () => d.history?.list() || [],
+      ci: () => d.ciView(),
+      // Where every open tab works, its copy or not: a copy any of them is in isn't abandoned.
+      copies: () => ({
+        home: d.worktreeHome(),
+        open: [...(d.manager?.tabs.values() || [])].flatMap(t => [t.worktree?.path, t.session?.cwd]).filter(p => typeof p === 'string'),
+      }),
+      retireCopy,
     });
     d.projects.on('change', () => d.send(d.panel, 'projects:changed'));
     d.devServers.reattach();
+  }
+
+  // A copy the inbox found abandoned (projects/inbox.js), tidied away. With its
+  // History entry, the way "Throw it away" in its conversation does it, so the
+  // entry points home again; a copy History has no record of, by git alone.
+  // Either way only one of Shellby's own branches (worktrees.checkWorktree).
+  async function retireCopy({ path: copyPath, root, branch }) {
+    const sameAs = to => p => typeof p === 'string' && path.resolve(p).toLowerCase() === path.resolve(to).toLowerCase();
+    const entry = (d.history?.list() || []).find(e => sameAs(copyPath)(e.worktree?.path));
+    const w = entry?.worktree;
+    // The record has to be about this repo's copy, not one another repository's worktree list points at.
+    if (w && !worktrees.checkWorktree(w) && sameAs(root)(w.root)) {
+      if (d.manager.tabs.has(entry.id)) return { ok: false, error: 'Its conversation is open. Throw it away from there.' };
+      return d.retireWorktree(entry.id, w, { force: true });
+    }
+    const bare = { path: copyPath, root, branch, base: 'HEAD' };
+    const bad = worktrees.checkWorktree(bare);
+    if (bad) return { ok: false, error: bad };
+    return worktrees.remove(bare, { force: true });
   }
 
   // A server's card on its project's page (the crab's sign, a toast, the tray).

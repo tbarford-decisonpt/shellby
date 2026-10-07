@@ -13,7 +13,9 @@ const local = require('./local');
 const clone = require('./clone');
 const { merge, caseKey, repoKey } = require('./merge');
 const { RepoCache } = require('./github');
-const { withInsights, sessionsFor } = require('./insights');
+const { withInsights, sessionsFor, inside } = require('./insights');
+const branches = require('./branches');
+const inbox = require('./inbox');
 const scripts = require('../devservers/scripts');
 
 const LOCAL_TTL_MS = 60 * 1000;
@@ -24,15 +26,20 @@ const GIT_AT_ONCE = 4;
 const MAX_GIT_READS = 60;
 const MAX_ADDED = 300;
 const MAX_HIDDEN = 300;
+// The inbox's branch reads (branches.js) cost a few git calls a branch: kept longer.
+const BRANCH_TTL_MS = 10 * 60 * 1000;
+const MAX_DISMISSED = 300;
+const MAX_ID = 700; // a dismissal's id: a folder, a branch name and a time
 
 const strList = (v, n) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.length <= 400).slice(0, n) : []);
 
-/** config.projects -> { added: [root], hidden: [key], lastCloneParent } */
+/** config.projects -> { added: [root], hidden: [key], dismissed: [inbox id], lastCloneParent } */
 function normalize(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   return {
     added: strList(r.added, MAX_ADDED).filter(p => path.isAbsolute(p)),
     hidden: strList(r.hidden, MAX_HIDDEN),
+    dismissed: (Array.isArray(r.dismissed) ? r.dismissed : []).filter(id => typeof id === 'string' && id.length <= MAX_ID && /^[bc]:/.test(id)).slice(-MAX_DISMISSED),
     lastCloneParent: typeof r.lastCloneParent === 'string' && path.isAbsolute(r.lastCloneParent) ? r.lastCloneParent : null,
   };
 }
@@ -46,6 +53,9 @@ class Projects extends EventEmitter {
    *   github() -> { signedIn, login, can(feature), gh(), claudeEnv() }
    *   insights?() -> what the rest of Shellby knows per project (insights.js's sources)
    *   sessions?() -> History's index, for a project's recent conversations
+   *   ci?() -> github/ci.js's view (+ enabled), for the inbox's pull requests
+   *   copies?() -> { home, open: [path] }: where Shellby's copies live, and the ones open tabs work in
+   *   retireCopy?({ path, root, branch }) -> { ok, error? }: tidy a copy away, History and all
    *   run?: git runner (tests)
    * }
    */
@@ -63,6 +73,11 @@ class Projects extends EventEmitter {
     this.cloneAbort = null;
     this.gitCache = new Map(); // caseKey(root) -> { at, git }
     this.gitLoading = null;
+    this.branchCache = new Map(); // caseKey(root) -> { at, read }: branches.read() for the inbox
+    this.branchLoading = null;
+    this.branchGen = new Map(); // caseKey(root) -> n, bumped by a delete: a read begun before it is thrown away
+    this.branchAgain = new Set(); // roots to read again once the reads under way are done
+    this.acting = new Map(); // caseKey(root) -> the delete or removal under way there: one at a time per repo
   }
 
   save(patch) {
@@ -177,6 +192,191 @@ class Projects extends EventEmitter {
       await Promise.all(Array.from({ length: Math.min(GIT_AT_ONCE, queue.length) }, worker));
       if (changed) this.emit('change');
     })().catch(() => {}).finally(() => { this.gitLoading = null; });
+  }
+
+  // ------------------------------------------------------------------ the inbox
+
+  /** Is this folder one of Shellby's copies (in its worktree folder)? */
+  isCopy(p) {
+    const home = this.deps.copies?.().home;
+    return !!home && typeof p === 'string' && inside(p, home) && caseKey(p) !== caseKey(home);
+  }
+
+  /**
+   * What's waiting on you across every project (inbox.js). The branch reads
+   * happen after, a few at a time, and a 'change' says when they're in.
+   */
+  async inbox({ refresh = false } = {}) {
+    if (!this.listed.size) await this.list();
+    this.readBranchesSoon([...this.listed.values()], { force: refresh });
+    return this.inboxView();
+  }
+
+  inboxView() {
+    const roots = [...this.listed.values()];
+    let sessions = [];
+    try { sessions = this.deps.sessions?.() || []; } catch { /* no History, no titles */ }
+    return inbox.build({
+      now: this.now(),
+      ci: this.deps.ci?.() || null,
+      repos: roots.map(root => ({
+        project: this.nameFor(root), root,
+        read: this.branchCache.get(caseKey(root))?.read || null,
+        git: this.gitCache.get(caseKey(root))?.git || null,
+      })),
+      sessions,
+      open: this.deps.copies?.().open || [],
+      dismissed: new Set(this.state.dismissed),
+    });
+  }
+
+  async readBranches(root) {
+    const gen = this.branchGen.get(caseKey(root)) || 0;
+    const read = await branches.read(root, { run: this.run, now: this.now(), isCopy: p => this.isCopy(p) }).catch(() => null);
+    if ((this.branchGen.get(caseKey(root)) || 0) !== gen) { this.branchAgain.add(root); return false; }
+    const before = JSON.stringify(this.branchCache.get(caseKey(root))?.read ?? null);
+    this.branchCache.set(caseKey(root), { at: this.now(), read });
+    return JSON.stringify(read) !== before;
+  }
+
+  readBranchesSoon(roots, { force = false } = {}) {
+    if (this.branchLoading) { if (force) for (const r of roots) this.branchAgain.add(r); return; }
+    const stale = roots.filter(r => {
+      const c = this.branchCache.get(caseKey(r));
+      return force || !c || this.now() - c.at > BRANCH_TTL_MS;
+    }).slice(0, MAX_GIT_READS);
+    if (!stale.length) return;
+    this.branchLoading = (async () => {
+      let changed = false;
+      const queue = [...stale];
+      const worker = async () => { while (queue.length) if (await this.readBranches(queue.shift())) changed = true; };
+      await Promise.all(Array.from({ length: Math.min(GIT_AT_ONCE, queue.length) }, worker));
+      if (changed) this.emit('change');
+    })().catch(() => {}).finally(() => {
+      this.branchLoading = null;
+      const again = [...this.branchAgain];
+      this.branchAgain.clear();
+      if (again.length) this.readBranchesSoon(again, { force: true });
+    });
+  }
+
+  // Something changed a repo's branches: what's cached, and any read under way, is out of date.
+  touchBranches(root) {
+    this.branchGen.set(caseKey(root), (this.branchGen.get(caseKey(root)) || 0) + 1);
+  }
+
+  // One delete or removal at a time in each repository: two branches at the
+  // same commit each look like "somewhere else" to the other.
+  serial(root, fn) {
+    const key = caseKey(root);
+    const run = (this.acting.get(key) || Promise.resolve()).then(fn, fn);
+    const tail = run.catch(() => {});
+    this.acting.set(key, tail);
+    tail.then(() => { if (this.acting.get(key) === tail) this.acting.delete(key); });
+    return run;
+  }
+
+  /** "Keep it": off the inbox until it moves (a new commit, more work in the copy). */
+  dismiss(id) {
+    if (typeof id !== 'string' || !/^[bc]:/.test(id) || id.length > MAX_ID) return { ok: false };
+    // Not save(): nothing about the repos changed, so no need to read them all again.
+    this.state = { ...this.state, dismissed: [...new Set([...this.state.dismissed, id])].slice(-MAX_DISMISSED) };
+    this.deps.config.set({ projects: this.state });
+    this.emit('change');
+    return { ok: true };
+  }
+
+  // An item the inbox listed, found again by what the panel names (never a path it made up).
+  listedBranch(root, name) {
+    const known = this.knowsRoot(root);
+    const b = known && this.branchCache.get(caseKey(known))?.read?.branches.find(x => x.name === name);
+    return b ? { root: known, branch: b } : null;
+  }
+
+  listedCopy(p) {
+    if (typeof p !== 'string' || !path.isAbsolute(p)) return null;
+    for (const [key, { read }] of this.branchCache) {
+      const c = read?.copies.find(x => caseKey(x.path) === caseKey(p));
+      if (c && this.listed.has(key)) return { root: this.listed.get(key), copy: c };
+    }
+    return null;
+  }
+
+  /**
+   * Delete a stale branch. One with nothing only here goes at once; one with
+   * commits only here needs `confirmed`: the tip it asked about (main asks
+   * first). Looked at again just before, so a commit made since isn't lost.
+   * -> { ok, needsConfirm?, only?, error? }
+   */
+  async deleteBranch(root, name, { confirmed = null } = {}) {
+    const found = this.listedBranch(root, name);
+    if (!found) return { ok: false, error: "That branch isn't on the list any more." };
+    return this.serial(found.root, async () => {
+      const now = await branches.recheck(found.root, name, this.run);
+      if (now.gone) return this.forgetBranch(found.root, name, { ok: true });
+      if (!now.ok || !now.sha) return { ok: false, error: "git couldn't look at that branch just now." };
+      if (now.checkedOut) return { ok: false, error: `${name} is checked out somewhere, so it stays.` };
+      if (now.only > 0 && !confirmed) return { ok: false, needsConfirm: true, only: now.only, sha: now.sha };
+      if (now.only > 0 && now.sha !== confirmed) return { ok: false, error: `${name} has moved since. Have another look first.` };
+      // Only if it still points where it did a moment ago: a commit made since stops it.
+      const r = await this.run(['-C', found.root, 'update-ref', '-d', `refs/heads/${name}`, now.sha]);
+      if (r === null) return { ok: false, error: `git couldn't delete ${name}.` };
+      await this.run(['-C', found.root, 'config', '--remove-section', `branch.${name}`]); // its upstream, if it had one
+      this.touchBranches(found.root);
+      return this.forgetBranch(found.root, name, { ok: true, only: now.only });
+    });
+  }
+
+  forgetBranch(root, name, result) {
+    const c = this.branchCache.get(caseKey(root));
+    if (c?.read) this.branchCache.set(caseKey(root), { ...c, read: { ...c.read, branches: c.read.branches.filter(b => b.name !== name) } });
+    this.emit('change');
+    return result;
+  }
+
+  /**
+   * Tidy away one of Shellby's copies nobody went back to. An empty one (no
+   * uncommitted files, no commits only it has, no ignored files but its
+   * dependencies) goes at once; one with work needs `confirmed`, the counts
+   * the question showed: more than that since, and it asks again. Never one
+   * an open tab is working in.
+   */
+  async removeCopy(p, { confirmed = null } = {}) {
+    const found = this.listedCopy(p);
+    if (!found || !this.isCopy(found.copy.path)) return { ok: false, error: "That copy isn't on the list any more." };
+    const { root, copy } = found;
+    const inUse = () => (this.deps.copies?.().open || []).some(o => inside(o, copy.path));
+    if (inUse()) return { ok: false, error: 'A conversation is working in that copy right now.' };
+    return this.serial(root, async () => {
+      const [status, weight] = await Promise.all([
+        this.run(['-C', copy.path, 'status', '--porcelain=v1', '--untracked-files=normal', '--ignored=matching']),
+        branches.recheck(root, copy.branch, this.run),
+      ]);
+      if (weight.gone) return { ok: false, error: 'That copy has gone already.' };
+      if (status === null || !weight.ok) return { ok: false, error: "git couldn't look at that copy just now." };
+      const st = leaving.parseStatus(status);
+      const changed = st.changed + st.untracked;
+      // Ignored files go with the folder too (a .env.local, a local database): those are asked about.
+      // Dependencies aren't: they come back with an install.
+      const ignored = status.split('\n').filter(l => l.startsWith('!! ')).map(l => l.slice(3).trim())
+        .filter(f => !/^node_modules\/?$/.test(f));
+      const seen = { changed, only: weight.only, ignoredTotal: ignored.length };
+      const grew = !confirmed || seen.changed > (confirmed.changed || 0) || seen.only > (confirmed.only || 0) || seen.ignoredTotal > (confirmed.ignoredTotal || 0);
+      if ((changed || weight.only || ignored.length) && grew) {
+        return { ok: false, needsConfirm: true, ...seen, ignored: ignored.slice(0, 3), moreIgnored: Math.max(0, ignored.length - 3) };
+      }
+      if (inUse()) return { ok: false, error: 'A conversation is working in that copy right now.' };
+      if (!this.deps.retireCopy) return { ok: false, error: "Copies can't be removed from here." };
+      const r = await this.deps.retireCopy({ path: copy.path, root, branch: copy.branch });
+      if (!r?.ok) return { ok: false, error: r?.error || "Couldn't remove that copy." };
+      this.touchBranches(root);
+      this.gitCache.delete(caseKey(root));
+      this.branchCache.delete(caseKey(root));
+      this.readGitSoon([root]);
+      this.readBranchesSoon([root], { force: true });
+      this.emit('change');
+      return { ok: true };
+    });
   }
 
   // What a clone can run, and what it's running.

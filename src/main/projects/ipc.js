@@ -15,6 +15,7 @@ const LOCAL_URL = /^https?:\/\/localhost:\d{1,5}\/\S*$/;
  *   pickFolder({ title, defaultPath }) -> Promise<string | null>
  *   toPanel(channel, payload)
  *   openPath(p), showItem(p), openExternal(url)
+ *   ask(spec) -> Promise<button index>: Shellby's own confirm dialog (confirm.js)
  * }
  */
 function registerProjectsIpc(ipcMain, d) {
@@ -36,6 +37,46 @@ function registerProjectsIpc(ipcMain, d) {
   ipcMain.handle('projects:scan-cancel', () => { P()?.cancelScan(); return true; });
   ipcMain.handle('projects:add-many', (_e, roots) => P()?.addMany(roots) ?? { ok: false });
   ipcMain.handle('projects:remove', (_e, key) => (isStr(key) ? P()?.remove(key) : { ok: false }));
+
+  // ---------------------------------------------------------------- the inbox (inbox.js)
+  // Deleting work that exists nowhere else is asked here, in main's own dialog,
+  // never on the panel's say-so.
+  ipcMain.handle('projects:inbox', (_e, opts) => P()?.inbox({ refresh: !!opts?.refresh }) ?? null);
+  ipcMain.handle('projects:inbox-dismiss', (_e, id) => (isStr(id) ? P()?.dismiss(id) : { ok: false }));
+  ipcMain.handle('projects:delete-branch', async (_e, arg) => {
+    const { root, name } = arg && typeof arg === 'object' ? arg : {};
+    if (!isStr(root) || !isStr(name) || !P()) return { ok: false };
+    const r = await P().deleteBranch(root, name);
+    if (!r.needsConfirm) return r;
+    const yes = await d.ask({
+      icon: '🌿', danger: true,
+      title: `Delete ${name.slice(0, 80)}?`,
+      message: `It has ${r.only === 1 ? 'a commit' : `${r.only} commits`} that no other branch, and no remote, has. Deleting it throws ${r.only === 1 ? 'that' : 'them'} away.`,
+      note: 'git keeps unreachable commits for a while (git reflog), but Shellby can\'t bring them back for you.',
+      buttons: [{ label: 'Delete it', style: 'danger' }, { label: 'Keep it' }], defaultId: 1, cancelId: 1,
+    });
+    return yes === 0 ? P().deleteBranch(root, name, { confirmed: r.sha }) : { ok: false, cancelled: true };
+  });
+  ipcMain.handle('projects:remove-copy', async (_e, copyPath) => {
+    if (!isStr(copyPath) || !P()) return { ok: false };
+    const r = await P().removeCopy(copyPath);
+    if (!r.needsConfirm) return r;
+    const ignored = r.ignored?.length ? `files git ignores (${r.ignored.join(', ')}${r.moreIgnored ? ` and ${r.moreIgnored} more` : ''})` : null;
+    const lost = [r.changed && `${r.changed} uncommitted file${r.changed === 1 ? '' : 's'}`, r.only && `${r.only} commit${r.only === 1 ? '' : 's'} no other branch has`, ignored]
+      .filter(Boolean);
+    const lostText = lost.length > 1 ? `${lost.slice(0, -1).join(', ')} and ${lost[lost.length - 1]}` : lost[0];
+    const yes = await d.ask({
+      icon: '🐚', danger: true,
+      title: 'Throw this copy away?',
+      message: `It still has ${lostText}. Removing the copy deletes its folder and its branch, and that work with them.`,
+      note: 'To keep the work, open its conversation and bring it home instead.',
+      buttons: [{ label: 'Throw it away', style: 'danger' }, { label: 'Keep it' }], defaultId: 1, cancelId: 1,
+    });
+    // What you were told: more than that by now, and it asks again rather than taking it.
+    if (yes !== 0) return { ok: false, cancelled: true };
+    const done = await P().removeCopy(copyPath, { confirmed: { changed: r.changed, only: r.only, ignoredTotal: r.ignoredTotal } });
+    return done.needsConfirm ? { ok: false, error: 'There is more in that copy than a moment ago, so it stays. Have another look.' } : done;
+  });
 
   // Cloning: the folder comes from this dialog, never from the panel.
   ipcMain.handle('projects:clone-folder', async () => {
