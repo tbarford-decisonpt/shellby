@@ -2,7 +2,7 @@
 // keeping them cheap while nobody can see them (idle cost), and staying on top
 // of your apps.
 // Kept out of main.js, which only wires it up.
-const { BrowserWindow, powerMonitor, screen } = require('electron');
+const { app, BrowserWindow, powerMonitor, screen } = require('electron');
 const path = require('path');
 const { createClimbing } = require('../climbing');
 const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop-layer');
@@ -10,6 +10,7 @@ const { createFloor } = require('../floor');
 const focus = require('../focus');
 const { CritterMotion } = require('../motion');
 const native = require('../native-windows');
+const { watchesDesktop } = require('../test-desktop');
 const { createPerching } = require('../perching');
 const { clampToDisplays } = require('../placement');
 const { createPranks } = require('../pranks');
@@ -415,7 +416,7 @@ function wireWindows(d) {
     });
     // The renderers start animated; a reload would forget a calm sent before it.
     for (const w of [d.panel, d.critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
-    if (!d.CAPTURE) setInterval(checkCovered, COVER_POLL_MS).unref?.();
+    if (!d.CAPTURE && watchesDesktop(process.env, app.isPackaged)) setInterval(checkCovered, COVER_POLL_MS).unref?.();
   }
 
   return {

@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 const native = require('../src/main/native-windows');
 
 native.dpiAware(); // see the same physical pixels the app does
@@ -30,7 +31,7 @@ async function connect(url) {
   ws.onmessage = e => { const m = JSON.parse(e.data); p.get(m.id)?.(m); };
   const send = (method, params = {}) => new Promise(r => { const i = ++id; p.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
-  const shot = async name => fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  const shot = async name => await savePng(send, path.join(OUT, `${name}.png`));
   return { send, ev, shot, close: () => ws.close() };
 }
 

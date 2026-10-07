@@ -164,7 +164,7 @@ const run = (name, attempt) => {
   const script = path.join(__dirname, `${name}.js`);
   console.log(`\n${'='.repeat(70)}\n  ${name}${attempt > 1 ? `  (attempt ${attempt})` : ''}\n${'='.repeat(70)}`);
   const started = Date.now();
-  const r = spawnSync(process.execPath, [script], { stdio: 'inherit', timeout: TIMEOUT_MS });
+  const r = spawnSync(process.execPath, [script], { stdio: 'inherit', timeout: TIMEOUT_MS, env: { ...process.env, SHELLBY_E2E: '1' } }); // SHELLBY_E2E: see src/main/test-desktop.js
   const secs = ((Date.now() - started) / 1000).toFixed(1);
   const ok = !r.error && r.status === 0;
   console.log(`\n--- ${name}: ${ok ? 'PASS' : 'FAIL'} in ${secs}s`);

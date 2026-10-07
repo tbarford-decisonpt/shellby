@@ -173,6 +173,7 @@ app.on('render-process-gone', (_e, _wc, details) => snag('a window died', `${det
 app.on('child-process-gone', (_e, details) => log.error('a child process died', `${details.type}: ${details.reason}`));
 // Dev/e2e only: drive the app with the fake CLI from test/fixtures (no Claude account, no usage).
 const FAKE_CLI = !app.isPackaged && process.env.SHELLBY_FAKE_CLAUDE ? path.resolve(process.env.SHELLBY_FAKE_CLAUDE) : null; // screenshot runs can pretend it's Halloween
+require('./test-desktop').keepPainting(app); // test runs only: keep covered windows painting, so screenshots and rendering work on a busy desktop
 
 // Dev/test runs get their own identity so Windows never ties their toasts or
 // jump lists to the installed Shellby.

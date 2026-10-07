@@ -9,6 +9,7 @@ const confirm = require('../confirm');
 const { pin: pinToDesktop } = require('../desktop-layer');
 const { Dictation, PushToTalk, holdKeyOf } = require('../dictation');
 const focus = require('../focus');
+const { watchesDesktop } = require('../test-desktop');
 const gifts = require('../gifts');
 const keystrokes = require('../keystrokes');
 const { createLife } = require('../life');
@@ -196,7 +197,7 @@ function wireSurroundings(d) {
       cursor: () => screen.getCursorScreenPoint(),
       throws: () => d.wardrobe?.stats.timesThrown || 0,
       firstDay: () => { const days = d.wardrobe?.stats.activeDays || []; return days.length ? new Date(`${days[0]}T12:00:00`).getTime() : null; },
-      readMic,
+      readMic: watchesDesktop(process.env, app.isPackaged) ? readMic : null, // a test run ignores whoever has the mic (test-desktop.js)
       ownExes: () => [process.execPath],
       bootAt: () => Date.now() - os.uptime() * 1000, // mic sessions older than this are stale (surroundings.js)
       ownPids: () => [process.pid],
