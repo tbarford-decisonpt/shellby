@@ -4,6 +4,9 @@
 - **No more reg.exe every 20 seconds.** Checking whether you're on a call now reads Windows' list directly instead of starting a program that cost about a third of a second of CPU each time.
 - **Health checks your GPU a third as often while all is well and the panel is closed,** and goes back to every five seconds the moment a reading turns or you open the panel.
 - **The sound device rests between sounds.** With sounds on, it used to keep running for good after the first chirp; now it sleeps a few seconds after the last one and wakes for the next.
+- **The seasonal bats (and snow, leaves, fireflies, rain) come for a flight now and then** instead of circling him all day: eight seconds every three minutes, fading in and out. They were about half of what he cost in October.
+- **His idle is pixel-art frames.** The breathe is two frames (up, down) over 4.4 seconds, a blink two, and the claw snap comes round every 18 seconds instead of 9: about one new frame a second while he idles. The breathe on a call and on a focus break is stepped too; it used to draw every tick.
+- **One check of the window in front instead of two.** Whether a game is up and whether he's covered are read together, the window's program is remembered while it stays in front, and the check slows from every 2 to every 5 seconds once nothing has changed for half a minute.
 
 ### Fixed
 - **A panel that opened behind your windows (a task from the terminal, a routine) no longer animates its decorations until you click it.** Behind your windows it's about 0.6% of a core now, down from 3.8%.

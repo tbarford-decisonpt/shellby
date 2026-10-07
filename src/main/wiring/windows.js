@@ -341,7 +341,7 @@ function wireWindows(d) {
   const IDLE_UNCOVERED = !app.isPackaged && process.env.SHELLBY_IDLE_AWAKE === 'uncovered';
   // Nobody at the desk (no key or mouse for this long, the screen still on): he
   // and the panel hold still, the seasonal bats too, until the next nudge of the
-  // mouse (picked up by the poll below, so within two seconds).
+  // mouse (picked up by the poll below, so within five seconds: watchFront).
   const AWAY_S = 5 * 60;
   let hidden = { crab: false, game: false, underGame: false, panelUnderGame: false, away: false };
   let calmSent = '';
