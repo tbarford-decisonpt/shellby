@@ -73,6 +73,10 @@ const MEMORIES = Object.freeze({
   'first-snack': { first: true, icon: '🦐', text: () => 'You fed him his first snack' },
   'first-bath': { first: true, icon: '🧼', text: () => 'His first rinse' },
   'golden-snack': { first: true, icon: '✨', text: () => 'Shared a golden plankton' },
+  // His tank (tank-life.js).
+  'tank-gift': { first: true, icon: '🏰', text: d => `You gave him ${d.item ? `a ${d.item.toLowerCase()}` : 'something'} for his tank` },
+  'moving-day': { icon: '📦', text: d => `Moving day: the ${d.size || 'bigger tank'}` },
+  'set-shown': { icon: '🖼️', text: d => `Put the ${d.set || ''} set on display` },
   days: { icon: '🗓️', text: d => `${d.n} days together` },
   level: { icon: '💞', text: d => `Became ${d.name}` },
   birthday: { icon: '🎂', text: () => 'Wished you a happy birthday' },

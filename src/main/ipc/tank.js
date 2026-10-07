@@ -7,6 +7,7 @@
 // panel sends goes into settings unchecked.
 const tank = require('../tank');
 const tankShare = require('../tank-share');
+const tankLife = require('../tank-life');
 const gifts = require('../gifts');
 const friends = require('../friends');
 const { LOGIN_RE, sameLogin } = require('../github/card');
@@ -22,6 +23,8 @@ const MAX_SEEN = 200;
  *   shipped()      projects shipped (stickers.js), for the reef tank
  *   stat(event, payload)   feeds the achievements
  *   cardChanged()  optional: what's on your calling card changed, publish it soon
+ *   speak(occasion, opts)  optional: a word on the desktop (voice.js; chatter applies)
+ *   life()         optional: his life (life.js), for moments in the bond journal (bond.js MEMORIES)
  * }
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d
@@ -48,8 +51,68 @@ function registerTankIpc(ipcMain, d) {
     if (!same && state.shareCard) d.cardChanged?.(); // friends see the new layout soon, not in a quarter of an hour
     const v = view(l);
     d.stat('tank-pieces', { n: v.pieces.length });
-    return { ok: true, dropped, view: v };
+    const life = lived(tank.normalize(previous), state, l);
+    return { ok: true, dropped, view: v, life };
   });
+
+  // ---- his life in it (tank-life.js): kept apart from the layout, per PC, never synced
+
+  // What a saved tank means to him: a look at what's new, moving day, sets on display.
+  function lived(before, after, l) {
+    const r = tankLife.afterSave(d.config.get('tankLife'), { before, after, lib: l, sizes: tank.SIZES, sets: gifts.SETS });
+    if (JSON.stringify(r.state) !== JSON.stringify(tankLife.normalize(d.config.get('tankLife')))) d.config.set({ tankLife: r.state });
+    d.stat('tank-plants', { n: r.plants });
+    d.stat('sets-shown', { n: r.shownCount });
+    d.stat('tank-size', { n: tank.SIZES.findIndex(s => s.id === after.size) + 1 });
+    const first = r.news.find(n => n.category !== 'find' && n.category !== 'jar') || r.news[0];
+    if (first) d.life?.()?.remember('tank-gift', { item: first.name });
+    if (r.movedTo) d.life?.()?.remember('moving-day', { size: r.movedTo.name.toLowerCase() });
+    for (const s of r.newSets) d.life?.()?.remember('set-shown', { set: s.name });
+    const line = r.movedTo ? tankLife.movingLine(r.movedTo) : first ? tankLife.reactionLine(first) : null;
+    if (line) d.speak?.('tankNew', { text: line });
+    return {
+      news: r.news.map(n => n.uid),
+      movedTo: r.movedTo ? r.movedTo.id : null,
+      line,
+      sets: r.newSets.map(s => s.name),
+    };
+  }
+
+  const lifeView = (st = tank.normalize(d.config.get('tank'))) => {
+    const life = tankLife.normalize(d.config.get('tankLife'));
+    const showing = tankLife.setsOnDisplay(st.placed, gifts.SETS);
+    return {
+      favourite: tankLife.favourite(life, st.placed),
+      sets: gifts.SETS.filter(s => showing.includes(s.id)).map(s => ({ id: s.id, name: s.name, icon: s.icon })),
+    };
+  };
+  ipcMain.handle('tank:life', () => lifeView());
+
+  // What he got up to while you watched: { uses: { uid: n }, napped }. The panel sends it
+  // now and then (not every frame), so the settings file isn't written all the time.
+  ipcMain.handle('tank:lived', (_e, report) => {
+    if (!report || typeof report !== 'object' || Array.isArray(report)) return lifeView();
+    const st = tank.normalize(d.config.get('tank'));
+    const before = tankLife.normalize(d.config.get('tankLife'));
+    const next = tankLife.addUses(before, report.uses, st.placed);
+    if (report.napped === true) {
+      d.stat('tank-nap');
+      next.naps = Math.min(tankLife.MAX_USES, next.naps + 1);
+    }
+    if (JSON.stringify(next) !== JSON.stringify(before)) d.config.set({ tankLife: next });
+    return lifeView(st);
+  });
+
+  // A word about his tank for the desktop (life.js asks now and then), or null.
+  function remark() {
+    const st = tank.normalize(d.config.get('tank'));
+    if (!st.placed.length) return null;
+    const l = lib();
+    const pieces = st.placed.map(p => l.get(p.ref)).filter(Boolean);
+    const favUid = tankLife.favourite(d.config.get('tankLife'), st.placed);
+    const fav = favUid ? l.get(st.placed.find(p => p.uid === favUid)?.ref) : null;
+    return tankLife.remark({ pieces, fav });
+  };
 
   // His tank on your calling card, or off it (tank-share.js). The card catches up on the next refresh, started now.
   ipcMain.handle('tank:share', (_e, on) => {
@@ -77,6 +140,8 @@ function registerTankIpc(ipcMain, d) {
     const keys = refs.slice(0, MAX_SEEN).filter(r => isRef(r) && !r.startsWith('find:') && !r.startsWith('jar:'));
     if (keys.length) d.wardrobe()?.markSeen(keys);
   });
+
+  return remark;
 }
 
 module.exports = { registerTankIpc };

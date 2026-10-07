@@ -394,6 +394,8 @@ contextBridge.exposeInMainWorld('shellby', {
   tankSeen: fire('tank:seen'),
   shareTank: invoke('tank:share'),     // on your calling card (tank-share.js), or off it
   peekTank: invoke('tank:peek'),       // a friend's, from their calling card
+  tankLife: invoke('tank:life'),       // his favourite piece and the sets on display (tank-life.js)
+  tankLived: invoke('tank:lived'),     // what he got up to while you watched
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),

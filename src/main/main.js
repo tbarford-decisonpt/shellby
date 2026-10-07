@@ -162,6 +162,7 @@ const shared = {
   pranks: null,                    // mischief, if you asked for it (see pranks.js)
   floor: null,                     // the strip of floor with his pals and footprints (see floor.js)
   life: null,                      // his life between tasks: scenes, gifts, the bond, your day (see life.js)
+  tankRemark: null,                // a word about his tank for the desktop, set by ipc/tank.js (tank-life.js)
   playtime: null,                  // hide and seek, fetch (see playtime.js)
   typing: null,                    // tapping along while you type (see typing.js)
   weatherSvc: null,                // the weather outside, for what he wears (see weather-service.js)

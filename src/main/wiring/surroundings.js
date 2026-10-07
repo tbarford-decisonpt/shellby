@@ -178,6 +178,7 @@ function wireSurroundings(d) {
       temperament: () => voice.temperamentOf(voice.normalize(d.config.get('voice')).seed),
       speak: (occasion, opts) => d.speak(occasion, opts),
       say: (text, ms, occasion) => d.sayText(text, occasion, ms),
+      tankRemark: () => d.tankRemark?.() || null, // a word about his tank (ipc/tank.js)
       dialogue: () => (d.wardrobe ? d.wardrobe.dialogue() : null),
       toCrab: sendCritter,
       toPanel: (channel, payload) => d.send(d.panel, channel, payload),

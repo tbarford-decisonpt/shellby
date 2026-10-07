@@ -140,8 +140,10 @@ function registerIpc(electronIpcMain, d) {
   });
 
   // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
-  registerTankIpc(ipcMain, {
+  d.tankRemark = registerTankIpc(ipcMain, {
     config, stat: d.stat,
+    speak: (occasion, opts) => d.speak?.(occasion, opts),
+    life: () => d.life,
     wardrobe: () => d.wardrobe,
     level: () => d.currentLevel(),
     shipped: () => stickers.stats(d.stickerState()).stickers,

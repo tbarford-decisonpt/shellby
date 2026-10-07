@@ -172,21 +172,26 @@
     ctx.globalAlpha = 1;
   }
 
+  // lift (art px up) and crop (rows of him from the top, 0 for none of him)
+  // come from his life in the tank (tank-life.js): sitting on things, peeking out.
   function crabOn(ctx, scene, crab) {
-    const y = scene.world.crabY - crab.h + 1 - (crab.hop || 0);
+    const y = scene.world.crabY - crab.h + 1 - (crab.hop || 0) - (crab.lift || 0);
     const alpha = crab.alpha ?? 1;
+    const rows = crab.crop == null ? crab.h : Math.max(0, Math.min(crab.h, crab.crop));
+    if (!rows) return;
     ctx.fillStyle = '#000';
     ctx.globalAlpha = 0.22 * alpha;
-    ctx.fillRect(Math.round(crab.x) + 3, scene.world.crabY + 1, crab.w - 6, 1);
+    if (!crab.lift && rows === crab.h) ctx.fillRect(Math.round(crab.x) + 3, scene.world.crabY + 1, crab.w - 6, 1);
     ctx.globalAlpha = alpha;
+    const sh = rows * ((crab.img.height || crab.h) / crab.h);
     if (crab.flip) {
       ctx.save();
       ctx.translate(Math.round(crab.x) + crab.w, y);
       ctx.scale(-1, 1);
-      ctx.drawImage(crab.img, 0, 0, crab.w, crab.h);
+      ctx.drawImage(crab.img, 0, 0, crab.img.width || crab.w, sh, 0, 0, crab.w, rows);
       ctx.restore();
     } else {
-      ctx.drawImage(crab.img, Math.round(crab.x), y, crab.w, crab.h);
+      ctx.drawImage(crab.img, 0, 0, crab.img.width || crab.w, sh, Math.round(crab.x), y, crab.w, rows);
     }
     ctx.globalAlpha = 1;
   }
