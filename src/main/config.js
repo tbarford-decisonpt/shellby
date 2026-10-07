@@ -80,6 +80,9 @@ const DEFAULTS = {
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
+  tankLayouts: null,  // his tank's saved layouts (tank-layouts.js): synced, never on a card
+  tankLive: null,
+  tankTidy: null,     // whether he tidies his finds, and what he moved last (tank-tidy.js): per PC, never synced     // which of his tank's live decor is on (tank-gauges.js): per PC, never synced
   tank: null,         // his tank: its size, floor and back glass, and where each piece stands (see tank.js)
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only

@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
 <link rel="stylesheet" href="tank.css">
+<link rel="stylesheet" href="tank-layouts.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
@@ -1073,6 +1074,30 @@
     <section class="us-sec" id="tkKeySec" aria-labelledby="tkKeyTitle">
       <div class="us-h"><h3 id="tkKeyTitle">Where his decor comes from</h3><span class="us-h-meta" id="tkKeyMeta"></span></div>
       <ul class="tk-key" id="tkKey"></ul>
+    </section>
+    <section class="us-sec tk-layouts" id="tkLayoutsSec" aria-labelledby="tkLayoutsTitle">
+      <div class="us-h"><h3 id="tkLayoutsTitle">Layouts</h3><span class="us-h-meta" id="tkLayoutsMeta"></span></div>
+      <p class="muted small">Keep up to three. One tagged to a season goes up when the season starts and comes down when it ends.</p>
+      <ul class="tk-layout-list" id="tkLayouts"></ul>
+      <form class="tk-layout-save" id="tkLayoutForm">
+        <label class="sr-only" for="tkLayoutName">Name this layout</label>
+        <input type="text" id="tkLayoutName" maxlength="24" placeholder="Name this layout" autocomplete="off">
+        <button type="submit" class="btn ghost slim-btn" id="tkLayoutSave">Save the tank as it is</button>
+      </form>
+    </section>
+    <section class="us-sec tk-tidy" aria-labelledby="tkTidyTitle">
+      <div class="us-h"><h3 id="tkTidyTitle">Tidying up</h3></div>
+      <label class="toggle"><input type="checkbox" id="tkTidyOn" checked><span class="switch"></span>Let him tidy up: now and then he moves one of his finds a little, never anything else</label>
+      <p class="tk-note" id="tkTidyNote" hidden><span id="tkTidyText"></span> <button type="button" class="btn ghost slim-btn" id="tkTidyUndo">Put it back</button></p>
+    </section>
+    <section class="us-sec tk-live" aria-labelledby="tkLiveTitle">
+      <div class="us-h"><h3 id="tkLiveTitle">Gauges in disguise</h3></div>
+      <p class="muted small">A few things in his tank quietly show what Shellby knows about your PC. They stay on this PC: never synced, never on a card.</p>
+      <label class="toggle"><input type="checkbox" data-live="thermometer"><span class="switch"></span>Thermometer on the glass: your GPU (or CPU) temperature, red past your Health line</label>
+      <label class="toggle"><input type="checkbox" data-live="bubbler"><span class="switch"></span>Bubblers hurry when the CPU is busy</label>
+      <label class="toggle"><input type="checkbox" data-live="lighthouse"><span class="switch"></span>The lighthouse is lit while a dev server runs, and blinks when one crashes</label>
+      <label class="toggle"><input type="checkbox" data-live="moods"><span class="switch"></span>His Health moods reach the water</label>
+      <p class="muted small" id="tkLiveNow"></p>
     </section>
     <section class="us-sec tk-share" aria-labelledby="tkShareTitle">
       <div class="us-h"><h3 id="tkShareTitle">On your cards</h3></div>
@@ -2219,7 +2244,10 @@
 <script src="beach-paint.js"></script>
 <script src="beach.js"></script>
 <script src="tank-paint.js"></script>
+<script src="tank-gauges.js"></script>
 <script src="tank.js"></script>
+<script src="tank-layouts.js"></script>
+<script src="tank-tidy.js"></script>
 <script src="celebrate.js"></script>
 <script src="recap.js"></script>
 <script src="outlook.js"></script>

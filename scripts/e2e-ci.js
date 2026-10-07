@@ -33,6 +33,7 @@ const SUITE = [
   'e2e-needs',        // snacks and naps: how a neglected crab looks, the Us card, feed, rinse, tuck in, switching it off
   'e2e-health',       // every health mood, with scripted sensors
   'e2e-tank',         // his tank: decorating by keyboard, what main refuses, the Health porthole, kept after a restart
+  'e2e-tank-gauges',  // his tank's gauges in disguise, saved layouts and the seasons, the tidying switch
   'e2e-crab-only',    // "just the crab": Health as home, Claude features hidden
   'e2e-work-mode',    // Work mode: the tools first, a quiet crab, your own settings back when you leave
   'e2e-history-done', // the Done tick in History: filter tabs, Undo, un-ticking

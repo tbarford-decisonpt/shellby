@@ -1,0 +1,9 @@
+/* Shellby panel — his tank's saved layouts and its gauges in disguise (tank-layouts.js, tank-gauges.js). */
+.tk-layout-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.tk-layout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.tk-layout-name { font-weight: 600; color: var(--sand); }
+.tk-layout .muted { flex: 1 1 auto; }
+.tk-layout-season { max-width: 11em; }
+.tk-layout-save { display: flex; gap: 8px; align-items: center; }
+.tk-layout-save input { flex: 1 1 auto; min-width: 0; }
+.tk-live .toggle { margin: 6px 0; }
