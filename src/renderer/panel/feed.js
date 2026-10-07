@@ -53,8 +53,17 @@
       // feed shrinks whenever the Working bar, queued chips or attachments
       // appear above the composer, and without this the end of your prompt
       // would slide under them.
+      // Only you scrolling up lets go: the feed shrinking under a scroll event that is
+      // still on its way (the Working bar, 34px, plus a new message's 10px rise) would
+      // otherwise read as 'not at the bottom', and the resize below would then leave
+      // your prompt's last lines hidden.
       this.stuck = true;
-      this.el.addEventListener('scroll', () => { this.stuck = this.distanceFromEnd() < 40; }, { passive: true });
+      this.lastTop = 0;
+      this.el.addEventListener('scroll', () => {
+        const near = this.distanceFromEnd() < 40;
+        if (near || this.el.scrollTop < this.lastTop) this.stuck = near;
+        this.lastTop = this.el.scrollTop;
+      }, { passive: true });
       this.resizer = new ResizeObserver(() => { if (this.stuck && this.isActive) this.scrollToEnd(); });
       this.resizer.observe(this.el);
     }
