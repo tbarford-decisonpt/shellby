@@ -22,8 +22,9 @@ e2e scripts do: run `node node_modules/electron/install.js` first.
 
 Shellby moves each conversation into its own worktree under
 `%APPDATA%\Shellby\worktrees\<id>\<repo>`, which starts with no `node_modules`.
-Shellby installs them for you when the original checkout has them, with install
-scripts skipped (it says so when the conversation moves). If it hasn't, run
+Shellby installs them for you (`npm ci --ignore-scripts`) when the original
+checkout has exactly that lockfile installed and every package comes from the
+registry. It says so when the conversation moves. If it hasn't, run
 `$env:ELECTRON_SKIP_BINARY_DOWNLOAD='1'; npm ci` in the copy. Don't copy or
 junction the main checkout's `node_modules`, which is incomplete.
 
