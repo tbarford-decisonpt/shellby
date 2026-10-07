@@ -252,5 +252,18 @@
     return c;
   }
 
-  SB.tankPaint = { WATER, timeOf, resolve, paint, thumb, baseline };
+  /**
+   * A still picture of a scene ({ world, style, pieces }), one canvas px per art
+   * pixel: for the crab card and a friend's tank, which scale it up themselves.
+   * crab: as paint() takes it, or null.
+   */
+  function still(scene, crab = null) {
+    const c = document.createElement('canvas');
+    c.width = scene.world.w;
+    c.height = scene.world.h;
+    paint(c.getContext('2d'), scene, { still: true, crab });
+    return c;
+  }
+
+  SB.tankPaint = { WATER, timeOf, resolve, paint, thumb, baseline, still };
 })();

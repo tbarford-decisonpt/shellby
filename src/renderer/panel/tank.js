@@ -706,6 +706,29 @@
     document.querySelectorAll('.tk-badge').forEach(el => { el.hidden = !v?.news.length; });
   }
 
+  // ------------------------------------------------------------ on your calling card (tank-share.js)
+
+  function renderShare() {
+    const f = state.github?.features || {};
+    const cards = !!(f.friends?.on || f.profileCard?.on);
+    $('tkShare').checked = !!v.shareCard;
+    $('tkShareHelp').textContent = !v.shareCard
+      ? 'Your cards show his outfit and his shell, not his tank.'
+      : !cards
+        ? 'Visiting crabs and the profile card are both off (Settings → GitHub), so there’s no card for it to go on yet.'
+        : 'They show its size, floor, back glass and up to 24 pieces: built-in decor and his finds. Specimen jars and decor from packs stay home.';
+  }
+
+  $('tkShare').addEventListener('change', async e => {
+    const on = e.target.checked;
+    e.target.disabled = true;
+    const r = await api.shareTank(on).catch(() => null);
+    e.target.disabled = false;
+    if (r?.view) apply(r.view);
+    if (!r?.ok) { e.target.checked = !on; SB.toast('Couldn’t change that. Try again in a moment.'); return; }
+    SB.toast(on ? 'His tank goes on your cards when they next update.' : 'His tank comes off your cards when they next update, in a minute or so.');
+  });
+
   function renderAll() {
     if (!v) return;
     size();
@@ -714,6 +737,7 @@
     renderHits();
     renderTray();
     renderKey();
+    renderShare();
     dirty = true;
     kick();
   }
@@ -731,6 +755,7 @@
     badge();
     if (draft && draft.size !== v.layout.size && !v.sizes.find(s => s.id === draft.size)?.unlocked) draft.size = v.layout.size;
     if (state.view === 'tank') keepingFocus(renderAll);
+    document.dispatchEvent(new CustomEvent('sb:tank', { detail: v })); // the Health porthole and the profile card
   }
 
   async function open() {

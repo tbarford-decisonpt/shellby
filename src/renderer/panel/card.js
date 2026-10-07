@@ -110,18 +110,33 @@
     }
   }
 
-  // Shellby's tank on the left: the crab as dressed now, his effect around
-  // him, and up to five stickers ({ art: { palette, pixels } }) on the glass.
-  async function drawTank(ctx, glassStickers) {
-    const tank = { x: 48, y: 48, w: 470, h: 470 };
-    ctx.save();
-    roundRect(ctx, tank.x, tank.y, tank.w, tank.h, 26);
-    ctx.fillStyle = 'rgba(6,19,22,.72)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(127,214,194,.18)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.clip();
+  // His real tank (tank.js), when there's something in it: painted still
+  // (tank-paint.js) with him in the middle row, scaled up by a whole number and
+  // standing at the bottom of the box. A wide tank is cropped around its
+  // biggest piece, so he stays big enough to see. Returns where its water ends.
+  const CROP_W = 78; // art px: the most of a tank's width the card shows
+  async function drawDecorated(ctx, box, v) {
+    const P = SB.tankPaint;
+    const { world } = v;
+    const k = Math.max(1, Math.floor(Math.min(box.w / Math.min(world.w, CROP_W), box.h / world.h)));
+    const cropW = Math.min(world.w, Math.floor(box.w / k));
+    const x0 = Math.max(0, Math.min(world.w - cropW, Math.round(v.focusX - cropW / 2)));
+    let crab = null;
+    const svg = SB.sprite(state.skin, { fit: true });
+    const [, , vw, vh] = (svg.getAttribute('viewBox') || '0 0 22 13').split(' ').map(Number);
+    try {
+      const w = Math.ceil(vw), h = Math.ceil(vh);
+      crab = { img: await svgImage(svg, w, h), w, h, x: Math.max(0, Math.min(world.w - w, Math.round(x0 + cropW * 0.62 - w / 2))), flip: false };
+    } catch { /* the tank still stands without him */ }
+    const pic = P.still({ world, style: v.style, pieces: v.pieces }, crab);
+    const dx = box.x + Math.round((box.w - cropW * k) / 2), dy = box.y + box.h - world.h * k;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(pic, x0, 0, cropW, world.h, dx, dy, cropW * k, world.h * k);
+    return dy + world.sandTop * k;
+  }
+
+  // Today's tank: plain sand and him, big. Returns where the sand starts.
+  async function drawPlain(ctx, tank) {
     ctx.fillStyle = 'rgba(127,214,194,.035)';
     for (let x = tank.x + 24; x < tank.x + tank.w; x += 24) ctx.fillRect(x, tank.y, 1, tank.h);
     // sand
@@ -145,6 +160,28 @@
     ctx.ellipse(tank.x + tank.w / 2, sandY + 18, vw * P * 0.42, 12, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.drawImage(crab, Math.round(cx), Math.round(cy));
+    return sandY;
+  }
+
+  // What's in his tank, or null when it's empty (or can't be had).
+  const decorated = () => (api.getTank ? api.getTank().then(v => (v?.pieces?.length ? v : null), () => null) : Promise.resolve(null));
+
+  // Shellby's tank on the left: his decorated tank (or plain sand) with the
+  // crab as dressed now, his effect around him, and up to five stickers
+  // ({ art: { palette, pixels } }) on the glass. Returns how many pieces of
+  // decor are in the picture.
+  async function drawTank(ctx, glassStickers) {
+    const tank = { x: 48, y: 48, w: 470, h: 470 };
+    const v = await decorated();
+    ctx.save();
+    roundRect(ctx, tank.x, tank.y, tank.w, tank.h, 26);
+    ctx.fillStyle = 'rgba(6,19,22,.72)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(127,214,194,.18)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.clip();
+    const sandY = v ? await drawDecorated(ctx, tank, v) : await drawPlain(ctx, tank);
 
     // His equipped effect, scattered around him (snow, sparkles, bats...).
     const fx = state.outfit?.effect;
@@ -176,6 +213,7 @@
       ctx.restore();
     }
     ctx.restore();
+    return v ? v.pieces.length : 0;
   }
 
   // Stat tiles in a row: [[number, label, accent colour], ...].
@@ -230,8 +268,8 @@
     const d = cardData();
     const { canvas, ctx } = newCanvas();
     drawWater(ctx);
-    // His best stickers on the glass.
-    await drawTank(ctx, d.stickers);
+    // His tank, with his best stickers on the glass.
+    d.tankPieces = await drawTank(ctx, d.stickers);
 
     // ---- right column
     const x0 = 568, right = W - 56, colW = right - x0;

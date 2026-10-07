@@ -6,7 +6,10 @@
 // done; tank.sanitize decides what of it he can really have, so nothing the
 // panel sends goes into settings unchecked.
 const tank = require('../tank');
+const tankShare = require('../tank-share');
 const gifts = require('../gifts');
+const friends = require('../friends');
+const { LOGIN_RE, sameLogin } = require('../github/card');
 
 const isRef = v => typeof v === 'string' && tank.REF_RE.test(v);
 const MAX_SEEN = 200;
@@ -18,6 +21,7 @@ const MAX_SEEN = 200;
  *   level()        his XP level
  *   shipped()      projects shipped (stickers.js), for the reef tank
  *   stat(event, payload)   feeds the achievements
+ *   cardChanged()  optional: what's on your calling card changed, publish it soon
  * }
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d
@@ -44,6 +48,26 @@ function registerTankIpc(ipcMain, d) {
     const v = view(l);
     d.stat('tank-pieces', { n: v.pieces.length });
     return { ok: true, dropped, view: v };
+  });
+
+  // His tank on your calling card, or off it (tank-share.js). The card catches up on the next refresh, started now.
+  ipcMain.handle('tank:share', (_e, on) => {
+    if (typeof on !== 'boolean') return { ok: false, view: view() };
+    const current = tank.normalize(d.config.get('tank'));
+    if (current.shareCard !== on) {
+      d.config.set({ tank: { ...current, shareCard: on } });
+      d.cardChanged?.();
+    }
+    return { ok: true, view: view() };
+  });
+
+  // A friend's tank, from the calling card fetched last time, drawn with this PC's art.
+  ipcMain.handle('tank:peek', (_e, login) => {
+    if (typeof login !== 'string' || !LOGIN_RE.test(login)) return { ok: false, error: 'No such friend.' };
+    const f = friends.normalize(d.config.get('friends')).list.find(x => sameLogin(x.login, login));
+    if (!f) return { ok: false, error: 'No such friend.' };
+    const peek = f.card?.tank && tankShare.peekView(f.card.tank, { decor: d.wardrobe()?.decorView() || [], finds: gifts.FINDS });
+    return peek ? { ok: true, login: f.login, view: peek } : { ok: false, error: `@${f.login} isn’t sharing their tank.` };
   });
 
   // Decor you've seen in the tray stops being new (the wardrobe keeps the dots).

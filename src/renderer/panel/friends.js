@@ -16,11 +16,75 @@
     return svg;
   };
 
+  // ------------------------------------------------------------ peek at their tank (tank-share.js)
+
+  const PEEK_W = 360;        // css px, the most a friend's tank is drawn across
+  const peeking = new Set(); // lowercased logins whose tank is open, kept across re-renders
+  const peekId = login => `frPeek-${login.toLowerCase()}`;
+
+  // Their crab, standing in his own tank: art pixels, like the tank's.
+  async function guest(look, world) {
+    if (!look || !SB.cardKit) return null;
+    try {
+      const svg = window.ShellbySprite.build(look.skin, { accessories: look.accessories || [], shell: look.shell || undefined, stickers: look.stickers || [], fit: true });
+      const [, , vw, vh] = (svg.getAttribute('viewBox') || '0 0 22 13').split(' ').map(Number);
+      const w = Math.ceil(vw), hh = Math.ceil(vh);
+      return { img: await SB.cardKit.svgImage(svg, w, hh), w, h: hh, x: Math.max(0, Math.round(world.w * 0.55 - w / 2)), flip: true };
+    } catch {
+      return null; // their tank still stands without him
+    }
+  }
+
+  // What's in it, in words: the canvas is only a picture.
+  function describe(login, v) {
+    const counts = new Map();
+    for (const p of v.pieces) counts.set(p.name, (counts.get(p.name) || 0) + 1);
+    const names = [...counts].map(([name, n]) => (n > 1 ? `${n} × ${name}` : name));
+    const list = names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+    const stranger = v.strangers ? ` ${v.strangers === 1 ? 'One piece isn’t' : `${v.strangers} pieces aren’t`} in your Shellby yet, so ${v.strangers === 1 ? 'it’s' : 'they’re'} drawn as a rock.` : '';
+    return `@${login}’s ${v.size.name.toLowerCase()}: ${list || 'nothing in it yet'}.${stranger}`;
+  }
+
+  async function fillPeek(region, f) {
+    const r = await api.peekTank(f.login).catch(() => null);
+    if (!r?.ok) {
+      region.replaceChildren(h('p', { class: 'small muted', text: r?.error || 'Couldn’t open their tank. Try again in a moment.' }));
+      return;
+    }
+    const v = r.view;
+    const pic = SB.tankPaint.still({ world: v.world, style: v.style, pieces: v.pieces }, await guest(f.look, v.world));
+    const dpr = window.devicePixelRatio || 1;
+    const K = Math.max(1, Math.floor((PEEK_W * dpr) / v.world.w));
+    const canvas = h('canvas', { class: 'fr-peek-tank', role: 'img', 'aria-label': `@${f.login}’s tank`, 'aria-describedby': `${region.id}-text` });
+    canvas.width = v.world.w * K;
+    canvas.height = v.world.h * K;
+    canvas.style.width = `${(v.world.w * K) / dpr}px`;
+    const g = canvas.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(pic, 0, 0, canvas.width, canvas.height);
+    region.replaceChildren(canvas, h('p', { class: 'small muted', id: `${region.id}-text`, text: describe(f.login, v) }));
+  }
+
+  function togglePeek(f, btn, region) {
+    const open = region.hidden;
+    region.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) { peeking.add(f.login.toLowerCase()); fillPeek(region, f); } else peeking.delete(f.login.toLowerCase());
+  }
+
   function friendRow(f) {
     const seen = f.card?.updatedAt ? `around ${SB.relTime(f.card.updatedAt)}` : '';
     const status = !f.card ? "No calling card yet. They'll need Visiting crabs on." : [`Level ${f.card.level}`, seen].filter(Boolean).join(' · ');
     const waves = h('select', { class: 'field fr-wave', 'aria-label': `Wave to @${f.login}`, disabled: !f.card },
       ...view.waves.map(w => h('option', { value: w.id, text: w.text })));
+    const hasTank = !!f.card?.tank;
+    const open = hasTank && peeking.has(f.login.toLowerCase());
+    const region = h('div', { class: 'fr-peek', id: peekId(f.login), hidden: !open });
+    const peekBtn = hasTank ? h('button', {
+      type: 'button', class: 'btn ghost slim-btn', 'aria-expanded': String(open), 'aria-controls': region.id,
+      onclick: e => togglePeek(f, e.currentTarget, region),
+    }, 'Peek at their tank') : null;
+    if (open) fillPeek(region, f);
     return h('li', { class: 'fr-friend' },
       f.look ? crab(f.look) : h('span', { class: 'fr-crab fr-crab-none', 'aria-hidden': 'true', text: '?' }),
       h('div', { class: 'fr-who' }, h('b', { text: `@${f.login}` }), h('span', { class: 'small muted', text: status })),
@@ -28,7 +92,9 @@
         h('button', { type: 'button', class: 'btn ghost slim-btn', disabled: !f.card, onclick: () => invite(f.login) }, 'Invite over'),
         waves,
         h('button', { type: 'button', class: 'btn ghost slim-btn', disabled: !f.card, onclick: e => wave(f.login, waves.value, e.currentTarget) }, 'Wave'),
-        h('button', { type: 'button', class: 'btn ghost slim-btn fr-remove', 'aria-label': `Remove @${f.login}`, onclick: () => remove(f.login) }, '×')));
+        peekBtn,
+        h('button', { type: 'button', class: 'btn ghost slim-btn fr-remove', 'aria-label': `Remove @${f.login}`, onclick: () => remove(f.login) }, '×')),
+      region);
   }
 
   function render(v) {

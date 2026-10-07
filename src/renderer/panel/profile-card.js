@@ -33,15 +33,78 @@
     return serializer.serializeToString(svg);
   }
 
-  function crab(box) {
+  // scale: card px per sprite pixel; by default as big as fits the box. He stands at its bottom, in the middle.
+  function crab(box, scale = null) {
     // His shell stickers, only from projects known to be on show (an unknown id stays off).
     const shown = new Set((state.stickers?.projects || []).filter(p => !p.hidden).map(p => p.id));
     const onShell = (state.outfit?.stickers || []).filter(st => shown.has(st.id));
     const svg = SB.sprite(state.skin, { fit: true, shell: state.outfit?.home ?? null, stickers: onShell });
     if (!(svg instanceof SVGElement)) return '';
     const [, , vw, vh] = (svg.getAttribute('viewBox') || '0 0 22 13').split(' ').map(Number);
-    const k = Math.min(box.w / vw, box.h / vh);
+    const k = scale || Math.min(box.w / vw, box.h / vh);
     return place(svg, box.x + (box.w - vw * k) / 2, box.y + box.h - vh * k, vw * k, vh * k);
+  }
+
+  // ------------------------------------------------------------ his tank (tank.js), as plain SVG
+
+  const MAX_TANK_PIECES = 24; // keeps the SVG small
+  const r1 = n => Math.round(n * 10) / 10;
+
+  // A tile (floor, back glass) as a pattern, and a rect it fills.
+  function tileFill(id, item, k, x, y, w, h) {
+    if (!item?.pixels?.length) return { defs: '', rect: '' };
+    const tw = Math.max(...item.pixels.map(r => r.length)) * k, th = item.pixels.length * k;
+    const art = place(SB.Sprite.grid(item.pixels, item.palette), 0, 0, tw, th);
+    return {
+      defs: `<pattern id="${id}" patternUnits="userSpaceOnUse" x="${r1(x)}" y="${r1(y)}" width="${r1(tw)}" height="${r1(th)}">${art}</pattern>`,
+      rect: `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" fill="url(#${id})"/>`,
+    };
+  }
+
+  // What the calling card would carry too (tank-share.js): built-in decor and his finds, not jars or pack decor.
+  const shareable = p => !p.ref.includes('/') && !p.ref.startsWith('jar:');
+
+  /**
+   * His decorated tank filling `box`, cropped around its biggest piece, with him
+   * in the middle row: { defs, body, pieces }, or null when there's nothing in
+   * it or you keep it off your cards (Tank → On your cards).
+   * Static on purpose: the card is a picture of the day, whatever the clock says.
+   */
+  function tankScene(box) {
+    const all = SB.tankView?.();
+    if (!all?.shareCard || !all.world) return null;
+    const v = { ...all, pieces: all.pieces.filter(shareable) };
+    if (!v.pieces.length) return null;
+    const { world } = v;
+    const k = box.h / world.h;
+    const cropW = Math.min(world.w, box.w / k);
+    const x0 = Math.max(0, Math.min(world.w - cropW, v.focusX - cropW / 2));
+    const X = ax => box.x + (ax - x0) * k, Y = ay => box.y + ay * k;
+    const water = SB.tankPaint.WATER[v.style.light === 'night' ? 'night' : 'day'];
+    const tileOf = item => (item?.ref && !item.ref.includes('/') ? item : null); // a pack's floor stays home too
+    const back = tileFill('tkb', tileOf(v.style.backdrop), k, X(0), Y(0), world.w * k, (world.sandTop + 2) * k);
+    const floor = tileFill('tkf', tileOf(v.style.substrate), k, X(0), Y(world.sandTop), world.w * k, (world.h - world.sandTop) * k);
+    const shown = v.pieces.filter(p => p.x + p.w > x0 && p.x < x0 + cropW).slice(0, MAX_TANK_PIECES);
+    const depth = p => (p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row);
+    const piece = p => {
+      const x = X(p.x), w = p.w * k;
+      const art = place(SB.Sprite.grid(p.pixels, p.palette), x, Y(p.y - p.h + 1), w, p.h * k);
+      return p.flip ? `<g transform="matrix(-1 0 0 1 ${r1(2 * x + w)} 0)">${art}</g>` : art;
+    };
+    const him = crab({ x: X(x0 + cropW * 0.62) - 100, y: box.y, w: 200, h: Y(world.crabY + 1) - box.y }, k);
+    const behind = shown.filter(p => depth(p) <= 2), front = shown.filter(p => depth(p) > 2);
+    const body = [
+      back.rect || `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="${water.low}"/>`,
+      `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${r1((world.sandTop + 2) * k)}" fill="url(#tkw)" fill-opacity=".55"/>`,
+      floor.rect || `<rect x="${box.x}" y="${r1(Y(world.sandTop))}" width="${box.w}" height="${r1((world.h - world.sandTop) * k)}" fill="#a8946c"/>`,
+      `<g shape-rendering="crispEdges">${behind.map(piece).join('')}</g>`,
+      `<g class="crab" shape-rendering="crispEdges">${him}</g>`,
+      `<g shape-rendering="crispEdges">${front.filter(p => p.layer !== 'float').map(piece).join('')}</g>`,
+      water.shade ? `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="#020a10" fill-opacity="${water.shade}"/>` : '',
+      `<g shape-rendering="crispEdges">${front.filter(p => p.layer === 'float').map(piece).join('')}</g>`,
+    ].join('\n');
+    const defs = `<linearGradient id="tkw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${water.top}"/><stop offset="1" stop-color="${water.low}"/></linearGradient>${back.defs}${floor.defs}`;
+    return { defs, body, pieces: shown.length };
   }
 
   // Your own latest stickers, minus hidden projects and friends' swaps. Pictures only.
@@ -81,7 +144,17 @@
     const sandY = tank.y + tank.h - 30;
     // The Bugdex as a bare count (no species, no projects), once there's a catch to show.
     const dex = state.bugdex?.caught > 0 ? { caught: state.bugdex.caught, of: state.bugdex.of } : null;
-    const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}${dex ? `, Bugdex ${dex.caught} of ${dex.of}` : ''}`;
+    // His decorated tank when there's something in it; plain sand otherwise.
+    const decorated = tankScene(tank);
+    const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}${dex ? `, Bugdex ${dex.caught} of ${dex.of}` : ''}${decorated ? `, in his tank with ${decorated.pieces} piece${decorated.pieces === 1 ? '' : 's'} of decor` : ''}`;
+    const inTank = decorated ? decorated.body : `<rect x="${tank.x}" y="${tank.y}" width="${tank.w}" height="${tank.h}" fill="${C.abyss}" fill-opacity=".7"/>
+<rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="30" fill="#7a6a4b"/>
+<rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="5" fill="#a8946c"/>
+<circle class="bubble" cx="${tank.x + 30}" cy="${sandY - 8}" r="3" fill="none" stroke="${C.glass}"/>
+<circle class="bubble b2" cx="${tank.x + tank.w - 34}" cy="${sandY - 4}" r="2.5" fill="none" stroke="${C.glass}"/>
+<circle class="bubble b3" cx="${tank.x + tank.w / 2 + 20}" cy="${sandY - 10}" r="2" fill="none" stroke="${C.glass}"/>
+<ellipse cx="${tank.x + tank.w / 2}" cy="${sandY + 6}" rx="52" ry="5" fill="#000" fill-opacity=".3"/>
+<g class="crab" shape-rendering="crispEdges">${crab({ x: tank.x + 14, y: tank.y + 16, w: tank.w - 28, h: sandY + 8 - tank.y - 16 })}</g>`;
 
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="t">
 <title id="t">${esc(alt)}</title>
@@ -98,17 +171,11 @@
 <defs>
 <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.water}"/><stop offset="1" stop-color="${C.abyss}"/></linearGradient>
 <clipPath id="tank"><rect x="${tank.x}" y="${tank.y}" width="${tank.w}" height="${tank.h}" rx="12"/></clipPath>
+${decorated ? decorated.defs : ''}
 </defs>
 <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="14" fill="url(#bg)" stroke="${C.glass}" stroke-opacity=".25"/>
 <g clip-path="url(#tank)">
-<rect x="${tank.x}" y="${tank.y}" width="${tank.w}" height="${tank.h}" fill="${C.abyss}" fill-opacity=".7"/>
-<rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="30" fill="#7a6a4b"/>
-<rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="5" fill="#a8946c"/>
-<circle class="bubble" cx="${tank.x + 30}" cy="${sandY - 8}" r="3" fill="none" stroke="${C.glass}"/>
-<circle class="bubble b2" cx="${tank.x + tank.w - 34}" cy="${sandY - 4}" r="2.5" fill="none" stroke="${C.glass}"/>
-<circle class="bubble b3" cx="${tank.x + tank.w / 2 + 20}" cy="${sandY - 10}" r="2" fill="none" stroke="${C.glass}"/>
-<ellipse cx="${tank.x + tank.w / 2}" cy="${sandY + 6}" rx="52" ry="5" fill="#000" fill-opacity=".3"/>
-<g class="crab" shape-rendering="crispEdges">${crab({ x: tank.x + 14, y: tank.y + 16, w: tank.w - 28, h: sandY + 8 - tank.y - 16 })}</g>
+${inTank}
 </g>
 <rect x="${tank.x}" y="${tank.y}" width="${tank.w}" height="${tank.h}" rx="12" fill="none" stroke="${C.glass}" stroke-opacity=".18"/>
 <text x="${x0}" y="38" class="mono" font-size="11" font-weight="600" letter-spacing="1" fill="${C.coral}">${esc(whose.toUpperCase())}</text>
@@ -261,6 +328,7 @@ ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="
   api.onWardrobe(() => checkSoon());
   api.onXp(() => checkSoon());
   api.onBugdex?.(() => checkSoon());
+  document.addEventListener('sb:tank', () => checkSoon()); // his tank (tank.js) changed
 
   const copy = (text, what) => { if (!text) return; api.copyText(text); SB.toast(`${what} copied.`); };
 

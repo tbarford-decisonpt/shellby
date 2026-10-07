@@ -543,6 +543,40 @@
       }
     },
     {
+      "id": "guest-bench",
+      "name": "Guest Bench",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "A bench with a cushion, for when a friend's crab drops by. He sits on it while he waits.",
+      "palette": {
+        "w": "#a0703a",
+        "W": "#6b4423",
+        "c": "#ff7a5c",
+        "C": "#ffb199"
+      },
+      "pixels": [
+        ".wwwwwwwwww.",
+        ".WWWWWWWWWW.",
+        ".w........w.",
+        "wwCcCcCcCcww",
+        "WWWWWWWWWWWW",
+        ".W........W.",
+        ".W........W."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            6,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "house-guest"
+      }
+    },
+    {
       "id": "lighthouse",
       "name": "Lighthouse",
       "category": "structure",

@@ -107,13 +107,14 @@ class Friends extends EventEmitter {
    * config: Shellby's Config. github: the GitHubService (can/gh/view).
    * myCard(): your look as a card. canVisit(): is he free for company (idle,
    * not guarding your focus)? dropIns(): may a friend turn up on their own
-   * (not in Work mode); an invite doesn't ask. Emits 'change' (view), 'visit' ({ login, card,
+   * (not in Work mode); an invite doesn't ask. sharesTank(): is his tank on
+   * your card (a visit then counts for House Guest)? Emits 'change' (view), 'visit' ({ login, card,
    * until } or null when they leave), 'together' ({ id, line, ms }: do something
    * together, only while he's free), 'wave' ({ from, wave, text }), 'record' (stat event).
    */
-  constructor({ config, github, myCard, canVisit = () => true, dropIns = () => true, now = () => Date.now(), rand = Math.random }) {
+  constructor({ config, github, myCard, canVisit = () => true, dropIns = () => true, sharesTank = () => false, now = () => Date.now(), rand = Math.random }) {
     super();
-    Object.assign(this, { config, github, myCard, canVisit, dropIns, now, rand });
+    Object.assign(this, { config, github, myCard, canVisit, dropIns, sharesTank, now, rand });
     this.timer = null;
     this.leaveTimer = null;
     this.togetherTimers = [];
@@ -295,6 +296,7 @@ class Friends extends EventEmitter {
     this.planTogether();
     // Counted first: a trophy it unlocks has a line of its own, and the visitor's goes last.
     if (signs) this.emit('record', 'visitor-hosted');
+    if (signs && this.sharesTank()) this.emit('record', 'house-guest'); // they could peek at his tank
     this.emit('visit', this.visiting);
     this.emit('change', this.view());
   }

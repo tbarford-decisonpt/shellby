@@ -19,6 +19,7 @@ const { GitHubService } = require('../github/service');
 const { SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('../marketplace');
 const shells = require('../shells');
 const stickers = require('../stickers');
+const tankShare = require('../tank-share');
 const voice = require('../voice');
 const { KNOWN_ACHIEVEMENTS } = require('../wardrobe/achievements');
 const { validatePack } = require('../wardrobe/catalog');
@@ -59,7 +60,8 @@ function wireGithub(d) {
       if (patch.wardrobe && JSON.stringify(patch.wardrobe.outfit) !== JSON.stringify(prev.wardrobe?.outfit)) { stamps.outfitAt = Date.now(); changed = true; }
       if (changed) d.config.set({ syncStamps: stamps });
       const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
-      if (changed || stickersMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
+      const tankMoved = 'tank' in patch && JSON.stringify(tankShare.syncable(patch.tank)) !== JSON.stringify(tankShare.syncable(prev.tank));
+      if (changed || stickersMoved || tankMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
@@ -211,8 +213,10 @@ function wireGithub(d) {
           // What his crab and yours talk about when they meet (banter.js).
           temperament: voice.temperamentOf(voice.normalize(d.config.get('voice')).seed),
           find: gifts.favourite(d.config.get('finds'))?.id || null,
+          tank: tankShare.forCard(d.config.get('tank')), // only if you share it
         };
       },
+      sharesTank: () => !!tankShare.forCard(d.config.get('tank')), // a visit then counts for House Guest
       // Company only when he's free: not working, not guarding your focus, no helpers out.
       canVisit: () => d.lastStatus.state === 'idle' && !d.lastStatus.crew && !focus.guarding(d.config.get('focus'), Date.now()) && !d.playtime?.busy(),
       dropIns: () => workmode.behaviourOf(d.config).dropIns, // Work mode: only when you invite them
@@ -327,7 +331,7 @@ function wireGithub(d) {
       const response = await d.askOnce({
         icon: '🦀',
         title: 'Let friends\' crabs visit?',
-        message: 'Shellby puts a small calling card on your GitHub as a public gist: your crab\'s outfit, colors, shell and level, under your GitHub username.',
+        message: 'Shellby puts a small calling card on your GitHub as a public gist: your crab\'s outfit, colors, shell and level, under your GitHub username. His stickers and his tank only go on it if you choose to share them.',
         detail: 'Friends you add by GitHub username can then have your crab over, and you theirs. Waves arrive as comments on the card, and only from friends you added. No stats, projects or history go on it, though anyone can see when it was last updated (about once a day while Shellby runs).',
         note: 'Turning this off deletes the card again.',
         buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
