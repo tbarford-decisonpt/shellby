@@ -172,7 +172,7 @@ body.bit-peekaboo.state-idle #sprite, body.bit-peekaboo #sprite { animation: jum
 body.bit-peekaboo .part-claw { animation: wave .25s ease-in-out infinite; }
 
 /* on a call: the "shh" sign stays up (critter.js) and he keeps very still */
-.on-call.state-idle #sprite { animation: breathe 5s ease-in-out infinite; }
+.on-call.state-idle #sprite { animation: breathe 5s steps(1) infinite; } /* stepped: eased, it drew every tick of a whole call */
 .on-call.state-idle #bubble { background: var(--glass); }
 .on-call.state-idle #bubble::after { border-top-color: var(--glass); }
 

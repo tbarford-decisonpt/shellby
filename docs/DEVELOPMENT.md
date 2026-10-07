@@ -136,11 +136,20 @@ interleaved runs on a shared, busy desktop: expect ±1 point):
 
 | State | CPU | Resident |
 |---|---|---|
-| Panel closed, crab visible, no seasonal outfit | ~1.5–3% | ~500 MB |
-| Panel closed, crab visible, the October bats | ~3–4% | ~500 MB |
+| Panel closed, crab visible, the October bats (default) | ~1.6–2.1% (GPU process 0.7–1.4, main 0.3, crab 0.1–0.3) | ~495 MB |
 | Panel open behind your windows, no outfit | ~0.5–0.8% (crab and panel both calm or covered) | ~490 MB |
-| Panel open and focused, no outfit | ~4% | ~500 MB |
+| Panel open and focused | ~4% (the panel's drifting light ticks at 12 fps) | ~500 MB |
 | Nobody at the desk for 5 minutes (any outfit) | ~0.1% | ~490 MB |
+
+The first row was ~3.4–4.2% before the bats flew in flights and the idle went
+to pixel-art frames (interleaved with the same build minus those, same hour).
+Of what's left, about half is his idle (about one frame a second: the breathe,
+a blink, the snap) and half is life: a habit (dig, polish, peek...) about once
+a minute at 12 fps for two or three seconds, a stroll, and a bat flight every
+three minutes. Under 1% would mean fewer of those, which is a call about how
+alive he looks rather than a fix. `--unfocused` on a busy desktop may leave the
+panel focused (Notepad doesn't always get the foreground): if the panel's body
+has no `calm` class, you measured the focused row.
 
 Before this round (0.71.0) the crab alone was ~7% and a panel opened behind
 your windows ~3.8%; the 37% / 75% of earlier releases went with the 12 fps
@@ -158,12 +167,19 @@ the work is in drawing fewer frames, not cheaper ones:
   when that tick changes the picture (it reads the keyframes once). A loop that
   eases the whole way round (the bats' orbit, a working hop) still draws every
   tick; one that steps (the idle breathe, blink and claw snap) draws a few
-  frames a cycle. Prefer `steps()` for anything that runs all day.
-- **Particle effects** (the seasonal bats are on by default in October) are
-  continuous and cost ~2 points while he's visible. They stop with everything
-  else when he's covered, the screen is locked, or nobody is at the desk.
+  frames a cycle. Prefer `steps()` for anything that runs all day. A step at
+  the start of a hold changes nothing, so `steps(n)` (jump-end) isn't moved there.
+- **Particle effects** (the seasonal bats are on by default in October) cost
+  ~2 points while they play, so on the crab's window they come in flights
+  (effects.js `FLIGHT`: 8 s every 3 min, fading in and out) and the particles
+  are removed in between. Previews (the wardrobe, the OBS overlay) play them
+  all the time. They stop with everything else when he's covered, the screen
+  is locked, or nobody is at the desk.
+- **The window in front** is read once for the game and cover checks
+  (front-poll.js): its exe is kept while it stays in front, and the poll goes
+  from 2 s to 5 s after half a minute without a change.
 - **Away**: no key or mouse for five minutes (`powerMonitor.getSystemIdleTime`,
-  in the cover poll in wiring/windows.js) is treated like being covered.
+  in the front poll in wiring/windows.js) is treated like being covered.
   Isolated dev and test runs never count as away unless `SHELLBY_AWAY_S` is set.
 
 The `calm` and `calm-deep` classes (see panel.css and `watchIdleCost` in wiring/windows.js)

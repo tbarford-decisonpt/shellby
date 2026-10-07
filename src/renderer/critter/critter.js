@@ -82,8 +82,8 @@ api.onSkin(msg => {
   document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
   drawSelf();
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, helperHats.get(el)));
-  // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
-  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
+  // Equipped effect (snow, bats, ...) plays around Shellby in flights now and then (effects.js FLIGHT); burst effects wait for a finished task.
+  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)), flights: true });
   // Real rain outside beats the snow he chose to wear.
   const effect = outfit.weather?.effect || outfit.effect;
   if (effect?.key !== shownEffect) { shownEffect = effect?.key ?? null; fx.set(effect); }
