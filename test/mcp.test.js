@@ -82,7 +82,7 @@ test('tools/list describes every tool with a schema', async () => {
   const { replies } = await talk([INIT, { jsonrpc: '2.0', id: 2, method: 'tools/list' }]);
   const tools = replies[1].result.tools;
   assert.deepEqual(tools.map(t => t.name).sort(),
-    ['add_routine', 'add_workflow', 'celebrate', 'list_routines', 'list_workflows', 'run_workflow', 'say', 'status', 'wear']);
+    ['add_routine', 'add_task', 'add_workflow', 'celebrate', 'list_routines', 'list_workflows', 'next_up', 'run_workflow', 'say', 'status', 'wear']);
   for (const t of tools) {
     assert.ok(t.description.length > 40, `${t.name} explains itself`);
     assert.equal(t.inputSchema.type, 'object');
@@ -576,6 +576,8 @@ test('the plugin\'s tools and the app\'s actions are the same set', () => {
       list_workflows: {},
       run_workflow: { name: 'Red build fixer', inputs: { branch: 'main', retries: 2 } },
       add_workflow: { workflow: server.WORKFLOW_EXAMPLE },
+      next_up: {},
+      add_task: { title: 'Retry the sync once when offline' },
     }[t.name];
     const { action, args, error } = toAction(t.name, sample);
     assert.equal(error, undefined, `${t.name}: ${error}`);

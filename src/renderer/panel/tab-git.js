@@ -130,6 +130,8 @@
     if (!w) return;
     // Other tries at the same thing (branching.js): compare with them, or keep this one.
     const family = $('branchMenu').hidden ? await api.branchFamily(tab.id).catch(() => []) : [];
+    // From Next up: open a draft pull request from here (backlog.js).
+    const fromBacklog = $('branchMenu').hidden ? await SB.backlog.copyMenuItems(tab) : [];
     const others = family.filter(f => !f.current);
     const status = h('span', { class: 'mi-sub', text: 'Looking at the copy…' });
     api.worktreeStatus(tab.id).then(s => {
@@ -156,6 +158,7 @@
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab, { finish: true }); } },
         h('span', { class: 'mi-check', text: '✓' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs move to Done in History' }))),
+      ...fromBacklog,
       h('button', { class: 'menu-item', role: 'menuitemcheckbox', 'aria-checked': String(checksHome(tab)), onclick: () => { SB.closeMenus(); tab.checkHome = !checksHome(tab); SB.toast(tab.checkHome ? "He'll run the tests in this copy before bringing it home." : "He won't run the tests before bringing this one home."); } },
         h('span', { class: 'mi-check', 'aria-hidden': 'true', text: checksHome(tab) ? '✓' : '' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Check before bringing home' }), h('div', { class: 'mi-sub', text: 'Run the tests in the copy first, and stop if any fail' }))),

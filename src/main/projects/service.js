@@ -82,6 +82,17 @@ class Projects extends EventEmitter {
     return this.listed.get(caseKey(root)) || null;
   }
 
+  /** Is this a GitHub repository the page was shown (owner/name)? For a project that's only on GitHub. */
+  knowsRepo(repo) {
+    return typeof repo === 'string' && !!this.repos?.has(repo.toLowerCase());
+  }
+
+  /** The GitHub repository a listed clone is of (its origin), or null. */
+  async repoOf(root) {
+    const want = caseKey(root);
+    return (await this.localRepos()).find(r => caseKey(r.root) === want)?.remote || null;
+  }
+
   // ------------------------------------------------------------------ the list
 
   async localRepos({ force = false } = {}) {
@@ -117,6 +128,7 @@ class Projects extends EventEmitter {
     const projects = merge(locals, remote, { hidden: new Set(this.state.hidden), lastWorked: this.deps.lastWorked(), running });
     this.listed = new Map();
     this.names = new Map();
+    this.repos = new Set(projects.map(p => p.github?.repo?.toLowerCase()).filter(Boolean));
     for (const p of projects) {
       for (const c of p.local) {
         this.listed.set(caseKey(c.root), c.root);

@@ -64,6 +64,7 @@ function registerRepoIpc(ipcMain, d) {
         d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
         d.noteWeek('home'); // the weekly card's "brought N branches home"
         d.questDone?.('home');
+        d.backlogHome?.(tabId); // a Next up task's work came home: offer to tick it off (wiring/backlog.js)
         if (firstTry) d.surprises.landed(tabId, { branch: w.branch, base: w.base });
       }
       d.refreshClashes?.(w.root); // its work is in the base now, so it clashes with nothing

@@ -24,7 +24,11 @@ const MAX_ROUTINE_LINES = 20;
 // text read differently from what it says.
 const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
-const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow'];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', 'next_up', 'add_task'];
+
+// Next up (wiring/backlog.js): the folder Claude or the terminal is in, and a task's title.
+const MAX_CWD = 1024;
+const MAX_TASK = 200;
 
 // Workflows. The full check of a proposed workflow is schema.js's
 // validateWorkflow in main; this only bounds what is handed to it.
@@ -72,6 +76,11 @@ function parseRequest(body) {
     }
     case 'add_workflow':
       return parseWorkflowProposal(args.workflow);
+    case 'next_up':
+    case 'add_task': {
+      const r = parseBacklogArgs(action, args);
+      return r.ok ? { ok: true, intent: { action, ...r.args } } : r;
+    }
     default:
       return { ok: true, intent: { action } };
   }
@@ -171,6 +180,31 @@ function routineReply(routine, { added, replaced = false, next = null }) {
   const when = describeSchedule(routine.schedule);
   const nextText = Number.isFinite(next) ? ` Next run: ${new Date(next).toLocaleString()}.` : '';
   return `${replaced ? 'Changed' : 'Added'} the "${routine.name}" routine (${when}).${nextText} The user can pause, edit or delete it from Shellby's Routines page.`;
+}
+
+/**
+ * Next up's arguments, from the MCP server (next_up, add_task) or the command
+ * (next, task-add, task-done): an absolute folder, and a title or a number.
+ * -> { ok: true, args: { cwd, title?, n? } } | { ok: false, error }
+ */
+function parseBacklogArgs(action, raw) {
+  const args = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : '';
+  // An absolute Windows (C:\…, \\server\…) or POSIX path, and nothing that could be read as anything else.
+  // A fresh, non-global copy of UNSAFE: .test on the /g one carries lastIndex from call to call.
+  if (!cwd || cwd.length > MAX_CWD || new RegExp(UNSAFE.source).test(cwd) || /[\t\r\n]/.test(cwd) ||!/^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(cwd)) return { ok: false, error: 'Next up needs the folder you\'re in, as a full path.' };
+  if (action === 'add_task' || action === 'task-add') {
+    const title = clip(args.title, MAX_TASK + 1);
+    if (!title) return { ok: false, error: 'add_task needs the task, in a few words.' };
+    if (title.length > MAX_TASK) return { ok: false, error: `Keep a task under ${MAX_TASK} characters.` };
+    return { ok: true, args: { cwd, title } };
+  }
+  if (action === 'task-done') {
+    const n = Number(args.n);
+    if (!Number.isInteger(n) || n < 1 || n > 999) return { ok: false, error: 'Which item? A number from shellby next.' };
+    return { ok: true, args: { cwd, n } };
+  }
+  return { ok: true, args: { cwd } };
 }
 
 /**
@@ -345,7 +379,7 @@ function ackReply(intent) {
 module.exports = {
   parseRequest, matchItem, wearReply, statusReply, ackReply,
   routineQuestion, routineReply, routinesReply,
-  parseWorkflowCall, workflowsReply,
+  parseWorkflowCall, workflowsReply, parseBacklogArgs,
   ACTIONS, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
-  MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY,
+  MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY, MAX_TASK,
 };

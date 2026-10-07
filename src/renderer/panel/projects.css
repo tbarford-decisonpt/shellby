@@ -248,11 +248,8 @@ body[data-view="projects"] .view-projects {
 .sf-risk-list { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 .sf-risk-list code { font: var(--fs-11) var(--font-mono); color: var(--sand); overflow-wrap: anywhere; }
 .sf-risk-ack { font-weight: 600; }
-.sf-loose-row { grid-template-columns: auto minmax(0, 1fr) auto; }
-.sf-loose-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-10-5) var(--font-mono); }
 .sf-tag { font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .04em; padding: 2px 5px; border-radius: 4px; color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line-soft); }
 .sf-tag.fixme, .sf-tag.hack { color: var(--coral); border-color: color-mix(in srgb, var(--coral) 40%, transparent); }
-.sf-loose-foot { margin-top: 6px; gap: 10px; align-items: center; }
 
 /* ---------- scan and clone sheets ---------- */
 .pj-sheet { display: grid; gap: 10px; }
@@ -266,3 +263,23 @@ body[data-view="projects"] .view-projects {
 .pj-progress { height: 6px; border-radius: 99px; background: var(--abyss); overflow: hidden; }
 .pj-progress[hidden] { display: none; }
 .pj-progress-bar { display: block; height: 100%; width: 0; background: var(--glass); transition: width .2s ease-out; }
+
+/* Next up (backlog.js): the first card on a project's page */
+.bl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.bl-head .row-label { margin: 0; }
+.bl-filter { padding: 2px; }
+.bl-filter button { font-size: var(--fs-11); padding: 2px 8px; white-space: nowrap; }
+.bl-milestone { margin: 0 0 8px; color: var(--sand-dim); }
+.bl-milestone b { color: var(--sand); font-weight: 600; }
+.bl-add.field.slim { display: block; width: 100%; box-sizing: border-box; margin: 0 0 8px; }
+.bl-row { grid-template-columns: 52px minmax(0, 1fr) auto; }
+.bl-row > .bl-tag, .bl-row > .sf-tag { justify-self: start; }
+.bl-tag { font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .04em; padding: 2px 5px; border-radius: 4px; color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line-soft); min-width: 3ch; text-align: center; }
+.bl-tag.issue { color: var(--glass); border-color: color-mix(in srgb, var(--glass) 35%, transparent); }
+.bl-tag.now { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.bl-where { font: var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.bl-more { width: 26px; height: 26px; }
+.bl-rename { width: 100%; }
+.bl-foot { margin-top: 6px; gap: 10px; align-items: center; }
+.bl-note { margin: 6px 0 0; line-height: 1.45; }
+.bl-note .link-btn { vertical-align: baseline; }

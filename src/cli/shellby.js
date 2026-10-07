@@ -10,6 +10,8 @@
 //   shellby time last-week                  hours on each project, for an invoice
 //   shellby do @review                      run a saved prompt snippet
 //   shellby take                            open this folder's Claude Code session in Shellby
+//   shellby next                            what to work on in this project (Next up)
+//   shellby task add "release notes"         a task on this project's list (.shellby/tasks.md)
 //
 // Self-contained plain Node (builtins only): Shellby copies this file next to
 // its shim in %LOCALAPPDATA%\Shellby\bin, so it never has to be read out of the
@@ -36,6 +38,8 @@ const INPUT_KEY = /^[a-z][a-z0-9_]{0,31}$/;
 const MAX_INPUTS = 10;
 const MAX_INPUT_VALUE = 2000;
 const MAX_FLOW_NAME = 60;
+// A task's title, as Shellby keeps it (backlog/tasks.js MAX_TITLE).
+const MAX_TASK = 200;
 
 const TIME_RANGES = ['today', 'week', 'last-week', 'month', 'last-month'];
 // A saved snippet, as Shellby names them (snippets.js NAME). Lowercase only, so
@@ -59,6 +63,10 @@ const USAGE = `shellby - the desktop crab, from your terminal
   shellby flow list           your workflows, and which ones Claude Code may run
   shellby flow run <name...> [key=value ...]
                               start a workflow that has the "Claude Code" trigger
+  shellby next                what to work on in this project, ranked: your tasks,
+                              its GitHub issues and the TODOs in its code
+  shellby task add <text...>  add a task to this project's .shellby/tasks.md
+  shellby task done <n>       tick off item n of shellby next (one of your tasks)
   shellby time [range] [--git] hours on each project: ${TIME_RANGES.join(' | ')}
                               (default: week). --git fills untracked days from your commits
   shellby help                this
@@ -193,6 +201,24 @@ function parseArgs(argv) {
     return args.length ? { cmd: 'take', id: args[0] } : { cmd: 'take' };
   }
 
+  if (first === 'next') return args.length ? { error: 'shellby next takes nothing after it.' } : { cmd: 'next' };
+
+  if (first === 'task') {
+    const sub = args.shift();
+    if (sub === 'add') {
+      const title = args.join(' ').replace(/\s+/g, ' ').trim();
+      if (!title) return { error: 'Add what? (shellby task add "release notes for 0.71")' };
+      if (title.length > MAX_TASK) return { error: `Keep a task under ${MAX_TASK} characters.` };
+      return { cmd: 'task-add', title };
+    }
+    if (sub === 'done') {
+      const n = Number(args[0]);
+      if (args.length !== 1 || !Number.isInteger(n) || n < 1 || n > 999) return { error: 'Which one? (shellby task done 2, numbered as shellby next lists them)' };
+      return { cmd: 'task-done', n };
+    }
+    return { error: 'Usage: shellby task add <text...> | shellby task done <n>' };
+  }
+
   if (first === 'time') {
     const opts = { cmd: 'time', range: 'week', estimates: false };
     for (const a of args) {
@@ -276,6 +302,9 @@ async function main(argv) {
   if (cmd.cmd === 'take') {
     return cliRequest({ action: 'take', args: { cwd: process.cwd(), ...(cmd.id ? { id: cmd.id } : {}) } }, token, { fallback: 'Opened in Shellby.' });
   }
+  if (cmd.cmd === 'next') return cliRequest({ action: 'next', args: { cwd: process.cwd() } }, token, { fallback: 'Nothing waiting.' });
+  if (cmd.cmd === 'task-add') return cliRequest({ action: 'task-add', args: { cwd: process.cwd(), title: cmd.title } }, token, { fallback: 'Added.' });
+  if (cmd.cmd === 'task-done') return cliRequest({ action: 'task-done', args: { cwd: process.cwd(), n: cmd.n } }, token, { fallback: 'Ticked off.' });
   if (cmd.cmd === 'flow-run') return cliRequest({ action: 'flow-run', name: cmd.name, inputs: cmd.inputs }, token, { fallback: 'Started.' });
 
   // do
@@ -321,4 +350,4 @@ if (require.main === module) {
     .catch(e => { err(`shellby: ${e?.message || e}`); process.exit(EXIT.error); });
 }
 
-module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, SNIPPET, SESSION_ID };
+module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, MAX_TASK, SNIPPET, SESSION_ID };

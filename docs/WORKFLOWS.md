@@ -234,6 +234,12 @@ and he:
 Opening it pays XP, and when it's merged the project earns its sticker like
 any other merge.
 
+You can also hand it an issue yourself: **⋯ → Hand it to the Issue helper** on
+a project's [Next up](PROJECTS.md#next-up) list starts it for that issue
+(trigger event `picked`) and skips the question, since you've already said
+yes (when someone else wrote the issue, Shellby asks first). Only workflows with an Issue trigger for any issue are offered. A copy of
+the template from before this skips nothing and asks once more.
+
 What it needs:
 
 - **Offer to take on issues** and **Let Claude tasks push code and open pull

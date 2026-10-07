@@ -61,6 +61,10 @@ function wireCrabApi(d) {
       return d.workflows.proposeFromClaude(intent.workflow);
     }
 
+    // Next up for the project Claude is working in (wiring/backlog.js). Reading
+    // it needs no Claude; adding writes only .shellby/tasks.md in a clone Shellby knows.
+    if (intent.action === 'next_up' || intent.action === 'add_task') return backlogRequest(intent.action, intent);
+
     if (intent.action === 'wear') {
       const items = d.wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
       const match = crabtools.matchItem(intent.item, items);
@@ -135,6 +139,8 @@ function wireCrabApi(d) {
       if (!d.timeTracker) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
       return d.timeTracker.cliText(range, { estimates: body.estimates === true }).then(text => ({ text }));
     }
+    // `shellby next` / `shellby task add|done`: Next up for the project the terminal is in (wiring/backlog.js).
+    if (['next', 'task-add', 'task-done'].includes(body?.action)) return backlogRequest(body.action, body.args);
     // `shellby take`: the Claude Code session in that terminal opens as a tab (wiring/handoff.js).
     if (body?.action === 'take') return d.handoff.take(body);
     if (body?.action === 'flow-list' || body?.action === 'flow-run') {
@@ -161,6 +167,21 @@ function wireCrabApi(d) {
     d.showPanel({ focusInput: false, tabId: r.tabId });
     d.wake();
     return { text: 'Shellby is on it.' };
+  }
+
+  /**
+   * Next up from a terminal or Claude Code: the list, a task added, a task
+   * ticked off, for the project `cwd` is in. -> { text } | { ok: false, error, status }
+   */
+  async function backlogRequest(action, raw) {
+    const checked = crabtools.parseBacklogArgs(action, raw);
+    if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
+    const { cwd, title, n } = checked.args;
+    const r = action === 'next' || action === 'next_up' ? await d.backlogText(cwd)
+      : action === 'task-done' ? await d.backlogDoneFromCwd(cwd, n)
+        // From Claude (MCP), it says so on the list: a task you didn't write shouldn't pass for yours.
+        : await d.backlogAddFromCwd(cwd, action === 'add_task' ? `${title} (added by Claude)` : title);
+    return r.ok ? { text: r.text } : { ok: false, error: r.error, status: r.stale ? 409 : 400 };
   }
 
   /** Write the command, its shims and its token, and put the folder on PATH. */

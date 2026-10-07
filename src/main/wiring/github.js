@@ -275,6 +275,7 @@ function wireGithub(d) {
       d.notify(`Review requested: ${where}`, pr.title, open);
     } else if (type === 'merged') {
       d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
+      d.backlogMerged?.(pr); // one opened from Next up: offer to tick its task off (wiring/backlog.js)
     }
   }
 

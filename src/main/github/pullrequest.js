@@ -68,7 +68,8 @@ async function makeCopy({ repo, slug }, { findRoot, gh, git, create, home, env =
   const made = await create(root, { home, title: slug || 'issue', start: `origin/${base}` });
   if (!made) return fail(`${root} isn't a git repository any more.`);
   if (!made.ok) return made;
-  return { ok: true, path: made.worktree.path, branch: made.worktree.branch, base, repo: r };
+  // worktree: the whole record, for a conversation to work in it (startTaskInCopy's copy).
+  return { ok: true, path: made.worktree.path, branch: made.worktree.branch, base, repo: r, worktree: made.worktree };
 }
 
 /**

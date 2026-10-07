@@ -1,21 +1,19 @@
 /* Shellby panel — start a task from where the work already is
    (src/main/startfrom.js): "Fix this build" and "Address the review" on your
    pull requests (Settings → GitHub, a project's Health card, the red build's
-   notification), and the Loose ends card on a project's page.
+   notification). Loose ends are on Next up now (backlog.js).
 
    The pull request ones open a sheet with the exact prompt main wrote, like a
    crashed server's card: only its Send button sends, and it carries that
    prompt's hash, so main sends exactly what you read or nothing. When the
    pull request changes Claude Code's own files (CLAUDE.md, .claude/, .mcp.json)
    or holds someone else's commits, the sheet names them and Send waits for
-   "I've looked at these", which main checks too. A loose end
-   goes in the box of a new conversation, for you to send. */
+   "I've looked at these", which main checks too. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
 
   const TITLES = { build: 'Fix this build', review: 'Address the review' };
-  const LOOSE_SHOWN = 5;
 
   let open = null;    // { kind, key, from } while the sheet is up
   let shown = null;   // { hash, note, risk }: the draft on screen, the only one Send may send
@@ -147,56 +145,5 @@
   $('sfSheet').addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); } });
   api.onStartFromOpen(o => { if (o && TITLES[o.kind]) openSheet(o.kind, o.key); });
 
-  // ------------------------------------------------------------------ loose ends
-
-  const scans = new Map();      // root -> { items, more } from main, so a redraw doesn't flicker
-  const expanded = new Set();   // roots showing every loose end
-
-  /** The Loose ends card for a clone: TODO, FIXME and HACK comments, each with "Do this". */
-  function looseEndsCard(root, name) {
-    const box = h('section', { class: 'pj-panel sf-loose', 'aria-label': 'Loose ends' }, h('p', { class: 'row-label', text: 'Loose ends' }));
-    const body = h('div', {});
-    box.append(body);
-    const draw = r => {
-      if (!r?.ok) return body.replaceChildren(h('p', { class: 'muted small pj-calm', text: r?.error || 'Couldn\'t look through it.' }));
-      if (!r.items.length) return body.replaceChildren(h('p', { class: 'muted small pj-calm', text: 'No TODO, FIXME or HACK comments in the tracked files. Tidy. 🐚' }));
-      const all = expanded.has(root);
-      const list = all ? r.items : r.items.slice(0, LOOSE_SHOWN);
-      const hidden = r.items.length - list.length + (r.more || 0);
-      body.replaceChildren(
-        h('ul', { class: 'pj-h-list' }, list.map(t => h('li', { class: 'pj-h-row sf-loose-row' },
-          h('span', { class: `sf-tag ${t.tag.toLowerCase()}`, text: t.tag }),
-          h('span', { class: 'pj-h-text' },
-            h('b', { text: t.text || '(no note)', title: t.text }),
-            h('code', { class: 'muted small', text: `${t.file}:${t.line}`, title: `${t.file}:${t.line}` })),
-          h('span', { class: 'pj-h-acts' },
-            h('button', { type: 'button', class: 'btn slim-btn', text: 'Do this', 'aria-label': `Do this: ${t.file} line ${t.line}`, onclick: e => doThis(root, t, e.currentTarget) }))))),
-        h('div', { class: 'row wrap sf-loose-foot' },
-          hidden > 0 && !all && h('button', { type: 'button', class: 'link-btn small', text: `Show ${r.more ? `the first ${r.items.length}` : `all ${r.items.length}`}`, onclick: () => { expanded.add(root); draw(r); } }),
-          r.more > 0 && h('span', { class: 'muted small', text: `${r.more} more past those.` }),
-          h('button', { type: 'button', class: 'link-btn small', text: 'Look again', onclick: () => load(true) })));
-    };
-    const load = async fresh => {
-      const r = await api.looseEnds({ root, fresh }).catch(() => null);
-      if (r?.ok) scans.set(root, r);
-      draw(r);
-    };
-    if (scans.has(root)) draw(scans.get(root));
-    else body.replaceChildren(h('p', { class: 'muted small pj-calm', text: `Looking through ${name} for TODOs…` }));
-    load(false);
-    return box;
-  }
-
-  // Into the box of a new conversation in the project: you read it, you send it.
-  async function doThis(root, t, btn) {
-    if (SB.isCrabOnly()) return SB.claudeUpsell('loose');
-    btn.disabled = true;
-    const r = await api.looseEndDraft({ root, file: t.file, line: t.line }).catch(() => null);
-    btn.disabled = false;
-    if (!r?.ok) return SB.toast(r?.error || 'Couldn\'t read that file.');
-    SB.setView('chat');
-    SB.newTabIn({ cwd: r.cwd, draft: r.draft });
-  }
-
-  SB.startFrom = { open: openSheet, looseEndsCard };
+  SB.startFrom = { open: openSheet };
 })();

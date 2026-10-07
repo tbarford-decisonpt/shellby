@@ -299,7 +299,8 @@ const needsAck = r => !!r && (r.files.length > 0 || r.authors.length > 0 || r.un
 // ------------------------------------------------------------------ loose ends (TODO / FIXME / HACK)
 
 // The tag must follow a comment marker, so `const TODO = []` and "todo app" don't count.
-const TODO_RE = new RegExp(`(?:\\/\\/+|#+|\\/\\*+|^\\s*\\*|<!--|--|;+|^\\s*'|\\bREM\\b|%)\\s*@?(${TODO_TAGS.join('|')})\\b(?:\\([^)]{0,40}\\))?[\\s:.\\-–—]*(.*)$`);
+const TODO_RE = new RegExp(`(?:\\/\\/+|#+|\\/\\*+|^\\s*\\*|<!--|--|;+|^\\s*'|\\bREM\\b|%)\\s*@?(${TODO_TAGS.join('|')})\\b(?:\\(([^)]{0,40})\\))?[\\s:.\\-–—]*(.*)$`);
+const ISSUE_REF = /^\s*(?:([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}))?#(\d{1,9})\s*$/;
 const SKIP_FILE = /(^|\/)(node_modules|vendor|dist|build|out|coverage|\.git)\/|\.min\.(js|css)$|\.(map|lock|svg|snap)$|(^|\/)(package-lock\.json|CHANGELOG\.md)$/i;
 
 /**
@@ -317,8 +318,10 @@ function parseTodoLine(raw) {
   // The comment's closer goes first, or `<!-- TODO -->` would leave a stray "-->".
   const m = TODO_RE.exec(text.replace(/\s*(\*\/|-->)\s*$/, ''));
   if (!m) return null;
-  const note = oneLine(m[2], MAX_TODO_TEXT);
-  return { file, line, tag: m[1], text: note };
+  const note = oneLine(m[3], MAX_TODO_TEXT);
+  // TODO(#42) or TODO(owner/name#42): the issue it's about, for Next up (backlog/rank.js).
+  const r = ISSUE_REF.exec(m[2] || '');
+  return { file, line, tag: m[1], text: note, ref: r ? { repo: r[1] || null, number: Number(r[2]) } : null };
 }
 
 /** Everything `git grep` printed -> { items, more }: the first `max` loose ends, and how many past that. */
