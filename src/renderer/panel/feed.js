@@ -1,7 +1,14 @@
-/* Shellby panel — one conversation's feed, including crew lanes for subagents. */
+/* Shellby panel — one conversation's feed, including crew lanes for subagents.
+   This file holds the Tab itself: its feed, scrolling, the cap on how much it
+   keeps, and what each item becomes. Its other parts are their own files:
+   feed-notes.js (terminal handoff, branches, ! commands), feed-asks.js
+   (permission cards and questions), feed-changes.js (what a turn changed) and
+   feed-lanes.js (helper lanes). The words are feed-logic.js's. */
 'use strict';
 (function () {
   const { h, api, state } = SB;
+  const F = window.ShellbyFeedLogic;
+
 
   // Top-level blocks kept in one conversation's feed. Past this the oldest are
   // dropped (see Tab.trim); the transcript on disk is never touched.
@@ -131,7 +138,7 @@
         this.trimmedNotice = h('div', { class: 'feed-trimmed' });
         this.el.prepend(this.trimmedNotice);
       }
-      this.trimmedNotice.textContent = `${this.trimmed.toLocaleString()} earlier ${this.trimmed === 1 ? 'step' : 'steps'} hidden — the full conversation is in History.`;
+      this.trimmedNotice.textContent = F.trimmedLine(this.trimmed);
     }
 
     get isActive() { return state.activeTab === this.id; }
@@ -171,32 +178,16 @@
         case 'checks': return SB.renderChecks?.(this, item);   // turn-checks.js
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
-        case 'moved': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
-          `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})`));
-        case 'phone': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '📱' }),
-          'Started from your phone, in Ask first: he asks before he changes anything'));
-        case 'home': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
-          `Brought home: ${item.commits} commit${item.commits === 1 ? '' : 's'} merged into ${item.base}`));
+        // Shellby's own one-line notes: moved into a copy, from the phone, brought
+        // home, pushed, compacted, started fresh, rewound.
+        case 'moved': case 'phone': case 'home': case 'pushed': case 'compacted': case 'fresh': case 'rewound': {
+          const mark = F.markFor(item, SB.compact);
+          return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: mark.icon }), mark.text));
+        }
         // A crit hit or a clean landing (src/main/surprises.js), kept with the turn that earned it.
         case 'surprise': return this.append(h('div', { class: `home-mark surprise-mark ${item.what === 'landing' ? 'landing' : 'crit'}` },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: item.what === 'landing' ? '🛬' : '🎲' }),
           h('span', {}, h('b', { text: item.title || (item.what === 'landing' ? 'Clean landing' : 'Critical hit!') }), ` ${item.text || ''}`)));
-        case 'pushed': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇡' }),
-          `Pushed ${item.branch} to ${item.remote}: ${item.commits} commit${item.commits === 1 ? '' : 's'}${item.pulled ? `, after taking in ${item.pulled} from ${item.remote}` : ''}`));
-        case 'compacted': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇣' }),
-          `${item.trigger === 'auto' ? 'Claude Code compacted the conversation to make room' : 'Compacted the conversation'}${item.preTokens ? ` (it was ${SB.compact(item.preTokens)} tokens)` : ''}`));
-        case 'fresh': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↻' }),
-          'Started fresh: a new conversation picks up from the summary above'));
-        case 'rewound': return this.append(h('div', { class: 'home-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↶' }),
-          item.conversation === false ? `Rewound the code: put ${item.restored || 0} file${item.restored === 1 ? '' : 's'} back`
-            : `Rewound to an earlier message${item.code && item.restored ? `, and put ${item.restored} file${item.restored === 1 ? '' : 's'} back` : ''}`));
         case 'handoff': return this.renderHandoff(item, replay);
         case 'branched': return this.renderBranched(item);
         case 'branched-off': return this.renderBranchedOff(item);
@@ -219,90 +210,6 @@
           if (this.isActive) SB.renderModStatus?.(this);
           return;
       }
-    }
-
-    // ------------------------------------------------------------ to a terminal and back (handoff.js)
-    // Off to a terminal: Pick it up here sits on the note while it's out there
-    // (in a replay, only if it still is). Coming back takes the button away.
-    renderHandoff(item, replay) {
-      if (item.to === 'terminal') {
-        const shell = { wt: 'Windows Terminal', powershell: 'PowerShell', cmd: 'Command Prompt' }[item.shell] || 'a terminal';
-        const pick = !replay || this.inTerminal
-          ? h('button', { class: 'btn slim-btn handoff-pick', type: 'button', onclick: () => SB.pickUpHere(this.id) }, 'Pick it up here')
-          : null;
-        return this.append(h('div', { class: 'home-mark handoff-mark' },
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '›_' }),
-          h('span', { text: `Carried on in ${shell}. Nothing is sent from here until you pick it up again.` }), pick));
-      }
-      for (const b of this.el.querySelectorAll('.handoff-pick')) b.remove();
-      return this.append(h('div', { class: 'home-mark handoff-mark' },
-        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '↩' }),
-        item.from
-          ? `Brought in from ${item.from}. Type /exit there before you send anything here.`
-          : "Picked up again here. Whatever was said in the terminal, Claude remembers, but it isn't shown above."));
-    }
-
-    // ------------------------------------------------------------ branches (branching.js)
-    // Where this conversation came from, at the top of a branch.
-    renderBranched(item) {
-      const where = item.at === 'after' ? `after its reply to "${item.text}"` : `just before "${item.text}"`;
-      const files = item.shared ? 'It shares the original\'s folder, so changes either makes, the other sees.'
-        : item.filesNow ? `Its own copy on ${item.branch}, with the files as they were in the original when it branched.`
-          : item.branch ? `Its own copy on ${item.branch}, with the files exactly as they were then${item.approx ? ' (as near as Shellby can tell)' : ''}.`
-            : '';
-      this.append(h('div', { class: 'home-mark branch-mark' },
-        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
-        h('span', {},
-          'Branched from ', SB.historyLink(item.from, item.fromTitle || 'another conversation'), ` ${where}. `,
-          files, ' The original carries on by itself.')));
-    }
-
-    // In the original: where a branch of it went.
-    renderBranchedOff(item) {
-      const where = item.at === 'after' ? `from after the reply to "${item.text}"` : `from just before "${item.text}"`;
-      this.append(h('div', { class: 'home-mark branch-mark' },
-        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
-        h('span', {}, 'Tried again in ', SB.historyLink(item.to, 'another tab'), ` ${where}${item.branch ? ` (${item.branch})` : ''}. This conversation is as it was.`)));
-    }
-
-    // Two tries side by side: what this one has that the other doesn't, now.
-    // Not kept in the transcript; compare again for a fresh look.
-    renderCompare(other, r) {
-      const head = r.same ? `Same files as "${other.title}"` : `${r.files.length + (r.more || 0)} file${r.files.length + (r.more || 0) === 1 ? '' : 's'} differ from "${other.title}"`;
-      const el = h('details', { class: 'changes compare', open: !r.same && r.files.length <= 8 },
-        h('summary', {},
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇄' }),
-          h('span', { class: 'chg-title', text: head }),
-          r.same ? null : h('span', { class: 'chg-add', text: `+${r.added}` }),
-          r.same ? null : h('span', { class: 'chg-del', text: `−${r.removed}` })),
-        r.same ? h('p', { class: 'small muted', text: 'Both copies have exactly the same files right now.' }) : null,
-        r.same ? null : h('ul', { class: 'chg-files' }, r.files.map(f => this.changeRow(f, null, file => api.compareDiff(this.id, other.id, file)))),
-        r.more ? h('p', { class: 'small muted chg-more', text: `…and ${r.more} more.` }) : null,
-        r.same ? null : h('p', { class: 'small muted', text: `+ is what this one has, − is what "${other.title}" has instead.` }));
-      this.stuck = true;
-      this.append(el);
-    }
-
-    // ------------------------------------------------------------ ! commands you ran yourself
-    renderShell(item, replay) {
-      const el = h('details', { class: `tool shell-run ${item.code ? 'err' : 'ok'}`, open: !replay && String(item.output || '').split('\n').length <= 12 },
-        h('summary', {},
-          h('span', { class: 't-state' }),
-          h('span', { class: 't-label', text: 'You ran' }),
-          h('span', { class: 't-detail', text: item.command, title: item.command }),
-          item.code ? h('span', { class: 'shell-code', text: item.timedOut ? 'stopped' : `exit ${item.code}` }) : null),
-        h('pre', { class: 't-result', text: item.output || '(no output)' }));
-      if (!replay && this.shellPending) { this.shellPending.replaceWith(el); this.shellPending = null; return el; }
-      return this.append(el);
-    }
-
-    // Shown while a ! command runs; its result replaces it. null clears it.
-    renderShellPending(command) {
-      if (!command) { this.shellPending?.remove(); this.shellPending = null; return; }
-      this.stuck = true;
-      this.shellPending?.remove();
-      this.shellPending = this.append(h('details', { class: 'tool shell-run pending' },
-        h('summary', {}, h('span', { class: 't-state' }), h('span', { class: 't-label', text: 'Running' }), h('span', { class: 't-detail', text: command, title: command }))));
     }
 
     // Rewind: the feed starts over from what's left of the transcript.
@@ -380,7 +287,7 @@
     // ------------------------------------------------------------ crew lanes
     renderLane(item, replay) {
       const index = this.lanes.size;
-      const lane = new Lane(item, index);
+      const lane = new SB.Lane(item, index);
       lane.el.dataset.laneId = item.id; // so trim() can forget it with the element
       this.lanes.set(item.id, lane);
       this.append(lane.el, item.parent);
@@ -394,219 +301,9 @@
       lane.update(item, replay);
     }
 
-    // ------------------------------------------------------------ permission cards
-    renderAsk(item, replay) {
-      if (item.toolName === 'AskUserQuestion' && item.questions?.length) return this.renderQuestion(item, replay);
-      const isPlan = item.toolName === 'ExitPlanMode';
-      const always = item.suggestions?.[0];
-      const persistent = always && always.destination && always.destination !== 'session';
-      const tabId = this.id;
-
-      const decide = async (decision, message) => {
-        const ok = await api.answerPermission(tabId, item.requestId, decision, message);
-        if (!ok) SB.toast('That request already expired.');
-        if (ok && isPlan && decision !== 'deny') {
-          const next = item.suggestions?.find(s => s.type === 'setMode')?.mode;
-          const uiMode = next === 'acceptEdits' ? 'acceptEdits' : next === 'bypassPermissions' ? null : 'ask';
-          if (uiMode) SB.chooseMode(uiMode, { quiet: true });
-        }
-      };
-
-      const body = isPlan
-        ? h('div', { class: 'ask-body' }, SB.renderMarkdownInto(h('div', { class: 'ask-plan msg assistant' }), item.plan || 'No plan text.'))
-        : h('div', { class: 'ask-body' },
-            h('code', { class: 'ask-cmd', text: item.detail || item.toolName }),
-            item.description && item.description !== item.detail ? h('p', { class: 'ask-desc', text: item.description }) : null);
-
-      // Extra context when Claude is building tools for itself.
-      const flags = [];
-      if (item.runsCreated?.length) {
-        flags.push(h('div', { class: 'ask-flag warn' }, h('b', {}, 'Runs a file Claude wrote this session: '),
-          item.runsCreated.map(f => h('code', { text: SB.basename(f), title: f })).reduce((acc, el, i) => (i ? [...acc, ', ', el] : [el]), []),
-          '. Check what it does before allowing.'));
-      }
-      if (item.selfConfig) {
-        flags.push(h('div', { class: 'ask-flag info' }, h('b', {}, 'Changes Claude Code itself: '), `this touches ${item.selfConfig}, which affects future sessions too.`));
-      }
-
-      const actions = isPlan
-        ? [h('button', { class: 'btn allow', type: 'button', onclick: () => decide(always ? 'always' : 'allow') }, 'Approve plan'),
-           h('button', { class: 'btn deny', type: 'button', onclick: () => decide('deny', 'Keep planning: the user wants to refine the plan before anything changes.') }, 'Keep planning')]
-        : [h('button', { class: 'btn allow', type: 'button', 'data-key': 'y', onclick: () => decide('allow') }, 'Allow'),
-           always ? h('button', { class: 'btn', type: 'button', 'data-key': 'a', title: persistent ? "Saves this rule to Claude Code's settings" : 'For the rest of this conversation', onclick: () => decide('always') }, suggestionLabel(always)) : null,
-           h('button', { class: 'btn deny', type: 'button', 'data-key': 'n', onclick: () => decide('deny') }, 'Deny')];
-
-      const who = item.agent
-        ? h('span', { class: 'ask-who' }, SB.helperSprite(this.laneIndexForTask(item.agent.taskId)), item.agent.description || item.agent.type)
-        : null;
-
-      const card = h('div', { class: `ask${item.runsCreated?.length ? ' flagged' : ''}`, role: 'group', 'aria-label': `Permission request: ${item.label}` },
-        h('div', { class: 'ask-head' },
-          h('span', { class: 'ask-crab' }, SB.sprite()),
-          h('div', {},
-            h('div', { class: 'ask-title', text: isPlan ? "Here's my plan" : item.agent ? 'A helper wants to do this' : 'Can I do this?' }),
-            h('div', { class: 'ask-sub' }, isPlan ? 'Nothing changes until you approve.' : `${item.label} · ${item.toolName}`, who ? [' · ', who] : null))),
-        flags.length ? h('div', { class: 'ask-flags' }, flags) : null,
-        body,
-        h('div', { class: 'ask-actions' }, actions),
-        isPlan ? null : h('div', { class: 'ask-keys' }, 'Keys: ', h('kbd', {}, 'Y'), ' allow · ', always ? [h('kbd', {}, 'A'), ' always · '] : null, h('kbd', {}, 'N'), ' deny'));
-      this.asks.set(item.requestId, card);
-      const laneId = item.agent?.toolUseId;
-      this.append(card, laneId);
-      if (laneId) this.lanes.get(laneId)?.setAsking(true);
-      if (!replay) {
-        this.setStatus('Waiting for your OK…');
-        if (this.isActive) {
-          card.querySelector('.btn.allow')?.focus({ preventScroll: true });
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }
-    }
-
-    // Claude's multiple-choice questions (AskUserQuestion): one block per
-    // question, options as buttons (number keys pick them), an "Other" box for
-    // your own words, then Send. A lone single-choice question sends on click.
-    renderQuestion(item, replay) {
-      const tabId = this.id;
-      const qs = item.questions;
-      const chosen = qs.map(() => new Set());
-      const other = qs.map(() => '');
-      const instant = qs.length === 1 && !qs[0].multiSelect;
-      let card = null; // built below; the handlers above only read it once it is
-
-      const answerText = i => [...chosen[i], ...(other[i].trim() ? [other[i].trim()] : [])].join(', ');
-      const ready = () => qs.every((_, i) => answerText(i));
-      const send = async () => {
-        if (!ready()) return;
-        const answers = Object.fromEntries(qs.map((q, i) => [q.question, answerText(i)]));
-        card.answers = answers;
-        const ok = await api.answerPermission(tabId, item.requestId, 'allow', undefined, answers);
-        if (!ok) SB.toast('That question already expired.');
-      };
-      const skip = async () => {
-        card.answers = null;
-        const ok = await api.answerPermission(tabId, item.requestId, 'deny', "The user skipped the question. Continue with your best judgement, or ask in plain text if you're stuck.");
-        if (!ok) SB.toast('That question already expired.');
-      };
-
-      let key = 0;
-      const blocks = qs.map((q, i) => {
-        const opts = q.options.map(o => {
-          const n = ++key;
-          const btn = h('button', {
-            class: 'qa-opt', type: 'button', 'aria-pressed': 'false', 'data-key': n <= 9 ? String(n) : null,
-            onclick: () => {
-              if (q.multiSelect) {
-                if (chosen[i].has(o.label)) chosen[i].delete(o.label); else chosen[i].add(o.label);
-              } else {
-                chosen[i].clear(); chosen[i].add(o.label);
-              }
-              block.querySelectorAll('.qa-opt').forEach(b => b.setAttribute('aria-pressed', String(chosen[i].has(b.dataset.label))));
-              sendBtn.disabled = !ready();
-              if (instant) send();
-            },
-          },
-          n <= 9 ? h('kbd', { text: String(n) }) : null,
-          h('span', { class: 'qa-label', text: o.label }),
-          o.description ? h('span', { class: 'qa-desc', text: o.description }) : null);
-          btn.dataset.label = o.label;
-          return btn;
-        });
-        const otherInput = h('input', {
-          class: 'field qa-other', type: 'text', maxlength: '500', placeholder: q.options.length ? 'Or type your own answer…' : 'Your answer…',
-          'aria-label': `Your own answer to: ${q.question}`,
-          oninput: e => { other[i] = e.target.value; sendBtn.disabled = !ready(); },
-          onkeydown: e => { if (e.key === 'Enter' && ready()) { e.preventDefault(); send(); } },
-        });
-        const block = h('fieldset', { class: 'qa' },
-          h('legend', {}, q.header ? h('span', { class: 'qa-chip', text: q.header }) : null, h('span', { class: 'qa-q', text: q.question })),
-          q.multiSelect ? h('p', { class: 'qa-hint', text: 'Pick any that apply.' }) : null,
-          h('div', { class: 'qa-opts' }, opts),
-          otherInput);
-        return block;
-      });
-
-      const sendBtn = h('button', { class: 'btn allow', type: 'button', disabled: true, onclick: send }, qs.length > 1 ? 'Send answers' : 'Send answer');
-      const who = item.agent ? h('span', { class: 'ask-who' }, SB.helperSprite(this.laneIndexForTask(item.agent.taskId)), item.agent.description || item.agent.type) : null;
-      card = h('div', { class: 'ask question', role: 'group', 'aria-label': `Question: ${qs[0].question}` },
-        h('div', { class: 'ask-head' },
-          h('span', { class: 'ask-crab' }, SB.sprite()),
-          h('div', {},
-            h('div', { class: 'ask-title', text: qs.length > 1 ? `I have ${qs.length} quick questions` : 'Quick question' }),
-            h('div', { class: 'ask-sub' }, instant ? 'Pick one, or type your own answer.' : 'Answer, then send.', who ? [' · ', who] : null))),
-        h('div', { class: 'ask-body' }, blocks),
-        h('div', { class: 'ask-actions' }, instant ? null : sendBtn, h('button', { class: 'btn ghost', type: 'button', onclick: skip }, 'Skip')),
-        h('div', { class: 'ask-keys' }, 'Keys: ', h('kbd', {}, '1'), '–', h('kbd', {}, String(Math.min(key, 9))), ' pick'));
-      this.asks.set(item.requestId, card);
-      const laneId = item.agent?.toolUseId;
-      this.append(card, laneId);
-      if (laneId) this.lanes.get(laneId)?.setAsking(true);
-      if (!replay) {
-        this.setStatus('Waiting for your answer…');
-        if (this.isActive) {
-          // Focus the first option so number keys pick right away (not typed into the box).
-          card.querySelector('.qa-opt')?.focus({ preventScroll: true });
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }
-    }
-
-    laneIndexForTask(taskId) {
-      const lane = this.lanes.get(this.taskLane.get(taskId));
-      return lane ? lane.index : 0;
-    }
-
-    markDecision(item) {
-      const card = this.asks.get(item.requestId);
-      if (!card || card.classList.contains('decided')) return;
-      card.classList.add('decided');
-      const words = { allow: 'Allowed', always: 'Always allowed', deny: 'Denied', cancelled: 'Cancelled' };
-      if (card.classList.contains('question')) {
-        // Show what was answered instead of "Allowed".
-        const a = card.answers ? Object.values(card.answers).join(' · ') : null;
-        const text = item.decision === 'cancelled' ? '→ Not answered' : a ? `→ ${a}` : item.decision === 'deny' ? '→ Skipped' : '→ Answered';
-        card.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
-        card.append(h('div', { class: `ask-verdict ${a ? 'allow' : 'deny'}`, text }));
-      } else {
-        card.append(h('div', { class: `ask-verdict ${item.decision === 'deny' || item.decision === 'cancelled' ? 'deny' : 'allow'}` },
-          `→ ${words[item.decision] || item.decision}${item.via === 'phone' ? ' from your phone' : ''}`,
-          this.expandToggle(card)));
-      }
-      for (const lane of this.lanes.values()) if (lane.body.contains(card)) lane.setAsking(false);
-      if (this.busy) this.setStatus('Working…');
-    }
-
-    // A decided card shrinks its command to a few lines; this brings the rest
-    // back. Only offered when something is actually cut off (a card replayed
-    // into a hidden tab has no layout yet, so judge by the text there).
-    expandToggle(card) {
-      const cmd = card.querySelector('.ask-cmd');
-      if (!cmd) return null;
-      const clipped = cmd.clientHeight ? cmd.scrollHeight > cmd.clientHeight + 1 : cmd.textContent.length > 120 || cmd.textContent.includes('\n');
-      if (!clipped) return null;
-      const btn = h('button', { class: 'ask-more', type: 'button', 'aria-expanded': 'false' }, 'show all');
-      btn.onclick = () => {
-        const open = card.classList.toggle('open');
-        btn.setAttribute('aria-expanded', String(open));
-        btn.textContent = open ? 'show less' : 'show all';
-      };
-      return btn;
-    }
-
-    cancelOpenAsks() {
-      for (const [requestId, card] of this.asks) if (!card.classList.contains('decided')) this.markDecision({ requestId, decision: 'cancelled' });
-    }
-
-    openAsk() {
-      return [...this.asks.values()].reverse().find(c => !c.classList.contains('decided')) || null;
-    }
-
     renderResult(item) {
       for (const el of this.tools.values()) if (el.classList.contains('pending')) el.classList.replace('pending', item.ok ? 'ok' : 'err');
-      const waiting = item.ok && !item.interrupted && item.waiting?.length
-        ? `waiting on ${item.waiting.length === 1 ? item.waiting[0] : `${item.waiting.length} background tasks`}`
-        : null;
-      const label = item.interrupted ? 'stopped' : waiting || (item.ok ? 'done' : 'ended with an error');
+      const { label, waiting } = F.resultLabel(item);
       // A reply you might want to take somewhere else: a new tab that remembers
       // everything up to here, with the files as this turn left them.
       const turnId = this.lastTurnId;
@@ -620,196 +317,19 @@
       if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }
 
-    // ------------------------------------------------------------ what the turn changed
-    // One block per turn in a git project: every file it touched, each one's
-    // diff on a click, and Undo to put them back. The diffs are read from git
-    // when you open them, not carried around in the transcript.
-    renderChanges(item) {
-      if (!Array.isArray(item.files) || !item.files.length) return;
-      const ref = { root: item.root, before: item.before, after: item.after };
-      const count = item.files.length + (item.more || 0);
-      const files = `${count} file${count === 1 ? '' : 's'}`;
-      const undo = h('button', { class: 'btn ghost slim-btn', type: 'button' }, 'Undo');
-      const note = h('span', { class: 'small muted', text: 'Puts these files back the way they were before this turn.' });
-      const el = h('details', { class: 'changes', dataset: { root: item.root, before: item.before, after: item.after } },
-        h('summary', {},
-          h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '±' }),
-          h('span', { class: 'chg-title', text: `${files} changed` }),
-          h('span', { class: 'chg-add', text: `+${item.added}` }),
-          h('span', { class: 'chg-del', text: `−${item.removed}` })),
-        h('ul', { class: 'chg-files' }, item.files.map(f => this.changeRow(f, ref))),
-        item.more ? h('p', { class: 'small muted chg-more', text: `…and ${item.more} more.` }) : null,
-        h('div', { class: 'chg-actions' }, undo, note));
-
-      // Two presses, so a stray click can't take a turn's work back.
-      let armed = null;
-      const disarm = () => { clearTimeout(armed); armed = null; undo.textContent = 'Undo'; undo.classList.remove('deny'); };
-      undo.addEventListener('click', async () => {
-        if (!armed) {
-          undo.textContent = `Undo ${files}?`;
-          undo.classList.add('deny');
-          armed = setTimeout(disarm, 4000);
-          return;
-        }
-        disarm();
-        undo.disabled = true;
-        const r = await api.undoChanges({ tabId: this.id, ...ref });
-        if (r?.ok) return; // the 'undone' item marks the block
-        undo.disabled = false;
-        SB.toast(r?.error || "Couldn't undo that.", { ms: 5000 });
-        if (r?.changedSince?.length) note.textContent = `Changed since: ${r.changedSince.slice(0, 4).join(', ')}${r.changedSince.length > 4 ? '…' : ''}`;
-      });
-      el.undoButton = undo;
-      el.undoNote = note;
-      SB.decorateChanges?.(this, el, ref); // Run checks, and room for the verdict and pictures (turn-checks.js)
-      SB.markReviewBlock?.(this, el); // comments waiting on this turn (line-comments-ui.js)
-      this.append(el);
-    }
-
-    // read: how to fetch one file's diff (a turn's, unless a comparison says otherwise).
-    // A turn's own diff takes line comments (line-comments-ui.js); a comparison's doesn't.
-    changeRow(f, ref, read = file => api.changesDiff({ tabId: this.id, ...ref, file })) {
-      const reviewable = !!ref && !!SB.reviewDiff;
-      const diff = h('div', { class: 'chg-diff', hidden: true });
-      let loaded = false;
-      const toggle = h('button', { class: 'chg-file', type: 'button', 'aria-expanded': 'false', title: f.path },
-        h('span', { class: `chg-badge s-${f.status}`, text: f.status, title: STATUS_WORDS[f.status] || f.status }),
-        h('span', { class: 'chg-path', text: f.path }),
-        f.binary ? h('span', { class: 'chg-bin', text: 'binary' }) : [h('span', { class: 'chg-add', text: `+${f.added}` }), h('span', { class: 'chg-del', text: `−${f.removed}` })]);
-      toggle.addEventListener('click', async () => {
-        const open = diff.hidden;
-        diff.hidden = !open;
-        toggle.setAttribute('aria-expanded', String(open));
-        if (!open || loaded) return;
-        loaded = true;
-        diff.replaceChildren(h('p', { class: 'small muted', text: 'Reading the diff…' }));
-        const r = await read(f.path);
-        if (r?.error) { loaded = false; diff.replaceChildren(h('p', { class: 'small warn', text: r.error })); return; }
-        const shown = reviewable && !f.binary ? SB.reviewDiff(this, r.patch, { file: f.path, ref, binary: f.binary }) : SB.renderDiff(r.patch, { binary: f.binary });
-        // A turn's own file opens in VS Code's diff too (turn-checks.js); a comparison's doesn't.
-        const bar = ref ? SB.editorBar?.(this, ref, f) : null;
-        diff.replaceChildren(...[bar, shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
-      });
-      return h('li', {}, toggle, diff);
-    }
-
-    markUndone(item) {
-      const el = [...this.el.querySelectorAll('details.changes')].find(d => d.dataset.after === item.after);
-      if (!el || el.classList.contains('undone')) return;
-      el.classList.add('undone');
-      el.querySelector('.chg-title').textContent += ' · undone';
-      if (el.undoButton) { el.undoButton.disabled = true; el.undoButton.textContent = 'Undone'; }
-      if (el.undoNote) el.undoNote.textContent = 'These files are back the way they were before this turn.';
-    }
-
     destroy() {
       this.resizer.disconnect();
       this.el.remove();
     }
   }
 
-  const STATUS_WORDS = { A: 'Added', M: 'Modified', D: 'Deleted', T: 'Type changed' };
-
-  // A unified diff as coloured lines. Text only: nothing in a diff is markup.
-  SB.renderDiff = (patch, { binary = false } = {}) => {
-    const MAX_LINES = 4000;
-    const lines = String(patch || '').replace(/\n$/, '').split('\n');
-    const rows = [];
-    let inHeader = true; // a removed "-- note" inside a hunk is "--- note", and that's code
-    for (const line of lines) {
-      if (rows.length >= MAX_LINES) break;
-      if (line.startsWith('diff --git')) inHeader = true;
-      if (inHeader && /^(diff --git|index |--- |\+\+\+ |new file mode|deleted file mode|old mode|new mode|similarity index)/.test(line)) continue;
-      if (line.startsWith('@@')) inHeader = false;
-      const cls = line.startsWith('@@') ? 'hunk' : line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : line.startsWith('\\') ? 'meta' : 'ctx';
-      rows.push(h('span', { class: `dl ${cls}`, text: line || ' ' }));
+  // The feed's other files write their part of Tab as a class of their own;
+  // this copies its methods (and getters) across, so they behave as if written here.
+  SB.extendTab = (part) => {
+    for (const name of Object.getOwnPropertyNames(part.prototype)) {
+      if (name !== 'constructor') Object.defineProperty(Tab.prototype, name, Object.getOwnPropertyDescriptor(part.prototype, name));
     }
-    if (!rows.length) return h('p', { class: 'small muted', text: binary ? 'A binary file: nothing to show line by line.' : 'No line changes (a mode or line-ending change).' });
-    return h('pre', { class: 'diff' }, rows);
   };
-
-  // ------------------------------------------------------------ Lane
-  class Lane {
-    constructor(item, index) {
-      this.id = item.id;
-      this.index = index;
-      this.status = 'running';
-      this.startedAt = Date.now();
-      this.stats = null;
-      this.activity = h('span', { class: 'lane-activity', text: 'Getting started…' });
-      this.meta = h('span', { class: 'lane-meta' });
-      this.body = h('div', { class: 'lane-body' });
-      this.summaryEl = h('div', { class: 'lane-summary', hidden: true });
-      this.el = h('details', { class: 'lane running', open: true, style: `--lane-hue:${SB.HUES[index % SB.HUES.length]}deg` },
-        h('summary', { class: 'lane-head' },
-          h('span', { class: 'lane-crab' }, SB.helperSprite(index)),
-          h('span', { class: 'lane-text' },
-            h('span', { class: 'lane-title' }, h('b', { text: item.agent.description || 'Helper' }), h('span', { class: 'lane-type', text: item.agent.type }), item.agent.background ? h('span', { class: 'lane-type bg', text: 'background' }) : null),
-            this.activity),
-          this.meta,
-          h('span', { class: 'lane-state', 'aria-hidden': 'true' })),
-        this.body, this.summaryEl);
-      Lane.all.add(this);
-      this.tick();
-    }
-
-    setActivity(text) { if (this.status === 'running') this.activity.textContent = text; }
-
-    setAsking(on) { this.el.classList.toggle('asking', on); if (on) this.el.open = true; }
-
-    update(item, replay) {
-      if (item.usage) this.stats = { ...this.stats, tokens: item.usage.tokens, toolUses: item.usage.toolUses };
-      if (item.phase === 'progress' && item.description) this.setActivity(item.description);
-      if (item.phase === 'started' && item.description) this.setActivity(replay ? item.description : 'Getting started…');
-      if (item.phase === 'done' || (item.phase === 'updated' && item.status && item.status !== 'running')) {
-        this.finish({ ok: item.status !== 'failed' && item.status !== 'killed', summary: item.summary, stopped: item.status === 'killed' });
-      }
-      this.tick();
-    }
-
-    finish({ ok = true, stats, summary, resultText, stopped = false }) {
-      if (stats) this.stats = { ...this.stats, ...stats };
-      if (this.status === 'running') {
-        this.status = stopped ? 'stopped' : ok ? 'done' : 'failed';
-        this.finishedAt = Date.now();
-        this.el.classList.remove('running', 'asking');
-        this.el.classList.add(this.status);
-        this.activity.textContent = stopped ? 'Stopped' : ok ? 'Done' : 'Failed';
-        // Collapse finished helpers so the main thread stays readable.
-        setTimeout(() => { if (!this.el.classList.contains('asking')) this.el.open = false; }, 900);
-      }
-      const text = summary || resultText;
-      if (text && this.summaryEl.hidden) {
-        this.summaryEl.hidden = false;
-        SB.renderMarkdownInto(this.summaryEl, text.length > 1800 ? text.slice(0, 1800) + '…' : text);
-        const first = text.replace(/[#*`_>]/g, '').split('\n').find(l => l.trim());
-        if (first) this.activity.textContent = first.trim().slice(0, 120);
-      }
-      this.tick();
-    }
-
-    tick() {
-      const ms = this.stats?.durationMs ?? ((this.finishedAt || Date.now()) - this.startedAt);
-      const bits = [];
-      if (this.stats?.toolUses) bits.push(`${this.stats.toolUses} tool${this.stats.toolUses > 1 ? 's' : ''}`);
-      if (this.stats?.tokens) bits.push(`${SB.compact(this.stats.tokens)} tok`);
-      bits.push(SB.duration(ms));
-      this.meta.textContent = bits.join(' · ');
-      if (this.status !== 'running') Lane.all.delete(this);
-    }
-  }
-  Lane.all = new Set();
-  setInterval(() => { for (const lane of Lane.all) if (lane.el.isConnected) lane.tick(); else Lane.all.delete(lane); }, 1000);
-
-  function suggestionLabel(s) {
-    if (s?.type === 'setMode') return s.mode === 'acceptEdits' ? 'Allow all edits' : `Switch to ${s.mode}`;
-    if (s?.type === 'addRules' && s.rules?.[0]) {
-      const r = s.rules[0];
-      return r.ruleContent ? `Always allow ${r.toolName}(${r.ruleContent.length > 24 ? r.ruleContent.slice(0, 22) + '…' : r.ruleContent})` : `Always allow ${r.toolName}`;
-    }
-    if (s?.type === 'addDirectories') return 'Always allow this folder';
-    return 'Always allow';
-  }
 
   // Pictures get a thumbnail, fetched once per path (main reads the file; the
   // panel's CSP only loads images from data:).
@@ -851,5 +371,4 @@
   };
 
   SB.Tab = Tab;
-  SB.Lane = Lane;
 })();
