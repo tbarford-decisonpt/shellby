@@ -201,10 +201,23 @@ Health shows the same thing to the person running him: **Shellby himself: 1% CPU
 
 ```
 src/main/        Electron main process
-  main.js          the state everything shares, boot, and the areas that run on load
-  wiring/          one module per area of the app (windows, critter, sessions, progress,
-                   timetrack, toolbox, github, tray…): `wireX(shared)` returns what main uses
-  ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`
+  main.js          `shared` (the state every area reads and changes), the order areas are
+                   wired in, and boot; nothing else. `share(wireX(shared))` adds an area's
+                   exports to shared and stops boot if two areas give the same name
+  wiring/          one module per area of the app: `wireX(shared)` returns its functions,
+                   which only run once boot calls them. Besides windows, critter, sessions,
+                   progress, timetrack, toolbox, github, tray and the rest:
+    crash.js         snags (all logged, the first few said out loud) and starting Sentry
+    profile.js       settings and history, opened first at boot
+    panel.js         the panel's window: beside the crab, behind a game, making room
+    crew-slots.js    room in the crab's window for helper and visiting crabs; saving his spot
+    streaks.js       streaks and the hourly nudge check
+    settings.js      settings' side effects: the hotkey, opening at login, the skins folder
+    wardrobe.js      the Wardrobe at boot, its unlocks, the first-run credit from history
+    services.js      usage, held work, routines, away, stickers and copies (the *-service.js files)
+    quit.js          what quitting stops, in order
+  ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`;
+                   index.js registers them all behind the window check (ipc-guard.js)
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
   session.js       one Claude Code process per conversation (stream-json + control protocol)
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
@@ -236,7 +249,7 @@ src/main/        Electron main process
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
   turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
-  held.js          messages and routine runs held for after the usage reset (pure list ops; main.js sends them)
+  held.js          messages and routine runs held for after the usage reset (pure list ops; held-service.js sends them)
   usage-ledger.js  what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
                    composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
