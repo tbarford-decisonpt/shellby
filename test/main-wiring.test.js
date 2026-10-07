@@ -58,7 +58,7 @@ test('main wires every area, and what it takes from each is a function there', (
 test('every d.X a wiring/ or ipc/ module reads is on shared', () => {
   const d = shared || loadMain();
   // Modules handed their own deps object rather than shared, and optional hooks.
-  const notShared = new Set(['askConfirm', 'journalDir', 'confirmClear', 'onCleared', 'level', 'builtinSkins', 'clearBackground',
+  const notShared = new Set(['askConfirm', 'journalDir', 'confirmClear', 'onCleared', 'level', 'cardChanged','builtinSkins', 'clearBackground',
     'openPath', 'pickPackFile', 'reloadSkins', 'voice', 'day', 'workArea', 'toLowerCase', 'getDate', 'getFullYear', 'getMonth']);
   const dirs = ['wiring', 'ipc'].map(dir => path.join(MAIN, dir));
   const files = dirs.flatMap(dir => fs.readdirSync(dir).filter(f => f.endsWith('.js')).map(f => path.join(dir, f)));
