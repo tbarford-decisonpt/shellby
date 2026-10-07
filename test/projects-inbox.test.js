@@ -14,7 +14,8 @@ const inbox = require('../src/main/projects/inbox');
 const DAY = 24 * 60 * 60 * 1000;
 
 function setup() {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-inbox-')));
+  // The long form: CI's temp folder is an 8.3 path, and git gives the long one.
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-inbox-')));
   const g = (cwd, args, env = {}) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', windowsHide: true, env: { ...process.env, ...env } }).trim();
   const origin = path.join(base, 'origin.git');
   const dir = path.join(base, 'proj');
