@@ -1,0 +1,297 @@
+{
+  "database": {
+    "advisory-count": 785,
+    "last-commit": "a1f651cba8bf224f52c5d55d8182b3bb0ebce49e",
+    "last-updated": "2025-06-03T13:30:36+02:00"
+  },
+  "lockfile": {
+    "dependency-count": 437
+  },
+  "settings": {
+    "target_arch": [],
+    "target_os": [],
+    "severity": null,
+    "ignore": [],
+    "informational_warnings": [
+      "unmaintained",
+      "unsound",
+      "notice"
+    ]
+  },
+  "vulnerabilities": {
+    "found": true,
+    "count": 2,
+    "list": [
+      {
+        "advisory": {
+          "id": "RUSTSEC-2025-0021",
+          "package": "gix-features",
+          "title": "SHA-1 collision attacks are not detected",
+          "description": "### Summary\ngitoxide uses SHA-1 hash implementations without any collision detection, leaving it vulnerable to hash collision attacks.\n\n### Details\ngitoxide ...",
+          "date": "2025-04-03",
+          "aliases": [
+            "CVE-2025-31130",
+            "GHSA-2frx-2596-x5r6"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "crypto-failure"
+          ],
+          "keywords": [
+            "hash-collision",
+            "sha-1",
+            "weak-hash"
+          ],
+          "cvss": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:N/I:H/A:N",
+          "informational": null,
+          "references": [
+            "https://github.com/advisories/GHSA-2frx-2596-x5r6",
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-31130"
+          ],
+          "source": null,
+          "url": "https://github.com/GitoxideLabs/gitoxide/security/advisories/GHSA-2frx-2596-x5r6",
+          "withdrawn": null,
+          "license": "CC0-1.0"
+        },
+        "versions": {
+          "patched": [
+            ">=0.41.0"
+          ],
+          "unaffected": []
+        },
+        "affected": {
+          "arch": [],
+          "os": [],
+          "functions": {
+            "gix_features::hash::Hasher::digest": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::Hasher::update": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::Write::flush": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::Write::new": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::Write::write": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::bytes": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::bytes_of_file": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::bytes_with_hasher": [
+              "<0.41.0"
+            ],
+            "gix_features::hash::hasher": [
+              "<0.41.0"
+            ]
+          }
+        },
+        "package": {
+          "name": "gix-features",
+          "version": "0.38.2",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "ac7045ac9fe5f9c727f38799d002a7ed3583cd777e3322a7c4b43e3cf437dc69",
+          "dependencies": [
+            {
+              "name": "bytes",
+              "version": "1.10.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "crc32fast",
+              "version": "1.4.2",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "crossbeam-channel",
+              "version": "0.5.15",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "flate2",
+              "version": "1.1.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-hash",
+              "version": "0.14.2",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-trace",
+              "version": "0.1.12",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-utils",
+              "version": "0.1.14",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "jwalk",
+              "version": "0.8.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "libc",
+              "version": "0.2.172",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "once_cell",
+              "version": "1.21.3",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "parking_lot",
+              "version": "0.12.4",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "prodash",
+              "version": "28.0.0",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "sha1_smol",
+              "version": "1.0.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "thiserror",
+              "version": "1.0.69",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "walkdir",
+              "version": "2.5.0",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            }
+          ],
+          "replace": null
+        }
+      },
+      {
+        "advisory": {
+          "id": "RUSTSEC-2025-0001",
+          "package": "gix-worktree-state",
+          "title": "gix-worktree-state nonexclusive checkout sets executable files world-writable",
+          "description": "### Summary\n\n`gix-worktree-state` specifies 0777 permissions when checking out executable files, intending that the umask will restrict them appropriately. B...",
+          "date": "2025-01-18",
+          "aliases": [
+            "CVE-2025-22620",
+            "GHSA-fqmf-w4xh-33rh"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [],
+          "keywords": [
+            "permissions"
+          ],
+          "cvss": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:N/I:H/A:N",
+          "informational": null,
+          "references": [
+            "https://github.com/advisories/GHSA-fqmf-w4xh-33rh",
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-22620"
+          ],
+          "source": null,
+          "url": "https://github.com/GitoxideLabs/gitoxide/security/advisories/GHSA-fqmf-w4xh-33rh",
+          "withdrawn": null,
+          "license": "CC0-1.0"
+        },
+        "versions": {
+          "patched": [
+            ">=0.17.0"
+          ],
+          "unaffected": []
+        },
+        "affected": {
+          "arch": [],
+          "os": [],
+          "functions": {
+            "gix_worktree_state::checkout": [
+              "<0.17.0"
+            ]
+          }
+        },
+        "package": {
+          "name": "gix-worktree-state",
+          "version": "0.11.1",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "39ed6205b5f51067a485b11843babcf3304c0799e265a06eb0dde7f69cd85cd8",
+          "dependencies": [
+            {
+              "name": "bstr",
+              "version": "1.12.0",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-features",
+              "version": "0.38.2",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-filter",
+              "version": "0.11.3",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-fs",
+              "version": "0.11.3",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-glob",
+              "version": "0.16.5",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-hash",
+              "version": "0.14.2",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-index",
+              "version": "0.33.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-object",
+              "version": "0.42.3",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-path",
+              "version": "0.10.18",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "gix-worktree",
+              "version": "0.34.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "io-close",
+              "version": "0.3.7",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            },
+            {
+              "name": "thiserror",
+              "version": "1.0.69",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            }
+          ],
+          "replace": null
+        }
+      }
+    ]
+  },
+  "warnings": {}
+}

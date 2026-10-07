@@ -387,7 +387,7 @@
         <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
       </div>
       <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects' packages every week</label>
-      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby runs <code>npm outdated</code> and <code>npm audit</code> in the npm projects you work in, which asks the npm registry about their packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
+      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
       <ul class="dw-list" id="depWatchList"></ul>
     </section>
   </main>
