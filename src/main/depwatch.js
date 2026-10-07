@@ -179,14 +179,20 @@ const readText = (dir, file, max = 4 * 1024 * 1024) => {
   } catch { return ''; }
 };
 
-// pip-audit's list of exact pins, in a file of Shellby's own. -> path, or null with nothing pinned.
+// pip-audit's list of exact pins, in a folder of Shellby's own (pip-audit runs
+// there, so nothing else in it is read). -> path, or null with nothing pinned.
 function writePins(project, read) {
   const pins = python.pinsFrom(project.lockfile, read(project.key, project.lockfile));
   if (!pins.length) return null;
-  const file = path.join(os.tmpdir(), `shellby-pins-${crypto.randomBytes(6).toString('hex')}.txt`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-pins-'));
+  const file = path.join(dir, `pins-${crypto.randomBytes(4).toString('hex')}.txt`);
   fs.writeFileSync(file, python.requirementsText(pins), { flag: 'wx' });
   return file;
 }
+// The pins file goes after the check, and its folder with it when it's one writePins made.
+const dropPins = file => (path.basename(path.dirname(file)).startsWith('shellby-pins-')
+  ? fs.rm(path.dirname(file), { recursive: true, force: true }, () => {})
+  : fs.rm(file, { force: true }, () => {}));
 
 /**
  * One project's result. deps: { tools, run(step), read(dir, file), pins(project, read) -> path | null, now }.
@@ -205,8 +211,10 @@ async function scanProject(project, { tools: found, run = runStep, read = readTe
       if (!requirements) return { ...base, ok: false, error: 'Nothing pinned to check: pip-audit needs exact versions (==) or a lockfile' };
     }
     const pkg = tools.MANAGERS[manager].ecosystem === 'node' ? read(project.key, 'package.json') : '';
-    const p = tools.plan({ key: project.key, manager }, found || {}, { env, requirements, pkg });
+    const workspace = manager === 'pnpm' ? read(project.key, 'pnpm-workspace.yaml') : '';
+    const p = tools.plan({ key: project.key, manager }, found || {}, { env, requirements, pkg, workspace });
     if (p.needs) return { ...base, ok: false, needs: p.needs };
+    if (p.refused) return { ...base, ok: false, error: p.refused, refused: true };
     const answers = {};
     let timedOut = false;
     for (const step of p.steps) {
@@ -229,7 +237,7 @@ async function scanProject(project, { tools: found, run = runStep, read = readTe
   } catch (e) {
     return { ...base, ok: false, error: `Couldn't check: ${clip(e?.message, 120) || 'something went wrong'}` };
   } finally {
-    if (requirements) fs.rm(requirements, { force: true }, () => {});
+    if (requirements) dropPins(requirements);
   }
 }
 
@@ -333,8 +341,8 @@ class DepWatch extends EventEmitter {
         const results = [];
         for (const p of projects) results.push(await scanProject(p, { tools: found, run: this.deps.run, now }));
         // Nothing answered at all (offline): keep last week's results. A checker
-        // that isn't installed is an answer of its own: it says what to install.
-        const asked = results.filter(r => !r.needs);
+        // that isn't installed, or a project not checked on purpose, is an answer of its own.
+        const asked = results.filter(r => !r.needs && !r.refused);
         if (asked.length && asked.every(r => !r.ok)) return tried("The checks couldn't reach their registries. Shellby will try again tomorrow.");
         this.save({ lastScanAt: now, lastAttemptAt: now, results, error: null });
         // Switched off while it was checking: it keeps the results, but says nothing.

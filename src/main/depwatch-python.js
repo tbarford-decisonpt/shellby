@@ -9,6 +9,8 @@
 const { NAMES, VERSIONS, parseJson } = require('./depwatch-parse');
 
 const MAX_PINS = 2000;
+// A line any longer is no pin (and long runs of spaces are what make a regex crawl).
+const MAX_LINE = 1000;
 
 // The files, best first: the first one a project has is the one read.
 const LOCKFILES = ['uv.lock', 'poetry.lock', 'pylock.toml', 'Pipfile.lock', 'requirements.txt'];
@@ -27,6 +29,7 @@ function tomlPins(text) {
   let cur = null;
   const flush = () => { if (cur && !cur.local) { const p = pin(cur.name, cur.version); if (p) out.push(p); } cur = null; };
   for (const raw of String(text || '').split(/\r?\n/)) {
+    if (raw.length > MAX_LINE) continue; // a wheel list: nothing wanted there
     const line = raw.trim();
     if (/^\[\[packages?\]\]$/.test(line)) { flush(); cur = {}; continue; }
     if (!cur) continue;
@@ -70,7 +73,9 @@ function pipfilePins(text) {
 function requirementsPins(text) {
   const out = [];
   for (const raw of String(text || '').split(/\r?\n/)) {
-    const line = raw.replace(/\s+#.*$/, '').replace(/\\$/, '').trim();
+    if (raw.length > MAX_LINE) continue;
+    const hash = raw.indexOf('#');
+    const line = (hash >= 0 ? raw.slice(0, hash) : raw).trim().replace(/\\$/, '').trim();
     const m = /^([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[A-Za-z0-9,._ -]*\])?\s*==\s*([^\s;,=]+)\s*(?:;.*|--hash=\S+.*)?$/.exec(line);
     const p = m && pin(m[1], m[2]);
     if (p) out.push(p);

@@ -47,7 +47,8 @@
       else if ((tab.draft || '').trim() === msg) tab.draft = '';
     }
     if (state.tabs.has(r.firstId)) SB.activate(r.firstId);
-    SB.toast(r.error || `Trying it ${r.started} ways. He'll rank them here once they're all done.`, { ms: r.error ? 9000 : 6000 });
+    const said = r.error || `Trying it ${r.started} ways. He'll rank them here once they're all done.`;
+    SB.toast(r.note ? `${said} ${r.note}` : said, { ms: r.error || r.note ? 9000 : 6000 });
     return true;
   };
 

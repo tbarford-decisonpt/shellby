@@ -24,9 +24,7 @@ function wireTries(d, opts = {}) {
   const ask = opts.ask || (spec => require('../confirm').ask(d.panel, { ...d.dialogLook(), ...spec }));
   const rootOf = opts.rootOf || (dir => require('../changes').rootOf(dir));
   const maxTabs = opts.maxTabs || MAX_TABS;
-  const filesDir = opts.filesDir || (() => path.join(require('electron').app.getPath('userData'), 'try-files'));
-  let pruned = false;
-  const runs = new Map();    // runId -> run
+  const filesDir = opts.filesDir || (() => path.join(require('electron').app.getPath('userData'), 'try-files'));  const runs = new Map();    // runId -> run
   const byTab = new Map();   // tabId -> runId
   let starting = false;      // one at a time: a double click is one set of tries
   let watching = false;
@@ -145,22 +143,26 @@ function wireTries(d, opts = {}) {
     }
   }
 
-  // One try's attachments, or none. Never throws: a try that can't have its
-  // snapshot gets the file where it is.
+  // One try's attachments. Never throws, and never hands a try a file in your
+  // checkout: one it can't have is left off, and run.left says so.
   function filesFor(run, i, files, roots, copy) {
     if (!files.length) return [];
     try {
-      if (!pruned) { pruned = true; tryFiles.prune(filesDir()); }
-      return tryFiles.forTry(files, { roots, copy, store: path.join(filesDir(), run.id, String(i)) });
+      const r = tryFiles.forTry(files, { roots, copy, store: path.join(filesDir(), run.id, String(i)) });
+      for (const f of r.left) run.left.add(f);
+      return r.files;
     } catch (err) {
       d.log.info(`tries: attachments: ${err.message}`);
-      return files;
+      const project = new Set(tryFiles.inProject(files, roots));
+      for (const f of project) run.left.add(f);
+      return files.filter(f => !project.has(f));
     }
   }
 
   async function launch({ n, text, dir, mode, over, files = [], roots = [] }) {
     const title = tries.titleFor(text);
-    const run = { id: d.randomUUID(), title, startedAt: Date.now(), firstId: null, tries: [], finished: false, launching: true };
+    const run = { id: d.randomUUID(), title, startedAt: Date.now(), firstId: null, tries: [], finished: false, launching: true, left: new Set() };
+    if (files.length) { try { tryFiles.prune(filesDir()); } catch (err) { d.log.info(`tries: prune: ${err.message}`); } }
     // Known before the first copy is made: a try can finish (or close) while the
     // next is still being copied, and turnEnded must find it.
     runs.set(run.id, run);
@@ -187,9 +189,12 @@ function wireTries(d, opts = {}) {
     settle(run); // any that finished while the others were starting
     d.stat?.('tries', { n: run.tries.length, over: !!over });
     d.log.info(`tries: started ${run.tries.length} of ${n}`);
+    const left = [...run.left].map(f => path.basename(f));
     return {
       ok: true, runId: run.id, firstId: run.firstId, started: run.tries.length, n,
       ...(error ? { error: `Only ${run.tries.length} of ${n} could start: ${error}` } : {}),
+      // A folder, or something too big to copy for each try: they went without it.
+      ...(left.length ? { note: `They went without ${left.slice(0, 3).join(', ')}${left.length > 3 ? ` and ${left.length - 3} more` : ''}: ${left.length === 1 ? "it's" : "they're"} in your checkout and couldn't be copied for each try.` } : {}),
     };
   }
 

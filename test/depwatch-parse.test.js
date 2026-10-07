@@ -129,6 +129,14 @@ test('python pins: requirements keep exact pins only, and nothing that could be 
   assert.equal(py.requirementsText([{ name: 'a', version: '1.0' }, { name: 'b', version: '2' }]), 'a==1.0\nb==2\n');
 });
 
+test('python pins: a hostile requirements file of long blank runs is read in no time', () => {
+  const text = `a==1${' '.repeat(80000)}x\n${'b==2 '.repeat(20000)}\nok==1.0\n`;
+  const t0 = Date.now();
+  assert.deepEqual(py.pinsFrom('requirements.txt', text), [{ name: 'ok', version: '1.0' }]);
+  assert.deepEqual(py.pinsFrom('uv.lock', `[[package]]\nname = "x"${' '.repeat(80000)}\n`), []);
+  assert.ok(Date.now() - t0 < 500, `${Date.now() - t0} ms`);
+});
+
 test('python pins: poetry.lock skips git and path packages; Pipfile.lock reads both groups', () => {
   const poetry = '[[package]]\nname = "requests"\nversion = "2.19.0"\n\n[[package]]\nname = "mine"\nversion = "0.1.0"\n\n[package.source]\ntype = "directory"\nurl = "../mine"\n';
   // Poetry marks a local package in [package.source]; uv in an inline source.

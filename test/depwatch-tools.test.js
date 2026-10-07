@@ -185,6 +185,16 @@ test('go: updates from go list, no toolchain downloads, go.mod left alone; no go
   assert.match(plan('go', { ...T, go: null }).needs, /Go/);
 });
 
+test('pnpm with configDependencies is not checked; Corepack never fetches a pnpm or Yarn too old for the guards', () => {
+  assert.match(plan('pnpm', T, { workspace: 'packages:\n  - "."\nconfigDependencies:\n  evil: "1.0.0+sha512-x"\n' }).refused, /configDependencies/);
+  assert.ok(plan('pnpm', T, { workspace: 'packages:\n  - "."\n' }).steps);
+  const noPnpm = { ...T, pnpm: null };
+  assert.match(plan('pnpm', noPnpm, { pkg: '{"packageManager":"pnpm@7.33.0"}' }).needs, /pnpm/);
+  assert.match(argsOf(plan('yarn-berry', T, { pkg: '{"packageManager":"yarn@2.4.3"}' }))[0], /yarn@stable /);
+  assert.match(argsOf(plan('yarn', T, { pkg: '{"packageManager":"yarn@1.3.2"}' }))[0], /yarn@1 /);
+  assert.equal(plan('go').steps[0].env.GOVCS, 'private:git,public:off');
+});
+
 test('npmEnv passes nothing a project .npmrc could quote, and pins git', () => {
   const env = tools.npmEnv({ file: path.resolve('/nodejs/node'), pre: [], git: null }, {
     PATH: '/usr/bin', TEMP: '/tmp', HTTPS_PROXY: 'http://proxy:8080',

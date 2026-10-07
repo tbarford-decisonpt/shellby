@@ -46,8 +46,8 @@ test('forTry: a project file is the copy\'s own, a missing one is snapshotted pe
   const t = layout();
   try {
     const files = [path.join(t.repo, 'src', 'login.js'), path.join(t.repo, 'notes.md'), t.shot];
-    const one = tryFiles.forTry(files, { roots: [t.repo], copy: { path: t.copies[0] }, store: t.store(1) });
-    const two = tryFiles.forTry(files, { roots: [t.repo], copy: { path: t.copies[1] }, store: t.store(2) });
+    const one = tryFiles.forTry(files, { roots: [t.repo], copy: { path: t.copies[0] }, store: t.store(1) }).files;
+    const two = tryFiles.forTry(files, { roots: [t.repo], copy: { path: t.copies[1] }, store: t.store(2) }).files;
 
     assert.equal(one[0], path.join(t.copies[0], 'src', 'login.js'));
     assert.equal(two[0], path.join(t.copies[1], 'src', 'login.js'));
@@ -71,27 +71,50 @@ test('forTry: a file from the copy the message was typed in maps to each try\'s 
   try {
     const from = path.join(t.copies[0], 'src', 'login.js');
     const r = tryFiles.forTry([from], { roots: [t.repo, t.copies[0]], copy: { path: t.copies[1] }, store: t.store(1) });
-    assert.deepEqual(r, [path.join(t.copies[1], 'src', 'login.js')]);
+    assert.deepEqual(r, { files: [path.join(t.copies[1], 'src', 'login.js')], left: [] });
   } finally {
     fs.rmSync(t.base, { recursive: true, force: true });
   }
 });
 
-test('forTry: two snapshots with one name both survive; a folder or a missing file stays where it was', () => {
+test('forTry: two snapshots with one name both survive; a folder or a missing file is left off, never your checkout\'s', () => {
   const t = layout();
   try {
     fs.mkdirSync(path.join(t.repo, 'docs'));
     fs.writeFileSync(path.join(t.repo, 'docs', 'notes.md'), 'other notes\n');
     const files = [path.join(t.repo, 'notes.md'), path.join(t.repo, 'docs', 'notes.md'), path.join(t.repo, 'docs'), path.join(t.repo, 'gone.txt')];
-    const r = tryFiles.forTry(files, { roots: [t.repo], copy: { path: t.copies[0] }, store: t.store(1) });
+    const { files: r, left } = tryFiles.forTry(files, { roots: [t.repo], copy: { path: t.copies[0] }, store: t.store(1) });
     assert.equal(fs.readFileSync(r[0], 'utf8'), 'uncommitted notes\n');
     assert.equal(fs.readFileSync(r[1], 'utf8'), 'other notes\n');
     assert.notEqual(r[0], r[1]);
-    assert.equal(r[2], files[2]);
-    assert.equal(r[3], files[3]);
+    assert.equal(r.length, 2);
+    assert.deepEqual(left, [files[2], files[3]]);
+    assert.deepEqual(tryFiles.inProject([files[2], t.shot], [t.repo]), [files[2]]);
   } finally {
     fs.rmSync(t.base, { recursive: true, force: true });
   }
+});
+
+test('forTry: a link in the copy that points out of it is not the copy\'s file', () => {
+  const t = layout();
+  try {
+    const outside = path.join(t.base, 'outside');
+    fs.mkdirSync(outside);
+    fs.writeFileSync(path.join(outside, 'secret.png'), 'not yours');
+    fs.mkdirSync(path.join(t.repo, 'assets'));
+    fs.writeFileSync(path.join(t.repo, 'assets', 'secret.png'), 'the checkout\'s');
+    fs.symlinkSync(outside, path.join(t.copies[0], 'assets'), 'junction');
+    const file = path.join(t.repo, 'assets', 'secret.png');
+    const { files } = tryFiles.forTry([file], { roots: [t.repo], copy: { path: t.copies[0] }, store: t.store(1) });
+    assert.equal(fs.readFileSync(files[0], 'utf8'), 'the checkout\'s', 'a snapshot of the attached file instead');
+    assert.ok(files[0].startsWith(t.store(1)));
+  } finally {
+    fs.rmSync(t.base, { recursive: true, force: true });
+  }
+});
+
+test('clean: \\??\\ paths are not local either', () => {
+  assert.deepEqual(tryFiles.clean(['\\??\\UNC\\attacker\\share\\x.png']), []);
 });
 
 test('prune: runs older than 30 days go, newer ones and anything else stay', () => {

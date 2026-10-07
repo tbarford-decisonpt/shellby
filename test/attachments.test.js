@@ -169,7 +169,7 @@ test('network shares and device paths are never opened for a thumbnail or for Cl
   const nativeImage = { createFromPath: () => { touched++; return { isEmpty: () => true }; }, createFromBuffer: () => { touched++; return { isEmpty: () => true }; } };
   const statSize = () => { touched++; return 10; };
   const readFile = () => { touched++; return Buffer.alloc(10); };
-  for (const p of ['\\\\attacker\\share\\x.png', '//attacker/share/x.png', '\\\\?\\C:\\x.png', '\\\\.\\pipe\\x.png']) {
+  for (const p of ['\\\\attacker\\share\\x.png', '//attacker/share/x.png', '\\\\?\\C:\\x.png', '\\\\.\\pipe\\x.png', '\\??\\UNC\\attacker\\share\\x.png']) {
     assert.equal(attach.isLocalPath(p), false, p);
     assert.equal(attach.thumbnail(p, { nativeImage, statSize }), null, p);
     assert.equal(attach.loadForClaude(p, { nativeImage, readFile, statSize }), null, p);

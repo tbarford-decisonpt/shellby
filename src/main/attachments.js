@@ -22,10 +22,10 @@ const KEEP_DAYS = 30;
 const imageType = file => IMAGE_TYPES[path.extname(String(file)).toLowerCase()] || null;
 
 // A file on this PC. Not a network share (\\server\share or //server/share)
-// nor a device path (\\?\, \\.\): just opening a share makes Windows sign in
-// to that server with your account, so a path handed over by a renderer must
-// never go there.
-const isLocalPath = file => typeof file === 'string' && !/^[\\/]{2}/.test(file);
+// nor a device path (\\?\, \\.\, \??\): just opening a share makes Windows sign
+// in to that server with your account, so a path handed over by a renderer
+// must never go there.
+const isLocalPath = file => typeof file === 'string' && !/^[\\/]{2}/.test(file) && !/^[\\/]\?\?[\\/]/.test(file);
 
 // Shrink to MAX_EDGE on the long side, never up.
 function fit(img, maxEdge = MAX_EDGE) {

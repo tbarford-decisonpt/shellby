@@ -27,6 +27,11 @@ const TIMEOUT_MS = 2 * MINUTE;
 const SLOW_TIMEOUT_MS = 5 * MINUTE;  // pip-audit asks PyPI once per package
 const NO_YARNRC = '.shellby-ignores-yarnrc.yml';
 const RUSTSEC_DB = 'https://github.com/RustSec/advisory-db.git';
+// The oldest a project may name for Corepack to fetch: older ones don't know
+// the settings that keep the project's own code from running.
+const MIN_PNPM = 10;
+const MIN_BERRY = 3;
+const major = v => Number(String(v).split('.')[0]);
 const PYTHON_LOCKS = ['uv.lock', 'poetry.lock', 'pylock.toml', 'Pipfile.lock', 'requirements.txt'];
 
 /**
@@ -199,7 +204,9 @@ const pythonEnv = (env = process.env) => ({ ...baseEnv(env, KEEP_FOR.python), PY
 const rustEnv = (env = process.env) => ({ ...baseEnv(env, KEEP_FOR.rust), CARGO_TERM_COLOR: 'never' });
 // Go: GOTOOLCHAIN=local, or a go.mod's toolchain line downloads and runs another Go;
 // -mod=readonly, or `go list` may write go.mod and go.sum.
-const goEnv = (env = process.env) => ({ ...baseEnv(env, KEEP_FOR.go), GOTOOLCHAIN: 'local', GOFLAGS: '-mod=readonly', GOWORK: 'off', CGO_ENABLED: '0' });
+// GOVCS: modules come through the proxy; no git, hg or svn against a host
+// the go.mod names, except for your own private modules.
+const goEnv = (env = process.env) => ({ ...baseEnv(env, KEEP_FOR.go), GOTOOLCHAIN: 'local', GOFLAGS: '-mod=readonly', GOWORK: 'off', CGO_ENABLED: '0', GOVCS: 'private:git,public:off' });
 
 // ------------------------------------------------------------------ the plan
 
@@ -209,7 +216,7 @@ const goEnv = (env = process.env) => ({ ...baseEnv(env, KEEP_FOR.go), GOTOOLCHAI
  * that isn't there (Go without govulncheck). requirements: the path of the
  * pins file Shellby writes for pip-audit (python only). pkg: package.json's text.
  */
-function plan(project, tools, { env = process.env, requirements = null, pkg = '' } = {}) {
+function plan(project, tools, { env = process.env, requirements = null, pkg = '', workspace = '' } = {}) {
   const { key: cwd, manager } = project;
   const m = MANAGERS[manager];
   if (!m) return { needs: 'a package manager Shellby knows' };
@@ -223,8 +230,11 @@ function plan(project, tools, { env = process.env, requirements = null, pkg = ''
     return { steps: [step('outdated', t.npm, ['outdated', '--json'], e), step('audit', t.npm, ['audit', '--json'], e)] };
   }
   if (manager === 'pnpm') {
-    // Corepack, only for the exact pnpm the project names.
-    const tool = t.pnpm || (t.corepack && pm?.name === 'pnpm' ? { file: t.corepack.file, pre: [...t.corepack.pre, `pnpm@${pm.version}`] } : null);
+    // configDependencies are downloaded into the project (from a registry it
+    // picks) before any command, and can carry hooks: not checked unattended.
+    if (/^\s*configDependencies\s*:/m.test(workspace)) return { refused: 'Not checked: its pnpm-workspace.yaml has configDependencies, which pnpm installs into the project before any check' };
+    // Corepack, only for the exact pnpm the project names, and only one that knows the settings above.
+    const tool = t.pnpm || (t.corepack && pm?.name === 'pnpm' && major(pm.version) >= MIN_PNPM ? { file: t.corepack.file, pre: [...t.corepack.pre, `pnpm@${pm.version}`] } : null);
     if (!tool) return { needs: m.needs };
     const e = pnpmEnv(tool, env);
     // Never --fix or --ignore: they write to the project.
@@ -232,7 +242,7 @@ function plan(project, tools, { env = process.env, requirements = null, pkg = ''
   }
   if (manager === 'yarn') {
     // Yarn 1 itself, or Corepack asked for a 1.x: `yarn audit` in Yarn 2+ would run the project's "audit" script.
-    const v1 = pm?.name === 'yarn' && pm.version.startsWith('1.') ? pm.version : '1';
+    const v1 = pm?.name === 'yarn' && /^1\.22\./.test(pm.version) ? pm.version : '1';
     const tool = t.yarn || (t.corepack ? { file: t.corepack.file, pre: [...t.corepack.pre, `yarn@${v1}`] } : null);
     if (!tool) return { needs: 'Yarn 1 (`npm install -g yarn`), or Corepack' };
     const e = yarnEnv(env);
@@ -241,7 +251,7 @@ function plan(project, tools, { env = process.env, requirements = null, pkg = ''
   if (manager === 'yarn-berry') {
     // Always through Corepack, asked for a 2+ release: in Yarn 1, `yarn npm` would run the project's "npm" script.
     if (!t.corepack) return { needs: m.needs };
-    const v = pm?.name === 'yarn' && !pm.version.startsWith('1.') ? pm.version : 'stable';
+    const v = pm?.name === 'yarn' && major(pm.version) >= MIN_BERRY ? pm.version : 'stable';
     const tool = { file: t.corepack.file, pre: [...t.corepack.pre, `yarn@${v}`] };
     return { steps: [step('audit', tool, ['npm', 'audit', '--all', '--recursive', '--json'], yarnEnv(env))] };
   }

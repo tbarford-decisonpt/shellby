@@ -6,6 +6,8 @@
 //   - a file in the project that's in the copy too: the copy's file
 //   - a file in the project that isn't (uncommitted, ignored): a snapshot of it
 //     for that try alone, under Shellby's data folder
+//   - a file in the project that can be neither (a folder, too big, a link
+//     out of the copy): left off, and the tries say so. Never your checkout's.
 //   - anything else (screenshots, files from elsewhere): as it is. Pictures go
 //     to Claude inline, read once per try; the rest are only read.
 //
@@ -14,13 +16,14 @@ const fs = require('fs');
 const path = require('path');
 const { isLocalPath, MAX_INPUT_BYTES } = require('./attachments');
 
-const MAX_FILES = 20;              // what one message carries (task:send)
-const KEEP_DAYS = 30;              // like saved screenshots: old chats just lose them
+const MAX_FILES = 20;                       // what one message carries (task:send)
+const MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024; // per try, all snapshots together
+const KEEP_DAYS = 30;                       // like saved screenshots: old chats just lose them
 const RUN_DIR = /^[0-9a-f-]{8,64}$/i;
 
 const insideOf = (dir, file) => {
   const rel = path.relative(dir, file);
-  return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel : null;
+  return rel && rel.split(path.sep)[0] !== '..' && !path.isAbsolute(rel) ? rel : null;
 };
 
 /**
@@ -44,35 +47,51 @@ function clean(files) {
     .slice(0, MAX_FILES);
 }
 
-// The real path (8.3 short names expanded, as git reports them), or the path as it is.
+// The real path (8.3 short names expanded, links followed, as git reports it), or the path as it is.
 const real = f => { try { return fs.realpathSync.native(f); } catch { return path.resolve(f); } };
+
+/** Which files are in the project at all (and so must never go to a try as they are). */
+const inProject = (files, roots) => {
+  const realRoots = roots.filter(r => typeof r === 'string' && r).map(real);
+  return files.filter(f => placeIn(real(f), realRoots));
+};
 
 /**
  * One try's attachments. files: from clean(). roots: see placeIn. copy: the
  * try's worktree record ({ path }). store: a folder of this try's own, for
- * snapshots (made only if one is needed). -> [path]
+ * snapshots (made only if one is needed).
+ * -> { files: [path], left: [path] } (left: project files it couldn't have)
  */
 function forTry(files, { roots, copy, store }) {
   const realRoots = roots.filter(r => typeof r === 'string' && r).map(real);
-  return files.map(file => {
+  const copyReal = real(copy.path);
+  const budget = { bytes: MAX_SNAPSHOT_BYTES };
+  const out = [];
+  const left = [];
+  for (const file of files) {
     const rel = placeIn(real(file), realRoots);
-    if (!rel) return file;
+    if (!rel) { out.push(file); continue; }
     const mine = path.join(copy.path, rel);
-    if (fs.existsSync(mine)) return mine;
-    return snapshot(file, store) || file;
-  });
+    // The copy's own file, as long as it really is in the copy (not a link out of it).
+    if (fs.existsSync(mine) && insideOf(copyReal, real(mine))) { out.push(mine); continue; }
+    const snap = snapshot(file, store, budget);
+    if (snap) out.push(snap);
+    else left.push(file);
+  }
+  return { files: out, left };
 }
 
-// A copy of a project file the try's copy doesn't have. Only plain files of a
-// sensible size: a folder, or anything bigger, stays where it is.
-function snapshot(file, store) {
+// A copy of a project file the try's copy doesn't have. Only plain files, of a
+// sensible size and within the try's budget.
+function snapshot(file, store, budget) {
   try {
     const st = fs.statSync(file);
-    if (!st.isFile() || st.size > MAX_INPUT_BYTES) return null;
+    if (!st.isFile() || st.size > MAX_INPUT_BYTES || st.size > budget.bytes) return null;
     fs.mkdirSync(store, { recursive: true });
     let to = path.join(store, path.basename(file));
     for (let n = 2; fs.existsSync(to); n++) to = path.join(store, `${n}-${path.basename(file)}`);
     fs.copyFileSync(file, to, fs.constants.COPYFILE_EXCL);
+    budget.bytes -= st.size;
     return to;
   } catch {
     return null;
@@ -88,10 +107,10 @@ function prune(dir, now = Date.now()) {
     if (!RUN_DIR.test(name)) continue;
     const p = path.join(dir, name);
     try {
-      if (now - fs.statSync(p).mtimeMs > KEEP_DAYS * 86400000) { fs.rmSync(p, { recursive: true, force: true }); gone++; }
+      if (now - fs.lstatSync(p).mtimeMs > KEEP_DAYS * 86400000) { fs.rmSync(p, { recursive: true, force: true }); gone++; }
     } catch { /* in use, or gone already: next time */ }
   }
   return gone;
 }
 
-module.exports = { placeIn, clean, forTry, prune, MAX_FILES };
+module.exports = { placeIn, clean, forTry, inProject, prune, MAX_FILES, MAX_SNAPSHOT_BYTES };
