@@ -61,8 +61,8 @@
     };
   }
 
-  // What the calling card would carry too (tank-share.js): built-in decor and his finds, not jars or pack decor.
-  const shareable = p => !p.ref.includes('/') && !p.ref.startsWith('jar:');
+  // What the calling card would carry too (tank-share.js): built-in decor and his finds, not jars, stickers or pack decor.
+  const shareable = p => !p.ref.includes('/') && !p.ref.startsWith('jar:') && !p.ref.startsWith('sticker:');
 
   /**
    * His decorated tank filling `box`, cropped around its biggest piece, with him

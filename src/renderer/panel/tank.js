@@ -174,7 +174,7 @@
 
   // ------------------------------------------------------------ what you can point at
 
-  const rowName = p => (p.layer === 'float' ? ['high in the water', 'in the water', 'low in the water'][p.row] : p.layer === 'back' ? 'against the back glass' : `${v.rows[p.row]} row`);
+  const rowName = p => (p.category === 'sticker' ? ['high on the glass', 'on the glass', 'low on the glass'][p.row] : p.layer === 'float' ? ['high in the water', 'in the water', 'low in the water'][p.row] : p.layer === 'back' ? 'against the back glass' : `${v.rows[p.row]} row`);
 
   function renderHits() {
     if (!v) return;

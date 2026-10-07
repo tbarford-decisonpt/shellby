@@ -39,12 +39,12 @@ const DEFAULT_STYLE = Object.freeze({ substrate: 'soft-sand', backdrop: 'plain-w
 // The tray's order, and what each shelf of it is called.
 const CATEGORIES = Object.freeze([
   ['structure', 'Structures'], ['plant', 'Plants'], ['rock', 'Rocks'], ['treasure', 'Treasures'],
-  ['bubbler', 'Bubblers & lights'], ['find', 'His finds'], ['jar', 'Specimen jars'], ['substrate', 'Floor'], ['backdrop', 'Back glass'],
+  ['bubbler', 'Bubblers & lights'], ['find', 'His finds'], ['jar', 'Specimen jars'], ['sticker', 'Stickers on the glass'], ['substrate', 'Floor'], ['backdrop', 'Back glass'],
 ]);
 const CATEGORY_ORDER = new Map(CATEGORIES.map(([id], i) => [id, i]));
 
-// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>" or "jar:<species>".
-const REF_RE = /^(?:(?:find|jar):[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
+// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>", "jar:<species>" or "sticker:<project>" (tank-glass.js).
+const REF_RE = /^(?:sticker:[0-9a-f]{12}|(?:find|jar):[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const isRef = v => typeof v === 'string' && REF_RE.test(v);
@@ -217,8 +217,8 @@ function sanitize(draft, { lib, level = 1, shipped = 0, previous = null, now = 0
   return { state: { size: size.id, style, placed: withUids(placed), editedAt: pos(now), shareCard: prev.shareCard }, dropped };
 }
 
-// Back glass first, then the rows back to front, then what floats; by z within each.
-const depthOf = p => (p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row);
+// Back glass first, then the rows back to front, then what floats, then stickers on the front glass; by z within each.
+const depthOf = p => (p.category === 'sticker' ? 6 : p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row);
 
 /** A copy of a library entry fit to cross IPC (its art included). */
 const art = e => ({

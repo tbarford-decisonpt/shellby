@@ -25,7 +25,7 @@
 
   // ------------------------------------------------------------ laying out
 
-  const depthOf = p => (p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row);
+  const depthOf = p => (p.category === 'sticker' ? 6 : p.layer === 'back' ? 0 : p.layer === 'float' ? 5 : 1 + p.row); // stickers: on the front glass
 
   function baseline(world, layer, row) {
     if (layer === 'float') return world.floatY[row] ?? world.floatY[0];
