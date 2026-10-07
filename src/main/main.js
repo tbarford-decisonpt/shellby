@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain: electronIpcMain, screen, shell, dialog, globalShortcut, clipboard, session: electronSession, powerMonitor, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, ipcMain: electronIpcMain, screen, shell, dialog, globalShortcut, clipboard, session: electronSession, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -39,15 +39,10 @@ const parity = require('./parity');
 const teamIpcModule = require('./team-ipc');
 const { guardIpc, windowPolicy } = require('./ipc-guard');
 const { guardAllWebContents } = require('./web-guard');
-const { createUsage } = require('./usage-service');
-const { createHeldQueue } = require('./held-service');
-const { createRoutines } = require('./routines-service');
-const { createAway } = require('./away-service');
-const { createStickers } = require('./sticker-service');
-const { createCopies } = require('./copy-service');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { registerTankIpc } = require('./ipc/tank');
+const { wireServices } = require('./wiring/services');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
@@ -296,153 +291,16 @@ let focusTick = null;
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } }; // missing or unreadable: not a folder
-// Dev/e2e only: 5-hour readings from dev:usage, backdated so a pace builds up
-// without an hour's wait, and held work going a second after the reset.
-const FORECAST_TEST = !app.isPackaged && process.env.SHELLBY_FORECAST_TEST === '1';
-// Held work goes a minute after the reset, so the server has rolled over too.
-const HELD_GRACE_MS = FORECAST_TEST ? 1000 : 60 * 1000;
-// Dev/e2e only: the idle readings come from dev:away instead of Windows.
-const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
-
-// ================================================================ services
-// The areas with state of their own, each given exactly what it uses. Most of
-// that only exists once Shellby has booted (or is a wiring/ export declared
-// below), so it goes as a getter, read when it's used.
-
-const usageService = createUsage({
-  log, send, showPanel, every, powerMonitor,
-  get config() { return config; },
-  get panel() { return panel; },
-  get manager() { return manager; },
-  get workflows() { return workflows; },
-  get recapLog() { return awayService.recapLog; },
-  get history() { return history; },
-  get usagePlan() { return usagePlan; },
-  get notify() { return notify; },
-  get refreshCritter() { return refreshCritter; },
-  get flashState() { return flashState; },
-  get tellChannel() { return tellChannel; },
-  get sayText() { return sayText; },
-  markActive: () => { lastActivity = Date.now(); },
-  routines: () => routineService.routines(),
-  heldViews: () => heldService.heldViews(),
-});
-const heldService = createHeldQueue({
-  log, send, showPanel, isFolder, isStr, randomUUID, confirm, powerSaveBlocker, CAPTURE, graceMs: HELD_GRACE_MS,
-  get config() { return config; },
-  get panel() { return panel; },
-  get manager() { return manager; },
-  get history() { return history; },
-  get claudeStatus() { return claudeStatus; },
-  get notify() { return notify; },
-  get tellChannel() { return tellChannel; },
-  get wake() { return wake; },
-  get openTab() { return openTab; },
-  get sendToTab() { return sendToTab; },
-  get currentCwd() { return currentCwd; },
-  get dialogLook() { return dialogLook; },
-  get adoptPhoneTab() { return adoptPhoneTab; },
-  worktreeHome: () => worktreeHome(),
-  limitWait: usageService.limitWait, resetTarget: usageService.resetTarget,
-  clockTime: usageService.clockTime, sendOutlook: usageService.sendOutlook,
-  routines: () => routineService.routines(),
-  routinesView: () => routineService.routinesView(),
-  runRoutine: (r, opts) => routineService.runRoutine(r, opts),
-  makeRoomForRoutine: () => routineService.makeRoomForRoutine(),
-});
-const routineService = createRoutines({
-  log, send, showPanel, isFolder, randomUUID, confirm,
-  get config() { return config; },
-  get panel() { return panel; },
-  get manager() { return manager; },
-  get history() { return history; },
-  get usagePlan() { return usagePlan; },
-  get claudeStatus() { return claudeStatus; },
-  get remote() { return remote; },
-  get notify() { return notify; },
-  get sayText() { return sayText; },
-  get wake() { return wake; },
-  get openTab() { return openTab; },
-  get currentCwd() { return currentCwd; },
-  get stat() { return stat; },
-  get dialogLook() { return dialogLook; },
-  get runClaudeOnce() { return runClaudeOnce; },
-  get knownProjects() { return knownProjects; },
-  limitWait: usageService.limitWait, guardSettings: usageService.guardSettings, clockTime: usageService.clockTime,
-  heldList: heldService.heldList, holdForReset: heldService.holdForReset, scheduleHeld: heldService.scheduleHeld,
-  syncKeepAwake: heldService.syncKeepAwake, queueTabs: heldService.queueTabs,
-});
-const awayService = createAway({
-  log, send, showPanel, every, powerMonitor, native, confirm, CAPTURE, RECAP_TEST,
-  get config() { return config; },
-  get critter() { return critter; },
-  get panel() { return panel; },
-  get manager() { return manager; },
-  get external() { return external; },
-  get devServers() { return devServers; },
-  get speak() { return speak; },
-  get notify() { return notify; },
-  get dialogLook() { return dialogLook; },
-  limitWait: usageService.limitWait,
-});
-const stickerService = createStickers({
-  log, send, showPanel, CAPTURE,
-  get config() { return config; },
-  get critter() { return critter; },
-  get panel() { return panel; },
-  get workflows() { return workflows; },
-  get notify() { return notify; },
-  get flashState() { return flashState; },
-  get sayText() { return sayText; },
-  get broadcastSkin() { return broadcastSkin; },
-  get currentLevel() { return currentLevel; },
-  get activeSkin() { return activeSkin; },
-  get githubEndpoints() { return githubEndpoints; },
-  get noteWeek() { return noteWeek; },
-  get stickersView() { return stickersView; },
-  get stickerStats() { return stickerStats; },
-});
-const copyService = createCopies({
-  log, isStr, CAPTURE, worktreeHome: () => worktreeHome(), claudeConfigDir: () => claudeConfigDir(),
-  routineTabs: routineService.routineTabs, queueTabs: heldService.queueTabs, queueWaits: heldService.queueWaits,
-  get config() { return config; },
-  get manager() { return manager; },
-  get history() { return history; },
-  get remote() { return remote; },
-  get turnStarts() { return turnStarts; },
-});
-
-const {
-  checkLimit, onUsage, outlookView, projectKeyOf, refreshOutlook, saveSpend, sendOutlook,
-  spendSource, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
-} = usageService;
-const { heldList, holdForReset, queueTabs, queueTask, queueWaits, reopenForHeld, saveHeld, scheduleHeld, syncKeepAwake } = heldService;
-const {
-  chatRoutine, draftRoutine, repairRoutine, routineTabs, routineTestView, routineTests, routines,
-  routinesView, runRoutine, saveRoutines, startScheduler, testRoutine,
-} = routineService;
-const { checkAway, checkLeavingSoon, isAway, noteRecap, watchAway, watchLeaving } = awayService;
-const { shellIdOf, shellStickers, shipped, stickerState } = stickerService;
-const { changeRef, retireWorktree } = copyService;
-
 // What main shares with the modules in ipc/ and wiring/. Functions declared
-// here are hoisted, and the services above already exist, so they go as they
-// are; everything else is a getter, read when it's used: most of it is set at
+// here are hoisted, so they go as they are; everything else is a getter, read when it's used: most of it is set at
 // boot or changes as he runs, and some is only declared further down. A setter
 // is there only where a module changes it. wiring/ reaches the services whole
 // (d.usageService.limitWait()); the flat names are what ipc/ reads.
 const shared = {
-  applyHotkey, applyLoginItem, changeRef, chatRoutine, checkAway, checkNudges, draftRoutine,
-  gameInFront, heldList, holdForReset, isFolder, isStr, noteRecap, onUsage, outlookView,
-  panelSettings, queueTabs, queueTask, queueWaits, recordWork, refreshOutlook, rememberPrompt,
-  reopenForHeld, repairRoutine, retireWorktree, routineTabs, routineTestView, routineTests,
-  routines, routinesView, runRoutine, saveCritterPos, saveHeld, saveRoutines, saveStreaks, send,
-  sendOutlook, setCrewSlots, setPanelRoomy, shellIdOf, shellStickers, shipped, showPanel,
-  stickerState, streaksView, syncKeepAwake, testRoutine, togglePanel, usageBreakdown,
-  FORECAST_TEST, RECAP_TEST, awayService, copyService, routineService, stickerService, usageService,
-  get recapLog() { return awayService.recapLog; }, set recapLog(v) { awayService.recapLog = v; },
-  isAway, tabCost, windowShare,
-  projectKeyOf, spendSource,
+  applyHotkey, applyLoginItem, checkNudges, every, gameInFront, isFolder, isStr, panelSettings,
+  recordWork, rememberPrompt, saveCritterPos, saveStreaks, send, setCrewSlots, setPanelRoomy,
+  showPanel, streaksView, togglePanel,
+  get recapLog() { return shared.awayService.recapLog; }, set recapLog(v) { shared.awayService.recapLog = v; },
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
   get CARD_MAX_BYTES() { return CARD_MAX_BYTES; },
@@ -471,6 +329,7 @@ const shared = {
   get TRICKS_KIND() { return TRICKS_KIND; },
   get activeSkin() { return activeSkin; },
   get addLesson() { return addLesson; },
+  get adoptPhoneTab() { return adoptPhoneTab; },
   get advanceFocus() { return advanceFocus; },
   get afterTurnChecks() { return afterTurnChecks; },
   get allSkins() { return allSkins; },
@@ -773,6 +632,18 @@ const shared = {
   get xpView() { return xpView; },
 };
 
+// Adds an area's exports to shared, where the others reach them. Two areas
+// giving the same name would quietly replace one another, so that stops boot.
+function share(parts) {
+  for (const k of Object.keys(parts)) if (k in shared) throw new Error(`shared.${k} is given twice`);
+  return Object.assign(shared, parts);
+}
+
+// Before any other area, as they were: the rest reach these from the start.
+const {
+  changeRef, checkLeavingSoon, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
+  startScheduler, stickerState, usageService, watchAway, watchGuards, watchLeaving, watchOutlook,
+} = share(wireServices(shared));
 const {
   applyLayer, createCritter, createMischief, createMotion, crewExtra, critterBaseSize, critterGeo,
   helperWidth, motionBox, placeCritter, px, resetCritterPos, secureWindow, settleCritter,
