@@ -1,4 +1,4 @@
-const { app, ipcMain: electronIpcMain, screen, shell, dialog, globalShortcut, clipboard, session: electronSession, powerMonitor } = require('electron');
+const { app, ipcMain: electronIpcMain, screen, globalShortcut, session: electronSession, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -7,33 +7,19 @@ const { randomUUID } = crypto;
 
 const { Config } = require('./config');
 const { History } = require('./history');
-const { checkStatus, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
+const { checkStatus, setPlanOnly } = require('./claude-cli');
 const { loadSkins } = require('./skins');
 const { clampToDisplays } = require('./placement');
-const claudeSetup = require('./claude-setup');
 const { Wardrobe } = require('./wardrobe/service');
-const confirm = require('./confirm');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
 const { withDevice } = require('./xp');
 const rooms = require('./rooms');
-const { createLean } = require('./lean');
-const { createSkillRemover } = require('./skillremove');
-const { createModsService } = require('./mods-service');
-const editor = require('./editor');
-const voice = require('./voice');
 const statusLine = require('./statusline');
-const stickers = require('./stickers');
 const weekly = require('./weekly');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
 const attach = require('./attachments');
-const parity = require('./parity');
-const teamIpcModule = require('./team-ipc');
-const { guardIpc, windowPolicy } = require('./ipc-guard');
 const { guardAllWebContents } = require('./web-guard');
-const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
-const { registerWardrobeIpc } = require('./ipc/wardrobe');
-const { registerTankIpc } = require('./ipc/tank');
 const { wirePanel } = require('./wiring/panel');
 const { wireServices } = require('./wiring/services');
 const { wireCrewSlots } = require('./wiring/crew-slots');
@@ -69,24 +55,7 @@ const { wireSurprises } = require('./wiring/surprises');
 const { wireStartFrom } = require('./wiring/startfrom');
 const { wireBacklog } = require('./wiring/backlog');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
-const { registerCritterIpc } = require('./ipc/critter');
-const { registerLifeIpc } = require('./ipc/life');
-const { registerPanelIpc } = require('./ipc/panel');
-const { registerTabsIpc } = require('./ipc/tabs');
-const { registerHandoffIpc } = require('./ipc/handoff');
-const { registerRepoIpc } = require('./ipc/repo');
-const { registerSettingsIpc } = require('./ipc/settings');
-const { registerToolboxIpc } = require('./ipc/toolbox');
-const { registerRoutinesIpc } = require('./ipc/routines');
-const { registerGithubIpc } = require('./ipc/github');
-const { registerProgressIpc } = require('./ipc/progress');
-const { registerSurroundingsIpc } = require('./ipc/surroundings');
-const { registerTriesIpc } = require('./ipc/tries');
-const { registerCorrectionsIpc } = require('./ipc/corrections');
-const { registerStartFromIpc } = require('./ipc/startfrom');
-const { registerBacklogIpc } = require('./ipc/backlog');
-const { registerCrewIpc } = require('./ipc/crew');
-const { registerReleasesIpc } = require('./projects/releases-ipc');
+const { registerIpc } = require('./ipc');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -462,7 +431,7 @@ const shared = {
   get lastRun() { return lastRun; },
   get lastStatus() { return lastStatus; }, set lastStatus(v) { lastStatus = v; },
   get lastXp() { return lastXp; }, set lastXp(v) { lastXp = v; },
-  get lean() { return lean; },
+  get lean() { return lean; }, set lean(v) { lean = v; },
   get learnedView() { return learnedView; },
   get levelUpAt() { return levelUpAt; }, set levelUpAt(v) { levelUpAt = v; },
   get lessonPreview() { return lessonPreview; },
@@ -496,6 +465,8 @@ const shared = {
   get obsSettings() { return obsSettings; },
   get obsState() { return obsState; },
   get obsView() { return obsView; },
+  get confirmAndInstallPackText() { return confirmAndInstallPackText; },
+  get installFromRegistry() { return installFromRegistry; },
   get onHotkey() { return onHotkey; },
   get onPermission() { return onPermission; },
   get onResult() { return onResult; },
@@ -574,7 +545,7 @@ const shared = {
   get showHealth() { return showHealth; },
   get showListening() { return showListening; },
   get showServer() { return showServer; },
-  get skins() { return skins; },
+  get skins() { return skins; }, set skins(v) { skins = v; },
   get sleepTimer() { return sleepTimer; }, set sleepTimer(v) { sleepTimer = v; },
   get snippetList() { return snippetList; },
   get snippetsView() { return snippetsView; },
@@ -596,7 +567,8 @@ const shared = {
   get stopFocus() { return stopFocus; },
   get syncLayer() { return syncLayer; },
   get taskFromClipboard() { return taskFromClipboard; },
-  get teamIpc() { return teamIpc; },
+  get teamIpc() { return teamIpc; }, set teamIpc(v) { teamIpc = v; },
+  get parityIpc() { return parityIpc; }, set parityIpc(v) { parityIpc = v; },
   get tellChannel() { return tellChannel; },
   get testHook() { return testHook; },
   get timeTracker() { return timeTracker; }, set timeTracker(v) { timeTracker = v; },
@@ -641,8 +613,8 @@ const { checkNudges } = share(wireStreaks(shared));
 const { applyHotkey, applyLoginItem, userSkinsDir } = share(wireSettings(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
-  changeRef, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
-  startScheduler, stickerState, usageService, watchAway, watchGuards, watchLeaving, watchOutlook,
+  checkLimit, routineService, saveSpend, scheduleHeld, startScheduler, usageService,
+  watchAway, watchGuards, watchLeaving, watchOutlook,
 } = share(wireServices(shared));
 const {
   applyLayer, createCritter, createMischief, createMotion, crewExtra, critterBaseSize, critterGeo,
@@ -740,129 +712,6 @@ const claudeConfigDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.home
 // Remembered for Up and Ctrl+R in the box (parity.js).
 function rememberPrompt(text) { parityIpc?.rememberPrompt(text); }
 
-function registerIpc() {
-  // Every handler (here, in ipc/, and parity's and branching's) checks which
-  // window is asking: the crab's gets only its own channels, other windows nothing.
-  const ipcMain = guardIpc(electronIpcMain, windowPolicy(() => ({
-    panel: panel && !panel.isDestroyed() ? panel.webContents : null,
-    critter: critter && !critter.isDestroyed() ? critter.webContents : null,
-    isToy: wc => !!playtime?.isToy(wc),
-    isFloor: wc => !!floor?.isFloor(wc),
-    isNote: wc => !!pranks?.isNote(wc),
-  })), { onRefused: channel => log.warn('IPC refused', channel) });
-  lean = createLean({
-    config, shop: () => shop, shopBlocked, askOnce, toolbox: () => toolbox, setupWhere, configDir: claudeConfigDir, awardXp, log,
-    memory: () => claudeSetup.scanMemory(setupWhere()),
-    projectOf: tab => { const s = spendSource(tab); return s.pk ? { key: s.pk, name: s.project } : null; },
-    currentProject: () => path.resolve(currentCwd()).toLowerCase(),
-  });
-  lean.register(ipcMain);
-  createSkillRemover({
-    toolbox: () => toolbox, askOnce, log, stat,
-    // The folders the Toolbox scans (ToolboxWatcher's home and getCwd).
-    where: () => ({ home: os.homedir(), cwd: currentCwd() }),
-    trash: p => shell.trashItem(p),
-    usage: () => lean.usage(),
-    unpin: (kind, name) => config.set({ pinnedTools: (config.get('pinnedTools') || []).filter(p => !(p?.kind === kind && p?.name === name)) }),
-  }).register(ipcMain);
-  // Toolbox → Mods (mods-service.js): the CLI runs in the shop's empty folder.
-  createModsService({
-    toolbox: () => toolbox, shop: () => shop, askOnce, home: os.homedir(), log,
-    // Just-the-crab mode leaves Claude Code alone, mods' checks and tests included.
-    blocked: () => (config.get('crabOnly') ? { ok: false, error: 'Mods need Claude Code. Turn it on in Settings.' } : null),
-    runClaude: (args, timeout) => {
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-      if (!exe) return Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
-      const cwd = path.join(app.getPath('userData'), 'plugin-cli');
-      try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
-      return runCli(exe, args, timeout, { cwd });
-    },
-    uninstallPlugin: id => confirmAndUninstallPlugin(id),
-    trash: p => shell.trashItem(p),
-    openFolder: dir => editor.openFolder(dir),
-    reveal: dir => { shell.openPath(dir); },
-  }).register(ipcMain);
-  parityIpc = parity.register({
-    ipcMain, manager, history, config, confirm, dialog, clipboard, app,
-    panel: () => panel, dialogLook, changeRef, setupWhere, setupView, currentCwd,
-    toolbox: () => toolbox, lastInit: () => lastInit, stat, correctionFromTurns, noteCorrection,
-    noteUndone: n => noteWeek('undone', null, n),
-    turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
-    dataDir: app.getPath('userData'),
-    runClaude: (args, timeout, opts) => {
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
-    },
-  });
-  teamIpc = teamIpcModule.register({
-    ipcMain, config, shell, home: os.homedir(), panel: () => panel, send, currentCwd, stat,
-    ownSnippets: snippetList, pushSnippets: () => send(panel, 'snippets', snippetsView()),
-    workflows: () => (config.get('crabOnly') ? null : workflows),
-    setupView, setupWhere, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
-    confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
-    runClaude: (args, timeout, opts) => {
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
-      return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
-    },
-    log: { warn: msg => log.warn('team pack', msg) },
-  });
-  // ---- history (ipc/history.js)
-  registerHistoryIpc(ipcMain, {
-    history, manager, openTab, log,
-    onCleared: () => usagePlan.clear(), // what each turn cost goes with the conversations
-    confirmClear: async (count, openCount) => {
-      const r = await dialog.showMessageBox(panel, {
-        type: 'warning', buttons: ['Clear all history', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
-        ...clearQuestion(count, openCount),
-      });
-      return r.response === 0;
-    },
-  });
-
-  // ---- skins, the wardrobe and outfit codes (ipc/wardrobe.js)
-  registerWardrobeIpc(ipcMain, {
-    wardrobe: () => wardrobe,
-    builtinSkins: () => skins.map(s => ({ id: s.id, name: s.name })),
-    allSkins, activeSkin, config, voice, confirmAndInstallPackText, installFromRegistry, registryUrl, broadcastSkin, userSkinsDir,
-    reloadSkins: () => { skins = loadSkins(userSkinsDir()); wardrobe?.load(); broadcastWardrobe(); return allSkins(); },
-    clearBackground: () => { external?.clearBackground(); return externalView(); },
-    pickPackFile: async () => {
-      const r = await dialog.showOpenDialog(panel, { title: 'Install a Shellby wardrobe pack', filters: [{ name: 'Shellby pack', extensions: ['json'] }], properties: ['openFile'] });
-      return r.canceled ? null : r.filePaths[0] || null;
-    },
-    openPath: p => shell.openPath(p),
-  });
-
-  // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
-  registerTankIpc(ipcMain, {
-    config, stat,
-    wardrobe: () => wardrobe,
-    level: () => currentLevel(),
-    shipped: () => stickers.stats(stickerState()).stickers,
-  });
-
-  // The rest, one area per module in ipc/.
-  const d = shared;
-  registerCritterIpc(ipcMain, d);
-  registerLifeIpc(ipcMain, d);
-  registerPanelIpc(ipcMain, d);
-  registerTabsIpc(ipcMain, d);
-  registerHandoffIpc(ipcMain, d);
-  registerRepoIpc(ipcMain, d);
-  registerSettingsIpc(ipcMain, d);
-  registerToolboxIpc(ipcMain, d);
-  registerRoutinesIpc(ipcMain, d);
-  registerGithubIpc(ipcMain, d);
-  registerProgressIpc(ipcMain, d);
-  registerSurroundingsIpc(ipcMain, d);
-  registerTriesIpc(ipcMain, d);
-  registerCorrectionsIpc(ipcMain, d);
-  registerStartFromIpc(ipcMain, d);
-  registerBacklogIpc(ipcMain, d);
-  registerCrewIpc(ipcMain, d);
-  registerReleasesIpc(ipcMain, d);
-}
-
 // ================================================================ boot
 
 app.whenReady().then(() => {
@@ -944,7 +793,7 @@ app.whenReady().then(() => {
   watchClashes();
   createCorrections();
   createHealth();
-  registerIpc();
+  registerIpc(electronIpcMain, shared);
   createCritter();
   createMotion();
   createPanel();
