@@ -265,5 +265,25 @@
     return c;
   }
 
-  SB.tankPaint = { WATER, timeOf, resolve, paint, thumb, baseline, still };
+  /**
+   * Where a card's view of a tank starts, and where he stands in it: beside
+   * its biggest piece (on the right, or the left when there's no room), with
+   * the two of them in the middle of a `cropW`-wide window. Art pixels.
+   */
+  function framing(v, cropW, crabW) {
+    const { world } = v;
+    const clampTo = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+    const anchor = v.pieces.filter(p => p.layer !== 'float').sort((a, b) => b.w * b.h - a.w * a.h)[0];
+    if (!anchor) {
+      const x0 = clampTo(Math.round(v.focusX - cropW / 2), 0, Math.max(0, world.w - cropW));
+      return { x0, crabX: clampTo(Math.round(x0 + (cropW - crabW) / 2), 0, Math.max(0, world.w - crabW)) };
+    }
+    const right = anchor.x + anchor.w + 2 + crabW <= world.w;
+    const crabX = right ? anchor.x + anchor.w + 2 : Math.max(0, anchor.x - crabW - 2);
+    const lo = Math.min(anchor.x, crabX), hi = Math.max(anchor.x + anchor.w, crabX + crabW);
+    const x0 = clampTo(Math.round((lo + hi - cropW) / 2), 0, Math.max(0, world.w - cropW));
+    return { x0, crabX: clampTo(crabX, x0, Math.max(x0, Math.min(world.w, x0 + cropW) - crabW)) };
+  }
+
+  SB.tankPaint = { WATER, timeOf, resolve, paint, thumb, baseline, still, framing };
 })();

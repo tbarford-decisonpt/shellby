@@ -78,7 +78,9 @@
     const { world } = v;
     const k = box.h / world.h;
     const cropW = Math.min(world.w, box.w / k);
-    const x0 = Math.max(0, Math.min(world.w - cropW, v.focusX - cropW / 2));
+    const sprite = SB.sprite(state.skin, { fit: true });
+    const crabW = Math.ceil(Number((sprite.getAttribute?.('viewBox') || '0 0 22 13').split(' ')[2]) || 22);
+    const { x0, crabX } = SB.tankPaint.framing(v, cropW, crabW);
     const X = ax => box.x + (ax - x0) * k, Y = ay => box.y + ay * k;
     const water = SB.tankPaint.WATER[v.style.light === 'night' ? 'night' : 'day'];
     const tileOf = item => (item?.ref && !item.ref.includes('/') ? item : null); // a pack's floor stays home too
@@ -91,7 +93,7 @@
       const art = place(SB.Sprite.grid(p.pixels, p.palette), x, Y(p.y - p.h + 1), w, p.h * k);
       return p.flip ? `<g transform="matrix(-1 0 0 1 ${r1(2 * x + w)} 0)">${art}</g>` : art;
     };
-    const him = crab({ x: X(x0 + cropW * 0.62) - 100, y: box.y, w: 200, h: Y(world.crabY + 1) - box.y }, k);
+    const him = crab({ x: X(crabX + crabW / 2) - 100, y: box.y, w: 200, h: Y(world.crabY + 1) - box.y }, k);
     const behind = shown.filter(p => depth(p) <= 2), front = shown.filter(p => depth(p) > 2);
     const body = [
       back.rect || `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="${water.low}"/>`,
@@ -127,10 +129,16 @@
   // Plain ASCII out: however the file ends up served, the emoji and punctuation survive.
   const ascii = s => s.replace(/[^\x00-\x7f]/gu, c => `&#${c.codePointAt(0)};`);
 
-  /** The card as an SVG string. */
-  const build = (now = new Date()) => ascii(draw(now));
+  // main refuses a card over 256 KB (github/profile-card.js cleanSvg): a tank that busy goes back to plain sand.
+  const MAX_SVG_CHARS = 240 * 1024;
 
-  function draw(now) {
+  /** The card as an SVG string. */
+  function build(now = new Date()) {
+    const svg = ascii(draw(now));
+    return svg.length > MAX_SVG_CHARS ? ascii(draw(now, false)) : svg;
+  }
+
+  function draw(now, withTank = true) {
     const xp = state.xp || { level: 1, title: '', progress: 0, streak: { days: 0 } };
     const login = state.github?.login;
     const whose = login ? `@${login}’s Shellby` : 'My Shellby';
@@ -145,7 +153,7 @@
     // The Bugdex as a bare count (no species, no projects), once there's a catch to show.
     const dex = state.bugdex?.caught > 0 ? { caught: state.bugdex.caught, of: state.bugdex.of } : null;
     // His decorated tank when there's something in it; plain sand otherwise.
-    const decorated = tankScene(tank);
+    const decorated = withTank ? tankScene(tank) : null;
     const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}${dex ? `, Bugdex ${dex.caught} of ${dex.of}` : ''}${decorated ? `, in his tank with ${decorated.pieces} piece${decorated.pieces === 1 ? '' : 's'} of decor` : ''}`;
     const inTank = decorated ? decorated.body : `<rect x="${tank.x}" y="${tank.y}" width="${tank.w}" height="${tank.h}" fill="${C.abyss}" fill-opacity=".7"/>
 <rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="30" fill="#7a6a4b"/>

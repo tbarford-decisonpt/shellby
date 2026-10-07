@@ -113,20 +113,21 @@
   // His real tank (tank.js), when there's something in it: painted still
   // (tank-paint.js) with him in the middle row, scaled up by a whole number and
   // standing at the bottom of the box. A wide tank is cropped around its
-  // biggest piece, so he stays big enough to see. Returns where its water ends.
+  // biggest piece and him beside it, so he stays big enough to see. Returns
+  // where its water ends.
   const CROP_W = 78; // art px: the most of a tank's width the card shows
   async function drawDecorated(ctx, box, v) {
     const P = SB.tankPaint;
     const { world } = v;
     const k = Math.max(1, Math.floor(Math.min(box.w / Math.min(world.w, CROP_W), box.h / world.h)));
     const cropW = Math.min(world.w, Math.floor(box.w / k));
-    const x0 = Math.max(0, Math.min(world.w - cropW, Math.round(v.focusX - cropW / 2)));
-    let crab = null;
     const svg = SB.sprite(state.skin, { fit: true });
     const [, , vw, vh] = (svg.getAttribute('viewBox') || '0 0 22 13').split(' ').map(Number);
+    const w = Math.ceil(vw), h = Math.ceil(vh);
+    const { x0, crabX } = P.framing(v, cropW, w);
+    let crab = null;
     try {
-      const w = Math.ceil(vw), h = Math.ceil(vh);
-      crab = { img: await svgImage(svg, w, h), w, h, x: Math.max(0, Math.min(world.w - w, Math.round(x0 + cropW * 0.62 - w / 2))), flip: false };
+      crab = { img: await svgImage(svg, w, h), w, h, x: crabX, flip: false };
     } catch { /* the tank still stands without him */ }
     const pic = P.still({ world, style: v.style, pieces: v.pieces }, crab);
     const dx = box.x + Math.round((box.w - cropW * k) / 2), dy = box.y + box.h - world.h * k;

@@ -713,7 +713,7 @@
     const cards = !!(f.friends?.on || f.profileCard?.on);
     $('tkShare').checked = !!v.shareCard;
     $('tkShareHelp').textContent = !v.shareCard
-      ? 'Your cards show his outfit and his shell, not his tank.'
+      ? 'Your calling card and profile card show his outfit and his shell, not his tank. The crab card you share yourself (📸 Share) always shows it.'
       : !cards
         ? 'Visiting crabs and the profile card are both off (Settings → GitHub), so there’s no card for it to go on yet.'
         : 'They show its size, floor, back glass and up to 24 pieces: built-in decor and his finds. Specimen jars and decor from packs stay home.';
