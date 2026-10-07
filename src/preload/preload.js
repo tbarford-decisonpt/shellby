@@ -405,6 +405,8 @@ contextBridge.exposeInMainWorld('shellby', {
   undoTankTidy: invoke('tank:tidy-undo'),
   setTankTidy: invoke('tank:tidy-set'),
   onTankGauges: on('tank:gauges'),
+  tankLife: invoke('tank:life'),       // his favourite piece and the sets on display (tank-life.js)
+  tankLived: invoke('tank:lived'),     // what he got up to while you watched
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
   runCheckup: invoke('checkups:run'),

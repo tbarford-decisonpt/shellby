@@ -8,6 +8,7 @@
 (function () {
   const { h, api, state, $ } = SB;
   const P = SB.tankPaint;
+  const TL = SB.tankLife;    // what he gets up to among the pieces (tank-life.js)
   const FPS = 10;            // the pixel world moves in steps, like the crab
   const WALK = 7;            // art px a second
   const HURRY = 3;           // ...and how much faster he gets out of your way when you decorate
@@ -27,7 +28,12 @@
   let shelf = null;          // the tray's open category
   let K = 3, u = 3;          // device px and css px per art pixel
   let crab = null, crabKey = null;
-  const walker = { x: 30, dir: 1, target: null, rest: 0, step: 0, hopUntil: 0 };
+  const walker = { x: 30, dir: 1, target: null, rest: 0, step: 0, hopUntil: 0, act: null, news: [], moving: null };
+  // His life in it (tank-life.js): his favourite, sets on display, and what he's
+  // done since main last heard (sent now and then, never every frame).
+  let life = { favourite: null, sets: [] };
+  const lived = { uses: {}, napped: false, n: 0 };
+  const LIVED_FLUSH = 6;     // activities before main hears about them (or when you leave the tab)
   let timer = 0, lastTick = 0, dirty = true;
   let drag = null;           // { kind: 'piece' | 'new', ... }
   let seq = 0;
@@ -92,9 +98,17 @@
     if (!crab || !v) return;
     const { world, pieces } = scene();
     const maxX = Math.max(0, world.w - crab.w - 1);
-    if (editing()) walker.target = sideX();
+    if (editing()) { walker.target = sideX(); walker.act = null; }
     if (walker.target === null) {
       if (now < walker.rest) return;
+      if (walker.act) finishAct();
+      const act = !editing() && TL ? TL.pick({ spots: TL.spotsOf(pieces), night: P.timeOf(scene().style.light) === 'night', favourite: life.favourite, news: walker.news, crabW: crab.w, maxX }) : null;
+      if (act) {
+        walker.act = { ...act, start: 0 };
+        walker.news = walker.news.filter(u => u !== act.uid);
+        walker.target = act.x;
+        return;
+      }
       const floorPieces = pieces.filter(p => p.layer !== 'float');
       const visit = floorPieces.length && Math.random() < 0.55 ? floorPieces[Math.floor(Math.random() * floorPieces.length)] : null;
       const x = visit ? visit.x + visit.w / 2 - crab.w / 2 : Math.random() * maxX;
@@ -104,7 +118,8 @@
     if (Math.abs(d) < 0.5) {
       walker.x = walker.target;
       walker.target = null;
-      walker.rest = now + 1500 + Math.random() * 3500;
+      walker.rest = now + (walker.act ? walker.act.ms : 1500 + Math.random() * 3500);
+      if (walker.act) { walker.act.start = now; say(TL.describe(walker.act), { quiet: true }); }
       return;
     }
     walker.dir = Math.sign(d);
@@ -117,13 +132,50 @@
     if (!crab) return null;
     const moving = walker.target !== null && !still;
     const hop = now < walker.hopUntil ? 2 : moving && Math.floor(walker.step * 4) % 2 ? 1 : 0;
+    // Doing something with a piece: sitting on it, peeking out of it...
+    const a = walker.act;
+    const pose = !still && a?.start && TL ? TL.pose(a, now - a.start, { crabY: scene().world.crabY, crabH: crab.h }) : null;
+    const dir = pose?.face || walker.dir;
+    // Moving day: he scuttles in last, from the left.
+    const inX = walker.moving ? -crab.w + (walker.x + crab.w) * walker.moving.crabIn : null;
     // Decorating, he's see-through, so nothing hides behind him while you place it.
-    return { ...crab, x: still ? stillX() : walker.x, flip: walker.dir < 0 && !still, hop, alpha: editing() ? DECORATING_ALPHA : 1 };
+    return {
+      ...crab, x: still ? stillX() : inX ?? walker.x, flip: dir < 0 && !still, hop: Math.max(hop, pose?.hop || 0),
+      lift: pose?.lift || 0, crop: pose ? pose.crop : null, z: !!pose?.z, front: !!pose?.front, alpha: editing() ? DECORATING_ALPHA : 1,
+    };
+  }
+
+  // An activity done: it counts toward his favourite. Main hears every few.
+  function finishAct() {
+    const a = walker.act;
+    walker.act = null;
+    if (!a || !a.start || a.kind === 'look') return;
+    lived.uses[a.uid] = (lived.uses[a.uid] || 0) + 1;
+    if (a.kind === 'sleep') lived.napped = true;
+    if (++lived.n >= LIVED_FLUSH) flushLived();
+  }
+  function flushLived() {
+    if (!lived.n || !api.tankLived) return;
+    const report = { uses: { ...lived.uses }, napped: lived.napped };
+    lived.uses = {}; lived.napped = false; lived.n = 0;
+    api.tankLived(report).then(r => { if (r) { life = r; renderLife(); } }).catch(() => {});
+  }
+
+  // z's over him while he sleeps, in art pixels.
+  function snooze(c, now) {
+    const y0 = scene().world.crabY - c.h + 1 - c.lift - 3;
+    const k = Math.floor(now / 700) % 3;
+    ctx.fillStyle = '#e8f4ff';
+    for (let i = 0; i <= k; i++) {
+      const x = Math.round(c.x + c.w - 4 + i * 3), y = y0 - i * 3;
+      ctx.fillRect(x, y, 3, 1); ctx.fillRect(x + 1, y + 1, 1, 1); ctx.fillRect(x, y + 2, 3, 1);
+    }
   }
   // With the motion turned down he sits by the biggest thing in the tank, or
   // off to the side while you decorate, out of your way.
   const sideX = () => Math.max(0, scene().world.w - (crab?.w || 22) - 1);
-  const stillX = () => (editing() ? sideX() : Math.max(0, Math.min((v?.focusX ?? 40) - (crab?.w || 22) / 2 + 12, sideX())));
+  const favX = () => { const p = life.favourite && scene().pieces.find(x => x.uid === life.favourite); return p ? p.x + p.w / 2 : null; };
+  const stillX = () => (editing() ? sideX() : Math.max(0, Math.min((favX() ?? v?.focusX ?? 40) - (crab?.w || 22) / 2 + 12, sideX())));
 
   function pet() {
     api.critter.pet();
@@ -141,7 +193,7 @@
 
   function tick() {
     timer = 0;
-    if (state.view !== 'tank' || !v || document.hidden) return;
+    if (state.view !== 'tank' || !v || document.hidden) { flushLived(); return; }
     const now = performance.now();
     const dt = lastTick ? Math.min(0.25, (now - lastTick) / 1000) : 0;
     lastTick = now;
@@ -162,7 +214,9 @@
       const it = trayItem(drag.ref);
       ghost = { ...it, uid: 0, x: drag.x, row: drag.row, y: P.baseline(sc.world, it.layer, drag.row), flip: false };
     }
-    P.paint(ctx, sc, { t: still ? 0 : now / 1000, still, crab: crabArt(now, still), ghost, gauges: SB.tankGauges?.current() || null });
+    const c = crabArt(now, still);
+    P.paint(ctx, movingScene(sc, now), { t: still ? 0 : now / 1000, still, crab: c, ghost, gauges: SB.tankGauges?.current() || null });
+    if (c?.z) snooze(c, now);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const crabBtn = hits.querySelector('.tk-hit-crab');
     if (crabBtn && crab) {
@@ -170,6 +224,30 @@
       crabBtn.style.left = `${a.x * u}px`;
       crabBtn.style.top = `${(sc.world.crabY - crab.h + 1) * u}px`;
     }
+  }
+
+  // Moving day: the pieces hop across into the new tank one by one, then he follows.
+  function movingScene(sc, now) {
+    if (!walker.moving || !TL) return sc;
+    const m = TL.moving(sc.pieces, now - walker.moving.start);
+    walker.moving.crabIn = m.crabIn;
+    if (m.done) { walker.moving = null; return sc; }
+    return { ...sc, pieces: sc.pieces.filter(p => m.dy.get(p.uid) !== null).map(p => ({ ...p, y: p.y - (m.dy.get(p.uid) || 0) })) };
+  }
+
+  // His favourite and the sets on display, under the tank's name.
+  function renderLife() {
+    let el = $('tkLife');
+    if (!el) {
+      el = h('p', { class: 'tk-sub tk-life', id: 'tkLife' });
+      $('tkSub').after(el);
+    }
+    const fav = life.favourite && v?.pieces.find(p => p.uid === life.favourite);
+    const parts = [];
+    if (fav) parts.push(`His favourite: the ${fav.name.toLowerCase()}`);
+    if (life.sets?.length) parts.push(`On display: ${listOf(life.sets.map(x => `${x.icon} ${x.name}`))}`);
+    el.textContent = parts.join(' · ');
+    el.hidden = !parts.length || editing();
   }
 
   // ------------------------------------------------------------ what you can point at
@@ -293,6 +371,7 @@
     }
     if (r?.view) v = r.view;
     stopEditing();
+    reactTo(r?.life);
     const dropped = r?.dropped || [];
     $('tkNote').textContent = dropped.length ? `${plural(dropped.length, 'piece')} couldn’t go in: ${listOf([...new Set(dropped.map(d => reason(d.reason)))])}.` : '';
     $('tkNote').hidden = !dropped.length;
@@ -300,6 +379,19 @@
     document.dispatchEvent(new CustomEvent('sb:tank', { detail: v }));
     $('tkDecorate').focus();
   }
+  // A new piece gets a look; a bigger tank is moving day. (Main says his line on the desktop.)
+  function reactTo(l) {
+    if (!l) return;
+    walker.news = (l.news || []).slice(0, 3);
+    walker.act = null;
+    walker.target = null;
+    walker.rest = 0;
+    if (l.movedTo && !reduced()) walker.moving = { start: performance.now(), crabIn: 0 };
+    if (l.sets?.length) SB.toast?.(`On display: ${listOf(l.sets)}.`);
+    refreshLife();
+  }
+  const refreshLife = () => api.tankLife?.().then(r => { if (r) { life = r; renderLife(); } }).catch(() => {});
+
   const reason = r => ({ full: 'the tank was full', locked: 'it’s locked', 'not-enough': 'he hasn’t found enough of it', unknown: 'it isn’t installed' }[r] || 'it doesn’t go there');
 
   function cancel() {
@@ -532,7 +624,12 @@
 
   // ------------------------------------------------------------ words and controls around it
 
-  function say(text) { $('tkLive').textContent = ''; requestAnimationFrame(() => { $('tkLive').textContent = text; }); }
+  // What he's up to is said at most every half a minute; what you did, straight away.
+  let quietAt = 0;
+  function say(text, { quiet = false } = {}) {
+    if (quiet) { const t = performance.now(); if (t < quietAt) return; quietAt = t + 30000; }
+    $('tkLive').textContent = ''; requestAnimationFrame(() => { $('tkLive').textContent = text; });
+  }
 
   function renderTitle() {
     const lay = layout();
@@ -742,6 +839,7 @@
     renderKey();
     renderShare();
     SB.tankLayouts?.render();
+    renderLife();
     dirty = true;
     kick();
   }
@@ -764,6 +862,7 @@
 
   async function open() {
     SB.tankGauges?.refresh();
+    refreshLife();
     apply(await fetchTank());
     SB.tankLayouts?.open(); // a new season may put a saved layout up (tank-layouts.js)
     SB.tankTidy?.open();    // ...and he may have tidied (tank-tidy.js)
@@ -781,6 +880,7 @@
   new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } }).observe(stage);
   document.addEventListener('visibilitychange', kick);
   document.addEventListener('sb:tank-gauges', () => { dirty = true; kick(); }); // live decor changed (tank-gauges.js)
+  window.addEventListener('pagehide', flushLived); // what he did while you watched, before the panel goes
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => { dirty = true; kick(); });
 
   SB.views.tank = { render: () => { open(); } };

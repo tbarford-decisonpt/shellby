@@ -874,6 +874,292 @@
       "unlock": {
         "season": "winter"
       }
+    },
+    {
+      "id": "anubias",
+      "name": "Anubias",
+      "category": "plant",
+      "rarity": "common",
+      "description": "Broad leaves, slow growth, very patient. He sits under it to think.",
+      "palette": {
+        "g": "#2f6b3a",
+        "G": "#58a85a",
+        "s": "#7a5c3a"
+      },
+      "pixels": [
+        ".GG...GG.",
+        "GggG.GggG",
+        ".GgG.GgG.",
+        "..Gg.gG..",
+        "GG.ggg.GG",
+        "GggGsGggG",
+        ".GG.s.GG.",
+        "...sss..."
+      ],
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            4,
+            3
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "aquascaper"
+      }
+    },
+    {
+      "id": "display-plinth",
+      "name": "Display Plinth",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "For the finest finds. He stands on it to be admired.",
+      "palette": {
+        "w": "#e9e4d8",
+        "W": "#b8b1a0",
+        "g": "#e2b13c"
+      },
+      "pixels": [
+        "wwwwwwwwww",
+        ".WWWWWWWW.",
+        "..wwwwww..",
+        "..wWwwWw..",
+        "..wWwwWw..",
+        "..wWwwWw..",
+        ".wwwwwwww.",
+        "gWWWWWWWWg"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            5,
+            -1
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "on-display"
+      }
+    },
+    {
+      "id": "old-anchor",
+      "name": "Old Anchor",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "From a ship far bigger than his tank. He climbs it anyway.",
+      "palette": {
+        "a": "#5c6b73",
+        "A": "#8d9ba3",
+        "r": "#9c5a3c"
+      },
+      "pixels": [
+        "....aAa....",
+        "....a.a....",
+        "....aAa....",
+        "..aaaAaaa..",
+        ".....A.....",
+        ".....A.....",
+        ".....A.....",
+        "a....A....a",
+        "aA...A...Aa",
+        ".aAr.A.rAa.",
+        "..aaaAaaa.."
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            5,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "upsized"
+      }
+    },
+    {
+      "id": "moon-lamp",
+      "name": "Moon Lamp",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "epic",
+      "description": "A little moon for the nights he sleeps in. It glows when the room goes dark.",
+      "palette": {
+        "m": "#fff3b0",
+        "M": "#e9d77a",
+        "c": "#d4c06a"
+      },
+      "pixels": [
+        "..mmm..",
+        ".mmMmm.",
+        "mmmmmcm",
+        "mMmmmmm",
+        "mmmcmMm",
+        ".mmmmm.",
+        "..mmm.."
+      ],
+      "frames": [
+        [
+          "..mmm..",
+          ".mmmmm.",
+          "mmmMmcm",
+          "mMmmmmm",
+          "mmmcmmm",
+          ".mmmMm.",
+          "..mmm.."
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "night-light"
+      }
+    },
+    {
+      "id": "heart-shell",
+      "name": "Heart Shell",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "A shell shaped like a heart. He found it first, but it’s yours.",
+      "palette": {
+        "r": "#e5383b",
+        "p": "#ff8fa3",
+        "w": "#fff0f3"
+      },
+      "pixels": [
+        ".rr.rr.",
+        "rpwrppr",
+        "rpppppr",
+        ".rpppr.",
+        "..rpr..",
+        "...r..."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            3,
+            -1
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "valentine"
+      }
+    },
+    {
+      "id": "cherry-blossom",
+      "name": "Cherry Blossom",
+      "category": "plant",
+      "rarity": "rare",
+      "description": "A sprig of spring, somehow underwater. The petals never quite fall.",
+      "palette": {
+        "p": "#ffafcc",
+        "P": "#ffc8dd",
+        "b": "#6b4f3a"
+      },
+      "pixels": [
+        ".pP..Pp.",
+        "PpPpPpPp",
+        ".pPbbPp.",
+        "..Pb.p..",
+        "...b....",
+        "...bb...",
+        "....b...",
+        "...bbb.."
+      ],
+      "frames": [
+        [
+          ".Pp..pP.",
+          "pPpPpPpP",
+          ".Ppbbpp.",
+          "..pb.P..",
+          "...b....",
+          "...bb...",
+          "....b...",
+          "...bbb.."
+        ]
+      ],
+      "fps": 1,
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            3,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "spring"
+      }
+    },
+    {
+      "id": "beach-ball",
+      "name": "Beach Ball",
+      "category": "treasure",
+      "rarity": "common",
+      "description": "Summer, in a tank. It never rolls far. He’s tried.",
+      "palette": {
+        "r": "#ef476f",
+        "y": "#ffd166",
+        "b": "#118ab2",
+        "w": "#ffffff"
+      },
+      "pixels": [
+        "..rry..",
+        ".rrwyy.",
+        "bbwwwyy",
+        "bbbwrrr",
+        ".bbyrr.",
+        "..byr.."
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            3,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "summer"
+      }
+    },
+    {
+      "id": "maple-leaves",
+      "name": "Pile of Leaves",
+      "category": "plant",
+      "rarity": "common",
+      "description": "Autumn drifted in. He hides in it and thinks nobody can see him.",
+      "palette": {
+        "o": "#e76f51",
+        "y": "#f4a261",
+        "r": "#9b2226",
+        "b": "#6b4f3a"
+      },
+      "pixels": [
+        "....o.y....",
+        "..yoyrooy..",
+        ".oryooyoro.",
+        "yooryoyryoo",
+        "robyoroyoby"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            5,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "autumn"
+      }
     }
   ]
 }

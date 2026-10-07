@@ -145,11 +145,14 @@ function registerIpc(electronIpcMain, d) {
   // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
   const tankIpc = registerTankIpc(ipcMain, {
     config, stat: d.stat,
+    speak: (occasion, opts) => d.speak?.(occasion, opts),
+    life: () => d.life,
     wardrobe: () => d.wardrobe,
     level: () => d.currentLevel(),
     shipped: () => stickers.stats(d.stickerState()).stickers,
     cardChanged: () => d.friends?.republish().catch(() => {}),
   });
+  d.tankRemark = tankIpc.remark; // a word about his tank for the desktop (life.js)
   // ...its saved layouts, and switching with the seasons (tank-layouts.js)
   registerTankLayoutsIpc(ipcMain, { config, tank: tankIpc, where: () => d.seasonsWhere?.() || {}, ready: () => !!d.wardrobe });
   // ...him tidying his finds now and then (tank-tidy.js)

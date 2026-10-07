@@ -177,10 +177,26 @@ async function quit(app, ms = 20000) {
     check(hostile.view.layout.style.substrate === null && hostile.view.layout.style.light === 'clock', 'a bad floor and light are dropped');
     check(hostile.dropped.some(d => d.ref === 'find:pearl' && d.reason === 'unknown'), 'a find he hasn’t dug up can’t go in');
     // Put the real one back for the rest.
-    await panel.ev(`shellby.saveTank({ size: 'nano', style: { substrate: 'gravel', backdrop: 'rock-wall', light: 'clock' }, placed: [
+    const homed = await panel.ev(`shellby.saveTank({ size: 'nano', style: { substrate: 'gravel', backdrop: 'rock-wall', light: 'clock' }, placed: [
       { uid: 1, ref: 'castle-keep', x: 8, row: 0, z: 1 }, { uid: 2, ref: 'kelp', x: 70, row: 0 }, { uid: 3, ref: 'rock-round', x: 40, row: 2 },
       { uid: 4, ref: 'sunken-chest', x: 60, row: 2 }, { uid: 5, ref: 'air-stone', x: 86, row: 2 }, { uid: 6, ref: 'java-fern', x: 28, row: 0 } ] })
       .then(r => { document.dispatchEvent(new CustomEvent('sb:tank', { detail: r.view })); return r; })`);
+
+    console.log('his life in it (tank-life.js)');
+    check(homed.life && homed.life.news.includes(4) && !homed.life.news.includes(1), 'he notices the new pieces, not the ones he already had');
+    check(homed.life.movedTo === null, 'the same tank is no moving day');
+    const spots = await panel.ev('shellby.getTank().then(v => SB.tankLife.spotsOf(v.pieces).map(s => s.kind))');
+    check(['hide', 'sit', 'open', 'nibble'].every(k => spots.includes(k)), 'the pieces offer him somewhere to hide, sit, open and nibble');
+    const lifeAfter = await panel.ev('shellby.tankLived({ uses: { 1: 5, 3: 1, 99: 40 } })');
+    check(lifeAfter.favourite === 1, 'what he uses most becomes his favourite');
+    const favView = await panel.ev('shellby.getTank()');
+    const keep = favView.pieces.find(p => p.uid === 1);
+    check(favView.favourite === 1 && favView.focusX === keep.x + Math.round(keep.w / 2), 'the porthole looks at his favourite');
+    await panel.ev("SB.setView('tank')");
+    await until("(document.getElementById('tkLife')?.textContent || '').includes('sandcastle keep')", 'his favourite on the Tank tab');
+    check(true, 'the Tank tab names his favourite');
+    const junk = await panel.ev('shellby.tankLived(["x"]).then(r => r.favourite)');
+    check(junk === 1, 'a junk report changes nothing');
 
     console.log('the porthole');
     await panel.ev("SB.views.tank.render(); SB.setView('health')");
@@ -198,6 +214,7 @@ async function quit(app, ms = 20000) {
     await run.until("!!SB.tankView() && SB.tankView().count === 6", 'the tank after a restart');
     check(true, 'everything is where he left it');
     check((await run.panel.ev('SB.tankView().layout.style.substrate')) === 'gravel', 'the floor too');
+    check((await run.panel.ev('shellby.tankLife()')).favourite === 1, 'and his favourite');
     await run.panel.shot('tank-5-restart');
 
     ok = true;

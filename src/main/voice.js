@@ -80,6 +80,9 @@ const OCCASIONS = Object.freeze({
   friday: { every: 20 * HOUR, ttl: 8 * SECOND },
   weekend: { every: 20 * HOUR, ttl: 8 * SECOND },
   monday: { every: 20 * HOUR, ttl: 8 * SECOND },
+  // His tank (tank-life.js): a piece you just put in, moving day, and now and then a word about it on the desktop.
+  tank: { every: 3 * HOUR, ttl: 7 * SECOND },
+  tankNew: { every: 0, ttl: 6 * SECOND },
 
   // --- things he digs up (gifts.js) and remembers (bond.js)
   found: { every: 0, ttl: 7 * SECOND },
@@ -170,6 +173,8 @@ const LINES = Object.freeze({
   docStretch: ['still writing?', 'big essay?', 'word by word'],
   slideStretch: ['big presentation?', 'next slide!', 'add a crab slide'],
   friday: ['friday!', 'nearly weekend', 'home stretch'],
+  tank: ['my tank is cosy', 'thinking about my tank', 'I like my tank'],
+  tankNew: ['ooh, something new', 'for me?', 'my tank!'],
   weekend: ["it's the weekend", 'lazy day?', 'weekend crab'],
   monday: ['monday again', 'new week', 'need coffee'],
   found: ['found something!', 'ooh, look', 'for you!', 'treasure!'],
