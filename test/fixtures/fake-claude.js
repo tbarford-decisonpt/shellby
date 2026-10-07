@@ -40,6 +40,11 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
+    } else if (sub === 'get_usage') {
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {
+        subscription_type: 'max', rate_limits_available: true,
+        rate_limits: { five_hour: { utilization: 42, resets_at: '2026-10-08T04:00:00+00:00' }, seven_day: { utilization: 7.6, resets_at: '2026-10-14T23:00:00+00:00' } },
+      } } });
     }
     return;
   }

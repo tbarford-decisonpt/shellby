@@ -36,6 +36,7 @@ const { award, levelFor, classifyCommand, AWARDS } = require('./xp');
 const shells = require('./shells');
 const focus = require('./focus');
 const limits = require('./limits');
+const usage = require('./usage');
 const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
@@ -571,9 +572,7 @@ function createManager() {
 
   manager.on('item', (tabId, item, tab) => {
     if (item.kind === 'usage') {
-      config.set({ lastUsage: { ...item, at: Date.now() } });
-      send(panel, 'usage', item);
-      onUsage(item);
+      applyUsage(item);
       return;
     }
     if (item.kind === 'init') {
@@ -1371,6 +1370,37 @@ function createGitHub() {
 let limitTimer = null;
 const limitWait = () => (limits.status(config?.get('limitWait'), Date.now()) === 'waiting' ? limits.normalize(config.get('limitWait')) : null);
 const clockTime = t => new Date(t).toLocaleString([], { weekday: new Date(t).toDateString() === new Date().toDateString() ? undefined : 'short', hour: 'numeric', minute: '2-digit' });
+
+function applyUsage(item) {
+  config.set({ lastUsage: { ...item, at: Date.now() } });
+  send(panel, 'usage', item);
+  onUsage(item);
+}
+
+// The meter only moves when a turn reports usage, so usage spent elsewhere
+// (another device, the terminal) would wait for your next prompt. Ask Claude
+// Code directly whenever the panel comes up, at most every couple of minutes.
+const USAGE_REFRESH_MS = 2 * 60 * 1000;
+let usageProbe = null;
+function refreshUsage() {
+  const last = config.get('lastUsage')?.at || 0;
+  if (usageProbe || Date.now() - last < USAGE_REFRESH_MS) return;
+  const exe = FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : claudeStatus?.exe || findClaude(process.env, claudePath());
+  if (!exe) return;
+  const started = Date.now();
+  usageProbe = usage.probe({ exe, argsPrefix: FAKE_CLI ? [FAKE_CLI] : [], cwd: os.homedir() }).then(u => {
+    usageProbe = null;
+    // A turn may have reported fresher numbers while we waited.
+    if (u && (config.get('lastUsage')?.at || 0) < started) applyUsage(u);
+  });
+}
+
+function watchUsage() {
+  panel.on('show', refreshUsage);
+  panel.on('focus', refreshUsage);
+  powerMonitor.on('resume', refreshUsage);
+  refreshUsage();
+}
 
 function onUsage(u) {
   const hit = limits.limitFrom(u, Date.now());
@@ -2695,6 +2725,7 @@ app.whenReady().then(() => {
   createObs();
   createRgb();
   createMedia();
+  watchUsage();
   if (config.get('focus')) advanceFocus(); // picks up (or finishes) a session from before a restart
   if (config.get('limitWait')) checkLimit(); // a limit that reset while Shellby was closed
   // Timers don't run while the PC sleeps: catch up on wake.
