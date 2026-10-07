@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 
 const ROOT = path.join(__dirname, '..');
@@ -74,13 +75,13 @@ async function connect(url) {
     check(await ev("document.getElementById('ghClaude').disabled"), 'Claude access needs a sign-in first');
     await ev("document.getElementById('ghPublish').click()"); // ask for publishing too
     await ev("document.getElementById('githubGroup').scrollIntoView({ block: 'start' })");
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await panel.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng((m, p) => panel.send(m, p), process.argv[2]);
 
     // 2. The device code.
     await ev("document.getElementById('ghSignIn').click()");
     check(await until(ev, "document.getElementById('ghCodeText').textContent === 'CRAB-1234' && !document.getElementById('ghCode').hidden"), 'shows the code to enter on GitHub');
     check(/gist/.test(mock.state.requestedScope) && /public_repo/.test(mock.state.requestedScope) && !/\brepo\b/.test(mock.state.requestedScope), `asks only for the chosen features (${mock.state.requestedScope})`);
-    if (process.argv[3]) fs.writeFileSync(process.argv[3], Buffer.from((await panel.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[3]) await savePng((m, p) => panel.send(m, p), process.argv[3]);
 
     // 3. Approve → signed in, profile, first sync.
     mock.approve();

@@ -102,6 +102,7 @@ require('./session').setLogger(log);
 
 // Dev/e2e only: drive the app with the fake CLI from test/fixtures (no Claude account, no usage).
 const FAKE_CLI = !app.isPackaged && process.env.SHELLBY_FAKE_CLAUDE ? path.resolve(process.env.SHELLBY_FAKE_CLAUDE) : null;
+require('./test-desktop').keepPainting(app); // test runs only: keep covered windows painting, so screenshots and rendering work on a busy desktop
 // Isolated dev/test runs (SHELLBY_USER_DATA) never touch the real status file
 // or the real Claude Code settings.
 const ISOLATED = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;

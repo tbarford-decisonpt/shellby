@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9361;
@@ -42,7 +43,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const until = async (expr, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
     const isNew = key => ev(`SB.state.wardrobe.accessories.concat(SB.state.wardrobe.effects).find(i => i.key === '${key}').isNew`);
     const stored = () => ev('shellby.wardrobeView().then(v => v.accessories.concat(v.effects).filter(i => i.isNew).map(i => i.key).sort())');
-    const shot = async name => { if (SHOTS) fs.writeFileSync(path.join(SHOTS, `${name}.png`), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64')); };
+    const shot = async name => { if (SHOTS) await savePng(send, path.join(SHOTS, `${name}.png`)); };
     const hover = async sel => {
       const r = await ev(`(b => b && { x: b.left + b.width / 2, y: b.top + b.height / 2 })(document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect())`);
       if (!r) return false;

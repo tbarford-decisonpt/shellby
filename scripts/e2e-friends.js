@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 const { formatWave } = require('../src/main/github/mail');
 const { TEMPERAMENTS } = require('../src/main/banter');
@@ -63,7 +64,7 @@ async function connect(url) {
     await dlg.ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(button)}).click()`);
     dlg.close();
   }
-  const shot = async (target, file) => { if (file) fs.writeFileSync(file, Buffer.from((await target.send('Page.captureScreenshot', { format: 'png' })).data, 'base64')); };
+  const shot = async (target, file) => { if (file) await savePng((m, p) => target.send(m, p), file); };
   const myCard = () => [...mock.state.gists.values()].find(g => g.owner?.login === 'crabfan' && g.files['shellby-card.json']);
   try {
     let list = [];
