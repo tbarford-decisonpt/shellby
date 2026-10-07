@@ -413,6 +413,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // Projects and their dev servers (src/main/projects/ipc.js)
   listProjects: invoke('projects:list'),
   projectDetail: invoke('projects:detail'),
+  projectReport: invoke('projects:report'),
   addProject: invoke('projects:add'),
   scanForProjects: invoke('projects:scan'),
   cancelProjectScan: invoke('projects:scan-cancel'),
