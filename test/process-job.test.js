@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const os = require('os');
 const { spawn } = require('child_process');
 const processJob = require('../src/main/process-job');
 
@@ -83,6 +84,68 @@ test('sweeping twice, or with no job, does nothing', { skip }, async () => {
   assert.deepEqual({ ...r, ended: r.ended.filter(n => n !== 'conhost.exe') }, { ended: [], kept: [] });
   assert.equal(processJob.sweep(job), null);
   assert.equal(processJob.sweep(null), null);
+});
+
+// os.getPriority reads IDLE_PRIORITY_CLASS as PRIORITY_LOW.
+const IDLE = os.constants.priority.PRIORITY_LOW;
+const NORMAL = os.constants.priority.PRIORITY_NORMAL;
+const priorityOf = pid => { try { return os.getPriority(pid); } catch { return null; } };
+
+// A process that starts a child only after a moment: what an e2e run does
+// mid-game, long after the conversation was held back.
+const CHILD_LATER = `
+  setTimeout(() => require('child_process').spawn(process.execPath, ['-e', 'setInterval(function () {}, 1000)'], { stdio: 'ignore', windowsHide: true }), 400);
+  setInterval(() => {}, 1000);
+`;
+
+test('gives way to a game, children started later included, and gets the machine back after', { skip }, async () => {
+  const top = spawn(process.execPath, ['-e', CHILD_LATER], { stdio: 'ignore', windowsHide: true });
+  const job = processJob.adopt(top.pid);
+  assert.ok(job);
+  let all = [];
+  try {
+    processJob.giveWay(true);
+    assert.equal(priorityOf(top.pid), IDLE, 'held back at once');
+    assert.ok(await until(() => (all = processJob.members(job).filter(pid => pid !== top.pid)).length > 0), 'the child starts');
+    assert.ok(all.every(pid => priorityOf(pid) === IDLE), 'a child started mid-game is held back too');
+    processJob.giveWay(false);
+    assert.ok([top.pid, ...all].every(pid => priorityOf(pid) === NORMAL), 'all of it back to normal');
+  } finally {
+    processJob.giveWay(false);
+    processJob.sweep(job);
+  }
+});
+
+test('a task started while a game is up is held back from the start', { skip }, async () => {
+  const p = spawn(process.execPath, ['-e', 'setInterval(function () {}, 1000)'], { stdio: 'ignore', windowsHide: true });
+  let job = null;
+  try {
+    processJob.giveWay(true);
+    job = processJob.adopt(p.pid);
+    assert.equal(priorityOf(p.pid), IDLE);
+    assert.equal(processJob.givingWay(), true);
+  } finally {
+    processJob.giveWay(false);
+    if (job) processJob.sweep(job); else p.kill();
+  }
+  assert.equal(processJob.givingWay(), false);
+});
+
+test("the game's share of the CPU is split between the tasks running", () => {
+  assert.equal(processJob.shareOf(0), processJob.GAME_CPU_PERCENT);
+  assert.equal(processJob.shareOf(1), processJob.GAME_CPU_PERCENT);
+  assert.equal(processJob.shareOf(4) * 4, processJob.GAME_CPU_PERCENT);
+});
+
+test('however many tasks are running, each keeps enough to answer', () => {
+  assert.equal(processJob.shareOf(100), processJob.MIN_JOB_PERCENT);
+});
+
+test('giving way with no tasks running does nothing', () => {
+  processJob.giveWay(true);
+  processJob.giveWay(true);
+  processJob.giveWay(false);
+  assert.equal(processJob.givingWay(), false);
 });
 
 test('no pid, no job', () => {

@@ -16,8 +16,18 @@
 // job lets grandchildren slip out of *it* silently; they stay in this one, so
 // npm -> cmd -> electron is still found.)
 //
+// The same job lets the whole tree give way to a game (giveWay): a hard cap on
+// the CPU it can use, set on the job so the electron an e2e run starts a second
+// later is held back too, and idle priority. Priority alone isn't enough: idle
+// work still fills every core the game isn't using, and a game is short of
+// memory bandwidth and GPU long before it runs out of cores. Measured: four
+// queued conversations running e2e and npm ci took 80% of the CPU and froze a
+// game for ten minutes.
+//
 // Best effort throughout: no koffi, not Windows, or a call that fails all mean
 // "no job", and callers fall back to what they did before.
+const os = require('os');
+
 let koffi = null;
 try { koffi = require('koffi'); } catch { /* no job objects: callers fall back to taskkill */ }
 
@@ -26,9 +36,20 @@ const PROCESS_SET_QUOTA = 0x100;
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const JOB_OBJECT_BASIC_LIMIT_INFORMATION = 2;
 const JOB_OBJECT_BASIC_PROCESS_ID_LIST = 3;
+const JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION = 15;
 const JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x800;
+const CPU_RATE_CONTROL_ENABLE = 0x1;
+const CPU_RATE_CONTROL_HARD_CAP = 0x4;
+const IDLE = os.constants.priority.PRIORITY_LOW;          // IDLE_PRIORITY_CLASS
+const NORMAL = os.constants.priority.PRIORITY_NORMAL;
 const LIMIT_BYTES = process.arch === 'ia32' ? 48 : 64;    // JOBOBJECT_BASIC_LIMIT_INFORMATION
 const LIMIT_FLAGS_AT = 16;                                // after the two LARGE_INTEGER time limits
+const RATE_BYTES = 8;                                     // JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
+// The share of the whole machine all of Shellby's tasks get together while a
+// game is up, split between the jobs running. Enough for Claude to keep talking
+// and a test to creep along; nowhere near enough to stall a game.
+const GAME_CPU_PERCENT = 20;
+const MIN_JOB_PERCENT = 2;
 const MAX_IDS = 4096;
 const ID_SIZE = process.arch === 'ia32' ? 4 : 8;           // ULONG_PTR
 const LIST_BYTES = 8 + MAX_IDS * ID_SIZE;                 // two DWORD counts, then the ids
@@ -42,6 +63,7 @@ const KEEP = new Set([
 
 // Jobs not swept yet, so Health can say which processes are Shellby's doing.
 const live = new Set();
+let givingWay = false; // a game is up: every live job is held back (giveWay)
 
 let api = null;
 function load() {
@@ -88,10 +110,11 @@ function adopt(pid) {
     const limits = Buffer.alloc(LIMIT_BYTES);
     limits.writeUInt32LE(JOB_OBJECT_LIMIT_BREAKAWAY_OK, LIMIT_FLAGS_AT);
     a.SetInformationJobObject(job, JOB_OBJECT_BASIC_LIMIT_INFORMATION, limits, LIMIT_BYTES);
-    proc =a.OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
+    proc = a.OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
     if (!proc || !a.AssignProcessToJobObject(job, proc)) { a.CloseHandle(job); return null; }
     const made = { handle: job };
     live.add(made);
+    if (givingWay) holdBack(); // started mid-game: held back from its first moment, and the share re-split
     return made;
   } catch {
     if (job) try { a.CloseHandle(job); } catch { /* ignore */ }
@@ -137,17 +160,83 @@ function sweep(job) {
       const inJob = [0];
       if (!a.IsProcessInJob(h, job.handle, inJob) || !inJob[0]) continue;
       const name = exeName(a, h);
-      if (KEEP.has(name)) { kept.push(name); continue; }
+      if (KEEP.has(name)) { kept.push(name); if (givingWay) setPriority(pid, NORMAL, p => p === IDLE); continue; }
       if (a.TerminateProcess(h, 1)) ended.push(name || String(pid));
     } catch { /* gone already, or not ours to end */ } finally {
       if (h) try { a.CloseHandle(h); } catch { /* ignore */ }
     }
   }
+  // What's kept lives on in the job after we let go of it, cap and all: lift it.
+  if (givingWay) try { a.SetInformationJobObject(job.handle, JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION, cpuRate(null), RATE_BYTES); } catch { /* ignore */ }
   try { a.CloseHandle(job.handle); } catch { /* ignore */ }
   job.handle = 0;
   live.delete(job);
+  if (givingWay) holdBack(); // the jobs left share what this one had
   return { ended, kept };
 }
+
+// JOBOBJECT_CPU_RATE_CONTROL_INFORMATION: a hard cap in hundredths of a percent
+// of the whole machine, or no cap at all.
+function cpuRate(percent) {
+  const rate = Buffer.alloc(RATE_BYTES);
+  if (percent == null) return rate;
+  rate.writeUInt32LE(CPU_RATE_CONTROL_ENABLE | CPU_RATE_CONTROL_HARD_CAP, 0);
+  rate.writeUInt32LE(Math.max(1, Math.round(percent * 100)), 4);
+  return rate;
+}
+
+/**
+ * Each job's cap while a game is up: GAME_CPU_PERCENT shared between them, but
+ * never under MIN_JOB_PERCENT, so a quick `claude auth status` among a dozen
+ * idle jobs still answers before its timeout.
+ */
+function shareOf(jobs, total = GAME_CPU_PERCENT) {
+  return Math.max(MIN_JOB_PERCENT, jobs > 0 ? total / jobs : total);
+}
+
+// Every live job under its share of the cap, and each process in it at idle
+// priority. Priority is set process by process: node puts what it starts in a
+// job of its own, so ours is nested, and Windows refuses a priority limit on a
+// nested job (the cap it allows). A process started by an idle one is idle
+// itself; the rest are caught on the next call (giveWay polls with the game).
+function holdBack() {
+  const a = load();
+  if (!a) return;
+  const cap = cpuRate(shareOf(live.size));
+  for (const job of live) {
+    try { a.SetInformationJobObject(job.handle, JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION, cap, RATE_BYTES); } catch { /* gone already */ }
+    for (const pid of members(job)) setPriority(pid, IDLE, p => p !== IDLE);
+  }
+}
+
+// Every live job uncapped, and back to normal priority. What's idle in a job is
+// idle because of holdBack, or started by something it held back.
+function letGo() {
+  const a = load();
+  if (!a) return;
+  for (const job of live) {
+    try { a.SetInformationJobObject(job.handle, JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION, cpuRate(null), RATE_BYTES); } catch { /* gone already */ }
+    for (const pid of members(job)) setPriority(pid, NORMAL, p => p === IDLE);
+  }
+}
+
+function setPriority(pid, to, when) {
+  try { if (when(os.getPriority(pid))) os.setPriority(pid, to); } catch { /* gone already, or not ours to change */ }
+}
+
+/**
+ * A game is up (true) or has gone (false): everything Shellby's tasks are
+ * running gives way to it, and gets the machine back after. Jobs adopted while
+ * it's up start held back. Call it on every look at the game, not just when it
+ * changes: each call catches processes started since the last.
+ */
+function giveWay(on) {
+  const was = givingWay;
+  givingWay = !!on;
+  if (givingWay) holdBack(); else if (was) letGo();
+}
+
+const givingWayNow = () => givingWay;
 
 /** Every process in a job that hasn't been swept: what Shellby's tasks have running now. */
 function ownedPids() {
@@ -158,4 +247,4 @@ function ownedPids() {
 
 const available = () => !!load();
 
-module.exports = { adopt, sweep, members, ownedPids, available, KEEP };
+module.exports = { adopt, sweep, members, ownedPids, available, giveWay, givingWay: givingWayNow, shareOf, KEEP, GAME_CPU_PERCENT, MIN_JOB_PERCENT };

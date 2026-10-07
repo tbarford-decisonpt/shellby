@@ -2,12 +2,15 @@
 // pictures and files for the composer (attachments.js), and updates.
 // Kept out of main.js, which only wires it up.
 const { app, dialog, nativeImage } = require('electron');
+const { execFile } = require('child_process');
 const os = require('os');
 const path = require('path');
 const attach = require('../attachments');
 const { checkStatus, findClaude, run: runCli, verifyClaude } = require('../claude-cli');
 const { MODELS } = require('../models');
+const processJob = require('../process-job');
 const snippets = require('../snippets');
+const { TASKKILL } = require('../system32');
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -95,15 +98,35 @@ function registerPanelIpc(ipcMain, d) {
     d.send(d.panel, 'claude:status', d.claudeStatus);
     return d.claudeStatus;
   }
-  // Opens its own console window; the CLI walks the user through the browser
-  // sign-in. When that window closes (signed in, or given up), check again.
+  // The CLI walks the user through the browser sign-in. When it ends (signed in,
+  // or given up), check again. One at a time, and never left waiting: each press
+  // used to start another, and every sign-in not finished in the browser waited
+  // for its callback for good (eight of them, 1.8 GB, after an account switch).
+  const LOGIN_GIVE_UP_MS = 10 * 60 * 1000;
+  /** @type {{ child: import('child_process').ChildProcess, job: { handle: number } | null, timer: NodeJS.Timeout } | null} */
+  let login = null;
+  function endClaudeLogin() {
+    if (!login) return;
+    const { child, job, timer } = login;
+    login = null;
+    clearTimeout(timer);
+    if (processJob.sweep(job)) return;
+    if (child.pid && child.exitCode === null) execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+  }
+  app.on('will-quit', endClaudeLogin);
   function startClaudeLogin() {
     const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
     if (!exe) return false;
+    endClaudeLogin(); // pressed again: this one replaces the last
     try {
       const child = require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false });
+      const mine = { child, job: child.pid ? processJob.adopt(child.pid) : null, timer: setTimeout(() => endClaudeLogin(), LOGIN_GIVE_UP_MS) };
+      login = mine;
       child.on('error', err => d.log.warn('claude auth login failed to start', err.message));
-      child.on('exit', () => { recheckClaude().catch(() => { /* the next check will tell */ }); });
+      child.on('exit', () => {
+        if (login === mine) { clearTimeout(mine.timer); processJob.sweep(mine.job); login = null; }
+        recheckClaude().catch(() => { /* the next check will tell */ });
+      });
       child.unref();
       return true;
     } catch (err) {
