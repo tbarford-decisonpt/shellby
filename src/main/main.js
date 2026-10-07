@@ -10,12 +10,10 @@ const { History } = require('./history');
 const { checkStatus, setPlanOnly } = require('./claude-cli');
 const { loadSkins } = require('./skins');
 const { clampToDisplays } = require('./placement');
-const { Wardrobe } = require('./wardrobe/service');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
 const { withDevice } = require('./xp');
 const rooms = require('./rooms');
 const statusLine = require('./statusline');
-const weekly = require('./weekly');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
 const attach = require('./attachments');
@@ -25,6 +23,7 @@ const { wireServices } = require('./wiring/services');
 const { wireCrewSlots } = require('./wiring/crew-slots');
 const { wireStreaks } = require('./wiring/streaks');
 const { wireSettings } = require('./wiring/settings');
+const { wireWardrobe } = require('./wiring/wardrobe');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
@@ -467,6 +466,7 @@ const shared = {
   get obsView() { return obsView; },
   get confirmAndInstallPackText() { return confirmAndInstallPackText; },
   get installFromRegistry() { return installFromRegistry; },
+  get captureClock() { return captureClock; },
   get onHotkey() { return onHotkey; },
   get onPermission() { return onPermission; },
   get onResult() { return onResult; },
@@ -585,12 +585,12 @@ const shared = {
   get workAreas() { return workAreas; },
   get visitor() { return visitor; }, set visitor(v) { visitor = v; },
   get wake() { return wake; },
-  get wardrobe() { return wardrobe; },
+  get wardrobe() { return wardrobe; }, set wardrobe(v) { wardrobe = v; },
   get weatherSvc() { return weatherSvc; }, set weatherSvc(v) { weatherSvc = v; },
   get weatherView() { return weatherView; },
   get webPreferences() { return webPreferences; },
   get weekView() { return weekView; },
-  get welcomeTrophies() { return welcomeTrophies; },
+  get welcomeTrophies() { return welcomeTrophies; }, set welcomeTrophies(v) { welcomeTrophies = v; },
   get workflows() { return workflows; }, set workflows(v) { workflows = v; },
   get worktreeHome() { return worktreeHome; },
   get xpView() { return xpView; },
@@ -611,6 +611,8 @@ const { setCrewSlots } = share(wireCrewSlots(shared));
 const { checkNudges } = share(wireStreaks(shared));
 // Settings' side effects: the hotkey, opening at login, your skins folder.
 const { applyHotkey, applyLoginItem, userSkinsDir } = share(wireSettings(shared));
+// The Wardrobe, made at boot.
+const { createWardrobe } = share(wireWardrobe(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
   checkLimit, routineService, saveSpend, scheduleHeld, startScheduler, usageService,
@@ -737,43 +739,7 @@ app.whenReady().then(() => {
   purgeBin();
   setInterval(purgeBin, 24 * 60 * 60 * 1000).unref?.();
   attach.prune(path.join(userData, 'screenshots'));
-  wardrobe = new Wardrobe({
-    config, builtinDir: path.join(__dirname, '..', 'wardrobe'), userDir: path.join(userData, 'wardrobe'),
-    now: () => captureClock.now || new Date(),
-    south: () => seasonsWhere().south,
-    // "Unlock everything" is held back for a paid tier; dev runs (e2e, screenshots) keep it.
-    canUnlockAll: () => !app.isPackaged,
-  });
-  wardrobe.load();
-  wardrobe.on('changed', broadcastWardrobe);
-  wardrobe.on('unlocked', e => {
-    flashState('unlocked', 6000);
-    awardXp('trophy', { label: e.achievement.name });
-    if (!CAPTURE) config.set({ weekly: weekly.recordTrophy(config.get('weekly'), Date.now(), e.achievement) });
-    send(critter, 'critter:burst', outfit().confetti);
-    send(panel, 'wardrobe:unlocked', e);
-    send(panel, 'wardrobe', wardrobe.view());
-    if (!(panel?.isVisible() && panel.isFocused())) {
-      notify(`${e.achievement.icon} Achievement: ${e.achievement.name}`, `Unlocked ${e.rewards.map(r => r.name).join(' + ')}. Open the Wardrobe to try it on!`,
-        () => { showPanel({ focusInput: false }); send(panel, 'panel:view', 'wardrobe'); }, { tone: 'celebrate', pet: true });
-    }
-  });
-  wardrobe.on('collected', items => {
-    send(panel, 'wardrobe:collected', items.map(i => ({ key: i.key, name: i.name })));
-    broadcastWardrobe();
-  });
-  // Credit past usage from history on the Wardrobe's first run (must precede any stat()).
-  if (!CAPTURE) {
-    const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-    // A function, so history is only read on the first run (backfill is a no-op after).
-    welcomeTrophies = wardrobe.backfill(() => {
-      const entries = history.list();
-      return {
-        tasksCompleted: entries.reduce((n, e) => n + history.load(e.id).filter(i => i.kind === 'result' && i.ok).length, 0),
-        activeDays: [...new Set(entries.flatMap(e => [e.createdAt, e.updatedAt]).filter(Boolean).map(day))],
-      };
-    });
-  }
+  createWardrobe();
   stat('active');
   // This PC's own XP count, so sync can add PCs together (xp.js).
   if (!CAPTURE && !config.get('xp')?.device) config.set({ xp: withDevice(config.get('xp'), randomUUID()) });
