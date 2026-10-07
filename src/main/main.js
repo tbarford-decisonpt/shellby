@@ -15,7 +15,6 @@ const { Wardrobe } = require('./wardrobe/service');
 const confirm = require('./confirm');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
 const { withDevice } = require('./xp');
-const focus = require('./focus');
 const rooms = require('./rooms');
 const { createLean } = require('./lean');
 const { createSkillRemover } = require('./skillremove');
@@ -23,8 +22,6 @@ const { createModsService } = require('./mods-service');
 const editor = require('./editor');
 const voice = require('./voice');
 const statusLine = require('./statusline');
-const streaks = require('./streaks');
-const { repoOf, lastCommitAt } = require('./gitinfo');
 const stickers = require('./stickers');
 const weekly = require('./weekly');
 const workmode = require('./workmode');
@@ -41,6 +38,7 @@ const { registerTankIpc } = require('./ipc/tank');
 const { wirePanel } = require('./wiring/panel');
 const { wireServices } = require('./wiring/services');
 const { wireCrewSlots } = require('./wiring/crew-slots');
+const { wireStreaks } = require('./wiring/streaks');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
@@ -293,8 +291,7 @@ const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { ret
 // is there only where a module changes it. wiring/ reaches the services whole
 // (d.usageService.limitWait()); the flat names are what ipc/ reads.
 const shared = {
-  applyHotkey, applyLoginItem, checkNudges, every, isFolder, isStr, panelSettings,
-  recordWork, rememberPrompt, saveStreaks, send, streaksView,
+  applyHotkey, applyLoginItem, every, isFolder, isStr, panelSettings, rememberPrompt, send,
   get recapLog() { return shared.awayService.recapLog; }, set recapLog(v) { shared.awayService.recapLog = v; },
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
@@ -310,7 +307,6 @@ const shared = {
   get LONG_TASK_MS() { return LONG_TASK_MS; },
   get MAX_CREW_SHOWN() { return MAX_CREW_SHOWN; },
   get NOTE_PRELOAD() { return NOTE_PRELOAD; },
-  get NUDGE_TEST() { return NUDGE_TEST; },
   get PANEL_MAX_TEXT() { return PANEL_MAX_TEXT; },
   get PNG_SIGNATURE() { return PNG_SIGNATURE; },
   get PRELOAD() { return PRELOAD; },
@@ -638,9 +634,11 @@ function share(parts) {
 const { createPanel, reachedForShellby, showPanel } = share(wirePanel(shared));
 // Room for helper crabs in his window, and saving his spot.
 const { setCrewSlots } = share(wireCrewSlots(shared));
+// Streaks and nudges.
+const { checkNudges } = share(wireStreaks(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
-  changeRef, checkLeavingSoon, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
+  changeRef, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
   startScheduler, stickerState, usageService, watchAway, watchGuards, watchLeaving, watchOutlook,
 } = share(wireServices(shared));
 const {
@@ -733,65 +731,6 @@ function send(win, channel, payload) {
 // Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
 const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 const claudeConfigDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-
-// ================================================================ streaks and nudges
-
-function streaksView() {
-  const s = streaks.normalize(config.get('streaks'));
-  const now = Date.now();
-  return {
-    ...streaks.streakOf(s, now), nudges: s.nudges, afterDays: s.afterDays,
-    projects: Object.entries(s.projects).sort((a, b) => b[1].lastSeen - a[1].lastSeen).map(([key, p]) => ({
-      key, name: p.name, muted: p.muted, lastSeen: p.lastSeen, lastCommitAt: p.lastCommitAt,
-      quietDays: p.lastCommitAt ? streaks.daysSince(p.lastCommitAt, now) : null,
-    })),
-  };
-}
-
-function saveStreaks(next) {
-  config.set({ streaks: next });
-  send(panel, 'streaks', streaksView());
-  refreshStatusLine();
-}
-
-// A task finished somewhere (dir: its working folder). Keeps the streak, and
-// remembers the git repo it ran in with its newest commit time. A merge home
-// (task: false) keeps the streak but isn't another task for the week's count.
-async function recordWork(dir, { task = true } = {}) {
-  if (CAPTURE || !config) return;
-  timeTracker?.touch(dir);
-  checkLeavingSoon();
-  saveStreaks(streaks.recordWorkDay(config.get('streaks'), Date.now()));
-  const repo = await repoOf(dir);
-  if (!repo) return;
-  if (task) config.set({ weekly: weekly.recordWork(config.get('weekly'), Date.now(), repo.name) }); // the week's top project
-  let s = streaks.recordProject(config.get('streaks'), repo.key, repo.name, Date.now());
-  const at = await lastCommitAt(repo.root);
-  if (at) s = streaks.recordCommit(s, repo.key, at);
-  saveStreaks(s);
-}
-
-// Dev/e2e only: run the nudge check on demand, ignoring quiet hours (nudges only fire 9:00-21:00).
-const NUDGE_TEST = !app.isPackaged && process.env.SHELLBY_NUDGE_TEST === '1';
-
-// Hourly: refresh every known project's last commit, then maybe nudge once.
-async function checkNudges() {
-  if (CAPTURE || !config) return;
-  let s = streaks.normalize(config.get('streaks'));
-  for (const key of Object.keys(s.projects)) {
-    const at = await lastCommitAt(key);
-    if (at) s = streaks.recordCommit(s, key, at);
-  }
-  saveStreaks(s);
-  if (config.get('crabOnly') || focus.guarding(config.get('focus'), Date.now())) return;
-  const n = streaks.dueNudge(s, Date.now(), NUDGE_TEST ? 12 : undefined);
-  if (!n) return;
-  saveStreaks(streaks.markNudged(config.get('streaks'), n.key, Date.now()));
-  flashState('asking', 4000);
-  const open = () => { showPanel(); send(panel, 'tab:new-in', { cwd: n.key, draft: journal.draftFor(n.key, n.name) }); };
-  if (NUDGE_TEST || (panel?.isVisible() && panel.isFocused())) send(panel, 'nudge', { ...n, text: streaks.nudgeText(n) });
-  else notify(streaks.nudgeText(n), 'Click to pick up where you left off.', open);
-}
 
 // ================================================================ settings side effects
 
