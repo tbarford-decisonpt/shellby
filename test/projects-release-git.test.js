@@ -118,6 +118,23 @@ test('change notes are the draft, call for their bump, and a release uses them u
   } finally { t.done(); }
 });
 
+test('a note not committed yet stays out of the release, and an entry too long to keep whole is refused', async () => {
+  const t = setup();
+  try {
+    t.work('a.txt', 'fix: one');
+    fs.mkdirSync(path.join(t.dir, 'changes'));
+    fs.writeFileSync(path.join(t.dir, 'changes', 'draft.md'), '### Fixed\n- Still being written.\n');
+    const s = await rg.readRelease(t.dir, deps);
+    assert.deepEqual(s.notes, []);
+    assert.equal(rg.blocker(s), null, 'an untracked file stops nothing');
+    const long = await rg.cutRelease(t.dir, { version: '0.1.1', title: 'x', notes: `- ${'x'.repeat(20001)}`, head: s.head, push: false }, deps);
+    assert.match(long.error, /longer than 20000 characters/);
+    const r = await rg.cutRelease(t.dir, { version: '0.1.1', title: 'One', notes: s.draft.notes, head: s.head, push: false }, deps);
+    assert.equal(r.ok, true, r.error);
+    assert.ok(fs.existsSync(path.join(t.dir, 'changes', 'draft.md')), 'the draft note is still there for the next release');
+  } finally { t.done(); }
+});
+
 test('without push it stays on this PC, says so, and Push sends it later', async () => {
   const t = setup();
   try {

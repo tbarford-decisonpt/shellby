@@ -118,6 +118,14 @@ test('change notes join into one section per heading, in the release\'s order, w
   assert.deepEqual(R.parseNotes([{ name: 'x.md', text: '\n\n' }]), []);
 });
 
+test('a note\'s own headings match whatever their case, and its # title is left out', () => {
+  const sections = R.parseNotes([
+    { text: '# Toast fixes\n### Removed\n- The old toast.' },
+    { text: '### removed\n- The older toast.' },
+  ]);
+  assert.deepEqual(sections, [{ id: 'own', name: 'Removed', lines: ['- The old toast.', '- The older toast.'] }]);
+});
+
 test('a note with something new makes a patch a minor, and never lowers a bigger bump', () => {
   const added = R.parseNotes([{ text: '### New\n- A.\n- B.' }]);
   assert.deepEqual(R.withNotesBump({ bump: 'patch', why: 'fixes and upkeep only' }, added), { bump: 'minor', why: '2 new in the change notes' });

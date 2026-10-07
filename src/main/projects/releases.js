@@ -241,11 +241,13 @@ function parseNotes(notes) {
   for (const note of Array.isArray(notes) ? notes : []) {
     let into = known.get('other');
     for (const raw of String(note?.text || '').replace(/\r\n/g, '\n').split('\n')) {
+      if (/^#\s/.test(raw)) continue; // a note's own title: the release has its own
       const h = /^#{2,4}\s+(.+?)\s*$/.exec(raw);
       if (h) {
-        const id = NOTE_HEADINGS.get(h[1].toLowerCase());
+        const key = h[1].toLowerCase();
+        const id = NOTE_HEADINGS.get(key);
         if (id) into = known.get(id);
-        else { if (!own.has(h[1])) own.set(h[1], []); into = own.get(h[1]); }
+        else { if (!own.has(key)) own.set(key, { name: h[1], lines: [] }); into = own.get(key).lines; }
         continue;
       }
       if (raw.trim()) into.push(raw.trimEnd());
@@ -253,7 +255,7 @@ function parseNotes(notes) {
   }
   return [
     ...[...known].filter(([, lines]) => lines.length).map(([id, lines]) => ({ id, lines })),
-    ...[...own].filter(([, lines]) => lines.length).map(([name, lines]) => ({ id: 'own', name, lines })),
+    ...[...own.values()].filter(s => s.lines.length).map(({ name, lines }) => ({ id: 'own', name, lines })),
   ];
 }
 

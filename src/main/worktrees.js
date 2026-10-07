@@ -66,18 +66,25 @@ const TYPE_WORDS = new Map([
   ['test', 'test'], ['tests', 'test'], ['chore', 'chore'], ['ci', 'ci'],
 ]);
 const FIX_WORDS = /^(bug|bugs|broken|crash|crashes|regression|typo)$/;
+const FEAT_WORDS = /^(add|adds|new|support|implement)$/;
 const SUBJECT_MAX = 72;
 
-/** -> "fix: tall menu overflow\n\nFrom the conversation: …". Pure. */
+/**
+ * -> "fix: tall menu overflow\n\nFrom the conversation: …". Typed only when
+ * the name says which type ("Next up backlog" otherwise): a wrong "feat" would
+ * have the release card suggest a minor version for a tweak. Pure.
+ */
 function workMessage(branch, title) {
   const said = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 200);
   const m = /^shellby\/(.+)-[0-9a-f]{6}$/.exec(String(branch || ''));
   const words = m ? m[1].split('-').filter(Boolean) : [];
   const named = TYPE_WORDS.get(words[0]);
-  const type = named || (words.some(w => FIX_WORDS.test(w)) ? 'fix' : 'feat');
+  const type = named || (words.some(w => FIX_WORDS.test(w)) ? 'fix' : FEAT_WORDS.test(words[0] || '') ? 'feat' : '');
   const rest = (named ? words.slice(1) : words).join(' ');
-  const what = (rest || said.toLowerCase() || 'work from Shellby').slice(0, SUBJECT_MAX - type.length - 2).trim();
-  return said && said.toLowerCase() !== what ? `${type}: ${what}\n\nFrom the conversation: ${said}` : `${type}: ${what}`;
+  const room = SUBJECT_MAX - (type ? type.length + 2 : 0);
+  const what = (rest || said.toLowerCase() || 'work from Shellby').slice(0, room).trim();
+  const subject = type ? `${type}: ${what}` : what[0].toUpperCase() + what.slice(1);
+  return said && said.toLowerCase() !== what ? `${subject}\n\nFrom the conversation: ${said}` : subject;
 }
 
 // ------------------------------------------------------------ when to make one

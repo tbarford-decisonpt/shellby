@@ -25,6 +25,7 @@ test('names narrow the run first, then the shard splits what is left', () => {
 test('a shard that makes no sense, or a name that matches nothing, is refused', () => {
   for (const bad of ['--shard=0/4', '--shard=5/4', '--shard=2', '--shard']) assert.match(pick(SUITE, [bad]).error, /use --shard=i\/n/, bad);
   assert.match(pick(SUITE, ['nothing-like-this']).error, /No checks match/);
+  assert.match(pick(SUITE, ['queue', '--shard=2/2']).error, /leaves this shard none to run/);
 });
 
 test('the clean-up walks only the check\'s own tree, from processes started since it began', () => {
@@ -32,7 +33,8 @@ test('the clean-up walks only the check\'s own tree, from processes started sinc
   assert.match(ps, /FromUnixTimeMilliseconds\(1760000000000\)/);
   assert.match(ps, /\$keep\.Add\(4242\)/);
   assert.match(ps, /\$keep\.Remove\(4242\)/, 'the check itself is gone already');
-  assert.doesNotMatch(ps, /Name = /, 'nothing is matched by name, so no one else\'s Electron or node');
+  assert.doesNotMatch(ps, /Name = /, 'nothing is matched by name alone, so no one else\'s Electron or node');
+  assert.ok(ps.includes(path.resolve(__dirname, '..') + path.sep), 'and only what runs from this checkout');
 });
 
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
@@ -40,8 +42,9 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
 test('what a finished check left running is stopped', { skip: process.platform !== 'win32' && 'Windows only' }, () => {
   const started = Date.now();
   // A stand-in for a check: it starts a helper that outlives it, says its pid, and exits.
-  const orphan = "const c=require('child_process').spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{detached:true,stdio:'ignore'});c.unref();console.log(c.pid)";
-  const r = spawnSync(process.execPath, ['-e', orphan], { encoding: 'utf8' });
+  const orphan = "const c=require('child_process').spawn(process.execPath,['-e','setTimeout(()=>{},60000)',process.argv[1]],{detached:true,stdio:'ignore'});c.unref();console.log(c.pid)";
+  // The helper names a file of this checkout, as the fake Claude CLI does.
+  const r = spawnSync(process.execPath, ['-e', orphan, path.join(__dirname, 'fixtures', 'fake-claude.js')], { encoding: 'utf8' });
   const helper = Number(r.stdout.trim());
   assert.ok(alive(helper), 'the helper outlived its check');
   try {
@@ -49,6 +52,17 @@ test('what a finished check left running is stopped', { skip: process.platform !
     const deadline = Date.now() + 5000;
     while (alive(helper) && Date.now() < deadline) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
     assert.equal(alive(helper), false);
+  } finally { if (alive(helper)) process.kill(helper); }
+});
+
+test('a leftover that is not this checkout\'s is left alone, even in the tree', { skip: process.platform !== 'win32' && 'Windows only' }, () => {
+  const started = Date.now();
+  const orphan = "const c=require('child_process').spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{detached:true,stdio:'ignore'});c.unref();console.log(c.pid)";
+  const r = spawnSync(process.execPath, ['-e', orphan], { encoding: 'utf8', cwd: require('os').tmpdir() });
+  const helper = Number(r.stdout.trim());
+  try {
+    assert.equal(reap(r.pid, started), 0);
+    assert.ok(alive(helper));
   } finally { if (alive(helper)) process.kill(helper); }
 });
 

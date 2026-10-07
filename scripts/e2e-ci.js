@@ -84,7 +84,10 @@ function pick(all, args) {
   if (shardArg && (!m || +m[1] < 1 || +m[1] > +m[2])) return { error: `${shardArg}: use --shard=i/n, with i from 1 to n` };
   const matched = wanted.length ? all.filter(s => wanted.some(w => s.includes(w))) : all;
   if (!matched.length) return { error: `No checks match ${wanted.join(', ')}. Known: ${all.join(', ')}` };
-  return { suite: m ? matched.filter((_, k) => k % +m[2] === +m[1] - 1) : matched };
+  const suite = m ? matched.filter((_, k) => k % +m[2] === +m[1] - 1) : matched;
+  // Green with nothing run would read as a pass.
+  if (!suite.length) return { error: `${shardArg} of ${matched.length} check${matched.length === 1 ? '' : 's'} leaves this shard none to run` };
+  return { suite };
 }
 
 /**
@@ -92,18 +95,25 @@ function pick(all, args) {
  * from the check's own (`rootPid`, gone by now), started since `sinceMs`. A
  * check that times out is killed alone, and its Electron and helpers carry on,
  * dozens of them by the end of a run. Windows keeps an orphan's parent pid, so
- * the tree can still be walked; the start time keeps a reused pid out of it.
- * Nothing outside that tree is touched. Prints the pids it stopped. Pure.
+ * the tree can still be walked; the start time keeps most reused pids out of
+ * it. In case one gets in anyway, a process is only stopped if it's also this
+ * checkout's: its program is in the checkout (Electron, in node_modules), or
+ * it's node running one of the checkout's files (the fake Claude CLI). Prints
+ * the pids it stopped. Pure.
  */
-function reapScript({ rootPid, sinceMs }) {
+function reapScript({ rootPid, sinceMs, root = path.join(__dirname, '..') }) {
+  const q = s => `'${String(s).replace(/'/g, "''")}'`;
   return [
     `$since = [DateTimeOffset]::FromUnixTimeMilliseconds(${Number(sinceMs)}).LocalDateTime`,
-    '$all = @(Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since } | Select-Object ProcessId, ParentProcessId)',
+    `$root = ${q(path.resolve(root) + path.sep)}`,
+    '$all = @(Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since })',
     '$keep = New-Object System.Collections.Generic.HashSet[int]',
     `[void]$keep.Add(${Number(rootPid)})`,
     'for ($i = 0; $i -lt 8; $i++) { foreach ($p in $all) { if ($keep.Contains([int]$p.ParentProcessId)) { [void]$keep.Add([int]$p.ProcessId) } } }',
     `[void]$keep.Remove(${Number(rootPid)})`,
-    'foreach ($id in $keep) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue; $id }',
+    '$ours = { param($p) ($p.ExecutablePath -and $p.ExecutablePath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) -or',
+    '  ($p.Name -eq \'node.exe\' -and $p.CommandLine -and $p.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0) }',
+    'foreach ($p in $all) { if ($keep.Contains([int]$p.ProcessId) -and (& $ours $p)) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue; $p.ProcessId } }',
   ].join('\n');
 }
 
