@@ -58,7 +58,34 @@ Smaller tanks stay available. If you move to one that holds fewer pieces than yo
 
 ## On the Health view
 
-Once there's something in his tank, the picture of him on the **Health** view is a window into it: his floor, his back glass and whatever stands nearest. His moods (sweating, dizzy, stuffed) show on top as before.
+Once there's something in his tank, the picture of him on the **Health** view is a window into it: his floor, his back glass and whatever stands nearest. His moods (sweating, dizzy, stuffed) show on top as before, and reach the water too (see below).
+
+## Gauges in disguise
+
+A few things in his tank quietly show what Shellby already knows about your PC:
+
+| | Shows |
+|---|---|
+| **Thermometer** on the front glass | Your GPU's temperature (or the CPU's, with no GPU reading), with a notch at your Health line. It goes red past it. |
+| **Bubblers** (the air stone) | Bubble faster the busier the CPU is. |
+| **Lighthouse** | Lit while one of your dev servers is running. It blinks red when one has crashed. |
+| **The water** | Takes his Health mood: warm when he's hot, swirling when he's dizzy, a pile of boxes in the corner when he's stuffed. It clears with the mood. |
+
+Each one has its own switch under **Gauges in disguise** in the Tank, all on to start. They stay on this PC: they never sync and are never on a card. Shellby only tells the tank something changed when it would look different, and only while the panel is open; the tank never asks on a timer.
+
+## Stickers on the glass
+
+Every project in your Sticker Book can go on the tank's front glass, once, from the **Stickers on the glass** shelf of the tray. They're drawn over everything else in the tank. Projects you hid in the Sticker Book don't come up. Stickers on the glass sync with the tank, but never go on your calling card or profile card, since a sticker would name a project.
+
+## Saved layouts
+
+Under **Layouts**, keep up to three tanks by name ("Everyday", "Spooky", "Reef"): **Save the tank as it is**, then **Put up** whichever you like. Saving under a name you already have replaces it. A layout goes up like any edit, so a piece you don't have on this PC stays out.
+
+Pick a season for one and it goes up by itself the first time you open his tank once that season has started. When the season's over, the tank you had before comes back. One layout per season. Layouts sync through your private sync gist (the newest change wins); what a season put up stays each PC's own.
+
+## Tidying up
+
+Some days, when you open his tank, he's moved one of his finds a few pixels towards its neighbour. He never moves anything else, never in a tank you changed in the last day, and at most once a day. A note says what he moved: **Put it back** (or **Ctrl+Z**) undoes it, and **Let him tidy up** turns it off. This stays on each PC.
 
 ## On your cards, and friends' tanks
 
@@ -88,5 +115,9 @@ Pieces from a pack you've removed, or that are locked again because you switched
 - `src/main/wardrobe/catalog.js`: the `decor` kind. `src/wardrobe/tank-decor.json` is the built-in pack.
 - `src/renderer/panel/tank-paint.js`: paints a tank in art pixels at a whole-number scale, for the Tank tab and the Health porthole. `resolve` lays out a draft the same way `tank.view` does.
 - `src/renderer/panel/tank.js` and `tank.css`: the Tank tab and the editor. It draws at 10 frames a second only while the tab is showing, and a single still frame when motion is turned down.
-- **End-to-end check:** `node scripts/e2e-tank.js` decorates with the keyboard, checks what main refuses, looks through the Health porthole and restarts to see it all kept. `node scripts/e2e-friends.js` shares it on the calling card, peeks at a friend's (hostile bits and all) and earns House Guest; `node scripts/e2e-card.js` checks the crab card paints it.
-- The plan, and what comes next (him hiding in the castle, sets on display, decor that shows your PC's state): [plans/tank-decor.md](plans/tank-decor.md).
+- `src/main/tank-gauges.js` (pure) turns a Health snapshot, his mood and `DevServers#summary()` into coarse readings (`tempOf`, `loadStep`, `moodOf`, `lighthouseOf`, `gauges`); `src/main/ipc/tank-gauges.js` keeps the latest, hears the monitor's `sample`, the mood and the dev servers' `change`, and pushes `tank:gauges` only when the reading differs and the panel is showing. `tank:gauges` asks once, `tank:live` turns one off (`config.tankLive`, per PC). `src/renderer/panel/tank-gauges.js` paints them through `tank-paint.js`'s `gauges` option. Covered in `test/tank-gauges.test.js`.
+- `src/main/tank-glass.js`: `withStickers` adds `sticker:<projectId>` pieces (the Sticker Book's small art, one each) to the tank's library. `tank-share.js` and `profile-card.js` keep them off the cards. Covered in `test/tank-glass.test.js`.
+- `src/main/tank-layouts.js` (pure, `config.tankLayouts`): `save`, `remove`, `tag`, `seasonStep` (up when a tagged season starts, the tank from before back when it ends) and `syncable` / `merge` / `applySync` for the sync gist. Kept apart from `config.tank`, so the calling card can't reach it. `src/main/ipc/tank-layouts.js` answers `tank:layouts` (and looks at the seasons then), `tank:layout-save`, `tank:layout-use`, `tank:layout-remove` and `tank:layout-season`. Covered in `test/tank-layouts.test.js`.
+- `src/main/tank-tidy.js` (pure, `config.tankTidy`, per PC): `pick`, `apply` and `undo`; `src/main/ipc/tank-tidy.js` answers `tank:tidy` when the tab opens, `tank:tidy-undo` and `tank:tidy-set`. Covered in `test/tank-tidy.test.js`.
+- **End-to-end check:** `node scripts/e2e-tank-gauges.js` fakes a hot PC and checks the thermometer and the water, turns a gauge off, saves and puts up a layout (and a season's, when one is running), turns tidying off, and restarts to see it all kept. `node scripts/e2e-tank.js` decorates with the keyboard, checks what main refuses, looks through the Health porthole and restarts to see it all kept. `node scripts/e2e-friends.js` shares it on the calling card, peeks at a friend's (hostile bits and all) and earns House Guest; `node scripts/e2e-card.js` checks the crab card paints it.
+- The plan, and what comes next (him hiding in the castle, sets on display): [plans/tank-decor.md](plans/tank-decor.md).

@@ -1,8 +1,35 @@
 # The Tank: a home you decorate
 
-> Status: **Phase 1 ("Move in") and Phase 4 ("Open house") built.** Phases 2
-> and 3 are still the plan below.
+> Status: **Phases 1 ("Move in"), 3 ("Gauges in disguise") and 4 ("Open
+> house") built.** Phase 2 is still the plan below.
 > Written against 0.64.2. User docs: [TANK.md](../TANK.md).
+
+## What changed from the plan (Phase 3, "Gauges in disguise")
+
+- **Four gauges, not six.** The thermometer, the bubbler, the lighthouse and
+  Health moods in the water are built. The tide gauge (usage window), the
+  chest's glint on a merged PR and the message in a bottle (unread recap) are
+  not yet; `tank-gauges.js` `gauges()` is where they'd go.
+- **The thermometer is drawn on the glass, not placed.** There's no
+  thermometer piece yet (it would need a `check-up` reward), so it shows on
+  the right of the front glass while its switch is on.
+- **Live, layouts and tidying are config keys of their own**, not fields of
+  `tank`: `tankLive` and `tankTidy` (per PC, never synced) and `tankLayouts`
+  (synced as its own gist field, newest list wins). Keeping them out of
+  `tank` means `tank.normalize`, `sanitize` and the calling card never see
+  them. Plants don't sway faster when he's hot yet.
+- **Main pushes readings** (`tank:gauges`) from the Health monitor's `sample`,
+  the mood and the dev servers' `change`, coarse enough (whole degrees, four
+  CPU steps) that most samples send nothing, and only while the panel shows.
+- **Stickers on the glass** are `sticker:<projectId>` pieces drawn over
+  everything, stored with an ordinary row (high, middle, low on the glass)
+  rather than `row: 'glass'`. One of each project, hidden projects left out.
+  They sync with the tank and never go on either card.
+- **A season's layout goes up when you next open the tank** in that season
+  (no timer), and the tank from before comes back the first time you open it
+  after. One layout per season.
+- **Tidying** happens when the tab opens, on about a third of the days that
+  allow it, and moves one find 2–6 px towards its nearest neighbour in its row.
 
 ## What changed from the plan (Phase 4, "Open house")
 
