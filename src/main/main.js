@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, ipcMain, screen, Menu, Tray, shell, dialog,
-  globalShortcut, Notification, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
+  globalShortcut, nativeImage, clipboard, session: electronSession, safeStorage, powerMonitor,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -19,6 +19,7 @@ const { ToolboxWatcher } = require('./toolbox');
 const { validateRoutine, missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
 const { Wardrobe, publicItem } = require('./wardrobe/service');
 const confirm = require('./confirm');
+const toast = require('./toast');
 const { validatePack } = require('./wardrobe/catalog');
 const { KNOWN_ACHIEVEMENTS } = require('./wardrobe/achievements');
 const { KNOWN_SEASONS } = require('./wardrobe/seasons');
@@ -96,7 +97,7 @@ function snag(what, detail) {
   // No config yet means this is a crash during startup, before there's anywhere
   // to show it (and notify() would throw from inside the handler).
   if (++snags > 3 || !config) return; // a loop must not become a storm of toasts
-  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem);
+  notify('Shellby hit a snag', 'He carried on, but something went wrong. Right-click him → Report a problem.', reportProblem, { tone: 'danger' });
 }
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
@@ -344,6 +345,7 @@ function showPanel({ focusInput = true, tabId = null } = {}) {
     panel.setPosition(p.x, p.y);
   }
   if (panel.isMinimized()) panel.restore();
+  toast.closeAll(); // you're looking at Shellby now; the notices have done their job
   panel.show();
   panel.moveTop();
   panel.focus();
@@ -770,26 +772,32 @@ function onResult(tabId, item, tab) {
   const secs = Math.round((item.durationMs || 0) / 1000);
   notify(item.ok ? `${routineId ? 'Routine' : 'Shellby'} finished: ${tab.title}` : `Shellby hit a problem: ${tab.title}`,
     item.ok ? `Done in ${secs}s. Click to see what happened.` : (item.error || 'Click for details.'),
-    () => showPanel({ tabId }));
+    () => showPanel({ tabId }), { tone: item.ok ? null : 'danger' });
 }
 
 // While Shellby guards your focus, notifications that can wait are held back
 // and summed up afterwards. Urgent ones (a task waiting for your OK, a health
 // alert) still come through.
 let heldNotices = [];
-function notify(title, body, onClick, { urgent = false } = {}) {
+// A snag can come from the skins themselves; the notice must still go out.
+function lookOrNothing() {
+  try { return dialogLook(); } catch { return {}; }
+}
+
+// Urgent notices stay up until you deal with them; tone 'danger' marks a failure.
+function notify(title, body, onClick, { urgent = false, tone = null } = {}) {
   if (!urgent && config && focus.guarding(config.get('focus'), Date.now())) {
     heldNotices = [...heldNotices, title].slice(-20);
     return;
   }
-  // Dev, test and screenshot runs never post OS notifications: their toasts
-  // outlive the process, and clicking a stale one relaunches bare electron.exe
-  // (Electron's default page). SHELLBY_ALLOW_NOTIFY=1 opts a dev run back in.
+  // Dev, test and screenshot runs don't pop notices over whatever the e2e
+  // scripts are driving. SHELLBY_ALLOW_NOTIFY=1 opts a dev run back in.
   if (CAPTURE || (!app.isPackaged && process.env.SHELLBY_ALLOW_NOTIFY !== '1')) return;
-  if (!config.get('notifications') || !Notification.isSupported()) return;
-  const n = new Notification({ title: title.slice(0, 80), body, icon: ICON });
-  if (onClick) n.on('click', onClick);
-  n.show();
+  if (!config.get('notifications') || !app.isReady()) return;
+  toast.show(
+    { ...lookOrNothing(), title: title.slice(0, 80), body, tone: tone || (urgent ? 'urgent' : 'info'), sticky: urgent },
+    { near: critter && !critter.isDestroyed() ? critter.getBounds() : null, onClick },
+  );
 }
 
 function openTab({ tabId = randomUUID(), cwd = currentCwd(), historyEntry = null, mode = null, routineId = null, title = null } = {}) {
@@ -1542,7 +1550,7 @@ function onCiEvent({ type, pr }) {
   if (type === 'failed') {
     flashState('error', 5000);
     tellChannel({ kind: 'ci', project: where, passing: false, body: `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`, url: pr.url });
-    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open);
+    notify(`CI failed on ${where}`, `${pr.title}${pr.failing?.length ? `: ${pr.failing.join(', ')}` : ''}`.slice(0, 160), open, { tone: 'danger' });
   } else if (type === 'fixed') {
     stat('ci-fixed');
     flashState('cheer', 6500);
@@ -1689,7 +1697,7 @@ function runRoutine(r, { reason = 'scheduled' } = {}) {
     send(panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true });
     return { ok: true, tabId };
   } catch (err) {
-    notify(`Routine "${r.name}" couldn't start`, err.message);
+    notify(`Routine "${r.name}" couldn't start`, err.message, null, { tone: 'danger' });
     return { ok: false, error: err.message };
   }
 }
