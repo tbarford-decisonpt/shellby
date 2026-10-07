@@ -59,7 +59,7 @@ function wireProjects(d) {
       openCard: showServer,
       notify: n => d.notify(n.title, n.body, n.onClick, { tone: n.tone || 'default', action: n.action || null }),
     });
-    d.devServers.on('change', v => { d.send(d.panel, 'servers:changed', v); d.refreshCritter(); });
+    d.devServers.on('change', v => { d.send(d.panel, 'servers:changed', v); d.refreshCritter(); d.tankGauges?.servers(); });
     d.devServers.on('crashed', v => {
       if (!d.config.get('crabOnly')) d.speak('serverDown');
       d.bugdex?.serverCrashed(v); // a Beached Whale (or what its log says it was) on the loose

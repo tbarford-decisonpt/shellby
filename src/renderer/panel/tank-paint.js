@@ -205,20 +205,23 @@
    * Paint a resolved scene into ctx (already scaled to art pixels).
    * opts: { t (seconds), still, crab: { img, w, h, x, flip, hop, alpha } | null,
    *         ghost: a piece being dragged in, drawn see-through,
-   *         dim: uid -> alpha (the piece you're dragging, faded where it was) }
+   *         dim: uid -> alpha (the piece you're dragging, faded where it was),
+   *         gauges: live decor from tank-gauges.js, or null }
    */
-  function paint(ctx, scene, { t = 0, still = false, crab = null, ghost = null, dim = null } = {}) {
+  function paint(ctx, scene, { t = 0, still = false, crab = null, ghost = null, dim = null, gauges = null } = {}) {
     const W = WATER[timeOf(scene.style.light)] || WATER.night;
+    const G = gauges && SB.tankGauges;
     ctx.imageSmoothingEnabled = false;
     water(ctx, scene, W, t, still);
     floor(ctx, scene);
+    if (G) G.under(ctx, scene, gauges, t, still);
     const behind = scene.pieces.filter(p => depthOf(p) <= 2);
     const front = scene.pieces.filter(p => depthOf(p) > 2);
     const alphaOf = p => (dim && dim.has(p.uid) ? dim.get(p.uid) : 1);
     for (const p of behind) piece(ctx, p, t, still, alphaOf(p));
     if (crab) crabOn(ctx, scene, crab);
     for (const p of front.filter(p => p.layer !== 'float')) piece(ctx, p, t, still, alphaOf(p));
-    bubbles(ctx, scene, t, still);
+    bubbles(ctx, scene, G ? t * G.bubbleSpeed(gauges) : t, still);
     // After dark the room dims, but lamps and bubblers keep their glow.
     if (W.shade) {
       ctx.fillStyle = '#020a10';
@@ -236,6 +239,7 @@
       piece(ctx, p, t, still, alphaOf(p));
     }
     if (ghost) piece(ctx, ghost, t, true, 0.6);
+    if (G) G.over(ctx, scene, gauges, t, still);
     glass(ctx, scene.world);
   }
 

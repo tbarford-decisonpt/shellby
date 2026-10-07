@@ -162,7 +162,7 @@
       const it = trayItem(drag.ref);
       ghost = { ...it, uid: 0, x: drag.x, row: drag.row, y: P.baseline(sc.world, it.layer, drag.row), flip: false };
     }
-    P.paint(ctx, sc, { t: still ? 0 : now / 1000, still, crab: crabArt(now, still), ghost });
+    P.paint(ctx, sc, { t: still ? 0 : now / 1000, still, crab: crabArt(now, still), ghost, gauges: SB.tankGauges?.current() || null });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const crabBtn = hits.querySelector('.tk-hit-crab');
     if (crabBtn && crab) {
@@ -762,6 +762,7 @@
   }
 
   async function open() {
+    SB.tankGauges?.refresh();
     apply(await fetchTank());
     await loadCrab();
     if (v && !editing() && !walker.target) walker.x = stillX();
@@ -776,6 +777,7 @@
   api.onSkin?.(() => { crabKey = null; if (state.view === 'tank') loadCrab(); });
   new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } }).observe(stage);
   document.addEventListener('visibilitychange', kick);
+  document.addEventListener('sb:tank-gauges', () => { dirty = true; kick(); }); // live decor changed (tank-gauges.js)
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => { dirty = true; kick(); });
 
   SB.views.tank = { render: () => { open(); } };

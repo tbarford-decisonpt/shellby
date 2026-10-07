@@ -100,10 +100,11 @@
     const oy = scene.world.crabY + 1 - (cssH - CRAB_LIFT) * dpr / K;
     const ctx = canvas.getContext('2d');
     ctx.setTransform(K, 0, 0, K, -Math.round(ox * K), -Math.round(oy * K));
-    P.paint(ctx, scene, { still: true });
+    P.paint(ctx, scene, { still: true, gauges: SB.tankGauges?.current() || null });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   document.addEventListener('sb:tank', e => { if (state.view === 'health') renderPorthole(e.detail); });
+  document.addEventListener('sb:tank-gauges', () => { if (state.view === 'health') renderPorthole(); }); // the water takes his mood
 
   // ------------------------------------------------------------ settings + log
 

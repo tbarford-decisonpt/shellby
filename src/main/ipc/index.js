@@ -22,6 +22,7 @@ const voice = require('../voice');
 const { registerHistoryIpc, clearQuestion } = require('./history');
 const { registerWardrobeIpc } = require('./wardrobe');
 const { registerTankIpc } = require('./tank');
+const { registerTankGaugesIpc } = require('./tank-gauges');
 const { registerCritterIpc } = require('./critter');
 const { registerLifeIpc } = require('./life');
 const { registerPanelIpc } = require('./panel');
@@ -146,6 +147,14 @@ function registerIpc(electronIpcMain, d) {
     level: () => d.currentLevel(),
     shipped: () => stickers.stats(d.stickerState()).stickers,
     cardChanged: () => d.friends?.republish().catch(() => {}),
+  });
+  // ...and its live decor: Health and the dev servers, pushed as they change (tank-gauges.js)
+  d.tankGauges = registerTankGaugesIpc(ipcMain, {
+    config,
+    toPanel: (channel, payload) => { if (d.panel && !d.panel.isDestroyed() && d.panel.isVisible()) d.send(d.panel, channel, payload); },
+    health: () => d.health,
+    moodsOn: () => d.health?.settings?.moods !== false,
+    servers: () => d.devServers?.summary() || null,
   });
 
   // The rest, one area per module in ipc/.
