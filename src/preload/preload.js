@@ -396,6 +396,11 @@ contextBridge.exposeInMainWorld('shellby', {
   peekTank: invoke('tank:peek'),       // a friend's, from their calling card
   getTankGauges: invoke('tank:gauges'), // live decor: Health and dev servers (tank-gauges.js)
   setTankLive: invoke('tank:live'),
+  tankLayouts: invoke('tank:layouts'), // saved layouts, and the seasons' (tank-layouts.js)
+  saveTankLayout: invoke('tank:layout-save'),
+  useTankLayout: invoke('tank:layout-use'),
+  removeTankLayout: invoke('tank:layout-remove'),
+  seasonTankLayout: invoke('tank:layout-season'),
   onTankGauges: on('tank:gauges'),
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),

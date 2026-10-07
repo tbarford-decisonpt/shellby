@@ -741,6 +741,7 @@
     renderTray();
     renderKey();
     renderShare();
+    SB.tankLayouts?.render();
     dirty = true;
     kick();
   }
@@ -764,6 +765,7 @@
   async function open() {
     SB.tankGauges?.refresh();
     apply(await fetchTank());
+    SB.tankLayouts?.open(); // a new season may put a saved layout up (tank-layouts.js)
     await loadCrab();
     if (v && !editing() && !walker.target) walker.x = stillX();
   }
@@ -782,5 +784,7 @@
 
   SB.views.tank = { render: () => { open(); } };
   SB.tankView = () => v;
+  SB.tankApply = apply;          // a saved layout went up (tank-layouts.js)
+  SB.tankEditing = editing;
   api.getTank().then(next => { if (next) { v = next; badge(); document.dispatchEvent(new CustomEvent('sb:tank', { detail: v })); } });
 })();

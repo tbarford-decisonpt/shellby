@@ -37,8 +37,8 @@ function registerTankIpc(ipcMain, d) {
 
   ipcMain.handle('tank:get', () => view());
 
-  ipcMain.handle('tank:save', (_e, draft) => {
-    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return { ok: false, error: 'That isn’t a tank.', view: view() };
+  // Keep a tank (the editor's, or a saved layout going up): what he can have of it.
+  const keep = draft => {
     const l = lib();
     const previous = d.config.get('tank');
     const { state, dropped } = tank.sanitize(draft, { lib: l, level: d.level(), shipped: d.shipped(), previous, now: Date.now() });
@@ -49,6 +49,11 @@ function registerTankIpc(ipcMain, d) {
     const v = view(l);
     d.stat('tank-pieces', { n: v.pieces.length });
     return { ok: true, dropped, view: v };
+  };
+
+  ipcMain.handle('tank:save', (_e, draft) => {
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return { ok: false, error: 'That isn’t a tank.', view: view() };
+    return keep(draft);
   });
 
   // His tank on your calling card, or off it (tank-share.js). The card catches up on the next refresh, started now.
@@ -77,6 +82,9 @@ function registerTankIpc(ipcMain, d) {
     const keys = refs.slice(0, MAX_SEEN).filter(r => isRef(r) && !r.startsWith('find:') && !r.startsWith('jar:'));
     if (keys.length) d.wardrobe()?.markSeen(keys);
   });
+
+  // For saved layouts (ipc/tank-layouts.js): the tank as the panel draws it, and keeping one.
+  return { view, keep };
 }
 
 module.exports = { registerTankIpc };
