@@ -78,3 +78,27 @@ test('screenshot runs leave streaks alone', async () => {
   assert.equal(s.config.get('streaks'), undefined);
   assert.equal(s.sent.length, 0);
 });
+
+// The hourly check asks git about every project, one after another, which can
+// take seconds. What changed in the meantime must not be written over.
+test('a project muted while the hourly check asks git stays muted', async () => {
+  const now = Date.now();
+  const a = notARepo();
+  const b = notARepo();
+  const s = setup({ streaks: { projects: { [a]: { name: 'a', lastSeen: now }, [b]: { name: 'b', lastSeen: now } } } });
+  const checking = s.checkNudges();
+  s.config.set({ streaks: streaks.setMuted(s.config.get('streaks'), b, true) }); // the panel's Mute, mid-check
+  await checking;
+  assert.equal(streaks.normalize(s.config.get('streaks')).projects[b].muted, true);
+});
+
+test('a task finished while the hourly check asks git still counts', async () => {
+  const now = Date.now();
+  const s = setup({ streaks: { projects: { [notARepo()]: { name: 'a', lastSeen: now } } } });
+  const checking = s.checkNudges();
+  s.saveStreaks(streaks.recordProject(streaks.recordWorkDay(s.config.get('streaks'), now), 'c:\\elsewhere', 'elsewhere', now));
+  await checking;
+  const kept = streaks.normalize(s.config.get('streaks'));
+  assert.ok(kept.projects['c:\\elsewhere'], 'the project it ran in is remembered');
+  assert.equal(kept.days.length, 1, 'and the day it worked');
+});

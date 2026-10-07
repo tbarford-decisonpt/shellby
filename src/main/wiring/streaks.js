@@ -43,8 +43,9 @@ function wireStreaks(d) {
     const repo = await repoOf(dir);
     if (!repo) return;
     if (task) config.set({ weekly: weekly.recordWork(config.get('weekly'), Date.now(), repo.name) }); // the week's top project
-    let s = streaks.recordProject(config.get('streaks'), repo.key, repo.name, Date.now());
     const at = await lastCommitAt(repo.root);
+    // Read after git answers, so nothing saved while it was asked is written over.
+    let s = streaks.recordProject(config.get('streaks'), repo.key, repo.name, Date.now());
     if (at) s = streaks.recordCommit(s, repo.key, at);
     saveStreaks(s);
   }
@@ -53,11 +54,15 @@ function wireStreaks(d) {
   async function checkNudges() {
     if (d.CAPTURE || !d.config) return;
     const { config } = d;
-    let s = streaks.normalize(config.get('streaks'));
-    for (const key of Object.keys(s.projects)) {
+    const found = [];
+    for (const key of Object.keys(streaks.normalize(config.get('streaks')).projects)) {
       const at = await lastCommitAt(key);
-      if (at) s = streaks.recordCommit(s, key, at);
+      if (at) found.push([key, at]);
     }
+    // Asking git about each project takes a while: a task finished or a project
+    // muted meanwhile is in the settings now, so the times go onto those.
+    let s = streaks.normalize(config.get('streaks'));
+    for (const [key, at] of found) s = streaks.recordCommit(s, key, at);
     saveStreaks(s);
     if (config.get('crabOnly') || focus.guarding(config.get('focus'), Date.now())) return;
     const n = streaks.dueNudge(s, Date.now(), NUDGE_TEST ? 12 : undefined);
