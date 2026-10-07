@@ -14,6 +14,7 @@ const { watchesDesktop } = require('../test-desktop');
 const { createPerching } = require('../perching');
 const { clampToDisplays } = require('../placement');
 const { createPranks } = require('../pranks');
+const processJob = require('../process-job');
 const voice = require('../voice');
 
 /** d: what main shares (main.js `shared`). */
@@ -391,6 +392,27 @@ function wireWindows(d) {
     if (d.CAPTURE) return false;
     try { return powerMonitor.getSystemIdleTime() >= awayAfterS(); } catch { return false; }
   }
+  // With a game up, everything Shellby's tasks are running (Claude, and the
+  // tests, installs and app copies it starts) gives way to it: idle priority and
+  // a small share of the CPU (process-job.js giveWay). Four queued conversations
+  // running e2e once took 80% of the CPU and froze a game for ten minutes. It
+  // lasts a while past the game leaving the front, so alt-tabbing to Discord
+  // mid-match doesn't hand a test run the machine.
+  const GAME_LINGER_MS = 2 * 60 * 1000;
+  let gameSeenAt = 0;
+  function giveWayToGame(game, now = Date.now()) {
+    if (game) gameSeenAt = now;
+    const on = game || (gameSeenAt > 0 && now - gameSeenAt < GAME_LINGER_MS);
+    if (on !== processJob.givingWay()) d.log.info(on ? 'Giving way to a game — tasks held back' : 'Game over — tasks back to full speed');
+    processJob.giveWay(on); // every poll: it catches what the tasks started since the last
+  }
+  // Its own poll, apart from the crab's: nothing about his window, and no
+  // failure to read the one in front, may leave the tasks held back for good.
+  function checkGame() {
+    let game = false;
+    try { game = processJob.available() && native.available() && d.gameInFront(native.describe(native.foreground())); } catch { /* no game seen */ }
+    giveWayToGame(game);
+  }
   function checkCovered() {
     if (!d.critter || d.critter.isDestroyed()) return;
     hidden = { ...hidden, away: awayNow() };
@@ -447,6 +469,8 @@ function wireWindows(d) {
     // The renderers start animated; a reload would forget a calm sent before it.
     for (const w of [d.panel, d.critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
     if (!d.CAPTURE && !IDLE_UNCOVERED && watchesDesktop(process.env, app.isPackaged)) setInterval(checkCovered, COVER_POLL_MS).unref?.();
+    if (!d.CAPTURE) setInterval(checkGame, COVER_POLL_MS).unref?.();
+    app.on('will-quit', () => processJob.giveWay(false)); // before the sweeps: what they keep isn't left capped
   }
 
   return {

@@ -14,6 +14,9 @@
   const applyFolderLabel = (cwd, tab) => SB.applyFolderLabel(cwd, tab);
   const syncBusyUi = () => SB.syncBusyUi();
   const autosize = () => SB.autosize();
+  // Empty, idle and holding nothing for the reset (shared/outlook-format.js).
+  const isBlank = tab => window.ShellbyOutlookFormat.isBlank(tab, state.outlook);
+  SB.isBlankTab = isBlank;
   const renderAttachments = () => SB.renderAttachments();
 
   // ------------------------------------------------------------ tabs
@@ -121,7 +124,7 @@
   let creating = null;
   SB.newTab = ({ focus = true } = {}) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
+    if (isBlank(cur)) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
     if (creating) return creating;
     creating = (async () => {
       const r = await api.newTab();

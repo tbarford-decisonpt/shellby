@@ -1,0 +1,3 @@
+### Fixed
+- **He gets out of your game's way.** With a game in front, everything Shellby's conversations are running (Claude, and the tests, installs and app copies it starts) drops to idle priority and a small share of the CPU, and stays there until two minutes after the game leaves the front. Four conversations released at once when your usage reset could run test suites flat out and freeze a game for minutes.
+- **Signing in no longer leaves Claude Code running in the background.** Every press of Sign in started another sign-in that waited for the browser forever if you didn't finish it: eight of them, nearly 2 GB, after switching accounts. There's now one at a time, it gives up after ten minutes, and it ends when Shellby quits.

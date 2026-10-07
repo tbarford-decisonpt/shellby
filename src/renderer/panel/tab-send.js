@@ -280,7 +280,7 @@
   // A blank, idle tab with nothing typed is used as is.
   SB.prefillNew = (text) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy && !input.value.trim()) return SB.prefill(text);
+    if (SB.isBlankTab(cur) && !input.value.trim()) return SB.prefill(text);
     return SB.newTabIn({ draft: text });
   };
 

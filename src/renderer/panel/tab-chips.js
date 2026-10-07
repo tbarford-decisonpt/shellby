@@ -71,7 +71,7 @@
     $('settingsFolder').textContent = r.cwd;
     // A blank tab moves to the new folder; a conversation in progress keeps its own.
     const tab = SB.activeTab();
-    if (tab && tab.isEmpty && !tab.busy) {
+    if (SB.isBlankTab(tab)) {
       await api.closeTab(tab.id);
       tab.destroy();
       state.tabs.delete(tab.id);

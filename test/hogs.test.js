@@ -522,8 +522,10 @@ test('askStartup says so when the list can\'t be read', async () => {
 
 // ------------------------------------------------------------------ grouped by app
 
+// The swarm's PIDs are odd: Windows PIDs are multiples of 4, so none can be the
+// test runner's own (which the service always protects as Shellby's).
 const SWARM = [
-  ...Array.from({ length: 40 }, (_, i) => ({ pid: 5000 + i, name: 'python', cpu: 1.5, gpu: 0, mem: 80 * MB })),
+  ...Array.from({ length: 40 }, (_, i) => ({ pid: 5001 + 2 * i, name: 'python', cpu: 1.5, gpu: 0, mem: 80 * MB })),
   { pid: 1000, name: 'game', cpu: 30, gpu: 95, mem: 4000 * MB },
   { pid: 3000, name: 'Chrome', cpu: 5, gpu: 2, mem: 900 * MB },
   { pid: 3001, name: 'chrome', cpu: 2, gpu: 0, mem: 300 * MB },
@@ -563,20 +565,20 @@ function groupProcesses(list, { names } = {}) {
 }
 
 test('hogs() returns app groups with ownership, and keeps their PIDs in main', async () => {
-  const { svc } = service({ processes: processes(SWARM), ownedPids: () => new Set([5000, 5001]) });
+  const { svc } = service({ processes: processes(SWARM), ownedPids: () => new Set([5001, 5003]) });
   const r = await svc.hogs('cpu');
   const py = r.groups[0];
   assert.deepEqual([py.name, py.count, py.owned, py.locked], ['python', 40, 2, null]);
   assert.equal('pids' in py, false, 'the panel never sees group PIDs');
   assert.equal(r.total, SWARM.length);
-  assert.equal(r.procs.find(p => p.pid === 5000).owned, true);
+  assert.equal(r.procs.find(p => p.pid === 5001).owned, true);
   assert.match(r.groups.find(g => g.name === 'csrss').locked, /Windows needs/);
 });
 
 test('endGroup asks once, then ends every process still running under that name', async () => {
   const names = new Map(SWARM.map(x => [x.pid, x.name]));
-  names.delete(5003);              // closed on its own
-  names.set(5004, 'notepad');      // and its PID went to something else
+  names.delete(5007);              // closed on its own
+  names.set(5009, 'notepad');      // and its PID went to something else
   const p = groupProcesses(SWARM, { names });
   const { svc, asked } = service({ processes: p });
   await svc.hogs('cpu');
@@ -585,7 +587,7 @@ test('endGroup asks once, then ends every process still running under that name'
   assert.match(asked[0].title, /End all 40 python processes\?/);
   assert.equal(asked[0].defaultId, 1, 'Enter cancels');
   assert.deepEqual([r.ok, r.ended, r.gone, r.failed], [true, 38, 2, 0]);
-  assert.equal(p.ended.includes(5003) || p.ended.includes(5004), false);
+  assert.equal(p.ended.includes(5007) || p.ended.includes(5009), false);
   assert.equal((await svc.endGroup('python')).ok, false, 'a group is ended once per listing');
 });
 
@@ -628,8 +630,8 @@ test("endGroup leaves a PID that became Shellby's own while the question was ope
   let self = [];
   const { svc } = service({ processes: p, selfPids: () => self });
   await svc.hogs('cpu');
-  svc.deps.confirm = async () => { self = [5007]; return 0; };
+  svc.deps.confirm = async () => { self = [5015]; return 0; };
   const r = await svc.endGroup('python');
   assert.equal(r.ended, 39);
-  assert.equal(p.ended.includes(5007), false);
+  assert.equal(p.ended.includes(5015), false);
 });
