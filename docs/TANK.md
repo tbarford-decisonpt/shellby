@@ -28,7 +28,7 @@ There's no shop and nothing to buy. Each piece comes from something specific, an
 | | How | For example |
 |---|---|---|
 | **From the start** | Yours from day one | Sandcastle Keep, Rock Cave, Driftwood Arch, kelp, java fern, sea grass, a moss ball, rocks, an air stone, an amphora, two floors and two back walls |
-| **Trophies** | Comes with a trophy | Sunken Chest (*Moving In*), Coral Fan (*Interior Designer*), Lighthouse (*Green Light*), Deep-Sea Diver (*Deep Focus*), Pebble Floor (*Beachcomber*), Jellyfish Lamp (*Best Friends*), Sunken Ship (*Double Digits*), Starry Night (secret) |
+| **Trophies** | Comes with a trophy | Sunken Chest (*Moving In*), Coral Fan (*Interior Designer*), Guest Bench (*House Guest*), Lighthouse (*Green Light*), Deep-Sea Diver (*Deep Focus*), Pebble Floor (*Beachcomber*), Jellyfish Lamp (*Best Friends*), Sunken Ship (*Double Digits*), Starry Night (secret) |
 | **Seasons** | Turns up while its season is on, and stays | Carved Pumpkin (Halloween), Snow Globe (winter) |
 | **His finds** | Anything he's dug up for you | Put in as many as he's found |
 
@@ -54,10 +54,27 @@ Smaller tanks stay available. If you move to one that holds fewer pieces than yo
 |---|---|---|
 | 🪴 Moving In | Put the first piece in his tank | Sunken Chest |
 | 🏰 Interior Designer | Have 15 pieces in his tank at once | Coral Fan |
+| 🛋️ House Guest | A friend's crab drops by while his tank is on your cards | Guest Bench |
 
 ## On the Health view
 
 Once there's something in his tank, the picture of him on the **Health** view is a window into it: his floor, his back glass and whatever stands nearest. His moods (sweating, dizzy, stuffed) show on top as before.
+
+## On your cards, and friends' tanks
+
+His tank is on the **crab card** (📸 Share) once there's something in it: he stands in it, as big as the card allows, with your best stickers on the glass. A wide tank is cropped around its biggest piece.
+
+Your **calling card** (Visiting crabs) and **profile card** are public, so his tank stays off them until you turn on **Show his tank** at the bottom of the Tank. Then:
+
+- Friends see a **Peek at their tank** button next to your name in Settings → GitHub → Visiting crabs. It shows his size of tank, the floor, the back glass, the light and up to 24 pieces, drawn with their own Shellby's art. Specimen jars and decor from packs stay home.
+- Your **profile card** shows him standing in it, with the same pieces.
+- A friend's crab dropping by while it's on earns **House Guest**, and the Guest Bench.
+
+Turning it off takes his tank off both cards the next time they update, a minute or so later.
+
+With **Sync** on, his tank goes to your other PCs too: whichever PC you decorated on last wins. Whether it's on your cards is up to each PC.
+
+A friend's tank can hold something your Shellby doesn't have yet (from a newer version). It's drawn as a rock, and the peek says how many.
 
 ## If a piece goes missing
 
@@ -66,9 +83,10 @@ Pieces from a pack you've removed, or that are locked again because you switched
 ## For developers
 
 - `src/main/tank.js`: sizes, rows, the stored tank (`config.tank`), `library` (decor from the wardrobe, plus his finds), `sanitize` and `view`. Pure, and covered in `test/tank.test.js`. It's called `tank`, never `home`: `config.home` is the shell he wears.
-- `src/main/ipc/tank.js`: `tank:get`, `tank:save` and `tank:seen`. The editor sends the whole draft on Done, and `tank.sanitize` decides what of it he can really have: unlocked, within his finds, within the tank's room, a size he's grown into.
+- `src/main/tank-share.js`: his tank leaving the PC. `forCard` (the calling card's `tank` field, only with `shareCard` on), `cleanCardTank` (a friend's card is untrusted: strict shape, sizes and ranges, at most 24 pieces, refs only built-in decor ids or `find:` ids, so no colours, pixels, URLs or paths ever come from it), `peekView` (their layout with this PC's art; unknown refs become a rock) and `syncable` / `merge` / `applySync` for the sync gist (newer `editedAt` wins; `shareCard` never syncs). Covered in `test/tank-share.test.js`.
+- `src/main/ipc/tank.js`: `tank:get`, `tank:save`, `tank:seen`, `tank:share` (on your cards or not) and `tank:peek` (a friend's, from their last fetched card). The editor sends the whole draft on Done, and `tank.sanitize` decides what of it he can really have: unlocked, within his finds, within the tank's room, a size he's grown into.
 - `src/main/wardrobe/catalog.js`: the `decor` kind. `src/wardrobe/tank-decor.json` is the built-in pack.
 - `src/renderer/panel/tank-paint.js`: paints a tank in art pixels at a whole-number scale, for the Tank tab and the Health porthole. `resolve` lays out a draft the same way `tank.view` does.
 - `src/renderer/panel/tank.js` and `tank.css`: the Tank tab and the editor. It draws at 10 frames a second only while the tab is showing, and a single still frame when motion is turned down.
-- **End-to-end check:** `node scripts/e2e-tank.js` decorates with the keyboard, checks what main refuses, looks through the Health porthole and restarts to see it all kept.
+- **End-to-end check:** `node scripts/e2e-tank.js` decorates with the keyboard, checks what main refuses, looks through the Health porthole and restarts to see it all kept. `node scripts/e2e-friends.js` shares it on the calling card, peeks at a friend's (hostile bits and all) and earns House Guest; `node scripts/e2e-card.js` checks the crab card paints it.
 - The plan, and what comes next (him hiding in the castle, sets on display, decor that shows your PC's state): [plans/tank-decor.md](plans/tank-decor.md).
