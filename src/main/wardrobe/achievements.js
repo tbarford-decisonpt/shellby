@@ -86,6 +86,7 @@ const ACHIEVEMENTS = Object.freeze([
   // His tank (src/main/tank.js): the most pieces it's held at once.
   { id: 'moving-in', name: 'Moving In', icon: '🪴', description: 'Put the first piece of decor in his tank', stat: 'tankPieces', goal: 1, rewards: ['sunken-chest'] },
   { id: 'interior-designer', name: 'Interior Designer', icon: '🏰', description: 'Have 15 pieces in his tank at once', stat: 'tankPieces', goal: 15, rewards: ['coral-fan'] },
+  { id: 'house-guest', name: 'House Guest', icon: '🛋️', description: "A friend's crab drops by while his tank is on your calling card", stat: 'houseGuests', goal: 1, rewards: ['guest-bench'] },
   // The Bugdex (src/main/bugdex.js).
   { id: 'gotcha', name: 'Gotcha!', icon: '🫙', description: 'Catch your first bug for the Bugdex', stat: 'bugsCaught', goal: 1, rewards: ['bug-net', 'specimen-jar'] },
   { id: 'field-notes', name: 'Field Notes', icon: '📓', description: 'Catch 10 different kinds of bug', stat: 'bugSpecies', goal: 10, rewards: ['magnifier'] },
@@ -108,7 +109,7 @@ const COUNTERS = [
   'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
   'snacksFed', 'rinsesGiven', 'tuckIns', 'goldenSnacks',
   'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
-  'tankPieces', 'critHits', 'cleanLandings',
+  'tankPieces', 'houseGuests', 'critHits', 'cleanLandings',
   'bugsCaught', 'habitatsDone', 'legendaryBugs', 'goldenCatches', 'bugSpecies', 'ghostSpecies',
 ];
 const MAX_DAYS = 400;
@@ -132,6 +133,7 @@ const INCREMENTS = {
   'focus-completed': 'focusSessions',
   'ci-fixed': 'buildsFixed',
   'visitor-hosted': 'visitorsHosted',
+  'house-guest': 'houseGuests',
   'wave-sent': 'wavesSent',
   perched: 'perchesMade',
   shaken: 'timesShaken',

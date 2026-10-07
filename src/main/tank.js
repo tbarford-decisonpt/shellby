@@ -114,6 +114,8 @@ function normalize(raw) {
     },
     placed: withUids(placed),
     editedAt: pos(r.editedAt),
+    // On your public calling card for friends to peek at (tank-share.js). Off unless you turn it on; never synced.
+    shareCard: r.shareCard === true,
   };
 }
 
@@ -212,7 +214,7 @@ function sanitize(draft, { lib, level = 1, shipped = 0, previous = null, now = 0
     return want && styleOk(lib.get(want), role) ? want : want === prev.style[role] ? want : null;
   };
   const style = { substrate: keep('substrate'), backdrop: keep('backdrop'), light: d.style.light };
-  return { state: { size: size.id, style, placed: withUids(placed), editedAt: pos(now) }, dropped };
+  return { state: { size: size.id, style, placed: withUids(placed), editedAt: pos(now), shareCard: prev.shareCard }, dropped };
 }
 
 // Back glass first, then the rows back to front, then what floats; by z within each.
@@ -275,6 +277,7 @@ function view({ state, lib, level = 1, shipped = 0 }) {
     rows: [...ROWS],
     news: tray.filter(e => e.isNew && !e.locked && e.kind === 'decor').map(e => e.ref),
     editedAt: st.editedAt,
+    shareCard: st.shareCard,
   };
 }
 

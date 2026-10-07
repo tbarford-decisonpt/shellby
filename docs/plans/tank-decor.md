@@ -1,7 +1,30 @@
 # The Tank: a home you decorate
 
-> Status: **Phase 1 ("Move in") built.** Phases 2–4 are still the plan below.
+> Status: **Phase 1 ("Move in") and Phase 4 ("Open house") built.** Phases 2
+> and 3 are still the plan below.
 > Written against 0.64.2. User docs: [TANK.md](../TANK.md).
+
+## What changed from the plan (Phase 4, "Open house")
+
+- **One switch for both public cards.** `tank.shareCard` (Tank → **On your
+  cards**, off by default) puts his tank on the calling card *and* the profile
+  card, so turning on a card you already had never starts publishing more. It
+  stays per PC and never syncs. The crab card PNG, which you share by hand,
+  always shows the tank.
+- **The calling card carries ids, never art.** `tank-share.js` `forCard` sends
+  the size, the floor, the back glass, the light and up to 24
+  `{ ref, x, row, flip }`, refs being built-in decor ids or `find:` ids only.
+  Pack decor and specimen jars stay home (pack ids would say which packs you
+  run). A friend's tank is painted from this PC's own art; a ref it doesn't know
+  (a newer Shellby's decor) is drawn as a rock, and the peek says how many.
+  `sticker:` refs don't exist yet (stickers on the glass are Phase 3), so none
+  go on the card.
+- **Peek at their tank** opens under the friend's row in Settings → GitHub →
+  Visiting crabs, with their crab in it and the pieces listed in words.
+- **The gallery category** is `decor` in the gallery catalog
+  (`registry.js` `fetchRegistryCatalog`), next to accessories, effects and
+  skins. The site's own listing lives in x-salmon/shellby-packs.
+- `open-house` doesn't get a doormat yet; `house-guest` brings the Guest Bench.
 
 ## What changed from the plan (Phase 1)
 

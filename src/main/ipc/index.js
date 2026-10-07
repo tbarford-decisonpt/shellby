@@ -145,6 +145,7 @@ function registerIpc(electronIpcMain, d) {
     wardrobe: () => d.wardrobe,
     level: () => d.currentLevel(),
     shipped: () => stickers.stats(d.stickerState()).stickers,
+    cardChanged: () => d.friends?.republish().catch(() => {}),
   });
 
   // The rest, one area per module in ipc/.
