@@ -10,6 +10,8 @@
   const syncContextUi = () => SB.syncContextUi();
   const contextText = c => SB.contextText(c);
   const contextLevel = c => SB.contextLevel(c);
+  // Empty, idle and holding nothing for the reset (shared/outlook-format.js).
+  const isBlank = tab => window.ShellbyOutlookFormat.isBlank(tab, state.outlook);
 
   // ------------------------------------------------------------ tabs
 
@@ -125,7 +127,7 @@
   let creating = null;
   SB.newTab = ({ focus = true } = {}) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
+    if (isBlank(cur)) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
     if (creating) return creating;
     creating = (async () => {
       const r = await api.newTab();
@@ -985,7 +987,7 @@
   // A blank, idle tab with nothing typed is used as is.
   SB.prefillNew = (text) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy && !input.value.trim()) return SB.prefill(text);
+    if (isBlank(cur) && !input.value.trim()) return SB.prefill(text);
     return SB.newTabIn({ draft: text });
   };
 
@@ -1060,7 +1062,7 @@
     $('settingsFolder').textContent = r.cwd;
     // A blank tab moves to the new folder; a conversation in progress keeps its own.
     const tab = SB.activeTab();
-    if (tab && tab.isEmpty && !tab.busy) {
+    if (isBlank(tab)) {
       await api.closeTab(tab.id);
       tab.destroy();
       state.tabs.delete(tab.id);
