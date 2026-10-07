@@ -55,6 +55,31 @@ function branchName(title, suffix = crypto.randomBytes(3).toString('hex')) {
   return `shellby/${slug}-${suffix}`;
 }
 
+// The commit that takes home what a copy left uncommitted. Its subject comes
+// from the branch name Claude chose for the work ("fix-tall-menu-overflow"),
+// which says what changed. The tab's title is usually the start of your prompt,
+// so it goes in the body. Release drafts group commits by their type, and an
+// untyped subject lands under "Changed" word for word.
+const TYPE_WORDS = new Map([
+  ['feat', 'feat'], ['feature', 'feat'], ['fix', 'fix'], ['bugfix', 'fix'], ['hotfix', 'fix'],
+  ['perf', 'perf'], ['refactor', 'refactor'], ['docs', 'docs'], ['doc', 'docs'],
+  ['test', 'test'], ['tests', 'test'], ['chore', 'chore'], ['ci', 'ci'],
+]);
+const FIX_WORDS = /^(bug|bugs|broken|crash|crashes|regression|typo)$/;
+const SUBJECT_MAX = 72;
+
+/** -> "fix: tall menu overflow\n\nFrom the conversation: …". Pure. */
+function workMessage(branch, title) {
+  const said = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  const m = /^shellby\/(.+)-[0-9a-f]{6}$/.exec(String(branch || ''));
+  const words = m ? m[1].split('-').filter(Boolean) : [];
+  const named = TYPE_WORDS.get(words[0]);
+  const type = named || (words.some(w => FIX_WORDS.test(w)) ? 'fix' : 'feat');
+  const rest = (named ? words.slice(1) : words).join(' ');
+  const what = (rest || said.toLowerCase() || 'work from Shellby').slice(0, SUBJECT_MAX - type.length - 2).trim();
+  return said && said.toLowerCase() !== what ? `${type}: ${what}\n\nFrom the conversation: ${said}` : `${type}: ${what}`;
+}
+
 // ------------------------------------------------------------ when to make one
 //
 // A conversation starts in your checkout, and only moves into a copy the first
@@ -335,7 +360,7 @@ async function bringHome(w, { message }) {
   const dirty = await git(w.path, ['status', '--porcelain'], { timeout: 15000 });
   if (dirty.ok && dirty.out.trim()) {
     const add = await git(w.path, ['add', '-A']);
-    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', String(message || 'Work from Shellby').slice(0, 200)]);
+    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', String(message || 'Work from Shellby').slice(0, 400)]);
     if (!commit?.ok) return { ok: false, error: `Couldn't commit the copy's changes: ${firstLine(commit?.error || add.error)}` };
   }
 
@@ -523,7 +548,7 @@ async function pushBase(root, { base } = {}) {
  * Copies started from another branch are skipped, not merged somewhere else.
  *   -> { ok, results: [{ branch, ok, merged, commits, error?, conflict?, skipped? }], stopped? }
  */
-async function bringAllHome(list, { messageFor = () => 'Work from Shellby' } = {}) {
+async function bringAllHome(list, { messageFor = w => workMessage(w.branch) } = {}) {
   const results = [];
   for (const w of list) {
     const bad = checkWorktree(w);
@@ -541,7 +566,7 @@ async function bringAllHome(list, { messageFor = () => 'Work from Shellby' } = {
 }
 
 module.exports = {
-  git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, checkWorktree, BRANCH,
+  git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, workMessage, checkWorktree, BRANCH,
   remoteStatus, pushBase, bringAllHome, upstreamOf, copyRefusal,
   startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
 };
