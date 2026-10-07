@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.71.0: Next up, the inbox, Releases and where you left off
+
+### New
+- **Next up.** The first card on a project's page answers "what now?" with one ranked list: your to-do list (kept in the repo as `.shellby/tasks.md`), its GitHub issues and milestones, and the TODOs in its code. Each row says why it's where it is. **Do this** opens a conversation in a copy on its own branch with the prompt waiting for you to send, and when the work comes home he offers to tick the task off.
+- **One inbox across every repo**, at the top of the Projects page: pull requests waiting on your review (**Read it with Claude** explains one without posting anything), what's new on your own pull requests, stale branches that say what deleting them would lose, and copies left behind.
+- **Releases.** Each project shows what's waiting to go out, grouped into New, Fixed, Faster and Changed, and whether CI passed. **Draft release** suggests the next version, drafts the CHANGELOG entry in your style (or **Write it with Claude**), then bumps, commits, tags and pushes in one go.
+- **Standup and weekly reports** per project: Yesterday / Today / Blockers, or This week / Last week, from your commits, conversations, tracked time and Claude's tasks, worded for Slack or an email, with a Copy button.
+- **Where did we leave off?** When a session ends, Shellby writes a handoff note for its project (what was asked, what's half-done, what was decided, where git stood) from Claude Code's own record, so it costs no tokens. Run `/shellby:leftoff` in Claude Code, or press **Carry on with Claude** on the project's page.
+- **Ask from a terminal.** With the Shellby plugin, ask Claude Code "what's next on this repo?" and it asks Shellby: anything broken first, then your to-dos, then the housekeeping. It can read why a dev server fell over, and add or tick off to-dos. Without Claude, `shellby next` prints the same answer.
+
+### Fixed
+- **Progress spinners keep turning while you're tabbed out**, game included, unless the game's window actually covers the panel.
+- **A notification with a button holds still.** A new toast no longer snatches "Ask him to sort it out" from under your pointer; it waits its turn.
+- **A long list of clashes no longer pushes the branch menu's options off the window.** It shows a few, the rest on hover, and the menu fits the window.
+- The project tools Claude Code reaches over the local API, the journal included, need Shellby's token, so other accounts on the PC can't read them.
+
 ## 0.70.2: An expired sign-in says so
 
 ### Fixed
