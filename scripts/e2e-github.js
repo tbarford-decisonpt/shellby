@@ -39,7 +39,7 @@ async function connect(url) {
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
     env: {
-      ...env, SHELLBY_USER_DATA: data, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'),
+      ...env, SHELLBY_USER_DATA: data, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47963',
       SHELLBY_GITHUB_WEB: mock.base, SHELLBY_GITHUB_API: mock.base, SHELLBY_GITHUB_CLIENT_ID: 'e2e-client',
     },
   });
@@ -93,6 +93,15 @@ async function connect(url) {
     check(!settingsText.includes(mock.state.token), 'the token is not in settings.json');
     const bin = fs.readFileSync(path.join(data, 'github.bin'));
     check(bin.length > 0 && !bin.toString('latin1').includes(mock.state.token), 'the token file is encrypted');
+
+    // 3b. His tank goes along (tank-share.js): the layout, never whether it's on your cards.
+    await ev("shellby.saveTank({ size: 'nano', style: { substrate: 'gravel', backdrop: null, light: 'night' }, placed: [{ ref: 'castle-keep', x: 30, row: 0, z: 0, flip: false }] })");
+    await ev('shellby.shareTank(true)');
+    await ev('shellby.githubSync()');
+    const synced = JSON.parse(gist.files['shellby-sync.json'].content || '{}');
+    check(synced.tank?.placed?.[0]?.ref === 'castle-keep' && synced.tank.style.light === 'night', 'his tank is in the sync gist');
+    check(!('shareCard' in (synced.tank || {})), 'whether it is on your cards stays on this PC');
+    check(/his tank/.test(synced.note || ''), 'the gist says so');
 
     // 4. Publish your pack as a pull request.
     await ev("SB.setView('wardrobe')");
