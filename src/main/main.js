@@ -76,6 +76,7 @@ const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
 const { wireSurprises } = require('./wiring/surprises');
 const { wireStartFrom } = require('./wiring/startfrom');
+const { wireBacklog } = require('./wiring/backlog');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { registerCritterIpc } = require('./ipc/critter');
 const { registerLifeIpc } = require('./ipc/life');
@@ -92,6 +93,7 @@ const { registerSurroundingsIpc } = require('./ipc/surroundings');
 const { registerTriesIpc } = require('./ipc/tries');
 const { registerCorrectionsIpc } = require('./ipc/corrections');
 const { registerStartFromIpc } = require('./ipc/startfrom');
+const { registerBacklogIpc } = require('./ipc/backlog');
 const { registerCrewIpc } = require('./ipc/crew');
 const { registerReleasesIpc } = require('./projects/releases-ipc');
 
@@ -480,6 +482,24 @@ const shared = {
   get autonomousOkThisRun() { return autonomousOkThisRun; }, set autonomousOkThisRun(v) { autonomousOkThisRun = v; },
   get awardXp() { return awardXp; },
   get badgePr() { return badgePr; },
+  get backlogView() { return backlogView; },
+  get backlogEdit() { return backlogEdit; },
+  get backlogAddIssue() { return backlogAddIssue; },
+  get backlogDo() { return backlogDo; },
+  get backlogOpenDoing() { return backlogOpenDoing; },
+  get backlogOpenTodo() { return backlogOpenTodo; },
+  get backlogOpenIssue() { return backlogOpenIssue; },
+  get backlogHide() { return backlogHide; },
+  get backlogTabInfo() { return backlogTabInfo; },
+  get backlogOpenPr() { return backlogOpenPr; },
+  get backlogTick() { return backlogTick; },
+  get backlogCommit() { return backlogCommit; },
+  get backlogHand() { return backlogHand; },
+  get backlogHome() { return backlogHome; },
+  get backlogMerged() { return backlogMerged; },
+  get backlogTabClosed() { return backlogTabClosed; },
+  get backlogRepoTasks() { return backlogRepoTasks; },
+  get backlogForTerminal() { return backlogForTerminal; },
   get beachSeen() { return beachSeen; },
   get beachView() { return beachView; },
   get booted() { return booted; },
@@ -716,6 +736,7 @@ const shared = {
   get startFromSend() { return startFromSend; },
   get startTask() { return startTask; },
   get startTaskInCopy() { return startTaskInCopy; },
+  get dropUnsentCopy() { return dropUnsentCopy; },
   get setPhoneTasks() { return setPhoneTasks; },
   get startView() { return startView; }, set startView(v) { startView = v; },
   get stat() { return stat; },
@@ -809,10 +830,13 @@ const {
 } = wireSnippets(shared);
 const {
   createDepWatch, createProjects, createWorkflows, registerWorkflowIpc, runClaudeOnce,
-  serversOnQuit, showServer, startTaskInCopy,
+  dropUnsentCopy, serversOnQuit, showServer, startTaskInCopy,
 } = wireProjects(shared);
 const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
 const { looseEndDraft, looseEnds, showBuildFix, startFromDraft, startFromSend } = wireStartFrom(shared);
+const {
+  backlogView, backlogEdit, backlogAddIssue, backlogDo, backlogOpenDoing, backlogOpenTodo, backlogOpenIssue, backlogHide, backlogTabInfo, backlogOpenPr, backlogTick, backlogCommit, backlogHand, backlogHome, backlogMerged, backlogTabClosed, backlogRepoTasks, backlogForTerminal,
+} = wireBacklog(shared); // Next up on each project's page (docs/plans/next-up.md)
 const { claudeUpdateView, createClaudeUpdates } = wireClaudeUpdates(shared);
 const {
   askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
@@ -1210,6 +1234,7 @@ function registerIpc() {
   registerTriesIpc(ipcMain, d);
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
+  registerBacklogIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
   registerReleasesIpc(ipcMain, d);
 }

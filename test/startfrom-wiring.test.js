@@ -186,7 +186,7 @@ test('loose ends: tracked TODO comments only, and "Do this" quotes the lines aro
     const sf = wireStartFrom(shared(s).d);
     const r = await sf.looseEnds(s.dir);
     assert.equal(r.ok, true, r.error);
-    assert.deepEqual(r.items, [{ file: 'src/a.js', line: 4, tag: 'TODO', text: 'handle the empty list' }], 'not ignored, untracked or prose');
+    assert.deepEqual(r.items, [{ file: 'src/a.js', line: 4, tag: 'TODO', text: 'handle the empty list', ref: null }], 'not ignored, untracked or prose');
     const draft = sf.looseEndDraft({ root: s.dir, file: 'src/a.js', line: 4 });
     assert.equal(draft.ok, true, draft.error);
     assert.equal(draft.cwd, s.dir);

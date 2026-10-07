@@ -33,8 +33,8 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
   - **Keep** takes a branch or copy off the inbox until it changes again (a new commit, more work). The pull-request half needs **Watch CI on my pull requests** (Settings → GitHub). The branches and copies are read from git a few repos at a time, every ten minutes or when you press **Refresh**.
 - **Quick actions.** Point at a row (or tab to it) for **New conversation here** and **Start** (or **Open** a server that's up) without opening the project. **⋯** or a right-click has the rest: **Open folder**, **Open on GitHub**, **Clone…**.
 - **A project's page** starts with **New conversation here**, then:
+  - **Next up:** what to work on, ranked: your to-do list, its GitHub issues and milestones, and the TODOs in its code, each with **Do this** (see [Next up](#next-up)). The row on the list shows **3 to do**.
   - **Pulse:** hours this week with a bar for each day (while History → Time is on), the last commit, the last time you were in it, and whether he nudges you when it goes quiet.
-  - **Next up:** the project's to-do list, numbered. Type a note and press Enter, **Done** ticks it off. Notes Claude Code adds (`add_task`) or the terminal adds (`shellby next add`) say so. The row on the list shows **3 to do**.
   - **Health:** its pull requests' checks (**Fix this build** or **Ask why** on a red one, **Address the review** when reviewers left comments), its dependency check (**Bump & open a PR**) and its flaky tests (**Fix it**, **Quarantine**), the same tasks as on their own pages.
   - **Releases:** what's waiting to go out, e.g. *"v0.70.2 · 3 days ago · 14 commits since"*. The commits are grouped by kind (**New**, **Fixed**, **Faster**, **Changed**, with chores, tests and CI folded under **Behind the scenes**), read from conventional commit subjects (`feat:`, `fix(scope):`, `feat!:` for a breaking change). A line says whether CI passed on the commit you'd release. **Draft release** suggests the next version (a feature makes it a minor, a breaking change a major, or a minor before 1.0) with Patch / Minor / Major to pick from, and drafts the CHANGELOG entry in the style your CHANGELOG already uses (`## 1.2.0: Title`, Keep a Changelog's `## [1.2.0] - date`, or a plain `## 1.2.0`). It also lists, step by step, what **Cut release** will do:
     1. set `package.json` and `package-lock.json` to the new version
@@ -45,7 +45,6 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 
     It won't start if the clone is on another branch, has uncommitted changes besides the release files, is behind its remote, or has moved since you read the draft. A red or unfinished CI run needs a tick first. The repository's own git hooks never run. **Write it with Claude** puts an ask in a new conversation's box: Claude reads your earlier entries and writes this one in the same voice. You read it, send it, then cut the release; an entry that's already in the CHANGELOG goes in exactly as written. A release you prepared by hand and never tagged is simply tagged. A pushed release counts toward the project's sticker.
   - **Conversations:** the last few you had in it, including ones in a copy Shellby made, to pick back up, and **Where did we leave off?**.
-  - **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (a quick search that leaves out anything .gitignore'd or untracked), five at a time. **Do this** opens a new conversation with the file, the line and the code around it in the box, for you to read and send.
   - Each clone's branch, uncommitted and unpushed work and stashes, with **Tidy up…** (the same ask as *Is it safe to leave?*, put in the box for you to read before it goes) and the copies Shellby made of it.
 - **From a terminal.** Ask Claude Code *"what's next on this repo?"* and, with the Shellby plugin, it asks Shellby (`next_up`): anything broken first (a crashed dev server, a red build, a serious vulnerability), then your to-dos, then the housekeeping (review comments, unpushed or uncommitted work, flaky tests, outdated packages), and where you left off. `server_log` lets it read why a dev server fell over, secrets blanked out and fenced as output, and `projects` lists them all. Without Claude, `shellby next` prints the same answer for the repo you're in (`shellby next web`, or `--all` for every project), and `shellby projects` lists them. It works from a subfolder and from a copy Shellby made, too. Nothing here can start, stop or change a server or touch your code: the only thing a terminal can change is the to-do list.
 - **Remove from Projects** only takes it off the list; the folder is never touched. Git is read a few repos at a time after the list is drawn, so a big list opens straight away and its rows fill in.
@@ -55,6 +54,27 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 - **Servers keep running when Shellby quits**, and are picked back up, log and all, when it starts again. Or choose **On quit: stop them** on the line the Projects page shows while any run, or in **Settings → Claude → Dev servers**.
 - **Clone.** A GitHub repository that isn't on this PC has a **Clone…** button. Nothing is downloaded until you've chosen where it goes, it won't clone over a folder that's already there, and nothing is installed or run afterwards.
 - **Safe with any repo:** only a script's plain name ever reaches a command line, programs are never run from the project folder itself, and a server's output reaches Claude fenced and labelled as output, never as instructions.
+
+## Next up
+
+The first card on a project's page answers "what now?" with one ranked list, drawn from three places:
+
+- **Your to-do list**, kept in the repository as `.shellby/tasks.md` (a project that's only on GitHub keeps it in Shellby): plain Markdown checkboxes, so they're version-controlled, travel with the clone, and read fine on GitHub. **+ Add a task…** puts one at the end of `## Next`. Put things under `## Now` to have them first and `## Later` to have them last; lines indented under a task are its notes. Your order is never reshuffled.
+- **Its GitHub issues and milestones**, read when you open the page (signed in, with **Show my repositories** on). The nearest milestone gets a strip at the top: *"v0.71 · due in 4 days · 6 of 9 closed"*.
+- **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (anything .gitignore'd or untracked is left out).
+
+Each row says why it's where it is: *Assigned to you*, *v0.71 · due in 2 days*, *Bug · 4 👍*, *FIXME in src/sync.js*. **Now** holds your `## Now` tasks and issues that are urgent or due within three days. **Up next** holds your other tasks, then issues assigned to you, in the nearest milestone or labelled `shellby`, then FIXMEs. Everything else comes **Later**. A task that says `#42` stands in for issue 42 and puts it where you want it. A `TODO(#42)` in the code is folded into issue 42 and quoted when you start on it.
+
+**Do this** makes a copy of the project on a branch of its own (an issue's copy starts from its main branch as GitHub has it, the same as the [Issue helper](WORKFLOWS.md#from-an-issue-to-a-pull-request)'s) and opens a conversation there with the prompt waiting in the box. **Nothing goes to Claude until you send it**: issue text is someone else's words, so it's quoted and fenced, and Shellby says so when you didn't write the issue. Close that conversation without sending anything and the empty copy goes with it. While a conversation is on it, the row says **Open conversation** instead.
+
+When it's done:
+
+- **Open a draft pull request** in the copy's branch menu pushes the branch and opens a draft (*Closes #42* for an issue, with the commits listed). It needs **Let Claude tasks push** on in Settings → GitHub.
+- When the copy is brought home or its pull request merges, he offers to **tick the task off**. Tick, edit, move or remove tasks from **⋯** on any row too.
+- **Commit it** under the card commits `.shellby/tasks.md` and nothing else you have staged. It never pushes. Shellby only ever edits the list in your checkout, never in a copy, so a branch coming home can't collide with it.
+- **⋯ → Hand it to the Issue helper** gives an issue to your Issue helper workflow, which works on it by itself and opens the draft pull request, without asking you first again. It runs without you reading its prompt, so when someone else wrote the issue Shellby checks with you first.
+
+Hide what you'll never get to (**⋯ → Hide**, kept on this PC). The to-do list is the same one Claude Code (`add_task`, `finish_task`) and the terminal (`shellby next add`, `shellby next done`) keep: what they add lands in `.shellby/tasks.md` marked *(from Claude Code)* or *(from the terminal)*, and the card says so. `next_up` and `shellby next` read the to-dos back, with the issues and TODOs from this card after the rest of their answer.
 
 ## Time on each project
 

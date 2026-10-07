@@ -27,7 +27,10 @@ function registerTabsIpc(ipcMain, d) {
     if (list.some(h => h.kind === 'message' && h.tabId === tabId)) d.saveHeld(list.filter(h => !(h.kind === 'message' && h.tabId === tabId)));
     d.manager.interrupt(tabId);
     d.cancelChecks(tabId); // its tests stop with it
+    const tab = d.manager.tabs.get(tabId);
     d.manager.close(tabId);
+    // A Next up draft closed unsent: its empty copy goes with it (wiring/projects.js).
+    if (tab?.unsentCopy) d.dropUnsentCopy?.(tab).then(gone => { if (gone) d.backlogTabClosed?.(tabId); }).catch(e => d.log.info(`unsent copy: ${e.message}`));
     d.routineTabs.delete(tabId);
     d.queueTabs.delete(tabId);
     // A queued task you closed mid-run: the queue moves on to the next one.

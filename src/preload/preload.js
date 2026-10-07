@@ -282,12 +282,25 @@ contextBridge.exposeInMainWorld('shellby', {
   markPrSeen: invoke('ci:seen'),
   reviewWithClaude: invoke('ci:review'),
   onCi: on('ci'),
-  // Start a task from a red build, a review or a loose end (startfrom.js): drafts are shown before anything is sent.
+  // Start a task from a red build or a review (startfrom.js): drafts are shown before anything is sent.
   startFromDraft: invoke('startfrom:draft'),
   startFromSend: invoke('startfrom:send'),
   onStartFromOpen: on('startfrom:open'),
-  looseEnds: invoke('startfrom:loose-ends'),
-  looseEndDraft: invoke('startfrom:loose-end'),
+  // Next up on a project's page (wiring/backlog.js): tasks, issues and loose ends, each with Do this.
+  backlogView: invoke('backlog:view'),
+  backlogEdit: invoke('backlog:edit'),
+  backlogAddIssue: invoke('backlog:add-issue'),
+  backlogDo: invoke('backlog:do'),
+  backlogOpenDoing: invoke('backlog:open-doing'),
+  backlogOpenTodo: invoke('backlog:open-todo'),
+  backlogOpenIssue: invoke('backlog:open-issue'),
+  backlogHide: invoke('backlog:hide'),
+  backlogCommit: invoke('backlog:commit'),
+  backlogHand: invoke('backlog:hand'),
+  backlogTab: invoke('backlog:tab'),
+  backlogOpenPr: invoke('backlog:open-pr'),
+  backlogTickLinked: invoke('backlog:tick-linked'),
+  onBacklogOfferTick: on('backlog:offer-tick'),
   // A project's next release (src/main/projects/releases-ipc.js): nothing is pushed unless you say so.
   getRelease: invoke('releases:get'),
   cutRelease: invoke('releases:cut'),

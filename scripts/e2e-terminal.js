@@ -138,12 +138,12 @@ function cli(cwd, ...args) {
     const key = await ev('(async () => (await SB.api.listProjects()).projects.find(p => p.local[0]?.root.toLowerCase() === ' + JSON.stringify(repo.toLowerCase()) + ').key)()');
     // The key is a Windows path for a repo with no remote: quoted, never spliced in.
     await ev(`[...document.querySelectorAll('#pjProjects .pj-row')].find(b => b.dataset.keep === 'row:' + ${JSON.stringify(key)}).click()`);
-    check(await until("[...document.querySelectorAll('.pj-todo-text')].some(t => t.textContent === 'write the release notes')"), 'the project page shows it under Next up');
-    check(await ev("[...document.querySelectorAll('.pj-todo .pj-tag')].some(t => t.textContent === 'from Claude Code')"), 'marked as from Claude Code');
+    check(await until("[...document.querySelectorAll('.bl-card .bl-row')].filter(r => r.querySelector('.bl-tag.task')).some(r => r.querySelector('.pj-h-text b')?.textContent === 'write the release notes')"), 'the project page shows it under Next up');
+    check(await ev("[...document.querySelectorAll('.bl-card .bl-from')].some(t => t.textContent === 'from Claude Code')"), 'marked as from Claude Code');
 
     // Added from the page, it reaches the terminal.
-    await ev("(() => { const i = document.querySelector('.pj-todo-input'); i.value = 'tidy the README'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()");
-    check(await until("document.querySelectorAll('.pj-todo').length === 2"), 'a to-do typed on the page is added');
+    await ev("(() => { const i = document.querySelector('.bl-card .bl-add'); i.value = 'tidy the README'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()");
+    check(await until("[...document.querySelectorAll('.bl-card .bl-row')].filter(r => r.querySelector('.bl-tag.task')).length === 2"), 'a to-do typed on the page is added');
 
     // ---- the shellby command
     const next = cli(repo, 'next');
@@ -153,11 +153,11 @@ function cli(cwd, ...args) {
     check(add.code === 0 && add.out.includes('as number 3'), '`shellby next add` from a subfolder', add.out || add.err);
     const done = cli(repo, 'next', 'done', '1');
     check(done.code === 0 && done.out.includes('Ticked off') && done.out.includes('write the release notes'), '`shellby next done 1` ticks off the first', done.out || done.err);
-    check(await until("document.querySelectorAll('.pj-todo').length === 2 && !document.querySelector('.pj-todo-text').textContent.includes('release notes')"), 'and the page follows');
-    const tagged = await ev("[...document.querySelectorAll('.pj-todo')].find(r => r.textContent.includes('bump the deps'))?.querySelector('.pj-tag')?.textContent");
+    check(await until("[...document.querySelectorAll('.bl-card .bl-row')].filter(r => r.querySelector('.bl-tag.task')).length === 2 && ![...document.querySelectorAll('.bl-card .bl-row')].filter(r => r.querySelector('.bl-tag.task')).some(r => r.querySelector('.pj-h-text b')?.textContent.includes('release notes'))"), 'and the page follows');
+    const tagged = await ev("[...document.querySelectorAll('.bl-card .bl-row')].filter(r => r.querySelector('.bl-tag.task')).find(r => r.textContent.includes('bump the deps'))?.querySelector('.bl-from')?.textContent");
     check(tagged === 'from the terminal', 'a to-do from the command line says so', tagged);
     if (SHOT) {
-      await ev("document.querySelector('.pj-todo-list').closest('.pj-panel').scrollIntoView({ block: 'start' })");
+      await ev("document.querySelector('.bl-card').scrollIntoView({ block: 'start' })");
       await wait(400);
       // A window Windows hasn't painted never answers: give up rather than hang.
       const shot = await Promise.race([panel.send('Page.captureScreenshot', { format: 'png' }), wait(10000).then(() => null)]);

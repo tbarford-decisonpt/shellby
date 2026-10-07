@@ -108,6 +108,17 @@ class Projects extends EventEmitter {
     return this.listed.get(caseKey(root)) || null;
   }
 
+  /** Is this a GitHub repository the page was shown (owner/name)? For a project that's only on GitHub. */
+  knowsRepo(repo) {
+    return typeof repo === 'string' && !!this.repos?.has(repo.toLowerCase());
+  }
+
+  /** The GitHub repository a listed clone is of (its origin), or null. */
+  async repoOf(root) {
+    const want = caseKey(root);
+    return (await this.localRepos()).find(r => caseKey(r.root) === want)?.remote || null;
+  }
+
   // ------------------------------------------------------------------ the list
 
   async localRepos({ force = false } = {}) {
@@ -143,9 +154,16 @@ class Projects extends EventEmitter {
     const projects = merge(locals, remote, { hidden: new Set(this.state.hidden), lastWorked: this.deps.lastWorked(), running });
     this.listed = new Map();
     this.names = new Map();
+    this.repos = new Set(projects.map(p => p.github?.repo?.toLowerCase()).filter(Boolean));
     this.keys = new Set(projects.map(p => p.key));
+    this.keyByRoot = new Map(); // caseKey(clone root) -> project key
+    this.keyByRepo = new Map(); // owner/name (lower case) -> project key
+    this.mainRoot = new Map();  // project key -> its first clone, where its .shellby/tasks.md is
     for (const p of projects) {
+      if (p.github?.repo) this.keyByRepo.set(p.github.repo.toLowerCase(), p.key);
+      if (p.local[0]) this.mainRoot.set(p.key, p.local[0].root);
       for (const c of p.local) {
+        this.keyByRoot.set(caseKey(c.root), p.key);
         this.listed.set(caseKey(c.root), c.root);
         this.names.set(caseKey(c.root), p.name);
         Object.assign(c, this.cloneView(c.root));
@@ -153,7 +171,7 @@ class Projects extends EventEmitter {
     }
     if (readGit) this.readGitSoon(projects.flatMap(p => p.local.map(c => c.root)), { force: refresh });
     return {
-      projects: withInsights(projects, this.sources()).map(p => ({ ...p, todoCount: todo.listFor(this.state.todo, p.key).length })),
+      projects: withInsights(projects, this.sources()).map(p => ({ ...p, todoCount: this.todoOf(p.key).length })),
       github: this.githubState(), servers: this.deps.devServers.view(), lastCloneParent: this.state.lastCloneParent,
     };
   }
@@ -438,7 +456,7 @@ class Projects extends EventEmitter {
     } catch { /* no History, no list */ }
     let journal = null;
     try { journal = this.deps.journal?.(local.map(c => c.root), p.name) || null; } catch { /* no notes */ }
-    return { ...p, sessions, journal, todo: todo.listFor(this.state.todo, key) };
+    return { ...p, sessions, journal, todo: this.todoOf(key) };
   }
 
   /**
@@ -477,9 +495,35 @@ class Projects extends EventEmitter {
     this.emit('change');
   }
 
+  /** The project key for a listed clone or GitHub repository, or null (Next up names projects by those). */
+  keyFor({ root = null, repo = null } = {}) {
+    if (root) return this.keyByRoot?.get(caseKey(root)) || null;
+    return repo ? this.keyByRepo?.get(String(repo).toLowerCase()) || null : null;
+  }
+
+  // A cloned project's to-dos are its .shellby/tasks.md (deps.repoTasks, wiring/backlog.js):
+  // one list, in the repository, the one Next up shows. Only a project with no
+  // clone here keeps them in config.
+  repoTasksFor(key) {
+    const root = this.mainRoot?.get(key);
+    return root && this.deps.repoTasks ? { root, rt: this.deps.repoTasks } : null;
+  }
+
+  /** A project's to-dos: [{ id, text, from, at }]. */
+  todoOf(key) {
+    const r = this.repoTasksFor(key);
+    return r ? r.rt.list(r.root) : todo.listFor(this.state.todo, key);
+  }
+
   /** from: 'you' (the page) | 'claude' (add_task) | 'terminal' (shellby next add). -> { ok, item, count, existed } | { ok: false, error } */
   addTodo(key, text, from = 'you') {
     if (!this.keys.has(key)) return { ok: false, error: "That project isn't on the Projects page." };
+    const repoBacked = this.repoTasksFor(key);
+    if (repoBacked) {
+      const r = repoBacked.rt.add(repoBacked.root, text, from);
+      if (r.ok && !r.existed) this.emit('change');
+      return r;
+    }
     const r = todo.addTodo(this.state.todo, key, text, { from, now: this.now() });
     if (!r.ok) return r;
     if (!r.existed) this.saveTodo(r.todo);
@@ -488,6 +532,12 @@ class Projects extends EventEmitter {
 
   /** ref: the to-do's id, or its number on the list. -> { ok, item, left } | { ok: false, error } */
   finishTodo(key, ref) {
+    const repoBacked = this.repoTasksFor(key);
+    if (repoBacked) {
+      const r = repoBacked.rt.finish(repoBacked.root, ref);
+      if (r.ok) this.emit('change');
+      return r;
+    }
     const r = todo.finishTodo(this.state.todo, key, ref);
     if (!r.ok) return r;
     this.saveTodo(r.todo);
@@ -522,7 +572,7 @@ class Projects extends EventEmitter {
   async forTerminal(intent) {
     const via = intent.via === 'cli' ? 'cli' : 'mcp';
     const now = this.now();
-    const listOf = key => todo.listFor(this.state.todo, key);
+    const listOf = key => this.todoOf(key);
 
     if (intent.action === 'projects') {
       const { projects } = await this.listWithGit();
@@ -541,7 +591,11 @@ class Projects extends EventEmitter {
     switch (intent.action) {
       case 'next_up': {
         const full = await this.detail(p.key, { listed: p });
-        return { text: terminal.nextUpText(full || p, listOf(p.key), { now, via }) };
+        // Next up's issues and loose ends (wiring/backlog.js), after the rest. Best effort: none is fine.
+        const backlog = this.deps.backlog
+          ? await Promise.resolve(this.deps.backlog({ root: p.local[0]?.root || null, repo: p.github?.repo || null })).catch(() => [])
+          : [];
+        return { text: terminal.nextUpText(full || p, listOf(p.key), { now, via, backlog }) };
       }
       case 'server_log': {
         const pick = terminal.pickServer(p, intent.script);

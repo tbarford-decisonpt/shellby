@@ -342,14 +342,14 @@
         p.github && main && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open on GitHub', onclick: () => api.openProjectOnGitHub(p.github.repo) })));
     const reload = () => openProject(p.key, { quiet: true });
     const cards = [
+      // What to work on comes first: it's why you opened the page (backlog.js).
+      (main || p.github) && SB.backlog.card({ root: main?.root || null, repo: p.github?.repo || null, name: p.name }, { onClone: openClone }),
       main && F.pulse(p, { onChange: reload }),
       main && F.journal(p, { newHere, onChange: reload, keptDetails }),
-      F.todo(p),
       F.health(p),
       main && SB.releasesCard(main.root, p.name),
       main && F.conversations(p, { newHere }),
       main && SB.pjReport.card(p),
-      main && SB.startFrom.looseEndsCard(main.root, p.name),
     ];
     const clones = p.local.length
       ? [h('p', { class: 'row-label pj-clones-label', text: p.local.length > 1 ? `${p.local.length} clones on this PC` : 'On this PC' }), ...p.local.map(c => cloneSection(c, p))]

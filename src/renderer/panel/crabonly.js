@@ -30,6 +30,7 @@
     ci: 'With Claude Code, Shellby reads the failing logs and tells you why the build is red, without changing anything.',
     fix: "With Claude Code, Shellby hands Claude the failing log or the review comments, in a copy of the project on the pull request's branch, and it pushes the fix there.",
     loose: 'With Claude Code, a TODO left in the code becomes a task: the file, the line and the code around it, ready to send.',
+    backlog: 'With Claude Code, anything on Next up becomes a conversation in a copy of the project on its own branch: the issue, task or TODO already in the box, ready to send.',
     release: "With Claude Code, Shellby hands Claude the commits since the last release and it writes the CHANGELOG entry in your project's own voice, for you to read before you cut the release.",
     deps: 'With Claude Code, Shellby bumps the packages in a copy of the project, runs the tests and opens a pull request for you to look over.',
     review: "With Claude Code, Shellby can look over the changes you haven't committed or pushed yet and say what looks risky, without changing anything.",

@@ -56,7 +56,8 @@ const MAX_TODO_NUMBER = 999;
 const LOG_LINES = { min: 10, max: 200, default: 50 };
 const SCRIPT = '^[A-Za-z0-9:._-]{1,100}$';
 const TODO_ID = '^t-[a-z0-9]{8}$';
-const PROJECT_TOOLS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task'];
+// journal too: its notes say what was asked, which files and commits, and it takes pins.
+const PROJECT_TOOLS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task', 'journal'];
 const PIN_KINDS = ['decision', 'next', 'blocker', 'note'];
 const MAX_PIN = 300;
 const MAX_FOLDER = 1024;

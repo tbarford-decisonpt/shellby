@@ -121,6 +121,38 @@ function openFolder(dir, { env = process.env, spawnImpl = spawn, editor = undefi
   return { ok: true };
 }
 
+/** cmd's command line for `code <folder> -g <file>:<line>`. Both paths are ones main checked. Pure. */
+function fileCommandLine(editor, dir, file, line) {
+  for (const p of [editor, dir, file]) {
+    if (typeof p !== 'string' || !path.isAbsolute(p) || UNSAFE_PATH_RE.test(p)) return null;
+  }
+  if (!Number.isInteger(line) || line < 1) return null;
+  return `""${editor}" "${dir}" -g "${file}:${line}""`;
+}
+
+/**
+ * Open a file at a line, in its project's window (a loose end on Next up):
+ * the caller found the file inside the project itself. -> like openFolder's.
+ */
+function openFileAt(dir, file, line, { env = process.env, spawnImpl = spawn, editor = undefined } = {}) {
+  if (!isDir(dir) || !isFile(file)) return { ok: false, error: "That file isn't there any more." };
+  const code = editor === undefined ? findEditor(env) : editor;
+  if (!code) return { ok: false, notFound: true, error: "Shellby couldn't find VS Code on this PC. Install it (or tick \"Add to PATH\" when you do), then try again." };
+  const cmd = fileCommandLine(code, dir, file, line);
+  if (!cmd) return { ok: false, error: 'That path has characters Shellby won\'t hand to the command line.' };
+  try {
+    const child = spawnImpl(CMD, ['/d', '/s', '/c', cmd], {
+      cwd: dir, windowsHide: true, windowsVerbatimArguments: true, detached: true, stdio: 'ignore',
+      env: { ...env, NoDefaultCurrentDirectoryInExePath: '1', ELECTRON_RUN_AS_NODE: undefined },
+    });
+    child.on?.('error', () => {});
+    child.unref?.();
+  } catch (e) {
+    return { ok: false, error: `Couldn't start VS Code: ${e.message}` };
+  }
+  return { ok: true };
+}
+
 /** Temp folders from earlier runs that are past a day old. entries: [{ name, mtimeMs }]. Pure. */
 function staleTemp(entries, now = Date.now(), maxAgeMs = MAX_TEMP_AGE_MS) {
   return (entries || []).filter(e => e && /^[0-9a-f]{12}$/.test(e.name) && now - e.mtimeMs > maxAgeMs).map(e => e.name);
@@ -189,4 +221,4 @@ async function open(ref, { env = process.env, spawnImpl = spawn, tmp = os.tmpdir
   return { ok: true, live };
 }
 
-module.exports = { editorCandidates, findEditor, liveFile, safeName, diffCommandLine, folderCommandLine, staleTemp, open, openFolder, UNSAFE_PATH_RE, TEMP_NAME };
+module.exports = { editorCandidates, findEditor, liveFile, safeName, diffCommandLine, folderCommandLine, fileCommandLine, staleTemp, open, openFolder, openFileAt, UNSAFE_PATH_RE, TEMP_NAME };

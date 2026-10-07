@@ -230,11 +230,18 @@ test('prRisks lists a dozen files and counts the rest', () => {
 const z = (...p) => p.join('\0');
 
 test('parseTodoLine reads git grep -z lines with a comment marker in front', () => {
-  assert.deepEqual(sf.parseTodoLine(z('src/a.js', '12', '  // TODO: handle the empty list')), { file: 'src/a.js', line: 12, tag: 'TODO', text: 'handle the empty list' });
-  assert.deepEqual(sf.parseTodoLine(z('app.py', '3', 'x = 1  # FIXME(jo) off by one')), { file: 'app.py', line: 3, tag: 'FIXME', text: 'off by one' });
-  assert.deepEqual(sf.parseTodoLine(z('a.css', '9', '/* HACK - Safari needs this */')), { file: 'a.css', line: 9, tag: 'HACK', text: 'Safari needs this' });
-  assert.deepEqual(sf.parseTodoLine(z('i.html', '1', '<!-- TODO -->')), { file: 'i.html', line: 1, tag: 'TODO', text: '' });
+  assert.deepEqual(sf.parseTodoLine(z('src/a.js', '12', '  // TODO: handle the empty list')), { file: 'src/a.js', line: 12, tag: 'TODO', text: 'handle the empty list', ref: null });
+  assert.deepEqual(sf.parseTodoLine(z('app.py', '3', 'x = 1  # FIXME(jo) off by one')), { file: 'app.py', line: 3, tag: 'FIXME', text: 'off by one', ref: null });
+  assert.deepEqual(sf.parseTodoLine(z('a.css', '9', '/* HACK - Safari needs this */')), { file: 'a.css', line: 9, tag: 'HACK', text: 'Safari needs this', ref: null });
+  assert.deepEqual(sf.parseTodoLine(z('i.html', '1', '<!-- TODO -->')), { file: 'i.html', line: 1, tag: 'TODO', text: '', ref: null });
   assert.equal(sf.parseTodoLine(z('src/a.js', '5', ' * TODO: in a block comment')).tag, 'TODO');
+});
+
+test('parseTodoLine keeps the issue a TODO(#42) is about', () => {
+  assert.deepEqual(sf.parseTodoLine(z('src/a.js', '7', '// TODO(#42): quote the path')).ref, { repo: null, number: 42 });
+  assert.deepEqual(sf.parseTodoLine(z('a.py', '1', '# FIXME(me/crab#7) retry')).ref, { repo: 'me/crab', number: 7 });
+  assert.equal(sf.parseTodoLine(z('a.py', '1', '# FIXME(jo) retry')).ref, null, 'a name is not an issue');
+  assert.equal(sf.parseTodoLine(z('a.py', '1', '# FIXME(#42 and more) retry')).ref, null);
 });
 
 test('parseTodoLine ignores code, prose, generated files and odd paths', () => {

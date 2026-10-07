@@ -27,7 +27,7 @@ const MAX_QUERY = 240;     // GitHub refuses search queries over 256 characters
 const MAX_REPO_QUERIES = 2; // cloned repos past these aren't searched for the label
 const BODY_MAX = 4000;
 const LABEL = 'shellby';
-const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+const REPO_RE = /^(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}$)[A-Za-z0-9_.-]{1,100}$/; // no . or .. segments
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
@@ -238,4 +238,4 @@ class IssueWatcher extends EventEmitter {
   }
 }
 
-module.exports = { IssueWatcher, queries, issueRef, fresh, see, combine, becameOurs, LABEL, POLL_MS };
+module.exports = { IssueWatcher, queries, issueRef, fresh, see, combine, becameOurs, clip, clipBody, LABEL, POLL_MS, REPO_RE, LOGIN_RE };

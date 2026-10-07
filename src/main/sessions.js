@@ -161,6 +161,9 @@ class SessionManager extends EventEmitter {
     tab.activeAt = Date.now();
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
+      // A tab that opened in its own copy before its first message (a Next up draft):
+      // the copy goes in History with it, or reopening it would lose Bring home.
+      if (tab.worktree) this.history.update(tab.id, { worktree: tab.worktree });
       tab.title = this.history.get(tab.id).title;
       tab.saved = true;
     } else if (this.history.get(tab.id)?.done) {

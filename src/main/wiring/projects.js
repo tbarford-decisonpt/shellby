@@ -78,6 +78,15 @@ function wireProjects(d) {
         open: [...(d.manager?.tabs.values() || [])].flatMap(t => [t.worktree?.path, t.session?.cwd]).filter(p => typeof p === 'string'),
       }),
       retireCopy,
+      // A cloned project's to-dos are its .shellby/tasks.md, and next_up adds Next up's
+      // issues and loose ends to its answer (wiring/backlog.js). Read when used:
+      // the backlog is wired after this.
+      repoTasks: {
+        list: root => d.backlogRepoTasks?.list(root) || [],
+        add: (root, text, from) => d.backlogRepoTasks?.add(root, text, from) || { ok: false, error: 'Shellby is still starting up.' },
+        finish: (root, ref) => d.backlogRepoTasks?.finish(root, ref) || { ok: false, error: 'Shellby is still starting up.' },
+      },
+      backlog: (where, opts) => d.backlogForTerminal?.(where, opts) || Promise.resolve([]),
       journal: (roots, name) => {
         const v = d.journal?.view(roots);
         return v ? { ...v, draft: d.journal.draftFor(v.root, name) } : null;
@@ -161,23 +170,33 @@ function wireProjects(d) {
   // worktrees setting says: work that ends in a pull request has no business in
   // your checkout. promptFor(worktree) writes the prompt once the branch is known.
   // start: the commit the copy starts from (a pull request's head, startfrom.js), else your HEAD.
-  async function startTaskInCopy(dir, title, promptFor, { mode = null, start = 'HEAD' } = {}) {
+  // copy: a worktree already made (an issue's, from its default branch: github/pullrequest.js makeCopy).
+  // draft: the prompt waits in the box for you to read and send (Next up, wiring/backlog.js);
+  // a copy nothing was ever sent from goes when its tab closes (dropUnsentCopy).
+  async function startTaskInCopy(dir, title, promptFor, { mode = null, start = 'HEAD', copy = null, draft = false } = {}) {
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
-    const made = await worktrees.create(dir, { home: d.worktreeHome(), title, start });
-    if (!made) return { ok: false, noCopy: true, error: "That folder isn't in a git repository." };
-    if (!made.ok) return { ok: false, noCopy: true, error: made.error };
-    const w = made.worktree;
+    let w = copy;
+    if (!w) {
+      const made = await worktrees.create(dir, { home: d.worktreeHome(), title, start });
+      if (!made) return { ok: false, noCopy: true, error: "That folder isn't in a git repository." };
+      if (!made.ok) return { ok: false, noCopy: true, error: made.error };
+      w = made.worktree;
+    }
     const tabId = d.randomUUID();
     try {
       const tab = d.openTab({ tabId, title, mode, cwd: w.cwd });
       tab.worktree = w;
       const prompt = promptFor(w);
-      d.manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
+      // Where it started, so closing it unsent can tell nothing was done in it.
+      if (draft) tab.unsentCopy = { head: (await worktrees.git(w.path, ['rev-parse', 'HEAD'], { timeout: 5000 })).out?.trim() || null };
+      else d.manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
       d.history.update(tabId, { cwd: w.cwd, worktree: w });
       d.manager.note(tabId, { kind: 'moved', branch: w.branch, base: w.base });
       d.wake();
-      d.send(d.panel, 'tab:opened', { tabId, entry: d.history.get(tabId), items: d.history.load(tabId), background: false });
-      return { ok: true, tabId };
+      // A draft has no History entry until it's sent: its title and folder go along instead.
+      const entry = d.history.get(tabId) || { title, cwd: w.cwd };
+      d.send(d.panel, 'tab:opened', { tabId, entry, items: d.history.load(tabId), background: false, ...(draft ? { busy: false, draft: prompt } : {}) });
+      return { ok: true, tabId, worktree: w };
     } catch (err) {
       // Tidy up without letting a second failure hide the first.
       try {
@@ -187,6 +206,22 @@ function wireProjects(d) {
       } catch (e) { d.log.info(`dependency task cleanup: ${e.message}`); }
       return { ok: false, error: err.message };
     }
+  }
+
+  // A draft tab (startTaskInCopy's draft) closed before anything was sent from
+  // it: a copy with nothing in it goes too, and so does its History entry,
+  // which would only point at a folder that's gone. One with changes stays.
+  async function dropUnsentCopy(tab) {
+    const w = tab?.worktree;
+    if (!tab?.unsentCopy?.head || !w) return false;
+    if ((d.history.load(tab.id) || []).some(i => i.kind === 'user')) return false;
+    const [s, head] = await Promise.all([worktrees.status(w), worktrees.git(w.path, ['rev-parse', 'HEAD'], { timeout: 5000 })]);
+    // Ignored files (a .env copied in, a build) are work too: only a copy exactly as it was made goes.
+    if (!s?.ok || s.uncommitted || s.ignored?.length || head.out?.trim() !== tab.unsentCopy.head) return false;
+    const r = await worktrees.remove(w, { force: true });
+    if (!r.ok) { d.log.info(`unsent copy: ${r.error}`); return false; }
+    if (d.history.get(tab.id)) d.history.remove(tab.id);
+    return true;
   }
 
   // ---- workflows
@@ -274,7 +309,7 @@ function wireProjects(d) {
 
   return {
     createDepWatch, createProjects, createWorkflows, registerWorkflowIpc, runClaudeOnce,
-    serversOnQuit, showServer, startTaskInCopy,
+    dropUnsentCopy, serversOnQuit, showServer, startTaskInCopy,
   };
 }
 

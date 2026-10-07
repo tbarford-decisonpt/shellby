@@ -21,9 +21,9 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 | `add_workflow` / `list_workflows` | Proposes a workflow (you confirm it) / lists your workflows and which ones Claude may run. |
 | `run_workflow` | Starts a workflow that has the **Claude Code** trigger, with its inputs. Returns once it has started. |
 | `projects` | The projects on Shellby's Projects page: where each is, servers running, and what needs attention. |
-| `next_up` | "What's next on this repo?": crashed servers, failing CI and serious vulnerabilities, then your to-dos, then housekeeping. Defaults to the repo Claude Code is in; `everywhere` covers every project. |
+| `next_up` | "What's next on this repo?": crashed servers, failing CI and serious vulnerabilities, then your to-dos, then housekeeping, then the open issues and TODOs from the project's Next up list. Defaults to the repo Claude Code is in; `everywhere` covers every project. |
 | `server_log` | The last lines a dev server printed (the one that crashed, else the one running), secrets redacted. Read-only: it can't start or stop one. |
-| `add_task` / `finish_task` | Adds a note to the project's to-do list / ticks one off by its id or number. You see the list on the project's page. |
+| `add_task` / `finish_task` | Adds a note to the project's to-do list (its `.shellby/tasks.md`, marked as from Claude Code) / ticks one off by its id or number. You see the list on the project's page, under Next up. |
 | `journal` | The project's handoff notes from earlier sessions (what's half-done, what was decided, what's next), or `pin` to leave one for the next session. |
 
 Claude Code mods can call `say`, `celebrate`, `wear` and `status` too, with `$.mcp.call('plugin:shellby:shellby', …)`: see [Making Shellby react from a mod](../docs/MODS.md).

@@ -6,7 +6,8 @@
 // exact prompt first, and Send carries that prompt's hash, so what's sent is
 // what you read or nothing. They work in a copy of the clone on this PC
 // started from the pull request's latest commit, and push back to its branch.
-// A loose end only fills the box of a new conversation: you send it.
+// A loose end's prompt is Next up's (wiring/backlog.js): it waits in the box
+// of a conversation in a copy, for you to send.
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
