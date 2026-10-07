@@ -57,8 +57,12 @@ const LOG_LINES = { min: 10, max: 200, default: 50 };
 const SCRIPT = '^[A-Za-z0-9:._-]{1,100}$';
 const TODO_ID = '^t-[a-z0-9]{8}$';
 const PROJECT_TOOLS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task'];
-
-// The folder Claude Code is working in: where "this repo" is.
+const PIN_KINDS = ['decision', 'next', 'blocker', 'note'];
+const MAX_PIN = 300;
+const MAX_FOLDER = 1024;
+// The folder Claude Code started this server in: the project being worked on.
+const HERE = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+// The same, read at each call, for the project tools ("this repo").
 const projectDir = () => process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
 const PROJECT_ARG = {
@@ -172,6 +176,28 @@ const TOOLS = [
     title: 'Read Shellby\'s status',
     description: 'How the crab and the PC are doing: his level and XP, what he is up to, how many tasks are running, and the current CPU/GPU temperature, memory and disk pressure if the user has Health switched on. Useful before starting something heavy.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'journal',
+    title: 'Read or add to this project\'s handoff notes',
+    // Kept short: every session pays for a tool's description.
+    description: 'Shellby\'s handoff notes from earlier sessions in this project: what was asked, what is half-done, what was decided, what is next. Read them first when asked where we left off, instead of re-exploring. Pass `pin` to leave a decision, next step or blocker for the next session.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        folder: { type: 'string', maxLength: MAX_FOLDER, description: 'Absolute path of the project. Defaults to the folder Claude Code started in.' },
+        pin: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string', enum: PIN_KINDS },
+            text: { type: 'string', minLength: 1, maxLength: MAX_PIN },
+          },
+          required: ['text'],
+          additionalProperties: false,
+        },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: 'add_routine',
@@ -458,6 +484,16 @@ function toAction(name, raw) {
       if (typeof args.model === 'string' && args.model.trim()) out.model = args.model.trim().slice(0, 40);
       return { action: 'add_routine', args: out };
     }
+    case 'journal': {
+      const folder = typeof args.folder === 'string' && args.folder.trim() ? args.folder.trim() : HERE;
+      if (folder.length > MAX_FOLDER || !path.isAbsolute(folder)) return { error: 'folder must be an absolute path.' };
+      if (args.pin === undefined || args.pin === null) return { action: 'journal', args: { folder } };
+      const p = args.pin && typeof args.pin === 'object' && !Array.isArray(args.pin) ? args.pin : null;
+      const text = clip(p?.text, MAX_PIN);
+      if (!text) return { error: 'pin needs some text.' };
+      if (p.kind !== undefined && !PIN_KINDS.includes(p.kind)) return { error: `pin.kind must be one of: ${PIN_KINDS.join(', ')}.` };
+      return { action: 'journal', args: { folder, pin: { kind: p.kind || 'note', text } } };
+    }
     case 'list_routines':
       return { action: 'list_routines', args: {} };
     case 'list_workflows':
@@ -552,7 +588,7 @@ async function handle(msg) {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: {} },
         serverInfo: { name: NAME, version: VERSION },
-        instructions: 'Shellby is the pixel hermit crab on this user\'s desktop. Use `say` to keep them posted while you work, `celebrate` when something real lands, and `status` to check the machine before heavy jobs. When the user wants something done on a schedule, `add_routine` sets it up in Shellby (they confirm it there). For anything with several steps or other triggers (a failing build, a file arriving), `add_workflow` proposes a workflow; `list_workflows` and `run_workflow` start the ones the user lets Claude Code run. When the user asks what to work on, `next_up` gives Shellby\'s answer for this repo (crashed servers, failing CI, their to-dos, unpushed work); `server_log` shows why a dev server fell over; `add_task` and `finish_task` keep the project\'s to-do list.',
+        instructions: 'Shellby is the pixel hermit crab on this user\'s desktop. Use `say` to keep them posted while you work, `celebrate` when something real lands, and `status` to check the machine before heavy jobs. When the user wants something done on a schedule, `add_routine` sets it up in Shellby (they confirm it there). For anything with several steps or other triggers (a failing build, a file arriving), `add_workflow` proposes a workflow; `list_workflows` and `run_workflow` start the ones the user lets Claude Code run. Asked where we left off, read `journal` before exploring the project. When the user asks what to work on, `next_up` gives Shellby\'s answer for this repo (crashed servers, failing CI, their to-dos, unpushed work); `server_log` shows why a dev server fell over; `add_task` and `finish_task` keep the project\'s to-do list.',
       });
       return;
     }
@@ -609,4 +645,5 @@ module.exports = {
   TOOLS, toAction, PROTOCOL_VERSIONS, MOODS, MAX_TEXT, MAX_ROUTINE_PROMPT, ROUTINE_MODES,
   MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY, WORKFLOW_EXAMPLE,
   MAX_PROJECT, MAX_TODO, LOG_LINES, SCRIPT, TODO_ID, PROJECT_TOOLS, readCrabToken,
+  PIN_KINDS, MAX_PIN,
 };

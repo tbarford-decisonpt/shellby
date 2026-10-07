@@ -53,7 +53,11 @@
 .tab-clash { flex: none; color: var(--amber); font-size: 11px; line-height: 1; }
 .tl-clash { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; color: var(--amber); }
 .clash-info .mi-check { color: var(--amber); }
-.clash-files { font-family: var(--font-mono); font-stretch: 88%; overflow-wrap: anywhere; }
+.clash-info > span:last-child { flex: 1; min-width: 0; }
+/* Compact rows so the branch menu's actions stay in view; the full text is the row's tooltip. */
+.clash-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clash-files { font-family: var(--font-mono); font-stretch: 88%; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* Dragging a tab along the strip. The × goes away for the duration so letting go
    over one can't close the conversation you were only moving, and the tooltip with
    it: the tabs are sliding under the pointer, so it would be pointing at nothing. */

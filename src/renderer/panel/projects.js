@@ -53,6 +53,7 @@
     const seq = ++loadSeq;
     const [list, srv] = await Promise.all([api.listProjects({ refresh }), api.getServers()]);
     if (seq !== loadSeq || !list) return;
+    SB.pjInbox?.load({ refresh }); // after the list, so main knows every clone it covers
     const same = JSON.stringify(list) === shownList && JSON.stringify(srv) === JSON.stringify(servers);
     data = list;
     servers = srv || servers;
@@ -310,7 +311,8 @@
   }
 
   // A project's page, top to bottom: who it is and the button you came for,
-  // how it's going, what needs you, where you left off, then the clones
+  // how it's going, what needs you, where you left off (and the standup to
+  // paste, project-report.js), then the clones
   // (git and dev servers), which is where the work actually happens.
   function renderDetail() {
     const p = detail;
@@ -341,9 +343,12 @@
     const reload = () => openProject(p.key, { quiet: true });
     const cards = [
       main && F.pulse(p, { onChange: reload }),
+      main && F.journal(p, { newHere, onChange: reload, keptDetails }),
       F.todo(p),
       F.health(p),
+      main && SB.releasesCard(main.root, p.name),
       main && F.conversations(p, { newHere }),
+      main && SB.pjReport.card(p),
       main && SB.startFrom.looseEndsCard(main.root, p.name),
     ];
     const clones = p.local.length

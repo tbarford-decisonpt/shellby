@@ -98,10 +98,12 @@ const DEFAULTS = {
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
   github: null,       // GitHub features, name and avatar (see github/service.js); the token is NOT here
   issueWatch: null,   // which GitHub issues he has already offered to take on (see github/issues.js)
+  ciSeen: null,       // { 'owner/repo#12': ms }: when you last opened each of your PRs, for "new comments" (see github/ci.js); this PC only
   syncGistId: null,   // the private gist progress syncs through
   syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
   autonomousAcknowledged: false,
   lastUsage: null,
+  journalPending: [], // conversations whose handoff note was still settling at quit (see wiring/journal.js)
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
   turnCosts: [],      // what each turn cost, by project and kind of ask, never the prompt (see usage-ledger.js); this PC only
   // Lean Shell (efficiency.js, lean.js): cache reads per day, each project's

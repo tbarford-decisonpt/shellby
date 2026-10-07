@@ -13,6 +13,8 @@ const path = require('path');
 const { validateRoutine, describeSchedule } = require('./routines');
 const { MODELS } = require('./models');
 const todo = require('./projects/todo');
+const { PIN_KINDS, MAX_PIN_TEXT } = require('./journal');
+const { safePath } = require('./handoff');
 
 const modelName = id => MODELS.find(m => m.id === id)?.label || id;
 
@@ -28,7 +30,7 @@ const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
 // The Projects page from a terminal (projects/terminal.js): read-only, bar the to-do list.
 const PROJECT_ACTIONS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task'];
-const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', ...PROJECT_ACTIONS];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', 'journal', ...PROJECT_ACTIONS];
 const MAX_PROJECT = 200;
 const MAX_FOLDER = 400;
 const LOG_LINES = { min: 10, max: 200, default: 50 };
@@ -82,6 +84,8 @@ function parseRequest(body) {
     }
     case 'add_workflow':
       return parseWorkflowProposal(args.workflow);
+    case 'journal':
+      return parseJournal(args);
     case 'projects': case 'next_up': case 'server_log': case 'add_task': case 'finish_task':
       return parseProjectAsk(action, args);
     default:
@@ -397,6 +401,21 @@ function ackReply(intent) {
   if (intent.action === 'say') return `Shellby said it.`;
   if (intent.action === 'celebrate') return intent.reason ? `Shellby is celebrating: ${intent.reason}` : 'Shellby is celebrating.';
   return 'Done.';
+}
+
+/**
+ * The project journal (journal.js): read the notes for a folder, or pin a line
+ * to them. Only a local drive's folder (handoff.js safePath): a network share
+ * would have git, run in it to find the project, reach out to another machine.
+ */
+function parseJournal(args) {
+  const folder = typeof args.folder === 'string' ? args.folder.trim() : '';
+  if (!safePath(folder)) return { ok: false, error: "That folder isn't a full path on this PC." };
+  if (args.pin === undefined || args.pin === null) return { ok: true, intent: { action: 'journal', folder, pin: null } };
+  const p = args.pin && typeof args.pin === 'object' && !Array.isArray(args.pin) ? args.pin : {};
+  const text = clip(String(p.text ?? '').replace(UNSAFE, ''), MAX_PIN_TEXT);
+  if (!text) return { ok: false, error: 'A pin needs some text.' };
+  return { ok: true, intent: { action: 'journal', folder, pin: { kind: PIN_KINDS.includes(p.kind) ? p.kind : 'note', text } } };
 }
 
 module.exports = {

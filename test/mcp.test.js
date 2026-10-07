@@ -82,7 +82,7 @@ test('tools/list describes every tool with a schema', async () => {
   const { replies } = await talk([INIT, { jsonrpc: '2.0', id: 2, method: 'tools/list' }]);
   const tools = replies[1].result.tools;
   assert.deepEqual(tools.map(t => t.name).sort(),
-    ['add_routine', 'add_task', 'add_workflow', 'celebrate', 'finish_task', 'list_routines', 'list_workflows', 'next_up', 'projects', 'run_workflow', 'say', 'server_log', 'status', 'wear']);
+    ['add_routine', 'add_task', 'add_workflow', 'celebrate', 'finish_task', 'journal', 'list_routines', 'list_workflows', 'next_up', 'projects', 'run_workflow', 'say', 'server_log', 'status', 'wear']);
   for (const t of tools) {
     assert.ok(t.description.length > 40, `${t.name} explains itself`);
     assert.equal(t.inputSchema.type, 'object');

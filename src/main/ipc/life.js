@@ -4,6 +4,7 @@
 const { dialog, shell } = require('electron');
 const os = require('os');
 const { sendToBottom } = require('../desktop-layer');
+const confirm = require('../confirm');
 const { registerProjectsIpc } = require('../projects/ipc');
 const shells = require('../shells');
 
@@ -62,6 +63,8 @@ function registerLifeIpc(ipcMain, d) {
     openPath: p => shell.openPath(p),
     showItem: p => shell.showItemInFolder(p),
     openExternal: url => shell.openExternal(url),
+    ask: spec => confirm.ask(d.panel, { ...d.dialogLook(), ...spec }),
+    journal: () => d.journal,
   });
   ipcMain.on('critter:menu', () => {
     d.reachedForShellby();

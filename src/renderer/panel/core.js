@@ -281,6 +281,7 @@ SB.setView = view => {
 // before the menu opened (the box, a chip), so Esc or a choice never strands it.
 let menuReturn = null;
 
+const MENU_MIN_HEIGHT = 120; // a menu squeezed by a tiny window still shows a few rows
 SB.openMenu = (menu, anchor, build) => {
   const wasOpen = !menu.hidden;
   SB.closeMenus();
@@ -288,10 +289,17 @@ SB.openMenu = (menu, anchor, build) => {
   const from = document.activeElement;
   menuReturn = from && from !== document.body && !from.closest('.popover') ? from : anchor;
   menu.replaceChildren(...build().filter(Boolean));
+  menu.style.maxHeight = '';
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
   // Below the button, or above it when there isn't room (a row near the bottom of the list).
-  const below = r.bottom + 6 + menu.offsetHeight <= window.innerHeight - 8;
+  // Never past the window's edge: a menu taller than the room it has scrolls, so
+  // its last items (the branch menu under a long clash list) stay reachable.
+  const roomBelow = window.innerHeight - 8 - (r.bottom + 6);
+  const roomAbove = r.top - 6 - 8;
+  const below = menu.offsetHeight <= roomBelow || roomBelow >= roomAbove;
+  const cssMax = parseFloat(getComputedStyle(menu).maxHeight) || Infinity; // 'none' is NaN
+  menu.style.maxHeight = `${Math.max(MENU_MIN_HEIGHT, Math.min(cssMax, below ? roomBelow : roomAbove))}px`;
   menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - menu.offsetHeight)}px`;
   menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
   anchor.setAttribute('aria-expanded', 'true');

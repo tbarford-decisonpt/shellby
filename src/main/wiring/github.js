@@ -71,7 +71,10 @@ function wireGithub(d) {
 
   function createCi() {
     const ep = githubEndpoints();
-    d.ci = new CiWatcher({ gh: () => d.github.gh(), login: () => d.github.view().login, web: ep.web, api: ep.api });
+    d.ci = new CiWatcher({
+      gh: () => d.github.gh(), login: () => d.github.view().login, web: ep.web, api: ep.api,
+      seen: { load: () => d.config.get('ciSeen'), save: v => d.config.set({ ciSeen: v }) },
+    });
     d.ci.on('change', v => { d.send(d.panel, 'ci', v); d.refreshCritter(); d.refreshStatusLine(); });
     d.ci.on('event', onCiEvent);
     // Follows the GitHub toggle and sign-in.
@@ -248,7 +251,8 @@ function wireGithub(d) {
   function onCiEvent({ type, pr }) {
     if (!pr) return;
     const where = `${pr.repo}#${pr.number}`;
-    d.workflows?.event('ci', { event: type, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
+    // New comments are for the inbox and a nudge, not a workflow trigger (schema.js CI_EVENTS has no 'comment').
+    if (type !== 'comment') d.workflows?.event('ci', { event: type, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
     const open = () => openGitHubUrl(pr.url);
     if (type === 'failed') d.noteRed(`ci:${where}`);
     if (type === 'fixed') d.noteFix(`ci:${where}`);
@@ -273,6 +277,10 @@ function wireGithub(d) {
     } else if (type === 'review') {
       d.flashState('asking', 5000);
       d.notify(`Review requested: ${where}`, pr.title, open);
+    } else if (type === 'comment') {
+      d.flashState('asking', 4000);
+      const who = pr.talk?.people?.length ? pr.talk.people.join(', ') : 'Someone';
+      d.notify(`New on ${where}`, `${who} on "${pr.title}"`.slice(0, 160), () => { d.ci?.markSeen(pr.key); open(); });
     } else if (type === 'merged') {
       d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
     }
@@ -284,7 +292,7 @@ function wireGithub(d) {
     if (typeof url === 'string' && url.startsWith(`${web}/`) && (url.startsWith('https:') || !app.isPackaged)) shell.openExternal(url);
   }
 
-  const ciView = () => ({ ...(d.ci ? d.ci.view() : { prs: [], reviews: [], failing: 0 }), enabled: !!d.github?.can('ci') });
+  const ciView = () => ({ ...(d.ci ? d.ci.view() : { prs: [], reviews: [], reviewsTotal: 0, failing: 0, unread: 0 }), enabled: !!d.github?.can('ci') });
 
   // Claude tasks with your GitHub sign-in can push anywhere you can: ask, with the risk spelled out.
   async function confirmGitHubFeature(feature, on) {

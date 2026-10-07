@@ -166,7 +166,7 @@
     const i = p.insights || {};
     const resume = i.nudgeKey
       ? act('Where did we leave off?', () => { api.openProject(i.nudgeKey); SB.setView('chat'); })
-      : p.local[0] && act('Where did we leave off?', () => newHere(p.local[0].root, `Where did we leave off in ${p.name}? Summarize what changed recently, what's unfinished, and suggest the next step.`));
+      : p.local[0] && act('Where did we leave off?', () => newHere(p.local[0].root, p.journal?.draft || `Where did we leave off in ${p.name}? Summarize what changed recently, what's unfinished, and suggest the next step.`));
     if (!list.length) return card('Conversations', h('p', { class: 'muted small', text: 'None here yet.' }), h('div', { class: 'row wrap' }, resume));
     return card('Conversations',
       h('ul', { class: 'pj-convos' }, list.map(s => h('li', {},
@@ -238,10 +238,95 @@
   // The "Add a to-do" box on the page now: a redraw may have replaced the one a handler holds.
   const $todoInput = key => [...document.querySelectorAll('.pj-todo-add')].find(r => r.dataset.project === key)?.querySelector('input') || null;
 
+  // ------------------------------------------------------------------ where you left off
+
+  const PIN_LABEL = { decision: 'Decided', next: 'Next', blocker: 'Blocked', note: 'Note' };
+  // A pin half typed survives the card being redrawn (a note landing after a turn).
+  const pinDraft = { root: null, text: '', kind: 'decision' };
+
+  // One line of a note: "Half-done: a; b", or nothing when there's nothing in it.
+  function noteLine(label, list) {
+    const items = (Array.isArray(list) ? list : [list]).filter(Boolean);
+    return items.length ? h('li', {}, h('b', { text: `${label}: ` }), items.join('; ')) : null;
+  }
+
+  function noteBody(n) {
+    const touched = n.files?.length ? `${n.files.join(', ')}${n.moreFiles ? ` (+${n.moreFiles} more)` : ''}` : '';
+    return h('ul', { class: 'pj-jn-lines' },
+      noteLine('Last asked', n.asked),
+      noteLine('Half-done', n.open),
+      noteLine('Next', n.next),
+      noteLine('Decided', n.decisions),
+      noteLine('Done', n.done),
+      noteLine('Committed', n.commits),
+      noteLine('Touched', touched),
+      n.dirty ? noteLine('Uncommitted', plural(n.dirty, 'file')) : null,
+      noteLine('Ended with', n.ended));
+  }
+
+  function noteHead(n) {
+    return h('span', { class: 'pj-jn-head' },
+      h('b', { class: 'pj-jn-title', text: n.title }),
+      h('span', { class: 'muted small', text: [n.at && ago(n.at), n.branch && `on ${n.branch}`, n.turns > 1 && plural(n.turns, 'prompt')].filter(Boolean).join(' · ') }));
+  }
+
+  /**
+   * The handoff notes Shellby kept from the last sessions here: answered on the
+   * spot, no Claude turn. "Carry on with Claude" hands Claude the same notes,
+   * so it starts from them instead of reading its way back in.
+   */
+  function journal(p, { newHere, onChange, keptDetails }) {
+    const j = p.journal;
+    const root = p.local[0]?.root;
+    if (!root) return null;
+    const notes = j?.notes || [];
+    const pins = j?.pins || [];
+    const [latest, ...older] = notes;
+    const forget = async (what) => { await api.removeFromJournal({ root, ...what }); onChange(); };
+
+    if (pinDraft.root !== root) Object.assign(pinDraft, { root, text: '', kind: 'decision' });
+    const text = h('input', { type: 'text', class: 'pj-jn-input', maxlength: '300', placeholder: 'Pin a decision or next step…', 'aria-label': 'Pin a decision or next step', dataset: { keep: 'jn-text' } });
+    const kind = h('select', { class: 'pj-jn-kind', 'aria-label': 'Kind', dataset: { keep: 'jn-kind' } },
+      Object.entries(PIN_LABEL).map(([k, label]) => h('option', { value: k, text: label })));
+    text.value = pinDraft.text;
+    kind.value = pinDraft.kind;
+    text.addEventListener('input', () => { pinDraft.text = text.value; });
+    kind.addEventListener('change', () => { pinDraft.kind = kind.value; });
+    const pinIt = async e => {
+      e.preventDefault();
+      if (!text.value.trim()) return;
+      const r = await api.pinToJournal({ root, kind: kind.value, text: text.value });
+      if (!r?.ok) return SB.toast(r?.error || "Couldn't pin that.");
+      text.value = pinDraft.text = '';
+      onChange();
+    };
+    const form = h('form', { class: 'row pj-jn-form', onsubmit: pinIt }, kind, text, h('button', { type: 'submit', class: 'btn ghost slim-btn', text: 'Pin' }));
+
+    if (!latest && !pins.length) {
+      return card('Where you left off',
+        h('p', { class: 'muted small', text: 'After each Claude Code session here, Shellby writes a short note: what was asked, what\'s half-done, what was decided. Nothing yet.' }),
+        form);
+    }
+    return card('Where you left off',
+      latest && h('div', { class: 'pj-jn-note' }, noteHead(latest), noteBody(latest)),
+      older.length > 0 && keptDetails('journal', plural(older.length, 'earlier session'),
+        h('ul', { class: 'pj-jn-older' }, older.map(n => h('li', {},
+          h('details', {}, h('summary', {}, noteHead(n)), noteBody(n),
+            act('Forget this note', () => forget({ sessionId: n.sessionId }))))))),
+      pins.length > 0 && h('ul', { class: 'pj-jn-pins', 'aria-label': 'Pinned' }, pins.map(pin => h('li', {},
+        h('span', { class: `pj-tag pj-jn-${pin.kind}`, text: PIN_LABEL[pin.kind] || 'Note' }),
+        h('span', { class: 'pj-jn-pin-text', text: pin.text }),
+        h('button', { type: 'button', class: 'link-btn', text: 'Unpin', 'aria-label': `Unpin: ${pin.text}`, onclick: () => forget({ pinId: pin.id }) })))),
+      form,
+      j?.draft && h('div', { class: 'row wrap' },
+        act('Carry on with Claude', () => newHere(root, j.draft), 'btn slim-btn')),
+      h('p', { class: 'muted small', text: 'Read from each session as it ends, never by asking Claude, so these notes cost no tokens to keep.' }));
+  }
+
   /** "2 need you" and the like, for the line above the list. */
   function needsYou(projects) {
     return projects.filter(p => (p.insights?.attention || 0) > 0).length;
   }
 
-  SB.pjFacts = { hours, chips, chipRow, tile, pulse, todo, health, conversations, needsYou };
+  SB.pjFacts = { hours, chips, chipRow, tile, pulse, todo, health, conversations, journal, needsYou };
 })();

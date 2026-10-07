@@ -23,7 +23,8 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 | `projects` | The projects on Shellby's Projects page: where each is, servers running, and what needs attention. |
 | `next_up` | "What's next on this repo?": crashed servers, failing CI and serious vulnerabilities, then your to-dos, then housekeeping. Defaults to the repo Claude Code is in; `everywhere` covers every project. |
 | `server_log` | The last lines a dev server printed (the one that crashed, else the one running), secrets redacted. Read-only: it can't start or stop one. |
-| `add_task` / `finish_task` | Adds a note to the project's to-do list / ticks one off by its number. You see the list on the project's page. |
+| `add_task` / `finish_task` | Adds a note to the project's to-do list / ticks one off by its id or number. You see the list on the project's page. |
+| `journal` | The project's handoff notes from earlier sessions (what's half-done, what was decided, what's next), or `pin` to leave one for the next session. |
 
 Claude Code mods can call `say`, `celebrate`, `wear` and `status` too, with `$.mcp.call('plugin:shellby:shellby', …)`: see [Making Shellby react from a mod](../docs/MODS.md).
 
@@ -43,6 +44,10 @@ Then make sure the Shellby app is running (**Settings → Claude Code everywhere
 ## Status line
 
 Run `/shellby:statusline` to put Shellby in Claude Code's status line (mood, level, XP and health), for example `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱`. It asks Claude's statusline-setup agent to add it, keeping any status line you already have. You can also turn it on in the Shellby app: **Settings → Claude Code everywhere → Status line**.
+
+## Where did we leave off?
+
+When a session ends, Shellby writes a short handoff note for its project: what was asked, what's half-done, what was decided, the files it touched and where git stood. It reads the note out of Claude Code's own record of the session, never by asking Claude, so keeping the journal costs no tokens. Run `/shellby:leftoff` and Claude answers from those notes in one small tool call instead of re-reading the project. The notes are also on the project's page in Shellby, where **Carry on with Claude** starts a conversation with them in the prompt.
 
 ## Handing a session to Shellby
 

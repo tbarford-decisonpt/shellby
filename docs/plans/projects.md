@@ -43,6 +43,7 @@ Each phase ships on its own (bump, CHANGELOG, tag, as every shellby change does)
 - An "erroring" state: still up, but the output is a compile error. A quieter sign, no toast.
 - Opt-in auto-restart with a crash-loop guard.
 - Project page links to what Shellby already knows per project: CI (`github/ci.js`), checkups, dependency watch, time. **Done** (`projects/insights.js`): also flaky tests, streaks, stickers, git per clone and recent conversations, as chips on each row, a "Needs you" order, and Pulse / Health / Conversations cards on the project's page.
+- A standup and weekly report per project. **Done** (`projects/standup.js`): "Yesterday / Today / Blockers" (or This week / Last week) from your own commits, the project's conversations, tracked time and the day's notes, and Claude's tasks, with blockers from what the page already flags (failing checks, a crashed server, high or critical vulnerabilities, flaky tests). Words for Slack (mrkdwn, `@here` and friends defused) or an email, and a Copy button. The work-focused sibling of the weekly crab card (`weekly.js`).
 
 ### Phase 3: everywhere else
 
@@ -61,6 +62,7 @@ Each phase ships on its own (bump, CHANGELOG, tag, as every shellby change does)
 | `src/main/projects/github.js` | Your GitHub repos (`GET /user/repos`), paged and cached. |
 | `src/main/projects/clone.js` | `git clone` into a folder you chose, with progress, cancel and cleanup. |
 | `src/main/projects/merge.js` | Local + GitHub -> one list of projects. Pure. |
+| `src/main/projects/standup.js` | A project's standup / weekly report and its Slack and email words. Pure; `Projects.report()` gathers the sources. |
 | `src/main/projects/todo.js` | (Phase 3) Each project's to-do list in `config.projects.todo`. Pure. |
 | `src/main/projects/nextup.js` | (Phase 3) A project's insights, servers and to-dos -> "next up", ordered and worded. Pure. |
 | `src/main/projects/terminal.js` | (Phase 3) Which project a terminal question means, and the text of every answer. Pure. |
@@ -71,6 +73,7 @@ Each phase ships on its own (bump, CHANGELOG, tag, as every shellby change does)
 | `src/main/devservers/service.js` | `DevServers` (EventEmitter): the running list, persistence, crashes, toasts, IPC. |
 | `src/main/projects/service.js` | `Projects`: the merged list, refresh, IPC. Owns a `DevServers`. |
 | `src/renderer/panel/projects.js` + `projects.css` | The Projects page, a project's page, the server card and the approval sheet. |
+| `src/renderer/panel/project-report.js` | The Standup & weekly report card on a project's page. |
 | `src/renderer/critter/critter.js` | `SERVER_SIGN` and the up pill. |
 | `src/preload/preload.js`, `critter-preload.js` | `projects:*` and `servers:*` channels. |
 | `src/main/github/auth.js` | A `projects` feature. |
@@ -436,6 +439,7 @@ follow the repo if it later gets a GitHub remote.
 | `test/devservers-runner.test.js` | real detached spawn of `node` on a fixture server (prints `Local: http://localhost:<port>/`, exits 1 on a flag file): up -> crashed with exit code from the marker; Stop isn't a crash; tree kill leaves no child; re-attach to a live one from a fresh runner; dead-while-away with and without a marker; log truncation |
 | `test/devservers-service.test.js` | state machine with a fake runner: one toast per crash, crash-loop collapsing, no toast for crashes found on start, fix tab -> Restart offer, onQuit keep vs stop, the one-time quit note, the 8-server cap |
 | `test/leaving.test.js` | the servers line |
+| `test/projects-standup.test.js` | which day is "yesterday" (Friday, on a Monday), Today and Blockers, a week's groups and totals, Slack and email words, mentions defused, sources by day, `Projects.report()` |
 | `test/ipc-surface.test.js`, `test/panel-a11y.test.js` | pick up the new channels and pages automatically |
 
 The runner test uses `process.execPath` (with `node` instead of `npm run`
