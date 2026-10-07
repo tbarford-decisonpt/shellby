@@ -178,6 +178,7 @@ const shared = {
   longTaskTimer: null,             // a task still running after LONG_TASK_MS gets a "still going…"
   fileTouches: new Map(),          // file path -> times written this run, for his "this file again?"
   healthMood: null,                // { mood, level, text } from the health monitor, or null
+  tankGauges: null,                // the tank's live decor feed (ipc/tank-gauges.js): Health and dev servers push into it
   levelUpAt: 1,                    // level shown in the critter's level-up bubble
   lastXp: null,                    // { amount, at } for the status line's "+25 XP"
   lastStatus: { state: 'idle', busy: 0, crew: 0, background: 0 },

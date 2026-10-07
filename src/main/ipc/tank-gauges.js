@@ -8,7 +8,7 @@
 const gaugesOf = require('../tank-gauges');
 
 /**
- * d: {
+ * deps: {
  *   config         settings
  *   toPanel(channel, payload)   sends only while the panel is showing
  *   health()       the HealthService, or null (its monitor's latest snapshot is read on ask)
@@ -17,23 +17,23 @@ const gaugesOf = require('../tank-gauges');
  * }
  * Returns the feed main.js wires the monitor and the dev servers into.
  */
-function registerTankGaugesIpc(ipcMain, d) {
+function registerTankGaugesIpc(ipcMain, deps) {
   let snap = null;      // the Health monitor's last sample
   let mood = null;      // its mood
   let last = null;      // what was last sent
 
-  const latestHealth = () => snap || d.health()?.monitor?.snapshot?.({ withHistory: false }) || null;
+  const latestHealth = () => snap || deps.health()?.monitor?.snapshot?.({ withHistory: false }) || null;
   const current = () => gaugesOf.gauges({
     health: latestHealth(),
-    mood: d.moodsOn() ? (mood ?? d.health()?.monitor?.mood ?? null) : null,
-    servers: d.servers(),
-    live: d.config.get('tankLive'),
+    mood: deps.moodsOn() ? (mood ?? deps.health()?.monitor?.mood ?? null) : null,
+    servers: deps.servers(),
+    live: deps.config.get('tankLive'),
   });
   const push = () => {
     const next = current();
     if (last && gaugesOf.same(next, last)) return;
     last = next;
-    d.toPanel('tank:gauges', next);
+    deps.toPanel('tank:gauges', next);
   };
 
   ipcMain.handle('tank:gauges', () => { last = current(); return last; });
@@ -41,8 +41,8 @@ function registerTankGaugesIpc(ipcMain, d) {
   // One gauge on or off: { key, on }.
   ipcMain.handle('tank:live', (_e, arg) => {
     if (!arg || typeof arg !== 'object' || !gaugesOf.KEYS.includes(arg.key) || typeof arg.on !== 'boolean') return { ok: false, gauges: current() };
-    const live = gaugesOf.normalizeLive(d.config.get('tankLive'));
-    d.config.set({ tankLive: { ...live, [arg.key]: arg.on } });
+    const live = gaugesOf.normalizeLive(deps.config.get('tankLive'));
+    deps.config.set({ tankLive: { ...live, [arg.key]: arg.on } });
     last = current();
     return { ok: true, gauges: last };
   });
