@@ -87,8 +87,35 @@ function pick(all, args) {
   return { suite: m ? matched.filter((_, k) => k % +m[2] === +m[1] - 1) : matched };
 }
 
+/**
+ * PowerShell that stops what a check left running: every process descended
+ * from the check's own (`rootPid`, gone by now), started since `sinceMs`. A
+ * check that times out is killed alone, and its Electron and helpers carry on,
+ * dozens of them by the end of a run. Windows keeps an orphan's parent pid, so
+ * the tree can still be walked; the start time keeps a reused pid out of it.
+ * Nothing outside that tree is touched. Prints the pids it stopped. Pure.
+ */
+function reapScript({ rootPid, sinceMs }) {
+  return [
+    `$since = [DateTimeOffset]::FromUnixTimeMilliseconds(${Number(sinceMs)}).LocalDateTime`,
+    '$all = @(Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since } | Select-Object ProcessId, ParentProcessId)',
+    '$keep = New-Object System.Collections.Generic.HashSet[int]',
+    `[void]$keep.Add(${Number(rootPid)})`,
+    'for ($i = 0; $i -lt 8; $i++) { foreach ($p in $all) { if ($keep.Contains([int]$p.ParentProcessId)) { [void]$keep.Add([int]$p.ProcessId) } } }',
+    `[void]$keep.Remove(${Number(rootPid)})`,
+    'foreach ($id in $keep) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue; $id }',
+  ].join('\n');
+}
+
+/** Stop what a check (its pid, and when it started) left behind. -> how many. */
+function reap(rootPid, sinceMs) {
+  if (process.platform !== 'win32' || !Number.isInteger(rootPid)) return 0;
+  const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', reapScript({ rootPid, sinceMs })], { encoding: 'utf8', windowsHide: true, timeout: 30000 });
+  return String(r.stdout || '').split(/\s+/).filter(s => /^\d+$/.test(s)).length;
+}
+
 if (require.main !== module) {
-  module.exports = { SUITE, pick };
+  module.exports = { SUITE, pick, reap, reapScript };
   return;
 }
 
@@ -131,6 +158,8 @@ const run = (name, attempt) => {
   const secs = ((Date.now() - started) / 1000).toFixed(1);
   const ok = !r.error && r.status === 0;
   console.log(`\n--- ${name}: ${ok ? 'PASS' : 'FAIL'} in ${secs}s`);
+  const left = reap(r.pid, started);
+  if (left) console.log(`--- ${name} left ${left} process${left === 1 ? '' : 'es'} running; stopped them`);
   return { ok, secs, why: r.error ? r.error.message : r.status === null ? `killed (${r.signal})` : `exit ${r.status}` };
 };
 
