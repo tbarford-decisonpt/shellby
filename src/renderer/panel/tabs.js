@@ -428,11 +428,13 @@
       SB.activate(ids[(i + (e.shiftKey ? -1 : 1) + ids.length) % ids.length]);
       return;
     }
+    // Esc backs out one level and stops at home; it never hides the panel, since
+    // a stray press there made the whole window vanish. The hotkey and × do that.
     if (e.key === 'Escape') {
       if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden) return SB.closeMenus();
       if (tab?.busy && state.view === 'chat') return stop();
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
-      return api.hide();
+      return;
     }
     // Y / A / N answer the newest open permission card in the active tab.
     if (e.target.closest('textarea, input, select') || e.ctrlKey || e.metaKey || e.altKey || state.view !== 'chat') return;
