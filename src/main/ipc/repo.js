@@ -52,7 +52,7 @@ function registerRepoIpc(ipcMain, d) {
       const green = gate.verdict?.status === 'pass' ? { green: true } : {};
       // Asked before "Brought home" goes in the conversation, which would count against it.
       const firstTry = !!d.surprises?.firstLanding(tabId, gate.verdict);
-      const merged = { ...await worktrees.bringHome(w, { message: `Shellby: ${d.manager.tabs.get(tabId)?.title || 'work from a tab'}` }), ...green };
+      const merged = { ...await worktrees.bringHome(w, { message: worktrees.workMessage(w.branch, d.manager.tabs.get(tabId)?.title) }), ...green };
       d.bugdex?.homeResult(tabId, w, merged); // a clash is a Two-Headed Crab; home at last, it's caught
       if (!merged.ok) {
         // What git said goes in the conversation, where it can be read in full.
@@ -229,7 +229,7 @@ ${r.detail}` });
       const moved = gated.checked && list.find(c => d.manager.isBusy(c.id));
       if (moved) return { ok: false, error: `"${moved.title || moved.w.branch}" started on something new while the tests ran, so nothing was merged. Try again once it's finished.` };
       const titles = new Map(list.map(c => [c.w.branch, c.title]));
-      const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => `Shellby: ${titles.get(w.branch) || 'work from a tab'}` });
+      const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => worktrees.workMessage(w.branch, titles.get(w.branch)) });
       for (const x of r.results) {
         const c = list.find(l => l.w.branch === x.branch);
         if (x.ok && x.merged && c && d.manager.tabs.has(c.id)) d.manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });

@@ -121,6 +121,7 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
       draft: R.polishPrompt({
         project: d.projects.nameFor(root), version: v, since: state.last?.tag || null,
         groups: state.groups, changelog: state.changelog.name, style: state.changelog.style,
+        notes: state.notes.length ? state.draft.notes : '',
       }),
     };
   });

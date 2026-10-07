@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const branch = require('./branch');
 const changes = require('./changes');
+const { installCopyDeps, depsSentence } = require('./copy-deps');
 const worktrees = require('./worktrees');
 
 const NAME_THE_BRANCH = 'Not yet: before anything changes, Shellby moves this conversation into its own copy of the repository, on a new branch. '
@@ -96,9 +97,13 @@ function createCopies(d) {
     d.log.info(`worktree: ${w.branch} for ${path.basename(w.root)}`);
     manager.note(tab.id, { kind: 'moved', branch: w.branch, base: w.base });
     manager.changed();
+    // Its packages, if your checkout has them (copy-deps.js), so its tests run straight away.
+    const deps = await installCopyDeps(w);
+    if (deps.error) d.log.info(`worktree: npm ci in the copy failed: ${deps.error}`);
+    if (!manager.tabs.has(tab.id)) return; // closed while it installed
     carryOn(`Shellby has moved this conversation into its own copy of the repository, at ${w.path}, on branch ${w.branch}, started from ${w.base} at its last commit. `
       + `Work there from now on: the project that was at ${w.root} is at ${w.path} in this copy, so use paths under it. `
-      + "It has every committed file; anything uncommitted or ignored in the original (node_modules, build output) isn't in it. "
+      + depsSentence(deps, w)
       + 'Carry on with what you were about to do.');
   }
 

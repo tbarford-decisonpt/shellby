@@ -34,6 +34,29 @@ test('branchName makes a safe, recognisable branch from a title', () => {
   assert.match(worktrees.branchName('x'.repeat(200)), worktrees.BRANCH);
 });
 
+test('workMessage types the subject from the branch Claude named and keeps the prompt in the body', () => {
+  assert.equal(worktrees.workMessage('shellby/fix-tall-menu-overflow-755f4f', 'See how there is so many errors'),
+    'fix: tall menu overflow\n\nFrom the conversation: See how there is so many errors');
+  assert.equal(worktrees.workMessage('shellby/add-dark-mode-abc123'), 'feat: add dark mode');
+  assert.equal(worktrees.workMessage('shellby/docs-release-steps-abc123'), 'docs: release steps');
+  assert.equal(worktrees.workMessage('shellby/toast-crash-on-merge-abc123'), 'fix: toast crash on merge', 'a fix word anywhere makes it a fix');
+});
+
+test('workMessage leaves the type off when the name doesn\'t say, rather than guess "feat"', () => {
+  // A wrong feat would have the release card suggest a minor version for a tweak.
+  assert.equal(worktrees.workMessage('shellby/next-up-backlog-37bd9f', 'Can you fully flesh this out: 1. "Next up"'),
+    'Next up backlog\n\nFrom the conversation: Can you fully flesh this out: 1. "Next up"');
+  assert.equal(worktrees.workMessage('shellby/update-readme-ab12cd'), 'Update readme');
+});
+
+test('workMessage falls back to the title when the branch says nothing beyond its type', () => {
+  assert.equal(worktrees.workMessage('shellby/fix-abc123', 'The login redirect loops'), 'fix: the login redirect loops');
+  assert.equal(worktrees.workMessage('shellby/task-abc123', ''), 'Task');
+  assert.equal(worktrees.workMessage('not-ours', ''), 'Work from Shellby');
+  const long = worktrees.workMessage('shellby/fix-abc123', 'x'.repeat(300));
+  assert.ok(long.split('\n')[0].length <= 72, 'the subject fits one line of git log');
+});
+
 test('checkWorktree refuses records that are not Shellby\'s own', () => {
   const ok = { path: path.resolve('/tmp/x'), root: path.resolve('/tmp/y'), branch: 'shellby/a-abc123', base: 'main' };
   assert.equal(worktrees.checkWorktree(ok), null);

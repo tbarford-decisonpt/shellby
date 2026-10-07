@@ -29,6 +29,8 @@ const REMOTE_RE = /^(?!-)[\w.-]{1,100}$/;
 const CHANGELOG_RE = /^(changelog|changes|history)\.md$/i;
 const LOCK = 'package-lock.json';
 const PKG = 'package.json';
+const NOTES_DIR = 'changes';
+const MAX_NOTES = 200;
 
 const firstLine = s => String(s || '').trim().split('\n').filter(Boolean).pop() || '';
 const fail = error => ({ ok: false, error });
@@ -44,6 +46,25 @@ function readText(file) {
 /** The CHANGELOG's file name in `root` (whatever its case), or null. */
 function changelogName(root) {
   try { return fs.readdirSync(root).find(n => CHANGELOG_RE.test(n) && fs.statSync(path.join(root, n)).isFile()) || null; } catch { return null; }
+}
+
+/**
+ * The change notes waiting for the next release: changes/*.md (README.md is
+ * the folder's own), oldest name first. Only committed ones (`tracked`, from
+ * git ls-files): a note still being written isn't part of what's released.
+ * Links and anything huge are left out.
+ * -> [{ name: 'changes/x.md', file, text }]
+ */
+function readNotes(root, tracked) {
+  const dir = path.join(root, NOTES_DIR);
+  if (isLink(dir)) return [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  return entries
+    .filter(e => e.isFile() && /\.md$/i.test(e.name) && !/^readme\.md$/i.test(e.name) && tracked.has(`${NOTES_DIR}/${e.name}`))
+    .map(e => e.name).sort().slice(0, MAX_NOTES)
+    .map(n => ({ name: `${NOTES_DIR}/${n}`, file: path.join(dir, n), text: readText(path.join(dir, n)) }))
+    .filter(n => n.text !== null && n.text.length <= R.NOTES_MAX);
 }
 
 function packageVersion(root) {
@@ -142,7 +163,11 @@ async function readRelease(root, { git, now = Date.now } = {}) {
   const clName = changelogName(root);
   const clText = clName ? readText(path.join(root, clName)) || '' : '';
   const style = R.changelogStyle(clText);
-  const { bump, why } = R.suggestBump(groups, last?.version || fileVersion);
+  // Notes written alongside the work say it better than commit subjects can, so they're the draft when there are any.
+  const trackedR = await git(root, ['ls-files', '-z', '--', NOTES_DIR], { timeout: READ_MS });
+  const notes = readNotes(root, new Set(trackedR.ok ? trackedR.out.split('\0').filter(Boolean) : []));
+  const sections = R.parseNotes(notes);
+  const { bump, why } = R.withNotesBump(R.suggestBump(groups, last?.version || fileVersion), sections);
   const next = { ...R.nextVersions({ tagVersion: last?.version || null, fileVersion, bump }), bump, why };
 
   // Uncommitted changes: the files a release writes are fine (a CHANGELOG you or Claude wrote); others aren't.
@@ -160,7 +185,8 @@ async function readRelease(root, { git, now = Date.now } = {}) {
     lock: lockExists,
     changelog: { name: clName || 'CHANGELOG.md', exists: !!clName, style, hasEntry: R.hasEntry(clText, next.suggested) },
     next,
-    draft: { notes: R.draftBody(groups, style), date: R.dayOf(now()) },
+    draft: { notes: sections.length ? R.notesBody(sections, style) : R.draftBody(groups, style), date: R.dayOf(now()) },
+    notes: notes.map(n => n.name),
     changes, upstream, unpushedTag,
     prefix: last?.prefix ?? 'v',
   };
@@ -202,7 +228,7 @@ function writeKeeping(file, text, kept) {
 
 function putBack(kept) {
   for (const { file, was } of kept.reverse()) {
-    try { if (was === null) fs.rmSync(file, { force: true }); else fs.writeFileSync(file, was, 'utf8'); } catch { /* the error that brought us here says more */ }
+    try { if (was === null) fs.rmSync(file, { force: true }); else if (!isLink(file)) fs.writeFileSync(file, was, 'utf8'); } catch { /* the error that brought us here says more */ }
   }
 }
 
@@ -227,6 +253,8 @@ async function cutRelease(root, opts, deps) {
   const taken = await git(root, ['rev-parse', '--verify', '--quiet', `refs/tags/${tag}`], { timeout: READ_MS });
   if (taken.ok) return fail(`There's already a tag called ${tag}.`);
 
+  // The entry is capped, and the notes go once it's written: nothing of them may be cut off.
+  if (String(opts.notes || '').trim().length > R.NOTES_MAX) return fail(`The CHANGELOG entry is longer than ${R.NOTES_MAX} characters. Shorten it first.`);
   const title = R.cleanTitle(opts.title);
   const kept = [];
   const files = [];
@@ -252,6 +280,15 @@ async function cutRelease(root, opts, deps) {
     }
     // A CHANGELOG entry you (or Claude) already wrote goes in as it is.
     if (state.changelog.exists || kept.some(k => k.file === clFile)) files.push(state.changelog.name);
+    // The change notes are in the entry now (or in the one you wrote), so this release uses them up.
+    for (const name of state.notes) {
+      const file = path.join(root, ...name.split('/'));
+      const was = readText(file);
+      if (was === null) continue;
+      kept.push({ file, was });
+      fs.rmSync(file);
+      files.push(name);
+    }
   } catch (e) {
     putBack(kept);
     return fail(`Couldn't write the release files: ${e.message}`);
@@ -260,14 +297,14 @@ async function cutRelease(root, opts, deps) {
   // Release files you changed by hand (a bumped package.json, say) go in the commit too.
   for (const f of state.changes.release) if (!files.some(x => x.toLowerCase() === f.toLowerCase())) files.push(f);
   const message = R.commitMessage({ version, tag, title });
-  const add = await git(root, ['add', '--', ...files], { timeout: READ_MS });
+  const add = await git(root, ['--literal-pathspecs', 'add', '--', ...files], { timeout: READ_MS });
   if (!add.ok) { putBack(kept); return fail(`Couldn't stage the release files: ${firstLine(add.error)}`); }
   // Everything already committed (a release prepared by hand, never tagged): just tag it.
   const staged = await git(root, ['diff', '--cached', '--quiet'], { timeout: READ_MS });
   if (!staged.ok) {
     const commit = await git(root, [...NO_HOOKS, 'commit', '--quiet', '-m', message], { timeout: 60000 });
     if (!commit.ok) {
-      await git(root, ['reset', '--quiet', '--', ...files], { timeout: READ_MS });
+      await git(root, ['--literal-pathspecs', 'reset', '--quiet', '--', ...files], { timeout: READ_MS });
       putBack(kept);
       return fail(`Couldn't commit the release: ${firstLine(commit.error) || 'git refused.'}`);
     }

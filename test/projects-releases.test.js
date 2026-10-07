@@ -106,6 +106,35 @@ test('the draft lists what people would notice, in the style\'s words', () => {
   assert.match(R.draftBody(groups, 'keepachangelog'), /^### Added\n/);
 });
 
+test('change notes join into one section per heading, in the release\'s order, whatever words they used', () => {
+  const sections = R.parseNotes([
+    { name: 'a.md', text: '- Loose bullet.\n### Fixed\n- One.\r\n\n### Security\n- Tokens stay put.\n' },
+    { name: 'b.md', text: '## Added\n- **New thing.**\n  with a second line\n### Fixes\n- Two.\n' },
+  ]);
+  assert.deepEqual(sections.map(s => s.id), ['feat', 'fix', 'other', 'own']);
+  assert.equal(R.notesBody(sections, 'titled'),
+    '### New\n- **New thing.**\n  with a second line\n\n### Fixed\n- One.\n- Two.\n\n### Changed\n- Loose bullet.\n\n### Security\n- Tokens stay put.');
+  assert.match(R.notesBody(sections, 'keepachangelog'), /^### Added\n/);
+  assert.deepEqual(R.parseNotes([{ name: 'x.md', text: '\n\n' }]), []);
+});
+
+test('a note\'s own headings match whatever their case, and its # title is left out', () => {
+  const sections = R.parseNotes([
+    { text: '# Toast fixes\n### Removed\n- The old toast.' },
+    { text: '### removed\n- The older toast.' },
+  ]);
+  assert.deepEqual(sections, [{ id: 'own', name: 'Removed', lines: ['- The old toast.', '- The older toast.'] }]);
+});
+
+test('a note with something new makes a patch a minor, and never lowers a bigger bump', () => {
+  const added = R.parseNotes([{ text: '### New\n- A.\n- B.' }]);
+  assert.deepEqual(R.withNotesBump({ bump: 'patch', why: 'fixes and upkeep only' }, added), { bump: 'minor', why: '2 new in the change notes' });
+  const major = { bump: 'major', why: '1 breaking change' };
+  assert.equal(R.withNotesBump(major, added), major);
+  const fixes = { bump: 'patch', why: 'x' };
+  assert.equal(R.withNotesBump(fixes, R.parseNotes([{ text: '### Fixed\n- A.' }])), fixes);
+});
+
 test('headings: titled with a title, Keep a Changelog with the date', () => {
   assert.equal(R.heading({ style: 'titled', version: '0.71.0', title: 'Releases', date: '2026-10-06' }), '## 0.71.0: Releases');
   assert.equal(R.heading({ style: 'titled', version: '0.71.0', title: '  ', date: '2026-10-06' }), '## 0.71.0');
