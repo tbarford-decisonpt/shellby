@@ -130,7 +130,9 @@ html, body {
 .part-claw { transform-origin: 0% 50%; }
 
 /* ---------- idle: breathe, blink, the odd claw snap ---------- */
-.state-idle #sprite { animation: breathe 3.2s ease-in-out infinite; }
+/* The breathe goes a whole pixel at a time, so it draws four frames a breath
+   rather than one every tick (shared/framecap.js only moves what changes). */
+.state-idle #sprite { animation: breathe 3.2s steps(2) infinite; }
 .state-idle .part-eyes { animation: blink 6s steps(1) infinite; }
 .state-idle .part-claw { animation: snap-idle 9s ease-in-out infinite; }
 #crab:hover #sprite { animation: perk .5s ease-out; }

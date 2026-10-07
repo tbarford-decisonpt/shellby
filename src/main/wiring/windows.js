@@ -2,7 +2,7 @@
 // keeping them cheap while nobody can see them (idle cost), and staying on top
 // of your apps.
 // Kept out of main.js, which only wires it up.
-const { BrowserWindow, powerMonitor, screen } = require('electron');
+const { app, BrowserWindow, powerMonitor, screen } = require('electron');
 const path = require('path');
 const { createClimbing } = require('../climbing');
 const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop-layer');
@@ -330,6 +330,10 @@ function wireWindows(d) {
   // ordinary window: the poll is two seconds, and a crab missing from the desktop
   // that long after you minimize something would be noticed.
   const COVER_POLL_MS = 2000;
+  // scripts/idle-cost.js --awake: the panel as if focused and nothing in front of
+  // either window, so the worst case can be measured without taking focus from
+  // whatever you're doing (a game, say). Dev runs only.
+  const IDLE_AWAKE = !app.isPackaged && process.env.SHELLBY_IDLE_AWAKE === '1';
   let hidden = { crab: false, game: false, underGame: false, panelUnderGame: false };
   let calmSent = '';
   let critterReady = false;
@@ -403,6 +407,7 @@ function wireWindows(d) {
     if (onTopNow() !== layerOnTop) applyLayer();
   }
   function watchIdleCost() {
+    if (IDLE_AWAKE) return; // measuring the worst case: never calm, never covered
     d.panel.on('blur', () => setCalm(d.calmReason === 'locked' ? 'locked' : 'blur'));
     d.panel.on('focus', () => setCalm(d.calmReason === 'locked' ? 'locked' : null));
     for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
