@@ -90,3 +90,38 @@ test('starting over leaves a reset marker for sync, not nothing', async () => {
   assert.deepEqual(await b.forget(), { ok: true });
   assert.ok(data.bugdex.resetAt > 0);
 });
+
+test('a red build is a battle: reads and edits wear it down, a helper joins, and the fix knocks it out', async () => {
+  const root = require('path').resolve(__dirname, '..'); // a real repo, for projectOf
+  const { d, sent } = fakeMain();
+  const beats = [];
+  Object.assign(d, {
+    stat() {}, noteWeek() {}, awardXp() {}, notify() {}, life: { presentJar() {} }, critter: {}, outfit: () => ({ confetti: null }), noteRecap() {},
+    projects: { localRepos: async () => [{ root, remote: 'x/y' }] },
+    manager: { tabs: new Map([['t1', { session: { cwd: root } }]]) },
+    crewRoster: { member: type => ({ type, name: 'Pinchy', hue: 145, level: 3, specialty: 'ci' }), beat: (types, bugType) => beats.push({ types, bugType }) },
+  });
+  const b = wireBugdex(d);
+  const pr = { key: 'x/y#7', repo: 'x/y', failing: ['test'] };
+  await b.ciFailed(pr);
+  let [fight] = b.battles();
+  assert.equal(fight.species, 'red-tide');
+  assert.equal(fight.hp, fight.max);
+  assert.equal(fight.moves[0].line, 'A wild Red Tide appeared!');
+  await b.tool('t1', { kind: 'tool', name: 'Read' });
+  await b.tool('t1', { kind: 'tool', name: 'Edit', filePath: `${root}/x.js` });
+  await b.tool('t1', { kind: 'tool', name: 'Read', sub: true, parent: 'p1' }); // a helper's own read: not a move
+  await b.assist('t1', 'Explore');
+  [fight] = b.battles();
+  assert.deepEqual(fight.moves.map(m => m.move), ['appear', 'scout', 'patch', 'assist']);
+  assert.equal(fight.moves[3].fx, 'super'); // its specialty is CI
+  assert.ok(fight.hp < fight.max && fight.hp > 0);
+  assert.deepEqual(fight.party.map(p => p.name), ['Pinchy']);
+  b.ciEngaged(pr.key);
+  await b.ciFixed(pr);
+  [fight] = b.battles();
+  assert.equal(fight.over, 'caught');
+  assert.deepEqual(fight.moves.slice(-2).map(m => m.fx), ['ko', 'caught']);
+  assert.deepEqual(beats, [{ types: ['Explore'], bugType: 'ci' }]);
+  assert.ok(sent.some(m => m.channel === 'bugdex:caught' && m.payload.battle));
+});

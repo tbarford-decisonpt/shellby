@@ -53,6 +53,7 @@ function wireCrew(d) {
       tokens: t.usage?.tokens, toolUses: t.usage?.toolUses, durationMs: t.usage?.durationMs ?? (Date.now() - t.startedAt),
     }, Date.now()), before);
     if (!ok) return;
+    d.bugdex?.assist(tabId, t.subagentType); // it jumps into the bug battles there (bugdex/battle.js)
     const list = awaiting.get(tabId) || [];
     awaiting.delete(tabId); // re-added last: the oldest tabs go first past the limit
     awaiting.set(tabId, [...list, { type: t.subagentType, taskId: t.taskId, carried: !tab.session.busy }].slice(-20));
@@ -154,7 +155,16 @@ function wireCrew(d) {
     return view();
   }
 
-  return { dress, onItem, rename, setHat, view };
+  /** One member's look and level (and its bug specialty), or null. */
+  const member = type => roster.memberOf(state(), type);
+
+  /** These members helped beat a bug of this type. */
+  function beat(types, bugType) {
+    const before = state();
+    save(roster.recordBeat(before, types, bugType), before);
+  }
+
+  return { dress, onItem, rename, setHat, view, member, beat };
 }
 
 module.exports = { wireCrew };

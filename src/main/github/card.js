@@ -5,11 +5,14 @@
 // proudest of. Nothing else goes in it: no stats, no history. Stickers are only colour patches unless you choose to share their
 // names (stickers.js forCard), and never the projects you've hidden. His tank
 // is on it only if you share it, as built-in decor ids and where they stand (tank-share.js).
+// So is his Bugdex: which kinds of bug you've caught and how many badges, never
+// counts, projects or errors (bugdex.js shared).
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
 const { findGist } = require('./sync');
 const { cleanCardStickers } = require('../stickers');
 const { cleanCardTank } = require('../tank-share');
+const { cleanShared } = require('../bugdex');
 
 const CARD_FILE = 'shellby-card.json';
 const FORMAT = 1;
@@ -42,12 +45,13 @@ function cleanCard(raw) {
     temperament: TEMPERAMENTS.includes(r.temperament) ? r.temperament : null,
     find: typeof r.find === 'string' && FIND_RE.test(r.find) ? r.find : null,
     tank: cleanCardTank(r.tank),
+    bugdex: r.bugdex ? cleanShared(r.bugdex) : null,
     updatedAt: Number.isFinite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0,
   };
 }
 
 /** Just the look, for "did anything change since we last published?" */
-const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find, c.tank]); };
+const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find, c.tank, c.bugdex]); };
 
 const content = card => JSON.stringify({ ...cleanCard(card), note: "Shellby calling card: how this crab looks (and his tank, if shared), so friends' crabs can visit. Turn off Visiting crabs in Shellby to delete it." }, null, 1);
 

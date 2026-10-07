@@ -424,6 +424,8 @@ function createLife(d) {
     d.toCrab('critter:prop', { prop: 'jar', ms: JAR_MS, wobbles: j.wobbles || 1, ghost: !!j.ghost });
     later(700, () => d.toCrab('critter:hold', { pixels: j.pixels, palette: j.palette }));
     if (j.line) d.speak('found', { force: true, text: j.line });
+    // Its cry as the cork goes on (critter/sound.js CUES.cry).
+    if (j.cry) later(900, () => d.toCrab('critter:sound', { cue: 'cry', ...j.cry }));
     presentDone = () => {
       presentDone = null;
       presenting = null;

@@ -116,8 +116,8 @@ function wireSessions(d) {
         if (d.pendingCommands.size > 200) d.pendingCommands.delete(d.pendingCommands.keys().next().value);
       }
       if (item.kind === 'tool') d.onToolSpoken(item);
-      // Claude writing code: whatever bug is on the loose in that project is being worked on.
-      if (item.kind === 'tool' && item.filePath) d.bugdex?.wrote(tabId);
+      // Claude writing code (or reading round): whatever bug is on the loose in that project is being worked on, and fought.
+      if (item.kind === 'tool') d.bugdex?.tool(tabId, item);
       if (item.kind === 'tool_result' && d.pendingCommands.has(item.id)) {
         const c = d.pendingCommands.get(item.id);
         d.pendingCommands.delete(item.id);

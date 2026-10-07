@@ -1887,6 +1887,12 @@
         <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
         <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
         <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
+        <div class="sub-toggles" id="bugdexOptions">
+          <label class="toggle"><input type="checkbox" id="bugBattlesToggle"><span class="switch"></span>Bug battles: watch Claude take on each bug while it's loose</label>
+          <label class="toggle"><input type="checkbox" id="bugFollowerToggle"><span class="switch"></span>His favourite catch follows him round the desk</label>
+          <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
+          <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
+        </div>
         <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
         <div class="row wrap" id="checkEachTurnOptions">
           <label class="inline-label" for="checkTimeoutSelect">Give up after

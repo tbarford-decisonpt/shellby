@@ -328,7 +328,7 @@ function fingerprintsIn(output, { cmd = '', live = null } = {}) {
  * (external.js) both hand this over instead of the output.
  * -> null (it can't show anything) | {
  *      outcome: 'fail' | 'pass', key, keys, kind, hit (classify) | null,
- *      fps (on a pass: bugs it still prints), passed, conflictFiles,
+ *      fps (on a pass: bugs it still prints), passed, failed, conflictFiles,
  *      remedy, flee, resolve, fairPush, hookedCommit, passFlags }
  */
 function read({ cmd, output, isError, background = false, complete = true, live = null }) {
@@ -339,6 +339,7 @@ function read({ cmd, output, isError, background = false, complete = true, live 
     outcome, key: cmdKey(cmd), keys: matchKeys(cmd), kind: commandKind(cmd), hit,
     fps: outcome === 'pass' ? fingerprintsIn(output, { cmd, live }) : [],
     passed: passedCount(output),
+    failed: outcome === 'fail' ? failedCount(output) : null,
     conflictFiles: hit?.species === 'two-headed-crab' ? conflictFiles(output) : [],
     remedy: outcome === 'pass' ? remedyOf(cmd) : null,
     flee: outcome === 'pass' && isFlee(cmd),
@@ -360,6 +361,21 @@ function passedCount(output) {
   return null;
 }
 
+/**
+ * How many tests failed, when the runner says, else null: a bug battle's HP
+ * (bugdex/battle.js) goes down as this does. Only a "fail" count, never 0
+ * from a line that doesn't say.
+ */
+function failedCount(output) {
+  const text = windowOf(output).join('\n');
+  const pats = [/Tests:.*?(\d+) failed/, /^# fail (\d+)/m, /^ℹ fail (\d+)/m, /test result: FAILED\. \d+ passed; (\d+) failed/, /(\d+) failing\b/, /\b(\d+) failed\b/, /FAILED \(.*?(?:failures|errors)=(\d+)/];
+  for (const re of pats) {
+    const m = re.exec(text);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
 /** The files a git conflict named, as written (kept in memory only, for the check after). */
 function conflictFiles(output) {
   const files = new Set();
@@ -374,5 +390,5 @@ function conflictFiles(output) {
 module.exports = {
   TIER1, TIER2, TIER3, REMEDY,
   commandKind, gate, outcomeOf, matchKeys, remedyOf, isResolve, isFlee, isFairPush, isHookedCommit,
-  classify, stillShows, fingerprintsIn, read, fingerprint, normMessage, fileBase, windowOf, fullOutput, passedCount, conflictFiles,
+  classify, stillShows, fingerprintsIn, read, fingerprint, normMessage, fileBase, windowOf, fullOutput, passedCount, failedCount, conflictFiles,
 };

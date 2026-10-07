@@ -1,0 +1,84 @@
+// What the Bugdex learns about a bug as you keep catching it: a field note
+// (where it lurks and how it behaves) at stage II, and a trainer's tip (how
+// it's usually beaten) at stage III. Until then the entry says how many
+// more catches it'll take. Written for people, not parsed: no error text.
+//
+// Pure data. test/bugdex-species.test.js checks every species has both.
+
+const LORE = Object.freeze({
+  'shapeshifter-shrimp': ['Turns up right after data crosses a border: an API response, a form field, a parsed file.', 'Find where the value was born, not where it blew up. Check the shape at the border once.'],
+  nullfish: ['Loves the gap between "it loaded" and "it’s ready". Often swims in on a renamed field.', 'Ask why it’s empty before reaching for `?.`. A guard at the source beats ten at the edges.'],
+  'nameless-nudibranch': ['Hatches from typos, missing imports and code moved out from under a closure.', 'Read the name letter by letter. Then check what the file actually exports.'],
+  'syntax-slug': ['Leaves a trail from the last edit. It’s almost always within a few lines of the change.', 'Look one line above where it points. Unclosed brackets lie about where they end.'],
+  'off-by-one-octopus': ['Nests in loops with `<=`, slices, and anything counted from 1 by people and from 0 by code.', 'Try the empty list, one item, and the last item. One of them gives it away.'],
+  'ouroboros-eel': ['Two functions calling each other, or a setter that sets itself. It never gets tired.', 'Find the base case. If there isn’t one, the loop is the bug, not the depth.'],
+  'broken-promise-prawn': ['Hides in a missing `await` or a `.then` with no `.catch`. Surfaces long after it was made.', 'Await it or return it. A floating promise is a promise nobody is keeping.'],
+  'heap-leviathan': ['Grows on caches that never forget, listeners never removed and whole files read at once.', 'Measure before raising the limit. Stream it, page it, or let something go.'],
+  'shell-less-hermit': ['Moves when the working directory does. Relative paths are its favourite shell.', 'Resolve paths from the file, not from wherever the command ran. Check what really exists.'],
+  'locked-limpet': ['Clings to files owned by another user, read-only folders and Windows’ protected spots.', 'Ask why it needs that access. Writing somewhere it owns is better than more permissions.'],
+  'clingy-barnacle': ['Grows on Windows when an editor, a watcher or an antivirus has the file open.', 'Find who holds it. Close it properly, or retry briefly; don’t force-delete in a loop.'],
+  'mixed-up-mussel': ['Born when a path that used to be a folder became a file, or the other way round.', 'Check the path’s type before using it, and that nothing earlier made the wrong one.'],
+  'overstuffed-pufferfish': ['Feeds on build caches, Docker layers, logs and node_modules nobody remembers.', 'Find what grew. Clearing a cache fixes today; a size limit fixes next month.'],
+  'closed-clam': ['Waits where a service should be listening: a database not started, a wrong port, a typo’d host.', 'Is it running, on that port, on that address? Check all three before the code.'],
+  'port-squatter': ['Usually a dev server from yesterday that never closed, still sitting on the port.', 'Find the process on the port. Stop it on purpose, and make shutdown clean next time.'],
+  'slowpoke-snail': ['Slides in under slow networks, missing indexes and requests that wait on each other.', 'Find what it’s waiting for. A longer timeout only makes the wait official.'],
+  'snapped-line': ['Snaps when a server restarts mid-request, a proxy gives up or keep-alive runs out.', 'Retry what’s safe to retry, and make the server close connections politely.'],
+  'nameless-buoy': ['Bobs up on VPNs, typo’d hostnames and containers that can’t see each other.', 'Resolve the name by hand first. If that fails too, it’s the network, not the code.'],
+  'border-crab': ['Patrols between a front end on one port and an API on another.', 'Fix the allowed origins on the server. Turning CORS off in the browser fixes nothing.'],
+  'lost-parcel-crab': ['Follows renamed routes, missing trailing slashes and base URLs from another environment.', 'Print the exact URL it asked for. The mistake is usually right there in the address.'],
+  'meltdown-medusa': ['Its sting is on the server side, but often caused by what the client sent.', 'Read the server’s log, not just the status. The real error is one hop away.'],
+  'two-headed-crab': ['Both heads were working on the same few lines, on two branches, at once.', 'Understand both sides before picking one. Run the tests after; a clean merge can still be wrong.'],
+  'bounced-bottle': ['Bounces when the remote moved on while you were working, or a branch is protected.', 'Pull and rebase, then push. Force only with a lease, and never on a shared branch.'],
+  'gatekeeper-goby': ['Guards the commit door: lint, formatting, tests or a secret scan in a hook.', 'Do what the hook asks. Skipping it with --no-verify lets the goby down.'],
+  'lockfile-lobster': ['Left behind by a git command that crashed or was killed halfway.', 'Make sure no git is really running, then remove the lock. Not before.'],
+  'red-tide': ['Rolls in when CI runs something your machine doesn’t: a clean install, another OS, all the tests.', 'Read the first red step, not the last. Reproduce it locally the way CI runs it.'],
+  'matrix-hydra': ['One head bites: line endings, path separators, case-sensitive file names, shells.', 'Find what that one OS does differently. Paths and newlines are the usual suspects.'],
+  'sunken-deploy': ['Sinks on missing environment variables, build settings and things that only exist in production.', 'Compare the deploy’s environment with yours. The difference is the bug.'],
+  'stalled-galleon': ['Becalmed by a hung test, a prompt waiting for input or a network call with no timeout.', 'Find the step that never finished. Give it a timeout so the next one fails fast.'],
+  'the-kraken': ['Surfaces when one change breaks several checks at once. Usually one root cause, many tentacles.', 'Fix the first failure and re-run before touching the rest. Most tentacles let go together.'],
+  'stray-module-minnow': ['Swims off after a rename, a missing install or an import path one folder wrong.', 'Is it installed, spelled right and exported? Check in that order.'],
+  'tangled-tree-crab': ['Tangles when two packages want different versions of the same thing.', 'Read which two disagree. Upgrading one of them beats forcing the install.'],
+  'collapsed-castle': ['Falls when the build sees what the editor didn’t: a missing file, a bad import, a config.', 'Read the first error only. The rest are usually rubble from the first.'],
+  'lint-louse': ['Breeds in quick edits and copied code. Small, but it multiplies.', 'Fix the rule’s complaint, not the rule. A disable comment is a louse in hiding.'],
+  'beached-whale': ['Runs aground on a bad config, a missing env var or an error during startup.', 'Read the first lines it printed before it died. Startup errors don’t repeat themselves.'],
+  'old-salt': ['Only happy on the version it grew up with. Shows up on new machines and in CI.', 'Pin the version in the project (.nvmrc, engines, a toolchain file) so everyone agrees.'],
+  'mismatched-mantis': ['Punches when a value’s type changed upstream and a caller didn’t hear.', 'Fix the type where it changed, then let the checker walk you to every caller.'],
+  'missing-fin-pipefish': ['Swims in after a rename, a typo, or a union that doesn’t always have that field.', 'Narrow the type first, or fix the spelling. Casting it away hides the fin, it doesn’t grow one.'],
+  'undeclared-urchin': ['Grows on packages without types, and on imports of files the checker can’t see.', 'Install the @types package, or write a small declaration. `any` is a spine in your foot.'],
+  'anything-anemone': ['Spreads wherever a parameter or a JSON parse was never given a type.', 'Give it the real type, even a rough one. `unknown` plus a check beats `any`.'],
+  'optional-oarfish': ['Trails behind optional fields and lookups that might come back empty.', 'Handle the empty case on purpose. A `!` only tells the checker to stop asking.'],
+  'hinted-hermit': ['Lives where the hints say one thing and the code returns another.', 'Decide which is right, the hint or the code, and make the other match.'],
+  'type-tangle': ['Knots form when generics, unions and inference meet. The message is long; the cause is short.', 'Read the last line of the error first. That’s usually the actual mismatch.'],
+  'keyless-krill': ['Goes looking for keys in dicts built from data that doesn’t always have them.', 'Use `.get()` with a default when it may be missing, or check the data where it comes in.'],
+  'wonky-whelk': ['Curls up in files edited in two editors, or code pasted from somewhere else.', 'Pick spaces, convert the file once, and let the formatter keep it that way.'],
+  'circular-sea-snake': ['Coils when two modules import each other at the top of the file.', 'Move the shared part into a third module, or import inside the function that needs it.'],
+  'attribute-anglerfish': ['Lures you with an object that isn’t what you think: None, a dict, the wrong class.', 'Print its type where it fails. The lure is usually a None from three calls earlier.'],
+  'off-value-oyster': ['Holds a pearl of the right type and the wrong value: a bad string to int, an empty list unpacked.', 'Validate where the value comes in, so the error names the input, not the arithmetic.'],
+  'zero-dab': ['Lies flat in averages, percentages and rates over empty sets.', 'Decide what the answer should be with nothing to divide, and say so in the code.'],
+  'borrowing-hermit': ['Tries to hold a reference while something else changes the value.', 'Shorten the borrow: finish reading before you write. A `.clone()` is honest when it’s cheap.'],
+  'rusty-nautilus': ['Compiles eventually, after it’s told you everything that’s wrong, in order.', 'Fix the errors top to bottom. The compiler’s suggestions are usually right.'],
+  'panicked-prawn': ['Panics at an `unwrap()` on a None or an Err nobody expected.', 'Return the error with `?`, or handle the None. Save `unwrap()` for things that truly can’t fail.'],
+  'nil-gopherfish': ['Points at a nil map, a nil interface or a struct that was never made.', 'Check the error before using the value it came with. That’s where most nils start.'],
+  'knotted-eels': ['Two locks taken in opposite orders, or a channel nobody is reading.', 'Take locks in one order everywhere, and make sure every send has a receiver.'],
+  'segfault-squid': ['Inks the water after a freed pointer, an overrun buffer or a mismatched native module.', 'Run it under a sanitizer or a debugger. For native modules, rebuild for this runtime first.'],
+  'red-snapper': ['Red right after a change that did what the test didn’t expect.', 'Decide whether the test or the code is right. Then change only that one.'],
+  'assertive-lobster': ['Points at the exact difference between expected and received. It wants you to read it.', 'Read the diff it prints, slowly. The bug is in the first line that differs.'],
+  'mirror-mullet': ['Appears when output changes: a new field, a reordered list, a date that isn’t fixed.', 'Check the change is wanted before updating the snapshot. A re-record isn’t a fix.'],
+  'leaky-clam': ['Opens up in config files, test fixtures and scripts written in a hurry.', 'Move it to an env var or a secret store, and rotate it if it ever left your machine.'],
+  'barnacled-anchor': ['Builds up on dependencies nobody has updated in a while.', 'Update the package that pulls it in. Check the changelog for breaking changes first.'],
+  'cert-cuttlefish': ['Flashes on corporate proxies, self-signed dev certs and clocks that are wrong.', 'Trust the right certificate. Turning verification off just lets anything in.'],
+  'flaky-phantom': ['Haunts tests that depend on timing, order, shared state or the network.', 'Make it fail every time first: same seed, same order, a slow machine. Then it’s just a bug.'],
+  heisenbug: ['Vanishes under a debugger and returns in CI. Timing is its whole personality.', 'Log instead of breakpoint, and look for anything that depends on when, not what.'],
+  'race-wraith': ['Two threads touch the same value with nothing between them.', 'Guard shared state with a lock or a channel, or stop sharing it. The race detector shows where.'],
+  'cache-ghoul': ['Lives in build caches, stale lockfiles and a browser that remembers too much.', 'Clear the cache once to prove it, then fix why it went stale.'],
+  'zombie-process': ['Left behind when a parent crashed or a terminal closed without stopping its children.', 'Stop it on purpose, and make sure whatever starts it also stops it.'],
+  missingno: ['It isn’t in any habitat. It isn’t in any book. Nobody is sure what it is.', 'There is no tip. It will find you.'],
+});
+
+/** { note, tip } for a species, or null. */
+function loreOf(id) {
+  const l = Object.hasOwn(LORE, id) ? LORE[id] : null;
+  return l ? { note: l[0], tip: l[1] } : null;
+}
+
+module.exports = { LORE, loreOf };

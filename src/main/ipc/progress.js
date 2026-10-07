@@ -140,6 +140,12 @@ function registerProgressIpc(ipcMain, d) {
   ipcMain.handle('bugdex:favourite', (_e, id) => (speciesId(id) === undefined ? d.bugdex.view() : d.bugdex.setFavourite(id)));
   ipcMain.on('bugdex:open-tab', (_e, tabId) => { if (typeof tabId === 'string' && tabId.length <= 80) d.bugdex.openTab(tabId); });
   ipcMain.handle('bugdex:forget', () => d.bugdex.forget());
+  // Bug battles: what's being fought, and the sounds the battle screen asks him to make.
+  ipcMain.handle('bugdex:battles', () => (d.bugdex.on() && d.config.get('bugBattles') !== false ? d.bugdex.battles() : []));
+  ipcMain.on('bugdex:cue', (_e, name, opts) => {
+    if (typeof name !== 'string' || name.length > 20) return;
+    d.bugdex.cue(name, { species: typeof opts?.species === 'string' ? opts.species.slice(0, 40) : null });
+  });
   ipcMain.handle('week:get', () => d.weekView());
 
   // ---- time on each project (timetrack-service.js). Everything from the panel is checked here.

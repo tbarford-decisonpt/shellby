@@ -420,6 +420,10 @@ contextBridge.exposeInMainWorld('shellby', {
   onBugdex: on('bugdex'),
   onBugdexCaught: on('bugdex:caught'),
   onBugdexFocus: on('bugdex:focus'),
+  getBugBattles: invoke('bugdex:battles'),
+  bugdexCue: fire('bugdex:cue'),
+  onBugBattles: on('bugdex:battles'),
+  onBugdexGift: on('bugdex:gift'),
   // the flaky test detective (flaky.js)
   getFlaky: invoke('flaky:get'),
   flakyAct: invoke('flaky:act'),

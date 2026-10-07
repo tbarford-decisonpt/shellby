@@ -170,3 +170,15 @@ test('read: a reading carries no text, only what the Bugdex needs', () => {
   const still = d.read({ cmd: 'node src/user.js', output: NODE_NULL, isError: false });
   assert.ok(still.fps.includes(fail.hit.fp), 'a pass still printing the bug lists it');
 });
+
+test('failedCount reads how many tests failed, from the usual runners', () => {
+  const { failedCount } = require('../src/main/bugdex/detect');
+  assert.equal(failedCount('Tests:       2 failed, 10 passed, 12 total'), 2);
+  assert.equal(failedCount('# tests 9\n# pass 6\n# fail 3'), 3);
+  assert.equal(failedCount('ℹ fail 4'), 4);
+  assert.equal(failedCount('test result: FAILED. 8 passed; 1 failed; 0 ignored'), 1);
+  assert.equal(failedCount('  5 passing\n  2 failing'), 2);
+  assert.equal(failedCount('===== 3 failed, 40 passed in 1.2s ====='), 3);
+  assert.equal(failedCount('FAILED (failures=2, errors=1)'), 2);
+  assert.equal(failedCount('TypeError: x is not a function'), null);
+});

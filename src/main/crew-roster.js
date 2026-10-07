@@ -15,7 +15,11 @@ const WHAT_MAX = 120;
 const MAX_LEVEL = 99;
 // level = 1 + floor(sqrt(xp / XP_STEP)): early levels come quick, later ones slow.
 const XP_STEP = 12;
-const XP = Object.freeze({ completed: 10, failed: 2, actedOn: 15 });
+const XP = Object.freeze({ completed: 10, failed: 2, actedOn: 15, beat: 8 });
+// Bug battles (bugdex/battle.js): a member who helped beat this many bugs of
+// one type is that type's specialist, and super effective against it.
+const SPECIALTY_AT = 3;
+const BUG_TYPES = new Set(Object.keys(require('./bugdex/species').TYPES));
 
 // Hats a crew member earns by its own level (wardrobe ids from base.pack.json).
 const HAT_LADDER = Object.freeze([
@@ -90,6 +94,8 @@ function cleanMember(type, m) {
     tokens: count(o.tokens), toolUses: count(o.toolUses), durationMs: count(o.durationMs),
     joinedAt: time(o.joinedAt), lastAt: time(o.lastAt),
     recent: cleanRecent(o.recent),
+    // Bugs it helped beat, by bug type.
+    beat: Object.fromEntries(Object.entries(o.beat && typeof o.beat === 'object' ? o.beat : {}).filter(([k, v]) => BUG_TYPES.has(k) && count(v)).map(([k, v]) => [k, count(v)])),
   };
 }
 
@@ -198,7 +204,32 @@ function setHat(state, type, hat) {
 
 // ---------------------------------------------------------------- levels and hats
 
-const xpOf = m => count(m.completed) * XP.completed + count(m.failed) * XP.failed + count(m.actedOn) * XP.actedOn;
+const beatenOf = m => Object.values(m.beat || {}).reduce((n, v) => n + count(v), 0);
+const xpOf = m => count(m.completed) * XP.completed + count(m.failed) * XP.failed + count(m.actedOn) * XP.actedOn + beatenOf(m) * XP.beat;
+
+/** The bug type a member has beaten most (at least SPECIALTY_AT of), or null. Ties go to the first type in order. */
+function specialtyOf(member) {
+  const best = Object.entries(member?.beat || {}).filter(([k]) => BUG_TYPES.has(k)).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  return best && best[1] >= SPECIALTY_AT ? best[0] : null;
+}
+
+/**
+ * A bug was caught with these members' help (they assisted in its battle):
+ * each gets it on its record. types: agent types; bugType: the bug's type.
+ */
+function recordBeat(state, types, bugType) {
+  if (!BUG_TYPES.has(bugType)) return state;
+  const s = normalize(state);
+  let members = s.members;
+  let changed = false;
+  for (const t of new Set((types || []).map(typeKey))) {
+    if (!Object.hasOwn(members, t)) continue;
+    const m = members[t];
+    members = { ...members, [t]: { ...m, beat: { ...m.beat, [bugType]: (m.beat[bugType] || 0) + 1 } } };
+    changed = true;
+  }
+  return changed ? { members } : state;
+}
 const floorXp = level => XP_STEP * (level - 1) ** 2;
 
 function levelForXp(xp) {
@@ -234,6 +265,7 @@ function memberView(m) {
     hats: hatsEarned(lv.level),
     nextHat: next ? { level: next[0], id: next[1] } : null,
     hue: hueFor(m.type),
+    beaten: beatenOf(m), specialty: specialtyOf(m),
   };
 }
 
@@ -265,5 +297,5 @@ function levelUps(before, after) {
 module.exports = {
   MAX_MEMBERS, RECENT_KEPT, TYPE_MAX, NAME_MAX, MAX_LEVEL, XP, HAT_LADDER, TITLES,
   normalize, typeKey, nameFor, enlist, recordRun, actedOn, rename, setHat,
-  xpOf, levelForXp, hatsEarned, hatFor, view, memberOf, levelUps,
+  xpOf, levelForXp, hatsEarned, hatFor, view, memberOf, levelUps, SPECIALTY_AT, specialtyOf, recordBeat,
 };

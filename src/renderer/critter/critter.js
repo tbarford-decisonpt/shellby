@@ -752,7 +752,7 @@ api.onBit(msg => {
 // ---- a little chirp when he speaks, a ta-da for a big moment (off by default;
 // see chirp.js and sound.js). Main decides whether; this only plays.
 api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
-api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(msg.cue); });
+api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(msg.cue, { data: msg }); });
 
 // ---- the screen is locked (or the machine is suspending): stop animating.
 // He is on the wallpaper, so he animates all day; while the screen is off there
