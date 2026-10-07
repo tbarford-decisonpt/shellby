@@ -87,7 +87,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/ui-regressions.js` | Closing the last tab leaves one tab; themed tooltips replace the OS ones; dragging a tab; keyboard only: switching tabs, the Ctrl+/ list, the palette's actions, where focus lands, Ctrl+W on a working tab |
 | `node scripts/titlebar-fit.js` | Checks the title bar fits at every panel width in every permission mode |
 | `node scripts/wardrobe-shots.js` | Screenshots the Outfits screen and the desktop crab in his current outfit, and reports renderer errors |
-| `node scripts/idle-cost.js [seconds] [--unfocused]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
+| `node scripts/idle-cost.js [seconds] [--unfocused \| --awake] [--closed]` | What he costs while doing nothing, per process: CPU as a share of one core, and resident memory. Run it before and after anything touching animation or timers (see the budget below) |
 | `npm run perf` | The performance budget, ~4 min, run by CI as its own job: cold start, crab click to panel shown, Shellby's own share of the wait for Claude's first word, idle CPU (panel closed, and open behind a window) and memory, each held against `scripts/perf-budgets.js`. Prints a table, writes `perf-result.json` (CI keeps it as an artifact), and fails when a number is over budget twice running. `--only cold,latency,idle`, `--cold N`, `--samples N`, `--settle S`, `--idle S`, `--out file` |
 | `node scripts/zorder-probe.js` | Shows where the running critter sits in the window stack and whether it's owned by the desktop |
 | `node scripts/e2e-perch.js [dir]` | Perching against a real Notepad (needs a desktop, so not in CI): the hop up, ownership and click-through, riding a slow drag, shaken off dizzy, the window closing under him, the walk home, Hop down. Screenshots each beat. If a fullscreen window covers his screen, give him another: `SHELLBY_E2E_HOME=x,y` (DIPs) |
@@ -126,17 +126,45 @@ Read it before committing it.
 
 He is on the wallpaper all day, so this is the number that decides whether a
 laptop user keeps him. Measure with `node scripts/idle-cost.js`, which reports a
-share of **one core** (so 100% is one core saturated).
+share of **one core** (so 100% is one core saturated). `--closed` never opens
+the panel; `--awake` keeps him and the panel as if focused and uncovered
+(`SHELLBY_IDLE_AWAKE`) without taking focus from anything, so it's safe with a
+game up. Never `--unfocused` while someone is playing: it starts Notepad in front.
+
+Ryzen 9 3950X, October 2026 (all processes added up, no debugger, medians of
+interleaved runs on a shared, busy desktop: expect ±1 point):
 
 | State | CPU | Resident |
 |---|---|---|
-| Panel closed, just the crab | ~1% | ~450 MB |
-| Panel open, another window in front | ~37% | ~560 MB |
-| Panel open and focused | ~75% | ~580 MB |
+| Panel closed, crab visible, no seasonal outfit | ~1.5–3% | ~500 MB |
+| Panel closed, crab visible, the October bats | ~3–4% | ~500 MB |
+| Panel open behind your windows, no outfit | ~0.5–0.8% (crab and panel both calm or covered) | ~490 MB |
+| Panel open and focused, no outfit | ~4% | ~500 MB |
+| Nobody at the desk for 5 minutes (any outfit) | ~0.1% | ~490 MB |
 
-Nearly all of it is CSS animation: with every animation off it drops to **0.4%**.
-Roughly 39 points are the critter window, 14 the panel's drifting caustics, 11
-the breathing crab in the empty state.
+Before this round (0.71.0) the crab alone was ~7% and a panel opened behind
+your windows ~3.8%; the 37% / 75% of earlier releases went with the 12 fps
+frame clock. Not counted above, because they aren't electron.exe: every
+child process he starts. Until 0.71 that was `reg.exe` every 20 s (~330 ms of
+CPU each, the microphone check) and `nvidia-smi` every 5 s (~50 ms each), about
+2.6% of a core between them; now the registry is read in place and nvidia-smi
+runs every 15 s while all is well and the panel is closed (~0.35%).
+
+Where the rest goes: nearly all of it is the GPU process presenting frames of
+the transparent crab window, roughly 0.5% of a core per frame per second. So
+the work is in drawing fewer frames, not cheaper ones:
+
+- **shared/framecap.js** ticks 12 times a second but only moves an animation
+  when that tick changes the picture (it reads the keyframes once). A loop that
+  eases the whole way round (the bats' orbit, a working hop) still draws every
+  tick; one that steps (the idle breathe, blink and claw snap) draws a few
+  frames a cycle. Prefer `steps()` for anything that runs all day.
+- **Particle effects** (the seasonal bats are on by default in October) are
+  continuous and cost ~2 points while he's visible. They stop with everything
+  else when he's covered, the screen is locked, or nobody is at the desk.
+- **Away**: no key or mouse for five minutes (`powerMonitor.getSystemIdleTime`,
+  in the cover poll in wiring/windows.js) is treated like being covered.
+  Isolated dev and test runs never count as away unless `SHELLBY_AWAY_S` is set.
 
 The `calm` and `calm-deep` classes (see panel.css and `watchIdleCost` in wiring/windows.js)
 drop the decorative animations when the panel isn't focused, and everything when
@@ -149,9 +177,13 @@ the screen is locked. Two findings worth keeping if you touch this:
   renderer and compositor awake; it turns 1% into 80% and will send you chasing
   the wrong thing.
 
-What remains is the cost of animating sprites built from ~145 `<rect>` elements
-at the full refresh rate of the display, which needs a different approach to
-sprite animation (pre-rendered frames, or a canvas) rather than tuning.
+- **Calm has to survive a repaint.** critter.js rebuilds the body's classes on
+  every state push, so `calm-deep` is part of that list (`stillNow`), not a
+  class toggled on the side.
+
+Redrawing the sprite as a canvas or pre-rendered frames was the plan here, but
+the SVG isn't what costs: the renderer is ~0.1–0.5% of a core, and the price is
+per presented frame, whatever draws it. Fewer frames was the win.
 
 ### The budget CI holds him to
 
@@ -166,8 +198,8 @@ number comes from:
 | Cold start to the panel booted | 10 s | 1.1–1.5 s |
 | Crab clicked to the panel shown and painted | 500 ms | ~20 ms (the very first open, ~1.2 s, is reported but not judged) |
 | Shellby's share of the wait for Claude's first word | 600 ms | ~90 ms |
-| Idle CPU, panel closed | 25% of a core | 1–11% |
-| Idle CPU, panel open behind a window | 60% of a core | 5–37% |
+| Idle CPU, panel closed | 25% of a core | 1.5–5% (more with a particle outfit on) |
+| Idle CPU, panel open behind a window | 60% of a core | 0.5–6% (the same) |
 | Memory, panel closed / open | 900 / 1000 MB | ~500 MB |
 
 They're loose on purpose: CI's runners have a few slow cores, no GPU and reduced

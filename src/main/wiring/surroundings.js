@@ -159,7 +159,13 @@ function wireSurroundings(d) {
     && !d.perching?.isAway() && !focus.guarding(d.config.get('focus'), Date.now());
 
   // Who has the microphone, from Windows' own list (surroundings.js reads it).
-  const readMic = key => new Promise((resolve, reject) => {
+  // Read in place (native-windows.js regQwords, a few ms); reg.exe only if that
+  // can't, since it costs ~300 ms of CPU a time, every 20 seconds.
+  const readMic = key => {
+    const text = native.regQwords(key, ['LastUsedTimeStart', 'LastUsedTimeStop']);
+    return text != null ? Promise.resolve(text) : readMicWithReg(key);
+  };
+  const readMicWithReg = key => new Promise((resolve, reject) => {
     require('child_process').execFile('reg', ['query', key, '/s'], { windowsHide: true, timeout: 5000, maxBuffer: 2 * 1024 * 1024 }, (err, out) => (err ? reject(err) : resolve(String(out))));
   });
 

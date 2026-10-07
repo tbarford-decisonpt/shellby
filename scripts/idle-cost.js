@@ -2,16 +2,15 @@
 // He sits on the wallpaper layer all day, so idle CPU is the number that decides
 // whether a laptop user keeps him.
 //
-//   node scripts/idle-cost.js [seconds] [--unfocused]        default 60
+//   node scripts/idle-cost.js [seconds] [--unfocused | --awake] [--closed]   default 60
 //
 // Default: the panel open and in front, which is the worst case.
 // --unfocused: the panel open with another window in front — the common case,
 // and the one the `calm` class in panel.css is for. Expect about half.
 //
-// There is no "panel hidden" mode: nothing can close the panel from out here
-// without attaching a debugger, and a debugger keeps the renderer awake and
-// inflates every number it touches (that mistake cost an afternoon). For the
-// hidden figure, close the panel by hand and watch Task Manager — it is ~1%.
+// Never attach a debugger to measure: it keeps the renderer awake and inflates
+// every number it touches (that mistake cost an afternoon). --closed starts an
+// onboarded profile instead, so the panel is never opened.
 //
 // Launches a dev Shellby on a throwaway profile, lets it settle, then samples
 // the whole process tree's CPU time and working set over the window. Reports
@@ -29,6 +28,11 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const SECONDS = Number(process.argv.find(a => /^\d+$/.test(a))) || 60;
 const UNFOCUSED = process.argv.includes('--unfocused');
+// --awake: the panel as if focused and nothing covering him (SHELLBY_IDLE_AWAKE,
+// wiring/windows.js), without taking focus from anything: safe with a game up.
+// --closed: an onboarded profile, so the panel never opens: just the crab.
+const AWAKE = process.argv.includes('--awake');
+const CLOSED = process.argv.includes('--closed');
 const SETTLE_MS = 20000; // startup, the first health sample and the skin build are not "idle"
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -48,6 +52,10 @@ function gpuBusy(byPid, seconds) {
 
 (async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-idle-'));
+  if (CLOSED) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ onboarded: true }));
+  const env = { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js') };
+  if (AWAKE) env.SHELLBY_IDLE_AWAKE = '1';
+  else if (!CLOSED) env.SHELLBY_FOREGROUND = '1';
   // No --remote-debugging-port on purpose: an attached DevTools client keeps the
   // renderer and compositor awake, which showed up as 80% of a core and sent an
   // earlier version of this script chasing animations that were never the cost.
@@ -55,13 +63,14 @@ function gpuBusy(byPid, seconds) {
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT], {
     stdio: 'ignore',
     // A dev run opens the panel behind your windows (main.js openBehind), and an
-    // unfocused panel is calm: without this, "in front" measured the calm panel.
-    env: { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FOREGROUND: '1' },
+    // unfocused panel is calm: without SHELLBY_FOREGROUND, "in front" measured the calm panel.
+    env,
   });
-  console.log(`pid ${app.pid}, profile ${profile}, panel open and ${UNFOCUSED ? 'behind another window' : 'in front'}`);
+  const what = CLOSED ? 'closed' : AWAKE ? 'open, kept awake' : `open and ${UNFOCUSED ? 'behind another window' : 'in front'}`;
+  console.log(`pid ${app.pid}, profile ${profile}, panel ${what}`);
   let thief = null;
   try {
-    if (UNFOCUSED) {
+    if (UNFOCUSED && !AWAKE && !CLOSED) {
       // Something else takes focus, leaving the panel open but not in front:
       // notepad is small, always present, and costs nothing itself.
       await wait(6000);
