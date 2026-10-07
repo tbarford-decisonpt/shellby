@@ -1,0 +1,8 @@
+### New
+- **He lives in his tank now.** While you watch the Tank, he uses what you've put in it: he hides in the castle and peeks out of the window, sits on rocks and the chest, clambers over the driftwood, nibbles the plants, checks inside the chest (nothing, again), pops out of the sunken ship's porthole, and at night tucks himself into his cave with a few z's. The one he uses most becomes his favourite, named under the tank's title, and it's where he sits when motion is turned down.
+- **New pieces get a proper look.** Put something in and he scuttles straight over to inspect it, and says something about it on your desktop ("a rock cave! for me?"). The first piece you give him goes in your journal on the Us page.
+- **Moving day.** Move him into a bigger tank than he's ever had and the pieces hop across one by one before he scuttles in last. That goes in the journal too.
+- **Sets on display.** Put every find of a set in his tank and it's on display, named under the title. Taking it down later loses nothing.
+- **Four new tank trophies:** *Aquascaper* (5 different plants at once, for an Anubias), *On Display* (3 complete sets on display, for a Display Plinth), *Upsized* (the 30 gallon, for an Old Anchor) and a secret one for watching him fall asleep.
+- **Decor for every season:** a Heart Shell for Valentine's, a Cherry Blossom in spring, a Beach Ball in summer and a Pile of Leaves in autumn (he hides in it), alongside the Carved Pumpkin and the Snow Globe. Each turns up in its season and stays.
+- **Now and then, on the desktop, he mentions his tank:** his favourite piece, a plant he nibbled, a find he moved back. It's rare, and the chatter setting decides as always.

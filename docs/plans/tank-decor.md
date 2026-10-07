@@ -1,8 +1,41 @@
 # The Tank: a home you decorate
 
-> Status: **Phase 1 ("Move in") and Phase 4 ("Open house") built.** Phases 2
-> and 3 are still the plan below.
+> Status: **Phase 1 ("Move in"), Phase 2 ("He lives here") and Phase 4
+> ("Open house") built.** Phase 3 is still the plan below.
 > Written against 0.64.2. User docs: [TANK.md](../TANK.md).
+
+## What changed from the plan (Phase 2, "He lives here")
+
+- **Two `tank-life.js` files.** Main's (`src/main/tank-life.js`, pure) keeps
+  what lasts; the panel's (`src/renderer/panel/tank-life.js`, pure, loaded
+  like `health-logic.js`) picks and poses from the spots, inside the Tank
+  tab's existing 10 fps loop only. No new timer anywhere: main's only addition
+  to a loop is a time-stamp check in life.js's 15 s watch before a desktop
+  remark (at most one look every 47 minutes, then the voice's 3-hour cooldown
+  for `tank` and the chatter setting).
+- **`uses` and `favourite` live in `config.tankLife`, not `config.tank`.**
+  It's per PC and never synced, so the layout in `tank` (and its sync, card
+  and sanitize) didn't change. The panel batches uses (every 6 activities, or
+  when you leave the tab) into `tank:lived`.
+- **The sizes were already in from Phase 1;** Phase 2 adds moving day, the
+  first time he moves into a bigger tank than he's had (`biggest` in
+  `tankLife`). A tank he was already in before this shipped isn't one.
+- **No plant bite frame and no chest-lid frame.** Nibbling is a little bob at the
+  plant, opening a hop and a look round at you. Nothing needs new art, so pack
+  decor with spots works the same.
+- **Sets on display** are named under the tank's title and in the journal; no
+  plaque on the glass yet (the glass is Phase 3) and no per-set scene.
+  `curator` was taken, so the trophy is **On Display** (`on-display`, 3 sets).
+- **Achievements:** `aquascaper` (Anubias, since the moss ball is a starter),
+  `on-display` (Display Plinth), `upsized` (Old Anchor; the ship is Double
+  Digits') and hidden `night-light` (Moon Lamp; the jellyfish lamp is Best
+  Friends'). `treasure-hunter` stays dropped.
+- **Seasonal decor** sits in `tank-decor.json` with `unlock: { season }`, one
+  piece for each of the six seasons.
+- **Bond moments:** `tank-gift` (first piece only), `moving-day` and
+  `set-shown` in `bond.js` MEMORIES.
+- **Not done:** the Health porthole still centres on the biggest piece, not his
+  favourite, and `scripts/idle-cost.js` has no tank case yet.
 
 ## What changed from the plan (Phase 4, "Open house")
 
