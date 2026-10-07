@@ -62,6 +62,7 @@
   api.onWorkflows(view => SB.applyWorkflows(view));
   api.onWorkflowRun(summary => SB.onWorkflowRun(summary));
   api.onWorkflowOpen(runId => SB.views.workflows.openRun(runId));
+  api.onNotes(v => { state.notes = v; if (state.view === 'notes') SB.views.notes.refresh(); });
   api.onAttach(files => {
     if (SB.isCrabOnly()) return SB.claudeUpsell('files');
     if (state.view !== 'onboarding') SB.setView('chat');

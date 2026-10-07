@@ -218,13 +218,15 @@
       SB.inChat(() => TAB_KEYS[own](tab));
       return;
     }
+    // Esc backs out one level and stops at home; it never hides the panel, since
+    // a stray press there made the whole window vanish. The hotkey and × do that.
     if (e.key === 'Escape') {
       if (SB.anyMenuOpen()) return SB.closeMenus({ refocus: true });
       if (tab?.busy && state.view === 'chat') return SB.stopTask();
       // Esc twice, like the terminal: back to an earlier message (composer.js).
       if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
-      return api.hide();
+      return;
     }
     // Y / A / N answer the newest open permission card in the active tab.
     if (e.target.closest('textarea, input, select') || e.ctrlKey || e.metaKey || e.altKey || state.view !== 'chat') return;

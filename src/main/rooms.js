@@ -10,6 +10,7 @@
 const ROOMS = Object.freeze([
   { id: 'history', tasks: 1, name: 'History', text: 'Every conversation you two have had, to pick back up any time.' },
   { id: 'projects', tasks: 1, name: 'Projects', text: 'Every repo you work in on one page, with its dev server a click away.' },
+  { id: 'notes', tasks: 1, name: 'Notes', text: 'Ideas to plan, build or ask Claude about, for each project and in one General list.' },
   { id: 'health', tasks: 3, name: 'Health', text: 'He keeps an eye on your PC: temperatures, memory and drives.' },
   { id: 'toolbox', tasks: 3, name: 'Toolbox', text: 'The skills, agents and tools he works with, and a shop for more.' },
   { id: 'workflows', tasks: 5, name: 'Automate', text: 'Routines and workflows: work he does on a schedule or when something happens.' },

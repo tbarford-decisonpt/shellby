@@ -43,6 +43,7 @@ const SUITE = [
   'e2e-stickers-molt', // stickers through a molt: the favourites move house, the old shell keeps the rest
   'e2e-usage-breakdown', // the meters' breakdown by tab, routine and project
   'e2e-forecast',     // the usage forecast, and messages and routines held for after the reset
+  'e2e-notes',        // Notes per project and General: add, edit, move, and Plan / Build / Ask
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
   'e2e-settings-tabs', // Settings' four tabs: what's on each, the arrow keys, jumps by name

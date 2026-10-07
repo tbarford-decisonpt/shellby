@@ -465,7 +465,8 @@
   }
 
   // Esc twice in an empty box (not working), within a moment: the rewind
-  // picker. A single Esc still hides the panel, just a beat later.
+  // picker. A single Esc does nothing: home is where Esc stops (tabs.js), and
+  // a stray press must never make the window vanish.
   const DOUBLE_ESC_MS = 420;
   let escAt = 0;
   let escTimer = null;
@@ -481,7 +482,7 @@
     }
     escAt = now;
     clearTimeout(escTimer);
-    escTimer = setTimeout(() => { escTimer = null; if (state.view === 'chat') api.hide(); }, DOUBLE_ESC_MS);
+    escTimer = setTimeout(() => { escTimer = null; }, DOUBLE_ESC_MS);
     return true;
   };
 })();

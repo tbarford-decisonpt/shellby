@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="notes.css">
 <link rel="stylesheet" href="shop.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
@@ -63,7 +64,7 @@
       <button type="button" id="minBtn" class="icon-btn" title="Minimize" aria-label="Minimize">
         <svg viewBox="0 0 16 16"><path d="M4 8.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
-      <button type="button" id="closeBtn" class="icon-btn close" title="Hide (Esc)" aria-label="Hide">
+      <button type="button" id="closeBtn" class="icon-btn close" title="Hide" aria-label="Hide">
         <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
     </div>
@@ -128,6 +129,7 @@
   <div class="popover" id="blMenu" role="menu" hidden></div>
   <div class="popover" id="snipMenu" role="menu" hidden></div>
   <div class="popover text-menu" id="textMenu" role="menu" aria-label="Text" hidden></div>
+  <div class="popover" id="noteMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -391,6 +393,21 @@
       <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
       <ul class="dw-list" id="depWatchList"></ul>
     </section>
+  </main>
+
+  <!-- ====================== NOTES ====================== -->
+  <main class="view view-notes" id="notesView">
+    <div class="view-head">
+      <h2>Notes</h2>
+      <select class="field slim notes-scope" id="notesScope" aria-label="Which list"></select>
+    </div>
+    <p class="view-lede">Things you'd like to do. When you're ready, have Claude plan one, build it, or tell you whether it's worth doing.</p>
+    <form class="note-add" id="noteAdd">
+      <textarea class="field area" id="noteInput" rows="2" maxlength="2000" placeholder="Add a note… (Enter to save, Shift+Enter for a new line)" aria-label="New note"></textarea>
+      <button type="submit" class="btn primary slim-btn">Add</button>
+    </form>
+    <p class="notes-where" id="notesWhere"></p>
+    <ul class="note-list" id="noteList"></ul>
   </main>
 
   <!-- ====================== HEALTH ====================== -->
@@ -2032,6 +2049,10 @@
       <span>Projects</span>
       <i class="dot-badge" id="projectsBadge" hidden></i>
     </button>
+    <button type="button" class="dock-btn" data-view-btn="notes" aria-keyshortcuts="Control+8">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM10 2.5V5h2.5M6 8h4.5M6 10.5h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Notes</span>
+    </button>
     <!-- Someone new: the rooms still to open (rooms.js) -->
     <button type="button" class="dock-btn dock-more" id="dockMore" hidden>
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -2222,6 +2243,7 @@
 <script src="wf-save.js"></script>
 <script src="workflows.js"></script>
 <script src="settings-text.js"></script>
+<script src="notes.js"></script>
 <script src="settings.js"></script>
 <script src="settings-account.js"></script>
 <script src="settings-everywhere.js"></script>

@@ -10,7 +10,7 @@ const SB = window.SB = {
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
-    toolbox: null, pinned: [], learned: [], routines: [],
+    toolbox: null, pinned: [], learned: [], routines: [], notes: null,
     snippets: [],         // saved prompts: /name in the box, @name from a terminal (toolbox.js)
     workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
@@ -273,6 +273,7 @@ SB.ICONS = {
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',
   shield: 'M8 2.6L3.4 4.3v4c0 2.5 1.8 4.3 4.6 5.3 2.8-1 4.6-2.8 4.6-5.3v-4z',
   clock: 'M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11zM8 5v3.2l2.1 1.3',
+  more: 'M3.5 8h.01M8 8h.01M12.5 8h.01',
 };
 
 // Shellby as he's dressed right now (fit: the view box frames the whole outfit).
@@ -389,7 +390,7 @@ SB.closeMenus = ({ refocus = false } = {}) => {
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, .note-more, #input')) SB.closeMenus();
 });
 
 // Up/Down walk a menu's items (wrapping round), Home/End jump to either end.

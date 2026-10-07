@@ -40,6 +40,7 @@ const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireStartFrom } = require('./wiring/startfrom');
 const { wireBacklog } = require('./wiring/backlog');
+const { wireNotes } = require('./wiring/notes');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { wireTray } = require('./wiring/tray');
 const { wireClashes } = require('./wiring/clashes');
@@ -259,7 +260,7 @@ const { createWardrobe } = share(wireWardrobe(shared));
 const { checkLimit, routineService, scheduleHeld, startScheduler, watchAway, watchGuards, watchLeaving, watchOutlook } = share(wireServices(shared));
 const { createCritter, createMischief, createMotion, placeCritter, watchIdleCost, workAreas } = share(wireWindows(shared));
 const { broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
-const { createManager } = share(wireSessions(shared));
+const { createManager, watchUsage } = share(wireSessions(shared));
 const { awardXp, checkWrapUp } = share(wireProgress(shared));
 share({ bugdex: wireBugdex(shared) }); // the bugs Claude has fixed for you, in jars
 const { createExternal, createHealth, createTimeTracker, stat } = share(wireTimetrack(shared));
@@ -277,6 +278,7 @@ const { createDepWatch, createProjects, createWorkflows } = share(wireProjects(s
 const { onDeepLink } = share(wirePacks(shared));
 share(wireStartFrom(shared));
 share(wireBacklog(shared)); // Next up on each project's page (docs/plans/next-up.md)
+share(wireNotes(shared)); // the Notes page: ideas per project and General, run as Plan, Build or Ask
 const { createClaudeUpdates } = share(wireClaudeUpdates(shared));
 const { createTray, drainCrashQueue, reportUncleanExit, setupUpdates } = share(wireTray(shared));
 const { watchClashes } = share(wireClashes(shared));
@@ -377,6 +379,7 @@ app.whenReady().then(() => {
   // Timers don't run while the PC sleeps: catch up on wake.
   powerMonitor.on('resume', () => { if (config.get('limitWait')) checkLimit(); if (config.get('focus')) advanceFocus(); if (routineService.isScheduling()) scheduleHeld(); });
   watchOutlook();
+  watchUsage(); // the meter, without waiting for a prompt
   watchGuards();
   setTimeout(checkNudges, 60 * 1000);
   try { if (statusLine.upgradeStatusLine(shared.claudeSettings())) console.log('[shellby] updated the Claude Code status line command'); } catch (err) { log.warn('status line command could not be updated; left as it was', err?.message); }

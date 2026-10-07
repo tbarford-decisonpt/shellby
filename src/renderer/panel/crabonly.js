@@ -35,6 +35,7 @@
     deps: 'With Claude Code, Shellby bumps the packages in a copy of the project, runs the tests and opens a pull request for you to look over.',
     review: "With Claude Code, Shellby can look over the changes you haven't committed or pushed yet and say what looks risky, without changing anything.",
     lhm: 'With Claude Code, Shellby can install LibreHardwareMonitor and switch on its web server for you. Until then, the steps in the Health view do the same by hand.',
+    notes: 'With Claude Code, Shellby can plan a note, build it, or tell you whether it is worth doing.',
   };
 
   SB.claudeUpsell = (reason = 'health') => {

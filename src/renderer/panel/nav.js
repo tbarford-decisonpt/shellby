@@ -1,5 +1,5 @@
 /* Shellby panel — navigation: the bottom bar and Settings gear, Back/Esc going
-   up one level, Ctrl+1…6, the Ctrl+K "jump anywhere" palette, and the Settings
+   up one level, Ctrl+1…8, the Ctrl+K "jump anywhere" palette, and the Settings
    tabs. */
 'use strict';
 (function () {
@@ -274,6 +274,8 @@
       claude() && { icon: '⚡', title: 'Describe a workflow', sub: 'Say what should happen and Claude drafts it', keys: 'automate draft write claude flow', run: () => SB.workflows.describe() },
       claude() && { icon: '⏰', title: 'Routines', sub: 'Tasks that run on a schedule', keys: 'automate schedule recurring cron', run: go('routines') },
       claude() && { icon: '⏰', title: 'New routine', sub: 'Schedule a recurring task', keys: 'schedule add', run: () => { SB.setView('routines'); $('newRoutineBtn').click(); } },
+      claude() && { icon: '📝', title: 'Notes', sub: 'Ideas to plan, build or ask Claude about', keys: 'todo ideas list project', run: go('notes') },
+      claude() && { icon: '📝', title: 'New note', sub: 'Jot down something to do', keys: 'todo idea add', run: () => { SB.setView('notes'); $('noteInput').focus(); } },
       { icon: '📈', title: 'Health', sub: 'Temperatures, memory and drives', keys: 'gpu cpu ram disk temperature vitals', run: go('health') },
       claude() && { icon: '🗂️', title: 'History', sub: 'Past conversations', keys: 'sessions old', run: go('history') },
       { icon: '⏱️', title: 'Time', sub: 'Hours on each project, your streak, focus sessions and timesheets', keys: 'time tracking hours timesheet invoice billing clients rate freelance streak nudge quiet focus pomodoro', run: go('time') },
@@ -465,7 +467,7 @@
     }
     if (e.key === 'Enter') { e.preventDefault(); return runAt(selected); }
     if (e.key === 'Tab') e.preventDefault(); // the input is the only stop in the dialog
-    if (!(e.ctrlKey && /^[k1-6/]$/i.test(e.key))) e.stopPropagation();
+    if (!(e.ctrlKey && /^[k1-8/]$/i.test(e.key))) e.stopPropagation();
   });
   sheet.addEventListener('mousedown', e => { if (e.target === sheet) closePalette(); });
   $('paletteBtn').addEventListener('click', openPalette);

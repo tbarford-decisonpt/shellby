@@ -1,6 +1,7 @@
 // Claude Code conversations: the session manager behind the tabs, and the
 // snapshot either side of each turn that says what it changed (changes.js).
 // Kept out of main.js, which only wires it up.
+const { powerMonitor } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -15,6 +16,7 @@ const recap = require('../recap');
 const { SessionManager } = require('../sessions');
 const stickers = require('../stickers');
 const { detailOf } = require('../trouble');
+const usage = require('../usage');
 const voice = require('../voice');
 const { classifyCommand, markRed } = require('../xp');
 
@@ -67,12 +69,8 @@ function wireSessions(d) {
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {
         d.usagePlan?.onUsage(tabId, item); // before lastUsage moves on: the rise is measured from it
-        d.config.set({ lastUsage: { ...item, at: Date.now() } });
+        applyUsage(item);
         d.noteRecap(recap.usageEvent(tabId, tab.title, item));
-        d.send(d.panel, 'usage', item);
-        d.onUsage(item);
-        d.refreshOutlook();
-        d.usageService.checkGuards();
         return;
       }
       if (item.kind === 'init') {
@@ -238,7 +236,44 @@ function wireSessions(d) {
     }
   }
 
-  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, turnEnds, turnStarts };
+  // ---- the usage meter
+
+  function applyUsage(item) {
+    d.config.set({ lastUsage: { ...item, at: Date.now() } });
+    d.send(d.panel, 'usage', item);
+    d.onUsage(item);
+    d.refreshOutlook();
+    d.usageService.checkGuards();
+  }
+
+  // The meter only moves when a turn reports usage, so usage spent elsewhere
+  // (another device, the terminal) would wait for your next prompt. Ask Claude
+  // Code directly (usage.js: no message is sent, so it costs nothing) when the
+  // panel comes up, after the PC wakes and at startup, at most every couple of
+  // minutes. Not counted against a tab: no turn of Shellby's spent it.
+  const USAGE_REFRESH_MS = 2 * 60 * 1000;
+  let usageProbe = null;
+  function refreshUsage() {
+    const last = d.config.get('lastUsage')?.at || 0;
+    if (usageProbe || d.config.get('crabOnly') || Date.now() - last < USAGE_REFRESH_MS) return;
+    const exe = d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    if (!exe) return;
+    const started = Date.now();
+    usageProbe = usage.probe({ exe, argsPrefix: d.FAKE_CLI ? [d.FAKE_CLI] : [], cwd: os.homedir() }).then(u => {
+      usageProbe = null;
+      // A turn may have reported fresher numbers while we waited.
+      if (u && (d.config.get('lastUsage')?.at || 0) < started) applyUsage(u);
+    });
+  }
+
+  function watchUsage() {
+    d.panel.on('show', refreshUsage);
+    d.panel.on('focus', refreshUsage);
+    powerMonitor.on('resume', refreshUsage);
+    refreshUsage();
+  }
+
+  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, refreshUsage, turnEnds, turnStarts, watchUsage };
 }
 
 module.exports = { wireSessions };

@@ -607,6 +607,14 @@ contextBridge.exposeInMainWorld('shellby', {
   mcpServers: invoke('workflows:mcp-servers'), // (cwd) -> [{ name, scope, transport, direct }]
   mcpTools: invoke('workflows:mcp-tools'),     // (server, cwd) -> { ok, tools } (starts the server)
 
+  // notes
+  listNotes: invoke('notes:list'),
+  addNote: invoke('notes:add'),
+  updateNote: invoke('notes:update'),
+  deleteNote: invoke('notes:delete'),
+  moveNote: invoke('notes:move'),
+  runNote: invoke('notes:run'),
+
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
   setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
@@ -635,6 +643,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onWorkflowRun: on('workflows:run-changed'),
   onWorkflowOpen: on('workflows:open-run'), // a notification about a run was clicked
   onPanelRoomyLost: on('panel:roomy-lost'), // you resized a widened panel yourself
+  onNotes: on('notes'),
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
   onDictated: on('panel:dictated'), // push-to-talk: what you said, for the box (see dictation.js)
