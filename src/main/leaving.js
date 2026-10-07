@@ -314,4 +314,4 @@ function verdict(projects = [], running = {}) {
   };
 }
 
-module.exports = { check, probe, mainRoot, verdict, parseWorktrees, parseStatus, git, okDir, MAX_PROJECTS };
+module.exports = { check, probe, mainRoot, verdict, parseWorktrees, parseStatus, landingRef, git, okDir, MAX_PROJECTS };

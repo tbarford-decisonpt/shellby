@@ -53,6 +53,7 @@
     const seq = ++loadSeq;
     const [list, srv] = await Promise.all([api.listProjects({ refresh }), api.getServers()]);
     if (seq !== loadSeq || !list) return;
+    SB.pjInbox?.load({ refresh }); // after the list, so main knows every clone it covers
     const same = JSON.stringify(list) === shownList && JSON.stringify(srv) === JSON.stringify(servers);
     data = list;
     servers = srv || servers;
