@@ -77,7 +77,7 @@ html, body {
 
 /* ---------- something a turn left running in the background ---------- */
 /* He can be idle and still have a server of yours running, so this stays up
-   until you say you've checked (see renderBackground in panel/settings.js). */
+   until you say you've checked (see renderBackground in panel/settings-everywhere.js). */
 #bgBadge {
   position: absolute; left: 6px; top: 6px; height: 20px; padding: 0 7px;
   border: 0; border-radius: var(--r); display: flex; align-items: center; gap: 4px;
