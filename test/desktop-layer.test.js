@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { covers, veil, DESKTOP_CLASSES } = require('../src/main/desktop-layer');
+const { covers, panelCalm, veil, DESKTOP_CLASSES } = require('../src/main/desktop-layer');
 
 const crab = { x: 1700, y: 860, width: 200, height: 180 };
 
@@ -148,4 +148,24 @@ test('on the desktop, the floor goes to the bottom under him', () => {
   const crab = fakeWindow(15), floor = fakeWindow(16);
   tuckUnder(floor, crab);
   assert.deepEqual(calls, [['pos', 16, HWND_BOTTOM]]);
+});
+
+test('a game on another screen keeps the panel spinners going', () => {
+  assert.deepEqual(panelCalm({ reason: 'blur', game: true, underGame: false }), { calm: true, deep: false });
+});
+
+test("a game lying over the panel stops all of it: nobody can see it", () => {
+  assert.deepEqual(panelCalm({ reason: 'blur', game: true, underGame: true }), { calm: true, deep: true });
+});
+
+test('unfocused without a game drops only the decorative loops', () => {
+  assert.deepEqual(panelCalm({ reason: 'blur' }), { calm: true, deep: false });
+});
+
+test('a locked screen stops everything, game or not', () => {
+  assert.deepEqual(panelCalm({ reason: 'locked' }), { calm: true, deep: true });
+});
+
+test('in front and nothing going on, the panel animates fully', () => {
+  assert.deepEqual(panelCalm({}), { calm: false, deep: false });
 });

@@ -118,6 +118,16 @@ function covers(frame, box) {
     && frame.y + frame.height >= box.y + box.height;
 }
 
+// How still the panel goes. `calm` (unfocused, or a game up) drops only the
+// decorative loops; `deep` stops every animation, spinners included, so it's
+// kept for when nobody can see the panel at all: the screen locked, or a game's
+// window lying over it. A game on another screen leaves it in plain sight, and
+// a frozen spinner there reads as a hung task.
+function panelCalm({ reason = null, game = false, underGame = false } = {}) {
+  const locked = reason === 'locked';
+  return { calm: !!reason || game, deep: locked || (game && underGame) };
+}
+
 // Take a transparent window off the screen while nobody can see it, and put it
 // back under every app when they can. Calm (animation: none) isn't enough
 // behind a game: every repaint he still makes — a state change, a bubble, the
@@ -136,4 +146,4 @@ function veil(win, hide, { lower = () => {} } = {}) {
   }
 }
 
-module.exports = { keepOnDesktop, pin, sendToBottom, tuckUnder, setOnTop, isPinned, covers, veil, DESKTOP_CLASSES };
+module.exports = { keepOnDesktop, pin, sendToBottom, tuckUnder, setOnTop, isPinned, covers, panelCalm, veil, DESKTOP_CLASSES };

@@ -5,7 +5,7 @@
 const { BrowserWindow, powerMonitor, screen } = require('electron');
 const path = require('path');
 const { createClimbing } = require('../climbing');
-const { DESKTOP_CLASSES, covers: coversBox, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop-layer');
+const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop-layer');
 const { createFloor } = require('../floor');
 const focus = require('../focus');
 const { CritterMotion } = require('../motion');
@@ -321,14 +321,16 @@ function wireWindows(d) {
   // transparent window owned by the desktop is never reported occluded) and kept
   // compositing his loops at 60 fps: a third of a 3080 Ti behind a game. A cheap
   // poll asks whether a game is up or the window in front covers him; while it
-  // does he gets the locked-screen calm, and with a game up the panel does too.
+  // does he gets the locked-screen calm. With a game up the panel drops its
+  // decorative loops, and stops the rest only when the game's window lies over
+  // it (panelCalm in desktop-layer.js): on another screen it's still watched.
   // Under a game's window, or with the screen locked, calm isn't enough: he and
   // his floor are hidden outright (desktop-layer.js veil). Only when the game
   // covers him: on another monitor he's still in plain sight. And not behind an
   // ordinary window: the poll is two seconds, and a crab missing from the desktop
   // that long after you minimize something would be noticed.
   const COVER_POLL_MS = 2000;
-  let hidden = { crab: false, game: false, underGame: false };
+  let hidden = { crab: false, game: false, underGame: false, panelUnderGame: false };
   let calmSent = '';
   let critterReady = false;
   function crabCalmNow() {
@@ -337,8 +339,7 @@ function wireWindows(d) {
     return { calm: locked || hidden.crab, locked, hide: !d.CAPTURE && (locked || hidden.underGame) };
   }
   function sendCalm() {
-    const locked = d.calmReason === 'locked';
-    const panelCalm = { calm: !!d.calmReason || hidden.game, deep: locked || hidden.game };
+    const panelCalm = panelCalmFor({ reason: d.calmReason, game: hidden.game, underGame: hidden.panelUnderGame });
     const crabCalm = crabCalmNow();
     const key = JSON.stringify([panelCalm, crabCalm]);
     if (key === calmSent) return;
@@ -355,10 +356,18 @@ function wireWindows(d) {
   function crabCovered(info) {
     // Up on a window, or kept on top of your apps, he's drawn above what's in front.
     if (!info || onTopNow() || d.perching?.isAway() || info.pid === process.pid || DESKTOP_CLASSES.has(info.cls)) return false;
-    if (!info.visible || info.minimized || info.cloaked || !info.frame) return false;
+    return coversBox(frontFrame(info), d.critter.getBounds());
+  }
+  // The window in front's frame in DIPs, or null when it can't hide anything.
+  function frontFrame(info) {
+    if (!info || !info.visible || info.minimized || info.cloaked || !info.frame) return null;
     const f = info.frame;
-    const frame = screen.screenToDipRect(null, { x: f.left, y: f.top, width: f.right - f.left, height: f.bottom - f.top });
-    return coversBox(frame, d.critter.getBounds());
+    return screen.screenToDipRect(null, { x: f.left, y: f.top, width: f.right - f.left, height: f.bottom - f.top });
+  }
+  function panelCovered(info) {
+    const p = d.panel;
+    if (!info || info.pid === process.pid || !p || p.isDestroyed() || !p.isVisible() || p.isMinimized()) return false;
+    return coversBox(frontFrame(info), p.getBounds());
   }
   function checkCovered() {
     if (!d.critter || d.critter.isDestroyed() || !native.available()) return;
@@ -366,7 +375,10 @@ function wireWindows(d) {
     const game = d.gameInFront(info);
     hidden = { ...hidden, game }; // first: whether he's on top (crabCovered) depends on it
     const covered = crabCovered(info);
-    hidden = { ...hidden, crab: (game && !d.perching?.isAway()) || covered, underGame: game && covered };
+    hidden = {
+      ...hidden, crab: (game && !d.perching?.isAway()) || covered, underGame: game && covered,
+      panelUnderGame: game && panelCovered(info),
+    };
     syncLayer(); // a game came up, or went
     sendCalm();
   }

@@ -523,7 +523,8 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
    pauses only what's decorative: the drifting light and the breathing crab.
    Anything that reports work — spinners, lane crabs, the busy brand — keeps
    going, because a stopped spinner reads as a hung task. `calm-deep` (the screen
-   is locked) stops everything, since there is nothing to read at all.
+   is locked, or a game's window lies over the panel) stops everything, since
+   there is nothing to read at all.
    `animation: none`, not `animation-play-state: paused`: a paused animation keeps
    its compositing alive and costs exactly as much as a running one (measured).
    Removing it does free the work, at the price of snapping back to the base
