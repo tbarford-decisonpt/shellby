@@ -7,6 +7,7 @@ const path = require('path');
 const { createClimbing } = require('../climbing');
 const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop-layer');
 const { createFloor } = require('../floor');
+const { createBeat, createFrontReader, signature } = require('../front-poll');
 const focus = require('../focus');
 const { CritterMotion } = require('../motion');
 const native = require('../native-windows');
@@ -406,19 +407,15 @@ function wireWindows(d) {
     if (on !== processJob.givingWay()) d.log.info(on ? 'Giving way to a game — tasks held back' : 'Game over — tasks back to full speed');
     processJob.giveWay(on); // every poll: it catches what the tasks started since the last
   }
-  // Its own poll, apart from the crab's: nothing about his window, and no
+  // Apart from the crab's half of the poll: nothing about his window, and no
   // failure to read the one in front, may leave the tasks held back for good.
-  function checkGame() {
-    let game = false;
-    try { game = processJob.available() && native.available() && d.gameInFront(native.describe(native.foreground())); } catch { /* no game seen */ }
-    giveWayToGame(game);
+  function checkGame(game) {
+    giveWayToGame(!!game && processJob.available());
   }
-  function checkCovered() {
+  function checkCovered(info, game) {
     if (!d.critter || d.critter.isDestroyed()) return;
     hidden = { ...hidden, away: awayNow() };
     if (!native.available()) return void sendCalm();
-    const info = native.describe(native.foreground());
-    const game = d.gameInFront(info);
     hidden = { ...hidden, game }; // first: whether he's on top (crabCovered) depends on it
     const covered = crabCovered(info);
     hidden = {
@@ -427,6 +424,25 @@ function wireWindows(d) {
     };
     syncLayer(); // a game came up, or went
     sendCalm();
+  }
+  // One poll for both: the window in front read once (its exe kept while it
+  // stays in front, front-poll.js), every 2 s, every 5 s once nothing has
+  // changed for half a minute.
+  const readFront = createFrontReader(native);
+  const beat = createBeat();
+  function watchFront({ cover, game: watchGame }) {
+    let info = null, game = false;
+    try {
+      if (native.available()) { info = readFront(); game = d.gameInFront(info); }
+    } catch { /* nothing read: no game seen */ }
+    try {
+      if (watchGame) checkGame(game);
+      if (cover) checkCovered(info, game);
+    } catch (e) {
+      d.log.warn('front poll', e?.message);
+    } finally {
+      setTimeout(() => watchFront({ cover, game: watchGame }), beat(signature(info, hidden.away))).unref?.();
+    }
   }
 
   // ---- on top of your apps
@@ -468,8 +484,8 @@ function wireWindows(d) {
     });
     // The renderers start animated; a reload would forget a calm sent before it.
     for (const w of [d.panel, d.critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
-    if (!d.CAPTURE && !IDLE_UNCOVERED && watchesDesktop(process.env, app.isPackaged)) setInterval(checkCovered, COVER_POLL_MS).unref?.();
-    if (!d.CAPTURE) setInterval(checkGame, COVER_POLL_MS).unref?.();
+    const cover = !d.CAPTURE && !IDLE_UNCOVERED && watchesDesktop(process.env, app.isPackaged);
+    if (!d.CAPTURE) setTimeout(() => watchFront({ cover, game: true }), COVER_POLL_MS).unref?.();
     app.on('will-quit', () => processJob.giveWay(false)); // before the sweeps: what they keep isn't left capped
   }
 
