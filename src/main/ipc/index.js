@@ -24,6 +24,7 @@ const { registerWardrobeIpc } = require('./wardrobe');
 const { registerTankIpc } = require('./tank');
 const { registerTankGaugesIpc } = require('./tank-gauges');
 const { registerTankLayoutsIpc } = require('./tank-layouts');
+const { registerTankTidyIpc } = require('./tank-tidy');
 const { registerCritterIpc } = require('./critter');
 const { registerLifeIpc } = require('./life');
 const { registerPanelIpc } = require('./panel');
@@ -151,6 +152,8 @@ function registerIpc(electronIpcMain, d) {
   });
   // ...its saved layouts, and switching with the seasons (tank-layouts.js)
   registerTankLayoutsIpc(ipcMain, { config, tank: tankIpc, where: () => d.seasonsWhere?.() || {}, ready: () => !!d.wardrobe });
+  // ...him tidying his finds now and then (tank-tidy.js)
+  registerTankTidyIpc(ipcMain, { config, tank: tankIpc, ready: () => !!d.wardrobe });
   // ...and its live decor: Health and the dev servers, pushed as they change (tank-gauges.js)
   d.tankGauges = registerTankGaugesIpc(ipcMain, {
     config,

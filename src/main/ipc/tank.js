@@ -85,7 +85,7 @@ function registerTankIpc(ipcMain, d) {
   });
 
   // For saved layouts (ipc/tank-layouts.js): the tank as the panel draws it, and keeping one.
-  return { view, keep };
+  return { view, keep, lib };
 }
 
 module.exports = { registerTankIpc };

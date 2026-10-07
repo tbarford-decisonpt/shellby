@@ -766,6 +766,7 @@
     SB.tankGauges?.refresh();
     apply(await fetchTank());
     SB.tankLayouts?.open(); // a new season may put a saved layout up (tank-layouts.js)
+    SB.tankTidy?.open();    // ...and he may have tidied (tank-tidy.js)
     await loadCrab();
     if (v && !editing() && !walker.target) walker.x = stillX();
   }

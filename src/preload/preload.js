@@ -401,6 +401,9 @@ contextBridge.exposeInMainWorld('shellby', {
   useTankLayout: invoke('tank:layout-use'),
   removeTankLayout: invoke('tank:layout-remove'),
   seasonTankLayout: invoke('tank:layout-season'),
+  tankTidy: invoke('tank:tidy'),       // he moves a find now and then (tank-tidy.js)
+  undoTankTidy: invoke('tank:tidy-undo'),
+  setTankTidy: invoke('tank:tidy-set'),
   onTankGauges: on('tank:gauges'),
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
