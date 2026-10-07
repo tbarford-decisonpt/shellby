@@ -336,16 +336,21 @@ function wireWindows(d) {
   // only skips the game/cover poll. Dev runs only.
   const IDLE_AWAKE = !app.isPackaged && process.env.SHELLBY_IDLE_AWAKE === '1';
   const IDLE_UNCOVERED = !app.isPackaged && process.env.SHELLBY_IDLE_AWAKE === 'uncovered';
-  let hidden = { crab: false, game: false, underGame: false, panelUnderGame: false };
+  // Nobody at the desk (no key or mouse for this long, the screen still on): he
+  // and the panel hold still, the seasonal bats too, until the next nudge of the
+  // mouse (picked up by the poll below, so within two seconds).
+  const AWAY_S = 5 * 60;
+  let hidden = { crab: false, game: false, underGame: false, panelUnderGame: false, away: false };
   let calmSent = '';
   let critterReady = false;
   function crabCalmNow() {
     const locked = d.calmReason === 'locked';
-    // Covered, he stops animating but can still be heard; locked, he goes quiet too.
-    return { calm: locked || hidden.crab, locked, hide: !d.CAPTURE && (locked || hidden.underGame) };
+    // Covered or alone, he stops animating but can still be heard; locked, he goes quiet too.
+    return { calm: locked || hidden.crab || hidden.away, locked, hide: !d.CAPTURE && (locked || hidden.underGame) };
   }
   function sendCalm() {
-    const panelCalm = panelCalmFor({ reason: d.calmReason, game: hidden.game, underGame: hidden.panelUnderGame });
+    const reason = d.calmReason || (hidden.away ? 'blur' : null); // away: as if you'd clicked elsewhere
+    const panelCalm = panelCalmFor({ reason, game: hidden.game, underGame: hidden.panelUnderGame });
     const crabCalm = crabCalmNow();
     const key = JSON.stringify([panelCalm, crabCalm]);
     if (key === calmSent) return;
@@ -375,8 +380,20 @@ function wireWindows(d) {
     if (!info || info.pid === process.pid || !p || p.isDestroyed() || !p.isVisible() || p.isMinimized()) return false;
     return coversBox(frontFrame(info), p.getBounds());
   }
+  // Test and dev runs (an isolated profile) are driven without a real mouse, so
+  // they never count as away unless SHELLBY_AWAY_S says how soon.
+  const awayAfterS = () => {
+    const dev = !app.isPackaged && Number(process.env.SHELLBY_AWAY_S);
+    return dev > 0 ? dev : d.ISOLATED ? Infinity : AWAY_S;
+  };
+  function awayNow() {
+    if (d.CAPTURE) return false;
+    try { return powerMonitor.getSystemIdleTime() >= awayAfterS(); } catch { return false; }
+  }
   function checkCovered() {
-    if (!d.critter || d.critter.isDestroyed() || !native.available()) return;
+    if (!d.critter || d.critter.isDestroyed()) return;
+    hidden = { ...hidden, away: awayNow() };
+    if (!native.available()) return void sendCalm();
     const info = native.describe(native.foreground());
     const game = d.gameInFront(info);
     hidden = { ...hidden, game }; // first: whether he's on top (crabCovered) depends on it
@@ -414,7 +431,9 @@ function wireWindows(d) {
     d.panel.on('focus', () => setCalm(d.calmReason === 'locked' ? 'locked' : null));
     // Opened behind your windows (a task from the terminal, a routine, a game up),
     // it was never focused, so it never blurs either: calm from the start.
-    d.panel.on('show', () => { if (!d.panel.isFocused() && !d.calmReason) setCalm('blur'); });
+    d.panel.on('show', () => {
+      d.health?.monitor?.watched(); // the health monitor's slow beat is for a closed panel
+    });
     for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
     powerMonitor.on('unlock-screen', () => setCalm(d.panel?.isFocused() ? null : 'blur'));
     // A wake usually lands on the lock screen: stay hidden until it's unlocked.
