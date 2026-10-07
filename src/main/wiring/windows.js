@@ -332,8 +332,10 @@ function wireWindows(d) {
   const COVER_POLL_MS = 2000;
   // scripts/idle-cost.js --awake: the panel as if focused and nothing in front of
   // either window, so the worst case can be measured without taking focus from
-  // whatever you're doing (a game, say). Dev runs only.
+  // whatever you're doing (a game, say). `uncovered` keeps the focus rules and
+  // only skips the game/cover poll. Dev runs only.
   const IDLE_AWAKE = !app.isPackaged && process.env.SHELLBY_IDLE_AWAKE === '1';
+  const IDLE_UNCOVERED = !app.isPackaged && process.env.SHELLBY_IDLE_AWAKE === 'uncovered';
   let hidden = { crab: false, game: false, underGame: false, panelUnderGame: false };
   let calmSent = '';
   let critterReady = false;
@@ -410,6 +412,9 @@ function wireWindows(d) {
     if (IDLE_AWAKE) return; // measuring the worst case: never calm, never covered
     d.panel.on('blur', () => setCalm(d.calmReason === 'locked' ? 'locked' : 'blur'));
     d.panel.on('focus', () => setCalm(d.calmReason === 'locked' ? 'locked' : null));
+    // Opened behind your windows (a task from the terminal, a routine, a game up),
+    // it was never focused, so it never blurs either: calm from the start.
+    d.panel.on('show', () => { if (!d.panel.isFocused() && !d.calmReason) setCalm('blur'); });
     for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
     powerMonitor.on('unlock-screen', () => setCalm(d.panel?.isFocused() ? null : 'blur'));
     // A wake usually lands on the lock screen: stay hidden until it's unlocked.
@@ -420,7 +425,7 @@ function wireWindows(d) {
     });
     // The renderers start animated; a reload would forget a calm sent before it.
     for (const w of [d.panel, d.critter]) w?.webContents.on('did-finish-load', () => { calmSent = ''; sendCalm(); });
-    if (!d.CAPTURE) setInterval(checkCovered, COVER_POLL_MS).unref?.();
+    if (!d.CAPTURE && !IDLE_UNCOVERED) setInterval(checkCovered, COVER_POLL_MS).unref?.();
   }
 
   return {
