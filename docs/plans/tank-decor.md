@@ -1,7 +1,91 @@
 # The Tank: a home you decorate
 
-> Status: **Phase 1 ("Move in") built.** Phases 2–4 are still the plan below.
+> Status: **All four phases built:** 1 ("Move in"), 2 ("He lives here"),
+> 3 ("Gauges in disguise") and 4 ("Open house"). What's still open is listed
+> under each phase's "What changed from the plan" below.
 > Written against 0.64.2. User docs: [TANK.md](../TANK.md).
+
+## What changed from the plan (Phase 3, "Gauges in disguise")
+
+- **Four gauges, not six.** The thermometer, the bubbler, the lighthouse and
+  Health moods in the water are built. The tide gauge (usage window), the
+  chest's glint on a merged PR and the message in a bottle (unread recap) are
+  not yet; `tank-gauges.js` `gauges()` is where they'd go.
+- **The thermometer is drawn on the glass, not placed.** There's no
+  thermometer piece yet (it would need a `check-up` reward), so it shows on
+  the right of the front glass while its switch is on.
+- **Live, layouts and tidying are config keys of their own**, not fields of
+  `tank`: `tankLive` and `tankTidy` (per PC, never synced) and `tankLayouts`
+  (synced as its own gist field, newest list wins). Keeping them out of
+  `tank` means `tank.normalize`, `sanitize` and the calling card never see
+  them. Plants don't sway faster when he's hot yet.
+- **Main pushes readings** (`tank:gauges`) from the Health monitor's `sample`,
+  the mood and the dev servers' `change`, coarse enough (whole degrees, four
+  CPU steps) that most samples send nothing, and only while the panel shows.
+- **Stickers on the glass** are `sticker:<projectId>` pieces drawn over
+  everything, stored with an ordinary row (high, middle, low on the glass)
+  rather than `row: 'glass'`. One of each project, hidden projects left out.
+  They sync with the tank and never go on either card.
+- **A season's layout goes up when you next open the tank** in that season
+  (no timer), and the tank from before comes back the first time you open it
+  after. One layout per season.
+- **Tidying** happens when the tab opens, on about a third of the days that
+  allow it, and moves one find 2–6 px towards its nearest neighbour in its row.
+## What changed from the plan (Phase 2, "He lives here")
+
+- **Two `tank-life.js` files.** Main's (`src/main/tank-life.js`, pure) keeps
+  what lasts; the panel's (`src/renderer/panel/tank-life.js`, pure, loaded
+  like `health-logic.js`) picks and poses from the spots, inside the Tank
+  tab's existing 10 fps loop only. No new timer anywhere: main's only addition
+  to a loop is a time-stamp check in life.js's 15 s watch before a desktop
+  remark (at most one look every 47 minutes, then the voice's 3-hour cooldown
+  for `tank` and the chatter setting).
+- **`uses` and `favourite` live in `config.tankLife`, not `config.tank`.**
+  It's per PC and never synced, so the layout in `tank` (and its sync, card
+  and sanitize) didn't change. The panel batches uses (every 6 activities, or
+  when you leave the tab) into `tank:lived`.
+- **The sizes were already in from Phase 1;** Phase 2 adds moving day, the
+  first time he moves into a bigger tank than he's had (`biggest` in
+  `tankLife`). A tank he was already in before this shipped isn't one.
+- **No plant bite frame and no chest-lid frame.** Nibbling is a little bob at the
+  plant, opening a hop and a look round at you. Nothing needs new art, so pack
+  decor with spots works the same.
+- **Sets on display** are named under the tank's title and in the journal; no
+  plaque on the glass yet (the glass is Phase 3) and no per-set scene.
+  `curator` was taken, so the trophy is **On Display** (`on-display`, 3 sets).
+- **Achievements:** `aquascaper` (Anubias, since the moss ball is a starter),
+  `on-display` (Display Plinth), `upsized` (Old Anchor; the ship is Double
+  Digits') and hidden `night-light` (Moon Lamp; the jellyfish lamp is Best
+  Friends'). `treasure-hunter` stays dropped.
+- **Seasonal decor** sits in `tank-decor.json` with `unlock: { season }`, one
+  piece for each of the six seasons.
+- **Bond moments:** `tank-gift` (first piece only), `moving-day` and
+  `set-shown` in `bond.js` MEMORIES.
+- **The Health porthole looks at his favourite** once he has one
+  (`ipc/tank.js` sets `focusX` from it). **Not done:**
+  `scripts/idle-cost.js` has no tank case yet.
+
+## What changed from the plan (Phase 4, "Open house")
+
+- **One switch for both public cards.** `tank.shareCard` (Tank → **On your
+  cards**, off by default) puts his tank on the calling card *and* the profile
+  card, so turning on a card you already had never starts publishing more. It
+  stays per PC and never syncs. The crab card PNG, which you share by hand,
+  always shows the tank.
+- **The calling card carries ids, never art.** `tank-share.js` `forCard` sends
+  the size, the floor, the back glass, the light and up to 24
+  `{ ref, x, row, flip }`, refs being built-in decor ids or `find:` ids only.
+  Pack decor and specimen jars stay home (pack ids would say which packs you
+  run). A friend's tank is painted from this PC's own art; a ref it doesn't know
+  (a newer Shellby's decor) is drawn as a rock, and the peek says how many.
+  `sticker:` refs don't exist yet (stickers on the glass are Phase 3), so none
+  go on the card.
+- **Peek at their tank** opens under the friend's row in Settings → GitHub →
+  Visiting crabs, with their crab in it and the pieces listed in words.
+- **The gallery category** is `decor` in the gallery catalog
+  (`registry.js` `fetchRegistryCatalog`), next to accessories, effects and
+  skins. The site's own listing lives in x-salmon/shellby-packs.
+- `open-house` doesn't get a doormat yet; `house-guest` brings the Guest Bench.
 
 ## What changed from the plan (Phase 1)
 

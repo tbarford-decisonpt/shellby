@@ -61,6 +61,7 @@ class HealthService {
     this.monitor = new HealthMonitor({
       sensors: this.sensors,
       getThresholds: () => this.settings,
+      unwatched: () => !this.panelOpen(),
       timing: deps.instant || fake ? ZERO_TIMING : undefined,
     });
     this.lastNotified = new Map();
@@ -123,6 +124,7 @@ class HealthService {
   }
 
   view() {
+    this.monitor.watched(); // the Health view is open: back to the five-second beat now
     return {
       ...this.monitor.snapshot(),
       settings: this.settings, log: this.log, fake: !!this.sensors.fake,

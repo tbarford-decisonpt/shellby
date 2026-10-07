@@ -63,9 +63,14 @@ one lands under "Changed" word for word.
   only CI catches this.
 - **CI has reduced motion on.** Motion-gated UI is skipped there. e2e that watches
   animations launches with `--force-prefers-no-reduced-motion`.
-- **Unpainted windows never answer `Page.captureScreenshot`.** Race every e2e
-  screenshot against a 10 s wait (see e2e-settings-tabs, e2e-needs, e2e-toolbox).
-  Screenshots of the crab hang locally too, whenever other windows cover his corner.
+- **Unpainted windows never answer `Page.captureScreenshot`.** Capture through
+  `scripts/lib/shot.js` (`savePng`), which races the shot against a 10 s wait. The
+  crab hung locally whenever a window or game covered his corner (Chromium stops
+  painting him, and Shellby itself hides him under a game). Test runs (the fake CLI,
+  `SHELLBY_MOTION_TEST`, `SHELLBY_FAKE_HEALTH`, or `SHELLBY_E2E=1`, which `e2e:ci` sets)
+  now keep every window painting, skip the cover/game watch and ignore who has the
+  mic (`src/main/test-desktop.js`). `SHELLBY_COVER_POLL=1` brings the watch back for
+  a check about it (e2e-on-top).
 - **The mic reads as a call** on a dev PC with Discord or a game open, and he goes
   silent. e2e that expects speech or sound pins it off:
   `shellby.dev.life({ what: 'call', on: false })` (needs `SHELLBY_MOTION_TEST=1`).

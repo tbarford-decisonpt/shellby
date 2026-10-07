@@ -16,18 +16,29 @@
 
   // ------------------------------------------------------------ starting
 
+  // /tries has already emptied the box: what was attached goes back if they don't start.
+  function giveBack(tab, files) {
+    if (!files.length || tab.attachments?.length) return;
+    tab.attachments = [...files];
+    if (SB.activeTab() === tab) SB.renderAttachments?.();
+  }
+  SB.giveBackAttachments = giveBack;
+
   // { n, text } from the box (fromBox), or { arg } as typed after /tries.
+  // attachments: what /tries carried (fromBox takes the box's own). Every try gets them all.
   // -> true once they've started.
-  SB.startTries = async (tab, { n = null, text = '', arg = null, fromBox = false } = {}) => {
+  SB.startTries = async (tab, { n = null, text = '', arg = null, fromBox = false, attachments = [] } = {}) => {
     if (!tab) return false;
     const msg = String(text || '').trim();
     if (arg == null && !msg) { SB.toast('Type what he should try first, then pick how many ways.'); return false; }
     if (tab.triesStarting) return false;
     tab.triesStarting = true;
+    const files = fromBox ? [...(tab.attachments || [])] : [...attachments];
     let r;
     try {
-      r = await api.startTries(tab.id, arg != null ? { arg } : { n, text: msg, attachments: fromBox ? [...(tab.attachments || [])] : [] });
+      r = await api.startTries(tab.id, arg != null ? { arg, attachments: files } : { n, text: msg, attachments: files });
     } finally { tab.triesStarting = false; }
+    if (!r?.ok && !fromBox) giveBack(tab, files);
     if (r?.cancelled) { SB.toast('Not tried. Nothing was sent.'); return false; }
     if (!r?.ok) { SB.toast(r?.error || "Couldn't start the tries.", { ms: 9000 }); return false; }
     // The message has gone (n times): out of the box it came from.
@@ -36,7 +47,8 @@
       else if ((tab.draft || '').trim() === msg) tab.draft = '';
     }
     if (state.tabs.has(r.firstId)) SB.activate(r.firstId);
-    SB.toast(r.error || `Trying it ${r.started} ways. He'll rank them here once they're all done.`, { ms: r.error ? 9000 : 6000 });
+    const said = r.error || `Trying it ${r.started} ways. He'll rank them here once they're all done.`;
+    SB.toast(r.note ? `${said} ${r.note}` : said, { ms: r.error || r.note ? 9000 : 6000 });
     return true;
   };
 

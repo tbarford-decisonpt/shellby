@@ -12,6 +12,7 @@ const MIN_TRIES = 2;
 const MAX_TRIES = 4;
 const DEFAULT_TRIES = 3;
 const MAX_TEXT = 50000;
+const MAX_ATTACHMENTS = 20; // what one message carries (task:send); every try gets them all
 const TITLE_MAX = 60;
 
 const WORDS = { 2: 'two', 3: 'three', 4: 'four' };
@@ -37,7 +38,7 @@ function problem({ n, text, tabsOpen = 0, maxTabs = 32, attachments = 0 } = {}) 
   if (!Number.isInteger(n) || n < MIN_TRIES || n > MAX_TRIES) return 'Two, three or four tries.';
   if (typeof text !== 'string' || !text.trim()) return 'Type what he should try first.';
   if (text.length > MAX_TEXT) return "That's too long to try several ways at once.";
-  if (attachments > 0) return 'Tries take a typed message only for now. Take the attachments off, or send it the usual way.';
+  if (attachments > MAX_ATTACHMENTS) return `That's more than one message carries: ${MAX_ATTACHMENTS} attachments at most.`;
   const room = maxTabs - tabsOpen;
   if (room < n) {
     return room <= 0
@@ -65,10 +66,10 @@ const aboutPct = p => (p < 1 ? 'less than 1%' : `about ${Math.round(p)}%`);
 
 /**
  * The confirmation, in the isolated window. estimate: usage:estimate's shape
- * (wiring/usageplan.js estimateFor) or null.
+ * (wiring/usageplan.js estimateFor) or null. attachments: how many go with it.
  * -> { title, message, detail, note, danger, over, total, buttons, defaultId, cancelId }
  */
-function costQuestion({ n, estimate = null, mode = '' } = {}) {
+function costQuestion({ n, estimate = null, mode = '', attachments = 0 } = {}) {
   const e = estimate || {};
   const known = e.basis && e.basis !== 'none' && Number.isFinite(e.pct) && e.pct >= 0;
   const total = known ? Math.round(e.pct * n * 10) / 10 : null;
@@ -86,6 +87,7 @@ function costQuestion({ n, estimate = null, mode = '' } = {}) {
     title: `Try this ${WORDS[n] || n} ways?`,
     message: message + warning,
     detail: `${n} tabs, each in its own copy of the project from your last commit, with exactly the same message`
+      + `${attachments > 0 ? ` (and ${attachments === 1 ? 'its attachment' : `all ${attachments} attachments`})` : ''}`
       + `${mode ? ` and the same permission mode (${MODE_NAMES[mode] || mode})` : ' and the same permission mode as this one'}. `
       + "When they're done he runs the project's tests on each and ranks them. Nothing is kept or thrown away until you pick.",
     note: 'Only uncommitted work stays behind: commit first if the tries need it.',
@@ -164,5 +166,5 @@ function doneLine(ranked) {
 
 module.exports = {
   parseArg, problem, titleFor, tryTitle, costQuestion, rank, verdictOf, allDone, isDone, doneLine, tierOf,
-  MIN_TRIES, MAX_TRIES, DEFAULT_TRIES, MAX_TEXT, MARK,
+  MIN_TRIES, MAX_TRIES, DEFAULT_TRIES, MAX_TEXT, MAX_ATTACHMENTS, MARK,
 };

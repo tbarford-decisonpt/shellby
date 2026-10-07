@@ -4,12 +4,15 @@
 // can't lose anything on either side. XP is counted per PC and the PCs are
 // added together (xp.js mergeXpCounts), so XP earned on two PCs adds up. The
 // outfit, skin and sticker layouts follow whichever PC changed them last. The
-// Bugdex's catches are counted per PC like XP (bugdex.js merge). The gist is yours but is still
+// Bugdex's catches are counted per PC like XP (bugdex.js merge). His tank's
+// layout follows whichever PC changed it last (tank-share.js). The gist is yours but is still
 // treated as untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
 const bugdex = require('../bugdex');
+const tankShare = require('../tank-share');
+const tankLayouts = require('../tank-layouts');
 
 const FILE = 'shellby-sync.json';
 const FORMAT = 1;
@@ -36,6 +39,8 @@ function snapshot(get) {
     skin: get('skin'), skinAt: stamps.skinAt,
     // Catches made before this PC had its id count as this PC's.
     bugdex: bugdex.syncable(bugdex.withDevice(get('bugdex'), xp.device)),
+    tank: get('tank'),
+    tankLayouts: get('tankLayouts'),
   });
 }
 
@@ -65,6 +70,10 @@ function clean(raw) {
     skinAt: num(r.skinAt),
     // Species counts and habitats only: no projects, bugs or open encounters.
     bugdex: bugdex.normalizeSync(r.bugdex),
+    // The layout only: whether it's on your calling card stays on each PC.
+    tank: tankShare.syncable(r.tank),
+    // The saved layouts; what a season put up on this PC stays here.
+    tankLayouts: tankLayouts.syncable(r.tankLayouts),
   };
 }
 
@@ -93,6 +102,8 @@ function merge(aIn, bIn) {
     stickers: stickers.merge(a.stickers, b.stickers),
     skin: newerSkin.skin, skinAt: newerSkin.skinAt,
     bugdex: bugdex.merge(a.bugdex, b.bugdex),
+    tank: tankShare.merge(a.tank, b.tank),
+    tankLayouts: tankLayouts.merge(a.tankLayouts, b.tankLayouts),
   });
 }
 
@@ -114,6 +125,9 @@ function patchFor(merged, get) {
     // Merged into this PC's own book, so its open bugs and projects stay.
     bugdex: bugdex.applySync(bugdex.withDevice(get('bugdex'), normalizeXp(xp).device), merged.bugdex),
   };
+  // A newer tank from another PC; this PC's own choice about the calling card stays.
+  if (merged.tank.editedAt > tankShare.syncable(get('tank')).editedAt) patch.tank = tankShare.applySync(get('tank'), merged.tank);
+  if (merged.tankLayouts.editedAt > tankLayouts.syncable(get('tankLayouts')).editedAt) patch.tankLayouts = tankLayouts.applySync(get('tankLayouts'), merged.tankLayouts);
   if (merged.skin) patch.skin = merged.skin;
   return patch;
 }
@@ -143,7 +157,7 @@ async function readGist(gh, id) {
 
 // What's in the gist is settled: nobody else's legacy is pending.
 const settled = snap => { const c = clean(snap); return { ...c, xp: { ...c.xp, legacyPending: false } }; };
-const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days and shell stickers. Safe to delete; Shellby makes a new one.' }, null, 1);
+const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, his tank and its saved layouts. Safe to delete; Shellby makes a new one.' }, null, 1);
 
 /**
  * One sync: merge local with the gist, apply what changed locally, push what

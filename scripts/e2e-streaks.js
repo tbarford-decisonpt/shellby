@@ -8,6 +8,7 @@ const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9356;
@@ -72,7 +73,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(row.includes(name) && /6 days since a commit/.test(row), `project row: "${row}"`);
     check(await ev("document.querySelector('#streakProjects .streak-project').classList.contains('late')"), 'a quiet project is highlighted');
     await ev("document.getElementById('streakCard').scrollIntoView({ block: 'start' })");
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng(send, process.argv[2]);
 
     // 3. A nudge, then "Pick it up".
     await ev('window.__nudges = 0; shellby.onNudge(() => { window.__nudges++; }); true');

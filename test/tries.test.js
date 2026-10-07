@@ -24,7 +24,10 @@ test('problem says why it cannot start, or null', () => {
   assert.match(tries.problem({ n: 3, text: 'fix it', tabsOpen: 30, maxTabs: 32 }), /room for 2/);
   assert.match(tries.problem({ n: 2, text: 'fix it', tabsOpen: 32, maxTabs: 32 }), /up to 32/);
   assert.match(tries.problem({ n: 3, text: '  ', tabsOpen: 0 }), /Type what/);
-  assert.match(tries.problem({ n: 3, text: 'x', attachments: 1 }), /typed message/);
+  // Attachments go to every try; only more than one message carries is refused.
+  assert.equal(tries.problem({ n: 3, text: 'x', attachments: 2 }), null);
+  assert.equal(tries.problem({ n: 3, text: 'x', attachments: tries.MAX_ATTACHMENTS }), null);
+  assert.match(tries.problem({ n: 3, text: 'x', attachments: tries.MAX_ATTACHMENTS + 1 }), /20 attachments at most/);
   assert.ok(tries.problem({ n: 5, text: 'x' }));
   assert.ok(tries.problem({ n: 3, text: 'x'.repeat(tries.MAX_TEXT + 1) }));
 });
@@ -48,6 +51,12 @@ test('the cost question gives each try, the total and what is left', () => {
   assert.equal(q.total, 24);
   assert.equal(q.buttons[0].label, 'Try it 3 ways');
   assert.equal(q.cancelId, 1);
+  assert.doesNotMatch(q.detail, /attachment/);
+});
+
+test('the cost question says the attachments go to every try', () => {
+  assert.match(tries.costQuestion({ n: 2, attachments: 1 }).detail, /the same message \(and its attachment\)/);
+  assert.match(tries.costQuestion({ n: 3, attachments: 4 }).detail, /the same message \(and all 4 attachments\)/);
 });
 
 test('no estimate says so plainly, and still asks', () => {

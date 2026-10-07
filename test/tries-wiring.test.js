@@ -5,10 +5,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('events');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { wireTries } = require('../src/main/wiring/tries');
 const branch = require('../src/main/branch');
 
-function fake({ answer = 0, estimate = null, root = 'C:\\code\\app', settings = {} } = {}) {
+function fake({ answer = 0, estimate = null, root = 'C:\\code\\app', settings = {}, filesDir = path.join(os.tmpdir(), 'shellby-test-try-files') } = {}) {
   const tabs = new Map();
   const entries = new Map();
   const items = new Map();
@@ -56,7 +59,7 @@ function fake({ answer = 0, estimate = null, root = 'C:\\code\\app', settings = 
     log: { info: () => {} },
   };
   tabs.set('src', { id: 'src', title: 'Mine', session: { cwd: 'C:\\code\\app', mode: 'ask' } });
-  const wired = wireTries(d, { ask: async spec => { asked.push(spec); return answer; }, rootOf: async () => root, maxTabs: 32 });
+  const wired = wireTries(d, { ask: async spec => { asked.push(spec); return answer; }, rootOf: async () => root, maxTabs: 32, filesDir: () => filesDir });
   return { d, wired, tabs, entries, items, asked, started, checked, pushes };
 }
 
@@ -160,6 +163,45 @@ test('turns in other tabs, and later turns in a try, are not counted', async () 
   await f.wired.turnEnded('try-1', { kind: 'result', ok: false });
   await f.wired.turnEnded('try-1', { kind: 'result', ok: true });
   assert.deepEqual(f.checked, []);
+});
+
+test('attachments go to every try: project files point at its own copy, the rest as they are', async () => {
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'tries-attach-')));
+  try {
+    const repo = path.join(base, 'repo');
+    const copy = i => path.join(base, 'worktrees', `c${i}`, 'repo');
+    for (const dir of [repo, copy(1), copy(2)]) { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'login.js'), ''); }
+    fs.writeFileSync(path.join(repo, 'notes.md'), 'not committed');
+    const shot = path.join(base, 'screenshot-1.png');
+    fs.writeFileSync(shot, 'png');
+    const f = fake({ root: repo, filesDir: path.join(base, 'try-files') });
+    f.tabs.get('src').session.cwd = repo;
+    const files = [path.join(repo, 'login.js'), path.join(repo, 'notes.md'), shot];
+    const r = await f.wired.start({ tabId: 'src', n: 2, text: 'fix the login', attachments: files });
+    assert.equal(r.ok, true);
+    assert.match(f.asked[0].detail, /and all 3 attachments/);
+    const got = f.started.map((s, i) => s.opts.attachments({ path: copy(i + 1) }));
+    assert.equal(got[0][0], path.join(copy(1), 'login.js'));
+    assert.equal(got[1][0], path.join(copy(2), 'login.js'));
+    assert.equal(fs.readFileSync(got[0][1], 'utf8'), 'not committed');
+    assert.notEqual(got[0][1], got[1][1], 'a snapshot each');
+    assert.ok(got.every(g => !g[1].startsWith(repo)), 'never your checkout\'s file');
+    assert.deepEqual(got.map(g => g[2]), [shot, shot]);
+    assert.ok(f.started.every(s => s.prompt === 'fix the login'));
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('no attachments: the tries are sent as before; too many: refused before asking', async () => {
+  const f = fake();
+  await f.wired.start({ tabId: 'src', n: 2, text: 'fix it' });
+  assert.ok(f.started.every(s => s.opts.attachments === undefined));
+  const g = fake();
+  const many = Array.from({ length: 21 }, (_, i) => `C:\\code\\app\\f${i}.txt`);
+  const r = await g.wired.start({ tabId: 'src', n: 2, text: 'fix it', attachments: many });
+  assert.match(r.error, /20 attachments at most/);
+  assert.equal(g.asked.length, 0);
 });
 
 test('a try that finishes while the next is still being copied counts, and the run still finishes', async () => {

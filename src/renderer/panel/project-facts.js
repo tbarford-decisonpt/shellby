@@ -22,7 +22,7 @@
 
   const REASON = {
     ci: r => ({ text: r.count > 1 ? `${r.count} PRs failing` : 'CI failing', tone: 'bad', title: 'A pull request has failing checks' }),
-    vuln: r => ({ text: plural(r.count, 'vulnerability', 'vulnerabilities'), tone: r.worst === 'critical' || r.worst === 'high' ? 'bad' : 'warn', title: r.worst ? `Worst: ${r.worst}` : 'From the last npm audit' }),
+    vuln: r => ({ text: plural(r.count, 'vulnerability', 'vulnerabilities'), tone: r.worst === 'critical' || r.worst === 'high' ? 'bad' : 'warn', title: r.worst && r.worst !== 'unrated' ? `Worst: ${r.worst}` : 'From the last dependency check' }),
     unpushed: r => ({ text: `${r.count} unpushed`, tone: 'warn', title: 'Commits no remote has yet' }),
     flaky: r => ({ text: `${r.count} flaky`, tone: 'warn', title: 'Tests that flaked this week' }),
     outdated: r => ({ text: `${r.count} outdated`, tone: 'info', title: 'Packages with newer versions' }),
@@ -139,8 +139,8 @@
     if (d) {
       rows.push(h('li', { class: 'pj-h-row' },
         h('span', { class: `pj-dot ${!d.ok ? 'off' : d.worst === 'critical' || d.worst === 'high' ? 'crashed' : d.attention ? 'starting' : 'up'}`, 'aria-hidden': 'true' }),
-        h('span', { class: 'pj-h-text' }, h('b', { text: 'Dependencies' }), h('span', { class: 'muted small', text: `${d.summary}${d.at ? ` · checked ${ago(d.at)}` : ''}` })),
-        h('span', { class: 'pj-h-acts' }, d.attention && taskButton('Bump & open a PR', () => api.bumpDeps(d.key), 'btn slim-btn'))));
+        h('span', { class: 'pj-h-text' }, h('b', { text: d.label ? `Dependencies (${d.label})` : 'Dependencies' }), h('span', { class: 'muted small', text: `${d.summary}${d.at ? ` · checked ${ago(d.at)}` : ''}` })),
+        h('span', { class: 'pj-h-acts' }, d.attention && taskButton('Bump & open a PR', () => api.bumpDeps(d.key, d.manager), 'btn slim-btn'))));
     }
     for (const f of i.flaky || []) {
       const what = f.status === 'quarantined' ? 'Quarantined' : f.status === 'fixing' ? 'Being fixed' : `Flaked ${plural(f.week || f.total, 'time')}${f.week ? ' this week' : ''}`;

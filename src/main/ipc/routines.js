@@ -82,8 +82,9 @@ function registerRoutinesIpc(ipcMain, d) {
   ipcMain.handle('depwatch:get', () => d.depWatch.view());
   ipcMain.handle('depwatch:set', (_e, on) => d.depWatch.setEnabled(on === true));
   ipcMain.handle('depwatch:scan', () => d.depWatch.scan());
-  ipcMain.handle('depwatch:bump', async (_e, key) => {
-    const r = d.depWatch.result(key);
+  // key: the folder; manager: which of its package managers (a folder may have two).
+  ipcMain.handle('depwatch:bump', async (_e, key, manager) => {
+    const r = d.depWatch.result(key, typeof manager === 'string' ? manager : null);
     if (!r || !depwatch.needsAttention(r)) return { ok: false, error: 'Nothing to bump there. Check again first.' };
     if (!d.isFolder(r.key)) return { ok: false, error: "Shellby can't find that folder any more." };
     // The copy gets its own branch; the pull request is opened from it.
@@ -93,12 +94,12 @@ function registerRoutinesIpc(ipcMain, d) {
   });
   // A routine for the editor to fill in: saving it goes through routines:save
   // like any other, with its confirmation.
-  ipcMain.handle('depwatch:routine', (_e, key) => {
-    const r = d.depWatch.result(key);
+  ipcMain.handle('depwatch:routine', (_e, key, manager) => {
+    const r = d.depWatch.result(key, typeof manager === 'string' ? manager : null);
     if (!r) return null;
     return {
       name: `Weekly package bump: ${r.name}`.slice(0, 60),
-      prompt: depwatch.routinePrompt(r.name),
+      prompt: depwatch.routinePrompt(r.name, r.manager),
       cwd: r.key, mode: 'smart',
       schedule: { type: 'weekly', time: '10:00', days: [1] },
     };

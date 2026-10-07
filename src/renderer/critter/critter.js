@@ -82,8 +82,8 @@ api.onSkin(msg => {
   document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
   drawSelf();
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, helperHats.get(el)));
-  // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
-  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
+  // Equipped effect (snow, bats, ...) plays around Shellby in flights now and then (effects.js FLIGHT); burst effects wait for a finished task.
+  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)), flights: true });
   // Real rain outside beats the snow he chose to wear.
   const effect = outfit.weather?.effect || outfit.effect;
   if (effect?.key !== shownEffect) { shownEffect = effect?.key ?? null; fx.set(effect); }
@@ -432,12 +432,14 @@ const NEED_MOODS = new Set(['happy', 'content', 'peckish', 'sandy', 'sleepy', 'm
 const NEED_METERS = new Set(['fullness', 'tidiness', 'energy', 'cheer']);
 let needs = null;
 const needClasses = () => (needs ? [NEED_MOODS.has(needs.mood) ? `need-${needs.mood}` : '', ...(needs.low || []).filter(k => NEED_METERS.has(k)).map(k => `low-${k}`)] : []);
+let stillNow = false; // calm from main (locked, covered, nobody at the desk): see api.onCalm
 function paintBody() {
   const dropping = document.body.classList.contains('dropping');
   document.body.className = [
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
     focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '',
+    stillNow ? 'calm-deep' : '', // kept through every repaint, or the next state push would wake him
     ...needClasses(), ...flags,
   ].filter(Boolean).join(' ');
   bubbleText.textContent = dropping ? 'drop it!' : bubbleFor();
@@ -757,7 +759,8 @@ api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(m
 // is nothing to see and it is pure drain. Paused, not stopped, so unlocking
 // picks up mid-breath. See watchIdleCost in src/main/main.js.
 api.onCalm(msg => {
-  document.body.classList.toggle('calm-deep', !!msg?.calm);
+  stillNow = !!msg?.calm;
+  document.body.classList.toggle('calm-deep', stillNow);
   // Behind a window you can still hear him; only a locked screen fades the sea out.
   window.ShellbySound.setCalm(!!msg?.locked);
 });

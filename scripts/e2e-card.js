@@ -14,7 +14,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
-  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: profile } });
+  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], { stdio: 'ignore', env: { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47961' } });
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
   try {
@@ -73,6 +73,36 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev("document.getElementById('cardClose').click()");
     await wait(300);
     check(await ev("document.getElementById('cardSheet').hidden"), 'close hides the sheet');
+
+    // His tank (tank.js): plain sand while it's empty, the real tank once there's something in it.
+    const tankBox = "(r => { const d = r.canvas.getContext('2d').getImageData(48, 48, 470, 470).data; let s = 0; for (let i = 0; i < d.length; i += 97) s = (s * 31 + d[i]) >>> 0; return { n: r.data.tankPieces, s }; })";
+    const plain = await ev(`SB.crabCard.render().then(${tankBox})`);
+    check(plain?.n === 0, 'an empty tank: the card looks as it always has');
+    const placed = await ev("shellby.saveTank({ size: 'nano', style: { substrate: 'gravel', backdrop: null, light: 'day' }, placed: [{ ref: 'castle-keep', x: 30, row: 0, z: 0, flip: false }, { ref: 'kelp', x: 6, row: 0, z: 0, flip: false }, { ref: 'rock-round', x: 50, row: 2, z: 0, flip: false }] }).then(r => r.view.pieces.length)");
+    check(placed === 3, 'three pieces in his tank');
+    const decorated = await ev(`SB.crabCard.render().then(${tankBox})`);
+    check(decorated?.n === 3 && decorated.s !== plain.s, `the crab card paints his tank (${decorated?.n} pieces)`);
+    const tankPng = path.join(os.tmpdir(), 'shellby-card-tank.png');
+    const tankUrl = await ev('SB.crabCard.render().then(r => r.canvas.toDataURL("image/png"))');
+    if (typeof tankUrl === 'string') { fs.writeFileSync(tankPng, Buffer.from(tankUrl.split(',')[1], 'base64')); console.log(`card with his tank: ${tankPng}`); }
+
+    // The profile card only shows it once you choose (Tank → On your cards).
+    await ev("SB.setView('tank')");
+    await wait(1200);
+    check(!(await ev("SB.profileCard.build().includes('id=\"tkw\"')")), 'the profile card keeps it off until you choose');
+    await ev("document.getElementById('tkShare').click()");
+    const svgOk = async () => ev("(s => s.includes('id=\"tkw\"') && s.length < 256 * 1024 && !/<(image|use|script|foreignObject)\\b|href=/.test(s))(SB.profileCard.build())");
+    let shows = false;
+    for (let i = 0; i < 20 && !shows; i++) { shows = await svgOk(); if (!shows) await wait(250); }
+    check(shows, 'then the profile card shows him in it, as plain SVG');
+    const svgFile = path.join(os.tmpdir(), 'shellby-profile-tank.svg');
+    fs.writeFileSync(svgFile, await ev('SB.profileCard.build()') || '');
+    // ...and as GitHub would show it: an image, drawn.
+    const drawn = await ev(`new Promise(r => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); c.width = 480; c.height = 200;
+      c.getContext('2d').drawImage(i, 0, 0); r(c.toDataURL('image/png')); }; i.onerror = () => r(null); i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SB.profileCard.build()); })`);
+    check(typeof drawn === 'string', 'the profile card with his tank loads as an image');
+    if (drawn) fs.writeFileSync(svgFile.replace(/\.svg$/, '.png'), Buffer.from(drawn.split(',')[1], 'base64'));
+    console.log(`profile card with his tank: ${svgFile} (and .png)`);
   } catch (e) {
     check(false, e.message);
   } finally {

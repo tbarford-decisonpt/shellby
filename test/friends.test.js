@@ -223,6 +223,43 @@ test('friends: a visit signs the guestbook, leaves a souvenir, and the visitor l
   f.stop();
 });
 
+test('friends: a visit while his tank is on your card counts for House Guest, once per visit', async () => {
+  const world = fakeGitHub('sam');
+  await publishCard(world.gh.as('alex'), { ...looks(), login: 'alex', updatedAt: 1e12 }, null);
+  let t = 1e12, sharing = false;
+  const github = { can: () => true, signedIn: true, gh: () => world.gh.as('sam'), view: () => ({ login: 'sam', name: 'Sam' }) };
+  const f = new Friends({ config: new MemConfig(), github, myCard: () => looks(), now: () => t, rand: () => 0, sharesTank: () => sharing });
+  await f.add('alex');
+  const recorded = [];
+  f.on('record', e => recorded.push(e));
+  f.invite('alex');
+  assert.deepEqual(recorded, ['visitor-hosted'], 'not while the tank is private');
+  sharing = true;
+  t += 60_000;
+  f.invite('alex');
+  assert.deepEqual(recorded, ['visitor-hosted'], 'the same visit window: no second count');
+  t += SAME_FRIEND_GAP_MS;
+  f.invite('alex');
+  assert.deepEqual(recorded, ['visitor-hosted', 'visitor-hosted', 'house-guest']);
+  f.stop();
+  const stats = recordStat({}, 'house-guest');
+  assert.equal(stats.houseGuests, 1);
+  assert.deepEqual(ACHIEVEMENTS.find(a => a.id === 'house-guest').rewards, ['guest-bench']);
+});
+
+test('friends: republish after a refresh that was already out, so a card taken off is really off', async () => {
+  const world = fakeGitHub('sam');
+  let tank = { size: 'nano', style: {}, placed: [{ ref: 'castle-keep', x: 1, row: 1, flip: false }] };
+  const { f } = service({ world, myCard: () => ({ ...looks(), tank }) });
+  const first = f.refresh();             // builds the card with his tank on it...
+  tank = null;                            // ...and meanwhile you turn sharing off
+  await f.republish();
+  await first;
+  const mine = [...world.gists.values()].find(g => g.owner === 'sam');
+  assert.equal(JSON.parse(mine.files[CARD_FILE].content).tank, null, 'the second pass published it without');
+  f.stop();
+});
+
 test('friends: in Work mode nobody drops in on their own, but an invite still works', async () => {
   const world = fakeGitHub('sam');
   await publishCard(world.gh.as('alex'), { ...looks(), login: 'alex', updatedAt: 1e12 }, null);

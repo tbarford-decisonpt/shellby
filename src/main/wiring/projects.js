@@ -25,7 +25,7 @@ function wireProjects(d) {
   // ---- dependency watch
 
   // The projects it looks at: the git repos Shellby has seen you work in, then
-  // your recent folders (depwatch.candidates keeps the npm ones).
+  // your recent folders (depwatch.candidates keeps the ones with a lockfile it can read).
   function depProjects() {
     const s = streaks.normalize(d.config.get('streaks'));
     return depwatch.candidates({
@@ -33,6 +33,15 @@ function wireProjects(d) {
       recent: d.config.get('recentFolders') || [],
       exclude: [d.worktreeHome()], // a bump task's copy is where the work happens, not a project of its own
       has: (dir, file) => { try { return fs.statSync(path.join(dir, file)).isFile(); } catch { return false; } },
+      // The start of a file (is yarn.lock Yarn 1's or Yarn 2+'s?).
+      peek: (dir, file) => {
+        let fd = null;
+        try {
+          fd = fs.openSync(path.join(dir, file), 'r');
+          const buf = Buffer.alloc(depwatch.PEEK_BYTES);
+          return buf.toString('utf8', 0, fs.readSync(fd, buf, 0, buf.length, 0));
+        } catch { return ''; } finally { if (fd !== null) fs.closeSync(fd); }
+      },
     });
   }
 
@@ -50,7 +59,7 @@ function wireProjects(d) {
       openCard: showServer,
       notify: n => d.notify(n.title, n.body, n.onClick, { tone: n.tone || 'default', action: n.action || null }),
     });
-    d.devServers.on('change', v => { d.send(d.panel, 'servers:changed', v); d.refreshCritter(); });
+    d.devServers.on('change', v => { d.send(d.panel, 'servers:changed', v); d.refreshCritter(); d.tankGauges?.servers(); });
     d.devServers.on('crashed', v => {
       if (!d.config.get('crabOnly')) d.speak('serverDown');
       d.bugdex?.serverCrashed(v); // a Beached Whale (or what its log says it was) on the loose
@@ -173,7 +182,9 @@ function wireProjects(d) {
   // copy: a worktree already made (an issue's, from its default branch: github/pullrequest.js makeCopy).
   // draft: the prompt waits in the box for you to read and send (Next up, wiring/backlog.js);
   // a copy nothing was ever sent from goes when its tab closes (dropUnsentCopy).
-  async function startTaskInCopy(dir, title, promptFor, { mode = null, start = 'HEAD', copy = null, draft = false } = {}) {
+  // attachments(worktree): the files that go with the prompt, as a message sent
+  // from the box would carry them (attachments.js), once the copy is known (tries).
+  async function startTaskInCopy(dir, title, promptFor, { mode = null, start = 'HEAD', copy = null, draft = false, attachments = null } = {}) {
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
     let w = copy;
     if (!w) {
@@ -189,7 +200,11 @@ function wireProjects(d) {
       const prompt = promptFor(w);
       // Where it started, so closing it unsent can tell nothing was done in it.
       if (draft) tab.unsentCopy = { head: (await worktrees.git(w.path, ['rev-parse', 'HEAD'], { timeout: 5000 })).out?.trim() || null };
-      else d.manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
+      else {
+        const files = typeof attachments === 'function' ? attachments(w) : [];
+        if (files.length) d.manager.send(tabId, d.composePrompt(prompt, files), { kind: 'user', text: prompt, attachments: files, title });
+        else d.manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
+      }
       d.history.update(tabId, { cwd: w.cwd, worktree: w });
       d.manager.note(tabId, { kind: 'moved', branch: w.branch, base: w.base });
       d.wake();
