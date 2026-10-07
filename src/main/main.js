@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain: electronIpcMain, screen, shell, dialog, globalShortcut, clipboard, session: electronSession, powerMonitor } = require('electron');
+const { app, ipcMain: electronIpcMain, screen, shell, dialog, globalShortcut, clipboard, session: electronSession, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -9,15 +9,11 @@ const { Config } = require('./config');
 const { History } = require('./history');
 const { checkStatus, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { loadSkins } = require('./skins');
-const { sendToBottom } = require('./desktop-layer');
-const { clampToDisplays, panelPosition } = require('./placement');
+const { clampToDisplays } = require('./placement');
 const claudeSetup = require('./claude-setup');
 const { Wardrobe } = require('./wardrobe/service');
 const confirm = require('./confirm');
-const { attachContextMenu } = require('./context-menu');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
-const native = require('./native-windows');
-const { kindOfApp } = require('./surroundings');
 const { withDevice } = require('./xp');
 const focus = require('./focus');
 const rooms = require('./rooms');
@@ -42,6 +38,7 @@ const { guardAllWebContents } = require('./web-guard');
 const { registerHistoryIpc, clearQuestion } = require('./ipc/history');
 const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { registerTankIpc } = require('./ipc/tank');
+const { wirePanel } = require('./wiring/panel');
 const { wireServices } = require('./wiring/services');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
@@ -104,7 +101,6 @@ const ICON = path.join(ROOT, 'assets', 'icon.png');
 const CAPTURE = process.argv.includes('--capture-screenshots');
 
 const BASE_PX = 4;                 // screen pixels per sprite pixel at scale 1
-const PANEL_DEFAULT = { width: 460, height: 700 };
 const MAX_CREW_SHOWN = 5;          // helper crabs drawn on the desktop
 const SLEEP_AFTER_MS = 3 * 60 * 1000;
 // A task running this long earns a "bear with me" (dev/e2e may shorten it).
@@ -297,9 +293,8 @@ const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { ret
 // is there only where a module changes it. wiring/ reaches the services whole
 // (d.usageService.limitWait()); the flat names are what ipc/ reads.
 const shared = {
-  applyHotkey, applyLoginItem, checkNudges, every, gameInFront, isFolder, isStr, panelSettings,
-  recordWork, rememberPrompt, saveCritterPos, saveStreaks, send, setCrewSlots, setPanelRoomy,
-  showPanel, streaksView, togglePanel,
+  applyHotkey, applyLoginItem, checkNudges, every, isFolder, isStr, panelSettings,
+  recordWork, rememberPrompt, saveCritterPos, saveStreaks, send, setCrewSlots, streaksView,
   get recapLog() { return shared.awayService.recapLog; }, set recapLog(v) { shared.awayService.recapLog = v; },
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
@@ -513,7 +508,7 @@ const shared = {
   get openTab() { return openTab; },
   get outfit() { return outfit; },
   get paintLights() { return paintLights; },
-  get panel() { return panel; },
+  get panel() { return panel; }, set panel(v) { panel = v; },
   get pauseHook() { return pauseHook; },
   get pendingCommands() { return pendingCommands; },
   get pendingLink() { return pendingLink; }, set pendingLink(v) { pendingLink = v; },
@@ -534,7 +529,6 @@ const shared = {
   get ptt() { return ptt; }, set ptt(v) { ptt = v; },
   get px() { return px; },
   get randomUUID() { return randomUUID; },
-  get reachedForShellby() { return reachedForShellby; },
   get refreshClashes() { return refreshClashes; },
   get refreshCritter() { return refreshCritter; },
   get refreshStatusLine() { return refreshStatusLine; },
@@ -639,6 +633,8 @@ function share(parts) {
   return Object.assign(shared, parts);
 }
 
+// The panel's window first: its functions were main's own, there from the start.
+const { createPanel, reachedForShellby, showPanel } = share(wirePanel(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
   changeRef, checkLeavingSoon, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
@@ -760,133 +756,6 @@ function saveCritterPos() {
   if (c.x !== b.x || c.y !== b.y) placeCritter(c.x, c.y);
   // Persist Shellby's own spot, not the crew-widened window's left edge.
   config.set({ critterPos: { x: c.x + crewExtra(), y: c.y } });
-}
-
-function createPanel() {
-  const size = config.get('panelSize') || PANEL_DEFAULT;
-  panel = new BrowserWindow({
-    ...size, minWidth: 400, minHeight: 520,
-    show: false, frame: false, backgroundColor: '#0c1719', title: 'Shellby', icon: ICON, webPreferences,
-  });
-  secureWindow(panel);
-  attachContextMenu(panel, electronIpcMain); // checks the sender itself: only the panel picks from its menu
-  panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
-  panel.on('focus', reachedForShellby); // clicked into it yourself
-  panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
-  // The loops are stepped by a 12 fps timer (shared/framecap.js), and Chromium
-  // slows a background window's timers to a crawl: behind another window the
-  // spinners froze, which reads as a hung task. Unthrottled only while it's on
-  // screen, since this also keeps `document.hidden` false, and the tank, beach
-  // and polls rely on that to stop once the panel is put away.
-  const throttle = on => { if (!panel.isDestroyed()) panel.webContents.backgroundThrottling = on; };
-  panel.on('show', () => throttle(false));
-  panel.on('restore', () => throttle(false));
-  panel.on('hide', () => throttle(true));
-  panel.on('minimize', () => throttle(true));
-  panel.on('resized', () => {
-    if (Date.now() - roomyAt < ROOMY.settleMs) return; // it was us, not you
-    // Resizing it yourself while it's made room keeps your size: there's nothing to put back,
-    // and the panel stops asking for room.
-    if (roomyFrom) { roomyFrom = null; send(panel, 'panel:roomy-lost'); }
-    const [width, height] = panel.getSize();
-    config.set({ panelSize: { width, height } });
-  });
-}
-
-// "Make room" on a workflow map: the panel grows toward the middle of its screen,
-// and goes back to its size after. Only you resizing it is ever remembered.
-const ROOMY = { width: 1180, height: 780, gap: 8, settleMs: 800 };
-let roomyFrom = null; // { from: its bounds before, set: the bounds it grew to, right, low }
-let roomyAt = 0;
-
-const clampInto = (r, wa) => ({
-  ...r,
-  x: Math.round(Math.min(Math.max(r.x, wa.x + ROOMY.gap), wa.x + wa.width - r.width - ROOMY.gap)),
-  y: Math.round(Math.min(Math.max(r.y, wa.y + ROOMY.gap), wa.y + wa.height - r.height - ROOMY.gap)),
-});
-
-function setPanelRoomy(on) {
-  if (!panel || panel.isDestroyed()) return { ok: false, roomy: false };
-  if (!on) {
-    if (roomyFrom) {
-      const { from, set, right, low } = roomyFrom;
-      const c = panel.getBounds();
-      // Where it was, unless it's been moved (or put back beside the crab) since: then its
-      // size, keeping the corner it grew from where it is now.
-      const back = c.x === set.x && c.y === set.y ? from
-        : clampInto({ x: right ? c.x + c.width - from.width : c.x, y: low ? c.y + c.height - from.height : c.y, width: from.width, height: from.height }, screen.getDisplayMatching(c).workArea);
-      roomyAt = Date.now();
-      panel.setBounds(back);
-    }
-    roomyFrom = null;
-    return { ok: true, roomy: false };
-  }
-  if (roomyFrom) return { ok: true, roomy: true };
-  const b = panel.getBounds();
-  const wa = screen.getDisplayMatching(b).workArea;
-  const width = Math.min(ROOMY.width, wa.width - ROOMY.gap * 2);
-  const height = Math.max(b.height, Math.min(ROOMY.height, wa.height - ROOMY.gap * 2));
-  if (width <= b.width && height <= b.height) return { ok: true, roomy: false };
-  const right = b.x + b.width / 2 > wa.x + wa.width / 2;
-  const low = b.y + b.height / 2 > wa.y + wa.height / 2;
-  const set = clampInto({ x: right ? b.x + b.width - width : b.x, y: low ? b.y + b.height - height : b.y, width, height }, wa);
-  roomyFrom = { from: b, set, right, low };
-  roomyAt = Date.now();
-  panel.setBounds(set);
-  return { ok: true, roomy: true };
-}
-
-// A dev run opens its panel behind whatever you're doing (a game, say) instead of
-// snatching focus, until you reach for Shellby yourself: the crab, the hotkey, the
-// tray, or clicking the panel. SHELLBY_FOREGROUND=1 brings back the packaged behavior.
-let openBehind = !app.isPackaged && process.env.SHELLBY_FOREGROUND !== '1';
-let reachedAt = 0;
-const reachedForShellby = () => { openBehind = false; reachedAt = Date.now(); };
-// Long enough to pick an item from the crab's menu or the tray's.
-const REACHED_MS = 15000;
-
-// Every build, packaged too: with a game in front, the panel only comes forward
-// when you just reached for it (the hotkey, mostly). Anything else (a task from
-// the terminal, a finished routine) opens behind the game.
-function gameInFront(info = native.describe(native.foreground())) {
-  const q = native.notificationState();
-  if (q === native.QUNS.D3D_FULL_SCREEN || q === native.QUNS.PRESENTATION) return true;
-  if (!info || info.pid === process.pid) return false;
-  return kindOfApp({ exe: info.exe, path: info.path }) === 'game';
-}
-
-function showPanel({ focusInput = true, tabId = null } = {}) {
-  if (openBehind || (Date.now() - reachedAt > REACHED_MS && gameInFront())) {
-    if (!panel.isVisible()) { placePanel(); panel.showInactive(); sendToBottom(panel); }
-    if (tabId) send(panel, 'tab:focus', tabId);
-    return;
-  }
-  if (!panel.isVisible()) placePanel();
-  if (panel.isMinimized()) panel.restore();
-  panel.show();
-  panel.moveTop();
-  panel.focus();
-  if (tabId) send(panel, 'tab:focus', tabId);
-  if (focusInput) send(panel, 'panel:focus-input');
-}
-
-// Beside the crab, on his screen.
-function placePanel() {
-  const b = critter.getBounds();
-  const self = { x: b.x + crewExtra(), y: b.y, width: b.width - crewExtra(), height: b.height };
-  const [pw, ph] = panel.getSize();
-  const display = screen.getDisplayNearestPoint({ x: b.x, y: b.y });
-  const wa = { ...display.workArea };
-  // An auto-hiding taskbar leaves workArea == bounds; keep the composer clear of where it pops up.
-  if (wa.height === display.bounds.height) wa.height -= 48;
-  const p = panelPosition(self, { width: pw, height: ph }, wa);
-  panel.setPosition(p.x, p.y);
-}
-
-function togglePanel() {
-  reachedForShellby(); // the crab and the hotkey both land here
-  if (panel.isVisible() && panel.isFocused()) panel.hide();
-  else showPanel();
 }
 
 function send(win, channel, payload) {
