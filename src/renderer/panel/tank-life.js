@@ -77,7 +77,8 @@
     if (!act || !act.spot) return none;
     const f = Math.max(0, Math.min(1, t / act.ms));
     const s = act.spot;
-    const onTop = Math.max(0, crabY - s.y);              // feet on the spot
+    const onTop = crabY - s.y;                           // feet on the spot (below his row for a front-row piece)
+    const front = s.row === 2;                           // ...and then he's drawn in front of that row
     const peekAt = crabY - crabH - s.y + PEEK_ROWS;      // the top of him just over the spot
     switch (act.kind) {
       case 'hide':
@@ -86,11 +87,11 @@
       case 'peek':
         return { ...none, lift: peekAt, crop: f < 0.15 || f > 0.9 ? PEEK_ROWS - 2 : PEEK_ROWS };
       case 'sit':
-        return { ...none, lift: onTop };
+        return { ...none, lift: onTop, front };
       case 'climb': {
         // Up one side, down the other.
         const up = f < 0.5 ? f * 2 : (1 - f) * 2;
-        return { ...none, lift: Math.round(onTop * up), face: f < 0.5 ? 1 : -1 };
+        return { ...none, lift: Math.round(onTop * up), face: f < 0.5 ? 1 : -1, front };
       }
       case 'sleep':
         // Tucked in, just the top of his shell showing, and z's.

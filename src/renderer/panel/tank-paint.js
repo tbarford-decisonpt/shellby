@@ -221,8 +221,9 @@
     const front = scene.pieces.filter(p => depthOf(p) > 2);
     const alphaOf = p => (dim && dim.has(p.uid) ? dim.get(p.uid) : 1);
     for (const p of behind) piece(ctx, p, t, still, alphaOf(p));
-    if (crab) crabOn(ctx, scene, crab);
+    if (crab && !crab.front) crabOn(ctx, scene, crab);
     for (const p of front.filter(p => p.layer !== 'float')) piece(ctx, p, t, still, alphaOf(p));
+    if (crab && crab.front) crabOn(ctx, scene, crab); // up on something in the front row
     bubbles(ctx, scene, t, still);
     // After dark the room dims, but lamps and bubblers keep their glow.
     if (W.shade) {

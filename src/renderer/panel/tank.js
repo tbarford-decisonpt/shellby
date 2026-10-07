@@ -141,7 +141,7 @@
     // Decorating, he's see-through, so nothing hides behind him while you place it.
     return {
       ...crab, x: still ? stillX() : inX ?? walker.x, flip: dir < 0 && !still, hop: Math.max(hop, pose?.hop || 0),
-      lift: pose?.lift || 0, crop: pose ? pose.crop : null, z: !!pose?.z, alpha: editing() ? DECORATING_ALPHA : 1,
+      lift: pose?.lift || 0, crop: pose ? pose.crop : null, z: !!pose?.z, front: !!pose?.front, alpha: editing() ? DECORATING_ALPHA : 1,
     };
   }
 
