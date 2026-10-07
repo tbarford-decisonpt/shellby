@@ -9,12 +9,17 @@
 - **Standup and weekly reports** per project: Yesterday / Today / Blockers, or This week / Last week, from your commits, conversations, tracked time and Claude's tasks, worded for Slack or an email, with a Copy button.
 - **Where did we leave off?** When a session ends, Shellby writes a handoff note for its project (what was asked, what's half-done, what was decided, where git stood) from Claude Code's own record, so it costs no tokens. Run `/shellby:leftoff` in Claude Code, or press **Carry on with Claude** on the project's page.
 - **Ask from a terminal.** With the Shellby plugin, ask Claude Code "what's next on this repo?" and it asks Shellby: anything broken first, then your to-dos, then the housekeeping. It can read why a dev server fell over, and add or tick off to-dos. Without Claude, `shellby next` prints the same answer.
+- **Change notes for your releases.** Keep what's coming next as one small file per branch in a `changes/` folder, and the Releases card drafts the CHANGELOG entry from them (and suggests a minor version when one has something new). Cutting the release folds them in and tidies them away, so branches worked on side by side never fight over the top of the CHANGELOG.
+- **Copies get their packages.** When a conversation moves into its own copy of a Node project, and your checkout already has exactly those packages installed from the npm registry, Shellby installs the same ones in the copy first, with install scripts skipped, so tests and lint work straight away.
 
 ### Fixed
 - **Progress spinners keep turning while you're tabbed out**, game included, unless the game's window actually covers the panel.
 - **A notification with a button holds still.** A new toast no longer snatches "Ask him to sort it out" from under your pointer; it waits its turn.
 - **A long list of clashes no longer pushes the branch menu's options off the window.** It shows a few, the rest on hover, and the menu fits the window.
 - The project tools Claude Code reaches over the local API, the journal included, need Shellby's token, so other accounts on the PC can't read them.
+
+### Changed
+- **Work brought home has a commit message worth reading.** The commit for what a copy left uncommitted is named after the branch Claude chose ("fix: tall menu overflow"), not the first words of your prompt, so your history and release drafts say what changed.
 
 ## 0.70.2: An expired sign-in says so
 
