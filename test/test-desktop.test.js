@@ -29,3 +29,12 @@ test('a test run does not watch what covers the crab, unless it asks to', () => 
   assert.equal(watchesDesktop({}, false), true);
   assert.equal(watchesDesktop({ SHELLBY_FAKE_CLAUDE: 'fake.js' }, true), true);
 });
+
+test('a run measuring his real cost gets the real desktop, fake CLI or not', () => {
+  const env = { SHELLBY_FAKE_CLAUDE: 'fake.js', SHELLBY_REAL_DESKTOP: '1' };
+  const app = fakeApp(false);
+  assert.equal(isTestRun(env, false), false);
+  assert.equal(keepPainting(app, env), false);
+  assert.deepEqual(app.added, []);
+  assert.equal(watchesDesktop(env, false), true);
+});

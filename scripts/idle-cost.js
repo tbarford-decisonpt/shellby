@@ -53,7 +53,8 @@ function gpuBusy(byPid, seconds) {
 (async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-idle-'));
   if (CLOSED) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ onboarded: true }));
-  const env = { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js') };
+  // SHELLBY_REAL_DESKTOP: the fake CLI alone makes it a test run (src/main/test-desktop.js), which skips the savings measured here.
+  const env = { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_REAL_DESKTOP: '1' };
   if (AWAKE) env.SHELLBY_IDLE_AWAKE = '1';
   else if (!CLOSED) env.SHELLBY_FOREGROUND = '1';
   // No --remote-debugging-port on purpose: an attached DevTools client keeps the

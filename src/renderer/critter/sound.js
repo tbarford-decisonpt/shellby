@@ -20,6 +20,7 @@
   let mix = { voice: false, fx: false, ambient: 'off', volume: BASE_VOLUME };
   let calm = false;
   let suspendTimer = null;
+  let suspending = null; // the suspend() under way, until it settles
   let stepTimer = null;
   let stepN = 0;
   const lastAt = {};
@@ -43,9 +44,20 @@
     // it's running. A suspended context's clock is stopped too, so whatever is
     // scheduled now plays from its start once the device is back: nothing clipped.
     clearTimeout(suspendTimer);
-    if (ctx.state === 'suspended' && !calm) ctx.resume().catch(() => {});
+    if (!calm) wake();
     restLater();
     return ctx;
+  }
+
+  // suspend() takes a moment, and the state still reads 'running' until it's done:
+  // a sound arriving then would be scheduled on a clock about to stop. So a
+  // sound in that moment resumes once the suspend has gone through.
+  function rest() {
+    suspending = ctx.suspend().catch(() => {}).finally(() => { suspending = null; });
+  }
+  function wake() {
+    if (suspending) suspending.then(() => { if (!calm) ctx.resume().catch(() => {}); });
+    else if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   }
 
   // A running AudioContext keeps the audio device and its thread busy mixing
@@ -56,7 +68,7 @@
     clearTimeout(suspendTimer);
     suspendTimer = setTimeout(() => {
       if (!ctx || ctx.state !== 'running' || stepTimer || (root.ShellbyAmbient?.kind || 'off') !== 'off') return;
-      ctx.suspend().catch(() => {});
+      rest();
     }, QUIET_SUSPEND_MS);
   }
 
@@ -220,8 +232,8 @@
     root.ShellbyAmbient?.set(calm ? 'off' : mix.ambient);
     if (!ctx) return;
     clearTimeout(suspendTimer);
-    if (calm) suspendTimer = setTimeout(() => ctx.suspend().catch(() => {}), 1500); // after the fade-out
-    else if (mix.ambient !== 'off') ctx.resume().catch(() => {}); // the next sound resumes it otherwise
+    if (calm) suspendTimer = setTimeout(rest, 1500); // after the fade-out
+    else if (mix.ambient !== 'off') wake(); // the next sound resumes it otherwise
   }
 
   root.ShellbySound = {

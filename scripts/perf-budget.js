@@ -85,7 +85,8 @@ const running = new Set();
 
 function launch(profile, { cdp = false, foreground = false } = {}) {
   const args = [ROOT, ...(cdp ? [`--remote-debugging-port=${PORT}`] : [])];
-  const env = { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: FAKE_CLAUDE };
+  // SHELLBY_REAL_DESKTOP: the fake CLI alone makes it a test run (src/main/test-desktop.js), which would skip the savings measured here.
+  const env = { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: FAKE_CLAUDE, SHELLBY_REAL_DESKTOP: '1' };
   if (foreground) env.SHELLBY_FOREGROUND = '1';
   const startedAt = Date.now();
   const child = spawn(ELECTRON, args, { stdio: 'ignore', env });

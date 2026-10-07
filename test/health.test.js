@@ -347,6 +347,24 @@ test('monitor: polls slowly only while all is well and nobody is looking', async
   assert.equal(plain.nextDelay(), plain.pollMs, 'no unwatched(): always the fast beat');
 });
 
+test('monitor: no checks yet is not "all is well", so the beat stays fast', () => {
+  const m = new HealthMonitor({ sensors: fakeSensors({}), getThresholds: () => T, now: () => 0, pollMs: 5000, quietPollMs: 15000, unwatched: () => true });
+  assert.equal(m.nextDelay(), 5000);
+});
+
+test('monitor: opening the panel brings the next read onto the fast beat', async () => {
+  let now = 0;
+  const m = new HealthMonitor({ sensors: fakeSensors({ gpuTemp: 50, cFreeGb: 300 }), getThresholds: () => T, now: () => now, pollMs: 5000, quietPollMs: 15000, unwatched: () => true });
+  await m.poll();
+  const delays = [];
+  m.wake = d => delays.push(d);
+  now = 4000;
+  m.watched();
+  now = 9000;
+  m.watched();
+  assert.deepEqual(delays, [1000, 0], 'a 4 s old reading waits out the rest of 5 s, not the 15 s already queued; a stale one reads now');
+});
+
 test('monitor: nvidia-smi wins over LHM for NVIDIA cards, LHM adds the rest', () => {
   const m = new HealthMonitor({ sensors: fakeSensors({}), getThresholds: () => T });
   const s = m.compose(0,

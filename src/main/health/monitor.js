@@ -66,10 +66,10 @@ class HealthMonitor extends EventEmitter {
       await this.poll();
       if (this.running && epoch === this.epoch) this.timer = setTimeout(loop, this.nextDelay());
     };
-    this.wake = () => {
+    this.wake = (delay = 0) => {
       if (!this.running || epoch !== this.epoch || this.inflight) return;
       clearTimeout(this.timer);
-      this.timer = setTimeout(loop, 0);
+      this.timer = setTimeout(loop, delay);
     };
     loop();
   }
@@ -79,14 +79,16 @@ class HealthMonitor extends EventEmitter {
     let quiet = false;
     try { quiet = !!this.unwatched?.(); } catch { /* unknown: stay on the fast beat */ }
     if (!quiet) return this.pollMs;
-    const settled = Object.values(this.checks).every(c => c.level === 'ok' && !c.pending);
+    // No checks yet (every sensor missed) isn't "all is well": keep the fast beat until they answer.
+    const checks = Object.values(this.checks);
+    const settled = checks.length > 0 && checks.every(c => c.level === 'ok' && !c.pending);
     return settled ? this.quietPollMs : this.pollMs;
   }
 
-  /** Someone is looking now (the panel opened): read again soon rather than in up to 15 s. */
+  /** Someone is looking now (the panel opened): back on the fast beat, not up to 15 s away. */
   watched() {
-    if (this.latest && this.now() - this.latest.at < this.pollMs) return; // fresh enough
-    this.wake?.();
+    const age = this.latest ? this.now() - this.latest.at : Infinity;
+    this.wake?.(Math.max(0, this.pollMs - age)); // a fresh reading still counts, the slow wait doesn't
   }
 
   stop() {

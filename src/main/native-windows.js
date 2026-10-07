@@ -332,7 +332,7 @@ const unblockShutdown = h => safe(a => a.ShutdownBlockReasonDestroy(h), false);
 
 // ---- the registry, read in place
 const HKEY_CURRENT_USER = -2147483647; // (HKEY)(LONG)0x80000001, sign-extended
-const KEY_READ = 0x20019, REG_QWORD = 11, MAX_DEPTH = 4, MAX_KEYS = 5000;
+const KEY_READ = 0x20019, REG_QWORD = 11, MAX_DEPTH = 4, MAX_KEYS = 5000, ERROR_FILE_NOT_FOUND = 2;
 
 /**
  * Every REG_QWORD named in `names` under an HKCU key and its subkeys, written
@@ -340,7 +340,8 @@ const KEY_READ = 0x20019, REG_QWORD = 11, MAX_DEPTH = 4, MAX_KEYS = 5000;
  *   HKEY_CURRENT_USER\<path>
  *       <Name>    REG_QWORD    0x<hex>
  * `reg.exe` costs ~300 ms of CPU for the microphone's list; this, a few ms.
- * null when it can't be read (not Windows, no koffi, no such key).
+ * '' when there's no such key; null when it can't be read (not Windows, no koffi,
+ * access denied), which is when the caller falls back to reg.exe.
  */
 function regQwords(path, names) {
   const sub = String(path).replace(/^HKCU\\|^HKEY_CURRENT_USER\\/i, '');
@@ -383,7 +384,9 @@ function regQwords(path, names) {
       }
     };
     const out = [0];
-    if (a.RegOpenKeyExW(HKEY_CURRENT_USER, sub, 0, KEY_READ, out) !== 0) return null;
+    const opened = a.RegOpenKeyExW(HKEY_CURRENT_USER, sub, 0, KEY_READ, out);
+    if (opened === ERROR_FILE_NOT_FOUND) return ''; // no such key: nothing to list, and reg.exe would say the same
+    if (opened !== 0) return null;
     a.RegCloseKey(out[0]);
     visit(HKEY_CURRENT_USER, sub, sub, 0);
     return lines.join('\r\n');
