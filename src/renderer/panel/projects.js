@@ -310,7 +310,8 @@
   }
 
   // A project's page, top to bottom: who it is and the button you came for,
-  // how it's going, what needs you, where you left off, then the clones
+  // how it's going, what needs you, where you left off (and the standup to
+  // paste, project-report.js), then the clones
   // (git and dev servers), which is where the work actually happens.
   function renderDetail() {
     const p = detail;
@@ -343,6 +344,7 @@
       main && F.pulse(p, { onChange: reload }),
       F.health(p),
       main && F.conversations(p, { newHere }),
+      main && SB.pjReport.card(p),
       main && SB.startFrom.looseEndsCard(main.root, p.name),
     ];
     const clones = p.local.length

@@ -71,6 +71,8 @@ function wireProjects(d) {
       }),
       insights: d.projectInsights,
       sessions: () => d.history?.list() || [],
+      time: () => d.timeTracker?.state ?? d.config.get('timeTracking'),
+      weekly: () => d.config.get('weekly'),
     });
     d.projects.on('change', () => d.send(d.panel, 'projects:changed'));
     d.devServers.reattach();

@@ -163,6 +163,17 @@ body[data-view="projects"] .view-projects {
 .pj-convo-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-13); }
 .pj-convo-when { flex: none; font: var(--fs-10) var(--font-mono); color: var(--sand-faint); }
 .pj-convos + .row { margin-top: 8px; }
+/* The standup / weekly report (project-report.js): pick it, read it, copy it. */
+.pj-report-pick { gap: 8px; margin-bottom: 8px; }
+.pj-seg label { flex: 1; position: relative; display: grid; place-items: center; height: 26px; padding: 0 10px; border-radius: 7px; font-size: var(--fs-12-5); font-weight: 700; color: var(--sand-dim); cursor: pointer; white-space: nowrap; }
+.pj-seg label:hover { color: var(--sand); }
+.pj-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.pj-seg label:has(input:checked) { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
+.pj-seg label:has(input:focus-visible) { outline: 2px solid var(--glass); outline-offset: 1px; }
+.pj-report { margin: 0 0 8px; max-height: 260px; overflow: auto; padding: 9px 10px; border-radius: var(--r); border: 1px solid var(--line-soft); background: var(--abyss);
+  font: var(--fs-11-5)/1.5 var(--font-mono); color: var(--sand); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pj-report:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.pj-report-status { margin: 0 0 8px; }
 
 .pj-clones-label { margin: 16px 0 6px; }
 .pj-clone { margin-bottom: 12px; padding: 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); }

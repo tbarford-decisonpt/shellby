@@ -7,6 +7,7 @@ const path = require('path');
 const out = require('./devservers/output');
 const weekly = require('./weekly');
 const { withInsights, sessionsFor } = require('./projects/insights');
+const standup = require('./projects/standup');
 
 const HOME = 'C:\\Users\\you';
 const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
@@ -138,7 +139,21 @@ function demoProjects(now) {
     const prompt = out.fixPrompt(s, lines, note);
     return { prompt, hash: crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 32), lines, root: s.root, project: s.project, note };
   };
-  return { list, detail, servers, serverLog, fixDraft };
+  // A project's standup and weekly report, from a few demo commits and the conversations above.
+  const commits = [
+    { at: now - DAY - 5 * HOUR, subject: 'feat: rack units ruler along the front rail' },
+    { at: now - DAY - 2 * HOUR, subject: 'fix: cable trays clipping through 1U panels' },
+    { at: now - 4 * HOUR, subject: 'refactor: one scene graph for trays and racks' },
+  ];
+  const report = (key, kind = 'standup') => {
+    const p = detail[key];
+    if (!p) return null;
+    const k = standup.KINDS.includes(kind) ? kind : 'standup';
+    const input = standup.inputFrom(p, { commits: p.key === list.projects.find(x => x.name === '3d-rack')?.key ? commits : [], sessions: sessions.map(s => ({ ...s, createdAt: s.updatedAt })) });
+    const r = standup.build(k, input, now);
+    return { ok: true, kind: k, name: p.name, report: r, slack: standup.toSlack(r), text: standup.toText(r) };
+  };
+  return { list, detail, servers, serverLog, fixDraft, report };
 }
 
 // ---------------------------------------------------------------- Time
