@@ -9,7 +9,7 @@ const SB = window.SB = {
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
-    toolbox: null, pinned: [], learned: [], routines: [],
+    toolbox: null, pinned: [], learned: [], routines: [], notes: null,
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
   },
@@ -131,6 +131,7 @@ SB.ICONS = {
   edit: 'M10.5 2.8l2.7 2.7-7.4 7.4H3.1v-2.7z',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',
   shield: 'M8 2.6L3.4 4.3v4c0 2.5 1.8 4.3 4.6 5.3 2.8-1 4.6-2.8 4.6-5.3v-4z',
+  more: 'M3.5 8h.01M8 8h.01M12.5 8h.01',
 };
 
 // Shellby as he's dressed right now (fit: the view box frames the whole outfit).
@@ -198,13 +199,14 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeMenu', 'folderMenu', 'noteMenu']) SB.$(id).hidden = true;
   for (const id of ['modeChip', 'folderChip']) SB.$(id).setAttribute('aria-expanded', 'false');
+  document.querySelectorAll('.note-more[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
   SB.hideSlash?.();
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .slash-menu, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .note-more, .slash-menu, #input')) SB.closeMenus();
 });
 
 // ------------------------------------------------------------------ page never scrolls

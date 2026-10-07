@@ -43,6 +43,7 @@ const statusLine = require('./statusline');
 const streaks = require('./streaks');
 const { repoOf, lastCommitAt } = require('./gitinfo');
 const { reviewPrompt } = require('./review');
+const notes = require('./notes');
 const { FAKE_SCENARIOS } = require('./health/fake');
 const { GitHubService } = require('./github/service');
 const { TokenStore } = require('./github/auth');
@@ -611,6 +612,53 @@ function createManager() {
     if (s && agg.busy > s.maxParallel) stat('parallel', { n: agg.busy });
   });
 }
+
+// ================================================================ notes
+
+const foldPath = p => (process.platform === 'win32' ? p.toLowerCase() : p);
+
+// The project a folder belongs to: its git repo, or else the folder itself. Your
+// home folder (where Shellby starts out) isn't a project, so notes go to General.
+async function projectOf(dir) {
+  const repo = await repoOf(dir);
+  if (repo) return repo;
+  if (typeof dir !== 'string' || !dir || !path.isAbsolute(dir)) return null;
+  const root = path.resolve(dir);
+  if (foldPath(root) === foldPath(os.homedir())) return null;
+  return { root, key: foldPath(root), name: path.basename(root) || root };
+}
+
+// Every list you can pick: the project you're working in first, then the ones
+// with notes, then the projects streaks knows you've worked in recently.
+async function notesView() {
+  const s = notes.normalize(config.get('notes'));
+  const here = await projectOf(currentCwd());
+  const projects = new Map();
+  if (here) projects.set(here.key, { key: here.key, name: here.name, root: here.root, notes: [] });
+  for (const [key, p] of Object.entries(s.projects)) projects.set(key, { key, name: p.name, root: p.root, notes: p.notes });
+  const recent = Object.entries(streaks.normalize(config.get('streaks')).projects).sort((a, b) => b[1].lastSeen - a[1].lastSeen);
+  for (const [key, p] of recent) {
+    if (projects.size >= 20) break;
+    if (!projects.has(key)) projects.set(key, { key, name: p.name, root: key, notes: [] });
+  }
+  return { general: s.general, projects: [...projects.values()], current: here?.key || null, cwd: currentCwd() };
+}
+
+async function saveNotes(next) {
+  config.set({ notes: next });
+  const view = await notesView();
+  send(panel, 'notes', view);
+  return view;
+}
+
+// A project a note may be filed under: only ones the view offers, never a path
+// the renderer made up.
+async function knownProject(key) {
+  const p = (await notesView()).projects.find(x => x.key === key);
+  return p ? { name: p.name, root: p.root } : null;
+}
+
+const NOTE_MODE = { plan: 'plan', build: null, ask: 'ask' };   // build: whatever mode you're in
 
 // ================================================================ streaks and nudges
 
@@ -2103,6 +2151,51 @@ function registerIpc() {
   ipcMain.handle('routines:run', (_e, id) => {
     const r = routines().find(x => x.id === id);
     return r ? runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
+  });
+
+  // ---- notes
+  const noteScope = async scope => (scope === notes.GENERAL ? { ok: true } : isStr(scope) && (await knownProject(scope)) ? { ok: true, project: await knownProject(scope) } : { ok: false });
+  ipcMain.handle('notes:list', () => notesView());
+  ipcMain.handle('notes:add', async (_e, { scope, text } = {}) => {
+    const where = await noteScope(scope);
+    if (!where.ok) return { ok: false, error: "Shellby doesn't know that project." };
+    const r = notes.add(config.get('notes'), scope, text, { id: randomUUID(), now: Date.now(), project: where.project });
+    if (r.error) return { ok: false, error: r.error };
+    return { ok: true, note: r.note, view: await saveNotes(r.state) };
+  });
+  ipcMain.handle('notes:update', async (_e, { scope, id, text, done } = {}) => {
+    const patch = {};
+    if (typeof text === 'string') patch.text = text;
+    if (typeof done === 'boolean') patch.done = done;
+    return saveNotes(notes.update(config.get('notes'), scope, id, patch));
+  });
+  ipcMain.handle('notes:delete', (_e, { scope, id } = {}) => saveNotes(notes.remove(config.get('notes'), scope, id)));
+  ipcMain.handle('notes:move', async (_e, { from, id, to } = {}) => {
+    const where = await noteScope(to);
+    if (!where.ok) return { ok: false, error: "Shellby doesn't know that project." };
+    const r = notes.move(config.get('notes'), from, id, to, { project: where.project });
+    if (r.error) return { ok: false, error: r.error };
+    return { ok: true, view: await saveNotes(r.state) };
+  });
+  // Plan and Build send the note exactly as written; Ask wraps it in a read-only
+  // "should I do this?" (notes.js). A project's note runs in that project's
+  // folder; a General one runs wherever you're working now.
+  ipcMain.handle('notes:run', async (_e, { scope, id, kind } = {}) => {
+    const note = notes.find(config.get('notes'), scope, id);
+    if (!note || !notes.KINDS.includes(kind)) return { ok: false, error: "Shellby can't find that note any more." };
+    let cwd = currentCwd(), name = path.basename(cwd);
+    if (scope !== notes.GENERAL) {
+      const p = notes.normalize(config.get('notes')).projects[scope];
+      if (!p || !fs.existsSync(p.root)) return { ok: false, error: "Shellby can't find that folder any more." };
+      cwd = p.root; name = p.name;
+    }
+    const short = note.text.split('\n')[0].slice(0, 50);
+    const title = kind === 'plan' ? `Plan: ${short}` : kind === 'ask' ? `Ask: ${short}` : short;
+    const r = startTask(kind === 'ask' ? notes.askPrompt(note.text, name) : note.text, title, { mode: NOTE_MODE[kind], cwd });
+    if (!r.ok) return r;
+    const view = await saveNotes(notes.markRun(config.get('notes'), scope, id, { kind, tabId: r.tabId, at: Date.now() }));
+    showPanel({ focusInput: false, tabId: r.tabId });
+    return { ...r, view };
   });
 
   // ---- streaks and nudges

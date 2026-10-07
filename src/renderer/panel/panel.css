@@ -177,12 +177,13 @@ body[data-view="settings"] .view-settings,
 body[data-view="toolbox"] .view-toolbox,
 body[data-view="shop"] .view-shop,
 body[data-view="routines"] .view-routines,
+body[data-view="notes"] .view-notes,
 body[data-view="onboarding"] .view-onboarding { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
 @keyframes fadein { from { opacity: 0; } }
 /* Scroll areas get their own compositor layer and fade out under the header
    instead of being sliced by it (avoids repaint artifacts in frameless windows). */
 .view, .feed { transform: translateZ(0); }
-.view-history, .view-settings, .view-toolbox, .view-shop, .view-routines, .view-onboarding, .feed {
+.view-history, .view-settings, .view-toolbox, .view-shop, .view-routines, .view-notes, .view-onboarding, .feed {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
   mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
 }

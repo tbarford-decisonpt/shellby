@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="notes.css">
 <link rel="stylesheet" href="shop.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
@@ -70,6 +71,7 @@
 
   <div class="popover" id="modeMenu" role="menu" hidden></div>
   <div class="popover" id="folderMenu" role="menu" hidden></div>
+  <div class="popover" id="noteMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -212,6 +214,21 @@
       </div>
     </form>
     <ul class="routine-list" id="routineList"></ul>
+  </main>
+
+  <!-- ====================== NOTES ====================== -->
+  <main class="view view-notes" id="notesView">
+    <div class="view-head">
+      <h2>Notes</h2>
+      <select class="field slim notes-scope" id="notesScope" aria-label="Which list"></select>
+    </div>
+    <p class="view-lede">Things you'd like to do. When you're ready, have Claude plan one, build it, or tell you whether it's worth doing.</p>
+    <form class="note-add" id="noteAdd">
+      <textarea class="field area" id="noteInput" rows="2" maxlength="2000" placeholder="Add a note… (Enter to save, Shift+Enter for a new line)" aria-label="New note"></textarea>
+      <button type="submit" class="btn primary slim-btn">Add</button>
+    </form>
+    <p class="notes-where" id="notesWhere"></p>
+    <ul class="note-list" id="noteList"></ul>
   </main>
 
   <!-- ====================== HEALTH ====================== -->
@@ -733,6 +750,10 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span>History</span>
     </button>
+    <button type="button" class="dock-btn" data-view-btn="notes" aria-keyshortcuts="Control+7">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM10 2.5V5h2.5M6 8h4.5M6 10.5h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Notes</span>
+    </button>
   </nav>
 
   <!-- ====================== JUMP ANYWHERE (Ctrl+K) ====================== -->
@@ -824,6 +845,7 @@
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
 <script src="routines.js"></script>
+<script src="notes.js"></script>
 <script src="settings.js"></script>
 <script src="wardrobe.js"></script>
 <script src="health.js"></script>
