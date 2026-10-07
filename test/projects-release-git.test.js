@@ -93,6 +93,31 @@ test('Cut release bumps, writes the CHANGELOG, commits, tags and pushes both tog
   } finally { t.done(); }
 });
 
+test('change notes are the draft, call for their bump, and a release uses them up in its own commit', async () => {
+  const t = setup();
+  try {
+    const notes = path.join(t.dir, 'changes');
+    fs.mkdirSync(notes);
+    fs.writeFileSync(path.join(notes, 'README.md'), 'How to write one.\n');
+    fs.writeFileSync(path.join(notes, 'b-toast.md'), '### Fixed\n- **Toasts hold still.**\n');
+    fs.writeFileSync(path.join(notes, 'a-inbox.md'), '### New\n- **One inbox.** Across every repo.\n\n### Fixed\n- The menu fits.\n');
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'Merge two branches, untyped');
+    const s = await rg.readRelease(t.dir, deps);
+    assert.deepEqual(s.notes, ['changes/a-inbox.md', 'changes/b-toast.md'], 'the folder\'s README is not a note');
+    assert.equal(s.draft.notes, '### New\n- **One inbox.** Across every repo.\n\n### Fixed\n- The menu fits.\n- **Toasts hold still.**');
+    assert.equal(s.next.bump, 'minor', 'the commit says nothing typed, but a note has something new');
+    assert.equal(s.next.suggested, '0.2.0');
+
+    const r = await rg.cutRelease(t.dir, { version: '0.2.0', title: 'The inbox', notes: s.draft.notes, head: s.head, push: false }, deps);
+    assert.equal(r.ok, true, r.error);
+    assert.equal(t.g(t.dir, 'status', '--porcelain'), '', 'the deleted notes went in the release commit');
+    assert.deepEqual(fs.readdirSync(notes), ['README.md']);
+    assert.match(t.g(t.dir, 'show', '--stat', '--format=', 'HEAD'), /changes\/a-inbox\.md/);
+    assert.match(fs.readFileSync(path.join(t.dir, 'CHANGELOG.md'), 'utf8'), /## 0\.2\.0: The inbox\n\n### New\n- \*\*One inbox\.\*\*/);
+  } finally { t.done(); }
+});
+
 test('without push it stays on this PC, says so, and Push sends it later', async () => {
   const t = setup();
   try {

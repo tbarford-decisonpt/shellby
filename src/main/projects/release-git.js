@@ -29,6 +29,8 @@ const REMOTE_RE = /^(?!-)[\w.-]{1,100}$/;
 const CHANGELOG_RE = /^(changelog|changes|history)\.md$/i;
 const LOCK = 'package-lock.json';
 const PKG = 'package.json';
+const NOTES_DIR = 'changes';
+const MAX_NOTES = 200;
 
 const firstLine = s => String(s || '').trim().split('\n').filter(Boolean).pop() || '';
 const fail = error => ({ ok: false, error });
@@ -44,6 +46,23 @@ function readText(file) {
 /** The CHANGELOG's file name in `root` (whatever its case), or null. */
 function changelogName(root) {
   try { return fs.readdirSync(root).find(n => CHANGELOG_RE.test(n) && fs.statSync(path.join(root, n)).isFile()) || null; } catch { return null; }
+}
+
+/**
+ * The change notes waiting for the next release: changes/*.md (README.md is
+ * the folder's own), oldest name first. Links and anything huge are left out.
+ * -> [{ name: 'changes/x.md', file, text }]
+ */
+function readNotes(root) {
+  const dir = path.join(root, NOTES_DIR);
+  if (isLink(dir)) return [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  return entries
+    .filter(e => e.isFile() && /\.md$/i.test(e.name) && !/^readme\.md$/i.test(e.name))
+    .map(e => e.name).sort().slice(0, MAX_NOTES)
+    .map(n => ({ name: `${NOTES_DIR}/${n}`, file: path.join(dir, n), text: readText(path.join(dir, n)) }))
+    .filter(n => n.text !== null && n.text.length <= R.NOTES_MAX);
 }
 
 function packageVersion(root) {
@@ -142,7 +161,10 @@ async function readRelease(root, { git, now = Date.now } = {}) {
   const clName = changelogName(root);
   const clText = clName ? readText(path.join(root, clName)) || '' : '';
   const style = R.changelogStyle(clText);
-  const { bump, why } = R.suggestBump(groups, last?.version || fileVersion);
+  // Notes written alongside the work say it better than commit subjects can, so they're the draft when there are any.
+  const notes = readNotes(root);
+  const sections = R.parseNotes(notes);
+  const { bump, why } = R.withNotesBump(R.suggestBump(groups, last?.version || fileVersion), sections);
   const next = { ...R.nextVersions({ tagVersion: last?.version || null, fileVersion, bump }), bump, why };
 
   // Uncommitted changes: the files a release writes are fine (a CHANGELOG you or Claude wrote); others aren't.
@@ -160,7 +182,8 @@ async function readRelease(root, { git, now = Date.now } = {}) {
     lock: lockExists,
     changelog: { name: clName || 'CHANGELOG.md', exists: !!clName, style, hasEntry: R.hasEntry(clText, next.suggested) },
     next,
-    draft: { notes: R.draftBody(groups, style), date: R.dayOf(now()) },
+    draft: { notes: sections.length ? R.notesBody(sections, style) : R.draftBody(groups, style), date: R.dayOf(now()) },
+    notes: notes.map(n => n.name),
     changes, upstream, unpushedTag,
     prefix: last?.prefix ?? 'v',
   };
@@ -252,6 +275,15 @@ async function cutRelease(root, opts, deps) {
     }
     // A CHANGELOG entry you (or Claude) already wrote goes in as it is.
     if (state.changelog.exists || kept.some(k => k.file === clFile)) files.push(state.changelog.name);
+    // The change notes are in the entry now (or in the one you wrote), so this release uses them up.
+    for (const name of state.notes) {
+      const file = path.join(root, ...name.split('/'));
+      const was = readText(file);
+      if (was === null) continue;
+      kept.push({ file, was });
+      fs.rmSync(file);
+      files.push(name);
+    }
   } catch (e) {
     putBack(kept);
     return fail(`Couldn't write the release files: ${e.message}`);

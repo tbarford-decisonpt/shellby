@@ -54,7 +54,9 @@ contributing: [TRADEMARK.md](TRADEMARK.md).
 
 ## Releasing (maintainers)
 
-1. Bump `version` in `package.json`, add a `## X.Y.Z` section to the top of `CHANGELOG.md`, commit and push to `main`.
+Branches don't bump the version or edit the top of the CHANGELOG. They add a note in [changes/](changes/README.md), which the release gathers up.
+
+1. On `main`, run `npm run release:cut -- X.Y.Z "Title"` (`--dry-run` first to read the entry). It writes the notes into a `## X.Y.Z: Title` section of `CHANGELOG.md`, deletes them, bumps `package.json` and the lock, and commits and tags on this PC. Edit the entry and `git commit --amend` if it needs it, then push `main`.
 2. Run `npm run release:ready`. It waits for CI on that commit and says whether it's safe to tag: the version has its CHANGELOG section, the tag isn't taken, and CI finished green. If CI is red, the release would fail the same way, so fix `main` and ship the fix as the next version instead.
 3. Tag `vX.Y.Z` and push the tag. The release workflow tests, builds and publishes to GitHub Releases, and installed copies update themselves. It stops at once if CI on that commit has failed. A tag that fails to release is never moved: the fix goes out as the next patch.
 4. While releases are unsigned, submit the new `Shellby-Setup-X.Y.Z.exe` to [Microsoft's file submission form](https://www.microsoft.com/wdsi/filesubmission) as a **software developer**. SmartScreen tracks unsigned builds by file hash, so this has to be redone every release until signing is set up — see [docs/SIGNING.md](docs/SIGNING.md).

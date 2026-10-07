@@ -212,6 +212,69 @@ function draftBody(groups, style) {
   return [...sections].map(([name, lines]) => `### ${name}\n${lines.join('\n')}`).join('\n\n');
 }
 
+// ------------------------------------------------------------------ change notes
+//
+// A project can keep what's coming in the next release as one small file per
+// branch (changes/<name>.md) rather than in the CHANGELOG itself. Branches that
+// each add a note never touch the same lines, where branches that each edit the
+// top of the CHANGELOG all clash. A release gathers the notes into its entry
+// and deletes them.
+
+// What a note's headings mean, whichever CHANGELOG style it was written in.
+const NOTE_HEADINGS = new Map([
+  ['new', 'feat'], ['added', 'feat'], ['features', 'feat'],
+  ['fixed', 'fix'], ['fixes', 'fix'],
+  ['faster', 'perf'], ['performance', 'perf'],
+  ['changed', 'other'], ['other', 'other'],
+]);
+const BUMP_RANK = { patch: 0, minor: 1, major: 2 };
+
+/**
+ * notes: [{ name, text }] -> [{ id, name?, lines }]: the sections every note's
+ * bullets go in, in GROUPS order, then any heading of a note's own (Removed,
+ * Security…) in the order first seen. Lines before a note's first heading are
+ * "Changed". Blank lines go, so each section is one list. Pure.
+ */
+function parseNotes(notes) {
+  const known = new Map(GROUPS.filter(g => g.user).map(g => [g.id, []]));
+  const own = new Map();
+  for (const note of Array.isArray(notes) ? notes : []) {
+    let into = known.get('other');
+    for (const raw of String(note?.text || '').replace(/\r\n/g, '\n').split('\n')) {
+      const h = /^#{2,4}\s+(.+?)\s*$/.exec(raw);
+      if (h) {
+        const id = NOTE_HEADINGS.get(h[1].toLowerCase());
+        if (id) into = known.get(id);
+        else { if (!own.has(h[1])) own.set(h[1], []); into = own.get(h[1]); }
+        continue;
+      }
+      if (raw.trim()) into.push(raw.trimEnd());
+    }
+  }
+  return [
+    ...[...known].filter(([, lines]) => lines.length).map(([id, lines]) => ({ id, lines })),
+    ...[...own].filter(([, lines]) => lines.length).map(([name, lines]) => ({ id: 'own', name, lines })),
+  ];
+}
+
+/** parseNotes' sections as a CHANGELOG body in a style. Pure. */
+function notesBody(sections, style) {
+  const names = HEADINGS[style] || HEADINGS.plain;
+  const byName = new Map();
+  for (const s of sections || []) {
+    const name = s.id === 'own' ? s.name : names[s.id];
+    byName.set(name, [...(byName.get(name) || []), ...s.lines]);
+  }
+  return [...byName].map(([name, lines]) => `### ${name}\n${lines.join('\n')}`).join('\n\n');
+}
+
+/** The bigger of two bumps: what the commits call for, and "minor" if the notes have something new. Pure. */
+function withNotesBump(suggested, sections) {
+  const added = (sections || []).find(s => s.id === 'feat')?.lines.filter(l => /^\s*[-*]\s/.test(l)).length || 0;
+  if (!added || BUMP_RANK[suggested.bump] >= BUMP_RANK.minor) return suggested;
+  return { bump: 'minor', why: `${added} new in the change notes` };
+}
+
 /** The whole entry: heading, then the notes as you left them. */
 function entryText({ style, version, title, date, notes }) {
   const body = String(notes || '').replace(/\r\n/g, '\n').trim().slice(0, NOTES_MAX);
@@ -291,7 +354,7 @@ const MAX_PROMPT_COMMITS = 120;
  * "Write it with Claude": the ask that goes in a new conversation's box, for
  * you to read and send. Claude writes the entry; the card cuts the release.
  */
-function polishPrompt({ project, version, since, groups, changelog, style }) {
+function polishPrompt({ project, version, since, groups, changelog, style, notes = '' }) {
   const all = (groups || []).flatMap(g => g.commits.map(c => ({ ...c, group: g.label })));
   const listed = all.slice(0, MAX_PROMPT_COMMITS)
     .map(c => `- ${c.short} [${c.group}]${c.breaking ? ' BREAKING' : ''} ${c.scope ? `${c.scope}: ` : ''}${c.text}`);
@@ -308,6 +371,7 @@ function polishPrompt({ project, version, since, groups, changelog, style }) {
     'The commits:',
     ...listed,
     ...(more > 0 ? [`- …and ${more} more (git log ${since ? `${since}..HEAD` : 'HEAD'})`] : []),
+    ...(String(notes).trim() ? ['', 'The change notes written alongside the work (start from these; the card deletes them when it cuts the release):', String(notes).trim()] : []),
   ].join('\n');
 }
 
@@ -315,6 +379,6 @@ module.exports = {
   GROUPS, TITLE_MAX, NOTES_MAX,
   parseVersion, isVersion, compareVersions, parseTag, latestTag, bumpVersion,
   parseCommit, groupCommits, suggestBump, nextVersions,
-  changelogStyle, hasEntry, heading, draftBody, entryText, insertEntry,
+  changelogStyle, hasEntry, heading, draftBody, entryText, insertEntry, parseNotes, notesBody, withNotesBump,
   setPackageVersion, setLockVersion, dayOf, commitMessage, cleanTitle, polishPrompt,
 };

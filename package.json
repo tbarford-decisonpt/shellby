@@ -38,6 +38,7 @@
     "tricks": "node scripts/record-tricks.js",
     "dist": "electron-builder --win",
     "release": "electron-builder --win --publish always",
+    "release:cut": "node scripts/release-cut.js",
     "release:ready": "node scripts/release-guard.js ready --wait"
   },
   "dependencies": {

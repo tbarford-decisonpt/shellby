@@ -97,6 +97,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `python scripts/make-banners.py` | Compose the README banner and crab lineups from the crabs `npm run screenshots` just captured (needs Pillow) |
 | `npm run icons` | Regenerate the app icons from the classic skin (needs Python + Pillow) |
 | `npm run dist` | Build the NSIS installer and portable exe into `dist/` |
+| `npm run release:cut -- X.Y.Z "Title"` | On main: the [change notes](../changes/README.md) into a CHANGELOG entry, the version bumped, one commit and a tag, nothing pushed. `--dry-run` shows the entry. Then `npm run release:ready` and push the tag (CONTRIBUTING.md) |
 
 ## Keeping up with Claude Code
 
