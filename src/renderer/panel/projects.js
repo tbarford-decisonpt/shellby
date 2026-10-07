@@ -1,7 +1,9 @@
 /* Shellby panel — Projects: your repositories (on this PC and on GitHub), what
    Shellby knows about each (project-facts.js), and the dev servers in them
    (src/main/projects/, src/main/devservers/). Main works everything out; this
-   draws it and sends back what you click.
+   draws it and sends back what you click. This file holds the list and a
+   project's page; a clone's dev servers are projects-servers.js, adding,
+   scanning and cloning projects-add.js, and the decisions projects-logic.js.
 
    Nothing goes to Claude from here without the approval sheet on a crashed
    server's card: it shows the exact prompt, and only its Send button sends.
@@ -12,35 +14,19 @@
   const { h, api, state, $ } = SB;
   const F = SB.pjFacts;
 
-  let data = null;            // projects:list
+  const L = window.ShellbyProjectsLogic;
+
+  let data = null;           // projects:list
   let servers = null;         // servers:get, kept live by servers:changed
   let scope = 'all';          // all | local | running | github
   let sort = 'recent';        // recent | attention | name
   let openKey = null;         // the project whose page is open
   let detail = null;          // projects:detail for it
-  const openCards = new Set(); // server ids whose log is open
-  const logs = new Map();     // id -> { lines, errors }
-  const notes = new Map();    // id -> what you typed for Claude
-  const drafts = new Map();   // id -> the prompt as main built it
-  let scan = null;            // { candidates, picked: Set }
-  let cloneRepo = null;
-  let cloning = false;
 
   // ------------------------------------------------------------------ words
 
   const { plural } = SB;
-  const ago = t => (t ? SB.relTime(t) : '');
-  const STATUS = {
-    starting: s => (s.kind === 'install' ? 'Installing…' : 'Starting…'),
-    up: s => (s.port ? `Up on :${s.port}` : 'Up'),
-    // Ended while Shellby was closed with no exit code: it may well have been stopped on purpose.
-    crashed: s => (s.missed && !Number.isInteger(s.exitCode) ? `Stopped while Shellby was closed · ${ago(s.endedAt)}`
-      : `${s.neverUp ? "Didn't start" : 'Crashed'} ${ago(s.endedAt)}${Number.isInteger(s.exitCode) ? ` · exit code ${s.exitCode}` : ''}${s.missed ? ' · while Shellby was closed' : ''}`),
-    failed: s => `Install failed ${ago(s.endedAt)}${Number.isInteger(s.exitCode) ? ` · exit code ${s.exitCode}` : ''}`,
-  };
-  const statusText = s => STATUS[s.status]?.(s) || s.status;
-  const isLive = s => s.status === 'starting' || s.status === 'up';
-  const modeTitle = () => SB.MODES.find(m => m.id === state.settings.mode)?.title || 'your current mode';
+  const { isLive } = L;
 
   // ------------------------------------------------------------------ loading
 
@@ -74,39 +60,30 @@
 
   const serversIn = root => (servers?.servers || []).filter(s => s.root.toLowerCase() === root.toLowerCase());
 
-  // ------------------------------------------------------------------ the list
-
-  const SORTS = {
-    recent: () => 0, // main's order: worked on lately, running, on this PC, last push
-    attention: (a, b) => (b.insights?.attention || 0) - (a.insights?.attention || 0),
-    name: (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  // Shared with projects-servers.js and projects-add.js, which add their parts
+  // to it as they load.
+  const P = SB.pj = {
+    data: () => data, servers: () => servers, openKey: () => openKey,
+    serversIn, keptDetails, load, showScreen, renderAll,
+    reloadServers: async () => { servers = await api.getServers(); renderAll(); },
   };
+
+  // ------------------------------------------------------------------ the list
 
   function renderList() {
     if (!data) return;
     const q = $('pjSearch').value.trim().toLowerCase();
     const running = p => p.local.some(c => serversIn(c.root).some(isLive));
-    const inScope = p => (scope === 'local' ? p.local.length > 0 : scope === 'github' ? !p.local.length : scope === 'running' ? running(p) : true);
-    const shown = data.projects.filter(p => {
-      if (q && !`${p.name} ${p.github?.repo || ''}`.toLowerCase().includes(q)) return false;
-      if (!inScope(p)) return false;
-      if (sort === 'attention' && !q) return (p.insights?.attention || 0) > 0 || running(p);
-      return scope !== 'all' || !p.github?.archived || q;
-    });
-    const ordered = shown.map((p, i) => [p, i]).sort(([a, i], [b, j]) => SORTS[sort](a, b) || i - j).map(([p]) => p);
+    const ordered = L.visible(data.projects, { q, scope, sort, running });
     SB.keepFocus($('pjProjects'), () => $('pjProjects').replaceChildren(...ordered.map(projectRow)));
     announceCount(ordered.length);
     renderSummary();
     const empty = $('pjEmpty');
     const none = !data.projects.length;
-    empty.hidden = shown.length > 0;
+    empty.hidden = ordered.length > 0;
     $('pjEmptyActions').hidden = !none;
     $('pjAddRow').hidden = none;
-    $('pjEmptyText').textContent = none
-      ? "No projects yet. Shellby lists the repos he's seen you work in. Scan the folder you keep them in and tick the ones you want, or add one."
-      : scope === 'running' ? 'Nothing running right now.'
-        : sort === 'attention' && !q ? 'Nothing needs you. Every project is pushed, passing and up to date as far as Shellby knows. 🐚'
-          : 'Nothing matches.';
+    $('pjEmptyText').textContent = L.emptyText({ none, scope, sort, q });
     renderGitHubNote();
   }
 
@@ -169,18 +146,16 @@
   // The main clone's dev server: Open it if it's up, else Start the one you ran last (or the likeliest).
   function devAction(p) {
     const c = p.local[0];
-    if (!c) return null;
-    const up = serversIn(c.root).find(s => s.status === 'up' && s.url && s.kind === 'server');
+    const choice = L.devChoice(c, serversIn);
+    if (!choice) return null;
+    const up = choice.open;
     if (up) return { label: `Open :${up.port || ''}`.replace(/ :$/, ''), icon: 'play', run: () => api.openServer(up.id) };
-    if (serversIn(c.root).some(isLive)) return null;
-    const script = c.scripts.find(s => s.name === c.lastScript) || c.scripts.find(s => s.likely);
-    if (!script || c.installed === false) return null;
+    const script = choice.start;
     return { label: `Start ${script.name}`, icon: 'play', run: async () => {
       const r = await api.startServer({ root: c.root, script: script.name });
       if (!r?.ok) return SB.toast(r?.error || "Couldn't start it.");
       SB.toast(`Starting ${c.manager} run ${script.name} in ${p.name}…`);
-      servers = await api.getServers();
-      renderAll();
+      await P.reloadServers();
     } };
   }
 
@@ -192,7 +167,7 @@
       dev,
       c && { label: 'Open folder', icon: 'folder', run: () => api.openProjectFolder(c.root) },
       p.github && { label: 'Open on GitHub', icon: 'github', run: () => api.openProjectOnGitHub(p.github.repo) },
-      !c && p.github && { label: 'Clone…', icon: 'download', run: async () => { await openProject(p.key); openClone(p.github.repo); } },
+      !c && p.github && { label: 'Clone…', icon: 'download', run: async () => { await openProject(p.key); P.openClone(p.github.repo); } },
     ].filter(Boolean);
   }
 
@@ -338,12 +313,12 @@
       h('div', { class: 'row wrap pj-hero-acts' },
         main && h('button', { type: 'button', class: 'btn primary', text: 'New conversation here', onclick: () => newHere(main.root) }),
         main && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open folder', onclick: () => api.openProjectFolder(main.root) }),
-        !main && p.github && h('button', { type: 'button', class: 'btn primary', text: 'Clone…', onclick: () => openClone(p.github.repo) }),
+        !main && p.github && h('button', { type: 'button', class: 'btn primary', text: 'Clone…', onclick: () => P.openClone(p.github.repo) }),
         p.github && main && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open on GitHub', onclick: () => api.openProjectOnGitHub(p.github.repo) })));
     const reload = () => openProject(p.key, { quiet: true });
     const cards = [
       // What to work on comes first: it's why you opened the page (backlog.js).
-      (main || p.github) && SB.backlog.card({ root: main?.root || null, repo: p.github?.repo || null, name: p.name }, { onClone: openClone }),
+      (main || p.github) && SB.backlog.card({ root: main?.root || null, repo: p.github?.repo || null, name: p.name }, { onClone: repo => P.openClone(repo) }),
       main && F.pulse(p, { onChange: reload }),
       main && F.journal(p, { newHere, onChange: reload, keptDetails }),
       F.health(p),
@@ -361,13 +336,7 @@
 
   function cloneSection(c, p) {
     const git = c.git;
-    const facts = [
-      c.branch && `on ${c.branch}`,
-      git && (git.dirty ? plural(git.dirty, 'uncommitted change') : 'nothing uncommitted'),
-      git?.unpushed && `${git.unpushed} unpushed`,
-      git?.stashes && plural(git.stashes, 'stash', 'stashes'),
-    ].filter(Boolean).join(' · ');
-    const atRisk = !!(git && (git.dirty || git.unpushed)); // a boolean: h() would draw a bare 0
+    const { text: facts, atRisk } = L.cloneFacts(c); // atRisk is a boolean: h() would draw a bare 0
     return h('section', { class: 'pj-clone', dataset: { root: c.root } },
       h('div', { class: 'pj-clone-head' },
         h('code', { class: 'pj-path', text: SB.shortPath(c.root, 46), title: c.root }),
@@ -376,190 +345,21 @@
       facts && h('p', { class: 'muted small pj-facts', text: facts }),
       atRisk && h('div', { class: 'pj-tidy' },
         h('span', { class: 'small', text: git.unpushed ? 'This work is only on this PC.' : 'Changes not committed yet.' }),
-        h('button', { type: 'button', class: 'btn slim-btn', text: 'Tidy up…', onclick: () => newHere(c.root, tidyPrompt(p.name)) })),
+        h('button', { type: 'button', class: 'btn slim-btn', text: 'Tidy up…', onclick: () => newHere(c.root, L.tidyPrompt(p.name)) })),
       copiesList(c.root, git),
-      serversSection(c));
+      P.serversSection(c));
   }
-
-  // The same ask as "Is it safe to leave?" → Tidy up, put in the box for you to read and send.
-  const tidyPrompt = name => `In ${name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key. Ask me before anything destructive.`;
 
   // Shellby's copies of the repo (worktrees.js): work that's easy to forget about.
   function copiesList(root, git) {
     const list = git?.copyList || [];
     if (!list.length) return null;
-    const changed = list.filter(w => w.changed).length;
-    const d = keptDetails(`copies:${root}`, `${plural(list.length, 'copy', 'copies')} Shellby made${changed ? ` · ${changed} with changes` : ''}`,
+    const d = keptDetails(`copies:${root}`, L.copiesSummary(list),
       h('ul', { class: 'pj-copy-list' }, list.map(w => h('li', {},
         h('code', { text: w.branch || 'detached', title: w.path }),
         w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' })))));
     d.classList.add('pj-copies');
     return d;
-  }
-
-  // ------------------------------------------------------------------ servers in a clone
-
-  function serversSection(c) {
-    const running = serversIn(c.root);
-    const install = running.find(s => s.kind === 'install');
-    const box = h('div', { class: 'pj-servers' }, h('p', { class: 'row-label', text: 'Servers' }));
-    if (!c.scripts.length) {
-      box.append(h('p', { class: 'muted small', text: c.manager === null ? 'No package.json here, so nothing to run yet.' : 'No scripts in package.json.' }));
-      return box;
-    }
-    if (install) box.append(serverCard(install, c));
-    else if (c.installed === false) {
-      box.append(h('div', { class: 'pj-install' },
-        h('span', { class: 'small', text: `Install dependencies first (${c.manager} install).` }),
-        h('button', { type: 'button', class: 'btn slim-btn', text: 'Install', onclick: () => doInstall(c) })));
-    }
-    const likely = c.scripts.filter(s => s.likely);
-    const rest = c.scripts.filter(s => !s.likely);
-    const rowsFor = list => list.map(sc => {
-      const s = running.find(x => x.kind === 'server' && x.script === sc.name);
-      return s ? serverCard(s, c) : scriptRow(sc, c);
-    });
-    box.append(h('ul', { class: 'pj-scripts' }, rowsFor(likely.length ? likely : rest.slice(0, 3))));
-    const more = likely.length ? rest : rest.slice(3);
-    if (more.length) box.append(keptDetails(`scripts:${c.root}`, `More scripts (${more.length})`, h('ul', { class: 'pj-scripts' }, rowsFor(more))));
-    return box;
-  }
-
-  function scriptRow(sc, c) {
-    return h('li', { class: 'pj-script' },
-      h('span', { class: 'pj-dot off', 'aria-hidden': 'true' }),
-      h('span', { class: 'pj-script-name' }, h('code', { text: `${c.manager} run ${sc.name}` }), sc.framework && h('span', { class: 'pj-tag', text: sc.framework })),
-      h('button', { type: 'button', class: `btn slim-btn${sc.name === c.lastScript ? ' primary' : ''}`, text: 'Start', onclick: e => startScript(e.target, c, sc.name) }));
-  }
-
-  async function startScript(btn, c, script) {
-    btn.disabled = true;
-    const r = await api.startServer({ root: c.root, script });
-    btn.disabled = false;
-    if (!r?.ok) return SB.toast(r?.error || "Couldn't start it.");
-    servers = await api.getServers();
-    renderAll();
-  }
-
-  async function doInstall(c) {
-    const r = await api.installProject(c.root);
-    if (!r?.ok) return SB.toast(r?.error || "Couldn't start the install.");
-    servers = await api.getServers();
-    renderAll();
-  }
-
-  function serverCard(s, c) {
-    const crashed = s.status === 'crashed' || s.status === 'failed';
-    const fixed = crashed && s.fixedAt > 0; // a boolean: h() would draw a bare 0
-    const open = openCards.has(s.id) || crashed;
-    const name = s.kind === 'install' ? `${c.manager} install` : `${s.manager} run ${s.script}`;
-    const act = (text, fn, cls = 'btn ghost slim-btn') => h('button', { type: 'button', class: cls, text, onclick: fn });
-    const buttons = [
-      fixed && act('Restart', () => serverAction('restartServer', s.id), 'btn primary slim-btn'),
-      s.status === 'up' && s.url && act('Open', () => api.openServer(s.id), 'btn slim-btn'),
-      isLive(s) && s.kind === 'server' && act('Restart', () => serverAction('restartServer', s.id)),
-      isLive(s) && act('Stop', () => serverAction('stopServer', s.id)),
-      crashed && !fixed && s.kind === 'server' && act('Restart', () => serverAction('restartServer', s.id)),
-      crashed && act('Dismiss', () => serverAction('dismissServer', s.id)),
-      act(open ? 'Hide log' : 'Log', () => toggleLog(s.id)),
-    ].filter(Boolean);
-    const card = h('li', { class: `pj-card ${s.status}`, id: `srv-card-${s.id}` },
-      h('div', { class: 'pj-card-head' },
-        h('span', { class: `pj-dot ${s.status}`, 'aria-hidden': 'true' }),
-        h('span', { class: 'pj-script-name' }, h('code', { text: name }), s.framework && h('span', { class: 'pj-tag', text: s.framework })),
-        h('span', { class: 'pj-status', role: 'status', text: statusText(s) })),
-      fixed && h('p', { class: 'pj-fixed', text: "Claude's done. Restart the server?" }),
-      h('div', { class: 'row wrap pj-card-actions' }, buttons),
-      open && logBox(s),
-      crashed && !fixed && s.canFix && approvalSheet(s));
-    if (crashed && !s.seen) api.serverSeen(s.id);
-    return card;
-  }
-
-  async function serverAction(method, id) {
-    const r = await api[method](id);
-    if (r && r.ok === false && r.error) SB.toast(r.error);
-    if (method !== 'stopServer') openCards.delete(id);
-    logs.delete(id);
-    drafts.delete(id);
-    servers = await api.getServers();
-    renderAll();
-  }
-
-  function toggleLog(id) {
-    if (openCards.has(id)) openCards.delete(id); else openCards.add(id);
-    renderAll();
-  }
-
-  // The log, redacted by main. Error lines are marked so the cause stands out.
-  function logBox(s) {
-    const box = h('div', { class: 'pj-log-wrap' });
-    const draw = l => {
-      const errors = new Set(l.errors);
-      const pre = h('pre', { class: 'pj-log', tabindex: '0', 'aria-label': `Output of ${s.script || 'the install'}` },
-        l.lines.length ? l.lines.map((line, i) => h('span', { class: errors.has(i) ? 'err' : null, text: `${line}\n` })) : h('span', { class: 'muted', text: 'Nothing printed yet.' }));
-      box.replaceChildren(pre, h('button', { type: 'button', class: 'link-btn small', text: 'Open the log file', onclick: () => api.openServerLog(s.id) }));
-      pre.scrollTop = pre.scrollHeight;
-    };
-    if (logs.has(s.id) && !isLive(s)) draw(logs.get(s.id));
-    else api.serverLog(s.id).then(l => { if (l) { logs.set(s.id, l); draw(l); } });
-    return box;
-  }
-
-  // ------------------------------------------------------------------ the approval sheet
-
-  function approvalSheet(s) {
-    const prompt = h('pre', { class: 'pj-prompt', tabindex: '0', 'aria-label': 'What will be sent to Claude' });
-    const note = h('textarea', { class: 'field pj-note', rows: '2', maxlength: '500', placeholder: 'Anything to add? (optional)', 'aria-label': 'A note for Claude' });
-    note.value = notes.get(s.id) || '';
-    let t = null;
-    let seq = 0;
-    // Send is only ever for the draft on screen: off while it's being fetched,
-    // and it carries that draft's hash so main sends exactly this text or nothing.
-    let shown = null; // { hash, note }
-    const refresh = async () => {
-      const mine = ++seq;
-      send.disabled = true;
-      const d = await api.serverFixDraft({ id: s.id, note: note.value });
-      if (mine !== seq) return;
-      if (!d) { prompt.textContent = 'This server is running again.'; return; }
-      drafts.set(s.id, d.prompt);
-      prompt.textContent = d.prompt;
-      shown = { hash: d.hash, note: note.value };
-      send.disabled = false;
-    };
-    note.addEventListener('input', () => { notes.set(s.id, note.value); send.disabled = true; clearTimeout(t); t = setTimeout(refresh, 250); });
-    // Enter in the note is a new line, never "send".
-    const send = h('button', { type: 'button', class: 'btn primary slim-btn', text: 'Send to Claude', disabled: true, onclick: () => shown && sendFix(s, shown, send, refresh) });
-    if (drafts.has(s.id)) prompt.textContent = drafts.get(s.id); else prompt.textContent = 'Getting the error…';
-    refresh();
-    return h('section', { class: 'pj-approve', 'aria-label': 'Ask Claude to fix it' },
-      h('p', { class: 'pj-approve-title', text: 'Ask Claude to fix it?' }),
-      h('p', { class: 'muted small', text: 'This is exactly what will be sent: the last lines it printed (secrets blanked out) and what to do with them.' }),
-      prompt,
-      note,
-      h('p', { class: 'muted small pj-where' },
-        `Claude will work in ${SB.shortPath(s.root, 40)}, in ${modeTitle()} mode. `,
-        h('button', { type: 'button', class: 'link-btn', text: 'Change the mode', onclick: () => { SB.setView('settings'); } })),
-      h('div', { class: 'row wrap' },
-        send,
-        h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Not now', onclick: () => { openCards.delete(s.id); renderAll(); } })));
-  }
-
-  async function sendFix(s, shown, btn, refresh) {
-    btn.disabled = true;
-    const r = await api.sendServerFix({ id: s.id, note: shown.note, hash: shown.hash });
-    if (!r?.ok) {
-      SB.toast(r?.error || "Couldn't open a conversation.");
-      // Changed since you read it: show the new text and let you look again.
-      if (r?.stale) refresh(); else btn.disabled = false;
-      return;
-    }
-    notes.delete(s.id);
-    drafts.delete(s.id);
-    // The tab opened itself (boot.js onTabOpened); go and watch it work.
-    SB.setView('chat');
-    if (state.tabs.has(r.tabId)) SB.activate(r.tabId);
   }
 
   // ------------------------------------------------------------------ removing
@@ -571,129 +371,6 @@
     closeProject();
     load();
   }
-
-  // ------------------------------------------------------------------ adding: one repo, or a scan
-
-  $('pjAdd').addEventListener('click', async () => {
-    const r = await api.addProject();
-    if (r?.cancelled) return;
-    if (!r?.ok) return SB.toast(r?.error || "Couldn't add that folder.");
-    SB.toast(`Added ${r.name}`);
-    load({ refresh: true });
-  });
-
-  $('pjScan').addEventListener('click', async () => {
-    showScreen('scan');
-    $('pjScanLede').textContent = 'Choose a folder to look through…';
-    $('pjScanList').replaceChildren();
-    $('pjScanAdd').disabled = true;
-    scan = null;
-    const r = await api.scanForProjects();
-    if (!r?.ok) { if (!r?.cancelled) SB.toast(r?.error || "Couldn't look through that folder."); return showScreen('list'); }
-    scan = { ...r, picked: new Set() };
-    renderScan();
-  });
-
-  function renderScan() {
-    const { candidates, parent, truncated, picked } = scan;
-    $('pjScanLede').textContent = candidates.length
-      ? `Found ${plural(candidates.length, 'repository')} in ${SB.shortPath(parent, 40)}${truncated ? ' (stopped looking after the first 200)' : ''}. Tick the ones to add; nothing is added until you do.`.replace('repositorys', 'repositories')
-      : `No git repositories in ${SB.shortPath(parent, 40)}, two folders deep.`;
-    $('pjScanList').replaceChildren(...candidates.map(c => {
-      const box = h('input', { type: 'checkbox', disabled: c.listed });
-      box.checked = c.listed || picked.has(c.root);
-      box.addEventListener('change', () => { if (box.checked) picked.add(c.root); else picked.delete(c.root); updateScanButtons(); });
-      return h('li', {}, h('label', { class: 'pj-check' }, box,
-        h('span', {}, h('b', { text: c.name }), c.remote && h('span', { class: 'muted small', text: ` ${c.remote}` }), c.listed && h('span', { class: 'pj-tag', text: 'already listed' }),
-          h('span', { class: 'pj-check-path', text: SB.shortPath(c.root, 50) }))));
-    }));
-    updateScanButtons();
-  }
-
-  function updateScanButtons() {
-    const n = scan?.picked.size || 0;
-    $('pjScanAdd').disabled = !n;
-    $('pjScanAdd').textContent = n ? `Add ${n} selected` : 'Add selected';
-  }
-
-  $('pjScanAll').addEventListener('click', () => {
-    if (!scan) return;
-    for (const c of scan.candidates) if (!c.listed) scan.picked.add(c.root);
-    renderScan();
-  });
-  $('pjScanAdd').addEventListener('click', async () => {
-    const r = await api.addProjects([...scan.picked]);
-    SB.toast(r?.added ? `Added ${plural(r.added, 'repository')}`.replace('repositorys', 'repositories') : 'Nothing added.');
-    scan = null;
-    showScreen('list');
-    load({ refresh: true });
-  });
-  $('pjScanCancel').addEventListener('click', () => { api.cancelProjectScan(); scan = null; showScreen('list'); });
-
-  // ------------------------------------------------------------------ cloning
-
-  function openClone(repo) {
-    cloneRepo = repo;
-    showScreen('clone');
-    $('pjCloneTitle').textContent = `Clone ${repo}`;
-    $('pjCloneWhere').textContent = 'No folder chosen';
-    $('pjCloneDest').textContent = '';
-    $('pjCloneError').hidden = true;
-    $('pjCloneStatus').textContent = '';
-    $('pjCloneProgress').hidden = true;
-    $('pjCloneGo').disabled = true;
-    const again = $('pjCloneAgain');
-    again.hidden = !data?.lastCloneParent;
-    if (data?.lastCloneParent) again.textContent = `Use ${SB.shortPath(data.lastCloneParent, 30)} again`;
-  }
-
-  async function chose(r) {
-    if (!r?.ok) return;
-    $('pjCloneWhere').textContent = SB.tildify(r.parent);
-    const t = await api.cloneTarget(cloneRepo);
-    const err = $('pjCloneError');
-    err.hidden = !t?.error;
-    err.textContent = t?.error || '';
-    $('pjCloneDest').textContent = t?.dest ? `It will be cloned to ${t.dest}` : '';
-    $('pjCloneGo').disabled = !t?.dest;
-  }
-  $('pjCloneChoose').addEventListener('click', async () => chose(await api.chooseCloneFolder()));
-  $('pjCloneAgain').addEventListener('click', async () => chose(await api.cloneFolderAgain()));
-
-  $('pjCloneGo').addEventListener('click', async () => {
-    cloning = true;
-    $('pjCloneGo').disabled = true;
-    $('pjCloneChoose').disabled = true;
-    $('pjCloneAgain').disabled = true;
-    $('pjCloneProgress').hidden = false;
-    $('pjCloneBar').style.width = '0%';
-    $('pjCloneStatus').textContent = 'Cloning…';
-    const r = await api.cloneProject(cloneRepo);
-    cloning = false;
-    $('pjCloneChoose').disabled = false;
-    $('pjCloneAgain').disabled = false;
-    $('pjCloneProgress').hidden = true;
-    if (!r?.ok) {
-      $('pjCloneStatus').textContent = '';
-      if (r?.cancelled) return showScreen('detail');
-      $('pjCloneError').hidden = false;
-      $('pjCloneError').textContent = r?.error || 'The clone failed.';
-      $('pjCloneGo').disabled = false;
-      return;
-    }
-    SB.toast(`Cloned to ${r.root}`);
-    await load({ refresh: true });
-    showScreen('detail');
-  });
-  $('pjCloneCancel').addEventListener('click', () => {
-    if (cloning) { api.cancelClone(); return; }
-    showScreen(openKey ? 'detail' : 'list');
-  });
-  api.onCloneProgress(p => {
-    if (!cloning || p.repo !== cloneRepo) return;
-    $('pjCloneBar').style.width = `${p.percent}%`;
-    $('pjCloneStatus').textContent = `${p.phase}: ${p.percent}%`;
-  });
 
   // ------------------------------------------------------------------ live updates
 
@@ -707,7 +384,7 @@
   api.onServersChanged(v => {
     servers = v;
     // A running server's log grows: drop the copy so an open card reads it again.
-    for (const s of v.servers) if (isLive(s)) logs.delete(s.id);
+    for (const s of v.servers) if (isLive(s)) P.forgetLog(s.id);
     // Don't redraw under someone typing a note for Claude.
     if (document.activeElement?.classList.contains('pj-note')) { renderQuit(); return; }
     renderAll();
@@ -723,7 +400,7 @@
     if (!s) return;
     const p = data.projects.find(x => x.local.some(c => c.root.toLowerCase() === s.root.toLowerCase()));
     if (!p) return;
-    openCards.add(s.id);
+    P.openCard(s.id);
     await openProject(p.key);
     const card = document.getElementById(`srv-card-${s.id}`);
     card?.scrollIntoView({ block: 'center' });
