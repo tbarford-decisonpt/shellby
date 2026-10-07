@@ -22,13 +22,16 @@ function element(tag) {
     removeAttribute(k) { delete this.attrs[k]; },
     hasAttribute(k) { return k in this.attrs; },
     closest: () => null,
+    contains(el) { return el === this || this.children.some(c => c === el || c.contains?.(el)); },
     focus() {},
   };
 }
 
 function loadCore({ storage } = {}) {
   const byId = new Map();
+  const docListeners = {};
   const document = {
+    listeners: docListeners,
     body: element('body'),
     scrollingElement: {},
     activeElement: null,
@@ -38,10 +41,11 @@ function loadCore({ storage } = {}) {
     getElementById: id => { if (!byId.has(id)) byId.set(id, element('div')); return byId.get(id); },
     querySelector: () => null,
     querySelectorAll: () => [],
-    addEventListener() {},
+    addEventListener(type, fn) { docListeners[type] = fn; },
   };
   const window = { shellby: {}, addEventListener() {}, localStorage: storage, innerWidth: 400, innerHeight: 600 };
-  const context = vm.createContext({ window, document, setTimeout, clearTimeout });
+  // The timers and clock as they are now, so a test's mock.timers reach in here too.
+  const context = vm.createContext({ window, document, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout, Date: globalThis.Date });
   vm.runInContext(CORE, context, { filename: 'core.js' });
   return { SB: window.SB, document };
 }
@@ -104,6 +108,76 @@ test('menuItem takes (title, onPick) and (title, sub, onPick, options)', () => {
   assert.equal(title.textContent, 'Delete');
   assert.equal(sub.textContent, 'Gone for good');
 });
+
+// ------------------------------------------------------------------ toasts
+
+const toastText = t => (t.children[0] ? t.children[0].textContent : '');
+const toastButtons = t => t.children.filter(c => c.className === 'toast-action');
+
+function withClock(fn) {
+  return t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+    const { SB, document } = loadCore();
+    fn({ SB, document, slot: SB.$('toast'), tick: ms => t.mock.timers.tick(ms) });
+  };
+}
+
+test('a plain toast replaces a plain toast', withClock(({ SB, slot }) => {
+  SB.toast('Pushing…', { ms: 30000 });
+  SB.toast('Pushed 2 commits.');
+  assert.equal(toastText(slot), 'Pushed 2 commits.');
+}));
+
+test('a toast with a button keeps its slot when another one comes in', withClock(({ SB, slot }) => {
+  SB.toast('It clashes with main.', { ms: 12000, action: 'Ask him to sort it out', onAction() {} });
+  SB.toast('New to the Bugdex: Off-by-one', { action: 'Bugdex', ms: 4500, onAction() {} });
+  assert.equal(toastText(slot), 'It clashes with main.');
+  assert.equal(toastButtons(slot)[0].children[0].text, 'Ask him to sort it out');
+}));
+
+test('the one that waited shows once the button toast goes', withClock(({ SB, slot, tick }) => {
+  SB.toast('It clashes with main.', { ms: 1000, action: 'Ask him to sort it out', onAction() {} });
+  SB.toast('Tabs a and b both changed it.', { ms: 5000 });
+  tick(1000 + 2500);
+  assert.equal(toastText(slot), 'Tabs a and b both changed it.');
+  tick(5000);
+  assert.equal(slot.children.length, 0);
+}));
+
+test('a waiting toast that has gone stale is dropped', withClock(({ SB, slot, tick }) => {
+  SB.toast('It clashes with main.', { ms: 20000, action: 'Ask him to sort it out', onAction() {} });
+  SB.toast('Copied.', { ms: 1000 });
+  tick(20000 + 2500);
+  assert.equal(slot.children.length, 0);
+}));
+
+test('the toast stays while the pointer is on it, and lingers a moment after', withClock(({ SB, slot, tick }) => {
+  SB.toast('It clashes with main.', { ms: 1000, action: 'Ask him to sort it out', onAction() {} });
+  slot.listeners.pointerenter();
+  tick(60000);
+  assert.equal(toastText(slot), 'It clashes with main.');
+  slot.listeners.pointerleave();
+  tick(2999);
+  assert.equal(toastText(slot), 'It clashes with main.');
+  tick(1);
+  assert.equal(slot.children.length, 0);
+}));
+
+test('clicking the button runs it, and what it says comes before what waited', withClock(({ SB, slot }) => {
+  let asked = 0;
+  SB.toast('It clashes with main.', { ms: 12000, action: 'Ask him to sort it out', onAction() { asked++; SB.toast('Sent.'); } });
+  SB.toast('Tabs a and b both changed it.', { ms: 5000 });
+  toastButtons(slot)[0].listeners.click();
+  assert.equal(asked, 1);
+  assert.equal(toastText(slot), 'Sent.');
+}));
+
+test('clicking elsewhere lets your own next toast through', withClock(({ SB, document, slot }) => {
+  SB.toast('It clashes with main.', { ms: 12000, action: 'Ask him to sort it out', onAction() {} });
+  document.listeners.pointerdown({ target: SB.h('button') });
+  SB.toast('Copied.');
+  assert.equal(toastText(slot), 'Copied.');
+}));
 
 test('picking a menu item runs it', () => {
   const { SB } = loadCore();
