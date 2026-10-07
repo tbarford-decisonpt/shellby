@@ -208,6 +208,14 @@ contextBridge.exposeInMainWorld('shellby', {
   deleteRoutine: invoke('routines:delete'),
   runRoutine: invoke('routines:run'),
 
+  // notes
+  listNotes: invoke('notes:list'),
+  addNote: invoke('notes:add'),
+  updateNote: invoke('notes:update'),
+  deleteNote: invoke('notes:delete'),
+  moveNote: invoke('notes:move'),
+  runNote: invoke('notes:run'),
+
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
 
@@ -221,6 +229,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onToolbox: on('toolbox'),
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
+  onNotes: on('notes'),
   onAttach: on('panel:attach'),
   onFocusInput: on('panel:focus-input'),
   onView: on('panel:view'),

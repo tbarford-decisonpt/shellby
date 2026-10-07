@@ -1,5 +1,5 @@
 /* Shellby panel — navigation: the bottom bar and Settings gear, Back/Esc going
-   up one level, Ctrl+1…6, the Ctrl+K "jump anywhere" palette, and the Settings
+   up one level, Ctrl+1…7, the Ctrl+K "jump anywhere" palette, and the Settings
    section links. */
 'use strict';
 (function () {
@@ -136,6 +136,8 @@
       claude() && { icon: '🛒', title: 'Skill Shop', sub: 'Install skills from plugin marketplaces', keys: 'get more plugins install marketplace', run: () => SB.openShop() },
       claude() && { icon: '⏰', title: 'Routines', sub: 'Tasks that run on a schedule', keys: 'schedule recurring cron', run: go('routines') },
       claude() && { icon: '⏰', title: 'New routine', sub: 'Schedule a recurring task', keys: 'schedule add', run: () => { SB.setView('routines'); $('newRoutineBtn').click(); } },
+      claude() && { icon: '📝', title: 'Notes', sub: 'Ideas to plan, build or ask Claude about', keys: 'todo ideas list project', run: go('notes') },
+      claude() && { icon: '📝', title: 'New note', sub: 'Jot down something to do', keys: 'todo idea add', run: () => { SB.setView('notes'); $('noteInput').focus(); } },
       { icon: '📈', title: 'Health', sub: 'Temperatures, memory and drives', keys: 'gpu cpu ram disk temperature vitals', run: go('health') },
       claude() && { icon: '🗂️', title: 'History', sub: 'Past conversations', keys: 'sessions old', run: go('history') },
       { icon: '⚙️', title: 'Settings', sub: 'Everything else', keys: 'preferences options', run: go('settings') },
