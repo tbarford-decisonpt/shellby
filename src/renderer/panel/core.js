@@ -6,14 +6,20 @@ const SB = window.SB = {
   md: window.ShellbyMarkdown,
   Sprite: window.ShellbySprite,
   MiniShell: window.ShellbyMiniShell,
+  panes: window.ShellbyPanes,
+  // Set in a popped-out conversation's window: the one tab it shows. That
+  // window is this same page with the chat alone (see popOut in main.js).
+  solo: new URLSearchParams(location.search).get('popout'),
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
     toolbox: null, pinned: [], learned: [], routines: [],
     tabs: new Map(),      // tabId -> Tab (see feed.js)
-    activeTab: null,
+    activeTab: null,      // the focused pane: where the composer sends
+    grid: [],             // the tabs on screen, as columns of ids (see shared/panes.js)
   },
 };
+if (SB.solo) document.body.classList.add('solo');
 
 SB.$ = id => document.getElementById(id);
 
@@ -167,8 +173,9 @@ SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
 SB.setView = view => {
   const s = SB.state;
-  // Just-the-crab mode has no chat: Health is home.
+  // Just-the-crab mode has no chat: Health is home. A popped-out window has nothing but.
   if (view === 'chat' && s.settings.crabOnly) view = 'health';
+  if (SB.solo) view = 'chat';
   s.view = view;
   document.body.dataset.view = view;
   const section = SB.NAV_SECTION[view] || view;

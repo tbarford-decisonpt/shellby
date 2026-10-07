@@ -3,8 +3,16 @@
 (function () {
   const { api, state, $ } = SB;
 
-  $('closeBtn').addEventListener('click', () => api.hide());
+  // In a popped-out window, × puts the conversation back in the panel.
+  $('closeBtn').addEventListener('click', () => {
+    if (!SB.solo) return api.hide();
+    const tab = SB.activeTab();
+    if (tab) tab.draft = $('input').value;
+    api.popInTab(SB.solo, tab ? SB.carryOf(tab) : null);
+  });
   $('minBtn').addEventListener('click', () => api.minimize());
+  $('maxBtn').addEventListener('click', () => api.maximize());
+  if (SB.solo) $('closeBtn').title = 'Back into the panel';
 
   SB.renderCrabs = () => {
     for (const id of ['brandCrab', 'helloCrab', 'dockCrab']) $(id).replaceChildren(SB.sprite());
@@ -28,7 +36,7 @@
     tab.render(item);
     if (item.kind === 'result') {
       tab.busy = false;
-      if (!tab.isActive) tab.unread = true;
+      if (!tab.isShown) tab.unread = true;
       SB.onTurnEnded(tab, item);
       api.listSessions().then(s => { state.sessions = s; });
     }
@@ -40,6 +48,14 @@
     for (const item of items || []) tab.render(item, { replay: true });
     if (!background || !state.activeTab) SB.activate(tabId);
     else SB.renderTabStrip();
+  });
+  // A popped-out conversation's window closed: it's a tab here again.
+  api.onTabReturned(({ summary, items, carry }) => {
+    if (!summary || state.tabs.has(summary.id)) return;
+    const tab = SB.ensureTab(summary);
+    for (const item of items || []) tab.render(item, { replay: true });
+    SB.takeCarry(tab, carry);
+    SB.renderTabStrip();
   });
   api.onTabFocus(tabId => { if (state.tabs.has(tabId)) SB.activate(tabId); });
   api.onNewTabRequest(() => SB.newTab());
@@ -90,6 +106,7 @@
     for (const tab of state.tabs.values()) tab.destroy();
     state.tabs.clear();
     state.activeTab = null;
+    state.grid = [];
     Object.assign(state, { toolbox: demo.toolbox ?? state.toolbox, routines: demo.routines ?? state.routines, learned: demo.learned ?? [], pinned: demo.pinned ?? [] });
     for (const t of demo.tabs) {
       const tab = SB.ensureTab({ id: t.id, title: t.title, cwd: t.cwd, saved: true, busy: t.busy, pending: t.pending, crew: t.crew, outcome: t.outcome, unread: t.unread, routineId: t.routineId });
@@ -110,7 +127,25 @@
 
   // ------------------------------------------------------------ boot
 
+  // A popped-out window: one conversation, picked up as it stands, nothing else.
+  async function initSolo() {
+    const b = await api.popoutBootstrap();
+    if (!b) return; // its conversation closed on the way; main closes the window
+    Object.assign(state, {
+      settings: b.settings, status: b.status, skin: b.skin, outfit: b.outfit,
+      cwd: b.cwd, home: b.home, toolbox: b.toolbox, pinned: b.pinned,
+    });
+    SB.applyMode(state.settings.mode);
+    SB.renderCrabs();
+    const tab = SB.ensureTab(b.tab);
+    for (const item of b.items) tab.render(item, { replay: true });
+    SB.takeCarry(tab, b.carry);
+    SB.activate(tab.id);
+    SB.setView('chat');
+  }
+
   (async function init() {
+    if (SB.solo) return initSolo();
     const b = await api.bootstrap();
     Object.assign(state, {
       settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,

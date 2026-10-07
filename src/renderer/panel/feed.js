@@ -50,7 +50,7 @@
       // would slide under them.
       this.stuck = true;
       this.el.addEventListener('scroll', () => { this.stuck = this.distanceFromEnd() < 40; }, { passive: true });
-      new ResizeObserver(() => { if (this.stuck && this.isActive) this.scrollToEnd(); }).observe(this.el);
+      new ResizeObserver(() => { if (this.stuck && this.isShown) this.scrollToEnd(); }).observe(this.el);
     }
 
     distanceFromEnd() { return this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight; }
@@ -84,7 +84,7 @@
       const follow = this.stuck || this.distanceFromEnd() < 140;
       host.append(el);
       if (host === this.el) this.trim();
-      if (follow && this.isActive) this.scrollToEnd();
+      if (follow && this.isShown) this.scrollToEnd();
       return el;
     }
 
@@ -127,6 +127,7 @@
     }
 
     get isActive() { return state.activeTab === this.id; }
+    get isShown() { return SB.isShown(this.id); }   // in a pane, focused or not
 
     setStatus(text) {
       this.statusText = text;

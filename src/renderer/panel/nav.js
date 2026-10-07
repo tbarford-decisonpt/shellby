@@ -3,7 +3,7 @@
    section links. */
 'use strict';
 (function () {
-  const { h, state, $ } = SB;
+  const { h, api, state, $ } = SB;
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ------------------------------------------------------------ bar + gear
@@ -25,7 +25,7 @@
   }
 
   document.addEventListener('keydown', e => {
-    if (state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+    if (SB.solo || state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
     // A dialog (share card, upsell, outfit code) owns the keyboard until it closes.
     if (document.querySelector('.card-sheet:not([hidden])')) return;
     if (e.key.toLowerCase() === 'k') { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
@@ -200,6 +200,26 @@
     }));
   }
 
+  // Splitting, popping out and moving between panes: the keyboard's way to do
+  // what dragging a tab into the chat, or out of the window, does.
+  function paneEntries() {
+    if (!claude() || !state.tabs.has(state.activeTab)) return [];
+    const here = state.tabs.get(state.activeTab).title;
+    const shown = SB.panes.ids(state.grid);
+    const keys = 'pane split side by side grid quad window layout';
+    const chat = run => () => { SB.setView('chat'); run(); };
+    return [
+      { icon: '◫', title: 'Split: another conversation alongside', sub: 'Ctrl+\\', keys, run: chat(SB.splitPane) },
+      { icon: '↗', title: 'Open this conversation in its own window', sub: here, keys: `${keys} pop out tear off`, run: () => SB.popOut(state.activeTab) },
+      shown.length > 1 && { icon: '×', title: 'Close this pane', sub: `${here} keeps its tab`, keys, run: chat(() => SB.closePane(state.activeTab)) },
+      ...shown.filter(id => id !== state.activeTab).map(id => ({
+        icon: '◧', title: `Go to the pane with ${state.tabs.get(id).title}`, sub: 'Focus it, so the box below talks to it', keys: `${keys} focus`,
+        run: chat(() => SB.activate(id)),
+      })),
+      { icon: '⛶', title: 'Maximize or restore the panel', sub: 'Room for a 2×2 grid', keys: `${keys} fullscreen full screen bigger`, run: () => api.maximize() },
+    ].filter(Boolean).map(e => ({ ...e, group: 'Conversations' }));
+  }
+
   // Every word has to appear somewhere; titles that start with the query rank first.
   function score(entry, q, words) {
     const title = entry.title.toLowerCase();
@@ -219,7 +239,7 @@
     const q = raw.trim().toLowerCase();
     if (!q) return [...screenEntries(), ...settingEntries()];
     const words = q.split(/\s+/);
-    return [...screenEntries(), ...focusEntries(), ...settingEntries(), ...modeEntries(), ...tabEntries(), ...conversationEntries(), ...toolEntries()]
+    return [...screenEntries(), ...focusEntries(), ...settingEntries(), ...modeEntries(), ...tabEntries(), ...paneEntries(), ...conversationEntries(), ...toolEntries()]
       .map(entry => ({ entry, s: score(entry, q, words) }))
       .filter(x => x.s >= 0)
       .sort((a, b) => a.s - b.s || GROUP_RANK[a.entry.group] - GROUP_RANK[b.entry.group])

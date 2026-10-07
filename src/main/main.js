@@ -329,11 +329,17 @@ function createPanel() {
   secureWindow(panel);
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
-  panel.on('resized', () => { const [width, height] = panel.getSize(); config.set({ panelSize: { width, height } }); });
+  panel.on('resized', () => {
+    if (panel.isMaximized()) return; // the size to come back to is the one before
+    const [width, height] = panel.getSize();
+    config.set({ panelSize: { width, height } });
+  });
 }
 
 function showPanel({ focusInput = true, tabId = null } = {}) {
-  if (!panel.isVisible()) {
+  // A conversation in its own window is shown there instead.
+  if (tabId && popouts.has(tabId)) return showPopout(tabId);
+  if (!panel.isVisible() && !panel.isMaximized()) {
     const b = critter.getBounds();
     const self = { x: b.x + crewExtra(), y: b.y, width: b.width - crewExtra(), height: b.height };
     const [pw, ph] = panel.getSize();
@@ -360,6 +366,87 @@ function togglePanel() {
 
 function send(win, channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+
+// ================================================================ popped-out conversations
+
+// A conversation dragged out of the panel (or sent out with its button) gets a
+// window of its own: the same panel page, showing just that tab, so it can be
+// snapped, maximized or put on another screen. The panel drops the tab while
+// it's out; closing the window hands it back. Never saved: a restart brings
+// every conversation back into the panel.
+const popouts = new Map();      // tabId -> BrowserWindow
+const popoutCarry = new Map();  // tabId -> { draft, attachments, queue } on its way between windows
+
+// The window a tab's live items go to.
+function tabWindow(tabId) { return popouts.get(tabId) || panel; }
+
+function popOut(tabId, { x, y } = {}) {
+  if (!manager.tabs.has(tabId)) return false;
+  if (popouts.has(tabId)) { showPopout(tabId); return true; }
+  const size = config.get('panelSize') || PANEL_DEFAULT;
+  // Dropped outside the panel: the title bar lands under the pointer. From the
+  // button: a step down and right of the panel, so it's plainly a new window.
+  const at = Number.isFinite(x) && Number.isFinite(y)
+    ? { x: Math.round(x) - 120, y: Math.round(y) - 18 }
+    : (() => { const [px, py] = panel.getPosition(); return { x: px + 36, y: py + 36 }; })();
+  const bounds = clampToDisplays({ ...at, ...size }, workAreas(), 0);
+  const win = new BrowserWindow({
+    ...bounds, minWidth: 360, minHeight: 420,
+    show: false, frame: false, backgroundColor: '#0c1719', title: manager.tabs.get(tabId).title || 'Shellby', icon: ICON, webPreferences,
+  });
+  secureWindow(win);
+  popouts.set(tabId, win);
+  win.loadFile(path.join(RENDERER, 'panel', 'panel.html'), { query: { popout: tabId } });
+  win.once('ready-to-show', () => { win.show(); win.focus(); });
+  win.on('closed', () => {
+    if (popouts.get(tabId) !== win) return; // closed with its conversation; nothing to hand back
+    popouts.delete(tabId);
+    if (app.isQuitting || !manager.tabs.has(tabId)) return;
+    const summary = manager.summary.find(t => t.id === tabId);
+    send(panel, 'tab:returned', { summary, items: history.load(tabId), carry: popoutCarry.get(tabId) || null });
+    popoutCarry.delete(tabId);
+    pushTabs();
+    if (win.backToPanel) showPanel({ tabId });
+  });
+  return true;
+}
+
+function showPopout(tabId) {
+  const win = popouts.get(tabId);
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+// The conversation itself closed: its window goes too, without handing anything back.
+function closePopout(tabId) {
+  const win = popouts.get(tabId);
+  if (!win) return;
+  popouts.delete(tabId);
+  popoutCarry.delete(tabId);
+  if (!win.isDestroyed()) win.destroy();
+}
+
+// Typed-but-unsent words travel with a conversation between windows.
+function cleanCarry(c) {
+  if (!c || typeof c !== 'object') return null;
+  const files = a => (Array.isArray(a) ? a.filter(isStr).slice(0, 20) : []);
+  return {
+    draft: typeof c.draft === 'string' ? c.draft.slice(0, 50000) : '',
+    attachments: files(c.attachments),
+    queue: (Array.isArray(c.queue) ? c.queue : []).slice(0, 20)
+      .filter(m => m && typeof m.text === 'string')
+      .map(m => ({ text: m.text.slice(0, 50000), attachments: files(m.attachments) })),
+  };
+}
+
+// Every window hears about every tab; the panel leaves out the ones marked `popped`.
+function pushTabs(summary = manager.summary) {
+  for (const id of popouts.keys()) if (!manager.tabs.has(id)) closePopout(id);
+  const list = summary.map(t => (popouts.has(t.id) ? { ...t, popped: true } : t));
+  send(panel, 'tabs', list);
+  for (const win of popouts.values()) send(win, 'tabs', list);
 }
 
 // ================================================================ critter state
@@ -581,7 +668,8 @@ function createManager() {
       toolbox?.setInit(item.toolbox);
       return; // toolbox lists are large; the panel doesn't need them per tab
     }
-    send(panel, 'tab:item', { tabId, item });
+    const win = tabWindow(tabId);
+    send(win, 'tab:item', { tabId, item });
     if (item.kind === 'permission') onPermission(tabId, item, tab);
     if (item.kind === 'result') onResult(tabId, item, tab);
     if (item.kind === 'task' && item.phase === 'started') stat('helper-spawned');
@@ -602,7 +690,7 @@ function createManager() {
     }
   });
   manager.on('tabs', summary => {
-    send(panel, 'tabs', summary);
+    pushTabs(summary);
     const saved = summary.filter(t => t.saved && !t.routineId).map(t => t.id);
     if (!CAPTURE) config.set({ openTabs: saved });
   });
@@ -1792,7 +1880,43 @@ function registerIpc() {
 
   // ---- panel lifecycle
   ipcMain.on('panel:hide', () => panel.hide());
-  ipcMain.on('panel:minimize', () => panel.minimize());
+  // These two come from the panel or a popped-out conversation, so they act on whichever asked.
+  ipcMain.on('panel:minimize', e => BrowserWindow.fromWebContents(e.sender)?.minimize());
+  ipcMain.on('window:maximize', e => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win || win === critter) return;
+    if (win.isMaximized()) win.unmaximize(); else win.maximize();
+  });
+
+  // ---- popped-out conversations
+  ipcMain.handle('tab:pop-out', (_e, { tabId, x, y, carry } = {}) => {
+    if (!isStr(tabId) || !manager.tabs.has(tabId)) return { ok: false, error: 'That conversation is closed.' };
+    const c = cleanCarry(carry);
+    if (c) popoutCarry.set(tabId, c);
+    return { ok: popOut(tabId, { x, y }) };
+  });
+  // The window's own ×: back into the panel, with whatever was typed there.
+  ipcMain.on('tab:pop-in', (e, { tabId, carry } = {}) => {
+    const win = isStr(tabId) && popouts.get(tabId);
+    if (!win || win.webContents !== e.sender) return;
+    const c = cleanCarry(carry);
+    if (c) popoutCarry.set(tabId, c); else popoutCarry.delete(tabId);
+    win.backToPanel = true;
+    win.close();
+  });
+  // What a popped-out window needs to draw its one conversation.
+  ipcMain.handle('popout:bootstrap', e => {
+    const tabId = [...popouts].find(([, w]) => w.webContents === e.sender)?.[0];
+    const summary = tabId && manager.summary.find(t => t.id === tabId);
+    if (!summary) return null;
+    const carry = popoutCarry.get(tabId) || null;
+    popoutCarry.delete(tabId);
+    return {
+      settings: config.data, status: claudeStatus, skin: activeSkin(), outfit: outfit(),
+      cwd: currentCwd(), home: os.homedir(), toolbox: toolbox?.current ?? null, pinned: pinnedTools(),
+      tab: summary, items: history.load(tabId), carry,
+    };
+  });
 
   ipcMain.handle('app:bootstrap', async () => {
     claudeStatus = CAPTURE || FAKE_CLI ? require('./capture').FAKE_STATUS : await checkStatus({ configured: claudePath() });
@@ -1816,8 +1940,8 @@ function registerIpc() {
       wardrobe: wardrobe.view(),
       welcomeTrophies: welcomeTrophies.splice(0),
       sessions: CAPTURE ? [] : history.list(),
-      tabs: manager.summary,
-      tabItems: Object.fromEntries(manager.summary.map(t => [t.id, history.load(t.id)])),
+      tabs: manager.summary.filter(t => !popouts.has(t.id)),
+      tabItems: Object.fromEntries(manager.summary.filter(t => !popouts.has(t.id)).map(t => [t.id, history.load(t.id)])),
       toolbox: CAPTURE ? null : toolbox.current,
       pinned: pinnedTools(),
       learned: CAPTURE ? [] : config.get('learnedTricks') || [],
@@ -1876,6 +2000,7 @@ function registerIpc() {
   ipcMain.handle('tab:close', (_e, tabId) => {
     if (!isStr(tabId)) return false;
     manager.interrupt(tabId);
+    closePopout(tabId);
     manager.close(tabId);
     routineTabs.delete(tabId);
     return true;
@@ -1921,6 +2046,7 @@ function registerIpc() {
   ipcMain.handle('session:open', (_e, id) => {
     const entry = isStr(id) && history.get(id);
     if (!entry) return null;
+    if (popouts.has(id)) { showPopout(id); return { popped: true }; }
     if (!manager.tabs.has(id)) {
       try { openTab({ tabId: id, historyEntry: entry }); } catch (err) { return { error: err.message }; }
     }

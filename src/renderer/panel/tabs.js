@@ -2,13 +2,16 @@
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
+  const P = SB.panes;
   const input = $('input');
+  const PLACEHOLDER = input.placeholder;
 
   // ------------------------------------------------------------ tabs
 
   let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
+  SB.isShown = tabId => P.has(state.grid, tabId);
 
   SB.ensureTab = (summary) => {
     let tab = state.tabs.get(summary.id);
@@ -31,8 +34,12 @@
     if (prev) { prev.draft = input.value; }
     const tab = state.tabs.get(tabId);
     if (!tab) return;
+    // On screen already: its pane takes the focus. Otherwise it opens in the
+    // focused pane, or in the pane of a tab that has just gone.
+    const into = state.activeTab ?? P.ids(state.grid).find(id => !state.tabs.has(id));
+    state.grid = P.keep(P.replace(state.grid, into, tabId), id => state.tabs.has(id));
     state.activeTab = tabId;
-    for (const t of state.tabs.values()) t.el.hidden = t !== tab;
+    renderPanes();
     input.value = tab.draft || '';
     autosize();
     renderAttachments();
@@ -41,9 +48,141 @@
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
     SB.renderTabStrip();
-    requestAnimationFrame(() => { tab.el.scrollTop = tab.el.scrollHeight; });
     if (state.view !== 'chat') SB.setView('chat'); else input.focus();
   };
+
+  // ------------------------------------------------------------ panes
+
+  // The chat view shows the tabs in state.grid side by side (shared/panes.js
+  // decides the shapes). Each pane has a slim header, hidden while there's
+  // only one; the composer belongs to whichever pane has the focus.
+  const paneHeads = new Map();   // tabId -> header, for the tabs on screen
+
+  function renderPanes() {
+    const feeds = $('feeds');
+    const { cols, rows, cells } = P.layout(state.grid);
+    const at = new Map(cells.map(c => [c.id, c]));
+    feeds.dataset.panes = cells.length;
+    feeds.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    feeds.style.gridTemplateRows = `repeat(${rows}, auto minmax(0, 1fr))`;
+    for (const [id, head] of paneHeads) if (!at.has(id)) { head.remove(); paneHeads.delete(id); }
+    const appearing = [];
+    for (const t of state.tabs.values()) {
+      const cell = at.get(t.id);
+      if (cell && t.el.hidden) appearing.push(t);
+      t.el.hidden = !cell;
+      if (!cell) continue;
+      Object.assign(t.el.style, { gridColumn: cell.col, gridRow: cell.feed });
+      let head = paneHeads.get(t.id);
+      if (!head) { head = paneHead(t); paneHeads.set(t.id, head); feeds.append(head); }
+      Object.assign(head.style, { gridColumn: cell.col, gridRow: cell.head });
+    }
+    refreshHeads();
+    // A hidden feed loses its place; it comes back showing the latest.
+    requestAnimationFrame(() => { for (const t of appearing) t.scrollToEnd(); });
+  }
+
+  function paneHead(t) {
+    return h('div', { class: 'pane-head', dataset: { tab: t.id }, onpointerdown: e => dragStart(e, t.id) },
+      h('span', { class: 'pane-state' }),
+      h('span', { class: 'pane-title' }),
+      h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => SB.popOut(t.id) },
+        SB.icon('M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2')),
+      h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (the conversation keeps its tab)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(t.id) },
+        SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
+  }
+
+  // Titles and working/asking marks change all the time; the headers are
+  // updated in place, so a button being pressed is never swapped out.
+  function refreshHeads() {
+    const split = paneHeads.size > 1;
+    for (const [id, head] of paneHeads) {
+      const t = state.tabs.get(id);
+      if (!t) continue;
+      const focused = split && id === state.activeTab;
+      head.classList.toggle('focused', focused);
+      t.el.classList.toggle('focused', focused);
+      head.querySelector('.pane-state').replaceChildren(...[tabIcon(t)].filter(Boolean));
+      const title = head.querySelector('.pane-title');
+      title.textContent = tabLabel(t);
+      title.title = t.title;
+    }
+    // Which pane you're typing to, when there's more than one it could be.
+    const tab = SB.activeTab();
+    input.placeholder = split && tab ? `Give "${tabLabel(tab).slice(0, 40)}" a task…` : PLACEHOLDER;
+  }
+
+  // Clicking into a pane makes it the one the composer talks to.
+  $('feeds').addEventListener('pointerdown', e => {
+    const id = e.target.closest('[data-tab]')?.dataset.tab;
+    if (id && id !== state.activeTab && state.tabs.has(id)) SB.activate(id);
+  });
+
+  // Drop `tabId` on `target`'s pane (`zone`: see panes.place) and focus it there.
+  SB.placeTab = (tabId, target, zone) => {
+    state.grid = P.place(state.grid, tabId, target, zone);
+    SB.activate(tabId);
+  };
+
+  // Off screen, but still a tab.
+  SB.closePane = (tabId) => {
+    if (!SB.isShown(tabId) || P.ids(state.grid).length < 2) return;
+    state.grid = P.remove(state.grid, tabId);
+    if (state.activeTab === tabId) SB.activate(P.ids(state.grid)[0]);
+    else { renderPanes(); SB.renderTabStrip(); }
+  };
+
+  // Ctrl+\ and the split button: the newest conversation that isn't on screen
+  // (or a fresh one) goes beside the focused pane, or below one if there are
+  // two columns already.
+  SB.splitPane = async () => {
+    if (SB.solo || !state.activeTab) return;
+    const spots = [state.activeTab, ...P.ids(state.grid)];
+    const side = spots.find(id => P.zones(state.grid, id).includes('right'));
+    const below = spots.find(id => P.zones(state.grid, id).includes('bottom'));
+    if (!side && !below) return SB.toast('Four is as many as fit. Close a pane first.');
+    let next = [...state.tabs.keys()].reverse().find(id => !SB.isShown(id));
+    if (!next) next = (await SB.newTab({ focus: false, reuse: false }))?.id;
+    if (next) SB.placeTab(next, side || below, side ? 'right' : 'bottom');
+  };
+
+  // ------------------------------------------------------------ own window
+
+  // What's typed but not sent travels with a conversation between windows.
+  SB.carryOf = tab => ({ draft: tab.draft, attachments: tab.attachments, queue: tab.queue });
+  SB.takeCarry = (tab, carry) => {
+    if (!carry) return;
+    Object.assign(tab, { draft: carry.draft, attachments: carry.attachments, queue: carry.queue });
+    // A turn that ended on the way over would have sent the next queued message.
+    if (!tab.busy && tab.queue.length) SB.onTurnEnded(tab, { ok: tab.outcome !== 'error', interrupted: tab.outcome === 'stopped' });
+  };
+
+  // `at`: where it was dropped, in screen pixels, so the window opens there.
+  SB.popOut = async (tabId, at = {}) => {
+    const tab = state.tabs.get(tabId);
+    if (!tab || SB.solo) return;
+    if (tab.isActive) tab.draft = input.value;
+    const r = await api.popOutTab(tabId, { ...at, carry: SB.carryOf(tab) });
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't open that in its own window.");
+    forgetTab(tabId);
+    SB.renderTabStrip();
+  };
+
+  // A tab leaves this window: closed, popped out, or gone from main.
+  function forgetTab(tabId) {
+    const tab = state.tabs.get(tabId);
+    if (!tab) return;
+    tab.destroy();
+    paneHeads.get(tabId)?.remove();
+    paneHeads.delete(tabId);
+    state.tabs.delete(tabId);
+    state.grid = P.remove(state.grid, tabId);
+    if (state.activeTab !== tabId) return renderPanes();
+    state.activeTab = null;
+    const next = P.ids(state.grid)[0] || [...state.tabs.keys()].pop();
+    if (next) SB.activate(next);
+    else if (!SB.solo) SB.newTab();
+  }
 
   // state.tabs' order is the order the strip shows. Reordered in place, never
   // replaced: boot.js and settings.js hold on to the Map itself.
@@ -78,11 +217,13 @@
   };
 
   SB.syncTabs = (summaries) => {
+    // A popped-out conversation belongs to its own window, and that window to it alone.
+    summaries = summaries.filter(s => (SB.solo ? s.id === SB.solo : !s.popped));
     const ids = new Set(summaries.map(s => s.id));
     for (const s of summaries) SB.ensureTab(s);
     // A tab created locally may not be in this snapshot yet; only drop tabs the
     // main process no longer knows about once they've been reported at least once.
-    for (const [id, tab] of state.tabs) if (!ids.has(id) && tab.reported) { tab.destroy(); state.tabs.delete(id); }
+    for (const [id, tab] of state.tabs) if (!ids.has(id) && tab.reported) forgetTab(id);
     for (const s of summaries) { const t = state.tabs.get(s.id); if (t) t.reported = true; }
     // Main owns the order; a tab created here that isn't in the snapshot yet waits
     // at the end. A drag in progress wins, so a background tab reporting progress
@@ -90,7 +231,7 @@
     if (!drag) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
       const next = [...state.tabs.keys()].pop();
-      if (next) SB.activate(next); else SB.newTab();
+      if (next) SB.activate(next); else if (!SB.solo) SB.newTab();
     }
     syncBusyUi();
     SB.renderTabStrip();
@@ -100,9 +241,9 @@
   // last tab while the main process reports "no tabs") share one in-flight
   // request, so they can never produce two blank tabs.
   let creating = null;
-  SB.newTab = ({ focus = true } = {}) => {
+  SB.newTab = ({ focus = true, reuse = true } = {}) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
+    if (reuse && cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
     if (creating) return creating;
     creating = (async () => {
       const r = await api.newTab();
@@ -129,13 +270,7 @@
   SB.closeTab = async (tabId) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
-    tab.destroy();
-    state.tabs.delete(tabId);
-    if (state.activeTab === tabId) {
-      state.activeTab = null;
-      const next = [...state.tabs.keys()].pop();
-      if (next) SB.activate(next); else SB.newTab();
-    }
+    forgetTab(tabId);
     await api.closeTab(tabId);
     SB.renderTabStrip();
     if (tab.saved) SB.toast('Closed. It is still in History.');
@@ -150,12 +285,16 @@
     return null;
   }
 
+  const tabLabel = t => (t.isEmpty && !t.saved ? 'New task' : t.title);
+
   SB.renderTabStrip = () => {
     const strip = $('tabs');
+    const split = P.ids(state.grid).length > 1;
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
+      const shown = SB.isShown(t.id);
       const btn = h('div', {
-        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
+        class: `tab${active ? ' active' : ''}${split && shown && !active ? ' shown' : ''}${t.unread && !shown ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
         role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1', title: t.title,
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
@@ -164,7 +303,7 @@
         onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); },
       },
       tabIcon(t),
-      h('span', { class: 'tab-title', text: t.isEmpty && !t.saved ? 'New task' : t.title }),
+      h('span', { class: 'tab-title', text: tabLabel(t) }),
       h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'));
       return btn;
     }));
@@ -174,23 +313,34 @@
     // Title bar shows total running count at a glance.
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
+    refreshHeads();
+    // A popped-out window is named for its conversation, on the taskbar too.
+    const solo = SB.solo && SB.activeTab();
+    if (solo) document.title = $('winTitle').textContent = tabLabel(solo);
   };
   $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   $('newTabBtn').addEventListener('click', () => SB.newTab());
+  $('splitBtn').addEventListener('click', () => SB.splitPane());
+  $('popOutBtn').addEventListener('click', () => { if (state.activeTab) SB.popOut(state.activeTab); });
 
-  // ------------------------------------------------------------ drag to reorder
+  // ------------------------------------------------------------ drag to reorder, split or pop out
 
   // The strip reorders live as the pointer crosses a neighbour's midpoint, and the
   // dragged tab keeps its place in the flow (just lifted). Nothing is positioned by
   // hand, so there's nothing to re-apply when a working tab redraws the strip
   // mid-drag — and pointermove/up are on the window, so replacing the tab's element
   // underneath the pointer doesn't cut the drag short.
+  //
+  // Pulled down into the chat, the tab splits a pane (a preview shows where it
+  // will land); let go outside the window, it opens in a window of its own.
+  // A pane's header drags the same way.
   const EDGE = 26;            // px from a strip edge where dragging starts scrolling it
   const SLOP = 5;             // px of movement before a click becomes a drag
+  const OUT = 24;             // px past the window's edge before letting go pops the tab out
 
   function dragStart(e, tabId) {
-    if (e.button !== 0 || e.target.closest('.tab-x') || state.tabs.size < 2) return;
-    drag = { id: tabId, startX: e.clientX, x: e.clientX, moved: false };
+    if (e.button !== 0 || e.target.closest('button') || SB.solo) return;
+    drag = { id: tabId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, moved: false, drop: null };
     window.addEventListener('pointermove', dragMove);
     window.addEventListener('pointerup', dragEnd);
     window.addEventListener('pointercancel', dragEnd);
@@ -199,30 +349,73 @@
   function dragMove(e) {
     if (!drag) return;
     drag.x = e.clientX;
+    drag.y = e.clientY;
     // A click that wobbles a few pixels is still a click.
-    if (!drag.moved && Math.abs(e.clientX - drag.startX) < SLOP) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < SLOP) return;
     if (!drag.moved) {
       drag.moved = true;
       document.body.classList.add('reordering');
       lift();
       requestAnimationFrame(edgeScroll);
     }
-    SB.moveTab(drag.id, dropBefore(drag.x));
+    drag.drop = dropAt(drag.x, drag.y);
+    showDrop(drag.drop);
+    if (drag.drop?.kind === 'strip') SB.moveTab(drag.id, dropBefore(drag.x));
   }
 
-  function dragEnd() {
-    const moved = drag?.moved;
+  function dragEnd(e) {
+    const d = drag;
     drag = null;
     window.removeEventListener('pointermove', dragMove);
     window.removeEventListener('pointerup', dragEnd);
     window.removeEventListener('pointercancel', dragEnd);
-    if (!moved) return;
+    if (!d?.moved) return;
     document.body.classList.remove('reordering');
     lift();
-    // The click that follows this pointerup is left alone on purpose: you grabbed
-    // that tab, so ending up in its conversation is what you asked for. That also
-    // means not redrawing the strip here — replacing the element the pointer came
-    // up on would lose the click.
+    showDrop(null);
+    if (e.type === 'pointercancel') return;
+    if (d.drop?.kind === 'pane') SB.placeTab(d.id, d.drop.target, d.drop.zone);
+    if (d.drop?.kind === 'out') SB.popOut(d.id, { x: e.screenX, y: e.screenY });
+    // On the strip, the click that follows this pointerup is left alone on purpose:
+    // you grabbed that tab, so ending up in its conversation is what you asked for.
+    // That also means not redrawing the strip here — replacing the element the
+    // pointer came up on would lose the click.
+  }
+
+  // What letting go here would do: reorder the strip, split or swap a pane,
+  // pop the tab out (outside the window), or nothing.
+  function dropAt(x, y) {
+    // Clearly outside, not just overshooting the edge while scrolling the strip.
+    const w = window.innerWidth, ht = window.innerHeight;
+    if (x < -OUT || y < -OUT || x > w + OUT || y > ht + OUT) return { kind: 'out' };
+    x = Math.min(Math.max(x, 0), w - 1);
+    y = Math.min(Math.max(y, 0), ht - 1);
+    if (y < $('tabstrip').getBoundingClientRect().bottom) return { kind: 'strip' };
+    if (state.view !== 'chat') return null;
+    for (const id of P.ids(state.grid)) {
+      const pane = paneRect(id);
+      if (x < pane.left || x >= pane.left + pane.width || y < pane.top || y >= pane.top + pane.height) continue;
+      if (id === drag.id) return null;
+      const zone = P.zoneAt(pane, x, y, P.zones(state.grid, id, drag.id));
+      return { kind: 'pane', target: id, zone, rect: P.previewRect(zone, pane, $('feeds').getBoundingClientRect()) };
+    }
+    return null;
+  }
+
+  // A pane is its header (when it shows) and its feed.
+  function paneRect(id) {
+    const feed = state.tabs.get(id).el.getBoundingClientRect();
+    const head = paneHeads.get(id)?.getBoundingClientRect();
+    const top = head?.height ? head.top : feed.top;
+    return { left: feed.left, top, width: feed.width, height: feed.bottom - top };
+  }
+
+  function showDrop(drop) {
+    const hint = $('dropHint');
+    hint.hidden = drop?.kind !== 'pane';
+    if (hint.hidden) return;
+    const r = drop.rect;
+    Object.assign(hint.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
   }
 
   // Marks the dragged tab in place, so starting and ending a drag don't have to
@@ -247,7 +440,8 @@
     if (!drag?.moved) return;
     const strip = $('tabs');
     const r = strip.getBoundingClientRect();
-    const dx = drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
+    const onStrip = drag.drop?.kind === 'strip';
+    const dx = !onStrip ? 0 : drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
     if (dx) {
       strip.scrollLeft += dx;
       SB.moveTab(drag.id, dropBefore(drag.x));
@@ -412,16 +606,19 @@
 
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
-    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); SB.newTab(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTab(tab.id); return; }
+    // A popped-out window has its one conversation: no strip to add to or walk along.
+    const strip = !SB.solo;
+    if (strip && e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); SB.newTab(); return; }
+    if (strip && e.ctrlKey && !e.shiftKey && e.key === '\\') { e.preventDefault(); SB.splitPane(); return; }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
-    if (e.ctrlKey && e.shiftKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    if (strip && e.ctrlKey && e.shiftKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
       e.preventDefault();
       if (tab) SB.nudgeTab(tab.id, e.key === 'PageUp' ? -1 : 1);
       return;
     }
-    if (e.ctrlKey && e.key === 'Tab') {
+    if (strip && e.ctrlKey && e.key === 'Tab') {
       e.preventDefault();
       const ids = [...state.tabs.keys()];
       const i = ids.indexOf(state.activeTab);
@@ -541,6 +738,7 @@
 
   SB.chooseMode = async (mode, { quiet = false } = {}) => {
     if (mode === 'autonomous' && !state.settings.autonomousAcknowledged) {
+      if (SB.solo) return SB.toast('Turn Autonomous on from Settings in the main panel first.');
       SB.setView('settings');
       $('autonomousConfirm').hidden = false;
       $('autonomousConfirm').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -574,7 +772,10 @@
     $('settingsFolder').textContent = r.cwd;
     // A blank tab moves to the new folder; a conversation in progress keeps its own.
     const tab = SB.activeTab();
-    if (tab && tab.isEmpty && !tab.busy) {
+    if (SB.solo) {
+      applyFolderLabel(tab?.cwd || r.cwd);
+      SB.toast(`New conversations will start in ${SB.basename(r.cwd)}`);
+    } else if (tab && tab.isEmpty && !tab.busy) {
       await api.closeTab(tab.id);
       tab.destroy();
       state.tabs.delete(tab.id);
