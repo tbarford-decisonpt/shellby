@@ -20,6 +20,7 @@
 
   const PEEK_W = 360;        // css px, the most a friend's tank is drawn across
   const peeking = new Set(); // lowercased logins whose tank is open, kept across re-renders
+  const drawn = new Map();   // lowercased login -> the last picture of their tank, so a re-render doesn't blank it
   const peekId = login => `frPeek-${login.toLowerCase()}`;
 
   // Their crab, standing in his own tank: art pixels, like the tank's.
@@ -46,8 +47,12 @@
   }
 
   async function fillPeek(region, f) {
+    const key = f.login.toLowerCase();
+    // What was there last time stays up while it's redrawn; the first time, a word.
+    region.replaceChildren(...(drawn.get(key) || [h('p', { class: 'small muted', text: 'Looking in…' })]));
     const r = await api.peekTank(f.login).catch(() => null);
     if (!r?.ok) {
+      drawn.delete(key);
       region.replaceChildren(h('p', { class: 'small muted', text: r?.error || 'Couldn’t open their tank. Try again in a moment.' }));
       return;
     }
@@ -62,7 +67,9 @@
     const g = canvas.getContext('2d');
     g.imageSmoothingEnabled = false;
     g.drawImage(pic, 0, 0, canvas.width, canvas.height);
-    region.replaceChildren(canvas, h('p', { class: 'small muted', id: `${region.id}-text`, text: describe(f.login, v) }));
+    const nodes = [canvas, h('p', { class: 'small muted', id: `${region.id}-text`, text: describe(f.login, v) })];
+    drawn.set(key, nodes);
+    region.replaceChildren(...nodes);
   }
 
   function togglePeek(f, btn, region) {
@@ -81,7 +88,7 @@
     const open = hasTank && peeking.has(f.login.toLowerCase());
     const region = h('div', { class: 'fr-peek', id: peekId(f.login), hidden: !open });
     const peekBtn = hasTank ? h('button', {
-      type: 'button', class: 'btn ghost slim-btn', 'aria-expanded': String(open), 'aria-controls': region.id,
+      type: 'button', class: 'btn ghost slim-btn', 'aria-expanded': String(open), 'aria-controls': region.id, 'aria-label': `Peek at @${f.login}’s tank`,
       onclick: e => togglePeek(f, e.currentTarget, region),
     }, 'Peek at their tank') : null;
     if (open) fillPeek(region, f);

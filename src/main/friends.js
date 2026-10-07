@@ -206,6 +206,17 @@ class Friends extends EventEmitter {
     return this.refreshing;
   }
 
+  /**
+   * What's on your card changed (his tank shared, or not): publish it now. A
+   * refresh already out built its card before the change, so another one
+   * follows it.
+   */
+  republish() {
+    if (!this.enabled) return Promise.resolve({ ok: false, error: 'Visiting crabs is off.' });
+    const out = this.refreshing;
+    return out ? out.catch(() => {}).then(() => this.refresh()) : this.refresh();
+  }
+
   // Only what was fetched is laid over the current list: friends added or
   // removed, and visits that happened, while the refresh was out stay that way.
   mergeList(fetched) {

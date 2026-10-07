@@ -719,11 +719,14 @@
         : 'They show its size, floor, back glass and up to 24 pieces: built-in decor and his finds. Specimen jars and decor from packs stay home.';
   }
 
+  // Not disabled while it saves: a disabled switch would drop keyboard focus.
+  let sharing = false;
   $('tkShare').addEventListener('change', async e => {
     const on = e.target.checked;
-    e.target.disabled = true;
+    if (sharing) { e.target.checked = !on; return; }
+    sharing = true;
     const r = await api.shareTank(on).catch(() => null);
-    e.target.disabled = false;
+    sharing = false;
     if (r?.view) apply(r.view);
     if (!r?.ok) { e.target.checked = !on; SB.toast('Couldn’t change that. Try again in a moment.'); return; }
     SB.toast(on ? 'His tank goes on your cards when they next update.' : 'His tank comes off your cards when they next update, in a minute or so.');

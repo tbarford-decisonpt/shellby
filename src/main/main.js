@@ -1215,7 +1215,7 @@ function registerIpc() {
     wardrobe: () => wardrobe,
     level: () => currentLevel(),
     shipped: () => stickers.stats(stickerState()).stickers,
-    cardChanged: () => shared.friends?.refresh().catch(() => {}),
+    cardChanged: () => shared.friends?.republish().catch(() => {}),
   });
 
   // The rest, one area per module in ipc/.

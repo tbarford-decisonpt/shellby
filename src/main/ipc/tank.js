@@ -45,6 +45,7 @@ function registerTankIpc(ipcMain, d) {
     // Done with nothing changed doesn't need to touch the settings file.
     const same = JSON.stringify({ ...state, editedAt: 0 }) === JSON.stringify({ ...tank.normalize(previous), editedAt: 0 });
     if (!same) d.config.set({ tank: state });
+    if (!same && state.shareCard) d.cardChanged?.(); // friends see the new layout soon, not in a quarter of an hour
     const v = view(l);
     d.stat('tank-pieces', { n: v.pieces.length });
     return { ok: true, dropped, view: v };

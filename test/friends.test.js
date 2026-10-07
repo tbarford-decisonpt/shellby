@@ -247,6 +247,19 @@ test('friends: a visit while his tank is on your card counts for House Guest, on
   assert.deepEqual(ACHIEVEMENTS.find(a => a.id === 'house-guest').rewards, ['guest-bench']);
 });
 
+test('friends: republish after a refresh that was already out, so a card taken off is really off', async () => {
+  const world = fakeGitHub('sam');
+  let tank = { size: 'nano', style: {}, placed: [{ ref: 'castle-keep', x: 1, row: 1, flip: false }] };
+  const { f } = service({ world, myCard: () => ({ ...looks(), tank }) });
+  const first = f.refresh();             // builds the card with his tank on it...
+  tank = null;                            // ...and meanwhile you turn sharing off
+  await f.republish();
+  await first;
+  const mine = [...world.gists.values()].find(g => g.owner === 'sam');
+  assert.equal(JSON.parse(mine.files[CARD_FILE].content).tank, null, 'the second pass published it without');
+  f.stop();
+});
+
 test('friends: in Work mode nobody drops in on their own, but an invite still works', async () => {
   const world = fakeGitHub('sam');
   await publishCard(world.gh.as('alex'), { ...looks(), login: 'alex', updatedAt: 1e12 }, null);
