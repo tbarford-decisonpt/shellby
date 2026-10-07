@@ -40,6 +40,7 @@ const { registerWardrobeIpc } = require('./ipc/wardrobe');
 const { registerTankIpc } = require('./ipc/tank');
 const { wirePanel } = require('./wiring/panel');
 const { wireServices } = require('./wiring/services');
+const { wireCrewSlots } = require('./wiring/crew-slots');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
@@ -240,7 +241,6 @@ let dictation = null, ptt = null; // push-to-talk: hold the hotkey and say the t
 let critter, panel, tray;
 let claudeStatus = null;
 let crewShown = 0;                 // helper slots currently allotted in the critter window
-let shrinkTimer = null;
 // Shellby's own repeating checks, all cleared on quit so none fires into a
 // half-torn-down app.
 const repeating = [];
@@ -294,7 +294,7 @@ const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { ret
 // (d.usageService.limitWait()); the flat names are what ipc/ reads.
 const shared = {
   applyHotkey, applyLoginItem, checkNudges, every, isFolder, isStr, panelSettings,
-  recordWork, rememberPrompt, saveCritterPos, saveStreaks, send, setCrewSlots, streaksView,
+  recordWork, rememberPrompt, saveStreaks, send, streaksView,
   get recapLog() { return shared.awayService.recapLog; }, set recapLog(v) { shared.awayService.recapLog = v; },
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
@@ -406,7 +406,7 @@ const shared = {
   get crashConsent() { return crashConsent; },
   get crewExtra() { return crewExtra; },
   get crewRoster() { return crewRoster; },
-  get crewShown() { return crewShown; },
+  get crewShown() { return crewShown; }, set crewShown(v) { crewShown = v; },
   get critter() { return critter; }, set critter(v) { critter = v; },
   get critterBaseSize() { return critterBaseSize; },
   get critterGeo() { return critterGeo; },
@@ -448,7 +448,7 @@ const shared = {
   get handoff() { return handoff; },
   get journal() { return journal; },
   get githubEndpoints() { return githubEndpoints; },
-  get guestShown() { return guestShown; },
+  get guestShown() { return guestShown; }, set guestShown(v) { guestShown = v; },
   get health() { return health; }, set health(v) { health = v; },
   get healthMood() { return healthMood; }, set healthMood(v) { healthMood = v; },
   get heldNotices() { return heldNotices; }, set heldNotices(v) { heldNotices = v; },
@@ -613,6 +613,7 @@ const shared = {
   get updateView() { return updateView; },
   get updates() { return updates; }, set updates(v) { updates = v; },
   get usagePlan() { return usagePlan; },
+  get workAreas() { return workAreas; },
   get visitor() { return visitor; }, set visitor(v) { visitor = v; },
   get wake() { return wake; },
   get wardrobe() { return wardrobe; },
@@ -635,6 +636,8 @@ function share(parts) {
 
 // The panel's window first: its functions were main's own, there from the start.
 const { createPanel, reachedForShellby, showPanel } = share(wirePanel(shared));
+// Room for helper crabs in his window, and saving his spot.
+const { setCrewSlots } = share(wireCrewSlots(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
   changeRef, checkLeavingSoon, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
@@ -722,41 +725,6 @@ const handoff = wireHandoff(shared);
 const journal = wireJournal(shared); // handoff notes per project, read from Claude Code's own files
 const crewRoster = wireCrew(shared); // one lasting helper crab per agent type
 const surprises = wireSurprises(shared); // crit hits and clean landings, now and then
-
-// The critter window grows to the left to make room for helper crabs, keeping
-// Shellby himself anchored in place.
-function setCrewSlots(n, guest = !!visitor) {
-  n = Math.min(n, MAX_CREW_SHOWN);
-  // A shrink still pending from a moment ago would cut off whoever just arrived.
-  clearTimeout(shrinkTimer);
-  if (n === crewShown && guest === guestShown) return;
-  // Helpers and a visiting crab line up on the floor beside him, so he comes
-  // down off any window first. The refresh after he lands brings them out.
-  if ((n > crewShown || (guest && !guestShown)) && perching?.isAway()) { perching.leave('crew'); return; }
-  // ...and lets go of a wall or the ceiling: his window can't widen while he's turned.
-  if ((n > crewShown || (guest && !guestShown)) && climbing?.isAway()) { climbing.leave(); return; }
-  const apply = (slots, g) => {
-    const b = critter.getBounds();
-    const base = critterBaseSize();
-    const width = base.width + crewExtra(slots, g);
-    crewShown = slots;
-    guestShown = g;
-    critter.setBounds({ x: b.x + b.width - width, y: b.y, width, height: base.height });
-  };
-  motion?.stop(); // a throw or stroll would put back the old left edge
-  if (n > crewShown || (guest && !guestShown)) apply(Math.max(n, crewShown), guest || guestShown);
-  // Grown for the newcomer; anyone leaving still gets the shrink below.
-  if (n === crewShown && guest === guestShown) return;
-  shrinkTimer = setTimeout(() => apply(n, guest), 1100); // let helpers walk home first
-}
-
-function saveCritterPos() {
-  const b = critter.getBounds();
-  const c = clampToDisplays(b, workAreas());
-  if (c.x !== b.x || c.y !== b.y) placeCritter(c.x, c.y);
-  // Persist Shellby's own spot, not the crew-widened window's left edge.
-  config.set({ critterPos: { x: c.x + crewExtra(), y: c.y } });
-}
 
 function send(win, channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
