@@ -163,6 +163,16 @@ test('every size fits a crab and a tall piece between the sand and the top', () 
   }
 });
 
+test('sharing on your cards is off unless exactly true, and saving the tank keeps it as it was', () => {
+  assert.equal(T.normalize({}).shareCard, false);
+  assert.equal(T.normalize({ shareCard: 'yes' }).shareCard, false);
+  assert.equal(T.normalize({ shareCard: true }).shareCard, true);
+  const previous = { placed: [piece('castle-keep')], shareCard: true };
+  assert.equal(T.sanitize({ placed: [], shareCard: false }, { lib, previous }).state.shareCard, true, 'the editor can\'t change it');
+  assert.equal(T.sanitize({ placed: [], shareCard: true }, { lib, previous: {} }).state.shareCard, false, 'nor turn it on');
+  assert.equal(T.view({ state: previous, lib }).shareCard, true);
+});
+
 test('a sanitized tank compares equal to the same tank read back from disk', () => {
   const previous = { size: 'nano', style: { substrate: 'gravel', backdrop: null, light: 'night' }, placed: [{ uid: 1, ref: 'castle-keep', x: 3, row: 0, z: 0, flip: false }] };
   const { state } = T.sanitize(previous, { lib, previous, now: 5 });

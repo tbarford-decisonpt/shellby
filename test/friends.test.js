@@ -223,6 +223,30 @@ test('friends: a visit signs the guestbook, leaves a souvenir, and the visitor l
   f.stop();
 });
 
+test('friends: a visit while his tank is on your card counts for House Guest, once per visit', async () => {
+  const world = fakeGitHub('sam');
+  await publishCard(world.gh.as('alex'), { ...looks(), login: 'alex', updatedAt: 1e12 }, null);
+  let t = 1e12, sharing = false;
+  const github = { can: () => true, signedIn: true, gh: () => world.gh.as('sam'), view: () => ({ login: 'sam', name: 'Sam' }) };
+  const f = new Friends({ config: new MemConfig(), github, myCard: () => looks(), now: () => t, rand: () => 0, sharesTank: () => sharing });
+  await f.add('alex');
+  const recorded = [];
+  f.on('record', e => recorded.push(e));
+  f.invite('alex');
+  assert.deepEqual(recorded, ['visitor-hosted'], 'not while the tank is private');
+  sharing = true;
+  t += 60_000;
+  f.invite('alex');
+  assert.deepEqual(recorded, ['visitor-hosted'], 'the same visit window: no second count');
+  t += SAME_FRIEND_GAP_MS;
+  f.invite('alex');
+  assert.deepEqual(recorded, ['visitor-hosted', 'visitor-hosted', 'house-guest']);
+  f.stop();
+  const stats = recordStat({}, 'house-guest');
+  assert.equal(stats.houseGuests, 1);
+  assert.deepEqual(ACHIEVEMENTS.find(a => a.id === 'house-guest').rewards, ['guest-bench']);
+});
+
 test('friends: in Work mode nobody drops in on their own, but an invite still works', async () => {
   const world = fakeGitHub('sam');
   await publishCard(world.gh.as('alex'), { ...looks(), login: 'alex', updatedAt: 1e12 }, null);
