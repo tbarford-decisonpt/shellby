@@ -96,7 +96,19 @@ Hide what you'll never get to (**⋯ → Hide**, kept on this PC). The to-do lis
 
 ## Dependencies
 
-- **Dependency watch.** Once a week Shellby checks the npm projects you work in for outdated packages and known vulnerabilities, himself, without Claude. It's on the **Routines** page under Dependency health, off until you switch it on.
+- **Dependency watch.** Once a week Shellby checks the projects you work in for outdated packages and known vulnerabilities, himself, without Claude. It's on the **Routines** page under Dependency health, off until you switch it on. He goes by each project's lockfile:
+
+    | Lockfile | What he runs | Needs |
+    |---|---|---|
+    | `package-lock.json` | `npm outdated`, `npm audit` | Node.js |
+    | `pnpm-lock.yaml` | `pnpm outdated`, `pnpm audit` | pnpm |
+    | `yarn.lock` (Yarn 1) | `yarn outdated`, `yarn audit` | Yarn 1, or Corepack |
+    | `yarn.lock` (Yarn 2+) | `yarn npm audit` (Yarn 2+ has no outdated check) | Corepack |
+    | `uv.lock`, `poetry.lock`, `pylock.toml`, `Pipfile.lock` or `requirements.txt` | `pip-audit`, over the exact versions pinned there | pip-audit |
+    | `Cargo.lock` | `cargo-audit` | cargo-audit |
+    | `go.mod` | `go list -m -u` and `govulncheck` | Go, and govulncheck for vulnerabilities |
+
+    A project whose checker isn't installed says what to install, and the rest are checked as usual. A folder with two (a Rust app with a web front end) gets a row for each. Nothing a project ships gets to run: no install scripts, no `.pnpmfile.cjs`, no Yarn release or plugins from the project, no pnpm or Go it names for itself, and Python packages are never installed or built. **Bump & open a PR** asks Claude to use that project's own commands and lockfile.
 - **Bump & open a PR.** One button opens a task in a copy of the project on its own branch. It bumps what's safe, then the major versions one at a time, runs the tests, and opens a pull request listing what changed. If the tests won't pass, it stops and tells you what broke instead of pushing.
 - **Any language:** the **Dependency checkup** routine has Claude run the outdated and audit checks for pnpm, Yarn, Bun, pip, Poetry, Cargo, Go, Bundler, Composer or .NET too. A clean audit earns the project's sticker its 🧼 **Fresh** mark.
 

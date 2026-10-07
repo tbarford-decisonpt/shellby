@@ -32,6 +32,12 @@ test('each source is joined by folder, whatever its case, and never from another
     servers: [{ root: ROOT, status: 'crashed' }, { root: OTHER, status: 'crashed' }],
   });
   assert.equal(i.deps.outdatedTotal, 3);
+  // A folder with two package managers checked at once: the one that needs something.
+  const two = insightsFor(project(), { now: NOW, deps: [
+    { key: ROOT, manager: 'pnpm', ok: true, outdatedTotal: 0, vulnTotal: 0, attention: false, at: NOW },
+    { key: ROOT, manager: 'cargo', ok: true, outdatedTotal: 0, vulnTotal: 2, attention: true, at: NOW },
+  ] });
+  assert.equal(two.deps.manager, 'cargo');
   assert.equal(i.flaky.length, 1);
   assert.equal(i.sticker.tierName, 'Gold');
   assert.deepEqual(i.reasons.map(r => r.id), ['down', 'flaky', 'outdated']);

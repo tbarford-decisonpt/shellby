@@ -1,0 +1,413 @@
+{
+  "dependencies": [
+    {
+      "name": "requests",
+      "version": "2.19.0",
+      "vulns": [
+        {
+          "id": "PYSEC-2018-28",
+          "fix_versions": [
+            "2.20.0"
+          ],
+          "aliases": [
+            "CVE-2018-18074",
+            "GHSA-x84v-xcm2-53pg"
+          ],
+          "description": "The Requests package before 2.20.0 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-http redirect, which ..."
+        },
+        {
+          "id": "PYSEC-2018-28",
+          "fix_versions": [
+            "2.20.0"
+          ],
+          "aliases": [
+            "CVE-2018-18074",
+            "GHSA-x84v-xcm2-53pg"
+          ],
+          "description": "The Requests package through 2.19.1 before 2018-09-14 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-ht..."
+        },
+        {
+          "id": "PYSEC-2023-74",
+          "fix_versions": [
+            "2.31.0"
+          ],
+          "aliases": [
+            "CVE-2023-32681",
+            "GHSA-j8r2-6x86-q33q"
+          ],
+          "description": "### Impact  Since Requests v2.3.0, Requests has been vulnerable to potentially leaking `Proxy-Authorization` headers to destination servers, specifically dur..."
+        },
+        {
+          "id": "PYSEC-2023-74",
+          "fix_versions": [
+            "2.31.0"
+          ],
+          "aliases": [
+            "CVE-2023-32681",
+            "GHSA-j8r2-6x86-q33q"
+          ],
+          "description": "Requests is a HTTP library. Since Requests 2.3.0, Requests has been leaking Proxy-Authorization headers to destination servers when redirected to an HTTPS en..."
+        },
+        {
+          "id": "PYSEC-2026-1873",
+          "fix_versions": [
+            "2.32.0"
+          ],
+          "aliases": [
+            "GHSA-9wx4-h78v-vm56",
+            "CVE-2024-35195"
+          ],
+          "description": "When using a `requests.Session`, if the first request to a given origin is made with `verify=False`, TLS certificate verification may remain disabled for all..."
+        },
+        {
+          "id": "PYSEC-2026-1872",
+          "fix_versions": [
+            "2.32.4"
+          ],
+          "aliases": [
+            "GHSA-9hjg-9r4m-mvj7",
+            "CVE-2024-47081"
+          ],
+          "description": "### Impact  Due to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs...."
+        },
+        {
+          "id": "PYSEC-2026-2275",
+          "fix_versions": [
+            "2.33.0"
+          ],
+          "aliases": [
+            "GHSA-gc5v-m9x4-r6x2",
+            "CVE-2026-25645"
+          ],
+          "description": "### Impact The `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system t..."
+        },
+        {
+          "id": "PYSEC-2026-1873",
+          "fix_versions": [
+            "2.32.0"
+          ],
+          "aliases": [
+            "GHSA-9wx4-h78v-vm56",
+            "CVE-2024-35195"
+          ],
+          "description": "When using a `requests.Session`, if the first request to a given origin is made with `verify=False`, TLS certificate verification may remain disabled for all..."
+        },
+        {
+          "id": "PYSEC-2026-1872",
+          "fix_versions": [
+            "2.32.4"
+          ],
+          "aliases": [
+            "GHSA-9hjg-9r4m-mvj7",
+            "CVE-2024-47081"
+          ],
+          "description": "### Impact  Due to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs...."
+        },
+        {
+          "id": "PYSEC-2026-2275",
+          "fix_versions": [
+            "2.33.0"
+          ],
+          "aliases": [
+            "GHSA-gc5v-m9x4-r6x2",
+            "CVE-2026-25645"
+          ],
+          "description": "Requests is a HTTP library. Prior to version 2.33.0, the `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting..."
+        }
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "1.24.1",
+      "vulns": [
+        {
+          "id": "PYSEC-2019-133",
+          "fix_versions": [
+            "1.24.2"
+          ],
+          "aliases": [
+            "GHSA-mh33-7rrq-662w",
+            "CVE-2019-11324"
+          ],
+          "description": "The urllib3 library before 1.24.2 for Python mishandles certain cases where the desired set of CA certificates is different from the OS store of CA certifica..."
+        },
+        {
+          "id": "PYSEC-2019-132",
+          "fix_versions": [
+            "1.24.3"
+          ],
+          "aliases": [
+            "GHSA-r64q-w8jr-g9qp",
+            "CVE-2019-11236"
+          ],
+          "description": "In the urllib3 library through 1.24.1 for Python, CRLF injection is possible if the attacker controls the request parameter."
+        },
+        {
+          "id": "PYSEC-2020-148",
+          "fix_versions": [
+            "1.25.9"
+          ],
+          "aliases": [
+            "GHSA-wqvq-5m8c-6g24",
+            "CVE-2020-26137"
+          ],
+          "description": "urllib3 before 1.25.9 allows CRLF injection if the attacker controls the HTTP request method, as demonstrated by inserting CR and LF control characters in th..."
+        },
+        {
+          "id": "PYSEC-2019-133",
+          "fix_versions": [
+            "1.24.2"
+          ],
+          "aliases": [
+            "GHSA-mh33-7rrq-662w",
+            "CVE-2019-11324"
+          ],
+          "description": "The urllib3 library before 1.24.2 for Python mishandles certain cases where the desired set of CA certificates is different from the OS store of CA certifica..."
+        },
+        {
+          "id": "PYSEC-2020-148",
+          "fix_versions": [
+            "1.25.9"
+          ],
+          "aliases": [
+            "GHSA-wqvq-5m8c-6g24",
+            "CVE-2020-26137"
+          ],
+          "description": "urllib3 before 1.25.9 allows CRLF injection if the attacker controls the HTTP request method, as demonstrated by inserting CR and LF control characters in th..."
+        },
+        {
+          "id": "PYSEC-2019-132",
+          "fix_versions": [
+            "1.24.3"
+          ],
+          "aliases": [
+            "GHSA-r64q-w8jr-g9qp",
+            "CVE-2019-11236"
+          ],
+          "description": "In the urllib3 library through 1.24.2 for Python, CRLF injection is possible if the attacker controls the request parameter."
+        },
+        {
+          "id": "PYSEC-2026-1995",
+          "fix_versions": [
+            "1.26.19",
+            "2.2.2"
+          ],
+          "aliases": [
+            "CVE-2024-37891",
+            "GHSA-34jh-p97f-mpxf"
+          ],
+          "description": "When using urllib3's proxy support with `ProxyManager`, the `Proxy-Authorization` header is only sent to the configured proxy, as expected.  However, when se..."
+        },
+        {
+          "id": "PYSEC-2023-192",
+          "fix_versions": [
+            "1.26.17",
+            "2.0.6"
+          ],
+          "aliases": [
+            "CVE-2023-43804",
+            "GHSA-v845-jxx5-vc9f"
+          ],
+          "description": "urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies over HTTP, that is the responsibility of the user. However..."
+        },
+        {
+          "id": "PYSEC-2023-192",
+          "fix_versions": [
+            "1.26.17",
+            "2.0.6"
+          ],
+          "aliases": [
+            "CVE-2023-43804",
+            "GHSA-v845-jxx5-vc9f"
+          ],
+          "description": "urllib3 is a user-friendly HTTP client library for Python. urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies..."
+        },
+        {
+          "id": "PYSEC-2023-207",
+          "fix_versions": [
+            "1.24.2"
+          ],
+          "aliases": [
+            "GHSA-gwvm-45gx-3cf8",
+            "CVE-2018-25091"
+          ],
+          "description": "urllib3 before 1.24.2 does not remove the authorization HTTP header when following a cross-origin redirect (i.e., a redirect that differs in host, port, or s..."
+        },
+        {
+          "id": "PYSEC-2023-212",
+          "fix_versions": [
+            "1.26.18",
+            "2.0.7"
+          ],
+          "aliases": [
+            "CVE-2023-45803",
+            "GHSA-g4mx-q9vg-27p4"
+          ],
+          "description": "urllib3 previously wouldn't remove the HTTP request body when an HTTP redirect response using status 303 \"See Other\" after the request had its method changed..."
+        },
+        {
+          "id": "PYSEC-2023-207",
+          "fix_versions": [
+            "1.24.2"
+          ],
+          "aliases": [
+            "GHSA-gwvm-45gx-3cf8",
+            "CVE-2018-25091"
+          ],
+          "description": "urllib3 before 1.24.2 does not remove the authorization HTTP header when following a cross-origin redirect (i.e., a redirect that differs in host, port, or s..."
+        },
+        {
+          "id": "PYSEC-2023-212",
+          "fix_versions": [
+            "1.26.18",
+            "2.0.7"
+          ],
+          "aliases": [
+            "CVE-2023-45803",
+            "GHSA-g4mx-q9vg-27p4"
+          ],
+          "description": "urllib3 is a user-friendly HTTP client library for Python. urllib3 previously wouldn't remove the HTTP request body when an HTTP redirect response using stat..."
+        },
+        {
+          "id": "PYSEC-2026-1999",
+          "fix_versions": [
+            "2.5.0"
+          ],
+          "aliases": [
+            "CVE-2025-50181",
+            "GHSA-pq67-6m6q-mj2v"
+          ],
+          "description": "urllib3 handles redirects and retries using the same mechanism, which is controlled by the `Retry` object. The most common way to disable redirects is at the..."
+        },
+        {
+          "id": "PYSEC-2026-1998",
+          "fix_versions": [
+            "2.6.0"
+          ],
+          "aliases": [
+            "GHSA-gm62-xv2j-4w53",
+            "CVE-2025-66418"
+          ],
+          "description": "## Impact  urllib3 supports chained HTTP encoding algorithms for response content according to RFC 9110 (e.g., `Content-Encoding: gzip, zstd`).  However, the..."
+        },
+        {
+          "id": "PYSEC-2026-1994",
+          "fix_versions": [
+            "2.6.0"
+          ],
+          "aliases": [
+            "GHSA-2xpw-w6gg-jr37",
+            "CVE-2025-66471"
+          ],
+          "description": "### Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.5.0/advanced-usage.html#streaming-and-i-o) is designed for the efficient handling o..."
+        },
+        {
+          "id": "PYSEC-2026-1996",
+          "fix_versions": [
+            "2.6.3"
+          ],
+          "aliases": [
+            "GHSA-38jv-5279-wg99",
+            "CVE-2026-21441"
+          ],
+          "description": "### Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.6.2/advanced-usage.html#streaming-and-i-o) is designed for the efficient handling o..."
+        },
+        {
+          "id": "PYSEC-2026-141",
+          "fix_versions": [
+            "2.7.0"
+          ],
+          "aliases": [
+            "CVE-2026-44431",
+            "GHSA-qccp-gfcp-xxvc"
+          ],
+          "description": "### Impact  When following cross-origin redirects for requests made using urllib3’s high-level APIs, such as `urllib3.request()`, `PoolManager.request()`, an..."
+        },
+        {
+          "id": "PYSEC-2026-141",
+          "fix_versions": [
+            "2.7.0"
+          ],
+          "aliases": [
+            "CVE-2026-44431",
+            "GHSA-qccp-gfcp-xxvc"
+          ],
+          "description": "urllib3 is an HTTP client library for Python. From 1.23 to before 2.7.0, cross-origin redirects followed from the low-level API via ProxyManager.connection_f..."
+        },
+        {
+          "id": "PYSEC-2026-1999",
+          "fix_versions": [
+            "2.5.0"
+          ],
+          "aliases": [
+            "CVE-2025-50181",
+            "GHSA-pq67-6m6q-mj2v"
+          ],
+          "description": "urllib3 handles redirects and retries using the same mechanism, which is controlled by the `Retry` object. The most common way to disable redirects is at the..."
+        },
+        {
+          "id": "PYSEC-2026-1998",
+          "fix_versions": [
+            "2.6.0"
+          ],
+          "aliases": [
+            "GHSA-gm62-xv2j-4w53",
+            "CVE-2025-66418"
+          ],
+          "description": "## Impact  urllib3 supports chained HTTP encoding algorithms for response content according to RFC 9110 (e.g., `Content-Encoding: gzip, zstd`).  However, the..."
+        },
+        {
+          "id": "PYSEC-2026-1995",
+          "fix_versions": [
+            "1.26.19",
+            "2.2.2"
+          ],
+          "aliases": [
+            "CVE-2024-37891",
+            "GHSA-34jh-p97f-mpxf"
+          ],
+          "description": "When using urllib3's proxy support with `ProxyManager`, the `Proxy-Authorization` header is only sent to the configured proxy, as expected.  However, when se..."
+        },
+        {
+          "id": "PYSEC-2026-1994",
+          "fix_versions": [
+            "2.6.0"
+          ],
+          "aliases": [
+            "GHSA-2xpw-w6gg-jr37",
+            "CVE-2025-66471"
+          ],
+          "description": "### Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.5.0/advanced-usage.html#streaming-and-i-o) is designed for the efficient handling o..."
+        },
+        {
+          "id": "PYSEC-2026-1996",
+          "fix_versions": [
+            "2.6.3"
+          ],
+          "aliases": [
+            "GHSA-38jv-5279-wg99",
+            "CVE-2026-21441"
+          ],
+          "description": "### Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.6.2/advanced-usage.html#streaming-and-i-o) is designed for the efficient handling o..."
+        },
+        {
+          "id": "PYSEC-2026-4177",
+          "fix_versions": [
+            "2.8.0"
+          ],
+          "aliases": [
+            "CVE-2026-97689",
+            "GHSA-vxq7-64xx-v4gw"
+          ],
+          "description": "## Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.7.0/advanced-usage.html#streaming-and-i-o) is designed for efficiently handling larg..."
+        }
+      ]
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "vulns": []
+    }
+  ],
+  "fixes": []
+}

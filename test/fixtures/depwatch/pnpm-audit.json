@@ -1,0 +1,373 @@
+{
+  "actions": [],
+  "advisories": {
+    "1096465": {
+      "findings": [
+        {
+          "version": "1.2.0",
+          "paths": [
+            ".>minimist"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2020-7598\n- https://snyk.io/vuln/SNYK-JS-MINIMIST-559764\n- http://lists.opensuse.org/opensuse-security-announce/2020-0...",
+      "created": "2020-04-03T21:48:32.000Z",
+      "id": 1096465,
+      "npm_advisory_id": null,
+      "overview": "Affected versions of `minimist` are vulnerable to prototype pollution. Arguments are not properly sanitized, allowing an attacker to modify the prototype of ...",
+      "reported_by": null,
+      "title": "Prototype Pollution in minimist",
+      "metadata": null,
+      "cves": [
+        "CVE-2020-7598"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "minimist",
+      "vulnerable_versions": ">=1.0.0 <1.2.3",
+      "github_advisory_id": "GHSA-vh95-rmgr-6w4m",
+      "recommendation": "Upgrade to version 1.2.3 or later",
+      "patched_versions": ">=1.2.3",
+      "updated": "2024-02-13T20:00:55.000Z",
+      "cvss": {
+        "score": 5.6,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L"
+      },
+      "cwe": [
+        "CWE-1321"
+      ],
+      "url": "https://github.com/advisories/GHSA-vh95-rmgr-6w4m"
+    },
+    "1097678": {
+      "findings": [
+        {
+          "version": "1.2.0",
+          "paths": [
+            ".>minimist"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2021-44906\n- https://github.com/substack/minimist/issues/164\n- https://github.com/substack/minimist/blob/master/index....",
+      "created": "2022-03-18T00:01:09.000Z",
+      "id": 1097678,
+      "npm_advisory_id": null,
+      "overview": "Minimist prior to 1.2.6 and 0.2.4 is vulnerable to Prototype Pollution via file `index.js`, function `setKey()` (lines 69-95).",
+      "reported_by": null,
+      "title": "Prototype Pollution in minimist",
+      "metadata": null,
+      "cves": [
+        "CVE-2021-44906"
+      ],
+      "access": "public",
+      "severity": "critical",
+      "module_name": "minimist",
+      "vulnerable_versions": ">=1.0.0 <1.2.6",
+      "github_advisory_id": "GHSA-xvch-5gv4-984h",
+      "recommendation": "Upgrade to version 1.2.6 or later",
+      "patched_versions": ">=1.2.6",
+      "updated": "2024-06-21T21:33:52.000Z",
+      "cvss": {
+        "score": 9.8,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "cwe": [
+        "CWE-1321"
+      ],
+      "url": "https://github.com/advisories/GHSA-xvch-5gv4-984h"
+    },
+    "1106913": {
+      "findings": [
+        {
+          "version": "4.17.15",
+          "paths": [
+            ".>lodash"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2021-23337\n- https://github.com/lodash/lodash/commit/3469357cff396a26c363f8c1b5a91dde28ba4b1c\n- https://snyk.io/vuln/S...",
+      "created": "2021-05-06T16:05:51.000Z",
+      "id": 1106913,
+      "npm_advisory_id": null,
+      "overview": "`lodash` versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+      "reported_by": null,
+      "title": "Command Injection in lodash",
+      "metadata": null,
+      "cves": [
+        "CVE-2021-23337"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "lodash",
+      "vulnerable_versions": "<4.17.21",
+      "github_advisory_id": "GHSA-35jh-r3h4-6jhm",
+      "recommendation": "Upgrade to version 4.17.21 or later",
+      "patched_versions": ">=4.17.21",
+      "updated": "2025-08-12T21:44:25.000Z",
+      "cvss": {
+        "score": 7.2,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "cwe": [
+        "CWE-77",
+        "CWE-94"
+      ],
+      "url": "https://github.com/advisories/GHSA-35jh-r3h4-6jhm"
+    },
+    "1106920": {
+      "findings": [
+        {
+          "version": "4.17.15",
+          "paths": [
+            ".>lodash"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/lodash/lodash/issues/4744\n- https://github.com/lodash/lodash/commit/c84fe82760fb2d3e03a63379b297a1cc1a2fce12\n- https://nvd.nist.gov/vuln...",
+      "created": "2020-07-15T19:15:48.000Z",
+      "id": 1106920,
+      "npm_advisory_id": null,
+      "overview": "Versions of lodash prior to 4.17.19 are vulnerable to Prototype Pollution. The functions `pick`, `set`, `setWith`, `update`, `updateWith`, and `zipObjectDeep...",
+      "reported_by": null,
+      "title": "Prototype Pollution in lodash",
+      "metadata": null,
+      "cves": [
+        "CVE-2020-8203"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "lodash",
+      "vulnerable_versions": ">=3.7.0 <4.17.19",
+      "github_advisory_id": "GHSA-p6mc-m468-83gw",
+      "recommendation": "Upgrade to version 4.17.19 or later",
+      "patched_versions": ">=4.17.19",
+      "updated": "2025-08-12T21:43:40.000Z",
+      "cvss": {
+        "score": 7.4,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H"
+      },
+      "cwe": [
+        "CWE-770",
+        "CWE-1321"
+      ],
+      "url": "https://github.com/advisories/GHSA-p6mc-m468-83gw"
+    },
+    "1108258": {
+      "findings": [
+        {
+          "version": "4.17.15",
+          "paths": [
+            ".>lodash"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2020-28500\n- https://github.com/lodash/lodash/pull/5065\n- https://github.com/lodash/lodash/pull/5065/commits/02906b819...",
+      "created": "2022-01-06T20:30:46.000Z",
+      "id": 1108258,
+      "npm_advisory_id": null,
+      "overview": "All versions of package lodash prior to 4.17.21 are vulnerable to Regular Expression Denial of Service (ReDoS) via the `toNumber`, `trim` and `trimEnd` funct...",
+      "reported_by": null,
+      "title": "Regular Expression Denial of Service (ReDoS) in lodash",
+      "metadata": null,
+      "cves": [
+        "CVE-2020-28500"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "lodash",
+      "vulnerable_versions": ">=4.0.0 <4.17.21",
+      "github_advisory_id": "GHSA-29mw-wpgm-hmr9",
+      "recommendation": "Upgrade to version 4.17.21 or later",
+      "patched_versions": ">=4.17.21",
+      "updated": "2025-09-29T20:19:46.000Z",
+      "cvss": {
+        "score": 5.3,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      },
+      "cwe": [
+        "CWE-400",
+        "CWE-1333"
+      ],
+      "url": "https://github.com/advisories/GHSA-29mw-wpgm-hmr9"
+    },
+    "1112918": {
+      "findings": [
+        {
+          "version": "5.7.0",
+          "paths": [
+            ".>semver"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2022-25883\n- https://github.com/npm/node-semver/pull/564\n- https://github.com/npm/node-semver/commit/717534ee353682f3b...",
+      "created": "2023-06-21T06:30:28.000Z",
+      "id": 1112918,
+      "npm_advisory_id": null,
+      "overview": "Versions of the package semver before 7.5.2 on the 7.x branch, before 6.3.1 on the 6.x branch, and all other versions before 5.7.2 are vulnerable to Regular ...",
+      "reported_by": null,
+      "title": "semver vulnerable to Regular Expression Denial of Service",
+      "metadata": null,
+      "cves": [
+        "CVE-2022-25883"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "semver",
+      "vulnerable_versions": ">=2.0.0-alpha <5.7.2",
+      "github_advisory_id": "GHSA-c2qf-rxjj-qqgw",
+      "recommendation": "Upgrade to version 5.7.2 or later",
+      "patched_versions": ">=5.7.2",
+      "updated": "2026-02-04T20:39:10.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-1333"
+      ],
+      "url": "https://github.com/advisories/GHSA-c2qf-rxjj-qqgw"
+    },
+    "1115806": {
+      "findings": [
+        {
+          "version": "4.17.15",
+          "paths": [
+            ".>lodash"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/lodash/lodash/security/advisories/GHSA-r5fr-rjxr-66jc\n- https://nvd.nist.gov/vuln/detail/CVE-2026-4800\n- https://github.com/lodash/lodas...",
+      "created": "2026-04-01T23:51:12.000Z",
+      "id": 1115806,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nThe fix for [CVE-2021-23337](https://github.com/advisories/GHSA-35jh-r3h4-6jhm) added validation for the `variable` option in `_.template` but di...",
+      "reported_by": null,
+      "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-4800"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "lodash",
+      "vulnerable_versions": ">=4.0.0 <=4.17.23",
+      "github_advisory_id": "GHSA-r5fr-rjxr-66jc",
+      "recommendation": "Upgrade to version 4.18.0 or later",
+      "patched_versions": ">=4.18.0",
+      "updated": "2026-04-01T23:51:13.000Z",
+      "cvss": {
+        "score": 8.1,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "cwe": [
+        "CWE-94"
+      ],
+      "url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc"
+    },
+    "1115810": {
+      "findings": [
+        {
+          "version": "4.17.15",
+          "paths": [
+            ".>lodash"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/lodash/lodash/security/advisories/GHSA-f23m-r3pf-42rh\n- https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg\n- https...",
+      "created": "2026-04-01T23:50:27.000Z",
+      "id": 1115810,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nLodash versions 4.17.23 and earlier are vulnerable to prototype pollution in the `_.unset` and `_.omit` functions. The fix for [CVE-2025-13465](h...",
+      "reported_by": null,
+      "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-2950"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "lodash",
+      "vulnerable_versions": "<=4.17.23",
+      "github_advisory_id": "GHSA-f23m-r3pf-42rh",
+      "recommendation": "Upgrade to version 4.18.0 or later",
+      "patched_versions": ">=4.18.0",
+      "updated": "2026-04-01T23:50:28.000Z",
+      "cvss": {
+        "score": 6.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L"
+      },
+      "cwe": [
+        "CWE-1321"
+      ],
+      "url": "https://github.com/advisories/GHSA-f23m-r3pf-42rh"
+    },
+    "1120370": {
+      "findings": [
+        {
+          "version": "4.17.15",
+          "paths": [
+            ".>lodash"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg\n- https://nvd.nist.gov/vuln/detail/CVE-2025-13465\n- https://github.com/lodash/loda...",
+      "created": "2026-01-21T23:01:22.000Z",
+      "id": 1120370,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nLodash versions 4.0.0 through 4.17.22 are vulnerable to prototype pollution in the `_.unset` and `_.omit` functions. An attacker can pass crafted...",
+      "reported_by": null,
+      "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+      "metadata": null,
+      "cves": [
+        "CVE-2025-13465"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "lodash",
+      "vulnerable_versions": ">=4.0.0 <=4.17.22",
+      "github_advisory_id": "GHSA-xxjr-mmjv-4gpg",
+      "recommendation": "Upgrade to version 4.17.23 or later",
+      "patched_versions": ">=4.17.23",
+      "updated": "2026-06-09T10:56:35.000Z",
+      "cvss": {
+        "score": 6.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L"
+      },
+      "cwe": [
+        "CWE-1321"
+      ],
+      "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg"
+    }
+  },
+  "muted": [],
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 4,
+      "high": 4,
+      "critical": 1
+    },
+    "dependencies": 10,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 10
+  }
+}

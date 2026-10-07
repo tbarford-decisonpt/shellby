@@ -126,7 +126,7 @@
     const attachments = [...tab.attachments];
     let snippet = null; // its name, counted as a use once the prompt has gone
     // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
-    if (!attachments.length && SB.runLocal?.(text, tab)) { clearComposer(tab); return true; }
+    if (SB.runLocal?.(text, tab, attachments)) { clearComposer(tab); return true; }
     // /review and the rest of your snippets: Claude gets the prompt they stand for,
     // filled in before it can be queued, so editing the snippet can't change it later.
     if (SB.isSnippetCall?.(text)) {

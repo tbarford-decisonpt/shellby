@@ -33,7 +33,7 @@ function inside(dir, root) {
  *   now
  *   streaks:  { [caseKey(root)]: { lastSeen, lastCommitAt, muted } }, afterDays
  *   time:     null (tracking off) | { days: [dayKey], projects: [{ key: root, seconds, days: [{ day, seconds }] }] }
- *   deps:     [{ key: root, ok, outdatedTotal, vulnTotal, vulns, summary, attention, worst, at, hasTests }]
+ *   deps:     [{ key: root, manager, label, ok, outdatedTotal, vulnTotal, vulns, summary, attention, worst, at, hasTests }]
  *   flaky:    [{ key, root, id, label, week, total, status, retry, lastAt }]
  *   prs:      [{ key, repo, number, title, state, failing, url }]
  *   stickers: [{ root, tierName, ships, marks: [{ icon, name }], art }]
@@ -57,7 +57,8 @@ function insightsFor(p, sources) {
   const recent = lastWorkedAt && now - lastWorkedAt < RECENT_DAYS * DAY;
 
   const time = s.time ? weekOf(s.time, own) : null;
-  const deps = (s.deps || []).filter(r => own(r.key)).sort((a, b) => (b.at || 0) - (a.at || 0))[0] || null;
+  // The latest check; of a folder's two managers (pnpm and Rust, say), the one that needs something.
+  const deps = (s.deps || []).filter(r => own(r.key)).sort((a, b) => (b.at || 0) - (a.at || 0) || !!b.attention - !!a.attention)[0] || null;
   const flaky = (s.flaky || []).filter(r => own(r.root) && r.status !== 'fixed').slice(0, MAX_FLAKY);
   const repo = repoOf(p);
   const prs = repo ? (s.prs || []).filter(r => lower(r.repo) === repo).slice(0, MAX_PRS) : [];

@@ -21,7 +21,8 @@ function registerTriesIpc(ipcMain, d) {
       tabId: isId(req.tabId) ? req.tabId : null,
       n: Number.isInteger(parsed.n) ? parsed.n : NaN,
       text: parsed.text,
-      attachments: Array.isArray(req.attachments) ? req.attachments.slice(0, 50) : [],
+      // Paths, which every try gets (wiring/tries.js, try-files.js). Past the cap, problem() says so.
+      attachments: Array.isArray(req.attachments) ? req.attachments.slice(0, 50).filter(f => typeof f === 'string') : [],
     });
   });
   ipcMain.handle('tries:stop', (_e, runId) => d.tries.stop(isId(runId) ? runId : null));
