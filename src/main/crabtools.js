@@ -9,8 +9,10 @@
 // into a checked intent and a sentence to answer with, and main.js supplies the
 // effects. That keeps it pure, so it is all unit-tested.
 
+const path = require('path');
 const { validateRoutine, describeSchedule } = require('./routines');
 const { MODELS } = require('./models');
+const todo = require('./projects/todo');
 
 const modelName = id => MODELS.find(m => m.id === id)?.label || id;
 
@@ -24,7 +26,15 @@ const MAX_ROUTINE_LINES = 20;
 // text read differently from what it says.
 const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
-const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow'];
+// The Projects page from a terminal (projects/terminal.js): read-only, bar the to-do list.
+const PROJECT_ACTIONS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task'];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', ...PROJECT_ACTIONS];
+const MAX_PROJECT = 200;
+const MAX_FOLDER = 400;
+const LOG_LINES = { min: 10, max: 200, default: 50 };
+// A package.json script name, as devservers/scripts.js allows them.
+const SCRIPT = /^[A-Za-z0-9:._-]{1,100}$/;
+const MAX_TODO_NUMBER = 999;
 
 // Workflows. The full check of a proposed workflow is schema.js's
 // validateWorkflow in main; this only bounds what is handed to it.
@@ -72,6 +82,8 @@ function parseRequest(body) {
     }
     case 'add_workflow':
       return parseWorkflowProposal(args.workflow);
+    case 'projects': case 'next_up': case 'server_log': case 'add_task': case 'finish_task':
+      return parseProjectAsk(action, args);
     default:
       return { ok: true, intent: { action } };
   }
@@ -148,6 +160,51 @@ function parseWorkflowProposal(workflow) {
   try { size = Buffer.byteLength(JSON.stringify(workflow), 'utf8'); } catch { return { ok: false, error: 'That workflow could not be read.' }; }
   if (size > MAX_WORKFLOW_BYTES) return { ok: false, error: `Keep the workflow under ${MAX_WORKFLOW_BYTES / 1024} KB.` };
   return { ok: true, intent: { action: 'add_workflow', workflow } };
+}
+
+/** A folder a question came from: absolute, on this PC (never a share), short, printable. Else ''. */
+function folderOf(v) {
+  // UNSAFE is global, so .test() would carry lastIndex over between calls.
+  if (typeof v !== 'string' || !v || v.length > MAX_FOLDER || v.replace(UNSAFE, '') !== v) return '';
+  return path.isAbsolute(v) && !/^[\\/]{2}/.test(v) ? path.resolve(v) : '';
+}
+
+/**
+ * The project tools -> a checked intent for projects/service.js forTerminal.
+ * project: what Claude named (a name, owner/name or folder); cwd: the folder the
+ * question came from, used when no project is named.
+ */
+function parseProjectAsk(action, args) {
+  const via = args.via === 'cli' ? 'cli' : 'mcp';
+  if (action === 'projects') return { ok: true, intent: { action, via } };
+  const project = typeof args.project === 'string' ? clip(args.project.replace(UNSAFE, ''), MAX_PROJECT) : '';
+  const base = { action, via, project, cwd: folderOf(args.cwd) };
+  switch (action) {
+    case 'next_up':
+      return { ok: true, intent: { ...base, everywhere: args.everywhere === true } };
+    case 'server_log': {
+      if (args.script !== undefined && args.script !== '' && !(typeof args.script === 'string' && SCRIPT.test(args.script))) {
+        return { ok: false, error: 'script must be the name of a package.json script, like dev.' };
+      }
+      const n = args.lines === undefined ? LOG_LINES.default : args.lines;
+      if (!Number.isInteger(n) || n < LOG_LINES.min || n > LOG_LINES.max) return { ok: false, error: `lines must be a whole number from ${LOG_LINES.min} to ${LOG_LINES.max}.` };
+      return { ok: true, intent: { ...base, script: args.script || '', lines: n } };
+    }
+    case 'add_task': {
+      if (typeof args.text !== 'string') return { ok: false, error: 'add_task needs the text of the to-do.' };
+      // Measured as it would be kept (one line, runs of spaces as one), as the MCP server and the command measure it.
+      if (todo.oneLine(args.text).length > todo.MAX_TEXT) return { ok: false, error: `Keep a to-do under ${todo.MAX_TEXT} characters.` };
+      const text = todo.cleanText(args.text);
+      if (!text) return { ok: false, error: 'add_task needs the text of the to-do.' };
+      return { ok: true, intent: { ...base, text } };
+    }
+    default: { // finish_task
+      const t = args.task;
+      const isNumber = (Number.isInteger(t) && t >= 1 && t <= MAX_TODO_NUMBER) || (typeof t === 'string' && /^\d{1,3}$/.test(t) && Number(t) >= 1);
+      if (!isNumber && !(typeof t === 'string' && todo.ID.test(t))) return { ok: false, error: "finish_task needs the to-do's id or number, as next_up lists it." };
+      return { ok: true, intent: { ...base, task: isNumber ? Number(t) : t } };
+    }
+  }
 }
 
 const MODE_NAMES = { ask: 'Ask first', smart: 'Smart', acceptEdits: 'Auto-edit', plan: 'Plan only', autonomous: 'Autonomous' };
@@ -346,6 +403,6 @@ module.exports = {
   parseRequest, matchItem, wearReply, statusReply, ackReply,
   routineQuestion, routineReply, routinesReply,
   parseWorkflowCall, workflowsReply,
-  ACTIONS, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
+  ACTIONS, PROJECT_ACTIONS, LOG_LINES, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
   MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY,
 };

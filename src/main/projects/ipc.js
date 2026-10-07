@@ -4,9 +4,11 @@
 // The panel never hands in a path: folders come from a dialog main opens, or
 // are picked from what the service listed (knowsRoot); servers are named by id.
 const { checkRepo } = require('./remote');
+const { ID } = require('./todo');
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 2000;
 const isId = s => typeof s === 'string' && /^srv-[a-z0-9]{8}$/.test(s);
+const isTodoId = s => typeof s === 'string' && ID.test(s);
 const LOCAL_URL = /^https?:\/\/localhost:\d{1,5}\/\S*$/;
 
 /**
@@ -75,6 +77,11 @@ function registerProjectsIpc(ipcMain, d) {
     if (r) d.openExternal(`https://github.com/${r}`);
     return !!r;
   });
+  // The project's to-do list. The key must be one the page was shown (addTodo checks).
+  ipcMain.handle('projects:todo-add', (_e, { key, text } = {}) => (isStr(key) && typeof text === 'string'
+    ? P()?.addTodo(key, text, 'you') ?? { ok: false } : { ok: false }));
+  ipcMain.handle('projects:todo-done', (_e, { key, id } = {}) => (isStr(key) && isTodoId(id)
+    ? P()?.finishTodo(key, id) ?? { ok: false } : { ok: false }));
   ipcMain.handle('projects:install', (_e, root) => {
     const known = P()?.knowsRoot(root);
     return known ? S().start({ root: known, kind: 'install', project: P().nameFor(known) }) : { ok: false, error: 'Unknown project folder.' };

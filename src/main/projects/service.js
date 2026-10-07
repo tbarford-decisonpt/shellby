@@ -14,7 +14,10 @@ const clone = require('./clone');
 const { merge, caseKey, repoKey } = require('./merge');
 const { RepoCache } = require('./github');
 const { withInsights, sessionsFor } = require('./insights');
+const todo = require('./todo');
+const terminal = require('./terminal');
 const scripts = require('../devservers/scripts');
+const output = require('../devservers/output');
 
 const LOCAL_TTL_MS = 60 * 1000;
 // Each clone's git state (uncommitted, unpushed) is read after the list is
@@ -27,13 +30,14 @@ const MAX_HIDDEN = 300;
 
 const strList = (v, n) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.length <= 400).slice(0, n) : []);
 
-/** config.projects -> { added: [root], hidden: [key], lastCloneParent } */
+/** config.projects -> { added: [root], hidden: [key], lastCloneParent, todo: { [key]: [item] } } */
 function normalize(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   return {
     added: strList(r.added, MAX_ADDED).filter(p => path.isAbsolute(p)),
     hidden: strList(r.hidden, MAX_HIDDEN),
     lastCloneParent: typeof r.lastCloneParent === 'string' && path.isAbsolute(r.lastCloneParent) ? r.lastCloneParent : null,
+    todo: todo.normalizeTodo(r.todo),
   };
 }
 
@@ -58,6 +62,7 @@ class Projects extends EventEmitter {
     this.repoCache = new RepoCache({ now: this.now });
     this.localCache = { at: 0, repos: [], loading: null };
     this.listed = new Map(); // caseKey(root) -> root, of every clone in the last list
+    this.keys = new Set(); // every project key in the last list: the only ones a to-do can go on
     this.scanned = new Map(); // caseKey(root) -> repo, from the last scan: the only ones addMany takes
     this.scanAbort = null;
     this.cloneAbort = null;
@@ -117,6 +122,7 @@ class Projects extends EventEmitter {
     const projects = merge(locals, remote, { hidden: new Set(this.state.hidden), lastWorked: this.deps.lastWorked(), running });
     this.listed = new Map();
     this.names = new Map();
+    this.keys = new Set(projects.map(p => p.key));
     for (const p of projects) {
       for (const c of p.local) {
         this.listed.set(caseKey(c.root), c.root);
@@ -126,7 +132,7 @@ class Projects extends EventEmitter {
     }
     if (readGit) this.readGitSoon(projects.flatMap(p => p.local.map(c => c.root)), { force: refresh });
     return {
-      projects: withInsights(projects, this.sources()),
+      projects: withInsights(projects, this.sources()).map(p => ({ ...p, todoCount: todo.listFor(this.state.todo, p.key).length })),
       github: this.githubState(), servers: this.deps.devServers.view(), lastCloneParent: this.state.lastCloneParent,
     };
   }
@@ -162,21 +168,38 @@ class Projects extends EventEmitter {
     return JSON.stringify(git) !== before;
   }
 
-  /** Read the clones whose git state is stale, a few at a time, and say so when any changed. */
-  readGitSoon(roots, { force = false } = {}) {
-    if (this.gitLoading) return;
+  /** Read the clones whose git state is stale, a few at a time. -> did any change? */
+  async readStale(roots, { force = false } = {}) {
     const stale = roots.filter(r => {
       const c = this.gitCache.get(caseKey(r));
       return force || !c || this.now() - c.at > GIT_TTL_MS;
     }).slice(0, MAX_GIT_READS);
-    if (!stale.length) return;
-    this.gitLoading = (async () => {
-      let changed = false;
-      const queue = [...stale];
-      const worker = async () => { while (queue.length) if (await this.readGit(queue.shift())) changed = true; };
-      await Promise.all(Array.from({ length: Math.min(GIT_AT_ONCE, queue.length) }, worker));
-      if (changed) this.emit('change');
-    })().catch(() => {}).finally(() => { this.gitLoading = null; });
+    let changed = false;
+    const queue = [...stale];
+    const worker = async () => { while (queue.length) if (await this.readGit(queue.shift())) changed = true; };
+    await Promise.all(Array.from({ length: Math.min(GIT_AT_ONCE, queue.length) }, worker));
+    return changed;
+  }
+
+  /** The same, in the background, saying so when any changed. */
+  readGitSoon(roots, { force = false } = {}) {
+    if (this.gitLoading) return;
+    this.gitLoading = this.readStale(roots, { force })
+      .then(changed => { if (changed) this.emit('change'); })
+      .catch(() => {}).finally(() => { this.gitLoading = null; });
+  }
+
+  /**
+   * The list with git read first, for answers that can't be filled in later:
+   * a terminal can't redraw, and "nothing unpushed" must not mean "not read yet".
+   */
+  async listWithGit() {
+    await this.gitLoading;
+    const first = await this.list({ readGit: false });
+    const changed = await this.readStale(first.projects.flatMap(p => p.local.map(c => c.root))).catch(() => false);
+    if (!changed) return first;
+    this.emit('change');
+    return this.list({ readGit: false });
   }
 
   // What a clone can run, and what it's running.
@@ -194,10 +217,10 @@ class Projects extends EventEmitter {
   /**
    * One project's page: its clones with uncommitted / unpushed work and
    * Shellby's copies, read fresh; its insights; and its recent conversations.
+   * listed: that project from a list() just made, so it isn't listed twice.
    */
-  async detail(key) {
-    const { projects } = await this.list({ readGit: false });
-    const found = projects.find(x => x.key === key);
+  async detail(key, { listed = null } = {}) {
+    const found = listed?.key === key ? listed : (await this.list({ readGit: false })).projects.find(x => x.key === key);
     if (!found) return null;
     await Promise.all(found.local.map(c => this.readGit(c.root)));
     const local = found.local.map(c => ({ ...c, git: this.gitCache.get(caseKey(c.root))?.git || null }));
@@ -207,7 +230,101 @@ class Projects extends EventEmitter {
       const copies = local.flatMap(c => (c.git?.copyList || []).map(w => w.path));
       sessions = sessionsFor(this.deps.sessions?.() || [], local.map(c => c.root), copies);
     } catch { /* no History, no list */ }
-    return { ...p, sessions };
+    return { ...p, sessions, todo: todo.listFor(this.state.todo, key) };
+  }
+
+  // ------------------------------------------------------------------ to-dos
+
+  // Only the to-do list: unlike save(), the local repos needn't be read again.
+  saveTodo(next) {
+    this.state = { ...this.state, todo: next };
+    this.deps.config.set({ projects: this.state });
+    this.emit('change');
+  }
+
+  /** from: 'you' (the page) | 'claude' (add_task) | 'terminal' (shellby next add). -> { ok, item, count, existed } | { ok: false, error } */
+  addTodo(key, text, from = 'you') {
+    if (!this.keys.has(key)) return { ok: false, error: "That project isn't on the Projects page." };
+    const r = todo.addTodo(this.state.todo, key, text, { from, now: this.now() });
+    if (!r.ok) return r;
+    if (!r.existed) this.saveTodo(r.todo);
+    return { ok: true, item: r.item, existed: !!r.existed, count: todo.listFor(r.todo, key).length };
+  }
+
+  /** ref: the to-do's id, or its number on the list. -> { ok, item, left } | { ok: false, error } */
+  finishTodo(key, ref) {
+    const r = todo.finishTodo(this.state.todo, key, ref);
+    if (!r.ok) return r;
+    this.saveTodo(r.todo);
+    return { ok: true, item: r.item, left: todo.listFor(r.todo, key).length };
+  }
+
+  // ------------------------------------------------------------------ from a terminal
+
+  /**
+   * Which project a terminal question means: the one named, else the one the
+   * folder it came from is in. A folder in one of Shellby's copies (or any
+   * worktree), named or asked from, is found through its repository's main
+   * checkout: the copies live outside the repo.
+   * -> { project } | { error }
+   */
+  async resolve({ project = '', cwd = '' } = {}) {
+    const { projects } = await this.list({ readGit: false });
+    const found = terminal.findProject(projects, { query: project, cwd });
+    if (found.project) return found;
+    const folder = !project ? cwd : path.isAbsolute(project) ? project : '';
+    const root = folder ? await leaving.mainRoot(folder, this.run).catch(() => null) : null;
+    const again = root ? terminal.findProject(projects, { cwd: root }) : {};
+    if (again.project) return again;
+    return found.error ? { error: found.error } : { error: terminal.notAProject(cwd) };
+  }
+
+  /**
+   * The MCP tools and `shellby projects` / `shellby next`, answered.
+   * intent: crabtools' checked { action, project?, cwd?, everywhere?, script?, lines?, text?, task?, via }.
+   * -> { text } | { ok: false, error, status }
+   */
+  async forTerminal(intent) {
+    const via = intent.via === 'cli' ? 'cli' : 'mcp';
+    const now = this.now();
+    const listOf = key => todo.listFor(this.state.todo, key);
+
+    if (intent.action === 'projects') {
+      const { projects } = await this.listWithGit();
+      return { text: terminal.projectsText(projects, { todoCounts: new Map(projects.map(p => [p.key, listOf(p.key).length])), via }) };
+    }
+    if (intent.action === 'next_up' && intent.everywhere) {
+      const { projects } = await this.listWithGit();
+      return { text: terminal.everywhereText(projects.map(p => ({ project: p, todo: listOf(p.key) })), { via }) };
+    }
+
+    // Not found is a 400, never a 404: the MCP server reads a 404 as "this Shellby is too old".
+    const found = await this.resolve(intent);
+    if (found.error) return { ok: false, error: found.error, status: 400 };
+    const p = found.project;
+
+    switch (intent.action) {
+      case 'next_up': {
+        const full = await this.detail(p.key, { listed: p });
+        return { text: terminal.nextUpText(full || p, listOf(p.key), { now, via }) };
+      }
+      case 'server_log': {
+        const pick = terminal.pickServer(p, intent.script);
+        if (pick.error) return { ok: false, error: pick.error, status: 400 };
+        const log = this.deps.devServers.log(pick.server.id);
+        return { text: terminal.serverLogText(p, pick.server, output.tail(log?.lines || [], intent.lines)) };
+      }
+      case 'add_task': {
+        const r = this.addTodo(p.key, intent.text, via === 'cli' ? 'terminal' : 'claude');
+        return r.ok ? { text: terminal.todoAddedText(p, r, r.count) } : { ok: false, error: r.error, status: 400 };
+      }
+      case 'finish_task': {
+        const r = this.finishTodo(p.key, intent.task);
+        return r.ok ? { text: terminal.todoDoneText(p, r, r.left) } : { ok: false, error: r.error, status: 400 };
+      }
+      default:
+        return { ok: false, error: 'Unknown question.', status: 400 };
+    }
   }
 
   // ------------------------------------------------------------------ adding and removing

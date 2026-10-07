@@ -21,8 +21,26 @@ function wireCrabApi(d) {
   // here through the hooks port. Everything they ask for is checked again on this
   // side: that port is reachable by anything running on this PC.
   function createCrabApi() {
-    d.external.onCrab = body => applyCrabIntent(body);
+    ensureCrabToken();
+    d.external.onCrab = (body, { token }) => applyCrabIntent(body, token);
     d.external.onCli = (body, { token }) => runCliRequest(body, token);
+  }
+
+  // Reading your projects over /v1/crab needs this token. 127.0.0.1 is open to
+  // every account on this PC; the file is in yours. say and status don't need
+  // it, so an older plugin keeps working for those.
+  let crabToken = null;
+  function ensureCrabToken() {
+    const file = clipath.crabTokenPath(app.getPath('userData'));
+    try { crabToken = fs.readFileSync(file, 'utf8').trim() || null; } catch { /* first run */ }
+    if (crabToken) return;
+    try {
+      crabToken = clipath.newToken();
+      fs.writeFileSync(file, crabToken, { mode: 0o600 });
+    } catch (e) {
+      crabToken = null; // without the file nothing can present it: project questions are refused
+      d.log.warn('crab token could not be written', e?.message);
+    }
   }
 
   /**
@@ -40,12 +58,23 @@ function wireCrabApi(d) {
     return true;
   }
 
-  function applyCrabIntent(body) {
+  function applyCrabIntent(body, token = '') {
     const checked = crabtools.parseRequest(body);
     if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
     const intent = checked.intent;
 
     if (intent.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+
+    // The Projects page from a terminal: next_up, server_log and the rest, for
+    // the MCP tools and `shellby projects` / `shellby next` alike.
+    if (crabtools.PROJECT_ACTIONS.includes(intent.action)) {
+      if (!crabToken || !clipath.tokenMatches(crabToken, token)) {
+        return { ok: false, error: "Shellby only answers questions about your projects from programs running as you, and this one didn't show his token. Update the Shellby plugin and the shellby command, then try again.", status: 401 };
+      }
+      if (d.config.get('crabOnly')) return { ok: false, error: 'Projects are off: Shellby is in just-the-crab mode.', status: 403 };
+      if (!d.projects) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
+      return d.projects.forTerminal(intent);
+    }
 
     if (intent.action === 'list_routines' || intent.action === 'add_routine') {
       if (d.config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };

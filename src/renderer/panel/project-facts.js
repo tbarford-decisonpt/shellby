@@ -32,6 +32,7 @@
   function chips(p) {
     const i = p.insights || {};
     const out = (i.reasons || []).filter(r => REASON[r.id]).map(r => REASON[r.id](r));
+    if (p.todoCount) out.push({ text: `${p.todoCount} to do`, tone: 'info', title: 'On its to-do list' });
     const week = hours(i.time?.seconds);
     if (week) out.push({ text: `⏱ ${week}`, tone: 'info', title: 'Time on it this week' });
     if (i.quiet) out.push({ text: `quiet ${i.quietDays}d`, tone: 'info', title: `No commits for ${plural(i.quietDays, 'day')}` });
@@ -177,10 +178,70 @@
       h('div', { class: 'row wrap' }, resume));
   }
 
+  // What you were typing in a project's "Add a to-do" box, so a redraw (Claude
+  // adding one from a terminal) doesn't throw it away.
+  const todoDrafts = new Map();
+
+  /**
+   * The project's to-do list: yours, and what Claude Code (add_task) or the
+   * terminal (shellby next add) put on it. Next up, in a terminal, reads it out.
+   * Adding or ticking one off changes the list in main, which redraws the page.
+   */
+  function todo(p) {
+    const list = p.todo || [];
+    const input = h('input', {
+      type: 'text', class: 'field slim pj-todo-input', maxlength: '200', placeholder: 'Add a to-do…',
+      'aria-label': `Add a to-do to ${p.name}`, dataset: { keep: 'todo-add' },
+    });
+    input.value = todoDrafts.get(p.key) || '';
+    input.addEventListener('input', () => todoDrafts.set(p.key, input.value));
+    const add = async () => {
+      const text = input.value.trim();
+      if (!text) return input.focus();
+      // Cleared first: the redraw the add causes can land before the reply does.
+      todoDrafts.delete(p.key);
+      input.value = '';
+      const r = await api.addProjectTodo({ key: p.key, text }).catch(() => null);
+      if (!r?.ok) {
+        todoDrafts.set(p.key, text);
+        const now = $todoInput(p.key) || input;
+        now.value = text;
+        return SB.toast(r?.error || "Couldn't add that.");
+      }
+      if (r.existed) SB.toast("That's on the list already.");
+      else SB.announce(`Added to ${p.name}'s to-do list.`);
+    };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    const from = { claude: 'from Claude Code', terminal: 'from the terminal' };
+    const rows = list.map((t, n) => h('li', { class: 'pj-todo' },
+      h('span', { class: 'pj-todo-n', text: String(n + 1), 'aria-hidden': 'true' }),
+      h('span', { class: 'pj-todo-text', text: t.text }),
+      from[t.from] && h('span', { class: 'pj-tag', text: from[t.from], title: t.at ? `Added ${ago(t.at)}` : '' }),
+      h('button', {
+        type: 'button', class: 'btn ghost slim-btn', text: 'Done', 'aria-label': `Done: ${t.text}`, dataset: { keep: `todo-${t.id}` },
+        onclick: async e => {
+          const btn = e.currentTarget; // null again once the await below has yielded
+          btn.disabled = true;
+          const r = await api.finishProjectTodo({ key: p.key, id: t.id }).catch(() => null);
+          if (!r?.ok) { btn.disabled = false; return SB.toast(r?.error || "Couldn't tick that off."); }
+          SB.announce(`Done: ${t.text}`);
+        },
+      })));
+    return card('Next up',
+      rows.length
+        ? h('ol', { class: 'pj-todo-list' }, rows)
+        : h('p', { class: 'muted small pj-calm', text: 'Nothing on the list. What you add here, and what Claude Code adds, comes up when you ask "what\'s next?" in a terminal (shellby next).' }),
+      h('div', { class: 'row pj-todo-add', dataset: { project: p.key } }, input,
+        h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Add', onclick: add, dataset: { keep: 'todo-add-btn' } })));
+  }
+
+  // The "Add a to-do" box on the page now: a redraw may have replaced the one a handler holds.
+  const $todoInput = key => [...document.querySelectorAll('.pj-todo-add')].find(r => r.dataset.project === key)?.querySelector('input') || null;
+
   /** "2 need you" and the like, for the line above the list. */
   function needsYou(projects) {
     return projects.filter(p => (p.insights?.attention || 0) > 0).length;
   }
 
-  SB.pjFacts = { hours, chips, chipRow, tile, pulse, health, conversations, needsYou };
+  SB.pjFacts = { hours, chips, chipRow, tile, pulse, todo, health, conversations, needsYou };
 })();

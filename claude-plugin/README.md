@@ -20,10 +20,14 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 | `add_routine` / `list_routines` | Proposes a scheduled Claude Code task (you confirm it) / lists your routines. |
 | `add_workflow` / `list_workflows` | Proposes a workflow (you confirm it) / lists your workflows and which ones Claude may run. |
 | `run_workflow` | Starts a workflow that has the **Claude Code** trigger, with its inputs. Returns once it has started. |
+| `projects` | The projects on Shellby's Projects page: where each is, servers running, and what needs attention. |
+| `next_up` | "What's next on this repo?": crashed servers, failing CI and serious vulnerabilities, then your to-dos, then housekeeping. Defaults to the repo Claude Code is in; `everywhere` covers every project. |
+| `server_log` | The last lines a dev server printed (the one that crashed, else the one running), secrets redacted. Read-only: it can't start or stop one. |
+| `add_task` / `finish_task` | Adds a note to the project's to-do list / ticks one off by its number. You see the list on the project's page. |
 
 Claude Code mods can call `say`, `celebrate`, `wear` and `status` too, with `$.mcp.call('plugin:shellby:shellby', …)`: see [Making Shellby react from a mod](../docs/MODS.md).
 
-The same workflows can be listed and started from a terminal with `shellby flow list` and `shellby flow run <name> [key=value ...]`.
+The same workflows can be listed and started from a terminal with `shellby flow list` and `shellby flow run <name> [key=value ...]`. `shellby projects` and `shellby next` (with `next add` and `next done`) give the project answers in a terminal too.
 
 ## Install
 

@@ -105,13 +105,18 @@ shellby status                   # him, and how this PC is doing
 shellby flow run "Release notes" version=1.2.0   # start a workflow that allows it
 shellby time last-week           # hours on each project, ready for an invoice
 shellby take                     # carry this folder's Claude Code session on in Shellby
+shellby next                     # what's next on the repo you're in
+shellby next add "write the release notes"   # a to-do on its list (shellby next done 1 ticks it off)
+shellby projects                 # every project on the Projects page
 ```
 
 **Settings → Claude Code everywhere → the shellby command** puts it on your PATH, appended so it can't shadow anything, and removing it restores your PATH exactly. Starting a task needs a token only Shellby's own folder holds, and **Autonomous isn't reachable from a terminal at all.**
 
 ### 🤖 Claude can drive him
 
-The plugin brings an MCP server with four tools (`say`, `celebrate`, `wear` and `status`), so a skill can have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks of its own**: spending your subscription isn't something a local port gets to do. The one exception is a workflow you gave the **Claude Code** trigger yourself, which `run_workflow` can start.
+The plugin brings an MCP server whose simplest tools (`say`, `celebrate`, `wear` and `status`) let a skill have him say what it's up to, celebrate when a release actually lands, or check the GPU before kicking off something heavy. **It cannot start tasks of its own**: spending your subscription isn't something a local port gets to do. The one exception is a workflow you gave the **Claude Code** trigger yourself, which `run_workflow` can start.
+
+**Claude knows your projects.** Ask *"what's next on this repo?"* and `next_up` gives Shellby's answer: a crashed dev server or a red build first, then your to-dos for it, then unpushed work, flaky tests and the like. `server_log` reads why a dev server fell over (secrets blanked out), `projects` lists them all, and `add_task` / `finish_task` keep the project's to-do list, which you see on its page. Claude can't start or stop a server from here.
 
 **Claude can build workflows, too.** `add_workflow` proposes one (Claude knows the whole format) and `list_workflows` shows what you have. Shellby's confirmation window shows what it would do without asking, in full: every command, every prompt Claude would act on, every web address. Nothing is saved until you say yes, and Autonomous is never on offer.
 

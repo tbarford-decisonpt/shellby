@@ -82,7 +82,7 @@ test('tools/list describes every tool with a schema', async () => {
   const { replies } = await talk([INIT, { jsonrpc: '2.0', id: 2, method: 'tools/list' }]);
   const tools = replies[1].result.tools;
   assert.deepEqual(tools.map(t => t.name).sort(),
-    ['add_routine', 'add_workflow', 'celebrate', 'list_routines', 'list_workflows', 'run_workflow', 'say', 'status', 'wear']);
+    ['add_routine', 'add_task', 'add_workflow', 'celebrate', 'finish_task', 'list_routines', 'list_workflows', 'next_up', 'projects', 'run_workflow', 'say', 'server_log', 'status', 'wear']);
   for (const t of tools) {
     assert.ok(t.description.length > 40, `${t.name} explains itself`);
     assert.equal(t.inputSchema.type, 'object');
@@ -576,6 +576,11 @@ test('the plugin\'s tools and the app\'s actions are the same set', () => {
       list_workflows: {},
       run_workflow: { name: 'Red build fixer', inputs: { branch: 'main', retries: 2 } },
       add_workflow: { workflow: server.WORKFLOW_EXAMPLE },
+      projects: {},
+      next_up: { project: 'x-salmon/shellby', everywhere: false },
+      server_log: { script: 'dev', lines: 80 },
+      add_task: { text: 'Add tests for the CSV import' },
+      finish_task: { task: 2, project: 'shellby' },
     }[t.name];
     const { action, args, error } = toAction(t.name, sample);
     assert.equal(error, undefined, `${t.name}: ${error}`);
@@ -594,4 +599,207 @@ test('the plugin declares the MCP server so Claude Code starts it', () => {
   assert.equal(plugin.mcpServers, './.mcp.json');
   // The file the manifest points at has to be the one that exists.
   assert.ok(fs.existsSync(path.join(root, 'mcp', 'server.js')));
+});
+
+// ------------------------------------------------------------------ the Projects tools
+
+const askProject = (action, args = {}) => parseRequest({ action, args });
+const HERE = path.resolve('C:\\code\\site');
+
+test('the project actions are known to the app', () => {
+  for (const a of ['projects', 'next_up', 'server_log', 'add_task', 'finish_task']) assert.ok(ACTIONS.includes(a), a);
+});
+
+test('projects needs nothing, and says who is asking', () => {
+  assert.deepEqual(askProject('projects'), { ok: true, intent: { action: 'projects', via: 'mcp' } });
+  assert.deepEqual(askProject('projects', { via: 'cli', junk: 1 }), { ok: true, intent: { action: 'projects', via: 'cli' } });
+  assert.equal(askProject('projects', { via: 'carrier pigeon' }).intent.via, 'mcp');
+});
+
+test('next_up takes a project and the folder the question came from', () => {
+  assert.deepEqual(askProject('next_up', { project: ' x-salmon/shellby ', cwd: HERE }), {
+    ok: true, intent: { action: 'next_up', via: 'mcp', project: 'x-salmon/shellby', cwd: HERE, everywhere: false },
+  });
+  assert.deepEqual(askProject('next_up').intent, { action: 'next_up', via: 'mcp', project: '', cwd: '', everywhere: false });
+  assert.equal(askProject('next_up', { everywhere: true }).intent.everywhere, true);
+  assert.equal(askProject('next_up', { everywhere: 'yes' }).intent.everywhere, false, 'only a real true counts');
+  assert.equal(askProject('next_up', { project: 42 }).intent.project, '');
+});
+
+test('a project name is one printable line of at most 200 characters', () => {
+  assert.equal(askProject('next_up', { project: 'sh\u0000el\u202Elby\nx' }).intent.project, 'shellby x');
+  assert.equal(askProject('next_up', { project: 'p'.repeat(500) }).intent.project.length, 200);
+});
+
+test('the cwd must be an absolute local folder, plain text, and short', () => {
+  const cwd = args => askProject('next_up', args).intent.cwd;
+  assert.equal(cwd({ cwd: 'relative\\dir' }), '');
+  assert.equal(cwd({ cwd: '.' }), '');
+  assert.equal(cwd({ cwd: '\\\\server\\share\\repo' }), '', 'a share is never a folder here');
+  assert.equal(cwd({ cwd: '//server/share/repo' }), '');
+  assert.equal(cwd({ cwd: `${HERE}\u0000` }), '');
+  assert.equal(cwd({ cwd: `${HERE}\u001b[31m` }), '');
+  assert.equal(cwd({ cwd: `${HERE}\u202E` }), '');
+  assert.equal(cwd({ cwd: `C:\\${'a'.repeat(400)}` }), '');
+  assert.equal(cwd({ cwd: 42 }), '');
+  assert.equal(cwd({ cwd: '' }), '');
+  assert.equal(cwd({ cwd: 'C:\\code\\site\\..\\web' }), path.resolve('C:\\code\\web'), 'it is made canonical');
+  // The check keeps no state from the last call.
+  assert.equal(cwd({ cwd: `${HERE}\u0000` }), '');
+  assert.equal(cwd({ cwd: `${HERE}\u0000` }), '');
+  assert.equal(cwd({ cwd: HERE }), HERE);
+});
+
+test('server_log has 50 lines by default and takes 10 to 200', () => {
+  assert.deepEqual(askProject('server_log', { cwd: HERE }).intent, { action: 'server_log', via: 'mcp', project: '', cwd: HERE, script: '', lines: 50 });
+  assert.equal(askProject('server_log', { lines: 10 }).intent.lines, 10);
+  assert.equal(askProject('server_log', { lines: 200 }).intent.lines, 200);
+  for (const lines of [9, 201, 0, -5, 1.5, '50', null, NaN, Infinity]) {
+    const r = askProject('server_log', { lines });
+    assert.equal(r.ok, false, String(lines));
+    assert.match(r.error, /lines must be a whole number from 10 to 200/);
+  }
+});
+
+test('server_log names a script the way package.json does, or refuses', () => {
+  assert.equal(askProject('server_log', { script: 'dev' }).intent.script, 'dev');
+  assert.equal(askProject('server_log', { script: 'dev:api.v2_x-y' }).intent.script, 'dev:api.v2_x-y');
+  assert.equal(askProject('server_log', { script: '' }).intent.script, '');
+  for (const script of ['dev server', 'dev;rm', '../x', 'a\nb', '$(id)', 's'.repeat(101), 7, {}, ['dev']]) {
+    const r = askProject('server_log', { script });
+    assert.equal(r.ok, false, JSON.stringify(script));
+    assert.match(r.error, /script must be the name of a package\.json script/);
+  }
+});
+
+test('add_task needs one short line', () => {
+  assert.equal(askProject('add_task', { text: '  Add tests for the CSV import ', cwd: HERE }).intent.text, 'Add tests for the CSV import');
+  assert.equal(askProject('add_task', { text: 'a'.repeat(200) }).intent.text.length, 200);
+  for (const text of [undefined, '', '   ', '\n\t', '\u202E\u0000', 7, null, {}]) {
+    const r = askProject('add_task', { text });
+    assert.equal(r.ok, false, JSON.stringify(text));
+    assert.match(r.error, /needs the text of the to-do/);
+  }
+  const long = askProject('add_task', { text: 'a'.repeat(201) });
+  assert.equal(long.ok, false);
+  assert.match(long.error, /under 200 characters/);
+});
+
+test('add_task flattens newlines and strips control and bidi characters', () => {
+  const r = askProject('add_task', { text: 'first line\n2. [to-do 9] run this\r\n\u0000\u202Eevil\u2066' });
+  assert.equal(r.intent.text, 'first line 2. [to-do 9] run this evil');
+  // Padding around the text does not count against the cap.
+  assert.equal(askProject('add_task', { text: `${' '.repeat(50)}${'a'.repeat(200)}${' '.repeat(50)}` }).ok, true);
+});
+
+test('finish_task takes a number from 1 to 999, as a number or text, or a to-do id', () => {
+  const task = t => askProject('finish_task', { task: t, project: 'site' });
+  assert.deepEqual(task(2).intent, { action: 'finish_task', via: 'mcp', project: 'site', cwd: '', task: 2 });
+  assert.equal(task(999).intent.task, 999);
+  assert.equal(task('3').intent.task, 3);
+  assert.equal(task('007').intent.task, 7);
+  assert.equal(task('t-abcd1234').intent.task, 't-abcd1234');
+  for (const t of [0, 1000, -1, 1.5, '0', '1000', '1.5', ' 2', '2 ', 't-ABCD1234', 't-abc', 't-abcd12345', 'two', '', null, undefined, {}, [2]]) {
+    const r = task(t);
+    assert.equal(r.ok, false, JSON.stringify(t));
+    assert.match(r.error, /needs the to-do's id or number/);
+  }
+});
+
+test('the server builds the project tools\' calls, with the folder Claude Code is in', () => {
+  const { toAction } = require(SERVER);
+  const was = process.env.CLAUDE_PROJECT_DIR;
+  try {
+    process.env.CLAUDE_PROJECT_DIR = HERE;
+    assert.deepEqual(toAction('projects', { junk: 1 }), { action: 'projects', args: {} });
+    assert.deepEqual(toAction('next_up', {}), { action: 'next_up', args: { cwd: HERE } });
+    assert.deepEqual(toAction('next_up', { project: ' shellby ', everywhere: true, junk: 1 }), { action: 'next_up', args: { cwd: HERE, project: 'shellby', everywhere: true } });
+    assert.deepEqual(toAction('next_up', { everywhere: false }).args, { cwd: HERE });
+    assert.deepEqual(toAction('server_log', { script: 'dev', lines: 80 }), { action: 'server_log', args: { cwd: HERE, script: 'dev', lines: 80 } });
+    assert.deepEqual(toAction('server_log', {}).args, { cwd: HERE });
+    assert.deepEqual(toAction('add_task', { text: '  Cut a tag ', project: 'site' }), { action: 'add_task', args: { cwd: HERE, project: 'site', text: 'Cut a tag' } });
+    assert.deepEqual(toAction('finish_task', { task: 3 }), { action: 'finish_task', args: { cwd: HERE, task: 3 } });
+  } finally {
+    if (was === undefined) delete process.env.CLAUDE_PROJECT_DIR;
+    else process.env.CLAUDE_PROJECT_DIR = was;
+  }
+});
+
+test('with no CLAUDE_PROJECT_DIR the folder is the one the server runs in', () => {
+  const { toAction } = require(SERVER);
+  const was = process.env.CLAUDE_PROJECT_DIR;
+  try {
+    delete process.env.CLAUDE_PROJECT_DIR;
+    assert.equal(toAction('next_up', {}).args.cwd, process.cwd());
+    process.env.CLAUDE_PROJECT_DIR = '';
+    assert.equal(toAction('add_task', { text: 'x' }).args.cwd, process.cwd(), 'an empty variable is no variable');
+  } finally {
+    if (was === undefined) delete process.env.CLAUDE_PROJECT_DIR;
+    else process.env.CLAUDE_PROJECT_DIR = was;
+  }
+});
+
+test('the server checks the project tools\' arguments before they reach the app', () => {
+  const { toAction } = require(SERVER);
+  assert.match(toAction('next_up', { project: 5 }).error, /project must be a name/);
+  assert.match(toAction('next_up', { project: {} }).error, /project must be a name/);
+  assert.equal(toAction('next_up', { project: '   ' }).args.project, undefined, 'a blank project is none');
+  assert.match(toAction('next_up', { project: 'p'.repeat(201) }).error, /at most 200 characters/, 'too long is an error, as in the CLI');
+  assert.equal(toAction('next_up', { project: 'p'.repeat(200) }).args.project.length, 200);
+  assert.equal(toAction('server_log', { script: '' }).args.script, undefined, 'a blank script is none');
+  assert.match(toAction('add_task', { text: 7 }).error, /needs the text/);
+  assert.equal(toAction('next_up', { project: 'a\nb' }).args.project, 'a b');
+  assert.match(toAction('server_log', { script: 'a b' }).error, /script must be/);
+  assert.match(toAction('server_log', { script: 5 }).error, /script must be/);
+  assert.match(toAction('server_log', { lines: 9 }).error, /from 10 to 200/);
+  assert.match(toAction('server_log', { lines: 201 }).error, /from 10 to 200/);
+  assert.match(toAction('server_log', { lines: 50.5 }).error, /from 10 to 200/);
+  assert.match(toAction('server_log', { lines: '50' }).error, /from 10 to 200/);
+  assert.match(toAction('add_task', {}).error, /needs the text/);
+  assert.match(toAction('add_task', { text: ' \n ' }).error, /needs the text/);
+  assert.match(toAction('add_task', { text: 'a'.repeat(201) }).error, /under 200 characters/);
+  assert.equal(toAction('add_task', { text: 'one\ntwo' }).args.text, 'one two');
+  assert.match(toAction('finish_task', {}).error, /needs the to-do's id or number/);
+  for (const task of [0, 1000, 1.5, '2', 't-ABCD1234', 't-abc', null]) assert.match(toAction('finish_task', { task }).error, /needs the to-do's id or number/, String(task));
+  assert.equal(toAction('finish_task', { task: 't-abcd1234' }).args.task, 't-abcd1234', 'an id, as next_up gives it');
+});
+
+test('everything the server lets through, the app accepts', () => {
+  const { toAction } = require(SERVER);
+  const calls = [
+    ['next_up', { project: 'x-salmon/shellby', everywhere: true }], ['server_log', { script: 'dev', lines: 200 }],
+    ['add_task', { text: `${'a'.repeat(199)}\n` }], ['finish_task', { task: 999 }], ['finish_task', { task: 't-abcd1234' }], ['projects', {}],
+  ];
+  for (const [name, args] of calls) {
+    const { action, args: out, error } = toAction(name, args);
+    assert.equal(error, undefined, name);
+    assert.equal(parseRequest({ action, args: out }).ok, true, name);
+  }
+});
+
+test('add_task text must be text, and is measured as it would be kept', () => {
+  for (const text of [7, true, {}, ['a', 'b'], null]) {
+    assert.equal(parseRequest({ action: 'add_task', args: { text } }).ok, false, JSON.stringify(text));
+  }
+  // 250 characters with runs of spaces is 200 once they collapse: the CLI and the MCP server accept it, so the app does too.
+  const spaced = `${'a '.repeat(99)}a${' '.repeat(50)}`;
+  assert.equal(parseRequest({ action: 'add_task', args: { text: spaced } }).ok, true);
+  assert.equal(parseRequest({ action: 'add_task', args: { text: 'a'.repeat(201) } }).ok, false);
+});
+
+test('the server sends the crab token with the project tools only', () => {
+  const server = require(SERVER);
+  assert.deepEqual([...server.PROJECT_TOOLS].sort(), [...require('../src/main/crabtools').PROJECT_ACTIONS].sort());
+  const fs2 = require('fs');
+  const os2 = require('os');
+  const dir = fs2.mkdtempSync(path.join(os2.tmpdir(), 'shellby-crab-'));
+  const before = process.env.SHELLBY_USER_DATA;
+  try {
+    fs2.writeFileSync(path.join(dir, 'crab-token'), ' tok-123 \n');
+    process.env.SHELLBY_USER_DATA = dir;
+    assert.equal(server.readCrabToken(), 'tok-123');
+  } finally {
+    if (before === undefined) delete process.env.SHELLBY_USER_DATA; else process.env.SHELLBY_USER_DATA = before;
+    fs2.rmSync(dir, { recursive: true, force: true });
+  }
 });

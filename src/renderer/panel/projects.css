@@ -154,6 +154,16 @@ body[data-view="projects"] .view-projects {
 .pj-h-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
 .pj-h-acts:empty { display: none; }
 
+/* Next up: the project's to-do list, numbered as `shellby next` and next_up number it. */
+.pj-todo-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; }
+.pj-todo { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto auto; align-items: center; gap: 4px 8px; padding: 6px 2px; border-top: 1px dashed var(--line-soft); }
+.pj-todo:first-child { border-top: 0; padding-top: 0; }
+.pj-todo-n { color: var(--sand-dim); font-size: var(--fs-12-5); font-variant-numeric: tabular-nums; text-align: right; }
+.pj-todo-text { font-size: var(--fs-13); overflow-wrap: anywhere; }
+.pj-todo > button { grid-column: 4; }
+.pj-todo-add { gap: 6px; }
+.pj-todo-input { flex: 1; min-width: 0; width: auto; }
+
 .pj-convo {
   width: 100%; display: flex; align-items: center; gap: 7px; padding: 7px 8px; text-align: left;
   border: 0; border-radius: var(--r-sm); background: none; color: var(--sand); cursor: pointer;

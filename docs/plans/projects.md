@@ -47,8 +47,8 @@ Each phase ships on its own (bump, CHANGELOG, tag, as every shellby change does)
 ### Phase 3: everywhere else
 
 - Workflows: a `server` trigger and a `server` step.
-- MCP: `projects`, `servers` and `server_log`, so a Claude in a terminal can ask what broke.
-- CLI: `shellby projects`, `shellby serve [script]`.
+- MCP: `projects`, `next_up`, `server_log`, `add_task` and `finish_task`, so a Claude in a terminal can ask "what's next on this repo?" and what broke. **Done** (see "From a terminal"). `servers` folded into `projects` (each row says what's up).
+- CLI: `shellby projects`, `shellby next [project] [--all]`, `shellby next add <text>`, `shellby next done <n>`. **Done.** `shellby serve [script]` waits: starting a server from a terminal is a start, and starts stay in the panel for now.
 - Custom server commands per project for non-npm stacks (`python manage.py runserver`, `dotnet watch`, `cargo watch -x run`, `php artisan serve`).
 - Monorepos: workspace packages' scripts, one level deep.
 
@@ -61,6 +61,9 @@ Each phase ships on its own (bump, CHANGELOG, tag, as every shellby change does)
 | `src/main/projects/github.js` | Your GitHub repos (`GET /user/repos`), paged and cached. |
 | `src/main/projects/clone.js` | `git clone` into a folder you chose, with progress, cancel and cleanup. |
 | `src/main/projects/merge.js` | Local + GitHub -> one list of projects. Pure. |
+| `src/main/projects/todo.js` | (Phase 3) Each project's to-do list in `config.projects.todo`. Pure. |
+| `src/main/projects/nextup.js` | (Phase 3) A project's insights, servers and to-dos -> "next up", ordered and worded. Pure. |
+| `src/main/projects/terminal.js` | (Phase 3) Which project a terminal question means, and the text of every answer. Pure. |
 | `src/main/devservers/scripts.js` | `package.json` + lockfile -> runnable scripts, package manager, framework. Pure. |
 | `src/main/devservers/output.js` | Line buffer, ANSI stripping, port/URL/error detection, exit marker, redaction, the prompt. Pure. |
 | `src/main/devservers/runner.js` | Starts a server detached, tails its log, stops it, re-attaches to it. Never throws. |
@@ -339,10 +342,62 @@ One PowerShell read, by full path, with fixed text:
 - A found server has a status and port but **no log**: Shellby never had its output. Its card says so, and offers **Run it in Shellby instead** (stop it, then start the same script, so next time there's a log to send).
 - Stop: only a pid from the last listing, after the confirm window, the same double guard as `health/hogs.js`.
 
+## From a terminal (Phase 3)
+
+A developer who lives in a terminal asks Claude "what's next on this repo?" and
+gets Shellby's answer. The MCP server (`claude-plugin/mcp/server.js`) and the
+`shellby` command (`src/cli/shellby.js`) both post to `/v1/crab`; `crabtools.parseRequest`
+checks again, `wiring/crab-api.js` turns them away in just-the-crab mode, and
+`Projects.forTerminal` answers. Every word is in `terminal.js`, so the two doors
+say the same thing (`via: 'cli'` only changes the hints at the end).
+
+| MCP tool | CLI | Answers |
+|---|---|---|
+| `projects` | `shellby projects` | One line per project, most recently worked on first: folder and branch, servers up, its reasons (insights.js), to-do count. At most 40. |
+| `next_up { project?, everywhere? }` | `shellby next [project] [--all]` | `nextup.js`: **broken** (crashed or failed servers, failing PR CI, high/critical vulnerabilities), then **to-dos** in order, then **chores** (review comments, unpushed, uncommitted, flaky this week, lower vulnerabilities, outdated). Then where you left off (the last conversation) and how long it's been quiet. `everywhere`: the first 3 in each of up to 10 projects, broken ones first. |
+| `server_log { project?, script?, lines? }` | (none) | The redacted tail (`output.tail`, 10–200 lines, default 50) of the named script's server, else the latest crashed, else a running one. Fenced like the fix prompt and labelled as output. |
+| `add_task { text, project? }` | `shellby next add <text>` | A to-do at the end of the list. One line, ≤ 200 characters, control and bidi characters gone; the same text twice keeps one. ≤ 30 per project. |
+| `finish_task { task, project? }` | `shellby next done <n>` | Removes a to-do by its id (in the MCP answer) or its number on the list. |
+
+**Which project.** `project` is a project key, `owner/name`, a name (two with
+the same name is an error that lists them) or a folder. Left out, it's the folder
+the question came from: the MCP server sends `CLAUDE_PROJECT_DIR` or its own
+working folder, the CLI its working folder (`.` and `../x` are made absolute
+there). The deepest clone root containing it wins; failing that,
+`leaving.mainRoot` finds the repository of a folder in one of Shellby's copies
+(which live outside the repo) and that's matched instead. A folder that isn't
+on the Projects page is an error saying to add it: nothing is added from a
+terminal.
+
+**To-dos.** `config.projects.todo: { [project key]: [{ id: "t-xxxxxxxx", text, from: you|claude|terminal, at }] }`,
+kept by project key, so a clone's to-dos follow the project wherever it's cloned.
+The project's page has a **Next up** card (add, **Done**), and the row a "3 to do" chip.
+
+**Trust.** `/v1/crab` keeps out web pages (custom header, no Origin, Host must
+be 127.0.0.1), but 127.0.0.1 is open to every account on the PC. So unlike `say`
+and `status`, these five need a token: `crab-token` in Shellby's profile folder,
+written at startup (`wiring/crab-api.js`), which other accounts can't read. The
+MCP server and the command read it (`SHELLBY_USER_DATA` first, for dev runs) and
+send it as `X-Shellby-Token`; anything without it gets a 401. A program running
+as you can read the list and redacted logs and add or tick off to-dos (shown with
+who added them), as it could edit the settings file anyway. Nothing here starts,
+stops or changes anything that runs.
+
+Text that someone else wrote is read back to Claude: to-dos, PR titles, test
+names. Each is one line with control and invisible characters gone (`todo.oneLine`:
+C0/C1 controls, bidi, zero-width and tag characters), and a next_up that quotes
+any ends by saying they are notes, not instructions. To-dos carry ids in the MCP
+answer, so `finish_task` by id can't tick off the wrong one if the list changed
+in between. Server output goes through the same redaction and fence as Send to
+Claude.
+
+Not yet: a to-do on a local-only repo is kept under `local:<root>`, so it doesn't
+follow the repo if it later gets a GitHub remote.
+
 ## Integrations
 
 - **Workflows** (Phase 3): trigger `server` `{ on: up|crashed|stopped|any, project? }` -> `trigger.{ project, script, port, exitCode }`. Step `server` `{ action: start|stop|restart, project, script? }` -> `{ status, port, url }`. A workflow can't send a log to Claude without the card. Added to `docs/plans/workflows.md`'s tables.
-- **MCP** (Phase 3): `projects` (list), `servers` (list), `server_log { project }` (the redacted tail). No start/stop over MCP in the first cut.
+- **MCP and CLI** (Phase 3): see "From a terminal". No start/stop over MCP in the first cut.
 - Time tracking: a running server isn't a sign of where you are. Left out.
 
 ## Settings

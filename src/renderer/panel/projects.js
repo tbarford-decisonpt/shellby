@@ -341,6 +341,7 @@
     const reload = () => openProject(p.key, { quiet: true });
     const cards = [
       main && F.pulse(p, { onChange: reload }),
+      F.todo(p),
       F.health(p),
       main && F.conversations(p, { newHere }),
       main && SB.startFrom.looseEndsCard(main.root, p.name),
