@@ -11,18 +11,21 @@
 const path = require('path');
 const { MAX_TABS } = require('../sessions');
 const tries = require('../tries');
+const tryFiles = require('../try-files');
 
 const MAX_RUNS = 20; // finished runs remembered, for their cards' Stop and status
 
 /**
  * d: what main shares (main.js `shared`).
  * opts.ask(spec) -> button index (the confirmation window); opts.rootOf(dir) -> git root | null;
- * opts.maxTabs (tests).
+ * opts.maxTabs, opts.filesDir (tests): where attachments' snapshots go (try-files.js).
  */
 function wireTries(d, opts = {}) {
   const ask = opts.ask || (spec => require('../confirm').ask(d.panel, { ...d.dialogLook(), ...spec }));
   const rootOf = opts.rootOf || (dir => require('../changes').rootOf(dir));
   const maxTabs = opts.maxTabs || MAX_TABS;
+  const filesDir = opts.filesDir || (() => path.join(require('electron').app.getPath('userData'), 'try-files'));
+  let pruned = false;
   const runs = new Map();    // runId -> run
   const byTab = new Map();   // tabId -> runId
   let starting = false;      // one at a time: a double click is one set of tries
@@ -98,7 +101,8 @@ function wireTries(d, opts = {}) {
   // ------------------------------------------------------------ starting
 
   /**
-   * req: { tabId, n, text, attachments } from the panel.
+   * req: { tabId, n, text, attachments } from the panel. attachments: paths,
+   * which every try gets (try-files.js points project files at its own copy).
    * -> { ok: true, runId, firstId, started, n, error? } | { ok: false, error?, cancelled? }
    */
   async function start(req) {
@@ -108,8 +112,9 @@ function wireTries(d, opts = {}) {
     const tab = tabId ? d.manager.tabs.get(tabId) : null;
     if (!tab) return { ok: false, error: 'That conversation is closed.' };
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, error: 'That needs Claude Code: set it up first.' };
-    const attachments = Array.isArray(req?.attachments) ? req.attachments.length : 0;
-    const why = tries.problem({ n, text, tabsOpen: d.manager.tabs.size, maxTabs, attachments });
+    const asked = Array.isArray(req?.attachments) ? req.attachments : [];
+    const files = tryFiles.clean(asked);
+    const why = tries.problem({ n, text, tabsOpen: d.manager.tabs.size, maxTabs, attachments: asked.length });
     if (why) return { ok: false, error: why };
     if (starting) return { ok: false, error: 'Already starting some tries.' };
     starting = true;
@@ -123,7 +128,7 @@ function wireTries(d, opts = {}) {
       const mode = tab.session?.mode || null; // the same as this tab's, never more
       let estimate = null; // no guess is fine: the question says so (tries.costQuestion)
       try { estimate = d.usagePlan?.estimateFor(tabId, text) || null; } catch (err) { d.log.info(`tries: estimate: ${err.message}`); }
-      const q = tries.costQuestion({ n, estimate, mode });
+      const q = tries.costQuestion({ n, estimate, mode, attachments: files.length });
       const { over, total: _total, ...spec } = q;
       d.wake?.();
       const answer = await ask({ icon: tries.MARK, ...spec });
@@ -131,13 +136,29 @@ function wireTries(d, opts = {}) {
       // Tabs may have opened while you were deciding.
       const late = tries.problem({ n, text, tabsOpen: d.manager.tabs.size, maxTabs });
       if (late) return { ok: false, error: late };
-      return await launch({ n, text, dir, mode, over });
+      // An attached file from the project is pointed at each try's own copy:
+      // it's in your checkout (root), or in the copy this tab works in (w).
+      const roots = [root, w?.path].filter(Boolean);
+      return await launch({ n, text, dir, mode, over, files, roots });
     } finally {
       starting = false;
     }
   }
 
-  async function launch({ n, text, dir, mode, over }) {
+  // One try's attachments, or none. Never throws: a try that can't have its
+  // snapshot gets the file where it is.
+  function filesFor(run, i, files, roots, copy) {
+    if (!files.length) return [];
+    try {
+      if (!pruned) { pruned = true; tryFiles.prune(filesDir()); }
+      return tryFiles.forTry(files, { roots, copy, store: path.join(filesDir(), run.id, String(i)) });
+    } catch (err) {
+      d.log.info(`tries: attachments: ${err.message}`);
+      return files;
+    }
+  }
+
+  async function launch({ n, text, dir, mode, over, files = [], roots = [] }) {
     const title = tries.titleFor(text);
     const run = { id: d.randomUUID(), title, startedAt: Date.now(), firstId: null, tries: [], finished: false, launching: true };
     // Known before the first copy is made: a try can finish (or close) while the
@@ -147,7 +168,7 @@ function wireTries(d, opts = {}) {
     let error = null;
     for (let i = 1; i <= n; i++) {
       const name = tries.tryTitle(i, n, title);
-      const r = await d.startTaskInCopy(dir, name, () => text, { mode });
+      const r = await d.startTaskInCopy(dir, name, () => text, { mode, ...(files.length ? { attachments: copy => filesFor(run, i, files, roots, copy) } : {}) });
       if (!r?.ok) { error = r?.error || "Couldn't start it."; break; }
       const open = d.manager.tabs.get(r.tabId);
       if (!run.firstId) run.firstId = r.tabId;

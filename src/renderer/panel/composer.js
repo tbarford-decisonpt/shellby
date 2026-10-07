@@ -265,9 +265,16 @@
   };
 
   // /tries 3 fix the login: main reads the number and the message, and asks.
+  // What's attached goes to every try.
+  const TAKES_FILES = new Set(['tries', 'try']);
   function startTries(tab, arg) {
-    if (!arg) return SB.toast('Say how many ways and what: /tries 3 fix the flaky login test');
-    SB.startTries?.(tab, { arg });
+    if (!arg) {
+      // The box is emptied once this returns: what was attached comes back.
+      const files = [...(tab.attachments || [])];
+      queueMicrotask(() => SB.giveBackAttachments?.(tab, files));
+      return SB.toast('Say how many ways and what: /tries 3 fix the flaky login test');
+    }
+    SB.startTries?.(tab, { arg, attachments: [...(tab.attachments || [])] });
   }
 
   // The last thing you asked Claude, kept as a snippet: "that worked, keep it".
@@ -283,12 +290,14 @@
 
   /** Handles a message that's for Shellby, not Claude. true = handled. */
   // !! sends Claude a message that starts with a single !.
-  SB.runLocal = (text, tab) => {
+  // With attachments, only the commands that take them run here (/tries); the
+  // rest go to Claude with the files, as they always have.
+  SB.runLocal = (text, tab, attachments = []) => {
     if (text.startsWith('!!')) return false;
-    if (text.startsWith('!')) { runShell(tab, text.slice(1).trim()); return true; }
+    if (text.startsWith('!')) { if (attachments.length) return false; runShell(tab, text.slice(1).trim()); return true; }
     const m = /^\/([\w-]+)(?:\s+(.*))?$/s.exec(text);
     const fn = m && LOCAL[m[1].toLowerCase()];
-    if (!fn) return false;
+    if (!fn || (attachments.length && !TAKES_FILES.has(m[1].toLowerCase()))) return false;
     SB.notePrompt(text);
     fn(tab, (m[2] || '').trim());
     return true;
