@@ -875,6 +875,7 @@
   api.onSkin?.(() => { crabKey = null; if (state.view === 'tank') loadCrab(); });
   new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } }).observe(stage);
   document.addEventListener('visibilitychange', kick);
+  window.addEventListener('pagehide', flushLived); // what he did while you watched, before the panel goes
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => { dirty = true; kick(); });
 
   SB.views.tank = { render: () => { open(); } };

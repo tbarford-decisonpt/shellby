@@ -14,6 +14,7 @@ const { LOGIN_RE, sameLogin } = require('../github/card');
 
 const isRef = v => typeof v === 'string' && tank.REF_RE.test(v);
 const MAX_SEEN = 200;
+const LIVED_GAP_MS = 5000;
 
 /**
  * d: {
@@ -96,12 +97,19 @@ function registerTankIpc(ipcMain, d) {
 
   // What he got up to while you watched: { uses: { uid: n }, napped }. The panel sends it
   // now and then (not every frame), so the settings file isn't written all the time.
+  // At most one report every few seconds (the panel sends one per six activities,
+  // each seconds long), and a nap only counts with a real use beside it.
+  let livedAt = 0;
   ipcMain.handle('tank:lived', (_e, report) => {
     if (!report || typeof report !== 'object' || Array.isArray(report)) return lifeView();
+    const t = Date.now();
+    if (t - livedAt < LIVED_GAP_MS) return lifeView();
+    livedAt = t;
     const st = tank.normalize(d.config.get('tank'));
     const before = tankLife.normalize(d.config.get('tankLife'));
     const next = tankLife.addUses(before, report.uses, st.placed);
-    if (report.napped === true) {
+    const used = Object.entries(next.uses).some(([k, n]) => n > (before.uses[k] || 0));
+    if (report.napped === true && used) {
       d.stat('tank-nap');
       next.naps = Math.min(tankLife.MAX_USES, next.naps + 1);
     }
