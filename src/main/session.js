@@ -76,6 +76,12 @@ class ClaudeSession extends EventEmitter {
   // allowedTools: permission rules Claude Code applies without asking (a
   // routine's or workflow step's MCP servers). mcpConfig: { mcpServers } to load
   // instead of every configured server, or null for the usual ones.
+  //
+  // exe: the CLI's path, or a function that gives it, asked each time the
+  // process starts. The process is started again after an idle stop, and by
+  // then Claude Code may have moved (its installer took the npm copy away and
+  // left the native one, say): a path fixed when the tab opened would fail
+  // every turn after that until Shellby restarted.
   constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null }) {
     super();
     Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig });
@@ -145,7 +151,8 @@ class ClaudeSession extends EventEmitter {
     // process's own rather than on its command line, and the file goes with it.
     const configFile = this.mcpConfig ? writeConfig(this.mcpConfig) : null;
     this.mcpConfigFile = configFile;
-    const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
+    const exe = typeof this.exe === 'function' ? this.exe() : this.exe;
+    const proc = spawn(exe, [...this.argsPrefix, ...this.buildArgs()], {
       cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.proc = proc;

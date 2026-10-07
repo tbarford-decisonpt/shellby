@@ -7,7 +7,7 @@ const { randomUUID } = crypto;
 
 const { Config } = require('./config');
 const { History } = require('./history');
-const { checkStatus, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
+const { checkStatus, currentClaude, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { loadSkins } = require('./skins');
 const { sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
@@ -232,6 +232,27 @@ const claudeSettings = () => (ISOLATED ? path.join(app.getPath('userData'), 'cla
 const registryUrl = () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL;
 // A CLI the user pointed at by hand, when the usual places didn't have it.
 const claudePath = () => config?.get('claudePath') || null;
+// The CLI to start now: what the boot-time check found, while it's still
+// there. Claude Code's installer moves it while Shellby runs (the native
+// updater takes an npm copy away), and until this the old path was started on
+// every turn — "can't find Claude Code" until Shellby itself was restarted.
+// When it has moved, the search runs again (claude-cli.js currentClaude) and
+// the status is checked once more so Settings, the updater and the status
+// line see the copy actually in use. Screenshot and fake-CLI runs keep their
+// faked status (see ipc/panel.js claude:status).
+let claudeRecheck = null;
+function claudeExe() {
+  if (CAPTURE || FAKE_CLI) return claudeStatus?.exe || findClaude(process.env, claudePath());
+  const exe = currentClaude(claudeStatus?.exe, process.env, claudePath());
+  if (claudeStatus && exe !== claudeStatus.exe && !claudeRecheck) {
+    log.info('Claude Code moved', `${claudeStatus.exe} → ${exe || 'not found'}`);
+    claudeRecheck = checkStatus({ configured: claudePath() })
+      .then(s => { claudeStatus = s; refreshStatusLine(); send(panel, 'claude:status', claudeStatus); })
+      .catch(err => log.warn('Claude CLI status check failed after it moved', err?.message || String(err)))
+      .finally(() => { claudeRecheck = null; });
+  }
+  return exe;
+}
 
 let config, history, skins, manager, toolbox, wardrobe, health, external, shop, github, ci, issues, updates, friends, profileCard, prBadge;
 let workflows = null;              // the Automate page's engine (workflows/service.js)
@@ -527,6 +548,7 @@ const shared = {
   get ci() { return ci; }, set ci(v) { ci = v; },
   get ciView() { return ciView; },
   get claudeConfigDir() { return claudeConfigDir; },
+  get claudeExe() { return claudeExe; },
   get claudePath() { return claudePath; },
   get claudeSettings() { return claudeSettings; },
   get claudeStatus() { return claudeStatus; }, set claudeStatus(v) { claudeStatus = v; },
@@ -1147,7 +1169,7 @@ function registerIpc() {
     // Just-the-crab mode leaves Claude Code alone, mods' checks and tests included.
     blocked: () => (config.get('crabOnly') ? { ok: false, error: 'Mods need Claude Code. Turn it on in Settings.' } : null),
     runClaude: (args, timeout) => {
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      const exe = claudeExe();
       if (!exe) return Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
       const cwd = path.join(app.getPath('userData'), 'plugin-cli');
       try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
@@ -1166,7 +1188,7 @@ function registerIpc() {
     turnEnding: tabId => turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
     runClaude: (args, timeout, opts) => {
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      const exe = claudeExe();
       return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
     },
   });
@@ -1177,7 +1199,7 @@ function registerIpc() {
     setupView, setupWhere, saveHook: req => confirmAndChangeHook(req, false), saveRule: req => parityIpc.changeRule(req),
     confirm: spec => confirm.ask(panel, { ...dialogLook(), ...spec }),
     runClaude: (args, timeout, opts) => {
-      const exe = claudeStatus?.exe || findClaude(process.env, claudePath());
+      const exe = claudeExe();
       return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
     },
     log: { warn: msg => log.warn('team pack', msg) },

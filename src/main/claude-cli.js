@@ -55,8 +55,21 @@ function candidatePaths(env = process.env, configured = null) {
   return list;
 }
 
+const isFile = p => { try { return fs.statSync(p).isFile(); } catch { return false; } };
+
 function findClaude(env = process.env, configured = null) {
-  return candidatePaths(env, configured).find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
+  return candidatePaths(env, configured).find(isFile) || null;
+}
+
+/**
+ * The CLI to start now. `found` is where it was last seen (the boot-time
+ * check, usually), kept while it's still there. Claude Code's own installer
+ * moves it while Shellby runs — the native updater takes an npm copy away —
+ * and starting the old path then fails with ENOENT on every turn until Shellby
+ * restarts, so when it's gone the search runs again, then and there.
+ */
+function currentClaude(found, env = process.env, configured = null) {
+  return typeof found === 'string' && found && isFile(found) ? found : findClaude(env, configured);
 }
 
 /**
@@ -148,4 +161,4 @@ async function checkStatus({ configured = null } = {}) {
   return status;
 }
 
-module.exports = { findClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, currentClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };

@@ -6,7 +6,6 @@ const os = require('os');
 const path = require('path');
 const changes = require('../changes');
 const checkup = require('../checkup');
-const { findClaude } = require('../claude-cli');
 const ctx = require('../context');
 const fileIndex = require('../fileindex');
 const prBadges = require('../github/pr-badge');
@@ -31,7 +30,7 @@ function wireSessions(d) {
     d.manager = new SessionManager({
       argsPrefix: d.FAKE_CLI ? [d.FAKE_CLI] : [],
       history: d.history,
-      getExe: () => (d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeStatus?.exe || findClaude(process.env, d.claudePath())),
+      getExe: () => (d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeExe()),
       getMode: () => d.config.get('mode'),
       getModel: () => d.config.get('model'),
       getEffort: () => d.config.get('effort'),

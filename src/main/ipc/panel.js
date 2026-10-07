@@ -5,7 +5,7 @@ const { app, dialog, nativeImage } = require('electron');
 const os = require('os');
 const path = require('path');
 const attach = require('../attachments');
-const { checkStatus, findClaude, run: runCli, verifyClaude } = require('../claude-cli');
+const { checkStatus, run: runCli, verifyClaude } = require('../claude-cli');
 const { MODELS } = require('../models');
 const snippets = require('../snippets');
 
@@ -98,7 +98,7 @@ function registerPanelIpc(ipcMain, d) {
   // Opens its own console window; the CLI walks the user through the browser
   // sign-in. When that window closes (signed in, or given up), check again.
   function startClaudeLogin() {
-    const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    const exe = d.claudeExe();
     if (!exe) return false;
     try {
       const child = require('child_process').spawn(exe, ['auth', 'login'], { detached: true, stdio: 'ignore', windowsHide: false });
@@ -140,7 +140,7 @@ function registerPanelIpc(ipcMain, d) {
   // Signing out (and "Switch account", which signs straight back in) runs
   // Claude Code's own `auth logout`: the sign-in is Claude Code's, not ours.
   ipcMain.handle('claude:logout', async (_e, { thenSignIn = false } = {}) => {
-    const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    const exe = d.claudeExe();
     if (!exe) return { ok: false, error: 'Claude Code not found.', status: d.claudeStatus };
     const busy = d.manager?.aggregate?.busy || 0;
     if (busy) {
