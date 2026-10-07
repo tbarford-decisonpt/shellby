@@ -37,6 +37,23 @@ test('heldFor keeps only held messages for that tab', () => {
   assert.deepEqual(W.heldFor(null, 'a'), []);
 });
 
+test('isBlank: an empty, idle tab is blank', () => {
+  assert.equal(W.isBlank({ id: 'a', isEmpty: true, busy: false }, { held: [] }), true);
+  assert.equal(W.isBlank({ id: 'a', isEmpty: true, busy: false }, null), true);
+});
+
+test('isBlank: a tab holding a message for the reset is not blank, so New task opens another', () => {
+  const outlook = { held: [{ id: 1, kind: 'message', tabId: 'a' }] };
+  assert.equal(W.isBlank({ id: 'a', isEmpty: true, busy: false }, outlook), false);
+  assert.equal(W.isBlank({ id: 'b', isEmpty: true, busy: false }, outlook), true);
+});
+
+test('isBlank: a busy tab, one with a conversation, or none at all is not blank', () => {
+  assert.equal(W.isBlank({ id: 'a', isEmpty: true, busy: true }, null), false);
+  assert.equal(W.isBlank({ id: 'a', isEmpty: false, busy: false }, null), false);
+  assert.equal(W.isBlank(null, null), false);
+});
+
 test('describe shows the text, or counts the attachments when there is none', () => {
   assert.equal(W.describe({ text: 'Ship it', attachments: [] }), 'Ship it');
   assert.equal(W.describe({ text: '', attachments: ['a.png'] }), '1 attached file');
