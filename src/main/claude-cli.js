@@ -73,6 +73,16 @@ function currentClaude(found, env = process.env, configured = null) {
 }
 
 /**
+ * Has the CLI moved since `status` was taken? `exe` is what currentClaude
+ * gives now. Nothing found either time is not a move: a status of
+ * { installed: false } has no exe, and comparing that with null would say
+ * "moved" on every lookup and check the status again each time.
+ */
+function claudeMoved(status, exe) {
+  return !!status && (status.exe || null) !== (exe || null);
+}
+
+/**
  * Is this file actually the Claude Code CLI? Used before saving a path the user
  * picked by hand, so "I chose the wrong exe" is answered then and there rather
  * than becoming a task that won't start.
@@ -161,4 +171,4 @@ async function checkStatus({ configured = null } = {}) {
   return status;
 }
 
-module.exports = { findClaude, currentClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, currentClaude, claudeMoved, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };

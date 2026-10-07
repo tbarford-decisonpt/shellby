@@ -7,7 +7,7 @@ const { randomUUID } = crypto;
 
 const { Config } = require('./config');
 const { History } = require('./history');
-const { checkStatus, currentClaude, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
+const { checkStatus, claudeMoved, currentClaude, findClaude, setPlanOnly, run: runCli } = require('./claude-cli');
 const { loadSkins } = require('./skins');
 const { sendToBottom } = require('./desktop-layer');
 const { clampToDisplays, panelPosition } = require('./placement');
@@ -244,8 +244,8 @@ let claudeRecheck = null;
 function claudeExe() {
   if (CAPTURE || FAKE_CLI) return claudeStatus?.exe || findClaude(process.env, claudePath());
   const exe = currentClaude(claudeStatus?.exe, process.env, claudePath());
-  if (claudeStatus && exe !== claudeStatus.exe && !claudeRecheck) {
-    log.info('Claude Code moved', `${claudeStatus.exe} → ${exe || 'not found'}`);
+  if (claudeMoved(claudeStatus, exe) && !claudeRecheck) {
+    log.info('Claude Code moved', `${claudeStatus.exe || 'not found'} → ${exe || 'not found'}`);
     claudeRecheck = checkStatus({ configured: claudePath() })
       .then(s => { claudeStatus = s; refreshStatusLine(); send(panel, 'claude:status', claudeStatus); })
       .catch(err => log.warn('Claude CLI status check failed after it moved', err?.message || String(err)))

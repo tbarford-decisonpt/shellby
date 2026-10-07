@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { findClaude, verifyClaude, candidatePaths, currentClaude } = require('../src/main/claude-cli');
+const { findClaude, verifyClaude, candidatePaths, currentClaude, claudeMoved } = require('../src/main/claude-cli');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 
@@ -91,4 +91,13 @@ test('a found path that has gone away gives way to a fresh search', () => {
   assert.equal(currentClaude('Z:\\removed\\claude.exe', { PATH: onPath }), real);
   assert.equal(currentClaude(null, { PATH: onPath }), real, 'nothing found yet: the search runs');
   assert.equal(currentClaude('Z:\\removed\\claude.exe', { PATH: tmp() }), null, 'and says so when there is none');
+});
+
+test('moved means found somewhere else, or found and then lost, never not-installed twice', () => {
+  assert.equal(claudeMoved({ installed: true, exe: 'C:/a/claude.exe' }, 'C:/b/claude.exe'), true);
+  assert.equal(claudeMoved({ installed: true, exe: 'C:/a/claude.exe' }, null), true, 'uninstalled since');
+  assert.equal(claudeMoved({ installed: false }, 'C:/b/claude.exe'), true, 'installed since');
+  assert.equal(claudeMoved({ installed: true, exe: 'C:/a/claude.exe' }, 'C:/a/claude.exe'), false);
+  assert.equal(claudeMoved({ installed: false }, null), false, 'still not installed: nothing to check again');
+  assert.equal(claudeMoved(null, 'C:/b/claude.exe'), false, 'no status yet: the boot check is on its way');
 });
