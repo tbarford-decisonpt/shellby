@@ -1,4 +1,4 @@
-const { app, ipcMain: electronIpcMain, screen, globalShortcut, session: electronSession, powerMonitor } = require('electron');
+const { app, ipcMain: electronIpcMain, screen, session: electronSession, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -24,6 +24,7 @@ const { wireCrewSlots } = require('./wiring/crew-slots');
 const { wireStreaks } = require('./wiring/streaks');
 const { wireSettings } = require('./wiring/settings');
 const { wireWardrobe } = require('./wiring/wardrobe');
+const { wireQuit } = require('./wiring/quit');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
@@ -467,6 +468,9 @@ const shared = {
   get confirmAndInstallPackText() { return confirmAndInstallPackText; },
   get installFromRegistry() { return installFromRegistry; },
   get captureClock() { return captureClock; },
+  get LOG_DIR() { return LOG_DIR; },
+  get PRIMARY() { return PRIMARY; },
+  get repeating() { return repeating; },
   get onHotkey() { return onHotkey; },
   get onPermission() { return onPermission; },
   get onResult() { return onResult; },
@@ -615,7 +619,7 @@ const { applyHotkey, applyLoginItem, userSkinsDir } = share(wireSettings(shared)
 const { createWardrobe } = share(wireWardrobe(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
-  checkLimit, routineService, saveSpend, scheduleHeld, startScheduler, usageService,
+  checkLimit, routineService, scheduleHeld, startScheduler,
   watchAway, watchGuards, watchLeaving, watchOutlook,
 } = share(wireServices(shared));
 const {
@@ -867,49 +871,5 @@ app.on('second-instance', (_e, argv) => {
   }
   if (booted) { reachedForShellby(); showPanel(); }
 });
-app.on('window-all-closed', e => e.preventDefault());
-app.on('will-quit', () => {
-  typing?.stop(); // lets go of the keyboard (keystrokes.js)
-  statusLine.clearStatus(statusFile()); // Claude Code's status line goes quiet when Shellby does
-  globalShortcut.unregisterAll();
-  routineService.stop();
-  if (config) saveSpend();
-  if (config) usagePlan.save();
-  lean?.save();
-  toolbox?.stop();
-  health?.stop();
-  timeTracker?.stop(); // writes the last minutes down
-  depWatch?.stop();
-  external?.stop();
-  github?.stop();
-  friends?.stop();
-  life?.stop();
-  playtime?.stop();
-  pranks?.dispose();
-  floor?.dispose();
-  ci?.stop();
-  clearTimeout(focusTimer);
-  clearInterval(focusTick);
-  usageService.stop(); // the reset tap
-  repeating.forEach(clearInterval);
-  remote?.shutdown();
-  dictation?.stop();
-  media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
-  if (PRIMARY && !CAPTURE) crashReport.endRun(LOG_DIR); // quit on purpose: nothing to report next time
-});
-// close() gives a process 3 s to finish on its own, which Shellby quitting never
-// waits for: one mid-task would carry on editing with no window to show it.
-// Workflows freeze first: a run cut off by quitting is resumable, not failed.
-app.on('before-quit', () => {
-  app.isQuitting = true;
-  journal.savePending();
-  remote?.shutdown(); // no task from the phone starts while he's on his way out
-  workflows?.shutdown();
-  manager?.closeAll({ kill: true });
-  cancelAllChecks(); // a test run Shellby started ends with him
-  // Quits that didn't come through quit() (Windows shutting down, say):
-  // "Stop them" still holds. taskkill runs on its own, so Shellby exiting
-  // can't cut it off halfway down the tree, and the servers are saved as gone.
-  if (devServers?.view().settings.onQuit === 'stop') devServers.stopAll({ detached: true }).catch(err => log.warn('dev servers could not be stopped at quit', err?.message));
-  devServers?.shutdown();
-});
+// Quitting stops everything he started, in order (wiring/quit.js).
+wireQuit(shared);
