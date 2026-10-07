@@ -391,6 +391,7 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   const pj = demo.demoProjects(now);
   fake('projects:list', () => pj.list);
   fake('projects:detail', (_e, key) => pj.detail[key] ?? null);
+  fake('projects:report', (_e, a) => pj.report(a?.key, a?.kind));
   fake('servers:get', () => pj.servers);
   fake('servers:log', (_e, id) => pj.serverLog(id));
   fake('servers:fix-draft', (_e, a) => pj.fixDraft(a || {}));

@@ -93,6 +93,7 @@ const { registerTriesIpc } = require('./ipc/tries');
 const { registerCorrectionsIpc } = require('./ipc/corrections');
 const { registerStartFromIpc } = require('./ipc/startfrom');
 const { registerCrewIpc } = require('./ipc/crew');
+const { registerReleasesIpc } = require('./projects/releases-ipc');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -1210,6 +1211,7 @@ function registerIpc() {
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
+  registerReleasesIpc(ipcMain, d);
 }
 
 // ================================================================ boot

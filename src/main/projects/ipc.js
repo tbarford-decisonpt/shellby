@@ -25,6 +25,8 @@ function registerProjectsIpc(ipcMain, d) {
 
   ipcMain.handle('projects:list', (_e, opts) => P()?.list({ refresh: !!opts?.refresh }) ?? null);
   ipcMain.handle('projects:detail', (_e, key) => (isStr(key) ? P()?.detail(key) ?? null : null));
+  // A standup or weekly report for one project (standup.js), as text to copy.
+  ipcMain.handle('projects:report', (_e, a) => (isStr(a?.key) ? P()?.report(a.key, typeof a.kind === 'string' ? a.kind : 'standup') ?? null : null));
 
   ipcMain.handle('projects:add', async () => {
     const dir = await d.pickFolder({ title: 'Add a repository' });

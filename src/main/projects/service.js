@@ -13,7 +13,9 @@ const local = require('./local');
 const clone = require('./clone');
 const { merge, caseKey, repoKey } = require('./merge');
 const { RepoCache } = require('./github');
-const { withInsights, sessionsFor } = require('./insights');
+const { withInsights, sessionsFor, sessionsIn } = require('./insights');
+const standup = require('./standup');
+const gitinfo = require('../gitinfo');
 const scripts = require('../devservers/scripts');
 
 const LOCAL_TTL_MS = 60 * 1000;
@@ -47,6 +49,9 @@ class Projects extends EventEmitter {
    *   insights?() -> what the rest of Shellby knows per project (insights.js's sources)
    *   sessions?() -> History's index, for a project's recent conversations
    *   journal?(roots, name) -> its handoff notes (wiring/journal.js), or null
+   *   time?() -> the time tracker's state (timetrack.js), for reports
+   *   weekly?() -> the weekly ledger (weekly.js), for Claude's tasks in reports
+   *   commits?(root, fromMs, toMs) -> [{ at, subject }]  your commits (gitinfo.commitsBetween)
    *   run?: git runner (tests)
    * }
    */
@@ -211,6 +216,33 @@ class Projects extends EventEmitter {
     let journal = null;
     try { journal = this.deps.journal?.(local.map(c => c.root), p.name) || null; } catch { /* no notes */ }
     return { ...p, sessions, journal };
+  }
+
+  /**
+   * A project's standup or weekly report (standup.js), in Slack's words and
+   * an email's. kind: 'standup' | 'week' | 'last-week'. Only your own commits
+   * count; time and Claude's tasks come from what Shellby already keeps.
+   */
+  async report(key, kind) {
+    const k = standup.KINDS.includes(kind) ? kind : 'standup';
+    const p = await this.detail(key);
+    if (!p) return null;
+    const now = this.now();
+    const w = standup.windowOf(k, now);
+    const roots = p.local.map(c => c.root);
+    const copies = p.local.flatMap(c => (c.git?.copyList || []).map(x => x.path));
+    const commitsOf = this.deps.commits || gitinfo.commitsBetween;
+    const lists = await Promise.all(roots.map(r => Promise.resolve().then(() => commitsOf(r, w.from, w.to)).catch(() => [])));
+    let sessions = [];
+    try { sessions = sessionsIn(this.deps.sessions?.() || [], roots, copies); } catch { /* no History, no conversations */ }
+    const input = standup.inputFrom(p, {
+      commits: lists.flat(),
+      sessions,
+      time: standup.timeByDay(this.deps.time?.() || null, roots, w),
+      tasks: standup.tasksByDay(this.deps.weekly?.() || null, roots.map(r => path.basename(r))),
+    });
+    const report = standup.build(k, input, now);
+    return { ok: true, kind: k, name: p.name, report, slack: standup.toSlack(report), text: standup.toText(report) };
   }
 
   // ------------------------------------------------------------------ adding and removing

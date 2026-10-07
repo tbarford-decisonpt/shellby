@@ -116,12 +116,21 @@ function withInsights(projects, sources) {
  * of Shellby's copies of it. sessions: History's index (newest first).
  */
 function sessionsFor(sessions, roots, copies = []) {
-  const places = [...roots, ...copies];
-  return (Array.isArray(sessions) ? sessions : [])
-    .filter(e => e && typeof e.id === 'string' && places.some(r => inside(e.cwd, r)))
-    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  return sessionsIn(sessions, roots, copies)
     .slice(0, MAX_SESSIONS)
     .map(e => ({ id: e.id, title: e.title || 'Conversation', updatedAt: e.updatedAt || e.createdAt || 0, done: !!e.done, copy: !roots.some(r => inside(e.cwd, r)) }));
 }
 
-module.exports = { insightsFor, withInsights, sessionsFor, inside, WEIGHT };
+/**
+ * Every History entry from a project, newest first: in a clone, in a copy
+ * still on disk, or in a copy made from a clone that has since been cleaned
+ * up (the entry keeps the folder it was copied from).
+ */
+function sessionsIn(sessions, roots, copies = []) {
+  const places = [...roots, ...copies];
+  return (Array.isArray(sessions) ? sessions : [])
+    .filter(e => e && typeof e.id === 'string' && (places.some(r => inside(e.cwd, r)) || roots.some(r => inside(e.worktree?.originalCwd, r))))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+module.exports = { insightsFor, withInsights, sessionsFor, sessionsIn, inside, WEIGHT };
