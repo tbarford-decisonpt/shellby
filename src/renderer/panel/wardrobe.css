@@ -271,14 +271,39 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 /* the week in review (week-card.js) */
 .xp-week-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .xp-week-head .btn { margin-top: 4px; }
-.xp-week-plan { margin: 2px 0 6px; padding: 6px 9px; border-radius: 8px; border: 1px solid rgba(255, 193, 94, .3); background: rgba(255, 193, 94, .08); font-size: var(--fs-12-5); font-weight: 700; line-height: 1.45; color: #ffd28a; }
-.xp-week-plan::before { content: 'What your plan bought you'; display: block; font: 600 var(--fs-9-5)/1.6 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
-.xp-week-line { margin: 0; font-size: var(--fs-12-5); line-height: 1.45; color: var(--sand); }
-.xp-week-shipped { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
-.xp-week-shipped:empty { display: none; }
-.xp-week-shipped li { font: 600 var(--fs-10-5)/18px var(--font-mono); padding: 0 7px; border-radius: 99px; background: var(--glass-dim); color: var(--glass); }
+/* What the plan bought: Claude's hours as the one big number, and beside it a
+   ledger of what they came to, ending on what they cost (the weekly limit). */
+.xp-week-plan { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: center; margin: 4px 0 10px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255, 193, 94, .26); background: linear-gradient(110deg, rgba(255, 193, 94, .10), rgba(255, 193, 94, .02) 60%); }
+.xp-week-plan[hidden] { display: none; }
+.xp-week-hours { margin: 0; display: grid; }
+.xp-week-hours b { font: 500 var(--fs-26)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: #ffd28a; }
+.xp-week-hours span { margin-top: 4px; max-width: 13ch; font-size: var(--fs-11-5); line-height: 1.3; color: var(--sand-dim); }
+.xp-week-ledger { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid rgba(255, 193, 94, .18); display: grid; gap: 3px; }
+.xp-week-ledger li { display: grid; grid-template-columns: 5ch 1fr; gap: 8px; align-items: baseline; font-size: var(--fs-12); color: var(--sand-dim); }
+.xp-week-ledger b { font: 600 var(--fs-13) var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--sand); }
+.xp-week-meter { display: block; height: 5px; margin-top: 4px; border-radius: 99px; background: var(--abyss); overflow: hidden; }
+.xp-week-meter i { display: block; height: 100%; width: calc(var(--pct) * 1%); min-width: 4px; border-radius: inherit; background: var(--glass); }
+.xp-week-meter.hot i { background: var(--coral); }
+/* The headline facts as a sentence, then the week's work as a scannable grid. */
+.xp-week-line { margin: 0; font-size: var(--fs-12-5); line-height: 1.5; color: var(--sand); }
+.xp-week-work { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 2px 14px; }
+.xp-week-work:empty { display: none; }
+.xp-week-work li { font-size: var(--fs-12); line-height: 1.45; padding: 1px 0; color: var(--sand-dim); }
+/* Trophies and ships: a short label, then chips. */
+.xp-week-row { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: start; margin-top: 8px; }
+.xp-week-row[hidden] { display: none; }
+.xp-week-label { margin: 0; font-size: var(--fs-11); line-height: 20px; color: var(--sand-faint); }
+.xp-week-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.xp-week-chips li { font-size: var(--fs-11-5); line-height: 20px; padding: 0 8px; border-radius: 99px; background: rgba(255, 210, 63, .08); border: 1px solid rgba(255, 210, 63, .16); color: var(--sand); cursor: default; }
+.xp-week-chips li.more { background: none; border-style: dashed; color: var(--sand-dim); }
+.xp-week-shipped li { font:600 var(--fs-10-5)/20px var(--font-mono); background: var(--glass-dim); border-color: transparent; color: var(--glass); }
 .xp-week-shipped li.new { background: rgba(255, 193, 94, .14); color: #ffd28a; }
 .xp-week-shipped li.new::after { content: ' new'; opacity: .75; }
+@media (max-width: 420px) {
+  .xp-week-plan { grid-template-columns: 1fr; }
+  .xp-week-ledger { padding-left: 0; border-left: 0; }
+  .xp-week-row { grid-template-columns: 1fr; gap: 3px; }
+}
 .xp-bounties ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .xp-bounties li { display: grid; grid-template-columns: 16px 1fr auto auto; gap: 8px; align-items: center; font-size: var(--fs-12); }
 .xp-bounties li small { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-dim); }

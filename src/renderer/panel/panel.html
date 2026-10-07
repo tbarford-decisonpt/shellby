@@ -672,9 +672,20 @@
           <p class="xp-sub">This week <span id="xpWeekRange"></span></p>
           <button type="button" class="btn slim-btn" data-share-week title="Make a shareable picture of your week: tasks, streak, top project and new trophies">📅 Share my week</button>
         </div>
-        <p class="xp-week-plan" id="xpWeekPlan" aria-label="What your plan bought you" hidden></p>
+        <div class="xp-week-plan" id="xpWeekPlan" role="group" aria-label="What your plan bought you" hidden>
+          <p class="xp-week-hours"><b id="xpWeekHours"></b><span id="xpWeekHoursNote"></span></p>
+          <ul class="xp-week-ledger" id="xpWeekLedger"></ul>
+        </div>
         <p class="xp-week-line" id="xpWeekLine"></p>
-        <ul class="xp-week-shipped" id="xpWeekShipped" aria-label="Shipped this week"></ul>
+        <ul class="xp-week-work" id="xpWeekWork" aria-label="The week's work"></ul>
+        <div class="xp-week-row" id="xpWeekTrophiesRow" hidden>
+          <p class="xp-week-label">New trophies</p>
+          <ul class="xp-week-chips" id="xpWeekTrophies"></ul>
+        </div>
+        <div class="xp-week-row" id="xpWeekShippedRow" hidden>
+          <p class="xp-week-label">Shipped</p>
+          <ul class="xp-week-chips xp-week-shipped" id="xpWeekShipped"></ul>
+        </div>
       </div>
       <div class="xp-section xp-history">
         <p class="xp-sub">Last 30 days <span id="xpHistoryTotal"></span></p>

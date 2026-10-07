@@ -8,7 +8,8 @@
   const { h, api, state, $ } = SB;
   const K = SB.cardKit;
   const { W, H, C } = K;
-  const DAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const MAX_TROPHY_CHIPS = 8;
+  const DAY_LETTER =['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const fmt = n => Number(n || 0).toLocaleString();
   const plural = (n, one, many) => SB.plural(n, one, many, fmt);
   const dateOf = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -382,16 +383,42 @@
     return `My Claude plan bought me ${hoursText(p.ms).replace(/h$/, '')} hours of work this week${bits.length ? `: ${bits.join(', ')}` : ''}. `;
   }
 
-  // The Trophies page's one-liner: "🕒 31h of Claude at work · 42 tasks finished · 5/6 fixes held · 62% of weekly limit".
-  function planLine(w) {
-    if (!hasPlan(w)) return '';
+  // The Trophies page's plan box: Claude's hours big on the left, and a ledger
+  // beside them of what they came to (tasks, fixes that held) and what they
+  // cost (the weekly limit, as a meter), like the card's panel in drawPlan.
+  function renderPlan(w) {
+    const box = $('xpWeekPlan');
+    if (!box) return false;
+    box.hidden = !hasPlan(w);
+    if (box.hidden) return false;
     const p = w.plan;
-    return [
-      p.ms ? `🕒 ${hoursText(p.ms)} of Claude at work` : null,
-      p.tasks ? `${plural(p.tasks, 'task')} finished` : null,
-      p.fixes ? `${fmt(p.held)}/${fmt(p.fixes)} ${p.fixes === 1 ? 'fix' : 'fixes'} held` : null,
-      p.weekly ? `${p.weekly.pct}% of your weekly limit` : null,
-    ].filter(Boolean).join(' · ');
+    $('xpWeekHours').textContent = p.ms ? hoursText(p.ms) : '—';
+    const days = workdays(p.ms);
+    $('xpWeekHoursNote').textContent = `of Claude at work${days ? `, ${days}` : ''}`;
+    const row = (num, label, extra) => h('li', {}, [h('b', { text: num }), h('span', {}, [label, ...(extra ? [extra] : [])])]);
+    const rows = [
+      p.tasks ? row(fmt(p.tasks), p.tasks === 1 ? 'task finished' : 'tasks finished') : null,
+      p.fixes ? row(`${fmt(p.held)}/${fmt(p.fixes)}`, p.fixes === 1 ? 'fix that held' : 'fixes that held') : null,
+      p.weekly ? row(`${p.weekly.pct}%`, `of your weekly limit, resets ${weekday(p.weekly.resetsAt)}`,
+        h('span', { class: `xp-week-meter${p.weekly.pct >= 90 ? ' hot' : ''}`, style: `--pct:${Math.min(100, p.weekly.pct)}`, 'aria-hidden': 'true' }, [h('i')])) : null,
+    ].filter(Boolean);
+    $('xpWeekLedger').replaceChildren(...rows);
+    return true;
+  }
+
+  // "1 project shipped, 22 test suites turned green and a 🔥 6-day streak. Most work in shellby."
+  function factsLine(w, planned) {
+    const c = w.counts;
+    const bits = [
+      c.projects ? plural(c.projects, 'project') + ' shipped' : null,
+      c.green ? `${plural(c.green, 'test suite')} turned green` : null,
+      c.tasks && !planned ? plural(c.tasks, 'task') + ' done' : null, // the plan's box says it already
+      w.streak.current ? `a 🔥 ${w.streak.current}-day streak` : null,
+    ].filter(Boolean);
+    const said = bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0] || '';
+    const sentence = said ? `${said[0].toUpperCase()}${said.slice(1)}.` : '';
+    const most = w.topProject?.tasks ? `Most work in ${w.topProject.name}.` : '';
+    return [sentence, most].filter(Boolean).join(' ');
   }
 
   const share = () => K.present({
@@ -408,22 +435,26 @@
     if (!w) { box.hidden = true; return; }
     box.hidden = false;
     $('xpWeekRange').textContent = `· ${range(w)}`;
-    const plan = $('xpWeekPlan');
-    if (plan) { plan.textContent = planLine(w); plan.hidden = !plan.textContent; }
-    const planned = !!plan?.textContent;
-    const c = w.counts;
-    const bits = [
-      c.projects ? plural(c.projects, 'project') + ' shipped' : null,
-      c.green ? `${plural(c.green, 'test suite')} turned green` : null,
-      c.tasks && !planned ? plural(c.tasks, 'task') + ' done' : null, // the plan's box says it already
-      w.streak.current ? `🔥 ${w.streak.current}-day streak` : null,
-      w.topProject?.tasks ? `most work in ${w.topProject.name}` : null,
-      ...(w.work || []).map(l => `${l.icon} ${l.text}`),
-      ...w.trophies.map(t => `${t.icon} ${t.name}`),
-      ...extras({ ...c, newStickers: 0 }), // the chips below already say which are new
-    ].filter(Boolean);
-    $('xpWeekLine').textContent = bits.length ? bits.join(' · ') : 'Nothing yet this week. Ship something and it shows up here.';
-    $('xpWeekShipped').replaceChildren(...withArt(w).slice(0, 8).map(p => h('li', { class: p.isNew ? 'new' : '', title: p.isNew ? `${p.name}: new sticker this week` : p.name, text: p.name })));
+    const planned = renderPlan(w);
+    // The week's work and the extras, one per cell; the shipped chips already say which stickers are new.
+    const work = [...(w.work || []).map(l => `${l.icon} ${l.text}`), ...extras({ ...w.counts, newStickers: 0 })];
+    const facts = factsLine(w, planned);
+    const quiet = !facts && !work.length && !w.trophies.length && !w.shipped.length;
+    const line = $('xpWeekLine');
+    line.textContent = quiet && !planned ? 'Nothing yet this week. Ship something and it shows up here.' : facts;
+    line.hidden = !line.textContent;
+    $('xpWeekWork').replaceChildren(...work.map(text => h('li', { text, title: text })));
+    // A big week's trophies stop at a row or so; the rest are named on hover.
+    const names = w.trophies.map(t => `${t.icon} ${t.name}`);
+    const rest = names.slice(MAX_TROPHY_CHIPS);
+    $('xpWeekTrophies').replaceChildren(
+      ...names.slice(0, MAX_TROPHY_CHIPS).map(text => h('li', { text })),
+      rest.length ? h('li', { class: 'more', text: `+${rest.length} more`, title: rest.join('\n') }) : null,
+    );
+    $('xpWeekTrophiesRow').hidden = !w.trophies.length;
+    const shipped = withArt(w).slice(0, 8);
+    $('xpWeekShipped').replaceChildren(...shipped.map(p => h('li', { class: p.isNew ? 'new' : '', title: p.isNew ? `${p.name}: new sticker this week` : p.name, text: p.name })));
+    $('xpWeekShippedRow').hidden = !shipped.length;
   }
 
   document.querySelectorAll('[data-share-week]').forEach(b => b.addEventListener('click', share));
