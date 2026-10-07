@@ -4,9 +4,10 @@
 //
 //   node scripts/e2e-ci.js              all of them
 //   node scripts/e2e-ci.js queue voice  just the ones whose name contains these
+//   node scripts/e2e-ci.js --shard=2/4  every fourth one, starting with the second
 //
 // They run one at a time on purpose: each launches its own Electron and some
-// share hook ports. Everything else in scripts/ needs a real Claude account, a
+// share hook ports. CI splits them across machines with --shard instead. Everything else in scripts/ needs a real Claude account, a
 // real GitHub or the live registry, and stays a manual check (see
 // docs/DEVELOPMENT.md).
 const { spawnSync } = require('child_process');
@@ -70,12 +71,33 @@ const SUITE = [
 
 const TIMEOUT_MS = 5 * 60 * 1000;
 
-const wanted = process.argv.slice(2).filter(a => !a.startsWith('-'));
-const suite = wanted.length ? SUITE.filter(s => wanted.some(w => s.includes(w))) : SUITE;
-if (!suite.length) {
-  console.error(`No checks match ${wanted.join(', ')}. Known: ${SUITE.join(', ')}`);
+/**
+ * The checks to run: those whose name contains a word asked for (all, with
+ * none), then, with --shard=i/n, every nth of those starting at the ith. Taking
+ * every nth rather than a block spreads the slow checks across the shards.
+ * -> { suite } | { error }. Pure.
+ */
+function pick(all, args) {
+  const wanted = args.filter(a => !a.startsWith('-'));
+  const shardArg = args.find(a => a.startsWith('--shard'));
+  const m = shardArg && /^--shard=(\d+)\/(\d+)$/.exec(shardArg);
+  if (shardArg && (!m || +m[1] < 1 || +m[1] > +m[2])) return { error: `${shardArg}: use --shard=i/n, with i from 1 to n` };
+  const matched = wanted.length ? all.filter(s => wanted.some(w => s.includes(w))) : all;
+  if (!matched.length) return { error: `No checks match ${wanted.join(', ')}. Known: ${all.join(', ')}` };
+  return { suite: m ? matched.filter((_, k) => k % +m[2] === +m[1] - 1) : matched };
+}
+
+if (require.main !== module) {
+  module.exports = { SUITE, pick };
+  return;
+}
+
+const picked = pick(SUITE, process.argv.slice(2));
+if (picked.error) {
+  console.error(picked.error);
   process.exit(2);
 }
+const { suite } = picked;
 
 // Each check launches and kills its own Electron, and Windows takes a moment to
 // let go of the profile, the ports and the GPU cache. Without a gap, a later

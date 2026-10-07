@@ -36,9 +36,19 @@ jobs:
   # launches the real app and drives it over CDP with the fake Claude CLI. Its
   # own job, so a renderer regression and a failing unit test surface together
   # rather than one hiding behind the other.
+  #
+  # The checks run one at a time on a machine (they share hook ports), so they
+  # are split across four: each runner takes every fourth check
+  # (scripts/e2e-ci.js --shard). fail-fast off, so one red shard doesn't cancel
+  # the others and hide what else broke.
   e2e:
+    name: e2e (${{ matrix.shard }}/4)
     runs-on: windows-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -50,7 +60,7 @@ jobs:
       # (it's a postinstall download, not a package file), and these checks launch
       # the real app. Idempotent: it exits immediately when the binary is there.
       - run: node node_modules/electron/install.js
-      - run: npm run e2e:ci
+      - run: npm run e2e:ci -- --shard=${{ matrix.shard }}/4
 
   # "Shellby made this slower": cold start, panel open, his share of a reply's
   # latency, idle CPU and memory, each against scripts/perf-budgets.js (~4 min).
