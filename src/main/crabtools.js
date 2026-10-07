@@ -30,6 +30,8 @@ const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
 // The Projects page from a terminal (projects/terminal.js): read-only, bar the to-do list.
 const PROJECT_ACTIONS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task'];
+// What needs the crab token on /v1/crab: the project questions, and the journal (what you asked, which files, and pins).
+const TOKEN_ACTIONS = [...PROJECT_ACTIONS, 'journal'];
 const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', 'journal', ...PROJECT_ACTIONS];
 const MAX_PROJECT = 200;
 const MAX_FOLDER = 400;
@@ -422,6 +424,6 @@ module.exports = {
   parseRequest, matchItem, wearReply, statusReply, ackReply,
   routineQuestion, routineReply, routinesReply,
   parseWorkflowCall, workflowsReply,
-  ACTIONS, PROJECT_ACTIONS, LOG_LINES, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
+  ACTIONS, PROJECT_ACTIONS, TOKEN_ACTIONS, LOG_LINES, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
   MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY,
 };

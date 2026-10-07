@@ -67,10 +67,12 @@ function wireCrabApi(d) {
 
     // The Projects page from a terminal: next_up, server_log and the rest, for
     // the MCP tools and `shellby projects` / `shellby next` alike.
-    if (crabtools.PROJECT_ACTIONS.includes(intent.action)) {
+    // The journal too: its notes say what you asked, which files and commits, and it takes pins.
+    if (crabtools.TOKEN_ACTIONS.includes(intent.action)) {
       if (!crabToken || !clipath.tokenMatches(crabToken, token)) {
         return { ok: false, error: "Shellby only answers questions about your projects from programs running as you, and this one didn't show his token. Update the Shellby plugin and the shellby command, then try again.", status: 401 };
       }
+      if (intent.action === 'journal') return journalRequest(intent);
       if (d.config.get('crabOnly')) return { ok: false, error: 'Projects are off: Shellby is in just-the-crab mode.', status: 403 };
       if (!d.projects) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
       return d.projects.forTerminal(intent);
@@ -90,14 +92,6 @@ function wireCrabApi(d) {
       return d.workflows.proposeFromClaude(intent.workflow);
     }
 
-    // The project journal: the handoff notes for Claude to start from, so it
-    // doesn't spend a turn re-reading the project (wiring/journal.js).
-    if (intent.action === 'journal') {
-      if (d.config.get('crabOnly') || !d.journal) return { ok: false, error: 'The journal is off: Shellby is in just-the-crab mode.', status: 403 };
-      if (!intent.pin) return d.journal.briefFor(intent.folder).then(text => ({ text }));
-      return d.journal.pinFor(intent.folder, intent.pin)
-        .then(r => (r.ok ? { text: `Pinned to the project's journal: [${intent.pin.kind}] ${intent.pin.text}` } : { ok: false, error: r.error, status: 400 }));
-    }
 
     if (intent.action === 'wear') {
       const items = d.wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
@@ -119,6 +113,15 @@ function wireCrabApi(d) {
     }
     if (intent.text) sayText(intent.text, 'mcp');
     return { text: crabtools.ackReply(intent) };
+  }
+
+  // The project journal: the handoff notes for Claude to start from, so it
+  // doesn't spend a turn re-reading the project (wiring/journal.js). Behind the crab token.
+  function journalRequest(intent) {
+    if (d.config.get('crabOnly') || !d.journal) return { ok: false, error: 'The journal is off: Shellby is in just-the-crab mode.', status: 403 };
+    if (!intent.pin) return d.journal.briefFor(intent.folder).then(text => ({ text }));
+    return d.journal.pinFor(intent.folder, intent.pin)
+      .then(r => (r.ok ? { text: `Pinned to the project's journal: [${intent.pin.kind}] ${intent.pin.text}` } : { ok: false, error: r.error, status: 400 }));
   }
 
   /** Everything `status` reports, gathered from the parts that own it. */

@@ -787,9 +787,10 @@ test('add_task text must be text, and is measured as it would be kept', () => {
   assert.equal(parseRequest({ action: 'add_task', args: { text: 'a'.repeat(201) } }).ok, false);
 });
 
-test('the server sends the crab token with the project tools only', () => {
+test('the server sends the crab token with the project tools and the journal only', () => {
   const server = require(SERVER);
-  assert.deepEqual([...server.PROJECT_TOOLS].sort(), [...require('../src/main/crabtools').PROJECT_ACTIONS].sort());
+  assert.deepEqual([...server.PROJECT_TOOLS].sort(), [...require('../src/main/crabtools').TOKEN_ACTIONS].sort());
+  assert.ok(server.PROJECT_TOOLS.includes('journal'), 'the journal reads what you asked and which files: it needs the token too');
   const fs2 = require('fs');
   const os2 = require('os');
   const dir = fs2.mkdtempSync(path.join(os2.tmpdir(), 'shellby-crab-'));
