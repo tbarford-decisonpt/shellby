@@ -274,6 +274,7 @@ src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
   panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · feed (crew lanes) · tabs · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · workmode · outfitcode · github · boot
+                   a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI
