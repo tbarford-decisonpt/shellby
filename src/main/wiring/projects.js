@@ -5,7 +5,7 @@ const { app, clipboard, safeStorage } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { findClaude, run: runCli } = require('../claude-cli');
+const { run: runCli } = require('../claude-cli');
 const confirm = require('../confirm');
 const depwatch = require('../depwatch');
 const devRunner = require('../devservers/runner');
@@ -245,7 +245,7 @@ function wireProjects(d) {
   // folder. Dev and screenshot runs: the fake CLI answers instead.
   function runClaudeOnce(args, timeoutMs, opts) {
     if (d.FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [d.FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
-    const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    const exe = d.claudeExe();
     if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
     return runCli(exe, args, timeoutMs, { cwd: os.homedir(), ...opts });
   }

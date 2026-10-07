@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { findClaude, verifyClaude, candidatePaths } = require('../src/main/claude-cli');
+const { findClaude, verifyClaude, candidatePaths, currentClaude, claudeMoved } = require('../src/main/claude-cli');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 
@@ -70,4 +70,34 @@ test('verify rejects a folder, a missing file and nothing at all', async () => {
   assert.match((await verifyClaude(path.join(dir, 'nope.exe'))).error, /there any more/);
   assert.match((await verifyClaude('')).error, /No file chosen/);
   assert.match((await verifyClaude(null)).error, /No file chosen/);
+});
+
+// Claude Code's own installer can move it while Shellby runs: the native
+// updater takes an npm copy away, say. The path found at boot is kept only
+// while it's still there; otherwise the search runs again, then and there.
+test('a found path is kept while it is still there', () => {
+  const dir = tmp();
+  const found = path.join(dir, 'claude.exe');
+  fs.writeFileSync(found, '');
+  const onPath = tmp();
+  fs.writeFileSync(path.join(onPath, 'claude.exe'), '');
+  assert.equal(currentClaude(found, { PATH: onPath }), found, 'not swapped for another the search would find');
+});
+
+test('a found path that has gone away gives way to a fresh search', () => {
+  const onPath = tmp();
+  const real = path.join(onPath, 'claude.exe');
+  fs.writeFileSync(real, '');
+  assert.equal(currentClaude('Z:\\removed\\claude.exe', { PATH: onPath }), real);
+  assert.equal(currentClaude(null, { PATH: onPath }), real, 'nothing found yet: the search runs');
+  assert.equal(currentClaude('Z:\\removed\\claude.exe', { PATH: tmp() }), null, 'and says so when there is none');
+});
+
+test('moved means found somewhere else, or found and then lost, never not-installed twice', () => {
+  assert.equal(claudeMoved({ installed: true, exe: 'C:/a/claude.exe' }, 'C:/b/claude.exe'), true);
+  assert.equal(claudeMoved({ installed: true, exe: 'C:/a/claude.exe' }, null), true, 'uninstalled since');
+  assert.equal(claudeMoved({ installed: false }, 'C:/b/claude.exe'), true, 'installed since');
+  assert.equal(claudeMoved({ installed: true, exe: 'C:/a/claude.exe' }, 'C:/a/claude.exe'), false);
+  assert.equal(claudeMoved({ installed: false }, null), false, 'still not installed: nothing to check again');
+  assert.equal(claudeMoved(null, 'C:/b/claude.exe'), false, 'no status yet: the boot check is on its way');
 });

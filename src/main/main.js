@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { randomUUID } = require('crypto');
 
-const { checkStatus } = require('./claude-cli');
+const { checkStatus, claudeMoved, currentClaude, findClaude } = require('./claude-cli');
 const { loadSkins } = require('./skins');
 const { clampToDisplays } = require('./placement');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
@@ -112,6 +112,8 @@ const ISOLATED = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
 const repeating = [];
 const every = (fn, ms) => { const t = setInterval(fn, ms); repeating.push(t); return t; };
 
+let claudeRecheck = null; // a status check after Claude Code moved (shared.claudeExe), one at a time
+
 // ================================================================ shared
 // What main shares with the modules in ipc/ and wiring/: the state they all
 // read and change, set at boot or as he runs, and each area's exports, which
@@ -135,6 +137,27 @@ const shared = {
   registryUrl: () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL,
   // A CLI the user pointed at by hand, when the usual places didn't have it.
   claudePath: () => shared.config?.get('claudePath') || null,
+  // The CLI to start now: what the boot-time check found, while it's still
+  // there. Claude Code's installer moves it while Shellby runs (the native
+  // updater takes an npm copy away), and until this the old path was started on
+  // every turn — "can't find Claude Code" until Shellby itself was restarted.
+  // When it has moved, the search runs again (claude-cli.js currentClaude) and
+  // the status is checked once more so Settings, the updater and the status
+  // line see the copy actually in use. Screenshot and fake-CLI runs keep their
+  // faked status (see ipc/panel.js claude:status).
+  claudeExe() {
+    const status = shared.claudeStatus;
+    if (CAPTURE || FAKE_CLI) return status?.exe || findClaude(process.env, shared.claudePath());
+    const exe = currentClaude(status?.exe, process.env, shared.claudePath());
+    if (claudeMoved(status, exe) && !claudeRecheck) {
+      log.info('Claude Code moved', `${status?.exe || 'not found'} → ${exe || 'not found'}`);
+      claudeRecheck = checkStatus({ configured: shared.claudePath() })
+        .then(s => { shared.claudeStatus = s; shared.refreshStatusLine(); shared.send(shared.panel, 'claude:status', s); })
+        .catch(err => log.warn('Claude CLI status check failed after it moved', err?.message || String(err)))
+        .finally(() => { claudeRecheck = null; });
+    }
+    return exe;
+  },
   // Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
   worktreeHome: () => path.join(app.getPath('userData'), 'worktrees'),
   claudeConfigDir: () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),

@@ -5,7 +5,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { findClaude, run: runCli } = require('../claude-cli');
+const { run: runCli } = require('../claude-cli');
 const claudeSetup = require('../claude-setup');
 const confirm = require('../confirm');
 const hookDraft = require('../hook-draft');
@@ -317,7 +317,7 @@ function wireToolbox(d) {
       pluginsRoot: path.join(os.homedir(), '.claude', 'plugins'),
       run: async (args, timeout) => {
         // The exe is looked up per call: Claude Code may be installed after Shellby starts.
-        const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+        const exe = d.claudeExe();
         if (!exe) return { ok: false, notInstalled: true, stdout: '', stderr: '' };
         try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }
         return runCli(exe, args, timeout, { cwd });
