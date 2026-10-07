@@ -62,6 +62,7 @@ function registerLifeIpc(ipcMain, d) {
     openPath: p => shell.openPath(p),
     showItem: p => shell.showItemInFolder(p),
     openExternal: url => shell.openExternal(url),
+    journal: () => d.journal,
   });
   ipcMain.on('critter:menu', () => {
     d.reachedForShellby();

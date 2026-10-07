@@ -71,6 +71,10 @@ function wireProjects(d) {
       }),
       insights: d.projectInsights,
       sessions: () => d.history?.list() || [],
+      journal: (roots, name) => {
+        const v = d.journal?.view(roots);
+        return v ? { ...v, draft: d.journal.draftFor(v.root, name) } : null;
+      },
     });
     d.projects.on('change', () => d.send(d.panel, 'projects:changed'));
     d.devServers.reattach();

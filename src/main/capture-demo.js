@@ -7,6 +7,7 @@ const path = require('path');
 const out = require('./devservers/output');
 const weekly = require('./weekly');
 const { withInsights, sessionsFor } = require('./projects/insights');
+const journalNotes = require('./journal');
 
 const HOME = 'C:\\Users\\you';
 const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
@@ -15,6 +16,25 @@ const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String
 // ---------------------------------------------------------------- Projects
 // Canned replies for the projects:* and servers:* IPC (the real ones read git
 // and run package managers). Display order is array order.
+// The 3d-rack page's handoff notes (journal.js): two sessions and a pin.
+function demoJournal(now, name, root) {
+  let book = journalNotes.record(null, {
+    sessionId: 'demo-s2-note', title: 'Rack units ruler', at: now - 3 * HOUR, turns: 4, branch: 'shellby/rack-units-ruler',
+    open: ['Snap the ruler to 1U steps'], done: ['Draw the U marks'], next: [], decisions: [],
+    files: ['src/ruler.ts', 'src/scene.ts'], moreFiles: 0, dirty: 0, commits: ['feat: rack units ruler'], ended: 'The ruler draws; snapping is next.',
+  });
+  book = journalNotes.record(book, {
+    sessionId: 'demo-s1-note', title: 'Snap cables to the nearest tray', at: now - 25 * MIN, turns: 3, branch: 'main',
+    asked: 'Keep the cable slack when it snaps', open: ['Keep slack on snapped cables', 'Test with two trays'],
+    next: ['Still need to handle a cable that spans two racks.'],
+    decisions: ['Went with snapping on drop instead of while dragging, so the frame rate holds.'],
+    done: ['Find the nearest tray'], files: ['src/cables.ts', 'src/trays.ts', 'test/cables.test.ts'], moreFiles: 2, dirty: 3, commits: [],
+    ended: 'Cables snap to the nearest tray on drop. Still need to handle a cable that spans two racks.',
+  });
+  ({ book } = journalNotes.pin(book, { kind: 'decision', text: 'Trays are 1U; never let a cable snap between them.' }, now - DAY));
+  return { root, notes: book.notes, pins: book.pins, draft: journalNotes.draft(book, { name, now }) };
+}
+
 function demoProjects(now) {
   const code = n => path.win32.join(HOME, 'code', n);
   const R = { shellby: code('shellby'), shellby2: 'D:\\work\\shellby', rack3d: code('3d-rack'), rack: code('rack-builder'), tide: code('tidepool') };
@@ -128,7 +148,8 @@ function demoProjects(now) {
   const detail = Object.fromEntries(list.projects.map((p, n) => {
     const local = p.local.map((c, i) => ({ ...c, git: gitOf(projects[n].git[i]) }));
     const copies = local.flatMap(c => c.git.copyList.map(w => w.path));
-    return [p.key, { ...p, local, sessions: sessionsFor(sessions, local.map(c => c.root), copies) }];
+    const journal = local.some(c => c.root === R.rack3d) ? demoJournal(now, p.name, R.rack3d) : null;
+    return [p.key, { ...p, local, sessions: sessionsFor(sessions, local.map(c => c.root), copies), journal }];
   }));
   const serverLog = id => (logs[id] ? { lines: logs[id], errors: [...out.errorLines(logs[id])] } : null);
   const fixDraft = ({ id, note = '' } = {}) => {

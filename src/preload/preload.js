@@ -421,6 +421,8 @@ contextBridge.exposeInMainWorld('shellby', {
   openProjectFolder: invoke('projects:open-folder'),
   openProjectOnGitHub: invoke('projects:open-github'),
   installProject: invoke('projects:install'),
+  pinToJournal: invoke('projects:journal-pin'),
+  removeFromJournal: invoke('projects:journal-remove'),
   onProjectsChanged: on('projects:changed'),
   onProjectsShow: on('projects:show'),
   onCloneProgress: on('projects:clone-progress'),

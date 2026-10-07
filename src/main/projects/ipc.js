@@ -15,6 +15,7 @@ const LOCAL_URL = /^https?:\/\/localhost:\d{1,5}\/\S*$/;
  *   pickFolder({ title, defaultPath }) -> Promise<string | null>
  *   toPanel(channel, payload)
  *   openPath(p), showItem(p), openExternal(url)
+ *   journal()                       wiring/journal.js (null until created)
  * }
  */
 function registerProjectsIpc(ipcMain, d) {
@@ -74,6 +75,19 @@ function registerProjectsIpc(ipcMain, d) {
     const r = checkRepo(repo);
     if (r) d.openExternal(`https://github.com/${r}`);
     return !!r;
+  });
+  // The handoff notes on a project's page: pin a line of your own, or take one off.
+  ipcMain.handle('projects:journal-pin', (_e, { root, kind, text } = {}) => {
+    const known = P()?.knowsRoot(root);
+    if (!known || typeof text !== 'string') return { ok: false, error: 'Unknown project folder.' };
+    return d.journal()?.pinFor(known, { kind, text }, { fromPanel: true }) ?? { ok: false };
+  });
+  ipcMain.handle('projects:journal-remove', (_e, { root, pinId, sessionId } = {}) => {
+    const known = P()?.knowsRoot(root);
+    if (!known) return { ok: false };
+    const id = v => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v) ? v : null);
+    if (!id(pinId) && !id(sessionId)) return { ok: false };
+    return d.journal()?.remove(known, { pinId: id(pinId), sessionId: id(sessionId) }) ?? { ok: false };
   });
   ipcMain.handle('projects:install', (_e, root) => {
     const known = P()?.knowsRoot(root);

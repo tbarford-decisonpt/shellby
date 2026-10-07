@@ -431,11 +431,14 @@ function wireTimetrack(d) {
       d.noteWorkTime(e.ms);
       d.tellChannel({ kind: 'done', project: e.project, tools: e.tools });
       d.recordWork(e.cwd);
+      if (e.folder) d.journal?.touched({ sessionId: e.sessionId, cwd: e.folder, strict: true });
       d.flashState('success');
       const fx = d.outfit().effect;
       if (fx?.motion === 'burst') d.send(d.critter, 'critter:burst', fx);
       stat('task-completed');
     });
+    // A terminal session closed: its project's handoff note, straight away (wiring/journal.js).
+    d.external.on('session-end', e => d.journal?.touched({ sessionId: e.sessionId, cwd: e.cwd, now: true, strict: true }));
     d.external.on('asking', e => { d.wake(); d.tellChannel({ kind: 'asking', project: e.project, message: e.message }); });
     if (d.config.get('externalSessions')) d.external.start();
   }

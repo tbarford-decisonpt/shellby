@@ -46,6 +46,7 @@ class Projects extends EventEmitter {
    *   github() -> { signedIn, login, can(feature), gh(), claudeEnv() }
    *   insights?() -> what the rest of Shellby knows per project (insights.js's sources)
    *   sessions?() -> History's index, for a project's recent conversations
+   *   journal?(roots, name) -> its handoff notes (wiring/journal.js), or null
    *   run?: git runner (tests)
    * }
    */
@@ -207,7 +208,9 @@ class Projects extends EventEmitter {
       const copies = local.flatMap(c => (c.git?.copyList || []).map(w => w.path));
       sessions = sessionsFor(this.deps.sessions?.() || [], local.map(c => c.root), copies);
     } catch { /* no History, no list */ }
-    return { ...p, sessions };
+    let journal = null;
+    try { journal = this.deps.journal?.(local.map(c => c.root), p.name) || null; } catch { /* no notes */ }
+    return { ...p, sessions, journal };
   }
 
   // ------------------------------------------------------------------ adding and removing
