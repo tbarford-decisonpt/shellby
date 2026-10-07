@@ -139,6 +139,25 @@ test('a stepped breathe moves only when it crosses a step', () => {
   assert.equal(ShellbyFrameCap.changes(info, timing, 900, 1100), true); // coming round
 });
 
+test('a step easing jumps where its position says, so a hold costs no move at its start', () => {
+  const { stepsOf } = ShellbyFrameCap;
+  assert.deepEqual(stepsOf('steps(2)'), [0.5, 1]);
+  assert.deepEqual(stepsOf('steps(2, end)'), [0.5, 1]);
+  assert.deepEqual(stepsOf('steps(2, jump-start)'), [0, 0.5]);
+  assert.deepEqual(stepsOf('steps(2, jump-both)'), [0, 0.5, 1]);
+  assert.deepEqual(stepsOf('step-end'), [1]);
+  assert.deepEqual(stepsOf('step-start'), [0]);
+  assert.equal(stepsOf('ease'), null);
+});
+
+test('a stepped claw snap is not moved where it only holds', () => {
+  // snap-idle: still until 94%, then rotated, still, rotated, still: four real changes
+  const info = ShellbyFrameCap.changesOf(keyed([kf(0, 'none', 'steps(1)'), kf(0.94, 'none', 'steps(1)'), kf(0.955, 'rotate(-18deg)', 'steps(1)'), kf(0.97, 'none', 'steps(1)'), kf(0.985, 'rotate(-18deg)', 'steps(1)'), kf(1, 'none', 'steps(1)')]).effect);
+  assert.deepEqual(info.jumps.sort(), [0.955, 0.97, 0.985, 1]);
+  const timing = { duration: 1000, iterations: Infinity, direction: 'normal' };
+  assert.equal(ShellbyFrameCap.changes(info, timing, 900, 950), false, 'the hold up to 94% and the start of the first snap draw nothing');
+});
+
 test('keyframes it cannot read keep the old every-tick behaviour', () => {
   assert.equal(ShellbyFrameCap.changesOf(keyed([kf(0.2, 'none'), kf(1, 'rotate(1deg)')]).effect), null); // no 0% keyframe
   assert.equal(ShellbyFrameCap.changesOf(keyed([kf(0, 'none'), kf(1, 'rotate(1deg)')], { easing: 'ease-in' }).effect), null);

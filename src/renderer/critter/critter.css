@@ -130,11 +130,13 @@ html, body {
 .part-claw { transform-origin: 0% 50%; }
 
 /* ---------- idle: breathe, blink, the odd claw snap ---------- */
-/* The breathe goes a whole pixel at a time, so it draws four frames a breath
-   rather than one every tick (shared/framecap.js only moves what changes). */
-.state-idle #sprite { animation: breathe 3.2s steps(2) infinite; }
+/* Each picture he shows costs a presented frame of a transparent window, all
+   day (shared/framecap.js only moves what changes), so idle is pixel-art
+   frames: the breathe is two (up, down), a blink two, the snap-snap four, and
+   the snap comes round every 18 s. About one frame a second in all. */
+.state-idle #sprite { animation: breathe 4.4s steps(1) infinite; }
 .state-idle .part-eyes { animation: blink 6s steps(1) infinite; }
-.state-idle .part-claw { animation: snap-idle 9s steps(1) infinite; } /* a crisp snap-snap: four frames, not a dozen */
+.state-idle .part-claw { animation: snap-idle 18s steps(1) infinite; }
 #crab:hover #sprite { animation: perk .5s ease-out; }
 #crab:hover .part-claw { animation: wave 0.6s ease-in-out 2; }
 
@@ -219,7 +221,7 @@ html, body {
 @keyframes breathe { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-2px) } }
 @keyframes perk { 40% { transform: translateY(-4px) } }
 @keyframes blink { 0%,95%,100% { transform: scaleY(1) } 97% { transform: scaleY(.1) } }
-@keyframes snap-idle { 0%,88%,100% { transform: none } 91%,97% { transform: rotate(-18deg) } 94% { transform: none } }
+@keyframes snap-idle { 0%,94%,100% { transform: none } 95.5%,98.5% { transform: rotate(-18deg) } 97% { transform: none } }
 @keyframes wave { 50% { transform: rotate(-30deg) } }
 @keyframes hop { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
 @keyframes leg { 0% { transform: translateY(0) } 50% { transform: translateY(-1px) translateX(1px) } }
@@ -416,7 +418,7 @@ body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
 .focus-focus.state-idle .part-eyes { animation: guard-look 5s steps(1) infinite; }
 .focus-focus.state-idle #bubble { background: #3a86ff; color: #fff; font: 700 var(--fs-12) "Martian Mono", monospace; }
 .focus-focus.state-idle #bubble::after { border-top-color: #3a86ff; }
-.focus-break.state-idle #sprite { animation: breathe 4.5s ease-in-out infinite; }
+.focus-break.state-idle #sprite { animation: breathe 4.5s steps(1) infinite; }
 .focus-break.state-idle .part-eyes { transform: scaleY(.25); animation: none; }
 .focus-break.state-idle .part-claw { transform: rotate(10deg); animation: none; }
 .focus-break.state-idle #bubble { background: var(--glass); font: 700 var(--fs-12) "Martian Mono", monospace; }

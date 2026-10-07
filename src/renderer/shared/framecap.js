@@ -30,14 +30,22 @@
 
   const NOT_VALUES = new Set(['offset', 'computedOffset', 'easing', 'composite']);
 
-  // Where a step easing jumps, as fractions of its segment. Every k/n, ends
-  // included: a jump-start or jump-none just gets one move more than it needs.
+  // Where a step easing jumps, as fractions of its segment. steps(n) (jump-end,
+  // the default) jumps at 1/n..1, jump-start at 0..(n-1)/n; anything else gets
+  // every k/n, which is at worst one move more than it needs. A move that
+  // changes nothing still presents a frame, so the default leaves out 0.
   function stepsOf(easing) {
-    if (easing === 'step-start' || easing === 'step-end') return [0, 1];
-    const m = /^steps\(\s*(\d+)\s*(?:,\s*[a-z-]+\s*)?\)$/.exec(String(easing || ''));
+    if (easing === 'step-end') return [1];
+    if (easing === 'step-start') return [0];
+    const m = /^steps\(\s*(\d+)\s*(?:,\s*([a-z-]+)\s*)?\)$/.exec(String(easing || ''));
     if (!m) return null;
     const n = Math.min(Number(m[1]), 100);
-    return n > 0 ? Array.from({ length: n + 1 }, (_, k) => k / n) : null;
+    if (!(n > 0)) return null;
+    const all = Array.from({ length: n + 1 }, (_, k) => k / n);
+    const at = m[2] || 'end';
+    if (at === 'end' || at === 'jump-end') return all.slice(1);
+    if (at === 'start' || at === 'jump-start') return all.slice(0, -1);
+    return all;
   }
 
   /**

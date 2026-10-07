@@ -7,6 +7,35 @@
   const MOTIONS = ['fall', 'rise', 'float', 'orbit', 'twinkle', 'burst'];
   const rand = (a, b) => a + Math.random() * (b - a);
 
+  // How the crab's window plays a continuous effect: a flight now and then, not
+  // all day. A transparent window pays the GPU for every frame it presents
+  // (shared/framecap.js), and bats circling him all October drew every frame
+  // of the clock, about 2 points of a core on their own. Between flights the
+  // particles are removed, which frees the work; pausing them would not.
+  const FLIGHT = { on: 8000, off: 172000, fade: 600 }; // 8 s every 3 min
+
+  // flights({ on, off, fade, setTimeout, clearTimeout }, { show, leave, hide }) -> { stop() }
+  // show() now; leave() `fade` ms before the end of each flight (time to fade
+  // out); hide() at its end; show() again `off` ms later, and so on until stop().
+  function flights(opts, { show, leave = () => {}, hide }) {
+    const later = opts.setTimeout || setTimeout;
+    const cancel = opts.clearTimeout || clearTimeout;
+    const fade = Math.min(opts.fade || 0, opts.on);
+    let timer = null;
+    let stopped = false;
+    const at = (ms, fn) => { timer = later(() => { if (!stopped) fn(); }, ms); };
+    function fly() {
+      show();
+      at(opts.on - fade, () => { leave(); at(fade, rest); });
+    }
+    function rest() {
+      hide();
+      at(opts.off, fly);
+    }
+    fly();
+    return { stop() { stopped = true; cancel(timer); } };
+  }
+
   function particle(effect, i, px) {
     const sprite = effect.sprites[i % effect.sprites.length];
     const el = document.createElement('div');
@@ -38,21 +67,39 @@
     return el;
   }
 
-  // mount(container, effect|null, { px }) -> { set(effect), burst(effect?), destroy() }
-  function mount(container, effect, { px = 3 } = {}) {
+  // mount(container, effect|null, { px, flights }) -> { set(effect), burst(effect?), destroy() }
+  // `flights` ({ on, off, fade } or true for FLIGHT) plays a continuous effect
+  // in flights instead of all the time: the crab's window wants it, a preview doesn't.
+  function mount(container, effect, { px = 3, flights: rhythm = null } = {}) {
     const layer = document.createElement('div');
     layer.className = 'fx-layer';
     layer.setAttribute('aria-hidden', 'true');
     container.append(layer);
     let current = null;
+    let flying = null;
+
+    function particles() {
+      const n = Math.max(1, Math.min(24, current.count || 10));
+      return Array.from({ length: n }, (_, i) => particle(current, i, px));
+    }
+
+    // The continuous particles go; a burst playing alongside stays.
+    const clear = () => { for (const el of [...layer.children]) if (!el.classList.contains('fx-burst')) el.remove(); };
 
     function set(next) {
       current = next && MOTIONS.includes(next.motion) && next.sprites?.length ? next : null;
+      flying?.stop();
+      flying = null;
       layer.replaceChildren();
+      layer.classList.remove('fx-arriving', 'fx-leaving');
       layer.dataset.motion = current ? current.motion : '';
       if (!current || current.motion === 'burst') return; // bursts only play on demand
-      const n = Math.max(1, Math.min(24, current.count || 10));
-      for (let i = 0; i < n; i++) layer.append(particle(current, i, px));
+      if (!rhythm) { layer.append(...particles()); return; }
+      flying = flights(rhythm === true ? FLIGHT : rhythm, {
+        show: () => { layer.classList.remove('fx-leaving'); layer.classList.add('fx-arriving'); layer.append(...particles()); },
+        leave: () => layer.classList.replace('fx-arriving', 'fx-leaving'),
+        hide: () => { clear(); layer.classList.remove('fx-arriving', 'fx-leaving'); },
+      });
     }
 
     // One-shot celebration; uses the equipped burst effect or the fallback given.
@@ -68,8 +115,9 @@
     }
 
     set(effect);
-    return { set, burst, destroy: () => layer.remove(), get effect() { return current; } };
+    return { set, burst, destroy: () => { flying?.stop(); layer.remove(); }, get effect() { return current; } };
   }
 
-  root.ShellbyFx = { mount, MOTIONS };
+  root.ShellbyFx = { mount, flights, MOTIONS, FLIGHT };
+  if (typeof module !== 'undefined') module.exports = root.ShellbyFx;
 })(typeof window !== 'undefined' ? window : globalThis);
