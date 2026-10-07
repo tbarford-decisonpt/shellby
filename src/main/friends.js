@@ -9,6 +9,7 @@ const mail = require('./github/mail');
 const MAX_FRIENDS = 30;
 const MAX_GUESTBOOK = 60;
 const MAX_INBOX = 20;
+const MAX_REMOVED = 100;
 const TICK_MS = 5 * 60 * 1000;
 const REFRESH_MS = 15 * 60 * 1000;
 const VISIT_MS = 3 * 60 * 1000;
@@ -69,6 +70,7 @@ function normalize(raw) {
     card: f.card ? card.cleanCard(f.card) : null,
     checkedAt: num(f.checkedAt),
     visitedAt: num(f.visitedAt),
+    addedAt: num(f.addedAt),
   }));
   const byId = new Set(SOUVENIRS.map(s => s.id));
   return {
@@ -82,11 +84,61 @@ function normalize(raw) {
     inbox: (Array.isArray(r.inbox) ? r.inbox : [])
       .filter(m => isLogin(m?.from) && mail.isWave(m.wave) && num(m.at))
       .map(m => ({ from: m.from, wave: m.wave, at: m.at })).slice(0, MAX_INBOX),
+    removed: cleanRemoved(r.removed),
     publishedAt: num(r.publishedAt),
     lastVisitAt: num(r.lastVisitAt),
     lastRefreshAt: num(r.lastRefreshAt),
     error: typeof r.error === 'string' ? r.error.slice(0, 200) : null,
   };
+}
+
+// Friends you removed, and when, so a sync doesn't bring them back (syncable).
+function cleanRemoved(raw) {
+  const seen = new Set();
+  return (Array.isArray(raw) ? raw : [])
+    .filter(x => isLogin(x?.login) && num(x.at) && !seen.has(x.login.toLowerCase()) && seen.add(x.login.toLowerCase()))
+    .map(x => ({ login: x.login, at: x.at })).sort((a, b) => b.at - a.at).slice(0, MAX_REMOVED);
+}
+
+// ---------------------------------------------------------------- sync
+// The list follows you between PCs (github/sync.js): who's on it, each one's
+// card gist as a hint, and who you removed. Each friend goes with the latest
+// of being added or removed on any PC. Cards, visits, the guestbook and waves
+// stay on each PC: they're fetched or happen there. A friend from before this
+// counts as added at 1, so a removal anywhere beats it.
+
+/** The part of the friends state that syncs (also cleans remote data). */
+function syncable(raw) {
+  const s = normalize(raw);
+  return {
+    list: s.list.map(f => ({ login: f.login, cardId: f.cardId, addedAt: f.addedAt || 1 })),
+    removed: s.removed,
+  };
+}
+
+/** Both PCs' lists: for each login, whichever happened last wins. A tie keeps the friend. */
+function mergeSync(aIn, bIn) {
+  const a = syncable(aIn), b = syncable(bIn);
+  const latest = new Map();
+  const consider = (key, e) => { const was = latest.get(key); if (!was || e.at > was.at || (e.at === was.at && e.add && !was.add)) latest.set(key, e); };
+  for (const f of [...a.list, ...b.list]) consider(f.login.toLowerCase(), { add: true, at: f.addedAt, f });
+  for (const r of [...a.removed, ...b.removed]) consider(r.login.toLowerCase(), { add: false, at: r.at, r });
+  const won = [...latest.values()];
+  return syncable({
+    list: won.filter(e => e.add).sort((x, y) => x.at - y.at).map(e => e.f),
+    removed: won.filter(e => !e.add).map(e => e.r),
+  });
+}
+
+/** Lay a merged list over this PC's state, keeping what it knows of each friend who stays. */
+function applySync(localRaw, mergedRaw) {
+  const local = normalize(localRaw);
+  const merged = syncable(mergedRaw);
+  const list = merged.list.map(m => {
+    const mine = local.list.find(f => card.sameLogin(f.login, m.login));
+    return mine ? { ...mine, addedAt: m.addedAt } : { login: m.login, cardId: m.cardId, card: null, checkedAt: 0, visitedAt: 0, addedAt: m.addedAt };
+  });
+  return normalize({ ...local, list, removed: merged.removed });
 }
 
 /** Friends who could drop in on their own right now. */
@@ -248,13 +300,17 @@ class Friends extends EventEmitter {
       return { ok: false, error: `Couldn't reach GitHub: ${String(e.message).slice(0, 150)}` };
     }
     // Add the latest list, not the one from before the lookup.
-    const friend = { login: hit?.card.login || login, cardId: hit?.id || null, card: hit?.card || null, checkedAt: this.now(), visitedAt: 0 };
-    this.save({ list: [...this.state.list, friend] });
+    const friend = { login: hit?.card.login || login, cardId: hit?.id || null, card: hit?.card || null, checkedAt: this.now(), visitedAt: 0, addedAt: this.now() };
+    const latest = this.state;
+    this.save({ list: [...latest.list, friend], removed: latest.removed.filter(r => !card.sameLogin(r.login, login)) });
     return { ok: true, hasCard: !!hit };
   }
 
   remove(login) {
-    this.save({ list: this.state.list.filter(f => !card.sameLogin(f.login, login)) });
+    const s = this.state;
+    const gone = s.list.find(f => card.sameLogin(f.login, login));
+    const removed = gone ? [{ login: gone.login, at: this.now() }, ...s.removed.filter(r => !card.sameLogin(r.login, login))] : s.removed;
+    this.save({ list: s.list.filter(f => !card.sameLogin(f.login, login)), removed });
     if (this.visiting && card.sameLogin(this.visiting.login, login)) this.leave();
     return { ok: true };
   }
@@ -357,4 +413,4 @@ class Friends extends EventEmitter {
   }
 }
 
-module.exports = { Friends, normalize, pickVisitor, pickTogether, TOGETHER, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS, eligible, souvenirFor, SOUVENIRS, VISIT_MS, VISIT_GAP_MS, SAME_FRIEND_GAP_MS, FRESH_MS };
+module.exports = { Friends, normalize, syncable, mergeSync, applySync, pickVisitor, pickTogether, TOGETHER, TOGETHER_FIRST_MS, TOGETHER_EVERY_MS, eligible, souvenirFor, SOUVENIRS, VISIT_MS, VISIT_GAP_MS, SAME_FRIEND_GAP_MS, FRESH_MS };

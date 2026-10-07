@@ -6,7 +6,7 @@
 // (profile-card.js there); this side checks it, publishes it when it changed,
 // and writes the Action and the README line for you to paste.
 const crypto = require('crypto');
-const { findGist } = require('./sync');
+const { findGist } = require('./gists');
 
 const PROFILE_FILE = 'shellby-profile.svg';
 const MAX_BYTES = 256 * 1024;

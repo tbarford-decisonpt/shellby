@@ -193,6 +193,31 @@ test('settings:set is refused from any window but the panel', async () => {
   assert.deepEqual(ipc.refused, ['settings:set'], 'written down once per channel');
 });
 
+test('settingsSynced: settings from another PC take effect, and a hotkey taken here stays the old one', () => {
+  const { config, d, rec } = setup({ hotkeyOk: false, config: { mode: 'ask', chatter: 'normal', syncStamps: { prefs: { hotkey: 5 } } } });
+  Object.defineProperty(config, 'data', { get: () => config.all() });
+  const before = config.all();
+  // What a sync writes (github/sync.js patchFor), syncStamps and all.
+  config.set({ mode: 'plan', hotkey: 'Ctrl+Q', critterPos: { x: 1 }, syncStamps: { prefs: { mode: 9, hotkey: 9 } } });
+
+  d.settingsSynced(before);
+
+  assert.deepEqual(rec.of('setMode'), [['plan']]);
+  assert.equal(config.get('hotkey'), 'Ctrl+Shift+Space', 'taken on this PC: the old one stays');
+  assert.equal(config.get('syncStamps').prefs.hotkey, 5, 'with its old stamp, so the next sync tries again');
+  assert.equal(config.get('syncStamps').prefs.mode, 9);
+  assert.ok(rec.of('send').some(([, channel]) => channel === 'settings'), 'the panel hears about it');
+});
+
+test('settingsSynced with nothing synced changed does nothing', () => {
+  const { config, d, rec } = setup();
+  Object.defineProperty(config, 'data', { get: () => config.all() });
+  const before = config.all();
+  config.set({ critterPos: { x: 1 } });
+  d.settingsSynced(before);
+  assert.equal(rec.of('send').length, 0);
+});
+
 test('folder:set only opens one of the recent folders, matched case-insensitively', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-folder-'));
   try {

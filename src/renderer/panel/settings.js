@@ -165,6 +165,12 @@
     SB.toast(state.settings.mode === 'autonomous' ? 'Autonomous mode on. Be careful out there.' : 'Autonomous mode stays off.');
   });
   $('autonomousNo').addEventListener('click', () => { $('autonomousConfirm').hidden = true; });
+  // Changed on another PC, and brought over by a sync.
+  api.onSettings(s => {
+    state.settings = s;
+    SB.applyMode(s.mode);
+    if (state.view === 'settings') renderSettings();
+  });
   $('changeFolderBtn').addEventListener('click', async () => { await SB.folderChanged(await api.pickFolder()); renderSettings(); });
   $('resetPosBtn').addEventListener('click', () => { api.resetCritterPosition(); SB.toast('Shellby is back in the bottom-right corner of your main screen.'); });
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });

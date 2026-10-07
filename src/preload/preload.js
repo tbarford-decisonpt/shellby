@@ -145,6 +145,7 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // settings
   setSettings: invoke('settings:set'),
+  onSettings: on('settings'), // changed on another PC (sync)
   pickFolder: invoke('folder:pick'),
   pickAnyFolder: invoke('folder:pick-any'),
   setFolder: invoke('folder:set'),
