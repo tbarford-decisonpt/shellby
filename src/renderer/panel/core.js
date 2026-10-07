@@ -155,13 +155,55 @@ SB.announce = text => {
 // The toast stays in the page (a status region that is always there gets read
 // out; one that appears with its words already in it often doesn't), and is
 // emptied rather than hidden.
+//
+// A toast with a button holds the slot: anything that comes in while it's up
+// waits its turn (and is dropped if it has gone stale by then), so a clash or a
+// catch can't snatch "Ask him to sort it out" from under the pointer. It stops
+// holding once you click or press Enter anywhere else: you've moved on, and
+// what you did next should answer straight away.
+const TOAST_MS = 2800;
+const TOAST_OFFER_EXTRA_MS = 2500; // time to reach for the button
+const TOAST_LINGER_MS = 3000;      // after the pointer or focus leaves it
+const TOAST_STALE_MS = 4000;       // how much longer than its own time a waiting toast stays worth saying
+const TOAST_WAITING_MAX = 3;
 let toastTimer;
-// actions: [{ label, onAction }] when there's more than one thing to offer.
-// title / note: a bold headline above msg and a quiet line under it, for
-// toasts with more to say than one sentence.
-SB.toast = (msg, { title, note, action, onAction, actions, ms = 2800 } = {}) => {
+let toastHolds = false;
+let toastWaiting = []; // [{ msg, opts, until }]
+let toastWired = false;
+
+function toastSlot() {
   const t = SB.$('toast');
-  const clear = () => t.replaceChildren();
+  if (toastWired) return t;
+  toastWired = true;
+  const linger = () => { if (t.children.length) armToast(TOAST_LINGER_MS); };
+  t.addEventListener('pointerenter', () => clearTimeout(toastTimer));
+  t.addEventListener('focusin', () => clearTimeout(toastTimer));
+  t.addEventListener('pointerleave', linger);
+  t.addEventListener('focusout', linger);
+  const movedOn = e => { if (toastHolds && !t.contains(e.target)) toastHolds = false; };
+  document.addEventListener('pointerdown', movedOn, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') movedOn(e); }, true);
+  return t;
+}
+
+function armToast(ms) {
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(endToast, ms);
+}
+
+// The slot empties, and the next one still worth saying takes it.
+function endToast() {
+  clearTimeout(toastTimer);
+  SB.$('toast').replaceChildren();
+  toastHolds = false;
+  const now = Date.now();
+  toastWaiting = toastWaiting.filter(w => w.until > now);
+  const next = toastWaiting.shift();
+  if (next) showToast(next.msg, { ...next.opts, ms: Math.min(next.opts.ms ?? TOAST_MS, next.until - now) });
+}
+
+function showToast(msg, { title, note, action, onAction, actions, ms = TOAST_MS } = {}) {
+  const t = toastSlot();
   const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
   const body = title || note
     ? SB.h('span', { class: 'toast-body' },
@@ -169,10 +211,27 @@ SB.toast = (msg, { title, note, action, onAction, actions, ms = 2800 } = {}) => 
       SB.h('span', { class: 'toast-text', text: msg }),
       note ? SB.h('span', { class: 'toast-note', text: note }) : null)
     : SB.h('span', { text: msg });
+  // What the button itself has to say comes first; the waiting ones after.
+  const pick = a => {
+    clearTimeout(toastTimer);
+    t.replaceChildren();
+    toastHolds = false;
+    a.onAction();
+    if (!t.children.length) endToast();
+  };
   t.replaceChildren(body,
-    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { clear(); a.onAction(); } }, a.label)));
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(clear, offers.length ? ms + 2500 : ms);
+    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => pick(a) }, a.label)));
+  toastHolds = offers.length > 0;
+  armToast(offers.length ? ms + TOAST_OFFER_EXTRA_MS : ms);
+}
+
+// actions: [{ label, onAction }] when there's more than one thing to offer.
+// title / note: a bold headline above msg and a quiet line under it, for
+// toasts with more to say than one sentence.
+SB.toast = (msg, opts = {}) => {
+  if (!toastHolds) return showToast(msg, opts);
+  const until = Date.now() + (opts.ms ?? TOAST_MS) + TOAST_STALE_MS;
+  toastWaiting = [...toastWaiting, { msg, opts, until }].slice(-TOAST_WAITING_MAX);
 };
 
 // A model picker's options, grouped by family, from the list main accepts
@@ -281,6 +340,7 @@ SB.setView = view => {
 // before the menu opened (the box, a chip), so Esc or a choice never strands it.
 let menuReturn = null;
 
+const MENU_MIN_HEIGHT = 120; // a menu squeezed by a tiny window still shows a few rows
 SB.openMenu = (menu, anchor, build) => {
   const wasOpen = !menu.hidden;
   SB.closeMenus();
@@ -288,10 +348,17 @@ SB.openMenu = (menu, anchor, build) => {
   const from = document.activeElement;
   menuReturn = from && from !== document.body && !from.closest('.popover') ? from : anchor;
   menu.replaceChildren(...build().filter(Boolean));
+  menu.style.maxHeight = '';
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
   // Below the button, or above it when there isn't room (a row near the bottom of the list).
-  const below = r.bottom + 6 + menu.offsetHeight <= window.innerHeight - 8;
+  // Never past the window's edge: a menu taller than the room it has scrolls, so
+  // its last items (the branch menu under a long clash list) stay reachable.
+  const roomBelow = window.innerHeight - 8 - (r.bottom + 6);
+  const roomAbove = r.top - 6 - 8;
+  const below = menu.offsetHeight <= roomBelow || roomBelow >= roomAbove;
+  const cssMax = parseFloat(getComputedStyle(menu).maxHeight) || Infinity; // 'none' is NaN
+  menu.style.maxHeight = `${Math.max(MENU_MIN_HEIGHT, Math.min(cssMax, below ? roomBelow : roomAbove))}px`;
   menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - menu.offsetHeight)}px`;
   menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
   anchor.setAttribute('aria-expanded', 'true');

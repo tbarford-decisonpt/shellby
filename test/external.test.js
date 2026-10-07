@@ -21,9 +21,20 @@ test('a turn: prompt -> tools -> stop celebrates once', () => {
   const { s, effects } = play([ev('SessionStart'), ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUse', { tool_name: 'Bash' }), ev('Stop')]);
   assert.equal(s.state, 'idle');
   assert.equal(s.project, '3d-rack');
-  assert.deepEqual(effects, [{ type: 'turn-done', project: '3d-rack', tools: 1, ms: 3000, cwd: 'C:\\Users\\you\\code\\3d-rack' }]);
+  assert.deepEqual(effects, [{ type: 'turn-done', project: '3d-rack', tools: 1, ms: 3000, cwd: 'C:\\Users\\you\\code\\3d-rack', sessionId: 'abc-123', folder: 'C:\\Users\\you\\code\\3d-rack' }]);
   assert.equal(s.turnAt, null, 'the clock is cleared for the next turn');
   assert.equal(JSON.stringify(s).includes('npm test'), false, 'tool inputs are never kept');
+});
+
+test('a session ending says where it was, for its handoff note, and never passes on transcript_path', () => {
+  const { effects, sessions } = play([ev('SessionStart'), ev('SessionEnd', { transcript_path: 'C:\\Windows\\win.ini' })]);
+  assert.equal(sessions.has('abc-123'), false);
+  assert.deepEqual(effects, [{ type: 'session-end', sessionId: 'abc-123', cwd: 'C:\\Users\\you\\code\\3d-rack' }]);
+});
+
+test('a session ending in a folder that is not on a local drive gives no note to write', () => {
+  const { effects } = play([ev('SessionStart', { cwd: '\\\\host\\share\\x' }), ev('SessionEnd', { cwd: '\\\\host\\share\\x' })]);
+  assert.deepEqual(effects, []);
 });
 
 test('mid-turn the session is working with the current tool', () => {
@@ -55,7 +66,7 @@ test('subagents become helper crabs and go home', () => {
 
 test('a stop without work (e.g. /clear) does not celebrate; SessionEnd forgets', () => {
   const r = play([ev('SessionStart'), ev('Stop'), ev('SessionEnd')]);
-  assert.deepEqual(r.effects, []);
+  assert.deepEqual(r.effects.map(e => e.type), ['session-end'], 'no turn-done: only the handoff note is asked for');
   assert.equal(r.sessions.size, 0);
 });
 

@@ -72,6 +72,7 @@ const { wireChecks } = require('./wiring/checks');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
+const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
 const { wireSurprises } = require('./wiring/surprises');
 const { wireStartFrom } = require('./wiring/startfrom');
@@ -94,6 +95,7 @@ const { registerCorrectionsIpc } = require('./ipc/corrections');
 const { registerStartFromIpc } = require('./ipc/startfrom');
 const { registerBacklogIpc } = require('./ipc/backlog');
 const { registerCrewIpc } = require('./ipc/crew');
+const { registerReleasesIpc } = require('./projects/releases-ipc');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -496,9 +498,8 @@ const shared = {
   get backlogHome() { return backlogHome; },
   get backlogMerged() { return backlogMerged; },
   get backlogTabClosed() { return backlogTabClosed; },
-  get backlogText() { return backlogText; },
-  get backlogAddFromCwd() { return backlogAddFromCwd; },
-  get backlogDoneFromCwd() { return backlogDoneFromCwd; },
+  get backlogRepoTasks() { return backlogRepoTasks; },
+  get backlogForTerminal() { return backlogForTerminal; },
   get beachSeen() { return beachSeen; },
   get beachView() { return beachView; },
   get booted() { return booted; },
@@ -591,6 +592,7 @@ const shared = {
   get gateHome() { return gateHome; },
   get github() { return github; }, set github(v) { github = v; },
   get handoff() { return handoff; },
+  get journal() { return journal; },
   get githubEndpoints() { return githubEndpoints; },
   get guestShown() { return guestShown; },
   get health() { return health; }, set health(v) { health = v; },
@@ -833,7 +835,7 @@ const {
 const { confirmAndInstallPackText, installFromRegistry, onDeepLink, setFolder } = wirePacks(shared);
 const { looseEndDraft, looseEnds, showBuildFix, startFromDraft, startFromSend } = wireStartFrom(shared);
 const {
-  backlogView, backlogEdit, backlogAddIssue, backlogDo, backlogOpenDoing, backlogOpenTodo, backlogOpenIssue, backlogHide, backlogTabInfo, backlogOpenPr, backlogTick, backlogCommit, backlogHand, backlogHome, backlogMerged, backlogTabClosed, backlogText, backlogAddFromCwd, backlogDoneFromCwd,
+  backlogView, backlogEdit, backlogAddIssue, backlogDo, backlogOpenDoing, backlogOpenTodo, backlogOpenIssue, backlogHide, backlogTabInfo, backlogOpenPr, backlogTick, backlogCommit, backlogHand, backlogHome, backlogMerged, backlogTabClosed, backlogRepoTasks, backlogForTerminal,
 } = wireBacklog(shared); // Next up on each project's page (docs/plans/next-up.md)
 const { claudeUpdateView, createClaudeUpdates } = wireClaudeUpdates(shared);
 const {
@@ -850,6 +852,7 @@ const {
   learnedView, lessonPreview, lessonState, noteCorrection,
 } = wireCorrections(shared);
 const handoff = wireHandoff(shared);
+const journal = wireJournal(shared); // handoff notes per project, read from Claude Code's own files
 const crewRoster = wireCrew(shared); // one lasting helper crab per agent type
 const surprises = wireSurprises(shared); // crit hits and clean landings, now and then
 
@@ -1077,7 +1080,7 @@ async function checkNudges() {
   if (!n) return;
   saveStreaks(streaks.markNudged(config.get('streaks'), n.key, Date.now()));
   flashState('asking', 4000);
-  const open = () => { showPanel(); send(panel, 'tab:new-in', { cwd: n.key, draft: `Where did we leave off in ${n.name}? Summarize what changed recently, what's unfinished, and suggest the next step.` }); };
+  const open = () => { showPanel(); send(panel, 'tab:new-in', { cwd: n.key, draft: journal.draftFor(n.key, n.name) }); };
   if (NUDGE_TEST || (panel?.isVisible() && panel.isFocused())) send(panel, 'nudge', { ...n, text: streaks.nudgeText(n) });
   else notify(streaks.nudgeText(n), 'Click to pick up where you left off.', open);
 }
@@ -1233,6 +1236,7 @@ function registerIpc() {
   registerStartFromIpc(ipcMain, d);
   registerBacklogIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
+  registerReleasesIpc(ipcMain, d);
 }
 
 // ================================================================ boot
@@ -1342,6 +1346,7 @@ app.whenReady().then(() => {
   createTimeTracker();
   createProjects();
   createCrabApi();
+  journal.resumePending(); // notes that were still settling when Shellby last quit
   createWorkflows();
   createDepWatch();
   createCi();
@@ -1458,6 +1463,7 @@ app.on('will-quit', () => {
 // Workflows freeze first: a run cut off by quitting is resumable, not failed.
 app.on('before-quit', () => {
   app.isQuitting = true;
+  journal.savePending();
   remote?.shutdown(); // no task from the phone starts while he's on his way out
   workflows?.shutdown();
   manager?.closeAll({ kill: true });

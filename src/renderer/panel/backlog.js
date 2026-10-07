@@ -13,11 +13,14 @@
 
   const SHOWN = 7;
   const FILTERS = [['all', 'All'], ['issue', 'Issues'], ['task', 'Tasks'], ['todo', 'Loose ends']];
+  const FROM_TAG = { claude: 'from Claude Code', terminal: 'from the terminal' };
   const TIER_TAG = { now: 'Now', next: 'Task', later: 'Later' };
 
   const views = new Map();     // project key -> last view, so a redraw doesn't flicker
   const expanded = new Set();  // project keys showing everything
   const filters = new Map();   // project key -> kind shown
+  // What you were typing in a project's add box, so a redraw (Claude adding a to-do from a terminal) keeps it.
+  const drafts = new Map();
 
   const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const keyOf = t => (t.root ? `root:${t.root.toLowerCase()}` : `repo:${String(t.repo).toLowerCase()}`);
@@ -48,7 +51,7 @@
       draw(r);
     };
     // Made once, so what you're typing and the focus survive a redraw.
-    const adder = root ? addBox() : null;
+    const adder = addBox();
 
     function drawFilter(v) {
       const kind = filters.get(key) || 'all';
@@ -71,7 +74,7 @@
       const list = all ? items : items.slice(0, SHOWN);
       body.replaceChildren(...[
         milestoneStrip(v),
-        v.cloned ? adder : null,
+        v.cloned || v.key ? adder : null,
         items.length
           ? h('ul', { class: 'pj-h-list bl-list' }, list.map(it => row(it, v)))
           : h('p', { class: 'muted small pj-calm bl-empty', text: kind === 'all' ? 'Nothing waiting. Add a task, or enjoy it. 🐚' : 'None of those right now.' }),
@@ -90,16 +93,19 @@
 
     function addBox() {
       const input = h('input', { type: 'text', class: 'field slim bl-add', placeholder: 'Add a task…', 'aria-label': 'Add a task to .shellby/tasks.md', maxlength: '200' });
+      input.value = drafts.get(key) || '';
+      input.addEventListener('input', () => drafts.set(key, input.value));
       input.addEventListener('keydown', async e => {
         if (e.key !== 'Enter' || e.isComposing) return;
         e.preventDefault();
         const title = input.value.trim();
         if (!title) return;
         input.disabled = true;
-        const r = await api.backlogEdit({ root, op: 'add', title }).catch(() => null);
+        const r = await (root ? api.backlogEdit({ root, op: 'add', title }) : api.addProjectTodo({ key: views.get(key)?.key, text: title })).catch(() => null);
         input.disabled = false;
         if (!r?.ok) return SB.toast(r?.error || 'Couldn\'t add it.');
         input.value = '';
+        drafts.delete(key);
         await load(false);
         input.focus();
       });
@@ -124,7 +130,9 @@
       const li = h('li', { class: `pj-h-row bl-row tier-${it.tier}`, dataset: { id: it.id } },
         tagOf(it),
         h('span', { class: 'pj-h-text' },
-          h('b', { text: it.title, title: it.title }),
+          h('span', { class: 'bl-title' },
+            h('b', { text: it.title, title: it.title }),
+            FROM_TAG[it.task?.from || it.note?.from] && h('span', { class: 'pj-tag bl-from', text: FROM_TAG[it.task?.from || it.note?.from] })),
           h('span', { class: 'muted small', title: it.reasons.join(' · ') },
             it.doing?.pr ? `Draft pull request #${it.doing.pr.number} · ` : it.doing ? 'In progress · ' : '',
             ...subline(it, where))),
@@ -190,18 +198,21 @@
 
     function openMenu(it, v, anchor) {
       const m = SB.menuItem;
-      const isTask = it.kind === 'task' || (it.kind === 'issue' && it.task);
+      // A to-do kept in Shellby (a project with no clone) only has Done; tasks.md tasks have the rest.
+      const isNote = !!it.note;
+      const isTask = !isNote && (it.kind === 'task' || (it.kind === 'issue' && it.task));
       const helpers = it.kind === 'issue' && !it.doing ? v.helpers : [];
       SB.openMenu($('blMenu'), anchor, () => [
         it.kind === 'issue' && m('Open on GitHub', () => act(api.backlogOpenIssue({ ...target, id: it.id }))),
         it.kind === 'issue' && !it.task && v.cloned && m('Add to my tasks', () => act(api.backlogAddIssue({ root, id: it.id }), `#${it.issue.number} is on your list. Move it in .shellby/tasks.md to put it where you want it.`)),
         it.kind === 'todo' && m('Open file', () => act(api.backlogOpenTodo({ root, id: it.id }))),
-        it.kind === 'task' && m('Edit…', () => rename(it)),
+        isNote && m('Done', () => act(api.finishProjectTodo({ key: v.key, id: it.note.id }), 'Ticked off.')),
+        isTask && it.kind === 'task' && m('Edit…', () => rename(it)),
         isTask && it.tier !== 'now' && m('Move to Now', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'now' }))),
         isTask && it.tier === 'now' && m('Move to Next', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'next' }))),
         isTask && it.tier !== 'later' && m('Move to Later', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'later' }))),
         isTask && m(it.kind === 'issue' ? 'Tick off my task for it' : 'Tick off', () => act(api.backlogEdit({ ...taskRef(it), op: 'tick' }), 'Ticked off. It\'s under Done in .shellby/tasks.md.')),
-        it.kind === 'task' && m('Remove', () => act(api.backlogEdit({ ...taskRef(it), op: 'remove' }))),
+        isTask && it.kind === 'task' && m('Remove', () => act(api.backlogEdit({ ...taskRef(it), op: 'remove' }))),
         ...helpers.map(wf => m(`Hand it to ${wf.name}`, () => hand(it, wf))),
         it.kind !== 'task' && m('Hide', () => act(api.backlogHide({ ...target, id: it.id }), 'Hidden on this PC. Show it again from the bottom of the list.')),
       ]);

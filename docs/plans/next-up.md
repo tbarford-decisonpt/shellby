@@ -45,8 +45,7 @@ Each phase ships on its own (bump, CHANGELOG, tag at merge, as every shellby cha
 
 ### Phase 3: everywhere else
 
-- MCP (shellby plugin): `next_up` (the ranked list for the folder Claude is in) and `add_task`, so a Claude in a terminal can read and add to it.
-- CLI: `shellby next`, `shellby task add "…"`, `shellby task done <n>`.
+- The terminal: the projects work on main already answers `next_up`, `add_task`, `finish_task` and `shellby next [add|done]`. Merged with this: a cloned project's to-do list **is** its `.shellby/tasks.md` (projects/service.js `todoOf` goes through wiring/backlog.js `backlogRepoTasks`; only a project with no clone keeps it in config), additions say who made them (`(from Claude Code)`, `(from the terminal)`), and `next_up` ends with this card's issues and TODOs (`backlogForTerminal`).
 - **Hand it to the Issue helper**, for an issue: starts the installed Issue helper workflow with that issue, for when you want the headless way (Auto-edit, then a draft pull request) rather than a conversation. See "The Issue helper".
 
 ## Files

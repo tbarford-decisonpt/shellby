@@ -422,3 +422,14 @@ test('only the first task naming an issue claims it, so the issue is never liste
   assert.equal(r.items.filter(i => i.id === 'gh:me/crab#42').length, 1);
   assert.equal(r.items.filter(i => i.kind === 'task').length, 1, 'the second stays a plain task');
 });
+
+test('to-dos kept in Shellby for a project with no clone follow your tasks, saying who added them', () => {
+  const r = run({ tasks: [task('From the file')], notes: [{ id: 't-abcd1234', text: 'Kept in Shellby', from: 'claude' }, { id: 't-abcd1235', text: 'Mine', from: 'you' }] });
+
+  const titles = r.items.filter(i => i.kind === 'task').map(i => i.title);
+  assert.deepEqual(titles, ['From the file', 'Kept in Shellby', 'Mine']);
+  const kept = r.items.find(i => i.id === 'n:t-abcd1234');
+  assert.equal(kept.reason, 'From Claude Code');
+  assert.deepEqual(kept.note, { id: 't-abcd1234', from: 'claude' });
+  assert.equal(r.items.find(i => i.id === 'n:t-abcd1235').reason, 'On your to-do list');
+});

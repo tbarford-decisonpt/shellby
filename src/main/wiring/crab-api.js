@@ -21,8 +21,26 @@ function wireCrabApi(d) {
   // here through the hooks port. Everything they ask for is checked again on this
   // side: that port is reachable by anything running on this PC.
   function createCrabApi() {
-    d.external.onCrab = body => applyCrabIntent(body);
+    ensureCrabToken();
+    d.external.onCrab = (body, { token }) => applyCrabIntent(body, token);
     d.external.onCli = (body, { token }) => runCliRequest(body, token);
+  }
+
+  // Reading your projects over /v1/crab needs this token. 127.0.0.1 is open to
+  // every account on this PC; the file is in yours. say and status don't need
+  // it, so an older plugin keeps working for those.
+  let crabToken = null;
+  function ensureCrabToken() {
+    const file = clipath.crabTokenPath(app.getPath('userData'));
+    try { crabToken = fs.readFileSync(file, 'utf8').trim() || null; } catch { /* first run */ }
+    if (crabToken) return;
+    try {
+      crabToken = clipath.newToken();
+      fs.writeFileSync(file, crabToken, { mode: 0o600 });
+    } catch (e) {
+      crabToken = null; // without the file nothing can present it: project questions are refused
+      d.log.warn('crab token could not be written', e?.message);
+    }
   }
 
   /**
@@ -40,12 +58,23 @@ function wireCrabApi(d) {
     return true;
   }
 
-  function applyCrabIntent(body) {
+  function applyCrabIntent(body, token = '') {
     const checked = crabtools.parseRequest(body);
     if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
     const intent = checked.intent;
 
     if (intent.action === 'status') return { text: crabtools.statusReply(crabStatusView()) };
+
+    // The Projects page from a terminal: next_up, server_log and the rest, for
+    // the MCP tools and `shellby projects` / `shellby next` alike.
+    if (crabtools.PROJECT_ACTIONS.includes(intent.action)) {
+      if (!crabToken || !clipath.tokenMatches(crabToken, token)) {
+        return { ok: false, error: "Shellby only answers questions about your projects from programs running as you, and this one didn't show his token. Update the Shellby plugin and the shellby command, then try again.", status: 401 };
+      }
+      if (d.config.get('crabOnly')) return { ok: false, error: 'Projects are off: Shellby is in just-the-crab mode.', status: 403 };
+      if (!d.projects) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
+      return d.projects.forTerminal(intent);
+    }
 
     if (intent.action === 'list_routines' || intent.action === 'add_routine') {
       if (d.config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };
@@ -61,9 +90,14 @@ function wireCrabApi(d) {
       return d.workflows.proposeFromClaude(intent.workflow);
     }
 
-    // Next up for the project Claude is working in (wiring/backlog.js). Reading
-    // it needs no Claude; adding writes only .shellby/tasks.md in a clone Shellby knows.
-    if (intent.action === 'next_up' || intent.action === 'add_task') return backlogRequest(intent.action, intent);
+    // The project journal: the handoff notes for Claude to start from, so it
+    // doesn't spend a turn re-reading the project (wiring/journal.js).
+    if (intent.action === 'journal') {
+      if (d.config.get('crabOnly') || !d.journal) return { ok: false, error: 'The journal is off: Shellby is in just-the-crab mode.', status: 403 };
+      if (!intent.pin) return d.journal.briefFor(intent.folder).then(text => ({ text }));
+      return d.journal.pinFor(intent.folder, intent.pin)
+        .then(r => (r.ok ? { text: `Pinned to the project's journal: [${intent.pin.kind}] ${intent.pin.text}` } : { ok: false, error: r.error, status: 400 }));
+    }
 
     if (intent.action === 'wear') {
       const items = d.wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
@@ -139,8 +173,6 @@ function wireCrabApi(d) {
       if (!d.timeTracker) return { ok: false, error: 'Shellby is still starting up. Try again in a moment.', status: 503 };
       return d.timeTracker.cliText(range, { estimates: body.estimates === true }).then(text => ({ text }));
     }
-    // `shellby next` / `shellby task add|done`: Next up for the project the terminal is in (wiring/backlog.js).
-    if (['next', 'task-add', 'task-done'].includes(body?.action)) return backlogRequest(body.action, body.args);
     // `shellby take`: the Claude Code session in that terminal opens as a tab (wiring/handoff.js).
     if (body?.action === 'take') return d.handoff.take(body);
     if (body?.action === 'flow-list' || body?.action === 'flow-run') {
@@ -167,21 +199,6 @@ function wireCrabApi(d) {
     d.showPanel({ focusInput: false, tabId: r.tabId });
     d.wake();
     return { text: 'Shellby is on it.' };
-  }
-
-  /**
-   * Next up from a terminal or Claude Code: the list, a task added, a task
-   * ticked off, for the project `cwd` is in. -> { text } | { ok: false, error, status }
-   */
-  async function backlogRequest(action, raw) {
-    const checked = crabtools.parseBacklogArgs(action, raw);
-    if (!checked.ok) return { ok: false, error: checked.error, status: 400 };
-    const { cwd, title, n } = checked.args;
-    const r = action === 'next' || action === 'next_up' ? await d.backlogText(cwd)
-      : action === 'task-done' ? await d.backlogDoneFromCwd(cwd, n)
-        // From Claude (MCP), it says so on the list: a task you didn't write shouldn't pass for yours.
-        : await d.backlogAddFromCwd(cwd, action === 'add_task' ? `${title} (added by Claude)` : title);
-    return r.ok ? { text: r.text } : { ok: false, error: r.error, status: r.stale ? 409 : 400 };
   }
 
   /** Write the command, its shims and its token, and put the folder on PATH. */

@@ -151,13 +151,16 @@ function applyHookEvent(sessions, evt, now, client = null) {
       const worked = s.state === 'working' || s.state === 'asking';
       // ms: how long Claude worked on the turn (0 when the prompt wasn't seen, say Shellby started mid-turn).
       const ms = Number.isFinite(s.turnAt) ? Math.max(0, now - s.turnAt) : 0;
-      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, ms, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null });
+      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, ms, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, sessionId: id, folder: s.cwd || null });
       // s.bg deliberately survives: whatever it backgrounded is still out there.
       s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0; s.turnAt = null;
       break;
     }
     case 'SessionEnd':
       next.delete(id);
+      // Its handoff note is written now (wiring/journal.js), from Claude Code's
+      // own file for it: transcript_path is never read, it could name any file.
+      if (s.cwd) effects.push({ type: 'session-end', sessionId: id, cwd: s.cwd });
       return { sessions: next, effects };
     default:
       return { sessions: sessions, effects }; // unknown event: no change

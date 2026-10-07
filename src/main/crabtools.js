@@ -9,8 +9,12 @@
 // into a checked intent and a sentence to answer with, and main.js supplies the
 // effects. That keeps it pure, so it is all unit-tested.
 
+const path = require('path');
 const { validateRoutine, describeSchedule } = require('./routines');
 const { MODELS } = require('./models');
+const todo = require('./projects/todo');
+const { PIN_KINDS, MAX_PIN_TEXT } = require('./journal');
+const { safePath } = require('./handoff');
 
 const modelName = id => MODELS.find(m => m.id === id)?.label || id;
 
@@ -24,11 +28,15 @@ const MAX_ROUTINE_LINES = 20;
 // text read differently from what it says.
 const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f‎‏‪-‮⁦-⁩]/g;
 const MOODS = ['happy', 'worried', 'thinking', 'proud', 'sleepy'];
-const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', 'next_up', 'add_task'];
-
-// Next up (wiring/backlog.js): the folder Claude or the terminal is in, and a task's title.
-const MAX_CWD = 1024;
-const MAX_TASK = 200;
+// The Projects page from a terminal (projects/terminal.js): read-only, bar the to-do list.
+const PROJECT_ACTIONS = ['projects', 'next_up', 'server_log', 'add_task', 'finish_task'];
+const ACTIONS = ['say', 'celebrate', 'wear', 'status', 'add_routine', 'list_routines', 'list_workflows', 'run_workflow', 'add_workflow', 'journal', ...PROJECT_ACTIONS];
+const MAX_PROJECT = 200;
+const MAX_FOLDER = 400;
+const LOG_LINES = { min: 10, max: 200, default: 50 };
+// A package.json script name, as devservers/scripts.js allows them.
+const SCRIPT = /^[A-Za-z0-9:._-]{1,100}$/;
+const MAX_TODO_NUMBER = 999;
 
 // Workflows. The full check of a proposed workflow is schema.js's
 // validateWorkflow in main; this only bounds what is handed to it.
@@ -76,11 +84,10 @@ function parseRequest(body) {
     }
     case 'add_workflow':
       return parseWorkflowProposal(args.workflow);
-    case 'next_up':
-    case 'add_task': {
-      const r = parseBacklogArgs(action, args);
-      return r.ok ? { ok: true, intent: { action, ...r.args } } : r;
-    }
+    case 'journal':
+      return parseJournal(args);
+    case 'projects': case 'next_up': case 'server_log': case 'add_task': case 'finish_task':
+      return parseProjectAsk(action, args);
     default:
       return { ok: true, intent: { action } };
   }
@@ -159,6 +166,51 @@ function parseWorkflowProposal(workflow) {
   return { ok: true, intent: { action: 'add_workflow', workflow } };
 }
 
+/** A folder a question came from: absolute, on this PC (never a share), short, printable. Else ''. */
+function folderOf(v) {
+  // UNSAFE is global, so .test() would carry lastIndex over between calls.
+  if (typeof v !== 'string' || !v || v.length > MAX_FOLDER || v.replace(UNSAFE, '') !== v) return '';
+  return path.isAbsolute(v) && !/^[\\/]{2}/.test(v) ? path.resolve(v) : '';
+}
+
+/**
+ * The project tools -> a checked intent for projects/service.js forTerminal.
+ * project: what Claude named (a name, owner/name or folder); cwd: the folder the
+ * question came from, used when no project is named.
+ */
+function parseProjectAsk(action, args) {
+  const via = args.via === 'cli' ? 'cli' : 'mcp';
+  if (action === 'projects') return { ok: true, intent: { action, via } };
+  const project = typeof args.project === 'string' ? clip(args.project.replace(UNSAFE, ''), MAX_PROJECT) : '';
+  const base = { action, via, project, cwd: folderOf(args.cwd) };
+  switch (action) {
+    case 'next_up':
+      return { ok: true, intent: { ...base, everywhere: args.everywhere === true } };
+    case 'server_log': {
+      if (args.script !== undefined && args.script !== '' && !(typeof args.script === 'string' && SCRIPT.test(args.script))) {
+        return { ok: false, error: 'script must be the name of a package.json script, like dev.' };
+      }
+      const n = args.lines === undefined ? LOG_LINES.default : args.lines;
+      if (!Number.isInteger(n) || n < LOG_LINES.min || n > LOG_LINES.max) return { ok: false, error: `lines must be a whole number from ${LOG_LINES.min} to ${LOG_LINES.max}.` };
+      return { ok: true, intent: { ...base, script: args.script || '', lines: n } };
+    }
+    case 'add_task': {
+      if (typeof args.text !== 'string') return { ok: false, error: 'add_task needs the text of the to-do.' };
+      // Measured as it would be kept (one line, runs of spaces as one), as the MCP server and the command measure it.
+      if (todo.oneLine(args.text).length > todo.MAX_TEXT) return { ok: false, error: `Keep a to-do under ${todo.MAX_TEXT} characters.` };
+      const text = todo.cleanText(args.text);
+      if (!text) return { ok: false, error: 'add_task needs the text of the to-do.' };
+      return { ok: true, intent: { ...base, text } };
+    }
+    default: { // finish_task
+      const t = args.task;
+      const isNumber = (Number.isInteger(t) && t >= 1 && t <= MAX_TODO_NUMBER) || (typeof t === 'string' && /^\d{1,3}$/.test(t) && Number(t) >= 1);
+      if (!isNumber && !(typeof t === 'string' && todo.ID.test(t))) return { ok: false, error: "finish_task needs the to-do's id or number, as next_up lists it." };
+      return { ok: true, intent: { ...base, task: isNumber ? Number(t) : t } };
+    }
+  }
+}
+
 const MODE_NAMES = { ask: 'Ask first', smart: 'Smart', acceptEdits: 'Auto-edit', plan: 'Plan only', autonomous: 'Autonomous' };
 
 /** The confirm window's text for a routine Claude proposed. `replacing` is the one it would overwrite. */
@@ -180,31 +232,6 @@ function routineReply(routine, { added, replaced = false, next = null }) {
   const when = describeSchedule(routine.schedule);
   const nextText = Number.isFinite(next) ? ` Next run: ${new Date(next).toLocaleString()}.` : '';
   return `${replaced ? 'Changed' : 'Added'} the "${routine.name}" routine (${when}).${nextText} The user can pause, edit or delete it from Shellby's Routines page.`;
-}
-
-/**
- * Next up's arguments, from the MCP server (next_up, add_task) or the command
- * (next, task-add, task-done): an absolute folder, and a title or a number.
- * -> { ok: true, args: { cwd, title?, n? } } | { ok: false, error }
- */
-function parseBacklogArgs(action, raw) {
-  const args = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : '';
-  // An absolute Windows (C:\…, \\server\…) or POSIX path, and nothing that could be read as anything else.
-  // A fresh, non-global copy of UNSAFE: .test on the /g one carries lastIndex from call to call.
-  if (!cwd || cwd.length > MAX_CWD || new RegExp(UNSAFE.source).test(cwd) || /[\t\r\n]/.test(cwd) ||!/^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(cwd)) return { ok: false, error: 'Next up needs the folder you\'re in, as a full path.' };
-  if (action === 'add_task' || action === 'task-add') {
-    const title = clip(args.title, MAX_TASK + 1);
-    if (!title) return { ok: false, error: 'add_task needs the task, in a few words.' };
-    if (title.length > MAX_TASK) return { ok: false, error: `Keep a task under ${MAX_TASK} characters.` };
-    return { ok: true, args: { cwd, title } };
-  }
-  if (action === 'task-done') {
-    const n = Number(args.n);
-    if (!Number.isInteger(n) || n < 1 || n > 999) return { ok: false, error: 'Which item? A number from shellby next.' };
-    return { ok: true, args: { cwd, n } };
-  }
-  return { ok: true, args: { cwd } };
 }
 
 /**
@@ -376,10 +403,25 @@ function ackReply(intent) {
   return 'Done.';
 }
 
+/**
+ * The project journal (journal.js): read the notes for a folder, or pin a line
+ * to them. Only a local drive's folder (handoff.js safePath): a network share
+ * would have git, run in it to find the project, reach out to another machine.
+ */
+function parseJournal(args) {
+  const folder = typeof args.folder === 'string' ? args.folder.trim() : '';
+  if (!safePath(folder)) return { ok: false, error: "That folder isn't a full path on this PC." };
+  if (args.pin === undefined || args.pin === null) return { ok: true, intent: { action: 'journal', folder, pin: null } };
+  const p = args.pin && typeof args.pin === 'object' && !Array.isArray(args.pin) ? args.pin : {};
+  const text = clip(String(p.text ?? '').replace(UNSAFE, ''), MAX_PIN_TEXT);
+  if (!text) return { ok: false, error: 'A pin needs some text.' };
+  return { ok: true, intent: { action: 'journal', folder, pin: { kind: PIN_KINDS.includes(p.kind) ? p.kind : 'note', text } } };
+}
+
 module.exports = {
   parseRequest, matchItem, wearReply, statusReply, ackReply,
   routineQuestion, routineReply, routinesReply,
-  parseWorkflowCall, workflowsReply, parseBacklogArgs,
-  ACTIONS, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
-  MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY, MAX_TASK,
+  parseWorkflowCall, workflowsReply,
+  ACTIONS, PROJECT_ACTIONS, LOG_LINES, MOODS, MAX_TEXT, MAX_ITEM, MAX_ROUTINE_PROMPT, MAX_ROUTINE_LINES,
+  MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY,
 };

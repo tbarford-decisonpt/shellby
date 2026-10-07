@@ -28,7 +28,9 @@ const MAX_NOTE = 400;
 const ITEM = /^( {0,3})([-*]) \[( |x|X)\][ \t]+(.*\S)\s*$/;
 const HEADING = /^ {0,3}(#{1,6})[ \t]+(.*?)[ \t#]*$/;
 const REF = /^(?:([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}))?#(\d{1,9})(?![\w-])[\s:.\-–—]*(.*)$/;
-const DATE_SUFFIX = / \(\d{4}-\d\d-\d\d\)$/;
+const FROM_SUFFIX = / \(from (Claude Code|the terminal)\)$/;
+const FROM_TEXT = { claude: 'Claude Code', terminal: 'the terminal' };
+const DATE_SUFFIX =/ \(\d{4}-\d\d-\d\d\)$/;
 
 // Shown in the panel and in a prompt: no control, bidi or invisible characters.
 const clean = (s, n) => clip(String(s ?? ''), n);
@@ -108,7 +110,11 @@ function parse(text) {
     const end = blockEnd(lines, i);
     if (m[3] !== ' ') { done++; i = end - 1; continue; }
     if (items.length >= MAX_ITEMS) { more++; i = end - 1; continue; }
-    const title = clean(m[4], MAX_TITLE);
+    const raw = clean(m[4], MAX_TITLE);
+    // "(from Claude Code)" / "(from the terminal)": who added it, when it wasn't you (add_task, shellby next add).
+    const by = FROM_SUFFIX.exec(raw);
+    const title = by ? raw.slice(0, by.index).trim() : raw;
+    const from = by ? (by[1] === 'Claude Code' ? 'claude' : 'terminal') : 'you';
     if (!title) { i = end - 1; continue; }
     const base = indentOf(lines[i]);
     const notes = lines.slice(i + 1, end)
@@ -120,11 +126,11 @@ function parse(text) {
     const r = REF.exec(title);
     const ref = r ? { repo: r[1] || null, number: Number(r[2]), note: clean(r[3], MAX_TITLE) } : null;
     // Section and title make the id, so it stays put when lines above it move.
-    const key = `${section}\n${title.toLowerCase()}`;
+    const key = `${section}\n${raw.toLowerCase()}`;
     const n = (seen.get(key) || 0) + 1;
     seen.set(key, n);
     const id = `t:${crypto.createHash('sha1').update(key).digest('hex').slice(0, 10)}${n > 1 ? `~${n}` : ''}`;
-    items.push({ id, line: i + 1, title, notes, section: section === 'done' ? 'next' : section, heading, done: false, ref });
+    items.push({ id, line: i + 1, title, from, notes, section: section === 'done' ? 'next' : section, heading, done: false, ref });
     i = end - 1;
   }
   return { items, done, more };
@@ -218,8 +224,11 @@ function edit(text, ref, fn) {
 }
 
 /** Add a task at the end of `## Next` (or `to`). text: the file, or '' / null for a new one. */
-function add(text, title, { to = 'next' } = {}) {
-  const t = clean(title, MAX_TITLE);
+function add(text, title, { to = 'next', from = 'you' } = {}) {
+  // Who added it, when it wasn't you, rides along as a suffix parse() reads back.
+  const by = FROM_TEXT[from] ? ` (from ${FROM_TEXT[from]})` : '';
+  const words = clean(title, MAX_TITLE - by.length);
+  const t = words && `${words}${by}`;
   if (!t) return { ok: false, error: 'Write the task first.' };
   if (mixed(text)) return MIXED;
   const f = splitLines(text || TEMPLATE);

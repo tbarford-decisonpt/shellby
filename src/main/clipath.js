@@ -14,6 +14,10 @@ const { NAME: SNIPPET_NAME } = require('./snippets');
 
 const BIN_DIR_NAME = 'bin';
 const TOKEN_FILE = 'cli-token';
+// What the MCP server and the command send to read your projects over /v1/crab.
+// In your own profile folder, which other accounts on this PC can't read: the
+// port itself is open to all of them.
+const CRAB_TOKEN_FILE = 'crab-token';
 const TOKEN_BYTES = 32;
 
 /** A fresh CLI token. 256 bits of base64url: not guessable, and one line long. */
@@ -136,6 +140,7 @@ function settingChangeArgs() {
 /** Where the command lives, given Electron's app.getPath('userData') neighbours. */
 const binDir = localAppData => require('path').join(localAppData, 'Shellby', BIN_DIR_NAME);
 const tokenPath = userData => require('path').join(userData, TOKEN_FILE);
+const crabTokenPath = userData => require('path').join(userData, CRAB_TOKEN_FILE);
 
 /**
  * What a `shellby do` request is allowed to ask for. The CLI already checks
@@ -178,6 +183,6 @@ function parseFlowRequest(body) {
 
 module.exports = {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
-  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, parseTaskRequest, parseFlowRequest, settingChangeArgs,
-  BIN_DIR_NAME, TOKEN_FILE,
+  isOnPath, pathWith, pathWithout, normalizeEntry, binDir, tokenPath, crabTokenPath, parseTaskRequest, parseFlowRequest, settingChangeArgs,
+  BIN_DIR_NAME, TOKEN_FILE, CRAB_TOKEN_FILE,
 };

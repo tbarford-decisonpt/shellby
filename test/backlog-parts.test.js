@@ -3,120 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { parseBacklogArgs, parseRequest, MAX_TASK } = require('../src/main/crabtools');
-const { parseArgs, MAX_TASK: CLI_MAX_TASK } = require('../src/cli/shellby');
 const { fileCommandLine } = require('../src/main/editor');
 const { registerBacklogIpc, ID_RE } = require('../src/main/ipc/backlog');
 const { templates } = require('../src/main/workflows/templates');
 const { validateWorkflow } = require('../src/main/workflows/schema');
 const { Engine } = require('../src/main/workflows/engine');
 const { matchEvent } = require('../src/main/workflows/triggers');
-
-// ------------------------------------------------------------------ crabtools
-
-test('the CLI and the crab tools agree on how long a task can be', () => {
-  assert.equal(CLI_MAX_TASK, MAX_TASK);
-  assert.equal(MAX_TASK, 200);
-});
-
-test('parseBacklogArgs accepts an absolute Windows, UNC or POSIX folder', () => {
-  for (const cwd of ['C:\\x', 'c:/x/y', '\\\\server\\share\\x', '/home/me/x']) {
-    assert.deepEqual(parseBacklogArgs('next_up', { cwd }), { ok: true, args: { cwd } }, cwd);
-  }
-});
-
-test('parseBacklogArgs trims the folder', () => {
-  assert.equal(parseBacklogArgs('next_up', { cwd: '  C:\\x  ' }).args.cwd, 'C:\\x');
-});
-
-test('parseBacklogArgs refuses a relative, missing, long or odd folder', () => {
-  const bad = ['x', '.\\x', '..\\x', 'x/y', '', '   ', undefined, 42, `C:\\${'a'.repeat(1030)}`, `C:\\x${String.fromCharCode(0x202e)}y`];
-
-  for (const cwd of bad) {
-    const r = parseBacklogArgs('next_up', { cwd });
-
-    assert.equal(r.ok, false, String(cwd).slice(0, 20));
-    assert.match(r.error, /full path/);
-  }
-});
-
-test('parseBacklogArgs refuses a bidi folder every time, not every other time', () => {
-  const rlo = String.fromCharCode(0x202e);
-  const answers = [`C:\\x${rlo}`, `C:\\${rlo}`, `C:\\x${rlo}`].map(cwd => parseBacklogArgs('next_up', { cwd }).ok);
-
-  assert.deepEqual(answers, [false, false, false]);
-});
-
-test('parseBacklogArgs copes with no arguments at all', () => {
-  for (const raw of [undefined, null, [], 'C:\\x']) assert.equal(parseBacklogArgs('next_up', raw).ok, false);
-});
-
-test('add_task needs a title, flattened to one line', () => {
-  assert.deepEqual(parseBacklogArgs('add_task', { cwd: 'C:\\x', title: '  write\n  the   notes ' }), { ok: true, args: { cwd: 'C:\\x', title: 'write the notes' } });
-  for (const title of ['', '  \n ', undefined, null]) {
-    const r = parseBacklogArgs('add_task', { cwd: 'C:\\x', title });
-
-    assert.equal(r.ok, false);
-    assert.match(r.error, /needs the task/);
-  }
-});
-
-test('add_task allows exactly MAX_TASK characters and refuses one more', () => {
-  assert.equal(parseBacklogArgs('add_task', { cwd: 'C:\\x', title: 'a'.repeat(MAX_TASK) }).ok, true);
-
-  const r = parseBacklogArgs('add_task', { cwd: 'C:\\x', title: 'a'.repeat(MAX_TASK + 1) });
-
-  assert.equal(r.ok, false);
-  assert.match(r.error, /under 200 characters/);
-});
-
-test('task-done needs an integer from 1 to 999', () => {
-  for (const n of [1, 2, 999, '7']) assert.equal(parseBacklogArgs('task-done', { cwd: 'C:\\x', n }).args.n, Number(n));
-  for (const n of [0, -1, 1000, 1.5, 'x', undefined, null, NaN]) assert.equal(parseBacklogArgs('task-done', { cwd: 'C:\\x', n }).ok, false, String(n));
-});
-
-test('parseRequest turns next_up and add_task into intents', () => {
-  assert.deepEqual(parseRequest({ action: 'next_up', args: { cwd: 'C:\\x' } }), { ok: true, intent: { action: 'next_up', cwd: 'C:\\x' } });
-  assert.deepEqual(parseRequest({ action: 'add_task', args: { cwd: '/x', title: 'a task' } }), { ok: true, intent: { action: 'add_task', cwd: '/x', title: 'a task' } });
-});
-
-test('parseRequest refuses next_up and add_task with bad arguments', () => {
-  assert.equal(parseRequest({ action: 'next_up', args: { cwd: 'relative' } }).ok, false);
-  assert.equal(parseRequest({ action: 'next_up' }).ok, false);
-  assert.equal(parseRequest({ action: 'add_task', args: { cwd: 'C:\\x' } }).ok, false);
-  assert.equal(parseRequest({ action: 'add_task', args: { cwd: 'C:\\x', title: 'a'.repeat(201) } }).ok, false);
-});
-
-// ------------------------------------------------------------------ CLI
-
-test('shellby next takes nothing after it', () => {
-  assert.deepEqual(parseArgs(['next']), { cmd: 'next' });
-  assert.match(parseArgs(['next', 'extra']).error, /takes nothing/);
-});
-
-test('shellby task add joins and tidies the words', () => {
-  assert.deepEqual(parseArgs(['task', 'add', 'release', ' notes']), { cmd: 'task-add', title: 'release notes' });
-  assert.deepEqual(parseArgs(['task', 'add', 'release  notes']), { cmd: 'task-add', title: 'release notes' });
-});
-
-test('shellby task add refuses no words and too many', () => {
-  assert.match(parseArgs(['task', 'add']).error, /Add what/);
-  assert.match(parseArgs(['task', 'add', '   ']).error, /Add what/);
-  assert.match(parseArgs(['task', 'add', 'a'.repeat(MAX_TASK + 1)]).error, /under 200/);
-  assert.equal(parseArgs(['task', 'add', 'a'.repeat(MAX_TASK)]).cmd, 'task-add');
-});
-
-test('shellby task done takes one number from 1 to 999', () => {
-  assert.deepEqual(parseArgs(['task', 'done', '2']), { cmd: 'task-done', n: 2 });
-  for (const args of [['x'], ['0'], ['1000'], ['1.5'], ['1', '2'], []]) {
-    assert.match(parseArgs(['task', 'done', ...args]).error, /Which one/, args.join(' '));
-  }
-});
-
-test('shellby task alone, or with something else, shows the usage', () => {
-  assert.match(parseArgs(['task']).error, /Usage: shellby task add/);
-  assert.match(parseArgs(['task', 'remove']).error, /Usage: shellby task add/);
-});
 
 // ------------------------------------------------------------------ editor
 

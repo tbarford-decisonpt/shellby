@@ -24,6 +24,7 @@ const TIERS = ['now', 'next', 'later'];
 
 const PRIORITY = /^(?:priority[\s:/_-]*(?:high|urgent|critical)|p[01]|urgent|critical)$/i;
 const BUG = /^(?:(?:type|kind)[\s:/_-]*)?bug$/i;
+const FROM_REASON = { claude: 'From Claude Code', terminal: 'From the terminal' };
 const TAG_POINTS = { FIXME: 2, HACK: 1, TODO: 0 };
 
 const same = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
@@ -110,10 +111,11 @@ const issueItem = (issue, s, tier) => ({
  *   tasks: tasks.parse(...).items. issues: backlog/github.js items, or null when
  *   GitHub wasn't read (then a "#42" task stays a task). milestones: open ones.
  *   todos: loose ends ({ file, line, tag, text, ref }). repo: owner/name or null.
+ *   notes: to-dos kept in Shellby for a project with no clone ({ id, text, from }).
  *   complete: issues holds every open one (so a "#42" not in it has closed), not just the first page.
  * -> { items: [{ id, kind, tier, title, reason, reasons, ... }], milestone }
  */
-function rank({ tasks = [], issues = null, complete = true, milestones = [], todos = [], repo = null, login = null, now = Date.now() } = {}) {
+function rank({ tasks = [], notes = [], issues = null, complete = true, milestones = [], todos = [], repo = null, login = null, now = Date.now() } = {}) {
   const known = Array.isArray(issues);
   const nearest = nearestMilestone(milestones);
   const byNumber = new Map();
@@ -138,11 +140,18 @@ function rank({ tasks = [], issues = null, complete = true, milestones = [], tod
     }
     // A reference to an issue of this repository that GitHub no longer lists as open: closed.
     const closed = known && complete && refersHere(t.ref) && !byNumber.has(t.ref.number);
-    const reason = closed ? `#${t.ref.number} is closed` : tierOfTask === 'now' ? 'Now, on your list' : tierOfTask === 'later' ? 'Later, on your list' : 'On your list';
+    const reason = closed ? `#${t.ref.number} is closed` : FROM_REASON[t.from]
+      || (tierOfTask === 'now' ? 'Now, on your list' : tierOfTask === 'later' ? 'Later, on your list' : 'On your list');
     ordered[tierOfTask].push({
       id: t.id, kind: 'task', tier: tierOfTask, title: t.title, reason, reasons: [reason], score: 0,
-      task: { id: t.id, line: t.line, notes: t.notes, ref: t.ref || null, closed },
+      task: { id: t.id, line: t.line, notes: t.notes, ref: t.ref || null, closed, from: t.from || 'you' },
     });
+  }
+
+  // A project only on GitHub keeps its to-dos in Shellby (projects/todo.js): after your tasks, in their order.
+  for (const n of Array.isArray(notes) ? notes : []) {
+    const reason = FROM_REASON[n.from] || 'On your to-do list';
+    ordered.next.push({ id: `n:${n.id}`, kind: 'task', tier: 'next', title: n.text, reason, reasons: [reason], score: 0, note: { id: n.id, from: n.from || 'you' } });
   }
 
   const unclaimed = known ? issues.filter(i => !claimed.has(i.number)) : [];

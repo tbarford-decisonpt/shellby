@@ -113,6 +113,8 @@ function createCopies(d) {
     d.queueWaits.delete(tabId);
     d.turnStarts.delete(tabId);
     const removed = await worktrees.remove(w, { force });
+    // Still there (Windows holding the folder, say): History keeps pointing at it, so it can be found again.
+    if (!removed.ok) return removed;
     // The conversation was Claude's in the copy's folder, and can't be resumed
     // from another one: History keeps the transcript and starts afresh there.
     // The copy's diffs were snapshots in the repository's shared object store,

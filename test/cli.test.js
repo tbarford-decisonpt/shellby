@@ -15,7 +15,7 @@ const {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
   isOnPath, pathWith, pathWithout, parseTaskRequest, parseFlowRequest, settingChangeArgs,
 } = require('../src/main/clipath');
-const { parseArgs, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME } = require('../src/cli/shellby');
+const { parseArgs, projectArg, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME } = require('../src/cli/shellby');
 const crabtools = require('../src/main/crabtools');
 
 const CLI = path.join(__dirname, '..', 'src', 'cli', 'shellby.js');
@@ -460,4 +460,172 @@ test('help and version work with no Shellby running at all', async () => {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+// ------------------------------------------------------------------ projects and next
+
+test('parseArgs: shellby projects takes nothing after it', () => {
+  assert.deepEqual(parseArgs(['projects']), { cmd: 'projects' });
+  assert.match(parseArgs(['projects', 'site']).error, /takes nothing after it/);
+});
+
+test('parseArgs: shellby next is this folder, a named project, or all of them', () => {
+  assert.deepEqual(parseArgs(['next']), { cmd: 'next', project: '', all: false });
+  assert.deepEqual(parseArgs(['next', 'shellby']), { cmd: 'next', project: 'shellby', all: false });
+  assert.deepEqual(parseArgs(['next', 'x-salmon/shellby']), { cmd: 'next', project: 'x-salmon/shellby', all: false });
+  assert.deepEqual(parseArgs(['next', 'my', 'big', 'site']), { cmd: 'next', project: 'my big site', all: false });
+  assert.deepEqual(parseArgs(['next', '.']), { cmd: 'next', project: '.', all: false });
+  assert.deepEqual(parseArgs(['next', '--all']), { cmd: 'next', project: '', all: true });
+  assert.deepEqual(parseArgs(['next', '-a']), { cmd: 'next', project: '', all: true });
+  assert.deepEqual(parseArgs(['next', '-p', 'shellby']), { cmd: 'next', project: 'shellby', all: false });
+  assert.deepEqual(parseArgs(['next', '--project', 'shellby']), { cmd: 'next', project: 'shellby', all: false });
+});
+
+test('parseArgs: shellby next refuses what it cannot make sense of', () => {
+  assert.match(parseArgs(['next', '-p']).error, /-p needs a project name/);
+  assert.match(parseArgs(['next', '--project']).error, /--project needs a project name/);
+  assert.match(parseArgs(['next', '--bogus']).error, /Unknown option: --bogus\. Usage: shellby next/);
+  assert.match(parseArgs(['next', 'site', '-p', 'web']).error, /Name the project once/);
+  assert.match(parseArgs(['next', '--all', 'site']).error, /--all is every project/);
+  assert.match(parseArgs(['next', '--all', '-p', 'site']).error, /--all is every project/);
+  assert.match(parseArgs(['next', 'p'.repeat(201)]).error, /at most 200 characters/);
+  assert.match(parseArgs(['next', '-p', 'p'.repeat(201)]).error, /at most 200 characters/);
+  assert.deepEqual(parseArgs(['next', 'p'.repeat(200)]), { cmd: 'next', project: 'p'.repeat(200), all: false });
+});
+
+test('parseArgs: shellby next add takes the rest of the line as the to-do', () => {
+  assert.deepEqual(parseArgs(['next', 'add', 'write', 'the', 'release', 'notes']), { cmd: 'next-add', text: 'write the release notes', project: '' });
+  assert.deepEqual(parseArgs(['next', 'add', '  spaced   out  ', 'text']), { cmd: 'next-add', text: 'spaced out text', project: '' });
+  assert.deepEqual(parseArgs(['next', 'add', 'one\ntwo']), { cmd: 'next-add', text: 'one two', project: '' });
+  assert.deepEqual(parseArgs(['next', 'add', 'tests', '-p', 'web']), { cmd: 'next-add', text: 'tests', project: 'web' });
+  assert.deepEqual(parseArgs(['next', '-p', 'web', 'add', 'tests']), { cmd: 'next-add', text: 'tests', project: 'web' });
+  assert.deepEqual(parseArgs(['next', 'add', '--', '--all', 'is', 'a', 'word']), { cmd: 'next-add', text: '--all is a word', project: '' });
+});
+
+test('parseArgs: shellby next add needs text that fits, for one project', () => {
+  assert.match(parseArgs(['next', 'add']).error, /Add what\?/);
+  assert.match(parseArgs(['next', 'add', '   ']).error, /Add what\?/);
+  assert.match(parseArgs(['next', 'add', 'a'.repeat(201)]).error, /under 200 characters/);
+  assert.equal(parseArgs(['next', 'add', 'a'.repeat(200)]).cmd, 'next-add');
+  assert.match(parseArgs(['next', 'add', 'x', '--all']).error, /next add is for one project, not --all/);
+  assert.match(parseArgs(['next', 'add', 'x', '--nope']).error, /Unknown option/);
+});
+
+test('parseArgs: shellby next done takes a to-do number', () => {
+  assert.deepEqual(parseArgs(['next', 'done', '2']), { cmd: 'next-done', task: 2, project: '' });
+  assert.deepEqual(parseArgs(['next', 'done', '999']), { cmd: 'next-done', task: 999, project: '' });
+  assert.deepEqual(parseArgs(['next', 'done', '3', '-p', 'web']), { cmd: 'next-done', task: 3, project: 'web' });
+  assert.deepEqual(parseArgs(['next', 'done', '007']), { cmd: 'next-done', task: 7, project: '' });
+});
+
+test('parseArgs: shellby next done refuses anything but one number', () => {
+  for (const words of [[], ['0'], ['1000'], ['1.5'], ['two'], ['1', '2'], ['t-abcd1234'], ['0000']]) {
+    const r = parseArgs(['next', 'done', ...words]);
+    assert.match(r.error || '', /Which one\?/, words.join(' '));
+  }
+  assert.match(parseArgs(['next', 'done', '-1']).error, /Unknown option: -1/);
+  assert.match(parseArgs(['next', 'done', '2', '--all']).error, /next done is for one project, not --all/);
+});
+
+test('-p names a project that is itself called add or done', () => {
+  assert.deepEqual(parseArgs(['next', '-p', 'add']), { cmd: 'next', project: 'add', all: false });
+  assert.deepEqual(parseArgs(['next', '-p', 'done']), { cmd: 'next', project: 'done', all: false });
+  assert.deepEqual(parseArgs(['next', 'add', 'x', '-p', 'done']), { cmd: 'next-add', text: 'x', project: 'done' });
+});
+
+test('projectArg makes ". / .. / ./x" folders and leaves names alone', () => {
+  assert.deepEqual(projectArg(''), {});
+  assert.deepEqual(projectArg(undefined), {});
+  assert.deepEqual(projectArg('.'), { project: path.resolve('.') });
+  assert.deepEqual(projectArg('..'), { project: path.resolve('..') });
+  assert.deepEqual(projectArg('./x'), { project: path.resolve('./x') });
+  assert.deepEqual(projectArg('..\\web'), { project: path.resolve('..\\web') });
+  assert.deepEqual(projectArg('../web'), { project: path.resolve('../web') });
+  assert.ok(path.isAbsolute(projectArg('.').project));
+  for (const name of ['shellby', 'x-salmon/shellby', '.hidden', '..dots', 'a/b', 'C:\\code\\site', '...']) {
+    assert.deepEqual(projectArg(name), { project: name }, name);
+  }
+});
+
+test('the CLI asks for what is next, from the folder it was run in', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => {
+    seen.push(req);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ text: `answer to ${req.body.action}` }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  // A dev profile, as SHELLBY_USER_DATA names it, holding the token Shellby writes at startup.
+  fs.writeFileSync(path.join(tmp, 'crab-token'), 'crab-tok\n'); // trimmed when read
+  const env = { SHELLBY_USER_DATA: tmp };
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  const next = await runCli(['next'], { port, tmp, env });
+  assert.equal(next.code, EXIT.ok, next.stderr);
+  assert.match(next.stdout, /answer to next_up/);
+  assert.equal(seen[0].url, '/v1/crab');
+  assert.equal(seen[0].headers['x-shellby-token'], 'crab-tok', 'the crab token, so other accounts on this PC are kept out');
+  assert.deepEqual(seen[0].body, { action: 'next_up', args: { via: 'cli', cwd: process.cwd() } });
+
+  await runCli(['next', '--all'], { port, tmp, env });
+  assert.deepEqual(seen[1].body.args, { via: 'cli', cwd: process.cwd(), everywhere: true });
+
+  await runCli(['next', 'x-salmon/shellby'], { port, tmp, env });
+  assert.equal(seen[2].body.args.project, 'x-salmon/shellby');
+
+  await runCli(['next', '.'], { port, tmp, env });
+  assert.equal(seen[3].body.args.project, process.cwd());
+
+  const add = await runCli(['next', 'add', 'write', 'tests', '-p', 'web'], { port, tmp, env });
+  assert.equal(add.code, EXIT.ok, add.stderr);
+  assert.deepEqual(seen[4].body, { action: 'add_task', args: { via: 'cli', cwd: process.cwd(), project: 'web', text: 'write tests' } });
+
+  await runCli(['next', 'done', '2'], { port, tmp, env });
+  assert.deepEqual(seen[5].body, { action: 'finish_task', args: { via: 'cli', cwd: process.cwd(), task: 2 } });
+
+  await runCli(['projects'], { port, tmp, env });
+  assert.deepEqual(seen[6].body, { action: 'projects', args: { via: 'cli' } });
+  assert.equal(seen[6].headers['x-shellby-token'], 'crab-tok');
+
+  await runCli(['status'], { port, tmp, env });
+  assert.equal(seen[7].headers['x-shellby-token'], undefined, 'status sends no token: it never needed one');
+});
+
+test('the CLI without the crab token says Shellby is too old, and asks nothing', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => { seen.push(req); res.writeHead(200).end('{}'); });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+  // Nowhere to find one: not the real profile on this PC either.
+  const env = { SHELLBY_USER_DATA: tmp, APPDATA: tmp, USERPROFILE: tmp, HOME: tmp, XDG_CONFIG_HOME: tmp };
+
+  const r = await runCli(['next'], { port, tmp, env });
+  assert.equal(r.code, EXIT.error);
+  assert.match(r.stderr, /too old to answer about projects/);
+  assert.equal(seen.length, 0);
+});
+
+test('the CLI says what Shellby refused with, and exits with an error', async t => {
+  const server = await stubShellby((req, res) => {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'No project called "ghost" on Shellby\'s Projects page.' }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  fs.writeFileSync(path.join(tmp, 'crab-token'), 'crab-tok');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  const r = await runCli(['next', 'ghost'], { port, tmp, env: { SHELLBY_USER_DATA: tmp } });
+  assert.equal(r.code, EXIT.error);
+  assert.match(r.stderr, /No project called "ghost"/);
+  assert.equal(r.stdout, '');
+
+  const bad = await runCli(['next', 'done', 'two'], { port, tmp });
+  assert.equal(bad.code, EXIT.usage);
+  assert.match(bad.stderr, /Which one\?/);
 });

@@ -10,8 +10,8 @@
 //   shellby time last-week                  hours on each project, for an invoice
 //   shellby do @review                      run a saved prompt snippet
 //   shellby take                            open this folder's Claude Code session in Shellby
-//   shellby next                            what to work on in this project (Next up)
-//   shellby task add "release notes"         a task on this project's list (.shellby/tasks.md)
+//   shellby next                            what's next on the repo you're in
+//   shellby projects                        every project on the Projects page
 //
 // Self-contained plain Node (builtins only): Shellby copies this file next to
 // its shim in %LOCALAPPDATA%\Shellby\bin, so it never has to be read out of the
@@ -38,8 +38,12 @@ const INPUT_KEY = /^[a-z][a-z0-9_]{0,31}$/;
 const MAX_INPUTS = 10;
 const MAX_INPUT_VALUE = 2000;
 const MAX_FLOW_NAME = 60;
-// A task's title, as Shellby keeps it (backlog/tasks.js MAX_TITLE).
-const MAX_TASK = 200;
+// Projects, as Shellby checks them (crabtools.parseProjectAsk; todo.js MAX_TEXT).
+const MAX_PROJECT = 200;
+const MAX_TODO = 200;
+const MAX_TODO_NUMBER = 999;
+// The project questions read git in each clone, which can take a few seconds.
+const PROJECTS_TIMEOUT_MS = 15000;
 
 const TIME_RANGES = ['today', 'week', 'last-week', 'month', 'last-month'];
 // A saved snippet, as Shellby names them (snippets.js NAME). Lowercase only, so
@@ -63,12 +67,14 @@ const USAGE = `shellby - the desktop crab, from your terminal
   shellby flow list           your workflows, and which ones Claude Code may run
   shellby flow run <name...> [key=value ...]
                               start a workflow that has the "Claude Code" trigger
-  shellby next                what to work on in this project, ranked: your tasks,
-                              its GitHub issues and the TODOs in its code
-  shellby task add <text...>  add a task to this project's .shellby/tasks.md
-  shellby task done <n>       tick off item n of shellby next (one of your tasks)
   shellby time [range] [--git] hours on each project: ${TIME_RANGES.join(' | ')}
                               (default: week). --git fills untracked days from your commits
+  shellby projects            the projects on Shellby's Projects page
+  shellby next [project]      what's next: crashed servers, failing CI, your to-dos,
+                              unpushed work (default: the repo you're in)
+  shellby next --all          the first few things in every project
+  shellby next add <text...>  put a to-do on this project's list
+  shellby next done <n>       tick off to-do n
   shellby help                this
   shellby version
 
@@ -80,6 +86,9 @@ Options for "do":
 A snippet's prompt gets whatever follows its name: in place of $ARGUMENTS if
 it has one ("shellby do @tests src/app.js"), word by word for $1, $2 and on
 (the last one takes the rest), otherwise on the end.
+
+For "next", a project is its name, owner/name or a folder (. is this one).
+-p <project> names one for "add" and "done", or one called "add" or "done".
 
 For "flow run", the name is every word before the first key=value (or quote
 it), and each key=value fills in one of the workflow's inputs:
@@ -100,9 +109,11 @@ const markerPath = () => path.join(os.tmpdir(), `shellby-hooks-${PORT}`);
  * user can read it, which is the point: it keeps out web pages and other
  * accounts, not the user's own programs.
  */
-function readToken() {
-  if (process.env.SHELLBY_TOKEN) return process.env.SHELLBY_TOKEN.trim();
+function readToken(file = 'cli-token') {
+  if (file === 'cli-token' && process.env.SHELLBY_TOKEN) return process.env.SHELLBY_TOKEN.trim();
   const dirs = [
+    // A dev run with its own profile keeps its tokens there.
+    process.env.SHELLBY_USER_DATA,
     process.env.APPDATA && path.join(process.env.APPDATA, 'Shellby'),
     process.env.XDG_CONFIG_HOME && path.join(process.env.XDG_CONFIG_HOME, 'Shellby'),
     path.join(os.homedir(), 'AppData', 'Roaming', 'Shellby'),
@@ -110,7 +121,7 @@ function readToken() {
   ].filter(Boolean);
   for (const d of dirs) {
     try {
-      const t = fs.readFileSync(path.join(d, 'cli-token'), 'utf8').trim();
+      const t = fs.readFileSync(path.join(d, file), 'utf8').trim();
       if (t) return t;
     } catch { /* try the next one */ }
   }
@@ -118,7 +129,7 @@ function readToken() {
 }
 
 /** POST one request to the running Shellby. Resolves; never rejects. */
-function post(route, payload, { token } = {}) {
+function post(route, payload, { token, timeoutMs = TIMEOUT_MS } = {}) {
   return new Promise(resolve => {
     const body = Buffer.from(JSON.stringify(payload), 'utf8');
     const headers = {
@@ -127,7 +138,7 @@ function post(route, payload, { token } = {}) {
       'X-Shellby': '1',
     };
     if (token) headers['X-Shellby-Token'] = token;
-    const req = http.request({ host: '127.0.0.1', port: PORT, path: route, method: 'POST', headers, timeout: TIMEOUT_MS }, res => {
+    const req = http.request({ host: '127.0.0.1', port: PORT, path: route, method: 'POST', headers, timeout: timeoutMs }, res => {
       const chunks = [];
       let size = 0;
       res.on('data', c => { size += c.length; if (size < 256 * 1024) chunks.push(c); });
@@ -137,7 +148,7 @@ function post(route, payload, { token } = {}) {
         resolve({ status: res.statusCode, json });
       });
     });
-    req.on('timeout', () => { req.destroy(); resolve({ status: 0, error: 'Shellby did not answer in time.' }); });
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, timedOut: true, error: 'Shellby did not answer in time.' }); });
     req.on('error', e => resolve({ status: 0, error: e.code === 'ECONNREFUSED' ? 'nothing is listening' : e.message }));
     req.end(body);
   });
@@ -201,23 +212,8 @@ function parseArgs(argv) {
     return args.length ? { cmd: 'take', id: args[0] } : { cmd: 'take' };
   }
 
-  if (first === 'next') return args.length ? { error: 'shellby next takes nothing after it.' } : { cmd: 'next' };
-
-  if (first === 'task') {
-    const sub = args.shift();
-    if (sub === 'add') {
-      const title = args.join(' ').replace(/\s+/g, ' ').trim();
-      if (!title) return { error: 'Add what? (shellby task add "release notes for 0.71")' };
-      if (title.length > MAX_TASK) return { error: `Keep a task under ${MAX_TASK} characters.` };
-      return { cmd: 'task-add', title };
-    }
-    if (sub === 'done') {
-      const n = Number(args[0]);
-      if (args.length !== 1 || !Number.isInteger(n) || n < 1 || n > 999) return { error: 'Which one? (shellby task done 2, numbered as shellby next lists them)' };
-      return { cmd: 'task-done', n };
-    }
-    return { error: 'Usage: shellby task add <text...> | shellby task done <n>' };
-  }
+  if (first === 'projects') return args.length ? { error: 'shellby projects takes nothing after it.' } : { cmd: 'projects' };
+  if (first === 'next') return parseNextArgs(args);
 
   if (first === 'time') {
     const opts = { cmd: 'time', range: 'week', estimates: false };
@@ -262,6 +258,48 @@ function parseFlowArgs(args) {
   return { cmd: 'flow-run', name, inputs };
 }
 
+const NEXT_USAGE = 'Usage: shellby next [project] | shellby next --all | shellby next add <text...> | shellby next done <n>  (put -- before text that starts with -)';
+
+/**
+ * `next [project] [--all]`, `next add <text...>`, `next done <n>`, each with -p <project>.
+ *   -> { cmd: 'next', project, all } | { cmd: 'next-add', text, project } | { cmd: 'next-done', task, project } | { error }
+ */
+function parseNextArgs(args) {
+  let project = '';
+  let all = false;
+  const words = [];
+  while (args.length) {
+    const a = args.shift();
+    if (a === '--all' || a === '-a') all = true;
+    else if (a === '-p' || a === '--project') {
+      const v = args.shift();
+      if (!v) return { error: `${a} needs a project name.` };
+      project = v;
+    } else if (a === '--') words.push(...args.splice(0));
+    else if (a.startsWith('-') && a.length > 1) return { error: `Unknown option: ${a}. ${NEXT_USAGE}` };
+    else words.push(a);
+  }
+  if (project.length > MAX_PROJECT) return { error: `A project name is at most ${MAX_PROJECT} characters.` };
+  const sub = words[0];
+  if ((sub === 'add' || sub === 'done') && all) return { error: `shellby next ${sub} is for one project, not --all.` };
+  if (sub === 'add') {
+    const text = words.slice(1).join(' ').replace(/\s+/g, ' ').trim();
+    if (!text) return { error: 'Add what? (shellby next add "write the release notes")' };
+    if (text.length > MAX_TODO) return { error: `Keep a to-do under ${MAX_TODO} characters.` };
+    return { cmd: 'next-add', text, project };
+  }
+  if (sub === 'done') {
+    const n = words.length === 2 && /^\d{1,3}$/.test(words[1]) ? Number(words[1]) : 0;
+    if (n < 1 || n > MAX_TODO_NUMBER) return { error: 'Which one? Give its number from shellby next (shellby next done 2).' };
+    return { cmd: 'next-done', task: n, project };
+  }
+  const name = words.join(' ').trim();
+  if (name && project) return { error: `Name the project once. ${NEXT_USAGE}` };
+  if (all && (name || project)) return { error: 'shellby next --all is every project; leave the name out.' };
+  if (name.length > MAX_PROJECT) return { error: `A project name is at most ${MAX_PROJECT} characters.` };
+  return { cmd: 'next', project: name || project, all };
+}
+
 // ------------------------------------------------------------------ commands
 
 async function main(argv) {
@@ -273,20 +311,24 @@ async function main(argv) {
   // The marker file means a fast, clear answer instead of a connection timeout.
   if (!fs.existsSync(markerPath())) return notRunning();
 
-  if (cmd.cmd === 'status') {
-    const res = await post('/v1/crab', { action: 'status', args: {} });
-    if (!res.status) return notRunning();
-    if (res.status >= 300) { err(res.json?.error || `Shellby answered ${res.status}.`); return EXIT.error; }
-    out(res.json?.text || 'No answer.');
-    return EXIT.ok;
-  }
+  if (cmd.cmd === 'status') return crabRequest('status', {}, { fallback: 'No answer.' });
+  if (cmd.cmd === 'say') return crabRequest('say', { text: cmd.text }, { quiet: true });
 
-  if (cmd.cmd === 'say') {
-    const res = await post('/v1/crab', { action: 'say', args: { text: cmd.text } });
-    if (!res.status) return notRunning();
-    if (res.status >= 300) { err(res.json?.error || `Shellby answered ${res.status}.`); return EXIT.error; }
-    return EXIT.ok;
+  // The Projects page: the same answers the MCP tools give Claude, worded for a
+  // terminal, with the token that says this program runs as you (crab-token).
+  const here = { via: 'cli', cwd: process.cwd() };
+  const crabToken = cmd.cmd === 'projects' || cmd.cmd.startsWith('next') ? readToken('crab-token') : null;
+  if ((cmd.cmd === 'projects' || cmd.cmd.startsWith('next')) && !crabToken) {
+    err('This Shellby is too old to answer about projects. Update it and try again.');
+    return EXIT.error;
   }
+  const slow = { timeoutMs: PROJECTS_TIMEOUT_MS, token: crabToken };
+  if (cmd.cmd === 'projects') return crabRequest('projects', { via: 'cli' }, { ...slow, fallback: 'No projects.' });
+  if (cmd.cmd === 'next') {
+    return crabRequest('next_up', { ...here, ...projectArg(cmd.project), ...(cmd.all ? { everywhere: true } : {}) }, { ...slow, fallback: 'Nothing next.' });
+  }
+  if (cmd.cmd === 'next-add') return crabRequest('add_task', { ...here, ...projectArg(cmd.project), text: cmd.text }, { ...slow, fallback: 'Added.' });
+  if (cmd.cmd === 'next-done') return crabRequest('finish_task', { ...here, ...projectArg(cmd.project), task: cmd.task }, { ...slow, fallback: 'Ticked off.' });
 
   // Everything below starts something, so it needs the token.
   const token = readToken();
@@ -302,9 +344,6 @@ async function main(argv) {
   if (cmd.cmd === 'take') {
     return cliRequest({ action: 'take', args: { cwd: process.cwd(), ...(cmd.id ? { id: cmd.id } : {}) } }, token, { fallback: 'Opened in Shellby.' });
   }
-  if (cmd.cmd === 'next') return cliRequest({ action: 'next', args: { cwd: process.cwd() } }, token, { fallback: 'Nothing waiting.' });
-  if (cmd.cmd === 'task-add') return cliRequest({ action: 'task-add', args: { cwd: process.cwd(), title: cmd.title } }, token, { fallback: 'Added.' });
-  if (cmd.cmd === 'task-done') return cliRequest({ action: 'task-done', args: { cwd: process.cwd(), n: cmd.n } }, token, { fallback: 'Ticked off.' });
   if (cmd.cmd === 'flow-run') return cliRequest({ action: 'flow-run', name: cmd.name, inputs: cmd.inputs }, token, { fallback: 'Started.' });
 
   // do
@@ -314,6 +353,22 @@ async function main(argv) {
   if (cmd.snippet) args.snippet = cmd.snippet;
   return cliRequest({ action: 'task', args }, token,
     { quiet: cmd.quiet, fallback: 'Handed to Shellby.' });
+}
+
+/** A project as typed: "." and "../web" are folders, made absolute here; anything else is a name. */
+function projectArg(project) {
+  if (!project) return {};
+  return { project: /^\.\.?([\\/]|$)/.test(project) ? path.resolve(project) : project };
+}
+
+/** POST one action to /v1/crab (the same door the MCP server uses), print the answer. */
+async function crabRequest(action, args, { quiet = false, fallback = 'Done.', timeoutMs, token } = {}) {
+  const res = await post('/v1/crab', { action, args }, { timeoutMs, token });
+  if (!res.status && res.timedOut) { err(res.error); return EXIT.error; }
+  if (!res.status) return notRunning();
+  if (res.status >= 300) { err(res.json?.error || `Shellby answered ${res.status}.`); return EXIT.error; }
+  if (!quiet) out(res.json?.text || fallback);
+  return EXIT.ok;
 }
 
 /** POST to /v1/cli with the token, print the answer, and turn it into an exit code. */
@@ -350,4 +405,7 @@ if (require.main === module) {
     .catch(e => { err(`shellby: ${e?.message || e}`); process.exit(EXIT.error); });
 }
 
-module.exports = { parseArgs, main, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, MAX_TASK, SNIPPET, SESSION_ID };
+module.exports = {
+  parseArgs, main, projectArg, USAGE, MODES, TIME_RANGES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME, SNIPPET, SESSION_ID,
+  MAX_PROJECT, MAX_TODO, MAX_TODO_NUMBER,
+};

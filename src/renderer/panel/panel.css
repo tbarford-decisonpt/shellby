@@ -179,6 +179,7 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .popover {
   position: absolute; z-index: 40;
   min-width: 250px; max-width: 330px; padding: 6px;
+  overflow-y: auto; overscroll-behavior: contain; /* openMenu caps the height to the room it has */
   background: var(--reef); border: 1px solid var(--line); border-radius: var(--r);
   box-shadow: 0 18px 40px rgba(0, 0, 0, .5), 0 0 0 1px rgba(0, 0, 0, .3);
   animation: pop .16s var(--ease-out);

@@ -21,10 +21,11 @@ function setup() {
   g(dir, 'init', '-q', '-b', 'main');
   for (const [k, v] of [['user.email', 't@example.com'], ['user.name', 'T'], ['core.autocrlf', 'false']]) g(dir, 'config', k, v);
   fs.mkdirSync(path.join(dir, 'src'));
-  fs.writeFileSync(path.join(dir, 'src', 'a.js'), ['one', 'two', 'three', '  // TODO: handle the empty list', 'five', 'six', 'seven', 'eight'].join('\n'));
+  // The comment markers are split from the tags so Loose ends doesn't list this file's own fixtures.
+  fs.writeFileSync(path.join(dir, 'src', 'a.js'), ['one', 'two', 'three', '  //' + ' TODO: handle the empty list', 'five', 'six', 'seven', 'eight'].join('\n'));
   fs.writeFileSync(path.join(dir, 'notes.md'), 'A todo app. const TODO = 1;\n');
   fs.writeFileSync(path.join(dir, '.gitignore'), 'secret.js\n');
-  fs.writeFileSync(path.join(dir, 'secret.js'), '// FIXME ignored by git\n');
+  fs.writeFileSync(path.join(dir, 'secret.js'), '//' + ' FIXME ignored by git\n');
   g(dir, 'add', '-A');
   g(dir, 'commit', '-qm', 'init');
   g(dir, 'push', '-q', bare.replace(/\\/g, '/'), 'main');
@@ -37,7 +38,7 @@ function setup() {
   g(dir, 'push', '-q', bare.replace(/\\/g, '/'), 'fix/it:refs/pull/3/head');
   g(dir, 'checkout', '-q', 'main');
   g(dir, 'branch', '-q', '-D', 'fix/it');
-  fs.writeFileSync(path.join(dir, 'untracked.js'), '// HACK not tracked\n');
+  fs.writeFileSync(path.join(dir, 'untracked.js'), '//' + ' HACK not tracked\n');
   g(dir, 'remote', 'add', 'origin', 'https://github.com/me/crab.git');
   const env = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `url.${bare.replace(/\\/g, '/')}.insteadOf`, GIT_CONFIG_VALUE_0: 'https://github.com/me/crab.git' };
   return { base, dir, home, env, sha, g, done: () => fs.rmSync(base, { recursive: true, force: true }) };

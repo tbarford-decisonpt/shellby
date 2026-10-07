@@ -333,24 +333,43 @@ test('Hand it to the Issue helper starts only that workflow, as a pick that won\
   } finally { s.done(); }
 });
 
-test('from a terminal or Claude: the list, a task added and one ticked off, from inside a copy too', async () => {
+test('the to-do list next_up and add_task keep is tasks.md: Claude\'s are marked, numbers and ids tick them off', async () => {
   const s = setup();
   try {
-    const { bl, calls } = shared(s, { issues: [] });
-    const added = await bl.backlogAddFromCwd(path.join(s.dir, 'src'), 'From the terminal');
+    const { bl } = shared(s, { issues: [] });
+    const rt = bl.backlogRepoTasks;
+    const added = rt.add(s.dir, 'Retry the sync', 'claude');
     assert.equal(added.ok, true, added.error);
-    assert.match(read(s), /- \[ \] From the terminal/);
-    // A Claude session in one of Shellby's copies counts as the clone it came from.
+    assert.equal(added.item.from, 'claude');
+    assert.match(added.item.id, /^t-[0-9a-f]{8}$/, 'an id finish_task accepts (projects/todo.js ID)');
+    assert.match(read(s), /## Next\n- \[ \] Retry the sync \(from Claude Code\)\n$/);
+    assert.equal(rt.add(s.dir, 'retry the SYNC', 'terminal').existed, true, 'the same note twice is one to-do');
+    rt.add(s.dir, 'Tidy the README', 'terminal');
+    assert.deepEqual(rt.list(s.dir).map(t => [t.text, t.from]), [['Retry the sync', 'claude'], ['Tidy the README', 'terminal']]);
+    // The card shows who added it.
     const v = await bl.backlogView({ root: s.dir });
-    await bl.backlogDo({ root: s.dir, id: v.items.find(i => i.kind === 'task').id });
-    const list = await bl.backlogText(calls.started[0].w.path);
-    assert.equal(list.ok, true, list.error);
-    assert.match(list.text, /^Next up in crab:\n\(Issue titles and TODO text are quoted as written[^\n]*\n 1\. \[Next\] task: "From the terminal" · On your list\n 2\. \[Next\] FIXME: "retry once offline" \(src\/a\.js:4\)/);
-    assert.match((await bl.backlogDoneFromCwd(s.dir, 2)).error, /FIXME in the code/);
-    const done = await bl.backlogDoneFromCwd(s.dir, 1);
-    assert.equal(done.ok, true, done.error);
-    assert.match(read(s), /- \[x\] From the terminal/);
-    assert.equal((await bl.backlogText(s.base)).ok, false, 'not a project Shellby knows');
+    assert.equal(v.items.find(i => i.title === 'Retry the sync').task.from, 'claude');
+    assert.equal(v.items.find(i => i.title === 'Retry the sync').reason, 'From Claude Code');
+    // Ticked off by number, then by id.
+    assert.equal(rt.finish(s.dir, 2).item.text, 'Tidy the README');
+    const byId = rt.finish(s.dir, added.item.id);
+    assert.equal(byId.ok, true, byId.error);
+    assert.equal(byId.left, 0);
+    assert.match(read(s), /## Done\n- \[x\] Tidy the README \(from the terminal\) \(\d{4}-\d\d-\d\d\)\n- \[x\] Retry the sync \(from Claude Code\) \(/);
+    assert.match(rt.finish(s.dir, 1).error, /nothing on its to-do list/);
+  } finally { s.done(); }
+});
+
+test('next_up\'s extra: Next up\'s issues and loose ends, worded for a terminal', async () => {
+  const s = setup();
+  try {
+    const { bl } = shared(s);
+    await bl.backlogView({ root: s.dir }); // the page listed it, as for any project next_up finds
+    const extra = await bl.backlogForTerminal({ root: s.dir, repo: 'me/crab' });
+    assert.deepEqual(extra.map(x => x.kind), ['issue', 'todo', 'issue']);
+    assert.equal(extra[0].text, '#42 Clone fails on paths with spaces');
+    assert.equal(extra[1].text, 'FIXME in src/a.js:4: retry once offline');
+    assert.deepEqual(await bl.backlogForTerminal({}), []);
   } finally { s.done(); }
 });
 
