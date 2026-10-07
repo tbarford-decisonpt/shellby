@@ -342,6 +342,7 @@
     const cards = [
       main && F.pulse(p, { onChange: reload }),
       F.health(p),
+      main && SB.releasesCard(main.root, p.name),
       main && F.conversations(p, { newHere }),
       main && SB.startFrom.looseEndsCard(main.root, p.name),
     ];

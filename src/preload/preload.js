@@ -286,6 +286,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onStartFromOpen: on('startfrom:open'),
   looseEnds: invoke('startfrom:loose-ends'),
   looseEndDraft: invoke('startfrom:loose-end'),
+  // A project's next release (src/main/projects/releases-ipc.js): nothing is pushed unless you say so.
+  getRelease: invoke('releases:get'),
+  cutRelease: invoke('releases:cut'),
+  pushRelease: invoke('releases:push'),
+  releasePolishDraft: invoke('releases:polish'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   updatePlugin: invoke('plugin:update'),
