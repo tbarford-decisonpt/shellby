@@ -432,6 +432,7 @@ function wireWindows(d) {
     // Opened behind your windows (a task from the terminal, a routine, a game up),
     // it was never focused, so it never blurs either: calm from the start.
     d.panel.on('show', () => {
+      if (!d.panel.isFocused() && !d.calmReason) setCalm('blur');
       d.health?.monitor?.watched(); // the health monitor's slow beat is for a closed panel
     });
     for (const asleep of ['lock-screen', 'suspend']) powerMonitor.on(asleep, () => setCalm('locked'));
