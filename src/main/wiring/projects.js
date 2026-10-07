@@ -78,6 +78,12 @@ function wireProjects(d) {
         open: [...(d.manager?.tabs.values() || [])].flatMap(t => [t.worktree?.path, t.session?.cwd]).filter(p => typeof p === 'string'),
       }),
       retireCopy,
+      journal: (roots, name) => {
+        const v = d.journal?.view(roots);
+        return v ? { ...v, draft: d.journal.draftFor(v.root, name) } : null;
+      },
+      time: () => d.timeTracker?.state ?? d.config.get('timeTracking'),
+      weekly: () => d.config.get('weekly'),
     });
     d.projects.on('change', () => d.send(d.panel, 'projects:changed'));
     d.devServers.reattach();

@@ -288,6 +288,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onStartFromOpen: on('startfrom:open'),
   looseEnds: invoke('startfrom:loose-ends'),
   looseEndDraft: invoke('startfrom:loose-end'),
+  // A project's next release (src/main/projects/releases-ipc.js): nothing is pushed unless you say so.
+  getRelease: invoke('releases:get'),
+  cutRelease: invoke('releases:cut'),
+  pushRelease: invoke('releases:push'),
+  releasePolishDraft: invoke('releases:polish'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),
   updatePlugin: invoke('plugin:update'),
@@ -410,6 +415,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // Projects and their dev servers (src/main/projects/ipc.js)
   listProjects: invoke('projects:list'),
   projectDetail: invoke('projects:detail'),
+  projectReport: invoke('projects:report'),
   addProject: invoke('projects:add'),
   scanForProjects: invoke('projects:scan'),
   cancelProjectScan: invoke('projects:scan-cancel'),
@@ -427,6 +433,8 @@ contextBridge.exposeInMainWorld('shellby', {
   openProjectFolder: invoke('projects:open-folder'),
   openProjectOnGitHub: invoke('projects:open-github'),
   installProject: invoke('projects:install'),
+  pinToJournal: invoke('projects:journal-pin'),
+  removeFromJournal: invoke('projects:journal-remove'),
   onProjectsChanged: on('projects:changed'),
   onProjectsShow: on('projects:show'),
   onCloneProgress: on('projects:clone-progress'),

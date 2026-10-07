@@ -91,7 +91,11 @@ function wireSessions(d) {
       // A test run's "waiting for you" ends once you've answered.
       if (item.kind === 'decision' && d.routineTests.has(tabId)) d.send(d.panel, 'routines:test-run', d.routineTestView(tabId));
       if (item.kind === 'permission') d.onPermission(tabId, item, tab);
-      if (item.kind === 'result') d.onResult(tabId, item, tab);
+      if (item.kind === 'result') {
+        d.onResult(tabId, item, tab);
+        // Its project's handoff note, once its turns settle (wiring/journal.js).
+        d.journal?.touched({ sessionId: tab.session?.sessionId, cwd: tab.session?.cwd, root: tab.worktree?.root || null });
+      }
       // The panel shows a sentence (trouble.js); what the program really said goes in the log too.
       // (Not having a copy of the repo isn't a failed turn: main logs that itself.)
       const failed = item.trouble && item.trouble.kind !== 'no-copy';

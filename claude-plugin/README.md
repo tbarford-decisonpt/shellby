@@ -20,6 +20,7 @@ Makes [Shellby](https://github.com/x-salmon/shellby), the pixel hermit crab on y
 | `add_routine` / `list_routines` | Proposes a scheduled Claude Code task (you confirm it) / lists your routines. |
 | `add_workflow` / `list_workflows` | Proposes a workflow (you confirm it) / lists your workflows and which ones Claude may run. |
 | `run_workflow` | Starts a workflow that has the **Claude Code** trigger, with its inputs. Returns once it has started. |
+| `journal` | The project's handoff notes from earlier sessions (what's half-done, what was decided, what's next), or `pin` to leave one for the next session. |
 
 Claude Code mods can call `say`, `celebrate`, `wear` and `status` too, with `$.mcp.call('plugin:shellby:shellby', …)`: see [Making Shellby react from a mod](../docs/MODS.md).
 
@@ -39,6 +40,10 @@ Then make sure the Shellby app is running (**Settings → Claude Code everywhere
 ## Status line
 
 Run `/shellby:statusline` to put Shellby in Claude Code's status line (mood, level, XP and health), for example `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱`. It asks Claude's statusline-setup agent to add it, keeping any status line you already have. You can also turn it on in the Shellby app: **Settings → Claude Code everywhere → Status line**.
+
+## Where did we leave off?
+
+When a session ends, Shellby writes a short handoff note for its project: what was asked, what's half-done, what was decided, the files it touched and where git stood. It reads the note out of Claude Code's own record of the session, never by asking Claude, so keeping the journal costs no tokens. Run `/shellby:leftoff` and Claude answers from those notes in one small tool call instead of re-reading the project. The notes are also on the project's page in Shellby, where **Carry on with Claude** starts a conversation with them in the prompt.
 
 ## Handing a session to Shellby
 

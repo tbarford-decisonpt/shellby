@@ -61,6 +61,15 @@ function wireCrabApi(d) {
       return d.workflows.proposeFromClaude(intent.workflow);
     }
 
+    // The project journal: the handoff notes for Claude to start from, so it
+    // doesn't spend a turn re-reading the project (wiring/journal.js).
+    if (intent.action === 'journal') {
+      if (d.config.get('crabOnly') || !d.journal) return { ok: false, error: 'The journal is off: Shellby is in just-the-crab mode.', status: 403 };
+      if (!intent.pin) return d.journal.briefFor(intent.folder).then(text => ({ text }));
+      return d.journal.pinFor(intent.folder, intent.pin)
+        .then(r => (r.ok ? { text: `Pinned to the project's journal: [${intent.pin.kind}] ${intent.pin.text}` } : { ok: false, error: r.error, status: 400 }));
+    }
+
     if (intent.action === 'wear') {
       const items = d.wardrobe.view().accessories.map(a => ({ id: a.key, name: a.name, slot: a.slot, owned: !a.locked }));
       const match = crabtools.matchItem(intent.item, items);

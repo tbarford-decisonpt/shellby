@@ -45,7 +45,8 @@ function registerProgressIpc(ipcMain, d) {
   ipcMain.on('streaks:open', (_e, key) => {
     const s = streaks.normalize(d.config.get('streaks'));
     const p = d.isStr(key) && s.projects[key];
-    if (p) d.send(d.panel, 'tab:new-in', { cwd: key, draft: `Where did we leave off in ${p.name}? Summarize what changed recently, what's unfinished, and suggest the next step.` });
+    // From the project's handoff notes when there are some (wiring/journal.js): Claude starts from them, not from scratch.
+    if (p) d.send(d.panel, 'tab:new-in', { cwd: key, draft: d.journal.draftFor(key, p.name) });
   });
   // "Look over my changes": a read-only security review of what's pending in one
   // project, in that project's own folder. Only a folder Shellby already tracks
@@ -99,7 +100,7 @@ function registerProgressIpc(ipcMain, d) {
   ipcMain.on('stickers:open', (_e, id) => {
     const p = stickerId(id) && d.stickerState().projects[id];
     if (!p?.root || !fs.existsSync(p.root)) return;
-    d.send(d.panel, 'tab:new-in', { cwd: p.root, draft: `Where did we leave off in ${p.name}? Summarize what changed since we last shipped it, what's unfinished, and suggest the next step.` });
+    d.send(d.panel, 'tab:new-in', { cwd: p.root, draft: d.journal.draftFor(p.root, p.name, { since: 'since we last shipped it' }) });
   });
   // "Check its dependencies", from its page in the Sticker Book.
   ipcMain.handle('stickers:checkup', (_e, id) => {

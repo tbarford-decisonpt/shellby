@@ -16,6 +16,7 @@ const LOCAL_URL = /^https?:\/\/localhost:\d{1,5}\/\S*$/;
  *   toPanel(channel, payload)
  *   openPath(p), showItem(p), openExternal(url)
  *   ask(spec) -> Promise<button index>: Shellby's own confirm dialog (confirm.js)
+ *   journal()                       wiring/journal.js (null until created)
  * }
  */
 function registerProjectsIpc(ipcMain, d) {
@@ -25,6 +26,8 @@ function registerProjectsIpc(ipcMain, d) {
 
   ipcMain.handle('projects:list', (_e, opts) => P()?.list({ refresh: !!opts?.refresh }) ?? null);
   ipcMain.handle('projects:detail', (_e, key) => (isStr(key) ? P()?.detail(key) ?? null : null));
+  // A standup or weekly report for one project (standup.js), as text to copy.
+  ipcMain.handle('projects:report', (_e, a) => (isStr(a?.key) ? P()?.report(a.key, typeof a.kind === 'string' ? a.kind : 'standup') ?? null : null));
 
   ipcMain.handle('projects:add', async () => {
     const dir = await d.pickFolder({ title: 'Add a repository' });
@@ -115,6 +118,19 @@ function registerProjectsIpc(ipcMain, d) {
     const r = checkRepo(repo);
     if (r) d.openExternal(`https://github.com/${r}`);
     return !!r;
+  });
+  // The handoff notes on a project's page: pin a line of your own, or take one off.
+  ipcMain.handle('projects:journal-pin', (_e, { root, kind, text } = {}) => {
+    const known = P()?.knowsRoot(root);
+    if (!known || typeof text !== 'string') return { ok: false, error: 'Unknown project folder.' };
+    return d.journal()?.pinFor(known, { kind, text }, { fromPanel: true }) ?? { ok: false };
+  });
+  ipcMain.handle('projects:journal-remove', (_e, { root, pinId, sessionId } = {}) => {
+    const known = P()?.knowsRoot(root);
+    if (!known) return { ok: false };
+    const id = v => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v) ? v : null);
+    if (!id(pinId) && !id(sessionId)) return { ok: false };
+    return d.journal()?.remove(known, { pinId: id(pinId), sessionId: id(sessionId) }) ?? { ok: false };
   });
   ipcMain.handle('projects:install', (_e, root) => {
     const known = P()?.knowsRoot(root);

@@ -35,6 +35,14 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 - **A project's page** starts with **New conversation here**, then:
   - **Pulse:** hours this week with a bar for each day (while History → Time is on), the last commit, the last time you were in it, and whether he nudges you when it goes quiet.
   - **Health:** its pull requests' checks (**Fix this build** or **Ask why** on a red one, **Address the review** when reviewers left comments), its dependency check (**Bump & open a PR**) and its flaky tests (**Fix it**, **Quarantine**), the same tasks as on their own pages.
+  - **Releases:** what's waiting to go out, e.g. *"v0.70.2 · 3 days ago · 14 commits since"*. The commits are grouped by kind (**New**, **Fixed**, **Faster**, **Changed**, with chores, tests and CI folded under **Behind the scenes**), read from conventional commit subjects (`feat:`, `fix(scope):`, `feat!:` for a breaking change). A line says whether CI passed on the commit you'd release. **Draft release** suggests the next version (a feature makes it a minor, a breaking change a major, or a minor before 1.0) with Patch / Minor / Major to pick from, and drafts the CHANGELOG entry in the style your CHANGELOG already uses (`## 1.2.0: Title`, Keep a Changelog's `## [1.2.0] - date`, or a plain `## 1.2.0`). It also lists, step by step, what **Cut release** will do:
+    1. set `package.json` and `package-lock.json` to the new version
+    2. add the entry to the top of the CHANGELOG
+    3. make one commit (`1.2.0: Title`)
+    4. add an annotated tag (`v1.2.0`)
+    5. push the branch and the tag together, if **Push it** is ticked. If not, the card keeps a **Push v1.2.0** button until you do.
+
+    It won't start if the clone is on another branch, has uncommitted changes besides the release files, is behind its remote, or has moved since you read the draft. A red or unfinished CI run needs a tick first. The repository's own git hooks never run. **Write it with Claude** puts an ask in a new conversation's box: Claude reads your earlier entries and writes this one in the same voice. You read it, send it, then cut the release; an entry that's already in the CHANGELOG goes in exactly as written. A release you prepared by hand and never tagged is simply tagged. A pushed release counts toward the project's sticker.
   - **Conversations:** the last few you had in it, including ones in a copy Shellby made, to pick back up, and **Where did we leave off?**.
   - **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (a quick search that leaves out anything .gitignore'd or untracked), five at a time. **Do this** opens a new conversation with the file, the line and the code around it in the box, for you to read and send.
   - Each clone's branch, uncommitted and unpushed work and stashes, with **Tidy up…** (the same ask as *Is it safe to leave?*, put in the box for you to read before it goes) and the copies Shellby made of it.
