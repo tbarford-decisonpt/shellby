@@ -201,7 +201,7 @@ const shared = {
 // Adds an area's exports to shared, where the others reach them. Two areas
 // giving the same name would quietly replace one another, so that stops boot.
 function share(parts) {
-  for (const k of Object.keys(parts)) if (k in shared) throw new Error(`shared.${k} is given twice`);
+  for (const k of Object.keys(parts)) if (Object.hasOwn(shared, k)) throw new Error(`shared.${k} is given twice`);
   return Object.assign(shared, parts);
 }
 
@@ -229,6 +229,7 @@ if (!PRIMARY) app.exit(0);
 // report's "the run before" begins (crash-report.js previousLogTail).
 else log.info(`Shellby ${app.getVersion()} starting`, `${process.platform} ${os.release()}, electron ${process.versions.electron}`);
 // Sentry, held back by the user's answer, from the first moment (wiring/crash.js).
+// Not share(): lastRun and sentry are already on shared, as null until now.
 Object.assign(shared, startCrashReports(PRIMARY));
 
 // shellby:// links ("Add to Shellby" on the community gallery). Dev runs only
