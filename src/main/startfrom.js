@@ -299,9 +299,33 @@ const needsAck = r => !!r && (r.files.length > 0 || r.authors.length > 0 || r.un
 // ------------------------------------------------------------------ loose ends (TODO / FIXME / HACK)
 
 // The tag must follow a comment marker, so `const TODO = []` and "todo app" don't count.
-const TODO_RE = new RegExp(`(?:\\/\\/+|#+|\\/\\*+|^\\s*\\*|<!--|--|;+|^\\s*'|\\bREM\\b|%)\\s*@?(${TODO_TAGS.join('|')})\\b(?:\\(([^)]{0,40})\\))?[\\s:.\\-–—]*(.*)$`);
+const TODO_RE = new RegExp(`(?:\\/\\/+|#+|\\/\\*+|^\\s*\\*|<!--|--|;+|^\\s*'|\\bREM\\b|%)\\s*@?(${TODO_TAGS.join('|')})\\b(?:\\(([^)]{0,40})\\))?[\\s:.\\-–—]*(.*)$`, 'g');
 const ISSUE_REF = /^\s*(?:([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}))?#(\d{1,9})\s*$/;
 const SKIP_FILE = /(^|\/)(node_modules|vendor|dist|build|out|coverage|\.git)\/|\.min\.(js|css)$|\.(map|lock|svg|snap)$|(^|\/)(package-lock\.json|CHANGELOG\.md)$/i;
+
+// Is `end` inside a '…', "…" or `…` string? Only this line is seen, so a string opened on an
+// earlier line, or a lone apostrophe in code (Rust's 'a), can still fool it.
+function inString(text, end) {
+  let quote = null;
+  for (let i = 0; i < end; i++) {
+    const c = text[i];
+    if (quote && c === '\\') i++;
+    else if (c === quote) quote = null;
+    else if (!quote && (c === '"' || c === "'" || c === '`')) quote = c;
+  }
+  return quote !== null;
+}
+
+// The first tag whose comment marker isn't inside a string, so test data like
+// `parse('/* HACK x */')` isn't a loose end but `x = "a"  # TODO` still is.
+function matchTodo(text) {
+  TODO_RE.lastIndex = 0;
+  for (let m; (m = TODO_RE.exec(text));) {
+    if (!inString(text, m.index)) return m;
+    TODO_RE.lastIndex = m.index + 1;
+  }
+  return null;
+}
 
 /**
  * One line of `git grep -n -z` (file NUL line NUL text) -> a loose end, or null.
@@ -316,7 +340,7 @@ function parseTodoLine(raw) {
   if (!file || SKIP_FILE.test(file) || !Number.isInteger(line) || line < 1 || text.length > MAX_TODO_LINE) return null;
   if (file.split(/[\\/]/).includes('..') || /^[\\/]|^[A-Za-z]:/.test(file)) return null; // git gives paths inside the repo; anything else isn't one
   // The comment's closer goes first, or `<!-- TODO -->` would leave a stray "-->".
-  const m = TODO_RE.exec(text.replace(/\s*(\*\/|-->)\s*$/, ''));
+  const m = matchTodo(text.replace(/\s*(\*\/|-->)\s*$/, ''));
   if (!m) return null;
   const note = oneLine(m[3], MAX_TODO_TEXT);
   // TODO(#42) or TODO(owner/name#42): the issue it's about, for Next up (backlog/rank.js).

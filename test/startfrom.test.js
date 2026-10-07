@@ -237,6 +237,16 @@ test('parseTodoLine reads git grep -z lines with a comment marker in front', () 
   assert.equal(sf.parseTodoLine(z('src/a.js', '5', ' * TODO: in a block comment')).tag, 'TODO');
 });
 
+test('parseTodoLine skips a comment marker inside a string, not a real comment after one', () => {
+  assert.equal(sf.parseTodoLine(z('t.js', '1', `f(z('a.css', '9', '/* HACK - Safari needs this */'));`)), null, 'test data');
+  assert.equal(sf.parseTodoLine(z('t.js', '1', 'const s = "# TODO not a note";')), null);
+  assert.equal(sf.parseTodoLine(z('t.js', '1', 'const s = `// FIXME ${x}`;')), null, 'template literal');
+  assert.equal(sf.parseTodoLine(z('t.js', '1', String.raw`f('it\'s // TODO still a string')`)), null, 'escaped quote');
+  assert.deepEqual(sf.parseTodoLine(z('a.py', '2', 'x = "a"  # TODO real')), { file: 'a.py', line: 2, tag: 'TODO', text: 'real', ref: null });
+  assert.equal(sf.parseTodoLine(z('a.js', '1', `x = '/* HACK */';  // TODO the real one`)).text, 'the real one', 'the comment after the string');
+  assert.equal(sf.parseTodoLine(z('a.js', '1', `f("it's")  // FIXME apostrophe in a string`)).tag, 'FIXME');
+});
+
 test('parseTodoLine keeps the issue a TODO(#42) is about', () => {
   assert.deepEqual(sf.parseTodoLine(z('src/a.js', '7', '// TODO(#42): quote the path')).ref, { repo: null, number: 42 });
   assert.deepEqual(sf.parseTodoLine(z('a.py', '1', '# FIXME(me/crab#7) retry')).ref, { repo: 'me/crab', number: 7 });
