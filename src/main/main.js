@@ -253,9 +253,9 @@ const { createWardrobe } = share(wireWardrobe(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const { checkLimit, routineService, scheduleHeld, startScheduler, watchAway, watchGuards, watchLeaving, watchOutlook } = share(wireServices(shared));
 const { createCritter, createMischief, createMotion, placeCritter, watchIdleCost, workAreas } = share(wireWindows(shared));
-const { awardXp, broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
+const { broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
 const { createManager } = share(wireSessions(shared));
-const { checkWrapUp } = share(wireProgress(shared));
+const { awardXp, checkWrapUp } = share(wireProgress(shared));
 share({ bugdex: wireBugdex(shared) }); // the bugs Claude has fixed for you, in jars
 const { createExternal, createHealth, createTimeTracker, stat } = share(wireTimetrack(shared));
 const { createCrabApi } = share(wireCrabApi(shared));
