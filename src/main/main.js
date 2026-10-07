@@ -24,7 +24,6 @@ const voice = require('./voice');
 const statusLine = require('./statusline');
 const stickers = require('./stickers');
 const weekly = require('./weekly');
-const workmode = require('./workmode');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
 const attach = require('./attachments');
@@ -39,6 +38,7 @@ const { wirePanel } = require('./wiring/panel');
 const { wireServices } = require('./wiring/services');
 const { wireCrewSlots } = require('./wiring/crew-slots');
 const { wireStreaks } = require('./wiring/streaks');
+const { wireSettings } = require('./wiring/settings');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
@@ -291,7 +291,7 @@ const isFolder = d => { try { return fs.statSync(d).isDirectory(); } catch { ret
 // is there only where a module changes it. wiring/ reaches the services whole
 // (d.usageService.limitWait()); the flat names are what ipc/ reads.
 const shared = {
-  applyHotkey, applyLoginItem, every, isFolder, isStr, panelSettings, rememberPrompt, send,
+  every, isFolder, isStr, rememberPrompt, send,
   get recapLog() { return shared.awayService.recapLog; }, set recapLog(v) { shared.awayService.recapLog = v; },
   get BASE_PX() { return BASE_PX; },
   get CAPTURE() { return CAPTURE; },
@@ -496,6 +496,7 @@ const shared = {
   get obsSettings() { return obsSettings; },
   get obsState() { return obsState; },
   get obsView() { return obsView; },
+  get onHotkey() { return onHotkey; },
   get onPermission() { return onPermission; },
   get onResult() { return onResult; },
   get onToolSpoken() { return onToolSpoken; },
@@ -636,6 +637,8 @@ const { createPanel, reachedForShellby, showPanel } = share(wirePanel(shared));
 const { setCrewSlots } = share(wireCrewSlots(shared));
 // Streaks and nudges.
 const { checkNudges } = share(wireStreaks(shared));
+// Settings' side effects: the hotkey, opening at login, your skins folder.
+const { applyHotkey, applyLoginItem, userSkinsDir } = share(wireSettings(shared));
 // Before any other area, as they were: the rest reach these from the start.
 const {
   changeRef, checkLimit, routineService, saveSpend, scheduleHeld, spendSource,
@@ -731,32 +734,6 @@ function send(win, channel, payload) {
 // Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
 const worktreeHome = () => path.join(app.getPath('userData'), 'worktrees');
 const claudeConfigDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-
-// ================================================================ settings side effects
-
-// Settings as the panel sees them: the spend ledger stays in main (usage-service.js usageBreakdown),
-// and Work mode's settings show as they apply, over your own (workmode.js).
-function panelSettings() {
-  const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, turnCosts: _t, phoneTasksSecret: _pt, ...rest } = workmode.effective(config.data);
-  return { ...rest, dockOrder: workmode.behaviour(config.data).dock, crashReportsAvailable: !!sentry }; // no DSN in this build: the Settings row stays hidden
-}
-
-function applyHotkey(accel, previous) {
-  if (previous) { try { globalShortcut.unregister(previous); } catch (err) { log.warn('old hotkey could not be released', err?.message); } }
-  if (!accel) return true;
-  try { return globalShortcut.register(accel, onHotkey); } catch (err) { log.warn('hotkey could not be registered', err?.message); return false; }
-}
-
-function applyLoginItem(open) {
-  if (!app.isPackaged) return; // dev runs would register electron.exe itself
-  app.setLoginItemSettings({ openAtLogin: !!open });
-}
-
-function userSkinsDir() {
-  const dir = path.join(app.getPath('userData'), 'skins');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
 
 // ================================================================ IPC
 
