@@ -194,7 +194,7 @@ const issueItem = (issue, s, tier) => ({
  *   errors: new production errors from Sentry (backlog/sentry.js errorOf).
  * -> { items: [{ id, kind, tier, title, reason, reasons, ... }], milestone }
  */
-function rank({ tasks = [], notes = [], issues = null, complete = true, milestones = [], todos = [], tickets = [], errors = [], repo = null, login = null, now = Date.now() } = {}) {
+function rank({ tasks = [], notes = [], issues = /** @type {any[] | null} */ (null), complete = true, milestones = [], todos = [], tickets = [], errors = [], repo = null, login = null, now = Date.now() } = {}) {
   const known = Array.isArray(issues);
   const nearest = nearestMilestone(milestones);
   const byNumber = new Map();
@@ -204,7 +204,9 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
   const byKey = new Map();
   for (const t of Array.isArray(tickets) ? tickets : []) if (t?.key && !byKey.has(t.key)) byKey.set(t.key, t);
   const claimedKeys = new Set();
+  /** @type {Record<string, any[]>} */
   const ordered = { now: [], next: [], later: [] };   // your order
+  /** @type {Record<string, any[]>} */
   const scored = { now: [], next: [], later: [] };    // the rest, by score
 
   for (const t of tasks) {

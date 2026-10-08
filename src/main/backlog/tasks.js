@@ -58,7 +58,7 @@ function sectionOf(name) {
   return 'next';
 }
 
-const indentOf = l => /^[ \t]*/.exec(l)[0].replace(/\t/g, '    ').length;
+const indentOf = l => /** @type {RegExpExecArray} */ (/^[ \t]*/.exec(l))[0].replace(/\t/g, '    ').length;
 
 function splitLines(text) {
   const s = String(text ?? '');
@@ -123,7 +123,7 @@ function parse(text) {
     const notes = lines.slice(i + 1, end)
       .map(l => (l.trim() ? l.replace(/\t/g, '    ').slice(Math.min(base + 2, indentOf(l))) : ''))
       // Sub-items keep their indent; the rest is cleaned like a title.
-      .map(l => `${/^ */.exec(l)[0].slice(0, 12)}${clean(l, MAX_NOTE)}`.trimEnd())
+      .map(l => `${/** @type {RegExpExecArray} */ (/^ */.exec(l))[0].slice(0, 12)}${clean(l, MAX_NOTE)}`.trimEnd())
       .slice(0, MAX_NOTES);
     while (notes.length && !notes[notes.length - 1]) notes.pop();
     const r = REF.exec(title);

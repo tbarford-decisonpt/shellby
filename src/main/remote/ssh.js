@@ -195,7 +195,7 @@ function parseList(text) {
   const folders = lines
     .map(l => /^(git|dir): (.+)$/.exec(l))
     .filter(Boolean)
-    .map(m => ({ name: m[2], git: m[1] === 'git' }))
+    .map(/** @param {RegExpExecArray} m */ m => ({ name: m[2], git: m[1] === 'git' }))
     .filter(f => !CONTROL.test(f.name) && !f.name.includes('/'));
   return { here, folders };
 }
@@ -223,7 +223,7 @@ const KEEPALIVE = ['-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=4'
  * you're not looking). acceptNew: trust a computer seen for the first time
  * (only after you pressed Connect on it).
  */
-function sshArgs(host, script, { tty = false, batch = false, acceptNew = false, timeout = 20, extra = [] } = {}) {
+function sshArgs(host, script, { tty = false, batch = false, acceptNew = false, timeout = 20, extra = /** @type {string[]} */ ([]) } = {}) {
   if (!isHost(host)) throw new Error('bad host');
   return [
     tty ? '-t' : '-T',
@@ -241,6 +241,7 @@ function sshArgs(host, script, { tty = false, batch = false, acceptNew = false, 
  * Include, Match and default applied. -> { hostname, user, port, proxyjump, identityfiles }
  */
 function parseResolved(text) {
+  /** @type {{ hostname: string | null, user: string | null, port: number, proxyjump: string | null, identityfiles: string[] }} */
   const out = { hostname: null, user: null, port: 22, proxyjump: null, identityfiles: [] };
   for (const line of String(text || '').split(/\r?\n/)) {
     const m = /^(\S+)\s+(.*)$/.exec(line.trim());
@@ -298,6 +299,7 @@ const MARK = '# Added by Shellby';
  * A Host block for ~/.ssh/config, from the add form. Every value is checked:
  * this file is read by every ssh on the PC.
  *   -> { ok: true, text } | { ok: false, error }
+ * @param {{ alias: string, address: string, user?: string | null, port?: number | null, jump?: string | null, identityFile?: string | null }} opts
  */
 function hostBlock({ alias, address, user = null, port = null, jump = null, identityFile = null }) {
   if (!isHost(alias)) return { ok: false, error: 'A name with letters, numbers, dots, dashes or underscores, like homebox.' };

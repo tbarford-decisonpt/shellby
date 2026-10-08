@@ -24,7 +24,12 @@ function dateOf(ms) {
   return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : '';
 }
 
-/** The copy, in words: where it started. base: the branch it came from (default branch for an issue). */
+/** @typedef {{ branch?: string, base?: string, fromGitHub?: boolean }} Copy */
+
+/**
+ * The copy, in words: where it started. base: the branch it came from (default branch for an issue).
+ * @param {Copy} copy
+ */
 function whereLine({ branch, base, fromGitHub }) {
   const on = branch ? ` (${branch})` : '';
   return fromGitHub
@@ -82,7 +87,7 @@ const TRACKER = { linear: 'Linear', jira: 'Jira' };
  * A Linear or Jira issue (backlog/trackers.js). Like a GitHub issue, its
  * description can be anyone's words. notes: yours, from an "ENG-123" task.
  */
-function ticketPrompt({ ticket, notes = [], copy = {} }) {
+function ticketPrompt({ ticket, notes = [], copy = /** @type {Copy} */ ({}) }) {
   const where = TRACKER[ticket.tracker] || 'the tracker';
   const facts = [
     ticket.status ? `Status: ${quoted(ticket.status, 40)}.` : '',
@@ -179,6 +184,7 @@ function errorPrompt({ project, error, stack = [], tags = [], mcp = false, copy 
  * A draft pull request's body, from what the copy holds. commits: subjects, newest first.
  * ticket: { key, url, tracker } for a Linear or Jira issue: Linear closes it on merge
  * ("Fixes ENG-123"), and Jira links it by its key. fixes: a Sentry short id.
+ * @param {{ issue?: { number: number } | null, ticket?: { key: string, url?: string, tracker?: string } | null, title?: string, commits?: string[], fixes?: string }} opts
  */
 function prBody({ issue = null, ticket = null, title = '', commits = [], fixes = '' }) {
   const list = commits.slice(0, 20).map(c => `- ${clip(c, 200)}`).filter(l => l.length > 2);

@@ -26,7 +26,9 @@ const TEST_SPECIES = new Set(['red-snapper', 'assertive-lobster', 'mirror-mullet
  * Only what the rules need: the + and - lines of each file.
  */
 function splitPatch(patch) {
+  /** @type {Record<string, { added: string[], removed: string[] }>} */
   const files = {};
+  /** @type {{ added: string[], removed: string[] } | null} */
   let cur = null;
   for (const line of String(patch || '').split('\n')) {
     const head = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
@@ -65,6 +67,7 @@ function onlyBiggerNumbers(parts) {
  *   passCmd: the command that passed, or passFlags: flagsOf(it) (a reading carries only those)
  *   counts:  { before, after } tests that passed, when the runner said so
  * -> { ok: true } | { ok: false, reason }
+ * @param {{ files?: { path: string, status: string }[], patch?: string, species?: any, remedy?: boolean, revert?: boolean, passCmd?: string, passFlags?: { snapshotUpdate: boolean, insecure: boolean } | null, counts?: { before: number, after: number } | null }} [opts]
  */
 function judge({ files = [], patch = '', species, remedy = false, revert = false, passCmd = '', passFlags = null, counts = null } = {}) {
   const flags = passFlags || flagsOf(passCmd);
@@ -73,7 +76,7 @@ function judge({ files = [], patch = '', species, remedy = false, revert = false
   if (files.some(f => f.status === 'D' && isTestFile(f.path))) return { ok: false, reason: 'deleted-tests' };
   const parts = splitPatch(patch);
   const addedIn = pred => Object.entries(parts).some(([p, x]) => pred(p) && x.added.some(l => l));
-  const adds = (re, pred = () => true) => Object.entries(parts).some(([p, x]) => pred(p) && x.added.some(l => re.test(l)));
+  const adds = (re, pred = /** @type {(p: string) => boolean} */ (() => true)) => Object.entries(parts).some(([p, x]) => pred(p) && x.added.some(l => re.test(l)));
   if (adds(SKIP_ADD, isTestFile)) return { ok: false, reason: 'skipped' };
   if (revert) return { ok: false, reason: 'revert' };
   // Every species is refused when a suppression is the whole change; the type

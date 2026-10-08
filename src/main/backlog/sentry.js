@@ -31,6 +31,7 @@ const DEFAULT_URL = 'https://sentry.io';
 // ---------------------------------------------------------------- detection
 
 // Manifests and what in them means a Sentry SDK.
+/** @type {[string, RegExp][]} */
 const SDKS = [
   ['package.json', /"@sentry\/[a-z0-9-]+"\s*:/],
   ['requirements.txt', /^\s*sentry-sdk\b/im],
@@ -71,7 +72,9 @@ function hintsIn(name, text) {
  * -> { uses, org, project }
  */
 function detect(read) {
+  /** @type {string | null} */
   let org = null;
+  /** @type {string | null} */
   let project = null;
   for (const name of HINT_FILES) {
     const text = read(name);

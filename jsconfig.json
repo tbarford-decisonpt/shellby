@@ -16,6 +16,10 @@
   "include": [
     "src/preload/**/*.js",
     "src/main/ipc/**/*.js",
+    "src/main/flaky/**/*.js",
+    "src/main/remote/**/*.js",
+    "src/main/backlog/**/*.js",
+    "src/main/bugdex/**/*.js",
     "node_modules/@types/node/**/*.d.ts",
     "node_modules/electron/electron.d.ts"
   ]

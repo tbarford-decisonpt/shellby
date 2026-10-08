@@ -58,7 +58,7 @@ function createRemoteService(deps) {
    * input: stdin text. interactive: you pressed a button, so ssh may ask (askpass)
    * and trust a computer it's never seen; otherwise it never asks anything.
    */
-  async function runSsh(host, script, { input = '', interactive = false, timeout = 30000, extra = [] } = {}) {
+  async function runSsh(host, script, { input = '', interactive = false, timeout = 30000, extra = /** @type {string[]} */ ([]) } = {}) {
     let env = {};
     if (interactive) env = (await warm()) || {};
     const args = ssh.sshArgs(host, script, { batch: !interactive, acceptNew: interactive, timeout: Math.min(30, timeout / 1000), extra: [...configArgs, ...extra] });
@@ -128,7 +128,10 @@ function createRemoteService(deps) {
     return { ok: true, alias: name };
   }
 
-  /** A new computer from the form: written to ~/.ssh/config, then used. */
+  /**
+   * A new computer from the form: written to ~/.ssh/config, then used.
+   * @param {{ alias?: any, address?: any, user?: any, port?: any, jump?: any }} [form]
+   */
   function createComputer({ alias, address, user = null, port = null, jump = null } = {}) {
     const block = ssh.hostBlock({ alias, address, user: user || null, port: port ? Number(port) : null, jump: jump || null });
     if (!block.ok) return block;

@@ -77,12 +77,15 @@ function kindOf(prompt) {
  * ask({ prompt, kind }) -> Promise<string | null>: null when you cancelled.
  * compiler: csc.exe (findCompiler), injectable for tests.
  * -> { env(): Promise<object>, close() }
+ * @param {{ dir: string, ask: (q: { prompt: string, kind: string }) => Promise<string | null>, log?: (msg: string) => void, compiler?: string | null }} opts
  */
 function createAskpass({ dir, ask, log = () => {}, compiler = findCompiler() }) {
   const token = crypto.randomBytes(24).toString('hex');
   const exe = path.join(dir, 'shellby-askpass.exe');
   const src = path.join(dir, 'shellby-askpass.cs');
+  /** @type {import('http').Server | null} */
   let server = null;
+  /** @type {Promise<number> | null} */
   let ready = null;
 
   // Built once, and again only when the source above changes.
@@ -94,11 +97,11 @@ function createAskpass({ dir, ask, log = () => {}, compiler = findCompiler() }) 
     if (!compiler) throw new Error("Windows' C# compiler (.NET Framework 4) isn't on this PC");
     fs.writeFileSync(src, SOURCE);
     try { fs.rmSync(exe, { force: true }); } catch { /* in use: the build says */ }
-    await new Promise((resolve, reject) => {
+    await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
       execFile(compiler, ['/nologo', '/target:exe', '/optimize+', `/out:${exe}`, src], { windowsHide: true, timeout: 60000 }, (err, stdout) => {
         if (err || !fs.existsSync(exe)) { try { fs.rmSync(src, { force: true }); } catch { /* next time */ } reject(new Error(`couldn't build the helper: ${String(stdout || err?.message).trim().slice(0, 300)}`)); } else resolve();
       });
-    });
+    }));
   }
 
   function handle(req, res) {
@@ -115,6 +118,7 @@ function createAskpass({ dir, ask, log = () => {}, compiler = findCompiler() }) 
     req.on('end', async () => {
       // Shown as text in the panel, never run: only control characters are taken out.
       const prompt = body.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, MAX_PROMPT);
+      /** @type {string | null} */
       let answer = null;
       try { answer = await ask({ prompt, kind: kindOf(prompt) }); } catch (err) { log(`askpass: ${err.message}`); }
       // A line break would end the answer early for ssh: never part of one.
@@ -131,7 +135,7 @@ function createAskpass({ dir, ask, log = () => {}, compiler = findCompiler() }) 
         server.requestTimeout = 0;
         server.headersTimeout = 10000;
         server.on('error', reject);
-        server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+        server.listen(0, '127.0.0.1', () => resolve(/** @type {import('net').AddressInfo} */ (/** @type {import('http').Server} */ (server).address()).port));
       });
     })().catch(err => { ready = null; throw err; });
     return ready;
