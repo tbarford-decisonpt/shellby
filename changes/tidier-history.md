@@ -1,4 +1,4 @@
 ### Changed
-- **Work comes home with a type.** When a conversation moves into its own copy, Claude now names the branch starting with what kind of change it is (`feat-…`, `fix-…`, `docs-…`). The commit it comes home as is typed to match, so it lands in the right group on the Releases card instead of under "Changed" word for word.
-- **Merges say what came home.** Bringing a copy home now titles the merge with the work itself ("feat: GitLab merge requests") rather than "Bring home shellby/…", so your branch's history reads as a list of changes. The branch name is still in the message.
-- **More copies come with their packages.** A copy now gets `npm ci` even when the lockfile changed after you last installed, as long as every package in it is already installed in your checkout or another copy. When it isn't, Shellby says to run `npm ci` in your checkout so the next copies get them.
+- **Work comes home with a type** (`feat-…`, `fix-…`), so it lands in the right group on the Releases card.
+- **Merges say what came home** ("feat: GitLab merge requests").
+- **More copies come with their packages**, even after the lockfile changed.

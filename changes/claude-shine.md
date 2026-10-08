@@ -1,7 +1,7 @@
 ### New
-- **New tricks.** When Claude Code updates, Shellby tells you what it can do now: a few highlights from its changelog, new features first, each with a **Try it** that puts a question about it in a new tab (nothing is sent until you send it). Reading the changelog uses none of your Claude usage. Turn it off in Settings → General.
-- **What Claude is doing, in plain words.** A permission card now says what the step does ("Run your tests in its own copy of the repo", "Delete 2 files or folders") with the command still underneath, and gives a heads-up for files outside the project, installs, anything that goes online, pushes and what's hard to undo. A plan card says how many steps it has and how many files it names, and the Working bar says "Running your tests…" instead of the raw command. Shellby works it out from the step itself, so it costs no usage. Turn it off in Settings → Claude.
-- **More of Claude's good work celebrated.** A pull request of yours getting merged, CI going from red back to green, and a copy's work brought home with its tests passing now earn XP, and a merge gets a line and a little dance. When Claude acts on what a helper agent found, Shellby names the helper ("Scout found it!") and earns XP for it. Tests turning green again get their own lines ("fixed it!"), and the Trophies page has icons for every kind of XP.
+- **New tricks.** When Claude Code updates, Shellby shows a few highlights, each with **Try it**. Settings → General.
+- **What Claude is doing, in plain words**, on permission cards, plan cards and the Working bar. Settings → Claude.
+- **More of Claude's good work celebrated**: merged pull requests, CI back to green and helpers' finds earn XP.
 
 ### Fixed
-- **A flaky pass no longer counts as a fix.** Tests that fail and then pass on exactly the same code earn an ordinary pass, not "Tests green again"; the pass after a real change still does. Failing tests in Claude Code sessions outside Shellby now count too, so fixing them there earns "green again" as well.
+- **A flaky pass no longer counts as a fix.**

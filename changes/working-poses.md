@@ -1,2 +1,2 @@
 ### New
-- **He works the way Claude is working.** Instead of one scuttle for everything, he leans in over a scroll while Claude reads files, scribbles with a pencil while it edits, digs in with a wrench while a command runs, swivels about with a magnifying glass while it searches, gazes off through a spyglass on the web, ticks off a checklist while it plans, waves the helpers on when a subagent goes out, and taps his chin while it thinks between steps. Switching tools, he ducks into his shell for the next one. Claude Code sessions outside Shellby count too, and the OBS browser source shows it all.
+- **He works the way Claude is working**: a scroll while it reads, a pencil while it edits, a wrench for commands, a spyglass on the web, and more.

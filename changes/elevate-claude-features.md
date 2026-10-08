@@ -1,16 +1,15 @@
 ### New
 
-- **Claude's own to-do list, as it works.** When Claude breaks a job into steps, the list sits above the box: how many are done, what it's on now ("Running the tests…", in the Working bar too), and each step ticked off as it goes. It folds to one line, goes once everything's done, and he cheers the last tick.
-- **What Claude left running in the background.** A build, a dev server or a watch Claude sent off to run on its own now has a tray above the box: what it is, how long it's been going, its output a click away (keeping up as it prints), and **Stop**. Finished ones say done or failed, by their exit code, for a couple of minutes. The crab wears a badge while one runs, a click on it opens that conversation, and he says so when one finishes.
-- **Notes on Claude's plan.** A plan now gets a card of its own. Hover any line and press 💬 to leave a note on it, add anything else at the bottom, and **Send notes** hands them all back so Claude revises the plan before anything changes. **Approve plan** works as before. While Claude plans he stops scuttling and ponders, claw to his chin, and says **plan?** when there's one to read. When Claude switches itself to planning, the conversation says so.
-- **What Claude remembers.** Toolbox → Memory lists the notes Claude Code writes down by itself as you work (what you've told it, what it learned about the project), grouped as it keeps them. Fix one that's wrong, or forget it (to the Recycle Bin). When Claude writes a new one, its line in the conversation reads **Remembered**, with a link to the list, and he says "noted!".
-- **Skills, explained.** When Claude reaches for a skill by itself, its line says what the skill is for, the description Claude matched your ask against. The first time each one is used, he says so. In the Toolbox, a skill you wrote that Claude hasn't used lately says why that happens, with **Sharpen its description with Claude**.
-- **How hard it thought.** Beside each turn's cost, a badge with the effort it ran at and how much of it was thinking (*high · 2.1k thinking*).
-- **Helpers talking to each other.** When Claude writes to a helper it already sent out, the message shows in the conversation (*Claude → @scout*), the helper's lane picks up again with its new answer under the first, and on the desktop that helper crab holds up what it was told.
-- **Your cloud routines.** Routines → **In Claude's cloud** lists the routines you made with `/schedule`, which run in Anthropic's cloud even with your PC off: when each runs (in words), what it's asked, its repo, its recent runs, **Run now** (asks first) and **Open** on claude.ai. **New cloud routine…** starts a conversation with `/schedule`. Shellby asks Claude Code for the list when you want it, one tiny call.
-- **Ultra review this branch.** A conversation's branch menu can start Claude Code's `/code-review ultra` in a terminal, where Claude Code says what it costs and asks before it starts.
+- **Claude's own to-do list, as it works**, above the box, each step ticked off as it goes.
+- **What Claude left running in the background.** A tray shows each build or dev server Claude started, its output, and **Stop**.
+- **Notes on Claude's plan.** Leave a 💬 note on any line of a plan and **Send notes** so Claude revises it first.
+- **What Claude remembers.** Toolbox → Memory lists the notes Claude Code keeps by itself, to fix or forget.
+- **Skills, explained.** A skill's line says what it's for, and the Toolbox helps sharpen one Claude never uses.
+- **How hard it thought.** Each turn's effort and thinking, beside its cost.
+- **Helpers talking to each other.** Claude's follow-up messages to a helper show in the conversation.
+- **Your cloud routines.** Routines → **In Claude's cloud** lists your `/schedule` routines, with **Run now**.
+- **Ultra review this branch** from a conversation's branch menu.
 
 ### Fixed
 
-- **A command left running in the background is no longer a helper crab.** It used to stand on the desktop as a general-purpose helper, and count as one sent out.
-- **A helper sent a second message comes back to work.** Its lane stayed marked done while it worked on the new message, and its second answer never showed.
+- **A background command is no longer a helper crab**, and **a helper sent a second message comes back to work.**

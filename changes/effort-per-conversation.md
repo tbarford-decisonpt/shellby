@@ -1,2 +1,2 @@
 ### Changed
-- **Each conversation picks its own effort.** On Auto, every chat used to get Claude Code's own default, so a quick question thought, read and filled its context like a big build. Now Shellby sizes each new conversation from its first message: low for a quick question, medium for most jobs, high for a big one (never Extra high or Max, which stay yours to choose). The effort chip shows what it picked, and changing it there changes that conversation only. Turn picking off under **New conversations** in the chip's menu, or set what new ones start on with `/effort new high`.
+- **Each conversation picks its own effort** on Auto, from its first message: low, medium or high. Change it in the effort chip.

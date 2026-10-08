@@ -1,3 +1,3 @@
 ### New
-- **Production errors on Next up.** If a project reports to Sentry, its card offers to show its new errors: paste one Sentry token and they're ranked with everything else. One that's new today, escalating or back again comes first. A project that doesn't use Sentry never sees any of it.
-- **Fix this error.** It works like Do this: a copy on its own branch, and a conversation with the error's stack trace from its latest event, waiting for you to read and send. Claude ends the commit with "Fixes WEB-1A", so Sentry links the fix to the error. Add Sentry's MCP server in Toolbox → MCP, and Claude can look up the rest of the error itself.
+- **Production errors on Next up** from Sentry, new and escalating ones first.
+- **Fix this error** opens a copy with the stack trace, and the commit links back to Sentry.

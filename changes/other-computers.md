@@ -1,3 +1,3 @@
 ### New
-- **Claude Code on your other computers.** Keep Claude Code and your files on a server or a PC that stays on, and work with it from here as usual. **Settings → Claude → Other computers** picks up the computers already in your ssh settings, or adds a new one (through a VPS or any other computer in between), then walks you through the rest, a button for each step: switching on Windows' ssh agent so a key's passphrase is asked for once and never again, setting up a key from your password, installing Claude Code over there and signing in. Add a folder there and conversations in it run there, permission cards, steering and all, and the folder chip says where: `homebox: ~/code/app`.
-- **ssh asks in Shellby.** When a key needs its passphrase or a computer wants its password, Shellby asks in a box of its own, hands it to ssh and forgets it. No terminal, no commands to type.
+- **Claude Code on your other computers.** Run conversations on a server or another PC over ssh. **Settings → Claude → Other computers** walks you through keys, installing and signing in, a button per step.
+- **ssh asks in Shellby** for a passphrase or password, then forgets it.

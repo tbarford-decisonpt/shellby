@@ -1,4 +1,4 @@
 ### New
-- **Quiz me.** When Claude changes 30 lines or more in one turn, the changes block offers **Quiz me**: Claude writes three questions on what the change does and why, and you pick an answer to each. Every answer says why it's right, a wrong pick shows you the right one, and two out of three earns XP. It only runs when you ask, uses a little of your plan, and never touches the conversation.
-- **More in "While you were away".** The recap now says which of your pull requests' CI went red or came back to green while you were out (a build that broke and was fixed again just shows as back to green), and what Shellby sent for you once your usage window reset.
-- **The real moon.** The beach's night sky shows the moon as it actually is tonight, from a thin crescent to full, worked out on your PC with no location needed. A new set of finds, **By moonlight**, only turns up when he digs after dark under a full moon or a new moon.
+- **Quiz me.** After a big change, Claude asks three questions on what it does and why. Two right earns XP.
+- **More in "While you were away"**: CI that went red or green, and what Shellby sent once your usage reset.
+- **The real moon** in the beach's night sky, and a new **By moonlight** set of finds.

@@ -1,8 +1,7 @@
 ### New
 
-- **When did this break?** A project's page has a new **Helpers** card. Say what broke, add a command that shows it if you have one, and pick the last version that worked (a tag, or let Claude find one). Claude finds the commit that broke it with `git bisect`, in a copy of the project, so your own checkout never moves. It tells you which commit it was and why, and suggests a fix without making it.
-- **Show me around.** A tour of any repo: how to run it, what's where, one real path through the code, the parts to be careful with and a good first change, with file links you can click. It runs in Ask first, so nothing changes. After a clone, he offers it straight away.
-- **Check the docs.** Claude reads the README and docs against the code and fixes what's out of date (commands that are gone, env settings, flags, paths, versions) in a copy on its own branch, and never changes code to match the docs. **Make it automatic…** opens a weekly docs check in the routine editor that only reports. It never runs until you save it, so it never spends your usage without asking.
-- **The port doctor.** When a dev server dies because its port is taken, its card says who has it (*"Port 3000 was already taken, by node.exe"*) and offers **Use :3001 instead**, a port that's free, using the flag your framework reads. Shellby remembers the new port for that script until you press **Use its usual port**. **Stop node.exe** asks first in Shellby's own window, and is never offered for Windows itself or Shellby.
-- **Before you start.** A project's servers warn about settings your `.env` is missing compared with `.env.example` (by name only, never their values), with **Make .env from .env.example** when there's no `.env` at all, and about a Node version that doesn't match `.nvmrc`, `.node-version` or `engines`.
-- Nothing on the Helpers card sends anything by itself: each puts its prompt in a new conversation for you to read, and none of your Claude usage is spent until you press Send.
+- **When did this break?** A project's new **Helpers** card has Claude find the breaking commit with `git bisect`, in a copy.
+- **Show me around.** A guided tour of any repo, offered after a clone.
+- **Check the docs.** Claude fixes out-of-date docs on its own branch, or weekly as a routine.
+- **The port doctor.** A dev server whose port is taken says who has it and offers a free one.
+- **Before you start.** Warnings for settings missing from `.env` and a mismatched Node version.
