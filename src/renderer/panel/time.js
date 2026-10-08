@@ -110,6 +110,7 @@
       h('div', { class: 'grid-2' },
         h('label', { class: 'field-label' }, 'Name', name),
         h('label', { class: 'field-label' }, 'Client', client)),
+      syncPick(p),
       h('div', { class: 'tm-prow' },
         h('label', { class: 'field-label tm-rate' }, `Rate per hour (${view.settings.currency})`, rate),
         h('label', { class: 'toggle' }, billable, h('span', { class: 'switch' }), 'Billable')),
@@ -216,8 +217,112 @@
         onclick: () => api.setTimeProject(p.key, { ignored: false }).then(load) })]));
   }
 
+  // ------------------------------------------------------------------ sending to a tracker
+  //
+  // One link until you connect Toggl, Clockify or Harvest; then a day picker
+  // and a Send button here, and a "Goes to" pick in each project's details.
+
+  let syncForm = false;     // the connect form is open
+  let syncList = null;      // { ok, options, links } or { ok: false, error }, once per visit
+  let syncLoading = false;
+  let syncDay = null;
+  const trackerName = () => view.sync.providers.find(p => p.id === view.sync.provider)?.name || 'your tracker';
+  const optionLabel = o => [o.client, o.name, o.task].filter(Boolean).join(' · ');
+
+  function loadSyncList(fresh = false) {
+    if (syncLoading) return;
+    syncLoading = true;
+    api.timeSyncProjects({ fresh }).then(r => { syncList = r; }, () => { syncList = { ok: false, error: 'something went wrong' }; }).finally(() => { syncLoading = false; render(); });
+  }
+
+  // The tracker project this one's hours go to, in its details.
+  function syncPick(p) {
+    if (!view.sync.provider || !syncList?.ok) return null;
+    const link = syncList.links[p.key];
+    const sel = h('select', { class: 'field', 'aria-label': `Where ${p.name}'s hours go in ${trackerName()}` },
+      h('option', { value: '', text: 'Not matched: not sent' }),
+      ...syncList.options.map(o => h('option', { value: o.id, text: optionLabel(o) })));
+    sel.value = link?.id || '';
+    sel.addEventListener('change', async () => {
+      const r = await api.linkTimeSync(p.key, sel.value || null);
+      if (!r?.ok) return SB.toast(r?.error || "Couldn't save that.");
+      loadSyncList();
+    });
+    return h('label', { class: 'field-label' },
+      `Goes to in ${trackerName()}`, link?.guessed ? h('span', { class: 'field-hint', text: ' (matched for you)' }) : null, sel);
+  }
+
+  function renderSync() {
+    const s = view.sync;
+    const el = $('timeSync');
+    $('timePrivacy').textContent = s.provider
+      ? `Hours are kept on this PC. They go to ${trackerName()} only when you send a day.`
+      : 'Hours are kept only on this PC, never synced or sent anywhere.';
+    if (!s.provider && !syncForm) {
+      el.replaceChildren(h('p', { class: 'muted small' },
+        h('button', { type: 'button', class: 'link-btn', text: 'Send hours to Toggl, Clockify or Harvest…', onclick: () => { syncForm = true; renderSync(); $('timeSyncToken').focus(); } })));
+      return;
+    }
+    if (!s.provider) {
+      const provider = h('select', { class: 'field slim', 'aria-label': 'Time tracker' }, ...s.providers.map(p => h('option', { value: p.id, text: p.name })));
+      const where = h('p', { class: 'muted small', text: s.providers[0].where });
+      provider.addEventListener('change', () => { where.textContent = s.providers.find(p => p.id === provider.value).where; });
+      const token = h('input', { type: 'password', class: 'field slim', id: 'timeSyncToken', spellcheck: 'false', autocomplete: 'off', placeholder: 'API token', 'aria-label': 'API token' });
+      const err = h('p', { class: 'form-errors', role: 'alert', hidden: true });
+      const connect = h('button', { type: 'submit', class: 'btn primary slim-btn', text: 'Connect' });
+      const form = h('form', { class: 'tm-sync', novalidate: true },
+        h('div', { class: 'row wrap' }, provider, token, connect,
+          h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Cancel', onclick: () => { syncForm = false; renderSync(); } })),
+        where, err,
+        h('p', { class: 'muted small', text: 'The token stays on this PC, encrypted by Windows. Shellby only sends the days you send.' }));
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        connect.disabled = true;
+        const r = await api.connectTimeSync(provider.value, token.value);
+        connect.disabled = false;
+        if (!r?.ok) { err.hidden = false; err.textContent = r?.error || "Couldn't connect."; return; }
+        syncForm = false;
+        syncList = null;
+        SB.toast(`Connected to ${s.providers.find(p => p.id === provider.value).name}`);
+        load();
+      });
+      el.replaceChildren(form);
+      return;
+    }
+    const name = trackerName();
+    const day = h('input', { type: 'date', class: 'field slim', max: today(), value: syncDay || today(), 'aria-label': 'Which day to send' });
+    const again = () => s.sentDays.includes(day.value);
+    const send = h('button', { type: 'button', class: 'btn slim-btn', text: again() ? `Update in ${name}` : `Send to ${name}` });
+    day.addEventListener('change', () => { syncDay = day.value; send.textContent = again() ? `Update in ${name}` : `Send to ${name}`; });
+    send.addEventListener('click', async () => {
+      send.disabled = true;
+      try {
+        const r = await api.sendTimeSync(day.value);
+        const left = r?.unmatched?.length ? ` Not matched yet: ${r.unmatched.join(', ')}.` : '';
+        if (r?.sent) SB.toast(`Sent ${r.sent === 1 ? '1 entry' : `${r.sent} entries`} to ${r.tracker}, ${r.hours.toFixed(2)} h.${r.error ? ` ${r.of - r.sent} didn't go: ${r.error}` : ''}${left}`);
+        else SB.toast(`${r?.error || "Couldn't send that day."}${left}`);
+      } finally { send.disabled = false; }
+      load();
+    });
+    let armed = false;
+    const off = h('button', { type: 'button', class: 'link-btn', text: 'disconnect' });
+    off.addEventListener('click', async () => {
+      if (!armed) { armed = true; off.textContent = 'sure? disconnect'; setTimeout(() => { armed = false; off.textContent = 'disconnect'; }, 4000); return; }
+      await api.disconnectTimeSync();
+      syncList = null;
+      SB.toast(`Disconnected from ${name}. Nothing there was changed.`);
+      load();
+    });
+    el.replaceChildren(
+      h('div', { class: 'row wrap' }, day, send),
+      h('p', { class: 'muted small' },
+        `${name}${s.account ? ` (${s.account})` : ''}: each project's billed hours for that day, one entry each. Pick where a project goes in its details above; sending a day again updates it. `, off),
+      syncList && !syncList.ok ? h('p', { class: 'muted small', text: `Couldn't load your ${name} projects: ${syncList.error}` }) : null);
+  }
+
   function render() {
     if (!view) return;
+    if (view.sync.provider && !syncList) loadSyncList();
     const on = view.settings.enabled;
     $('timeToggle').checked = on;
     $('timeIntro').hidden = on || view.summary.projects.length > 0;
@@ -227,6 +332,7 @@
     renderChart(view.summary);
     renderProjects(view.summary);
     renderExport(view.summary);
+    renderSync();
     renderForm();
     renderSettings();
   }
@@ -301,5 +407,5 @@
     if (state.view === 'time') renderNow(now);
   });
 
-  SB.views.time = { render: () => { load(); scheduleRefresh(); } };
+  SB.views.time = { render: () => { syncList = null; load(); scheduleRefresh(); } };
 })();

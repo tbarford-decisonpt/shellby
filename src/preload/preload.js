@@ -456,6 +456,11 @@ contextBridge.exposeInMainWorld('shellby', {
   exportTimePdf: invoke('time:export-pdf'),
   copyTime: invoke('time:copy'),
   showTimeFile: invoke('time:show-file'),
+  connectTimeSync: invoke('time:sync-connect'),
+  disconnectTimeSync: invoke('time:sync-disconnect'),
+  timeSyncProjects: invoke('time:sync-projects'),
+  linkTimeSync: invoke('time:sync-link'),
+  sendTimeSync: invoke('time:sync-send'),
   onTimeNow: on('time:now'),
   // Projects and their dev servers (src/main/projects/ipc.js)
   listProjects: invoke('projects:list'),

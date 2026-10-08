@@ -147,7 +147,7 @@ const shared = {
   // ---- made at boot
   config: null, history: null, skins: null, wardrobe: null, manager: null, toolbox: null, shop: null,
   health: null, external: null, github: null, ci: null, issues: null, updates: null, friends: null,
-  profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null,
+  profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null, timeSync: null,
   workflows: null,                 // the Automate page's engine (workflows/service.js)
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude-update.js)

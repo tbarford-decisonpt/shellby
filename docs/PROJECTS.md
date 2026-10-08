@@ -95,7 +95,8 @@ Afterwards the note says *Planned*, *Built* or *Asked*, with a link back to that
 - **Time by hand.** Add a meeting or take off a break on any day, with a note for the invoice.
 - **From your commits.** Days you committed but weren't keeping time can be filled in from the commits, marked as estimates wherever they show.
 - **Timesheets.** **Save PDF** makes a clean timesheet for a client, one project or everything, **Save CSV** gives one row per project per day for your invoicing tool, and **Copy as text** is ready to paste into an email. `shellby time last-week` prints the same summary in a terminal.
-- **Private:** everything stays on this PC and is never synced. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes.
+- **Send to your time tracker.** Under the timesheet, connect Toggl Track, Clockify or Harvest with an API token. Each project is matched to one of yours there, by its name or else its client, and you can change the match in the project's details. Pick a day and **Send**: each project's billed hours go over as one entry, with the day's note (or your commit messages) as its description. Sending a day again updates those entries rather than adding more. Nothing goes until you press it, and the token is kept encrypted by Windows.
+- **Private:** everything stays on this PC and is never synced, except the days you send to your time tracker. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes.
 
 ## Flaky tests
 
