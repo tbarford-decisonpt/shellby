@@ -52,5 +52,5 @@ test('unknown methods are a JSON-RPC error', async () => {
 });
 
 test('the config names one in-app server', () => {
-  assert.deepEqual(JSON.parse(crabmcp.mcpConfig()), { mcpServers: { shellby: { type: 'sdk', name: 'shellby' } } });
+  assert.deepEqual(crabmcp.servers(), { shellby: { type: 'sdk', name: 'shellby' } });
 });

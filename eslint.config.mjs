@@ -66,7 +66,7 @@ const BROWSER_GLOBALS = {
   HTMLElement: 'readonly', SVGElement: 'readonly', Node: 'readonly', devicePixelRatio: 'readonly',
   performance: 'readonly', crypto: 'readonly', structuredClone: 'readonly', queueMicrotask: 'readonly',
   // Shellby's own: the preload bridge, and the namespace the panel's files share.
-  shellby: 'readonly', SB: 'writable', ShellbyChirp: 'writable',
+  shellby: 'readonly', SB: 'writable', ShellbyChirp: 'writable', ShellbySound: 'writable', ShellbyAmbient: 'writable',
 };
 
 export default [

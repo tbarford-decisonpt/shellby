@@ -1,0 +1,133 @@
+/* Shellby — the Sticker Book (stickers.js). Tokens come from panel.css. */
+
+body[data-view="stickers"] .view-stickers { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-stickers {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.shellby-tabs button { position: relative; }
+.shellby-tabs .st-badge { top: 3px; right: 4px; }
+
+.tier-paper { --tier: var(--line); }
+.tier-vinyl { --tier: #4fb7a3; }
+.tier-holo { --tier: #9d7bff; }
+.tier-foil { --tier: #e9c46a; }
+
+/* ---------------------------------------------------------------- the bench: his shell, up close */
+.st-hero {
+  display: grid; justify-items: center; gap: 6px; padding: 12px 14px 14px;
+  border-radius: var(--r-lg); border: 1px solid var(--line);
+  background:
+    radial-gradient(60% 55% at 50% 25%, rgba(255, 193, 94, .10), transparent 70%),
+    linear-gradient(var(--abyss), var(--reef));
+}
+.st-bench { position: relative; padding-top: 14px; }
+.st-crab svg { display: block; overflow: visible; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
+.st-spots { position: absolute; left: 0; top: 14px; pointer-events: none; }
+.st-spot {
+  position: absolute; padding: 0; border: 1.5px dashed transparent; border-radius: 3px; background: none;
+  pointer-events: auto; cursor: pointer; transition: border-color .15s, background .15s, transform .2s var(--ease-spring);
+}
+.st-spot:not(.has) { border-color: rgba(243, 230, 204, .38); }
+.st-spot.has { cursor: grab; }
+.st-spot:hover { border-color: var(--sand); }
+.st-spot:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.st-bench.holding .st-spot { border-color: var(--amber); background: rgba(255, 193, 94, .10); animation: st-spot-pulse 1.1s ease-in-out infinite; }
+.st-spot.over { background: rgba(255, 193, 94, .32) !important; transform: scale(1.12); }
+@keyframes st-spot-pulse { 50% { background: rgba(255, 193, 94, .24); } }
+
+/* the stickers on his shell catch the light here too */
+.st-crab .sticker.tier-holo > rect { animation: st-holo 3.2s linear infinite; }
+.st-crab .sticker.tier-foil > rect { animation: st-foil 5s ease-in-out infinite; }
+.st-crab .sticker.weather-peeling { opacity: .9; }
+.st-crab .sticker.weather-faded { opacity: .78; }
+
+.st-hero-text { text-align: center; display: grid; justify-items: center; gap: 4px; }
+.st-eyebrow { color: var(--amber); }
+.st-hero-text h3 { margin: 0; font: 600 var(--fs-19) var(--font-pixel); }
+.st-sub { margin: 0; max-width: 36ch; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.st-shells { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 6px; }
+.st-shell-chip {
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--reef); color: var(--sand-dim); font-size: var(--fs-12); font-weight: 700;
+}
+.st-shell-chip:hover { color: var(--sand); border-color: var(--reef-3); }
+.st-shell-chip.on { color: var(--sand); border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim); }
+.st-shell-chip .n { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.st-worn { color: var(--glass); font-size: var(--fs-8); }
+.st-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; margin-top: 6px; }
+.st-auto { font-size: var(--fs-12-5); }
+.st-hint { min-height: 1.4em; margin: 8px 2px; font-size: var(--fs-12-5); color: var(--amber); text-align: center; }
+
+/* ---------------------------------------------------------------- one sticker's page */
+.st-detail {
+  position: relative; display: grid; grid-template-columns: 136px 1fr; gap: 14px; align-items: start;
+  margin-bottom: 12px; padding: 14px; border-radius: var(--r-lg);
+  border: 1px solid var(--line); border-bottom: 2px solid var(--tier, var(--line));
+  background: linear-gradient(160deg, rgba(255, 193, 94, .06), transparent 60%), var(--reef);
+  animation: rise .25s var(--ease-out);
+}
+.st-detail:has(.st-big.tier-paper) { --tier: var(--line); }
+.st-detail:has(.st-big.tier-vinyl) { --tier: #4fb7a3; }
+.st-detail:has(.st-big.tier-holo) { --tier: #9d7bff; }
+.st-detail:has(.st-big.tier-foil) { --tier: #e9c46a; }
+.st-big { position: relative; display: grid; place-items: center; width: 136px; height: 136px; }
+.st-big svg { image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); transform: rotate(-4deg); transition: transform .3s var(--ease-spring); }
+.st-big:hover svg { transform: rotate(2deg) scale(1.04); }
+.st-big.tier-holo svg { animation: st-holo 3.2s linear infinite; }
+.st-big.tier-foil svg { animation: st-foil 4s ease-in-out infinite; }
+.st-big.weather-peeling svg { opacity: .9; }
+.st-big.weather-faded svg { filter: saturate(.45) drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); opacity: .82; }
+.st-ribbon {
+  position: absolute; right: 2px; bottom: 8px; padding: 1px 7px; border-radius: 4px;
+  font: 700 var(--fs-10-5) var(--font-mono); color: #3d2a00; background: #ffd23f; box-shadow: 0 2px 0 #b38a00; transform: rotate(6deg);
+}
+.st-info { min-width: 0; display: grid; gap: 3px; padding-right: 18px; }
+.st-info h3 { margin: 0; font: 600 var(--fs-18) var(--font-pixel); overflow-wrap: anywhere; }
+.st-when, .st-stats { margin: 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.st-stats { font: var(--fs-11-5) var(--font-mono); color: var(--sand-faint); }
+.st-weather { margin: 2px 0 0; font-size: var(--fs-12); color: var(--amber); }
+.st-deps { margin: 2px 0 0; font-size: var(--fs-12); color: var(--sand-dim); }
+.st-mark-list { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 0; padding: 0; }
+.st-mark-list li { display: inline-flex; gap: 4px; align-items: center; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--abyss); font-size: var(--fs-11-5); font-weight: 700; }
+.st-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.st-hide { margin-top: 6px; font-size: var(--fs-12); color: var(--sand-dim); }
+.st-close { position: absolute; top: 8px; right: 8px; }
+
+/* ---------------------------------------------------------------- the book */
+.st-grid { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 7px; }
+.st-tile {
+  position: relative; width: 100%; display: grid; justify-items: center; align-content: start; gap: 3px;
+  min-height: 104px; padding: 10px 6px 8px; cursor: grab;
+  border-radius: var(--r); border: 1px solid var(--line); border-bottom: 2px solid var(--tier, var(--line));
+  background: var(--reef); color: var(--sand);
+  transition: transform .2s var(--ease-spring), border-color .15s, box-shadow .15s;
+}
+.st-tile:hover { transform: translateY(-2px) rotate(-1deg); border-color: var(--reef-3); }
+.st-tile.on { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim); }
+.st-tile:active { cursor: grabbing; }
+.st-art { height: 50px; display: grid; place-items: center; }
+.st-art svg { width: 48px; height: 48px; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
+.st-tile.tier-holo .st-art svg { animation: st-holo 3.2s linear infinite; }
+.st-tile.tier-foil .st-art svg { animation: st-foil 4s ease-in-out infinite; }
+.st-tile.weather-peeling .st-art svg { opacity: .88; }
+.st-tile.weather-faded .st-art svg { filter: saturate(.45); opacity: .8; }
+.st-name { font-size: var(--fs-11-5); font-weight: 700; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+.st-tier { font: 600 var(--fs-9-5) var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-faint); }
+.st-tile .new-pill { position: absolute; top: 5px; right: 5px; }
+.st-marks { position: absolute; top: 5px; left: 6px; font-size: var(--fs-10); letter-spacing: -1px; }
+.st-on { position: absolute; bottom: 5px; right: 6px; font-size: var(--fs-10); }
+
+.st-waiting h3, .st-options h3 { margin: 14px 0 2px; font-size: var(--fs-13); }
+.st-waiting-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 7px; }
+.st-ghost { display: grid; justify-items: center; gap: 5px; padding: 10px 6px 8px; border-radius: var(--r); border: 1px dashed var(--line); color: var(--sand-faint); }
+.st-ghost-art { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 2px dashed var(--line); font: 600 var(--fs-18) var(--font-pixel); }
+.st-card-mode { margin-top: 8px; }
+.st-card-mode button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
+
+@keyframes st-holo { 0% { filter: hue-rotate(0deg) saturate(1.3) drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); } 100% { filter: hue-rotate(360deg) saturate(1.3) drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); } }
+@keyframes st-foil { 0%, 85%, 100% { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); } 92% { filter: brightness(1.6) saturate(1.2) drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-bench.holding .st-spot, .st-crab .sticker > rect, .st-big svg, .st-tile .st-art svg { animation: none !important; }
+}

@@ -2,20 +2,42 @@
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
+const { TASKKILL } = require('./system32');
+const processJob = require('./process-job');
 
 // Env vars that would route the CLI to API-key billing or another provider.
-// Shellby always runs Claude Code on the user's own claude.ai login.
+// Claude Code gets them as set: how it signs in is the user's call, not ours.
+// Only the "Always use my Claude plan" setting (planOnly) leaves them out.
 const BILLING_ENV = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL',
   'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'];
 
-function subscriptionEnv(base = process.env) {
+let planOnly = false;
+function setPlanOnly(on) { planOnly = !!on; }
+
+// Which of BILLING_ENV are set here, so Settings can say what Claude Code will bill.
+function billingEnv(base = process.env) {
+  return BILLING_ENV.filter(k => base[k]);
+}
+
+function claudeEnv(base = process.env, { onlyPlan = planOnly } = {}) {
   const env = { ...base };
-  for (const k of BILLING_ENV) delete env[k];
+  if (onlyPlan) for (const k of BILLING_ENV) delete env[k];
   // Our own sessions tell the Shellby Claude Code plugin's hooks not to report
   // back to us (their tabs already drive the crab).
   env.SHELLBY_OWNED = '1';
   return env;
 }
+
+// A conversation carried on in a terminal (handoff.js) is outside Shellby from
+// then on: the same scrubbing, but without the marker, so the plugin reports it.
+function terminalEnv(base = process.env, { onlyPlan = planOnly } = {}) {
+  const env = claudeEnv(base, { onlyPlan });
+  delete env.SHELLBY_OWNED;
+  return env;
+}
+
+// The variables a terminal must drop for "Always use my Claude plan" (none when it's off).
+const billingScrub = (onlyPlan = planOnly) => (onlyPlan ? [...BILLING_ENV] : []);
 
 // configured: a path the user picked in Settings when the search below missed
 // (unusual installs, a portable copy, a drive we'd never guess). It's tried
@@ -58,13 +80,16 @@ async function verifyClaude(file) {
 // Always resolves: a file Windows refuses to execute at all (a .txt chosen in
 // the file picker, say) makes execFile throw synchronously with EFTYPE rather
 // than calling back, and that used to escape as a rejected promise.
-function run(exe, args, timeout = 15000, { cwd } = {}) {
+// opts.input: text for stdin, which `claude -p` with no prompt argument reads
+// as the prompt. Long prompts go this way: a Windows command line stops at
+// 32,767 characters.
+function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
   return new Promise(resolve => {
     let timedOut = false;
     let child;
     try {
       // Plugin catalogs can be several MB of JSON; the 1 MB default would truncate them.
-      child = execFile(exe, args, { env: subscriptionEnv(), windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      child = execFile(exe, args, { env: claudeEnv(), windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
         clearTimeout(timer);
         resolve({ ok: !err && !timedOut, stdout: String(stdout || ''), stderr: String(stderr || ''), err: err || (timedOut ? new Error('timed out') : null), timedOut });
       });
@@ -72,12 +97,22 @@ function run(exe, args, timeout = 15000, { cwd } = {}) {
       resolve({ ok: false, stdout: '', stderr: '', err, timedOut: false });
       return;
     }
+    // A one-shot `claude -p` starts its MCP servers too; whatever it leaves
+    // running when it exits is ended with it (process-job.js). On 'exit', since
+    // a leftover holding its pipes would hold back the callback until the timeout.
+    const job = processJob.adopt(child.pid);
+    child.once('exit', () => processJob.sweep(job));
+    // Nothing is ever typed in, and `claude -p` waits for stdin to end before
+    // it starts when stdin isn't a terminal.
+    child.stdin?.on('error', () => { /* it exited before reading: the callback reports it */ });
+    try { if (input === null) child.stdin?.end(); else child.stdin?.end(String(input)); } catch { /* already gone */ }
     // Our own timeout: kill the whole tree while claude is still alive (a plugin
     // install may be running git; execFile's timeout would only kill claude.exe).
     const timer = setTimeout(() => {
       timedOut = true;
+      if (processJob.sweep(job)) return;
       if (process.platform === 'win32' && child.pid) {
-        execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+        execFile(TASKKILL, ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
       } else {
         child.kill('SIGKILL');
       }
@@ -85,7 +120,7 @@ function run(exe, args, timeout = 15000, { cwd } = {}) {
   });
 }
 
-// { installed, exe, version, loggedIn, authMethod, subscriptionType, email, warning, picked }
+// { installed, exe, version, loggedIn, authMethod, subscriptionType, email, planOnly, billingEnv, warning, picked }
 // configured: the path the user chose in Settings, if any (see candidatePaths).
 async function checkStatus({ configured = null } = {}) {
   const exe = findClaude(process.env, configured);
@@ -102,11 +137,15 @@ async function checkStatus({ configured = null } = {}) {
     authMethod: info.authMethod || null,
     subscriptionType: info.subscriptionType || null,
     email: info.email || null,
+    planOnly,
+    billingEnv: planOnly ? [] : billingEnv(),
   };
-  if (status.loggedIn && status.authMethod && status.authMethod !== 'claude.ai') {
+  if (status.billingEnv.length) {
+    status.warning = `${status.billingEnv.join(', ')} ${status.billingEnv.length > 1 ? 'are' : 'is'} set on this PC, so Claude Code may bill that instead of your Claude plan. Turn on "Always use my Claude plan" in Settings to ignore ${status.billingEnv.length > 1 ? 'them' : 'it'}.`;
+  } else if (status.loggedIn && status.authMethod && status.authMethod !== 'claude.ai') {
     status.warning = `Claude Code is signed in with "${status.authMethod}", which bills per token. Sign in with your Claude account to use your subscription.`;
   }
   return status;
 }
 
-module.exports = { findClaude, verifyClaude, checkStatus, subscriptionEnv, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };

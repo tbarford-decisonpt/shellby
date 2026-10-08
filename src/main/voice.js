@@ -6,7 +6,8 @@
 // `rand`), so the whole personality is testable. See test/voice.test.js.
 //
 // Three rules keep him a pet instead of a nuisance:
-//   1. 'quiet' says nothing at all, ever — exactly the glyph-only Shellby.
+//   1. 'quiet' says nothing at all, ever — exactly the glyph-only Shellby
+//      ('work' says only what's about the work).
 //   2. Every occasion has a cooldown, and a global gap sits between any two
 //      lines, so he can't chatter.
 //   3. He never repeats a line while another one in the pool is unused.
@@ -20,11 +21,17 @@ const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 
 // How talkative he is. 'quiet' is the pre-voice Shellby, kept as a real choice.
-const CHATTER = Object.freeze(['quiet', 'normal', 'chatty']);
+// 'work' only speaks up about the work (WORK_OCCASIONS) and has no idle habits:
+// Work mode's voice (workmode.js), and a choice of its own.
+const CHATTER = Object.freeze(['quiet', 'work', 'normal', 'chatty']);
 // Smallest gap between any two lines, whatever the occasion.
-const GAP = Object.freeze({ quiet: Infinity, normal: 40 * SECOND, chatty: 12 * SECOND });
+const GAP = Object.freeze({ quiet: Infinity, work: 40 * SECOND, normal: 40 * SECOND, chatty: 12 * SECOND });
 // 'chatty' shortens every cooldown; 'normal' uses them as written.
-const COOLDOWN_SCALE = Object.freeze({ quiet: Infinity, normal: 1, chatty: 0.4 });
+const COOLDOWN_SCALE = Object.freeze({ quiet: Infinity, work: 1, normal: 1, chatty: 0.4 });
+// What 'work' still says: a task done or failed, a new trick, a trophy's one
+// line, a dev server falling over. Asking is the raised claw (see OCCASIONS),
+// and a red build is the renderer's, so both show whatever he's set to.
+const WORK_OCCASIONS = new Set(['success', 'error', 'learned', 'unlocked', 'serverDown']);
 // The bubble holds two short lines. Longer than this and he'd be clipped.
 const MAX_LINE = 24;
 
@@ -56,14 +63,85 @@ const OCCASIONS = Object.freeze({
   web: { every: 6 * MINUTE, ttl: 5 * SECOND, only: 'chatty' },
   crew: { every: 4 * MINUTE, ttl: 6 * SECOND },
   longTask: { every: 8 * MINUTE, ttl: 6 * SECOND },
+  serverDown: { every: 2 * MINUTE, ttl: 7 * SECOND }, // a dev server fell over (devservers/service.js)
 
   // --- he's on your wallpaper all day; he may as well notice
   morning: { every: 20 * HOUR, ttl: 8 * SECOND },
   latenight: { every: 6 * HOUR, ttl: 8 * SECOND },
   back: { every: 20 * HOUR, ttl: 10 * SECOND },
 
-  // --- nothing happening
-  idle: { every: 9 * MINUTE, ttl: 6 * SECOND, only: 'chatty' },
+  // --- your day, not just your code (see surroundings.js). Only ever the kind
+  // of app, never what's in it.
+  gameOver: { every: 30 * MINUTE, ttl: 7 * SECOND },
+  callOver: { every: 20 * MINUTE, ttl: 7 * SECOND },
+  sheetStretch: { every: 3 * HOUR, ttl: 7 * SECOND },
+  docStretch: { every: 3 * HOUR, ttl: 7 * SECOND },
+  slideStretch: { every: 3 * HOUR, ttl: 7 * SECOND },
+  friday: { every: 20 * HOUR, ttl: 8 * SECOND },
+  weekend: { every: 20 * HOUR, ttl: 8 * SECOND },
+  monday: { every: 20 * HOUR, ttl: 8 * SECOND },
+  // His tank (tank-life.js): a piece you just put in, moving day, and now and then a word about it on the desktop.
+  tank: { every: 3 * HOUR, ttl: 7 * SECOND },
+  tankNew: { every: 0, ttl: 6 * SECOND },
+
+  // --- things he digs up (gifts.js) and remembers (bond.js)
+  found: { every: 0, ttl: 7 * SECOND },
+  memory: { every: 3 * HOUR, ttl: 8 * SECOND },
+  milestone: { every: 0, ttl: 10 * SECOND },
+
+  // --- nothing happening. Normal hears it now and then; chatty mutters more.
+  idle: { every: 25 * MINUTE, ttl: 6 * SECOND },
+  oops: { every: 10 * MINUTE, ttl: 4 * SECOND }, // a clumsy habit (trip, stuck)
+
+  // --- up on your windows (see perch.js)
+  perch: { every: 3 * MINUTE, ttl: 5 * SECOND },
+  ride: { every: 2 * MINUTE, ttl: 4 * SECOND },
+  shaken: { every: 30 * SECOND, ttl: 4 * SECOND },
+  dropped: { every: 30 * SECOND, ttl: 4 * SECOND },
+  dizzy: { every: MINUTE, ttl: 5 * SECOND },
+  pop: { every: MINUTE, ttl: 4 * SECOND },
+  caught: { every: 30 * SECOND, ttl: 5 * SECOND },
+
+  // --- you, typing (typing.js): a burst he watched you finish
+  typingBurst: { every: 10 * MINUTE, ttl: 5 * SECOND },
+  typingRecord: { every: 0, ttl: 7 * SECOND },
+
+  // --- the weather outside (weather.js remarkFor), as it turns
+  rainStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  snowStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  stormStart: { every: 2 * HOUR, ttl: 7 * SECOND },
+  rainStopped: { every: 2 * HOUR, ttl: 6 * SECOND },
+
+  // --- up the edges of the screen (see climb.js)
+  climb: { every: 3 * MINUTE, ttl: 4 * SECOND },
+  stuck: { every: 30 * SECOND, ttl: 4 * SECOND },
+  leap: { every: MINUTE, ttl: 4 * SECOND },
+  letgo: { every: MINUTE, ttl: 4 * SECOND },
+
+  // --- mischief, if you asked for it (see mischief.js)
+  pinched: { every: 0, ttl: 3 * SECOND },
+  yanked: { every: 0, ttl: 3 * SECOND },
+  shoved: { every: 0, ttl: 3 * SECOND },
+  noteOff: { every: MINUTE, ttl: 3 * SECOND },
+  note: { every: 0, ttl: 5 * SECOND },
+  behave: { every: 0, ttl: 4 * SECOND },
+  noPrank: { every: 0, ttl: 3 * SECOND },
+
+  // --- his needs (see needs.js). The needy ones are rare by design: needs.js
+  // keeps 45 minutes between them on top of these.
+  peckish: { every: HOUR, ttl: 5 * SECOND },
+  sandy: { every: HOUR, ttl: 5 * SECOND },
+  sleepy: { every: HOUR, ttl: 5 * SECOND },
+  mopey: { every: HOUR, ttl: 5 * SECOND },
+  fed: { every: 0, ttl: 4 * SECOND },
+  stuffed: { every: 0, ttl: 4 * SECOND },
+  pantryEmpty: { every: 0, ttl: 5 * SECOND },
+  snackEarned: { every: 10 * MINUTE, ttl: 4 * SECOND },
+  tide: { every: 0, ttl: 6 * SECOND },
+  rinsed: { every: 0, ttl: 4 * SECOND },
+  tuckedIn: { every: 0, ttl: 4 * SECOND },
+  notSleepy: { every: 0, ttl: 4 * SECOND },
+  cheered: { every: 5 * MINUTE, ttl: 4 * SECOND },
 });
 
 // His lines. Short, dry, and his own. Every pool needs at least three or the
@@ -85,10 +163,63 @@ const LINES = Object.freeze({
   web: ['surfacing…', 'back in a tick', 'off to look'],
   crew: ['all claws in', "it's crowded", 'the lads'],
   longTask: ['still going…', 'bear with me', 'nearly'],
+  serverDown: ['your server tipped over', 'server down!', 'it fell over'],
   morning: ['morning', "you're up", 'morning!'],
   latenight: ['you too?', 'late one', 'still up?'],
   back: ["you're back!", 'missed you', 'where were you?'],
+  gameOver: ['gg', 'did we win?', 'good game?', 'rematch?'],
+  callOver: ['phew, over', "how'd it go?", 'can I talk now?', 'shh no more'],
+  sheetStretch: ['numbers again?', 'cells, cells, cells', 'spreadsheet day?', 'sum it up'],
+  docStretch: ['still writing?', 'big essay?', 'word by word'],
+  slideStretch: ['big presentation?', 'next slide!', 'add a crab slide'],
+  friday: ['friday!', 'nearly weekend', 'home stretch'],
+  tank: ['my tank is cosy', 'thinking about my tank', 'I like my tank'],
+  tankNew: ['ooh, something new', 'for me?', 'my tank!'],
+  weekend: ["it's the weekend", 'lazy day?', 'weekend crab'],
+  monday: ['monday again', 'new week', 'need coffee'],
+  found: ['found something!', 'ooh, look', 'for you!', 'treasure!'],
+  memory: ['remember that?', 'good times', 'us two'],
+  milestone: ['look how far!', 'what a run', 'us two!'],
   idle: ['all quiet', "tide's out", 'anything?', 'hm', 'nice day'],
+  oops: ['oops', 'nobody saw that', 'meant to do that', 'ahem'],
+  perch: ['nice view', 'comfy up here', 'my spot now', "what's this one?"],
+  ride: ['wheee', 'steady!', 'faster!', 'whoa'],
+  shaken: ['rude!', 'HEY', 'oof', 'was that needed?'],
+  dropped: ['oh no', '…huh', 'where did it go?', 'not again'],
+  dizzy: ['the room spins', 'whoa…', 'which way is up'],
+  pop: ['boing!', 'squashed!', 'okay okay'],
+  caught: ['caught it!', 'stuck the landing', 'ta-da'],
+  typingBurst: ['whoa, fast', 'claws are tired', 'look at you go', 'keyboard on fire'],
+  typingRecord: ['new record!', 'fastest yet!', 'personal best!'],
+  rainStart: ["it's raining out", 'brolly time', 'rain! my favourite', 'hear that rain?'],
+  snowStart: ["it's snowing!", 'snow!', 'hat on, then'],
+  stormStart: ['thunder…', 'storm coming', 'hold the brolly'],
+  rainStopped: ['rain stopped', 'dry again', 'puddles now'],
+  climb: ['going up', 'hup!', 'to the top!', 'sticky feet'],
+  stuck: ['stuck it!', 'sticky feet!', 'got a grip', 'splat. hi'],
+  leap: ['geronimo!', 'wheee', 'catch me!'],
+  letgo: ['bombs away', 'oops, let go', 'down I go'],
+  pinched: ['snip!', 'mine now', 'hehe', 'gotcha'],
+  yanked: ['fine, fine', 'aww', 'strong one'],
+  shoved: ['hup!', 'a little to the left', 'better there', 'heave!'],
+  noteOff: ['brb', 'one sec', 'got something for you'],
+  note: ['for you', 'special delivery', 'read it!', 'a note!'],
+  behave: ['ok… fine', 'I’ll be good', 'promise'],
+  noPrank: ['nothing to pinch', 'not now', 'maybe later'],
+
+  peckish: ["tummy's rumbling…", 'is that plankton?', 'snack o\'clock?', 'bit peckish'],
+  sandy: ['bit sandy here', 'sand everywhere', 'could use a rinse'],
+  sleepy: ['*yawn*', 'so sleepy…', 'nap soon?'],
+  mopey: ['…', 'hey… you there?', 'bit quiet today', 'just me then'],
+  fed: ['nom nom nom', 'best. snack. ever.', 'mmm, plankton', 'thank you!'],
+  stuffed: ['stuffed. saving it.', "couldn't eat a thing", 'later, maybe'],
+  pantryEmpty: ['no snacks left…', 'pantry\'s empty', 'later then'],
+  snackEarned: ['snack!', 'ooh, plankton', 'one for later'],
+  tide: ['the tide brought snacks!', 'look what washed up', 'free plankton!'],
+  rinsed: ['squeaky clean!', 'so shiny', 'ahh, fresh'],
+  tuckedIn: ['night night', 'just five minutes', 'g\'night'],
+  notSleepy: ['not sleepy!', 'wide awake', 'maybe later'],
+  cheered: ['there you are!', 'yay, you!', 'missed you'],
 });
 
 // A crab is a crab, but yours is a particular one. The temperament comes from
@@ -99,29 +230,53 @@ const FLAVOR = Object.freeze({
   chipper: {
     working: ['love this bit'], success: ['yay!'], error: ['we go again'],
     passed: ['knew it!'], morning: ['bright and early'], idle: ['lovely day', 'what next?'],
+    ride: ['again! again!'], perch: ['hello up here!'],
+    gameOver: ['you were great!'], callOver: ['nice chat?'], weekend: ['adventure day!'],
+    friday: ['woo, friday!'], found: ['look look look!'], fed: ['yum yum yum!'],
   },
   fussy: {
     working: ['carefully now'], success: ['tidy'], error: ['I knew it'],
     bigWrite: ['too much'], sameFile: ['again? really?'], idle: ['dusty in here'],
+    perch: ['dusty up here'], shaken: ['how undignified'], climb: ['wipe your walls'], shoved: ['crooked. fixed it'],
+    sheetStretch: ['check cell B12'], gameOver: ['enough screen time'], monday: ['mondays. ugh.'],
+    found: ['needs a polish'], sandy: ['this is unbearable'], rinsed: ['finally. thank you.'],
   },
   cocky: {
     working: ['watch this'], success: ['easy', 'obviously'], error: ['not my fault'],
     passed: ['never doubted it'], push: ["you're welcome"], idle: ['bored'],
+    shaken: ['meant to do that'], caught: ['obviously'], pinched: ['too easy'], stuck: ['like a pro'],
+    gameOver: ['I could beat that'], slideStretch: ['I should present'], found: ['you can thank me'],
+    callOver: ['I was quiet. ask.'], fed: ['I deserved that'], mopey: ['fine. ignore me.'],
   },
   sleepy: {
     working: ['yawn… on it'], success: ['…done'], error: ['ugh'],
     longTask: ['so long…'], latenight: ['bedtime'], idle: ['nap time?', 'quiet…'],
+    perch: ['good nap spot'], dropped: ['was asleep…'],
+    weekend: ['sleep in?'], monday: ['five more minutes'], callOver: ['dozed off, sorry'],
+    found: ['found it napping'], tuckedIn: ['finally…'], sleepy: ['eyes… closing…'],
   },
+});
+
+// What each temperament is like, for the places that show it (Settings, the
+// Us page, his crab card). Short and in his favour.
+const TEMPERAMENT_INFO = Object.freeze({
+  chipper: Object.freeze({ name: 'Chipper', emoji: '🌞', blurb: 'Delighted by everything. Digs a lot and peeks at what you’re doing.' }),
+  fussy: Object.freeze({ name: 'Fussy', emoji: '🧽', blurb: 'Likes things just so. Polishes his shell and notices the dust.' }),
+  cocky: Object.freeze({ name: 'Cocky', emoji: '😎', blurb: 'Never wrong, never worried. Shows off and takes the credit.' }),
+  sleepy: Object.freeze({ name: 'Sleepy', emoji: '💤', blurb: 'In no hurry. Stretches, flops over and naps more than most.' }),
 });
 
 // What he does with his claws when there's nothing to do. The renderer animates
 // these (critter.css); strolling is the one that moves his window (motion.js).
-const BITS = Object.freeze(['dig', 'polish', 'peek', 'stretch', 'flop']);
+// The small fidgets (settling his shell, a scratch, a yawn) fill the gaps
+// between the bigger habits; trip and stuck are the rare clumsy ones.
+const BITS = Object.freeze(['dig', 'polish', 'peek', 'stretch', 'flop', 'shuffle', 'scratch', 'yawn', 'trip', 'stuck']);
+const CLUMSY_BITS = Object.freeze(['trip', 'stuck']);
 const BIT_WEIGHT = Object.freeze({
-  chipper: { dig: 2, polish: 1, peek: 2, stretch: 1, flop: 1 },
-  fussy: { dig: 1, polish: 3, peek: 1, stretch: 1, flop: 1 },
-  cocky: { dig: 1, polish: 2, peek: 2, stretch: 2, flop: 1 },
-  sleepy: { dig: 1, polish: 1, peek: 1, stretch: 2, flop: 3 },
+  chipper: { dig: 2, polish: 1, peek: 2, stretch: 1, flop: 1, shuffle: 1, scratch: 1, yawn: 0.5, trip: 0.5, stuck: 0.5 },
+  fussy: { dig: 1, polish: 3, peek: 1, stretch: 1, flop: 1, shuffle: 2, scratch: 1, yawn: 0.5, trip: 0.5, stuck: 0.5 },
+  cocky: { dig: 1, polish: 2, peek: 2, stretch: 2, flop: 1, shuffle: 1, scratch: 1, yawn: 0.5, trip: 0.5, stuck: 0.5 },
+  sleepy: { dig: 1, polish: 1, peek: 1, stretch: 2, flop: 3, shuffle: 1, scratch: 1, yawn: 2, trip: 0.5, stuck: 0.5 },
 });
 
 // ---------------------------------------------------------------- what the work is
@@ -182,6 +337,9 @@ function normalize(raw) {
 
 /** The chattiness setting, tolerating anything. */
 const chatterOf = v => (CHATTER.includes(v) ? v : 'normal');
+// Scenes, digging, idle mutters and the rest of his own little life: only at
+// 'normal' and 'chatty'.
+const hasHabits = v => ['normal', 'chatty'].includes(chatterOf(v));
 
 /** Your crab's temperament: stable for a given seed, so it's always the same crab. */
 function temperamentOf(seed) {
@@ -191,8 +349,20 @@ function temperamentOf(seed) {
   return TEMPERAMENTS[(h >>> 0) % TEMPERAMENTS.length];
 }
 
-/** Base lines plus the temperament's own, for one occasion. */
-function poolFor(occasion, temperament) {
+// A voice from a wardrobe pack ({ lines, flavor, fallback }, see
+// wardrobe/dialogue.js) speaks for every occasion it has lines for.
+const voiceCovers = (worn, occasion, temperament) => !!(worn?.lines?.[occasion] || worn?.flavor?.[temperament]?.[occasion]);
+
+/**
+ * Base lines plus the temperament's own, for one occasion. With a pack voice on
+ * (`worn`), its lines instead. On occasions it has no lines for, his own lines
+ * come back, or none at all with fallback 'quiet'.
+ */
+function poolFor(occasion, temperament, worn = null) {
+  if (worn && voiceCovers(worn, occasion, temperament)) {
+    return [...(worn.lines[occasion] || []), ...(worn.flavor?.[temperament]?.[occasion] || [])];
+  }
+  if (worn?.fallback === 'quiet') return [];
   const base = LINES[occasion] || [];
   const extra = FLAVOR[temperament]?.[occasion] || [];
   return [...base, ...extra];
@@ -202,15 +372,20 @@ function poolFor(occasion, temperament) {
  * The line he says for `occasion`, or null when he should keep it to himself.
  * Returns { text, occasion, until, state } — `state` is a new voice state to
  * persist; the old one is never mutated.
- *   opts: { chatter, rand, force } — force skips the cooldowns (a level-up
- *   shouldn't lose its line because he said something 30 seconds ago).
+ *   opts: { chatter, rand, force, text } — force skips the cooldowns (a level-up
+ *   shouldn't lose its line because he said something 30 seconds ago). `text`
+ *   is a line made elsewhere (a memory, a milestone) that still has to pass
+ *   every rule here; it must fit the bubble. `voice` is the pack voice he's
+ *   wearing, if any (see poolFor). With fallback 'quiet' its own line replaces
+ *   `text`, or he keeps quiet.
  */
-function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, force = false } = {}) {
+function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, force = false, text: textIn = null, voice: worn = null } = {}) {
   const state = normalize(stateIn);
   const level = chatterOf(chatter);
   const rule = OCCASIONS[occasion];
   if (!rule || level === 'quiet') return null;
   if (rule.only === 'chatty' && level !== 'chatty') return null;
+  if (level === 'work' && !WORK_OCCASIONS.has(occasion)) return null;
   const t = num(now, NaN);
   if (!Number.isFinite(t)) return null;
   if (!force) {
@@ -218,7 +393,23 @@ function say(stateIn, occasion, now, { chatter = 'normal', rand = Math.random, f
     const last = state.said[occasion];
     if (last != null && t - last < rule.every * COOLDOWN_SCALE[level]) return null;
   }
-  const pool = poolFor(occasion, temperamentOf(state.seed));
+  const temperament = temperamentOf(state.seed);
+  // A line made elsewhere carries something real (which memory, which find, how
+  // many days), so a character voice lets it through. A quiet voice is another
+  // language: it says its own line for the occasion, or nothing.
+  let text = textIn;
+  if (text != null && worn?.fallback === 'quiet') {
+    if (!voiceCovers(worn, occasion, temperament)) return null;
+    text = null;
+  }
+  if (text != null) {
+    if (typeof text !== 'string' || !text.trim() || text.length > MAX_LINE) return null;
+    return {
+      text, occasion, until: t + rule.ttl,
+      state: { ...state, lastSpokeAt: t, said: { ...state.said, [occasion]: t } },
+    };
+  }
+  const pool = poolFor(occasion, temperament, worn);
   if (!pool.length) return null;
   // Don't repeat a line while another one in the pool is still unused.
   const seen = new Set(state.recent[occasion] || []);
@@ -261,7 +452,7 @@ function pickBit(seed, rand = Math.random) {
 }
 
 module.exports = {
-  CHATTER, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
-  normalize, chatterOf, temperamentOf, poolFor, say, timeOccasion, absenceOccasion, pickBit,
+  CHATTER, WORK_OCCASIONS, OCCASIONS, LINES, FLAVOR, TEMPERAMENTS, TEMPERAMENT_INFO, BITS, CLUMSY_BITS, MAX_LINE, GAP, SAME_FILE_AFTER,
+  normalize, chatterOf, hasHabits, temperamentOf, poolFor, voiceCovers, say, timeOccasion, absenceOccasion, pickBit,
   occasionForTool, occasionForCommand,
 };

@@ -73,6 +73,15 @@ test('a window that has reset is ignored, and lowers what was told', () => {
 test('the note goes after the user\'s own words', () => {
   assert.equal(withUsageNote('fix it', null), 'fix it');
   assert.equal(withUsageNote('fix it', '[Shellby: x]'), 'fix it\n\n[Shellby: x]');
+  const pic = [{ type: 'image', source: {} }, { type: 'text', text: 'what is this' }];
+  assert.deepEqual(withUsageNote(pic, '[Shellby: x]'), [...pic, { type: 'text', text: '[Shellby: x]' }]);
+});
+
+test('slash commands are left as typed', () => {
+  assert.equal(selfaware.isSlashCommand('/compact'), true);
+  assert.equal(selfaware.isSlashCommand('  /review now'), true);
+  assert.equal(selfaware.isSlashCommand('fix /etc/hosts'), false);
+  assert.equal(selfaware.isSlashCommand([{ type: 'text', text: '/x' }]), false);
 });
 
 // ------------------------------------------------------------------ schedules

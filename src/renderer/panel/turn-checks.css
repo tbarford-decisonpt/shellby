@@ -1,0 +1,84 @@
+/* What Shellby checked about a turn (turn-checks.js): the tests' verdict,
+   before/after pictures, and Open in VS Code on a file's diff. */
+
+/* the verdict, at a glance in the block's summary row */
+.chg-stamp {
+  margin-left: auto; flex: none; max-width: 55%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-11-5); font-weight: 600; color: var(--sand-dim);
+}
+.chg-stamp.pass { color: var(--glass); }
+.chg-stamp.fail { color: var(--coral); }
+.chg-stamp.warn, .chg-stamp.busy { color: var(--amber); }
+
+.chg-checks:empty { display: none; }
+.chg-checks, .chg-shots { padding: 6px 11px 8px; border-top: 1px solid var(--line-soft); }
+.chk-body p { margin: 0 0 6px; }
+.chk-cmds, .chk-failed { list-style: none; margin: 0; padding: 0; }
+.chk-cmds > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 2px 0; font-size: var(--fs-12); }
+.chk-cmds code { font: var(--fs-11-5) var(--font-mono); color: var(--sand); }
+.chk-mark { flex: none; width: 12px; font-weight: 700; }
+.chk-cmds > li.ok .chk-mark { color: var(--glass); }
+.chk-cmds > li.bad .chk-mark { color: var(--coral); }
+.chk-failed { flex-basis: 100%; padding-left: 18px; }
+.chk-failed li { font: var(--fs-11-5) var(--font-mono); color: var(--coral); overflow-wrap: anywhere; }
+.chk-tail { flex-basis: 100%; padding-left: 18px; }
+.chk-tail summary { cursor: pointer; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.chk-tail summary:focus-visible, .chk-alone summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.chk-tail pre { margin-top: 4px; padding: 6px 10px; white-space: pre-wrap; }
+
+/* a verdict with no turn on screen to sit on */
+.chk-alone { margin: 4px 0 12px 16px; padding: 4px 11px; font-size: var(--fs-12); color: var(--sand-dim); border-left: 2px solid var(--sand-faint); }
+.chk-alone.pass { border-left-color: var(--glass); }
+.chk-alone.fail { border-left-color: var(--coral); }
+.chk-alone > summary { cursor: pointer; }
+
+/* before/after */
+.shot-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shot-thumb {
+  position: relative; display: block; padding: 0; border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+  background: var(--abyss); cursor: zoom-in; overflow: hidden; aspect-ratio: 16 / 10;
+}
+.shot-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.shot-thumb:hover, .shot-thumb:focus-visible { border-color: var(--glass); outline: none; }
+.shot-label {
+  position: absolute; left: 6px; bottom: 6px; padding: 1px 7px; border-radius: 99px;
+  background: var(--ink); color: var(--sand); font-size: var(--fs-11); font-weight: 700;
+}
+.chg-shots p { margin: 6px 0 0; }
+
+.shot-viewer {
+  position: fixed; inset: 0; z-index: 900; display: grid; place-items: center;
+  background: rgba(3, 8, 9, .82); padding: 16px;
+}
+.shot-panel { display: flex; flex-direction: column; gap: 8px; width: min(100%, 1100px); max-height: 100%; padding: 12px; background: var(--ink); border: 1px solid var(--line-soft); border-radius: var(--r); }
+.shot-head { display: flex; align-items: baseline; gap: 10px; }
+.shot-head .muted { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shot-head p, .shot-panel > p { margin: 0; }
+.shot-stage { position: relative; overflow: auto; max-height: 70vh; background: var(--abyss); border-radius: var(--r-sm); }
+.shot-stage img { display: block; width: 100%; height: auto; }
+.shot-stage .shot-after { position: absolute; top: 0; left: 0; }
+.shot-stage.side { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shot-stage.side .shot-after { position: static; }
+.shot-slider { width: 100%; accent-color: var(--glass); }
+
+/* Open in VS Code, above a file's diff */
+.chg-diff-bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 2px 0 6px; }
+
+/* Try it N ways (tries.js): the card in the first try's tab */
+.tries-card { margin: 6px 0 14px 16px; padding: 8px 11px 9px; border: 1px solid var(--line-soft); border-left: 2px solid var(--glass); border-radius: var(--r-sm); background: var(--ink); font-size: var(--fs-12); color: var(--sand-dim); }
+.tries-head { display: flex; align-items: baseline; gap: 8px; font-weight: 600; color: var(--sand); }
+.tries-rows { list-style: none; margin: 6px 0 0; padding: 0; }
+.tries-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line-soft); }
+.tries-row:first-child { border-top: 0; }
+.tries-place { flex: none; width: 18px; font-weight: 700; color: var(--sand-faint); text-align: center; }
+.tries-card.final .tries-row:first-child .tries-place { color: var(--glass); }
+.tries-main { flex: 1; min-width: 0; }
+.tries-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand); }
+.tries-facts { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.tries-verdict.pass { color: var(--glass); }
+.tries-verdict.fail { color: var(--coral); }
+.tries-verdict.warn, .tries-verdict.busy { color: var(--amber); }
+.tries-actions { display: flex; flex: none; gap: 4px; }
+.tries-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.tries-note { margin: 6px 0 0; }

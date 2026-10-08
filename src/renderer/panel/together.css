@@ -1,0 +1,335 @@
+/* Shellby — Finds and Us (together.js). Tokens come from panel.css; the hero,
+   tiles and detail card follow the Sticker Book's (stickers.css) so the four
+   tabs of his screen feel like one place. */
+
+body[data-view="finds"] .view-finds, body[data-view="us"] .view-us { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-finds, .view-us {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.shellby-tabs .fd-badge { top: 3px; right: 4px; }
+
+/* rarity is a colour on every find, everywhere */
+.rarity-common { --rarity: var(--line); --rarity-ink: var(--sand-faint); }
+.rarity-uncommon { --rarity: #4fb7a3; --rarity-ink: #7fd6c2; }
+.rarity-rare { --rarity: #6f8cff; --rarity-ink: #a9b8ff; }
+.rarity-legendary { --rarity: #e9c46a; --rarity-ink: #ffd23f; }
+.rarity-special { --rarity: #ff8fab; --rarity-ink: #ffb3c6; }
+
+/* ---------------------------------------------------------------- the shelf: hero */
+.fd-hero {
+  display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: center; padding: 14px 16px;
+  border-radius: var(--r-lg); border: 1px solid var(--line);
+  background:
+    radial-gradient(50% 70% at 18% 60%, rgba(233, 216, 166, .12), transparent 70%),
+    linear-gradient(var(--abyss), var(--reef));
+}
+.fd-fav-art {
+  position: relative; display: grid; place-items: center; width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(233, 216, 166, .18), rgba(233, 216, 166, .04) 70%, transparent);
+  box-shadow: inset 0 -10px 0 rgba(201, 179, 138, .12);
+}
+.fd-fav-art svg { image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); animation: fd-bob 3.2s ease-in-out infinite; }
+.fd-fav-art.rarity-legendary svg { filter: drop-shadow(0 0 8px rgba(255, 210, 63, .55)) drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); }
+.fd-fav-art.empty span { font: 600 var(--fs-34) var(--font-pixel); color: var(--sand-faint); }
+.fd-fav-cap {
+  position: absolute; bottom: 4px; padding: 1px 7px; border-radius: 99px;
+  font: 600 var(--fs-9-5) var(--font-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--abyss); background: var(--sand);
+}
+@keyframes fd-bob { 50% { transform: translateY(-3px) rotate(-3deg); } }
+.fd-eyebrow { color: #e9d8a6; }
+.fd-hero-text h3 { margin: 2px 0 4px; font: 600 var(--fs-19) var(--font-pixel); }
+.fd-sub { margin: 0; max-width: 46ch; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.fd-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; }
+
+/* ---------------------------------------------------------------- sets */
+.fd-sets { list-style: none; margin: 12px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.fd-set {
+  position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center;
+  padding: 7px 10px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef);
+}
+.fd-set-icon { grid-row: span 2; font-size: var(--fs-18); }
+.fd-set-name { font-size: var(--fs-12); font-weight: 700; }
+.fd-set-dots { display: flex; gap: 3px; }
+.fd-set-dots i { width: 7px; height: 7px; border-radius: 2px; background: var(--abyss); border: 1px solid var(--line); }
+.fd-set-dots i.on { background: #e9d8a6; border-color: #c9b38a; }
+.fd-set.done { border-color: #c9b38a; background: linear-gradient(120deg, rgba(233, 216, 166, .12), transparent 70%), var(--reef); }
+.fd-set-done { position: absolute; top: 6px; right: 9px; color: #e9d8a6; font-weight: 700; }
+
+/* ---------------------------------------------------------------- one find, up close */
+.fd-detail {
+  position: relative; display: grid; grid-template-columns: 124px 1fr; gap: 14px; align-items: center;
+  margin-bottom: 12px; padding: 14px; border-radius: var(--r-lg);
+  border: 1px solid var(--line); border-bottom: 2px solid var(--rarity, var(--line));
+  background: linear-gradient(160deg, rgba(233, 216, 166, .07), transparent 60%), var(--reef);
+  animation: rise .25s var(--ease-out);
+}
+.fd-big { display: grid; place-items: center; width: 124px; height: 124px; }
+.fd-big svg { image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); transform: rotate(-5deg); transition: transform .3s var(--ease-spring); }
+.fd-big:hover svg { transform: rotate(3deg) scale(1.05); }
+.fd-detail.rarity-legendary .fd-big svg { filter: drop-shadow(0 0 10px rgba(255, 210, 63, .5)) drop-shadow(0 3px 0 rgba(0, 0, 0, .4)); }
+.fd-info { min-width: 0; display: grid; gap: 3px; padding-right: 18px; }
+.fd-rarity-line { margin: 0; font: 600 var(--fs-10) var(--font-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--rarity-ink, var(--sand-faint)); }
+.fd-info h3 { margin: 0; font: 600 var(--fs-18) var(--font-pixel); }
+.fd-blurb { margin: 0; font-size: var(--fs-13); color: var(--sand); }
+.fd-when, .fd-in-set { margin: 0; font-size: var(--fs-12); color: var(--sand-dim); }
+.fd-actions { margin-top: 8px; }
+.fd-close { position: absolute; top: 8px; right: 8px; }
+
+/* ---------------------------------------------------------------- every find */
+.fd-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 7px; }
+.fd-tile {
+  position: relative; width: 100%; display: grid; justify-items: center; align-content: start; gap: 3px;
+  min-height: 98px; padding: 10px 6px 8px; cursor: pointer;
+  border-radius: var(--r); border: 1px solid var(--line); border-bottom: 2px solid var(--rarity, var(--line));
+  background: var(--reef); color: var(--sand);
+  transition: transform .2s var(--ease-spring), border-color .15s, box-shadow .15s;
+}
+.fd-tile:hover { transform: translateY(-2px) rotate(-1deg); border-color: var(--reef-3); }
+.fd-tile:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.fd-tile.on { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim); }
+.fd-tile.locked { background: repeating-linear-gradient(135deg, var(--reef), var(--reef) 6px, #0f2027 6px, #0f2027 12px); border-bottom-color: var(--line); color: var(--sand-faint); }
+.fd-art { height: 44px; display: grid; place-items: center; }
+.fd-art svg { image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
+.fd-tile.rarity-legendary:not(.locked) .fd-art svg { animation: fd-glint 4s ease-in-out infinite; }
+@keyframes fd-glint { 0%, 85%, 100% { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); } 92% { filter: brightness(1.5) drop-shadow(0 0 6px rgba(255, 210, 63, .7)); } }
+.fd-name { font-size: var(--fs-11-5); font-weight: 700; line-height: 1.2; text-align: center; }
+.fd-rarity { font: 600 var(--fs-9-5) var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--rarity-ink, var(--sand-faint)); }
+.fd-tile.locked .fd-rarity { color: var(--sand-faint); }
+.fd-count-pill { position: absolute; top: 5px; left: 6px; font: 600 var(--fs-10) var(--font-mono); color: var(--sand-dim); }
+.fd-tile .new-pill { position: absolute; top: 5px; right: 5px; }
+
+/* ---------------------------------------------------------------- Us: the diorama
+   Him on the sand at the tide line, under a sky that follows your clock
+   (together.js sets data-time). Every layer takes its colours from the five
+   tokens below, so a time of day is one block of custom properties. */
+.view-us { --us-pink: #ff8fab; --us-faint: #968d7b; }
+.us-stage {
+  --sky-top: #050d17; --sky-low: #142c3d; --sea: #0d3440; --sea-hi: #1d5763; --foam: #b9dcd6;
+  --us-sand: #3f4b50; --us-sand-lo: #36424a; --orb: #f3e6cc; --orb-glow: rgba(243, 230, 204, .35);
+  position: relative; height: 228px; overflow: hidden; isolation: isolate;
+  border-radius: var(--r-lg); border: 1px solid var(--line);
+  background: linear-gradient(var(--sky-top) 10%, var(--sky-low) 58%);
+}
+.us-stage[data-time="dawn"] { --sky-top: #191a36; --sky-low: #7a4d62; --sea: #1f4a5b; --sea-hi: #557f88; --foam: #f7dccb; --us-sand: #a38a6b; --us-sand-lo: #937a5f; --orb: #ff9a6b; --orb-glow: rgba(255, 154, 107, .5); }
+.us-stage[data-time="day"] { --sky-top: #0e3550; --sky-low: #3f8ea2; --sea: #136b77; --sea-hi: #3bb0aa; --foam: #effaf5; --us-sand: #d8c38e; --us-sand-lo: #c9b27e; --orb: #ffc15e; --orb-glow: rgba(255, 193, 94, .55); }
+.us-stage[data-time="dusk"] { --sky-top: #1b1530; --sky-low: #8c4b52; --sea: #23455a; --sea-hi: #6d6a7c; --foam: #ffd9c2; --us-sand: #9e7b61; --us-sand-lo: #8d6c55; --orb: #ff7a5c; --orb-glow: rgba(255, 122, 92, .55); }
+
+.us-sky, .us-sea, .us-sand, .us-props, .us-pops { position: absolute; pointer-events: none; }
+.us-sky { inset: 0; z-index: 0; }
+.us-stars {
+  position: absolute; left: 0; top: 0; width: 2px; height: 2px; background: var(--sand); opacity: 0; transition: opacity .6s;
+  box-shadow: 34px 22px, 92px 58px, 140px 14px, 188px 44px, 236px 26px, 300px 70px, 352px 18px, 404px 50px, 458px 32px, 516px 64px, 566px 20px, 618px 46px,
+    64px 88px, 268px 96px, 492px 92px, 600px 84px;
+  color: rgba(243, 230, 204, .7);
+}
+.us-stage[data-time="night"] .us-stars { opacity: 1; animation: us-twinkle 4s steps(2) infinite; }
+.us-stage[data-time="dawn"] .us-stars { opacity: .35; }
+.us-orb { position: absolute; right: 64px; top: 22px; display: block; filter: drop-shadow(0 0 14px var(--orb-glow)); transition: top .8s var(--ease-out); }
+.us-orb svg { display: block; }
+.us-stage[data-time="dawn"] .us-orb, .us-stage[data-time="dusk"] .us-orb { top: 84px; } /* low, half behind the sea */
+
+.us-sea {
+  left: 0; right: 0; top: 47%; height: 26%; z-index: 1;
+  background: linear-gradient(var(--sea-hi), var(--sea) 70%);
+}
+.us-sea::after { /* glints on the water */
+  content: ""; position: absolute; left: 0; top: 0; width: 6px; height: 2px; color: var(--foam); opacity: .45;
+  box-shadow: 70px 14px, 210px 22px, 330px 10px, 470px 26px, 560px 16px, 140px 32px, 410px 36px;
+  animation: us-twinkle 3s steps(2) infinite reverse;
+}
+/* Pixel wave crests: one 32px tile, slid by exactly one tile so the loop is seamless. */
+.us-wave {
+  position: absolute; left: -32px; right: 0; top: -3px; height: 6px; background: var(--foam);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 4h32v2H0zM8 2h12v2H8zM11 1h6v1h-6z'/%3E%3C/svg%3E") 0 0 / 32px 6px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 4h32v2H0zM8 2h12v2H8zM11 1h6v1h-6z'/%3E%3C/svg%3E") 0 0 / 32px 6px repeat-x;
+  animation: us-tide 2.6s linear infinite;
+}
+.us-wave.back { top: 12px; opacity: .35; animation-duration: 4.2s; animation-direction: reverse; }
+
+/* The sun or moon on the water: a narrowing column of pixel dashes under it. */
+.us-sea::before {
+  content: ""; position: absolute; right: 64px; top: 4px; width: 26px; height: 46px; opacity: .5;
+  background: repeating-linear-gradient(var(--orb) 0 2px, transparent 2px 6px);
+  clip-path: polygon(0 0, 100% 0, 66% 100%, 34% 100%);
+  animation: us-shimmer 1.8s steps(2) infinite;
+}
+@keyframes us-shimmer { 50% { transform: translateX(1px); } }
+
+/* A stepped dune, sand-coloured with a 2px dither. */
+.us-sand {
+  left: 0; right: 0; bottom: 0; height: 38%; z-index: 2;
+  background:
+    conic-gradient(at 2px 2px, transparent 75%, var(--us-sand-lo) 0) 0 0 / 19px 11px,
+    conic-gradient(at 2px 2px, transparent 75%, var(--us-sand-lo) 0) 9px 6px / 29px 17px,
+    conic-gradient(at 2px 2px, transparent 75%, color-mix(in oklab, var(--us-sand), #fff 22%) 0) 14px 3px / 37px 23px,
+    var(--us-sand);
+  clip-path: polygon(0 14px, 9% 14px, 9% 10px, 21% 10px, 21% 6px, 36% 6px, 36% 2px, 58% 2px, 58% 6px, 74% 6px, 74% 10px, 88% 10px, 88% 14px, 100% 14px, 100% 100%, 0 100%);
+}
+.us-stage::after { /* the sand meets the water: a line of wet foam */
+  content: ""; position: absolute; left: 0; right: 0; bottom: calc(38% - 16px); height: 2px; z-index: 2; pointer-events: none;
+  background: var(--foam); opacity: .2;
+}
+
+.us-props { inset: 0; z-index: 3; }
+.us-stage::before { /* a little depth at the edges */
+  content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: inherit;
+  box-shadow: inset 0 40px 50px -40px rgba(0, 0, 0, .45), inset 0 -26px 36px -30px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(255, 255, 255, .03);
+}
+.us-drawn { position: absolute; display: block; color: color-mix(in oklab, var(--us-sand) 55%, #120a02); }
+.us-drawn svg { display: block; }
+.us-drawn.h1 { left: 13%; bottom: 20px; transform: rotate(-6deg); }
+.us-drawn.h2 { left: 22%; bottom: 40px; transform: rotate(8deg); }
+.us-fav { position: absolute; left: calc(44% + 74px); bottom: 20px; display: block; }
+.us-fav svg { display: block; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .3)); animation: fd-bob 3.2s ease-in-out infinite; }
+.us-fav.rarity-legendary svg { filter: drop-shadow(0 0 6px rgba(255, 210, 63, .55)) drop-shadow(0 2px 0 rgba(0, 0, 0, .3)); }
+
+/* Him. A button: clicking pets him, the same as on the desktop. */
+.us-crab {
+  position: absolute; left: 44%; bottom: 14px; z-index: 4; translate: -50% 0;
+  padding: 6px; border: 0; border-radius: var(--r); background: none; cursor: pointer;
+  transition: transform .25s var(--ease-spring);
+}
+.us-crab::before { /* his shadow on the sand */
+  content: ""; position: absolute; left: 14%; right: 14%; bottom: 3px; height: 9px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(20, 12, 4, .35), transparent); z-index: -1;
+}
+.us-crab svg { display: block; width: 116px; height: auto; overflow: visible; animation: st-breathe 3.2s ease-in-out infinite; }
+.us-crab .part-eyes:not(.acc) { animation: st-blink 5s steps(1) infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.us-crab:hover { transform: translateY(-2px); }
+.us-crab:active { transform: translateY(1px) scale(.98); }
+.us-crab:focus-visible { outline: 2px solid var(--glass); outline-offset: 0; }
+.us-crab.petted { animation: us-hop .45s var(--ease-out); }
+
+.us-pops { left: 44%; bottom: 88px; z-index: 5; width: 0; height: 0; }
+.us-pop { position: absolute; left: -10px; top: 0; animation: us-float 1.1s var(--ease-out) forwards; }
+.us-pop svg { display: block; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .25)); }
+
+.us-title { position: absolute; left: 16px; top: 13px; right: 140px; z-index: 6; text-shadow: 0 1px 0 rgba(0, 0, 0, .45); }
+.us-title h3 { margin: 0; font: 600 var(--fs-24)/1.15 var(--font-pixel); letter-spacing: .01em; color: var(--sand); text-wrap: balance; }
+.us-sub { margin: 2px 0 0; font-size: var(--fs-12-5); color: var(--sand); opacity: .85; }
+
+@keyframes us-tide { to { transform: translateX(32px); } }
+@keyframes us-twinkle { 50% { opacity: .55; } }
+@keyframes us-hop { 40% { transform: translateY(-9px); } 70% { transform: translateY(1px); } }
+@keyframes us-float {
+  from { transform: translate(0, 0) scale(.6); opacity: 0; }
+  20% { transform: translate(calc(var(--dx) * .3), -14px) scale(1); opacity: 1; }
+  to { transform: translate(var(--dx), -64px) scale(.9); opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- Us: the path between levels */
+.us-bond { padding: 14px 0 0; }
+.us-path {
+  --fill: 0; position: relative; list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(6, 1fr);
+}
+.us-path::before, .us-path::after { /* the track, from the first stone's centre to the last's */
+  content: ""; position: absolute; left: calc(100% / 12); width: calc(100% - 100% / 6); top: 15px; height: 2px; border-radius: 2px;
+}
+.us-path::before { background: var(--line); }
+.us-path::after { background: var(--us-pink); transform-origin: left; transform: scaleX(var(--fill)); transition: transform .6s var(--ease-out); }
+.us-stone { position: relative; z-index: 1; display: grid; justify-items: center; gap: 5px; }
+.us-stone-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-size: var(--fs-15);
+  background: var(--ink); border: 2px solid var(--line);
+}
+.us-stone:not(.reached) .us-stone-icon { filter: grayscale(1); opacity: .5; }
+.us-stone.reached .us-stone-icon { border-color: var(--us-pink); background: #2a1d27; }
+.us-stone.here .us-stone-icon { box-shadow: 0 0 0 4px rgba(255, 143, 171, .18), 0 0 18px rgba(255, 143, 171, .35); transform: scale(1.12); }
+.us-stone-name { font-size: var(--fs-11); line-height: 1.2; text-align: center; color: var(--us-faint); }
+.us-stone.reached .us-stone-name { color: var(--sand-dim); }
+.us-stone.here .us-stone-name { color: var(--sand); font-weight: 700; }
+.us-next { margin: 10px 0 0; text-align: center; font: var(--fs-11) var(--font-mono); color: var(--us-faint); }
+
+.us-temper { display: flex; gap: 10px; align-items: flex-start; max-width: 72ch; margin: 14px 0 0; font-size: var(--fs-12-5); color: var(--sand); }
+.us-temper-emoji { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: var(--fs-15); background: var(--reef); border: 1px solid var(--line); }
+.us-faint { color: var(--us-faint); }
+
+/* ---------------------------------------------------------------- Us: the sections below
+   Open sections on a hairline rather than a stack of boxes; only things you
+   press (the games) get a surface. */
+.us-sec { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.us-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin-bottom: 10px; }
+.us-h h3 { margin: 0; font-size: var(--fs-14); }
+.us-h-meta { font-size: var(--fs-11-5); color: var(--us-faint); }
+.us-lede { margin: -4px 0 10px; max-width: 64ch; font-size: var(--fs-12-5); color: var(--sand-dim); }
+
+.us-games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.us-game {
+  --hue: var(--glass);
+  position: relative; display: grid; align-content: start; gap: 2px; padding: 12px 12px 11px; text-align: left;
+  border-radius: var(--r); border: 1px solid var(--line); color: var(--sand);
+  background: linear-gradient(155deg, color-mix(in oklab, var(--hue) 13%, transparent), transparent 65%), var(--reef);
+  transition: transform .2s var(--ease-spring), border-color .15s, box-shadow .15s;
+}
+.us-game[data-hue="amber"] { --hue: var(--amber); }
+.us-game[data-hue="sand"] { --hue: #e9d8a6; }
+.us-game-icon {
+  display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 6px; border-radius: 9px; font-size: var(--fs-18);
+  background: color-mix(in oklab, var(--hue) 16%, var(--ink)); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25);
+  transition: transform .25s var(--ease-spring);
+}
+.us-game b { font-size: var(--fs-13); }
+.us-game-stat { font-size: var(--fs-11-5); line-height: 1.35; color: var(--sand-dim); text-wrap: pretty; }
+.us-game:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in oklab, var(--hue) 55%, var(--line)); box-shadow: 0 6px 16px -10px color-mix(in oklab, var(--hue) 70%, transparent); }
+.us-game:hover:not(:disabled) .us-game-icon { transform: rotate(-8deg) scale(1.08); }
+.us-game:active:not(:disabled) { transform: translateY(0); }
+.us-game:disabled { cursor: default; opacity: .5; }
+.us-stop { width: 100%; margin-top: 8px; }
+
+.us-unlocks { list-style: none; margin: 0; padding: 0; }
+.us-unlock { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.us-unlock + .us-unlock { border-top: 1px dashed var(--line-soft); }
+.us-unlock-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: var(--fs-14); background: var(--reef); filter: grayscale(1); opacity: .55; }
+.us-unlock-at { font-size: var(--fs-11-5); font-weight: 700; color: var(--us-faint); white-space: nowrap; }
+.us-unlock.open { color: var(--sand); }
+.us-unlock.open .us-unlock-icon { filter: none; opacity: 1; background: #2a1d27; box-shadow: inset 0 0 0 1px rgba(255, 143, 171, .35); }
+.us-unlock.open .us-unlock-at { color: var(--us-pink); }
+
+.us-bd-row { gap: 6px; }
+.us-bd-when { font-weight: 700; color: #ffb3c6; }
+
+.us-scenes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.us-scenes li {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 10px;
+  border-radius: 99px; border: 1px dashed var(--line); font: 600 var(--fs-11) var(--font-mono); color: var(--us-faint);
+}
+.us-scenes li.seen { gap: 7px; border-style: solid; border-color: var(--line); background: var(--reef); font: var(--fs-12) var(--font-body); color: var(--sand); }
+.us-scenes li.seen::before { content: ""; width: 6px; height: 6px; background: var(--glass); box-shadow: 0 0 6px rgba(127, 214, 194, .6); }
+
+.us-story { list-style: none; margin: 0; padding: 0; }
+.us-story li { position: relative; display: grid; grid-template-columns: 28px 1fr auto; column-gap: 10px; align-items: center; padding: 5px 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.us-story li::before { content: ""; position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--line-soft); }
+.us-story li:first-child::before { top: 50%; }
+.us-story li:last-child::before { bottom: 50%; }
+.us-story li:only-child::before { display: none; }
+.us-story-month { grid-column: 1 / -1; position: relative; z-index: 1; margin: 10px 0 4px 36px; font: 600 var(--fs-13) var(--font-pixel); color: var(--sand); }
+.us-story li:first-child .us-story-month { margin-top: 0; }
+.us-story-icon { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: var(--fs-13); background: var(--ink); border: 1px solid var(--line); }
+.us-story time { font: var(--fs-10-5) var(--font-mono); color: var(--us-faint); white-space: nowrap; }
+.us-story li.latest { color: var(--sand); font-size: var(--fs-13-5); }
+.us-story li.latest .us-story-icon { width: 30px; height: 30px; border-color: var(--us-pink); background: #2a1d27; box-shadow: 0 0 14px rgba(255, 143, 171, .25); }
+.us-story-empty { color: var(--sand-dim); }
+
+@media (max-width: 380px) {
+  .us-stage { height: 204px; }
+  .us-crab svg { width: 100px; }
+  .us-title { right: 16px; }
+  .us-orb { right: 20px; }
+  .us-stone:not(.here) .us-stone-name { visibility: hidden; }
+  .us-games { grid-template-columns: 1fr; }
+  .us-game { grid-template-columns: auto 1fr; column-gap: 12px; }
+  .us-game-icon { grid-row: span 2; margin: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-fav-art svg, .fd-tile .fd-art svg, .fd-big svg { animation: none !important; transition: none; }
+  .us-crab, .us-crab svg, .us-crab .part-eyes, .us-wave, .us-stars, .us-sea::before, .us-sea::after, .us-fav svg, .us-orb, .us-path::after, .us-game, .us-game-icon { animation: none !important; transition: none !important; }
+  .us-pop { animation: us-fade .8s ease-out forwards; }
+}
+@media (max-width: 420px) {
+  .fd-hero, .fd-detail { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+}
+@keyframes us-fade { from { opacity: 0; } 25% { opacity: 1; } to { opacity: 0; } }
+.temper-note { margin: 6px 0 0; color: var(--sand); }

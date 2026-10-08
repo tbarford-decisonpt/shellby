@@ -1,0 +1,22 @@
+
+
+  Array
+    #indexOf()
+      ✔ should return the index
+      1) should return -1 when missing
+
+
+  1 passing (12ms)
+  1 failing
+
+  1) Array
+       #indexOf()
+         should return -1 when missing:
+
+      AssertionError [ERR_ASSERTION]: 0 == -1
+      + expected - actual
+
+      at Context.<anonymous> (test\array.test.js:9:14)
+
+
+

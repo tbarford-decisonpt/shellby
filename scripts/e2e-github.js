@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 
 const ROOT = path.join(__dirname, '..');
@@ -39,7 +40,7 @@ async function connect(url) {
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
     env: {
-      ...env, SHELLBY_USER_DATA: data, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'),
+      ...env, SHELLBY_USER_DATA: data, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47963',
       SHELLBY_GITHUB_WEB: mock.base, SHELLBY_GITHUB_API: mock.base, SHELLBY_GITHUB_CLIENT_ID: 'e2e-client',
     },
   });
@@ -74,13 +75,13 @@ async function connect(url) {
     check(await ev("document.getElementById('ghClaude').disabled"), 'Claude access needs a sign-in first');
     await ev("document.getElementById('ghPublish').click()"); // ask for publishing too
     await ev("document.getElementById('githubGroup').scrollIntoView({ block: 'start' })");
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await panel.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng((m, p) => panel.send(m, p), process.argv[2]);
 
     // 2. The device code.
     await ev("document.getElementById('ghSignIn').click()");
     check(await until(ev, "document.getElementById('ghCodeText').textContent === 'CRAB-1234' && !document.getElementById('ghCode').hidden"), 'shows the code to enter on GitHub');
     check(/gist/.test(mock.state.requestedScope) && /public_repo/.test(mock.state.requestedScope) && !/\brepo\b/.test(mock.state.requestedScope), `asks only for the chosen features (${mock.state.requestedScope})`);
-    if (process.argv[3]) fs.writeFileSync(process.argv[3], Buffer.from((await panel.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[3]) await savePng((m, p) => panel.send(m, p), process.argv[3]);
 
     // 3. Approve → signed in, profile, first sync.
     mock.approve();
@@ -93,6 +94,15 @@ async function connect(url) {
     check(!settingsText.includes(mock.state.token), 'the token is not in settings.json');
     const bin = fs.readFileSync(path.join(data, 'github.bin'));
     check(bin.length > 0 && !bin.toString('latin1').includes(mock.state.token), 'the token file is encrypted');
+
+    // 3b. His tank goes along (tank-share.js): the layout, never whether it's on your cards.
+    await ev("shellby.saveTank({ size: 'nano', style: { substrate: 'gravel', backdrop: null, light: 'night' }, placed: [{ ref: 'castle-keep', x: 30, row: 0, z: 0, flip: false }] })");
+    await ev('shellby.shareTank(true)');
+    await ev('shellby.githubSync()');
+    const synced = JSON.parse(gist.files['shellby-sync.json'].content || '{}');
+    check(synced.tank?.placed?.[0]?.ref === 'castle-keep' && synced.tank.style.light === 'night', 'his tank is in the sync gist');
+    check(!('shareCard' in (synced.tank || {})), 'whether it is on your cards stays on this PC');
+    check(/his tank/.test(synced.note || ''), 'the gist says so');
 
     // 4. Publish your pack as a pull request.
     await ev("SB.setView('wardrobe')");

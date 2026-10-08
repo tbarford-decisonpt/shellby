@@ -1,0 +1,127 @@
+/* Shellby — the Tank tab (tank.js). The scene is one canvas, painted in art
+   pixels at a whole-number scale; this file is the frame around it, the
+   buttons laid over it, and the tray you decorate from. The frame stays still
+   so the tank can be the lively part. */
+
+body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+/* --us-faint: the muted meta text the Us and Beach tabs use (together.css .us-h-meta) */
+.view-tank {
+  --us-faint: #968d7b;
+  font-variant-ligatures: no-common-ligatures; /* Pixelify's "fi" reads as "A" */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.shellby-tabs .tk-badge { top: 3px; right: 4px; }
+
+/* ---------------------------------------------------------------- the scene */
+.tk-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; }
+.tk-head h3 { margin: 0; font: 600 var(--fs-22)/1.15 var(--font-pixel); color: var(--sand); }
+.tk-sub { margin: 2px 0 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.tk-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.tk-stage {
+  position: relative; display: flex; justify-content: center; padding: 10px;
+  border-radius: var(--r-lg); border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--reef) 0%, var(--abyss) 100%);
+  user-select: none;
+}
+/* The tank itself: a thin rim of glass around the water. */
+.tk-frame {
+  position: relative; line-height: 0; border-radius: var(--r-sm); overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(127, 214, 194, .18), 0 0 0 3px rgba(0, 0, 0, .5), 0 10px 24px -12px rgba(0, 0, 0, .7);
+}
+.tk-canvas { display: block; image-rendering: pixelated; }
+.tk-stage.editing .tk-frame { box-shadow: 0 0 0 2px var(--glass), 0 0 0 3px rgba(0, 0, 0, .5), 0 10px 24px -12px rgba(0, 0, 0, .7); }
+.tk-stage.dragging, .tk-stage.dragging .tk-hit { cursor: grabbing; }
+
+/* What you can point at: invisible until hovered, focused or picked. */
+.tk-hits { position: absolute; left: 0; top: 0; }
+.tk-hit {
+  position: absolute; padding: 0; border: 0; border-radius: 3px; background: none; cursor: default;
+  outline: 2px solid transparent; outline-offset: 0; transition: outline-color .12s;
+}
+.tk-hit.edit { cursor: grab; }
+.tk-hit:hover { outline-color: rgba(243, 230, 204, .35); }
+.tk-hit:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.tk-hit.on { outline: 2px dashed var(--sand); outline-offset: 1px; }
+.tk-hit-crab { cursor: pointer; }
+.tk-hit-crab:hover { outline-color: transparent; }
+.tk-tag { /* the name over whatever you're pointing at */
+  position: absolute; z-index: 4; translate: -50% calc(-100% - 6px); padding: 2px 7px; pointer-events: none; white-space: nowrap; line-height: 1.4;
+  font: 600 var(--fs-11-5) var(--font-body); color: var(--sand); background: rgba(6, 19, 22, .88);
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+
+.tk-empty {
+  position: absolute; left: 50%; top: 50%; translate: -50% -60%; z-index: 3; width: min(280px, calc(100% - 40px));
+  display: grid; gap: 2px; padding: 9px 13px; pointer-events: none; text-align: center;
+  background: rgba(6, 19, 22, .82); border: 1px solid var(--line); border-radius: var(--r);
+}
+.tk-empty b { font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); }
+.tk-empty span { font-size: var(--fs-12); color: var(--sand-dim); }
+
+/* The piece you've picked, and what you can do to it. */
+.tk-picked { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.tk-picked-name { margin-right: auto; font: 600 var(--fs-14) var(--font-pixel); color: var(--sand); }
+.tk-keys { margin: 8px 0 0; }
+.tk-note { margin: 8px 0 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+
+/* ---------------------------------------------------------------- the tray */
+.tk-tray { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.tk-shelves { flex-wrap: wrap; }
+.tk-shelves button { position: relative; flex: 0 1 auto; padding: 0 10px; white-space: nowrap; }
+.tk-shelves .dot-badge { top: 3px; right: 3px; }
+.tk-items {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-top: 10px;
+}
+.tk-item {
+  position: relative; display: grid; justify-items: center; align-content: start; gap: 3px; min-width: 0;
+  padding: 8px 6px 7px; border-radius: var(--r); border: 1px solid var(--line-soft); background: var(--reef);
+  color: var(--sand); cursor: grab; text-align: center;
+}
+.tk-item[data-style] { cursor: pointer; }
+.tk-item:hover:not([disabled]) { border-color: var(--line); background: var(--reef-2); }
+.tk-item:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.tk-item.chosen { border-color: var(--glass); box-shadow: inset 0 0 0 1px var(--glass); }
+.tk-item[disabled] { cursor: not-allowed; opacity: .55; }
+.tk-item.locked .tk-thumb canvas { filter: brightness(0) opacity(.45); } /* a silhouette until it's earned */
+.tk-thumb { display: grid; place-items: end center; width: 100%; height: 48px; }
+.tk-thumb canvas { display: block; max-width: 100%; max-height: 48px; image-rendering: pixelated; }
+.tk-item-name { font-size: var(--fs-12); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.tk-item-meta { font-size: var(--fs-11); line-height: 1.3; color: var(--sand-dim); }
+.tk-item .dot-badge { top: 5px; right: 5px; }
+
+.tk-settings { display: grid; gap: 10px; margin-top: 14px; }
+.tk-setting { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; }
+.tk-setting-label { font: 600 var(--fs-10) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.tk-sizes { flex-wrap: wrap; }
+.tk-sizes button, .tk-light button { padding: 0 8px; white-space: nowrap; }
+.tk-sizes button[aria-checked="true"], .tk-light button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
+.tk-sizes button[disabled] { cursor: not-allowed; opacity: .5; }
+.tk-lock { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+
+/* ---------------------------------------------------------------- where decor comes from */
+#tkKeyMeta { display: inline-flex; align-items: center; gap: 8px; }
+.tk-key {
+  list-style: none; margin: 0; padding: 0; display: grid;
+  border: 1px solid var(--line-soft); border-radius: var(--r); background: var(--reef); overflow: hidden;
+}
+.tk-src { display: grid; gap: 4px; padding: 9px 12px 10px; }
+.tk-src + .tk-src { border-top: 1px solid var(--line-soft); }
+.tk-src-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tk-src-name { font: 600 var(--fs-10) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sand-faint); }
+.tk-src-n { font: 600 var(--fs-14) var(--font-pixel); color: var(--sand); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tk-src p { margin: 0; font-size: var(--fs-12); line-height: 1.45; color: var(--sand-dim); max-width: 60ch; }
+.tk-src p b { font-weight: 700; color: var(--sand); }
+/* How much of a source is his: the panel's meter look, filled by --fill (0 to 1). */
+.tk-bar { position: relative; display: block; height: 4px; border-radius: 2px; background: var(--reef-2); overflow: hidden; }
+.tk-bar::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--glass);
+  transform: scaleX(var(--fill, 0)); transform-origin: left;
+}
+#tkKeyMeta .tk-bar { width: 44px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-view="tank"] .view-tank { animation: none; }
+  .tk-hit { transition: none; }
+}

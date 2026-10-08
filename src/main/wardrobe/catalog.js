@@ -1,5 +1,6 @@
 // Wardrobe packs: JSON files that add accessories (hats, glasses, held items…),
-// ambient effects (falling snow, orbiting bats…) and skins. The built-in pack
+// ambient effects (falling snow, orbiting bats…), skins, dialogue: voices
+// (a new way of talking) and scenes (see dialogue.js), and decor for his tank. The built-in pack
 // ships in src/wardrobe; community packs live in %APPDATA%/Shellby/wardrobe.
 //
 // Packs are data only. Everything is validated strictly before it reaches the
@@ -8,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { validate: validateSkin } = require('../skins');
+const { voiceContent, sceneContent } = require('./dialogue');
 
 const FORMAT = 1;
 const MAX_FILE_BYTES = 512 * 1024;
@@ -35,9 +37,18 @@ const DEFAULT_ANCHORS = Object.freeze({
   shellTop: Object.freeze([7, 0]),  // top of the shell
 });
 
+// Decor for his tank (src/main/tank.js). Pieces stand on the floor, against the
+// back glass, or float in the water; substrates and backdrops are tiles the
+// tank repeats. Spots are where he can do something with a piece.
+const DECOR_CATEGORIES = ['structure', 'plant', 'rock', 'treasure', 'bubbler', 'substrate', 'backdrop'];
+const DECOR_LAYERS = ['floor', 'back', 'float'];
+const STYLE_CATEGORIES = ['substrate', 'backdrop'];
+const SPOT_KINDS = ['hide', 'sit', 'climb', 'sleep', 'nibble', 'open', 'peek'];
+
 const LIMITS = Object.freeze({
-  accessories: 200, effects: 50, skins: 50,
+  accessories: 200, effects: 50, skins: 50, voices: 20, scenes: 60, decor: 100,
   itemGrid: 16, spriteGrid: 8, paletteMax: 16, spritesMax: 6,
+  decorGrid: 32, framesMax: 3, spotsMax: 4,
 });
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -162,10 +173,81 @@ function validatePackSkin(raw, known) {
   return { item: { ...skin, unlock, anchors } };
 }
 
+function validateVoice(raw, known) {
+  const [base, err] = commonFields(raw);
+  if (err) return { error: err };
+  const { content, warnings, error } = voiceContent(raw);
+  if (error) return { error };
+  const [unlock, ue] = checkUnlock(raw.unlock, known);
+  if (ue) return { error: ue };
+  return { item: { ...base, ...content, unlock }, warnings };
+}
+
+// A piece of tank decor. Frames are extra pictures of the same size, played in
+// a loop at `fps` (a bubbler's bubbles, a swaying plant).
+function validateDecor(raw, known) {
+  const [base, err] = commonFields(raw);
+  if (err) return { error: err };
+  if (!DECOR_CATEGORIES.includes(raw.category)) return { error: `bad category ${q(raw.category)}` };
+  const style = STYLE_CATEGORIES.includes(raw.category);
+  if (raw.layer !== undefined && (style || !DECOR_LAYERS.includes(raw.layer))) return { error: style ? 'substrates and backdrops have no layer' : `bad layer ${q(raw.layer)}` };
+  const e = checkPalette(raw.palette) || checkPixels(raw.pixels, LIMITS.decorGrid);
+  if (e) return { error: e };
+  const w = Math.max(...raw.pixels.map(r => r.length));
+  if (w < 1) return { error: 'pixels must not be empty' };
+  const frames = [];
+  if (raw.frames !== undefined) {
+    if (style || !Array.isArray(raw.frames) || raw.frames.length < 1 || raw.frames.length > LIMITS.framesMax) return { error: style ? 'substrates and backdrops have no frames' : `frames must be 1–${LIMITS.framesMax} pictures` };
+    for (const [i, f] of raw.frames.entries()) {
+      const fe = checkPixels(f, LIMITS.decorGrid);
+      if (fe) return { error: `frame ${i}: ${fe}` };
+      if (f.length !== raw.pixels.length || Math.max(...f.map(r => r.length)) > w) return { error: `frame ${i} must be the same size as pixels` };
+      frames.push([...f]);
+    }
+  }
+  if (raw.fps !== undefined && (!frames.length || !isInt(raw.fps, 1, 8))) return { error: 'fps must be an integer 1–8, with frames' };
+  const spots = [];
+  if (raw.spots !== undefined) {
+    if (style || !Array.isArray(raw.spots) || raw.spots.length > LIMITS.spotsMax) return { error: style ? 'substrates and backdrops have no spots' : `spots must be at most ${LIMITS.spotsMax}` };
+    for (const [i, s] of raw.spots.entries()) {
+      if (!isObj(s) || !SPOT_KINDS.includes(s.kind)) return { error: `spot ${i}: bad kind ${q(s?.kind)}` };
+      const at = s.at;
+      if (!Array.isArray(at) || at.length !== 2 || !isInt(at[0], 0, w - 1) || !isInt(at[1], -LIMITS.decorGrid, raw.pixels.length - 1)) return { error: `spot ${i}: at must be [x, y] inside the piece` };
+      spots.push({ kind: s.kind, at: [at[0], at[1]] });
+    }
+  }
+  const [unlock, ue] = checkUnlock(raw.unlock, known);
+  if (ue) return { error: ue };
+  return {
+    item: {
+      ...base,
+      category: raw.category,
+      layer: style ? null : raw.layer || 'floor',
+      palette: copyPalette(raw.palette),
+      pixels: [...raw.pixels],
+      frames, fps: frames.length ? raw.fps ?? 2 : 0, spots,
+      unlock,
+    },
+  };
+}
+
+// Scenes are checked after voices, so one can name a voice from its own pack.
+function validateScene(raw, known, pack) {
+  const [base, err] = commonFields(raw);
+  if (err) return { error: err };
+  const { content, error } = sceneContent(raw, { seasons: known.seasons, voiceIds: pack.voices.map(v => v.id) });
+  if (error) return { error };
+  return { item: { name: base.name, description: base.description, ...content } };
+}
+
+// Voices come before scenes: see validateScene.
 const KINDS = [
   ['accessories', 'accessory', validateAccessory],
   ['effects', 'effect', validateEffect],
   ['skins', 'skin', validatePackSkin],
+  ['voices', 'voice', validateVoice],
+  ['scenes', 'scene', validateScene],
+  ['decor', 'decor', validateDecor],
 ];
 
 /**
@@ -200,7 +282,7 @@ function validatePack(json, { source = 'user', knownAchievements = new Set(), kn
   const pack = {
     id: json.id, name: json.name, author: json.author, version: json.version,
     description, homepage, source,
-    accessories: [], effects: [], skins: [],
+    accessories: [], effects: [], skins: [], voices: [], scenes: [], decor: [],
   };
   const keyOf = id => (source === 'builtin' ? id : `${pack.id}/${id}`);
 
@@ -217,17 +299,23 @@ function validatePack(json, { source = 'user', knownAchievements = new Set(), kn
       const id = isObj(raw) ? raw.id : undefined;
       const name = typeof id === 'string' ? id : `#${i}`;
       if (typeof id !== 'string' || !ITEM_ID_RE.test(id)) { warnings.push(`skipped ${label} ${name}: bad id`); return; }
-      const { item, error } = check(raw, known);
+      const { item, error, warnings: itemWarnings = [] } = check(raw, known, pack);
       if (error) { warnings.push(`skipped ${label} ${id}: ${error}`); return; }
       if (seen.has(id)) { warnings.push(`skipped ${label} ${id}: duplicate id (kept the first)`); return; }
       seen.add(id);
+      warnings.push(...itemWarnings.map(w => `${label} ${id}: ${w}`));
       const key = keyOf(id);
       const extra = label === 'skin' ? { id: key } : { id };
+      if (label === 'scene') extra.voice = item.voice ? keyOf(item.voice) : null;
       pack[field].push({ ...item, ...extra, key, packId: pack.id, source });
     });
   }
-  return { pack, errors: [], warnings };
+  return { pack, errors: [], warnings: capWarnings(warnings) };
 }
+
+// Enough to fix a pack by, without a junk one filling the Wardrobe.
+const MAX_WARNINGS = 50;
+const capWarnings = w => (w.length > MAX_WARNINGS ? [...w.slice(0, MAX_WARNINGS), `…and ${w.length - MAX_WARNINGS} more`] : w);
 
 function isHttpsUrl(v) {
   if (typeof v !== 'string' || v.length > 200 || !/^https:\/\/\S+$/.test(v)) return false;
@@ -257,6 +345,9 @@ function listJson(dir) {
 function loadCatalog({ builtinDir, userDir, knownAchievements = new Set(), knownSeasons = new Set() } = {}) {
   const accessories = new Map();
   const effects = new Map();
+  const voices = new Map();
+  const scenes = new Map();
+  const decor = new Map();
   const skinKeys = new Set();
   const skins = [];
   const packs = [];
@@ -289,15 +380,26 @@ function loadCatalog({ builtinDir, userDir, knownAchievements = new Set(), known
         if (skinKeys.has(s.key)) packWarnings.push(`skipped skin ${s.id}: key ${s.key} already taken`);
         else { skinKeys.add(s.key); skins.push(s); }
       }
+      // A voice shares unlocks and "new" badges with the other items, so its key has to be theirs too.
+      for (const v of pack.voices) {
+        if (accessories.has(v.key) || effects.has(v.key) || skinKeys.has(v.key)) packWarnings.push(`skipped voice ${v.id}: key ${v.key} already taken`);
+        else add(voices, v, 'voice');
+      }
+      for (const sc of pack.scenes) add(scenes, sc, 'scene');
+      // Decor shares unlocks and "new" badges with the wardrobe's items too.
+      for (const x of pack.decor) {
+        if (accessories.has(x.key) || effects.has(x.key) || voices.has(x.key) || skinKeys.has(x.key)) packWarnings.push(`skipped decor ${x.id}: key ${x.key} already taken`);
+        else add(decor, x, 'decor');
+      }
       packs.push({
         id: pack.id, name: pack.name, author: pack.author, version: pack.version,
         description: pack.description, homepage: pack.homepage, source, file,
-        counts: { accessories: pack.accessories.length, effects: pack.effects.length, skins: pack.skins.length },
+        counts: { accessories: pack.accessories.length, effects: pack.effects.length, skins: pack.skins.length, voices: pack.voices.length, scenes: pack.scenes.length, decor: pack.decor.length },
         warnings: packWarnings,
       });
     }
   }
-  return { accessories, effects, skins, packs, errors };
+  return { accessories, effects, skins, voices, scenes, decor, packs, errors };
 }
 
 // Resolve `${userDir}/${id}.json`, refusing anything that would land outside userDir.
@@ -345,4 +447,5 @@ module.exports = {
   validatePack, loadCatalog, installPack, removePack,
   FORMAT, MAX_FILE_BYTES, PACK_ID_RE, ITEM_ID_RE, VERSION_RE,
   SLOTS, ANCHORS, FOLLOWS, MOTIONS, RARITIES, SLOT_ANCHOR, SLOT_FOLLOWS, DEFAULT_ANCHORS, LIMITS,
+  DECOR_CATEGORIES, DECOR_LAYERS, STYLE_CATEGORIES, SPOT_KINDS,
 };

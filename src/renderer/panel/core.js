@@ -6,12 +6,16 @@ const SB = window.SB = {
   md: window.ShellbyMarkdown,
   Sprite: window.ShellbySprite,
   MiniShell: window.ShellbyMiniShell,
+  shortcuts: window.ShellbyShortcuts, // every shortcut, for the handlers, the palette and the cheat sheet
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
-    toolbox: null, pinned: [], learned: [], routines: [],
+    toolbox: null, pinned: [], learned: [], routines: [], notes: null,
+    snippets: [],         // saved prompts: /name in the box, @name from a terminal (toolbox.js)
+    workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,
+    clashes: [],          // copies that changed the same files (clashes.js; src/main/clash.js has the shape)
   },
 };
 
@@ -95,19 +99,156 @@ SB.duration = ms => {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 };
 
+// A running clock, whole seconds so it ticks steadily: 7s, 1m 05s, 1h 02m.
+SB.clock = ms => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+};
+
 SB.compact = n => (n == null ? '' : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 SB.prettyAccel = a => String(a || '').replace(/Control/g, 'Ctrl').replace(/\+/g, ' + ');
 
-let toastTimer;
-SB.toast = (msg, { action, onAction, ms = 2800 } = {}) => {
-  const t = SB.$('toast');
-  // (replaceChildren would print a literal "null" for a missing button, so filter it out)
-  t.replaceChildren(...[SB.h('span', { text: msg }), action ? SB.h('button', { class: 'toast-action', type: 'button', onclick: () => { t.hidden = true; onAction(); } }, action) : null].filter(Boolean));
-  t.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, action ? ms + 2500 : ms);
+// "1 file", "3 files", "2 children". format writes the number (n => n.toLocaleString()
+// for counts that can run into the thousands).
+SB.plural = (n, one, many = `${one}s`, format = String) => `${format(n)} ${n === 1 ? one : many}`;
+
+// A preference kept on this PC. Storage can refuse (then it lasts this session),
+// and an empty value reads as no value.
+SB.pref = (key, fallback = null) => { try { return window.localStorage.getItem(key) || fallback; } catch { return fallback; } };
+SB.pref.set = (key, value) => { try { window.localStorage.setItem(key, String(value)); } catch { /* storage refused: it lasts this session */ } };
+
+// Redraw part of a screen without losing your place: draw(), then focus goes back
+// to the control with the same data-<attr> (data-keep unless told otherwise),
+// and `scroller` keeps its scroll position.
+SB.focusKept = (box, key, { attr = 'keep', preventScroll = false } = {}) => {
+  const el = [...box.querySelectorAll(`[data-${attr}]`)].find(e => e.dataset[attr] === key);
+  if (!el) return false;
+  el.focus({ preventScroll });
+  return document.activeElement === el;
 };
+SB.keepFocus = (box, draw, { attr = 'keep', scroller = null, preventScroll = false } = {}) => {
+  const a = document.activeElement;
+  const key = a && box.contains(a) ? a.dataset[attr] : null;
+  const top = scroller ? scroller.scrollTop : 0;
+  draw();
+  if (scroller) scroller.scrollTop = top;
+  if (key) SB.focusKept(box, key, { attr, preventScroll });
+};
+
+// ------------------------------------------------------------------ announcements
+// One polite status line for screen readers, so lists and feeds that redraw all
+// the time don't have to be live regions themselves. Emptied first, so saying
+// the same thing twice is still heard twice.
+let announceTimer;
+SB.announce = text => {
+  const el = SB.$('announcer');
+  if (!el) return;
+  el.textContent = '';
+  clearTimeout(announceTimer);
+  if (text) announceTimer = setTimeout(() => { el.textContent = text; }, 60);
+};
+
+// The toast stays in the page (a status region that is always there gets read
+// out; one that appears with its words already in it often doesn't), and is
+// emptied rather than hidden.
+//
+// A toast with a button holds the slot: anything that comes in while it's up
+// waits its turn (and is dropped if it has gone stale by then), so a clash or a
+// catch can't snatch "Ask him to sort it out" from under the pointer. It stops
+// holding once you click or press Enter anywhere else: you've moved on, and
+// what you did next should answer straight away.
+const TOAST_MS = 2800;
+const TOAST_OFFER_EXTRA_MS = 2500; // time to reach for the button
+const TOAST_LINGER_MS = 3000;      // after the pointer or focus leaves it
+const TOAST_STALE_MS = 4000;       // how much longer than its own time a waiting toast stays worth saying
+const TOAST_WAITING_MAX = 3;
+let toastTimer;
+let toastHolds = false;
+let toastWaiting = []; // [{ msg, opts, until }]
+let toastWired = false;
+
+function toastSlot() {
+  const t = SB.$('toast');
+  if (toastWired) return t;
+  toastWired = true;
+  const linger = () => { if (t.children.length) armToast(TOAST_LINGER_MS); };
+  t.addEventListener('pointerenter', () => clearTimeout(toastTimer));
+  t.addEventListener('focusin', () => clearTimeout(toastTimer));
+  t.addEventListener('pointerleave', linger);
+  t.addEventListener('focusout', linger);
+  const movedOn = e => { if (toastHolds && !t.contains(e.target)) toastHolds = false; };
+  document.addEventListener('pointerdown', movedOn, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') movedOn(e); }, true);
+  return t;
+}
+
+function armToast(ms) {
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(endToast, ms);
+}
+
+// The slot empties, and the next one still worth saying takes it.
+function endToast() {
+  clearTimeout(toastTimer);
+  SB.$('toast').replaceChildren();
+  toastHolds = false;
+  const now = Date.now();
+  toastWaiting = toastWaiting.filter(w => w.until > now);
+  const next = toastWaiting.shift();
+  if (next) showToast(next.msg, { ...next.opts, ms: Math.min(next.opts.ms ?? TOAST_MS, next.until - now) });
+}
+
+function showToast(msg, { title, note, action, onAction, actions, ms = TOAST_MS } = {}) {
+  const t = toastSlot();
+  const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
+  const body = title || note
+    ? SB.h('span', { class: 'toast-body' },
+      title ? SB.h('strong', { class: 'toast-title', text: title }) : null,
+      SB.h('span', { class: 'toast-text', text: msg }),
+      note ? SB.h('span', { class: 'toast-note', text: note }) : null)
+    : SB.h('span', { text: msg });
+  // What the button itself has to say comes first; the waiting ones after.
+  const pick = a => {
+    clearTimeout(toastTimer);
+    t.replaceChildren();
+    toastHolds = false;
+    a.onAction();
+    if (!t.children.length) endToast();
+  };
+  t.replaceChildren(body,
+    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => pick(a) }, a.label)));
+  toastHolds = offers.length > 0;
+  armToast(offers.length ? ms + TOAST_OFFER_EXTRA_MS : ms);
+}
+
+// actions: [{ label, onAction }] when there's more than one thing to offer.
+// title / note: a bold headline above msg and a quiet line under it, for
+// toasts with more to say than one sentence.
+SB.toast = (msg, opts = {}) => {
+  if (!toastHolds) return showToast(msg, opts);
+  const until = Date.now() + (opts.ms ?? TOAST_MS) + TOAST_STALE_MS;
+  toastWaiting = [...toastWaiting, { msg, opts, until }].slice(-TOAST_WAITING_MAX);
+};
+
+// A model picker's options, grouped by family, from the list main accepts
+// (src/main/models.js). '' is the default; a saved model that has since left
+// the list still shows rather than a blank.
+SB.fillModels = (select, current = '', defaultText = 'Default') => {
+  const models = SB.state.models || [];
+  const groups = [...new Set(models.map(m => m.group))];
+  const known = current === '' || models.some(m => m.id === current);
+  select.replaceChildren(...[
+    SB.h('option', { value: '', text: defaultText }),
+    ...groups.map(g => SB.h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => SB.h('option', { value: m.id, text: m.label })))),
+    known ? null : SB.h('option', { value: current, text: current }),
+  ].filter(Boolean));
+  select.value = current;
+};
+SB.modelLabel = id => (SB.state.models || []).find(m => m.id === id)?.label || id;
 
 // Stroke icon from path data (built with DOM APIs, never innerHTML).
 SB.icon = (d, { size = 16, width = 1.4 } = {}) => {
@@ -131,6 +272,8 @@ SB.ICONS = {
   edit: 'M10.5 2.8l2.7 2.7-7.4 7.4H3.1v-2.7z',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',
   shield: 'M8 2.6L3.4 4.3v4c0 2.5 1.8 4.3 4.6 5.3 2.8-1 4.6-2.8 4.6-5.3v-4z',
+  clock: 'M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11zM8 5v3.2l2.1 1.3',
+  more: 'M3.5 8h.01M8 8h.01M12.5 8h.01',
 };
 
 // Shellby as he's dressed right now (fit: the view box frames the whole outfit).
@@ -139,7 +282,9 @@ SB.sprite = (skin = SB.state.skin, opts = {}) => {
   if (!skin) return document.createElement('span');
   const accessories = opts.plain ? [] : opts.accessories ?? SB.state.outfit?.accessories ?? [];
   const shell = opts.plain ? null : opts.shell ?? SB.state.outfit?.home ?? null; // the shell he lives in (shells.js)
-  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories, shell });
+  // His stickers belong to the shell he's wearing, so a different shell goes bare.
+  const stickers = opts.plain || opts.shell !== undefined ? opts.stickers || [] : SB.state.outfit?.stickers || [];
+  return SB.Sprite.build(skin, { fit: accessories.length > 0, ...opts, accessories, shell, stickers });
 };
 
 // Helper-crab colours, shared with the desktop critter.
@@ -155,13 +300,21 @@ SB.renderMarkdownInto = (el, text) => {
   return el;
 };
 
+// Links are inert <a data-href> (the window blocks navigation and popups), in
+// rendered markdown and in panel.html alike; main only opens https.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-href]');
+  if (a) { e.preventDefault(); SB.api.openExternal(a.dataset.href); }
+});
+
 // ------------------------------------------------------------------ views
 
 SB.views = {};  // name -> { render?() }
 
-// Which navigation item a screen lives under (Trophies is a tab of the Shellby screen),
-// and which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe' };
+// Which navigation item a screen lives under (Trophies, Crew, Stickers, Finds, Tank, Us and Beach are
+// tabs of the Shellby screen, Routines sits beside Workflows under Automate), and
+// which screens sit one level down, so Back/Esc go up to their parent.
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', crew: 'wardrobe', stickers: 'wardrobe', finds: 'wardrobe', tank: 'wardrobe', us: 'wardrobe', beach: 'wardrobe', routines: 'workflows' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
@@ -184,28 +337,95 @@ SB.setView = view => {
 
 // ------------------------------------------------------------------ popovers
 
+// Where the keyboard goes back to when a menu it was in closes: whatever had it
+// before the menu opened (the box, a chip), so Esc or a choice never strands it.
+let menuReturn = null;
+
+const MENU_MIN_HEIGHT = 120; // a menu squeezed by a tiny window still shows a few rows
 SB.openMenu = (menu, anchor, build) => {
   const wasOpen = !menu.hidden;
   SB.closeMenus();
   if (wasOpen) return;
+  const from = document.activeElement;
+  menuReturn = from && from !== document.body && !from.closest('.popover') ? from : anchor;
   menu.replaceChildren(...build().filter(Boolean));
+  menu.style.maxHeight = '';
   menu.hidden = false;
   const r = anchor.getBoundingClientRect();
-  menu.style.top = `${r.bottom + 6}px`;
+  // Below the button, or above it when there isn't room (a row near the bottom of the list).
+  // Never past the window's edge: a menu taller than the room it has scrolls, so
+  // its last items (the branch menu under a long clash list) stay reachable.
+  const roomBelow = window.innerHeight - 8 - (r.bottom + 6);
+  const roomAbove = r.top - 6 - 8;
+  const below = menu.offsetHeight <= roomBelow || roomBelow >= roomAbove;
+  const cssMax = parseFloat(getComputedStyle(menu).maxHeight) || Infinity; // 'none' is NaN
+  menu.style.maxHeight = `${Math.max(MENU_MIN_HEIGHT, Math.min(cssMax, below ? roomBelow : roomAbove))}px`;
+  menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - menu.offsetHeight)}px`;
   menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
   anchor.setAttribute('aria-expanded', 'true');
+  menuAnchor = anchor;
   menu.querySelector('button')?.focus();
 };
 
-SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu']) SB.$(id).hidden = true;
-  for (const id of ['modeChip', 'folderChip']) SB.$(id).setAttribute('aria-expanded', 'false');
+// Every floating menu is a .popover, or the composer's .slash-menu (slash
+// commands, @-picker): asking the page beats keeping a list of ids in step.
+const OPEN_MENUS = '.popover:not([hidden]), .slash-menu:not([hidden])';
+let menuAnchor = null; // the button that opened the current menu: its aria-expanded goes back to false
+
+SB.anyMenuOpen = () => !!document.querySelector(OPEN_MENUS);
+
+// refocus: send the keyboard back where it was before the menu opened (Esc, a
+// pick from it), as it does anyway when focus was in the menu. A click
+// elsewhere leaves focus where the click put it.
+SB.closeMenus = ({ refocus = false } = {}) => {
+  const held = !!document.activeElement?.closest(OPEN_MENUS);
+  for (const menu of document.querySelectorAll('.popover')) menu.hidden = true;
+  for (const id of ['modeChip', 'folderChip', 'branchChip', 'ctxChip', 'usage', 'effortChip', 'tabAllBtn', 'reviewBtn']) SB.$(id).setAttribute('aria-expanded', 'false');
   SB.hideSlash?.();
+  SB.hidePick?.();
+  menuAnchor?.setAttribute('aria-expanded', 'false');
+  menuAnchor = null;
+  if ((refocus || held) && menuReturn?.isConnected && menuReturn.getClientRects().length) menuReturn.focus({ preventScroll: true });
+  menuReturn = null;
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .slash-menu, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, .note-more, #input')) SB.closeMenus();
 });
+
+// Up/Down walk a menu's items (wrapping round), Home/End jump to either end.
+// Every .popover with role=menu gets this; Esc is tabs.js's (SB.closeMenus). A
+// menu with keys of its own handles them first and says so (defaultPrevented).
+const MENU_ITEMS = 'button:not(:disabled), [role^="menuitem"]:not(:disabled)';
+document.addEventListener('keydown', e => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const menu = e.target.closest?.('.popover[role="menu"]');
+  if (!menu) return;
+  const items = [...menu.querySelectorAll(MENU_ITEMS)].filter(el => el.getClientRects().length > 0);
+  if (!items.length) return;
+  e.preventDefault();
+  const i = items.indexOf(document.activeElement);
+  const n = items.length;
+  const next = { ArrowDown: i + 1, ArrowUp: i < 0 ? n - 1 : i - 1, Home: 0, End: n - 1 }[e.key];
+  items[(next + n) % n].focus();
+});
+
+// One item for a popover menu: picking it closes the menu (focus goes back to the
+// button that opened it), then runs onPick. Two shapes:
+//   SB.menuItem(title, onPick)
+//   SB.menuItem(title, sub, onPick, { glyph, disabled, mono, tone })
+// glyph: a check column (pass '' for an empty one, so the titles line up).
+SB.menuItem = (title, sub, onPick, opts = {}) => {
+  if (typeof sub === 'function') return SB.menuItem(title, null, sub, onPick || {});
+  const { glyph, disabled = false, mono = false, tone = '' } = opts;
+  const h = SB.h;
+  return h('button', {
+    class: tone ? `menu-item ${tone}` : 'menu-item', type: 'button', role: 'menuitem', disabled: !!disabled,
+    onclick: () => { SB.closeMenus({ refocus: true }); onPick(); },
+  },
+  glyph === undefined ? null : h('span', { class: 'mi-check', 'aria-hidden': 'true' }, glyph || ''),
+  h('span', {}, h('div', { class: mono ? 'mi-title wf-mono' : 'mi-title', text: title }), sub ? h('div', { class: 'mi-sub', text: sub }) : null));
+};
 
 // ------------------------------------------------------------------ page never scrolls
 // Only the views scroll. If anything ever scrolls the page itself (e.g. a
@@ -226,11 +446,28 @@ for (const target of [window, document.body]) {
 (function tooltips() {
   const tip = document.createElement('div');
   tip.className = 'tip';
+  tip.id = 'sbTip';
   tip.setAttribute('role', 'tooltip');
   tip.hidden = true;
   document.body.append(tip);
   let target = null;
   let timer = null;
+  // The element the tip is showing for: it's described by the tip while it shows
+  // (the title it came from is gone), and gets back what it had before.
+  let described = null;
+  let describedBefore = null;
+  const undescribe = () => {
+    if (!described) return;
+    if (describedBefore == null) described.removeAttribute('aria-describedby');
+    else described.setAttribute('aria-describedby', describedBefore);
+    described = null;
+  };
+  const describe = el => {
+    undescribe();
+    described = el;
+    describedBefore = el.getAttribute('aria-describedby');
+    el.setAttribute('aria-describedby', describedBefore ? `${describedBefore} ${tip.id}` : tip.id);
+  };
 
   const claim = el => {
     const t = el.getAttribute('title');
@@ -262,8 +499,9 @@ for (const target of [window, document.body]) {
     tip.textContent = text;
     tip.hidden = false;
     place(el);
+    if (el.getAttribute('aria-label') !== text) describe(el); // else it would be read out twice
   };
-  const hide = () => { clearTimeout(timer); target = null; tip.hidden = true; };
+  const hide = () => { clearTimeout(timer); target = null; tip.hidden = true; undescribe(); };
 
   document.addEventListener('mouseover', e => {
     const el = e.target.closest?.('[title], [data-tip]');

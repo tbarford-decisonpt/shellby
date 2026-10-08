@@ -84,6 +84,11 @@ test('plain http is only allowed to this PC and private networks', () => {
   // A token over plain http to the open internet is readable in transit.
   assert.equal(localOrHttps('http://example.com/hook'), false);
   assert.equal(localOrHttps('http://172.32.0.1/hook'), false, '172.32 is not private');
+  // The ranges are addresses, not name prefixes: these are public names.
+  assert.equal(localOrHttps('http://10.evil.example/hook'), false);
+  assert.equal(localOrHttps('http://192.168.evil.example/hook'), false);
+  assert.equal(localOrHttps('http://172.16.evil.example/hook'), false);
+  assert.equal(localOrHttps('http://[::1]:8080/hook'), true);
   assert.equal(localOrHttps('ftp://example.com'), false);
   assert.equal(localOrHttps('file:///C:/x'), false);
   assert.equal(localOrHttps('javascript:alert(1)'), false);
@@ -310,4 +315,35 @@ test('deliver never follows a redirect', async () => {
   await deliver({ url: 'https://x', method: 'POST', headers: {}, body: '' },
     { fetchImpl: async (_u, opts) => { saw = opts.redirect; return { ok: true }; } });
   assert.equal(saw, 'error');
+});
+
+test('a queued task tells you what it came to, not just that it ended', () => {
+  const ok = composeMessage({ kind: 'queue', status: 'ok', title: 'Refactor billing', project: 'app', seconds: 3720, left: 2, body: 'Split billing.js into three modules.\n\nAll 48 tests pass.' });
+  assert.equal(ok.title, 'Done: Refactor billing');
+  assert.equal(ok.emoji, '✅');
+  const [said, facts] = ok.body.split('\n');
+  assert.equal(said, 'Split billing.js into three modules. All 48 tests pass.');
+  assert.equal(facts, 'app · 1h 2m · 2 more queued.');
+
+  const paused = composeMessage({ kind: 'queue', status: 'paused', title: 'Refactor billing', resumeAt: new Date('2026-10-04T03:15:00').getTime() });
+  assert.equal(paused.title, 'Out of usage partway: Refactor billing');
+  assert.match(paused.body, /carries on from where it stopped at 03:15/);
+
+  assert.equal(composeMessage({ kind: 'queue', status: 'error', title: 'X', body: 'Boom' }).title, 'Hit a problem: X');
+  assert.equal(composeMessage({ kind: 'queue', status: 'stopped', title: 'X' }).title, 'Stopped: X');
+  // A long reply still leaves room for the facts line.
+  const long = composeMessage({ kind: 'queue', status: 'ok', title: 'X', project: 'app', body: 'y'.repeat(2000) });
+  assert.ok(long.body.length <= 500);
+  assert.match(long.body, /\napp$/);
+});
+
+test('queued-task results are on by default, and can be turned off', () => {
+  assert.ok(EVENT_NAMES.includes('queue'));
+  assert.equal(CHANNEL_DEFAULTS.events.queue, true);
+  const s = settingsFor('ntfy', 'shellby-test-topic-abcdefgh');
+  assert.equal(shouldSend({ kind: 'queue', seconds: 2 }, s), true); // quick or not, you asked for it
+  assert.equal(shouldSend({ kind: 'queue' }, normalizeChannelSettings(s, { events: { queue: false } })), false);
+  // Settings saved before this existed still get it.
+  const old = { ...s, events: { asking: true, done: true } };
+  assert.equal(normalizeChannelSettings(old).events.queue, true);
 });

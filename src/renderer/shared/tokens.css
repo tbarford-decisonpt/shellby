@@ -1,0 +1,69 @@
+/* Shellby design tokens — the one source for every window (panel, dialog,
+   critter, floor, OBS overlay). Linked before any other stylesheet.
+   "Tidepool terminal": deep ink-teal water, sea-glass accents, coral for
+   Shellby and for action. */
+:root {
+  /* ---------------------------------------------------------------- colour */
+  --abyss: #071012;
+  --ink: #0c1719;
+  --reef: #11232a;
+  --reef-2: #173039;
+  --reef-3: #1e3d47;
+  --line: #214049;
+  --line-soft: rgba(127, 214, 194, .10);
+  --sand: #f3e6cc;
+  --sand-dim: #b3a892;
+  /* Quiet text. 6.07:1 on --ink, 4.61:1 on --reef-2 (WCAG AA for small text). */
+  --sand-faint: #9d9482;
+  /* The old, darker faint sand, for non-text marks only: "off" status dots,
+     hover borders, unchecked radios, strokes. Never use it for text. */
+  --sand-faint-deco: #7d7566;
+  --glass: #7fd6c2;
+  --glass-dim: rgba(127, 214, 194, .14);
+  --coral: #ff7a5c;
+  --coral-deep: #e2573a;
+  --coral-dim: rgba(255, 122, 92, .14);
+  --amber: #ffc15e;
+  --danger: #ff5a4a;
+
+  /* ---------------------------------------------------------------- type */
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", sans-serif;
+  --font-pixel: "Pixelify Sans", "Atkinson Hyperlegible", monospace;
+  --font-mono: "Martian Mono", "Cascadia Code", Consolas, monospace;
+
+  /* Font sizes, named by their pixel value. The small end is dense on purpose:
+     the panel is 460px wide and mono labels sit between half-pixel steps. */
+  --fs-8: 8px;
+  --fs-9: 9px;
+  --fs-9-5: 9.5px;
+  --fs-10: 10px;
+  --fs-10-5: 10.5px;
+  --fs-11: 11px;
+  --fs-11-5: 11.5px;
+  --fs-12: 12px;
+  --fs-12-5: 12.5px;
+  --fs-13: 13px;
+  --fs-13-5: 13.5px;
+  --fs-14: 14px;
+  --fs-14-5: 14.5px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-17: 17px;
+  --fs-18: 18px;
+  --fs-19: 19px;
+  --fs-20: 20px;
+  --fs-21: 21px;
+  --fs-22: 22px;
+  --fs-24: 24px;
+  --fs-25: 25px;
+  --fs-26: 26px;
+  --fs-30: 30px;
+  --fs-34: 34px;
+
+  /* ---------------------------------------------------------------- shape & motion */
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 14px;
+  --ease-spring: cubic-bezier(.3, 1.5, .5, 1);
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+}

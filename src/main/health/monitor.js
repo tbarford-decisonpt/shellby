@@ -7,6 +7,10 @@ const { EventEmitter } = require('events');
 const { step, moodFor, describe, normalizeThresholds, rank } = require('./rules');
 
 const POLL_MS = 5000;
+// While every reading is fine and nobody has the panel open, a third as often:
+// each nvidia-smi is a process start (~50 ms of CPU), all day. A reading that
+// turns, or the panel opening, brings back the fast beat at the next poll.
+const QUIET_POLL_MS = 15000;
 const DISK_EVERY_MS = 60000;
 const LHM_RETRY_MS = 60000;      // when LHM isn't answering, don't hammer the port
 const MISS_GRACE = 3;            // failed reads tolerated before a sensor counts as gone
@@ -20,12 +24,19 @@ class HealthMonitor extends EventEmitter {
    * getThresholds: () => thresholds object
    * now: () => ms (injectable for tests)
    */
-  constructor({ sensors, getThresholds, now = () => Date.now(), pollMs = POLL_MS, timing }) {
+  /**
+   * unwatched: () => true while nobody is looking (the panel closed), which
+   * lets an all-clear poll slow to quietPollMs. Without it, always pollMs.
+   */
+  constructor({ sensors, getThresholds, now = () => Date.now(), pollMs = POLL_MS, quietPollMs = QUIET_POLL_MS, unwatched = null, timing }) {
     super();
     this.sensors = sensors;
     this.getThresholds = getThresholds;
     this.now = now;
     this.pollMs = pollMs;
+    this.quietPollMs = quietPollMs;
+    this.unwatched = unwatched;
+    this.wake = null;             // resolves the slow wait early (the panel opened)
     this.timing = timing;           // undefined -> rules.TIMING
     this.timer = null;
     this.running = false;
@@ -35,7 +46,7 @@ class HealthMonitor extends EventEmitter {
     this.lastNvidia = null;
     this.checks = {};
     this.mood = null;
-    this.history = [];            // compact points: { at, cpu, cpuT, gpu, gpuT, ram }
+    this.history = [];            // compact points, see historyPoint()
     this.latest = null;
     this.disks = null;
     this.disksAt = -Infinity;     // never read yet
@@ -47,12 +58,37 @@ class HealthMonitor extends EventEmitter {
   start() {
     if (this.running) return;
     this.running = true;
+    // A loop belongs to one start(): one still awaiting a poll when Health is
+    // switched off and on again must not carry on beside the new one.
+    const epoch = this.epoch;
     const loop = async () => {
-      if (!this.running) return;
+      if (!this.running || epoch !== this.epoch) return;
       await this.poll();
-      if (this.running) this.timer = setTimeout(loop, this.pollMs);
+      if (this.running && epoch === this.epoch) this.timer = setTimeout(loop, this.nextDelay());
+    };
+    this.wake = (delay = 0) => {
+      if (!this.running || epoch !== this.epoch || this.inflight) return;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(loop, delay);
     };
     loop();
+  }
+
+  /** How long until the next poll: slow only when all is well and nobody is looking. */
+  nextDelay() {
+    let quiet = false;
+    try { quiet = !!this.unwatched?.(); } catch { /* unknown: stay on the fast beat */ }
+    if (!quiet) return this.pollMs;
+    // No checks yet (every sensor missed) isn't "all is well": keep the fast beat until they answer.
+    const checks = Object.values(this.checks);
+    const settled = checks.length > 0 && checks.every(c => c.level === 'ok' && !c.pending);
+    return settled ? this.quietPollMs : this.pollMs;
+  }
+
+  /** Someone is looking now (the panel opened): back on the fast beat, not up to 15 s away. */
+  watched() {
+    const age = this.latest ? this.now() - this.latest.at : Infinity;
+    this.wake?.(Math.max(0, this.pollMs - age)); // a fresh reading still counts, the slow wait doesn't
   }
 
   stop() {
@@ -162,13 +198,7 @@ class HealthMonitor extends EventEmitter {
   }
 
   remember(s) {
-    const g = s.gpus[0];
-    this.history.push({
-      at: s.at,
-      cpu: round(s.cpu.load), cpuT: round(s.cpu.temp),
-      gpu: round(g?.load), gpuT: round(g?.temp),
-      ram: round(s.ram?.pct),
-    });
+    this.history.push(historyPoint(s));
     const cutoff = s.at - HISTORY_MS;
     while (this.history.length > HISTORY_MAX || (this.history.length && this.history[0].at < cutoff)) this.history.shift();
   }
@@ -205,7 +235,9 @@ class HealthMonitor extends EventEmitter {
 
   /** What the Health view renders. */
   snapshot({ withHistory = true } = {}) {
-    const checks = Object.fromEntries(Object.entries(this.checks).map(([id, c]) => [id, { level: c.level, pending: c.pending }]));
+    // The reading goes too: the view words its verdict from it, so a check the
+    // view has no gauge for (a drive's heat, reclaimable space) still reads right.
+    const checks = Object.fromEntries(Object.entries(this.checks).map(([id, c]) => [id, { level: c.level, pending: c.pending, reading: c.reading }]));
     const worst = Object.values(this.checks).reduce((w, c) => (rank(c.level) > rank(w) ? c.level : w), 'ok');
     return {
       running: this.running,
@@ -217,10 +249,28 @@ class HealthMonitor extends EventEmitter {
       lhmPort: this.sensors.lhmPort,
       thresholds: normalizeThresholds(this.getThresholds()),
       history: withHistory ? this.history : undefined,
+      // Live samples carry no history, just the point this sample added to it.
+      point: withHistory ? undefined : this.history[this.history.length - 1],
     };
   }
 }
 
 function round(v) { return Number.isFinite(v) ? Math.round(v * 10) / 10 : null; }
 
-module.exports = { HealthMonitor, POLL_MS, HISTORY_MS };
+/**
+ * One compact history point. The first GPU keeps its original keys (gpu, gpuT);
+ * any others are gpu1/gpuT1 and so on, and drive temperatures are stT0, stT1...
+ */
+function historyPoint(s) {
+  const p = { at: s.at, cpu: round(s.cpu.load), cpuT: round(s.cpu.temp), ram: round(s.ram?.pct) };
+  s.gpus.forEach((g, i) => {
+    const n = i || '';
+    p[`gpu${n}`] = round(g.load);
+    p[`gpuT${n}`] = round(g.temp);
+  });
+  if (!s.gpus.length) { p.gpu = null; p.gpuT = null; }
+  (s.storage || []).forEach((d, i) => { p[`stT${i}`] = round(d.temp); });
+  return p;
+}
+
+module.exports = { HealthMonitor, historyPoint, POLL_MS, QUIET_POLL_MS, HISTORY_MS };

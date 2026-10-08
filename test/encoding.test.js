@@ -6,8 +6,19 @@ const fs = require('fs');
 // Text that went through a UTF-8 -> Windows-1252 round-trip shows up in the UI as
 // three junk letters instead of one glyph (0.3 shipped a spinning "a-hat, dash, OE"
 // in place of the "◌" tool spinner). A UTF-8 lead byte read
-// as cp1252 is one of Â-ô followed by a continuation char, which real prose never has.
-const MOJIBAKE = /[Â-ô][\u0080-¿ŒœŠšŸŽžƒˆ˜–—‘-„†-•…‰‹›€™]/;
+// as cp1252 is one of Â-ô followed by as many continuation chars as that lead
+// byte promises (Â-ß one, à-ï two, ð-ô three), which real prose never has. Just
+// one is not enough: French has "é…" (0xE9 would lead a three-byte character).
+const CONT = '[\\u0080-¿ŒœŠšŸŽžƒˆ˜–—‘-„†-•…‰‹›€™]';
+const MOJIBAKE = new RegExp(`[Â-ß]${CONT}|[à-ï]${CONT}{2}|[ð-ô]${CONT}{3}`);
+
+test('the mojibake check catches round-tripped text and lets real accents through', () => {
+  // Built from char codes, or this file would fail its own scan: é, ◌, … and 🦀 read as cp1252.
+  const cp = (...codes) => String.fromCharCode(...codes);
+  const bads = [cp(0xC3, 0xA9), cp(0xE2, 0x2014, 0x152), cp(0xE2, 0x20AC, 0xA6), cp(0xF0, 0x178, 0xA6, 0x20AC)];
+  for (const bad of bads) assert.ok(MOJIBAKE.test(bad), bad);
+  for (const good of ['la marée a apporté…', 'Ça va ?', 'naïve – café', 'Größe']) assert.ok(!MOJIBAKE.test(good), good);
+});
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 const ROOT = path.join(__dirname, '..');
 const EXTS = new Set(['.js', '.css', '.html', '.json', '.md']);

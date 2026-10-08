@@ -99,6 +99,12 @@ test('the watcher script only writes a line when something changed', () => {
   assert.match(watcherScript(10).match(/Start-Sleep -Milliseconds (\d+)/)[1], /^500$/, 'a silly interval is floored');
 });
 
+test('the watcher script exits once Shellby is gone (no orphan after a crash)', () => {
+  const src = watcherScript(3000, 4242);
+  assert.match(src, /Get-Process -Id 4242 -ErrorAction SilentlyContinue\)\) \{ exit 0 \}/);
+  assert.doesNotMatch(watcherScript(3000, 'x; calc'), /calc/, 'only a number gets into the script');
+});
+
 // ------------------------------------------------------------------ the watcher
 
 /** A stand-in for the PowerShell child, so no process is spawned. */

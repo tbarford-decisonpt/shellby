@@ -99,6 +99,60 @@ test('sync: two PCs meet in one private gist', async () => {
   } finally { await mock.close(); }
 });
 
+test('sync: XP earned on two PCs adds up, and syncing again never counts it twice', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const gh = new GitHubApi({ token: mock.state.token, api: mock.base });
+    // Both start from the same synced 300, from before XP was counted per PC.
+    const pc1 = new MemConfig({ xp: { total: 300, device: 'pc-one1', byDevice: { legacy: 300, 'pc-one1': 500 } } });
+    const pc2 = new MemConfig({ xp: { total: 300, device: 'pc-two2', byDevice: { legacy: 300, 'pc-two2': 200 } } });
+    const io = c => ({ get: k => c.get(k), set: p => c.set(p) });
+    await syncNow(gh, io(pc1));
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('xp').total, 1000);
+    assert.equal(pc2.get('xp').total, 1000);
+    assert.equal(pc1.get('xp').device, 'pc-one1', 'each PC keeps its own id');
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('xp').total, 1000);
+    // An older Shellby rewrote the gist with only a total: it's a floor, not extra.
+    const id = pc1.get('syncGistId');
+    const old = JSON.parse(mock.state.gists.get(id).files[FILE].content);
+    mock.state.gists.get(id).files[FILE].content = JSON.stringify({ ...old, xp: { total: 1040, log: [] } });
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('xp').total, 1040);
+  } finally { await mock.close(); }
+});
+
+test('sync: stickers meet too, and each PC keeps its own folders and badges', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const gh = new GitHubApi({ token: mock.state.token, api: mock.base });
+    const A = 'aaaaaaaaaaaa', B = 'bbbbbbbbbbbb';
+    const one = { firstShipAt: 1000, lastShipAt: 2000, ships: 3, name: 'crab', root: 'C:/pc1/crab', marks: ['live'] };
+    const pc1 = new MemConfig({ stickers: { projects: { [A]: one }, layouts: { home: [{ id: A, slot: 0, z: 1 }] }, layoutsAt: 5, unseen: [A], card: 'off' } });
+    const pc2 = new MemConfig({ stickers: { projects: { [A]: { ...one, ships: 7, root: 'D:/pc2/crab', marks: ['merged'] }, [B]: { firstShipAt: 500, ships: 1, name: 'reef' } } } });
+    const io = c => ({ get: k => c.get(k), set: p => c.set(p) });
+    await syncNow(gh, io(pc1));
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    const s1 = pc1.get('stickers'), s2 = pc2.get('stickers');
+    assert.deepEqual(Object.keys(s1.projects).sort(), [A, B]);
+    assert.equal(s1.projects[A].ships, 7);
+    assert.deepEqual(s1.projects[A].marks.sort(), ['live', 'merged']);
+    assert.equal(s1.projects[A].root, 'C:/pc1/crab', 'pc1 keeps its folder');
+    assert.equal(s2.projects[A].root, 'D:/pc2/crab', 'pc2 keeps its folder');
+    assert.equal(s1.card, 'off', 'options stay on the PC that set them');
+    assert.deepEqual(s1.unseen, [A]);
+    assert.ok(s2.layouts.home?.length, 'the shell layout travelled');
+    const gist = JSON.parse([...mock.state.gists.values()][0].files[FILE].content);
+    assert.ok(!JSON.stringify(gist).includes('pc1'), 'no folders in the gist');
+    const again = await syncNow(gh, io(pc1));
+    assert.deepEqual([again.pulled, again.pushed], [false, false], 'settled: nothing new, nothing written');
+  } finally { await mock.close(); }
+});
+
 test('sync tolerates a hostile gist', async () => {
   const mock = await startMockGitHub();
   try {
@@ -180,12 +234,46 @@ test('service: device-flow sign-in, profile, features, widening and sign-out', a
     // A new Service (restart) picks the sign-in up from the encrypted file.
     const again = new GitHubService({ config, store: new TokenStore(path.join(dir, 'gh.bin'), fakeCrypto), web: mock.base, api: mock.base });
     assert.equal(again.view().signedIn, true);
+    config.set({ github: { ...config.get('github'), features: { ...config.get('github').features, prBadge: true } } });
     again.signOut();
+    assert.equal(normalizeState(config.get('github')).features.prBadge, false, 'the PR badge needs its confirmation again after sign-out');
     assert.equal(again.view().signedIn, false);
     assert.equal(normalizeState(config.get('github')).features.claude, false, 'Claude access is switched off on sign-out');
     assert.equal(fs.existsSync(path.join(dir, 'gh.bin')), false);
     svc.stop(); again.stop();
   } finally { await mock.close(); }
+});
+
+test('service: a sign-in GitHub turns down (401) offers Sign in again, and a new sign-in clears it', async () => {
+  const dir = tmp();
+  const store = new TokenStore(path.join(dir, 'gh.bin'), fakeCrypto);
+  store.save({ token: 'gho_expired', scopes: ['gist', 'read:user'] });
+  const status = 401;
+  const fetchImpl = async () => ({ ok: false, status, text: async () => JSON.stringify({ message: 'Bad credentials' }), headers: { get: () => null } });
+  const config = new MemConfig({ github: { features: { sync: true } } });
+  const svc = new GitHubService({ config, store, api: 'https://api.example', fetchImpl });
+  assert.equal(svc.view().authLost, false);
+  const r = await svc.sync();
+  assert.equal(r.ok, false);
+  assert.match(r.error, /signed Shellby out/);
+  assert.equal(svc.view().authLost, true, 'Settings shows Sign in again');
+  // Any other call that finds out does the same; it's said once.
+  await svc.gh().get('/user').catch(() => {});
+  assert.equal(normalizeState(config.get('github')).authLost, true);
+  svc.signOut();
+  assert.equal(svc.view().authLost, false);
+  svc.stop();
+});
+
+test('service: no network says so, not "fetch failed"', async () => {
+  const store = new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto);
+  store.save({ token: 'gho_ok', scopes: ['gist', 'read:user'] });
+  const fetchImpl = async () => { const e = new TypeError('fetch failed'); e.cause = { code: 'ENOTFOUND' }; throw e; };
+  const svc = new GitHubService({ config: new MemConfig({ github: { features: { sync: true } } }), store, api: 'https://api.example', fetchImpl });
+  const r = await svc.sync();
+  assert.match(r.error, /Couldn't reach GitHub: this PC looks to be offline/);
+  assert.equal(svc.view().authLost, false);
+  svc.stop();
 });
 
 test('service: a declined sign-in reports why; a foreign verification page is refused', async () => {
@@ -203,4 +291,32 @@ test('service: a declined sign-in reports why; a foreign verification page is re
     assert.ok(svc.safeVerificationUrl(`${mock.base}/login/device`));
     svc.stop();
   } finally { await mock.close(); }
+});
+
+test('service: a sign-in that finishes after stop() starts no sync timer', async () => {
+  const mock = await startMockGitHub();
+  try {
+    // A slow runner: the profile is still loading when the service is stopped.
+    // The profile request waits on a gate the test opens only after stop(), so
+    // the order is certain rather than left to a sleep.
+    let openGate;
+    const gate = new Promise(r => { openGate = r; });
+    const fetchImpl = async (u, o) => { if (String(u).endsWith('/user')) await gate; return fetch(u, o); };
+    const svc = new GitHubService({ config: new MemConfig({}), store: new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto), web: mock.base, api: mock.base, fetchImpl });
+    await svc.signIn(['sync']);
+    mock.approve();
+    assert.ok(await until(() => svc.view().signedIn));
+    svc.stop();
+    const profileSaved = new Promise(r => svc.once('change', r)); // refreshProfile's save, the last step before schedule()
+    openGate();
+    await profileSaved;
+    await new Promise(r => setImmediate(r));
+    assert.equal(svc.timer, null, 'no sync timer left to keep the process alive');
+  } finally { await mock.close(); }
+});
+
+test('GitHubApi keeps what a 422 was about, not just "Validation Failed"', async () => {
+  const { GitHubApi } = require('../src/main/github/api');
+  const fetchImpl = async () => new Response(JSON.stringify({ message: 'Validation Failed', errors: [{ resource: 'PullRequest', code: 'custom', message: 'A pull request already exists for me:x.' }] }), { status: 422 });
+  await assert.rejects(new GitHubApi({ token: 't', fetchImpl }).post('/repos/me/crab/pulls', {}), e => e.status === 422 && e.message === 'Validation Failed' && e.detail === 'A pull request already exists for me:x.');
 });

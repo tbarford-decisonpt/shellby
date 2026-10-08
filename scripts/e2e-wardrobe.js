@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9344;
@@ -70,12 +71,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await panel.ev("document.querySelector('.celebrate .cel-actions .btn.primary')?.click()");
     await wait(1200);
     check(await panel.ev("SB.state.wardrobe.outfit.hat === 'party-hat'"), 'outfit now includes the Party Hat');
+    check(await panel.ev("SB.state.wardrobe.effects.concat(SB.state.wardrobe.accessories).filter(i => ['party-hat', 'confetti'].includes(i.key)).every(i => !i.isNew)"), "closing the card counts as seeing its rewards (no 'new' badges left on them)");
     const crabRects = await critter.ev("document.querySelectorAll('#sprite .acc-hat rect').length");
     check(crabRects > 0, `desktop critter is wearing it (${crabRects} hat pixels drawn)`);
-    const shot = await critter.send('Page.captureScreenshot', { format: 'png' });
     const out = path.join(os.tmpdir(), 'shellby-e2e-partyhat.png');
-    fs.writeFileSync(out, Buffer.from(shot.data, 'base64'));
-    console.log('critter screenshot:', out);
+    if (await savePng((m, p) => critter.send(m, p), out)) console.log('critter screenshot:', out);
     panel.ws.close(); critter.ws.close();
   } catch (e) {
     console.error('failed:', e.message);

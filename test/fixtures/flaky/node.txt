@@ -1,0 +1,21 @@
+✔ parses dates (0.8ms)
+✖ talks to the cache (31.2ms)
+✔ formats money (0.2ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 120.5
+
+✖ failing tests:
+
+test at test/cache.test.js:10:1
+✖ talks to the cache (31.2ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 2
+
+      at TestContext.<anonymous> (C:\code\app\test\cache.test.js:12:10)

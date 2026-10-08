@@ -15,9 +15,10 @@ const SRC = path.join(__dirname, '..', 'src');
 const read = p => fs.readFileSync(p, 'utf8');
 const all = (text, re) => [...text.matchAll(re)].map(m => m[1]);
 
-// Both bridges: the panel/critter one, and the confirmation window's own
-// (confirm.js), which is deliberately a separate, much smaller surface.
-const preload = [read(path.join(SRC, 'preload', 'preload.js')), read(path.join(SRC, 'preload', 'dialog-preload.js'))].join('\n');
+// Every bridge: the panel's, the crab's, the pebble's (fetch), the floor strip's
+// (his pals and footprints), a mischief note's, and the confirmation window's
+// own (confirm.js), each deliberately its own surface.
+const preload = ['preload.js', 'dialog-preload.js', 'critter-preload.js', 'toy-preload.js', 'floor-preload.js', 'note-preload.js'].map(f => read(path.join(SRC, 'preload', f))).join('\n');
 
 // Every .js under src/main: handlers and pushes both live outside main.js too.
 const mainFiles = (function walk(dir) {
@@ -47,6 +48,8 @@ const pushes = uniq([
   // and the occasional raw webContents.send.
   ...all(mainFiles, /\bsend\([A-Za-z_$][\w.$?]*,\s*'([a-z0-9:_-]+)'/g),
   ...all(mainFiles, /\btoPanel\('([a-z0-9:_-]+)'/g),
+  // life.js and playtime.js reach the crab's window through d.toCrab('channel', …).
+  ...all(mainFiles, /\btoCrab\('([a-z0-9:_-]+)'/g),
   ...all(mainFiles, /webContents\.send\('([a-z0-9:_-]+)'/g),
 ]);
 

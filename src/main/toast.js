@@ -1,89 +1,60 @@
-// Shellby's own pop-up notifications, drawn like the rest of the app instead of
-// as a plain Windows toast.
-//
-// Each notice is a small frameless window stacked in the bottom-right corner of
-// the screen Shellby lives on. It never takes focus, so it can't steal your
-// typing. Like the confirmation windows it has its own preload, and clicks are
-// accepted only from that exact window's webContents.
-const { BrowserWindow, ipcMain, screen } = require('electron');
+// Shellby's look for Windows notifications. Windows draws the toast itself, so
+// its colours and font stay Windows'; what we choose is what goes inside: the
+// round crab in the corner, a banner across the top in the panel's colours,
+// and a button when there's something to do. It is still a real notification,
+// so it lands in the notification centre and obeys Do Not Disturb.
+const fs = require('fs');
 const path = require('path');
 
-const WIDTH = 380;
-const GAP = -16; // windows overlap their shadow room, leaving 12px between the cards
-const MARGIN = 4; // plus the 14px of shadow room inside each window
-const MAX_SHOWN = 3;
-const shown = []; // newest last: { win, height, display, finish }
-let wired = false;
+const ART = ['logo.png', 'hero-default.png', 'hero-celebrate.png', 'hero-alert.png', 'hero-problem.png'];
+const TONES = ['default', 'celebrate', 'alert', 'problem'];
 
-const entryFor = sender => shown.find(t => !t.win.isDestroyed() && t.win.webContents.id === sender.id);
+// Characters XML 1.0 can't carry at all: a stray one makes Windows reject the
+// whole toast, so they go rather than being escaped.
+const INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
 
-function wire() {
-  if (wired) return;
-  wired = true;
-  ipcMain.on('toast:click', e => entryFor(e.sender)?.finish(true));
-  ipcMain.on('toast:dismiss', e => entryFor(e.sender)?.finish(false));
-  ipcMain.on('toast:resize', (e, height) => {
-    const entry = entryFor(e.sender);
-    if (!entry || !Number.isFinite(height)) return;
-    entry.height = Math.max(64, Math.min(240, Math.round(height)));
-    layout();
-    if (!entry.win.isVisible()) entry.win.showInactive();
-  });
+function esc(s) {
+  return String(s ?? '').replace(INVALID, '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
 }
 
-// Newest at the bottom, older ones pushed up above it.
-function layout() {
-  let bottom = null;
-  for (let i = shown.length - 1; i >= 0; i--) {
-    const t = shown[i];
-    if (t.win.isDestroyed()) continue;
-    const wa = t.display.workArea;
-    if (bottom === null) bottom = wa.y + wa.height - MARGIN;
-    const y = bottom - t.height;
-    t.win.setBounds({ x: wa.x + wa.width - WIDTH - MARGIN, y, width: WIDTH, height: t.height });
-    bottom = y - GAP;
+/**
+ * The toast's XML. A click on the toast or its button reaches Electron as a
+ * plain 'click' (any arguments without "type=action" do), so callers keep
+ * their usual onClick.
+ * @param {{ title: string, body?: string, tone?: string, action?: string, artDir: string }} spec
+ * @returns {string}
+ */
+function xml({ title, body = '', tone = 'default', action = null, artDir }) {
+  const hero = path.join(artDir, `hero-${TONES.includes(tone) ? tone : 'default'}.png`);
+  const logo = path.join(artDir, 'logo.png');
+  const text = body ? `<text>${esc(title)}</text><text>${esc(body)}</text>` : `<text>${esc(title)}</text>`;
+  const actions = action ? `<actions><action content="${esc(action)}" arguments="open" activationType="foreground"/></actions>` : '';
+  return '<toast activationType="foreground" launch="open">'
+    + '<visual><binding template="ToastGeneric">'
+    + `<image placement="hero" src="${esc(hero)}"/>`
+    + `<image placement="appLogoOverride" hint-crop="circle" src="${esc(logo)}"/>`
+    + text
+    + '</binding></visual>'
+    + actions
+    + '</toast>';
+}
+
+/**
+ * Copies the art somewhere Windows can read it: inside a packaged build it
+ * lives in app.asar, which only Electron can open. Returns the folder, or
+ * null if it couldn't be done (the caller then posts a plain notification).
+ * @param {string} from assets/toast
+ * @param {string} to a folder under userData
+ * @returns {string|null}
+ */
+function prepareArt(from, to) {
+  try {
+    fs.mkdirSync(to, { recursive: true });
+    for (const name of ART) fs.writeFileSync(path.join(to, name), fs.readFileSync(path.join(from, name)));
+    return to;
+  } catch {
+    return null;
   }
 }
 
-// spec: { title, body, tone: 'info' | 'urgent' | 'danger', sticky, skin, accessories, shell }
-// near: a rectangle on the display to show it on (where Shellby is).
-// onClick runs if the notice is clicked; closing it with × does nothing.
-function show(spec, { near = null, onClick = null } = {}) {
-  wire();
-  const display = near ? screen.getDisplayMatching(near) : screen.getPrimaryDisplay();
-  const win = new BrowserWindow({
-    width: WIDTH, height: 96, show: false, frame: false, transparent: true, resizable: false,
-    minimizable: false, maximizable: false, skipTaskbar: true, focusable: false, hasShadow: false,
-    alwaysOnTop: true, title: spec.title,
-    webPreferences: { preload: path.join(__dirname, '..', 'preload', 'toast-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
-  });
-  win.setAlwaysOnTop(true, 'pop-up-menu');
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', e => e.preventDefault());
-  let done = false;
-  const entry = {
-    win, height: 96, display,
-    finish(clicked) {
-      if (done) return;
-      done = true;
-      const i = shown.indexOf(entry);
-      if (i >= 0) shown.splice(i, 1);
-      if (!win.isDestroyed()) win.close();
-      layout();
-      if (clicked && onClick) onClick();
-    },
-  };
-  shown.push(entry);
-  while (shown.length > MAX_SHOWN) shown[0].finish(false);
-  win.on('closed', () => entry.finish(false));
-  win.webContents.once('did-finish-load', () => win.webContents.send('toast:show', spec));
-  // Safety net: show even if the renderer never reports its size.
-  setTimeout(() => { if (!done && !win.isDestroyed() && !win.isVisible()) { layout(); win.showInactive(); } }, 1500);
-  win.loadFile(path.join(__dirname, '..', 'renderer', 'toast', 'toast.html'));
-}
-
-function closeAll() {
-  for (const t of [...shown]) t.finish(false);
-}
-
-module.exports = { show, closeAll };
+module.exports = { xml, prepareArt, TONES };

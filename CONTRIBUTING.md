@@ -8,6 +8,8 @@ Thanks for helping the crab! Skins, fixes, and features are all welcome.
 npm install
 npm start      # run the app
 npm test       # must pass before a PR
+npm run lint   # so must this (CI runs both)
+npm run typecheck
 ```
 
 npm 11 may skip install scripts. If `npm start` says Electron failed to install, run `node node_modules/electron/install.js`.
@@ -52,7 +54,10 @@ contributing: [TRADEMARK.md](TRADEMARK.md).
 
 ## Releasing (maintainers)
 
-1. Bump `version` in `package.json` and commit.
-2. Tag `vX.Y.Z` and push the tag. The release workflow tests, builds and publishes to GitHub Releases, and installed copies update themselves.
-3. While releases are unsigned, submit the new `Shellby-Setup-X.Y.Z.exe` to [Microsoft's file submission form](https://www.microsoft.com/wdsi/filesubmission) as a **software developer**. SmartScreen tracks unsigned builds by file hash, so this has to be redone every release until signing is set up — see [docs/SIGNING.md](docs/SIGNING.md).
-4. winget updates itself from the release workflow once the `WINGET_TOKEN` secret is set and the package is live in `microsoft/winget-pkgs`. The very first submission is manual — see [packaging/winget](packaging/winget).
+Branches don't bump the version or edit the top of the CHANGELOG. They add a note in [changes/](changes/README.md), which the release gathers up.
+
+1. On `main`, run `npm run release:cut -- X.Y.Z "Title"` (`--dry-run` first to read the entry). It writes the notes into a `## X.Y.Z: Title` section of `CHANGELOG.md`, deletes them, bumps `package.json` and the lock, and commits and tags on this PC. Edit the entry and `git commit --amend` if it needs it, then push `main`.
+2. Run `npm run release:ready`. It waits for CI on that commit and says whether it's safe to tag: the version has its CHANGELOG section, the tag isn't taken, and CI finished green. If CI is red, the release would fail the same way, so fix `main` and ship the fix as the next version instead.
+3. Tag `vX.Y.Z` and push the tag. The release workflow tests, builds and publishes to GitHub Releases, and installed copies update themselves. It stops at once if CI on that commit has failed. A tag that fails to release is never moved: the fix goes out as the next patch.
+4. While releases are unsigned, submit the new `Shellby-Setup-X.Y.Z.exe` to [Microsoft's file submission form](https://www.microsoft.com/wdsi/filesubmission) as a **software developer**. SmartScreen tracks unsigned builds by file hash, so this has to be redone every release until signing is set up — see [docs/SIGNING.md](docs/SIGNING.md).
+5. winget updates itself from the release workflow once the `WINGET_TOKEN` secret is set and the package is live in `microsoft/winget-pkgs`. The very first submission is manual — see [packaging/winget](packaging/winget).

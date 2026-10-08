@@ -1,0 +1,138 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "high-places",
+  "name": "High Places",
+  "author": "x-salmon",
+  "version": "1.1.0",
+  "description": "For the crab who lives on your title bars and up your walls: a spyglass, racing goggles, a rodeo hat, a parachute, a ringmaster’s collar, a climbing helmet, a chalk bag, and a mask for when he’s up to no good.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "spyglass",
+      "name": "Spyglass",
+      "description": "First time up on a window. You can see everything from here.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [1, 5],
+      "palette": { "g": "#90e0ef", "y": "#e9c46a", "Y": "#b5838d", "k": "#3d2a00" },
+      "pixels": [
+        "......g",
+        "....yYg",
+        "..yYy..",
+        ".yYy...",
+        "kk....."
+      ],
+      "unlock": { "achievement": "window-sill" }
+    },
+    {
+      "id": "racing-goggles",
+      "name": "Racing Goggles",
+      "description": "Two thousand pixels clinging to a title bar. Eyes on the road.",
+      "slot": "face",
+      "rarity": "rare",
+      "pivot": [4, 1],
+      "palette": { "K": "#2b2d42", "g": "#4cc9f0", "w": "#caf0f8", "r": "#e63946" },
+      "pixels": [
+        ".KKK.KKK.",
+        "rKgwKgwKr",
+        ".KKK.KKK."
+      ],
+      "unlock": { "achievement": "hang-on" }
+    },
+    {
+      "id": "cowboy-hat",
+      "name": "Cowboy Hat",
+      "description": "Bucked off ten windows and climbed straight back on.",
+      "slot": "hat",
+      "rarity": "epic",
+      "pivot": [5, 3],
+      "palette": { "b": "#a0693a", "B": "#7f4f24", "k": "#3d2a00" },
+      "pixels": [
+        "...bBBb...",
+        "..bbBBbb..",
+        "b.kkkkkk.b",
+        "bbbbbbbbbb"
+      ],
+      "unlock": { "achievement": "rodeo" }
+    },
+    {
+      "id": "parachute",
+      "name": "Parachute",
+      "description": "The window went. He found another one on the way down.",
+      "slot": "shell",
+      "rarity": "epic",
+      "pivot": [3, 6],
+      "palette": { "r": "#e63946", "w": "#fff4e4", "k": "#2b2d42" },
+      "pixels": [
+        ".rrwrr.",
+        "rrwwwrr",
+        "k.....k",
+        ".k...k.",
+        "..k.k..",
+        "...k..."
+      ],
+      "unlock": { "achievement": "leap-of-faith" }
+    },
+    {
+      "id": "ringmaster-collar",
+      "name": "Ringmaster's Collar",
+      "description": "Thrown across the desktop, caught the title bar. Take a bow.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [3, 0],
+      "palette": { "r": "#d00000", "Y": "#ffd23f" },
+      "pixels": [
+        "rYrYrYr",
+        ".rYrYr."
+      ],
+      "unlock": { "achievement": "trapeze" }
+    },
+    {
+      "id": "climbing-helmet",
+      "name": "Climbing Helmet",
+      "description": "Ten trips up the side of your screen. Safety first.",
+      "slot": "hat",
+      "rarity": "rare",
+      "pivot": [4, 3],
+      "palette": { "y": "#f4a261", "Y": "#ffd8a8", "k": "#2b2d42" },
+      "pixels": [
+        "..yyyyy..",
+        ".yYyyyyy.",
+        "yyyyyyyyy",
+        "k.......k"
+      ],
+      "unlock": { "achievement": "spider-crab" }
+    },
+    {
+      "id": "chalk-bag",
+      "name": "Chalk Bag",
+      "description": "Thrown at the edge of the screen, and he stuck. Grip like a gecko.",
+      "slot": "neck",
+      "rarity": "epic",
+      "pivot": [2, 0],
+      "palette": { "r": "#e63946", "w": "#fff4e4", "W": "#d9d0c1" },
+      "pixels": [
+        "rrrrr",
+        ".wWw.",
+        ".WWW."
+      ],
+      "unlock": { "achievement": "sticky-feet" }
+    },
+    {
+      "id": "bandit-mask",
+      "name": "Bandit Mask",
+      "description": "Ten bits of mischief and not one apology.",
+      "slot": "face",
+      "rarity": "epic",
+      "pivot": [4, 1],
+      "palette": { "K": "#1d1d1d", "w": "#fff4e4" },
+      "pixels": [
+        ".KKKKKKK.",
+        "KKwKKKwKK",
+        ".KKKKKKK."
+      ],
+      "unlock": { "achievement": "little-gremlin" }
+    }
+  ]
+}

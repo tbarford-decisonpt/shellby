@@ -2,16 +2,15 @@
 // He sits on the wallpaper layer all day, so idle CPU is the number that decides
 // whether a laptop user keeps him.
 //
-//   node scripts/idle-cost.js [seconds] [--unfocused]        default 60
+//   node scripts/idle-cost.js [seconds] [--unfocused | --awake] [--closed]   default 60
 //
 // Default: the panel open and in front, which is the worst case.
 // --unfocused: the panel open with another window in front — the common case,
 // and the one the `calm` class in panel.css is for. Expect about half.
 //
-// There is no "panel hidden" mode: nothing can close the panel from out here
-// without attaching a debugger, and a debugger keeps the renderer awake and
-// inflates every number it touches (that mistake cost an afternoon). For the
-// hidden figure, close the panel by hand and watch Task Manager — it is ~1%.
+// Never attach a debugger to measure: it keeps the renderer awake and inflates
+// every number it touches (that mistake cost an afternoon). --closed starts an
+// onboarded profile instead, so the panel is never opened.
 //
 // Launches a dev Shellby on a throwaway profile, lets it settle, then samples
 // the whole process tree's CPU time and working set over the window. Reports
@@ -21,6 +20,7 @@
 // Treat it as a budget: run it before and after anything that touches the
 // critter's animation, the panel's timers or the health monitor's interval.
 const { spawn, execFileSync } = require('child_process');
+const { sampleTree: sample, perProcess } = require('./process-tree');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -28,63 +28,50 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const SECONDS = Number(process.argv.find(a => /^\d+$/.test(a))) || 60;
 const UNFOCUSED = process.argv.includes('--unfocused');
+// --awake: the panel as if focused and nothing covering him (SHELLBY_IDLE_AWAKE,
+// wiring/windows.js), without taking focus from anything: safe with a game up.
+// --closed: an onboarded profile, so the panel never opens: just the crab.
+const AWAKE = process.argv.includes('--awake');
+const CLOSED = process.argv.includes('--closed');
 const SETTLE_MS = 20000; // startup, the first health sample and the skin build are not "idle"
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// Every electron.exe in our own tree, by walking parent pids up to ours.
-function sample(rootPid) {
-  const ps = `
-    $root = ${rootPid}
-    $all = Get-CimInstance Win32_Process -Filter "Name = 'electron.exe'" |
-      Select-Object ProcessId, ParentProcessId
-    $keep = New-Object System.Collections.Generic.HashSet[int]
-    [void]$keep.Add($root)
-    for ($i = 0; $i -lt 6; $i++) {
-      foreach ($p in $all) { if ($keep.Contains([int]$p.ParentProcessId)) { [void]$keep.Add([int]$p.ProcessId) } }
-    }
-    # Which kind each process is, from its --type= switch (main has none).
-    $kind = @{}
-    foreach ($p in (Get-CimInstance Win32_Process -Filter "Name = 'electron.exe'")) {
-      if (-not $keep.Contains([int]$p.ProcessId)) { continue }
-      $t = 'main'
-      if ($p.CommandLine -match '--type=([a-z-]+)') { $t = $matches[1] }
-      if ($t -eq 'renderer' -and $p.CommandLine -match 'critter') { $t = 'renderer(critter)' }
-      $kind[[int]$p.ProcessId] = $t
-    }
-    $procs = @(Get-Process -Id ([int[]]$keep) -ErrorAction SilentlyContinue)
-    # TotalProcessorTime is a TimeSpan, which Measure-Object won't sum in 5.1.
-    $cpu = ($procs | ForEach-Object { $_.TotalProcessorTime.TotalSeconds } | Measure-Object -Sum).Sum
-    $ws = ($procs | Measure-Object -Property WorkingSet64 -Sum).Sum
-    $per = ($procs | ForEach-Object {
-      $k = $kind[[int]$_.Id]; if (-not $k) { $k = 'gone' }
-      "{0}:{1}:{2}:{3}" -f $_.Id, $k, $_.TotalProcessorTime.TotalSeconds, $_.WorkingSet64
-    }) -join ';'
-    "{0},{1},{2},{3}" -f $cpu, $ws, $procs.Count, $per
-  `;
-  const out = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8' }).trim();
-  const [cpu, ws, count, per = ''] = out.split(',');
-  const byPid = new Map();
-  for (const row of per.split(';').filter(Boolean)) {
-    const [pid, kind, secs, bytes] = row.split(':');
-    byPid.set(Number(pid), { kind, cpuSeconds: Number(secs), bytes: Number(bytes) });
-  }
-  return { cpuSeconds: Number(cpu), bytes: Number(ws), procs: Number(count), byPid };
+// The GPU process's average share of the 3D engine, sampled once a second for
+// the whole window (so this also does the waiting). Every frame a transparent
+// window presents lands here: his breathe at 60 fps was a quarter of a 3080 Ti.
+// null when there's no GPU process or no counters (a VM, say).
+function gpuBusy(byPid, seconds) {
+  const pid = [...byPid].find(([, p]) => p.kind === 'gpu-process')?.[0];
+  if (!pid) return null;
+  try {
+    const ps = `$s = (Get-Counter '\\GPU Engine(pid_${pid}_*engtype_3D)\\Utilization Percentage' -SampleInterval 1 -MaxSamples ${seconds} -ErrorAction Stop).CounterSamples
+      ($s | Measure-Object CookedValue -Sum).Sum / ${seconds}`;
+    return Number(execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8' }).trim());
+  } catch { return null; }
 }
 
 (async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-idle-'));
+  if (CLOSED) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ onboarded: true }));
+  // SHELLBY_REAL_DESKTOP: the fake CLI alone makes it a test run (src/main/test-desktop.js), which skips the savings measured here.
+  const env = { ...process.env, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_REAL_DESKTOP: '1' };
+  if (AWAKE) env.SHELLBY_IDLE_AWAKE = '1';
+  else if (!CLOSED) env.SHELLBY_FOREGROUND = '1';
   // No --remote-debugging-port on purpose: an attached DevTools client keeps the
   // renderer and compositor awake, which showed up as 80% of a core and sent an
   // earlier version of this script chasing animations that were never the cost.
   // A fresh profile opens the panel for onboarding, which is the state measured.
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT], {
     stdio: 'ignore',
-    env: { ...process.env, SHELLBY_USER_DATA: profile },
+    // A dev run opens the panel behind your windows (main.js openBehind), and an
+    // unfocused panel is calm: without SHELLBY_FOREGROUND, "in front" measured the calm panel.
+    env,
   });
-  console.log(`pid ${app.pid}, profile ${profile}, panel open and ${UNFOCUSED ? 'behind another window' : 'in front'}`);
+  const what = CLOSED ? 'closed' : AWAKE ? 'open, kept awake' : `open and ${UNFOCUSED ? 'behind another window' : 'in front'}`;
+  console.log(`pid ${app.pid}, profile ${profile}, panel ${what}`);
   let thief = null;
   try {
-    if (UNFOCUSED) {
+    if (UNFOCUSED && !AWAKE && !CLOSED) {
       // Something else takes focus, leaving the panel open but not in front:
       // notepad is small, always present, and costs nothing itself.
       await wait(6000);
@@ -97,7 +84,8 @@ function sample(rootPid) {
     console.log(`${first.procs} processes, ${(first.bytes / 1e6).toFixed(0)} MB resident`);
     console.log(`measuring ${SECONDS}s of doing nothing…`);
     const started = Date.now();
-    await wait(SECONDS * 1000);
+    const gpu = gpuBusy(first.byPid, SECONDS);
+    await wait(Math.max(0, SECONDS * 1000 - (Date.now() - started)));
     const elapsed = (Date.now() - started) / 1000;
     const last = sample(app.pid);
 
@@ -109,12 +97,11 @@ function sample(rootPid) {
     console.log(`             ${percentOfOneCore.toFixed(1)}% of one core · ${percentOfMachine.toFixed(2)}% of this ${os.cpus().length}-thread machine`);
     console.log(`  Memory     ${(last.bytes / 1e6).toFixed(0)} MB resident (${last.bytes > first.bytes ? '+' : ''}${((last.bytes - first.bytes) / 1e6).toFixed(1)} MB over the window)`);
     console.log(`  Processes  ${last.procs}`);
+    if (gpu != null) console.log(`  GPU        ${gpu.toFixed(1)}% of the 3D engine (what Task Manager shows)`);
     console.log('');
     // Where it went: a cost in the GPU process is the critter's animation being
     // composited; one in main is a timer; one in a renderer is script.
-    const rows = [...last.byPid]
-      .map(([pid, p]) => ({ pid, kind: p.kind, cpu: p.cpuSeconds - (first.byPid.get(pid)?.cpuSeconds ?? p.cpuSeconds), mb: p.bytes / 1e6 }))
-      .sort((a, b) => b.cpu - a.cpu);
+    const rows = perProcess(first, last).map(r => ({ ...r, cpu: r.cpuSeconds }));
     console.log('  by process');
     for (const r of rows) {
       console.log(`    ${r.kind.padEnd(18)} ${((r.cpu / elapsed) * 100).toFixed(1).padStart(5)}% of a core   ${r.mb.toFixed(0).padStart(4)} MB`);

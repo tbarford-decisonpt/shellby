@@ -1,7 +1,17 @@
-/* Shellby panel — settings, history and onboarding views. */
+/* Shellby panel — the settings view: the general settings and the switches
+   that only save themselves. Claude Code's account and both updates are in
+   settings-account.js, Claude Code outside Shellby in settings-everywhere.js,
+   notifications elsewhere in settings-channels.js, and the stream, lights,
+   music, typing and weather in settings-desk.js. History is history.js,
+   onboarding onboarding.js. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
+  const T = window.ShellbySettingsText;
+  // Theirs, reached when they're called (the files load after this one).
+  const renderBillingGuard = () => SB.renderBillingGuard();
+  const renderClaudeAccount = () => SB.renderClaudeAccount();
+  const renderFacts = () => SB.renderFacts();
 
   // ------------------------------------------------------------ shared: mode cards
 
@@ -30,6 +40,34 @@
   }
   SB.renderSkins = renderSkins;
 
+  // Grouped by family, from the list main.js accepts (src/main/models.js). A
+  // saved model that has since left the list still shows, rather than a blank.
+  function renderModels() {
+    const current = state.settings.model || '';
+    const models = state.models || [];
+    const groups = [...new Set(models.map(m => m.group))];
+    const known = current === '' || models.some(m => m.id === current);
+    $('modelSelect').replaceChildren(
+      h('option', { value: '', text: 'Claude Code default' }),
+      ...groups.map(g => h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => h('option', { value: m.id, text: m.label })))),
+      known ? null : h('option', { value: current, text: current }),
+    );
+    $('modelSelect').value = current;
+  }
+
+  // Claude Code's own styles plus any in an output-styles folder (src/main/outputstyles.js).
+  async function renderStyles() {
+    const styles = await api.listStyles().catch(() => []);
+    const current = state.settings.outputStyle || '';
+    const sel = $('styleSelect');
+    const known = !current || styles.some(s => s.name === current);
+    sel.replaceChildren(...styles.map(s => h('option', { value: s.name, text: s.source === 'built-in' ? s.title : `${s.title} (${s.source === 'user' ? 'yours' : 'this project'})`, title: s.description })),
+      known ? null : h('option', { value: current, text: `${current} (not found)` }));
+    sel.value = current;
+    const chosen = styles.find(s => s.name === current);
+    $('styleNote').textContent = `${chosen?.description ? `${chosen.description} ` : ''}Applies to new conversations.`;
+  }
+
   function renderSettings() {
     SB.renderModeCards($('modeCards'));
     $('autonomousConfirm').hidden = true;
@@ -39,13 +77,35 @@
     $('scaleSelect').value = String(state.settings.critterScale || 1);
     $('hotkeyBtn').textContent = SB.prettyAccel(state.settings.hotkey) || 'None';
     $('hotkeyMsg').textContent = '';
-    $('modelSelect').value = state.settings.model || '';
+    renderModels();
+    renderStyles();
     $('loginToggle').checked = !!state.settings.openAtLogin;
     $('loginToggle').disabled = !state.packaged;
     $('loginNote').hidden = state.packaged;
     $('notifyToggle').checked = !!state.settings.notifications;
+    $('recapToggle').checked = state.settings.recap !== false;
+    $('forecastToggle').checked = state.settings.forecast !== false;
+    $('spendGuardToggle').checked = state.settings.spendGuard !== false;
+    $('spendReserveSelect').value = String(state.settings.spendReserve || 25);
+    $('spendMaxSelect').value = String(state.settings.spendMaxMinutes || 60);
+    $('spendGuardOptions').hidden = state.settings.spendGuard === false;
+    $('holdBigToggle').checked = state.settings.holdBigTasks === true;
+    $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
+    $('flakyToggle').checked = state.settings.flakyTests !== false;
+    $('surprisesToggle').checked = state.settings.surprises !== false;
+    $('catchBugsToggle').checked = state.settings.catchBugs !== false;
+    $('checkEachTurnToggle').checked = state.settings.checkEachTurn === true;
+    $('checkEachTurnOptions').hidden = state.settings.checkEachTurn !== true;
+    $('checkTimeoutSelect').value = String([2, 5, 10, 20].includes(state.settings.checkTimeoutMin) ? state.settings.checkTimeoutMin : 5);
+    $('turnShotsToggle').checked = state.settings.turnShots !== false;
     $('wanderToggle').checked = state.settings.wander !== false;
-    $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
+    $('onTopToggle').checked = state.settings.onTop === true;
+    renderPerch();
+    $('worktreeToggle').checked = !!state.settings.worktrees;
+    $('clashToggle').checked = state.settings.clashWarnings !== false;
+    renderBillingGuard();
+    $('chatterSelect').value = ['quiet', 'work', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
+    $('workModeToggle').checked = !!SB.isWorkMode?.();
     $('soundsToggle').checked = !!state.settings.sounds;
     $('selfAwareToggle').checked = state.settings.selfAware !== false;
     $('suggestToggle').checked = state.settings.suggestions !== false;
@@ -53,15 +113,54 @@
     const muted = state.settings.mutedSuggestions || [];
     $('mutedSuggestRow').hidden = !muted.length;
     $('mutedSuggestText').textContent = `${muted.length} ${muted.length === 1 ? 'feature' : 'features'} Claude won't offer.`;
-    const st = state.status || {};
-    const facts = [
-      ['Shellby', `v${state.version}`],
-      ['Claude Code', st.version ? `v${st.version}` : 'not found'],
-      ['Account', st.email || '—'],
-      ['Plan', st.subscriptionType ? st.subscriptionType[0].toUpperCase() + st.subscriptionType.slice(1) : '—'],
-      ['Billing', st.authMethod === 'claude.ai' ? 'Claude subscription ✓' : (st.authMethod || '—')],
-    ];
-    $('facts').replaceChildren(...facts.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v, title: v })]));
+    $('soundFxToggle').checked = !!state.settings.soundFx;
+    $('ambientSelect').value = ['off', 'surf', 'tidepool'].includes(state.settings.ambient) ? state.settings.ambient : 'off';
+    $('soundVolumeSelect').value = [25, 60, 100].includes(state.settings.soundVolume) ? String(state.settings.soundVolume) : '60';
+    $('needsToggle').checked = state.settings.needsOn !== false;
+    $('crashReportsRow').hidden = !state.settings.crashReportsAvailable;
+    $('crashReportsSelect').value = ['ask', 'always', 'never'].includes(state.settings.crashReports) ? state.settings.crashReports : 'ask';
+    // His temperament, picked once from your install and kept (src/main/voice.js).
+    const t = state.life?.temperament;
+    $('temperNote').hidden = !t;
+    if (t) $('temperNote').textContent = `${t.emoji} Your crab is ${t.name.toLowerCase()}. ${t.blurb}`;
+    $('pushToTalkToggle').checked = !!state.settings.pushToTalk;
+    renderClaudeAccount();
+    renderFacts();
+  }
+  SB.renderSettings = renderSettings;
+
+  // Climbing onto windows lives under strolling: with strolling off he stays
+  // put, so the choice is shown but can't be changed. Same for the screen's edges.
+  function renderPerch() {
+    const s = state.settings;
+    $('perchSelect').value = ['off', 'sometimes', 'often'].includes(s.perch) ? s.perch : 'sometimes';
+    $('perchSelect').disabled = s.wander === false;
+    $('climbSelect').value = ['off', 'sometimes', 'often'].includes(s.climb) ? s.climb : 'sometimes';
+    $('climbSelect').disabled = s.wander === false;
+    $('colonySelect').value = String(Number.isInteger(s.colony) ? s.colony : 0);
+    renderMischief();
+    const ignored = Array.isArray(s.perchIgnore) ? s.perchIgnore : [];
+    $('perchIgnoreRow').hidden = !ignored.length;
+    $('perchIgnoreList').replaceChildren(...ignored.map(exe => h('button', {
+      type: 'button', class: 'perch-app', 'aria-label': `Let him climb onto ${exe} again`,
+      onclick: async () => {
+        const r = await api.setSettings({ perchIgnore: ignored.filter(x => x !== exe) });
+        state.settings = r.settings;
+        renderPerch();
+      },
+    }, exe.replace(/\.exe$/i, ''), h('span', { class: 'x', 'aria-hidden': 'true', text: '✕' }))));
+  }
+
+  // Mischief is off until you pick a level; the pranks list only shows once it's on.
+  function renderMischief() {
+    const s = state.settings;
+    const level = ['off', 'cheeky', 'gremlin'].includes(s.mischief) ? s.mischief : 'off';
+    $('mischiefSelect').value = level;
+    $('mischiefPranks').hidden = level === 'off';
+    $('mischiefNote').hidden = level === 'off';
+    $('mischiefGroup').classList.toggle('on', level !== 'off');
+    const pranks = s.mischiefPranks || {};
+    for (const box of $('mischiefPranks').querySelectorAll('input[data-prank]')) box.checked = pranks[box.dataset.prank] !== false;
   }
 
   $('autonomousYes').addEventListener('click', async () => {
@@ -72,74 +171,106 @@
     SB.toast(state.settings.mode === 'autonomous' ? 'Autonomous mode on. Be careful out there.' : 'Autonomous mode stays off.');
   });
   $('autonomousNo').addEventListener('click', () => { $('autonomousConfirm').hidden = true; });
+  // Changed on another PC, and brought over by a sync.
+  api.onSettings(s => {
+    state.settings = s;
+    SB.applyMode(s.mode);
+    if (state.view === 'settings') renderSettings();
+  });
   $('changeFolderBtn').addEventListener('click', async () => { await SB.folderChanged(await api.pickFolder()); renderSettings(); });
   $('resetPosBtn').addEventListener('click', () => { api.resetCritterPosition(); SB.toast('Shellby is back in the bottom-right corner of your main screen.'); });
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });
+  $('styleSelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ outputStyle: e.target.value });
+    state.settings = r.settings;
+    renderStyles();
+    SB.toast('Output style applies to new conversations.');
+  });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
-  $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; });
+  $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; renderPerch(); });
+  $('onTopToggle').addEventListener('change', async e => { const r = await api.setSettings({ onTop: e.target.checked }); state.settings = r.settings; });
+  $('perchSelect').addEventListener('change', async e => { const r = await api.setSettings({ perch: e.target.value }); state.settings = r.settings; renderPerch(); });
+  $('climbSelect').addEventListener('change', async e => { const r = await api.setSettings({ climb: e.target.value }); state.settings = r.settings; renderPerch(); });
+  $('colonySelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ colony: Number(e.target.value) });
+    state.settings = r.settings;
+    renderPerch();
+  });
+  $('mischiefSelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ mischief: e.target.value });
+    state.settings = r.settings;
+    renderMischief();
+    if (r.settings.mischief !== 'off') SB.toast('Mischief on. Right-click him and pick “Do something cheeky” to see it now.');
+  });
+  $('mischiefPranks').addEventListener('change', async () => {
+    const pranks = Object.fromEntries([...$('mischiefPranks').querySelectorAll('input[data-prank]')].map(b => [b.dataset.prank, b.checked]));
+    const r = await api.setSettings({ mischiefPranks: pranks });
+    state.settings = r.settings;
+    renderMischief();
+  });
+  $('worktreeToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ worktrees: e.target.checked });
+    state.settings = r.settings;
+    SB.toast(e.target.checked ? 'New conversations in a git project will get their own copy.' : 'New conversations will work in your checkout again.');
+  });
+  $('clashToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ clashWarnings: e.target.checked });
+    state.settings = r.settings;
+    SB.renderTabStrip();
+    SB.toast(e.target.checked ? "He'll say when two copies change the same file." : 'No more clash warnings. Bring it home still stops on a real clash.');
+  });
+  $('planOnlyToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ planOnly: e.target.checked });
+    state.settings = r.settings;
+    state.status = await api.claudeStatus(); // what Claude Code bills depends on it
+    renderSettings();
+    SB.toast(e.target.checked ? 'New conversations will use your Claude plan.' : 'New conversations will sign in however Claude Code is set up.');
+  });
+
   $('chatterSelect').addEventListener('change', async e => { const r = await api.setSettings({ chatter: e.target.value }); state.settings = r.settings; });
+  $('crashReportsSelect').addEventListener('change', async e => { const r = await api.setSettings({ crashReports: e.target.value }); state.settings = r.settings; });
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
+  $('soundFxToggle').addEventListener('change', async e => { const r = await api.setSettings({ soundFx: e.target.checked }); state.settings = r.settings; });
+  $('surprisesToggle').addEventListener('change', async e => { const r = await api.setSettings({ surprises: e.target.checked }); state.settings = r.settings; });
+  $('ambientSelect').addEventListener('change', async e => { const r = await api.setSettings({ ambient: e.target.value }); state.settings = r.settings; });
+  $('soundVolumeSelect').addEventListener('change', async e => { const r = await api.setSettings({ soundVolume: Number(e.target.value) }); state.settings = r.settings; });
+  // His needs (src/main/needs.js). Back on, he comes back full; the Us page follows.
+  $('needsToggle').addEventListener('change', async e => {
+    const r = await api.setSettings({ needsOn: e.target.checked });
+    state.settings = r.settings;
+    api.getLife().then(v => SB.applyLife?.(v));
+  });
+  // Turning it on starts Windows' recognizer first, which can take a second or two.
+  $('pushToTalkToggle').addEventListener('change', async e => {
+    const box = e.target;
+    box.disabled = true;
+    const r = await api.setSettings({ pushToTalk: box.checked });
+    box.disabled = false;
+    state.settings = r.settings;
+    box.checked = !!state.settings.pushToTalk;
+    if (r.pushToTalkError) $('hotkeyMsg').textContent = r.pushToTalkError;
+  });
   $('selfAwareToggle').addEventListener('change', async e => { const r = await api.setSettings({ selfAware: e.target.checked }); state.settings = r.settings; renderSettings(); });
   $('suggestToggle').addEventListener('change', async e => { const r = await api.setSettings({ suggestions: e.target.checked }); state.settings = r.settings; });
   $('unmuteSuggestBtn').addEventListener('click', async () => { state.settings.mutedSuggestions = await api.muteSuggestion(null); renderSettings(); });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
+  $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
+  $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
+  $('catchBugsToggle').addEventListener('change', async e => { const r = await api.setSettings({ catchBugs: e.target.checked }); state.settings = r.settings; });
+  $('checkEachTurnToggle').addEventListener('change', async e => { const r = await api.setSettings({ checkEachTurn: e.target.checked }); state.settings = r.settings; $('checkEachTurnOptions').hidden = !state.settings.checkEachTurn; });
+  $('checkTimeoutSelect').addEventListener('change', async e => { const r = await api.setSettings({ checkTimeoutMin: Number(e.target.value) }); state.settings = r.settings; });
+  $('turnShotsToggle').addEventListener('change', async e => { const r = await api.setSettings({ turnShots: e.target.checked }); state.settings = r.settings; });
+  $('forecastToggle').addEventListener('change', async e => { const r = await api.setSettings({ forecast: e.target.checked }); state.settings = r.settings; });
+  $('spendGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ spendGuard: e.target.checked }); state.settings = r.settings; $('spendGuardOptions').hidden = !state.settings.spendGuard; });
+  $('holdBigToggle').addEventListener('change', async e => { const r = await api.setSettings({ holdBigTasks: e.target.checked }); state.settings = r.settings; });
+  $('spendReserveSelect').addEventListener('change', async e => { const r = await api.setSettings({ spendReserve: Number(e.target.value) }); state.settings = r.settings; });
+  $('spendMaxSelect').addEventListener('change', async e => { const r = await api.setSettings({ spendMaxMinutes: Number(e.target.value) }); state.settings = r.settings; });
+  $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
   $('reloadSkinsBtn').addEventListener('click', async () => { state.skins = await api.reloadSkins(); renderSkins(); SB.toast(`${state.skins.length} skins loaded`); });
   $('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));
   $('dataBtn').addEventListener('click', () => api.openDataFolder());
-
-  // ------------------------------------------------------------ updates
-
-  const UPDATE_STATUS = {
-    checking: () => 'Looking for a new version…',
-    downloading: u => `Downloading ${u.version ? `v${u.version}` : 'the update'}…`,
-    ready: u => `Version ${u.version} is downloaded and ready.`,
-    current: u => `You're on the latest version${u.checkedAt ? `, checked ${SB.relTime(u.checkedAt)}` : ''}.`,
-    error: u => u.error || "Couldn't check for updates.",
-    idle: () => 'Shellby updates himself from GitHub Releases.',
-    off: () => 'Updates run in the installed app.',
-  };
-  const UPDATE_BUTTON = { checking: () => 'Checking…', downloading: u => `${u.percent}%`, ready: () => 'Restart and update' };
-
-  function renderUpdates() {
-    const u = state.updates;
-    const ready = u?.state === 'ready';
-    // The gear carries the news from any screen, so this part runs even when
-    // Settings is nowhere in sight.
-    $('updateDot').hidden = !ready;
-    $('settingsBtn').title = ready ? `Settings — update ${u.version} is ready` : 'Settings';
-    const row = $('updateRow');
-    row.hidden = !u;
-    if (!u) return;
-    row.classList.toggle('ready', ready);
-    const status = $('updateStatus');
-    status.textContent = (UPDATE_STATUS[u.state] || UPDATE_STATUS.idle)(u);
-    status.classList.toggle('bad', u.state === 'error');
-    status.classList.toggle('ok', ready);
-    const btn = $('updateBtn');
-    // A dev run (npm start) has no updater at all; a button there would lie.
-    btn.hidden = u.state === 'off';
-    btn.textContent = (UPDATE_BUTTON[u.state] || (() => 'Check for updates'))(u);
-    btn.classList.toggle('primary', ready);
-    btn.classList.toggle('ghost', !ready);
-    btn.disabled = !!u.busy;
-    $('updateBar').hidden = u.state !== 'downloading';
-    $('updateBar').firstElementChild.style.width = `${u.percent}%`;
-  }
-  SB.renderUpdates = renderUpdates;
-
-  $('updateBtn').addEventListener('click', async () => {
-    const u = state.updates || {};
-    if (u.state === 'ready') return void api.installUpdate();
-    // Optimistic, so the button reacts before the network does; the live
-    // 'updates' events in boot.js correct it either way.
-    state.updates = { ...u, state: 'checking', error: null, busy: true };
-    renderUpdates();
-    const after = await api.checkUpdates();
-    if (after.state === 'current') SB.toast(`v${after.current} is the latest version.`);
-    if (after.state === 'error') SB.toast(`Couldn't check for updates: ${after.error}`, { ms: 5000 });
-  });
 
   // hotkey recorder
   const hotkeyBtn = $('hotkeyBtn');
@@ -157,15 +288,10 @@
     e.preventDefault();
     e.stopPropagation();
     if (e.key === 'Escape') { stopRecording(); hotkeyBtn.textContent = SB.prettyAccel(state.settings.hotkey); $('hotkeyMsg').textContent = ''; return; }
-    let accel = '';
-    if (e.key !== 'Backspace') {
-      if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
-      const mods = [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Super'].filter(Boolean);
-      if (!mods.length) { $('hotkeyMsg').textContent = 'Add at least one modifier key.'; return; }
-      const key = e.code === 'Space' ? 'Space' : /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : /^Digit\d$/.test(e.code) ? e.code.slice(5) : /^F\d{1,2}$/.test(e.key) ? e.key : null;
-      if (!key) { $('hotkeyMsg').textContent = 'Use a letter, number, F-key or Space.'; return; }
-      accel = [...mods, key].join('+');
-    }
+    const got = T.accelerator(e);
+    if (!got) return; // a modifier on its own: wait for the key
+    if (got.error) { $('hotkeyMsg').textContent = got.error; return; }
+    const { accel } = got;
     stopRecording();
     const r = await api.setSettings({ hotkey: accel });
     state.settings = r.settings;
@@ -174,386 +300,15 @@
     SB.refreshEmptyStates();
   });
 
-  // ------------------------------------------------------------ Claude Code everywhere
-
-  const STATE_TEXT = { working: 'working', asking: 'needs your OK', idle: 'idle' };
-  function renderExternal(v) {
-    if (!v) return;
-    state.external = v;
-    $('externalToggle').checked = !!v.enabled;
-    const n = v.sessions?.length || 0;
-    $('externalStatus').textContent = !v.enabled ? 'Off. Turn it on to see your other Claude Code sessions here.'
-      : v.status === 'listening' ? (n ? `${n} session${n === 1 ? '' : 's'} connected.` : 'Listening. Start Claude Code anywhere with the plugin installed and it shows up here.')
-      : v.status === 'busy' ? `Another app is using port ${v.port}, so outside sessions can't reach Shellby.`
-      : 'Not listening right now.';
-    $('externalStatus').className = `small ext-status ${v.enabled && v.status === 'listening' ? 'ok' : v.status === 'busy' ? 'warn' : ''}`;
-    $('externalList').replaceChildren(...(v.enabled ? v.sessions || [] : []).map(s => h('li', { class: `ext-session ${s.state}` },
-      h('span', { class: 'ext-dot', 'aria-hidden': 'true' }),
-      h('b', { text: s.project }),
-      h('span', { class: 'ext-state', text: s.state === 'working' && s.tool ? `working · ${s.tool}` : STATE_TEXT[s.state] || s.state }),
-      s.helpers ? h('span', { class: 'ext-helpers', text: `${s.helpers} helper${s.helpers === 1 ? '' : 's'}` }) : null,
-      h('time', { text: SB.relTime(s.lastAt) }))));
-    renderBackground(v.background || []);
-  }
-
-  // Background commands a turn walked away from: what, where, and how long ago.
-  function renderBackground(list) {
-    $('bgLeft').hidden = !list.length;
-    $('bgList').replaceChildren(...list.map(b => h('li', { class: 'bg-item' },
-      h('span', { class: 'bg-dot', 'aria-hidden': 'true' }),
-      h('b', { text: b.program }),
-      h('span', { class: 'bg-where', text: b.project }),
-      h('time', { text: SB.relTime(b.at) }))));
-  }
-  $('bgClear').addEventListener('click', async () => renderExternal(await api.clearBackground()));
-  $('externalToggle').addEventListener('change', async e => renderExternal(await api.setExternal(e.target.checked)));
-
-  // ---------------------------------------------------------------- the shellby command
-  function renderCli(v) {
-    const on = !!v.installed;
-    $('cliBtn').textContent = on ? 'Remove it' : 'Add to my PATH';
-    $('cliBtn').classList.toggle('danger', on);
-    $('cliBtn').disabled = !v.available;
-    $('cliStatus').textContent = !v.available ? 'Windows only for now.'
-      : on ? `Ready. Open a new terminal and try: shellby do "tidy my Downloads"`
-        : '';
-    $('cliStatus').className = `small ext-status ${on ? 'ok' : ''}`;
-  }
-  $('cliBtn').addEventListener('click', async () => {
-    const before = await api.getCli();
-    $('cliBtn').disabled = true;
-    const r = before.installed ? await api.removeCli() : await api.installCli();
-    renderCli(r);
-    if (r.ok === false) SB.toast(r.error || "That didn't work.");
-    else if (!before.installed) SB.toast('Added. Open a new terminal for it to show up.');
-  });
-
-  // ---------------------------------------------------------------- telling you elsewhere
-  let channels = null;
-  function renderChannels(v) {
-    channels = v;
-    $('chEnabled').checked = !!v.enabled;
-    $('chBody').hidden = !v.enabled;
-    const provider = v.providers.find(p => p.name === v.provider) || v.providers[0];
-    if ($('chProvider').children.length !== v.providers.length) {
-      $('chProvider').replaceChildren(...v.providers.map(p => h('option', { value: p.name, text: p.label })));
-    }
-    $('chProvider').value = v.provider;
-    $('chHint').textContent = provider.hint;
-    $('chTargetLabel').textContent = provider.targetLabel;
-    if (document.activeElement !== $('chTarget')) $('chTarget').value = v.target || '';
-    $('chSecretField').hidden = provider.secret === 'no';
-    $('chSecretLabel').textContent = provider.secretLabel || 'Token';
-    $('chSecret').placeholder = v.hasSecret ? 'saved — type to replace' : '';
-    $('chWhileFocused').checked = !!v.whileFocused;
-    $('chEvents').replaceChildren(...Object.entries(v.eventLabels).map(([key, label]) => h('label', { class: 'toggle' },
-      h('input', { type: 'checkbox', 'data-event': key, ...(v.events[key] ? { checked: 'checked' } : {}) }),
-      h('span', { class: 'switch' }),
-      document.createTextNode(label))));
-    $('chStatus').textContent = v.problem || '';
-    $('chStatus').className = `small ext-status ${v.problem ? 'warn' : ''}`;
-    $('chTest').disabled = !!v.problem;
-  }
-  $('chEnabled').addEventListener('change', async e => renderChannels(await api.setChannels({ enabled: e.target.checked })));
-  $('chProvider').addEventListener('change', async e => renderChannels(await api.setChannels({ provider: e.target.value })));
-  $('chTarget').addEventListener('change', async e => renderChannels(await api.setChannels({ target: e.target.value })));
-  $('chWhileFocused').addEventListener('change', async e => renderChannels(await api.setChannels({ whileFocused: e.target.checked })));
-  $('chSecret').addEventListener('change', async e => {
-    const typed = e.target.value;
-    e.target.value = '';
-    if (typed) renderChannels(await api.setChannelSecret(typed));
-  });
-  $('chEvents').addEventListener('change', async e => {
-    const key = e.target.dataset?.event;
-    if (key) renderChannels(await api.setChannels({ events: { ...channels.events, [key]: e.target.checked } }));
-  });
-  $('chTest').addEventListener('click', async () => {
-    $('chTest').disabled = true;
-    const r = await api.testChannel();
-    $('chStatus').textContent = r.ok ? 'Sent. Check your phone.' : `Didn't go: ${r.error}`;
-    $('chStatus').className = `small ext-status ${r.ok ? 'ok' : 'warn'}`;
-    $('chTest').disabled = false;
-  });
-
-  // ---------------------------------------------------------------- on a stream
-  function renderObs(v) {
-    $('obsEnabled').checked = !!v.enabled;
-    $('obsBody').hidden = !v.enabled;
-    $('obsUrl').textContent = v.url || `http://127.0.0.1:${v.port}/`;
-    const viewers = v.viewers || 0;
-    $('obsStatus').textContent = v.status === 'listening'
-      ? (viewers ? `${viewers} source${viewers === 1 ? '' : 's'} connected.` : 'Waiting for OBS to connect.')
-      : v.status === 'busy' ? `Another app is using port ${v.port}.` : '';
-    $('obsStatus').className = `small ext-status ${v.status === 'listening' ? 'ok' : v.status === 'busy' ? 'warn' : ''}`;
-  }
-  $('obsEnabled').addEventListener('change', async e => renderObs(await api.setObs({ enabled: e.target.checked })));
-
-  // ---------------------------------------------------------------- desk lighting
-  function renderRgb(v) {
-    $('rgbEnabled').checked = !!v.enabled;
-    $('rgbBody').hidden = !v.enabled;
-    const devices = v.devices || [];
-    $('rgbStatus').textContent = v.error ? v.error : devices.length ? `${devices.length} device${devices.length === 1 ? '' : 's'}.` : '';
-    $('rgbStatus').className = `small ext-status ${v.error ? 'warn' : devices.length ? 'ok' : ''}`;
-    $('rgbList').replaceChildren(...devices.map(d => h('li', { class: 'ext-session' },
-      h('b', { text: d.name }),
-      h('span', { class: 'ext-state', text: `${d.numLeds} LED${d.numLeds === 1 ? '' : 's'}` }))));
-  }
-  $('rgbEnabled').addEventListener('change', async e => renderRgb(await api.setRgb({ enabled: e.target.checked })));
-  $('rgbTest').addEventListener('click', async () => {
-    $('rgbTest').disabled = true;
-    renderRgb(await api.testRgb());
-    $('rgbTest').disabled = false;
-  });
-
-  // ---------------------------------------------------------------- listening along
-  function renderNowPlaying(v) {
-    $('npEnabled').checked = !!v.enabled;
-    $('npEnabled').disabled = !v.available;
-    $('npBody').hidden = !v.enabled;
-    $('npHeadphones').checked = v.headphones !== false;
-    $('npRemarks').checked = v.remarks !== false;
-    const t = v.track;
-    $('npStatus').textContent = !v.available ? 'Windows only.'
-      : v.status === 'unavailable' ? "Windows isn't answering about media here."
-        : t ? `${t.playing ? '♪ ' : 'Paused: '}${[t.title, t.artist].filter(Boolean).join(' — ')}${t.app ? ` (${t.app})` : ''}`
-          : 'Nothing playing.';
-    $('npStatus').className = `small ext-status ${t?.playing ? 'ok' : ''}`;
-  }
-  const setNp = patch => api.setNowPlaying(patch).then(renderNowPlaying);
-  $('npEnabled').addEventListener('change', e => setNp({ enabled: e.target.checked }));
-  $('npHeadphones').addEventListener('change', e => setNp({ headphones: e.target.checked }));
-  $('npRemarks').addEventListener('change', e => setNp({ remarks: e.target.checked }));
-  api.onNowPlaying(v => { if (state.view === 'settings') renderNowPlaying(v); });
-  api.onObs(v => { if (state.view === 'settings') renderObs(v); });
-
-  document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
-    api.copyText($(b.dataset.copy).textContent);
-    SB.toast('Copied. Paste it into Claude Code.');
-  }));
-  api.onExternal(v => { if (state.view === 'settings') renderExternal(v); else state.external = v; });
-
-  // ------------------------------------------------------------ the plugin
-
-  function renderPlugin(v) {
-    if (!v) return;
-    const text = {
-      on: "Installed. Claude Code sessions in any terminal or editor on this PC show up here. (Sessions on other computers can't reach this Shellby.)",
-      off: 'Installed but turned off. Turn it on in Claude Code with /plugin.',
-      none: 'Not installed on this PC yet, so Claude Code in the terminal can\'t tell Shellby what it\'s doing.',
-      unreadable: "Couldn't read your Claude Code settings.json.",
-    }[v.state];
-    $('pluginText').textContent = v.error || text;
-    $('pluginBtn').hidden = v.state === 'on' || v.state === 'off';
-    $('pluginBtn').disabled = false;
-    $('pluginBtn').textContent = 'Install the plugin';
-  }
-  $('pluginBtn').addEventListener('click', async () => {
-    $('pluginBtn').disabled = true;
-    $('pluginBtn').textContent = 'Installing…';
-    const v = await api.installPlugin();
-    renderPlugin(v);
-    if (v.installed) SB.toast('Plugin installed. Start a new Claude Code session and Shellby will follow along.', { ms: 5000 });
-  });
-
-  // ------------------------------------------------------------ status line
-
-  function renderStatusLine(v) {
-    if (!v) return;
-    state.statusLine = v;
-    $('slPreview').textContent = v.preview || '';
-    const text = {
-      ours: "Shellby is in your Claude Code status line. If it's empty, Shellby isn't running.",
-      none: "Show Shellby's mood, level and XP under Claude Code's prompt, in the terminal and VS Code.",
-      other: "You already have a status line. Adding Shellby's replaces it (yours is kept and comes back if you remove Shellby's).",
-      unreadable: "Couldn't read your Claude Code settings.json, so Shellby won't touch it.",
-    }[v.state];
-    $('slText').textContent = v.error || text;
-    $('slBtn').textContent = v.state === 'ours' ? 'Remove' : 'Add to Claude Code';
-    $('slBtn').className = v.state === 'ours' ? 'btn ghost slim-btn' : 'btn primary slim-btn';
-    $('slBtn').disabled = v.state === 'unreadable';
-  }
-  $('slBtn').addEventListener('click', async () => {
-    const was = state.statusLine?.state;
-    const v = await (was === 'ours' ? api.removeStatusLine() : api.installStatusLine());
-    renderStatusLine(v);
-    if (v.state === 'ours' && was !== 'ours') SB.toast('Shellby is in your status line. Start a new Claude Code session to see him.', { ms: 5000 });
-    if (v.state !== 'ours' && was === 'ours') SB.toast('Removed from your status line.');
-  });
+  // Each part of the screen asks main for what it shows as Settings opens
+  // (settings-account.js and the rest register here, in load order).
+  const opening = [];
+  SB.onSettingsOpen = fn => { opening.push(fn); };
 
   SB.views.settings = {
     render: () => {
-      renderSettings(); renderUpdates();
-      api.getExternal().then(renderExternal);
-      api.getStatusLine().then(renderStatusLine);
-      api.getPlugin().then(renderPlugin);
-      api.getCli().then(renderCli);
-      api.getChannels().then(renderChannels);
-      api.getObs().then(renderObs);
-      api.getRgb().then(renderRgb);
-      api.getNowPlaying().then(renderNowPlaying);
+      renderSettings();
+      for (const fn of opening) fn();
     },
   };
-
-  // ------------------------------------------------------------ history
-
-  // Which bucket the list shows. 'todo' hides what you've marked done, which is
-  // the point of marking it; the filter row only appears once something is done,
-  // so it's never in the way for anyone who doesn't use this.
-  let historyFilter = 'todo';
-  const inBucket = (s, f) => f === 'all' || (f === 'done' ? !!s.done : !s.done);
-
-  function renderHistory() {
-    const q = $('historySearch').value.trim().toLowerCase();
-    const found = state.sessions.filter(s => !q || s.title.toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
-    const anyDone = state.sessions.some(s => s.done);
-    if (!anyDone) historyFilter = 'todo';
-    $('historyTabs').hidden = !anyDone;
-    for (const b of $('historyTabs').querySelectorAll('[data-filter]')) {
-      // Counted over the search results, so a tab never promises rows the search has hidden.
-      b.querySelector('.n').textContent = found.filter(s => inBucket(s, b.dataset.filter)).length;
-      b.setAttribute('aria-selected', String(b.dataset.filter === historyFilter));
-    }
-    // Sort is stable, so All keeps its order within each half and only sinks the done ones.
-    const list = found.filter(s => inBucket(s, historyFilter)).sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
-    const ul = $('historyList');
-    if (!list.length) {
-      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) }));
-      return;
-    }
-    ul.replaceChildren(...list.map(historyRow));
-  }
-
-  function historyEmpty(q) {
-    if (q) return 'No matches.';
-    if (!state.sessions.length) return 'No conversations yet. Give Shellby a task!';
-    return historyFilter === 'done' ? 'Nothing marked done yet.' : 'Everything here is done.';
-  }
-
-  function historyRow(s) {
-    const open = state.tabs.has(s.id);
-    const tick = s.done ? 'Mark as not done' : 'Mark as done';
-    return h('li', { class: `history-item${open ? ' current' : ''}${s.done ? ' done' : ''}` },
-      h('button', { class: 'history-open', type: 'button', onclick: () => SB.openHistory(s.id) },
-        h('div', { class: 'h-title' }, s.lastOutcome === 'error' ? h('span', { class: 'h-dot err', title: 'Ended with an error' }) : null, s.title),
-        h('div', { class: 'h-meta' },
-          h('span', { text: SB.relTime(s.updatedAt) }),
-          h('span', { text: SB.shortPath(s.cwd, 30) }),
-          s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
-          open ? h('span', { class: 'h-open', text: 'open' }) : null)),
-      h('button', { class: 'history-tick', type: 'button', title: tick, 'aria-pressed': String(!!s.done), 'aria-label': `${tick}: ${s.title}`, onclick: () => markDone(s.id, !s.done) }, '✓'),
-      h('button', { class: 'history-del', type: 'button', title: 'Delete', 'aria-label': `Delete ${s.title}`, onclick: () => deleteHistory(s.id) }, '✕'));
-  }
-  $('historySearch').addEventListener('input', renderHistory);
-  for (const b of $('historyTabs').querySelectorAll('[data-filter]')) {
-    b.addEventListener('click', () => { historyFilter = b.dataset.filter; renderHistory(); });
-  }
-
-  SB.openHistory = async (id) => {
-    if (state.tabs.has(id)) { SB.activate(id); return; }
-    const r = await api.openSession(id);
-    if (!r || r.error) return SB.toast(r?.error || "Couldn't open that conversation.");
-    const tab = SB.ensureTab({ id: r.tabId, title: r.entry.title, cwd: r.entry.cwd, saved: true, routineId: r.entry.routineId });
-    for (const item of r.items) tab.render(item, { replay: true });
-    tab.cancelOpenAsks();
-    for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
-    SB.activate(r.tabId);
-    SB.toast('Picked up where you left off');
-  };
-
-  // A row ticked off leaves the default list straight away, so the toast says
-  // where it went and offers the way back.
-  async function markDone(id, done) {
-    state.sessions = await api.setSessionDone(id, done);
-    renderHistory();
-    if (done) SB.toast('Marked done.', { action: 'Undo', onAction: () => markDone(id, false) });
-  }
-
-  async function deleteHistory(id) {
-    state.sessions = await api.deleteSession(id);
-    const tab = state.tabs.get(id);
-    if (tab) { tab.destroy(); state.tabs.delete(id); if (state.activeTab === id) { state.activeTab = null; await SB.newTab(); } SB.renderTabStrip(); }
-    renderHistory();
-  }
-
-  SB.views.history = { render: async () => { state.sessions = await api.listSessions(); renderHistory(); } };
-
-  // ------------------------------------------------------------ onboarding
-
-  SB.needsOnboarding = () => {
-    const s = state.status || {};
-    if (!state.settings.onboarded) return true;
-    return !state.settings.crabOnly && (!s.installed || !s.loggedIn);
-  };
-
-  function renderOnboarding() {
-    const s = state.status || {};
-    // Two paths: just the crab (no account), or the Claude Code setup steps.
-    const path = SB.onboardPath || null;
-    $('onboardPaths').querySelectorAll('.path').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.path === path)));
-    $('claudeSetup').hidden = path !== 'claude';
-    const step = (n, done, title, sub, actions) => h('li', { class: `step ${done ? 'done' : 'todo'}` },
-      h('span', { class: 'step-badge', text: done ? '✓' : n }),
-      h('div', {}, h('div', { class: 'step-title', text: title }), sub ? h('div', { class: 'step-sub' }, sub) : null, !done && actions ? h('div', { class: 'row' }, actions) : null));
-    const recheck = () => h('button', { class: 'btn ghost', type: 'button', onclick: recheckStatus }, 'Check again');
-    const installed = !!s.installed;
-    const signedIn = installed && s.loggedIn;
-    $('steps').replaceChildren(
-      step(1, installed, 'Install Claude Code',
-        installed
-          ? `Found v${s.version || '?'}${s.picked ? ' where you pointed' : ''}`
-          : ['Run ', h('code', { text: 'npm install -g @anthropic-ai/claude-code' }), ' in a terminal, or use the native installer.'],
-        [h('button', { class: 'btn', type: 'button', onclick: () => api.openExternal('https://docs.claude.com/en/docs/claude-code/setup') }, 'Install guide'),
-         recheck(),
-         // Already installed somewhere Shellby can't guess (portable copy,
-         // another drive, a locked-down company image)? Point at it.
-         h('button', { class: 'btn ghost', type: 'button', title: 'If it is already installed somewhere unusual', onclick: locateClaude }, 'Find it myself…')]),
-      step(2, signedIn && !s.warning, 'Sign in with your Claude account',
-        signedIn
-          ? (s.warning ? h('span', { class: 'warn', text: s.warning }) : `${s.email || 'Signed in'} · ${s.subscriptionType ? s.subscriptionType.toUpperCase() + ' plan' : 'claude.ai'}`)
-          : 'Shellby uses your Claude Pro or Max plan through Claude Code. There are no API keys and nothing is billed per token.',
-        installed ? [h('button', { class: 'btn primary', type: 'button', onclick: async () => { await api.claudeLogin(); SB.toast('Finish signing in, then press Check again.'); } }, 'Sign in'), recheck()] : null),
-    );
-    const pick = async mode => {
-      if (mode === 'autonomous') return SB.toast('You can turn on Autonomous later in Settings.');
-      const r = await api.setSettings({ mode });
-      state.settings = r.settings;
-      SB.applyMode(mode);
-      SB.renderModeCards($('onboardModeCards'), pick);
-    };
-    SB.renderModeCards($('onboardModeCards'), pick);
-    $('letsGoBtn').disabled = !(installed && signedIn);
-  }
-  async function recheckStatus() {
-    state.status = await api.claudeStatus();
-    renderOnboarding();
-    SB.toast(state.status.loggedIn ? 'All set!' : state.status.installed ? 'Not signed in yet.' : 'Claude Code not found yet.');
-  }
-  // The file picker runs the chosen program once to check it really is Claude
-  // Code, so the answer to a wrong pick arrives immediately.
-  async function locateClaude() {
-    const r = await api.locateClaude();
-    if (r.cancelled) return;
-    if (r.status) state.status = r.status;
-    renderOnboarding();
-    SB.toast(r.ok ? `Found Claude Code v${r.status?.version || '?'}.` : r.error || "That isn't Claude Code.", { ms: r.ok ? 3000 : 6000 });
-  }
-  $('letsGoBtn').addEventListener('click', async () => {
-    const r = await api.setSettings({ onboarded: true, crabOnly: false });
-    state.settings = r.settings;
-    SB.onboardPath = null;
-    SB.applyCrabOnly();
-    SB.setView('chat');
-  });
-  $('onboardPaths').addEventListener('click', e => {
-    const b = e.target.closest('.path');
-    if (!b) return;
-    if (b.dataset.path === 'crab') return SB.chooseCrabOnly();
-    SB.onboardPath = 'claude';
-    renderOnboarding();
-    $('claudeSetup').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  $('crabInsteadBtn').addEventListener('click', () => SB.chooseCrabOnly());
-
-  SB.views.onboarding = { render: renderOnboarding };
 })();

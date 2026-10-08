@@ -1,0 +1,32 @@
+{
+  "name": "From Shellby",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shellby",
+        "options": {}
+      },
+      "id": "5d3c1a0e-7c2b-4b8e-9a51-0f6f2c1d9e01",
+      "name": "From Shellby",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "8f0e6b5a-2d47-4c3e-b1a9-6e2f4d8c7a10"
+    },
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0e1f-4a5b-8c9d-1e2f3a4b5c60",
+      "name": "Pass it on (replace me)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [260, 0]
+    }
+  ],
+  "connections": {
+    "From Shellby": {
+      "main": [[{ "node": "Pass it on (replace me)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

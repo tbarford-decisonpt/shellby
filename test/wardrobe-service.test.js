@@ -9,10 +9,10 @@ const { SEASONS } = require('../src/main/wardrobe/seasons');
 
 const BUILTIN = path.join(__dirname, '..', 'src', 'wardrobe');
 
-function make(date) {
+function make(date, { canUnlockAll = () => true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-wd-'));
   const clock = { now: date };
-  const w = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => clock.now });
+  const w = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => clock.now, canUnlockAll });
   w.load();
   return { w, clock, dir };
 }
@@ -38,6 +38,22 @@ test('finishing a task unlocks rewards, marks them new and emits a celebration',
   assert.ok(w.isUnlocked(w.item('party-hat')));
   assert.ok(w.data.newItems.includes('party-hat'));
   assert.deepEqual(w.record('crew-size', { n: 0 }), []); // no change -> nothing written
+});
+
+test('marking items seen clears just those new badges, and it sticks', () => {
+  const { w, dir } = make(d(2026, 6, 10));
+  w.record('task-completed');
+  const isNew = (wd, key) => wd.view().effects.concat(wd.view().accessories).find(i => i.key === key).isNew;
+  assert.equal(isNew(w, 'party-hat'), true);
+  assert.equal(isNew(w, 'confetti'), true);
+  w.markSeen(['party-hat', 'not-an-item']);
+  assert.equal(isNew(w, 'party-hat'), false);
+  assert.equal(isNew(w, 'confetti'), true);
+  const again = new Wardrobe({ config: new Config(dir), builtinDir: BUILTIN, userDir: path.join(dir, 'packs'), now: () => d(2026, 6, 10) });
+  again.load();
+  assert.equal(isNew(again, 'party-hat'), false);
+  w.markSeen(['confetti']);
+  assert.deepEqual(w.data.newItems, []);
 });
 
 test('locked items cannot be equipped; wrong slots are rejected', () => {
@@ -102,6 +118,21 @@ test('unlock-all opens everything without touching achievements', () => {
   assert.deepEqual(w.data.unlocked, []);
 });
 
+test('unlock-all stays locked when it is not on offer', () => {
+  const offered = { on: false };
+  const { w } = make(d(2026, 6, 10), { canUnlockAll: () => offered.on });
+  w.setOptions({ unlockAll: true });
+  assert.equal(w.isUnlocked(w.item('crown')), false);
+  assert.equal(w.setOutfit({ hat: 'crown' }).ok, false);
+  assert.deepEqual(w.view().options, { seasonalAuto: true, crewOutfits: true, unlockAll: false, unlockAllOffered: false });
+
+  // A setting left over from before the lock doesn't sneak through either.
+  offered.on = true;
+  w.setOptions({ unlockAll: true });
+  offered.on = false;
+  assert.equal(w.isUnlocked(w.item('crown')), false);
+});
+
 test('history backfill credits past usage once, quietly', () => {
   const { w } = make(d(2026, 6, 10));
   const events = [];
@@ -111,6 +142,15 @@ test('history backfill credits past usage once, quietly', () => {
   assert.equal(events.length, 0);                   // no fireworks for old news
   assert.ok(w.isUnlocked(w.item('hard-hat')));
   assert.deepEqual(w.backfill({ tasksCompleted: 500 }), []); // only on first run
+});
+
+test('history backfill only reads history (the function form) on first run', () => {
+  const { w } = make(d(2026, 6, 10));
+  let reads = 0;
+  const fromHistory = () => { reads++; return { tasksCompleted: 1, activeDays: ['2026-06-01'] }; };
+  assert.deepEqual(w.backfill(fromHistory).map(a => a.id), ['first-task']);
+  assert.deepEqual(w.backfill(fromHistory), []);
+  assert.equal(reads, 1);
 });
 
 test('render gives the outfit, the equipped effect and crew hats', () => {

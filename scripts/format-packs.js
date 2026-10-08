@@ -5,7 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const dir = path.join(__dirname, '..', 'src', 'wardrobe');
-const SKIP = new Set(['base.pack.json']); // hand-maintained, not ours to reflow
+// Hand-maintained, not ours to reflow. voices.json keeps each occasion's lines on one line.
+const SKIP = new Set(['base.pack.json', 'voices.json']);
 const inline = new Set(['pivot', 'palette', 'parts', 'anchors', 'unlock']);
 
 function fmt(value, indent, key) {

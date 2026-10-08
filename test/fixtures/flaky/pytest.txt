@@ -1,0 +1,21 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.4, pytest-8.3.2, pluggy-1.5.0
+rootdir: C:\code\api
+collected 14 items
+
+tests\test_api.py ......F.                                               [ 57%]
+tests\test_db.py .....E                                                  [100%]
+
+=================================== ERRORS ====================================
+___________________ ERROR at setup of test_migrations_apply ___________________
+E   ConnectionRefusedError: [WinError 10061]
+================================== FAILURES ===================================
+_____________________________ test_login[admin] ______________________________
+    def test_login(role):
+>       assert client.post('/login').status_code == 200
+E       assert 503 == 200
+tests\test_api.py:41: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_api.py::test_login[admin] - assert 503 == 200
+ERROR tests/test_db.py::test_migrations_apply - ConnectionRefusedError: [WinError 10061]
+==================== 1 failed, 12 passed, 1 error in 3.41s ====================

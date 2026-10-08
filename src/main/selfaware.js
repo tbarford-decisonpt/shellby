@@ -92,10 +92,17 @@ function usageNote(usage, told = 0, now = Date.now()) {
   return { told: level, text: head + advice };
 }
 
-/** The prompt Claude receives: the user's own text, then the usage line if any. */
+/**
+ * The prompt Claude receives: the user's own text, then the usage line if any.
+ * A prompt with pictures is a list of blocks, and the line is one more.
+ */
 function withUsageNote(prompt, note) {
-  return note ? `${prompt}\n\n${note}` : prompt;
+  if (!note) return prompt;
+  return Array.isArray(prompt) ? [...prompt, { type: 'text', text: note }] : `${prompt}\n\n${note}`;
 }
+
+/** A /command has to reach Claude Code as typed: anything after it becomes its arguments. */
+const isSlashCommand = prompt => typeof prompt === 'string' && prompt.trimStart().startsWith('/');
 
 // ------------------------------------------------------------------ suggest
 
@@ -175,5 +182,5 @@ function suggestReply(card) {
 
 module.exports = {
   FEATURES, FEATURE_IDS, FOCUS_MINUTES, MAX_PER_CONVERSATION, THRESHOLDS,
-  systemNote, usageNote, withUsageNote, parseSchedule, checkSuggestion, suggestReply,
+  systemNote, usageNote, withUsageNote, isSlashCommand, parseSchedule, checkSuggestion, suggestReply,
 };

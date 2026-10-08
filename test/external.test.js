@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf } = require('../src/main/external');
-const { subscriptionEnv } = require('../src/main/claude-cli');
+const { claudeEnv } = require('../src/main/claude-cli');
 
 const ev = (hook_event_name, extra = {}) => ({ hook_event_name, session_id: 'abc-123', cwd: 'C:\\Users\\you\\code\\3d-rack', ...extra });
 
@@ -21,8 +21,20 @@ test('a turn: prompt -> tools -> stop celebrates once', () => {
   const { s, effects } = play([ev('SessionStart'), ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUse', { tool_name: 'Bash' }), ev('Stop')]);
   assert.equal(s.state, 'idle');
   assert.equal(s.project, '3d-rack');
-  assert.deepEqual(effects, [{ type: 'turn-done', project: '3d-rack', tools: 1, cwd: 'C:\\Users\\you\\code\\3d-rack' }]);
+  assert.deepEqual(effects, [{ type: 'turn-done', project: '3d-rack', tools: 1, ms: 3000, cwd: 'C:\\Users\\you\\code\\3d-rack', sessionId: 'abc-123', folder: 'C:\\Users\\you\\code\\3d-rack' }]);
+  assert.equal(s.turnAt, null, 'the clock is cleared for the next turn');
   assert.equal(JSON.stringify(s).includes('npm test'), false, 'tool inputs are never kept');
+});
+
+test('a session ending says where it was, for its handoff note, and never passes on transcript_path', () => {
+  const { effects, sessions } = play([ev('SessionStart'), ev('SessionEnd', { transcript_path: 'C:\\Windows\\win.ini' })]);
+  assert.equal(sessions.has('abc-123'), false);
+  assert.deepEqual(effects, [{ type: 'session-end', sessionId: 'abc-123', cwd: 'C:\\Users\\you\\code\\3d-rack' }]);
+});
+
+test('a session ending in a folder that is not on a local drive gives no note to write', () => {
+  const { effects } = play([ev('SessionStart', { cwd: '\\\\host\\share\\x' }), ev('SessionEnd', { cwd: '\\\\host\\share\\x' })]);
+  assert.deepEqual(effects, []);
 });
 
 test('mid-turn the session is working with the current tool', () => {
@@ -54,7 +66,7 @@ test('subagents become helper crabs and go home', () => {
 
 test('a stop without work (e.g. /clear) does not celebrate; SessionEnd forgets', () => {
   const r = play([ev('SessionStart'), ev('Stop'), ev('SessionEnd')]);
-  assert.deepEqual(r.effects, []);
+  assert.deepEqual(r.effects.map(e => e.type), ['session-end'], 'no turn-done: only the handoff note is asked for');
   assert.equal(r.sessions.size, 0);
 });
 
@@ -91,10 +103,20 @@ test('summary rolls up several sessions: asking beats working', () => {
 test('successful shell commands report their meaning (tests/ship/deploy), never the text', () => {
   const r = play([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } }),
     ev('PostToolUse', { tool_name: 'PowerShell', tool_input: { command: 'vercel --prod' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'ls -la' } })]);
-  assert.deepEqual(r.effects, [{ type: 'command-ok', kind: 'tests', project: '3d-rack' }, { type: 'command-ok', kind: 'deploy', project: '3d-rack' }]);
+  assert.deepEqual(r.effects, [{ type: 'command-ok', kind: 'tests', project: '3d-rack' }, { type: 'command-ok', kind: 'deploy', project: '3d-rack', cwd: ev('x').cwd, ship: { kind: 'deploy', version: null } }]);
   assert.equal(JSON.stringify([...r.sessions.values()]).includes('npm test'), false);
   // A failing command only ever gets PreToolUse (checked against the real CLI), so it earns nothing.
   assert.deepEqual(play([ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } })]).effects, []);
+});
+
+test('a push or release outside Shellby says where, and which version, for its sticker', () => {
+  const r = play([ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'git push origin main' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'gh release create v1.0.0' } })]);
+  assert.deepEqual(r.effects, [
+    { type: 'command-ok', kind: 'ship', project: '3d-rack', cwd: ev('x').cwd, ship: { kind: 'ship', version: null } },
+    { type: 'command-ok', kind: 'deploy', project: '3d-rack', cwd: ev('x').cwd, ship: { kind: 'release', version: '1.0.0' } },
+  ]);
+  const draft = play([ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'gh release create v2.0.0 --draft' } })]);
+  assert.deepEqual(draft.effects, [{ type: 'command-ok', kind: 'deploy', project: '3d-rack' }], 'a draft release ships nothing');
 });
 
 test('a flood of fake session ids stays bounded (oldest evicted)', () => {
@@ -134,14 +156,18 @@ test('a busy port: status busy, no leaked timers across retries', async () => {
 });
 
 test("Shellby's own Claude processes are marked so the plugin ignores them", () => {
-  assert.equal(subscriptionEnv({ PATH: 'x' }).SHELLBY_OWNED, '1');
+  assert.equal(claudeEnv({ PATH: 'x' }).SHELLBY_OWNED, '1');
 });
 
 // ------------------------------------------------------------------ the listener
 
 test('acceptable(): only our hook requests, never a browser', () => {
-  const req = (h, extra = {}) => ({ method: 'POST', url: '/v1/hook', headers: { 'x-shellby': '1', 'content-type': 'application/json', ...h }, ...extra });
+  const req = (h, extra = {}) => ({ method: 'POST', url: '/v1/hook', headers: { host: '127.0.0.1:47913', 'x-shellby': '1', 'content-type': 'application/json', ...h }, ...extra });
   assert.equal(acceptable(req({})), true);
+  assert.equal(acceptable(req({ host: 'localhost:47913' })), true);
+  // DNS rebinding: the page's own name arrives as Host.
+  assert.equal(acceptable(req({ host: 'evil.example:47913' })), false);
+  assert.equal(acceptable(req({ host: undefined })), false);
   assert.equal(acceptable(req({ origin: 'https://evil.example' })), false);
   assert.equal(acceptable(req({ 'x-shellby': undefined })), false);
   assert.equal(acceptable(req({ 'content-type': 'text/plain' })), false);
@@ -235,4 +261,42 @@ test('background work is forgotten after a while, and rolls up newest first', ()
   const rolled = summarize(sessions);
   assert.deepEqual(rolled.background.map(b => `${b.program}@${b.project}`), ['npm@two', 'node@3d-rack'], 'newest first');
   assert.equal(summarize(expire(sessions, 31 * 60 * 1000)).background.length, 0, 'half an hour later it stops nagging');
+});
+
+test('a dependency checkup reports what it found and where, never its output', () => {
+  const out = { stdout: 'up to date, audited 412 packages\n\nfound 0 vulnerabilities\n', stderr: '' };
+  const r = play([ev('UserPromptSubmit'), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'cd web && npm audit' }, tool_response: out })]);
+  assert.equal(r.effects.length, 1);
+  const e = r.effects[0];
+  assert.equal(e.type, 'checkup');
+  assert.deepEqual(e.check, { ecosystem: 'npm', check: 'audit' });
+  assert.deepEqual(e.result, { status: 'clean', count: 0 });
+  assert.ok(e.dir.endsWith('web'));
+  assert.equal(JSON.stringify(r.effects).includes('audited'), false, 'the output stays out of it');
+});
+
+test('the Bugdex reads a failing command outside Shellby down to a species, never its text', () => {
+  const { bugsOf } = require('../src/main/external');
+  const start = bugsOf(ev('PreToolUse', { tool_name: 'Bash', tool_use_id: 'tu_1', tool_input: { command: 'node app.js' } }));
+  assert.equal(start.length, 1);
+  assert.equal(start[0].type, 'bug-start');
+  assert.match(start[0].key, /^[0-9a-f]{12}$/);
+  const fail = bugsOf(ev('PostToolUseFailure', { tool_name: 'Bash', tool_use_id: 'tu_1', tool_input: { command: 'node app.js' }, error: "Error: ENOENT: no such file or directory, open 'secret-plans.json'" }));
+  assert.equal(fail[0].type, 'bug-read');
+  assert.equal(fail[0].reading.outcome, 'fail');
+  assert.equal(fail[0].reading.hit.species, 'shell-less-hermit');
+  assert.ok(!JSON.stringify(fail).includes('secret-plans') && !JSON.stringify(fail).includes('node app.js'), 'no command or output leaves');
+  const pass = bugsOf(ev('PostToolUse', { tool_name: 'Bash', tool_use_id: 'tu_2', tool_input: { command: 'node app.js' }, tool_response: { stdout: 'listening', stderr: '' } }));
+  assert.equal(pass[0].reading.outcome, 'pass');
+  assert.deepEqual(bugsOf(ev('PostToolUse', { tool_name: 'Write', tool_input: { file_path: 'a.js' } })), [{ type: 'bug-wrote', cwd: ev('x').cwd }]);
+  // Interrupted, backgrounded, or from a folder that isn't on a local drive: nothing.
+  assert.deepEqual(bugsOf(ev('PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'node app.js' }, error: 'ENOENT', is_interrupt: true })), []);
+  assert.deepEqual(bugsOf(ev('PreToolUse', { tool_name: 'Bash', tool_use_id: 'tu_3', tool_input: { command: 'npm run dev', run_in_background: true } })), []);
+  assert.deepEqual(bugsOf(ev('PostToolUseFailure', { cwd: '\\\\host\\share', tool_name: 'Bash', tool_input: { command: 'x' }, error: 'ENOENT' })), []);
+});
+
+test('a PostToolUseFailure keeps the session working, and reports nothing to the crab', () => {
+  const r = play([ev('UserPromptSubmit'), ev('PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'npm test' }, error: 'boom' })]);
+  assert.equal(r.s.state, 'working');
+  assert.deepEqual(r.effects, []);
 });

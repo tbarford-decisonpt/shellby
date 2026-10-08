@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { History, MAX_ENTRIES } = require('../src/main/history');
+const { History, MAX_ENTRIES, TRASH_DAYS } = require('../src/main/history');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 const transcripts = dir => fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).sort();
@@ -129,6 +129,22 @@ test('marking a conversation done survives a restart and leaves its timestamps a
   assert.equal(h.setDone('nobody', true), null);
 });
 
+test('renaming a conversation survives a restart and leaves its timestamps alone', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'a', title: 'fix the thing', cwd: 'C:/work', mode: 'ask' });
+  const { updatedAt } = h.get('a');
+
+  assert.equal(h.rename('a', '  Login\n redirect  ').title, 'Login redirect');
+  assert.equal(h.get('a').updatedAt, updatedAt, 'naming a chat is not work on it');
+  assert.equal(new History(dir).get('a').title, 'Login redirect');
+
+  assert.equal(h.rename('a', 'x'.repeat(100)).title.length, 68, 'long names are cut like generated ones');
+  assert.equal(h.rename('a', '   '), null, 'a blank name changes nothing');
+  assert.equal(h.get('a').title.startsWith('xxx'), true);
+  assert.equal(h.rename('nobody', 'hi'), null);
+});
+
 test('size() reports what the transcripts take up', () => {
   const dir = tmp();
   const h = new History(dir);
@@ -136,4 +152,164 @@ test('size() reports what the transcripts take up', () => {
   h.create({ id: 'a', title: 'one', cwd: 'C:/work', mode: 'ask' });
   h.append('a', { kind: 'user', text: 'hi' });
   assert.ok(h.size() > 0);
+});
+
+test('rewrite replaces a transcript whole (for rewind), and leaves no temp file', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'c1', title: 'x', cwd: dir, mode: 'ask' });
+  for (const text of ['one', 'two', 'three']) h.append('c1', { kind: 'user', text });
+  const kept = h.load('c1').slice(0, 1);
+  assert.equal(h.rewrite('c1', [...kept, { kind: 'rewound' }]), true);
+  assert.deepEqual(h.load('c1').map(i => i.text || i.kind), ['one', 'rewound']);
+  assert.ok(!fs.readdirSync(dir).some(f => f.endsWith('.tmp')));
+  assert.equal(h.rewrite('c1', []), true);
+  assert.deepEqual(h.load('c1'), []);
+});
+
+test('! commands and rewinds are kept in the transcript', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'c2', title: 'x', cwd: dir, mode: 'ask' });
+  h.append('c2', { kind: 'shell', command: 'git status', output: 'clean', code: 0 });
+  h.append('c2', { kind: 'rewound', conversation: true });
+  assert.deepEqual(h.load('c2').map(i => i.kind), ['shell', 'rewound']);
+});
+
+// ---- Recently deleted
+
+const DAY = 24 * 60 * 60 * 1000;
+const seed = (h, id, extra = {}) => {
+  h.create({ id, title: id, cwd: 'C:/work', mode: 'ask' });
+  if (extra.createdAt) h.get(id).createdAt = extra.createdAt;
+  h.append(id, { kind: 'user', text: `hi from ${id}` });
+};
+
+test('trash() hides a conversation from list() and get() but keeps its transcript, across a restart', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  seed(h, 'b');
+  h.trash('a', 1000);
+
+  const after = new History(dir);
+  assert.deepEqual(after.list().map(e => e.id), ['b']);
+  assert.equal(after.get('a'), null);
+  assert.deepEqual(after.trashed().map(e => [e.id, e.deletedAt]), [['a', 1000]]);
+  assert.deepEqual(transcripts(dir), ['a.jsonl', 'b.jsonl']);
+});
+
+test('restore() puts a conversation back where its start date belongs, transcript intact', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'old', { createdAt: 1 });
+  seed(h, 'mid', { createdAt: 2 });
+  seed(h, 'new', { createdAt: 3 });
+  h.saveIndex();
+  h.trash('mid');
+  h.restore('mid');
+
+  assert.deepEqual(h.list().map(e => e.id), ['new', 'mid', 'old']);
+  assert.equal(h.get('mid').deletedAt, undefined);
+  assert.deepEqual(h.trashed(), []);
+  assert.equal(h.load('mid')[0].text, 'hi from mid');
+});
+
+test('sweep() leaves binned transcripts alone', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  h.trash('a');
+  assert.equal(h.sweep(), 0);
+  assert.deepEqual(transcripts(dir), ['a.jsonl']);
+});
+
+test('a damaged trash file stops sweep() rather than letting it delete binned transcripts', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  h.trash('a');
+  fs.writeFileSync(path.join(dir, 'trash.json'), '[{"id":"a","ti');
+
+  const after = new History(dir);
+  assert.equal(after.trashIntact, false);
+  assert.equal(after.sweep(), 0);
+  assert.deepEqual(transcripts(dir), ['a.jsonl']);
+});
+
+test('purge() deletes one binned conversation for good, or all of them', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  for (const id of ['a', 'b', 'c']) { seed(h, id); h.trash(id); }
+
+  assert.equal(h.purge(['b']), 1);
+  assert.deepEqual(h.trashed().map(e => e.id).sort(), ['a', 'c']);
+  assert.deepEqual(transcripts(dir), ['a.jsonl', 'c.jsonl']);
+
+  assert.equal(h.purge(), 2);
+  assert.deepEqual(new History(dir).trashed(), []);
+  assert.deepEqual(transcripts(dir), []);
+});
+
+test(`purgeExpired() empties only what has waited ${TRASH_DAYS} days`, () => {
+  const dir = tmp();
+  const h = new History(dir);
+  const now = 100 * DAY;
+  seed(h, 'stale'); h.trash('stale', now - TRASH_DAYS * DAY - 1);
+  seed(h, 'fresh'); h.trash('fresh', now - DAY);
+
+  assert.equal(h.purgeExpired(now), 1);
+  assert.deepEqual(h.trashed().map(e => e.id), ['fresh']);
+  assert.equal(h.trashed()[0].purgeAt, now - DAY + TRASH_DAYS * DAY);
+  assert.deepEqual(transcripts(dir), ['fresh.jsonl']);
+});
+
+test('remove() is still a hard delete, for Shellby tidying up after itself', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  seed(h, 'a');
+  h.remove('a');
+  assert.deepEqual(h.trashed(), []);
+  assert.deepEqual(transcripts(dir), []);
+});
+
+test('clear() empties the list and the bin and deletes every transcript, listed or not', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  for (const id of ['a', 'b', 'c']) { h.create({ id, title: id, cwd: 'C:/work', mode: 'ask' }); h.append(id, { kind: 'user', text: 'hi' }); }
+  h.trash('c');
+  fs.writeFileSync(path.join(dir, 'orphan.jsonl'), '{}\n');
+
+  assert.equal(h.clear(), 3);
+  assert.deepEqual(h.list(), []);
+  assert.deepEqual(h.trashed(), []);
+  assert.deepEqual(transcripts(dir), []);
+
+  // And it sticks: a fresh load sees the same clean slate.
+  const after = new History(dir);
+  assert.deepEqual(after.list(), []);
+  assert.deepEqual(after.trashed(), []);
+});
+
+test('clear() still clears when the index was damaged, since a person asked for it', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'keep', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  h.append('keep', { kind: 'user', text: 'hi' });
+  fs.writeFileSync(path.join(dir, 'index.json'), '[{"id":"keep","tit');
+
+  const after = new History(dir);
+  after.clear();
+  assert.deepEqual(transcripts(dir), []);
+  assert.equal(new History(dir).indexIntact, true, 'the damaged index is replaced by a clean one');
+});
+
+test('turn check verdicts, before/after pictures and try cards are kept, so they replay and their images load later', () => {
+  const dir = tmp();
+  const h = new History(dir);
+  h.create({ id: 'c', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  h.append('c', { kind: 'checks', after: 'abc', status: 'pass', commands: [] });
+  h.append('c', { kind: 'shots', after: 'abc', url: 'http://localhost:3000/', shots: { before: 'b1', after: 'a1' } });
+  h.append('c', { kind: 'tries', runId: 'r1', firstId: 'c', n: 2, rows: [] });
+  assert.deepEqual(new History(dir).load('c').map(i => i.kind), ['checks', 'shots', 'tries']);
 });

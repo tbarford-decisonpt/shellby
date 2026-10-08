@@ -1,0 +1,186 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "weather",
+  "name": "Weather",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "What he puts on by himself when it rains, snows or blows a gale outside (Settings → Weather), and the rain around him. All yours to wear any day, too.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "sou-wester",
+      "name": "Sou'wester",
+      "description": "The brim at the back keeps the rain off his shell.",
+      "slot": "hat",
+      "pivot": [
+        4,
+        3
+      ],
+      "palette": {
+        "Y": "#ffd23f",
+        "y": "#e0a800"
+      },
+      "pixels": [
+        "...YYY...",
+        "..YYYYY..",
+        "..yyyyy..",
+        "YYYYYYYYY",
+        "YY......."
+      ]
+    },
+    {
+      "id": "rain-cape",
+      "name": "Rain Cape",
+      "description": "Buttoned to the top. He looks like a lifeboat.",
+      "slot": "neck",
+      "pivot": [
+        3,
+        0
+      ],
+      "palette": {
+        "Y": "#ffd23f",
+        "y": "#e0a800",
+        "k": "#3d2a00"
+      },
+      "pixels": [
+        "YYYYYYYY",
+        "YYYkYYYY",
+        ".yYYYYy.",
+        "..yYkY.."
+      ]
+    },
+    {
+      "id": "umbrella",
+      "name": "Umbrella",
+      "description": "Small, red, and mostly over him.",
+      "slot": "held",
+      "pivot": [
+        4,
+        6
+      ],
+      "palette": {
+        "R": "#e63946",
+        "w": "#fff4e4",
+        "k": "#4a4e69"
+      },
+      "pixels": [
+        "..RRwRR..",
+        ".RRRwRRR.",
+        "RRwRwRwRR",
+        "R.R.k.R.R",
+        "....k....",
+        "....k....",
+        "....k....",
+        "..k.k....",
+        "...kk...."
+      ]
+    },
+    {
+      "id": "umbrella-flipped",
+      "name": "Umbrella (Windy)",
+      "description": "It was fine a minute ago.",
+      "slot": "held",
+      "pivot": [
+        4,
+        6
+      ],
+      "palette": {
+        "R": "#e63946",
+        "w": "#fff4e4",
+        "k": "#4a4e69"
+      },
+      "pixels": [
+        "R.......R",
+        "RR.....RR",
+        ".RRw.wRR.",
+        "..RRwRR..",
+        "....k....",
+        "....k....",
+        "....k....",
+        "..k.k....",
+        "...kk...."
+      ]
+    },
+    {
+      "id": "bobble-hat",
+      "name": "Bobble Hat",
+      "description": "Knitted for a much bigger head.",
+      "slot": "hat",
+      "pivot": [
+        3,
+        4
+      ],
+      "palette": {
+        "R": "#457b9d",
+        "r": "#1d3557",
+        "w": "#fff4e4"
+      },
+      "pixels": [
+        "...ww...",
+        "..RrRr..",
+        ".RrRrRr.",
+        "RrRrRrRr",
+        "wwwwwwww"
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "id": "rain",
+      "name": "Rain",
+      "description": "Coming down steadily. He doesn't mind.",
+      "motion": "fall",
+      "count": 18,
+      "speed": 2.6,
+      "sprites": [
+        {
+          "palette": {
+            "b": "#9ecbff"
+          },
+          "pixels": [
+            "b",
+            "b"
+          ]
+        },
+        {
+          "palette": {
+            "b": "#7fb2e5"
+          },
+          "pixels": [
+            "b",
+            "b",
+            "b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drizzle",
+      "name": "Drizzle",
+      "description": "Not proper rain. Still, the hat.",
+      "motion": "fall",
+      "count": 8,
+      "speed": 1.6,
+      "sprites": [
+        {
+          "palette": {
+            "b": "#b8d8f5"
+          },
+          "pixels": [
+            "b"
+          ]
+        },
+        {
+          "palette": {
+            "b": "#9ecbff"
+          },
+          "pixels": [
+            "b",
+            "b"
+          ]
+        }
+      ]
+    }
+  ]
+}

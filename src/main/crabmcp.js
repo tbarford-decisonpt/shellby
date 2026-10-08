@@ -64,9 +64,9 @@ function toolsFor({ suggestions = true } = {}) {
   return suggestions ? [...CRAB_TOOLS, SUGGEST_TOOL] : CRAB_TOOLS;
 }
 
-/** --mcp-config for a conversation: one server, hosted by Shellby itself. */
-function mcpConfig() {
-  return JSON.stringify({ mcpServers: { [SERVER]: { type: 'sdk', name: SERVER } } });
+/** The mcpServers entry for the one server Shellby hosts itself. */
+function servers() {
+  return { [SERVER]: { type: 'sdk', name: SERVER } };
 }
 
 const reply = (id, result) => ({ jsonrpc: '2.0', id, result });
@@ -107,4 +107,4 @@ async function handle(message, { tools, call }) {
   }
 }
 
-module.exports = { SERVER, toolsFor, mcpConfig, handle };
+module.exports = { SERVER, toolsFor, servers, handle };

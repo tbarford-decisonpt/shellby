@@ -1,0 +1,68 @@
+/* Up the walls and across the top of the screen (src/main/climbing.js), and the
+   cheeky moves of mischief mode (src/main/pranks.js).
+
+   #pose is his whole body. On a wall or the ceiling it turns about the middle of
+   the window; main has already put the window where that brings his feet to the
+   edge (climb.js footIn), so all that happens here is the turn. The bubble and
+   the badges live outside #pose and stay the right way up. */
+#pose { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.surface-left #pose { transform: rotate(90deg); }
+.surface-right #pose { transform: rotate(-90deg); }
+.surface-ceiling #pose { transform: rotate(180deg); }
+/* Nothing to cast a shadow on, and the landing dust would puff sideways. */
+.surface-left #shadow, .surface-right #shadow, .surface-ceiling #shadow { opacity: 0; }
+
+/* His bubble goes where his body isn't: away from the right wall, under him on the ceiling. */
+.surface-right #bubble { right: auto; left: 6px; }
+.surface-ceiling #bubble { top: auto; bottom: 6px; }
+.surface-ceiling #bubble::after { bottom: auto; top: -5px; border-top: 0; border-bottom: 5px solid var(--sand); }
+
+/* Climbing is harder going than walking: shorter, busier steps and a grip
+   on every one. */
+.surface-left.walking #sprite, .surface-right.walking #sprite, .surface-ceiling.walking #sprite { animation: climb-bob .36s ease-in-out infinite; }
+.surface-left.walking [class*="part-legs"], .surface-right.walking [class*="part-legs"], .surface-ceiling.walking [class*="part-legs"] { animation-duration: .16s; }
+@keyframes climb-bob { 50% { transform: translateY(1px) scale(1.02, .97); } }
+
+/* Just stuck to it after a throw: legs scrabbling for a hold. */
+body.bit-grip #sprite { transform-origin: 50% 100%; animation: grip-on .9s cubic-bezier(.3, 1.4, .5, 1); }
+body.bit-grip [class*="part-legs"] { animation: leg .07s steps(1) infinite; }
+body.bit-grip .part-eyes { animation: none; transform: scaleY(1.4); }
+@keyframes grip-on { 0% { transform: scale(1.25, .7); } 40% { transform: scale(.94, 1.06); } }
+
+/* Hanging from the top of the screen, legs swinging. */
+body.bit-dangle [class*="part-legs"] { transform-origin: 50% 0%; animation: dangle 1s ease-in-out infinite; }
+body.bit-dangle .part-legs-b { animation-delay: -.5s; }
+body.bit-dangle .part-claw { animation: wave .5s ease-in-out infinite; }
+
+/* ---------- mischief ---------- */
+
+/* Snap! The claw shoots out at your cursor and holds on. */
+body.bit-pinch #sprite { transform-origin: 50% 100%; animation: pinch-lunge .5s cubic-bezier(.3, 1.6, .5, 1) forwards; }
+body.bit-pinch .part-claw { animation: pinch-snap .14s steps(1) 4, pinch-hold .1s .56s forwards; }
+body.bit-pinch .part-eyes { animation: none; transform: scaleY(.45); }
+@keyframes pinch-lunge { 40% { transform: rotate(calc(var(--dir) * 8deg)) translateX(calc(var(--dir) * 4px)) scale(1.04, .94); } 100% { transform: rotate(calc(var(--dir) * 5deg)) translateX(calc(var(--dir) * 3px)); } }
+@keyframes pinch-snap { 0% { transform: rotate(-34deg) translateX(3px); } 50% { transform: rotate(6deg) translateX(4px); } }
+@keyframes pinch-hold { to { transform: rotate(4deg) translateX(4px); } }
+
+/* Braced against the window he's on, shoving it along. */
+body.bit-shove #sprite { transform-origin: 50% 100%; animation: shove 1.2s cubic-bezier(.4, 0, .3, 1); }
+body.bit-shove [class*="part-legs"] { animation: leg .1s steps(1) infinite; }
+body.bit-shove .part-claw { transform: rotate(-12deg) translateX(3px); }
+body.bit-shove .part-eyes { animation: none; transform: scaleY(.3); }
+@keyframes shove {
+  0% { transform: none; }
+  30% { transform: rotate(calc(var(--dir) * -10deg)) scale(1.08, .9); }
+  42% { transform: rotate(calc(var(--dir) * 14deg)) translateX(calc(var(--dir) * 4px)); }
+  70% { transform: rotate(calc(var(--dir) * 6deg)) translateX(calc(var(--dir) * 2px)); }
+  100% { transform: none; }
+}
+
+/* Walking backwards, hauling a note in by its corner: leaning back on it. */
+.hauling #sprite { transform-origin: 50% 100%; animation: haul .7s ease-in-out infinite; }
+.hauling .part-claw { animation: none; transform: rotate(-20deg) translateX(2px); }
+.hauling .part-eyes { transform: scaleY(.55); }
+@keyframes haul { 0%, 100% { transform: rotate(calc(var(--dir) * -9deg)); } 50% { transform: rotate(calc(var(--dir) * -13deg)) translateY(1px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  body.bit-pinch #sprite, body.bit-shove #sprite, .hauling #sprite, body.bit-grip #sprite { animation: none; }
+}

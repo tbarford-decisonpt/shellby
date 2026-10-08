@@ -1,0 +1,5 @@
+{
+  "command": "node app.js",
+  "isError": false,
+  "output": "listening on 3000"
+}

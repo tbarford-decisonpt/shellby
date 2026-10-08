@@ -3,6 +3,10 @@
 // can animate it; legs are split into alternating groups so they can scuttle.
 (function (root) {
   const SVG_NS = 'http://www.w3.org/2000/svg';
+  // A pack's colours become fill attributes: only plain #rrggbb ones are used
+  // (the same check minishell.js makes); anything else leaves the pixel empty.
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const colourOf = (pal, ch) => { const c = pal?.[ch]; return typeof c === 'string' && HEX.test(c) ? c : null; };
 
   // Connected components (8-neighbour) of all pixels belonging to `part`.
   function components(pixels, parts, part) {
@@ -71,7 +75,7 @@
         let x = 0;
         while (x < row.length) {
           const ch = row[x];
-          const color = pal[ch];
+          const color = colourOf(pal, ch);
           if (!color) { x++; continue; }
           const gname = groupName(ch, x, y);
           if (!gname) { x++; continue; }
@@ -99,6 +103,23 @@
       return part === 'legs' ? `legs-${legGroup[`${x},${y}`] || 'a'}` : part;
     });
     if (home && home !== 'none') paintGrid(home.pixels, home.palette || {}, 0, 0, () => 'shell');
+
+    // Stickers for the projects he's shipped (src/main/stickers.js), already
+    // placed by main in stacking order. They move with the shell, and there's
+    // nowhere to put them while he's between shells.
+    const stickerGroups = [];
+    if (home !== 'none') {
+      for (const st of opts.stickers || []) {
+        if (!st || !Array.isArray(st.pixels) || !st.palette) continue;
+        const name = `sticker-${stickerGroups.length}`;
+        const cls = ['part part-shell sticker', `tier-${st.tier || 'paper'}`, st.weather && st.weather !== 'fresh' ? `weather-${st.weather}` : ''].filter(Boolean).join(' ');
+        paintGrid(st.pixels, st.palette, st.x, st.y, () => name, () => cls);
+        if (groups[name]) {
+          if (st.id) groups[name].dataset.sticker = st.id;
+          stickerGroups.push(name);
+        }
+      }
+    }
 
     // Accessories: each joins the animation of the part it follows (same CSS
     // classes) and is painted above the crab, ordered by slot.
@@ -134,9 +155,10 @@
     };
     for (const name of Object.keys(box)) setPivot(groups[name], pivotOf(name));
     for (const { name, follows } of accGroups) setPivot(groups[name], pivotOf(follows) || [(all.x0 + all.x1) / 2, (all.y0 + all.y1) / 2]);
+    for (const name of stickerGroups) setPivot(groups[name], pivotOf('shell'));
 
-    // Paint order: legs behind body, shell on top of body, eyes, then outfit.
-    for (const name of ['legs-a', 'legs-b', 'stalks', 'body', 'claw', 'extra', 'shell', 'eyes']) {
+    // Paint order: legs behind body, shell on top of body, its stickers, eyes, then outfit.
+    for (const name of ['legs-a', 'legs-b', 'stalks', 'body', 'claw', 'extra', 'shell', ...stickerGroups, 'eyes']) {
       if (groups[name]) svg.appendChild(groups[name]);
     }
     for (const { name } of accGroups) svg.appendChild(groups[name]);
@@ -163,7 +185,7 @@
     pixelsIn.forEach((row, y) => {
       let x = 0;
       while (x < row.length) {
-        const color = pal[row[x]];
+        const color = colourOf(pal, row[x]);
         if (!color) { x++; continue; }
         let end = x + 1;
         while (end < row.length && row[end] === row[x]) end++;
