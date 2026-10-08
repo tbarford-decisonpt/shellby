@@ -8,7 +8,7 @@ const { clampToDisplays, panelPosition } = require('../src/main/placement');
 const { validate, loadSkins, BUILTIN_DIR } = require('../src/main/skins');
 const { Config, CLI_MODE, MODES } = require('../src/main/config');
 const { History } = require('../src/main/history');
-const { claudeEnv, billingEnv, findClaude } = require('../src/main/claude-cli');
+const { claudeEnv, billingEnv, findClaude, skipSettings } = require('../src/main/claude-cli');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 
@@ -104,6 +104,21 @@ test('claudeEnv strips every variable that would switch to API billing when aske
 test('billingEnv names only the billing variables that are actually set', () => {
   assert.deepEqual(billingEnv({ PATH: 'x', ANTHROPIC_API_KEY: 'sk', CLAUDE_CODE_USE_VERTEX: '' }), ['ANTHROPIC_API_KEY']);
   assert.deepEqual(billingEnv({ PATH: 'x' }), []);
+});
+test('skipSettings leaves your settings out of a draft, unless they are how you sign in', () => {
+  const home = tmp();
+  const SKIP = ['--setting-sources', ''];
+  assert.deepEqual(skipSettings(home), SKIP, 'no settings at all');
+  fs.mkdirSync(path.join(home, '.claude'));
+  const write = (name, text) => fs.writeFileSync(path.join(home, '.claude', name), text);
+  write('settings.json', '\uFEFF{ "hooks": {}, "enabledPlugins": { "a@b": true } }');
+  assert.deepEqual(skipSettings(home), SKIP, 'hooks and plugins are what it saves');
+  write('settings.local.json', '{ "apiKeyHelper": "get-key.cmd" }');
+  assert.deepEqual(skipSettings(home), [], 'a key helper signs you in');
+  write('settings.local.json', '{ "env": { "ANTHROPIC_BASE_URL": "https://proxy" } }');
+  assert.deepEqual(skipSettings(home), [], 'env can route Claude Code elsewhere');
+  write('settings.local.json', '{ not json');
+  assert.deepEqual(skipSettings(home), [], "can't tell, so keep them");
 });
 test('findClaude honours SHELLBY_CLAUDE_PATH and returns null when missing', () => {
   const dir = tmp();
