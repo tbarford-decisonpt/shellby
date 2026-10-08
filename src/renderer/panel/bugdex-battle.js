@@ -72,7 +72,7 @@
     el.setAttribute('aria-label', b.over === 'caught' ? `${b.name} caught. Watch the battle.` : `${b.name} on the loose, ${Math.round(share * 100)}% HP. Watch the battle.`);
     el.title = 'Watch the bug battle';
     el.replaceChildren(...[
-      h('span', { class: 'bb-chip-art', 'aria-hidden': 'true' }, sprite(b, fitPx(b.pixels, 16))),
+      h('span', { class: 'bb-chip-art', 'aria-hidden': 'true' }, sprite(b.chip || b, fitPx((b.chip || b).pixels, 16))),
       b.over === 'caught' ? h('span', { class: 'bb-chip-name', text: '✓' }) : null,
       h('span', { class: `bb-chip-hp ${hpTone(share)}`, 'aria-hidden': 'true' }, h('i', { style: `width:${Math.round(share * 100)}%` })),
       isNew && live(b) ? h('span', { class: 'bb-chip-alert', 'aria-hidden': 'true', text: '!' }) : null,

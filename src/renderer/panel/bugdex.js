@@ -58,8 +58,9 @@
   const times = n => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
   const habitatOf = s => dex()?.habitats.find(x => x.id === s.habitat) || null;
 
-  // Its pixels, scaled to fit a box (main has already made seen ones silhouettes).
-  const fit = (s, box) => Math.max(2, Math.floor(box / Math.max(s.pixels.length, ...s.pixels.map(r => r.length))));
+  // Its pixels, scaled to fit a box (main has already made seen ones silhouettes):
+  // whole screen pixels per art pixel where that leaves room, else just fitting.
+  const fit = (s, box) => { const k = box / Math.max(s.pixels.length, ...s.pixels.map(r => r.length)); return k >= 2 ? Math.floor(k) : k; };
   const hasArt = s => Array.isArray(s?.pixels) && s.pixels.length > 0 && s.palette;
   const art = (s, box) => SB.Sprite.grid(s.pixels, s.palette, { px: fit(s, box) });
   const unknownArt = () => h('span', { class: 'bd-unknown', 'aria-hidden': 'true', text: '???' });

@@ -365,7 +365,8 @@ src/main/        Electron main process
   eggs.js          crab eggs (pure): laying, the hash on your card, hatching, the baby both crabs get; wiring/social.js ties both in
   crab-line.js     the crab in a line (pure): the PR badge's text and the bring-home commit trailer
   bugdex.js        the Bugdex (pure): catches, stages, badges, the league, sync and the friends' share; bugdex/ holds species,
-                   detect, lifecycle, cheats, art, lore and battle (the bug battle, in memory only); wiring/bugdex.js ties it in
+                   detect, lifecycle, cheats, art, lore, battle (the bug battle, in memory only) and portraits/ (the
+                   big drawings, one file per habitat; scripts/bugdex-sheet.js draws them to a PNG); wiring/bugdex.js ties it in
   fileindex.js     @ mentions: the files in a conversation's folder and a fuzzy match over them
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)

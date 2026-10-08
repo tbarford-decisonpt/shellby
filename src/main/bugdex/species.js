@@ -7,6 +7,9 @@
 // Pure data: no I/O, no clock. Dex numbers are given out once and never
 // reused (test/bugdex-species.test.js pins them). See docs/plans/bugdex.md §2.
 
+const { PORTRAITS } = require('./portraits');
+const { inked } = require('./art');
+
 const RARITY = Object.freeze({
   common: Object.freeze({ label: 'Common' }),
   uncommon: Object.freeze({ label: 'Uncommon' }),
@@ -35,6 +38,14 @@ const TYPES = Object.freeze({
 const LIVE_PHASE = 3;
 
 const K = '#2b2d42'; // outlines and eyes
+
+// The big shaded drawing for the book and the battle (portraits/), inked.
+function portraitOf(id) {
+  const p = PORTRAITS[id];
+  if (!p) return null;
+  const a = inked(p);
+  return Object.freeze({ pixels: Object.freeze(a.pixels), palette: Object.freeze(a.palette) });
+}
 
 // Each species: pixel art (one character per pixel, '.' is empty, at most 8×8),
 // its line for the book, and a hint for when you haven't caught it yet that
@@ -386,6 +397,7 @@ const SPECIES = Object.freeze([
   remedies: s.remedies ? Object.freeze([...s.remedies]) : null,
   pixels: Object.freeze([...s.pixels]),
   palette: Object.freeze({ ...s.palette }),
+  portrait: portraitOf(s.id),
 })));
 
 // Each habitat has a boss: catch it and you earn the habitat's badge. Badges

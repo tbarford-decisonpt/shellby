@@ -15,6 +15,11 @@
   (`wiring/bugdex.js handle`).
 - **Sprites are at most 8×8** (like finds), so the jar (`art.jarArt`) is the art plus a
   glass rim and a cork, at most 12×11, with no scaling.
+- **Portraits for the book.** Each species also has a portrait (`bugdex/portraits/`, one
+  file per habitat): up to 22×22, shaded, inked round the edge by `art.inked`. The page,
+  the catch card, the sparkly picture and the battle show the portrait; the jar, the tank,
+  the tide pool and the battle chip keep the 8×8 sprite. `node scripts/bugdex-sheet.js`
+  draws them all to a PNG.
 - **Flaky ghosts and audits don't open encounters.** A flake is a Flaky Phantom *seen*; the
   detective's own "fixed for good" (20 clean runs over 3 new trees) is the proof, so it
   catches directly. A patched audit catches the Barnacled Anchor the same way.

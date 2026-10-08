@@ -267,7 +267,8 @@ function wireBugdex(d) {
         ...battle.view(b, sp.name),
         no: sp.no, name: sp.name, blurb: sp.blurb, habitat: sp.habitat || 'none', habitatName: h?.name || '', habitatIcon: h?.icon || '',
         typeLabel: TYPES[sp.type]?.label || '', typeColor: TYPES[sp.type]?.color || '#888888',
-        pixels: sp.pixels, palette: sp.palette,
+        pixels: (sp.portrait || sp).pixels, palette: (sp.portrait || sp).palette,
+        chip: { pixels: sp.pixels, palette: sp.palette }, // the desk sprite, for the chip under the tabs
         badge: boss ? { name: boss.badge.name, pixels: boss.badge.pixels, palette: boss.badge.palette } : null,
         tabId: meta.tabId && tabs.has(meta.tabId) ? meta.tabId : null, project: meta.project || '', source: meta.source || 'bash',
       };
