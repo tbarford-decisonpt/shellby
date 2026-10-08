@@ -20,7 +20,7 @@
       h('span', { class: 'tk-layout-name', text: l.name }),
       h('span', { class: 'muted small', text: ` ${sizeName(l.size)}, ${plural(l.pieces, 'piece')}${l.up ? ' · up for the season' : ''}` }),
       h('label', { class: 'sr-only', for: `tkLayoutSeason-${l.id}`, text: `Season for ${l.name}` }),
-      h('select', { id: `tkLayoutSeason-${l.id}`, class: 'tk-layout-season', dataset: { act: 'season' } },
+      h('select', { id: `tkLayoutSeason-${l.id}`, class: 'field slim tk-layout-season', dataset: { act: 'season' } },
         h('option', { value: '', text: 'Any time', selected: !l.season }),
         ...lv.seasons.map(s => h('option', { value: s.id, text: `${s.emoji} ${s.name}`, selected: l.season === s.id }))),
       h('button', { type: 'button', class: 'btn ghost slim-btn', dataset: { act: 'use' }, disabled: editing, title: editing ? 'Finish decorating first' : null, 'aria-label': `Put up ${l.name}` }, 'Put up'),
