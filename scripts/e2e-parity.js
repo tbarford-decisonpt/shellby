@@ -1,3 +1,4 @@
+// ci: the terminal's conveniences: rewind, ! commands, @ files, Up and Ctrl+R, effort, Rules, MCP
 // End-to-end check of the Claude Code terminal's conveniences in Shellby, against
 // the dev app over CDP with the fake Claude CLI (test/fixtures/fake-claude.js):
 // rewind (conversation and code), ! commands, @ file mentions, Up and Ctrl+R

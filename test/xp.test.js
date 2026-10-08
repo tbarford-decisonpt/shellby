@@ -64,6 +64,18 @@ test('unknown kinds, bad clocks and junk state award nothing and never throw', (
   assert.deepEqual([s.total, s.recent.task, s.log, s.byDevice, s.daily, s.red], [0, [], [], {}, {}, {}]);
 });
 
+test('a pass on the very code that failed is a flake: no "green again", and still red for the real fix', () => {
+  const red = markRed(normalizeXp(null), 'reef', T0);
+  const flake = award(red, 'tests', T0 + 1000, { project: 'reef', sameCode: true });
+  assert.equal(flake.kind, 'tests');
+  const fix = award(flake.state, 'tests', T0 + 2000, { project: 'reef' });
+  assert.equal(fix.kind, 'fixed', 'the pass on changed code still counts');
+});
+
+test("the new moments pay: a merge, CI back to green, work home green, a helper's find", () => {
+  for (const kind of ['merged', 'cifix', 'home', 'helped']) assert.ok(award(null, kind, T0, { project: 'reef' }).gained > 0, kind);
+});
+
 test('award never mutates the state it was given', () => {
   const s = markRed(normalizeXp({ total: 50 }), 'reef', T0);
   const copy = JSON.stringify(s);

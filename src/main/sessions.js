@@ -8,6 +8,7 @@ const workPose = require('./work-pose');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
 const turncost = require('./turncost');
+const planPace = require('./plan-pace');
 const mods = require('./mods');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
@@ -66,7 +67,9 @@ class SessionManager extends EventEmitter {
       title: historyEntry?.title || title || 'New task',
       saved: !!historyEntry,       // has a history entry (created on first send)
       named: false,                // renamed before its first send: keep that name
-      outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
+      // 'ok' | 'error' | 'stopped' after the last turn; 'cut' when Shellby went
+      // down mid-turn (history.takeCutOff), until a turn here finishes.
+      outcome: historyEntry?.lastOutcome === 'cut' ? 'cut' : null,
       unread: false,
       worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
       // A branch of another conversation (branch.js): where it came from, the
@@ -90,6 +93,9 @@ class SessionManager extends EventEmitter {
     if (historyEntry) for (const i of this.history.load?.(tabId) || []) if (i?.kind === 'suggest') tab.offered.add(i.feature);
     this.tabs.set(tabId, tab);
     session.takeSteers = () => this.takeSteers(tab);
+    // Where it works, for the plain words on its permission cards (plain-words.js).
+    session.inCopy = () => !!tab.worktree;
+    session.copyOf = () => tab.worktree?.originalCwd || null;
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
@@ -98,6 +104,7 @@ class SessionManager extends EventEmitter {
     session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
     session.on('tokens', () => this.changed());
+    session.on('plan', () => this.changed());
     session.on('crew', () => this.changed());
     session.on('tool', () => this.changed());
     session.on('exit', () => {
@@ -139,7 +146,10 @@ class SessionManager extends EventEmitter {
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
-      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
+      if (tab.saved) {
+        this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
+        this.history.markTurn?.(tab.id, null);
+      }
     }
     if (tab.saved) this.history.append(tab.id, item);
     const ready = review.next(tab.ready, item);
@@ -205,6 +215,8 @@ class SessionManager extends EventEmitter {
     }
     if (this.decorate) prompt = this.decorate(tab, prompt);
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
+    // On disk at once, so a power cut mid-turn still leaves it marked unfinished.
+    this.history.markTurn?.(tab.id, { turnId: userItem.turnId, at: Date.now() });
     this.changed();
     return userItem.turnId;
   }
@@ -319,6 +331,9 @@ class SessionManager extends EventEmitter {
   close(tabId, { kill = false } = {}) {
     const tab = this.tabs.get(tabId);
     if (!tab) return;
+    // Closed by hand mid-turn: no result is coming, and it wasn't cut off either.
+    // Quitting (kill) leaves the mark, so the next start says what didn't finish.
+    if (!kill && tab.saved && tab.session.busy) this.history.markTurn?.(tab.id, null);
     tab.session.removeAllListeners();
     if (kill) tab.session.kill();
     tab.session.close();
@@ -378,6 +393,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       turnTokens: t.session.turn?.tokens || 0, // the running turn's so far, beside its clock
+      plan: planPace.outlook(t.session.turn?.plan), // its step through Claude's to-do list and when that ends
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       nudge: turncost.nudge(t.session.context, t.session.growths),

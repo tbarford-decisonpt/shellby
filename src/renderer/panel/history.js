@@ -56,7 +56,8 @@
     const tick = s.done ? 'Mark as not done' : 'Mark as done';
     return h('li', { class: `history-item${open ? ' current' : ''}${s.done ? ' done' : ''}` },
       h('button', { class: 'history-open', type: 'button', onclick: () => SB.openHistory(s.id) },
-        h('div', { class: 'h-title' }, s.lastOutcome === 'error' ? h('span', { class: 'h-dot err', title: 'Ended with an error' }) : null, s.title),
+        h('div', { class: 'h-title' }, s.lastOutcome === 'error' ? h('span', { class: 'h-dot err', title: 'Ended with an error' })
+          : s.lastOutcome === 'cut' ? h('span', { class: 'h-dot cut', title: 'Cut off before it finished' }) : null, s.title),
         h('div', { class: 'h-meta' },
           h('span', { text: SB.relTime(s.updatedAt) }),
           h('span', { text: SB.shortPath(s.cwd, 30) }),

@@ -101,6 +101,8 @@ function registerRepoIpc(ipcMain, d) {
       d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
       d.noteWeek('home'); // the weekly card's "brought N branches home"
       d.questDone?.('home');
+      // Home with its tests passing (not forced past red): Claude's work, landed and proven.
+      if (green.green) d.awardXp('home', { project: path.basename(w.originalCwd || w.root || ''), label: `Brought ${w.branch} home green` });
       d.backlogHome?.(tabId); // a Next up task's work came home: offer to tick it off (wiring/backlog.js)
       if (firstTry) d.surprises.landed(tabId, { branch: w.branch, base: w.base });
     }

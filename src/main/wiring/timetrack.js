@@ -25,6 +25,7 @@ const streaks = require('../streaks');
 const timetrack = require('../timetrack');
 const { TimeTracker } = require('../timetrack-service');
 const { TimeSync } = require('../timesync');
+const { markRed } = require('../xp');
 const toast = require('../toast');
 
 /** d: what main shares (main.js `shared`). */
@@ -224,7 +225,9 @@ function wireTimetrack(d) {
       notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Answer' });
       return;
     }
-    notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
+    // The plain sentence leads, but the command itself always follows: a notification is decided on too.
+    const what = d.config.get('plainCards') !== false && item.plain ? `${item.plain.ask}: ${item.detail || item.toolName}` : `${item.label} ${item.detail}`;
+    notify('Shellby needs your OK', `${who}: ${what}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
   }
 
   function onResult(tabId, item, tab) {
@@ -444,6 +447,11 @@ function wireTimetrack(d) {
     d.external.on('command-ok', e => {
       d.awardXp(e.kind, { project: e.project });
       if (e.cwd && e.ship) d.shipped(e.cwd, e.ship.kind, { version: e.ship.version });
+    });
+    d.external.on('command-fail', e => {
+      if (e.kind !== 'tests' || !e.project || d.CAPTURE || !d.config) return;
+      d.config.set({ xp: markRed(d.config.get('xp'), e.project, Date.now()) });
+      d.noteRed?.(`t:${e.project}`);
     });
     d.external.on('checkup', e => d.checkedUp(e.dir, e.check, e.result));
     // The Bugdex, outside Shellby too: readings only, never what a command printed (external.js bugsOf).

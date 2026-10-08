@@ -1,3 +1,4 @@
+// ci: the Projects inbox: stale branches in a throwaway repo, Delete a merged one, Keep the other
 // End-to-end check of the Projects inbox against the dev app over CDP
 // (throwaway profile, no GitHub). A real repository with a remote, a merged
 // branch and an old one with a commit nowhere else is added to the list; then:

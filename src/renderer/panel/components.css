@@ -157,6 +157,7 @@ body.solo #paletteBtn, body.solo #settingsBtn, body.solo .win-btns .sep { displa
 @media (prefers-reduced-motion: reduce) { .ti-bg { animation: none; } }
 .ti-ok { background: var(--glass); color: #06201b; }
 .ti-err { background: var(--danger); color: #fff; }
+.ti-cut { background: var(--coral); color: #2a0f0a; font-size: var(--fs-10); }
 .ti-routine { color: var(--glass); font-size: var(--fs-12); }
 .ti-term { color: var(--sand-dim); font-size: var(--fs-10); letter-spacing: -1px; }
 @keyframes tipulse { 50% { transform: scale(1.15); } }
@@ -620,6 +621,7 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
 /* history extras */
 .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .h-dot.err { background: var(--danger); }
+.h-dot.cut { background: var(--coral); }
 .h-open { color: var(--glass); }
 .h-done { color: var(--glass); }
 

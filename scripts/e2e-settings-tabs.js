@@ -1,3 +1,4 @@
+// ci: Settings' four tabs: what's on each, the arrow keys, jumps by name
 // End-to-end check of the Settings tabs against the dev app over CDP: each tab
 // shows only its own sections, the arrow keys walk them, jumps by name (the tray,
 // the palette) land on the right tab, and just-the-crab starts on Shellby.

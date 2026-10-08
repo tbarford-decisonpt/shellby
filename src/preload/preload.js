@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('shellby', {
   updateClaude: invoke('claude:update'),
   setClaudeUpdateMode: mode => ipcRenderer.invoke('claude:update-mode', String(mode)),
   onClaudeUpdate: on('claude:update'),
+  dismissClaudeTricks: invoke('claude:tricks-dismiss'),
+  onClaudeTricks: on('claude:tricks'), // what a newer Claude Code can do (claude-tricks.js)
 
   // tabs + tasks
   newTab: invoke('tab:new'),

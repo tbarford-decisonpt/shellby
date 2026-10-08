@@ -167,7 +167,7 @@
       switch (item.kind) {
         case 'user':
           // Something you just sent always comes into view, even if you'd scrolled up.
-          if (!replay) this.stuck = true;
+          if (!replay) { this.stuck = true; this.dropCutOff(); }
           return this.renderUser(item);
         case 'text': {
           const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
@@ -204,6 +204,7 @@
           h('span', {}, h('b', { text: item.title || (item.what === 'landing' ? 'Clean landing' : 'Critical hit!') }), ` ${item.text || ''}`)));
         case 'suggest': return this.renderSuggestion(item, replay); // feed-asks.js
         case 'handoff': return this.renderHandoff(item, replay);
+        case 'cutoff': return this.renderCutOff(item, replay);
         case 'branched': return this.renderBranched(item);
         case 'branched-off': return this.renderBranchedOff(item);
         case 'checkpoint': return; // where the files stood, for branching: nothing to show
@@ -308,9 +309,11 @@
       }
       this.tools.set(item.id, el);
       this.append(el, item.parent);
-      if (!replay && !item.sub) this.setStatus(`${item.label} ${item.detail}`.trim());
+      // In plain words when there are some (plain-words.js), else the step as Claude Code names it.
+      const now = state.settings.plainCards !== false && item.doing ? `${item.doing}…` : `${item.label} ${item.detail}`.trim();
+      if (!replay && !item.sub) this.setStatus(now);
       const lane = item.parent && this.lanes.get(item.parent);
-      if (lane && !replay) lane.setActivity(`${item.label} ${item.detail}`);
+      if (lane && !replay) lane.setActivity(now);
     }
 
     renderToolResult(item) {

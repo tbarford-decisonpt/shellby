@@ -1,3 +1,4 @@
+// ci: his life between tasks: scenes, gifts, the Finds and Us pages, your day, birthdays, hide and seek, fetch
 // End-to-end check of his life between tasks (src/main/life.js and friends),
 // against the dev app over CDP with the fake CLI (isolated profile), in
 // just-the-crab mode, since none of this needs Claude:

@@ -1,3 +1,4 @@
+// ci: streaks and nudges in a throwaway git repo: the streak, the nudge, Pick it up
 // End-to-end check of streaks and nudges against the dev app over CDP, with
 // the fake CLI and a REAL throwaway git repo whose last commit is 6 days old.
 // A task in it starts a streak and registers the project; a nudge fires

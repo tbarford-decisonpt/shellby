@@ -108,6 +108,22 @@ test('bring it home: commits what was left, merges into the base, then tidies up
   } finally { t.done(); }
 });
 
+test('a merge home is titled with what the work is, not the branch', async () => {
+  const t = setup();
+  try {
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Add c' });
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'new\n');
+    fs.writeFileSync(path.join(t.dir, 'd.txt'), 'meanwhile\n');
+    t.g(t.dir, 'add', 'd.txt');
+    t.g(t.dir, 'commit', '-q', '-m', 'meanwhile');
+    const r = await worktrees.bringHome(w, { message: 'feat: add c\n\nFrom the conversation: make c' });
+    assert.deepEqual(r, { ok: true, merged: true, commits: 1 });
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%s'), 'feat: add c');
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%b'), `Brought home from ${w.branch}`);
+    assert.equal(t.g(t.dir, 'rev-list', '--count', '--merges', '-1', 'HEAD'), '1', 'a real merge, not a fast-forward');
+  } finally { t.done(); }
+});
+
 test('a copy can be brought home more than once, and its diffs outlive it', async () => {
   const t = setup();
   try {

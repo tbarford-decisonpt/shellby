@@ -99,6 +99,7 @@ function wireProgress(d) {
     if (r.finished) awardXp('questline');
   }
 
+  /** Pay XP for an event and show it. -> xp.award()'s result (its `kind` says what it counted as), or undefined. */
   function awardXp(kind, meta = {}) {
     if (kind === 'ship') setTimeout(d.checkNudges, 3000); // a push means a fresh commit: update streak data
     if (d.CAPTURE || !d.config) return;
@@ -113,7 +114,7 @@ function wireProgress(d) {
     // Shipping is counted where the project is known (recordShipped).
     if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
     if (r.kind === 'fixed' && meta.project) noteFix(`t:${meta.project}`);
-    if (!r.gained) { if (r.changed) d.send(d.panel, 'xp', xpView()); return; }
+    if (!r.gained) { if (r.changed) d.send(d.panel, 'xp', xpView()); return r; }
     d.send(d.critter, 'critter:xp', { amount: r.gained, kind: r.kind });
     for (const b of r.bounties) d.send(d.panel, 'xp:bounty', b);
     d.lastXp = { amount: r.gained, at: Date.now() };
@@ -121,7 +122,7 @@ function wireProgress(d) {
     setTimeout(d.refreshStatusLine, 15500); // let "+25 XP" fade from the status line
     if (character.isStatKind(r.kind)) newClassFound(r.state);
     d.send(d.panel, 'xp', xpView());
-    if (!r.levelUp) return;
+    if (!r.levelUp) return r;
     d.levelUpAt = r.after.level;
     const text = (LEVELUP_TEXT[r.kind] || (() => `${AWARDS[r.kind].label}.`))(meta);
     // The new title is already the card's heading.
@@ -136,6 +137,7 @@ function wireProgress(d) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
       d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
     }
+    return r;
   }
 
   // The character sheet (character.js): the first time his stats make him a

@@ -11,8 +11,9 @@ const { installCopyDeps, depsSentence } = require('./copy-deps');
 const worktrees = require('./worktrees');
 
 const NAME_THE_BRANCH = 'Not yet: before anything changes, Shellby moves this conversation into its own copy of the repository, on a new branch. '
-  + 'Run no more tools this turn. Reply with one line, "Branch: <name>", where <name> is 2 to 5 lowercase words joined by hyphens that say what this work is '
-  + '(for example "Branch: fix-login-redirect"). You will carry on from where you were, in the copy.';
+  + 'Run no more tools this turn. Reply with one line, "Branch: <name>", where <name> is 2 to 5 lowercase words joined by hyphens that say what this work is, '
+  + 'the first word its kind: feat, fix, perf, refactor, docs, test or chore '
+  + '(for example "Branch: fix-login-redirect" or "Branch: feat-gitlab-merge-requests"). You will carry on from where you were, in the copy.';
 
 const samePath = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
 

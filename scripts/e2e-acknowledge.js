@@ -1,3 +1,4 @@
+// ci: new badges: hover to see, Mark all seen, closing unlock cards, Dismiss all
 // End-to-end check of acknowledging new things against the dev app over CDP:
 // hovering a new Wardrobe item clears its badge, "Mark all seen" clears the
 // rest, closing an unlock card counts as seeing its rewards (letting it time

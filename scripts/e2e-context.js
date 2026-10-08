@@ -1,3 +1,4 @@
+// ci: the context meter per tab, what each turn cost, the filling-up and crowded offer, Compact and Start fresh
 // End-to-end check of the context meter against the dev app over CDP, driven by
 // the fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
 //   1. A reply's token counts fill the hairline under its tab and the chip,

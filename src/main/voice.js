@@ -29,9 +29,9 @@ const GAP = Object.freeze({ quiet: Infinity, work: 40 * SECOND, normal: 40 * SEC
 // 'chatty' shortens every cooldown; 'normal' uses them as written.
 const COOLDOWN_SCALE = Object.freeze({ quiet: Infinity, work: 1, normal: 1, chatty: 0.4 });
 // What 'work' still says: a task done or failed, a new trick, a trophy's one
-// line, a dev server falling over. Asking is the raised claw (see OCCASIONS),
+// line, a dev server falling over, a fix or a merge. Asking is the raised claw (see OCCASIONS),
 // and a red build is the renderer's, so both show whatever he's set to.
-const WORK_OCCASIONS = new Set(['success', 'error', 'learned', 'unlocked', 'serverDown']);
+const WORK_OCCASIONS = new Set(['success', 'error', 'learned', 'newTricks', 'unlocked', 'serverDown', 'fixed', 'merged']);
 // The bubble holds two short lines. Longer than this and he'd be clipped.
 const MAX_LINE = 24;
 
@@ -49,12 +49,15 @@ const OCCASIONS = Object.freeze({
   success: { every: 0, ttl: 6 * SECOND },
   error: { every: 0, ttl: 7 * SECOND },
   learned: { every: 0, ttl: 8 * SECOND },
+  newTricks: { every: 0, ttl: 8 * SECOND }, // Claude Code updated and can do new things (claude-tricks.js)
   unlocked: { every: 0, ttl: 7 * SECOND },
   petted: { every: 20 * SECOND, ttl: 3 * SECOND },
 
   // --- what the work actually is (from the tool stream)
   tests: { every: 3 * MINUTE, ttl: 5 * SECOND },
   passed: { every: 2 * MINUTE, ttl: 6 * SECOND },
+  fixed: { every: 2 * MINUTE, ttl: 7 * SECOND }, // red tests green again, on changed code (xp.js 'fixed')
+  merged: { every: 2 * MINUTE, ttl: 7 * SECOND }, // one of your pull requests merged
   push: { every: 2 * MINUTE, ttl: 6 * SECOND },
   deploy: { every: 2 * MINUTE, ttl: 7 * SECOND },
   bigWrite: { every: 5 * MINUTE, ttl: 5 * SECOND },
@@ -151,10 +154,13 @@ const LINES = Object.freeze({
   success: ['done!', 'nailed it', 'all yours', "that'll do"],
   error: ['uh oh', 'that broke', 'hm.', 'ow'],
   learned: ['new trick!', 'ooh, useful', 'mine now'],
+  newTricks: ['claude leveled up!', 'new tricks!', 'ooh, upgrades'],
   unlocked: ['shiny!', 'for me?', 'ooh'],
   petted: ['hee', 'again?', 'mm'],
   tests: ['tests again?', 'fingers crossed', 'moment of truth'],
   passed: ['all green!', 'told you', 'green!'],
+  fixed: ['fixed it!', 'red to green!', 'squashed it'],
+  merged: ['merged!', 'it landed!', 'in it goes'],
   push: ['shipped it', 'off it goes', "it's out there"],
   deploy: ["it's live!", 'live!', 'launched'],
   bigWrite: ['big one', "that's a lot", 'phew'],

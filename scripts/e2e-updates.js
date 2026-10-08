@@ -1,3 +1,4 @@
+// ci: the update button, with a scripted updater standing in for GitHub
 // End-to-end check of the update button against the dev app over CDP, with the
 // scripted fake updater (SHELLBY_FAKE_UPDATE) standing in for GitHub Releases.
 //   node scripts/e2e-updates.js [screenshotDir]

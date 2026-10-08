@@ -1,3 +1,4 @@
+// ci: Claude's multiple-choice questions
 // End-to-end check of Claude's multiple-choice questions (AskUserQuestion)
 // against the dev app over CDP with the fake CLI: a proper question card (no
 // JSON), number keys, multi-select + your own words, Skip, and what Claude

@@ -1,3 +1,4 @@
+// ci: Toolbox → Mods: what one can do, the confirm before it's on, its lines in a conversation (skips without Claude Code)
 // End-to-end check of Toolbox → Mods against the dev app over CDP. A throwaway
 // home holds one mod of "yours" in ~/.claude/skills, turned off. The REAL
 // Claude Code CLI (on PATH) answers the plugin commands against that home, so

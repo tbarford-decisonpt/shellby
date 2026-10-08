@@ -134,10 +134,15 @@ function applyHookEvent(sessions, evt, now, client = null) {
       }
       break;
     }
-    case 'PostToolUseFailure':
+    case 'PostToolUseFailure': {
       if (s.state === 'asking') s.state = 'working'; // it was allowed, and then failed
-      s.tool = null; s.toolAt = now;
+      s.tool = null; s.toolAt = now; // back to thinking until the next one
+      // Failing tests mark the project red, so the pass that fixes them counts
+      // as "green again" outside Shellby too. Only the meaning leaves here.
+      const cmd = evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell' ? evt.tool_input?.command : null;
+      if (cmd && classifyCommand(cmd) === 'tests' && s.project) effects.push({ type: 'command-fail', kind: 'tests', project: s.project });
       break;
+    }
     case 'SubagentStop':
       s.helpers = Math.max(0, s.helpers - 1);
       break;

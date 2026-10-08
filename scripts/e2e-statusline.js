@@ -1,3 +1,4 @@
+// ci: the Claude Code status line, with an isolated status file and settings.json
 // End-to-end check of Shellby in Claude Code's status line, against the dev app
 // over CDP. Isolated: the status file and the Claude settings.json both live in
 // the throwaway profile, never the real ones. Fake CLI + fake hot GPU + an

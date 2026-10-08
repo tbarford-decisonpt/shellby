@@ -1,3 +1,4 @@
+// ci: the usage forecast, and messages and routines held for after the reset
 // End-to-end check of the usage forecast and "after the reset" against the dev
 // app over CDP, with the fake CLI. 5-hour readings come from dev:usage
 // (SHELLBY_FORECAST_TEST), backdated so a pace builds without an hour's wait.

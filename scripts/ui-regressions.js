@@ -1,3 +1,4 @@
+// ci: closing the last tab, themed tooltips, no native titles
 // Quick UI regression checks against the dev app over CDP:
 //  1. closing the last tab leaves exactly ONE blank tab (was: two)
 //  2. hovering a titled button shows the themed tooltip, not the OS one

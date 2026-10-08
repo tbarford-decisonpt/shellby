@@ -5,7 +5,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'phone', 'checks', 'shots', 'tries', 'compacted', 'fresh', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff', 'modlog', 'surprise', 'suggest']);
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'phone', 'checks', 'shots', 'tries', 'compacted', 'fresh', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff', 'modlog', 'surprise', 'suggest', 'cutoff']);
 
 // How many conversations the index remembers. Transcripts past this are deleted
 // with their entry, rather than being left in the folder with nothing listing them.
@@ -152,6 +152,40 @@ class History {
     e.title = t;
     this.saveIndex();
     return e;
+  }
+
+  /**
+   * A turn has started (turn: { turnId, at }) or ended (null). Written at once,
+   * index and transcript both: if the PC loses power mid-turn, the next start
+   * still knows this conversation was cut off (takeCutOff). Not update(): the
+   * message itself already counts as work.
+   */
+  markTurn(id, turn) {
+    const e = this.get(id);
+    if (!e || (!turn && !e.turnOpen)) return;
+    if (turn) e.turnOpen = { turnId: turn.turnId || null, at: turn.at || Date.now() }; else delete e.turnOpen;
+    this.flush(id);
+    this.saveIndex();
+  }
+
+  /**
+   * At boot, before any tab is open: every conversation whose turn never
+   * ended. Each gets a 'cutoff' line after the message it was on, and is
+   * marked lastOutcome 'cut' until a turn there finishes. crashed: the last
+   * run ended without quitting (crash-report.js), so the PC or Shellby went
+   * down; otherwise Shellby was quit mid-turn. -> the entries, newest first.
+   */
+  takeCutOff({ crashed = false } = {}) {
+    const cut = this.index.filter(e => e.turnOpen);
+    if (!cut.length) return [];
+    for (const e of cut) {
+      this.append(e.id, { kind: 'cutoff', turnId: e.turnOpen.turnId, since: e.turnOpen.at, crashed });
+      e.lastOutcome = 'cut';
+      delete e.turnOpen;
+    }
+    this.flush();
+    this.saveIndex();
+    return cut;
   }
 
   append(id, item) {

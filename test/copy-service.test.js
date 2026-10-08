@@ -77,4 +77,6 @@ test('with copies turned off, no tab gets the hook', async () => {
 
 test('the branch-naming request asks for one "Branch:" line', () => {
   assert.match(NAME_THE_BRANCH, /"Branch: <name>"/);
+  // The first word is the commit type workMessage reads, so the work comes home typed.
+  assert.match(NAME_THE_BRANCH, /first word its kind: feat, fix/);
 });

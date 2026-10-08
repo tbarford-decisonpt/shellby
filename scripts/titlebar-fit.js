@@ -1,3 +1,4 @@
+// ci: the title bar fits at every width in every mode
 // Checks the panel title bar fits at various window widths in every permission
 // mode (the mode chip's label changes width). Reports any overflow.
 //   node scripts/titlebar-fit.js

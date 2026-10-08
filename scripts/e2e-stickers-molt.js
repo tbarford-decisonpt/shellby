@@ -1,3 +1,4 @@
+// ci: stickers through a molt: the favourites move house, the old shell keeps the rest
 // Stickers through a molt, end to end: Shellby starts one push short of level 3
 // with stickers on the shell he hatched with. The push levels him up, so he
 // moves into the Snail Shell, and the same push ships a new project. His three

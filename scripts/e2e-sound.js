@@ -1,3 +1,4 @@
+// ci: footsteps, bumps, ta-das and the background: on, off, on guard and on a call
 // End-to-end check of Shellby's sounds, against the dev app over CDP with the
 // fake CLI (isolated profile):
 //   1. All off by default, and no audio device is even opened
