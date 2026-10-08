@@ -31,8 +31,12 @@ const clip = (s, n = MAX_FIELD) => String(s ?? '').replace(/[\u0000-\u001f\u007f
  *
  * It never throws out of the loop: a media app closing mid-read is normal, and
  * the answer to that is "nothing is playing", not a dead watcher.
+ *
+ * It does stop once Shellby (parentPid) is gone: stdin is ignored, so without
+ * this a crash or a killed dev run leaves it polling forever.
  */
-function watcherScript(pollMs = POLL_MS) {
+function watcherScript(pollMs = POLL_MS, parentPid = process.pid) {
+  const parent = Math.max(0, parentPid | 0);
   return `
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -57,6 +61,7 @@ $mgr = Await ($mgrType::RequestAsync()) ($mgrType)
 $last = ''
 
 while ($true) {
+  ${parent ? `if (-not (Get-Process -Id ${parent} -ErrorAction SilentlyContinue)) { exit 0 }` : ''}
   $line = 'null'
   try {
     $session = $mgr.GetCurrentSession()

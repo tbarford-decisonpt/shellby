@@ -1,9 +1,10 @@
-/* Shellby panel — the Wardrobe (outfits, effects, colors, packs) and Trophies. */
+/* Shellby panel — the Wardrobe (outfits, effects, colors, voices, packs) and Trophies. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color', home: 'home' };
+  const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color', home: 'home', voice: 'voice' };
   const HOME = 'home'; // his own shell (see src/main/shells.js)
+  const OWN_VOICE = ['on it', 'nailed it', 'all quiet']; // a taste of voice.js LINES, for the "His own" tile
   const RARITY = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
   let slot = 'hat';
   let mood = 'idle';
@@ -19,6 +20,7 @@
     if (s === 'effect') return w.effects;
     if (s === 'skin') return state.skins;
     if (s === 'home') return homes();
+    if (s === 'voice') return w.voices || [];
     return w.accessories.filter(a => a.slot === s);
   }
 
@@ -41,7 +43,7 @@
 
   function outfitWith(override) {
     const o = { ...(wd()?.outfit || {}) };
-    if (override && override.slot !== 'skin' && override.slot !== 'home') o[override.slot] = override.key;
+    if (override && !['skin', 'home', 'voice'].includes(override.slot)) o[override.slot] = override.key;
     return o;
   }
 
@@ -60,7 +62,9 @@
     const outfit = outfitWith(tryOn);
     const skin = tryOn?.slot === 'skin' ? state.skins.find(s => s.id === tryOn.key) || state.skin : state.skin;
     const shell = tryOn?.slot === 'home' ? shellFor(tryOn.key) : state.outfit?.home || null;
-    const svg = SB.Sprite.build(skin, { accessories: renderedAccessories(outfit), shell, fit: false });
+    // Stickers belong to the shell (and skin) he's wearing, so trying on another goes bare.
+    const stickers = tryOn?.slot === 'home' || tryOn?.slot === 'skin' ? [] : state.outfit?.stickers || [];
+    const svg = SB.Sprite.build(skin, { accessories: renderedAccessories(outfit), shell, stickers, fit: false });
     $('wdCrab').replaceChildren(svg);
     const stage = $('wdStage');
     stage.className = `stage state-${mood}`;
@@ -71,27 +75,45 @@
     if (effect) bits.push(effect.name);
     const home = shellFor(state.homes?.worn);
     if (home) bits.unshift(home.name);
-    $('wdCaption').textContent = tryOn ? `Trying on: ${(itemsFor(tryOn.slot).find(i => (i.key || i.id) === tryOn.key) || {}).name || 'nothing'}` : bits.length ? bits.join(' · ') : 'Just the shell';
+    const talking = voiceFor(w?.voice);
+    if (talking) bits.push(`💬 ${talking.name}`);
+    $('wdCaption').textContent = tryOn?.slot === 'voice' ? voiceCaption(voiceFor(tryOn.key)) : tryOn ? `Trying on: ${(itemsFor(tryOn.slot).find(i => (i.key || i.id) === tryOn.key) || {}).name || 'nothing'}` : bits.length ? bits.join(' · ') : 'Just the shell';
   }
+
+  // ------------------------------------------------------------ voices
+  const voiceFor = key => (key ? (wd()?.voices || []).find(v => v.key === key) || null : null);
+  const quoted = lines => lines.map(l => `“${l}”`).join(' ');
+  const voiceCaption = v => (v ? `${v.name}: ${quoted(v.sample)}` : `His own voice: ${quoted(OWN_VOICE)}`);
+  const bubble = line => h('span', { class: 'wd-bubble', text: line || '…' });
 
   // ------------------------------------------------------------ grid
   function tile(item) {
     const isSkin = slot === 'skin';
     const key = isSkin ? item.id : item.key;
-    const equipped = isSkin ? state.skin?.id === key : slot === 'home' ? state.homes?.worn === key : wd().outfit[slot] === key;
+    const equipped = isSkin ? state.skin?.id === key : slot === 'home' ? state.homes?.worn === key : slot === 'voice' ? wd().voice === key : wd().outfit[slot] === key;
     const locked = item.locked;
     let art;
-    if (isSkin) art = SB.sprite(item, { plain: true });
+    if (slot === 'voice') art = bubble(item.sample[0]);
+    else if (isSkin) art = SB.sprite(item, { plain: true });
     else if (item.sprites) { const sp = bigSprite(item); art = SB.Sprite.grid(sp.pixels, sp.palette); }
     else art = SB.Sprite.grid(item.pixels, item.palette);
-    const tipLines = [item.name, item.description, locked ? lockText(locked) : null, item.rarity && item.rarity !== 'common' ? RARITY[item.rarity] : null].filter(Boolean);
+    const tipLines = [item.name, item.description, item.sample ? quoted(item.sample) : null, locked ? lockText(locked) : null, item.rarity && item.rarity !== 'common' ? RARITY[item.rarity] : null].filter(Boolean);
+    // Hovering (or tabbing to) a new item is looking at it: the pill fades out.
+    const look = e => {
+      tryOn = { slot, key };
+      renderStage();
+      if (!item.isNew || locked) return;
+      acknowledge([key]);
+      e.currentTarget.classList.remove('is-new');
+      e.currentTarget.querySelector('.new-pill')?.classList.add('leaving');
+    };
     return h('button', {
-      type: 'button', role: 'option', 'aria-selected': String(equipped),
+      type: 'button', role: 'option', 'aria-selected': String(equipped), 'aria-disabled': locked ? 'true' : null, dataset: { key },
       class: `wd-tile rarity-${item.rarity || 'common'}${equipped ? ' on' : ''}${locked ? ' locked' : ''}${item.isNew ? ' is-new' : ''}`,
       title: tipLines.join('\n'),
-      onmouseenter: () => { tryOn = { slot, key }; renderStage(); },
+      onmouseenter: look,
       onmouseleave: () => { tryOn = null; renderStage(); },
-      onfocus: () => { tryOn = { slot, key }; renderStage(); },
+      onfocus: look,
       onblur: () => { tryOn = null; renderStage(); },
       onclick: () => equip(item, key, equipped),
     },
@@ -105,32 +127,29 @@
   function renderGrid() {
     const items = itemsFor(slot);
     const grid = $('wdGrid');
-    const none = slot === 'skin' ? null : slot === 'home' ? ownShellTile() : h('button', {
-      type: 'button', role: 'option', class: `wd-tile none${!wd().outfit[slot] ? ' on' : ''}`, title: `No ${SLOT_LABEL[slot]}`,
+    const bare = !wd().outfit[slot];
+    const none = slot === 'skin' ? null : slot === 'home' ? ownShellTile() : slot === 'voice' ? ownVoiceTile() : h('button', {
+      type: 'button', role: 'option', 'aria-selected': String(bare), dataset: { key: '' }, class: `wd-tile none${bare ? ' on' : ''}`, title: `No ${SLOT_LABEL[slot]}`,
       onmouseenter: () => { tryOn = { slot, key: null }; renderStage(); },
       onmouseleave: () => { tryOn = null; renderStage(); },
+      onfocus: () => { tryOn = { slot, key: null }; renderStage(); },
+      onblur: () => { tryOn = null; renderStage(); },
       onclick: () => equip(null, null, false),
     }, h('span', { class: 'wd-art none-art', text: '∅' }), h('span', { class: 'wd-name', text: 'None' }));
     // Unlocked first, then by rarity; locked items stay visible as goals.
     const order = { common: 0, rare: 1, epic: 2, legendary: 3 };
     const sorted = [...items].sort((a, b) => (!!a.locked - !!b.locked) || (order[a.rarity] ?? 0) - (order[b.rarity] ?? 0));
     grid.replaceChildren(...[none, ...sorted.map(tile)].filter(Boolean));
-    document.querySelectorAll('#wdSlots [data-slot]').forEach(b => {
-      b.setAttribute('aria-selected', String(b.dataset.slot === slot));
-      const fresh = itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked);
-      b.classList.toggle('has-new', fresh);
-    });
-    // Seen: new badges clear once their tab has been opened.
-    const seen = items.filter(i => i.isNew && !i.locked).map(i => i.key);
-    if (seen.length && slot === 'home') api.homesSeen(seen);
-    else if (seen.length) api.markSeen(seen);
+    $('wdHint').hidden = !(slot === 'voice' && !items.length);
+    document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.slot === slot)));
+    refreshBadge();
   }
 
   // The shell he hatched with: always there, first in the Homes tab.
   function ownShellTile() {
     const on = (state.homes?.worn || HOME) === HOME;
     return h('button', {
-      type: 'button', role: 'option', 'aria-selected': String(on), class: `wd-tile${on ? ' on' : ''}`, title: ['His own shell', 'The one he hatched with.'].join('\n'),
+      type: 'button', role: 'option', 'aria-selected': String(on), dataset: { key: HOME }, class: `wd-tile${on ? ' on' : ''}`, title: ['His own shell', 'The one he hatched with.'].join('\n'),
       onmouseenter: () => { tryOn = { slot, key: HOME }; renderStage(); },
       onmouseleave: () => { tryOn = null; renderStage(); },
       onfocus: () => { tryOn = { slot, key: HOME }; renderStage(); },
@@ -139,8 +158,26 @@
     }, h('span', { class: 'wd-art' }, SB.sprite(state.skin, { plain: true })), h('span', { class: 'wd-name', text: 'His own' }));
   }
 
+  // The way he talks out of the box: always there, first in the Voice tab.
+  function ownVoiceTile() {
+    const on = !wd().voice;
+    return h('button', {
+      type: 'button', role: 'option', 'aria-selected': String(on), dataset: { key: '' }, class: `wd-tile${on ? ' on' : ''}`, title: ['His own voice', 'The way he talks out of the box.'].join('\n'),
+      onmouseenter: () => { tryOn = { slot, key: null }; renderStage(); },
+      onmouseleave: () => { tryOn = null; renderStage(); },
+      onfocus: () => { tryOn = { slot, key: null }; renderStage(); },
+      onblur: () => { tryOn = null; renderStage(); },
+      onclick: () => equip(null, null, on),
+    }, h('span', { class: 'wd-art' }, bubble(OWN_VOICE[0])), h('span', { class: 'wd-name', text: 'His own' }));
+  }
+
   async function equip(item, key, equipped) {
     if (item?.locked) return SB.toast(lockText(item.locked).replace('🔒 ', ''));
+    if (slot === 'voice') {
+      const r = await api.setVoice(equipped ? null : key);
+      if (!r.ok) SB.toast(r.error);
+      return applyView(r.view);
+    }
     if (slot === 'skin') {
       const r = await api.setSettings({ skin: key });
       state.settings = r.settings;
@@ -174,6 +211,7 @@
     const o = wd()?.options || {};
     $('seasonalToggle').checked = !!o.seasonalAuto;
     $('crewToggle').checked = !!o.crewOutfits;
+    $('unlockAllOption').hidden = !o.unlockAllOffered;
     $('unlockAllToggle').checked = !!o.unlockAll;
   }
 
@@ -188,12 +226,16 @@
     else if (!r.canceled) SB.toast(r.error || "Couldn't publish that pack.", { ms: 7000 });
   }
 
+  // "3 accessories · 2 voices": what's in it, leaving out the kinds it has none of.
+  const COUNT_LABELS = [['accessories', 'accessory', 'accessories'], ['effects', 'effect', 'effects'], ['skins', 'color', 'colors'], ['voices', 'voice', 'voices'], ['scenes', 'scene', 'scenes']];
+  const packCounts = c => COUNT_LABELS.filter(([k]) => c[k]).map(([k, one, many]) => `${c[k]} ${c[k] === 1 ? one : many}`).join(' · ') || 'empty';
+
   function renderPacks() {
     const packs = wd()?.packs || [];
     $('packList').replaceChildren(...packs.map(p => h('li', { class: 'pack' },
       h('div', { class: 'pack-main' },
         h('b', { text: p.name }), h('span', { class: 'pack-meta', text: ` v${p.version} · by ${p.author}` }),
-        h('div', { class: 'pack-counts', text: [`${p.counts.accessories} accessories`, `${p.counts.effects} effects`, `${p.counts.skins} colors`].join(' · ') + (p.warnings ? ` · ${p.warnings} skipped` : '') })),
+        h('div', { class: 'pack-counts', text: packCounts(p.counts) + (p.warnings ? ` · ${p.warnings} skipped` : '') })),
       p.source === 'builtin' ? h('span', { class: 'src-pill', text: 'built in' }) : null,
       p.source !== 'builtin' && canPublish() ? h('button', { class: 'btn ghost slim-btn publish-btn', type: 'button', title: 'Open a pull request to the community gallery', onclick: e => publish(p, e.currentTarget) }, 'Publish') : null,
       p.source !== 'builtin' ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: async () => { applyView(await api.removePack(p.id)); SB.toast(`Removed ${p.name}`); } }, 'Remove') : null)));
@@ -210,10 +252,36 @@
   }
   SB.applyWardrobe = applyView;
 
+  const freshItems = () => [...(wd()?.accessories || []), ...(wd()?.effects || []), ...(wd()?.voices || []), ...homes()].filter(i => i.isNew && !i.locked);
   const refreshBadge = () => {
-    const w = wd();
-    $('wardrobeBadge').hidden = ![...(w?.accessories || []), ...(w?.effects || []), ...homes()].some(i => i.isNew && !i.locked);
+    const fresh = freshItems().length > 0;
+    // New stickers (stickers.js), finds (together.js) and bugs in the Bugdex (bugdex.js) too.
+    $('wardrobeBadge').hidden = !fresh && !state.stickers?.unseen?.length && !state.life?.finds?.unseen?.length && !state.bugdex?.unseen?.length;
+    $('markSeenBtn').hidden = !fresh;
+    document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.classList.toggle('has-new', itemsFor(b.dataset.slot).some(i => i.isNew && !i.locked)));
   };
+
+  // Acknowledge new items (by key; homes by shell id): hovering one, "Mark all
+  // seen", or closing the card that announced them. Clears here at once, then
+  // tells main so it sticks.
+  function acknowledge(keys) {
+    const fresh = new Set(keys);
+    const w = wd();
+    const items = [...(w?.accessories || []), ...(w?.effects || []), ...(w?.voices || [])].filter(i => i.isNew && fresh.has(i.key)).map(i => i.key);
+    const shells = (state.homes?.shells || []).filter(s => s.isNew && fresh.has(s.id)).map(s => s.id);
+    if (items.length) {
+      const clear = i => (fresh.has(i.key) ? { ...i, isNew: false } : i);
+      state.wardrobe = { ...w, accessories: w.accessories.map(clear), effects: w.effects.map(clear), voices: (w.voices || []).map(clear) };
+      api.markSeen(items);
+    }
+    if (shells.length) {
+      state.homes = { ...state.homes, shells: state.homes.shells.map(s => (fresh.has(s.id) ? { ...s, isNew: false } : s)) };
+      api.homesSeen(shells);
+    }
+    if (items.length || shells.length) refreshBadge();
+  }
+  SB.acknowledge = acknowledge;
+  SB.refreshShellbyBadge = refreshBadge;
   function applyHomes(view) {
     if (!view) return;
     state.homes = view;
@@ -249,10 +317,17 @@
   document.querySelectorAll('#wdSlots [data-slot]').forEach(b => b.addEventListener('click', () => { slot = b.dataset.slot; tryOn = null; renderGrid(); renderStage(); }));
   document.querySelectorAll('.stage-moods [data-mood]').forEach(b => b.addEventListener('click', () => {
     mood = b.dataset.mood;
-    document.querySelectorAll('.stage-moods [data-mood]').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.stage-moods [data-mood]').forEach(x => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-pressed', String(x === b));
+    });
     renderStage();
   }));
   $('randomizeBtn').addEventListener('click', async () => { const r = await api.randomizeOutfit(); applyView(r.view); });
+  $('markSeenBtn').addEventListener('click', () => {
+    acknowledge(freshItems().map(i => i.key));
+    if (state.view === 'wardrobe') renderGrid();
+  });
   $('brandBtn').addEventListener('click', () => SB.setView('wardrobe'));
   $('brandLevel').addEventListener('click', () => SB.setView('trophies'));
   document.querySelectorAll('.shellby-tabs [data-goto]').forEach(b => b.addEventListener('click', () => SB.setView(b.dataset.goto)));

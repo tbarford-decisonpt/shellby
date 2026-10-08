@@ -160,6 +160,36 @@ function installStatusLine(file = settingsPath()) {
 }
 
 const PLUGIN_ID = 'shellby@shellby';
+// The plugin this Shellby was made with (claude-plugin/.claude-plugin/plugin.json;
+// test/statusline.test.js keeps them equal). Claude Code doesn't update plugins
+// from other marketplaces by itself, so an install can sit on a version from
+// before the features this app relies on, its MCP server among them.
+const PLUGIN_VERSION = '1.6.0';
+const PLUGIN_SOURCE = 'x-salmon/shellby';
+
+const versionParts = v => (typeof v === 'string' && /^\d{1,9}\.\d{1,9}\.\d{1,9}$/.test(v) ? v.split('.').map(Number) : null);
+/**
+ * What Settings shows for the plugin: state from inspectPlugin, and outdated
+ * when the shop lists a user install older than PLUGIN_VERSION, from the
+ * x-salmon/shellby marketplace. A project install, or one the shop hasn't
+ * listed, is never called outdated.
+ */
+function pluginStatus(state, listed, marketplace) {
+  // Only ours: updating a plugin from someone else's "shellby" marketplace would run their code.
+  const isOurs = String(marketplace?.repo || '').toLowerCase() === PLUGIN_SOURCE;
+  const outdated = state === 'on' && isOurs && listed?.installed && listed.scope === 'user' && isOlderVersion(listed.version, PLUGIN_VERSION);
+  return outdated ? { state, outdated: { from: listed.version, to: PLUGIN_VERSION } } : { state };
+}
+
+/** Is version a older than b? Anything that isn't major.minor.patch is never called older. */
+function isOlderVersion(a, b) {
+  const x = versionParts(a);
+  const y = versionParts(b);
+  if (!x || !y) return false;
+  const i = x.findIndex((n, k) => n !== y[k]);
+  return i !== -1 && x[i] < y[i];
+}
+
 /** Is the Shellby plugin on in Claude Code here? 'on' | 'off' (installed, disabled) | 'none' | 'unreadable' */
 function inspectPlugin(file = settingsPath()) {
   let s;
@@ -194,4 +224,4 @@ function writeJson(file, obj) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { PLUGIN_ID, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };
+module.exports = { writeJson, PLUGIN_ID, PLUGIN_VERSION, PLUGIN_SOURCE, isOlderVersion, pluginStatus, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };

@@ -1,0 +1,5 @@
+{
+  "command": "node --test tests/",
+  "isError": false,
+  "output": "ok 1 - other\nℹ tests 1\nℹ pass 1\nℹ fail 0"
+}

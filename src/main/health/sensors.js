@@ -235,7 +235,8 @@ async function fetchLocalJson(url, { timeoutMs = LHM_TIMEOUT_MS, maxBytes = LHM_
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: ctrl.signal });
+    // Only ever this PC: a redirect from whatever holds the port goes nowhere.
+    const res = await fetch(url, { signal: ctrl.signal, redirect: 'error' });
     if (res.status === 401) return { error: 'auth' };
     if (!res.ok || !res.body) return null;
     const chunks = [];

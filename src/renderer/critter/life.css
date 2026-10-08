@@ -1,0 +1,241 @@
+/* ================================================================ his life between tasks
+   (src/main/life.js, scenes.js, playtime.js; drawn by life.js next to this file)
+   Each beat of a scene is one body class, like his idle habits in critter.css.
+   Every rule names `.state-idle #sprite` too, to outrank critter.css's rule that
+   stills his breathing for any habit. --dir is the way he's facing (toward your
+   cursor, for a pounce). On .part-* 1px is one sprite cell. */
+
+/* his eyes follow your cursor: a cell either way, never while he's asleep or in the air */
+.part-eyes, .part-stalks { translate: calc(var(--lookx, 0) * 1px) calc(var(--looky, 0) * .6px); transition: translate .22s ease-out, transform .35s cubic-bezier(.3, 1.4, .5, 1), opacity .3s; }
+.state-sleeping .part-eyes, .state-sleeping .part-stalks, .flying .part-eyes, .hopping .part-eyes { translate: none; }
+
+/* squints at something (your cursor, a fly) */
+body.bit-squint.state-idle #sprite, body.bit-squint #sprite { animation: squint-lean 1.4s ease-in-out forwards; transform-origin: 50% 100%; }
+body.bit-squint .part-eyes { animation: none; transform: scaleY(.4); }
+@keyframes squint-lean { to { transform: rotate(calc(var(--dir) * 4deg)) translateY(1px); } }
+
+/* creeps up on it, low and slow */
+body.bit-creep.state-idle #sprite, body.bit-creep #sprite { animation: creep 1.6s ease-in-out forwards; transform-origin: 50% 100%; }
+body.bit-creep [class*="part-legs"] { animation: leg .12s steps(1) infinite; }
+body.bit-creep .part-eyes { transform: scaleY(.6); }
+@keyframes creep { 0% { transform: scale(1, .92); } 100% { transform: translateX(calc(var(--dir) * 8px)) scale(1.04, .86); } }
+
+/* POUNCE */
+body.bit-pounce.state-idle #sprite, body.bit-pounce #sprite { animation: pounce .65s cubic-bezier(.3, .1, .4, 1) forwards; transform-origin: 50% 100%; }
+body.bit-pounce .part-claw { transform: rotate(-60deg) translateY(-2px); }
+body.bit-pounce .part-eyes { transform: scaleY(1.4); }
+@keyframes pounce {
+  0% { transform: translateX(calc(var(--dir) * 8px)) scale(1.1, .8); }
+  40% { transform: translate(calc(var(--dir) * 16px), -16px) rotate(calc(var(--dir) * 10deg)); }
+  75% { transform: translateX(calc(var(--dir) * 20px)) scale(1.2, .75); }
+  100% { transform: translateX(calc(var(--dir) * 18px)); }
+}
+
+/* a sneeze coming: nose up, twitching... */
+body.bit-nose.state-idle #sprite, body.bit-nose #sprite { animation: nose-up 1s ease-in-out forwards; transform-origin: 50% 100%; }
+body.bit-nose .part-eyes { animation: nose-twitch .18s steps(2) infinite; }
+@keyframes nose-up { to { transform: rotate(calc(var(--dir) * -7deg)) translateY(-1px); } }
+@keyframes nose-twitch { 0% { transform: scaleY(.5); } 50% { transform: scaleY(.9); } }
+/* ...ACHOO */
+body.bit-sneeze.state-idle #sprite, body.bit-sneeze #sprite { animation: sneeze .75s cubic-bezier(.2, 1.6, .4, 1); transform-origin: 50% 100%; }
+body.bit-sneeze .part-eyes { transform: scaleY(.1); }
+@keyframes sneeze { 0% { transform: rotate(calc(var(--dir) * -8deg)); } 25% { transform: rotate(calc(var(--dir) * 12deg)) translateX(calc(var(--dir) * 5px)) scale(1.08, .9); } 100% { transform: none; } }
+/* ...and a sniff after */
+body.bit-sniff.state-idle #sprite, body.bit-sniff #sprite { animation: shake .3s ease-in-out 2; }
+body.bit-sniff .part-eyes { transform: scaleY(.55); }
+
+/* hic! */
+body.bit-hic.state-idle #sprite, body.bit-hic #sprite { animation: hic .5s cubic-bezier(.2, 1.8, .4, 1); }
+body.bit-hic .part-eyes { animation: none; transform: scaleY(1.5); }
+@keyframes hic { 0% { transform: none; } 30% { transform: translateY(-6px) scale(.95, 1.08); } 100% { transform: none; } }
+/* holding his breath: puffed up, eyes screwed shut, trembling */
+body.bit-hold.state-idle #sprite, body.bit-hold #sprite { animation: hold-breath .14s linear infinite; }
+body.bit-hold .part-eyes { animation: none; transform: scaleY(.2); }
+@keyframes hold-breath { 0%, 100% { transform: scale(1.08, 1.1) translateX(0); } 50% { transform: scale(1.09, 1.11) translateX(1px); } }
+
+/* blowing bubbles: claw to his mouth */
+body.bit-blow .part-claw { animation: none; transform: rotate(-48deg) translate(-2px, -3px); }
+body.bit-blow.state-idle #sprite, body.bit-blow #sprite { animation: breathe 1.4s ease-in-out infinite; }
+
+/* nodding off... */
+body.bit-nod.state-idle #sprite, body.bit-nod #sprite { animation: nod 1.8s ease-in forwards; transform-origin: 50% 100%; }
+body.bit-nod .part-eyes { animation: none; transform: scaleY(.1); }
+@keyframes nod { 0% { transform: none; } 80% { transform: rotate(calc(var(--dir) * 9deg)) translateY(2px); } 90% { transform: rotate(calc(var(--dir) * 2deg)); } 100% { transform: rotate(calc(var(--dir) * 8deg)) translateY(2px); } }
+/* ...and waking with a start */
+body.bit-jolt.state-idle #sprite, body.bit-jolt #sprite { animation: jolt .8s cubic-bezier(.2, 1.8, .4, 1); }
+body.bit-jolt .part-eyes { animation: none; transform: scaleY(1.6); }
+body.bit-jolt .part-claw { transform: rotate(-55deg); }
+@keyframes jolt { 0% { transform: translateY(2px); } 25% { transform: translateY(-9px) scale(.94, 1.08); } 100% { transform: none; } }
+
+/* bicep curls */
+body.bit-curl .part-claw { animation: curl .65s ease-in-out infinite; }
+body.bit-curl.state-idle #sprite, body.bit-curl #sprite { animation: hop .65s ease-in-out infinite; }
+body.bit-curl .part-eyes { transform: scaleY(.6); }
+@keyframes curl { 0%, 100% { transform: rotate(10deg); } 50% { transform: rotate(-72deg) translateY(-2px); } }
+
+/* very pleased with himself */
+body.bit-admire.state-idle #sprite, body.bit-admire #sprite { animation: admire 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
+body.bit-admire .part-eyes { animation: none; transform: scaleY(.3); }
+body.bit-admire .part-claw { transform: rotate(18deg) translateY(1px); }
+@keyframes admire { 0%, 100% { transform: rotate(calc(var(--dir) * -3deg)); } 50% { transform: rotate(calc(var(--dir) * -6deg)) translateY(-1px); } }
+
+/* rocking out (air guitar, karaoke) */
+body.bit-rock.state-idle #sprite, body.bit-rock #sprite { animation: rock .36s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+body.bit-rock .part-claw { animation: snap .18s steps(1) infinite; }
+body.bit-rock .part-eyes { transform: scaleY(.3); }
+@keyframes rock { from { transform: rotate(-9deg); } to { transform: rotate(9deg) translateY(-2px); } }
+/* takes a bow */
+body.bit-bow.state-idle #sprite, body.bit-bow #sprite { animation: bow 1.1s ease-in-out; transform-origin: 50% 100%; }
+@keyframes bow { 0%, 100% { transform: none; } 45%, 60% { transform: rotate(calc(var(--dir) * 16deg)) translateY(2px); } }
+
+/* swats at a fly */
+body.bit-swat .part-claw { animation: swat .3s cubic-bezier(.3, 1.6, .5, 1) 3; }
+body.bit-swat .part-eyes { transform: scaleY(1.3); }
+@keyframes swat { 0%, 100% { transform: rotate(15deg); } 50% { transform: rotate(-85deg) translateY(-3px); } }
+
+/* shadow-boxing */
+body.bit-jab .part-claw { animation: jab .4s ease-out infinite; }
+body.bit-jab.state-idle #sprite, body.bit-jab #sprite { animation: jab-bob .4s ease-in-out infinite; }
+@keyframes jab { 0%, 100% { transform: none; } 35% { transform: translateX(3px) rotate(-14deg); } }
+@keyframes jab-bob { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-1px) translateY(-1px); } }
+
+/* looks up at the sky */
+body.bit-gaze.state-idle #sprite, body.bit-gaze #sprite { animation: gaze 2.6s ease-in-out forwards; transform-origin: 50% 100%; }
+body.bit-gaze .part-eyes, body.bit-gaze .part-stalks { animation: none; transform: translateY(-1px) scaleY(1.2); }
+@keyframes gaze { to { transform: rotate(calc(var(--dir) * -6deg)); } }
+
+/* juggles pebbles, then one lands on his head */
+body.bit-juggle .part-claw { animation: snap .24s steps(1) infinite; }
+body.bit-juggle .part-eyes { transform: translateY(-1px); }
+body.bit-bonk.state-idle #sprite, body.bit-bonk #sprite { animation: squash .6s cubic-bezier(.3, 1.6, .5, 1); }
+body.bit-bonk .part-eyes { animation: none; transform: scaleY(.1); }
+
+/* holds something up to show you (a find, the pebble) */
+body.bit-present.state-idle #sprite, body.bit-present #sprite { animation: present-bounce .7s cubic-bezier(.3, 1.6, .5, 1); }
+body.bit-present .part-claw { animation: none; transform: rotate(-40deg) translate(1px, -3px); }
+body.bit-present .part-eyes { animation: none; transform: translateY(-1px) scaleY(.35); }
+@keyframes present-bounce { 0% { transform: translateY(2px); } 40% { transform: translateY(-5px); } 100% { transform: none; } }
+
+/* scoops a bug into a jar (src/main/bugdex.js): a lunge forward with the claw low,
+   then a hop back holding the jar up to show you, as for a present */
+body.bit-catch.state-idle #sprite, body.bit-catch #sprite { animation: catch-lunge .8s cubic-bezier(.3, 1.6, .5, 1); transform-origin: 50% 100%; }
+body.bit-catch .part-claw { animation: catch-scoop .8s ease-out; transform: rotate(-40deg) translate(1px, -3px); }
+body.bit-catch .part-eyes { animation: none; transform: translateY(-1px) scaleY(.35); }
+@keyframes catch-lunge { 0% { transform: none; } 30% { transform: translateX(calc(var(--dir, 1) * 3px)) scale(1.05, .92); } 65% { transform: translate(calc(var(--dir, 1) * -1px), -5px); } 100% { transform: none; } }
+@keyframes catch-scoop { 0% { transform: none; } 30% { transform: rotate(20deg) translateX(2px); } 65%, 100% { transform: rotate(-40deg) translate(1px, -3px); } }
+
+/* leans on your cursor for a cuddle */
+body.bit-lean.state-idle #sprite, body.bit-lean #sprite { animation: lean 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
+body.bit-lean .part-eyes { animation: none; transform: scaleY(.25); }
+@keyframes lean { 0%, 100% { transform: rotate(calc(var(--dir) * 5deg)) translateX(calc(var(--dir) * 2px)); } 50% { transform: rotate(calc(var(--dir) * 7deg)) translateX(calc(var(--dir) * 3px)); } }
+
+/* sips his coffee */
+body.bit-sip .part-claw { animation: sip 1.7s ease-in-out; }
+body.bit-sip .part-eyes { transform: scaleY(.4); }
+@keyframes sip { 0%, 100% { transform: rotate(0); } 40%, 70% { transform: rotate(-42deg) translate(-2px, -3px); } }
+
+/* Friday boogie, and winning at hide and seek */
+body.bit-boogie.state-idle #sprite, body.bit-boogie #sprite { animation: dance .5s ease-in-out infinite; }
+body.bit-boogie .part-claw { animation: wave .25s ease-in-out infinite; }
+
+/* hides in his shell (spooky)... */
+body.bit-hide .part-eyes, body.bit-hide .part-stalks, body.bit-hide .part-claw, body.bit-hide [class*="part-legs"] { animation: none; transform: scale(.2); opacity: 0; }
+body.bit-hide.state-idle #sprite, body.bit-hide #sprite { animation: none; transform: translateY(2px); }
+/* ...BOO */
+body.bit-boo.state-idle #sprite, body.bit-boo #sprite { animation: boo .8s cubic-bezier(.2, 1.8, .4, 1); transform-origin: 50% 100%; }
+body.bit-boo .part-claw { transform: rotate(-75deg); }
+body.bit-boo .part-eyes { transform: scaleY(1.6); }
+@keyframes boo { 0% { transform: scale(.8); } 35% { transform: scale(1.3) translateY(-4px); } 100% { transform: none; } }
+
+/* brrr */
+body.bit-shiver.state-idle #sprite, body.bit-shiver #sprite { animation: molt-shiver .08s linear infinite; }
+body.bit-shiver .part-claw { transform: rotate(24deg) translate(-2px, 1px); }
+
+/* waves hello */
+body.bit-wave .part-claw { animation: wave .3s ease-in-out infinite; }
+body.bit-wave .part-eyes { transform: scaleY(.35); }
+
+/* counts the grains of sand under his feet */
+body.bit-count.state-idle #sprite, body.bit-count #sprite { animation: count .85s ease-in-out infinite; transform-origin: 50% 100%; }
+body.bit-count .part-eyes, body.bit-count .part-stalks { transform: translateY(1px); }
+body.bit-count .part-claw { animation: snap .85s steps(1) infinite; }
+@keyframes count { 0%, 100% { transform: rotate(calc(var(--dir) * 5deg)); } 50% { transform: rotate(calc(var(--dir) * 8deg)) translateY(1px); } }
+
+/* hide and seek: burrows into the sand, pops up somewhere else, peeks out */
+body.bit-burrow.state-idle #sprite, body.bit-burrow #sprite { animation: burrow 1s ease-in forwards; transform-origin: 50% 100%; }
+body.bit-burrow #shadow, body.bit-emerge #shadow { animation: burrow-hole 1s ease-in-out; }
+@keyframes burrow { 0% { transform: none; } 20% { transform: translateY(-3px) scale(.95, 1.06); } 100% { transform: translateY(calc(var(--px) * 9)) scale(1.1, .3); opacity: 0; } }
+body.bit-emerge.state-idle #sprite, body.bit-emerge #sprite { animation: emerge .9s cubic-bezier(.2, 1.4, .4, 1); transform-origin: 50% 100%; }
+@keyframes emerge { 0% { transform: translateY(calc(var(--px) * 9)) scale(1.1, .3); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; } }
+@keyframes burrow-hole { 50% { transform: translateX(-50%) scaleX(1.3); background: radial-gradient(closest-side, rgba(110, 80, 40, .55), transparent); } }
+body.bit-peekaboo.state-idle #sprite, body.bit-peekaboo #sprite { animation: jump .7s cubic-bezier(.3, 1.6, .5, 1) 2; }
+body.bit-peekaboo .part-claw { animation: wave .25s ease-in-out infinite; }
+
+/* on a call: the "shh" sign stays up (critter.js) and he keeps very still */
+.on-call.state-idle #sprite { animation: breathe 5s steps(1) infinite; } /* stepped: eased, it drew every tick of a whole call */
+.on-call.state-idle #bubble { background: var(--glass); }
+.on-call.state-idle #bubble::after { border-top-color: var(--glass); }
+
+/* ---------- props: whatever a scene puts in front of him ---------- */
+#prop { position: absolute; left: calc(50% + var(--px) * 11 + 2px); bottom: 16px; width: 0; height: 0; pointer-events: none; z-index: 2; }
+#prop svg { display: block; }
+#prop > * { position: absolute; }
+/* the sandcastle, and the same castle washing away */
+.prop-castle > svg, .prop-castle-fall > svg { left: 0; bottom: 0; animation: castle-up .5s cubic-bezier(.2, 1.4, .4, 1) backwards; transform-origin: 50% 100%; }
+.prop-castle-fall > svg { animation: castle-fall .9s ease-in forwards; }
+@keyframes castle-up { from { transform: scaleY(0); } }
+@keyframes castle-fall { 0% { transform: none; } 30% { transform: rotate(6deg); } 100% { transform: scale(1.4, .15) translateY(6px); opacity: .5; } }
+/* the heart he draws in the sand */
+.prop-heart > svg { left: 0; bottom: -2px; animation: heart-draw 1.2s steps(6) backwards; }
+@keyframes heart-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* a fly that won't leave him alone */
+.prop-fly .fly { left: -30px; bottom: calc(var(--px) * 10); offset-path: path('M 0 0 C 20 -30 50 -10 40 10 S -10 30 -20 0 S 10 -20 0 0'); animation: fly-buzz 1.3s linear infinite; }
+@keyframes fly-buzz { to { offset-distance: 100%; } }
+/* bubbles, floating up from where his mouth is */
+.prop-bubbles .bub { left: calc(var(--px) * -7 + var(--x)); bottom: calc(var(--px) * 9); width: var(--s); height: var(--s); border-radius: 50%; border: 1.5px solid rgba(200, 240, 255, .85); background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .7), rgba(127, 214, 194, .12)); animation: bub-rise 2s ease-out var(--d) backwards; }
+@keyframes bub-rise { 0% { transform: translate(0, 0) scale(.3); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(14px, -60px) scale(1); opacity: 0; } }
+/* a shooting star, high over his head */
+.prop-shooting-star .star { left: -90px; bottom: calc(var(--px) * 22); width: 34px; height: 2px; border-radius: 2px; background: linear-gradient(to right, transparent, #fff4b3); box-shadow: 0 0 6px #ffd23f; transform: rotate(-18deg); animation: shoot 1.1s ease-out forwards; }
+@keyframes shoot { 0% { translate: 0 0; opacity: 0; } 15% { opacity: 1; } 100% { translate: 80px 26px; opacity: 0; } }
+/* pebbles going round, over his claw */
+.prop-juggle .peb { left: -8px; bottom: calc(var(--px) * 9); offset-path: path('M 0 0 C 0 -40 24 -40 24 0 C 24 -40 0 -40 0 0'); animation: juggle .72s linear infinite var(--d); }
+@keyframes juggle { to { offset-distance: 100%; } }
+/* the spray from a sneeze (critter.css's sand-puff) */
+.prop-achoo .grit { left: 0; bottom: calc(var(--px) * 6); width: calc(var(--px) * .75); height: calc(var(--px) * .75); background: #e9d8a6; animation: sand-puff .7s cubic-bezier(.2, .8, .4, 1) var(--d) forwards; }
+/* zz, notes, sweat and sparkles: little things rising off him */
+.prop-zz .z, .prop-notes .note { left: calc(var(--px) * -8 + var(--x, 0px)); bottom: calc(var(--px) * 13); font: 700 var(--fs-13) "Pixelify Sans", monospace; font-style: normal; color: #cfd8ff; text-shadow: 0 1px 0 rgba(0, 0, 0, .4); animation: float 1.6s ease-out var(--d) backwards; }
+.prop-notes .note { color: var(--glass); }
+.prop-sweat .drop { left: calc(var(--px) * -4 + var(--x)); bottom: calc(var(--px) * 13); width: 4px; height: 6px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #a8dadc; animation: drip 1s ease-in var(--d) infinite; }
+@keyframes drip { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(18px); opacity: 0; } }
+.prop-sparkle .spark { left: calc(var(--px) * -1 + var(--x)); bottom: calc(var(--px) * 12 + var(--y)); font: 700 var(--fs-12) "Pixelify Sans", monospace; font-style: normal; color: #ffd23f; text-shadow: 0 0 6px rgba(255, 210, 63, .8); animation: twinkle 1s ease-in-out var(--d) infinite; }
+@keyframes twinkle { 0%, 100% { transform: scale(.4); opacity: 0; } 50% { transform: scale(1.2); opacity: 1; } }
+/* a bug in the jar: water splashing up as it drops in, sparkles when the cork goes on */
+.prop-jar .splash { left: calc(var(--px) * -2); bottom: calc(var(--px) * 10); width: calc(var(--px) * .75); height: calc(var(--px) * .75); border-radius: 50%; background: #a8dadc; animation: jar-splash .6s cubic-bezier(.2, .8, .4, 1) calc(.25s + var(--d)); opacity: 0; }
+@keyframes jar-splash { 0% { transform: none; opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+.prop-jar .spark { left: calc(var(--px) * -2 + var(--x)); bottom: calc(var(--px) * 15 + var(--y)); font: 700 var(--fs-12) "Pixelify Sans", monospace; font-style: normal; color: #ffd23f; text-shadow: 0 0 6px rgba(255, 210, 63, .8); opacity: 0; animation: twinkle .8s ease-in-out calc(.75s + var(--d)) 2; }
+/* ...and a ghost's wisp drifting off */
+.prop-jar .wisp { left: calc(var(--px) * -3); bottom: calc(var(--px) * 12); width: 8px; height: 12px; border-radius: 50% 50% 40% 40%; background: rgba(184, 255, 217, .55); filter: blur(1px); opacity: 0; animation: wisp-rise 1.8s ease-out .5s; }
+@keyframes wisp-rise { 0% { transform: none; opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(-8px, -32px) scale(.6); opacity: 0; } }
+/* the jar in his claw (a held accessory, so it shares the claw's group and pivot)
+   wobbles on top of whatever the claw is doing: `rotate`, not `transform` */
+body:has(#prop.prop-jar) .acc-held { animation: jar-wobble .32s ease-in-out .9s var(--wobbles, 1); }
+body.bit-catch:has(#prop.prop-jar) .acc-held { animation: catch-scoop .8s ease-out, jar-wobble .32s ease-in-out .9s var(--wobbles, 1); }
+@keyframes jar-wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -9deg; } 75% { rotate: 9deg; } }
+
+/* ---------- a visiting crab talking back (src/main/banter.js) ---------- */
+.helper.visitor .vbubble {
+  position: absolute; left: 50%; bottom: calc(100% + 24px); transform: translateX(-50%) translateY(4px);
+  width: max-content; max-width: 120px; padding: 3px 7px; border-radius: 8px; white-space: normal; text-align: center;
+  font: 700 var(--fs-11)/1.25 "Pixelify Sans", monospace; color: var(--ink); background: #fff4e4;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .35); opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; z-index: 3;
+}
+.helper.visitor .vbubble::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #fff4e4; }
+.helper.visitor .vbubble.on { opacity: 1; transform: translateX(-50%); }
+.helper.visitor:has(.vbubble.on) .tag { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .part-eyes, .part-stalks { transition: none; }
+  #prop > * { animation: none !important; }
+  /* a catch is just the jar held up: no lunge, no wobble */
+  body.bit-catch #sprite, body.bit-catch .part-claw, .acc-held { animation: none !important; }
+}

@@ -3,7 +3,8 @@
 // we keep a tiny picture of every live session so the crab can work, ask and
 // celebrate along with them.
 //
-// Only the event name, tool name, folder name and session id are kept. Tool
+// Only the event name, tool name, folder and session id are kept (the folder and
+// id so "Bring it into Shellby" can open the conversation where it lives). Tool
 // inputs (commands, file contents) arrive in the payload and are dropped unread.
 // The one exception is a backgrounded command, where the program it runs ('node',
 // 'npm') is kept so Shellby can say what was left running -- never its arguments.
@@ -13,7 +14,11 @@ const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { classifyCommand } = require('./xp');
+const { shipOf } = require('./stickers');
+const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
+const bugRead = require('./bugdex/detect');
+const { cmdKey } = require('./flaky/ids');
 
 const DEFAULT_PORT = 47913;
 const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file contents
@@ -26,6 +31,9 @@ const MAX_BG = 8;                        // more than anyone leaves running on p
 const BG_FORGET_MS = 30 * 60 * 1000;     // long enough to notice, short enough not to haunt
 const MAX_SESSIONS = 64;                 // nobody runs more; a flood of fake ids evicts the oldest
 const MAX_CONNECTIONS = 16;
+const MAX_ENDED = 16;                    // sessions just closed, still bringable into Shellby
+const MAX_CWD = 400;
+const LOCAL_DIR = /^[A-Za-z]:[\\/][^\u0000-\u001f\u007f]*$/;
 const ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
 
 // While listening, Shellby leaves a marker the plugin's hook checks first, so
@@ -51,7 +59,8 @@ function programOf(command) {
 /**
  * Apply one hook event to the sessions map (pure: returns a new map and the
  * notable things that happened). evt is Claude Code's hook JSON.
- *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }]
+ *   effects: [{ type: 'turn-done', project, tools } | { type: 'asking', project, message }
+ *             | { type: 'command-ok', kind, project } | { type: 'checkup', check, dir, result }]
  */
 function applyHookEvent(sessions, evt, now, client = null) {
   const next = new Map(sessions);
@@ -62,6 +71,11 @@ function applyHookEvent(sessions, evt, now, client = null) {
   const prev = next.get(id);
   const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, helpers: 0, tools: 0, bg: [], startedAt: now };
   if (evt.cwd) s.project = projectOf(evt.cwd);
+  // Where Claude Code keeps the conversation is decided by the folder it started
+  // in, so that one is kept: from SessionStart, or else the first one heard.
+  // Only a folder on a local drive: this port takes events from anything on the
+  // PC, and a \\host\share would have Shellby reach out to another machine.
+  if (LOCAL_DIR.test(evt.cwd || '') && evt.cwd.length <= MAX_CWD && (name === 'SessionStart' || !s.cwd)) s.cwd = evt.cwd;
   // The hook sends this on every event; keep the last one that named an app, so
   // a session doesn't lose its label to one event that arrived without it.
   if (client?.label) s.client = client;
@@ -72,7 +86,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
       s.state = 'idle';
       break;
     case 'UserPromptSubmit':
-      s.state = 'working'; s.tool = null; s.tools = 0;
+      s.state = 'working'; s.tool = null; s.tools = 0; s.turnAt = now;
       break;
     case 'PreToolUse': {
       s.state = 'working';
@@ -95,10 +109,31 @@ function applyHookEvent(sessions, evt, now, client = null) {
       // the meaning leaves this function, never the command itself.
       if (evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell') {
         const kind = classifyCommand(evt.tool_input?.command);
-        if (kind) effects.push({ type: 'command-ok', kind, project: s.project });
+        // A push, deploy or release also ships the project, which earns its
+        // sticker (stickers.js): that needs the folder, and what it shipped.
+        const ship = shipOf(kind, evt.tool_input?.command);
+        if (kind) {
+          effects.push(ship
+            ? { type: 'command-ok', kind, project: s.project, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, ship: { kind: ship.kind, version: ship.meta.version ?? null } }
+            : { type: 'command-ok', kind, project: s.project });
+        }
+        // A dependency checkup: what it found and where, never the output itself.
+        const check = checkupOf(evt.tool_input?.command);
+        if (check && typeof evt.cwd === 'string') {
+          const out = evt.tool_response && typeof evt.tool_response === 'object'
+            ? [evt.tool_response.stdout, evt.tool_response.stderr].filter(x => typeof x === 'string').join('\n') : '';
+          effects.push({
+            type: 'checkup', check,
+            dir: commandDir(evt.tool_input.command, evt.cwd.slice(0, 400)),
+            result: readCheckup(check, { text: out, isError: false, command: evt.tool_input.command }),
+          });
+        }
       }
       break;
     }
+    case 'PostToolUseFailure':
+      if (s.state === 'asking') s.state = 'working'; // it was allowed, and then failed
+      break;
     case 'SubagentStop':
       s.helpers = Math.max(0, s.helpers - 1);
       break;
@@ -114,13 +149,18 @@ function applyHookEvent(sessions, evt, now, client = null) {
     }
     case 'Stop': {
       const worked = s.state === 'working' || s.state === 'asking';
-      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null });
+      // ms: how long Claude worked on the turn (0 when the prompt wasn't seen, say Shellby started mid-turn).
+      const ms = Number.isFinite(s.turnAt) ? Math.max(0, now - s.turnAt) : 0;
+      if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, ms, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, sessionId: id, folder: s.cwd || null });
       // s.bg deliberately survives: whatever it backgrounded is still out there.
-      s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0;
+      s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0; s.turnAt = null;
       break;
     }
     case 'SessionEnd':
       next.delete(id);
+      // Its handoff note is written now (wiring/journal.js), from Claude Code's
+      // own file for it: transcript_path is never read, it could name any file.
+      if (s.cwd) effects.push({ type: 'session-end', sessionId: id, cwd: s.cwd });
       return { sessions: next, effects };
     default:
       return { sessions: sessions, effects }; // unknown event: no change
@@ -133,6 +173,39 @@ function applyHookEvent(sessions, evt, now, client = null) {
     next.delete(oldest[0]);
   }
   return { sessions: next, effects };
+}
+
+// Tools that write code: Claude working on whatever bug is on the loose there.
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const TOOL_USE_RE = /^[A-Za-z0-9_-]{1,80}$/;
+
+/**
+ * What the Bugdex takes from one hook event (bugdex/detect.js read()): a
+ * command starting, a command's reading (a bug it showed, or what its pass
+ * means) or a write. Pure. The command and its output are read here and
+ * dropped: only hashes, a species and yes/no answers leave.
+ *   -> [{ type: 'bug-start', toolUseId, key, cwd } | { type: 'bug-read', toolUseId, reading, cwd } | { type: 'bug-wrote', cwd }]
+ */
+function bugsOf(evt) {
+  const name = evt?.hook_event_name;
+  const cwd = typeof evt?.cwd === 'string' && LOCAL_DIR.test(evt.cwd) && evt.cwd.length <= MAX_CWD ? evt.cwd : null;
+  if (!cwd || typeof evt.session_id !== 'string' || !ID_RE.test(evt.session_id)) return [];
+  if (WRITE_TOOLS.has(evt.tool_name) && name === 'PostToolUse') return [{ type: 'bug-wrote', cwd }];
+  if (!SHELL_TOOLS.has(evt.tool_name)) return [];
+  const command = typeof evt.tool_input?.command === 'string' ? evt.tool_input.command : '';
+  const toolUseId = typeof evt.tool_use_id === 'string' && TOOL_USE_RE.test(evt.tool_use_id) ? evt.tool_use_id : null;
+  const background = evt.tool_input?.run_in_background === true;
+  if (!command || background) return [];
+  if (name === 'PreToolUse') return toolUseId ? [{ type: 'bug-start', toolUseId, key: cmdKey(command), cwd }] : [];
+  let reading = null;
+  if (name === 'PostToolUse') {
+    const res = evt.tool_response;
+    const output = res && typeof res === 'object' ? [res.stdout, res.stderr].filter(x => typeof x === 'string').join('\n') : (typeof res === 'string' ? res : '');
+    reading = bugRead.read({ cmd: command, output, isError: false });
+  } else if (name === 'PostToolUseFailure' && evt.is_interrupt !== true) {
+    reading = bugRead.read({ cmd: command, output: typeof evt.error === 'string' ? evt.error : '', isError: true });
+  }
+  return reading ? [{ type: 'bug-read', toolUseId, reading, cwd }] : [];
 }
 
 /** Quiet down sessions that stopped sending events (Claude killed, laptop slept). */
@@ -148,6 +221,16 @@ function expire(sessions, now) {
   return next;
 }
 
+/** One session as the panel sees it. */
+function viewOf(s) {
+  return {
+    id: s.id, cwd: s.cwd || null,
+    project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt,
+    client: s.client?.label || null, clientKind: s.client?.kind || null,
+    where: describeClient(s.project, s.client),
+  };
+}
+
 /** Roll the sessions up for the critter: state, busy count and helper crabs. */
 function summarize(sessions) {
   const list = [...sessions.values()];
@@ -161,17 +244,14 @@ function summarize(sessions) {
     .sort((a, b) => b.at - a.at);
   return {
     state, busy: busy.length, crew, background,
-    sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(s => ({
-      project: s.project, state: s.state, tool: s.tool, helpers: s.helpers, lastAt: s.lastAt,
-      client: s.client?.label || null, clientKind: s.client?.kind || null,
-      where: describeClient(s.project, s.client),
-    })),
+    sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(viewOf),
   };
 }
 
 // What this port answers. /v1/hook is the plugin's hooks; /v1/crab is the MCP
-// server driving the critter; /v1/cli is the `shellby` command.
-const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli'];
+// server driving the critter; /v1/cli is the `shellby` command; /v1/flow is a
+// workflow's web hook (its token is in the body, workflows/triggers.js).
+const ROUTES = ['/v1/hook', '/v1/crab', '/v1/cli', '/v1/flow'];
 
 /**
  * Is this one of ours? Requires POST to a known route, our header, JSON, and no
@@ -185,7 +265,21 @@ function acceptable(req) {
     && ROUTES.includes(req.url)
     && req.headers['x-shellby'] === '1'
     && /^application\/json\b/i.test(req.headers['content-type'] || '')
-    && !req.headers.origin;
+    && !req.headers.origin
+    // Every client here dials 127.0.0.1. A page that rebinds its own name to
+    // this PC still sends that name as Host, so this holds even if the Origin
+    // rule ever didn't.
+    && /^(127\.0\.0\.1|localhost)(:\d+)?$/i.test(req.headers.host || '');
+}
+
+// A refused request isn't read: enough of it is drained to answer cleanly,
+// and anything bigger just loses its connection.
+const REFUSED_DRAIN = 64 * 1024;
+function refuse(req, res, status) {
+  res.writeHead(status).end();
+  let seen = 0;
+  req.on('data', c => { seen += c.length; if (seen > REFUSED_DRAIN) req.destroy(); });
+  req.resume();
 }
 
 class ExternalSessions extends EventEmitter {
@@ -195,6 +289,7 @@ class ExternalSessions extends EventEmitter {
     this.owner = `${process.pid}-${Math.random().toString(36).slice(2)}`; // whose marker it is
     this.now = now;
     this.sessions = new Map();
+    this.ended = new Map();  // id -> view: closed lately, so "Bring it into Shellby" still works once you've typed /exit
     this.server = null;
     this.status = 'off'; // 'off' | 'listening' | 'busy' | 'error'
     this.timer = null;
@@ -202,6 +297,7 @@ class ExternalSessions extends EventEmitter {
     // what a newer plugin talking to an older Shellby should see.
     this.onCrab = null;
     this.onCli = null;
+    this.onFlow = null;
   }
 
   /** "I checked, they're done": drops every remembered background command. */
@@ -240,6 +336,7 @@ class ExternalSessions extends EventEmitter {
       clearInterval(this.timer);
       this.timer = setInterval(() => {
         this.update(expire(this.sessions, this.now()));
+        for (const [k, v] of this.ended) if (this.now() - v.endedAt > FORGET_MS) this.ended.delete(k);
         this.marker(true); // self-healing: put it back if anything removed it
       }, 60 * 1000);
       this.emit('status', this.status);
@@ -254,6 +351,7 @@ class ExternalSessions extends EventEmitter {
     this.server = null;
     this.marker(false);
     this.status = 'off';
+    this.ended.clear();
     this.update(new Map());
     this.emit('status', this.status);
   }
@@ -272,7 +370,7 @@ class ExternalSessions extends EventEmitter {
 
   handle(req, res) {
     const route = req.url;
-    if (!acceptable(req)) { res.writeHead(ROUTES.includes(route) ? 403 : 404).end(); req.resume(); return; }
+    if (!acceptable(req)) { refuse(req, res, ROUTES.includes(route) ? 403 : 404); return; }
     // Shellby's own Claude Code processes carry SHELLBY_OWNED=1 into the hook's
     // environment; their tabs already drive the crab. (Only hooks: a task
     // Shellby started may still legitimately drive the crab over MCP.)
@@ -299,7 +397,7 @@ class ExternalSessions extends EventEmitter {
   }
 
   /**
-   * /v1/crab and /v1/cli. Both reply with JSON, because unlike a hook there is
+   * /v1/crab, /v1/cli and /v1/flow. All reply with JSON, because unlike a hook there is
    * someone waiting to hear what happened. main.js supplies the handlers; with
    * none set the route is simply not there, which is what an older Shellby
    * looks like to a newer plugin.
@@ -309,7 +407,7 @@ class ExternalSessions extends EventEmitter {
       const text = JSON.stringify(payload);
       res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) }).end(text);
     };
-    const handler = route === '/v1/crab' ? this.onCrab : this.onCli;
+    const handler = route === '/v1/crab' ? this.onCrab : route === '/v1/flow' ? this.onFlow : this.onCli;
     if (!handler) { reply(404, { error: 'Not enabled.' }); return; }
     let payload;
     try { payload = JSON.parse(body); } catch { reply(400, { error: 'That was not JSON.' }); return; }
@@ -319,13 +417,30 @@ class ExternalSessions extends EventEmitter {
       .catch(() => reply(500, { error: 'Shellby could not do that.' }));
   }
 
+  /**
+   * One session by id, for handoff.js: live while it's open, or one that ended
+   * lately (closing it is exactly what "Bring it into Shellby" asks you to do).
+   */
+  known(id) {
+    const s = this.sessions.get(id);
+    if (s) return { ...viewOf(s), live: true };
+    const gone = this.ended.get(id);
+    return gone ? { ...gone, live: false } : null;
+  }
+
   ingest(evt, headers = {}) {
+    if (evt?.hook_event_name === 'SessionEnd' && this.sessions.has(evt.session_id)) {
+      this.ended.set(evt.session_id, { ...viewOf(this.sessions.get(evt.session_id)), state: 'idle', endedAt: this.now() });
+      while (this.ended.size > MAX_ENDED) this.ended.delete(this.ended.keys().next().value);
+    }
     // Which app the session is running in, worked out by the hook (see
     // claude-plugin/hooks/notify.sh) and named in clients.js.
     const client = clientOf({ host: headers['x-shellby-host'], entry: headers['x-shellby-entry'] });
     const { sessions, effects } = applyHookEvent(this.sessions, evt, this.now(), client);
     this.update(sessions);
     for (const e of effects) this.emit(e.type, e);
+    // The Bugdex's own reading of it (wiring/bugdex.js): never on the effects, which the crab reacts to.
+    for (const e of bugsOf(evt)) this.emit(e.type, e);
   }
 
   update(sessions) {
@@ -338,4 +453,4 @@ class ExternalSessions extends EventEmitter {
   get summary() { return { ...summarize(this.sessions), status: this.status, port: this.port }; }
 }
 
-module.exports = { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT, ROUTES };
+module.exports = { ExternalSessions, applyHookEvent, bugsOf, expire, summarize, acceptable, markerPath, programOf, DEFAULT_PORT, ROUTES };

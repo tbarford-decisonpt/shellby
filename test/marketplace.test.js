@@ -1,5 +1,7 @@
-const { test } = require('node:test');
+const { test, mock } = require('node:test');
 const assert = require('node:assert/strict');
+const os = require('os');
+const path = require('path');
 
 const {
   Marketplace, SUGGESTED, parseCatalog, parseMarketplaces, parseListing, isGithubRepo, parseDetails, parseResultLine, normalizeSource, runsCode, sourceUrl,
@@ -158,6 +160,12 @@ test('isGithubRepo: real owner/repo shapes only', () => {
   for (const bad of ['a/..', 'a/.', 'a/x.git', '-a/b', 'a/b/c', 'a', 'Documents/', null]) assert.equal(isGithubRepo(bad), false, String(bad));
 });
 
+test('normalizeSource: a trailing dot is the same local name', () => {
+  for (const s of ['https://localhost./x', 'https://foo.local./', 'https://metadata.google.internal./', 'https://printer.lan../', 'https://a.localhost./']) {
+    assert.equal(normalizeSource(s), null, s);
+  }
+});
+
 test('normalizeSource: GitHub repos and public https only', () => {
   assert.equal(normalizeSource('anthropics/skills'), 'anthropics/skills');
   assert.equal(normalizeSource(' https://github.com/anthropics/skills.git '), 'anthropics/skills');
@@ -172,6 +180,39 @@ test('normalizeSource: GitHub repos and public https only', () => {
 });
 
 // ---- Marketplace
+test('list({ stale }): answers from the last list while a slow refresh runs', async () => {
+  let t = 100000;
+  let release;
+  const slow = new Promise(r => { release = r; });
+  const { run } = fakeRun(listAnswers({ 'plugin marketplace update': () => slow.then(() => ({ ok: true, stdout: '' })) }));
+  const m = new Marketplace({ run, now: () => t });
+  assert.equal((await m.list()).ok, true);
+  t += 10 * 60 * 1000; // the cache has gone stale, and the Skill Shop starts a refresh
+  const refreshing = m.list({ refresh: true });
+  // Mocked clock: the stale answer gets every pending tick of work first, then
+  // the 500 ms "it waited" deadline passes at once instead of in real time.
+  mock.timers.enable({ apis: ['setTimeout'] });
+  let r;
+  try {
+    const raced = Promise.race([m.list({ stale: true }), new Promise(res => setTimeout(() => res('waited'), 500))]);
+    for (let i = 0; i < 10; i++) await new Promise(res => setImmediate(res));
+    mock.timers.tick(500);
+    r = await raced;
+  } finally { mock.timers.reset(); }
+  assert.notEqual(r, 'waited', "didn't wait behind the marketplace update");
+  assert.equal(r.plugins.length, 3);
+  release();
+  await refreshing;
+});
+
+test('list({ stale }): still lists when there is nothing cached yet', async () => {
+  const { run, calls } = fakeRun(listAnswers());
+  const m = new Marketplace({ run });
+  const r = await m.list({ stale: true });
+  assert.equal(r.ok, true);
+  assert.ok(calls.some(c => c[1] === 'list'));
+});
+
 test('list: caches, and refresh updates marketplaces first (rate-limited)', async () => {
   let t = 100000;
   const { run, calls } = fakeRun(listAnswers());
@@ -340,6 +381,52 @@ test('uninstall: user-scope plugins only; project installs point to the terminal
   assert.equal(m.view().plugins.find(p => p.name === 'frontend-design').installed, false);
 });
 
+test('update: refreshes its marketplace first, then updates the user install, and the cache shows the new version', async () => {
+  const { run, calls } = fakeRun(listAnswers({
+    // The real line from `claude plugin update shellby@shellby --json` (2.1.291).
+    'plugin update': { ok: true, stdout: '{"command":"update","outcome":"ok","pluginId":"frontend-design@claude-plugins-official","scope":"user","updateOutcome":"updated","oldVersion":"1.2.0","newVersion":"1.3.0"}' },
+  }));
+  const m = new Marketplace({ run });
+  assert.equal((await m.update('frontend-design@claude-plugins-official')).ok, false, 'nothing listed yet');
+  await m.list();
+  assert.equal((await m.update('42crunch-api-security-testing@claude-plugins-official')).ok, false, 'not installed');
+  const r = await m.update('frontend-design@claude-plugins-official');
+  assert.deepEqual(r, { ok: true, id: 'frontend-design@claude-plugins-official', updated: true, from: '1.2.0', to: '1.3.0' });
+  const changes = calls.filter(c => c[1] === 'update' || c[2] === 'update');
+  assert.deepEqual(changes, [
+    ['plugin', 'marketplace', 'update', 'claude-plugins-official'],
+    ['plugin', 'update', 'frontend-design@claude-plugins-official', '--scope', 'user', '--json'],
+  ]);
+  assert.ok(!calls.flat().includes('-y') && !calls.flat().includes('--yes'));
+  assert.equal(m.view().plugins.find(p => p.name === 'frontend-design').version, '1.3.0');
+});
+
+test('update: already current is not a failure; failures, command sources and project installs are reported', async () => {
+  const current = fakeRun(listAnswers({ 'plugin update': { ok: true, stdout: '{"outcome":"ok","updateOutcome":"up_to_date","oldVersion":"1.2.0","newVersion":"1.2.0"}' } }));
+  const m1 = new Marketplace({ run: current.run });
+  await m1.list();
+  assert.deepEqual(await m1.update('frontend-design@claude-plugins-official'), { ok: true, id: 'frontend-design@claude-plugins-official', updated: false, from: '1.2.0', to: '1.2.0' });
+
+  const fail = fakeRun(listAnswers({ 'plugin update': { ok: false, stdout: '{"outcome":"failed","failureCode":"not_found","message":"Plugin not found"}' } }));
+  const m2 = new Marketplace({ run: fail.run });
+  await m2.list();
+  assert.deepEqual(await m2.update('frontend-design@claude-plugins-official'), { ok: false, error: 'Plugin not found' });
+
+  const cmd = fakeRun(listAnswers({ 'plugin update': { ok: false, stdout: '{"outcome":"failed","shownCommand":{"sha256":"ab"}}' } }));
+  const m3 = new Marketplace({ run: cmd.run });
+  await m3.list();
+  const r3 = await m3.update('frontend-design@claude-plugins-official');
+  assert.deepEqual([r3.ok, r3.needsTerminal, r3.command], [false, true, 'claude plugin update frontend-design@claude-plugins-official']);
+
+  const catalog = { ...CATALOG, installed: [{ id: 'frontend-design@claude-plugins-official', scope: 'project', enabled: true, version: '1.2.0' }] };
+  const proj = fakeRun(listAnswers({ 'plugin list --available': { ok: true, stdout: JSON.stringify(catalog) } }));
+  const m4 = new Marketplace({ run: proj.run });
+  await m4.list();
+  const r4 = await m4.update('frontend-design@claude-plugins-official');
+  assert.deepEqual([r4.ok, r4.needsTerminal, r4.command], [false, true, 'claude plugin update frontend-design@claude-plugins-official --scope project']);
+  assert.ok(!proj.calls.some(c => c[1] === 'update'));
+});
+
 test('addMarketplace: validates before calling the CLI', async () => {
   const { run, calls } = fakeRun(listAnswers());
   const m = new Marketplace({ run });
@@ -349,4 +436,60 @@ test('addMarketplace: validates before calling the CLI', async () => {
   const r = await m.addMarketplace('https://github.com/anthropics/skills');
   assert.equal(r.ok, true);
   assert.deepEqual(calls[0], ['plugin', 'marketplace', 'add', 'anthropics/skills']);
+});
+
+test('setEnabled: turns a user plugin off and on, keeps it installed; project installs point to the terminal', async () => {
+  const catalog = { ...CATALOG, installed: [
+    { id: 'frontend-design@claude-plugins-official', scope: 'user', enabled: true, installedAt: '2026-09-01T10:00:00.000Z' },
+    { id: 'old-thing@gone-marketplace', scope: 'project', enabled: true },
+  ] };
+  const { run, calls } = fakeRun(listAnswers({
+    'plugin list --available': { ok: true, stdout: JSON.stringify(catalog) },
+    'plugin disable': { ok: true, stdout: '{"outcome":"disabled"}' },
+    'plugin enable': { ok: true, stdout: '{"outcome":"enabled"}' },
+  }));
+  const m = new Marketplace({ run });
+  await m.list();
+  const fd = () => m.view().plugins.find(p => p.name === 'frontend-design');
+  assert.equal(fd().installedAt, Date.parse('2026-09-01T10:00:00.000Z'));
+  assert.equal((await m.setEnabled('42crunch-api-security-testing@claude-plugins-official', false)).ok, false, 'not installed');
+  const proj = await m.setEnabled('old-thing@gone-marketplace', false);
+  assert.deepEqual([proj.ok, proj.needsTerminal, proj.command], [false, true, 'claude plugin disable old-thing@gone-marketplace --scope project']);
+  assert.equal((await m.setEnabled('frontend-design@claude-plugins-official', false)).ok, true);
+  assert.deepEqual([fd().installed, fd().enabled], [true, false]);
+  assert.equal((await m.setEnabled('frontend-design@claude-plugins-official', true)).ok, true);
+  assert.equal(fd().enabled, true);
+  assert.deepEqual(calls.filter(c => c[1] === 'disable' || c[1] === 'enable'), [
+    ['plugin', 'disable', 'frontend-design@claude-plugins-official', '--scope', 'user', '--json'],
+    ['plugin', 'enable', 'frontend-design@claude-plugins-official', '--scope', 'user', '--json'],
+  ]);
+});
+
+test('setEnabled: a failed result line is a failure', async () => {
+  const { run } = fakeRun(listAnswers({ 'plugin disable': { ok: true, stdout: '{"outcome":"failed","message":"nope"}' } }));
+  const m = new Marketplace({ run });
+  await m.list();
+  assert.deepEqual(await m.setEnabled('frontend-design@claude-plugins-official', false), { ok: false, error: 'nope' });
+});
+
+test("details: Claude Code's own inventory and estimate, only for listed plugins", async () => {
+  const { run, calls } = fakeRun(listAnswers());
+  const m = new Marketplace({ run });
+  await m.list();
+  const d = await m.details('frontend-design@claude-plugins-official');
+  assert.deepEqual([d.alwaysOnTokens, d.hooks], [1200, 2]);
+  assert.equal(await m.details('made-up@nowhere'), null);
+  assert.equal(calls.filter(c => c[1] === 'details').length, 1);
+});
+
+test("catalog: a plugin's folder is kept only inside Claude Code's plugins folder", () => {
+  const root = path.join(os.tmpdir(), 'claude-plugins');
+  const inside = path.join(root, 'cache', 'm', 'fd', '1.0');
+  const json = { installed: [
+    { id: 'frontend-design@claude-plugins-official', scope: 'user', installPath: inside },
+    { id: 'old-thing@gone-marketplace', scope: 'user', installPath: path.join(os.tmpdir(), 'elsewhere') },
+  ] };
+  const dirs = Object.fromEntries(parseCatalog(json, { pluginsRoot: root }).plugins.map(p => [p.name, p.dir]));
+  assert.deepEqual(dirs, { 'frontend-design': inside, 'old-thing': null });
+  assert.equal(parseCatalog(json).plugins[0].dir, null, 'no root, no folder');
 });

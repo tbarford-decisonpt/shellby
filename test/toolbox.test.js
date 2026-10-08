@@ -192,6 +192,62 @@ test('watcher: init plugins feed later scans without flooding "learned"', () => 
   }
 });
 
+test('watcher: another cached version of a plugin is never "learned", launch after launch', () => {
+  // Claude Code sessions can report two cached versions of the same plugin
+  // (installed_plugins.json says 0.2.2, the auto-updated cache has 0.2.6).
+  // seen starts empty each launch, so this has to hold for a fresh watcher too.
+  const home = tmp(), v1 = tmp(), v2 = tmp();
+  put(path.join(v1, 'skills', 'doctor', 'SKILL.md'), md('', 'old'));
+  put(path.join(v2, 'skills', 'doctor', 'SKILL.md'), md('', 'old'));
+  put(path.join(v2, 'skills', 'status', 'SKILL.md'), md('', 'new in v2'));
+  for (let launch = 0; launch < 2; launch++) {
+    const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+    const learned = [];
+    w.on('learned', l => learned.push(l.name));
+    w.start();
+    try {
+      w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
+      w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+      w.setInit({ plugins: [{ name: 'ruflo', path: v1 }] });
+      w.setInit({ plugins: [{ name: 'ruflo', path: v2 }] });
+      assert.deepEqual(learned, []);
+    } finally {
+      w.stop();
+    }
+  }
+});
+
+test('watcher: a skill that flickers in and out is only "learned" once', () => {
+  const home = tmp(), plug = tmp();
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+  const learned = [];
+  w.on('learned', l => learned.push(l.name));
+  w.start();
+  try {
+    w.setInit({ plugins: [{ name: 'ruflo', path: plug }] });
+    const status = path.join(plug, 'skills', 'status', 'SKILL.md');
+    put(status, md('', 'new'));
+    w.rescan();
+    fs.rmSync(path.dirname(status), { recursive: true });
+    w.rescan();
+    put(status, md('', 'new'));
+    w.rescan();
+    assert.deepEqual(learned, ['ruflo:status']);
+
+    // Same for a user skill that's deleted and put back.
+    const file = path.join(home, '.claude', 'skills', 'mine', 'SKILL.md');
+    put(file, md('', 'mine'));
+    w.rescan();
+    fs.rmSync(path.dirname(file), { recursive: true });
+    w.rescan();
+    put(file, md('', 'mine'));
+    w.rescan();
+    assert.deepEqual(learned, ['ruflo:status', 'mine']);
+  } finally {
+    w.stop();
+  }
+});
+
 test('watcher: fs.watch failures never throw', () => {
   const home = tmp();
   fs.mkdirSync(path.join(home, '.claude', 'skills'), { recursive: true });
@@ -200,4 +256,328 @@ test('watcher: fs.watch failures never throw', () => {
   assert.doesNotThrow(() => w.start());
   assert.equal(w.watchers.length, 0);
   w.stop();
+});
+
+test('scan: what each item costs, its listing and the body read when called', () => {
+  const home = tmp();
+  put(path.join(home, '.claude', 'skills', 'sized', 'SKILL.md'), '---\nname: sized\ndescription: Twelve chars\n---\n0123456789');
+  put(path.join(home, '.claude', 'agents', 'bare.md'), 'No frontmatter at all.');
+  const tb = scanToolbox({ home });
+  const s = tb.skills.find(t => t.name === 'sized');
+  assert.equal(s.listChars, 'sized'.length + 'Twelve chars'.length);
+  assert.equal(s.bodyChars, 10);
+  const a = tb.agents.find(t => t.name === 'bare');
+  assert.equal(a.bodyChars, 'No frontmatter at all.'.length);
+});
+
+// ---- caches (the scan runs on the main process)
+test('scan: metaCache skips unchanged files, rereads changed ones and drops deleted ones', () => {
+  const home = tmp();
+  const a = path.join(home, '.claude', 'skills', 'a', 'SKILL.md');
+  const b = path.join(home, '.claude', 'skills', 'b', 'SKILL.md');
+  put(a, md('', 'first'));
+  put(b, md('', 'bee'));
+  const metaCache = new Map();
+  scanToolbox({ home, metaCache });
+  assert.deepEqual([...metaCache.keys()].sort(), [a, b].sort());
+
+  // Unchanged: served from the cache, even if the entry says something else.
+  metaCache.set(a, { ...metaCache.get(a), meta: { description: 'cached', bodyChars: 1 } });
+  assert.equal(scanToolbox({ home, metaCache }).skills.find(t => t.name === 'a').description, 'cached');
+
+  // Changed size: read again.
+  put(a, md('', 'second, longer'));
+  assert.equal(scanToolbox({ home, metaCache }).skills.find(t => t.name === 'a').description, 'second, longer');
+
+  fs.rmSync(path.dirname(b), { recursive: true });
+  scanToolbox({ home, metaCache });
+  assert.deepEqual([...metaCache.keys()], [a]);
+});
+
+test('scan: pluginCache reuses a plugin dir until cleared, and forgets plugins that went away', () => {
+  const home = tmp(), plug = tmp(), other = tmp();
+  put(path.join(plug, 'skills', 'pdf', 'SKILL.md'), md('', 'pdf'));
+  put(path.join(other, 'skills', 'xlsx', 'SKILL.md'), md('', 'xlsx'));
+  const pluginCache = new Map();
+  const metaCache = new Map();
+  const plugins = [{ name: 'docs', path: plug }, { name: 'sheets', path: other }];
+  scanToolbox({ home, plugins, pluginCache, metaCache });
+  assert.equal(pluginCache.size, 2);
+
+  put(path.join(plug, 'skills', 'docx', 'SKILL.md'), md('', 'docx'));
+  assert.deepEqual(names(scanToolbox({ home, plugins, pluginCache, metaCache }).skills), ['docs:pdf', 'sheets:xlsx']);
+  // Reused dirs keep their file entries, so a cleared pluginCache doesn't mean rereading everything.
+  assert.ok(metaCache.has(path.join(plug, 'skills', 'pdf', 'SKILL.md')));
+
+  pluginCache.clear();
+  assert.deepEqual(names(scanToolbox({ home, plugins, pluginCache, metaCache }).skills), ['docs:docx', 'docs:pdf', 'sheets:xlsx']);
+
+  scanToolbox({ home, plugins: [plugins[0]], pluginCache, metaCache });
+  assert.deepEqual([...pluginCache.keys()], [`docs=${plug}`]);
+
+  // An empty dir may be an install still being written, so it isn't kept.
+  const fresh = tmp();
+  scanToolbox({ home, plugins: [{ name: 'later', path: fresh }], pluginCache, metaCache });
+  assert.equal(pluginCache.size, 0);
+  put(path.join(fresh, 'skills', 'ready', 'SKILL.md'), md('', 'ready'));
+  assert.deepEqual(names(scanToolbox({ home, plugins: [{ name: 'later', path: fresh }], pluginCache, metaCache }).skills), ['later:ready']);
+});
+
+test('watcher: the poll reads plugin dirs again every tenth time', async () => {
+  const home = tmp(), plug = tmp();
+  put(path.join(plug, 'skills', 'pdf', 'SKILL.md'), md('', 'pdf'));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 5, getPlugins: () => [{ name: 'docs', path: plug }] });
+  w.start();
+  try {
+    put(path.join(plug, 'skills', 'docx', 'SKILL.md'), md('', 'docx'));
+    const end = Date.now() + 5000;
+    while (Date.now() < end && !w.current.skills.some(t => t.name === 'docs:docx')) await new Promise(r => setTimeout(r, 10));
+    assert.ok(w.current.skills.some(t => t.name === 'docs:docx'));
+  } finally {
+    w.stop();
+  }
+});
+
+test('watcher: the poll reuses plugin dirs, Rescan reads them again, your own are always fresh', () => {
+  const home = tmp(), plug = tmp();
+  put(path.join(plug, 'skills', 'pdf', 'SKILL.md'), md('', 'pdf'));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getPlugins: () => [{ name: 'docs', path: plug }] });
+  w.start();
+  try {
+    put(path.join(plug, 'skills', 'docx', 'SKILL.md'), md('', 'docx'));
+    put(path.join(home, '.claude', 'skills', 'mine', 'SKILL.md'), md('', 'mine'));
+    w.rescan({ plugins: false });
+    assert.deepEqual(names(w.current.skills), ['docs:pdf', 'mine']);
+    w.rescan();
+    assert.deepEqual(names(w.current.skills), ['docs:docx', 'docs:pdf', 'mine']);
+  } finally {
+    w.stop();
+  }
+});
+
+// ---- what's been seen, across launches
+test('watcher: a skill written while Shellby was closed is news at the next launch', () => {
+  const home = tmp(), cwd = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  put(path.join(home, '.claude', 'skills', 'old', 'SKILL.md'), md('', 'old'));
+  const launch = () => {
+    const w = new ToolboxWatcher({ home, getCwd: () => cwd, pollMs: 0, seenFile });
+    const learned = [];
+    w.on('learned', l => learned.push(l.name));
+    w.start();
+    w.stop();
+    return learned;
+  };
+  // The first launch ever has nothing to compare with.
+  assert.deepEqual(launch(), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), ['skill:old', 'mod:*']);
+
+  put(path.join(home, '.claude', 'skills', 'new', 'SKILL.md'), md('', 'new'));
+  put(path.join(home, '.claude', 'agents', 'helper.md'), md('', 'helps'));
+  // A project's own aren't news at launch: Shellby may never have looked in that folder.
+  put(path.join(cwd, '.claude', 'skills', 'proj', 'SKILL.md'), md('', 'project'));
+  assert.deepEqual(launch().sort(), ['helper', 'new']);
+  assert.deepEqual(launch(), []);
+});
+
+test('watcher: at most a few announcements at launch, and a bad seen file is a first launch', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  fs.writeFileSync(seenFile, '{not json');
+  const w0 = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+  assert.equal(w0.restored, false);
+
+  fs.writeFileSync(seenFile, JSON.stringify(['skill:gone', 42]));
+  for (const n of ['a', 'b', 'c', 'd', 'e']) put(path.join(home, '.claude', 'skills', n, 'SKILL.md'), md('', n));
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+  const learned = [];
+  w.on('learned', l => learned.push(l.name));
+  w.start();
+  w.stop();
+  assert.equal(learned.length, 3);
+  // All five are remembered, so the rest don't come up next time either.
+  const saved = JSON.parse(fs.readFileSync(seenFile, 'utf8'));
+  assert.ok(['a', 'b', 'c', 'd', 'e'].every(n => saved.includes(`skill:${n}`)));
+});
+
+test('watcher: a first launch with nothing at all still counts as one', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  const launch = () => {
+    const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+    const learned = [];
+    w.on('learned', l => learned.push(l.name));
+    w.start();
+    w.stop();
+    return learned;
+  };
+  assert.deepEqual(launch(), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seenFile, 'utf8')), ['mod:*']);
+  put(path.join(home, '.claude', 'skills', 'first', 'SKILL.md'), md('', 'first'));
+  assert.deepEqual(launch(), ['first']);
+});
+
+// ---- built-in commands
+test('mergeInit: Claude Code built-in commands get a description, unknown ones none', () => {
+  const tb = mergeInit({ skills: [], agents: [], commands: [] }, { slash_commands: ['compact', 'brand-new-thing', 'constructor'] });
+  const by = Object.fromEntries(tb.commands.map(t => [t.name, t.description]));
+  assert.match(by.compact, /Summarize/);
+  assert.equal(by['brand-new-thing'], '');
+  assert.equal(by.constructor, '');
+});
+
+// ---- mods in the Toolbox
+
+const putMod = (home, name, extra = {}) => {
+  const dir = path.join(home, '.claude', 'skills', name);
+  put(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ name, version: '1.0.0', description: `${name} mod`, ...extra }));
+  put(path.join(dir, 'hooks', 'hooks.json'), JSON.stringify({ modules: ['./register.ts'] }));
+  return dir;
+};
+
+test('mergeInit: init.commands adds commands with their descriptions, once each', () => {
+  const out = mergeInit({ skills: [], agents: [], commands: [], mcp: [] }, {
+    slash_commands: ['probe', 'compact'],
+    commands: [{ name: 'probe', description: 'Says hello from the probe mod.' }, { name: 'later', description: 'Added after start' }, { name: 'later', description: 'dupe' }, { name: '' }, null],
+  });
+  const byName = Object.fromEntries(out.commands.map(c => [c.name, c]));
+  assert.deepEqual(Object.keys(byName).sort(), ['compact', 'later', 'probe']);
+  assert.equal(out.commands.length, 3);
+  assert.equal(byName.probe.description, 'Says hello from the probe mod.');
+  assert.equal(byName.later.description, 'Added after start');
+  assert.equal(byName.probe.source, 'cli');
+  assert.ok(byName.compact.description, 'a built-in command keeps its own description');
+});
+
+test('mergeInit: a command already in the Toolbox, or named like a skill, is not added again', () => {
+  const tb = { skills: [{ kind: 'skill', name: 'plan' }], agents: [], commands: [{ kind: 'command', name: 'deploy', description: 'mine', source: 'user', path: 'p' }], mcp: [] };
+  const out = mergeInit(tb, { commands: [{ name: 'deploy', description: 'other' }, { name: 'plan', description: 'x' }] });
+  assert.deepEqual(names(out.commands), ['deploy']);
+  assert.equal(out.commands[0].description, 'mine');
+});
+
+test('mergeInit: the result carries the mods it was given, as copies', () => {
+  const mods = [{ kind: 'mod', id: 'a@skills-dir', name: 'a' }];
+  const out = mergeInit({ skills: [], agents: [], commands: [], mcp: [], mods }, null);
+  assert.deepEqual(out.mods, mods);
+  assert.notEqual(out.mods[0], mods[0]);
+  assert.deepEqual(mergeInit({}, {}).mods, []);
+});
+
+test('watcher: a mod written later is "learned" and listed in current.mods', () => {
+  const home = tmp();
+  putMod(home, 'old');
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+  const learned = [];
+  w.on('learned', l => learned.push(l));
+  w.start();
+  try {
+    assert.deepEqual(names(w.current.mods), ['old']);
+    assert.deepEqual(learned, [], 'the first scan is quiet');
+    const dir = putMod(home, 'fresh');
+    w.rescan();
+    assert.deepEqual(names(w.current.mods), ['fresh', 'old']);
+    assert.equal(learned.length, 1);
+    assert.deepEqual(learned[0], { kind: 'mod', id: 'fresh@skills-dir', name: 'fresh', description: 'fresh mod', path: dir, source: 'user', enabled: true });
+    w.rescan();
+    assert.equal(learned.length, 1, 'a second rescan with nothing new says nothing');
+  } finally { w.stop(); }
+});
+
+test('watcher: getSettings turning a mod off shows as enabled false in current.mods', () => {
+  const home = tmp();
+  putMod(home, 'tidy');
+  let settings = [];
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getSettings: () => settings });
+  let changed = 0;
+  w.on('changed', () => changed++);
+  w.start();
+  try {
+    assert.equal(w.current.mods[0].enabled, true);
+    settings = [{ enabledPlugins: { 'tidy@skills-dir': false } }];
+    const before = changed;
+    w.rescan();
+    assert.equal(w.current.mods[0].enabled, false);
+    assert.ok(changed > before, 'turning it off is a change');
+  } finally { w.stop(); }
+});
+
+test('watcher: installed marketplace mods are listed but are not "learned"', () => {
+  const home = tmp();
+  const root = tmp();
+  const dir = path.join(root, 'shopmod');
+  put(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'shopmod' }));
+  put(path.join(dir, 'hooks', 'hooks.json'), JSON.stringify({ modules: ['./m.ts'] }));
+  let installed = [];
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getInstalled: () => installed });
+  const learned = [];
+  w.on('learned', l => learned.push(l));
+  w.start();
+  try {
+    installed = [{ id: 'shopmod@shop', marketplace: 'shop', dir, enabled: true }];
+    w.rescan();
+    assert.equal(w.current.mods[0].source, 'plugin');
+    assert.deepEqual(learned, []);
+  } finally { w.stop(); }
+});
+
+test('watcher: a getInstalled or getSettings that throws just means no mods from there', () => {
+  const home = tmp();
+  putMod(home, 'tidy');
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, getInstalled: () => { throw new Error('boom'); }, getSettings: () => { throw new Error('boom'); } });
+  w.start();
+  try { assert.deepEqual(names(w.current.mods), ['tidy']); } finally { w.stop(); }
+});
+
+test('watcher: setCommands emits changed only when the list changes, and shows the commands', () => {
+  const home = tmp();
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0 });
+  w.start();
+  try {
+    let changed = 0;
+    w.on('changed', () => changed++);
+    const list = [{ name: 'probe', description: 'Says hello.' }];
+    w.setCommands(list);
+    assert.equal(changed, 1);
+    const probe = w.current.commands.find(c => c.name === 'probe');
+    assert.equal(probe.description, 'Says hello.');
+    w.setCommands([{ name: 'probe', description: 'Says hello.' }]);
+    assert.equal(changed, 1, 'the same list again is not a change');
+    w.setCommands([...list, { name: 'second', description: 'More.' }]);
+    assert.equal(changed, 2);
+    w.setCommands('not a list');
+    assert.equal(changed, 2);
+  } finally { w.stop(); }
+});
+
+test('watcher: a mod written while Shellby was closed is news at the next launch, but ones from before mods were known are not', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  putMod(home, 'before');
+  const launch = () => {
+    const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+    const learned = [];
+    w.on('learned', l => learned.push(l.kind === 'mod' ? l.name : `other:${l.name}`));
+    w.start();
+    w.stop();
+    return learned;
+  };
+  assert.deepEqual(launch(), [], 'the first look only takes note');
+  assert.ok(JSON.parse(fs.readFileSync(seenFile, 'utf8')).includes('mod:before@skills-dir'));
+  putMod(home, 'after');
+  assert.deepEqual(launch(), ['after']);
+  assert.deepEqual(launch(), []);
+});
+
+test('watcher: a seen file from before mods existed treats the mods already installed as seen, not as news', () => {
+  const home = tmp(), data = tmp();
+  const seenFile = path.join(data, 'toolbox-seen.json');
+  fs.writeFileSync(seenFile, JSON.stringify(['skill:old']));
+  putMod(home, 'installed');
+  const w = new ToolboxWatcher({ home, getCwd: () => null, pollMs: 0, seenFile });
+  const learned = [];
+  w.on('learned', l => learned.push(l.name));
+  w.start();
+  w.stop();
+  assert.deepEqual(learned, []);
 });

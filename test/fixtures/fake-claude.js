@@ -7,6 +7,15 @@
 //   "crash"      -> exits with code 3 mid-turn
 //   "wait <ms>"  -> replies "echo: ..." after a delay
 //   "fail"       -> ends the turn with an error
+//   "edit <file> <words>" -> writes <words> into <file> in its working folder
+//   "editabs <path> <words>" -> writes to that absolute path, if a work hook allows it
+//   "big <tokens>" -> a reply whose call used <tokens> of a 200k window
+//   "mod"        -> a mod's log line, toast and status line, and its slash command (ui_*, commands_changed)
+//   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
+//   "args"       -> replies with the command line it was started with (JSON)
+//   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
+//   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
+//   "steps <n> <ms> [late <ms>]" -> n tool calls in a row; see below for messages sent meanwhile
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -16,12 +25,91 @@ let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-
 let turn = 0;
 let pending = null;   // { requestId, onAnswer }
 let slow = null;
+let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
+let stepHooks = [];   // PostToolUse ones
+let inbox = null;     // messages that came in while a "steps" turn runs, not yet read
+const REPLAY = args.includes('--replay-user-messages');
+let effort = args.includes('--effort') ? args[args.indexOf('--effort') + 1] : '';
+
+// Like the real CLI, it keeps the conversation under <config>/projects/<folder>/<id>.jsonl,
+// so Shellby can carry it into a copy and it can carry on there. Only for a
+// config folder under temp: a test run never writes into a real ~/.claude.
+const transcript = (() => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = process.env.CLAUDE_CONFIG_DIR;
+  let tmp;
+  try { tmp = fs.realpathSync.native(os.tmpdir()).toLowerCase() + path.sep; } catch { return null; }
+  if (!dir || !fs.existsSync(dir) || !(fs.realpathSync.native(dir).toLowerCase() + path.sep).startsWith(tmp)) return null;
+  return path.join(dir, 'projects', path.resolve(process.cwd()).replace(/[^a-zA-Z0-9]/g, '-'), `${sessionId}.jsonl`);
+})();
+const remember = entry => {
+  if (!transcript) return;
+  require('fs').mkdirSync(require('path').dirname(transcript), { recursive: true });
+  require('fs').appendFileSync(transcript, JSON.stringify(entry) + '\n');
+};
+// The edit a hook held back, if the last thing in the transcript is one. The
+// { sessionId, text } lines kept for branching are written as each message
+// arrives, so they're skipped: they'd always be last.
+const heldEdit = () => {
+  try {
+    const last = require('fs').readFileSync(transcript, 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(e => !e.sessionId).pop();
+    return last?.held || null;
+  } catch { return null; }
+};
 
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
-const text = t => out({ type: 'assistant', message: { content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
+let messages = 0;
+// Real replies carry an id, model and token counts (the usage-by-project ledger reads them).
+const text = t => out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 9000 }, content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId, uuid: `uuid-${sessionId}-${messages}` });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
+// Like the real CLI with --replay-user-messages: each message echoed as it's read.
+const echo = msg => { if (REPLAY) out({ type: 'user', message: msg.message, isReplay: true, session_id: sessionId }); };
+const textOf = msg => (Array.isArray(msg.message.content) ? msg.message.content.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.message.content));
+// Messages left unread when a turn ends: the real CLI runs them next, as a turn of their own.
+const runInbox = () => { const rest = inbox || []; inbox = null; for (const m of rest) onLine(JSON.stringify(m)); };
 
-readline.createInterface({ input: process.stdin }).on('line', line => {
+// `claude -p --output-format json --json-schema …` with the prompt on stdin: one
+// structured answer, then exit. Workflow drafts get a one-step workflow. The
+// editor's chat gets a scripted build: a first version that fails its test, a
+// fix, then "it worked", so a screenshot run can watch Claude iterate.
+const ONE_SHOT = args.includes('--json-schema');
+if (ONE_SHOT) {
+  let prompt = '';
+  process.stdin.on('data', c => { prompt += c; });
+  process.stdin.on('end', () => {
+    const schema = JSON.parse(args[args.indexOf('--json-schema') + 1]);
+    const hello = (extra = []) => JSON.stringify({
+      name: 'Morning hello', description: 'Says good morning.',
+      when: [{ type: 'schedule', schedule: { type: 'daily', time: '09:00' } }],
+      steps: [{ id: 'hello', type: 'tell', to: 'crab', text: 'Good morning!' }, ...extra],
+    });
+    // The routine editor's chat: a draft to test, then "it worked".
+    const morning = { name: 'Morning summary', prompt: 'List the files in this folder that changed since yesterday and sum them up in three bullets.', schedule: { type: 'weekly', time: '08:30', days: [1, 2, 3, 4, 5] }, mode: 'plan', folder: '', catchUp: true };
+    // Describe it (a routine draft: "build fails" makes it a workflow's job) and Fix with Claude.
+    // A draft's description comes as -p's argument, the rest on stdin.
+    if (args[args.indexOf('-p') + 1] && !args[args.indexOf('-p') + 1].startsWith('--')) prompt += args[args.indexOf('-p') + 1];
+    const job = { needs_workflow: /build fails/.test(prompt), why: /build fails/.test(prompt) ? 'It should start when a build fails, not on a clock.' : '' };
+    let answer;
+    if (schema.properties.schedule) answer = { ...morning, ...job };
+    else if (schema.properties.routine && schema.properties.note) answer = { routine: { ...morning, prompt: 'List the files in Documents that changed since yesterday and sum them up in three bullets.' }, note: 'It looked in a folder that isn\'t there. I pointed it at Documents.' };
+    else if (schema.properties.routine) {
+      answer = prompt.includes('test run that just finished')
+        ? { reply: 'The test run worked: it listed what changed and summed it up. Press Save to switch it on.', changed: false, routine: morning, test: false, needs_workflow: false, why: '' }
+        : { reply: 'Set it for weekdays at 8:30, looking only, never changing anything. Let me test it.', changed: true, routine: morning, test: true, needs_workflow: false, why: '' };
+    } else if (schema.properties.command && schema.properties.event) {
+      // Toolbox → Hooks, Ask Claude: a hook that says when Claude finishes.
+      answer = { event: 'Stop', matcher: '', command: "bash -c 'echo done'", timeout: 0, scope: 'user', title: 'Say done', note: 'Prints "done" each time Claude finishes replying.' };
+    } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
+    else if (!prompt.includes('The test run that just finished')) {
+      answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };
+    } else if (/Status: error/.test(prompt)) {
+      answer = { reply: 'The leftover Stop step failed the run. I took it out; testing again.', workflow_json: hello(), test: true };
+    } else answer = { reply: 'The test run worked: Shellby said good morning. Press Save to switch it on.', workflow_json: '', test: false };
+    out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer });
+  });
+}
+
+function onLine(line) {
   const msg = JSON.parse(line);
 
   if (msg.type === 'control_response' && pending && msg.response.request_id === pending.requestId) {
@@ -37,26 +125,103 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       if (slow) { clearTimeout(slow); slow = null; }
       out({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] } });
       result(false);
+      runInbox();
+    } else if (sub === 'initialize') {
+      workHooks = msg.request.hooks?.PreToolUse?.flatMap(m => m.hookCallbackIds) || [];
+      stepHooks = msg.request.hooks?.PostToolUse?.flatMap(m => m.hookCallbackIds) || [];
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
+    } else if (sub === 'apply_flag_settings') {
+      effort = msg.request.settings?.effortLevel || '';
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
+    } else if (sub === 'mcp_status') {
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mcpServers: [{ name: 'github', status: 'connected' }, { name: 'broken', status: 'failed' }] } } });
     } else if (sub === 'get_usage') {
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {
         subscription_type: 'max', rate_limits_available: true,
         rate_limits: { five_hour: { utilization: 42, resets_at: '2026-10-08T04:00:00+00:00' }, seven_day: { utilization: 7.6, resets_at: '2026-10-14T23:00:00+00:00' } },
       } } });
+    } else {
+      out({ type: 'control_response', response: { subtype: 'error', request_id: msg.request_id, error: `Unsupported: ${sub}` } });
     }
     return;
   }
 
   if (msg.type !== 'user') return;
+  if (inbox) { inbox.push(msg); return; } // read at the next step (see "steps")
   turn++;
-  const content = String(msg.message.content);
+  echo(msg);
+  // A message with pictures in it is a list of blocks: the text is in the text one(s).
+  // A note from Shellby about where a branch now is comes first, as a block of
+  // its own: it's acknowledged on its own line, and the message itself is what
+  // the behaviours below act on.
+  let blocks = Array.isArray(msg.message.content) ? msg.message.content : null;
+  const note = blocks?.[0]?.type === 'text' && blocks.length > 1 && blocks[0].text.startsWith('Shellby has branched') ? blocks[0].text : null;
+  if (note) blocks = blocks.slice(1);
+  const content = blocks ? blocks.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.message.content);
+  const images = blocks ? blocks.filter(b => b.type === 'image') : [];
+  // Like the real CLI, keep the conversation where it would be resumed from
+  // (only when told where: CLAUDE_CONFIG_DIR), so branching can find it.
+  if (process.env.CLAUDE_CONFIG_DIR) {
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.join(process.env.CLAUDE_CONFIG_DIR, 'projects', path.resolve(process.cwd()).replace(/[^a-zA-Z0-9]/g, '-'));
+    try { fs.mkdirSync(dir, { recursive: true }); fs.appendFileSync(path.join(dir, `${sessionId}.jsonl`), `${JSON.stringify({ sessionId, text: content })}\n`); } catch { /* best effort */ }
+  }
   out({ type: 'system', subtype: 'hook_started' });
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
+  if (note) text(`noted: ${note}`);
   if (content === 'crash') { process.exit(3); }
+  // "editabs <absolute path> <words...>" -> a Write to that exact path, asked of
+  // a registered PreToolUse hook first (a branch's fence); refused, it says why.
+  if (content.startsWith('editabs ')) {
+    const [, file, ...words] = content.split(' ');
+    const write = () => { require('fs').writeFileSync(file, `${words.join(' ')}\n`); text(`wrote ${file}`); result(true); };
+    if (!workHooks.length) return write();
+    const requestId = `req-hook-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'hook_callback', callback_id: workHooks[0], input: { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: file, content: words.join(' ') } } } });
+    pending = {
+      requestId,
+      onAnswer: r => {
+        if (r?.hookSpecificOutput?.permissionDecision !== 'deny') return write();
+        text(`fenced: ${r.hookSpecificOutput.permissionDecisionReason}`);
+        result(true);
+      },
+    };
+    return;
+  }
+  // "edit <file> <words...>" -> writes <words> into <file> in the working folder,
+  // the way a real turn changes code (for the turn's diff and worktrees). A
+  // registered PreToolUse hook is asked first; held back, it answers
+  // "Branch: add-greeting" instead, and makes the edit when told to carry on.
+  const carried = /carry on/i.test(content) && heldEdit();
+  if (content.startsWith('edit ') || carried) {
+    const [, file, ...words] = (carried || content).split(' ');
+    remember({ user: content });
+    const write = () => {
+      require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`);
+      remember({ edited: file });
+      text(`edited ${file}`);
+      result(true);
+    };
+    if (!workHooks.length) return write();
+    const requestId = `req-hook-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'hook_callback', callback_id: workHooks[0], input: { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: file, content: words.join(' ') } } } });
+    pending = {
+      requestId,
+      onAnswer: r => {
+        if (r?.hookSpecificOutput?.permissionDecision !== 'deny') return write();
+        remember({ held: carried || content });
+        text('Branch: add-greeting');
+        result(true);
+      },
+    };
+    return;
+  }
   // "limit <seconds>" -> the plan's 5-hour limit is reached and resets in <seconds>
   if (content.startsWith('limit')) {
     const resetsAt = Math.round(Date.now() / 1000) + (parseInt(content.split(' ')[1], 10) || 60);
@@ -65,7 +230,49 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "big <tokens>" -> the conversation now fills <tokens> of a 200k context window
+  if (content.startsWith('big ')) {
+    const tokens = parseInt(content.split(' ')[1], 10) || 1000;
+    out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage: { input_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: tokens - 110, output_tokens: 100 }, content: [{ type: 'text', text: `big: ${tokens}` }] }, parent_tool_use_id: null, session_id: sessionId });
+    result(true, { modelUsage: { 'claude-sonnet-5-5': { inputTokens: 10, outputTokens: 100, contextWindow: 200000 } } });
+    return;
+  }
+  if (content === '/compact') {
+    out({ type: 'system', subtype: 'compact_boundary', session_id: sessionId, compact_metadata: { trigger: 'manual', pre_tokens: 170000 } });
+    result(true);
+    return;
+  }
+
+  // "... FAKE_JSON:{...}" anywhere -> replies with that object in a ```json
+  // block, the way a workflow's Claude step asks for its output fields.
+  const fakeJson = /FAKE_JSON:(\{[^\n]*\})/.exec(content);
+  if (fakeJson) { text(`Here you go.\n\`\`\`json\n${fakeJson[1]}\n\`\`\``); result(true); return; }
+  // "look ..." -> says how many pictures came with the message, and what kind
+  // What a mod says, as Claude Code 2.1.288 sends it: a log line, a toast, a
+  // status line and the command list with the command it registered.
+  if (content === 'mod') {
+    const ui = (subtype, extra) => out({ type: 'system', subtype, plugin: 'e2e-mod', ...extra, uuid: `ui-${subtype}-${turn}`, session_id: sessionId });
+    ui('ui_log', { text: 'saw the turn start' });
+    ui('ui_toast', { text: 'hello from a mod', timeout_ms: 4000 });
+    ui('ui_status', { text: 'watching 1 turn' });
+    out({ type: 'system', subtype: 'commands_changed', commands: [{ name: 'e2e-hello', description: 'Says hello from the e2e mod.', argumentHint: '' }], uuid: `cmds-${turn}`, session_id: sessionId });
+    text('echo: mod');
+    result(true);
+    return;
+  }
+  if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
+  if (content === 'args') { text(JSON.stringify(args)); result(true); return; }
+  // "novel <type>" -> an event type no Shellby knows, twice, then a normal reply
+  if (content.startsWith('novel ')) {
+    const type = content.split(' ')[1];
+    out({ type, session_id: sessionId });
+    out({ type, session_id: sessionId });
+    text('still here');
+    result(true);
+    return;
+  }
+  if (content === 'effort') { text(`effort:${effort || 'default'}`); result(true); return; }
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
   if (content.startsWith('wait ')) {
@@ -91,6 +298,56 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "jest pass" / "jest fail <test>" -> `npm test 2>&1 | tail -40` printing a Jest summary.
+  // Piped like that it always exits 0: only the summary says whether it passed (flaky.js).
+  if (content === 'jest pass' || content.startsWith('jest fail ')) {
+    const failing = content.startsWith('jest fail ') ? content.slice(10) : null;
+    const output = failing
+      ? `FAIL src/auth.spec.js\n  auth\n    ✕ ${failing} (5004 ms)\n\n  ● auth › ${failing}\n\n    thrown: "Exceeded timeout of 5000 ms for a test."\n\nTest Suites: 1 failed, 1 total\nTests:       1 failed, 3 passed, 4 total`
+      : 'PASS src/auth.spec.js\n\nTest Suites: 1 passed, 1 total\nTests:       4 passed, 4 total';
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_jest_${turn}`, name: 'Bash', input: { command: 'npm test 2>&1 | tail -40' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_jest_${turn}`, is_error: false, content: output }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(failing ? `1 test failed: ${failing}` : 'all tests passed');
+    result(true);
+    return;
+  }
+  // "crit <n> <file> <words...>" -> one turn that fixes a red suite: Jest with
+  // <n> failing, then <words> written into <file>, then Jest all green. Paced so
+  // Shellby's snapshot of each run sees the code it ran on (surprises.js).
+  if (content.startsWith('crit ')) {
+    const [, nText, file, ...words] = content.split(' ');
+    const n = Math.max(1, Math.min(20, parseInt(nText, 10) || 1));
+    const names = Array.from({ length: n }, (_, i) => `case ${i + 1}`);
+    const red = `FAIL src/auth.spec.js\n  auth\n${names.map(t => `    ✕ ${t} (12 ms)`).join('\n')}\n\n${names.map(t => `  ● auth › ${t}\n\n    expected true, got false\n`).join('\n')}\nTest Suites: 1 failed, 1 total\nTests:       ${n} failed, 3 passed, ${n + 3} total`;
+    const green = `PASS src/auth.spec.js\n\nTest Suites: 1 passed, 1 total\nTests:       ${n + 3} passed, ${n + 3} total`;
+    const jest = (id, output) => {
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command: 'npm test 2>&1 | tail -40' } }] }, parent_tool_use_id: null, session_id: sessionId });
+      setTimeout(() => out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, is_error: false, content: output }] }, parent_tool_use_id: null, session_id: sessionId }), 1200);
+    };
+    jest(`tu_crit_red_${turn}`, red);
+    setTimeout(() => require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`), 3000);
+    setTimeout(() => jest(`tu_crit_green_${turn}`, green), 4500);
+    setTimeout(() => { text(`fixed ${n}: all green`); result(true); }, 7500);
+    return;
+  }
+  // "bug <fixture>" -> a Bash call whose command, output and error flag come from
+  // test/fixtures/bugdex/<fixture>.json (the Bugdex's e2e).
+  if (content.startsWith('bug ')) {
+    const name = content.slice(4).trim();
+    const fx = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'bugdex', `${name.replace(/[^a-z0-9-]/g, '')}.json`), 'utf8'));
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_bug_${turn}`, name: 'Bash', input: { command: fx.command } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_bug_${turn}`, is_error: !!fx.isError, content: fx.output }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(`ran: ${fx.command}`);
+    result(true);
+    return;
+  }
+  // "delete <file>" -> removes a file from the working folder
+  if (content.startsWith('delete ')) {
+    require('fs').rmSync(require('path').join(process.cwd(), content.slice(7).trim()), { force: true });
+    text(`deleted ${content.slice(7).trim()}`);
+    result(true);
+    return;
+  }
   // "run <command>" -> runs it with the Bash tool; it "fails" if the command contains "FAIL"
   if (content.startsWith('run ')) {
     const command = content.slice(4);
@@ -107,9 +364,60 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  // "steps <n> <ms>" -> n Bash calls in a row, <ms> each, each followed by a
+  // registered PostToolUse hook. A message that comes in meanwhile is read
+  // after the next step's result, like the real CLI (echoed, then the reply
+  // says what it read); one in after the last step runs as a turn of its own.
+  // "... late <ms>" waits that long between a step's hook and its result: a
+  // window for Stop to land in before Claude reads what the hook let in.
+  if (content.startsWith('steps ')) {
+    const [, n, ms, , late] = content.split(' ');
+    inbox = [];
+    let k = 0;
+    const end = t => { slow = null; text(t); result(true); runInbox(); };
+    const step = () => {
+      const id = `tu_step_${turn}_${++k}`;
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command: `step ${k}` } }] }, parent_tool_use_id: null, session_id: sessionId });
+      const finish = () => {
+        slow = setTimeout(() => {
+          out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: `step ${k} ok` }] }, parent_tool_use_id: null, session_id: sessionId });
+          const read = inbox.splice(0);
+          read.forEach(echo);
+          if (read.length) return end(`steered: ${read.map(textOf).join(' | ')}`);
+          if (k < Number(n)) return step();
+          end('steps done');
+        }, Number(late) || 0);
+      };
+      slow = setTimeout(() => {
+        if (!stepHooks.length) return finish();
+        const requestId = `req-step-${turn}-${k}`;
+        out({ type: 'control_request', request_id: requestId, request: { subtype: 'hook_callback', callback_id: stepHooks[0], input: { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: id } } });
+        pending = { requestId, onAnswer: finish };
+      }, Number(ms) || 200);
+    };
+    step();
+    return;
+  }
+
   if (content.startsWith('slow')) {
     out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_slow', name: 'Bash', input: { command: 'sleep 999' } }] } });
     slow = setTimeout(() => { text('never'); result(true); }, 60000);
+    return;
+  }
+
+  if (content.startsWith('review crew')) {
+    // A code-reviewer helper that reports back, then Claude acts on it with an
+    // edit of its own: the crew member's run, and a finding acted on (crew-roster.js).
+    out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_rev', name: 'Agent', input: { subagent_type: 'code-reviewer', description: 'Review the diff', prompt: 'review it' } }] } });
+    out({ type: 'system', subtype: 'task_started', task_id: `rev-${turn}`, tool_use_id: 'tu_rev', description: 'Review the diff', subagent_type: 'code-reviewer', is_backgrounded: false, spawn_depth: 1 });
+    setTimeout(() => {
+      out({ type: 'system', subtype: 'task_notification', task_id: `rev-${turn}`, tool_use_id: 'tu_rev', status: 'completed', summary: 'one bug on line 3', usage: { total_tokens: 1800, tool_uses: 4, duration_ms: 900 } });
+      out({ type: 'user', parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_rev', content: [{ type: 'text', text: 'one bug on line 3' }] }] } });
+      out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_fix', name: 'Edit', input: { file_path: 'C:\\tmp\\a.js', old_string: 'a', new_string: 'b' } }] } });
+      out({ type: 'user', parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_fix', content: 'edited' }] } });
+      text('REVIEW FIXED');
+      result(true);
+    }, Number(process.env.SHELLBY_FAKE_REVIEW_MS || 400));
     return;
   }
 
@@ -171,4 +479,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   text(`echo: ${content} (mode=${mode})`);
   result(true);
-});
+}
+
+if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', onLine);

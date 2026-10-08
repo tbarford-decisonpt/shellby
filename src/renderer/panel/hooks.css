@@ -1,0 +1,135 @@
+/* Shellby panel — Toolbox → Hooks (toolbox-hooks.js): hooks grouped by the
+   moment they run, the recipe picker, and the form with its test run. */
+
+/* ---- the list, grouped by moment */
+.hook-group { display: grid; gap: 5px; margin-bottom: 8px; }
+.hook-group-head { display: flex; align-items: baseline; gap: 8px; margin: 4px 2px 0; font-size: var(--fs-12); font-weight: 700; color: var(--sand-dim); }
+.hook-group-head code { margin-left: auto; font: var(--fs-10) var(--font-mono); color: var(--sand-faint); }
+.hook-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+
+.hook-row { border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); transition: border-color .15s var(--ease-out), background .15s var(--ease-out); }
+.hook-row[open] { background: var(--reef-2); }
+.hook-row.is-paused { border-style: dashed; }
+.hook-row.is-paused .hook-title strong { color: var(--sand-dim); }
+.hook-sum { display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer; list-style: none; border-radius: var(--r); }
+.hook-sum::-webkit-details-marker { display: none; }
+.hook-sum:hover { background: color-mix(in srgb, var(--glass) 4%, transparent); }
+.hook-sum:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.hook-sum::after { content: '▸'; flex: none; margin-left: 2px; font-size: var(--fs-10); color: var(--sand-faint); transition: transform .15s var(--ease-out); }
+.hook-row[open] > .hook-sum::after { transform: rotate(90deg); }
+.hook-icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--abyss); font-size: var(--fs-15); line-height: 1; }
+.hook-title { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.hook-title strong { font-size: var(--fs-13); color: var(--sand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hook-meta { font-size: var(--fs-11-5); color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hook-badge { flex: none; font: 600 var(--fs-10)/16px var(--font-mono); padding: 0 6px; border-radius: 99px; color: var(--amber); border: 1px solid rgba(255, 193, 94, .35); }
+.hook-sum .src-pill { margin-left: 0; }
+
+.hook-detail { display: grid; gap: 8px; padding: 0 10px 10px 50px; }
+.hook-sentence { margin: 0; font-size: var(--fs-12-5); line-height: 1.5; color: var(--sand); max-width: 70ch; }
+.hook-full { margin: 0; padding: 7px 9px; border-radius: var(--r-sm); background: var(--abyss); font: var(--fs-11-5)/1.5 var(--font-mono); color: var(--sand-dim); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 140px; overflow: auto; }
+.hook-actions { flex-wrap: wrap; gap: 6px; }
+.btn.danger-hover:hover:not(:disabled) { border-color: var(--danger); color: #ff9b8f; }
+
+.hook-plugins { border: 1px solid var(--line); border-radius: var(--r); padding: 0 10px; }
+.hook-plugins > summary { display: flex; align-items: baseline; gap: 8px; padding: 9px 0; cursor: pointer; font-size: var(--fs-12-5); font-weight: 700; color: var(--sand-dim); }
+.hook-plugins > summary .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.hook-plugins > p { margin: 0 0 8px; }
+.hook-plugins .hook-group:last-child { margin-bottom: 10px; }
+
+/* ---- nothing of your own yet */
+.hook-empty { display: grid; gap: 8px; justify-items: start; padding: 14px 12px; border: 1px dashed var(--line); border-radius: var(--r); }
+.hook-empty p { margin: 0; }
+.hook-empty-title { font-size: var(--fs-13-5); font-weight: 700; color: var(--sand); }
+.hook-empty .hook-recipes { justify-self: stretch; }
+
+/* ---- recipes (the picker, and the starters above) */
+.hook-pick { gap: 14px; }
+.hook-lead { margin: 0; font-size: var(--fs-12-5); line-height: 1.5; color: var(--sand-dim); max-width: 70ch; }
+.hook-pick-group { display: grid; gap: 6px; }
+.hook-pick-group .hook-group-head { margin: 0; }
+.hook-recipes { display: grid; gap: 6px; }
+.hook-recipe {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  text-align: left; padding: 9px 11px; border-radius: var(--r);
+  background: var(--ink); border: 1px solid var(--line); color: var(--sand);
+  transition: border-color .15s var(--ease-out), background .15s var(--ease-out);
+}
+.hook-recipe:hover { border-color: var(--glass); background: color-mix(in srgb, var(--glass) 6%, var(--ink)); }
+.hook-recipe:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.hook-recipe-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.hook-recipe-text strong { font-size: var(--fs-13); }
+.hook-recipe-blurb { font-size: var(--fs-12); line-height: 1.45; color: var(--sand-dim); }
+.hook-recipe .hook-meta { color: var(--glass); white-space: normal; }
+
+/* ---- the form */
+.hook-form { gap: 14px; }
+.hook-form .field.mono { font-size: var(--fs-11-5); }
+.hook-command { field-sizing: content; min-height: 34px; max-height: 10.5em; height: auto; padding: 8px 11px; line-height: 1.5; resize: none; overflow-wrap: anywhere; }
+.hook-field { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.hook-label { font-size: var(--fs-12-5); font-weight: 700; color: var(--sand); padding: 0; }
+.hook-recipe-note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 11px; border-radius: var(--r); background: var(--ink); }
+.hook-recipe-note p { margin: 0; font-size: var(--fs-12-5); line-height: 1.5; color: var(--sand); }
+.hook-tweak { color: var(--amber); }
+.hook-claude-note { border: 1px solid color-mix(in srgb, var(--glass) 30%, transparent); }
+
+/* Ask Claude: one line that grows, the button beside it */
+.hook-ask { display: grid; gap: 6px; padding: 10px 11px; border-radius: var(--r); border: 1px solid var(--line); background: var(--ink); }
+.hook-ask-row { display: flex; align-items: flex-end; gap: 8px; }
+.hook-ask-row .btn { flex: none; height: 34px; }
+.hook-ask-text { flex: 1; min-width: 0; min-height: 34px; max-height: 140px; padding-block: 7px; resize: none; field-sizing: content; }
+.hook-ask-note { margin: 0; }
+.hook-ask-note.err { color: var(--coral); }
+.hook-fix { justify-self: start; margin-top: 6px; }
+
+.hook-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.hook-chip {
+  height: 28px; padding: 0 10px; border-radius: 99px; font-size: var(--fs-12); font-weight: 600;
+  background: var(--ink); border: 1px solid var(--line); color: var(--sand-dim);
+  transition: border-color .12s, background .12s, color .12s;
+}
+.hook-chip:hover { border-color: var(--glass); color: var(--sand); }
+.hook-chip[aria-pressed="true"] { border-color: var(--glass); background: color-mix(in srgb, var(--glass) 16%, var(--ink)); color: var(--sand); }
+.hook-chip:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.hook-pattern-row { display: flex; align-items: center; gap: 8px; }
+.hook-pattern-row .field-hint { flex: none; }
+.hook-pattern { flex: 1; min-width: 0; width: 100%; font-size: var(--fs-12); }
+
+.hook-where-opt {
+  display: flex; align-items: flex-start; gap: 9px; padding: 8px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: var(--ink); cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.hook-where-opt:hover { border-color: var(--glass); }
+.hook-where-opt:has(input:checked) { border-color: var(--glass); background: color-mix(in srgb, var(--glass) 10%, var(--ink)); }
+.hook-where-opt:has(input:disabled) { cursor: default; }
+.hook-where-opt input { margin: 3px 0 0; accent-color: var(--glass); }
+.hook-where-opt > span { display: grid; gap: 1px; min-width: 0; }
+.hook-where-opt strong { font-size: var(--fs-12-5); color: var(--sand); }
+
+.hook-test { padding: 10px 11px; border-radius: var(--r); border: 1px solid var(--line); background: var(--ink); }
+.hook-test-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hook-test-out:empty { display: none; }
+.hook-sample { min-height: 150px; height: 180px; resize: vertical; font-size: var(--fs-11-5); line-height: 1.45; padding: 8px 10px; }
+
+.hook-more > summary { cursor: pointer; font-size: var(--fs-12); font-weight: 700; color: var(--sand-dim); padding: 2px 0; width: max-content; }
+.hook-more > summary:hover { color: var(--sand); }
+.hook-more[open] { display: grid; gap: 8px; }
+.hook-more .row { justify-content: flex-end; }
+
+/* ---- what a test run said */
+.hook-verdict { margin: 0; display: grid; gap: 4px; padding: 8px 10px; border-radius: var(--r-sm); font-size: var(--fs-12-5); line-height: 1.45; border: 1px solid var(--line); background: var(--reef); }
+.hook-verdict p { margin: 0; color: var(--sand); white-space: pre-wrap; overflow-wrap: anywhere; }
+.hook-verdict strong::before { content: '●'; margin-right: 7px; font-size: var(--fs-9); vertical-align: 2px; }
+.hook-verdict.ok { border-color: rgba(127, 214, 194, .4); }
+.hook-verdict.ok strong::before { color: var(--glass); }
+.hook-verdict.block { border-color: rgba(255, 122, 92, .45); }
+.hook-verdict.block strong::before { color: var(--coral); }
+.hook-verdict.warn { border-color: rgba(255, 193, 94, .4); color: var(--amber); }
+.hook-verdict.warn strong::before { color: var(--amber); }
+.hook-verdict.busy { color: var(--sand-dim); }
+.hook-verdict details summary { cursor: pointer; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.hook-verdict pre { margin: 6px 0 0; max-height: 160px; overflow: auto; font: var(--fs-11)/1.45 var(--font-mono); color: var(--sand-dim); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hook-row, .hook-sum::after, .hook-recipe, .hook-chip, .hook-where-opt { transition: none; }
+}

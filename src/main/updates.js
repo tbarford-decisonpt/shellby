@@ -5,6 +5,7 @@
 // test/updates.test.js drive it with a fake.
 
 const { EventEmitter } = require('events');
+const { win32 } = require('path');
 
 const EVERY = 6 * 60 * 60 * 1000;
 
@@ -13,21 +14,41 @@ const versionOf = info => (info && typeof info.version === 'string' ? info.versi
 // electron-updater errors carry a stack and sometimes a whole HTTP response.
 const messageOf = e => String((e && e.message) || e || 'Update check failed').split('\n')[0].slice(0, 200);
 
+const SCOOP_APP = /[\\/]scoop[\\/]apps[\\/]shellby[\\/]/i;
+// Roots come from env vars, which may use forward slashes or end in one.
+const underRoot = (exe, root) => !!root
+  && exe.startsWith(`${win32.normalize(root).toLowerCase().replace(/\\+$/, '')}\\apps\\shellby\\`);
+
 /**
- * States: `off` (a dev run, no updater at all) · `idle` (not asked yet) ·
+ * Who installed this copy, when it isn't our own installer: 'scoop' or null.
+ * Scoop unpacks the app under <root>\apps\shellby\ and updates it with
+ * `scoop update`; electron-updater would install a second copy beside it.
+ */
+function installedBy(execPath, env = process.env) {
+  if (!execPath) return null;
+  const exe = win32.normalize(String(execPath)).toLowerCase();
+  if (SCOOP_APP.test(exe) || underRoot(exe, env.SCOOP) || underRoot(exe, env.SCOOP_GLOBAL)) return 'scoop';
+  return null;
+}
+
+/**
+ * States: `off` (a dev run, no updater at all) · `scoop` (Scoop updates this
+ * copy, so we never ask) · `idle` (not asked yet) ·
  * `checking` · `current` (nothing newer) · `downloading` · `ready` (downloaded,
  * waiting for a restart) · `error` (until the next check).
  */
 class Updates extends EventEmitter {
-  constructor({ updater = null, version = '', every = EVERY, prepare = null, timers = null } = {}) {
+  constructor({ updater = null, managedBy = null, version = '', every = EVERY, prepare = null, timers = null } = {}) {
     super();
-    this.updater = updater;
+    // A package manager owns this install: hold no updater, so check() and
+    // install() are no-ops and start() schedules nothing.
+    this.updater = managedBy ? null : updater;
     this.version = version;
     this.every = every;
     this.prepare = prepare;
     this.timers = timers || { setInterval, clearInterval };
     this.timer = null;
-    this.state = updater ? 'idle' : 'off';
+    this.state = managedBy || (updater ? 'idle' : 'off');
     this.offered = null;     // the version on offer, once the check names one
     this.percent = 0;
     this.error = null;
@@ -47,10 +68,21 @@ class Updates extends EventEmitter {
   start() {
     const u = this.updater;
     if (!u) return this;
-    u.on('checking-for-update', () => this.#set('checking', { error: null }));
+    // While an update sits downloaded, later checks run quietly behind the
+    // install button: only a release newer than the one on disk moves it.
+    u.on('checking-for-update', () => {
+      if (this.state !== 'ready') this.#set('checking', { error: null });
+    });
     // autoDownload is on, so "available" already means the download has begun.
-    u.on('update-available', info => this.#set('downloading', { offered: versionOf(info) || this.offered, percent: 0 }));
-    u.on('update-not-available', () => this.#set('current', { offered: null, percent: 0, checkedAt: Date.now() }));
+    u.on('update-available', info => {
+      const offered = versionOf(info) || this.offered;
+      if (this.state === 'ready' && offered === this.offered) return; // the cached file, found again
+      this.#set('downloading', { offered, percent: 0 });
+    });
+    u.on('update-not-available', () => {
+      if (this.state === 'ready') return;
+      this.#set('current', { offered: null, percent: 0, checkedAt: Date.now() });
+    });
     u.on('download-progress', p => {
       if (this.state === 'ready') return; // an already-cached file reports progress after the fact
       this.#set('downloading', { percent: clampPercent(p && p.percent) });
@@ -63,17 +95,23 @@ class Updates extends EventEmitter {
         this.emit('ready', this.view());
       }
     });
-    u.on('error', e => this.#set('error', { error: messageOf(e) }));
+    // A failed re-check doesn't un-download what's already on disk.
+    u.on('error', e => {
+      if (this.state !== 'ready') this.#set('error', { error: messageOf(e) });
+    });
     this.check();
     this.timer = this.timers.setInterval(() => this.check(), this.every);
     return this;
   }
 
-  /** Ask GitHub. Resolves once the check has settled; any download carries on behind it. */
+  /**
+   * Ask GitHub. Resolves once the check has settled; any download carries on
+   * behind it. Still asks once an update is ready, so a release that lands
+   * after the download replaces it rather than needing a second restart.
+   */
   async check() {
-    // Already downloaded, or already busy: nothing a second check could add.
-    if (!this.updater || this.state === 'ready' || this.view().busy) return this.view();
-    this.#set('checking', { error: null });
+    if (!this.updater || this.view().busy) return this.view();
+    if (this.state !== 'ready') this.#set('checking', { error: null });
     try {
       await this.updater.checkForUpdates();
     } catch (e) {
@@ -108,7 +146,7 @@ class Updates extends EventEmitter {
 
 /** One line for the tray menu, which has no room for a status line and a button. */
 function trayLabel(view) {
-  if (!view || view.state === 'off') return null;
+  if (!view || view.state === 'off' || view.state === 'scoop') return null;
   if (view.state === 'ready') return `Update to ${view.version || 'the new version'} and restart`;
   if (view.state === 'downloading') return `Downloading update… ${view.percent}%`;
   if (view.state === 'checking') return 'Checking for updates…';
@@ -140,4 +178,4 @@ function fakeUpdater({ version = '99.0.0', mode = 'ok', step = 600 } = {}) {
   return u;
 }
 
-module.exports = { Updates, trayLabel, fakeUpdater, EVERY };
+module.exports = { Updates, trayLabel, fakeUpdater, installedBy, EVERY };

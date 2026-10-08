@@ -1,7 +1,7 @@
 {
   "name": "shellby",
   "productName": "Shellby",
-  "version": "0.20.0",
+  "version": "0.72.0",
   "description": "A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you, on your own Claude subscription.",
   "main": "src/main/main.js",
   "author": "x-salmon",
@@ -19,29 +19,41 @@
     "ai-agent"
   ],
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "electron .",
     "test": "node --test --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",
+    "typecheck": "tsc -p jsconfig.json",
     "e2e:ci": "node scripts/e2e-ci.js",
+    "perf": "node scripts/perf-budget.js",
     "packs": "node scripts/validate-packs.js",
     "packs:format": "node scripts/format-packs.js",
     "packs:sheet": "python scripts/preview-packs.py",
     "icons": "python scripts/make-icons.py",
     "screenshots": "electron . --capture-screenshots",
     "reel": "electron . --capture-screenshots --reel && python scripts/make-reel.py",
+    "tricks": "node scripts/record-tricks.js",
     "dist": "electron-builder --win",
-    "release": "electron-builder --win --publish always"
+    "release": "electron-builder --win --publish always",
+    "release:cut": "node scripts/release-cut.js",
+    "release:ready": "node scripts/release-guard.js ready --wait"
   },
   "dependencies": {
+    "@sentry/electron": "^8.0.0",
     "electron-updater": "^6.8.9",
-    "koffi": "^3.3.2"
+    "koffi": "^3.3.2",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.4",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
-    "eslint": "^10.11.0"
+    "eslint": "^10.12.0",
+    "typescript": "^7.0.2"
   },
   "build": {
     "appId": "com.xsalmon.shellby",
@@ -61,6 +73,14 @@
       "node_modules/koffi/**",
       "node_modules/@koromix/**"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true
+    },
     "protocols": [
       {
         "name": "Shellby",
@@ -90,6 +110,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "packaging/nsis/installer.nsh",
       "artifactName": "Shellby-Setup-${version}.${ext}"
     },
     "portable": {

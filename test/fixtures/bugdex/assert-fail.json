@@ -1,0 +1,5 @@
+{
+  "command": "node --test tests/",
+  "isError": true,
+  "output": "not ok 1 - adds\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  1 !== 2\n    at TestContext.<anonymous> (/proj/tests/add.test.js:4:10)\nℹ tests 2\nℹ pass 1\nℹ fail 1"
+}

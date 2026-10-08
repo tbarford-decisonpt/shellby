@@ -2,6 +2,10 @@
 // Uses fake account details so no personal info ends up in the README.
 const fs = require('fs');
 const path = require('path');
+const demo = require('./capture-demo');
+const streaks = require('./streaks');
+const voice = require('./voice');
+const { xpSummary } = require('./xp');
 
 const HOME = 'C:\\Users\\you';
 const now = Date.now();
@@ -90,7 +94,26 @@ async function shot(win, file) {
   console.log('wrote', path.relative(process.cwd(), file));
 }
 
-async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health }) {
+// Projects for the sticker shots (stickers.js): a mix of tiers, marks and ages.
+function demoStickers(now) {
+  const DAY = 24 * 3600 * 1000;
+  const list = [
+    ['5b1c0de0a1f2', 'shellby', 'JavaScript', 42, ['live', 'release', 'v1', 'merged'], 300, 0],
+    ['9e3a7c21d4b8', '3d-rack', 'TypeScript', 17, ['live', 'merged', 'green'], 120, 2],
+    ['c47f02e9a5d1', 'rack-builder', 'Python', 6, ['release'], 60, 5],
+    ['0d8e6b13f7a2', 'tidepool', 'Rust', 2, [], 20, 1],
+    ['71a9c3e05b6f', 'kelp-cli', 'Go', 1, ['moon'], 200, 75],
+    ['e2f4a8b6c0d3', 'dotfiles', 'Shell', 3, [], 400, 190],
+  ];
+  const projects = {};
+  for (const [id, name, lang, ships, marks, firstAgo, lastAgo] of list) {
+    projects[id] = { name, lang, ships, marks, firstShipAt: now - firstAgo * DAY, lastShipAt: now - lastAgo * DAY, deploys: marks.includes('live') ? 3 : 0, releases: marks.includes('release') ? 2 : 0, lastVersion: marks.includes('v1') ? '1.2.0' : null };
+  }
+  const home = list.slice(0, 5).map(([id], i) => ({ id, slot: i, z: 5 - i, flip: false, nudge: [0, 0] }));
+  return { projects, layouts: { home }, card: 'art', unseen: [] };
+}
+
+async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin, makeTimeTracker }) {
   const out = path.join(ROOT, 'docs');
   fs.mkdirSync(out, { recursive: true });
   const base = { toolbox: DEMO_TOOLBOX, routines: DEMO_ROUTINES, learned: LEARNED, pinned: PINNED, usage: DEMO_USAGE };
@@ -204,20 +227,209 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     await wait(1400);
     await shot(panel, path.join(out, 'screenshot-wardrobe.png'));
 
+    // Shell stickers: a few shipped projects on his own shell, and the Sticker Book.
+    config.set({ stickers: demoStickers(captureClock.now.getTime()) });
+    wardrobe.setOutfit({ hat: null, held: null, face: null, neck: null, shell: null, effect: null });
+    broadcastSkin();
+    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'stickers' });
+    await wait(1600);
+    await shot(panel, path.join(out, 'screenshot-stickers.png'));
+    await shot(critter, path.join(out, 'critter-stickers.png'));
+    wardrobe.setOutfit({ hat: 'wizard-hat', held: 'coffee-mug', effect: 'sparkles' });
+
     // The shareable crab card, with the trophies earned above.
     for (let i = 0; i < 30; i++) wardrobe.record('helper-spawned');
     await wait(800);
     const card = await panel.webContents.executeJavaScript('SB.crabCard.render().then(r => r.canvas.toDataURL("image/png"))');
     fs.writeFileSync(path.join(out, 'crab-card.png'), Buffer.from(card.split(',')[1], 'base64'));
     console.log('wrote', path.relative(process.cwd(), path.join(out, 'crab-card.png')));
+
+    // A bare shell for the rest: at lineup size his stickers read as noise.
+    // The projects stay, for the week card.
+    config.set({ stickers: { ...config.get('stickers'), layouts: { home: [] } } });
+    broadcastSkin();
+
+    await captureLife({ critter, panel, send, out, wardrobe, config, broadcastSkin, base });
+    await capturePages({ panel, send, out, config, base, makeTimeTracker });
   } catch (e) {
     console.error('capture failed:', e);
   }
   app.exit(0);
 }
 
+// The things he does on his own (0.17+): talking, guarding focus, red CI,
+// listening along, the head-to-tail sets, other crab species, grown shells,
+// and the Settings sections that reach beyond the PC.
+async function captureLife({ critter, panel, send, out, wardrobe, config, broadcastSkin, base }) {
+  const idle = { state: 'idle', busy: 0, crew: [], moreCrew: 0, background: 0 };
+  const pose = async (file, state, ms = 1400) => {
+    // Main sends his real state too, without the pose's sign or bubble: each
+    // trophy unlocked along the way refreshes him 7 seconds later. Keep
+    // putting the pose back until the shot is taken.
+    const hold = () => send(critter, 'critter:state', { ...idle, ...state });
+    hold();
+    const holding = setInterval(hold, 50);
+    try {
+      await wait(ms);
+      await shot(critter, path.join(out, `critter-${file}.png`));
+    } finally {
+      clearInterval(holding);
+    }
+  };
+  const say = text => ({ text, occasion: 'demo', until: Date.now() + 60e3 });
+  const bare = { hat: null, face: null, neck: null, held: null, shell: null, effect: null };
+  const wear = async look => {
+    const r = wardrobe.setOutfit({ ...bare, ...look });
+    if (!r.ok) throw new Error(`couldn't wear ${JSON.stringify(look)}: ${r.error}`);
+    await wait(500);
+  };
+
+  await wear({});
+  await pose('voice', { state: 'working', busy: 1, say: say('fingers crossed') });
+  await pose('focus', { focus: { phase: 'focus', endsAt: Date.now() + 18 * 60e3, minutes: 25 } });
+  await pose('ci', { ci: { failing: 1 }, say: say('build is red') });
+
+  await wear({ hat: 'headphones', held: 'boombox', effect: 'music-notes' });
+  await pose('music', { say: say('good one') });
+
+  const sets = {
+    'dev-desk': { hat: 'keycap', face: 'sticky-note', neck: 'greenbar', held: 'rubber-duck', shell: 'hard-drive', effect: 'cursors' },
+    'tide-pool': { hat: 'starfish', face: 'dive-mask', neck: 'puka-shells', held: 'kelp-frond', shell: 'barnacles', effect: 'bubbles' },
+    'on-call': { hat: 'beacon', face: 'face-shield', neck: 'pager', held: 'fire-extinguisher', shell: 'high-vis', effect: 'embers' },
+  };
+  for (const [name, look] of Object.entries(sets)) {
+    await wear(look);
+    await pose(`set-${name}`, {});
+  }
+
+  // Other crabs, bare, so the shape is what you see.
+  await wear({});
+  for (const id of ['fiddler', 'coconut', 'porcelain', 'spider']) {
+    config.set({ skin: id });
+    broadcastSkin();
+    await pose(`species-${id}`, {}, 1200);
+  }
+  config.set({ skin: 'classic' });
+
+  // The Golden Conch, at level 20.
+  config.set({ xp: { ...(config.get('xp') || {}), total: 1e6 }, home: { worn: 'golden-conch', seen: ['snail', 'tin-can', 'teacup', 'toy-brick', 'golden-conch'] } });
+  broadcastSkin();
+  await pose('conch', { state: 'success' });
+  config.set({ home: { worn: 'home', seen: [] } });
+  broadcastSkin();
+
+  // Settings: phone notifications in one QR scan.
+  send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'settings' });
+  await wait(900);
+  const js = code => panel.webContents.executeJavaScript(code);
+  await js("document.getElementById('chEnabled').click()");
+  await wait(1400);
+  await js("document.getElementById('channelsGroup').scrollIntoView({ block: 'start' })");
+  await wait(500);
+  await shot(panel, path.join(out, 'screenshot-away.png'));
+}
+
+// The pages from 0.55 on: Us and Finds, This week and its card, Time, Lean,
+// and Projects with a dev server up and one crashed (data in capture-demo.js).
+// Last, because the Us seed changes his temperament.
+async function capturePages({ panel, send, out, config, base, makeTimeTracker }) {
+  const { ipcMain } = require('electron');
+  const now = Date.now();
+  const js = code => panel.webContents.executeJavaScript(code);
+  const show = async (view, ms = 1200) => { send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view }); await wait(ms); };
+  // These pages ask main for data that capture mode never builds (life, the
+  // projects service) or that reads real repos, so their IPC answers here
+  // instead. The guard registers on Electron's own ipcMain, so these replace it.
+  const fake = (channel, fn) => { ipcMain.removeHandler(channel); ipcMain.handle(channel, fn); };
+
+  // His life only needs config to describe itself; it's never started here.
+  config.set(demo.demoLife(now, config.get('voice')));
+  const life = require('./life').createLife({
+    config, toPanel() {}, enabled: () => false, seasons: () => [],
+    temperament: () => voice.temperamentOf(voice.normalize(config.get('voice')).seed),
+    playView: () => require('./play').normalize(config.get('play')),
+  });
+  fake('life:get', () => life.view());
+  await show('us');
+  await shot(panel, path.join(out, 'screenshot-us.png'));
+  await show('finds');
+  await shot(panel, path.join(out, 'screenshot-finds.png'));
+
+  // The Bugdex: its demo book, answered here (the wiring never runs in capture mode).
+  config.set({ bugdex: demo.demoBugdex(now) });
+  const bugdex = require('./bugdex');
+  fake('bugdex:get', () => ({ ...bugdex.view(config.get('bugdex'), now, { names: { '5b1c0de0a1f2': 'shellby', '9e3a7c21d4b8': 'rack-builder' } }), on: true }));
+  send(panel, 'bugdex', bugdex.view(config.get('bugdex'), now, { names: { '5b1c0de0a1f2': 'shellby', '9e3a7c21d4b8': 'rack-builder' } }));
+  await show('bugdex');
+  await shot(panel, path.join(out, 'screenshot-bugdex.png'));
+
+  // demoWeek's stickers are the ones run() put on his shell.
+  config.set(demo.demoWeek(now, config.get('xp')));
+  send(panel, 'xp', xpSummary(config.get('xp'), now, streaks.streakOf(config.get('streaks'), now).current));
+  await show('trophies');
+  await js("document.getElementById('xpWeek').scrollIntoView({ block: 'start' })");
+  await wait(300);
+  await shot(panel, path.join(out, 'screenshot-week.png'));
+  const week = await js('SB.weekCard.render().then(r => r.canvas.toDataURL("image/png"))');
+  fs.writeFileSync(path.join(out, 'week-card.png'), Buffer.from(week.split(',')[1], 'base64'));
+  console.log('wrote', path.relative(process.cwd(), path.join(out, 'week-card.png')));
+
+  // The tracker reads its settings once, so they go in before it's built.
+  const time = demo.demoTime(now);
+  config.set({ timeTracking: time.timeTracking });
+  makeTimeTracker().current = time.current;
+  await show('time', 1500);
+  await shot(panel, path.join(out, 'screenshot-time.png'));
+
+  // Lean only asks main for a report when it has none, so it can be handed one.
+  await show('toolbox', 900);
+  await js(`SB.state.lean = ${JSON.stringify(demo.demoLean(now))}; SB.showToolbox('lean'); document.getElementById('toolGroups').scrollIntoView({ block: 'start' }); 1`);
+  await wait(700);
+  await shot(panel, path.join(out, 'screenshot-lean.png'));
+  await js("SB.showToolbox('skill'); 1");
+
+  const pj = demo.demoProjects(now);
+  fake('projects:list', () => pj.list);
+  fake('projects:detail', (_e, key) => pj.detail[key] ?? null);
+  fake('projects:report', (_e, a) => pj.report(a?.key, a?.kind));
+  fake('servers:get', () => pj.servers);
+  fake('servers:log', (_e, id) => pj.serverLog(id));
+  fake('servers:fix-draft', (_e, a) => pj.fixDraft(a || {}));
+  const openRow = name => js(`[...document.querySelectorAll('#pjProjects .pj-row')].find(b => b.querySelector('.pj-row-name b').textContent === ${JSON.stringify(name)})?.click()`);
+  await show('projects');
+  await shot(panel, path.join(out, 'screenshot-projects.png'));
+  // One project's page: how it's going, what needs it, where you left off.
+  await openRow('3d-rack');
+  await wait(700);
+  await js("document.activeElement?.blur(); 1");
+  await shot(panel, path.join(out, 'screenshot-project-page.png'));
+  await js("document.querySelector('#pjDetailScreen .pj-detail-head button')?.click()");
+  await wait(300);
+  await openRow('tidepool');
+  await wait(1000); // its log and the Ask Claude sheet open by themselves
+  // The crash, with its error lines marked, then the sheet that asks before
+  // anything goes to Claude.
+  await js("document.activeElement?.blur(); document.getElementById('srv-card-srv-tidep001')?.scrollIntoView({ block: 'start' })");
+  await wait(300);
+  await shot(panel, path.join(out, 'screenshot-devserver.png'));
+  await js("document.querySelector('#srv-card-srv-tidep001 .pj-approve')?.scrollIntoView({ block: 'end' })");
+  await wait(300);
+  await shot(panel, path.join(out, 'screenshot-devserver-fix.png'));
+  await js("document.querySelector('#pjDetailScreen .pj-detail-head button')?.click()");
+
+  // The beach, built and at night (the brand's hour), then its snapshot.
+  // Last, because its seed replaces the stickers and streaks.
+  config.set(demo.demoBeach(now));
+  await js("SB.beachPaint.timeOfDay = () => 'night'; 1");
+  await show('beach', 1800);
+  await shot(panel, path.join(out, 'screenshot-beach.png'));
+  const beachCard = await js('SB.beachCard.render().then(r => r.canvas.toDataURL("image/png"))');
+  fs.writeFileSync(path.join(out, 'beach-card.png'), Buffer.from(beachCard.split(',')[1], 'base64'));
+  console.log('wrote', path.relative(process.cwd(), path.join(out, 'beach-card.png')));
+}
+
 const FAKE_STATUS = {
-  installed: true, exe: 'claude.exe', version: '2.1.286', loggedIn: true,
+  installed: true, exe: 'claude.exe', version: '2.1.290', loggedIn: true,
   authMethod: 'claude.ai', subscriptionType: 'max', email: 'you@example.com',
 };
 

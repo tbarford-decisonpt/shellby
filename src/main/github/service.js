@@ -6,7 +6,7 @@ const { scopesFor, covers, startDeviceFlow, pollForToken, CLIENT_ID } = require(
 const { GitHubApi } = require('./api');
 const { syncNow } = require('./sync');
 
-const FEATURES = ['profile', 'sync', 'publish', 'claude', 'ci', 'workflows'];
+const FEATURES = ['profile', 'sync', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects'];
 const SYNC_EVERY_MS = 15 * 60 * 1000;
 const SYNC_SOON_MS = 20 * 1000;          // after a local change worth sharing
 const AVATAR_MAX_BYTES = 200 * 1024;
@@ -14,6 +14,9 @@ const AVATAR_HOST = 'https://avatars.githubusercontent.com/';
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 
 const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, n) : '');
+
+// fetch's own words when there's no network (Node puts the cause's code beside them).
+const OFFLINE = /fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENETUNREACH|UND_ERR_CONNECT_TIMEOUT/i;
 
 function normalizeState(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -26,6 +29,8 @@ function normalizeState(raw) {
     avatar: typeof r.avatar === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.avatar) ? r.avatar : null,
     lastSyncAt: Number.isFinite(r.lastSyncAt) ? r.lastSyncAt : null,
     lastSyncError: clip(r.lastSyncError, 200) || null,
+    // GitHub turned the sign-in down (401) since it was made: it needs doing again.
+    authLost: r.authLost === true,
   };
 }
 
@@ -53,7 +58,8 @@ function gitEnv(token, base = process.env) {
 class GitHubService extends EventEmitter {
   /**
    * config: Shellby's Config. store: TokenStore. web/api/clientId: GitHub (or a
-   * mock in tests). openUrl/copy: shell helpers. onSynced: called after a pull.
+   * mock in tests). openUrl/copy: shell helpers. onSynced(before): called after a pull,
+   * with the settings (config.data) from before the sync.
    */
   constructor({ config, store, web = 'https://github.com', api = 'https://api.github.com', clientId = CLIENT_ID, fetchImpl = fetch, now = () => Date.now(), onSynced = () => {} }) {
     super();
@@ -63,12 +69,19 @@ class GitHubService extends EventEmitter {
     this.syncing = null;
     this.timer = null;
     this.soon = null;
+    this.stopped = false;   // after stop(), a sign-in finishing late starts nothing
   }
 
   get state() { return normalizeState(this.config.get('github')); }
   save(patch) { this.config.set({ github: { ...this.state, ...patch } }); this.emit('change', this.view()); }
   get signedIn() { return !!this.auth?.token; }
-  gh() { return new GitHubApi({ token: this.auth.token, api: this.api, fetchImpl: this.fetchImpl }); }
+  gh() { return new GitHubApi({ token: this.auth.token, api: this.api, fetchImpl: this.fetchImpl, onUnauthorized: () => this.lostAuth() }); }
+
+  // Any call that GitHub answers 401 (sync, CI, issues, a pull request): the
+  // sign-in has expired or been revoked, so Settings offers "Sign in again".
+  lostAuth() {
+    if (this.signedIn && !this.state.authLost) this.save({ authLost: true });
+  }
   can(feature) { return this.signedIn && this.state.features[feature] && covers(this.auth.scopes, feature); }
 
   view() {
@@ -82,6 +95,7 @@ class GitHubService extends EventEmitter {
       features: Object.fromEntries(FEATURES.map(f => [f, { on: s.features[f], granted: this.signedIn && covers(this.auth.scopes, f) }])),
       lastSyncAt: s.lastSyncAt,
       lastSyncError: s.lastSyncError,
+      authLost: this.signedIn && s.authLost,
       syncing: !!this.syncing,
       flow: this.flow ? { code: this.flow.user_code, url: this.flow.verification_uri, expiresAt: this.flow.expiresAt } : null,
     };
@@ -128,8 +142,9 @@ class GitHubService extends EventEmitter {
       this.flow = null;
       const features = { ...this.state.features };
       for (const f of wanted) if (covers(got.scopes, f)) features[f] = true;
-      this.save({ features, lastSyncError: null });
+      this.save({ features, lastSyncError: null, authLost: false });
       await this.refreshProfile().catch(() => {});
+      if (this.stopped) return;
       this.emit('signed-in', this.view());
       this.schedule();
       if (this.can('sync')) this.sync().catch(() => {});
@@ -155,7 +170,7 @@ class GitHubService extends EventEmitter {
     clearInterval(this.timer); this.timer = null;
     clearTimeout(this.soon); this.soon = null;
     const f = this.state.features;
-    this.save({ login: null, name: '', avatar: null, lastSyncAt: null, lastSyncError: null, features: { ...f, claude: false } });
+    this.save({ login: null, name: '', avatar: null, lastSyncAt: null, lastSyncError: null, authLost: false, features: { ...f, claude: false, friends: false, profileCard: false, prBadge: false } });
   }
 
   /** Turn a feature on/off. On needs a wider sign-in when the token lacks the scope. */
@@ -190,12 +205,12 @@ class GitHubService extends EventEmitter {
 
   schedule() {
     clearInterval(this.timer);
-    this.timer = this.can('sync') ? setInterval(() => this.sync().catch(() => {}), SYNC_EVERY_MS) : null;
+    this.timer = this.can('sync') && !this.stopped ? setInterval(() => this.sync().catch(() => {}), SYNC_EVERY_MS) : null;
   }
 
   /** Something worth sharing changed locally (outfit, skin, a trophy): sync shortly. */
   changedSoon() {
-    if (!this.can('sync') || this.soon) return;
+    if (!this.can('sync') || this.soon || this.stopped) return;
     this.soon = setTimeout(() => { this.soon = null; this.sync().catch(() => {}); }, SYNC_SOON_MS);
   }
 
@@ -205,12 +220,16 @@ class GitHubService extends EventEmitter {
     this.syncing = (async () => {
       this.emit('change', this.view());
       try {
-        const r = await syncNow(this.gh(), { get: k => this.config.get(k), set: p => this.config.set(p) });
+        const before = this.config.data;
+        const r = await syncNow(this.gh(), { get: k => this.config.get(k), set: p => this.config.set(p), data: () => this.config.data });
         this.save({ lastSyncAt: this.now(), lastSyncError: null });
-        if (r.pulled) this.onSynced();
+        if (r.pulled) this.onSynced(before);
         return { ok: true, ...r };
       } catch (e) {
-        const error = e.status === 401 ? 'GitHub signed Shellby out. Sign in again to keep syncing.' : `Sync failed: ${clip(e.message, 150)}`;
+        const offline = !e.status && OFFLINE.test(`${e.message} ${e.cause?.code || ''}`);
+        const error = e.status === 401 ? 'GitHub signed Shellby out. Sign in again to keep syncing.'
+          : offline ? "Couldn't reach GitHub: this PC looks to be offline. Shellby tries again later."
+            : `Sync failed: ${clip(e.message, 150)}`;
         this.save({ lastSyncError: error });
         return { ok: false, error };
       } finally {
@@ -226,7 +245,7 @@ class GitHubService extends EventEmitter {
   /** Extra env for Shellby's own Claude Code tabs, when you allowed it. */
   claudeEnv() { return this.can('claude') ? gitEnv(this.auth.token) : {}; }
 
-  stop() { clearInterval(this.timer); clearTimeout(this.soon); this.cancel(); }
+  stop() { this.stopped = true; clearInterval(this.timer); clearTimeout(this.soon); this.cancel(); }
 }
 
 module.exports = { GitHubService, gitEnv, normalizeState, FEATURES };

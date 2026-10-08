@@ -47,6 +47,12 @@
   100% { transform: translate(var(--bx), calc(var(--by) + 40px)) rotate(var(--spin)); opacity: 0; }
 }
 
+/* a flight (effects.js FLIGHT) fades in and out, in a few steps: each is a presented frame */
+.fx-layer.fx-arriving { animation: fx-arrive .6s steps(4) both; }
+.fx-layer.fx-leaving { animation: fx-leave .6s steps(4) both; }
+@keyframes fx-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fx-leave { from { opacity: 1; } to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .fx-layer { display: none; }
 }

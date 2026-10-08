@@ -1,0 +1,335 @@
+# Workflows
+
+A workflow is a list of steps that something starts: a schedule, a red build, a
+release, a new file in a folder, another workflow, a script, Claude Code, or
+you. Steps hand each other data, so "Claude, find out why this failed" can
+decide whether the next step fixes it or tells you about it.
+
+They live on the **Automate** page (the bottom bar, or <kbd>Ctrl</kbd>+<kbd>4</kbd>).
+
+## Three ways to make one
+
+- **Describe it.** Type what should happen and when ("when a pull request
+  goes red, find out why, and if it's simple fix it and ask me before
+  pushing") and press **Draft it**. Claude writes the workflow and it opens
+  in the editor for you to check. Nothing is saved until you press Save.
+- **Start from a template:** red build fixer, morning brief, site watch,
+  downloads sorter, release notes, disk space guard, broken build → issue,
+  end-of-day digest, and two for [n8n](N8N.md).
+- **Build it** step by step in the editor, or paste one someone shared
+  (**Import**).
+
+## Build it with Claude
+
+The editor has a chat, **Build it with Claude**: under the workflow in a
+narrow panel, beside it once there's room (**Make room**). Say what you want
+("every weekday at 8, check my site and tell me on my phone if it's down",
+"make the second step ask me first") and Claude changes the workflow while you
+watch. What it changed glows on the map for a moment. A draft from **Describe
+it** or a **Fix with Claude** opens with Claude's note in the chat, so you can
+carry on from there.
+
+With **Let Claude test it** ticked, Claude can also try it out. It saves the
+workflow and runs it by hand, reads what happened, fixes what went wrong and
+runs it again. It does that up to three times per message, and **Stop** ends it
+early.
+
+- A **new** workflow is saved **switched off** for its tests, so its triggers
+  can't fire. Press **Save** when you're happy to switch it on. If you leave
+  without saving, it stays in the list, switched off.
+- An existing workflow keeps its on/off setting. A test saves your changes to it.
+- Saving for a test goes through the same checks as Save, so anything that
+  would show the confirmation window on Save shows it here too.
+- A test run that asks you something waits for your answer like any other run.
+  **See the run** opens it.
+- Untick it, and Claude offers a **Test it** button instead of running anything.
+
+Claude never sees your hook addresses, and it is never given Autonomous mode.
+
+Claude Code can also propose one from any session with the Shellby plugin
+(`add_workflow`). You see the whole thing in Shellby's confirmation window
+first.
+
+### Routines too
+
+The routine editor (**Automate → Routines**) has the same chat. Say what you
+want ("every weekday at 8:30, sum up what changed in my Documents", "only look,
+don't change anything", "make the report shorter") and Claude fills in the
+form while you watch. A routine drafted with **Describe it** opens with the
+chat ready to carry on.
+
+With **Let Claude test it** ticked, Claude saves the routine and runs it once in
+its own tab. When that run finishes, Claude reads what Claude Code did there:
+how it ended, which tools failed, and what it reported. Then it rewrites the
+instruction, the mode or the folder if the run went wrong, and tries again, up
+to three times per message.
+
+- A **new** routine is saved **switched off** for its tests, so it doesn't run
+  on its schedule yet. **Save** switches it on. Leave without saving and it
+  stays in the list, switched off.
+- An existing routine keeps its on/off setting. A test saves your changes to
+  it, so its next scheduled run uses them even if you leave without saving.
+- A test is a real run: it uses your Claude usage like **Run now** does, and
+  saving for one shows the confirmation window whenever **Save** would.
+- **See the run** opens the test's tab. If it stops to ask your permission,
+  the chat waits for you.
+- Claude never picks Autonomous. If you gave the routine Autonomous yourself,
+  Claude can leave it be.
+- Claude can pick the routine's **Model**: Sonnet or Haiku for light jobs
+  (tidying, summing up, a short report), your usual model for real coding
+  work. Say "use Haiku" and it will. Once a routine has run a few times on the
+  top model and every run was small, the editor suggests Sonnet. It never
+  switches it for you.
+
+## The map
+
+The editor shows a workflow as a **map**: its triggers along the top, then
+every step as a node, joined by wires in the order they run. An **If** splits
+into a Then lane and an Otherwise lane side by side, and they join again
+below. A **For each** wraps the steps it repeats in a loop.
+
+- **Press a node** to change it. Its fields open beside the map (or under it,
+  when the panel is narrow). <kbd>Esc</kbd> closes them.
+- **Press a +** on a wire to add a step there, or **+ Trigger** to add a trigger.
+- **Drag a step** onto any + to move it, into or out of an If or a loop. A +
+  where it can't go doesn't light up.
+- **Drag the background** or scroll to look around. <kbd>Ctrl</kbd>+scroll
+  zooms, and **⛶** fits the whole workflow. With the map focused,
+  <kbd>+</kbd>, <kbd>-</kbd> and <kbd>0</kbd> do the same, and <kbd>Delete</kbd>
+  removes the node you're on.
+- **Make room** (the arrows in the map's toolbar) widens the panel while a map
+  is open and puts it back when you leave. Shellby remembers that you like it.
+- **Settings** holds the description, default folder and what happens if it's
+  already running. **Run by hand** holds the inputs.
+
+**List** shows the same workflow as a list of cards, and **JSON** as text.
+Shellby remembers which you used last.
+
+## Triggers
+
+| Trigger | Starts it… |
+|---|---|
+| Schedule | every day, on certain days, every few hours, or every 5-1440 minutes |
+| Build | when a pull request's checks fail, go green again, pass, merge, or ask for your review (needs GitHub CI turned on) |
+| Issue | when a GitHub issue is assigned to you, or labelled `shellby` (needs **Offer to take on issues** in Settings → GitHub) |
+| Shipped | when a project is pushed, deployed, released or has a pull request merged |
+| Task finished | when one of your Shellby tasks finishes (never a workflow's own) |
+| Health | when something overheats or a drive fills up |
+| Folder | when files arrive in (or change in) a folder, optionally matching a pattern like `*.pdf` |
+| After a workflow | when another workflow succeeds, fails or either |
+| Shellby starts | each time Shellby starts |
+| Web hook | when a script calls its address (see below) |
+| Claude Code | lets Claude Code (`run_workflow`) and `shellby flow run` start it |
+
+Every workflow can also be run by hand with **Run**.
+
+## Steps
+
+| Step | Does |
+|---|---|
+| **Claude** | gives Claude Code a task, in a mode you pick. Add **output fields** and Claude hands back data (text, numbers, true/false, lists) for the steps after it. |
+| **Command** | runs a PowerShell command and keeps its output and exit code |
+| **Web request** | calls a web address (GET, POST…) and keeps the answer, parsed as JSON when it is |
+| **MCP tool** | calls one tool of one of your MCP servers directly ("create an issue in Linear"), with no Claude turn. See [MCP servers](#mcp-servers). |
+| **Ask me** | stops and asks you, with your own choices or Continue / Stop. A notification and your phone say it's waiting. |
+| **Tell me** | a notification, a message on your phone, a line from the crab, or a line added to a file |
+| **Set values** | names a value for later steps |
+| **If** | runs one list of steps or another |
+| **For each** | repeats steps for every item in a list (up to 100) |
+| **Wait** | for up to 7 days, even across a restart |
+| **File** | reads, writes or adds to a file |
+| **Run workflow** | runs another workflow and waits for it |
+| **Stop** | ends the run, as done or as failed |
+| **Make a copy** | a copy of a GitHub repository cloned on this PC, on its own branch, started from its main branch on GitHub. Later steps work in it as `{{ copy.path }}`. |
+| **Open a pull request** | commits whatever is left in the copy, pushes its branch and opens a pull request (a draft, unless you untick it) |
+
+Every step can also retry, have a time limit, run only if a condition holds,
+or carry on when it fails.
+
+### Using values
+
+Put `{{ … }}` in any text to use a value. The **{ }** button next to a field
+lists what's available there, so you rarely need to type one.
+
+```
+{{ trigger.title }}               what started it (a PR's title, the files that arrived…)
+{{ inputs.branch }}               an input you asked for when it ran
+{{ diagnose.cause }}              a field from the step called "diagnose"
+{{ check.json.items | length }}   with a filter: json, upper, lower, trim, length,
+                                  first, last, join ", ", default "x", lines, slice 0 100
+{{ item }}  {{ loop.number }}     inside For each
+{{ now }}  {{ today }}  {{ secrets.API_KEY }}
+```
+
+Conditions read like `diagnose.fixable and check.status != 200`, with
+`== != > >= < <= contains and or not` and brackets.
+
+## Claude steps
+
+All the Claude steps in one run share a conversation (a tab titled ⚡ and the
+workflow's name), so a later step knows what an earlier one found. Tick
+**Fresh conversation** to start a new one. If Claude needs your permission, it
+asks in that tab as usual. When the run ends, its Claude Code process stops, and
+the tab stays so you can read it or reply.
+
+Values from outside (a PR title, a web page, a file) reach Claude marked as
+data, with a note saying they're data, not instructions.
+
+## MCP servers
+
+Your MCP servers (Toolbox → MCP) are how a workflow reaches other apps: Linear,
+Jira, Slack, Notion, a database. There are two ways to use one.
+
+**In a Claude step.** Claude already has your servers in every step. Under
+**MCP servers it can use without asking**, tick the ones the step needs, and
+Claude uses their tools without stopping to ask, so a run at 3am doesn't wait
+for you. That's the only thing ticking does: unticked servers are still there,
+and Claude asks before using one.
+
+- **Only these servers** loads just the ticked ones. Claude starts faster and
+  can't reach for anything else. Servers that come with a plugin can't be loaded
+  on their own, so leave it off for them.
+- Steps that use different servers get separate conversations, because a
+  conversation's servers are fixed when it starts.
+
+**As an MCP tool step.** When you know exactly what should happen ("file an
+issue titled X"), skip Claude: pick the server, press **Read its tools**, pick
+a tool, and **Fill in its arguments** writes the JSON for you to finish:
+
+```json
+{ "title": "{{ diagnose.title }}", "labels": {{ diagnose.labels }} }
+```
+
+Text values go in "quotes" and lists or numbers go in without them, the same
+as a web request's JSON body. The step hands on `{{ id.text }}` (what the tool
+said) and `{{ id.json }}` (its answer as data, when it gives one). It costs
+nothing from your plan. Shellby starts the server, calls the one tool and shuts
+it down again. It works with servers that run on this PC and with HTTP servers
+that take a token in their headers. Servers that need you to sign in through a
+browser, and ones that come with a plugin, work in a Claude step instead.
+
+Routines have the same **MCP servers** box.
+
+A project's own `.mcp.json` comes with its repository, so Shellby only loads
+or starts one of its servers after you've approved that server by name in
+Claude Code. "Allow every project server" doesn't count here. An MCP tool
+step's folder has to be written out, so what started the run can't pick which
+project's servers it uses.
+
+The **Broken build → issue** and **End-of-day digest** templates show both at
+work.
+
+## From an issue to a pull request
+
+The **Issue helper** template puts it together. When an issue is assigned to
+you, or someone labels it `shellby`, he asks "Want me to take a crack at #42?"
+(on the desktop, as a notification, and on your phone). Say **Take a crack**
+and he:
+
+1. makes a copy of the repository on its own branch (`shellby/issue-42-…`),
+   started from its main branch on GitHub, so your checkout isn't touched;
+2. has Claude work on the issue there in Auto-edit, run the tests and commit;
+3. pushes that branch and opens a **draft** pull request that closes the issue.
+
+Opening it pays XP, and when it's merged the project earns its sticker like
+any other merge.
+
+You can also hand it an issue yourself: **⋯ → Hand it to the Issue helper** on
+a project's [Next up](PROJECTS.md#next-up) list starts it for that issue
+(trigger event `picked`) and skips the question, since you've already said
+yes (when someone else wrote the issue, Shellby asks first). Only workflows with an Issue trigger for any issue are offered. A copy of
+the template from before this skips nothing and asks once more.
+
+What it needs:
+
+- **Offer to take on issues** and **Let Claude tasks push code and open pull
+  requests**, both in Settings → GitHub.
+- The repository cloned on this PC (the Projects page can clone it).
+
+Where the label counts: your own repositories, and the ones cloned on this PC
+that you can push to. Anywhere else, only issues assigned to you start it.
+He offers an issue once it has been assigned to you or labelled since you
+turned this on, including while Shellby was closed. Issues that were already
+open, or an old one that only gets a new comment, aren't offered.
+
+The pull request step only works on copies Shellby made, works out the
+repository and branch from the copy itself, never force-pushes, and skips git
+hooks (Claude may have just edited one while working on an issue someone else
+wrote). On a private repository whose plan has no draft pull requests, it
+opens an ordinary one. The copy stays in Shellby's worktrees folder afterwards.
+
+## Runs
+
+**Runs** shows every run: what started it, each step's status, how long it
+took, what it returned and any error. A run opens as a map of its workflow,
+with every node coloured by how its step went, the wires lit along the way it
+took, and the lane an If didn't take dimmed. It opens on whatever needs you: a
+question waiting for an answer, or the step that failed. Press any node for
+its output (each pass of a loop is listed), the first node for what started
+it, and the last for the values it ended with. **List** shows the timeline
+instead. From there you can:
+
+- answer a step that's asking you,
+- **Stop** a run,
+- **Retry from the failed step**: what already finished isn't done again,
+- **Fix with Claude**: Claude reads the workflow and the failed run, and
+  proposes a corrected version in the editor.
+
+A run waiting on you (or on a timer) when Shellby closes carries on when it
+starts again. One that was in the middle of a step waits for you to resume it,
+since Shellby can't know how far that step got.
+
+## Secrets
+
+Keep API keys and tokens in **Secrets** at the bottom of the Automate page, and
+use them as `{{ secrets.NAME }}`. They're encrypted by Windows, never shown
+again, only allowed in commands and web requests (never in a prompt, a message
+or a file), and blanked out of everything a run records.
+
+## Web hooks
+
+Add the **Web hook** trigger and save, and the workflow gets an address on
+Shellby's local port (it needs **Settings → Claude Code everywhere** turned on):
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:47913/v1/flow `
+  -Headers @{ 'X-Shellby' = '1' } -ContentType 'application/json' `
+  -Body '{"hook":"<the token shown in the editor>","data":{"version":"1.2.0"}}'
+```
+
+`data` arrives as `{{ trigger.* }}`, and any field named like one of the
+workflow's inputs fills that input. Only programs on this PC can reach the port.
+Web pages can't, and the token is the workflow's own.
+
+To connect n8n, see [n8n](N8N.md).
+
+## From the terminal and from Claude
+
+```powershell
+shellby flow list
+shellby flow run "Release notes" version=1.2.0
+```
+
+From a Claude Code session with the plugin: `list_workflows`, `run_workflow`
+and `add_workflow`. Only workflows with the **Claude Code** trigger can be run
+this way, and Claude can't pick Autonomous for a step.
+
+## Safety
+
+- Saving a workflow that can act without asking (a command, a web request, a
+  file write, an MCP tool step, MCP servers a Claude step may use unasked, a
+  Claude step in Smart, Auto-edit or Autonomous) shows exactly
+  what it may do in Shellby's confirmation window. It asks again only when one
+  of those things changes.
+- At most 4 runs go at once, and the rest wait their turn. A workflow that
+  starts more than 60 times in an hour is paused, and you're told.
+- A folder workflow only watches the top level of its folder, and ignores
+  changes for a moment after its own run, so tidying files into subfolders
+  can't set it off again.
+- Workflows can call each other at most 3 deep, and "after a workflow" chains
+  stop after 3 hops.
+
+## Sharing
+
+**Export** copies a workflow as JSON, without its id or web hook token. Anyone
+can **Import** it, and it opens in their editor to check before saving.

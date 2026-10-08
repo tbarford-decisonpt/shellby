@@ -1,0 +1,211 @@
+/* Shellby panel — the terminal conveniences in the message box (composer.js),
+   and the Permissions and MCP panes of the Toolbox (toolbox-setup.js). */
+
+/* ================================================================ effort chip */
+.effort-chip { margin-left: 2px; }
+.effort-chip.on { color: var(--amber); }
+.effort-chip.on:hover { color: var(--amber); }
+
+/* ================================================================ @ files and Ctrl+R */
+.k-shellby { --k: var(--amber); }
+.pick-item { grid-template-columns: 14px minmax(0, 1fr) auto; }
+.pick-glyph { font: 700 var(--fs-11) var(--font-mono); color: var(--sand-faint); text-align: center; }
+.pick-item .slash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.pick-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12-5); color: var(--sand); }
+.pick-head, .pick-empty { padding: 5px 9px 6px; font: 600 var(--fs-10-5) var(--font-mono); letter-spacing: .03em; color: var(--sand-faint); }
+.pick-empty { font-weight: 500; }
+
+/* ================================================================ ! shell mode */
+.composer.shell-mode #input { font-family: var(--font-mono); font-stretch: 88%; }
+.composer.shell-mode .input-row { box-shadow: 0 0 0 1px var(--amber); }
+.composer.shell-mode #sendHint { color: var(--amber); }
+.shell-run > summary .t-label { color: var(--amber); }
+.shell-run .shell-code { flex: none; margin-left: auto; font: 600 var(--fs-10) var(--font-mono); color: var(--danger); }
+
+/* ================================================================ rewind */
+.msg.user { position: relative; }
+.msg-rewind {
+  position: absolute; left: -30px; top: 6px;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--sand-faint); font-size: var(--fs-14); line-height: 24px;
+  opacity: 0; transition: opacity .12s;
+}
+.msg-rewind::before { content: "↶"; } /* drawn, not text: the message's text stays exactly what you sent */
+.msg.user:hover .msg-rewind, .msg-rewind:focus-visible { opacity: 1; }
+.msg-rewind:hover { background: var(--reef); color: var(--sand); }
+.rewind-menu { max-width: min(420px, calc(100vw - 24px)); max-height: 60vh; overflow-y: auto; }
+
+/* ================================================================ branch: try again in a new tab */
+.msg-branch {
+  position: absolute; left: -30px; top: 32px;
+  display: grid; place-items: center;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--sand-faint);
+  opacity: 0; transition: opacity .12s;
+}
+.msg-branch svg { width: 14px; height: 14px; }
+.msg.user:hover .msg-branch, .msg-branch:focus-visible { opacity: 1; }
+.msg-branch:hover { background: var(--reef); color: var(--sand); }
+.meta-branch {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 8px; padding: 0 6px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--sand-faint); font: inherit;
+  opacity: 0; transition: opacity .12s;
+}
+.meta-branch svg { width: 12px; height: 12px; }
+.meta:hover .meta-branch, .meta-branch:focus-visible { opacity: 1; }
+.meta-branch:hover { background: var(--reef); color: var(--sand); }
+.branch-mark .link-btn, .link-btn.inline { padding: 0; border: 0; background: none; font: inherit; color: var(--sand); text-decoration: underline dotted; cursor: pointer; }
+.branch-mark .link-btn:hover, .branch-mark .link-btn:focus-visible { color: var(--accent, var(--sand)); }
+.menu-note { padding: 4px 12px 6px 40px; }
+.changes.compare > summary .chg-icon { color: var(--sand); }
+.branch-family { font-size: var(--fs-12); }
+.branch-family .mi-sub { white-space: normal; }
+@media (prefers-reduced-motion: reduce) { .msg-branch, .meta-branch { transition: none; } }
+.rewind-text { font-weight: 600; font-size: var(--fs-12-5); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+/* Block, not the menu item's flex: as a flex row the text shrank to one word per line. */
+.rewind-quote { display: block; white-space: pre-wrap; max-height: 5.6em; overflow: hidden; font-family: inherit; font-size: var(--fs-12); }
+.menu-item:disabled { opacity: .45; cursor: default; }
+.menu-item:disabled:hover { background: none; }
+
+/* ================================================================ Toolbox: permission rules */
+/* minmax(0, 1fr), not the implicit auto column: the summary's nowrap <code> makes a row's
+   min-content the whole rule, so an auto track grows past the pane instead of ellipsizing. */
+.rule-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.rule-row { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--reef); }
+.rule-row[open] { border-color: var(--line-2, var(--line)); background: var(--reef-2); }
+.rule-sum { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; cursor: pointer; list-style: none; border-radius: var(--r-sm); }
+.rule-sum::-webkit-details-marker { display: none; }
+.rule-sum::before { content: '▸'; flex: none; font-size: var(--fs-10); color: var(--sand-dim); transition: transform .12s; }
+.rule-row[open] > .rule-sum::before { transform: rotate(90deg); }
+.rule-sum:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.rule-sum code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12); color: var(--sand); }
+.rule-sum .icon-btn { width: 26px; height: 24px; }
+.rule-detail { display: grid; gap: 6px; padding: 2px 10px 10px 28px; }
+.rule-full { margin: 0; padding: 6px 8px; border-radius: var(--r-sm); background: var(--reef-3); font: var(--fs-12)/1.45 var(--font-mono); color: var(--sand); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; }
+.rule-what { margin: 0; font-size: var(--fs-12-5); line-height: 1.45; color: var(--sand); }
+.rule-detail .small code { font-size: var(--fs-11); overflow-wrap: anywhere; }
+.rule-actions { justify-content: flex-end; gap: 6px; }
+.rule-pill { flex: none; font: 600 var(--fs-9)/15px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; border-radius: 4px; background: var(--reef-3); }
+.rule-pill.l-allow { color: var(--glass); }
+.rule-pill.l-ask { color: var(--amber); }
+.rule-pill.l-deny { color: var(--danger); }
+.rule-form { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 4px 0 10px; }
+.rule-form .field { min-width: 0; }
+
+/* ================================================================ Toolbox: MCP servers */
+.mcp-form { display: grid; gap: 6px; margin: 6px 0 12px; padding: 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
+.mcp-form .row2 { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+.mcp-form textarea { min-height: 44px; resize: vertical; font: var(--fs-11-5) var(--font-mono); }
+.mcp-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.mcp-bar .muted { flex: 1; min-width: 160px; }
+.rule-form input.field { width: 100%; }
+
+/* ================================================================ Toolbox: prompt snippets
+   toolbox-snippets.js. The prompt box is a transparent textarea over a layer
+   (.snip-backdrop) with the same text and metrics, where the blanks are marked. */
+.k-snippet { --k: #d7a8ff; }
+.snip-bar .snip-more { flex: none; }
+.snippet-row .tool-desc { white-space: pre-line; }
+.snippet-row.is-editing { border-color: var(--glass); }
+.snippet-row.just-saved { animation: snip-saved 1.5s var(--ease-out); }
+@keyframes snip-saved { from { border-color: var(--glass); box-shadow: 0 0 0 3px var(--glass-dim); } }
+.snippet-row .tool-name code { flex-shrink: 0; max-width: 100%; }
+.snip-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-11) var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
+.snip-note { margin: 3px 0 0; font-size: var(--fs-11-5); color: var(--amber); }
+.menu-item.danger .mi-title { color: #ff9b8f; }
+.snip-empty { display: grid; gap: 12px; justify-items: center; padding: 26px 12px; }
+.snip-empty p { margin: 0; max-width: 34ch; line-height: 1.45; color: var(--sand-dim); }
+
+/* ================================================================ Toolbox: team pack
+   toolbox-team.js. The repo's .shellby/team.json: what's in it, and the form for making one. */
+.team-pill { flex: none; font: 700 var(--fs-9-5)/16px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 99px; border: 1px solid var(--glass-dim); color: var(--glass); }
+.team-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.team-title { min-width: 0; flex: 1 1 220px; }
+.team-title h3 { margin: 0 0 3px; font: 600 var(--fs-15) var(--font-pixel); color: var(--glass); }
+.team-title p { margin: 0; line-height: 1.45; }
+.team-head-btns { display: flex; gap: 6px; }
+.team-label { margin: 16px 0 6px; }
+.team-bar .muted.warn { color: var(--amber); }
+.team-list { margin: 0; }
+.team-list .tool-desc { -webkit-line-clamp: 4; }
+.team-note { margin: 0 0 6px; }
+.team-cmd { display: block; max-width: 100%; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-11) var(--font-mono); color: var(--sand-dim); }
+.team-add { flex-wrap: wrap; justify-content: flex-end; }
+.team-add select { max-width: 190px; }
+.team-done { font-size: var(--fs-12); color: var(--glass); white-space: nowrap; }
+.team-all { margin: 0 0 8px; color: var(--glass); }
+.tool-stats.err { color: #ffb3aa; }
+.team-problems { margin: 0 0 8px; font-size: var(--fs-12); color: var(--amber); }
+.team-problems summary { cursor: pointer; }
+.team-problems ul { margin: 6px 0 0; padding-left: 18px; color: var(--sand-dim); }
+.team-empty { justify-items: start; padding: 18px 4px; }
+.team-empty p { max-width: 52ch; }
+.team-field { display: grid; gap: 4px; }
+.team-field .row-label { margin: 0; }
+.team-pick { display: grid; gap: 2px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.team-pick legend { padding: 0; }
+.team-check { display: flex; gap: 8px; align-items: flex-start; padding: 5px 6px; border-radius: var(--r-sm); cursor: pointer; }
+.team-check:hover { background: var(--reef-2); }
+.team-check input { margin-top: 3px; flex: none; }
+.team-check > span { display: grid; min-width: 0; }
+.team-check-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-12-5) var(--font-mono); }
+.team-check-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.team-written { position: relative; display: grid; gap: 4px; margin-bottom: 12px; padding: 10px 36px 10px 12px; border: 1px solid var(--glass); border-radius: var(--r); background: var(--reef); }
+.team-written p { margin: 0; line-height: 1.45; }
+.team-written .icon-btn { position: absolute; top: 6px; right: 6px; }
+/* The welcome card: a new hire's (or a changed pack's) one-go set-up. */
+.team-welcome { display: grid; gap: 8px; margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--glass); border-radius: var(--r); background: var(--reef); }
+.team-welcome p { margin: 0; line-height: 1.45; }
+.team-welcome-head { font-weight: 600; color: var(--sand); }
+.team-welcome-list { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.team-welcome .row { justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.team-blanks { display: grid; gap: 6px; margin-top: 6px; }
+.team-blank .field { max-width: 320px; }
+.team-shared { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: var(--fs-12); color: var(--sand-dim); }
+.team-shared .row-label { display: inline; margin: 0; }
+
+.snip-editor { display: grid; gap: 14px; margin: 2px 0 12px; padding: 14px; border: 1px solid var(--glass); border-radius: var(--r-lg); background: var(--reef); animation: rise .2s var(--ease-out); }
+.snip-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.snip-head h3 { margin: 0; font: 600 var(--fs-15) var(--font-pixel); color: var(--glass); }
+.snip-head .field-hint { font: var(--fs-10-5) var(--font-mono); font-stretch: 90%; }
+.snip-editor .field-hint { margin: 0; color: var(--sand-dim); }
+.snip-editor .field-hint.err { color: #ffb3aa; }
+.snip-editor .field-hint.warn, .setup-status.warn { color: var(--amber); }
+.snip-editor .field { background: var(--abyss); }
+
+.snip-name { display: flex; align-items: center; padding: 0 10px; cursor: text; }
+.snip-name:focus-within { border-color: var(--glass); }
+.snip-name.bad { border-color: rgba(255, 90, 74, .65); }
+.snip-slash { font: 600 var(--fs-13) var(--font-mono); color: var(--sand-faint); }
+.snip-name input { flex: 1; min-width: 0; height: 100%; padding: 0 0 0 1px; border: 0; background: none; outline: none; color: var(--sand); font: 600 var(--fs-13) var(--font-mono); font-stretch: 90%; }
+.snip-name input::placeholder { color: var(--sand-faint); font-weight: 400; }
+
+.snip-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.snip-count { font: 500 var(--fs-10-5) var(--font-mono); color: var(--amber); }
+.snip-count.over { color: #ff9b8f; }
+.snip-prompt { position: relative; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--abyss); transition: border-color .15s; }
+.snip-prompt:focus-within { border-color: var(--glass); }
+.snip-prompt .snip-text, .snip-backdrop {
+  display: block; box-sizing: border-box; width: 100%; margin: 0; padding: 10px 12px;
+  font: var(--fs-13-5)/1.55 var(--font-body); letter-spacing: normal; tab-size: 4;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
+  scrollbar-gutter: stable;
+}
+.snip-prompt .snip-text { position: relative; z-index: 1; flex: none; min-height: 106px; max-height: 320px; overflow-y: auto; resize: none; background: transparent; border: 0; color: var(--sand); }
+.snip-prompt .snip-text::placeholder { color: var(--sand-faint); }
+.snip-backdrop { position: absolute; inset: 0; overflow: hidden; color: transparent; pointer-events: none; }
+.snip-backdrop mark { color: transparent; background: rgba(215, 168, 255, .16); border-radius: 3px; box-shadow: 0 0 0 1.5px rgba(215, 168, 255, .45); }
+
+.snip-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.snip-tools-label { font-size: var(--fs-11-5); font-weight: 400; color: var(--sand-dim); margin-right: 2px; }
+.snip-token { height: 24px; padding: 0 8px; border: 1px solid rgba(215, 168, 255, .35); border-radius: var(--r-sm); background: rgba(215, 168, 255, .08); color: #e4c8ff; font: 600 var(--fs-11) var(--font-mono); font-stretch: 90%; cursor: pointer; transition: background .15s, border-color .15s; }
+.snip-token:hover { background: rgba(215, 168, 255, .16); border-color: rgba(215, 168, 255, .6); }
+.snip-token:disabled { opacity: .45; cursor: default; }
+.snip-hint-box { display: grid; gap: 5px; }
+.snip-hint-box[hidden] { display: none; }
+.snip-usage { margin: 0; font: var(--fs-11) var(--font-mono); font-stretch: 90%; color: var(--sand-dim); overflow-wrap: anywhere; }
+.snip-toggle { align-items: flex-start; padding: 0; font-size: var(--fs-13); }
+.snip-toggle > span:last-child { display: grid; gap: 2px; }
+.snip-toggle .switch { margin-top: 1px; }
+.snip-foot { display: flex; align-items: center; gap: 8px; }

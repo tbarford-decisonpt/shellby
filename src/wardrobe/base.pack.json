@@ -779,6 +779,84 @@
       ]
     },
     {
+      "id": "sea-glass",
+      "name": "Sea Glass",
+      "description": "A friend's crab dropped by and left this behind.",
+      "slot": "held",
+      "pivot": [
+        1,
+        3
+      ],
+      "rarity": "common",
+      "unlock": {
+        "achievement": "open-house"
+      },
+      "palette": {
+        "a": "#57cc99",
+        "b": "#c8f3e8",
+        "d": "#2a9d8f"
+      },
+      "pixels": [
+        ".ab.",
+        "aaab",
+        "daaa",
+        ".dd."
+      ]
+    },
+    {
+      "id": "friendship-bracelet",
+      "name": "Friendship Cord",
+      "description": "Woven for you by a visiting crab. Worn like a necklace, obviously.",
+      "slot": "neck",
+      "pivot": [
+        3,
+        0
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "open-house"
+      },
+      "palette": {
+        "p": "#ff7a5c",
+        "y": "#ffd166",
+        "t": "#7fd6c2",
+        "s": "#f3e6cc",
+        "w": "#fff4e4"
+      },
+      "pixels": [
+        "pyptpyp",
+        "...s...",
+        "..sws.."
+      ]
+    },
+    {
+      "id": "message-bottle",
+      "name": "Message in a Bottle",
+      "description": "Five waves sent across the sea. Somebody always writes back.",
+      "slot": "held",
+      "pivot": [
+        1,
+        4
+      ],
+      "rarity": "rare",
+      "unlock": {
+        "achievement": "pen-pals"
+      },
+      "palette": {
+        "c": "#a0693a",
+        "g": "#7fd6c2",
+        "G": "#2a9d8f",
+        "w": "#fff4e4"
+      },
+      "pixels": [
+        ".c.",
+        ".g.",
+        "gwg",
+        "gwG",
+        "GGG"
+      ]
+    },
+    {
       "id": "witch-hat",
       "name": "Witch Hat",
       "description": "Spooky Season collectible.",

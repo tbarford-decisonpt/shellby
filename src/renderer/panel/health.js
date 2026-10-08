@@ -1,117 +1,56 @@
-/* Shellby panel — Health: live vitals, drives, sensor setup and alert settings. */
+/* Shellby panel — Health: live vitals, drives, sensor setup and alert settings.
+   This file holds the snapshot from main, the hero, the porthole, the alert
+   settings and log, and the live updates. The gauges are health-gauges.js,
+   fans, drives, clutter and sensors health-drives.js, and what's using the
+   machine and starts with Windows health-hogs.js; the words and numbers are
+   health-logic.js's. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
-  const NS = 'http://www.w3.org/2000/svg';
-  const SPARK_MS = 10 * 60 * 1000;   // sparklines show the last 10 minutes
+  const L = window.ShellbyHealthLogic;
+  const MIN = 60 * 1000;
   const HISTORY_MAX = 720;           // matches the monitor's hour of 5 s samples
-  const GB = 1024 ** 3;
 
   let view = null;                   // last snapshot from main (see health/service.js view())
   let history = [];
   let fx = null;
   let saveTimer = null;
+  const drawn = {};                  // section -> signature of what it shows now
 
   const levelOf = id => view?.checks?.[id]?.level || 'ok';
   const pendingOf = id => view?.checks?.[id]?.pending || null;
-  const fmt = (v, digits = 0) => (Number.isFinite(v) ? v.toFixed(digits) : '—');
-  const gb = n => {
-    if (!Number.isFinite(n)) return '?';
-    const g = n / GB;
-    return g >= 1000 ? `${(g / 1024).toFixed(1)} TB` : g >= 100 ? `${Math.round(g)} GB` : `${g.toFixed(g < 10 ? 1 : 0)} GB`;
+  const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  const smooth = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+  // Rebuild a section only when what it shows has changed, so a 5 s sample
+  // doesn't throw away a focused button or make a screen reader start over.
+  const changed = (name, sig) => (drawn[name] === sig ? false : ((drawn[name] = sig), true));
+
+  // Shared with the screen's other files, which add their parts to it as they
+  // load (health-gauges.js, health-drives.js, health-hogs.js).
+  const H = SB.health = {
+    view: () => view, history: () => history,
+    levelOf, pendingOf, setText, smooth, changed, ask: checkId => ask(checkId),
   };
-
-  // ------------------------------------------------------------ sparkline
-
-  function sparkline(points, key, { min, max, warn }) {
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 100 30');
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.setAttribute('class', 'hl-spark');
-    svg.setAttribute('aria-hidden', 'true');
-    const now = points.length ? points[points.length - 1].at : Date.now();
-    const pts = points.filter(p => p.at >= now - SPARK_MS && Number.isFinite(p[key]));
-    const y = v => 30 - ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * 28 - 1;
-    const x = at => 100 - ((now - at) / SPARK_MS) * 100;
-    if (warn != null && warn > min && warn < max) {
-      const line = document.createElementNS(NS, 'line');
-      line.setAttribute('x1', 0); line.setAttribute('x2', 100);
-      line.setAttribute('y1', y(warn)); line.setAttribute('y2', y(warn));
-      line.setAttribute('class', 'hl-spark-warn');
-      svg.append(line);
-    }
-    if (pts.length > 1) {
-      const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.at).toFixed(2)},${y(p[key]).toFixed(2)}`).join(' ');
-      const area = document.createElementNS(NS, 'path');
-      area.setAttribute('d', `${d} L${x(pts[pts.length - 1].at).toFixed(2)},30 L${x(pts[0].at).toFixed(2)},30 Z`);
-      area.setAttribute('class', 'hl-spark-area');
-      const path = document.createElementNS(NS, 'path');
-      path.setAttribute('d', d);
-      path.setAttribute('class', 'hl-spark-line');
-      path.setAttribute('vector-effect', 'non-scaling-stroke');
-      svg.append(area, path);
-    }
-    return svg;
-  }
 
   // ------------------------------------------------------------ hero
 
-  const MOOD_COPY = {
-    hot: { title: 'Running hot', line: (r, t) => `${r.label} is at ${Math.round(r.value)}°C, over your ${t}°C line. Shellby is fanning himself.` },
-    scorching: { title: 'Overheating!', line: (r, t) => `${r.label} is at ${Math.round(r.value)}°C, ${Math.round(r.value - t)}°C past your warning. Check what's using it.` },
-    dizzy: { title: "Memory's nearly full", line: r => `${Math.round(r.value)}% of ${gb(r.total)} in use. Shellby is seeing stars.` },
-    stuffed: { title: (r) => `${r.drive} is filling up`, line: r => `Only ${gb(r.value * GB)} left. Junk is spilling out of his shell.` },
-  };
-
-  function readingFor(id) {
-    const s = view?.sample;
-    if (!s || !id) return null;
-    if (id.startsWith('gpu-temp:')) { const g = s.gpus[Number(id.slice(9))]; return g && { label: s.gpus.length > 1 ? `GPU ${Number(id.slice(9)) + 1}` : 'GPU', value: g.temp }; }
-    if (id === 'cpu-temp') return { label: 'CPU', value: s.cpu.temp };
-    if (id === 'ram') return s.ram && { value: s.ram.pct, total: s.ram.total };
-    if (id.startsWith('disk:')) { const d = s.disks.find(x => `disk:${x.id}` === id); return d && { drive: d.id, value: d.free / GB, total: d.total }; }
-    return null;
-  }
-
   function renderHero() {
     const hero = $('hlHero');
-    const t = view?.thresholds || {};
     const mood = view?.settings?.moods === false ? null : view?.mood;
     const off = view && !view.settings?.enabled;
     hero.dataset.level = off ? 'off' : view?.worst || 'ok';
     $('hlLive').classList.toggle('on', !!view?.running);
     $('hlEnable').hidden = !off;
-    $('hlAsk').hidden = true;
-
-    let title, sub, eyebrow = 'Vitals';
-    if (off) {
-      title = 'Health checks are off';
-      sub = "Shellby isn't watching temperatures, memory or drives right now.";
-    } else if (!view?.sample) {
-      title = 'Taking a first reading…';
-      sub = '';
-    } else if (view.mood) {
-      const r = readingFor(view.mood.id) || {};
-      const copy = MOOD_COPY[view.mood.mood];
-      const warnLine = view.mood.id === 'cpu-temp' ? t.cpuWarn : t.gpuWarn;
-      eyebrow = view.mood.level === 'critical' ? 'Needs attention' : 'Heads up';
-      title = typeof copy.title === 'function' ? copy.title(r) : copy.title;
-      sub = copy.line(r, warnLine);
-      $('hlAsk').hidden = false;
-      $('hlAsk').dataset.check = view.mood.id;
-    } else {
-      const s = view.sample;
-      const bits = [
-        s.gpus[0]?.temp != null && `GPU ${Math.round(s.gpus[0].temp)}°C`,
-        s.cpu.temp != null && `CPU ${Math.round(s.cpu.temp)}°C`,
-        s.ram && `memory ${Math.round(s.ram.pct)}%`,
-      ].filter(Boolean);
-      title = 'All calm';
-      sub = `${bits.join(' · ')}${bits.length ? '. ' : ''}Shellby's keeping an eye on things.`;
+    const words = L.heroWords(view);
+    $('hlAsk').hidden = !words.ask;
+    if (words.ask) {
+      $('hlAsk').dataset.check = words.ask.check;
+      setText($('hlAsk'), words.ask.text);
     }
-    $('hlEyebrow').textContent = eyebrow;
-    $('hlTitle').textContent = title;
-    $('hlSub').textContent = sub;
+    // The hero is a live region: only touch it when the words change.
+    setText($('hlEyebrow'), words.eyebrow);
+    setText($('hlTitle'), words.title);
+    setText($('hlSub'), words.sub);
     fx?.set(mood?.mood || null);
   }
 
@@ -120,107 +59,52 @@
     // health overlays are positioned against (hats just overflow upwards).
     $('hlSprite').replaceChildren(SB.sprite(state.skin, { fit: false }));
     if (!fx) fx = window.ShellbyHealthFx.mount($('hlFx'), $('hlHero'));
+    renderPorthole();
   }
 
-  // ------------------------------------------------------------ gauges
+  // ------------------------------------------------------------ the porthole
 
-  function gauge({ id, label, value, unit, digits = 0, sub, spark, level = 'ok', pending, missing, askable }) {
-    return h('article', { class: `hl-gauge lvl-${level}${missing ? ' missing' : ''}`, dataset: { id: id || '' } },
-      h('header', {},
-        h('span', { class: 'hl-glabel', text: label }),
-        pending && level === 'ok' ? h('span', { class: 'hl-watch', title: 'Over the line; Shellby reacts if it stays there', text: 'watching' }) : null,
-        level !== 'ok' ? h('span', { class: `hl-pill ${level}`, text: level === 'critical' ? 'very high' : 'high' }) : null),
-      h('div', { class: 'hl-value' }, missing ? h('span', { class: 'hl-dash', text: '—' }) : [fmt(value, digits), h('small', { text: unit })]),
-      h('div', { class: 'hl-gsub' }, missing || sub || ' '),
-      spark || h('div', { class: 'hl-spark empty' }),
-      askable && level !== 'ok' ? h('button', { class: 'hl-mini', type: 'button', onclick: () => ask(id) }, 'Ask Shellby why') : null);
-  }
-
-  function renderGauges() {
-    const box = $('hlGauges');
-    const s = view?.sample;
-    if (!s) { box.replaceChildren(); return; }
-    const t = view.thresholds;
-    const g = s.gpus[0];
-    const cards = [];
-    const tempRange = warn => ({ min: 25, max: Math.max(100, warn + 12), warn });
-    cards.push(gauge({
-      id: 'gpu-temp:0', label: 'GPU temp', value: g?.temp, unit: '°C', askable: true,
-      sub: g ? g.name.replace(/^NVIDIA GeForce /, '') : null,
-      missing: g?.temp == null ? (g ? 'No temperature reading' : 'No supported GPU found') : null,
-      level: levelOf('gpu-temp:0'), pending: pendingOf('gpu-temp:0'),
-      spark: g?.temp != null ? sparkline(history, 'gpuT', tempRange(t.gpuWarn)) : null,
-    }));
-    cards.push(gauge({
-      id: 'cpu-temp', label: 'CPU temp', value: s.cpu.temp, unit: '°C', askable: true,
-      sub: s.cpu.name ? s.cpu.name.replace(/\s+\d+-Core Processor$/i, '').replace(/^AMD |^Intel\(R\) /, '') : null,
-      missing: s.cpu.temp == null ? h('button', { class: 'hl-link', type: 'button', onclick: () => $('hlSetup').scrollIntoView({ behavior: 'smooth', block: 'center' }) }, 'Set up CPU temperature →') : null,
-      level: levelOf('cpu-temp'), pending: pendingOf('cpu-temp'),
-      spark: s.cpu.temp != null ? sparkline(history, 'cpuT', tempRange(t.cpuWarn)) : null,
-    }));
-    cards.push(gauge({
-      id: 'ram', label: 'Memory', value: s.ram?.pct, unit: '%', askable: true,
-      sub: s.ram ? `${gb(s.ram.used)} of ${gb(s.ram.total)}` : null,
-      level: levelOf('ram'), pending: pendingOf('ram'),
-      spark: sparkline(history, 'ram', { min: 0, max: 100, warn: t.ramWarn }),
-    }));
-    cards.push(gauge({
-      label: 'CPU load', value: s.cpu.load, unit: '%',
-      sub: 'all cores',
-      spark: sparkline(history, 'cpu', { min: 0, max: 100 }),
-    }));
-    if (g) {
-      cards.push(gauge({
-        label: 'GPU load', value: g.load, unit: '%',
-        sub: g.memTotal ? `VRAM ${(g.memUsed / 1024).toFixed(1)} / ${(g.memTotal / 1024).toFixed(0)} GB` : null,
-        missing: g.load == null ? 'Not reported' : null,
-        spark: g.load != null ? sparkline(history, 'gpu', { min: 0, max: 100 }) : null,
-      }));
+  // A window into his real tank (tank.js, tank-paint.js): the floor, the back
+  // glass and whatever stands nearest his spot, painted once, still. He and
+  // his mood effects stay on top as before, at --px, so they scale together.
+  // An empty tank looks just as this always has.
+  const PORTHOLE_PX = 4;   // css px per art pixel, as --px on .has-porthole
+  const CRAB_LIFT = 14;    // css px, .hl-crab's bottom
+  const FOCUS_AT = 0.28;   // his favourite piece stands to his left, not behind him
+  function renderPorthole(v = SB.tankView?.()) {
+    const box = $('hlHero').querySelector('.hl-tank');
+    const P = SB.tankPaint;
+    let canvas = box.querySelector('.hl-porthole');
+    const show = !!(P && v && v.pieces.length);
+    box.classList.toggle('has-porthole', show);
+    if (!show) { canvas?.remove(); box.style.removeProperty('--px'); return; }
+    if (!box.dataset.watched) { // a narrow panel changes its size: paint it again at the new one
+      box.dataset.watched = '1';
+      new ResizeObserver(() => { if (state.view === 'health') renderPorthole(); }).observe(box);
     }
-    box.replaceChildren(...cards);
-  }
-
-  // ------------------------------------------------------------ drives
-
-  function renderDisks() {
-    const disks = view?.sample?.disks || [];
-    if (!disks.length) {
-      $('hlDisks').replaceChildren(h('li', { class: 'hl-empty', text: view?.sample ? 'No local drives found.' : 'Reading drives…' }));
-      return;
+    if (!canvas) {
+      canvas = h('canvas', { class: 'hl-porthole', 'aria-hidden': 'true' });
+      box.prepend(canvas);
     }
-    $('hlDisks').replaceChildren(...disks.map(d => {
-      const id = `disk:${d.id}`;
-      const level = levelOf(id);
-      const used = d.total ? 1 - d.free / d.total : 0;
-      return h('li', { class: `hl-disk lvl-${level}` },
-        h('div', { class: 'hl-disk-top' },
-          h('b', { text: d.id }), h('span', { class: 'hl-disk-label', text: d.label || 'Local disk' }),
-          h('span', { class: 'hl-disk-free' }, h('b', { text: gb(d.free) }), ` free of ${gb(d.total)}`)),
-        h('div', { class: 'hl-bar', role: 'meter', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(used * 100), 'aria-label': `${d.id} ${Math.round(used * 100)}% full` },
-          h('span', { style: `transform: scaleX(${used.toFixed(4)})` })),
-        level !== 'ok' ? h('button', { class: 'hl-mini', type: 'button', onclick: () => ask(id) }, 'Ask Shellby what to clean up') : null);
-    }));
+    const dpr = window.devicePixelRatio || 1;
+    // Whole device pixels a pixel, as near --px as they come (exact at 100–200%),
+    // and he and his moods take the same scale, so they stand on the floor.
+    const K = Math.max(1, Math.round(PORTHOLE_PX * dpr));
+    box.style.setProperty('--px', `${K / dpr}px`);
+    const cssW = box.clientWidth || 148, cssH = box.clientHeight || 112;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    const scene = P.resolve(v.layout, v);
+    const artW = canvas.width / K;
+    const ox = Math.max(0, Math.min(scene.world.w - artW, v.focusX - artW * FOCUS_AT));
+    const oy = scene.world.crabY + 1 - (cssH - CRAB_LIFT) * dpr / K;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(K, 0, 0, K, -Math.round(ox * K), -Math.round(oy * K));
+    P.paint(ctx, scene, { still: true, gauges: SB.tankGauges?.current() || null });
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
-
-  // ------------------------------------------------------------ sensors
-
-  function renderSources() {
-    const s = view?.sample;
-    const src = view?.sources || {};
-    const g = s?.gpus?.[0];
-    const row = (ok, title, detail) => h('li', { class: `hl-src ${ok === true ? 'ok' : ok === false ? 'off' : 'na'}` },
-      h('span', { class: 'hl-src-dot', 'aria-hidden': 'true' }), h('div', {}, h('b', { text: title }), h('span', { text: detail })));
-    const lhmText = { ok: 'reading from LibreHardwareMonitor', auth: 'LibreHardwareMonitor wants a password', off: 'needs LibreHardwareMonitor', unknown: 'checking…' }[src.lhm] || 'checking…';
-    $('hlSources').replaceChildren(
-      row(!!src.gpuTemp, 'GPU', g ? `${g.name} · via ${g.vendor === 'nvidia' && src.nvidia ? 'nvidia-smi' : 'LibreHardwareMonitor'}` : 'no NVIDIA GPU found (AMD and Intel GPUs need LibreHardwareMonitor)'),
-      row(src.cpuTemp ? true : src.lhm === 'unknown' ? null : false, 'CPU temperature', s?.cpu?.temp != null ? `${s.cpu.name || 'CPU'} · ${lhmText}` : lhmText),
-      row(true, 'Memory, CPU load and drives', 'built into Windows'),
-    );
-    const needsSetup = view?.sample && !src.cpuTemp;
-    $('hlSetup').hidden = !needsSetup;
-    $('hlAuth').hidden = src.lhm !== 'auth';
-    if (document.activeElement !== $('hlPort')) $('hlPort').value = view?.settings?.lhmPort || 8085;
-  }
+  document.addEventListener('sb:tank', e => { if (state.view === 'health') renderPorthole(e.detail); });
+  document.addEventListener('sb:tank-gauges', () => { if (state.view === 'health') renderPorthole(); }); // the water takes his mood
 
   // ------------------------------------------------------------ settings + log
 
@@ -229,25 +113,33 @@
     $('hlEnabledToggle').checked = !!st.enabled;
     $('hlMoodsToggle').checked = !!st.moods;
     $('hlNotifyToggle').checked = !!st.notify;
+    $('hlSpaceToggle').checked = !!st.space;
     $('hlNotifyToggle').closest('label').title = state.settings.notifications ? '' : 'Notifications are off in Settings';
     for (const input of $('hlThresholds').querySelectorAll('input')) {
       if (document.activeElement !== input) input.value = st[input.dataset.key] ?? '';
     }
+    setText($('hlSettingsSum'), L.settingsSummary(view));
   }
 
   function renderLog() {
     const log = view?.log || [];
     $('hlClearLog').hidden = !log.length;
+    // Times are relative, so the list is redrawn once a minute at most.
+    if (!changed('log', `${log.length}|${log[0]?.at}|${Math.floor(Date.now() / MIN)}`)) return;
     if (!log.length) {
       $('hlLog').replaceChildren(h('li', { class: 'hl-empty', text: "No alerts yet. Shellby's keeping an eye out." }));
       return;
     }
     $('hlLog').replaceChildren(...log.slice(0, 15).map(e => {
-      const up = ['ok', 'warn', 'critical'].indexOf(e.to) > ['ok', 'warn', 'critical'].indexOf(e.from);
-      return h('li', { class: `hl-logrow ${up ? e.to : 'recovered'}` },
+      const { up, where } = L.logEntry(e);
+      const inner = [
         h('span', { class: 'hl-logdot', 'aria-hidden': 'true' }),
         h('span', { class: 'hl-logtitle', text: e.title }),
-        h('time', { text: SB.relTime(e.at), title: new Date(e.at).toLocaleString() }));
+        h('time', { text: SB.relTime(e.at), title: new Date(e.at).toLocaleString() }),
+      ];
+      return h('li', { class: `hl-logrow ${up ? e.to : 'recovered'}` }, where
+        ? h('button', { class: 'hl-logbtn', type: 'button', title: `Show ${where}`, onclick: () => H.showAlert(e) }, inner)
+        : inner);
     }));
   }
 
@@ -263,9 +155,13 @@
     renderBadge();
     if (state.view !== 'health') return;
     renderHero();
-    renderGauges();
-    renderDisks();
-    renderSources();
+    H.renderSelf();
+    H.renderHogs();
+    H.renderGauges();
+    H.renderFans();
+    H.renderDisks();
+    H.renderSpace();
+    H.renderSources();
     renderSettings();
     renderLog();
   }
@@ -286,6 +182,7 @@
   }
 
   $('hlAsk').addEventListener('click', e => ask(e.currentTarget.dataset.check));
+  $('hlAskSpace').addEventListener('click', () => ask('reclaim'));
   $('hlEnable').addEventListener('click', () => save({ enabled: true }));
   $('hlRecheck').addEventListener('click', async () => { view = await api.recheckHealth(); render(); SB.toast('Checked every sensor again'); });
   $('hlCheckLhm').addEventListener('click', async () => {
@@ -294,11 +191,26 @@
     const st = view.sources?.lhm;
     SB.toast(st === 'ok' ? 'Found it! CPU temperature is on.' : st === 'auth' ? 'LHM wants a password; turn off its authentication.' : `Nothing answering on port ${view.settings.lhmPort} yet.`);
   });
+  // Hand the whole LHM setup to Claude. The box is filled in, not sent: it runs
+  // winget and an elevated program, so you see what you're agreeing to first.
+  $('hlClaudeLhm').addEventListener('click', () => {
+    if (SB.isCrabOnly()) return SB.claudeUpsell('lhm');
+    const port = view?.settings?.lhmPort || 8085;
+    SB.prefillNew([
+      'Set up LibreHardwareMonitor so Shellby can read my CPU temperature from its local web server.',
+      '1. If it isn\'t installed, install it with `winget install --id LibreHardwareMonitor.LibreHardwareMonitor -e --accept-source-agreements --accept-package-agreements`, then find where LibreHardwareMonitor.exe ended up.',
+      `2. Make sure LHM isn't running, then in LibreHardwareMonitor.config (next to the exe; run LHM once and close it if the file isn't there yet) turn on the remote web server on port ${port} with no authentication, and set it to start minimized to the tray. Read the file first and use the setting names it already has.`,
+      '3. Start it as administrator (`Start-Process -Verb RunAs`); I\'ll accept the Windows prompt.',
+      `4. Check that http://127.0.0.1:${port}/data.json answers, and tell me if anything needs me to click something in LHM.`,
+      'Ask me before making LHM run at Windows startup.',
+    ].join('\n') + '\n');
+  });
   $('hlGetLhm').addEventListener('click', () => api.openExternal('https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest'));
   $('hlPort').addEventListener('change', e => save({ lhmPort: Number(e.target.value) }));
   $('hlEnabledToggle').addEventListener('change', e => save({ enabled: e.target.checked }));
   $('hlMoodsToggle').addEventListener('change', e => save({ moods: e.target.checked }));
   $('hlNotifyToggle').addEventListener('change', e => save({ notify: e.target.checked }));
+  $('hlSpaceToggle').addEventListener('change', e => save({ space: e.target.checked }));
   $('hlThresholds').addEventListener('input', e => {
     const input = e.target.closest('input[data-key]');
     if (!input || input.value === '') return;
@@ -312,13 +224,11 @@
   // ------------------------------------------------------------ live updates
 
   api.onHealth(snap => {
-    // Live samples carry no history; extend ours with the same compact point the monitor keeps.
-    view = { ...view, ...snap, history: undefined };
-    const s = snap.sample;
-    if (s && s.at !== history[history.length - 1]?.at) {
-      const g = s.gpus[0];
-      const r = v => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
-      history.push({ at: s.at, cpu: r(s.cpu.load), cpuT: r(s.cpu.temp), gpu: r(g?.load), gpuT: r(g?.temp), ram: r(s.ram?.pct) });
+    // Live samples carry no history, only the point this sample added to main's.
+    const { point, ...rest } = snap;
+    view = { ...view, ...rest, history: undefined };
+    if (point && point.at !== history[history.length - 1]?.at) {
+      history.push(point);
       if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
     }
     render();
@@ -327,7 +237,10 @@
 
   async function load() {
     view = await api.getHealth();
-    history = view.history || [];
+    // Keep any live points that arrived while this was on its way.
+    const base = view.history || [];
+    const last = base[base.length - 1]?.at ?? -Infinity;
+    history = [...base, ...history.filter(p => p.at > last)].slice(-HISTORY_MAX);
     render();
   }
 
@@ -336,6 +249,7 @@
       renderCrab();
       api.healthViewed();
       load();
+      H.loadStartup();
     },
   };
   SB.refreshHealthCrab = () => { if (state.view === 'health') renderCrab(); };

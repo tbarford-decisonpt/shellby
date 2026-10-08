@@ -7,12 +7,12 @@ const readline = require('readline');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
-const { findClaude, subscriptionEnv } = require('../src/main/claude-cli');
+const { findClaude, claudeEnv } = require('../src/main/claude-cli');
 
 const target = path.join(os.tmpdir(), `shellby-probe-${Date.now()}.txt`);
 const exe = findClaude();
 const p = spawn(exe, ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
-  '--permission-prompt-tool', 'stdio', '--permission-mode', 'default'], { cwd: os.tmpdir(), env: subscriptionEnv(), stdio: ['pipe', 'pipe', 'pipe'] });
+  '--permission-prompt-tool', 'stdio', '--permission-mode', 'default'], { cwd: os.tmpdir(), env: claudeEnv(), stdio: ['pipe', 'pipe', 'pipe'] });
 const send = o => p.stdin.write(JSON.stringify(o) + '\n');
 const t0 = Date.now();
 const log = (...a) => console.log(((Date.now() - t0) / 1000).toFixed(1).padStart(5), ...a);

@@ -6,7 +6,7 @@ const countEl = document.getElementById('count');
 const bgBadge = document.getElementById('bgBadge');
 const api = window.shellby.critter;
 
-const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★', levelup: 'LV', molting: '', petted: '♥', cheer: 'green!', refreshed: 'ready!' };
+const BUBBLES = { working: '', asking: '?', success: '✓', error: '!', learned: '✦', unlocked: '★', levelup: 'LV', molting: '', petted: '♥', cheer: 'green!', refreshed: 'ready!', stickered: '✦' };
 // Health readings show in the bubble only when nothing more important is.
 const HEALTH_BUBBLE_STATES = new Set(['idle', 'sleeping']);
 // Each helper gets its own shell colour so parallel agents are easy to tell apart.
@@ -19,9 +19,14 @@ let px = 4;
 let state = 'idle';
 let health = null;
 let ciFailing = 0; // pull requests with red CI (src/main/github/ci.js)
+let servers = null; // { up, upPort, down }: your dev servers (src/main/devservers/service.js)
+const serversDown = () => servers?.down || 0;
 let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
 let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
+let onCall = false;  // you're on a call: he holds up his "shh" sign (src/main/surroundings.js)
+// Things a scene or a game puts on him for a moment, by slot (src/renderer/critter/life.js).
+const overrides = new Map();
 // The sign he holds up while CI is red. It goes in the held slot like any other
 // prop, so the post lands in the claw pinch and the whole thing swings with his
 // arm instead of hanging in the air beside it.
@@ -33,6 +38,24 @@ const CI_SIGN = {
     '.pp.....', '.pp.....', '.pp.....',
   ],
 };
+// ...and the one he holds up while you're on a call: a finger to his lips.
+const CALL_SIGN = {
+  slot: 'held', anchor: 'claw', follows: 'claw', pivot: [2, 9],
+  palette: { K: '#2b2d42', w: '#fff4e4', r: '#e63946', s: '#f4c095', p: '#a0693a' },
+  pixels: [
+    'KKKKKKKKK', 'KwwwswwwK', 'KwwwswwwK', 'KwrrsrrwK', 'KwwrsrwwK', 'KwwwwwwwK', 'KKKKKKKKK',
+    '..pp.....', '..pp.....', '..pp.....',
+  ],
+};
+// ...and the one he holds up when a dev server crashed: a pulled plug.
+const SERVER_SIGN = {
+  slot: 'held', anchor: 'claw', follows: 'claw', pivot: [2, 9],
+  palette: { K: '#3d2a00', w: '#fff4e4', r: '#e63946', y: '#ffd23f', p: '#a0693a' },
+  pixels: [
+    'KKKKKKKK', 'KrrrwrrK', 'KrrwwwrK', 'KrrrwrrK', 'KryrrrrK', 'KrryrrrK', 'KKKKKKKK',
+    '.pp.....', '.pp.....', '.pp.....',
+  ],
+};
 const TOSS_MS = 620;  // how long what he was carrying stays in the air
 const GRAB_MS = 560;  // ...and when the sign takes its place, once it is clear
 const CATCH_MS = 520; // the drop back down once the build is green
@@ -40,9 +63,14 @@ let tossed = false;   // his own held item is out of his claw, from throw to cat
 let flinging = false; // mid-throw: he has not got a claw on the sign yet
 // He only holds the sign up on his feet: a nap, a molt or a throw has his claws busy.
 const settled = () => state === 'idle' || state === 'working';
-const holdingSign = () => ciFailing > 0 && !flinging && settled();
+// Something worth putting his own things down for: red CI or a crashed server.
+const wantsSign = () => ciFailing > 0 || serversDown() > 0;
+const holdingSign = () => (wantsSign() || onCall) && !flinging && settled();
+// Which sign, most urgent first: CI, then a server, then the call.
+const signKind = () => (ciFailing > 0 ? 'ci' : serversDown() > 0 ? 'server' : 'call');
+const SIGNS = { ci: CI_SIGN, server: SERVER_SIGN, call: CALL_SIGN };
 // Everything his claw can be carrying, so that a change of load triggers a redraw.
-const clawLoad = () => (holdingSign() ? 'sign' : tossed ? 'empty' : 'own');
+const clawLoad = () => (holdingSign() ? signKind() : tossed ? 'empty' : 'own');
 const healthFx = window.ShellbyHealthFx.mount(document.getElementById('healthFx'), document.getElementById('self'));
 const helpers = new Map(); // task id -> element
 
@@ -53,47 +81,78 @@ api.onSkin(msg => {
   document.documentElement.style.setProperty('--px', `${px}px`);
   document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
   drawSelf();
-  for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue));
-  // Equipped effect (snow, bats, ...) plays around Shellby; burst effects wait for a finished task.
-  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
-  fx.set(outfit.effect);
+  for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, helperHats.get(el)));
+  // Equipped effect (snow, bats, ...) plays around Shellby in flights now and then (effects.js FLIGHT); burst effects wait for a finished task.
+  if (!fx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)), flights: true });
+  // Real rain outside beats the snow he chose to wear.
+  const effect = outfit.weather?.effect || outfit.effect;
+  if (effect?.key !== shownEffect) { shownEffect = effect?.key ?? null; fx.set(effect); }
+  // A shiver in the cold, a sweat in the heat, a flinch at thunder (critter.css, life.js).
+  for (const m of WEATHER_MOODS) flags.delete(`weather-${m}`);
+  if (WEATHER_MOODS.includes(outfit.weather?.mood)) flags.add(`weather-${outfit.weather.mood}`);
+  paintBody();
+  // The frame after his first drawing is when you can see him: what
+  // scripts/perf-budget.js times a cold start to. One entry, never cleared.
+  if (!performance.getEntriesByName('shellby:crab-painted').length) requestAnimationFrame(() => performance.mark('shellby:crab-painted'));
 });
+const WEATHER_MOODS = ['storm', 'cold', 'hot'];
+let shownEffect; // the effect playing, so a skin broadcast that didn't change it doesn't restart the particles
 
-api.onBurst(effect => { if (fx && effect) fx.burst(effect); });
+// Work mode turns the confetti off; the moment still gets his mood and his line.
+let confetti = true;
+api.onBurst(effect => { if (fx && effect && confetti) fx.burst(effect); });
 
 // Shellby himself. While he molts, the molt decides which shell he's in.
-let molt = null; // { shell, bubble } during a molt
+let molt = null; // { shell, bubble, stickers } during a molt
+let slap = null; // { id, holding, held } while a new sticker goes on (see onSticker)
 function drawSelf() {
   if (!skin) return;
   const shell = molt ? molt.shell : outfit.home;
   // Between shells, whatever sits on the shell (a flag, bat wings) has nowhere to go.
   let accessories = molt?.shell === 'none' ? outfit.accessories.filter(a => a.slot !== 'shell') : outfit.accessories;
+  // Dressed for the weather outside (src/main/weather.js): the sou'wester and
+  // umbrella go over his own things, and everything below still outranks them.
+  const gear = outfit.weather?.accessories || [];
+  if (gear.length) accessories = [...accessories.filter(a => !gear.some(g => g.slot === a.slot)), ...gear];
   // On guard: the helmet goes on instead of whatever hat he wears.
   if (focusing?.phase === 'focus' && outfit.focusHelmet) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.focusHelmet];
   // Something is playing: headphones on, unless he's already wearing the helmet.
   else if (outfit.musicHeadphones) accessories = [...accessories.filter(a => a.slot !== 'hat'), outfit.musicHeadphones];
   // Red CI wants the claw he carries things in: his own held item is in the air
   // (see throwHeld) and the sign goes in once he has let go of it.
-  if (tossed || holdingSign()) accessories = accessories.filter(a => a.slot !== 'held');
-  if (holdingSign()) accessories = [...accessories, CI_SIGN];
-  spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell }));
+  // A scene's prop or a find to show off takes its slot for a moment.
+  for (const [slot, item] of overrides) accessories = [...accessories.filter(a => a.slot !== slot), item];
+  if (tossed || holdingSign() || slap?.holding) accessories = accessories.filter(a => a.slot !== 'held');
+  if (holdingSign()) accessories = [...accessories, SIGNS[signKind()]];
+  if (slap?.holding) accessories = [...accessories, slap.held];
+  spriteHost.replaceChildren(window.ShellbySprite.build(skin, { px, accessories, shell, stickers: stickersFor(shell) }));
+}
+
+// The stickers on his shell (src/main/stickers.js). A molt brings the new
+// shell's own; one he's about to slap on stays off until his claw gets there.
+function stickersFor(shell) {
+  if (shell === 'none') return [];
+  const list = (molt ? molt.stickers : outfit.stickers) || [];
+  return slap ? list.filter(s => s.id !== slap.id) : list;
 }
 
 // A level-up unlocked a new shell: crawl out of the old one, shiver for a
 // moment with no shell at all, then the new one drops onto his back.
 let moltTimers = [];
-api.onMolt(({ from, to, ms = 5200 }) => {
+// The old shell's stickers leave with it; the new one arrives with the ones he
+// carried over (src/main/stickers.js carryOnMolt).
+api.onMolt(({ from, to, ms = 5200, fromStickers = [], toStickers = [] }) => {
   moltTimers.forEach(clearTimeout); // a second level-up mid-molt starts over
   const beat = ms / 5;
-  const step = (cls, shell, bubble) => {
-    molt = { shell, bubble, cls };
+  const step = (cls, shell, bubble, stickers = []) => {
+    molt = { shell, bubble, cls, stickers };
     drawSelf();
     paintBody();
   };
-  step('molt-out', from, '…');
+  step('molt-out', from, '…', fromStickers);
   moltTimers = [
     setTimeout(() => step('molt-bare', 'none', 'eep!'), beat * 1.2),
-    setTimeout(() => step('molt-in', to, 'new home!'), beat * 2.6),
+    setTimeout(() => step('molt-in', to, 'new home!', toStickers), beat * 2.6),
     setTimeout(() => {
     molt = null;
     drawSelf();
@@ -147,6 +206,98 @@ function catchHeld() {
   flyItem(item, 'toss-in', CATCH_MS, () => { tossed = false; drawSelf(); });
 }
 
+// ---- a new sticker (src/main/stickers.js): the first time a project ships,
+// he holds its sticker up in his claw, turns his shell to you and slaps it on,
+// with a little puff of sand. Main says where it goes, in sprite pixels.
+const stickerFly = document.getElementById('stickerFly');
+const sandHost = document.getElementById('sand');
+const SLAP_HOLD_MS = 1300;
+const SLAP_TURN_MS = 450;
+const SLAP_FLY_MS = 380;
+const SLAP_LAND_MS = 900;
+let slapTimers = [];
+
+function endSlap() {
+  slapTimers.forEach(clearTimeout);
+  slapTimers = [];
+  for (const f of ['sticker-hold', 'sticker-turn', 'sticker-land']) flags.delete(f);
+  stickerFly.getAnimations().forEach(a => a.cancel());
+  stickerFly.replaceChildren();
+  slap = null;
+  drawSelf();
+  paintBody();
+}
+
+function sandPuff(at) {
+  const cx = (at.x + 1.5) * px, cy = (at.y + 1.5) * px;
+  for (let i = 0; i < 6; i++) {
+    const el = document.createElement('i');
+    const a = (i / 6) * Math.PI * 2 + 0.4;
+    el.style.left = `${cx}px`;
+    el.style.top = `${cy}px`;
+    el.style.setProperty('--dx', `${Math.cos(a) * px * 3.2}px`);
+    el.style.setProperty('--dy', `${Math.sin(a) * px * 2.4 - px}px`);
+    sandHost.append(el);
+    setTimeout(() => el.remove(), 700);
+  }
+}
+
+// A sticker on his shell catches the light (a tier-up, a new mark, a re-press).
+function glint(id) {
+  const g = typeof id === 'string' && [...spriteHost.querySelectorAll('[data-sticker]')].find(el => el.dataset.sticker === id);
+  if (!g) return;
+  g.classList.remove('glint');
+  void g.getBoundingClientRect(); // restart the animation
+  g.classList.add('glint');
+}
+api.onStickerGlint(msg => glint(msg?.id));
+
+api.onSticker(msg => {
+  if (!skin || typeof msg?.id !== 'string' || !Array.isArray(msg.small?.pixels) || !msg.small.palette) return;
+  if (slap) endSlap();
+  // Without motion it's simply there, which main has already drawn.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const size = msg.small.pixels.length;
+  slap = {
+    id: msg.id, holding: true,
+    held: { slot: 'held', anchor: 'claw', follows: 'claw', pivot: [Math.floor(size / 2), size], pixels: msg.small.pixels, palette: msg.small.palette },
+  };
+  flags.add('sticker-hold');
+  drawSelf();
+  paintBody();
+  const at = msg.at && Number.isFinite(msg.at.x) && Number.isFinite(msg.at.y) ? msg.at : null;
+  const landAt = SLAP_HOLD_MS + SLAP_TURN_MS + SLAP_FLY_MS;
+  slapTimers = [
+    setTimeout(() => { flags.delete('sticker-hold'); flags.add('sticker-turn'); paintBody(); }, SLAP_HOLD_MS),
+    setTimeout(() => {
+      slap.holding = false;
+      drawSelf();
+      if (!at) return; // it went in the Sticker Book, not on the shell
+      const [cx, cy] = skin.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw;
+      const sx = (cx - slap.held.pivot[0]) * px, sy = (cy - slap.held.pivot[1]) * px;
+      stickerFly.replaceChildren(window.ShellbySprite.grid(msg.small.pixels, msg.small.palette, { px }));
+      stickerFly.style.left = `${sx}px`;
+      stickerFly.style.top = `${sy}px`;
+      stickerFly.animate([
+        { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
+        { transform: `translate(${at.x * px - sx}px, ${at.y * px - sy}px) scale(${3 / size}) rotate(-20deg)`, offset: 0.85 },
+        { transform: `translate(${at.x * px - sx}px, ${at.y * px - sy}px) scale(${3 / size}) rotate(0deg)` },
+      ], { duration: SLAP_FLY_MS, easing: 'cubic-bezier(.55, 0, .8, .45)', fill: 'forwards' });
+    }, SLAP_HOLD_MS + SLAP_TURN_MS),
+    setTimeout(() => {
+      stickerFly.getAnimations().forEach(a => a.cancel());
+      stickerFly.replaceChildren();
+      flags.delete('sticker-turn');
+      flags.add('sticker-land');
+      slap = null;
+      drawSelf();
+      paintBody();
+      if (at) { sandPuff(at); glint(msg.id); window.ShellbySound.cue('slap'); }
+    }, landAt),
+    setTimeout(endSlap, landAt + SLAP_LAND_MS),
+  ];
+});
+
 // "+25 XP" rises out of Shellby whenever he earns XP.
 const xpHost = document.getElementById('xpFloat');
 api.onXp(({ amount }) => {
@@ -157,11 +308,44 @@ api.onXp(({ amount }) => {
   setTimeout(() => el.remove(), 1800);
 });
 
-function helperSprite(hue) {
-  // Helpers wear the same hat as Shellby when "crew outfits" is on.
-  const svg = window.ShellbySprite.build(skin, { px: Math.max(1, px * 0.5), accessories: outfit.crewAccessories || [] });
+// A crit hit or a clean landing (src/main/surprises.js): rare, so it gets a
+// little show of its own. The badge pops up over him and he jumps (a crit) or
+// comes in to land (a clean landing); main sends the line, sound and confetti.
+const SURPRISE_MS = { crit: 2200, landing: 2400 };
+const surpriseHost = document.getElementById('surprise');
+let surpriseTimer = null;
+api.onSurprise(msg => {
+  const kind = msg?.kind === 'landing' ? 'landing' : 'crit';
+  const badge = typeof msg?.badge === 'string' ? msg.badge.slice(0, 20) : '';
+  if (!badge) return;
+  clearTimeout(surpriseTimer);
+  flags.delete('surprise-crit');
+  flags.delete('surprise-landing');
+  const el = document.createElement('span');
+  el.className = `surprise-${kind}${msg.big ? ' big' : ''}`;
+  el.textContent = badge;
+  surpriseHost.replaceChildren(el);
+  flags.add(`surprise-${kind}`);
+  paintBody();
+  surpriseTimer = setTimeout(() => { el.remove(); flags.delete(`surprise-${kind}`); paintBody(); }, SURPRISE_MS[kind]);
+});
+
+// A crew member's own hat (src/main/wiring/crew.js) for each helper on the desktop.
+const helperHats = new WeakMap();
+
+function helperSprite(hue, hats) {
+  // A crew member wears its own hat; a helper from another app wears Shellby's
+  // when "crew outfits" is on.
+  const svg = window.ShellbySprite.build(skin, { px: Math.max(1, px * 0.5), accessories: hats || outfit.crewAccessories || [] });
   svg.style.filter = `hue-rotate(${hue}deg) saturate(1.1)`;
   return svg;
+}
+
+const lookKey = c => (c.accessories || []).map(a => a.key).join(',');
+// "Clawdia Lv 4 · Review the diff", or, for a helper with no crew record, its job and type.
+function helperTag(c) {
+  if (c.name) return `${c.name} Lv ${c.level} · ${c.label}`;
+  return c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
 }
 
 function renderCrew(crew, more) {
@@ -169,6 +353,9 @@ function renderCrew(crew, more) {
   // Helpers whose task finished walk back into Shellby, then disappear.
   for (const [id, el] of helpers) {
     if (!live.has(id) && !el.classList.contains('leaving')) {
+      // Out of the row where it stands, so a helper arriving in the same moment
+      // takes its slot instead of being pushed past the window's left edge.
+      el.style.left = `${el.offsetLeft}px`;
       el.classList.add('leaving');
       setTimeout(() => { el.remove(); helpers.delete(id); }, 900);
     }
@@ -176,7 +363,8 @@ function renderCrew(crew, more) {
   crew.forEach((c, i) => {
     let el = helpers.get(c.id);
     if (!el) {
-      const hue = HUES[helpers.size % HUES.length];
+      // A crew member keeps its colour run after run; anyone else takes the next one.
+      const hue = Number.isFinite(c.hue) ? c.hue : HUES[helpers.size % HUES.length];
       el = document.createElement('div');
       el.className = 'helper fresh';
       el.dataset.hue = hue;
@@ -184,15 +372,23 @@ function renderCrew(crew, more) {
       el.style.animationDelay = `${i * 80}ms`;
       const tag = document.createElement('span');
       tag.className = 'tag';
-      el.append(tag, helperSprite(hue));
+      helperHats.set(el, c.accessories);
+      el.dataset.look = lookKey(c);
+      el.append(tag, helperSprite(hue, c.accessories));
       el.addEventListener('click', () => api.crewClick(el.dataset.tab));
       setTimeout(() => el.classList.remove('fresh'), 2500);
       helpers.set(c.id, el);
       crewHost.append(el);
     }
+    // A level reached or a hat changed mid-run: redraw it.
+    if (el.dataset.look !== lookKey(c) && !el.classList.contains('leaving')) {
+      el.dataset.look = lookKey(c);
+      helperHats.set(el, c.accessories);
+      el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, c.accessories));
+    }
     // Themed name tag only: a native `title` would pop an unstyled OS tooltip.
-    el.querySelector('.tag').textContent = c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
-    el.setAttribute('aria-label', `Helper ${c.type}: ${c.label}`);
+    el.querySelector('.tag').textContent = helperTag(c);
+    el.setAttribute('aria-label', c.name ? `${c.name}, level ${c.level} ${c.type}: ${c.label}` : `Helper ${c.type}: ${c.label}`);
   });
   crewHost.querySelector('.more')?.remove();
   if (more > 0) {
@@ -211,13 +407,15 @@ function bubbleFor() {
   if (limit && state === 'sleeping') return `⏳ ${timeLeft(limit.resetsAt)}`;
   if (focusing && state === 'idle') return `${focusing.phase === 'break' ? 'break ' : ''}${minutesLeft()}`;
   if (ciFailing && state === 'idle') return ciFailing > 1 ? `CI ✗${ciFailing}` : 'CI ✗';
+  if (serversDown() && state === 'idle') return 'server ✗';
+  if (onCall && state === 'idle') return '🤫';
   // His own voice comes last of the things that mean something, and still beats
   // the bare mood glyph it replaces.
   if (saying()) return say.text;
   return BUBBLES[state] ?? '';
 }
 const saying = () => !!say && say.until > Date.now();
-const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((ciFailing > 0 || !!focusing) && state === 'idle') || (!!limit && state === 'sleeping');
+const bubbleOn = () => state in BUBBLES || saying() || (health && HEALTH_BUBBLE_STATES.has(state)) || ((wantsSign() || !!focusing || onCall) && state === 'idle') || (!!limit && state === 'sleeping');
 const timeLeft = t => {
   const ms = Math.max(0, t - Date.now());
   if (ms >= 3600000) return `${Math.floor(ms / 3600000)}h${String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0')}`;
@@ -228,12 +426,21 @@ const minutesLeft = () => timeLeft(focusing?.endsAt || 0);
 // Every body class in one place: the mood, plus anything that outlasts a state
 // message (a molt in progress, a throw, a walk). Drop-over toggles its own.
 const flags = new Set();
+// His needs (src/main/needs.js): the mood that shows and every meter that's low.
+// Main only sends them while he's idle or asleep; needs.css draws them.
+const NEED_MOODS = new Set(['happy', 'content', 'peckish', 'sandy', 'sleepy', 'mopey']);
+const NEED_METERS = new Set(['fullness', 'tidiness', 'energy', 'cheer']);
+let needs = null;
+const needClasses = () => (needs ? [NEED_MOODS.has(needs.mood) ? `need-${needs.mood}` : '', ...(needs.low || []).filter(k => NEED_METERS.has(k)).map(k => `low-${k}`)] : []);
+let stillNow = false; // calm from main (locked, covered, nobody at the desk): see api.onCalm
 function paintBody() {
   const dropping = document.body.classList.contains('dropping');
   document.body.className = [
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
-    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', ...flags,
+    focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '',
+    stillNow ? 'calm-deep' : '', // kept through every repaint, or the next state push would wake him
+    ...needClasses(), ...flags,
   ].filter(Boolean).join(' ');
   bubbleText.textContent = dropping ? 'drop it!' : bubbleFor();
 }
@@ -244,14 +451,19 @@ api.onState(msg => {
   health = msg.health || null;
   level = msg.level || level;
   ciFailing = msg.ci?.failing || 0;
+  servers = msg.servers || null;
   limit = msg.limit || null;
   say = msg.say || null;
+  onCall = !!msg.call;
+  confetti = msg.confetti !== false;
+  window.ShellbySound.setMix(msg.sound);
+  needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;
   const wasGuarding = focusing?.phase === 'focus';
   focusing = msg.focus || null;
   // The throw waits for him to settle, so that it runs into the sign going up
   // rather than happening somewhere behind the 'error' flash a red build sets off.
-  if (ciFailing > 0 && !tossed && settled() && heldItem()) throwHeld();
-  if (!ciFailing && tossed && settled()) catchHeld();
+  if (wantsSign() && !tossed && settled() && heldItem()) throwHeld();
+  if (!wantsSign() && tossed && settled()) catchHeld();
   if (wasGuarding !== (focusing?.phase === 'focus') || wasLoad !== clawLoad()) drawSelf();
   healthFx.set(health?.mood);
   paintBody();
@@ -263,6 +475,7 @@ api.onState(msg => {
   // No title attribute: a native tooltip over the transparent pet window looks
   // like the OS barged in (scripts/ui-regressions.js guards this).
   bgBadge.setAttribute('aria-label', `${bg} background command${bg === 1 ? '' : 's'} left running. Click to see them.`);
+  renderServers();
   countEl.textContent = msg.busy;
   countEl.classList.toggle('on', msg.busy > 1);
   countEl.setAttribute('aria-label', `${msg.busy} conversations running`);
@@ -273,6 +486,24 @@ api.onState(msg => {
 let down = null;
 let dragging = false;
 bgBadge.addEventListener('click', () => api.bgClick());
+
+// Your dev servers: ":5173" while one is up, red when one fell over. Like the
+// background badge, it stays up whatever his mood (he can nap with a server
+// running). Asleep, only a crash shows.
+const srvPill = document.getElementById('srvPill');
+function renderServers() {
+  const down = serversDown();
+  const up = servers?.up || 0;
+  const show = down > 0 || (up > 0 && state !== 'sleeping');
+  srvPill.hidden = !show;
+  if (!show) return;
+  srvPill.classList.toggle('down', down > 0);
+  srvPill.textContent = down > 0 ? (down > 1 ? `${down} down` : 'down') : up === 1 && servers.upPort ? `:${servers.upPort}` : `${up} up`;
+  srvPill.setAttribute('aria-label', down > 0
+    ? `${down} dev server${down === 1 ? '' : 's'} crashed. Click to see the error.`
+    : up === 1 && servers.upPort ? `Dev server running on port ${servers.upPort}. Click to see it.` : `${up} dev servers running. Click to see them.`);
+}
+srvPill.addEventListener('click', () => api.serversClick());
 crab.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   crab.setPointerCapture(e.pointerId);
@@ -312,30 +543,162 @@ crab.addEventListener('pointermove', e => {
   rub.turns = [];
   hearts();
   api.pet();
+  document.dispatchEvent(new Event('shellby:petted')); // charm.js counts these for a belly-up
 });
 crab.addEventListener('pointerleave', () => { rub = { x: null, dir: 0, turns: [] }; });
-function hearts() {
-  for (let i = 0; i < 3; i++) {
+function hearts(n = 3) {
+  for (let i = 0; i < n; i++) {
     const el = document.createElement('span');
     el.textContent = '♥';
-    el.style.setProperty('--dx', `${(i - 1) * 14}px`);
+    el.style.setProperty('--dx', `${(i - (n - 1) / 2) * 14}px`);
     el.style.animationDelay = `${i * 140}ms`;
     heartsHost.append(el);
     setTimeout(() => el.remove(), 1700);
   }
 }
 
-// ---- thrown, landing, strolling (main moves the window; see src/main/motion.js)
-const MOTION_FLAGS = ['flying', 'fly-left', 'landed', 'walking'];
+// ---- on the move: thrown, landing, strolling, and up on your windows. Main
+// moves the window (src/main/motion.js, perching.js); this is how he looks
+// while it does: one body class per beat, all of it in critter.css.
+const MOTION_FLAGS = [
+  'flying', 'fly-left', 'fly-fall', 'fly-fling', 'fly-pop', 'landed', 'walking', 'walk-left',
+  'eyeing', 'crouch', 'hopping', 'hop-flip', 'cling', 'scramble', 'coyote', 'wheee', 'windy', 'hauling',
+];
+const FLY_STYLES = new Set(['fall', 'fling', 'pop']); // 'tumble' is the plain throw
+const DIZZY_MS = 2600;
+const WHEEE_MS = 1800;
+const BOUNCE_HARD = 2500;  // DIP/s: a bump this fast or faster is as loud as a bump gets
+const AMBLE = 38;          // DIP/s: his walking pace when a walk doesn't say (motion.js STROLL_SPEED)
+const root = document.documentElement.style;
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || 0));
 let landedTimer = null;
-api.onMotion(({ kind, vx = 0 }) => {
+let dizzyTimer = null;
+let wheeeTimer = null;
+const dustHost = document.getElementById('dust');
+
+// Which way he's going, for anything that leans, flips or trails behind him.
+const setDir = v => root.setProperty('--dir', v < 0 ? '-1' : '1');
+
+// Riding a window that's moving: lean back against it, and the faster it goes
+// the harder the wind streams past.
+function setLean(vx) {
+  const v = clampN(vx, -4000, 4000);
+  const wind = clampN(Math.abs(v) / 1400, 0, 1);
+  root.setProperty('--lean', `${clampN(-v / 90, -16, 16).toFixed(1)}deg`);
+  root.setProperty('--wind', wind.toFixed(2));
+  root.setProperty('--wdir', v < 0 ? '-1' : '1');
+  if (wind > 0.15) flags.add('windy'); else flags.delete('windy');
+}
+
+// A puff of dust where his feet touch down.
+function puff(n = 7) {
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('i');
+    const side = i % 2 ? 1 : -1;
+    const spread = 6 + (i * 37 % 19);
+    el.style.setProperty('--dx', `${side * spread * 1.6}px`);
+    el.style.setProperty('--dy', `${-4 - (i * 23 % 11)}px`);
+    el.style.animationDelay = `${i * 12}ms`;
+    dustHost.append(el);
+    setTimeout(() => el.remove(), 800);
+  }
+}
+
+function dizzy(ms = DIZZY_MS) {
+  clearTimeout(dizzyTimer);
+  flags.add('dizzy');
+  paintBody();
+  dizzyTimer = setTimeout(() => { flags.delete('dizzy'); paintBody(); }, clampN(ms, 600, 6000));
+}
+
+// A move takes over his body, so whatever little habit he was in the middle of stops.
+function endBit() {
+  clearTimeout(bitTimer);
+  if (bit) flags.delete(`bit-${bit}`);
+  bit = null;
+}
+
+api.onMotion(msg => {
+  const { kind, vx = 0 } = msg || {};
+  // Beats that layer on top of whatever he's doing rather than replacing it.
+  if (kind === 'lean') { setLean(vx); paintBody(); return; }
+  if (kind === 'bounce') { window.ShellbySound.cue('bounce', { hit: msg.hit, strength: msg.speed / BOUNCE_HARD }); return; }
+  if (kind === 'dizzy') { dizzy(msg.ms); return; }
+  if (kind === 'wheee') {
+    clearTimeout(wheeeTimer);
+    flags.add('wheee');
+    wheeeTimer = setTimeout(() => { flags.delete('wheee'); paintBody(); }, WHEEE_MS);
+    paintBody();
+    return;
+  }
   for (const f of MOTION_FLAGS) flags.delete(f);
   clearTimeout(landedTimer);
-  if (kind === 'flying') { flags.add('flying'); if (vx < 0) flags.add('fly-left'); }
-  if (kind === 'walking') flags.add('walking');
-  if (kind === 'landed') { flags.add('landed'); landedTimer = setTimeout(() => { flags.delete('landed'); paintBody(); }, 700); }
+  // Hauling a prank along is walking too, just backwards. His feet go quiet the moment he stops.
+  window.ShellbySound.scuttle(kind === 'walking' || kind === 'hauling' ? msg.speed || AMBLE : 0);
+  if (kind !== 'perched' && kind !== null) endBit();
+  if (kind !== 'cling') setLean(0);
+  if (kind === 'flying') {
+    flags.add('flying');
+    if (vx < 0) flags.add('fly-left');
+    if (FLY_STYLES.has(msg.style)) flags.add(`fly-${msg.style}`);
+    setDir(vx);
+  }
+  if (kind === 'walking') { flags.add('walking'); if (msg.dir < 0) flags.add('walk-left'); setDir(msg.dir); }
+  // Mischief: walking backwards, hauling a note in by its corner (src/main/pranks.js).
+  if (kind === 'hauling') { flags.add('walking'); flags.add('hauling'); setDir(msg.dir); }
+  // 'still' (a pause on a wall) is just the absence of all the above.
+  if (kind === 'eyeing') { flags.add('eyeing'); setDir(msg.dx); }
+  if (kind === 'crouch') { flags.add('crouch'); setDir(vx); }
+  if (kind === 'hopping') {
+    flags.add('hopping');
+    if (msg.flip) flags.add('hop-flip');
+    root.setProperty('--hop-ms', `${clampN(msg.ms, 200, 2000)}ms`);
+    setDir(vx);
+    window.ShellbySound.cue('hop');
+  }
+  if (kind === 'landed') {
+    flags.add('landed');
+    puff();
+    landedTimer = setTimeout(() => { flags.delete('landed'); paintBody(); }, 700);
+    if (msg.dizzy) dizzy();
+    window.ShellbySound.cue('land', { strength: msg.dizzy ? 1 : 0.4 });
+  }
+  if (kind === 'cling') flags.add('cling');
+  if (kind === 'scramble') flags.add('scramble');
+  if (kind === 'coyote') flags.add('coyote');
   paintBody();
 });
+
+// ---- up on a window. Perched, everything but the crab himself lets the mouse
+// through to the title bar under him, so main needs to know when the pointer
+// is over him (the moves are forwarded even while the window ignores clicks).
+// Kept on top of your apps, his window lets the mouse through on the floor too.
+let perched = false;
+let through = false;
+let overMe = false;
+const setOver = over => { if (over !== overMe) { overMe = over; api.hit(over); } };
+api.onPerch(msg => {
+  perched = !!msg?.up;
+  through = msg?.through ?? perched;
+  if (perched) flags.add('on-perch'); else flags.delete('on-perch');
+  if (!through) overMe = false;
+  paintBody();
+});
+document.addEventListener('mousemove', e => {
+  if (through) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
+});
+
+// ---- up a wall or hanging from the top of the screen (src/main/climbing.js).
+// His body (#pose) turns about the middle of the window; main has put the
+// window where that brings his feet to the edge.
+const SURFACES = ['left', 'right', 'ceiling'];
+api.onSurface(msg => {
+  const surface = SURFACES.includes(msg?.surface) ? msg.surface : 'floor';
+  for (const s of SURFACES) flags.delete(`surface-${s}`);
+  if (surface !== 'floor') flags.add(`surface-${surface}`);
+  paintBody();
+});
+document.addEventListener('mouseleave', () => { if (through) setOver(false); });
 window.addEventListener('contextmenu', e => { e.preventDefault(); api.menu(); });
 
 // ---- drop files onto Shellby to attach them to a task
@@ -348,11 +711,12 @@ const setDropping = on => {
 window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) setDropping(true); });
 window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; setDropping(false); } });
 window.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-window.addEventListener('drop', e => {
+window.addEventListener('drop', async e => {
   e.preventDefault();
   dragDepth = 0;
   setDropping(false);
-  const paths = window.shellby.pathsForFiles(e.dataTransfer.files);
+  // A picture with no file behind it (dragged out of a browser) is saved first.
+  const { paths } = await window.shellby.attachFiles([...e.dataTransfer.files]);
   if (paths.length) api.drop(paths);
 });
 
@@ -366,27 +730,139 @@ setInterval(() => {
   if ((focusing && state === 'idle') || (limit && state === 'sleeping')) bubbleText.textContent = bubbleFor();
 }, 1000);
 
-// ---- idle habits: he digs, polishes his shell, peeks about, flops over.
-// Which habit it is comes from main (src/main/voice.js); the animation is one
-// class per habit in critter.css, so an unknown one simply does nothing.
+// ---- idle habits: he digs, polishes his shell, peeks about, flops over, and
+// up on a window, sits on the edge or peers down over it. Which habit it is
+// comes from main (src/main/voice.js, perching.js); the animation is one class
+// per habit in critter.css, so an unknown one simply does nothing.
 const BIT_MS = 2600;
 let bitTimer = null;
 let bit = null;
 api.onBit(msg => {
   if (typeof msg?.bit !== 'string' || !/^[a-z]{2,12}$/.test(msg.bit)) return;
-  clearTimeout(bitTimer);
-  if (bit) flags.delete(`bit-${bit}`);
+  endBit();
+  if (msg.bit === 'none') return void paintBody(); // a scene was cut short
+  if (msg.dir === 1 || msg.dir === -1) setDir(msg.dir); // a pounce goes toward your cursor
   bit = msg.bit;
   flags.add(`bit-${bit}`);
   paintBody();
-  bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, BIT_MS);
+  const ms = Number.isFinite(msg.ms) ? clampN(msg.ms, 400, 10000) : BIT_MS; // a scene's beats can be short
+  bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, ms);
 });
 
-// ---- a little chirp when he speaks (off by default; see chirp.js)
+// ---- a little chirp when he speaks, a ta-da for a big moment (off by default;
+// see chirp.js and sound.js). Main decides whether; this only plays.
 api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
+api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(msg.cue); });
 
 // ---- the screen is locked (or the machine is suspending): stop animating.
 // He is on the wallpaper, so he animates all day; while the screen is off there
 // is nothing to see and it is pure drain. Paused, not stopped, so unlocking
 // picks up mid-breath. See watchIdleCost in src/main/main.js.
-api.onCalm(msg => document.body.classList.toggle('calm-deep', !!msg?.calm));
+api.onCalm(msg => {
+  stillNow = !!msg?.calm;
+  document.body.classList.toggle('calm-deep', stillNow);
+  // Behind a window you can still hear him; only a locked screen fades the sea out.
+  window.ShellbySound.setCalm(!!msg?.locked);
+});
+
+// ---- and while you can see him, he moves at a pixel-art frame rate, not the
+// screen's: a transparent window pays the GPU for every frame (shared/framecap.js).
+window.ShellbyFrameCap.cap(document);
+
+// ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
+// him, ahead of any helpers, and walks back off to the left when it's time.
+const VISITOR_SCALE = 0.7; // must match VISITOR_SCALE in src/main/main.js
+let visitorEl = null;
+let visitorLook = null;
+function visitorSprite() {
+  return window.ShellbySprite.build(visitorLook.skin, { px: Math.max(1, px * VISITOR_SCALE), accessories: visitorLook.accessories || [], shell: visitorLook.shell || undefined, stickers: visitorLook.stickers || [] });
+}
+function visitorLeaves() {
+  endTogether();
+  const el = visitorEl;
+  visitorEl = null;
+  visitorLook = null;
+  if (!el) return;
+  el.style.left = `${el.offsetLeft}px`;
+  el.classList.add('leaving');
+  setTimeout(() => el.remove(), 900);
+}
+api.onVisitor(v => {
+  if (!v?.look?.skin) return visitorLeaves();
+  if (visitorEl?.dataset.login === v.login) return;
+  visitorLeaves();
+  visitorLook = v.look;
+  const el = document.createElement('div');
+  el.className = 'helper visitor';
+  el.dataset.login = v.login;
+  el.setAttribute('aria-label', `@${v.login}'s crab, visiting`);
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = `@${v.login}`;
+  // What the visitor says back when the two of them talk (src/main/banter.js).
+  const vbubble = document.createElement('span');
+  vbubble.className = 'vbubble';
+  vbubble.setAttribute('aria-hidden', 'true');
+  el.append(tag, vbubble, visitorSprite());
+  crewHost.prepend(el);
+  visitorEl = el;
+});
+// A new size (Settings → Look) redraws the visitor along with everyone else.
+api.onSkin(() => { if (visitorEl && visitorLook) visitorEl.querySelector('svg')?.replaceWith(visitorSprite()); });
+
+// ---- the two of them doing something together: dance, party, high-five, sing.
+// Main picks what and when (src/main/friends.js); the moves are one body class
+// each in critter.css, and the notes and sparks float up from both crabs here.
+const TOGETHER_BITS = { dance: ['♪', '♫'], sing: ['♪', '♫', '♪'], party: ['✦', '★'], highfive: ['✦'] };
+let together = null;
+let togetherTimers = [];
+function endTogether() {
+  togetherTimers.forEach(clearTimeout);
+  togetherTimers = [];
+  if (together) flags.delete(together);
+  together = null;
+  paintBody();
+}
+// A note or spark rising from a point in the window (fixed, so it can sit between the two).
+function floatBit(text, x, y, delay) {
+  const el = document.createElement('span');
+  el.className = 'together-bit';
+  el.textContent = text;
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.animationDelay = `${delay}ms`;
+  document.body.append(el);
+  setTimeout(() => el.remove(), delay + 1600);
+}
+api.onTogether(msg => {
+  const activity = typeof msg?.activity === 'string' && /^[a-z]{2,12}$/.test(msg.activity) ? msg.activity : null;
+  if (!activity || !visitorEl) return;
+  endTogether();
+  together = `together-${activity}`;
+  flags.add(together);
+  paintBody();
+  const me = crab.getBoundingClientRect(), them = visitorEl.getBoundingClientRect();
+  const bits = TOGETHER_BITS[activity] || [];
+  if (activity === 'highfive') {
+    // A spark where they meet, each time the claws touch.
+    const x = (them.right + me.left) / 2, y = me.top + me.height * 0.35;
+    for (const d of [700, 2200, 3700]) floatBit(bits[0], x, y, d);
+  } else {
+    bits.forEach((b, i) => {
+      floatBit(b, me.left + me.width * (0.3 + 0.2 * i), me.top + 4, i * 600);
+      floatBit(bits[(i + 1) % bits.length], them.left + them.width * (0.3 + 0.2 * i), them.top + 4, 300 + i * 600);
+    });
+  }
+  togetherTimers.push(setTimeout(endTogether, Math.min(Math.max(Number(msg.ms) || 5000, 1000), 10000)));
+});
+
+// ---- what src/renderer/critter/life.js needs from in here: his slots, a
+// redraw, his body classes, and where the visitor is.
+window.ShellbyCritter = {
+  wear(slot, item) { if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
+  flags, paint: paintBody, setDir, hearts,
+  px: () => px,
+  claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,
+  rows: () => skin?.pixels?.length || 0, // his height in sprite pixels, to put things on the ground beside him
+  visitor: () => visitorEl,
+};

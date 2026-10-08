@@ -20,7 +20,7 @@ html, body {
   position: fixed;
   inset: 8px auto auto 8px;
   margin: 0;
-  font: 500 13px/1.4 "Atkinson Hyperlegible", system-ui, sans-serif;
+  font: 500 var(--fs-13)/1.4 "Atkinson Hyperlegible", system-ui, sans-serif;
   color: #fff;
   text-shadow: 0 1px 3px #000, 0 0 10px #000;
   opacity: 0.85;

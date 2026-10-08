@@ -1,0 +1,36 @@
+/* Shellby panel — Notes (see notes.js). Rows follow the routine cards. */
+.view-head .notes-scope { margin-left: auto; max-width: 55%; text-overflow: ellipsis; }
+
+.note-add { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 6px; }
+.note-add .field.area { min-height: 0; resize: none; }
+.note-add .slim-btn { height: 34px; }
+.notes-where { margin: 0 0 12px; overflow-wrap: anywhere; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
+
+.note-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 8px 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
+.note.done { opacity: .55; }
+.note.done .note-text { text-decoration: line-through; text-decoration-color: var(--sand-faint); }
+.note-check { margin: 3px 0 0; accent-color: var(--glass); flex: none; }
+.note-main { flex: 1; min-width: 0; }
+.note-text { font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; border-radius: var(--r-sm); }
+.note-text:hover { color: var(--sand); background: var(--reef-2); }
+.note-text:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.note-edit { min-height: 0; }
+.note-meta { margin-top: 3px; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
+.note-last { border: 0; padding: 0; background: none; color: var(--glass); font: inherit; cursor: pointer; }
+.note-last:hover { text-decoration: underline; }
+
+.note-actions { display: flex; gap: 4px; align-items: center; flex: none; }
+.note-run { height: 26px; padding: 0 9px; font-size: 12px; }
+.note-plan:hover:not(:disabled) { border-color: #8fb3ff; }   /* the Plan mode dot's colour */
+.note-ask:hover:not(:disabled) { border-color: var(--glass); }
+.note-build:hover:not(:disabled) { border-color: var(--coral); }
+.note-more { width: 26px; }
+
+.note-empty { padding: 14px 4px; color: var(--sand-dim); font-size: 13px; }
+
+/* A narrow panel: the buttons go under the text. */
+@media (max-width: 420px) {
+  .note { flex-wrap: wrap; }
+  .note-actions { width: 100%; padding-left: 23px; }
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "sticker-shop",
+  "name": "Sticker Shop",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rewards for shipping. Earned through the sticker trophies: ship projects, release a 1.0, decorate more than one shell.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "sticker-sheet",
+      "name": "Sticker Sheet",
+      "description": "Shipped a project and slapped its sticker on. Plenty more where that came from.",
+      "slot": "held",
+      "pivot": [0, 4],
+      "palette": { "w": "#fffaf0", "r": "#ef476f", "b": "#118ab2", "y": "#ffd166", "g": "#06d6a0", "k": "#c9b38a" },
+      "pixels": [
+        ".wwww",
+        "wrwbw",
+        "wwwww",
+        "wywgw",
+        "wwwwk"
+      ],
+      "unlock": { "achievement": "tagged" }
+    },
+    {
+      "id": "paint-can",
+      "name": "Spray Can",
+      "description": "Ten projects shipped. His shell is officially a sticker bomb.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [2, 5],
+      "palette": { "p": "#ff9ec4", "k": "#2b2d42", "K": "#8d99ae", "c": "#ef476f", "y": "#ffd166" },
+      "pixels": [
+        "p.k.",
+        ".pKk",
+        ".ccc",
+        ".cyc",
+        ".cyc",
+        ".ccc"
+      ],
+      "unlock": { "achievement": "sticker-bomb" }
+    },
+    {
+      "id": "holo-visor",
+      "name": "Holo Visor",
+      "description": "Shipped one project fifteen times. Everything looks holographic now.",
+      "slot": "face",
+      "follows": "eyes",
+      "rarity": "epic",
+      "pivot": [4, 0],
+      "palette": { "K": "#2b2d42", "a": "#ff6b9d", "b": "#ffa45b", "c": "#ffd166", "d": "#06d6a0", "e": "#4cc9f0", "f": "#7b61ff", "g": "#c77dff" },
+      "pixels": [
+        "KKKKKKKKK",
+        ".abcdefg."
+      ],
+      "unlock": { "achievement": "shiny" }
+    },
+    {
+      "id": "rocket",
+      "name": "Rocket",
+      "description": "Released a 1.0. We have liftoff.",
+      "slot": "shell",
+      "rarity": "epic",
+      "pivot": [1, 6],
+      "palette": { "r": "#e63946", "w": "#f1faee", "b": "#457b9d", "o": "#ffb703" },
+      "pixels": [
+        ".r.",
+        "rwr",
+        "wbw",
+        "www",
+        "rwr",
+        "r.r",
+        ".o."
+      ],
+      "unlock": { "achievement": "liftoff" }
+    },
+    {
+      "id": "luggage-tag",
+      "name": "Luggage Tag",
+      "description": "Stickers on three different shells. He's been around.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [2, 0],
+      "palette": { "k": "#8d99ae", "t": "#e9c46a", "T": "#6b4a2f", "n": "#264653" },
+      "pixels": [
+        "k...k",
+        ".k.k.",
+        "..k..",
+        ".tTt.",
+        ".tnt.",
+        ".ttt."
+      ],
+      "unlock": { "achievement": "well-traveled" }
+    },
+    {
+      "id": "trade-binder",
+      "name": "Trade Binder",
+      "description": "A friend's crab left you one of their stickers. Got any doubles?",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [0, 5],
+      "palette": { "b": "#3a86ff", "B": "#1d4e9e", "w": "#fffaf0", "r": "#ff006e", "y": "#ffbe0b" },
+      "pixels": [
+        "BbbbbB",
+        "Bwrwyb",
+        "Bwwwwb",
+        "Bwywrb",
+        "Bwwwwb",
+        "BbbbbB"
+      ],
+      "unlock": { "achievement": "swap-meet" }
+    }
+  ]
+}

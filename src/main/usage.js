@@ -8,7 +8,7 @@
 const { spawn, execFile } = require('child_process');
 const readline = require('readline');
 const { randomUUID } = require('crypto');
-const { subscriptionEnv } = require('./claude-cli');
+const { claudeEnv } = require('./claude-cli');
 
 const TIMEOUT_MS = 30_000;
 
@@ -30,7 +30,7 @@ function probe({ exe, argsPrefix = [], cwd, timeout = TIMEOUT_MS }) {
     let proc;
     try {
       proc = spawn(exe, [...argsPrefix, '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'], {
-        cwd, env: subscriptionEnv(), windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
+        cwd, env: claudeEnv(), windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
       });
     } catch {
       resolve(null);
