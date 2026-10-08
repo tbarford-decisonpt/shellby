@@ -1,0 +1,243 @@
+/* How he gets from one mood to the next, and what he does with his claws while
+   Claude works (set by beats.js). Rules are scoped `body.X #crab ...` like
+   charm.css, so they outrank the moods in critter.css and #crab:hover.
+
+   Everything here is on the work beat: steps(1) between keyframes 166 ms
+   apart, a hair under two ticks of shared/framecap.js (83.3 ms). Every loop's
+   steps land on the same ticks, so however many of them run at once he
+   presents at most six frames a second. (A sixth of a second exactly would
+   land some steps just after a tick and others just before, and split them.) Every keyframe
+   list spells out 0% and 100%: framecap reads them to know when nothing moves.
+   On .part-* 1px is one sprite cell; on #sprite and #shadow a screen pixel.
+   prefers-reduced-motion is handled once, in critter.css: the held things
+   and the poses still show, standing still. */
+
+/* ================================================================ his work */
+
+/* Working with something in his claw, he stands still to do it. */
+body.pose-read #crab #sprite, body.pose-write #crab #sprite, body.pose-plan #crab #sprite,
+body.pose-read #crab [class*="part-legs"], body.pose-write #crab [class*="part-legs"],
+body.pose-shell #crab [class*="part-legs"], body.pose-web #crab [class*="part-legs"],
+body.pose-plan #crab [class*="part-legs"], body.pose-call #crab [class*="part-legs"] { animation: none; }
+body.pose-read #shadow, body.pose-write #shadow, body.pose-shell #shadow,
+body.pose-web #shadow, body.pose-plan #shadow, body.pose-call #shadow { animation: none; }
+
+/* reading (Read, Grep, Glob): a scroll up close, eyes squinting along each
+   line, and a page turned every few seconds */
+body.pose-read #crab .part-claw { animation: read-claw 3.984s steps(1) infinite; }
+body.pose-read #crab .part-eyes { animation: read-eyes 1.992s steps(1) infinite; }
+body.pose-read #crab .part-stalks { animation: read-look 1.992s steps(1) infinite; }
+@keyframes read-claw {
+  0%, 100% { transform: rotate(-10deg) translateY(-1px); }
+  91.667% { transform: rotate(-26deg) translate(1px, -2px); }
+  95.833% { transform: rotate(-10deg) translateY(-1px); }
+}
+@keyframes read-eyes {
+  0%, 100% { transform: translateX(-1px) scaleY(.7); }
+  33.333% { transform: scaleY(.7); }
+  66.667% { transform: translateX(1px) scaleY(.7); }
+}
+@keyframes read-look { 0%, 100% { transform: translateX(-1px); } 33.333% { transform: none; } 66.667% { transform: translateX(1px); } }
+
+/* editing (Edit, Write): scribbling with a pencil, eyes on the work, looking
+   up once in a while to think */
+body.pose-write #crab .part-claw { animation: write-claw .664s steps(1) infinite; }
+body.pose-write #crab .part-eyes { animation: write-eyes 2.656s steps(1) infinite; }
+body.pose-write #crab .part-stalks { animation: write-look 2.656s steps(1) infinite; }
+@keyframes write-claw {
+  0%, 100% { transform: rotate(-8deg); }
+  25% { transform: rotate(-16deg) translateY(1px); }
+  50% { transform: rotate(-6deg) translateX(1px); }
+  75% { transform: rotate(-14deg) translate(1px, 1px); }
+}
+@keyframes write-eyes { 0%, 100% { transform: translateY(1px) scaleY(.8); } 75% { transform: translateY(-1px); } 87.5% { transform: translateY(1px) scaleY(.8); } }
+@keyframes write-look { 0%, 100% { transform: translateY(1px); } 75% { transform: translateY(-1px); } 87.5% { transform: translateY(1px); } }
+
+/* a command (Bash, PowerShell): turning a wrench, leaning into each turn */
+body.pose-shell #crab #sprite { transform-origin: 50% 100%; animation: crank-lean .664s steps(1) infinite; }
+body.pose-shell #crab .part-claw { animation: crank .664s steps(1) infinite; }
+body.pose-shell #crab .part-eyes { animation: none; transform: scaleY(.75); }
+body.pose-shell #crab .part-stalks { animation: none; }
+@keyframes crank {
+  0%, 100% { transform: rotate(-10deg); }
+  25% { transform: rotate(-30deg) translateY(-1px); }
+  50% { transform: rotate(-46deg) translate(1px, -1px); }
+  75% { transform: rotate(-30deg) translateY(-1px); }
+}
+@keyframes crank-lean { 0%, 100% { transform: none; } 50% { transform: translateY(1px) rotate(1deg); } }
+
+/* the web (WebFetch, WebSearch): a spyglass to his eye, sweeping the horizon */
+body.pose-web #crab #sprite { transform-origin: 50% 100%; animation: scan 2.656s steps(1) infinite; }
+body.pose-web #crab .part-claw { animation: none; transform: rotate(-52deg) translate(-1px, -2px); }
+body.pose-web #crab .part-eyes { animation: scan-look 2.656s steps(1) infinite; }
+body.pose-web #crab .part-stalks { animation: scan-look 2.656s steps(1) infinite; }
+@keyframes scan { 0%, 100% { transform: rotate(-3deg); } 25% { transform: none; } 50% { transform: rotate(3deg); } 75% { transform: none; } }
+@keyframes scan-look { 0%, 100% { transform: translateX(-1px); } 25% { transform: none; } 50% { transform: translateX(1px); } 75% { transform: none; } }
+
+/* a plan (TodoWrite, plan mode): a checklist, ticked off with a pleased blink */
+body.pose-plan #crab .part-claw { animation: plan-claw 1.328s steps(1) infinite; }
+body.pose-plan #crab .part-eyes { animation: plan-eyes 1.328s steps(1) infinite; }
+body.pose-plan #crab .part-stalks { animation: none; transform: translateY(1px); }
+@keyframes plan-claw { 0%, 100% { transform: rotate(-18deg); } 75% { transform: rotate(-28deg) translateY(-1px); } 87.5% { transform: rotate(-18deg); } }
+@keyframes plan-eyes { 0%, 100% { transform: translateY(1px); } 75% { transform: translateY(1px) scaleY(.2); } 87.5% { transform: translateY(1px); } }
+
+/* handing work out (Task, Agent): waving the helpers in from his left */
+body.pose-call #crab #sprite { transform-origin: 50% 100%; animation: none; transform: rotate(-3deg); }
+body.pose-call #crab .part-claw { animation: call-wave .664s steps(1) infinite; }
+body.pose-call #crab .part-eyes, body.pose-call #crab .part-stalks { animation: none; transform: translateX(-1px); }
+@keyframes call-wave { 0%, 100% { transform: rotate(-50deg); } 50% { transform: rotate(-72deg) translateY(-1px); } }
+
+/* between tools: the claw dips into his shell, and comes out with the next one */
+body.tool-swap #crab .part-claw { animation: swap-claw .333s steps(1); }
+body.tool-swap #crab .part-eyes, body.tool-swap #crab .part-stalks { animation: none; transform: translateX(-1px); }
+@keyframes swap-claw { 0% { transform: rotate(18deg) translate(-1px, 1px); } 50%, 100% { transform: rotate(34deg) translate(-3px, 1px); } }
+
+/* ================================================================ between moods */
+
+/* work starts: a crouch, a spring, and he's off */
+body.lead-work #crab #sprite { transform-origin: 50% 100%; animation: lead-work .5s steps(1); }
+body.lead-work #crab .part-eyes { animation: none; transform: scaleY(1.25); }
+body.lead-work #shadow { animation: lead-work-shadow .5s steps(1); }
+@keyframes lead-work {
+  0% { transform: translateY(2px) scale(1.08, .9); }
+  33.333% { transform: translateY(-3px) scale(.96, 1.06); }
+  66.667%, 100% { transform: none; }
+}
+@keyframes lead-work-shadow {
+  0% { transform: translateX(-50%) scale(1.1, 1); }
+  33.333% { transform: translateX(-50%) scale(.8); }
+  66.667%, 100% { transform: translateX(-50%); }
+}
+
+/* a question: he perks up, eyes wide, before the claw goes up */
+body.lead-ask #crab #sprite { animation: lead-ask .5s steps(1); }
+body.lead-ask #crab .part-eyes { animation: none; transform: translateY(-1px) scaleY(1.3); }
+body.lead-ask #crab .part-stalks { animation: none; transform: translateY(-1px); }
+@keyframes lead-ask {
+  0% { transform: translateY(-2px); }
+  33.333% { transform: translateY(-3px); }
+  66.667% { transform: translateY(-1px); }
+  100% { transform: none; }
+}
+
+/* you answered: a nod, and a blink that says "got it" */
+body.lead-answer #crab #sprite { transform-origin: 50% 100%; animation: lead-answer .5s steps(1); }
+body.lead-answer #crab .part-eyes { animation: lead-answer-eyes .5s steps(1); }
+@keyframes lead-answer {
+  0% { transform: translateY(1px) rotate(2deg); }
+  33.333% { transform: none; }
+  66.667% { transform: translateY(1px) rotate(1deg); }
+  100% { transform: none; }
+}
+@keyframes lead-answer-eyes { 0% { transform: scaleY(.3); } 33.333%, 100% { transform: none; } }
+
+/* after a cheer: he lets the moment go with a big, contented breath */
+body.after-win #crab #sprite { transform-origin: 50% 100%; animation: after-win 1s steps(1); }
+body.after-win #crab .part-eyes { animation: after-win-eyes 1s steps(1); }
+body.after-win #crab .part-claw { animation: after-win-claw 1s steps(1); }
+@keyframes after-win {
+  0% { transform: translateY(1px) scale(1.04, .94); }
+  33.333% { transform: translateY(-1px) scale(.98, 1.04); }
+  66.667%, 100% { transform: none; }
+}
+@keyframes after-win-eyes { 0% { transform: scaleY(.25); } 66.667%, 100% { transform: none; } }
+@keyframes after-win-claw { 0% { transform: rotate(10deg) translateY(1px); } 66.667%, 100% { transform: none; } }
+
+/* after an error: he shakes it off (never a sulk) */
+body.after-oof #crab #sprite { transform-origin: 50% 100%; animation: after-oof .833s steps(1); }
+body.after-oof #crab .part-eyes { animation: after-oof-eyes .833s steps(1); }
+@keyframes after-oof {
+  0% { transform: rotate(-2deg); }
+  20% { transform: rotate(2deg); }
+  40% { transform: rotate(-1deg); }
+  60%, 100% { transform: none; }
+}
+@keyframes after-oof-eyes { 0% { transform: scaleY(.5); } 40%, 100% { transform: none; } }
+
+/* work over with nothing to cheer (stopped, or handed back): he settles down */
+body.after-work #crab #sprite { transform-origin: 50% 100%; animation: after-work .667s steps(1); }
+body.after-work #crab .part-eyes { animation: after-work-eyes .667s steps(1); }
+@keyframes after-work { 0% { transform: translateY(1px) scale(1.03, .96); } 50%, 100% { transform: none; } }
+@keyframes after-work-eyes { 0%, 100% { transform: none; } 25% { transform: scaleY(.1); } 50% { transform: none; } }
+
+/* ================================================================ nodding off, and waking */
+
+/* Drifting off: his eyes droop, he catches himself once, then everything tucks
+   in from the legs up and his eyes go last. The tuck is critter.css's own
+   (.state-sleeping); these only stagger it. */
+body.dozing #crab [class*="part-legs"] { transition-delay: .5s; }
+body.dozing #crab .part-claw { transition-delay: .667s; }
+body.dozing #crab .part-body { transition-delay: .833s; }
+body.dozing #crab .part-stalks, body.dozing #crab .part-eyes { transition-delay: 1s; }
+body.dozing #crab .part-eyes { animation: doze-eyes 1.333s steps(1) forwards; }
+body.dozing #crab #sprite { transform-origin: 50% 100%; animation: doze-nod 1.333s steps(1); }
+body.dozing #crab .part-shell { animation: none; }
+body.dozing #zzz { transition-delay: 1s; }
+@keyframes doze-eyes {
+  0% { transform: scaleY(.5); }
+  25% { transform: scaleY(.2); }
+  37.5% { transform: none; }
+  50% { transform: scaleY(.35); }
+  75%, 100% { transform: scaleY(.1); }
+}
+@keyframes doze-nod {
+  0% { transform: none; }
+  25% { transform: translateY(1px); }
+  37.5% { transform: none; }
+  50% { transform: translateY(1px); }
+  75% { transform: translateY(2px); }
+  87.5%, 100% { transform: translateY(1px); }
+}
+
+/* Waking: one eye-peek and a double blink before the rest of him comes out,
+   then a stretch. Whatever the new mood does with his legs and claws waits. */
+body.waking #crab .part-body { transition-delay: .333s; }
+body.waking #crab .part-claw { transition-delay: .5s; }
+body.waking #crab [class*="part-legs"] { transition-delay: .667s; }
+body.waking #crab .part-body, body.waking #crab .part-claw,
+body.waking #crab [class*="part-legs"], body.waking #crab .part-shell,
+body.waking #crab .part-stalks { animation: none; }
+body.waking #crab .part-eyes { animation: wake-eyes 1.167s steps(1); }
+body.waking #crab #sprite { transform-origin: 50% 100%; animation: wake-stretch 1.167s steps(1); }
+@keyframes wake-eyes {
+  0% { transform: scaleY(.2); }
+  14.286% { transform: none; }
+  28.571% { transform: scaleY(.1); }
+  42.857%, 100% { transform: none; }
+}
+@keyframes wake-stretch {
+  0%, 100% { transform: none; }
+  71.429% { transform: translateY(-2px) scale(.96, 1.08); }
+  85.714% { transform: none; }
+}
+
+/* ================================================================ a question left waiting */
+
+/* After a while, a claw tap or two now and then... */
+body.ask-nudge.state-asking #crab .part-claw { animation: ask-tap 2.656s steps(1) infinite; }
+@keyframes ask-tap {
+  0%, 100% { transform: rotate(-35deg) translate(1px, -2px); }
+  75% { transform: rotate(-52deg) translate(1px, -3px); }
+  81.25% { transform: rotate(-35deg) translate(1px, -2px); }
+  87.5% { transform: rotate(-52deg) translate(1px, -3px); }
+  93.75% { transform: rotate(-35deg) translate(1px, -2px); }
+}
+/* ...and after a minute, a hop to catch your eye between sways, with the claw going faster */
+body.ask-plead.state-asking #crab .part-claw { animation: ask-tap 1.328s steps(1) infinite; }
+body.ask-plead.state-asking #crab #sprite { transform-origin: 50% 100%; animation: ask-hop 2.656s steps(1) infinite; }
+body.ask-plead.state-asking #shadow { animation: ask-hop-shadow 2.656s steps(1) infinite; }
+body.ask-plead.state-asking #bubble { animation: ask-pulse .664s steps(1) infinite; }
+@keyframes ask-hop {
+  0%, 100% { transform: rotate(-2deg); }
+  25% { transform: rotate(2deg); }
+  50% { transform: rotate(-2deg); }
+  62.5% { transform: translateY(-4px); }
+  68.75% { transform: translateY(1px) scale(1.06, .94); }
+  75% { transform: rotate(2deg); }
+}
+@keyframes ask-hop-shadow {
+  0%, 100% { transform: translateX(-50%); }
+  62.5% { transform: translateX(-50%) scale(.75); }
+  68.75% { transform: translateX(-50%) scale(1.1, 1); }
+  75% { transform: translateX(-50%); }
+}

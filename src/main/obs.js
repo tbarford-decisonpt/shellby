@@ -51,6 +51,9 @@ function routeTable(srcDir, assetsDir) {
     '/shared/health.css': path.join(srcDir, 'renderer', 'shared', 'health.css'),
     '/shared/health-fx.js': path.join(srcDir, 'renderer', 'shared', 'health-fx.js'),
     '/critter/critter.css': path.join(srcDir, 'renderer', 'critter', 'critter.css'),
+    // his work poses: the moves and what he holds (critter/beats.js draws the same on the desktop)
+    '/critter/beats.css': path.join(srcDir, 'renderer', 'critter', 'beats.css'),
+    '/shared/workposes.js': path.join(srcDir, 'renderer', 'shared', 'workposes.js'),
   };
   for (const font of ['PixelifySans.ttf', 'AtkinsonHyperlegible-Regular.ttf', 'AtkinsonHyperlegible-Bold.ttf', 'MartianMono.ttf']) {
     r[`/assets/fonts/${font}`] = path.join(assetsDir, 'fonts', font);

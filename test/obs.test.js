@@ -37,7 +37,7 @@ test('every route in the table points at a file that exists', () => {
   }
   // The things the overlay page actually asks for.
   for (const needed of ['/', '/obs/overlay.js', '/obs/overlay.css', '/shared/sprite.js',
-    '/shared/fonts.css', '/critter/critter.css', '/assets/fonts/PixelifySans.ttf']) {
+    '/shared/fonts.css', '/critter/critter.css', '/critter/beats.css', '/shared/workposes.js', '/assets/fonts/PixelifySans.ttf']) {
     assert.ok(routes[needed], `${needed} is not served`);
   }
 });

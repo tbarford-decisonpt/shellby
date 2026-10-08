@@ -27,6 +27,9 @@ let say = null;      // { text, occasion, until }: what he's saying (src/main/vo
 let onCall = false;  // you're on a call: he holds up his "shh" sign (src/main/surroundings.js)
 // Things a scene or a game puts on him for a moment, by slot (src/renderer/critter/life.js).
 const overrides = new Map();
+// What he works with while Claude uses a tool, a scroll or a wrench (beats.js).
+// It beats his own held item and a scene's, and gives way to a sign or a sticker.
+let tool = null;
 // The sign he holds up while CI is red. It goes in the held slot like any other
 // prop, so the post lands in the claw pinch and the whole thing swings with his
 // arm instead of hanging in the air beside it.
@@ -122,6 +125,7 @@ function drawSelf() {
   // (see throwHeld) and the sign goes in once he has let go of it.
   // A scene's prop or a find to show off takes its slot for a moment.
   for (const [slot, item] of overrides) accessories = [...accessories.filter(a => a.slot !== slot), item];
+  if (tool) accessories = [...accessories.filter(a => a.slot !== 'held'), tool];
   if (tossed || holdingSign() || slap?.holding) accessories = accessories.filter(a => a.slot !== 'held');
   if (holdingSign()) accessories = [...accessories, SIGNS[signKind()]];
   if (slap?.holding) accessories = [...accessories, slap.held];
@@ -869,7 +873,10 @@ api.onTogether(msg => {
 // ---- what src/renderer/critter/life.js needs from in here: his slots, a
 // redraw, his body classes, and where the visitor is.
 window.ShellbyCritter = {
-  wear(slot, item) { if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
+  // Clearing a slot that's already empty (a scene cancelled as a nap or a task
+  // starts) leaves him be: a redraw would cut short the parts moving into the new mood.
+  wear(slot, item) { if (!item && !overrides.has(slot)) return; if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
+  tool(item) { if (item === tool) return; tool = item || null; drawSelf(); },
   flags, paint: paintBody, setDir, hearts,
   px: () => px,
   claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,

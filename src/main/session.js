@@ -127,10 +127,14 @@ class ClaudeSession extends EventEmitter {
     // takeSteers() -> [{ content, item }]: set by the manager. What you queued
     // while this turn runs, taken (and so no longer queued) the moment it's
     // handed to Claude. `steered` is what Claude hasn't read yet, oldest first,
-    // and `openTools` the main thread's tool calls still running.
+    // and `openTools` the main thread's tool calls still running (id -> tool
+    // name). `tool` is the newest of them, what the crab is shown using
+    // (workpose.js), and null while Claude thinks between calls.
     this.takeSteers = null;
     this.steered = [];
-    this.openTools = new Set();
+    this.openTools = new Map();
+    this.tool = null;
+    this.toolAt = 0;
     this.interrupting = false;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
@@ -251,6 +255,7 @@ class ClaudeSession extends EventEmitter {
     this.waiting = null;
     this.steered = [];
     this.openTools.clear();
+    this.noteTool();
     this.cancelPending();
     for (const id of [...this.requests.keys()]) this.answered({ request_id: id, subtype: 'error', error: 'Claude Code stopped.' });
     let crewChanged = false;
@@ -311,6 +316,7 @@ class ClaudeSession extends EventEmitter {
         // message after it resumes up to here.
         if (this.lastUuid) item.anchor = this.lastUuid;
         this.openTools.clear();
+        this.noteTool();
         this.closeTurn(item);
         // A steer that went in but was never read (Stop landed first): the CLI
         // would run it as a turn of its own next. Dropping the process drops it
@@ -599,9 +605,20 @@ class ClaudeSession extends EventEmitter {
     const content = event.message?.content;
     if (!Array.isArray(content)) return;
     for (const b of content) {
-      if (event.type === 'assistant' && b.type === 'tool_use') this.openTools.add(b.id);
+      if (event.type === 'assistant' && b.type === 'tool_use') this.openTools.set(b.id, typeof b.name === 'string' ? b.name : null);
       if (event.type === 'user' && b.type === 'tool_result') this.openTools.delete(b.tool_use_id);
     }
+    this.noteTool();
+  }
+
+  // A Map keeps the order calls were added in, so the last one running is the newest.
+  noteTool() {
+    let name = null;
+    for (const n of this.openTools.values()) if (n) name = n;
+    if (name === this.tool) return;
+    this.tool = name;
+    this.toolAt = name ? Date.now() : 0;
+    this.emit('tool', name);
   }
 
   // A tool call on the main thread has finished (or failed). What you queued
@@ -614,6 +631,7 @@ class ClaudeSession extends EventEmitter {
   steer(requestId, input) {
     try {
       this.openTools.delete(input?.tool_use_id);
+      this.noteTool();
       const stopping = this.interrupting || input?.is_interrupt;
       if (this.busy && !stopping && !input?.agent_id && !this.openTools.size && this.proc?.stdin.writable) {
         for (const s of this.takeSteers?.() || []) {

@@ -172,6 +172,7 @@ function wireChannels(d) {
       outfit: d.outfit(),
       px: d.px(),
       state: d.lastStatus.state,
+      work: d.lastStatus.work || null, // what he's working with (workpose.js)
       busy: own.busy + ext.busy,
       crew: [...own.crew, ...ext.crew].slice(0, d.MAX_CREW_SHOWN),
       say: d.said,

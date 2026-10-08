@@ -647,6 +647,7 @@ function createLife(d) {
     event: onEvent,
     newDayForTest: () => { lastDay = null; newDay(); },
     callForTest: on => { forcedCall = on == null ? null : !!on; setCall(!!on); },
+    napForTest: ms => { napFor(ms); return napping(); }, // down now for ms (beats.js: dozing off and waking)
   };
 }
 

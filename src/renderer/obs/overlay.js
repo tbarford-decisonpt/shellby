@@ -22,14 +22,28 @@
   let outfit = { accessories: [], effect: null, crewAccessories: [], home: null };
   let px = 4;
   let fx = null;
+  let state = 'idle';
+
+  // His work pose, held long enough to read, like the desktop crab's
+  // (shared/workposes.js; the moves are critter/beats.css).
+  const W = window.ShellbyWorkPoses;
+  const poses = W.holder(() => { draw(); paint(); });
 
   function draw() {
     if (!skin) return;
+    const tool = W.ITEMS[poses.shown()] || null;
+    const own = outfit.accessories || [];
     spriteHost.replaceChildren(window.ShellbySprite.build(skin, {
       px,
-      accessories: outfit.accessories || [],
+      accessories: tool ? [...own.filter(a => a.slot !== 'held'), tool] : own,
       shell: outfit.home,
     }));
+  }
+
+  // One state-* class at a time, exactly as the desktop critter does it, and his pose.
+  function paint() {
+    const pose = poses.shown();
+    document.body.className = [`state-${state}`, pose ? `pose-${pose}` : '', document.body.classList.contains('connected') ? 'connected' : ''].filter(Boolean).join(' ');
   }
 
   function drawCrew(crew) {
@@ -65,9 +79,9 @@
     }
 
     if (typeof msg.state === 'string') {
-      const state = STATES.has(msg.state) ? msg.state : 'idle';
-      // One state-* class at a time, exactly as the desktop critter does it.
-      document.body.className = `state-${state}${document.body.classList.contains('connected') ? ' connected' : ''}`;
+      state = STATES.has(msg.state) ? msg.state : 'idle';
+      poses.set(msg.work, state === 'working'); // redraws and repaints when the pose changes
+      paint();
       const glyph = BUBBLES[state] ?? '';
       // What he says wins over the state glyph, same as on the desktop.
       const text = msg.say?.text || glyph;

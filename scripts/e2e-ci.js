@@ -48,6 +48,7 @@ const SUITE = [
   'e2e-notes',        // Notes per project and General: add, edit, move, and Plan / Build / Ask
   'e2e-github-workflows', // the workflow-scope toggle: gated, never on by default
   'e2e-background',   // work a turn left running: the badge, the list, clearing it
+  'e2e-beats',        // his tool poses, the beats between moods, a question left waiting, nodding off and waking
   'e2e-settings-tabs', // Settings' four tabs: what's on each, the arrow keys, jumps by name
   'e2e-updates',      // the update button, with a scripted updater standing in for GitHub
   'e2e-integrations', // MCP actions, the shellby command's token, the browser source, editor names

@@ -3,6 +3,7 @@
 // Kept out of main.js, which only wires it up.
 const focus = require('../focus');
 const workmode = require('../workmode');
+const workpose = require('../workpose');
 const shells = require('../shells');
 const sounds = require('../sounds');
 const statusLine = require('../statusline');
@@ -183,6 +184,8 @@ function wireCritter(d) {
       crew: [...own.crew, ...ext.crew],
       // Commands a turn backgrounded and walked away from (src/main/external.js).
       background: ext.background || [],
+      // The tool running now, here or elsewhere, whichever started last.
+      tool: workpose.latestTool([own, ext]),
     };
     let state = agg.state;
     const limited = d.usageService.limitWait();
@@ -193,9 +196,12 @@ function wireCritter(d) {
     else if (Date.now() - d.lastActivity > d.SLEEP_AFTER_MS && d.healthMood?.level !== 'critical') state = 'sleeping';
 
     if (d.said && d.said.until <= Date.now()) d.said = null;
+    // What his claws are busy with while he works (workpose.js, renderer/critter/beats.js).
+    const work = state === 'working' ? workpose.poseOf(agg.tool) : null;
     d.send(d.critter, 'critter:state', {
       state,
       busy: agg.busy,
+      work,
       // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
       crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
@@ -217,7 +223,7 @@ function wireCritter(d) {
     });
     d.setCrewSlots(Math.min(agg.crew.length, d.MAX_CREW_SHOWN));
     const was = d.lastStatus;
-    d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
+    d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length, work };
     refreshStatusLine();
     // Whatever the crab is doing, the stream, the desk lighting and Discord follow it.
     d.obsServer?.broadcast(d.obsState());

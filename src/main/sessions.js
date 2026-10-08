@@ -98,6 +98,7 @@ class SessionManager extends EventEmitter {
     session.on('busy', () => this.changed());
     session.on('tokens', () => this.changed());
     session.on('crew', () => this.changed());
+    session.on('tool', () => this.changed()); // what the crab is doing with his claws (workpose.js)
     session.on('exit', () => {
       // Its mods ended with it: their status lines go too (plugin null: all of them).
       this.emit('item', tab.id, { kind: 'modstatus', plugin: null, text: null }, tab);
@@ -376,14 +377,16 @@ class SessionManager extends EventEmitter {
   get aggregate() {
     let pending = 0, busy = 0;
     const crew = [];
+    let tool = null, toolAt = 0; // the newest tool running on any tab's main thread
     for (const t of this.tabs.values()) {
       pending += t.session.pending.size;
       if (t.session.busy) busy++;
+      if (t.session.busy && t.session.tool && t.session.toolAt >= toolAt) ({ tool, toolAt } = t.session);
       for (const c of t.session.runningCrew()) {
         crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose' }); // Claude Code's own default
       }
     }
-    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew };
+    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, tool, toolAt };
   }
 
   changed() {

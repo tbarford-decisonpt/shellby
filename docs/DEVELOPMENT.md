@@ -91,6 +91,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-work-mode.js` | A brand-new user with a lively crab picks Work mode: the Claude setup, a bar that leads with the tools, Work mode's quiet settings on show while the file keeps theirs, a pal added in Work mode kept as its own, his needs resting, and Ctrl+K → Leave Work mode putting everything back |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused, his tank painted on it, and on the profile card only once you share it |
 | `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
+| `node scripts/e2e-beats.js` | How he moves between moods, fed real hook events: the crouch before work, a pose and a held thing for each tool (scroll, pencil, wrench, spyglass, checklist, a wave), every loop on him one framecap can read, a question that gets a claw tap after 20 s and a nod when answered, the breath after a turn, and a nap he nods off into in stages and wakes from eyes first |
 | `node scripts/e2e-voice.js` | His voice and his little habits with the fake CLI: Quiet says nothing at all, Normal puts words in his bubble (and clears them), the bubble never clips or resizes his window, he remarks on a test run and a push, each idle habit plays, he keeps quiet on guard, a health warning outranks him, and he's the same crab after a restart |
 | `node scripts/e2e-push-to-talk.js` | Push-to-talk, pressing the real hotkey through Windows with a recording in place of the microphone: the Settings switch, a tap still opens and closes the panel, a hold shows *listening…* and puts the words in the box after what's typed (not sent), and switched off a hold is just a tap |
 | `node scripts/e2e-updates.js` | The update button with a scripted updater (`SHELLBY_FAKE_UPDATE=1`, `=fail` or `=current`): the download and its progress, "Restart and update" and the dot on the gear, the toast, the route the tray and the notification take, and a failed check offering another go |
@@ -154,8 +155,8 @@ interleaved runs on a shared, busy desktop: expect ±1 point):
 
 The first row was ~3.4–4.2% before the bats flew in flights and the idle went
 to pixel-art frames (interleaved with the same build minus those, same hour).
-Of what's left, about half is his idle (about one frame a second: the breathe,
-a blink, the snap) and half is life: a habit (dig, polish, peek...) about once
+Of what's left, about half is his idle (about 1.4 frames a second: the breathe,
+his blinks and glances, the snap) and half is life: a habit (dig, polish, peek...) about once
 a minute at 12 fps for two or three seconds, a stroll, and a bat flight every
 three minutes. Under 1% would mean fewer of those, which is a call about how
 alive he looks rather than a fix. `--unfocused` on a busy desktop may leave the
@@ -180,6 +181,20 @@ the work is in drawing fewer frames, not cheaper ones:
   tick; one that steps (the idle breathe, blink and claw snap) draws a few
   frames a cycle. Prefer `steps()` for anything that runs all day. A step at
   the start of a hold changes nothing, so `steps(n)` (jump-end) isn't moved there.
+- **It can only skip what it can read.** A keyframe list with no 0% or 100%,
+  or `steps(n)` applied across many intervals, and it moves the animation every
+  tick. `leg` and `snap` had no 100% and the working "..." in his bubble jumped
+  sixteen times a lap, so the scuttle drew all 12 frames a second.
+  e2e-beats checks that every loop on him is readable.
+- **The work beat.** Everything he does while he works (the scuttle, every
+  tool pose in beats.css, the helpers, the "...") steps on 166 ms, a hair under
+  two ticks. Steps of different loops then fall on the same ticks, so the
+  scuttle draws 6 frames a second where it drew 12, and the poses 2 to 6
+  (reading is 2). Exactly a sixth of a second splits them: some steps land
+  just after a tick and move one late.
+- **His idle eyes** run on 24 s with uneven blinks and a glance each way, about
+  1.4 frames a second for all of his idle where the fixed 6 s blink made 1.1:
+  the price of not looking like a metronome.
 - **Particle effects** (the seasonal bats are on by default in October) cost
   ~2 points while they play, so on the crab's window they come in flights
   (effects.js `FLIGHT`: 8 s every 3 min, fading in and out) and the particles
@@ -345,15 +360,16 @@ src/main/        Electron main process
   trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log
   skins.js         loads and validates skins
   config.js        settings in %APPDATA%\Shellby\settings.json
+  workpose.js      his work pose (pure): which tool is running now, here or in a session elsewhere, and the pose that goes with it
   workmode.js      Work mode (pure): the settings it lays over yours, where a change made in it is kept, and what else it quiets
   placement.js     pure geometry for placing the critter and panel across monitors
   capture.js       `npm run screenshots`; reel.js records the README demo
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
-  critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
+  critter/         the desktop crab: critter.js (moods, bubble, habits) · beats.js (the beats between moods, nodding off and waking, a question left waiting, and his pose for the tool running now: src/main/workpose.js picks it) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
   panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · workmode · outfitcode · github · boot
                    a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
-  shared/          used by more than one window or by tests too: framecap, diff (an edit's red and green lines), panes (the split grid; pure)
+  shared/          used by more than one window or by tests too: framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 src/streamdeck/  the Stream Deck plugin (Node 24, no packages): Stream Deck's websocket on one side, deck.js on the other, keys drawn as SVG
