@@ -63,6 +63,7 @@ The first card on a project's page answers "what now?" with one ranked list, dra
 - **Your to-do list**, kept in the repository as `.shellby/tasks.md` (a project that's only on GitHub keeps it in Shellby): plain Markdown checkboxes, so they're version-controlled, travel with the clone, and read fine on GitHub. **+ Add a task…** puts one at the end of `## Next`. Put things under `## Now` to have them first and `## Later` to have them last; lines indented under a task are its notes. Your order is never reshuffled.
 - **Its GitHub issues and milestones**, read when you open the page (signed in, with **Show my repositories** on). The nearest milestone gets a strip at the top: *"v0.71 · due in 4 days · 6 of 9 closed"*.
 - **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (anything .gitignore'd or untracked is left out).
+- **Production errors from Sentry**, if the project uses it (see [Errors from Sentry](#errors-from-sentry)).
 
 Each row says why it's where it is: *Assigned to you*, *v0.71 · due in 2 days*, *Bug · 4 👍*, *FIXME in src/sync.js*. **Now** holds your `## Now` tasks and issues that are urgent or due within three days. **Up next** holds your other tasks, then issues assigned to you, in the nearest milestone or labelled `shellby`, then FIXMEs. Everything else comes **Later**. A task that says `#42` stands in for issue 42 and puts it where you want it. A `TODO(#42)` in the code is folded into issue 42 and quoted when you start on it.
 
@@ -76,6 +77,17 @@ When it's done:
 - **⋯ → Hand it to the Issue helper** gives an issue to your Issue helper workflow, which works on it by itself and opens the draft pull request, without asking you first again. It runs without you reading its prompt, so when someone else wrote the issue Shellby checks with you first.
 
 Hide what you'll never get to (**⋯ → Hide**, kept on this PC). The to-do list is the same one Claude Code (`add_task`, `finish_task`) and the terminal (`shellby next add`, `shellby next done`) keep: what they add lands in `.shellby/tasks.md` marked *(from Claude Code)* or *(from the terminal)*, and the card says so. `next_up` and `shellby next` read the to-dos back, with the issues and TODOs from this card after the rest of their answer.
+
+### Errors from Sentry
+
+A project that reports to Sentry (a Sentry SDK in its `package.json`, `requirements.txt`, `go.mod` and the like, or a `.sentryclirc`) gets one quiet line on its card: *"It reports errors to Sentry. Show new ones here?"* A project that doesn't use Sentry never shows anything about it.
+
+- **Connect Sentry** takes a [personal token](https://sentry.io/settings/account/api/auth-tokens/) with `event:read`, `project:read` and `org:read`. One token covers every project. It's encrypted by Windows, stays on this PC, and only goes to your Sentry (`sentry.io`, or your own under **Self-hosted Sentry?**).
+- Shellby works out which Sentry project it is from the org and project in its Sentry config, or from the repository's name. When he can't tell, the card asks once. **Not now** asks again in a month.
+- **New errors** are the unresolved ones first seen in the last 14 days, from production when the project has a production environment. One that's new today, escalating, or back after being resolved is **Now**. One from this week is **Up next**, and older ones are **Later**. Each row shows its Sentry id, how many events and users, and why it's there.
+- **Fix this error** works like **Do this**: a copy started from main as GitHub has it (or from your latest commit when it isn't on GitHub), and a conversation with the error's stack trace from its latest event, its release and environment, waiting in the box. Error messages can carry what your users typed, so it's fenced, secrets are blanked, and **nothing goes to Claude until you send it**. Claude is asked to end its commit with *Fixes WEB-1A*, and the draft pull request says it too, so Sentry links the fix to the error.
+- **Sentry's MCP server:** add it in Toolbox → MCP and the prompt tells Claude it's there, so Claude can look up the error's other events, breadcrumbs and tags itself.
+- **Sentry** at the bottom of the card picks another Sentry project, stops showing Sentry on that project, or disconnects (Shellby forgets the token).
 
 ## Notes
 
@@ -96,7 +108,8 @@ Afterwards the note says *Planned*, *Built* or *Asked*, with a link back to that
 - **Time by hand.** Add a meeting or take off a break on any day, with a note for the invoice.
 - **From your commits.** Days you committed but weren't keeping time can be filled in from the commits, marked as estimates wherever they show.
 - **Timesheets.** **Save PDF** makes a clean timesheet for a client, one project or everything, **Save CSV** gives one row per project per day for your invoicing tool, and **Copy as text** is ready to paste into an email. `shellby time last-week` prints the same summary in a terminal.
-- **Private:** everything stays on this PC and is never synced. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes.
+- **Send to your time tracker.** Under the timesheet, connect Toggl Track, Clockify or Harvest with an API token. Each project is matched to one of yours there, by its name or else its client, and you can change the match in the project's details. Pick a day and **Send**: each project's billed hours go over as one entry, with the day's note (or your commit messages) as its description. Sending a day again updates those entries rather than adding more. Nothing goes until you press it, and the token is kept encrypted by Windows.
+- **Private:** everything stays on this PC and is never synced, except the days you send to your time tracker. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes.
 
 ## Flaky tests
 

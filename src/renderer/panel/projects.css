@@ -361,7 +361,13 @@ body[data-view="projects"] .view-projects {
 .bl-tag { font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .04em; padding: 2px 5px; border-radius: 4px; color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line-soft); min-width: 3ch; text-align: center; }
 .bl-tag.issue { color: var(--glass); border-color: color-mix(in srgb, var(--glass) 35%, transparent); }
 .bl-tag.now { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.bl-tag.error { color: var(--coral); border-color: color-mix(in srgb, var(--coral) 40%, transparent); }
 .bl-where { font: var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.bl-sentry { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--abyss); display: grid; gap: 6px; }
+.bl-sentry p { margin: 0; line-height: 1.45; }
+.bl-sentry-row { gap: 6px; align-items: center; }
+.bl-sentry-row .field.slim { flex: 1 1 160px; min-width: 0; }
+.bl-sentry details .field.slim { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; }
 .bl-more { width: 26px; height: 26px; }
 .bl-rename { width: 100%; }
 .bl-foot { margin-top: 6px; gap: 10px; align-items: center; }

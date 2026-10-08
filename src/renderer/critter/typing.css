@@ -14,7 +14,7 @@ body.typing #keys { opacity: 1; transform: none; }
 /* ---------- typing: claw poised over the keys, eyes on his work ---------- */
 body.typing .part-claw { animation: none; transform: rotate(-12deg); transition: transform 60ms ease-out; }
 body.typing #crab.tap .part-claw { transform: rotate(14deg) translateY(1px); transition-duration: 30ms; }
-body.typing .part-eyes { animation: none; transform: translateY(1px); }
+body.typing .part-eyes, body.typing .acc.part-stalks { animation: none; transform: translateY(1px); }
 body.typing #crab.tap .part-legs-a { transform: translateY(-1px); }
 body.typing #crab.tap.tap-b .part-legs-a { transform: none; }
 body.typing #crab.tap.tap-b .part-legs-b { transform: translateY(-1px); }

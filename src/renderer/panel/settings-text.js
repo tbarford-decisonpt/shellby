@@ -108,6 +108,16 @@
     return { text, tone: v.status === 'listening' ? 'ok' : v.status === 'busy' ? 'warn' : '' };
   }
 
+  // The Stream Deck keys: whether the plugin is listening, or what's in the way.
+  function deckStatus(v) {
+    if (v.error) return { text: v.error, tone: 'warn' };
+    if (!v.installed && !v.connected) return { text: "Stream Deck isn't on this PC yet.", tone: 'warn' };
+    if (v.status === 'busy') return { text: `Another app is using port ${v.port}.`, tone: 'warn' };
+    if (v.status !== 'listening') return { text: '', tone: '' };
+    if (v.connected) return { text: 'Stream Deck is connected.', tone: 'ok' };
+    return { text: v.added ? 'Waiting for Stream Deck.' : 'Add the keys to start.', tone: '' };
+  }
+
   // Desk lighting through OpenRGB: the step it's on, what went wrong, or what it found.
   const RGB_STEP = { installing: 'Installing OpenRGB… say yes if Windows asks.', starting: 'Starting OpenRGB…' };
   function rgbStatus(v) {
@@ -115,6 +125,17 @@
     const busy = RGB_STEP[v.setup];
     const text = busy || (v.error ? v.error : devices.length ? `${plural(devices.length, 'device')}.` : '');
     return { text, tone: busy ? '' : v.error ? 'warn' : devices.length ? 'ok' : '' };
+  }
+
+  // On your Discord profile: showing, waiting for Discord, or turned down.
+  function discordStatus(v) {
+    if (!v.enabled) return { text: '', tone: '' };
+    if (v.configured === false) return { text: "This build of Shellby has no Discord app set up.", tone: 'warn' };
+    const text = v.status === 'on' ? (v.user ? `Showing on ${v.user}'s profile.` : 'Showing on your profile.')
+      : v.status === 'refused' ? `Discord said no: ${v.error || 'no reason given'}`
+        : v.status === 'looking' ? "Discord isn't open. He'll show up when it is."
+          : 'Looking for Discord…';
+    return { text, tone: v.status === 'on' ? 'ok' : v.status === 'refused' ? 'warn' : '' };
   }
 
   // What's playing, as Windows tells it.
@@ -147,7 +168,7 @@
 
   const api = {
     accelerator, BILLING_GUARD, billingState, planLabel, claudeUpdateTitle, claudeUpdateNote, updateStatus, updateButton,
-    sessionState, externalStatus, cliStatus, obsStatus, rgbStatus, nowPlayingStatus, typingStatus, minutesAgo, weatherStatus,
+    sessionState, externalStatus, cliStatus, obsStatus, deckStatus, rgbStatus, discordStatus, nowPlayingStatus, typingStatus, minutesAgo, weatherStatus,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbySettingsText = api;
