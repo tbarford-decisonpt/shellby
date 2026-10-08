@@ -9,9 +9,9 @@ const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDeskt
 const { createFloor } = require('../floor');
 const { createBeat, createFrontReader, signature } = require('../front-poll');
 const focus = require('../focus');
-const { CritterMotion } = require('../motion');
+const { CritterMotion, wanders } = require('../motion');
 const native = require('../native-windows');
-const { watchesDesktop } = require('../test-desktop');
+const { isTestRun, watchesDesktop } = require('../test-desktop');
 const { createPerching } = require('../perching');
 const { clampToDisplays } = require('../placement');
 const { createPranks } = require('../pranks');
@@ -136,6 +136,7 @@ function wireWindows(d) {
       refresh: () => d.refreshCritter(),
       dragging: () => d.dragging,
       crew: () => d.crewShown + (d.guestShown ? 1 : 0), // helpers or a visitor beside him: he stays down
+      wanders: wandersNow,
     });
     d.climbing = createClimbing({
       motion: () => d.motion,
@@ -153,6 +154,7 @@ function wireWindows(d) {
       bit: (bit, ms) => d.send(d.critter, 'critter:bit', { bit, ms }),
       dragging: () => d.dragging,
       crew: () => d.crewShown + (d.guestShown ? 1 : 0), // the window's wider with them: no room to turn
+      wanders: wandersNow,
       perchingAway: () => !!d.perching?.isAway(),
       walkHome: () => d.perching.walkHome(),
     });
@@ -229,8 +231,31 @@ function wireWindows(d) {
     d.pranks.sync();
   }
 
+  // ---- Windows' animation effects
+  // Off (prefers-reduced-motion, which his renderer reports: critter.js), his
+  // window holds still too, not just his sprite: no strolls, climbs or hops onto
+  // your windows unless you switched strolling on yourself (motion.js wanders),
+  // a throw is just a drop, and a fall lands in one step. Your own drag still
+  // moves him. Test runs ignore it (CI has animations off, and the e2e checks
+  // throw and climb him) unless SHELLBY_REDUCED_MOTION=1 asks.
+  const HONOURS_REDUCED = !isTestRun(process.env, app.isPackaged) || process.env.SHELLBY_REDUCED_MOTION === '1';
+  let reducedMotion = false;
+  function wandersNow() {
+    return wanders({ wander: d.config.get('wander'), chosen: d.config.get('wanderChosen'), reduced: reducedMotion });
+  }
+  function setReducedMotion(on) {
+    const was = reducedMotion;
+    reducedMotion = HONOURS_REDUCED && on === true;
+    if (!reducedMotion || was || wandersNow()) return;
+    // Just turned off: down off a window or a wall (in one step now), and a stroll stops where it is.
+    d.perching?.leave('off');
+    d.climbing?.leave();
+    if (!d.perching?.isAway() && !d.climbing?.isAway() && d.motion?.kind === 'stroll') d.motion.stop();
+  }
+
   function createMotion() {
     d.motion = new CritterMotion({
+      still: () => reducedMotion,
       getPos: () => { const [x, y] = d.critter.getPosition(); return { x, y }; },
       place: (x, y) => placeCritter(x, y),
       box: motionBox,
@@ -260,6 +285,9 @@ function wireWindows(d) {
     setInterval(() => {
       // Tapping along while you type: no wandering off or digging mid-sentence.
       if (d.CAPTURE || d.dragging || d.playtime?.busy() || d.life?.busy() || d.typing?.active()) return;
+      // Covered, hidden under a game, nobody at the desk or the screen locked:
+      // nobody to see a stroll or a habit, and each line he says is a settings write.
+      if (crabCalmNow().calm) return;
       const idle = d.lastStatus.state === 'idle';
       const guarding = focus.guarding(d.config.get('focus'), Date.now());
       if (d.perching.isUp()) return void d.perching.idleTick({ idle, guarding, quiet: !voice.hasHabits(d.config.get('chatter')) });
@@ -268,7 +296,7 @@ function wireWindows(d) {
       if (d.motion.busy || d.crewShown || d.guestShown || !idle || guarding) return;
       // A stroll moves his window; the little habits don't, so 'wander' only
       // governs the strolling (and the climbing), as it always has.
-      if (d.config.get('wander') !== false && !d.life?.onCall()) {
+      if (wandersNow() && !d.life?.onCall()) {
         if (d.perching.maybeGoUp()) return;
         if (d.climbing.maybeClimb()) return;
         const home = d.config.get('critterPos');
@@ -490,9 +518,9 @@ function wireWindows(d) {
   }
 
   return {
-    applyLayer, createCritter, createMischief, createMotion, crewExtra, critterBaseSize,
+    applyLayer, createCritter, createMischief, createMotion, crabCalm: crabCalmNow, crewExtra, critterBaseSize,
     critterGeo, helperWidth, motionBox, placeCritter, px, resetCritterPos, secureWindow,
-    settleCritter, syncLayer, watchIdleCost, webPreferences, workAreas,
+    setReducedMotion, settleCritter, syncLayer, wanders: wandersNow, watchIdleCost, webPreferences, workAreas,
   };
 }
 

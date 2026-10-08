@@ -330,8 +330,12 @@ function createHeldQueue(d) {
         tabId: h.tabId, entry: d.history.get(h.tabId), items: d.history.load(h.tabId), background: true, busy: r.ok,
         ...(r.ok ? {} : { draft: h.text, attachments: h.attachments }),
       });
-    } else if (r.ok) { const win = d.tabWindow?.(h.tabId) || d.panel; d.send(win, 'tab:sent', { tabId: h.tabId, item: r.item }); }
-    else d.send(d.panel, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
+    } else {
+      // The window it's shown in: a popped-out conversation isn't in the panel to take it back.
+      const win = d.tabWindow?.(h.tabId) || d.panel;
+      if (r.ok) d.send(win, 'tab:sent', { tabId: h.tabId, item: r.item });
+      else d.send(win, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
+    }
     if (!r.ok) d.notify("A held message couldn't be sent", `${r.error} It's back in its conversation's box.`, () => d.showPanel());
     return r.ok ? 'sent' : 'failed';
   }

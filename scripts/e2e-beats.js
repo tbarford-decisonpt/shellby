@@ -1,11 +1,13 @@
+// ci: his tool poses, the beats between moods, a question left waiting, nodding off and waking
 // End-to-end check of how he moves between moods and what he works with
-// (src/renderer/critter/beats.js, src/main/workpose.js). Drives the real app
+// (src/renderer/critter/beats.js, src/main/work-pose.js). Drives the real app
 // over CDP and feeds it real hook events on the real port:
 //   1. work starts with a crouch and a spring
-//   2. each tool has its pose and the thing in his claw (a scroll for Read...)
-//      and every loop on him is one shared/framecap.js can read, so it only
-//      draws when the picture changes
-//   3. done with a tool, he goes back to his scuttle
+//   2. between tools he thinks; each tool has its pose and the thing in his
+//      claw (a scroll for Read...); a tool with no pose of its own is his
+//      scuttle; and every loop on him is one shared/framecap.js can read, so it
+//      only draws when the picture changes
+//   3. done with a tool, he thinks again
 //   4. a question: he perks up, taps a claw when it waits, nods when answered
 //   5. the turn ends and he lets out a breath
 //   6. he nods off in stages, and wakes eyes first
@@ -83,18 +85,18 @@ async function connect(url, dir) {
     const session = { session_id: 'beats-e2e-1', cwd: 'C:\\Users\\you\\code\\tide-pool' };
     await hook({ ...session, hook_event_name: 'UserPromptSubmit' });
     check(await until(has('lead-work'), 3000, 40), 'work starts with a crouch and a spring (lead-work)');
-    check(await until(has('state-working') + ` && !${has('lead-work')}`, 3000), '...and then the scuttle');
-    await critter.shot('0-scuttle');
-    check((await unreadable()).length === 0, `the scuttle is all steps framecap can read (${await unreadable()})`);
+    check(await until(has('work-think') + ` && !${has('lead-work')}`, 3000), '...and then he thinks (work-think)');
+    await critter.shot('0-think');
+    check((await unreadable()).length === 0, `thinking is all steps framecap can read (${await unreadable()})`);
 
     // ---------------------------------------------- 2. a pose for each tool
-    const TOOLS = [['Read', 'read', true], ['Edit', 'write', true], ['Bash', 'shell', true], ['WebSearch', 'web', true], ['TodoWrite', 'plan', true], ['Task', 'call', false]];
+    const TOOLS = [['Read', 'read', true], ['Edit', 'write', true], ['Bash', 'run', true], ['Grep', 'search', true], ['WebSearch', 'web', true], ['TodoWrite', 'plan', true], ['Task', 'crew', false]];
     let last = null;
     for (const [tool, pose, holds] of TOOLS) {
       if (last) await hook({ ...session, hook_event_name: 'PostToolUse', tool_name: last });
       await hook({ ...session, hook_event_name: 'PreToolUse', tool_name: tool, tool_input: {} });
       last = tool;
-      check(await until(has(`pose-${pose}`), 4000, 60), `${tool}: his ${pose} pose`);
+      check(await until(has(`work-${pose}`), 4000, 60), `${tool}: his ${pose} pose`);
       await until(`!${has('tool-swap')}`, 1000, 50);
       check((await heldItem() !== own) === holds, `${tool}: ${holds ? 'the tool in his claw' : 'his own claw (and whatever he carries) to wave with'}`);
       const bad = await unreadable();
@@ -104,8 +106,14 @@ async function connect(url, dir) {
 
     // ---------------------------------------------- 3. done with the tool
     await hook({ ...session, hook_event_name: 'PostToolUse', tool_name: last });
-    check(await until(`![...document.body.classList].some(c => c.startsWith('pose-'))`, 5000), 'between tools, back to his scuttle');
+    check(await until(has('work-think'), 5000), 'between tools, he thinks again');
     check(await heldItem() === own, '...with the tool put away and his own things back');
+    // A tool with no pose of its own: his scuttle, all steps framecap can read.
+    await hook({ ...session, hook_event_name: 'PreToolUse', tool_name: 'mcp__tide__poke', tool_input: {} });
+    check(await until(`${has('state-working')} && ![...document.body.classList].some(c => c.startsWith('work-'))`, 5000), 'a tool with no pose of its own: his scuttle');
+    await critter.shot('1-scuttle');
+    check((await unreadable()).length === 0, `the scuttle is all steps framecap can read (${await unreadable()})`);
+    await hook({ ...session, hook_event_name: 'PostToolUse', tool_name: 'mcp__tide__poke' });
 
     // ---------------------------------------------- 4. a question
     await hook({ ...session, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'rm -rf build' } });

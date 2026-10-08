@@ -108,7 +108,7 @@ function registerIpc(electronIpcMain, d) {
     noteUndone: n => d.noteWeek('undone', null, n),
     turnEnding: tabId => d.turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
-    runClaude,
+    runClaude, log,
   });
   d.teamIpc = teamIpcModule.register({
     ipcMain, config, shell, home: os.homedir(), panel: () => d.panel, send: d.send, currentCwd: d.currentCwd, stat: d.stat,

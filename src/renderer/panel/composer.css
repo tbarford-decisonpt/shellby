@@ -22,6 +22,23 @@
 .shell-run > summary .t-label { color: var(--amber); }
 .shell-run .shell-code { flex: none; margin-left: auto; font: 600 var(--fs-10) var(--font-mono); color: var(--danger); }
 
+/* ================================================================ /btw side questions */
+.btw-card { margin: 4px 0 14px; padding: 8px 11px 7px; border: 1px dashed var(--line); border-radius: var(--r-sm); background: var(--reef); animation: rise .25s var(--ease-out); }
+.btw-card.err { border-color: var(--danger); }
+.btw-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.btw-tag { flex: none; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .03em; text-transform: uppercase; color: var(--glass); }
+.btw-q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12); color: var(--sand-dim); }
+.btw-close { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--sand-faint); font-size: var(--fs-14); line-height: 22px; cursor: pointer; }
+.btw-close:hover { color: var(--sand); background: var(--line-soft); }
+.btw-body { margin: 6px 0 0; }
+.btw-card .btw-body.msg.assistant { padding-left: 0; margin-bottom: 0; animation: none; }
+.btw-card .btw-body.msg.assistant::before { display: none; }
+.btw-card.err .btw-body { color: var(--danger); }
+.btw-card.pending .btw-body { animation: btw-wait 1.4s ease-in-out infinite; }
+.btw-foot { margin-top: 6px; }
+@keyframes btw-wait { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .btw-card, .btw-card.pending .btw-body { animation: none; } }
+
 /* ================================================================ rewind */
 .msg.user { position: relative; }
 .msg-rewind {

@@ -29,6 +29,7 @@ const NTFY_POLL_MS = 5000;         // ntfy.sh allows a request every 5s per visi
 const INBOX_POLL_MS = 15000;       // only listening for tasks: no need to ask as often
 const TELEGRAM_LONGPOLL_S = 25;    // Telegram holds the request open until a press or this
 const REQUEST_TIMEOUT_MS = 8000;
+const MAX_BACKOFF_MS = 5 * 60 * 1000; // failing over and over: ask at most this rarely
 const NONCE = /^[A-Za-z0-9_-]{22}$/;
 const REPLY_PROVIDERS = new Set(['telegram', 'ntfy']);
 const VERDICT = { allow: 'Allowed', deny: 'Denied', always: 'Always allowed', cancelled: 'No longer waiting' };
@@ -88,8 +89,8 @@ function parseTelegramCallback(update, chatId) {
  *   onAnswer(tabId, requestId, decision): true if the prompt was still open
  */
 class RemoteAnswers {
-  constructor({ getChannel, onAnswer, log = () => {}, fetchImpl = fetch, now = Date.now, ntfyPollMs = NTFY_POLL_MS, inboxPollMs = INBOX_POLL_MS }) {
-    Object.assign(this, { getChannel, onAnswer, log, fetchImpl, now, ntfyPollMs, inboxPollMs });
+  constructor({ getChannel, onAnswer, log = () => {}, fetchImpl = fetch, now = Date.now, ntfyPollMs = NTFY_POLL_MS, inboxPollMs = INBOX_POLL_MS, maxBackoffMs = MAX_BACKOFF_MS }) {
+    Object.assign(this, { getChannel, onAnswer, log, fetchImpl, now, ntfyPollMs, inboxPollMs, maxBackoffMs });
     this.open = new Map();      // nonce -> { tabId, requestId, expiresAt, provider, messageId?, text? }
     this.polling = false;
     this.abort = null;
@@ -98,9 +99,19 @@ class RemoteAnswers {
     this.inbox = null;
     this.closed = false;
     this.wakeSleep = null;
+    this.failures = 0;          // polls in a row that failed, for the back-off
+    this.problem = null;        // { text, token }: what Telegram said, for Settings
+    this.refused = null;        // a bot token Telegram turned down: never asked with again
   }
 
   get size() { return this.open.size; }
+
+  /** What's stopping answers (or tasks) getting through, in words, or null. */
+  trouble() {
+    const { settings, secret } = this.getChannel() || {};
+    if (!this.problem || settings?.provider !== 'telegram' || this.problem.token !== secret) return null;
+    return this.problem.text;
+  }
 
   /**
    * Phone tasks: messages as well as presses.
@@ -125,8 +136,14 @@ class RemoteAnswers {
   /** Something to listen for: a prompt out, or phone tasks on. */
   wanted() { return !this.closed && (this.open.size > 0 || this.inboxOn()); }
 
-  /** Start listening if there's anything to hear (after phone tasks are turned on, say). */
-  listen() { this.ensurePolling(); }
+  /**
+   * Start listening if there's anything to hear (after phone tasks are turned
+   * on, say). Settings changed, perhaps to fix what was failing: no back-off.
+   */
+  listen() {
+    if (this.failures) { this.failures = 0; this.wakeSleep?.(); }
+    this.ensurePolling();
+  }
 
   /** Shellby is quitting: stop for good, mid-request or mid-wait. */
   shutdown() {
@@ -235,21 +252,28 @@ class RemoteAnswers {
       }
       const listening = this.inboxOn();
       if (!this.open.size && !listening) break;
+      // Telegram turned this token down: asking again won't change its mind.
+      // A new token (listen(), from Settings) starts it again.
+      if (settings.provider === 'telegram' && secret && secret === this.refused) break;
       const started = this.now();
+      let ok = true;
       try {
-        if (settings.provider === 'telegram') await this.pollTelegram(settings.target, secret);
+        if (settings.provider === 'telegram') ok = await this.pollTelegram(settings.target, secret);
         else if (settings.provider === 'ntfy') {
-          if (this.open.size) await this.pollNtfy(settings.target, secret);
-          if (listening && !this.closed) await this.pollNtfyTasks(secret);
+          if (this.open.size) ok = await this.pollNtfy(settings.target, secret);
+          if (listening && !this.closed) ok = (await this.pollNtfyTasks(secret)) && ok;
         }
       } catch (err) {
-        if (err?.name !== 'AbortError') this.log(err.message);
+        if (err?.name !== 'AbortError') { this.log(err.message); ok = false; }
       }
+      this.failures = ok === false ? this.failures + 1 : 0;
       // Never spin: a failing network waits like a quiet one does. (Telegram's
       // long poll has usually used the whole interval up by itself.)
       // ntfy with both topics read: twice the wait, to stay inside its rate limit.
-      const every = settings.provider === 'telegram' ? this.ntfyPollMs
+      // Failing again and again: twice as long each time, up to five minutes.
+      const normal = settings.provider === 'telegram' ? this.ntfyPollMs
         : this.open.size ? this.ntfyPollMs * (listening ? 2 : 1) : this.inboxPollMs;
+      const every = this.failures ? Math.max(normal, Math.min(this.maxBackoffMs, this.ntfyPollMs * 2 ** (this.failures - 1))) : normal;
       const rest = every - (this.now() - started);
       if (this.wanted()) await this.sleep(Math.max(0, rest));
     }
@@ -275,13 +299,18 @@ class RemoteAnswers {
     }
   }
 
+  /** One getUpdates. -> false when it failed (for the back-off), else true. */
   async pollTelegram(chatId, token) {
-    if (!token) return;
+    if (!token) return true;
     const q = new URLSearchParams({ timeout: String(TELEGRAM_LONGPOLL_S) });
     if (this.telegramOffset != null) q.set('offset', String(this.telegramOffset));
     const res = await this.get(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates?${q}`, { timeoutMs: (TELEGRAM_LONGPOLL_S + 10) * 1000 });
     const reply = await res.json().catch(() => null);
-    if (!reply?.ok || !Array.isArray(reply.result)) return;
+    if (!reply?.ok || !Array.isArray(reply.result)) {
+      this.telegramTrouble(reply, token);
+      return false;
+    }
+    this.problem = null;
     const listening = this.inboxOn();
     for (const update of reply.result) {
       if (Number.isSafeInteger(update?.update_id)) this.telegramOffset = Math.max(this.telegramOffset ?? 0, update.update_id + 1);
@@ -297,6 +326,20 @@ class RemoteAnswers {
     }
   }
 
+  // What Telegram said when it said no. 401 (or 404, a token that isn't one):
+  // the token is dead, so stop. 409: someone else reads this bot's updates, and
+  // the two would eat each other's; keep trying, more slowly.
+  telegramTrouble(reply, token) {
+    const code = reply?.error_code;
+    if (code === 401 || code === 404) {
+      this.refused = token;
+      this.problem = { text: 'Telegram turned down the bot token. Paste it again, or make a new one with @BotFather.', token };
+    } else if (code === 409) {
+      this.problem = { text: 'Another Shellby (or app) is reading this bot, so answers and tasks from your phone can go missing. Close it, or give this one its own bot.', token };
+    }
+    if (code) this.log(`telegram: ${code}${reply.description ? ` ${String(reply.description).slice(0, 120)}` : ''}`);
+  }
+
   // The inbox's own failures are its own: they never stop the presses being read.
   handOver(fn) {
     try { fn(); } catch (err) { this.log(`inbox: ${err.message}`); }
@@ -304,10 +347,10 @@ class RemoteAnswers {
 
   async pollNtfyTasks(secret) {
     const url = this.inbox.ntfyUrl();
-    if (!url) return;
+    if (!url) return true;
     const q = new URLSearchParams({ poll: '1', since: String(this.inbox.ntfySince() || 'all') });
     const res = await this.get(`${url}/json?${q}`, { headers: secret ? { Authorization: `Bearer ${secret}` } : {} });
-    if (!res.ok) return;
+    if (!res.ok) return false;
     const text = await res.text();
     let last = null;
     for (const line of text.split('\n')) {
@@ -317,14 +360,15 @@ class RemoteAnswers {
       this.handOver(() => this.inbox.onNtfy(msg));
     }
     if (last) this.handOver(() => this.inbox.onNtfyCursor(last));
+    return true;
   }
 
   async pollNtfy(target, secret) {
     const url = ntfyReplyUrl(target);
-    if (!url) return;
+    if (!url) return true;
     const q = new URLSearchParams({ poll: '1', since: this.ntfySince || 'all' });
     const res = await this.get(`${url}/json?${q}`, { headers: secret ? { Authorization: `Bearer ${secret}` } : {} });
-    if (!res.ok) return;
+    if (!res.ok) return false;
     const text = await res.text();
     for (const line of text.split('\n')) {
       let msg;
@@ -333,6 +377,7 @@ class RemoteAnswers {
       const press = parseNtfyMessage(msg);
       if (press) this.answer(press.nonce, press.decision);
     }
+    return true;
   }
 
   // ---------------------------------------------------------------- telling the phone
@@ -361,5 +406,5 @@ class RemoteAnswers {
 
 module.exports = {
   RemoteAnswers, supportsReplies, newNonce, deskOnlyReason,
-  parseNtfyMessage, parseTelegramCallback, NONCE, TTL_MS, PHONE_MAX, INBOX_POLL_MS,
+  parseNtfyMessage, parseTelegramCallback, NONCE, TTL_MS, PHONE_MAX, INBOX_POLL_MS, MAX_BACKOFF_MS,
 };

@@ -212,7 +212,7 @@ function createRoutines(d) {
     routineDrafting = true;
     try {
       const res = await d.runClaudeOnce(routineDraft.draftArgs(checked.text, { home: os.homedir(), defaultFolder: d.currentCwd(), places: routinePlaces() }),
-        routineDraft.DRAFT_TIMEOUT_MS);
+        routineDraft.DRAFT_TIMEOUT_MS, { lean: true });
       if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
       if (!res.stdout.trim()) {
         d.log.warn('Routine draft failed', lastLines(res.stderr) || res.err?.message);
@@ -307,14 +307,20 @@ function createRoutines(d) {
 
   function startScheduler() {
     scheduler = new Scheduler({ getRoutines: routines });
-    scheduler.on('due', r => {
+    scheduler.on('due', (r, { order = 0, late = false } = {}) => {
       // A start that fails outright (runRoutine catch) already said so; a skip
       // (signed out, last run still going) would otherwise vanish without a word.
-      const res = runOrHoldRoutine(r, 'scheduled');
-      if (!res.ok && res.skipped) {
-        d.log.info('Routine skipped', `${r.name}: ${res.error}`);
-        d.notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
-      }
+      const go = () => {
+        const res = runOrHoldRoutine(r, late ? 'catch-up' : 'scheduled');
+        if (!res.ok && res.skipped) {
+          d.log.info('Routine skipped', `${r.name}: ${res.error}`);
+          d.notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
+        }
+      };
+      // Several due at once (waking from sleep, or the same time of day): one
+      // after another, like the catch-up at startup.
+      if (order > 0) setTimeout(go, order * CATCH_UP_STAGGER_MS);
+      else go();
     });
     scheduler.start();
     // Catch up on slots missed while the PC was off, staggered so they don't stampede.

@@ -25,6 +25,23 @@ const { classifyCommand, markRed } = require('../xp');
 function wireSessions(d) {
   // ---- sessions
 
+  // A project's code when its tests last failed (by project, as xp.js marks red).
+  const redTrees = new Map();
+
+  // A command that went well pays its XP, and he says so. A test pass on code
+  // that changed since the failure is a fix ('fixed', with its own line); on
+  // the very same code it was a flake, and stays an ordinary pass.
+  async function awardCommand(kind, c) {
+    let sameCode = false;
+    if (kind === 'tests' && c.project && redTrees.has(c.project)) {
+      const snap = await c.tree?.catch(() => null);
+      sameCode = !!snap?.tree && snap.tree === redTrees.get(c.project);
+    }
+    const r = d.awardXp(kind, { project: c.project, sameCode });
+    if (r?.kind === 'fixed') redTrees.delete(c.project);
+    d.speak(r?.kind === 'fixed' ? 'fixed' : voice.occasionForCommand(kind));
+  }
+
   function currentCwd() {
     const cwd = d.config.get('cwd');
     return cwd && fs.existsSync(cwd) ? cwd : os.homedir();
@@ -38,6 +55,7 @@ function wireSessions(d) {
       getMode: () => d.config.get('mode'),
       getModel: () => d.config.get('model'),
       getEffort: () => d.config.get('effort'),
+      getEffortPick: () => d.config.get('effortPick') !== false,
       getOutputStyle: () => outputStyles.clean(d.config.get('outputStyle')),
       getEnv: () => d.github?.claudeEnv() || {},
       compose: (text, files) => d.composePrompt(text, files),
@@ -135,14 +153,13 @@ function wireSessions(d) {
         if (item.isError && meant === 'tests' && c.project && d.config && !d.CAPTURE) {
           d.config.set({ xp: markRed(d.config.get('xp'), c.project, Date.now()) });
           d.noteRed(`t:${c.project}`);
+          // The code as it failed: a pass on the very same tree is a flake, not a fix.
+          c.tree?.then(s => { if (s?.tree) redTrees.set(c.project, s.tree); }).catch(() => {});
         }
         if (c.tree) d.noteTestRun(c, item, tail);
         d.bugdex?.commandResult(c, item, tail); // a bug seen, or one caught (wiring/bugdex.js)
         const kind = !item.isError && meant;
-        if (kind) {
-          d.awardXp(kind, { project: c.project });
-          d.speak(voice.occasionForCommand(kind));
-        }
+        if (kind) awardCommand(kind, c);
         // A push, deploy or release ships the project: its sticker (stickers.js).
         const ship = c.dir && stickers.shipOf(kind, c.command);
         if (ship) d.shipped(c.dir, ship.kind, ship.meta);
@@ -161,11 +178,23 @@ function wireSessions(d) {
         }
       }
     });
+    // A summary comes with every token count, context, cache and busy change, and
+    // config.set rewrites settings.json in full: the list goes there only when it's different.
+    let openTabsSaved = null;
+    let openIds = new Set();
     d.manager.on('tabs', summary => {
       d.sendTabs(summary); // the panel and any popped-out windows (wiring/popouts.js)
       d.clashTabsChanged?.(); // a copy opened or closed: look for clashes again (wiring/clashes.js)
       const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
-      if (!d.CAPTURE) d.config.set({ openTabs: saved });
+      if (!d.CAPTURE) {
+        openTabsSaved ??= JSON.stringify(d.config.get('openTabs') || []);
+        const json = JSON.stringify(saved);
+        if (json !== openTabsSaved) { openTabsSaved = json; d.config.set({ openTabs: saved }); }
+      }
+      // A conversation closed: its transcript lines still on their way go down now (history.js).
+      const open = new Set(summary.map(t => t.id));
+      for (const id of openIds) if (!open.has(id)) d.history?.flush?.(id);
+      openIds = open;
     });
     d.manager.on('aggregate', agg => {
       d.refreshCritter();
@@ -195,7 +224,9 @@ function wireSessions(d) {
     try { d.shotsBeforeTurn?.(tab); } catch (err) { d.log.info(`shots: ${err.message}`); }
     let late = false;
     const turnId = tab.turnId;
-    const taken = changes.snapshot(cwd).then(snap => {
+    const info = {};
+    const taken = changes.snapshot(cwd, info).then(snap => {
+      if (info.skipped) d.log.info(`changes: ${info.skipped}`, cwd); // the turn has no diff or Undo, and this is why
       if (snap) d.bugdex?.treeSeen(snap.root, snap.tree); // the code before: a later "fix" back to it is an undo
       if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId });
     });
@@ -252,7 +283,7 @@ function wireSessions(d) {
 
   function applyUsage(item) {
     d.config.set({ lastUsage: { ...item, at: Date.now() } });
-    d.send(d.panel, 'usage', item);
+    d.sendEveryWindow('usage', item); // a popped-out conversation's meter too (wiring/popouts.js)
     d.onUsage(item);
     d.refreshOutlook();
     d.usageService.checkGuards();

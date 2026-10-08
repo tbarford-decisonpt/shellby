@@ -153,8 +153,12 @@ function systemPrompt({ server, kind }) {
   ].join('\n');
 }
 
-/** CLI arguments for one read. The scope goes in as data inside a single argument, never through a shell. */
-function fetchArgs(setup, { allowed, denied = deniedFor(setup) }) {
+/**
+ * CLI arguments for one read. The scope goes in as data inside a single argument, never through a shell.
+ * mcpConfigFile: a file holding just this server's definition, when Shellby can load it alone, so no
+ * other MCP server starts for the read.
+ */
+function fetchArgs(setup, { allowed, denied = deniedFor(setup), mcpConfigFile = null }) {
   return [
     '-p', `Which issues: ${JSON.stringify(setup.scope)}`,
     '--output-format', 'json',
@@ -166,6 +170,7 @@ function fetchArgs(setup, { allowed, denied = deniedFor(setup) }) {
     '--tools', '',
     '--allowedTools', allowed.join(','),
     '--disallowedTools', denied.join(','),
+    ...(mcpConfigFile ? ['--strict-mcp-config', '--mcp-config', mcpConfigFile] : []),
     '--no-session-persistence',
   ];
 }

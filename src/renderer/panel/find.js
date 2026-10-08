@@ -21,6 +21,15 @@
     if (!root || !q) return [];
     const needle = q.toLowerCase();
     const out = [];
+    // An edit row not opened yet has no diff in the page (feed.js builds it on
+    // first open): one whose change holds the text is built now, so it's found
+    // too, and reveal() opens it. Not for a single letter, which would build them all.
+    if (needle.length > 1) {
+      for (const el of root.querySelectorAll('details[data-edit]')) {
+        const lazy = SB.unbuiltDiffs?.get(el);
+        if (lazy?.text.includes(needle)) lazy.build();
+      }
+    }
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: n => (n.parentElement?.closest('.empty, .en') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });

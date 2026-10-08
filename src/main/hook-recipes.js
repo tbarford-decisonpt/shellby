@@ -11,6 +11,8 @@
 // stderr goes to Claude; what SessionStart and UserPromptSubmit hooks print to
 // stdout is added to what Claude knows. test/hook-recipes.test.js runs them.
 
+const { NO_TESTS_RE } = require('./depwatch');
+
 // "file_path": "…" out of the JSON on stdin (the first one).
 const FILE_PATH = 'grep -oE "\\"file_path\\": *\\"[^\\"]*\\"" | head -n1';
 
@@ -69,7 +71,11 @@ const RECIPES = [
     blurb: 'Runs npm test when Claude is about to stop. If they fail, Claude keeps going and fixes them.',
     tweak: 'Swap npm test for your own test command if the project uses something else.',
     event: 'Stop', matcher: '', scope: 'project', timeout: 300,
-    command: "bash -c 'grep -q \"\\\"stop_hook_active\\\": *true\" && exit 0; [ -f package.json ] || exit 0; npm test >/dev/null 2>&1 || { echo \"The tests are failing. Fix them before you finish.\" >&2; exit 2; }'",
+    // Only a real test script (not npm init's "no test specified", which fails
+    // every time: depwatch.js hasTests), and the end of what it said goes to Claude.
+    command: String.raw`bash -c 'grep -q "\"stop_hook_active\": *true" && exit 0; [ -f package.json ] || exit 0; node -e "t=require(\"./package.json\").scripts?.test||\"\";process.exit(t.trim()&&!/${NO_TESTS_RE.source}/i.test(t)?0:1)" 2>/dev/null || exit 0; o=$(npm test 2>&1) || { echo "The tests are failing. Fix them before you finish. The end of what npm test said:" >&2; echo "$o" | tail -n 30 >&2; exit 2; }'`,
+    // As it was: one already added is still this recipe.
+    was: ["bash -c 'grep -q \"\\\"stop_hook_active\\\": *true\" && exit 0; [ -f package.json ] || exit 0; npm test >/dev/null 2>&1 || { echo \"The tests are failing. Fix them before you finish.\" >&2; exit 2; }'"],
   },
   {
     id: 'git-context', group: 'context', icon: '🌿',
@@ -95,7 +101,7 @@ const GROUPS = [
   { id: 'context', title: 'Tell Claude more' },
 ];
 
-const BY_COMMAND = new Map(RECIPES.map(r => [r.command, r]));
+const BY_COMMAND = new Map(RECIPES.flatMap(r => [r.command, ...(r.was || [])].map(c => [c, r])));
 
 // Script files worth naming: "Runs check.js".
 const SCRIPT = /([\w.-]+\.(?:m?js|cjs|ts|py|ps1|sh|rb|bat|cmd))\b/i;

@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 const rg = require('../src/main/projects/release-git');
 const { git } = require('../src/main/worktrees');
+const { secretGate } = require('../src/main/secret-gate');
 
 const PKG = { name: 'demo', version: '0.1.0', private: true };
 
@@ -287,6 +288,36 @@ test('a CHANGELOG that is a link is never written through, and nothing is left h
     assert.equal(fs.readFileSync(outside, 'utf8'), '# Not yours\n');
     assert.equal(t.g(t.dir, 'status', '--porcelain'), '');
     assert.equal(t.g(t.dir, 'tag', '--list', 'v0.1.1'), '');
+  } finally { t.done(); }
+});
+
+// Glued at runtime, so this file never holds one.
+const AWS = 'AKIA' + 'IOSFODNN7EXAMPLE';
+const quietD = { config: { get: () => false }, log: { info() {}, warn() {} }, dialogLook: () => ({}) };
+const answering = (n, seen = []) => (root, o) => secretGate(quietD, root, { ...o, ask: async spec => { seen.push(spec); return n ?? spec.cancelId; } });
+
+test('a release push is scanned for secrets over every commit it sends, and a no stops it', async () => {
+  const t = setup();
+  try {
+    // An earlier commit, never pushed, carries a key; the release commit itself is clean.
+    fs.writeFileSync(path.join(t.dir, 'keys.js'), `module.exports = "${AWS}";\n`);
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'feat: keys');
+    t.work('a.txt', 'fix: one');
+    const s = await rg.readRelease(t.dir, deps);
+    const asked = [];
+    const r = await rg.cutRelease(t.dir, { version: '0.1.1', title: 'x', notes: '- x', head: s.head, push: true }, { ...deps, gate: answering(null, asked) });
+    assert.equal(r.ok, true, 'the release is cut on this PC');
+    assert.equal(r.pushed, false);
+    assert.equal(r.secrets, 1);
+    assert.match(r.pushError, /looks like a secret/);
+    assert.equal(asked[0].detail, 'keys.js:1 (an AWS access key)');
+    assert.throws(() => t.g(t.origin, 'rev-parse', '--verify', '--quiet', 'refs/tags/v0.1.1'), 'the tag stayed here');
+    assert.equal(t.g(t.origin, 'log', '-1', '--format=%s', 'main'), '0.1.0: First', 'and so did the branch');
+    // Push on its own asks again; "Push anyway" sends both.
+    const p = await rg.pushRelease(t.dir, { tag: 'v0.1.1' }, { ...deps, gate: answering(0) });
+    assert.equal(p.ok, true, p.error);
+    assert.equal(t.g(t.origin, 'rev-parse', 'refs/tags/v0.1.1^{commit}'), r.commit);
   } finally { t.done(); }
 });
 

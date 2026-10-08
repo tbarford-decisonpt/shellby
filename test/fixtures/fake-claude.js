@@ -17,6 +17,7 @@
 //   "mcp <tool> <json>" -> calls a tool on the in-app MCP server (see crabmcp.js)
 //                   and replies with its result; "mcp tools" lists them
 //   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
+//   (one-shot) a /btw side question: see SIDE below
 //   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
 //   "steps <n> <ms> [late <ms>]" -> n tool calls in a row; see below for messages sent meanwhile
 //   anything else -> replies "echo: <text>"
@@ -94,8 +95,25 @@ const runInbox = () => { const rest = inbox || []; inbox = null; for (const m of
 // structured answer, then exit. Workflow drafts get a one-step workflow. The
 // editor's chat gets a scripted build: a first version that fails its test, a
 // fix, then "it worked", so a screenshot run can watch Claude iterate.
-const ONE_SHOT = args.includes('--json-schema');
-if (ONE_SHOT) {
+// `claude -p --output-format json --no-session-persistence` with the question on
+// stdin: a /btw side question (btw.js). Says which conversation it forked, so a
+// test can tell it saw the conversation. "btw fail" -> an error result;
+// "btw wait <ms>" -> answers after a delay.
+const SIDE = args.includes('--no-session-persistence') && !args.includes('--json-schema');
+if (SIDE) {
+  let q = '';
+  process.stdin.on('data', c => { q += c; });
+  process.stdin.on('end', () => {
+    const forked = args.includes('--resume') && args.includes('--fork-session') ? sessionId : null;
+    const wait = /^btw wait (\d+)/.exec(q);
+    setTimeout(() => out(/^btw fail/.test(q)
+      ? { type: 'result', subtype: 'error_during_execution', is_error: true, result: 'It went wrong.' }
+      : { type: 'result', subtype: 'success', is_error: false, result: `side answer${forked ? ` (fork of ${forked})` : ''}: ${q.trim()}`, session_id: 'fake-btw' }), wait ? Number(wait[1]) : 0);
+  });
+}
+
+const ONE_SHOT = args.includes('--json-schema') || SIDE;
+if (args.includes('--json-schema')) {
   let prompt = '';
   process.stdin.on('data', c => { prompt += c; });
   process.stdin.on('end', () => {
@@ -570,6 +588,43 @@ function onLine(line) {
         result(true);
       } };
     } };
+    return;
+  }
+
+  if (content.startsWith('askdelete')) {
+    // Asks to delete a file outside the project: plain words and a warning on the card (plain-words.js).
+    const input = { command: 'Remove-Item C:\\Users\\someone\\notes.txt', description: 'Remove the old notes' };
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_del', name: 'PowerShell', input }] } });
+    out({ type: 'control_request', request_id: `req-del-${turn}`, request: { subtype: 'can_use_tool', tool_name: 'PowerShell', input, tool_use_id: 'tu_del', permission_suggestions: [] } });
+    pending = { requestId: `req-del-${turn}`, onAnswer: r => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_del', is_error: r.behavior !== 'allow', content: 'done' }] } });
+      text(r.behavior === 'allow' ? 'DELETED' : 'KEPT');
+      result(true);
+    } };
+    return;
+  }
+
+  if (content.startsWith('askplan')) {
+    // Plan mode's ExitPlanMode: the plan card and its size.
+    const input = { plan: '## Plan\n1. Add `src/a.js`\n2. Change `src/b.js`\n3. Run the tests' };
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_plan', name: 'ExitPlanMode', input }] } });
+    out({ type: 'control_request', request_id: `req-plan-${turn}`, request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input, tool_use_id: 'tu_plan', permission_suggestions: [{ type: 'setMode', mode: 'acceptEdits', destination: 'session' }] } });
+    pending = { requestId: `req-plan-${turn}`, onAnswer: r => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_plan', is_error: r.behavior !== 'allow', content: 'ok' }] } });
+      text(r.behavior === 'allow' ? 'PLAN APPROVED' : 'STILL PLANNING');
+      result(true);
+    } };
+    return;
+  }
+
+  if (content.startsWith('longtests')) {
+    // A test run that takes a while: the Working bar says what it's doing meanwhile.
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_lt', name: 'Bash', input: { command: 'npm test', description: 'Run the test suite' } }] } });
+    setTimeout(() => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_lt', content: 'all passed' }] } });
+      text('TESTS DONE');
+      result(true);
+    }, 2500);
     return;
   }
 

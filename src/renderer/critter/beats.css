@@ -1,96 +1,17 @@
-/* How he gets from one mood to the next, and what he does with his claws while
-   Claude works (set by beats.js). Rules are scoped `body.X #crab ...` like
-   charm.css, so they outrank the moods in critter.css and #crab:hover.
+/* How he gets from one mood to the next (set by beats.js; how he works while
+   Claude does is .work-<pose> in critter.css). Rules are scoped
+   `body.X #crab ...` like charm.css, so they outrank the moods in critter.css
+   and #crab:hover.
 
    Everything here is on the work beat: steps(1) between keyframes 166 ms
    apart, a hair under two ticks of shared/framecap.js (83.3 ms). Every loop's
    steps land on the same ticks, so however many of them run at once he
    presents at most six frames a second. (A sixth of a second exactly would
-   land some steps just after a tick and others just before, and split them.) Every keyframe
-   list spells out 0% and 100%: framecap reads them to know when nothing moves.
-   On .part-* 1px is one sprite cell; on #sprite and #shadow a screen pixel.
-   prefers-reduced-motion is handled once, in critter.css: the held things
-   and the poses still show, standing still. */
-
-/* ================================================================ his work */
-
-/* Working with something in his claw, he stands still to do it. */
-body.pose-read #crab #sprite, body.pose-write #crab #sprite, body.pose-plan #crab #sprite,
-body.pose-read #crab [class*="part-legs"], body.pose-write #crab [class*="part-legs"],
-body.pose-shell #crab [class*="part-legs"], body.pose-web #crab [class*="part-legs"],
-body.pose-plan #crab [class*="part-legs"], body.pose-call #crab [class*="part-legs"] { animation: none; }
-body.pose-read #shadow, body.pose-write #shadow, body.pose-shell #shadow,
-body.pose-web #shadow, body.pose-plan #shadow, body.pose-call #shadow { animation: none; }
-
-/* reading (Read, Grep, Glob): a scroll up close, eyes squinting along each
-   line, and a page turned every few seconds */
-body.pose-read #crab .part-claw { animation: read-claw 3.984s steps(1) infinite; }
-body.pose-read #crab .part-eyes { animation: read-eyes 1.992s steps(1) infinite; }
-body.pose-read #crab .part-stalks { animation: read-look 1.992s steps(1) infinite; }
-@keyframes read-claw {
-  0%, 100% { transform: rotate(-10deg) translateY(-1px); }
-  91.667% { transform: rotate(-26deg) translate(1px, -2px); }
-  95.833% { transform: rotate(-10deg) translateY(-1px); }
-}
-@keyframes read-eyes {
-  0%, 100% { transform: translateX(-1px) scaleY(.7); }
-  33.333% { transform: scaleY(.7); }
-  66.667% { transform: translateX(1px) scaleY(.7); }
-}
-@keyframes read-look { 0%, 100% { transform: translateX(-1px); } 33.333% { transform: none; } 66.667% { transform: translateX(1px); } }
-
-/* editing (Edit, Write): scribbling with a pencil, eyes on the work, looking
-   up once in a while to think */
-body.pose-write #crab .part-claw { animation: write-claw .664s steps(1) infinite; }
-body.pose-write #crab .part-eyes { animation: write-eyes 2.656s steps(1) infinite; }
-body.pose-write #crab .part-stalks { animation: write-look 2.656s steps(1) infinite; }
-@keyframes write-claw {
-  0%, 100% { transform: rotate(-8deg); }
-  25% { transform: rotate(-16deg) translateY(1px); }
-  50% { transform: rotate(-6deg) translateX(1px); }
-  75% { transform: rotate(-14deg) translate(1px, 1px); }
-}
-@keyframes write-eyes { 0%, 100% { transform: translateY(1px) scaleY(.8); } 75% { transform: translateY(-1px); } 87.5% { transform: translateY(1px) scaleY(.8); } }
-@keyframes write-look { 0%, 100% { transform: translateY(1px); } 75% { transform: translateY(-1px); } 87.5% { transform: translateY(1px); } }
-
-/* a command (Bash, PowerShell): turning a wrench, leaning into each turn */
-body.pose-shell #crab #sprite { transform-origin: 50% 100%; animation: crank-lean .664s steps(1) infinite; }
-body.pose-shell #crab .part-claw { animation: crank .664s steps(1) infinite; }
-body.pose-shell #crab .part-eyes { animation: none; transform: scaleY(.75); }
-body.pose-shell #crab .part-stalks { animation: none; }
-@keyframes crank {
-  0%, 100% { transform: rotate(-10deg); }
-  25% { transform: rotate(-30deg) translateY(-1px); }
-  50% { transform: rotate(-46deg) translate(1px, -1px); }
-  75% { transform: rotate(-30deg) translateY(-1px); }
-}
-@keyframes crank-lean { 0%, 100% { transform: none; } 50% { transform: translateY(1px) rotate(1deg); } }
-
-/* the web (WebFetch, WebSearch): a spyglass to his eye, sweeping the horizon */
-body.pose-web #crab #sprite { transform-origin: 50% 100%; animation: scan 2.656s steps(1) infinite; }
-body.pose-web #crab .part-claw { animation: none; transform: rotate(-52deg) translate(-1px, -2px); }
-body.pose-web #crab .part-eyes { animation: scan-look 2.656s steps(1) infinite; }
-body.pose-web #crab .part-stalks { animation: scan-look 2.656s steps(1) infinite; }
-@keyframes scan { 0%, 100% { transform: rotate(-3deg); } 25% { transform: none; } 50% { transform: rotate(3deg); } 75% { transform: none; } }
-@keyframes scan-look { 0%, 100% { transform: translateX(-1px); } 25% { transform: none; } 50% { transform: translateX(1px); } 75% { transform: none; } }
-
-/* a plan (TodoWrite, plan mode): a checklist, ticked off with a pleased blink */
-body.pose-plan #crab .part-claw { animation: plan-claw 1.328s steps(1) infinite; }
-body.pose-plan #crab .part-eyes { animation: plan-eyes 1.328s steps(1) infinite; }
-body.pose-plan #crab .part-stalks { animation: none; transform: translateY(1px); }
-@keyframes plan-claw { 0%, 100% { transform: rotate(-18deg); } 75% { transform: rotate(-28deg) translateY(-1px); } 87.5% { transform: rotate(-18deg); } }
-@keyframes plan-eyes { 0%, 100% { transform: translateY(1px); } 75% { transform: translateY(1px) scaleY(.2); } 87.5% { transform: translateY(1px); } }
-
-/* handing work out (Task, Agent): waving the helpers in from his left */
-body.pose-call #crab #sprite { transform-origin: 50% 100%; animation: none; transform: rotate(-3deg); }
-body.pose-call #crab .part-claw { animation: call-wave .664s steps(1) infinite; }
-body.pose-call #crab .part-eyes, body.pose-call #crab .part-stalks { animation: none; transform: translateX(-1px); }
-@keyframes call-wave { 0%, 100% { transform: rotate(-50deg); } 50% { transform: rotate(-72deg) translateY(-1px); } }
-
-/* between tools: the claw dips into his shell, and comes out with the next one */
-body.tool-swap #crab .part-claw { animation: swap-claw .333s steps(1); }
-body.tool-swap #crab .part-eyes, body.tool-swap #crab .part-stalks { animation: none; transform: translateX(-1px); }
-@keyframes swap-claw { 0% { transform: rotate(18deg) translate(-1px, 1px); } 50%, 100% { transform: rotate(34deg) translate(-3px, 1px); } }
+   land some steps just after a tick and others just before, and split them.)
+   Every keyframe list spells out 0% and 100%: framecap reads them to know
+   when nothing moves. On .part-* 1px is one sprite cell; on #sprite and
+   #shadow a screen pixel. prefers-reduced-motion is handled once, in
+   critter.css. */
 
 /* ================================================================ between moods */
 

@@ -218,13 +218,16 @@
 
   function claudeEntries() {
     if (!claude()) return [];
-    const effort = state.settings.effort || '';
+    const effort = SB.activeTab()?.effort ?? (state.settings.effort || '');
+    const pick = !state.settings.effort && state.settings.effortPick !== false;
     return [
       { id: 'claude:model', group: 'Claude', icon: '◆', title: 'Change the model', sub: 'For new conversations (/model)', keys: 'model opus sonnet haiku', run: () => SB.showSetting('modelSelect') },
       ...(SB.EFFORTS || []).map(x => ({
         id: `claude:effort:${x.id}`, group: 'Claude', icon: effort === x.id ? '●' : '○', title: `Effort: ${x.title}`, sub: x.sub,
         keys: 'effort thinking think how hard', run: () => SB.chooseEffort(x.id),
       })),
+      { id: 'claude:effort-pick', group: 'Claude', icon: pick ? '✓' : '○', title: 'Effort: pick to fit each new conversation', sub: pick ? 'On: from its first message' : 'Off',
+        keys: 'effort thinking auto pick fit context', run: () => SB.chooseNewEffort(!pick) },
     ];
   }
 

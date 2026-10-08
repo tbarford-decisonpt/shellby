@@ -242,7 +242,14 @@
       paint(s.run ? 'Stopping the test run…' : 'Stopping after Claude\'s answer…');
     }
 
-    return { el, onRun, focus: () => box.focus() };
+    // Back in its editor: a test run that was going when you left is watched again.
+    function resume() {
+      const id = s.run?.id;
+      if (id && !s.poll) { s.poll = setInterval(() => checkRun(id), POLL_MS); checkRun(id); }
+    }
+
+    // tell: what Claude said about a change made outside the chat (Fix with Claude), added to it.
+    return { el, onRun, resume, focus: () => box.focus(), tell: text => say('claude', text) };
   }
 
   SB.wfChat = { create };

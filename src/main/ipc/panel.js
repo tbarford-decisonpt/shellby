@@ -64,6 +64,7 @@ function registerPanelIpc(ipcMain, d) {
     return {
       ...panelView(),
       welcomeTrophies: d.welcomeTrophies.splice(0),
+      cutOff: (d.cutOff || []).splice(0),
       tabs,
       tabItems: Object.fromEntries(tabs.map(t => [t.id, d.history.load(t.id)])),
       startView: (() => { const v = d.startView; d.startView = null; return v; })(),
@@ -98,6 +99,7 @@ function registerPanelIpc(ipcMain, d) {
       models: MODELS,
       updates: d.updateView(),
       claudeUpdate: d.claudeUpdateView(),
+      claudeTricks: d.claudeTricksPending(),
       registryUrl: d.registryUrl(),
     };
   }
@@ -219,6 +221,7 @@ function registerPanelIpc(ipcMain, d) {
   ipcMain.handle('updates:install', () => !!d.updates?.install());
 
   // ---- keeping Claude Code itself up to date (claude-update.js)
+  ipcMain.handle('claude:tricks-dismiss', () => { d.dismissClaudeTricks(); return true; });
   ipcMain.handle('claude:update-check', async () => (d.claudeUpdates ? d.claudeUpdates.check() : null));
   ipcMain.handle('claude:update-mode', (_e, mode) => (d.claudeUpdates ? d.claudeUpdates.setMode(mode) : null));
   // Runs Claude Code's own `claude update`. A conversation mid-turn keeps the

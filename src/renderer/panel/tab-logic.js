@@ -63,6 +63,7 @@
     // would say Claude is still replying.
     if (doing === 'background') return { kind: 'bg', title: `Turn finished · ${several(t.crew, 'background task')} still running` };
     if (t.outcome === 'error') return { kind: 'err', title: 'Ended with an error', text: '!' };
+    if (t.outcome === 'cut') return { kind: 'cut', title: 'Cut off before it finished', text: '⏸' };
     if (t.outcome === 'ok' && t.unread) return { kind: 'ok', title: 'Finished', text: '✓' };
     if (t.routineId) return { kind: 'routine', title: 'Routine', text: '⟳' };
     return null;
@@ -119,7 +120,22 @@
       .map(x => x.t);
   }
 
-  const api = { NEW_TITLE, reorder, nudgeBefore, keyTarget, stepTarget, shownTitle, firstTitle, icon, tabClass, steerPlan, queueBack, queueTag, queueText, slashCandidates };
+  // The running turn's place in Claude's own to-do list, for the busy line:
+  // "step 3 of 7 · about 4 min left". plan: sessions.js's { step, total, endsAt }.
+  // Past endsAt the step alone: a guess that's run out says nothing true.
+  function planLine(plan, now) {
+    if (!plan || !(plan.total > 0)) return '';
+    const step = `step ${plan.step} of ${plan.total}`;
+    const left = Number.isFinite(plan.endsAt) ? plan.endsAt - now : 0;
+    if (left <= 0) return step;
+    const mins = Math.round(left / 60000);
+    const when = left < 60000 ? 'under a minute left'
+      : mins < 90 ? `about ${mins} min left`
+      : `about ${Math.round(mins / 60)} h left`;
+    return `${step} · ${when}`;
+  }
+
+  const api = { NEW_TITLE, planLine, reorder, nudgeBefore, keyTarget, stepTarget, shownTitle, firstTitle, icon, tabClass, steerPlan, queueBack, queueTag, queueText, slashCandidates };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyTabLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,3 +1,4 @@
+// ci: your prompt stays visible as the Working bar appears
 // Regression check: after sending a prompt, the whole prompt is visible at the
 // bottom of the conversation, even though the "Working… / Stop" bar (and any
 // queued-message chips) appear above the composer at the same moment and make

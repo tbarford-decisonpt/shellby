@@ -1,3 +1,4 @@
+// ci: every health mood, with scripted sensors
 // End-to-end check of health moods against the dev app over CDP, one launch per
 // fake scenario (SHELLBY_FAKE_HEALTH), each in a throwaway profile. Checks the
 // desktop critter's mood + bubble, the Health view, and the Health badge in the bottom bar, and

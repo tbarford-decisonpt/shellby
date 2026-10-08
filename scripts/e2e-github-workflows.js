@@ -1,3 +1,4 @@
+// ci: the workflow-scope toggle: gated, never on by default
 // The "…including changes to CI workflows" toggle, which is what asks GitHub for
 // the `workflow` scope: present, gated on "Let Claude tasks push", never on by
 // default, and saying the right thing in each state. The panel is driven with a

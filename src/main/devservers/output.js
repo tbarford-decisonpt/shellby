@@ -51,14 +51,25 @@ class LineBuffer {
 }
 
 // Where a server says it is. Only this PC: a URL in a log line that points
-// elsewhere (a CDN, an API) is not this server's address.
+// elsewhere (a CDN, an API) is not this server's address. A private network
+// address (192.168.x, 10.x, 172.16-31.x) counts only on a line that says it's
+// where the server is ("Network:", "listening on"): a bare one could be anything.
 const LOCAL_HOST = '(?:localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::1?\\])';
+const OCTET = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
+const LAN_HOST = `(?:192\\.168\\.${OCTET}\\.${OCTET}|10\\.${OCTET}\\.${OCTET}\\.${OCTET}|172\\.(?:1[6-9]|2\\d|3[01])\\.${OCTET}\\.${OCTET})`;
+const SAID_HOST = `(?:${LOCAL_HOST}|${LAN_HOST})`;
 const URL_PATTERNS = [
-  new RegExp(`(?:Local|Network|➜\\s*Local):?\\s+(https?://${LOCAL_HOST}:(\\d{2,5})\\S*)`, 'i'),
-  new RegExp(`(?:ready|started server|listening|running|serving|available)\\b.*?(https?://${LOCAL_HOST}:(\\d{2,5})\\S*)`, 'i'),
+  new RegExp(`(?:Local|Network|➜\\s*Local):?\\s+(https?://${SAID_HOST}:(\\d{2,5})\\S*)`, 'i'),
+  new RegExp(`(?:ready|started server|listening|running|serving|available)\\b.*?(https?://${SAID_HOST}:(\\d{2,5})\\S*)`, 'i'),
   new RegExp(`(https?://${LOCAL_HOST}:(\\d{2,5})/?)(?:\\s|$)`, 'i'),
 ];
+// A port with no address doesn't count on a line about what the server
+// connects to: a database's port isn't this server's.
+const NOT_OURS = /\b(?:database|db|postgres(?:ql)?|mysql|redis|mongo(?:db)?|connect(?:ed|ing)?|proxy(?:ing)?)\b/i;
 const PORT_ONLY = /\b(?:listening|running|started|serving|ready)\b[^\n]*?\b(?:on |at )?(?:port\s*:?\s*|:)(\d{2,5})\b/i;
+// "Server on 3000", "App started on port 3000": a server word, then on/at a
+// number, and not a date or a time ("started at 2026-10-07", "at 10:45").
+const PORT_PHRASE = /\b(?:server|app|api|listening|running|started|serving|ready)\b.*?\b(?:on|at)\s+(?:port\s*:?\s*)?(\d{2,5})(?![\w:/-]|\.\d)/i;
 
 /** A line -> { url, port } if it says where the server is, else null. */
 function detectUrl(line) {
@@ -70,15 +81,17 @@ function detectUrl(line) {
       if (port >= 1 && port <= 65535) return { url: localUrl(m[1], port), port };
     }
   }
-  const p = PORT_ONLY.exec(l);
-  if (p) {
-    const port = Number(p[1]);
+  if (NOT_OURS.test(l)) return null;
+  for (const re of [PORT_ONLY, PORT_PHRASE]) {
+    const p = re.exec(l);
+    const port = p ? Number(p[1]) : 0;
     if (port >= 1024 && port <= 65535) return { url: `http://localhost:${port}/`, port };
   }
   return null;
 }
 
-// 0.0.0.0 and [::] are "every address", which a browser can't open: localhost instead.
+// 0.0.0.0 and [::] are "every address", which a browser can't open: localhost
+// instead. So is this PC's own network address, which the server answers on too.
 function localUrl(url, port) {
   const u = url.replace(/[).,;'"]+$/, '');
   const m = /^(https?):\/\/[^/]+(\/\S*)?$/i.exec(u);

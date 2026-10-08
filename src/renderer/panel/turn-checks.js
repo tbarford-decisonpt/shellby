@@ -23,6 +23,7 @@
     const took = SB.duration(item.durationMs);
     if (item.status === 'pass') return { icon: '✅', tone: 'pass', text: `Checks passed · ${cmds.map(c => c.cmd).join(', ')} ${took}` };
     if (item.status === 'timeout') return { icon: '⏱', tone: 'fail', text: `Checks ran out of time · ${cmds.filter(c => c.timedOut).map(c => c.cmd).join(', ')}` };
+    if (item.status === 'error' && cmds.some(c => c.needsEnv) && cmds.every(c => c.ok || c.needsEnv)) return { icon: '⚠', tone: 'warn', text: "Couldn't run pytest: it needs its virtualenv" };
     if (item.status === 'error') return { icon: '⚠', tone: 'warn', text: "Couldn't run the checks" };
     if (failing.length) {
       const names = failing.slice(0, 3).join(', ');
@@ -38,7 +39,7 @@
       h('ul', { class: 'chk-cmds' }, (item.commands || []).map(c => h('li', { class: c.ok ? 'ok' : 'bad' },
         h('span', { class: 'chk-mark', 'aria-hidden': 'true', text: c.ok ? '✓' : '✗' }),
         h('code', { text: c.cmd }),
-        h('span', { class: 'small muted', text: [c.ok ? 'passed' : c.timedOut ? 'ran out of time' : c.error ? "wouldn't start" : 'failed', SB.duration(c.durationMs)].join(' · ') }),
+        h('span', { class: 'small muted', text: [c.ok ? 'passed' : c.timedOut ? 'ran out of time' : c.needsEnv ? 'needs its virtualenv' : c.error ? "wouldn't start" : 'failed', SB.duration(c.durationMs)].join(' · ') }),
         c.failed?.length ? h('ul', { class: 'chk-failed' }, c.failed.map(n => h('li', { text: n }))) : null,
         c.tail ? h('details', { class: 'chk-tail' }, h('summary', { text: 'The end of what it printed' }), h('pre', { class: 'diff', text: c.tail })) : null))));
   }

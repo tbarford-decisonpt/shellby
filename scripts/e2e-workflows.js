@@ -1,3 +1,4 @@
+// ci: workflows: typed Claude output, the confirm window, ask/stop/resume, a web hook
 // End-to-end check of workflows against the dev app over CDP, driven by the
 // fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
 // Saves workflows through the panel's bridge, runs them, and checks the

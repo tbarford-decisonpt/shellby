@@ -26,6 +26,8 @@ const path = require('path');
 const TREE = /^[0-9a-f]{40}([0-9a-f]{24})?$/;   // sha1 or sha256 repos
 const SNAPSHOT_TIMEOUT_MS = 20000;
 const MAX_UNTRACKED = 5000;                     // past this, a folder isn't one to snapshot
+const SKIPPED_TOO_MANY = 'Too many untracked files to track this turn';
+const STAT_AT_ONCE = 16;                        // untracked files looked at together, off the main thread
 const MAX_UNTRACKED_BYTES = 20 * 1024 * 1024;   // a 2 GB video someone forgot to ignore stays out of .git
 const MAX_FILES = 500;                          // rows shown for one turn
 const MAX_PATCH = 400 * 1024;                   // one file's diff, as text
@@ -43,7 +45,8 @@ function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer =
 
 /** The repo root for a folder, or null. */
 async function rootOf(dir) {
-  if (typeof dir !== 'string' || !dir || dir.length > 400 || !path.isAbsolute(dir) || !fs.existsSync(dir)) return null;
+  if (typeof dir !== 'string' || !dir || dir.length > 400 || !path.isAbsolute(dir)) return null;
+  try { await fs.promises.access(dir); } catch { return null; }
   const r = await git(dir, ['rev-parse', '--show-toplevel'], { timeout: 5000 });
   return r.ok && r.out.trim() ? path.resolve(r.out.trim()) : null;
 }
@@ -58,8 +61,12 @@ const sameRoot = (root, dir) => !!root && longPath(root).toLowerCase() === longP
  * and minus anything enormous). head: the commit checked out at the time (null
  * in a repo with no commits), so a branch can start a copy from exactly here
  * (branch.js). -> { root, tree, head } | null
+ *
+ * Runs before and after every turn, so nothing in it blocks the main thread.
+ * info: optional; given a skipped reason (SKIPPED_TOO_MANY) when the folder is
+ * one it won't snapshot, so the turn can say why it has no diff.
  */
-async function snapshot(dir) {
+async function snapshot(dir, info = null) {
   const root = await rootOf(dir);
   if (!root) return null;
   const [idx, at] = await Promise.all([
@@ -72,17 +79,18 @@ async function snapshot(dir) {
   const tmp = path.join(os.tmpdir(), `shellby-index-${crypto.randomBytes(6).toString('hex')}`);
   try {
     // A fresh repo has no index yet; an empty temp one is the same thing.
-    if (fs.existsSync(realIndex)) fs.copyFileSync(realIndex, tmp);
+    try { await fs.promises.copyFile(realIndex, tmp); } catch (e) { if (e.code !== 'ENOENT') throw e; }
     const env = { GIT_INDEX_FILE: tmp };
     const tracked = await git(root, ['add', '-u', '--', '.'], { env });
     if (!tracked.ok) return null;
     const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env });
     if (!others.ok) return null;
     const untracked = others.out.split('\0').filter(Boolean);
-    if (untracked.length > MAX_UNTRACKED) return null;
-    const small = untracked.filter(f => {
-      try { return fs.statSync(path.join(root, f)).size <= MAX_UNTRACKED_BYTES; } catch { return false; }
+    if (untracked.length > MAX_UNTRACKED) { if (info) info.skipped = SKIPPED_TOO_MANY; return null; }
+    const fits = await mapLimit(untracked, STAT_AT_ONCE, async f => {
+      try { return (await fs.promises.stat(path.join(root, f))).size <= MAX_UNTRACKED_BYTES; } catch { return false; }
     });
+    const small = untracked.filter((_f, i) => fits[i]);
     if (small.length) {
       const added = await git(root, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0') });
       if (!added.ok) return null;
@@ -93,8 +101,17 @@ async function snapshot(dir) {
   } catch {
     return null;
   } finally {
-    try { fs.rmSync(tmp, { force: true }); } catch { /* temp dir */ }
+    await fs.promises.rm(tmp, { force: true }).catch(() => { /* temp dir */ });
   }
+}
+
+/** fn over items, at most `limit` at a time, results in order. */
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
 }
 
 /**
@@ -209,4 +226,4 @@ async function undo(ref) {
   return { ok: true, restored: turn.length };
 }
 
-module.exports = { snapshot, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+module.exports = { snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

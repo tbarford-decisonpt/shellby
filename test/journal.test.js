@@ -119,13 +119,54 @@ test('record replaces a session\'s earlier note and keeps the newest first, at m
 
 test('pins: a kind and some text, newest first; unpin and forget take things off', () => {
   let { book, id } = journal.pin(null, { kind: 'decision', text: '  Use   LF  ' }, NOW);
-  assert.deepEqual(book.pins, [{ id, kind: 'decision', text: 'Use LF', at: NOW }]);
+  assert.deepEqual(book.pins, [{ id, kind: 'decision', text: 'Use LF', at: NOW, by: 'you' }]);
   ({ book } = journal.pin(book, { kind: 'bogus', text: 'x' }, NOW + 1));
   assert.equal(book.pins[0].kind, 'note', 'an unknown kind is a note');
   assert.equal(journal.pin(book, { text: '   ' }, NOW).error, 'A pin needs some text.');
   assert.equal(journal.unpin(book, id).pins.length, 1);
   book = journal.record(book, { sessionId: 'abc12345', title: 't', at: NOW });
   assert.equal(journal.forget(book, 'abc12345').notes.length, 0);
+});
+
+test('at the cap, Claude\'s oldest pin makes room; yours are never pushed out', () => {
+  let book = null;
+  for (let i = 0; i < journal.MAX_PINS - 2; i++) ({ book } = journal.pin(book, { text: `mine ${i}` }, NOW + i));
+  ({ book } = journal.pin(book, { text: 'claude old', by: 'claude' }, NOW + 100));
+  ({ book } = journal.pin(book, { text: 'claude new', by: 'claude' }, NOW + 101));
+  assert.equal(book.pins.length, journal.MAX_PINS);
+  ({ book } = journal.pin(book, { text: 'mine, one more' }, NOW + 200));
+  assert.equal(book.pins.length, journal.MAX_PINS);
+  assert.ok(!book.pins.some(p => p.text === 'claude old'), 'Claude\'s oldest went');
+  assert.ok(book.pins.some(p => p.text === 'mine 0'), 'your oldest stayed');
+  ({ book } = journal.pin(book, { text: 'claude newer', by: 'claude' }, NOW + 300));
+  assert.ok(!book.pins.some(p => p.text === 'claude new'));
+  assert.equal(book.pins[0].text, 'claude newer');
+  // All twenty yours: refused, for Claude and for you.
+  ({ book } = journal.pin(book, { text: 'mine, last' }, NOW + 400));
+  assert.ok(book.pins.every(p => p.by === 'you'));
+  const r = journal.pin(book, { text: 'claude again', by: 'claude' }, NOW + 500);
+  assert.match(r.error, /Unpin one first/);
+  assert.equal(r.book.pins.length, journal.MAX_PINS);
+  assert.match(journal.pin(book, { text: 'one too many' }, NOW + 500).error, /Unpin one first/);
+});
+
+test('pins from before they said who left them count as yours', () => {
+  const b = journal.normalize({ pins: [{ id: 'p1', kind: 'note', text: 'old', at: 1 }, { id: 'p2', kind: 'note', text: 'c', at: 2, by: 'claude' }, { id: 'p3', kind: 'note', text: 'x', at: 3, by: 'evil' }] });
+  assert.deepEqual(b.pins.map(p => p.by), ['you', 'claude', 'you']);
+});
+
+test('putBack undoes an unpin or a forget, in its place, and only once', () => {
+  let { book, id } = journal.pin(null, { text: 'first' }, NOW);
+  ({ book } = journal.pin(book, { text: 'second' }, NOW + 1));
+  const gone = book.pins.find(p => p.id === id);
+  let after = journal.unpin(book, id);
+  after = journal.putBack(after, { pin: gone }).book;
+  assert.deepEqual(after.pins.map(p => p.text), ['second', 'first']);
+  assert.equal(journal.putBack(after, { pin: gone }).book.pins.length, 2, 'back already: nothing doubles');
+  book = journal.record(book, { sessionId: 'abc12345', title: 't', at: NOW });
+  const note = book.notes[0];
+  assert.equal(journal.putBack(journal.forget(book, 'abc12345'), { note }).book.notes[0].title, 't');
+  assert.ok(journal.putBack(book, { pin: { id: 'x', kind: 'evil', text: 'y' } }).error);
 });
 
 test('normalize drops what isn\'t a note or a pin', () => {

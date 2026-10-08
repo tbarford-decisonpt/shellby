@@ -106,8 +106,18 @@ test('Claude can only pin to a project that already has notes; the panel can alw
     assert.equal((await s.j.pinFor(s.sub, { kind: 'decision', text: 'From Claude' })).ok, true);
     assert.deepEqual(s.j.view([s.repo]).pins.map(p => p.text), ['From Claude', 'From the panel']);
     const id = s.j.view([s.repo]).pins[0].id;
+    assert.equal(s.j.view([s.repo]).pins[0].by, 'claude', 'the MCP tool\'s pins say they\'re Claude\'s');
+    assert.equal(s.j.view([s.repo]).pins[1].by, 'you');
     s.j.remove(s.repo, { pinId: id });
     assert.equal(s.j.view([s.repo]).pins.length, 1);
+    assert.equal(s.j.restore(s.repo, { pinId: 'someother' }).ok, false, 'Undo puts back only the one just taken off');
+    assert.equal(s.j.restore(s.repo, { pinId: id }).ok, true);
+    assert.deepEqual(s.j.view([s.repo]).pins.map(p => p.text), ['From Claude', 'From the panel']);
+    assert.equal(s.j.restore(s.repo, { pinId: id }).ok, false, 'once');
+    s.j.remove(s.repo, { sessionId: SID });
+    assert.equal(s.j.view([s.repo]).notes.length, 0);
+    assert.equal(s.j.restore(s.repo, { sessionId: SID }).ok, true);
+    assert.equal(s.j.view([s.repo]).notes.length, 1);
   } finally { s.done(); }
 });
 

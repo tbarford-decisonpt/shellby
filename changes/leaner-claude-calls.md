@@ -1,0 +1,4 @@
+### Faster
+- **Drafts with Claude use far fewer tokens.** "Describe it", "Build it with Claude", "Fix with Claude", "Ask Claude" for hooks and "Word it with Claude" no longer carry Claude Code's whole coding setup with them: no default system prompt, and none of your plugins or hooks, unless your own Claude Code settings are how you sign in. A small draft measured about 6,300 tokens of overhead before and 1,100 now. Wording a CLAUDE.md rule now uses Haiku, since it's only one sentence.
+- **Next up reads Linear and Jira with only that server.** When Shellby can start your tracker's MCP server itself, the read no longer starts every other MCP server you have.
+- **No doubled crab tools in Shellby's own tabs.** With the Shellby plugin installed, its copies of say, celebrate, wear and status stay out of Shellby's own conversations, which already have them. That's a little less sent with every message.

@@ -66,6 +66,11 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reviewed', (_e, { tabId, reviewed = true, after = null } = {}) =>
     d.isStr(tabId) && d.manager.setReviewed(tabId, reviewed !== false, d.isStr(after) ? after : null));
 
+  // The effort chip: this conversation's own effort ('' is Auto).
+  ipcMain.handle('tab:effort', (_e, { tabId, effort } = {}) => {
+    try { d.isStr(tabId) && d.manager.setTabEffort(tabId, effort); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; }
+  });
+
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
@@ -94,6 +99,11 @@ function registerTabsIpc(ipcMain, d) {
       list.push({ id: m.id, text: text.startsWith('!!') ? text.slice(1) : text, attachments: files });
     }
     d.manager.steer(tabId, turnId, list);
+  });
+  // A queued message taken back: by its id, so one Claude already has can't be. -> { ok } | { ok: false, taken: true }.
+  ipcMain.handle('task:unsteer', (_e, { tabId, id } = {}) => {
+    if (!d.isStr(tabId) || !d.isStr(id)) return { ok: false };
+    return d.manager.unsteer(tabId, id) ? { ok: true } : { ok: false, taken: true };
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (d.isStr(tabId)) d.manager.interrupt(tabId); });
   // A crowded conversation: Claude writes a summary, then onResult starts it fresh.

@@ -9,9 +9,26 @@ test('splitArgs: spaces separate, quotes group, Windows backslashes survive', ()
 });
 
 test('addArgs: a program, with its environment', () => {
-  const r = addArgs({ name: 'github', transport: 'stdio', scope: 'user', target: 'npx -y @modelcontextprotocol/server-github', env: 'GITHUB_TOKEN=abc\n\nDEBUG=1' });
+  const r = addArgs({ name: 'github', transport: 'stdio', scope: 'user', target: 'npx -y @modelcontextprotocol/server-github', env: 'GITHUB_TOKEN=abc\n\nDEBUG=1' }, { platform: 'linux' });
   assert.deepEqual(r.args, ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', '-e', 'GITHUB_TOKEN=abc', '-e', 'DEBUG=1', '--', 'github', 'npx', '-y', '@modelcontextprotocol/server-github']);
   assert.deepEqual(r.summary.env, ['GITHUB_TOKEN', 'DEBUG'], 'the confirm window names variables, never their values');
+});
+
+test('addArgs: on Windows, npx and the other .cmd shims run through cmd /c, and the confirm window shows it', () => {
+  const win = target => addArgs({ name: 'fs', transport: 'stdio', target }, { platform: 'win32' });
+  const r = win('npx -y @modelcontextprotocol/server-filesystem "C:\\My Files"');
+  assert.deepEqual(r.args.slice(r.args.indexOf('--')), ['--', 'fs', 'cmd', '/c', 'npx', '-y', '@modelcontextprotocol/server-filesystem', 'C:\\My Files']);
+  assert.equal(r.summary.target, 'cmd /c npx -y @modelcontextprotocol/server-filesystem "C:\\My Files"');
+  for (const shim of ['pnpm', 'yarn', 'bunx', 'pnpx', 'NPX.cmd', 'C:\\Program Files\\nodejs\\npx.cmd']) {
+    assert.deepEqual(win(`"${shim}" dlx some-server`).args.slice(-6), ['fs', 'cmd', '/c', shim, 'dlx', 'some-server'], shim);
+  }
+  // Already wrapped, or a real program: as typed.
+  assert.deepEqual(win('cmd /c npx -y x').args.slice(-6), ['fs', 'cmd', '/c', 'npx', '-y', 'x']);
+  assert.deepEqual(win('node server.js').args.slice(-3), ['fs', 'node', 'server.js']);
+  assert.deepEqual(win('uvx mcp-server-git').args.slice(-3), ['fs', 'uvx', 'mcp-server-git']);
+  assert.equal(win('node server.js').summary.target, 'node server.js');
+  // Not on other platforms.
+  assert.deepEqual(addArgs({ name: 'fs', target: 'npx -y x' }, { platform: 'darwin' }).args.slice(-4), ['fs', 'npx', '-y', 'x']);
 });
 
 test('addArgs: a URL, with headers', () => {

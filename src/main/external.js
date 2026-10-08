@@ -19,6 +19,7 @@ const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
 const bugRead = require('./bugdex/detect');
 const { cmdKey } = require('./flaky/ids');
+const workPose = require('./work-pose');
 
 const DEFAULT_PORT = 47913;
 const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file contents
@@ -56,10 +57,6 @@ function programOf(command) {
   return 'a command';
 }
 
-// An MCP tool's name runs past the panel's 40 characters, and its verb at the
-// end is what decides his pose, so this one is kept longer.
-const liveName = t => (typeof t === 'string' && t ? t.slice(0, 120) : null);
-
 /**
  * Apply one hook event to the sessions map (pure: returns a new map and the
  * notable things that happened). evt is Claude Code's hook JSON.
@@ -73,7 +70,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
   const id = typeof evt?.session_id === 'string' && ID_RE.test(evt.session_id) ? evt.session_id : null;
   if (!id || !name) return { sessions: next, effects };
   const prev = next.get(id);
-  const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, live: null, liveAt: 0, helpers: 0, tools: 0, bg: [], startedAt: now };
+  const s = prev ? { ...prev } : { id, project: projectOf(evt.cwd), state: 'idle', tool: null, helpers: 0, tools: 0, bg: [], startedAt: now };
   if (evt.cwd) s.project = projectOf(evt.cwd);
   // Where Claude Code keeps the conversation is decided by the folder it started
   // in, so that one is kept: from SessionStart, or else the first one heard.
@@ -90,14 +87,12 @@ function applyHookEvent(sessions, evt, now, client = null) {
       s.state = 'idle';
       break;
     case 'UserPromptSubmit':
-      s.state = 'working'; s.tool = null; s.live = null; s.tools = 0; s.turnAt = now;
+      s.state = 'working'; s.tool = null; s.toolAt = now; s.tools = 0; s.turnAt = now;
       break;
     case 'PreToolUse': {
       s.state = 'working';
       s.tool = clip(evt.tool_name, 40) || null;
-      // `tool` is the last one used (the panel shows it); `live` only while it runs,
-      // for what the crab is shown doing with his claws (workpose.js).
-      s.live = liveName(evt.tool_name); s.liveAt = now;
+      s.toolAt = now;
       s.tools += 1;
       if (HELPER_TOOLS.has(evt.tool_name)) s.helpers = Math.min(s.helpers + 1, 12);
       // A backgrounded command outlives the turn that started it, so it is
@@ -111,7 +106,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
     }
     case 'PostToolUse': {
       if (s.state === 'asking') s.state = 'working'; // the permission was granted
-      if (liveName(evt.tool_name) === s.live) s.live = null;
+      s.tool = null; s.toolAt = now; // back to thinking until the next one
       // PostToolUse only fires for commands that succeeded (a failing one gets
       // PreToolUse only), so a test command here means the tests passed. Only
       // the meaning leaves this function, never the command itself.
@@ -139,10 +134,15 @@ function applyHookEvent(sessions, evt, now, client = null) {
       }
       break;
     }
-    case 'PostToolUseFailure':
+    case 'PostToolUseFailure': {
       if (s.state === 'asking') s.state = 'working'; // it was allowed, and then failed
-      if (liveName(evt.tool_name) === s.live) s.live = null;
+      s.tool = null; s.toolAt = now; // back to thinking until the next one
+      // Failing tests mark the project red, so the pass that fixes them counts
+      // as "green again" outside Shellby too. Only the meaning leaves here.
+      const cmd = evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell' ? evt.tool_input?.command : null;
+      if (cmd && classifyCommand(cmd) === 'tests' && s.project) effects.push({ type: 'command-fail', kind: 'tests', project: s.project });
       break;
+    }
     case 'SubagentStop':
       s.helpers = Math.max(0, s.helpers - 1);
       break;
@@ -162,7 +162,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
       const ms = Number.isFinite(s.turnAt) ? Math.max(0, now - s.turnAt) : 0;
       if (worked) effects.push({ type: 'turn-done', project: s.project, tools: s.tools, ms, cwd: typeof evt.cwd === 'string' ? evt.cwd.slice(0, 400) : null, sessionId: id, folder: s.cwd || null });
       // s.bg deliberately survives: whatever it backgrounded is still out there.
-      s.state = 'idle'; s.tool = null; s.live = null; s.helpers = 0; s.tools = 0; s.turnAt = null;
+      s.state = 'idle'; s.tool = null; s.helpers = 0; s.tools = 0; s.turnAt = null;
       break;
     }
     case 'SessionEnd':
@@ -223,7 +223,7 @@ function expire(sessions, now) {
   for (const [id, s] of sessions) {
     if (now - s.lastAt > FORGET_MS) continue;
     const quiet = now - s.lastAt > WORKING_STALE_MS && s.state !== 'idle';
-    const base = quiet ? { ...s, state: 'idle', tool: null, live: null, helpers: 0 } : s;
+    const base = quiet ? { ...s, state: 'idle', tool: null, helpers: 0 } : s;
     const bg = (base.bg || []).filter(b => now - b.at < BG_FORGET_MS);
     next.set(id, bg.length === (base.bg || []).length ? base : { ...base, bg });
   }
@@ -251,11 +251,10 @@ function summarize(sessions) {
   const background = list
     .flatMap(s => (s.bg || []).map(b => ({ project: s.project, program: b.program, at: b.at })))
     .sort((a, b) => b.at - a.at);
-  // The newest tool still running in a busy session: what the crab works with.
-  const live = busy.filter(s => s.live).sort((a, b) => b.liveAt - a.liveAt)[0];
+  // What the busy session that moved last is doing, for how the crab works (work-pose.js).
+  const latest = workPose.latest(busy);
   return {
-    state, busy: busy.length, crew, background,
-    tool: live ? live.live : null, toolAt: live ? live.liveAt : 0,
+    state, busy: busy.length, crew, background, tool: latest?.tool || null, toolAt: latest?.toolAt || null,
     sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(viewOf),
   };
 }

@@ -1,3 +1,4 @@
+// ci: Toolbox → Hooks and Memory: confirm-gated hook edits, CLAUDE.md saves and conflicts
 // End-to-end over the Chrome DevTools Protocol: Toolbox → Hooks and Memory.
 // Everything happens in a temp profile with a pretend home (isolated runs never
 // read or write the real ~/.claude): lists the hooks in plain words, adds one of

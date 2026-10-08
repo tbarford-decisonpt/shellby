@@ -90,6 +90,7 @@ test('chatSchema only offers Autonomous when the routine already has it', () => 
   const args = chatArgs(chatSchema());
   assert.equal(args[args.indexOf('--tools') + 1], '');
   assert.ok(args.includes('--strict-mcp-config') && args.includes('--no-session-persistence'));
+  assert.match(args[args.indexOf('--system-prompt') + 1], /structured output/);
   assert.ok(!args.some(a => /Describe this/.test(a)), 'the prompt goes on stdin, not the command line');
 });
 

@@ -152,3 +152,18 @@ test('the scheduler starts once, and stopping it is safe either side of that', t
   assert.equal(svc.isScheduling(), true);
   svc.stop();
 });
+
+test('routines due on the same tick go one after another, five seconds apart', t => {
+  const start = new Date(2026, 9, 2, 8, 59, 0).getTime();
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'setImmediate', 'Date'], now: start });
+  const at9 = (id, name) => ({ id, name, prompt: 'tidy up', mode: 'ask', enabled: true, catchUp: true, createdAt: start - 48 * H, schedule: { type: 'daily', time: '09:00' } });
+  const { svc, calls } = setup({ routines: [at9('a', 'One'), at9('b', 'Two')] });
+  try {
+    svc.startScheduler();
+    t.mock.timers.tick(1); // the first tick only sets where it counts from
+    t.mock.timers.tick(60_000); // 09:00 passes
+    assert.deepEqual(calls.opened.map(o => o.routineId), ['a']);
+    t.mock.timers.tick(5_000);
+    assert.deepEqual(calls.opened.map(o => o.routineId), ['a', 'b']);
+  } finally { svc.stop(); }
+});

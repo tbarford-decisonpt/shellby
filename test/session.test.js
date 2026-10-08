@@ -152,6 +152,64 @@ test('a crash mid-turn surfaces an error and clears busy', async () => {
   assert.equal(s.busy, false);
 });
 
+test('a crash mid-turn still ends the turn with a result, after its error', async () => {
+  const { s, items } = makeSession();
+  s.send('crash');
+  const res = await waitFor(s, i => i.kind === 'result');
+  const kinds = items.map(i => i.kind);
+  assert.ok(kinds.indexOf('error') >= 0 && kinds.indexOf('error') < kinds.indexOf('result'), 'the error first, then the turn ends');
+  assert.equal(kinds.filter(k => k === 'result').length, 1);
+  assert.equal(res.ok, false);
+  assert.equal(res.interrupted, false);
+  assert.equal(res.crashed, true, 'so the panel shows the error block once, not twice');
+  assert.equal(res.error, 'Claude Code stopped partway through that turn.');
+  assert.ok(Number.isFinite(res.durationMs));
+  assert.equal(s.busy, false);
+});
+
+test('a Stop that had to end the process is a stop, not a crash, and the next turn is ordinary', async () => {
+  const { s, items } = makeSession();
+  s.send('crash');
+  s.interrupting = true; // what interrupt() sets before its 8 s kill
+  const res = await waitFor(s, i => i.kind === 'result');
+  assert.equal(res.interrupted, true);
+  assert.equal(res.crashed, undefined);
+  assert.equal(items.filter(i => i.kind === 'error').length, 0, 'no "Claude Code exited" for a Stop you pressed');
+  assert.equal(s.interrupting, false);
+  s.send('hello');
+  const next = await waitFor(s, i => i.kind === 'result');
+  assert.equal(next.ok, true);
+  assert.equal(next.interrupted, undefined, 'not reported as stopped');
+  s.close();
+});
+
+test('the process going while nothing runs says nothing about a turn', () => {
+  const { s, items } = makeSession();
+  s.ended(0, '');
+  assert.deepEqual(items, []);
+});
+
+test('an edit\'s file is read off the main thread, and what came after it still arrives after it', async () => {
+  const fs = require('fs');
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-place-')));
+  const file = path.join(dir, 'a.txt');
+  fs.writeFileSync(file, 'one\ntwo\nthree\n');
+  const { s, items } = makeSession();
+  s.setBusy(true);
+  s.handle({ kind: 'tool', id: 't1', name: 'Edit', filePath: file, edits: [{ old: 'three', new: '3' }] });
+  s.handle({ kind: 'text', text: 'after the edit' });
+  s.handle({ kind: 'permission', requestId: 'r1', toolName: 'Write', filePath: file, edits: [{ old: null, new: 'x' }], suggestions: [] });
+  s.handle({ kind: 'text', text: 'after the card' });
+  assert.deepEqual(items, [], 'nothing overtakes the edit being placed');
+  s.ended(3, ''); // and a crash meanwhile ends the turn after all of it
+  await new Promise(r => setTimeout(r, 200));
+  assert.deepEqual(items.map(i => i.kind === 'decision' ? `decision:${i.decision}` : i.kind),
+    ['tool', 'text', 'permission', 'text', 'decision:cancelled', 'error', 'result']);
+  assert.equal(items[0].line, 3);
+  assert.deepEqual(items[2].edits, [{ old: 'one\ntwo\nthree\n', new: 'x' }]);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // ---- waiting for main.js before Claude sees a message (worktree + snapshot)
 
 test('a turn can wait for something first, and starts in the folder it settles on', async () => {

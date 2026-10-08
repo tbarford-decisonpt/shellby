@@ -24,8 +24,8 @@
   let fx = null;
   let state = 'idle';
 
-  // His work pose, held long enough to read, like the desktop crab's
-  // (shared/workposes.js; the moves are critter/beats.css).
+  // How he works, held long enough to read, like the desktop crab
+  // (shared/workposes.js; the moves are .work-<pose> in critter.css).
   const W = window.ShellbyWorkPoses;
   const poses = W.holder(() => { draw(); paint(); });
 
@@ -40,10 +40,10 @@
     }));
   }
 
-  // One state-* class at a time, exactly as the desktop critter does it, and his pose.
+  // One state-* class at a time, exactly as the desktop critter does it, and how he works.
   function paint() {
     const pose = poses.shown();
-    document.body.className = [`state-${state}`, pose ? `pose-${pose}` : '', document.body.classList.contains('connected') ? 'connected' : ''].filter(Boolean).join(' ');
+    document.body.className = [`state-${state}`, pose && pose !== 'busy' ? `work-${pose}` : '', document.body.classList.contains('connected') ? 'connected' : ''].filter(Boolean).join(' ');
   }
 
   function drawCrew(crew) {

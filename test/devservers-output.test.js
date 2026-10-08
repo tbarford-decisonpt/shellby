@@ -35,9 +35,30 @@ test('finds where each kind of server is listening', () => {
 
 test('an address that is not this PC is not the server', () => {
   assert.equal(out.detectUrl('Fetching https://registry.npmjs.org:443/react'), null);
-  assert.equal(out.detectUrl('  - Network:      http://192.168.1.10:3000'), null);
+  assert.equal(out.detectUrl('Proxying /api to http://192.168.1.10:3000'), null);
+  assert.equal(out.detectUrl('GET http://10.0.0.5:8080/health 200'), null);
+  assert.equal(out.detectUrl('Network: http://172.32.0.1:3000'), null, 'not a private address');
   assert.equal(out.detectUrl('see http://example.com:8080/docs'), null);
   assert.equal(out.detectUrl('ready in 312 ms'), null);
+});
+
+test("this PC's network address counts on a line that says it's the server, as localhost", () => {
+  assert.deepEqual(out.detectUrl('  - Network:      http://192.168.1.10:3000'), { url: 'http://localhost:3000/', port: 3000 });
+  assert.deepEqual(out.detectUrl('Server listening at http://10.1.2.3:8000/app'), { url: 'http://localhost:8000/app', port: 8000 });
+  assert.deepEqual(out.detectUrl('Ready on http://172.20.5.9:4000'), { url: 'http://localhost:4000/', port: 4000 });
+});
+
+test('"on port 3000" and "Server on 3000" are a port, but a database, a date or a time is not', () => {
+  assert.equal(out.detectUrl('Server on 3000').port, 3000);
+  assert.equal(out.detectUrl('App started on port 5000.').port, 5000);
+  assert.equal(out.detectUrl('API ready at 8081').port, 8081);
+  assert.equal(out.detectUrl('Server started at 10:45:12, listening on 3000').port, 3000);
+  assert.equal(out.detectUrl('Connected to database on port 5432'), null);
+  assert.equal(out.detectUrl('Redis server running on port 6379'), null);
+  assert.equal(out.detectUrl('[nodemon] started at 2026-10-07'), null);
+  assert.equal(out.detectUrl('Server started at 12:30'), null);
+  assert.equal(out.detectUrl('Server started in 1500 ms'), null);
+  assert.equal(out.detectUrl('Found 3000 files on disk'), null);
 });
 
 test('0.0.0.0 and [::] become localhost, which a browser can open', () => {

@@ -1,3 +1,4 @@
+// ci: the update button, with a scripted updater standing in for GitHub
 // End-to-end check of the update button against the dev app over CDP, with the
 // scripted fake updater (SHELLBY_FAKE_UPDATE) standing in for GitHub Releases.
 //   node scripts/e2e-updates.js [screenshotDir]
@@ -102,7 +103,7 @@ async function launch(mode, profile) {
     await wait(2500);
     await panel.ev("SB.setView('settings')");
     check(await until(panel, "SB.state.updates.state === 'error'"), 'a failed check ends in an error');
-    check(/ERR_INTERNET_DISCONNECTED/.test(await text(panel, 'updateStatus')), 'which says what went wrong');
+    check(/Couldn't reach GitHub/.test(await text(panel, 'updateStatus')), 'which says what went wrong, in plain words');
     check(await text(panel, 'updateBtn') === 'Check for updates', 'the button offers another go');
     check(await panel.ev("document.getElementById('updateDot').hidden"), 'no dot on the gear for a failed check');
     await shot(panel, '3-offline');

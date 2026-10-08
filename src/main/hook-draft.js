@@ -161,7 +161,7 @@ async function askClaude(input, deps) {
   const now = deps.now || Date.now;
   const deadline = now() + draft.DRAFT_TIMEOUT_MS;
   const call = async text => {
-    const res = await deps.runClaude(draft.args(SCHEMA), deadline - now(), { input: text });
+    const res = await deps.runClaude(draft.args(SCHEMA), deadline - now(), { input: text, lean: true });
     if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
     if (!res.stdout?.trim()) {
       deps.log?.warn?.(`hook draft failed: ${String(res.stderr || res.err?.message || '').trim().split('\n').slice(-3).join(' ')}`);

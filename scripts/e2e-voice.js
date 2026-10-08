@@ -1,3 +1,4 @@
+// ci: what he says, his idle habits, and what outranks him
 // End-to-end check of Shellby's voice and his little habits, against the dev
 // app over CDP with the fake CLI (isolated profile):
 //   1. Quiet: a finished task shows the bare glyph, exactly as before he spoke

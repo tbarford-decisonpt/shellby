@@ -52,6 +52,8 @@ function registerCritterIpc(ipcMain, d) {
     d.saveCritterPos();
     d.settleCritter();
   });
+  // Windows' animation effects, as his page sees them (wiring/windows.js setReducedMotion).
+  ipcMain.on('critter:reduced-motion', (_e, on) => d.setReducedMotion?.(on === true));
   // Perched, his window lets the mouse through except over the crab himself.
   ipcMain.on('critter:hit', (_e, over) => d.perching?.hover(!!over));
   // The floor strip lets the mouse through except over a pal (floor.js).

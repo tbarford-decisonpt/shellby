@@ -110,6 +110,12 @@
 }
 .recap.leaving { animation: cel-out .22s ease-in forwards; }
 body.celebrating .recap-host { visibility: hidden; } /* back once the trophy has had its moment */
+/* new tricks (claude-tricks.js): the recap's card, with rows that wrap and a Try it each */
+.tricks-row { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: var(--r-sm); border-left: 2px solid var(--line); background: rgba(0, 0, 0, .12); }
+.tricks-row.added { border-left-color: var(--glass); }
+.tricks-text { flex: 1; min-width: 0; font-size: var(--fs-12-5); line-height: 1.4; color: var(--sand-dim); overflow-wrap: anywhere; }
+.tricks-text code { font-size: .92em; }
+.tricks-try { flex: none; height: 24px; padding: 0 9px; font-size: var(--fs-12); }
 .recap .cel-eyebrow { color: var(--glass); padding-right: 26px; }
 .recap-title { margin: 0 0 6px; font: 600 var(--fs-19)/1.15 var(--font-pixel); color: var(--sand); }
 .recap-body { min-height: 0; overflow-y: auto; display: grid; gap: 10px; align-content: start; }

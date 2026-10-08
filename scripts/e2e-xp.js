@@ -1,3 +1,4 @@
+// ci: XP, levels, the desktop float and the level-up
 // End-to-end check of XP and levels against the dev app over CDP: the fake CLI
 // runs shell commands in a Shellby tab (tests, git push, a failing test), and
 // hook events from an "outside" Claude Code session deploy something. Checks

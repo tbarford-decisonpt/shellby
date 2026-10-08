@@ -229,6 +229,39 @@ test('Scheduler: a big forward jump (sleep) fires once, for the latest slot', ()
   set(at(5, 10, 1)); s.tick();
   assert.equal(fired.length, 2);
 });
+test('Scheduler: a slot slept through runs only if the routine catches up, and within twelve hours', () => {
+  const quiet = make({ type: 'daily', time: '09:00' }, { id: 'q', catchUp: false });
+  const late = harness([daily, quiet], at(2, 8));
+  late.s.tick();
+  late.set(at(2, 20)); late.s.tick(); // woke 11 hours after 09:00
+  assert.deepEqual(late.fired.map(f => f[0]), ['r1'], 'catchUp off: not run late');
+
+  const stale = harness([daily], at(2, 8));
+  stale.s.tick();
+  stale.set(at(2, 22)); stale.s.tick(); // 13 hours late
+  assert.equal(stale.fired.length, 0);
+
+  // On time (within a couple of ticks) it runs whatever catchUp says.
+  const onTime = harness([quiet], at(2, 8, 59));
+  onTime.s.tick();
+  onTime.set(at(2, 9, 0) + 30000); onTime.s.tick();
+  assert.equal(onTime.fired.length, 1);
+
+  // Already run since that slot (by hand): not again.
+  const ran = harness([make({ type: 'daily', time: '09:00' }, { lastRunAt: at(2, 10) })], at(2, 8));
+  ran.s.tick();
+  ran.set(at(2, 12)); ran.s.tick();
+  assert.equal(ran.fired.length, 0);
+});
+test('Scheduler: routines due on the same tick say their order, and whether they are late', () => {
+  const second = make({ type: 'daily', time: '09:00' }, { id: 'r2' });
+  const { s, set } = harness([daily, second], at(2, 8, 59));
+  const seen = [];
+  s.on('due', (r, info) => seen.push([r.id, info]));
+  s.tick();
+  set(at(2, 9, 0)); s.tick();
+  assert.deepEqual(seen, [['r1', { order: 0, late: false }], ['r2', { order: 1, late: false }]]);
+});
 test('Scheduler: disabled routines never fire; getRoutines throwing is survived', () => {
   const s1 = harness([{ ...daily, enabled: false }], at(2, 8));
   s1.s.tick(); s1.set(at(2, 10)); s1.s.tick();

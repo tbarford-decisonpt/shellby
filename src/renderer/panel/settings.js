@@ -84,6 +84,7 @@
     $('loginNote').hidden = state.packaged;
     $('notifyToggle').checked = !!state.settings.notifications;
     $('recapToggle').checked = state.settings.recap !== false;
+    $('claudeTricksToggle').checked = state.settings.claudeTricks !== false;
     $('forecastToggle').checked = state.settings.forecast !== false;
     $('spendGuardToggle').checked = state.settings.spendGuard !== false;
     $('spendReserveSelect').value = String(state.settings.spendReserve || 25);
@@ -102,7 +103,9 @@
     $('checkEachTurnOptions').hidden = state.settings.checkEachTurn !== true;
     $('checkTimeoutSelect').value = String([2, 5, 10, 20].includes(state.settings.checkTimeoutMin) ? state.settings.checkTimeoutMin : 5);
     $('turnShotsToggle').checked = state.settings.turnShots !== false;
-    $('wanderToggle').checked = state.settings.wander !== false;
+    // Windows' animation effects off: the default stays put (main's motion.js wanders), so it shows off.
+    const stillByDefault = !state.settings.wanderChosen && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $('wanderToggle').checked = state.settings.wander !== false && !stillByDefault;
     $('onTopToggle').checked = state.settings.onTop === true;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;
@@ -114,6 +117,7 @@
     $('soundsToggle').checked = !!state.settings.sounds;
     $('selfAwareToggle').checked = state.settings.selfAware !== false;
     $('suggestToggle').checked = state.settings.suggestions !== false;
+    $('plainCardsToggle').checked = state.settings.plainCards !== false;
     $('suggestToggle').disabled = state.settings.selfAware === false;
     const muted = state.settings.mutedSuggestions || [];
     $('mutedSuggestRow').hidden = !muted.length;
@@ -273,11 +277,13 @@
     if (r.pushToTalkError) $('hotkeyMsg').textContent = r.pushToTalkError;
   });
   $('selfAwareToggle').addEventListener('change', async e => { const r = await api.setSettings({ selfAware: e.target.checked }); state.settings = r.settings; renderSettings(); });
+  $('plainCardsToggle').addEventListener('change', async e => { const r = await api.setSettings({ plainCards: e.target.checked }); state.settings = r.settings; });
   $('suggestToggle').addEventListener('change', async e => { const r = await api.setSettings({ suggestions: e.target.checked }); state.settings = r.settings; });
   $('unmuteSuggestBtn').addEventListener('click', async () => { state.settings.mutedSuggestions = await api.muteSuggestion(null); renderSettings(); });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
+  $('claudeTricksToggle').addEventListener('change', async e => { const r = await api.setSettings({ claudeTricks: e.target.checked }); state.settings = r.settings; });
   $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
   $('catchBugsToggle').addEventListener('change', async e => { const r = await api.setSettings({ catchBugs: e.target.checked }); state.settings = r.settings; $('bugdexOptions').hidden = !e.target.checked; });
   for (const [id, key] of [['bugBattlesToggle', 'bugBattles'], ['bugFollowerToggle', 'bugFollower'], ['shareBugdexToggle', 'shareBugdex']]) {

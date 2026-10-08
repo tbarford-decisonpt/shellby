@@ -7,7 +7,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { snapshot, summarize, patchFor, undo, parseDiffSummary, checkRef } = require('../src/main/changes');
+const { snapshot, summarize, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-changes-'));
@@ -125,4 +125,41 @@ test('undo refuses when a file changed again after the turn, and touches nothing
     assert.equal(r.read('a.txt'), 'yours, later\n');
     assert.equal(r.read('b.txt'), 'turn\n', 'not even the files that could have gone back');
   } finally { r.done(); }
+});
+
+test('an untracked file too big for .git stays out of the snapshot, the small ones go in', async () => {
+  const r = repo();
+  try {
+    const before = await snapshot(r.dir);
+    r.write('notes.txt', 'small\n');
+    fs.writeFileSync(path.join(r.dir, 'video.bin'), Buffer.alloc(20 * 1024 * 1024 + 1));
+    const s = await summarize(before, await snapshot(r.dir));
+    assert.deepEqual(s.files.map(f => f.path), ['notes.txt']);
+  } finally { r.done(); }
+});
+
+test('a folder with more untracked files than it will track says why it has no snapshot', async () => {
+  const r = repo();
+  try {
+    fs.mkdirSync(path.join(r.dir, 'out'));
+    for (let i = 0; i <= MAX_UNTRACKED; i++) fs.writeFileSync(path.join(r.dir, 'out', `${i}.txt`), '');
+    const info = {};
+    assert.equal(await snapshot(r.dir, info), null);
+    assert.equal(info.skipped, SKIPPED_TOO_MANY);
+    assert.equal(await snapshot(r.dir), null, 'and without asking why, just none');
+  } finally { r.done(); }
+});
+
+test('mapLimit keeps its results in order and never runs more than its limit at once', async () => {
+  let now = 0;
+  let most = 0;
+  const out = await mapLimit([5, 1, 4, 2, 3], 2, async n => {
+    now++; most = Math.max(most, now);
+    await new Promise(r => setTimeout(r, n));
+    now--;
+    return n * 10;
+  });
+  assert.deepEqual(out, [50, 10, 40, 20, 30]);
+  assert.equal(most, 2);
+  assert.deepEqual(await mapLimit([], 4, async () => 1), []);
 });

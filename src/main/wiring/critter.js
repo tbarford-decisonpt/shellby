@@ -3,7 +3,6 @@
 // Kept out of main.js, which only wires it up.
 const focus = require('../focus');
 const workmode = require('../workmode');
-const workpose = require('../workpose');
 const shells = require('../shells');
 const sounds = require('../sounds');
 const statusLine = require('../statusline');
@@ -11,6 +10,7 @@ const streaks = require('../streaks');
 const voice = require('../voice');
 const { publicItem } = require('../wardrobe/service');
 const weatherRules = require('../weather');
+const workPose = require('../work-pose');
 const { levelFor } = require('../xp');
 
 /** d: what main shares (main.js `shared`). */
@@ -184,8 +184,6 @@ function wireCritter(d) {
       crew: [...own.crew, ...ext.crew],
       // Commands a turn backgrounded and walked away from (src/main/external.js).
       background: ext.background || [],
-      // The tool running now, here or elsewhere, whichever started last.
-      tool: workpose.latestTool([own, ext]),
     };
     let state = agg.state;
     const limited = d.usageService.limitWait();
@@ -196,8 +194,10 @@ function wireCritter(d) {
     else if (Date.now() - d.lastActivity > d.SLEEP_AFTER_MS && d.healthMood?.level !== 'critical') state = 'sleeping';
 
     if (d.said && d.said.until <= Date.now()) d.said = null;
-    // What his claws are busy with while he works (workpose.js, renderer/critter/beats.js).
-    const work = state === 'working' ? workpose.poseOf(agg.tool) : null;
+    // How he works: reading, editing, running a command... (work-pose.js), from
+    // whichever of your tabs and outside sessions moved last. The OBS overlay
+    // shows the same (lastStatus below).
+    const work = state === 'working' ? workPose.poseOf(workPose.latest([own, ext])?.tool) : null;
     d.send(d.critter, 'critter:state', {
       state,
       busy: agg.busy,

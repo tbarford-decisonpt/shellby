@@ -1,3 +1,4 @@
+// ci: projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
 // End-to-end check of Projects and its dev servers against the dev app over
 // CDP (throwaway profile). A real git repository whose `dev` script is a
 // stand-in Vite server (test/fixtures/devservers/server.js) is added to the

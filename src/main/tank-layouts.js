@@ -79,17 +79,18 @@ const nextId = list => { let n = 1; while (list.some(l => l.id === `l${n}`)) n++
 
 /**
  * Keep the tank as it is under a name. The same name (any case) is replaced;
- * a fourth is refused. Returns { ok, state, error }.
+ * a fourth is refused. Returns { ok, state, error, replaced: the layout it
+ * replaced, or null }, so the panel can offer it back.
  */
 function save(stateIn, { name, season = null, tank: tankState, now = 0 }) {
   const s = normalize(stateIn);
   const n = cleanName(name);
-  if (!n) return { ok: false, state: s, error: 'Give it a name first.' };
+  if (!n) return { ok: false, state: s, error: 'Give it a name first.', replaced: null };
   const same = s.list.find(l => l.name.toLowerCase() === n.toLowerCase());
-  if (!same && s.list.length >= MAX) return { ok: false, state: s, error: `He keeps ${MAX} layouts. Remove one first.` };
+  if (!same && s.list.length >= MAX) return { ok: false, state: s, error: `He keeps ${MAX} layouts. Remove one first.`, replaced: null };
   const entry = { id: same?.id || nextId(s.list), name: n, season: seasonOf(season) ?? same?.season ?? null, ...shapeOf(tankState), savedAt: pos(now) };
   const list = same ? s.list.map(l => (l.id === same.id ? entry : l)) : [...s.list, entry];
-  return { ok: true, state: { ...s, list, editedAt: pos(now) }, error: null };
+  return { ok: true, state: { ...s, list, editedAt: pos(now) }, error: null, replaced: same || null };
 }
 
 /** Forget one. If it's the season's, the tank from before stays as it is. */
@@ -97,6 +98,26 @@ function remove(stateIn, id, now = 0) {
   const s = normalize(stateIn);
   if (!s.list.some(l => l.id === id)) return s;
   return { list: s.list.filter(l => l.id !== id), seasonal: s.seasonal?.id === id ? null : s.seasonal, editedAt: pos(now) };
+}
+
+/**
+ * Undo a remove or a replace: put a layout you had back. One with its id and
+ * name (the one that replaced it) gives way; otherwise it goes back where it
+ * was (`at`, or the end), unless the list is full or its id or name has been
+ * taken since. `seasonal` is what the season had up for it, put back only if
+ * nothing else is up now. Returns { ok, state }.
+ */
+function restore(stateIn, raw, { at = Infinity, seasonal = null, now = 0 } = {}) {
+  const s = normalize(stateIn);
+  const l = normalizeOne(raw);
+  if (!l || !l.id) return { ok: false, state: s };
+  const here = s.list.find(x => x.id === l.id);
+  const same = x => x.name.toLowerCase() === l.name.toLowerCase();
+  const clash = here ? !same(here) : s.list.some(same);
+  if (clash || (!here && s.list.length >= MAX)) return { ok: false, state: s };
+  const list = here ? s.list.map(x => (x.id === l.id ? l : x)) : s.list.toSpliced(Math.max(0, at), 0, l);
+  const back = seasonal && seasonal.id === l.id && !s.seasonal ? seasonal : s.seasonal;
+  return { ok: true, state: normalize({ list, seasonal: back, editedAt: pos(now) }) };
 }
 
 /** Tag one to a season (or none). One layout a season: tagging another takes it from the first. */
@@ -163,4 +184,4 @@ function view(stateIn) {
   };
 }
 
-module.exports = { MAX, NAME_MAX, cleanName, normalize, save, remove, tag, asTank, seasonStep, syncable, merge, applySync, view };
+module.exports = { MAX, NAME_MAX, cleanName, normalize, shapeOf, save, remove, restore, tag, asTank, seasonStep, syncable, merge, applySync, view };

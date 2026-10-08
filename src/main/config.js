@@ -28,7 +28,8 @@ const DEFAULTS = {
   recap: true,        // a digest of what happened when you come back after an hour away (see recap.js)
   leaveGuard: true,   // hold up a shutdown or sign-out while work is unpushed, uncommitted or mid-turn (see leaving.js)
   model: '', // '' -> Claude Code's default
-  effort: '', // '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
+  effort: '', // new conversations' effort: '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
+  effortPick: true, // with effort on Auto, size each new conversation from its first message instead (effort-pick.js)
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
@@ -41,6 +42,7 @@ const DEFAULTS = {
   workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)
   workOverrides: {}, // what you changed while in Work mode; it wins over Work mode's own (workmode.js write)
   wander: true,      // idle strolls near his spot (see motion.js)
+  wanderChosen: false, // you set wander yourself: with Windows' animation effects off, only that strolls (motion.js wanders)
   onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop-layer.js)
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
@@ -145,6 +147,9 @@ const DEFAULTS = {
   corrections: null,  // { events, offers }: corrections noted and rules offered from them (see corrections.js); this PC only
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
+  plainCards: true, // permission cards and the Working bar say what a step does, in plain words (plain-words.js)
+  claudeTricks: true, // say what a new Claude Code can do, from its changelog (see claude-tricks.js)
+  claudeTricksState: null, // { lastSeen, pending }: the version he last saw, and a card not yet dismissed
   claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude-update.js); null -> tell me
   notes: null,        // { general, projects }: ideas to plan, build or ask about (see notes.js)
   health: null,       // health monitor settings (see health/service.js); null -> defaults
@@ -191,6 +196,9 @@ class Config {
   get(key) { return workmode.valueOf(this.data, key); }
 
   set(patch) {
+    // Every save writes the defaults too, so a saved wander: true can't say
+    // whether you chose it; this does (set from Settings, or another PC's sync).
+    if (patch && 'wander' in patch && !('wanderChosen' in patch)) patch = { ...patch, wanderChosen: true };
     const prev = this.data;
     this.data = { ...this.data, ...patch };
     if (!this.unreadable) writeSettings(this.file, JSON.stringify(this.data, null, 2));

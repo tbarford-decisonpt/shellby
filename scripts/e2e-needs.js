@@ -1,3 +1,4 @@
+// ci: snacks and naps: how a neglected crab looks, the Us card, feed, rinse, tuck in, switching it off
 // End-to-end check of his needs (src/main/needs.js, care.js), against the dev
 // app over CDP with the fake CLI (isolated profile), in just-the-crab mode,
 // since none of it needs Claude:
