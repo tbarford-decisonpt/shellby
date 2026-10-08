@@ -17,7 +17,7 @@ const { EventEmitter } = require('events');
 // Shellby's application on discord.com/developers. Its Rich Presence art needs
 // an asset named `shellby`. SHELLBY_DISCORD_CLIENT_ID points a dev run at
 // another application.
-const CLIENT_ID = '';
+const CLIENT_ID = '1557593030058315799';
 const clientId = (env = process.env) => (/^\d{17,20}$/.test(env.SHELLBY_DISCORD_CLIENT_ID || '') ? env.SHELLBY_DISCORD_CLIENT_ID : CLIENT_ID);
 
 const OP = Object.freeze({ HANDSHAKE: 0, FRAME: 1, CLOSE: 2, PING: 3, PONG: 4 });
