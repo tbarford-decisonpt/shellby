@@ -1552,8 +1552,8 @@
         <summary><h3>The weather outside</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
         <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
-        <div id="weatherBody" hidden>
-          <form class="row wrap" id="weatherSearch">
+        <div class="weather-body" id="weatherBody" hidden>
+          <form class="row weather-search" id="weatherSearch">
             <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
             <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
           </form>
