@@ -131,8 +131,8 @@ html, body {
 
 .part { transform-box: fill-box; transform-origin: center; transition: transform .35s cubic-bezier(.3,1.4,.5,1), opacity .3s; }
 .part-eyes { transform-origin: bottom; }
-/* A hat or face item follows the stalks (.acc.part-stalks) but sits on the eyes,
-   so wherever the eyes move on their own it moves with them: not their squash. */
+/* The stalks (and a hat or face item on them, which carries .part-stalks too) move
+   with the eyes wherever the eyes shift, so the eyes never float off them: not their squash. */
 .part-claw { transform-origin: 0% 50%; }
 
 /* ---------- idle: breathe, blink, a glance about, the odd claw snap ---------- */
@@ -144,7 +144,7 @@ html, body {
    doesn't read as a metronome. About one frame a second in all. */
 .state-idle #sprite { animation: breathe 4.4s steps(1) infinite; }
 .state-idle .part-eyes { animation: idle-eyes 24s steps(1) infinite; }
-.state-idle .acc.part-stalks { animation: idle-glance 24s steps(1) infinite; }
+.state-idle .part-stalks { animation: idle-glance 24s steps(1) infinite; }
 .state-idle .part-claw { animation: snap-idle 18s steps(1) infinite; }
 #crab:hover #sprite { animation: perk .5s ease-out; }
 #crab:hover .part-claw { animation: wave 0.6s ease-in-out 2; }
@@ -536,7 +536,7 @@ body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
    claw's group and pivot: one rotation sways arm and placard together. */
 .ci-red.state-idle:not(.tossing) .part-claw, .ci-red.state-working:not(.tossing) .part-claw { animation: sign-bob 1.6s ease-in-out infinite; }
 .ci-red.state-idle .part-eyes { transform: scaleY(.75) translateY(1px); }
-.ci-red.state-idle .acc.part-stalks { transform: translateY(1px); }
+.ci-red.state-idle .part-stalks { transform: translateY(1px); }
 .ci-red.state-idle #bubble { background: #ff5a4a; color: #fff; font-size: var(--fs-12); }
 .ci-red.state-idle #bubble::after { border-top-color: #ff5a4a; }
 @keyframes sign-bob { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(3deg); } }
@@ -577,7 +577,7 @@ body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
 /* ---------- focus: helmet on, standing guard; then a little break ---------- */
 .focus-focus.state-idle #sprite { animation: guard 2.4s ease-in-out infinite; }
 .focus-focus.state-idle .part-claw { transform: rotate(-12deg); animation: none; }
-.focus-focus.state-idle .part-eyes, .focus-focus.state-idle .acc.part-stalks { animation: guard-look 5s steps(1) infinite; }
+.focus-focus.state-idle .part-eyes, .focus-focus.state-idle .part-stalks { animation: guard-look 5s steps(1) infinite; }
 .focus-focus.state-idle #bubble { background: #3a86ff; color: #fff; font: 700 var(--fs-12) "Martian Mono", monospace; }
 .focus-focus.state-idle #bubble::after { border-top-color: #3a86ff; }
 .focus-break.state-idle #sprite { animation: breathe 4.5s steps(1) infinite; }
@@ -668,7 +668,7 @@ body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
 /* he looks up at it, leaning back a little to see */
 .eyeing #sprite { transform-origin: 50% 100%; animation: eye-up .65s cubic-bezier(.3, 1.3, .5, 1) forwards; }
 .eyeing .part-eyes { transform: translateY(-1px) scaleY(1.2); }
-.eyeing .acc.part-stalks { transform: translateY(-1px); }
+.eyeing .part-stalks { transform: translateY(-1px); }
 .eyeing .part-claw { transform: rotate(-12deg); }
 @keyframes eye-up {
   0% { transform: none; }
@@ -766,7 +766,7 @@ body.bit-flop .part-claw { animation: flop-claw 2.6s ease-in-out; }
 .coyote #sprite { animation: coyote-hover .42s ease-in-out forwards; }
 .coyote [class*="part-legs"] { animation: leg .06s steps(1) infinite; }
 .coyote .part-eyes { animation: coyote-look .42s steps(1) forwards; }
-.coyote .acc.part-stalks { animation: coyote-hat .42s steps(1) forwards; }
+.coyote .part-stalks { animation: coyote-hat .42s steps(1) forwards; }
 .coyote .part-claw { animation: coyote-claw .42s cubic-bezier(.3, 1.6, .5, 1) forwards; }
 .coyote #alert { animation: alert-pop .4s cubic-bezier(.3, 1.8, .5, 1) .18s forwards; }
 @keyframes coyote-hover { 0%, 55% { transform: none; } 70% { transform: translateY(-3px) scale(.96, 1.06); } 100% { transform: translateY(-2px); } }
@@ -894,7 +894,7 @@ body.together-party .together-bit { color: #ffd166; }
 /* The slap: claw up holding the sticker, shell turned toward you, then a squash as it lands. */
 .sticker-hold #sprite { animation: none; }
 .sticker-hold .part-claw { transform: rotate(-40deg) translate(1px, -3px); }
-.sticker-hold .part-eyes, .sticker-hold .acc.part-stalks { animation: none; transform: translateY(-1px); }
+.sticker-hold .part-eyes, .sticker-hold .part-stalks { animation: none; transform: translateY(-1px); }
 .sticker-turn #sprite { animation: none; }
 .sticker-turn .part-shell { transform: rotate(-9deg) scale(1.08); }
 .sticker-turn .part-claw { transform: rotate(-70deg) translate(-2px, -2px); }

@@ -65,7 +65,7 @@ html, body {
 .pal.mode-wave .part-claw, .pal.mode-look .part-claw { animation: wave .32s ease-in-out infinite; }
 .pal.mode-look svg { animation: look-up .6s cubic-bezier(.3, 1.3, .5, 1) forwards; }
 .pal.mode-look .part-eyes { transform: translateY(-1px) scaleY(1.2); }
-.pal.mode-look .acc.part-stalks { transform: translateY(-1px); }
+.pal.mode-look .part-stalks { transform: translateY(-1px); }
 /* a chat with him, a cheer, a poke, an oof */
 .pal.mode-chat .say, .pal.mode-cheer .say, .pal.mode-poked .say, .pal.mode-oof .say, .pal.mode-look .say { opacity: 1; animation: say-pop .3s cubic-bezier(.3, 1.8, .5, 1); }
 .pal.mode-chat svg { animation: bob .7s ease-in-out infinite; }

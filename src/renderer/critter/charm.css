@@ -11,7 +11,7 @@
 /* he stops; his eye stalks carry on a beat, then wobble back */
 body.settle #crab .part-stalks { transform-origin: 50% 100%; animation: stalk-lag .75s ease-out; }
 /* a hat sits on the eyes, so it lags with them, not with the bending stalks */
-body.settle #crab .part-eyes, body.settle #crab .acc.part-stalks { animation: eye-lag .75s ease-out; }
+body.settle #crab .part-eyes, body.settle #crab .part-stalks { animation: eye-lag .75s ease-out; }
 @keyframes stalk-lag {
   0% { transform: skewX(calc(var(--dir) * -24deg)); }
   25% { transform: skewX(calc(var(--dir) * 15deg)); }
@@ -93,7 +93,7 @@ body.greet #zzz { opacity: 0; }
 
 /* tests running, or a long job: he chews a claw and keeps glancing about */
 body.fret #crab .part-claw { animation: chew .36s steps(2) infinite; }
-body.fret #crab .part-eyes, body.fret #crab .acc.part-stalks { animation: look .9s steps(1) infinite; }
+body.fret #crab .part-eyes, body.fret #crab .part-stalks { animation: look .9s steps(1) infinite; }
 @keyframes chew {
   0% { transform: rotate(-48deg) translate(-2px, -1px); }
   50% { transform: rotate(-54deg) translate(-2px, -2px); }
