@@ -8,7 +8,9 @@
 // layout follows whichever PC changed it last (tank/share.js). Your friends list
 // follows the latest add or remove on any PC (friends.js mergeSync), and each of
 // your settings whichever PC changed it last, snippets and pins item by item
-// (sync-prefs.js). The gist is yours but is still treated as untrusted input.
+// (sync-prefs.js). His life (finds, the bond, games, quests, scenes and his
+// personality) is in sync-life.js. The gist is yours but is still treated as
+// untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
@@ -18,6 +20,7 @@ const tankLayouts = require('../tank/layouts');
 const friends = require('../friends');
 const events = require('../events');
 const prefs = require('../sync-prefs');
+const life = require('../sync-life');
 const { findGist } = require('./gists');
 
 const FILE = 'shellby-sync.json';
@@ -33,7 +36,7 @@ const num = v => (Number.isFinite(v) && v > 0 ? v : 0);
  * Pull the syncable parts out of Shellby's settings. get: config.get. data:
  * your own settings, without Work mode laid over them (config.data).
  */
-function snapshot(get, data = {}) {
+function snapshot(get, data = {}, now = Date.now()) {
   const w = get('wardrobe') || {};
   const stamps = get('syncStamps') || {};
   const xp = normalizeXp(get('xp'));
@@ -54,6 +57,7 @@ function snapshot(get, data = {}) {
     // Tide events: goals and medals follow you between PCs (events.js merge).
     events: events.normalize(get('events')),
     prefs: prefs.snapshot(data, stamps.prefs),
+    life: life.snapshot(get, xp.device, stamps.life, now),
   });
 }
 
@@ -92,6 +96,8 @@ function clean(raw) {
     events: events.normalize(r.events),
     // Personal settings only, each with when it last changed.
     prefs: prefs.clean(r.prefs),
+    // Finds, the bond, games, quests and scenes: each PC's share of the counts.
+    life: life.clean(r.life),
   };
 }
 
@@ -125,6 +131,7 @@ function merge(aIn, bIn) {
     friends: friends.mergeSync(a.friends, b.friends),
     events: events.merge(a.events, b.events),
     prefs: prefs.merge(a.prefs, b.prefs),
+    life: life.merge(a.life, b.life),
   });
 }
 
@@ -135,14 +142,17 @@ function patchFor(merged, get, data = {}) {
   const w = get('wardrobe') || {};
   const xp = get('xp') || {};
   const streaks = get('streaks') || {};
+  const stamps = get('syncStamps') || {};
+  const lived = life.patchFor(merged.life, get, normalizeXp(xp).device, stamps.life);
   const patch = {
+    ...lived.patch,
     wardrobe: { ...w, unlocked: merged.wardrobe.unlocked, collected: merged.wardrobe.collected, outfit: merged.wardrobe.outfit },
     stats: merged.stats,
     xp: { ...xp, total: merged.xp.total, byDevice: merged.xp.byDevice, legacyPending: false, log: merged.xp.log, lastDay: merged.xp.lastDay },
     streaks: { ...streaks, days: merged.days },
     // Merged into this PC's own, so its folders, options and badges stay.
     stickers: stickers.merge(get('stickers'), merged.stickers),
-    syncStamps: { outfitAt: merged.wardrobe.outfitAt, skinAt: merged.skinAt, prefs: null },
+    syncStamps: { outfitAt: merged.wardrobe.outfitAt, skinAt: merged.skinAt, prefs: null, life: lived.stamp },
     // Merged into this PC's own book, so its open bugs and projects stay.
     bugdex: bugdex.applySync(bugdex.withDevice(get('bugdex'), normalizeXp(xp).device), merged.bugdex),
   };
@@ -171,7 +181,7 @@ async function readGist(gh, id) {
 
 // What's in the gist is settled: nobody else's legacy is pending.
 const settled = snap => { const c = clean(snap); return { ...c, xp: { ...c.xp, legacyPending: false } }; };
-const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, his tank and its saved layouts, your friends list and settings. Safe to delete; Shellby makes a new one.' }, null, 1);
+const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, the Bugdex, finds, his bond, his tank and its saved layouts, your friends list and settings. Safe to delete; Shellby makes a new one.' }, null, 1);
 
 /**
  * One sync: merge local with the gist, apply what changed locally, push what
@@ -192,6 +202,8 @@ async function syncNow(gh, { get, set, data = () => ({}) }) {
   const merged = merge(local, remote);
   const pulled = !same(merged, local);
   if (pulled) set(patchFor(merged, get, data()));
+  // Pushed only: this PC's share of the counts is stamped, so the next sync agrees.
+  else if (!same({ life: (get('syncStamps') || {}).life?.tally }, { life: merged.life.tally })) set({ syncStamps: { ...(get('syncStamps') || {}), life: { ...(get('syncStamps') || {}).life, tally: merged.life.tally } } });
   const pushed = !same(merged, remote);
   if (pushed) await gh.patch(`/gists/${encodeURIComponent(id)}`, { files: { [FILE]: { content: content(merged) } } });
   return { gistId: id, pulled, pushed };

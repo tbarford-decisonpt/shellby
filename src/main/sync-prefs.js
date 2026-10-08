@@ -22,12 +22,14 @@
 const { TIMEOUTS_MIN } = require('./checks');
 const { SETTINGS: CLIMB_SETTINGS } = require('./climb');
 const { DEFAULTS, MODES } = require('./config');
+const filelinks = require('./filelinks');
 const { COLONY_MAX } = require('./floor');
 const guard = require('./guard');
 const mischief = require('./mischief');
 const { isModel } = require('./models');
 const outputStyles = require('./outputstyles');
 const { SETTINGS: PERCH_SETTINGS } = require('./perch');
+const { FEATURES: SUGGESTABLE } = require('./selfaware');
 const { EFFORTS } = require('./session');
 const snippets = require('./snippets');
 const sounds = require('./sounds');
@@ -49,6 +51,10 @@ const PREFS = {
   critterScale: oneOf([0.75, 1, 1.5, 2]),
   notifications: bool, recap: bool, claudeTricks: bool, plainCards: bool, leaveGuard: bool, crabOnly: bool, workMode: bool, wander: bool, onTop: bool,
   sounds: bool, soundFx: bool, needsOn: bool, forecast: bool, spendGuard: bool, holdBigTasks: bool, flakyTests: bool,
+  selfAware: bool, suggestions: bool, queueKeepAwake: bool, externalSessions: bool,
+  // An editor this PC doesn't have falls back to the one it does (filelinks.js pickEditor).
+  editor: oneOf(filelinks.CHOICES),
+  mutedSuggestions: v => (Array.isArray(v) ? [...new Set(v.filter(f => typeof f === 'string' && SUGGESTABLE[f]))] : undefined),
   surprises: bool, tideEvents: bool, signCommits: bool, catchBugs: bool, bugBattles: bool, bugFollower: bool, checkEachTurn: bool, turnShots: bool, worktrees: bool, clashWarnings: bool, planOnly: bool,
   perch: oneOf(PERCH_SETTINGS),
   climb: oneOf(CLIMB_SETTINGS),
@@ -97,6 +103,8 @@ const LABELS = Object.freeze({
   climb: 'climbing', mischief: 'mischief', mischiefPranks: 'pranks', colony: 'pals', chatter: 'chatter', ambient: 'ambient sound',
   soundVolume: 'volume', spendReserve: 'limit reserve', spendMaxMinutes: 'limit wait', checkTimeoutMin: 'check time limit',
   workOverrides: 'Work mode', snippets: 'snippets', pinnedTools: 'pins',
+  selfAware: 'Claude knowing Shellby', suggestions: 'feature suggestions', mutedSuggestions: 'muted suggestions',
+  queueKeepAwake: 'staying awake for queued work', externalSessions: 'outside sessions', editor: 'editor',
 });
 
 const num = v => (Number.isFinite(v) && v > 0 ? v : 0);

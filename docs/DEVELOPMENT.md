@@ -368,6 +368,7 @@ src/main/        Electron main process
                    composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate), scan.js (what Claude Code used lately, from its transcripts) and service.js
   notes.js         Notes (pure): a list per project and a General one, their limits
   sync-prefs.js    which settings sync between PCs, each checked by its own rule, and the newest change wins
+  sync-life.js     his life between PCs: finds, bond points and games as each PC's own share (a find swapped away stays gone), records, quests, scenes, his seed
   events.js        tide events (pure): six short named runs inside the seasons, their goals, medals, boosts and the bug that comes along;
                    wiring/events.js counts every stat toward them, says when one starts or ends, and gives the medal (docs/plans/viral.md)
   today.js         the app's one calendar: captureClock for screenshots, SHELLBY_TODAY for dev and test runs, the real day otherwise
