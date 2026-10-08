@@ -610,7 +610,7 @@
     const card = h('div', { class: `bb-reg${jar.badge ? ' badge' : ''}${jar.fame ? ' fame' : ''}` },
       h('p', { class: 'bb-reg-eyebrow', text: jar.fame ? 'HALL OF FAME' : jar.badge ? 'BADGE EARNED' : jar.isNew ? 'NEW BUGDEX ENTRY' : 'IN THE JAR' }),
       jar.badge && b.badge
-        ? h('div', { class: 'bb-reg-badge' }, SB.Sprite.grid(b.badge.pixels, b.badge.palette, { px: 7 }))
+        ? h('div', { class: 'bb-reg-badge' }, SB.Sprite.grid(b.badge.pixels, b.badge.palette, { px: 6 }))
         : h('div', { class: 'bb-reg-art' }, sprite(b, fitPx(b.pixels, 56))),
       h('p', { class: 'bb-reg-name', text: jar.badge && b.badge ? `The ${b.badge.name}` : `#${String(b.no).padStart(3, '0')} ${b.name}` }),
       h('p', { class: 'bb-reg-sub', text: jar.fame ? 'Every badge, the Deep Four and the champion.' : jar.badge ? `You beat the boss of ${b.habitatName}.` : b.blurb || '' }),

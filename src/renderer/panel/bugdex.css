@@ -79,13 +79,38 @@ body[data-view="bugdex"] .view-bugdex { display: block; overflow-y: auto; paddin
 .bd-badges-head { display: flex; align-items: baseline; justify-content: space-between; }
 .bd-badges-head + .bd-badges, .bd-badges-head + .bd-league-row { margin-top: 2px; }
 .bd-badges-count { font: 600 var(--fs-11) var(--font-pixel); color: var(--sand-dim); }
-.bd-badges { list-style: none; margin: 0 0 10px; padding: 8px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; border-radius: 8px; background: #0b1618; box-shadow: inset 0 2px 6px rgba(0, 0, 0, .5); }
-.bd-badge-slot { display: grid; place-items: center; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, #132429, #0b1618); opacity: .55; outline-offset: 2px; }
-.bd-badge-slot svg { image-rendering: pixelated; width: 70%; height: auto; }
-.bd-badge-slot:not(.earned) svg { filter: brightness(1.9); }
-.bd-badge-slot.earned { opacity: 1; background: radial-gradient(closest-side, rgba(255, 210, 63, .18), #0b1618); }
-.bd-badge-slot.earned svg { filter: drop-shadow(0 0 4px rgba(255, 210, 63, .45)); animation: bd-badge-shine 4s ease-in-out infinite; }
-@keyframes bd-badge-shine { 0%, 80%, 100% { filter: drop-shadow(0 0 4px rgba(255, 210, 63, .45)); } 88% { filter: drop-shadow(0 0 8px rgba(255, 241, 168, .9)) brightness(1.3); } }
+.bd-badges-meter { display: block; height: 4px; margin: 3px 0 8px; border-radius: 99px; background: #0b1618; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .6); overflow: hidden; }
+.bd-badges-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #c48a1a, #ffd23f 70%, #fff1a8); box-shadow: 0 0 6px rgba(255, 210, 63, .5); }
+/* The case: a velvet lining in a brass rim, a socket pressed in for each badge. */
+.bd-badges {
+  list-style: none; margin: 0 0 12px; padding: 10px 8px 8px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px 4px; border-radius: 10px;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .018) 0 2px, transparent 2px 6px), radial-gradient(120% 90% at 50% 0%, #17303a, #0a1517 75%);
+  box-shadow: inset 0 0 0 1px rgba(255, 210, 63, .22), inset 0 0 0 3px #0a1214, inset 0 0 0 4px rgba(255, 210, 63, .1), inset 0 6px 14px rgba(0, 0, 0, .55);
+}
+.bd-badges.full { box-shadow: inset 0 0 0 1px rgba(255, 210, 63, .6), inset 0 0 0 3px #0a1214, inset 0 0 0 4px rgba(255, 210, 63, .3), inset 0 6px 14px rgba(0, 0, 0, .55), 0 0 14px rgba(255, 210, 63, .18); }
+.bd-badge-slot { display: grid; justify-items: center; gap: 4px; min-width: 0; border-radius: 8px; outline-offset: 2px; }
+.bd-badge-socket {
+  position: relative; display: grid; place-items: center; width: 100%; max-width: 48px; aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 38%, #0f2126, #060d0f 72%);
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, .75), inset 0 -1px 0 rgba(255, 255, 255, .05), 0 1px 0 rgba(255, 255, 255, .05);
+}
+.bd-badge-socket svg { width: 70%; height: auto; image-rendering: pixelated; transition: transform .18s ease-out; }
+.bd-badge-slot:not(.earned) svg { filter: brightness(2.1); opacity: .7; }
+.bd-badge-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-9-5) var(--font-pixel); color: var(--sand-faint); }
+.bd-badge-slot.earned .bd-badge-name { color: #ffd98a; }
+.bd-badge-slot.earned .bd-badge-socket {
+  background: radial-gradient(circle at 50% 42%, rgba(255, 210, 63, .26), rgba(255, 210, 63, .05) 55%, #071012 75%);
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(255, 210, 63, .35), 0 1px 0 rgba(255, 255, 255, .05);
+}
+.bd-badge-slot.earned svg { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .55)) drop-shadow(0 0 3px rgba(255, 210, 63, .35)); }
+/* A glint runs across the case, one earned badge after the next. */
+.bd-badge-slot.earned .bd-badge-socket::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .7) 50%, transparent 62%);
+  transform: translateX(-130%); animation: bd-badge-glint 7s ease-in-out infinite; animation-delay: calc(var(--i, 0) * .18s);
+}
+@keyframes bd-badge-glint { 0%, 72% { transform: translateX(-130%); } 86%, 100% { transform: translateX(130%); } }
+.bd-badge-slot.earned:hover svg, .bd-badge-slot.earned:focus-visible svg { transform: translateY(-2px) scale(1.1); }
 .bd-league-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .bd-elite { display: grid; justify-items: center; gap: 3px; padding: 6px 2px; border-radius: 8px; border: 1px dashed var(--line); text-align: center; }
 .bd-elite svg { image-rendering: pixelated; }
@@ -127,5 +152,5 @@ body[data-view="bugdex"] .view-bugdex { display: block; overflow-y: auto; paddin
 .bd-over .link-btn:hover, .bd-over .link-btn:focus-visible { color: var(--sand); }
 
 @media (prefers-reduced-motion: reduce) {
-  .view-bugdex, .bd-loose-art svg, .bd-detail, .bd-badge-slot.earned svg { animation: none !important; transition: none !important; }
+  .view-bugdex, .bd-loose-art svg, .bd-detail, .bd-badge-socket svg, .bd-badge-slot.earned .bd-badge-socket::after { animation: none !important; transition: none !important; }
 }

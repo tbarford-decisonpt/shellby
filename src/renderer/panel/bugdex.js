@@ -119,11 +119,13 @@
     const l = v.league;
     const box = $('bdLeague');
     if (!l) { box.replaceChildren(); return; }
-    const badge = b => h('li', {
-      class: `bd-badge-slot${b.earned ? ' earned' : ''}`, tabindex: '0',
+    const badge = (b, i) => h('li', {
+      class: `bd-badge-slot${b.earned ? ' earned' : ''}`, tabindex: '0', style: `--i:${i}`,
       title: b.earned ? `${b.name}: beat ${b.boss} in ${b.habitatName}, ${day(b.at)}` : `${b.name}: beat ${b.boss || 'the boss'} of ${b.habitatName}`,
       'aria-label': b.earned ? `${b.name}, earned ${day(b.at)}` : `${b.name}, not earned yet. Beat ${b.boss || 'the boss'} of ${b.habitatName}.`,
-    }, SB.Sprite.grid(b.pixels, b.palette, { px: 4 }));
+    },
+    h('span', { class: 'bd-badge-socket' }, SB.Sprite.grid(b.pixels, b.palette, { px: 3 })),
+    h('span', { class: 'bd-badge-name', 'aria-hidden': 'true', text: b.name.replace(/ Badge$/, '') }));
     const member = m => h('li', { class: `bd-elite ${m.rank}${m.beaten ? ' beaten' : ''}`, title: m.beaten ? `${m.name}: beaten ${day(m.at)}` : m.name },
       hasArt(m) ? art(m, 30) : h('span', { class: 'bd-unknown', text: '?' }),
       h('span', { class: 'bd-elite-name', text: m.rank === 'champion' ? `★ ${m.name}` : m.name }));
@@ -131,7 +133,8 @@
       h('div', { class: 'bd-badges-head' },
         h('h3', { class: 'bd-section-title', text: 'Badges' }),
         h('span', { class: 'bd-badges-count', text: `${l.earned} of ${l.of}` })),
-      h('ul', { class: 'bd-badges', 'aria-label': 'Badge case' }, l.badges.map(badge)),
+      h('span', { class: 'bd-badges-meter', 'aria-hidden': 'true' }, h('i', { style: `width:${Math.round(l.earned / l.of * 100)}%` })),
+      h('ul', { class: `bd-badges${l.earned === l.of ? ' full' : ''}`, 'aria-label': 'Badge case' }, l.badges.map(badge)),
       h('div', { class: 'bd-badges-head' },
         h('h3', { class: 'bd-section-title', text: l.open ? 'The league' : 'The league · opens with every badge' })),
       h('ul', { class: `bd-league-row${l.open ? ' open' : ''}`, 'aria-label': 'The Deep Four and the champion' }, [...l.elite, l.champion].map(member)),
