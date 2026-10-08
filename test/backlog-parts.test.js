@@ -45,7 +45,7 @@ function backlogIpc() {
   const calls = [];
   const ipcMain = { handle(ch, fn) { handlers[ch] = fn; }, on() {} };
   const d = {};
-  for (const name of ['View', 'Edit', 'AddIssue', 'Do', 'OpenDoing', 'OpenTodo', 'OpenIssue', 'Hide', 'Commit', 'Hand', 'TabInfo', 'OpenPr', 'Tick']) {
+  for (const name of ['View', 'Edit', 'AddIssue', 'Do', 'OpenDoing', 'OpenTodo', 'OpenIssue', 'Hide', 'Commit', 'Hand', 'TabInfo', 'OpenPr', 'Tick', 'TrackerChoices', 'TrackerSet']) {
     d[`backlog${name}`] = (...args) => { calls.push([`backlog${name}`, ...args]); return { ok: true }; };
   }
   registerBacklogIpc(ipcMain, d);
@@ -53,8 +53,8 @@ function backlogIpc() {
   return { call, calls, handlers };
 }
 
-const GOOD_IDS = ['t:0123456789', 't:0123456789~2', 'gh:me/crab#42', 'todo:src/a.js:12'];
-const BAD_IDS = ['x', '', 'gh:me/crab#', 'gh:me/crab#1234567890', 't:xyz', 't:0123456789~', 'todo:a.js', 'todo:a\nb.js:1', null, 5, {}];
+const GOOD_IDS = ['t:0123456789', 't:0123456789~2', 'gh:me/crab#42', 'todo:src/a.js:12', 'tk:ENG-12', 'tk:MY_PROJ-7'];
+const BAD_IDS = ['tk:eng-1', 'tk:ENG-', 'tk:-1', 'tk:ENG-1/x', 'x','', 'gh:me/crab#', 'gh:me/crab#1234567890', 't:xyz', 't:0123456789~', 'todo:a.js', 'todo:a\nb.js:1', null, 5, {}];
 
 test('ID_RE takes the ids the list gives out and nothing else', () => {
   for (const id of GOOD_IDS) assert.ok(ID_RE.test(id), id);
@@ -226,6 +226,28 @@ test('backlog:commit needs a root', async () => {
 
   assert.equal(calls.length, 1);
   assert.equal(r.ok, false);
+});
+
+test('Linear or Jira setup: a project, and three short strings or off', async () => {
+  const { call, calls } = backlogIpc();
+
+  await call('backlog:tracker-choices', { root: 'C:\\p' });
+  await call('backlog:tracker-set', { root: 'C:\\p', server: 'linear', kind: 'linear', scope: 'ENG', extra: 'dropped' });
+  await call('backlog:tracker-set', { repo: 'me/crab', off: true });
+  const bad = [
+    await call('backlog:tracker-choices', {}),
+    await call('backlog:tracker-set', { root: 'C:\\p', server: 'linear', kind: 'linear' }),
+    await call('backlog:tracker-set', { root: 'C:\\p', server: 'linear', kind: 'linear', scope: 'x'.repeat(401) }),
+    await call('backlog:tracker-set', { root: 'C:\\p', server: ['linear'], kind: 'linear', scope: 'ENG' }),
+    await call('backlog:tracker-set', { server: 'linear', kind: 'linear', scope: 'ENG' }),
+  ];
+
+  assert.deepEqual(calls, [
+    ['backlogTrackerChoices', { root: 'C:\\p' }],
+    ['backlogTrackerSet', { root: 'C:\\p', server: 'linear', kind: 'linear', scope: 'ENG' }],
+    ['backlogTrackerSet', { repo: 'me/crab', off: true }],
+  ]);
+  for (const r of bad) assert.equal(r.ok, false);
 });
 
 test('the conversation menu calls need a tab id', async () => {

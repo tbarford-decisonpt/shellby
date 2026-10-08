@@ -5,12 +5,15 @@
 // added from the card lands in the file, Do this opens a conversation in a
 // copy with the prompt waiting in the box (nothing sent), closing it unsent
 // takes the empty copy with it, a task is ticked off from its menu, Commit it
-// commits only tasks.md, and nothing throws in the panel.
+// commits only tasks.md, a Linear MCP server brings its issues in (read by
+// the fake CLI, through reading tools only) and Do this starts one in a copy
+// named for it, and nothing throws in the panel.
 //   node scripts/e2e-next-up.js [screenshot.png]
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9367;
@@ -43,6 +46,8 @@ async function cdp(url) {
   fs.writeFileSync(path.join(repo, 'src', 'sync.js'), 'function sync() {\n  // FIXME retry once when offline\n  return fetch(url);\n}\n');
   fs.mkdirSync(path.join(repo, '.shellby'));
   fs.writeFileSync(path.join(repo, '.shellby', 'tasks.md'), '# Tasks\n\n## Now\n- [ ] Fix the flicker on the second monitor\n  Only on the second monitor.\n\n## Next\n');
+  // A Linear MCP server, for the Linear part: listed, never started (the fake CLI answers the read).
+  fs.writeFileSync(path.join(repo, '.mcp.json'), JSON.stringify({ mcpServers: { linear: { type: 'http', url: 'https://mcp.linear.app/mcp' } } }));
   git('add', '-A');
   git('commit', '-qm', 'init');
   const tasksFile = () => fs.readFileSync(path.join(repo, '.shellby', 'tasks.md'), 'utf8');
@@ -133,6 +138,32 @@ async function cdp(url) {
     check((await committed()) === 'chore: update tasks', 'Commit it makes a commit');
     check(git('show', '--name-only', '--format=', 'HEAD') === '.shellby/tasks.md', 'with only tasks.md in it');
     check(/^A {2}wip\.js$/m.test(git('status', '--porcelain')), 'what you had staged stays staged');
+
+    // ---- Linear, through the MCP server the project has
+    const link = "document.querySelector('#pjDetailScreen .bl-tracker-link')";
+    check(await until(`${link}?.textContent === 'Linear…'`), 'someone with a Linear server gets one quiet Linear… link under the list');
+    await ev(`${link}.click()`);
+    check(await until("[...document.querySelectorAll('#pjDetailScreen .bl-tracker select:first-child option')].some(o => o.value === 'linear')"), 'its form offers the linear server');
+    check(await ev("document.querySelectorAll('#pjDetailScreen .bl-tracker select')[1]?.value === 'linear'"), 'and knows it\'s Linear');
+    await ev("(f => { f.querySelector('.bl-tracker-scope').value = 'ENG'; f.requestSubmit(); })(document.querySelector('#pjDetailScreen .bl-tracker'))");
+    const eng = `${rows}.find(r => r.querySelector('.bl-tag')?.textContent === 'ENG-7')`;
+    check(await until(`!!${eng}`, 30000), 'Claude reads it in the background and ENG-7 joins the list');
+    check(await ev(`${eng}?.classList.contains('tier-now') && ${eng}.textContent.includes('Urgent')`), 'ranked Now, saying why');
+    check(await ev(`${link}?.textContent === 'Linear: ENG'`), 'the link says what\'s set');
+    await ev("[...document.querySelectorAll('#pjDetailScreen .bl-filter button')].find(b => b.textContent === 'Issues')?.click()");
+    check(await until(`${rows}.length === 1 && !!${eng}`), 'the Issues filter shows it');
+    await ev("[...document.querySelectorAll('#pjDetailScreen .bl-filter button')].find(b => b.textContent === 'All')?.click()");
+    await ev(`${eng}.querySelector('.bl-more').click()`);
+    check(await until("[...document.querySelectorAll('#blMenu .menu-item')].some(b => b.textContent.includes('Open in Linear'))"), 'its menu has Open in Linear');
+    await ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+    if (shot) await savePng((m, p) => panel.send(m, p), shot.replace(/\.png$/i, '-linear.png'));
+    const tabsNow = await ev('SB.state.tabs.size');
+    await ev(`${eng}.querySelector('.pj-h-acts .btn').click()`);
+    check(await until(`SB.state.view === 'chat' && SB.state.tabs.size > ${tabsNow}`, 30000), 'Do this on ENG-7 opens a conversation');
+    const engBox = await until("document.getElementById('input').value", 10000);
+    check(/^Work on Linear issue ENG-7: "Crab walks sideways"/.test(engBox || '') && /<issue>\nHe should walk forwards when asked\.\n<\/issue>/.test(engBox || ''), 'with the issue waiting in the box, fenced');
+    check(/worktree .*\nHEAD [0-9a-f]+\nbranch refs\/heads\/shellby\/eng-7-crab-walks-sideways-/.test(git('worktree', 'list', '--porcelain')), 'in a copy on a branch named for it');
+    await ev(`SB.closeTab(${JSON.stringify(await ev('SB.state.activeTab'))}, { quiet: true })`);
 
     check(!panel.errors.length, `no uncaught errors in the panel${panel.errors.length ? `: ${panel.errors[0]}` : ''}`);
   } catch (e) {

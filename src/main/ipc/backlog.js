@@ -4,7 +4,7 @@
 // a repository it listed, an item by the id the last list gave it, a task line
 // by the number it was shown at. Main looks each one up before using it.
 // No . or .. as an owner or name (as github/prwork.js): GitHub has neither, and they'd walk an API path.
-const ID_RE = /^(?:t:[0-9a-f]{10}(?:~\d{1,3})?|gh:(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}#)[A-Za-z0-9_.-]{1,100}#\d{1,9}|todo:[^\0\r\n]{1,1100}:\d{1,7})$/;
+const ID_RE = /^(?:t:[0-9a-f]{10}(?:~\d{1,3})?|tk:[A-Z][A-Z0-9_]{0,9}-\d{1,7}|gh:(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}#)[A-Za-z0-9_.-]{1,100}#\d{1,9}|todo:[^\0\r\n]{1,1100}:\d{1,7})$/;
 const REPO_RE = /^(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}$)[A-Za-z0-9_.-]{1,100}$/;
 const WORKFLOW_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const TO = new Set(['now', 'next', 'later']);
@@ -62,6 +62,18 @@ function registerBacklogIpc(ipcMain, d) {
   ipcMain.handle('backlog:tab', (_e, tabId) => (isStr(tabId) ? d.backlogTabInfo(tabId) : { linked: false }));
   ipcMain.handle('backlog:open-pr', (_e, tabId) => (isStr(tabId) ? d.backlogOpenPr(tabId) : no));
   ipcMain.handle('backlog:tick-linked', (_e, tabId) => (isStr(tabId) ? d.backlogTick(tabId) : no));
+  // Linear or Jira on a project's list, through one of your MCP servers. Main checks the server is yours.
+  ipcMain.handle('backlog:tracker-choices', (_e, raw = {}) => {
+    const p = project(raw);
+    return p ? d.backlogTrackerChoices(p) : no;
+  });
+  ipcMain.handle('backlog:tracker-set', (_e, raw = {}) => {
+    const p = project(raw);
+    if (!p) return no;
+    if (raw.off === true) return d.backlogTrackerSet({ ...p, off: true });
+    if (![raw.server, raw.kind, raw.scope].every(v => typeof v === 'string' && v.length <= 400)) return no;
+    return d.backlogTrackerSet({ ...p, server: raw.server, kind: raw.kind, scope: raw.scope });
+  });
 }
 
 module.exports = { registerBacklogIpc, ID_RE };

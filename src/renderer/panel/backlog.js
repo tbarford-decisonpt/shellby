@@ -4,7 +4,10 @@
    code, ranked into one list, each with "Do this".
 
    Do this makes a copy on its own branch and opens a conversation there with
-   the prompt in the box: nothing goes to Claude until you send it. The panel
+   the prompt in the box: nothing goes to Claude until you send it.
+
+   Someone with a Linear or Jira MCP server gets one quiet link under the
+   list to add those issues too (backlog/trackers.js); nobody else sees it. The panel
    only names things (a project's root or repository, an item's id, a task's
    line); main looks each one up. */
 'use strict';
@@ -21,6 +24,11 @@
   const filters = new Map();   // project key -> kind shown
   // What you were typing in a project's add box, so a redraw (Claude adding a to-do from a terminal) keeps it.
   const drafts = new Map();
+  const trackerForms = new Set(); // project keys with the Linear or Jira form open
+  const live = new Map();         // project key -> its card's load(), for a read that lands later
+
+  // The Issues chip shows Linear and Jira issues too.
+  const isKind = (it, k) => k === 'all' || it.kind === k || (k === 'issue' && it.kind === 'ticket');
 
   const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const keyOf = t => (t.root ? `root:${t.root.toLowerCase()}` : `repo:${String(t.repo).toLowerCase()}`);
@@ -50,12 +58,14 @@
       if (r?.ok) views.set(key, r);
       draw(r);
     };
+    live.set(key, { box, load });
     // Made once, so what you're typing and the focus survive a redraw.
     const adder = addBox();
+    let formEl = null;
 
     function drawFilter(v) {
       const kind = filters.get(key) || 'all';
-      const has = k => k === 'all' || v.items.some(i => i.kind === k);
+      const has = k => k === 'all' || v.items.some(i => isKind(i, k));
       seg.replaceChildren(...FILTERS.filter(([k]) => has(k)).map(([k, label]) => h('button', {
         type: 'button', role: 'tab', 'aria-selected': String(kind === k), text: label,
         onclick: () => { filters.set(key, k); draw(v); },
@@ -66,10 +76,10 @@
     function draw(v) {
       if (!v?.ok) return body.replaceChildren(h('p', { class: 'muted small pj-calm', text: v?.error || 'Couldn\'t put the list together.' }));
       // A filter left on a kind that's run out would hide everything with no chips to get back.
-      if (filters.has(key) && !v.items.some(i => i.kind === filters.get(key))) filters.delete(key);
+      if (filters.has(key) && !v.items.some(i => isKind(i, filters.get(key)))) filters.delete(key);
       drawFilter(v);
       const kind = filters.get(key) || 'all';
-      const items = kind === 'all' ? v.items : v.items.filter(i => i.kind === kind);
+      const items = v.items.filter(i => isKind(i, kind));
       const all = expanded.has(key);
       const list = all ? items : items.slice(0, SHOWN);
       body.replaceChildren(...[
@@ -79,6 +89,8 @@
           ? h('ul', { class: 'pj-h-list bl-list' }, list.map(it => row(it, v)))
           : h('p', { class: 'muted small pj-calm bl-empty', text: kind === 'all' ? 'Nothing waiting. Add a task, or enjoy it. 🐚' : 'None of those right now.' }),
         footer(v, items, list),
+        // Made once while it's open, so a list that lands meanwhile doesn't clear what you typed.
+        trackerForms.has(key) ? (formEl ||= trackerForm(v)) : (formEl = null),
         ...notes(v),
       ].filter(Boolean));
     }
@@ -114,6 +126,7 @@
 
     function tagOf(it) {
       if (it.kind === 'issue') return h('span', { class: `bl-tag issue${it.tier === 'now' ? ' now' : ''}`, text: `#${it.issue.number}` });
+      if (it.kind === 'ticket') return h('span', { class: `bl-tag issue ticket${it.tier === 'now' ? ' now' : ''}`, text: it.ticket.key, title: it.ticket.key });
       if (it.kind === 'todo') return h('span', { class: `sf-tag ${it.todo.tag.toLowerCase()}`, text: it.todo.tag });
       return h('span', { class: `bl-tag task${it.tier === 'now' ? ' now' : ''}`, text: TIER_TAG[it.tier] });
     }
@@ -155,7 +168,70 @@
         expanded.has(key) && items.length > SHOWN && h('button', { type: 'button', class: 'link-btn small', text: 'Show fewer', onclick: () => { expanded.delete(key); draw(v); } }),
         v.done > 0 && h('span', { class: 'muted small', text: `${v.done} done` }),
         v.hidden > 0 && h('button', { type: 'button', class: 'link-btn small', text: `Show ${plural(v.hidden, 'hidden one')}`, onclick: () => act(api.backlogHide({ ...target, show: true })) }),
-        h('button', { type: 'button', class: 'link-btn small', text: 'Look again', onclick: () => load(true) }));
+        h('button', { type: 'button', class: 'link-btn small', text: 'Look again', onclick: () => load(true) }),
+        trackerLink(v));
+    }
+
+    /** "Linear or Jira…" for someone who has that server, or what's set: one quiet link, last. */
+    function trackerLink(v) {
+      const t = v.tracker;
+      if (!t || trackerForms.has(key)) return null;
+      const text = t.state === 'none' ? `${t.offer}…` : `${t.label}: ${t.scope.length > 24 ? `${t.scope.slice(0, 23)}…` : t.scope}`;
+      const tip = t.state === 'none' ? `List this project's ${t.offer} issues here too, through your MCP server` : `Read through ${t.server}. Change or stop`;
+      return h('button', { type: 'button', class: 'link-btn small bl-tracker-link', text, title: tip, onclick: () => { trackerForms.add(key); draw(v); } });
+    }
+
+    /** Which server, Linear or Jira, and which issues. Saved for this project, on this PC. */
+    function trackerForm(v) {
+      const form = h('form', { class: 'bl-tracker', 'aria-label': 'Linear or Jira issues' });
+      const server = h('select', { class: 'field slim', 'aria-label': 'MCP server' });
+      const kind = h('select', { class: 'field slim', 'aria-label': 'Linear or Jira' },
+        h('option', { value: 'linear', text: 'Linear' }), h('option', { value: 'jira', text: 'Jira' }));
+      const scope = h('input', { type: 'text', class: 'field slim bl-tracker-scope', 'aria-label': 'Which issues', maxlength: '200', required: '' });
+      const save = h('button', { type: 'submit', class: 'btn slim-btn', text: 'Show them' });
+      const close = () => { trackerForms.delete(key); draw(views.get(key) || v); };
+      const stop = h('button', { type: 'button', class: 'link-btn small', text: 'Stop showing them', hidden: true, onclick: async () => {
+        trackerForms.delete(key);
+        await act(api.backlogTrackerSet({ ...target, off: true }));
+      } });
+      const hint = h('p', { class: 'muted small bl-note' });
+      let hints = {};
+      const placeholder = () => { scope.placeholder = hints[kind.value] || ''; };
+      kind.addEventListener('change', placeholder);
+      // Picking a server that looks like one or the other says which.
+      server.addEventListener('change', () => {
+        const k = server.selectedOptions[0]?.dataset.kind;
+        if (k) { kind.value = k; placeholder(); }
+      });
+      form.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        save.disabled = true;
+        const r = await api.backlogTrackerSet({ ...target, server: server.value, kind: kind.value, scope: scope.value }).catch(() => null);
+        save.disabled = false;
+        if (!r?.ok) return SB.toast(r?.error || 'Couldn\'t save that.');
+        trackerForms.delete(key);
+        SB.toast(`Reading them through ${server.value}. They join the list in a minute or so.`, { ms: 7000 });
+        load(false);
+      });
+      form.append(
+        h('div', { class: 'row wrap bl-tracker-row' }, server, kind, scope),
+        h('div', { class: 'row wrap bl-tracker-row' }, save, h('button', { type: 'button', class: 'link-btn small', text: 'Cancel', onclick: close }), stop),
+        hint);
+      api.backlogTrackerChoices(target).then(c => {
+        if (!c?.ok) { hint.textContent = c?.error || 'Couldn\'t read your MCP servers.'; save.disabled = true; return; }
+        hints = c.hints || {};
+        server.replaceChildren(...c.servers.map(s => h('option', { value: s.name, text: s.name, dataset: { kind: s.kind || '' } })));
+        const now = c.setup || {};
+        if (now.server) server.value = now.server;
+        kind.value = now.kind || server.selectedOptions[0]?.dataset.kind || 'linear';
+        scope.value = now.scope || '';
+        stop.hidden = !c.setup;
+        placeholder();
+        hint.textContent = 'Claude reads them through that server, only reading, and only when this list is opened (every half hour at most). Do this works on them like an issue.';
+        scope.focus();
+      }).catch(() => { hint.textContent = 'Couldn\'t read your MCP servers.'; });
+      return form;
     }
 
     /** What the card should say about where the list came from. */
@@ -166,6 +242,13 @@
       if (v.repo && g.state === 'off') out.push('Turn on Show my repositories in Settings → GitHub to see its issues here.');
       if (g.state === 'error') out.push(g.error);
       if (g.stale) out.push(`These issues are from a few minutes ago: ${g.error}`);
+      const tr = v.tracker;
+      if (tr && tr.state !== 'none') {
+        if (tr.state === 'off') out.push(`${tr.label} issues need Claude Code: Shellby reads them through it.`);
+        else if (tr.loading && tr.state !== 'ok') out.push(`Reading ${tr.scope} from ${tr.label}…`);
+        else if (tr.state === 'error') out.push(tr.error);
+        else if (tr.stale) out.push(`These ${tr.label} issues are from earlier: ${tr.error}`);
+      }
       if (v.looseEnds?.error) out.push(v.looseEnds.error);
       if (!v.cloned) out.push('Not on this PC: clone it for your tasks and loose ends, and for Do this.');
       const t = v.tasks;
@@ -200,18 +283,21 @@
       const m = SB.menuItem;
       // A to-do kept in Shellby (a project with no clone) only has Done; tasks.md tasks have the rest.
       const isNote = !!it.note;
-      const isTask = !isNote && (it.kind === 'task' || (it.kind === 'issue' && it.task));
+      const isTask = !isNote && (it.kind === 'task' || ((it.kind === 'issue' || it.kind === 'ticket') && it.task));
       const helpers = it.kind === 'issue' && !it.doing ? v.helpers : [];
+      const tracker = it.ticket ? (it.ticket.tracker === 'jira' ? 'Jira' : 'Linear') : '';
       SB.openMenu($('blMenu'), anchor, () => [
         it.kind === 'issue' && m('Open on GitHub', () => act(api.backlogOpenIssue({ ...target, id: it.id }))),
+        it.kind === 'ticket' && it.ticket.url && m(`Open in ${tracker}`, () => api.openExternal(it.ticket.url)),
         it.kind === 'issue' && !it.task && v.cloned && m('Add to my tasks', () => act(api.backlogAddIssue({ root, id: it.id }), `#${it.issue.number} is on your list. Move it in .shellby/tasks.md to put it where you want it.`)),
+        it.kind === 'ticket' && !it.task && v.cloned && m('Add to my tasks', () => act(api.backlogAddIssue({ root, id: it.id }), `${it.ticket.key} is on your list. Move it in .shellby/tasks.md to put it where you want it.`)),
         it.kind === 'todo' && m('Open file', () => act(api.backlogOpenTodo({ root, id: it.id }))),
         isNote && m('Done', () => act(api.finishProjectTodo({ key: v.key, id: it.note.id }), 'Ticked off.')),
         isTask && it.kind === 'task' && m('Edit…', () => rename(it)),
         isTask && it.tier !== 'now' && m('Move to Now', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'now' }))),
         isTask && it.tier === 'now' && m('Move to Next', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'next' }))),
         isTask && it.tier !== 'later' && m('Move to Later', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'later' }))),
-        isTask && m(it.kind === 'issue' ? 'Tick off my task for it' : 'Tick off', () => act(api.backlogEdit({ ...taskRef(it), op: 'tick' }), 'Ticked off. It\'s under Done in .shellby/tasks.md.')),
+        isTask && m(it.kind !== 'task' ? 'Tick off my task for it' : 'Tick off', () => act(api.backlogEdit({ ...taskRef(it), op: 'tick' }), 'Ticked off. It\'s under Done in .shellby/tasks.md.')),
         isTask && it.kind === 'task' && m('Remove', () => act(api.backlogEdit({ ...taskRef(it), op: 'remove' }))),
         ...helpers.map(wf => m(`Hand it to ${wf.name}`, () => hand(it, wf))),
         it.kind !== 'task' && m('Hide', () => act(api.backlogHide({ ...target, id: it.id }), 'Hidden on this PC. Show it again from the bottom of the list.')),
@@ -274,6 +360,15 @@
     return box;
   }
 
+  // A Linear or Jira read finished in the background: that project's card, if it's showing, looks again.
+  api.onBacklogChanged(o => {
+    const k = o?.root ? keyOf({ root: o.root }) : o?.repo ? keyOf({ repo: o.repo }) : null;
+    for (const [cardKey, c] of live) {
+      if (!c.box.isConnected) { live.delete(cardKey); continue; }
+      if (cardKey === k) c.load(false);
+    }
+  });
+
   // A Next up task's work came home, or its pull request merged: tick it off?
   api.onBacklogOfferTick(o => {
     if (!o?.tabId || !o.title) return;
@@ -296,7 +391,9 @@
     if (info.pr) return [item('⇱', 'Open the pull request', `#${info.pr.number}, opened from Next up`, () => api.openExternal(info.pr.url))];
     if (info.needsPush) return [item('⇡', 'Open a draft pull request', 'Needs “Let Claude tasks push” on in Settings → GitHub', () => SB.toast('Turn on Let Claude tasks push in Settings → GitHub first.'))];
     if (!info.canPr) return [];
-    return [item('⇡', 'Open a draft pull request', info.issue ? `Push this branch and open a draft that closes #${info.issue}` : 'Push this branch and open a draft pull request', async () => {
+    const sub = info.issue ? `Push this branch and open a draft that closes #${info.issue}`
+      : info.ticket ? `Push this branch and open a draft linked to ${info.ticket}` : 'Push this branch and open a draft pull request';
+    return [item('⇡', 'Open a draft pull request', sub, async () => {
       if (tab.busy) return SB.toast('Let him finish first.');
       SB.toast('Pushing the branch and opening a draft…', { ms: 8000 });
       const r = await api.backlogOpenPr(tab.id).catch(() => null);

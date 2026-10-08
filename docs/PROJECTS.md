@@ -62,6 +62,7 @@ The first card on a project's page answers "what now?" with one ranked list, dra
 - **Your to-do list**, kept in the repository as `.shellby/tasks.md` (a project that's only on GitHub keeps it in Shellby): plain Markdown checkboxes, so they're version-controlled, travel with the clone, and read fine on GitHub. **+ Add a task…** puts one at the end of `## Next`. Put things under `## Now` to have them first and `## Later` to have them last; lines indented under a task are its notes. Your order is never reshuffled.
 - **Its GitHub issues and milestones**, read when you open the page (signed in, with **Show my repositories** on). The nearest milestone gets a strip at the top: *"v0.71 · due in 4 days · 6 of 9 closed"*.
 - **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (anything .gitignore'd or untracked is left out).
+- If you want them, **its Linear or Jira issues**, read through your own MCP server (see [Linear and Jira](#linear-and-jira)).
 
 Each row says why it's where it is: *Assigned to you*, *v0.71 · due in 2 days*, *Bug · 4 👍*, *FIXME in src/sync.js*. **Now** holds your `## Now` tasks and issues that are urgent or due within three days. **Up next** holds your other tasks, then issues assigned to you, in the nearest milestone or labelled `shellby`, then FIXMEs. Everything else comes **Later**. A task that says `#42` stands in for issue 42 and puts it where you want it. A `TODO(#42)` in the code is folded into issue 42 and quoted when you start on it.
 
@@ -75,6 +76,16 @@ When it's done:
 - **⋯ → Hand it to the Issue helper** gives an issue to your Issue helper workflow, which works on it by itself and opens the draft pull request, without asking you first again. It runs without you reading its prompt, so when someone else wrote the issue Shellby checks with you first.
 
 Hide what you'll never get to (**⋯ → Hide**, kept on this PC). The to-do list is the same one Claude Code (`add_task`, `finish_task`) and the terminal (`shellby next add`, `shellby next done`) keep: what they add lands in `.shellby/tasks.md` marked *(from Claude Code)* or *(from the terminal)*, and the card says so. `next_up` and `shellby next` read the to-dos back, with the issues and TODOs from this card after the rest of their answer.
+
+### Linear and Jira
+
+If your team's issues live in Linear or Jira, they can join the list too, through the Linear or Jira MCP server you already use with Claude Code (a claude.ai connector counts). Shellby has no sign-in of its own for them. Once you have one of those servers, a quiet **Linear…** (or **Jira…**) link turns up at the end of the card's last line; without one, you never see any of this. Pick the server and say which issues, in your own words: a team or project (`ENG`, *Mobile app*) for Linear, a project key or a JQL search (`SHB`, `project = SHB AND sprint in openSprints()`) for Jira. It's set for that project, on this PC.
+
+- Claude reads them in the background when you open the page (once every half hour at most; **Look again** reads afresh), so the rest of the list never waits. It's one short call that can only read: it gets none of Claude Code's own tools and only the server's reading ones (*list*, *get*, *search*…), so nothing it reads can make it change an issue.
+- They're ranked like GitHub's issues: **Now** for urgent or high priority, or due within three days, when they're yours or nobody's; **Up next** for ones assigned to you or in the current cycle or sprint. The row says why (*Urgent*, *In the current sprint*, *Due tomorrow*, *Alice has it*). The **Issues** filter shows them with GitHub's.
+- A task that says `ENG-123` stands in for that issue and puts it where you want it, the same as `#42`. **⋯ → Add to my tasks** writes one for you, and **⋯ → Open in Linear** opens it.
+- **Do this** works as it does for an issue: a copy (from main as GitHub has it, when the project's on GitHub) on a branch named for it (`shellby/eng-123-…`), the description fenced as someone else's words, and the prompt waiting in the box. The draft pull request is titled `ENG-123: …` and, for Linear, says *Fixes ENG-123*, so Linear and Jira link it, and Linear closes the issue when it merges.
+- The link at the end of the card shows what's set (*Linear: ENG*): click it to change it or **Stop showing them**.
 
 ## Notes
 
