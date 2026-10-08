@@ -63,6 +63,7 @@
     // would say Claude is still replying.
     if (doing === 'background') return { kind: 'bg', title: `Turn finished · ${several(t.crew, 'background task')} still running` };
     if (t.outcome === 'error') return { kind: 'err', title: 'Ended with an error', text: '!' };
+    if (t.outcome === 'cut') return { kind: 'cut', title: 'Cut off before it finished', text: '⏸' };
     if (t.outcome === 'ok' && t.unread) return { kind: 'ok', title: 'Finished', text: '✓' };
     if (t.routineId) return { kind: 'routine', title: 'Routine', text: '⟳' };
     return null;

@@ -64,6 +64,7 @@ function registerPanelIpc(ipcMain, d) {
     return {
       ...panelView(),
       welcomeTrophies: d.welcomeTrophies.splice(0),
+      cutOff: (d.cutOff || []).splice(0),
       tabs,
       tabItems: Object.fromEntries(tabs.map(t => [t.id, d.history.load(t.id)])),
       startView: (() => { const v = d.startView; d.startView = null; return v; })(),

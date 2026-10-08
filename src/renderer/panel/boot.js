@@ -205,9 +205,13 @@
       tab.cancelOpenAsks();
       for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
     }
-    if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
+    // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
+    const cut = (b.cutOff || []).filter(c => state.tabs.has(c.id));
+    if (cut.length) SB.activate(cut[0].id);
+    else if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
     else await SB.newTab();
 
+    if (b.cutOff?.length) setTimeout(() => SB.toast(window.ShellbyFeedLogic.cutOffToast(b.cutOff), { ms: 9000 }), 1200);
     SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
     performance.mark('shellby:panel-ready'); // booted, tabs back: scripts/perf-budget.js times app-ready to here
   })();

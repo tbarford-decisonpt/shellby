@@ -194,6 +194,7 @@ const shared = {
   dragging: false,                 // the user is dragging him around
   sleepTimer: null,
   welcomeTrophies: [],             // achievements credited from history on first run
+  cutOff: [],                      // conversations whose turn the last run never finished (history.takeCutOff)
   booted: false,                   // deep links wait for this
   pendingLink: null,               // a shellby:// link that arrived before boot finished
   startView: null,                 // view the panel should open on at boot (e.g. a deep link wants the Wardrobe)

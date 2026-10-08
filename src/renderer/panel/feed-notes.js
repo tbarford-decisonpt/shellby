@@ -28,6 +28,23 @@
           : "Picked up again here. Whatever was said in the terminal, Claude remembers, but it isn't shown above."));
     }
 
+    // ------------------------------------------------------------ cut off mid-turn (history.takeCutOff)
+    // Carry on sits on the note while the conversation is still unfinished (in a
+    // replay, only if it is); sending anything here takes it away.
+    renderCutOff(item, replay) {
+      const go = !replay || this.outcome === 'cut'
+        ? h('button', { class: 'btn slim-btn cutoff-go', type: 'button', onclick: async e => {
+          e.currentTarget.disabled = true;
+          if (await SB.sendDirect(this, F.CARRY_ON)) this.dropCutOff(); else e.currentTarget.disabled = false;
+        } }, 'Carry on')
+        : null;
+      return this.append(h('div', { class: 'home-mark cutoff-mark', role: 'status' },
+        h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⏸' }),
+        h('span', { text: F.cutOffLine(item) }), go));
+    }
+
+    dropCutOff() { for (const b of this.el.querySelectorAll('.cutoff-go')) b.remove(); }
+
     // ------------------------------------------------------------ branches (branching.js)
     // Where this conversation came from, at the top of a branch.
     renderBranched(item) {

@@ -65,7 +65,9 @@ class SessionManager extends EventEmitter {
       title: historyEntry?.title || title || 'New task',
       saved: !!historyEntry,       // has a history entry (created on first send)
       named: false,                // renamed before its first send: keep that name
-      outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
+      // 'ok' | 'error' | 'stopped' after the last turn; 'cut' when Shellby went
+      // down mid-turn (history.takeCutOff), until a turn here finishes.
+      outcome: historyEntry?.lastOutcome === 'cut' ? 'cut' : null,
       unread: false,
       worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
       // A branch of another conversation (branch.js): where it came from, the
@@ -137,7 +139,10 @@ class SessionManager extends EventEmitter {
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
-      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
+      if (tab.saved) {
+        this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
+        this.history.markTurn?.(tab.id, null);
+      }
     }
     if (tab.saved) this.history.append(tab.id, item);
     const ready = review.next(tab.ready, item);
@@ -203,6 +208,8 @@ class SessionManager extends EventEmitter {
     }
     if (this.decorate) prompt = this.decorate(tab, prompt);
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
+    // On disk at once, so a power cut mid-turn still leaves it marked unfinished.
+    this.history.markTurn?.(tab.id, { turnId: userItem.turnId, at: Date.now() });
     this.changed();
     return userItem.turnId;
   }
@@ -317,6 +324,9 @@ class SessionManager extends EventEmitter {
   close(tabId, { kill = false } = {}) {
     const tab = this.tabs.get(tabId);
     if (!tab) return;
+    // Closed by hand mid-turn: no result is coming, and it wasn't cut off either.
+    // Quitting (kill) leaves the mark, so the next start says what didn't finish.
+    if (!kill && tab.saved && tab.session.busy) this.history.markTurn?.(tab.id, null);
     tab.session.removeAllListeners();
     if (kill) tab.session.kill();
     tab.session.close();
