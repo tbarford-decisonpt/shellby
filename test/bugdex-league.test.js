@@ -17,7 +17,7 @@ function caught(state, species, at) {
   return b.recordCatch(state, { species, fp: fp(), project: P, firstAt: at - 1000, device: 'pc-one', rand: never }, at);
 }
 
-test('every habitat has a boss that lives there, and a 7×7 badge', () => {
+test('every habitat has a boss that lives there, and a 13×13 badge', () => {
   const bosses = new Set();
   for (const h of HABITATS) {
     const sp = SPECIES.find(s => s.id === h.boss);
@@ -26,12 +26,15 @@ test('every habitat has a boss that lives there, and a 7×7 badge', () => {
     assert.equal(bossOf(sp.id).id, h.id);
     bosses.add(h.boss);
     assert.ok(h.badge.name.endsWith('Badge'));
-    assert.equal(h.badge.pixels.length, 7);
+    assert.equal(h.badge.pixels.length, 13);
     for (const row of h.badge.pixels) {
-      assert.equal(row.length, 7);
+      assert.equal(row.length, 13);
       for (const ch of row) assert.ok(ch === '.' || h.badge.palette[ch], `${h.id} ${ch}`);
     }
   }
+  // Unearned, a badge is only its outline: no two may share one.
+  const shapes = HABITATS.map(h => h.badge.pixels.map(r => r.replace(/[^.]/g, '#')).join('/'));
+  assert.equal(new Set(shapes).size, shapes.length);
   // The league is nobody's boss.
   for (const id of [...LEAGUE.elite, LEAGUE.champion]) {
     assert.ok(SPECIES.some(s => s.id === id), id);
