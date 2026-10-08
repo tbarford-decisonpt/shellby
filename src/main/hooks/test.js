@@ -8,8 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
-const { HOOK_EVENTS } = require('./claude-setup');
-const { RECIPES } = require('./hook-recipes');
+const { HOOK_EVENTS } = require('../claude/setup');
+const { RECIPES } = require('./recipes');
 
 const MAX_OUTPUT = 16 * 1024;      // kept per stream; the panel shows the start of it
 const MAX_PAYLOAD = 64 * 1024;
@@ -125,7 +125,7 @@ function findBash(env = process.env, exists = fs.existsSync) {
 function killTree(child) {
   if (!child.pid) return;
   if (process.platform === 'win32') {
-    const { TASKKILL } = require('./system32');
+    const { TASKKILL } = require('../system32');
     execFile(TASKKILL, ['/T', '/F', '/PID', String(child.pid)], { windowsHide: true }, () => {});
   } else child.kill('SIGKILL');
 }

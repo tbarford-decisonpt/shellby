@@ -9,9 +9,9 @@
 // test/claude-setup.test.js.
 const fs = require('fs');
 const path = require('path');
-const { walkMd, samePath } = require('./toolbox');
-const { writeJson } = require('./statusline');
-const { RECIPES, GROUPS: RECIPE_GROUPS, describeHook } = require('./hook-recipes');
+const { walkMd, samePath } = require('../toolbox');
+const { writeJson } = require('../statusline');
+const { RECIPES, GROUPS: RECIPE_GROUPS, describeHook } = require('../hooks/recipes');
 
 const MAX_MEMORY = 512 * 1024;   // a CLAUDE.md bigger than this isn't one we should edit in a textarea
 const MAX_SETTINGS = 1024 * 1024;

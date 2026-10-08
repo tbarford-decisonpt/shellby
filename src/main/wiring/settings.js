@@ -8,7 +8,7 @@ const workmode = require('../workmode');
 
 /** d: what main shares (main.js `shared`). */
 function wireSettings(d) {
-  // Settings as the panel sees them: the spend ledger stays in main (usage-service.js usageBreakdown),
+  // Settings as the panel sees them: the spend ledger stays in main (usage/service.js usageBreakdown),
   // and Work mode's settings show as they apply, over your own (workmode.js).
   function panelSettings() {
     const { spendLedger: _ledger, cacheDays: _c, setupWeights: _s, leanUsed: _u, pluginCosts: _p, mcpSeen: _m, pluginEnabledAt: _e, turnCosts: _t, phoneTasksSecret: _pt, ...rest } = workmode.effective(d.config.data);

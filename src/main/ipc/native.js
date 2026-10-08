@@ -11,7 +11,7 @@ const confirm = require('../confirm');
 const jobs = require('../jobs');
 const automemory = require('../automemory');
 const cloud = require('../cloud-routines');
-const { findClaude, run: runCli } = require('../claude-cli');
+const { findClaude, run: runCli } = require('../claude/cli');
 
 const OUTPUT_TAIL = 8000;              // characters of a job's output the panel shows
 const CLOUD_FRESH_MS = 10 * 60 * 1000; // a list asked for again within this is the one already fetched

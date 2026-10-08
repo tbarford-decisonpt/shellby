@@ -7,13 +7,13 @@
 // A project is a repository, not a folder: its id comes from the origin
 // remote when there is one (the same on every PC, and after a move), else from
 // where it lives. Pure: no I/O, no clock (callers pass `now`). The drawing is
-// sticker-art.js; where they fit on a shell is sticker-slots.js.
+// stickers/art.js; where they fit on a shell is stickers/slots.js.
 //
 // Friends' crabs can leave a sticker of theirs when they visit (a swap): it
 // lives here too, marked with who it's `from`, and never peels.
 // See test/stickers.test.js.
 const crypto = require('crypto');
-const art = require('./sticker-art');
+const art = require('./stickers/art');
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;

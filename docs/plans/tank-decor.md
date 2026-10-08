@@ -10,7 +10,7 @@
 - **Four gauges, not six.** The thermometer, the bubbler, the lighthouse and
   Health moods in the water are built. The tide gauge (usage window), the
   chest's glint on a merged PR and the message in a bottle (unread recap) are
-  not yet; `tank-gauges.js` `gauges()` is where they'd go.
+  not yet; `tank/gauges.js` `gauges()` is where they'd go.
 - **The thermometer is drawn on the glass, not placed.** There's no
   thermometer piece yet (it would need a `check-up` reward), so it shows on
   the right of the front glass while its switch is on.
@@ -33,7 +33,7 @@
   allow it, and moves one find 2–6 px towards its nearest neighbour in its row.
 ## What changed from the plan (Phase 2, "He lives here")
 
-- **Two `tank-life.js` files.** Main's (`src/main/tank-life.js`, pure) keeps
+- **Two tank life files.** Main's (`src/main/tank/life.js`, pure) keeps
   what lasts; the panel's (`src/renderer/panel/tank-life.js`, pure, loaded
   like `health-logic.js`) picks and poses from the spots, inside the Tank
   tab's existing 10 fps loop only. No new timer anywhere: main's only addition
@@ -72,7 +72,7 @@
   card, so turning on a card you already had never starts publishing more. It
   stays per PC and never syncs. The crab card PNG, which you share by hand,
   always shows the tank.
-- **The calling card carries ids, never art.** `tank-share.js` `forCard` sends
+- **The calling card carries ids, never art.** `tank/share.js` `forCard` sends
   the size, the floor, the back glass, the light and up to 24
   `{ ref, x, row, flip }`, refs being built-in decor ids or `find:` ids only.
   Pack decor and specimen jars stay home (pack ids would say which packs you
@@ -318,7 +318,7 @@ can mark colour keys as `"lit"`, and those stay bright at night.
 | File | Kind | Does |
 |---|---|---|
 | `src/main/tank.js` | **pure** | `normalize(raw)`, `SIZES`, `capacity(size)`, `place / move / remove / flip` returning new state, `view({ tankState, catalog, finds, stickers, now })` → drawables in paint order plus walkable lanes and interaction spots, `merge(local, remote)`, `forCard(state)` / `cleanCard(raw)` |
-| `src/main/tank-life.js` | **pure** | Picks what he does in the tank (§5) from the spots and `rand` / `now` |
+| `src/main/tank/life.js` | **pure** | Picks what he does in the tank (§5) from the spots and `rand` / `now` |
 | `src/renderer/panel/tank-paint.js` | render | Paints a `view()` onto a canvas context at scale `k`; shared by the Tank tab, the Health porthole, `card.js`, and (as SVG) `profile-card.js` |
 | `src/renderer/panel/tank.js` + `tank.css` | UI | The Tank tab and the editor |
 | `src/main/wardrobe/catalog.js` | validation | The `decor` kind and the `level` unlock gate |
@@ -343,7 +343,7 @@ can mark colour keys as `"lit"`, and those stay bright at night.
 
 ## 5. He lives there (what makes it a pet, not a diorama)
 
-`tank-life.js` picks small behaviours from the spots that pieces declare. They
+`tank/life.js` picks small behaviours from the spots that pieces declare. They
 run whenever the Tank tab or the Health porthole is visible:
 
 | Spot | He… |
@@ -609,7 +609,7 @@ CHANGELOG and tag on main at merge time only).
 
 ### Phase 2: "He lives here"
 
-- `tank-life.js`: hide, sit, climb, sleep, nibble, open, peek
+- `tank/life.js`: hide, sit, climb, sleep, nibble, open, peek
 - Favourite piece, new-piece reactions, bond moments, desktop remarks
 - All five tank sizes and the moving-day moment
 - Seasonal decor in each season's pack

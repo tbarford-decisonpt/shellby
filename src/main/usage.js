@@ -8,7 +8,7 @@
 const { spawn, execFile } = require('child_process');
 const readline = require('readline');
 const { randomUUID } = require('crypto');
-const { claudeEnv } = require('./claude-cli');
+const { claudeEnv } = require('./claude/cli');
 
 const TIMEOUT_MS = 30_000;
 

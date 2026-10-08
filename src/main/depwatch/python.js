@@ -6,7 +6,7 @@
 // Shellby reads the lockfile here instead, keeps only exact pins that pass
 // the name and version grammar, and hands pip-audit a file of those alone
 // (--no-deps --disable-pip), so nothing is installed or built. Pure.
-const { NAMES, VERSIONS, parseJson } = require('./depwatch-parse');
+const { NAMES, VERSIONS, parseJson } = require('./parse');
 
 const MAX_PINS = 2000;
 // A line any longer is no pin (and long runs of spaces are what make a regex crawl).

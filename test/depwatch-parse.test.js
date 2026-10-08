@@ -1,5 +1,5 @@
 // Each checker's real output (test/fixtures/depwatch), read into one shape
-// (src/main/depwatch-parse.js). Long prose fields in the fixtures are
+// (src/main/depwatch/parse.js). Long prose fields in the fixtures are
 // shortened; their structure is as the tools print it. Where they came from:
 //   pnpm-*, yarn1-*, yarn4-audit, pip-audit: pnpm 10.33.2 and 11.28.5, Yarn
 //     1.22.22 and 4.9.2, pip-audit 2.10.1, over a project pinning minimist
@@ -15,8 +15,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const p = require('../src/main/depwatch-parse');
-const py = require('../src/main/depwatch-python');
+const p = require('../src/main/depwatch/parse');
+const py = require('../src/main/depwatch/python');
 
 const fixture = name => fs.readFileSync(path.join(__dirname, 'fixtures', 'depwatch', name), 'utf8');
 const names = r => r.packages.map(x => (x.severity ? `${x.name}:${x.severity}:${x.direct}:${x.fix}` : `${x.name} ${x.current}->${x.latest} ${x.kind}`));

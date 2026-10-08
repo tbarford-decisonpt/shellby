@@ -43,7 +43,7 @@ const CATEGORIES = Object.freeze([
 ]);
 const CATEGORY_ORDER = new Map(CATEGORIES.map(([id], i) => [id, i]));
 
-// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>", "jar:<species>" or "sticker:<project>" (tank-glass.js).
+// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>", "jar:<species>" or "sticker:<project>" (tank/glass.js).
 const REF_RE = /^(?:sticker:[0-9a-f]{12}|(?:find|jar):[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -114,7 +114,7 @@ function normalize(raw) {
     },
     placed: withUids(placed),
     editedAt: pos(r.editedAt),
-    // On your public calling card for friends to peek at (tank-share.js). Off unless you turn it on; never synced.
+    // On your public calling card for friends to peek at (tank/share.js). Off unless you turn it on; never synced.
     shareCard: r.shareCard === true,
   };
 }

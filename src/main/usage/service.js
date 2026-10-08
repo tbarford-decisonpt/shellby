@@ -5,11 +5,11 @@
 // Moved out of main.js; the work held for after a reset is held-service.js.
 const os = require('os');
 const path = require('path');
-const forecast = require('./forecast');
-const guard = require('./guard');
-const limits = require('./limits');
-const spend = require('./spend');
-const turncost = require('./turncost');
+const forecast = require('../forecast');
+const guard = require('../guard');
+const limits = require('../limits');
+const spend = require('../spend');
+const turncost = require('../turncost');
 
 const SPEND_SAVE_MS = 5000;        // calls come in bursts; one write when they settle
 const OUTLOOK_TICK_MS = 60 * 1000; // a forecast goes stale with no new readings

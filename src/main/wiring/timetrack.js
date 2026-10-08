@@ -239,7 +239,7 @@ function wireTimetrack(d) {
     noted.catch(() => {}).then(() => d.homeTurnEnded?.(tabId)).catch(err => d.log.info(`home line: ${err.message}`));
     // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
     noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));
-    // What it cost, for estimates next time (usage-ledger.js). Never worth losing the rest of the turn's end over.
+    // What it cost, for estimates next time (usage/ledger.js). Never worth losing the rest of the turn's end over.
     try { d.usagePlan?.endTurn(tab, item); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
     tab.guardRun = null;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not

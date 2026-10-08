@@ -10,8 +10,8 @@
 // Both drafts and the chat say when a request is really a workflow's job (it
 // starts on an event, or needs steps with decisions between them), so the
 // panel can offer to build it as one instead.
-const { validateRoutine } = require('./routines');
-const { MODELS, isModel } = require('./models');
+const { validateRoutine } = require('../routines');
+const { MODELS, isModel } = require('../models');
 
 const MAX_DESCRIPTION = 500;
 const DRAFT_TIMEOUT_MS = 90000;

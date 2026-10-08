@@ -1,4 +1,4 @@
-/* Shellby panel — his tank's saved layouts (src/main/tank-layouts.js): keep
+/* Shellby panel — his tank's saved layouts (src/main/tank/layouts.js): keep
    the tank under a name, put one up, tag one to a season, forget one. Main
    checks the seasons each time this asks for the list, so opening the Tank
    tab in a new season is what puts its layout up. Putting one up, saving

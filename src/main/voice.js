@@ -49,7 +49,7 @@ const OCCASIONS = Object.freeze({
   success: { every: 0, ttl: 6 * SECOND },
   error: { every: 0, ttl: 7 * SECOND },
   learned: { every: 0, ttl: 8 * SECOND },
-  newTricks: { every: 0, ttl: 8 * SECOND }, // Claude Code updated and can do new things (claude-tricks.js)
+  newTricks: { every: 0, ttl: 8 * SECOND }, // Claude Code updated and can do new things (claude/tricks.js)
   unlocked: { every: 0, ttl: 7 * SECOND },
   petted: { every: 20 * SECOND, ttl: 3 * SECOND },
 
@@ -92,7 +92,7 @@ const OCCASIONS = Object.freeze({
   friday: { every: 20 * HOUR, ttl: 8 * SECOND },
   weekend: { every: 20 * HOUR, ttl: 8 * SECOND },
   monday: { every: 20 * HOUR, ttl: 8 * SECOND },
-  // His tank (tank-life.js): a piece you just put in, moving day, and now and then a word about it on the desktop.
+  // His tank (tank/life.js): a piece you just put in, moving day, and now and then a word about it on the desktop.
   tank: { every: 3 * HOUR, ttl: 7 * SECOND },
   tankNew: { every: 0, ttl: 6 * SECOND },
 

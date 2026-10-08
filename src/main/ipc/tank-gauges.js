@@ -1,11 +1,11 @@
-// The tank's live decor (tank-gauges.js): main hears the Health monitor and
+// The tank's live decor (tank/gauges.js): main hears the Health monitor and
 // the dev servers as they change and tells the panel, only when what the tank
 // would show is different and only while the panel is open. The panel never
 // asks on a timer; it asks once (tank:gauges) when the tank comes into view.
 //
 // Which gauges are on is `tankLive` in settings: per PC, never synced, never
 // on a card.
-const gaugesOf = require('../tank-gauges');
+const gaugesOf = require('../tank/gauges');
 
 /**
  * deps: {

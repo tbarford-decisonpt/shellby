@@ -1,8 +1,8 @@
-// Keeping Claude Code itself current (claude-update.js): the daily look at the
+// Keeping Claude Code itself current (claude/update.js): the daily look at the
 // npm registry, and `claude update` when you ask or when you've said he may.
 // Kept out of main.js, which only wires it up.
-const { checkStatus, run } = require('../claude-cli');
-const { ClaudeUpdates } = require('../claude-update');
+const { checkStatus, run } = require('../claude/cli');
+const { ClaudeUpdates } = require('../claude/update');
 
 /** @param d  what main shares with its wiring (main.js shared) */
 function wireClaudeUpdates(d) {

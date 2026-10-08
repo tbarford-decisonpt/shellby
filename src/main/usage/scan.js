@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { usedIn, recordUse } = require('./efficiency');
+const { usedIn, recordUse } = require('../efficiency');
 
 const MAX_DEPTH = 3;                     // projects/<folder>/<session>/subagents/*.jsonl
 const MAX_FILES = 20000;

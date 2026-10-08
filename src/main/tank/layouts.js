@@ -9,11 +9,11 @@
 // gist (github/sync.js), newest change winning, and never goes on a card.
 //
 // Kept as config `tankLayouts`, apart from `tank`, so the calling card
-// (tank-share.js) can't reach it. Pure: no I/O, no clock (callers pass `now`).
+// (tank/share.js) can't reach it. Pure: no I/O, no clock (callers pass `now`).
 // See test/tank-layouts.test.js.
 
-const tank = require('./tank');
-const { SEASONS } = require('./wardrobe/seasons');
+const tank = require('../tank');
+const { SEASONS } = require('../wardrobe/seasons');
 
 const MAX = 3;
 const NAME_MAX = 24;

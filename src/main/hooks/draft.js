@@ -6,9 +6,9 @@
 // Two kinds of ask, one prompt: a new hook from a sentence, or a change to the
 // hook in the form (what they asked for, or "make the failed test pass").
 
-const draft = require('./workflows/draft');
-const { HOOK_EVENTS, SCOPES, validateHook } = require('./claude-setup');
-const { RECIPES } = require('./hook-recipes');
+const draft = require('../workflows/draft');
+const { HOOK_EVENTS, SCOPES, validateHook } = require('../claude/setup');
+const { RECIPES } = require('./recipes');
 
 const MAX_REQUEST = 1000;
 const MAX_OUTPUT = 2000;

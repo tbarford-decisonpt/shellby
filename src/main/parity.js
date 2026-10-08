@@ -15,12 +15,12 @@ const fileIndex = require('./fileindex');
 const shellCmd = require('./shellcmd');
 const rewind = require('./rewind');
 const exporter = require('./exporter');
-const claudeSetup = require('./claude-setup');
+const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
 const outputStyles = require('./outputstyles');
 const changes = require('./changes');
 const btw = require('./btw');
-const { run: runCli, skipSettings } = require('./claude-cli');
+const { run: runCli, skipSettings } = require('./claude/cli');
 
 const MAX_PROMPTS = 100;
 const MAX_PROMPT_CHARS = 4000;

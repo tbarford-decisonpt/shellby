@@ -183,7 +183,7 @@ async function quit(app, ms = 20000) {
       { uid: 4, ref: 'sunken-chest', x: 60, row: 2 }, { uid: 5, ref: 'air-stone', x: 86, row: 2 }, { uid: 6, ref: 'java-fern', x: 28, row: 0 } ] })
       .then(r => { document.dispatchEvent(new CustomEvent('sb:tank', { detail: r.view })); return r; })`);
 
-    console.log('his life in it (tank-life.js)');
+    console.log('his life in it (tank/life.js)');
     check(homed.life && homed.life.news.includes(4) && !homed.life.news.includes(1), 'he notices the new pieces, not the ones he already had');
     check(homed.life.movedTo === null, 'the same tank is no moving day');
     const spots = await panel.ev('shellby.getTank().then(v => SB.tankLife.spotsOf(v.pieces).map(s => s.kind))');

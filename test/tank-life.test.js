@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const L = require('../src/main/tank-life');
+const L = require('../src/main/tank/life');
 const T = require('../src/main/tank');
 const gifts = require('../src/main/gifts');
 const A = require('../src/main/wardrobe/achievements');

@@ -38,7 +38,7 @@
   }
 
   // Claude Code's own version, and what to do when there's a newer one
-  // (src/main/claude-update.js). In About, under Shellby's own update; hidden
+  // (src/main/claude/update.js). In About, under Shellby's own update; hidden
   // until Claude Code is found.
   function renderClaudeUpdate() {
     const u = state.claudeUpdate;

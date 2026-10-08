@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const G = require('../src/main/tank-gauges');
+const G = require('../src/main/tank/gauges');
 
 const snap = (sample, thresholds = { gpuWarn: 83, cpuWarn: 90 }) => ({ sample, thresholds });
 

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const T = require('../src/main/tank-tidy');
+const T = require('../src/main/tank/tidy');
 
 const entry = (ref, category, w = 6, layer = 'floor') => [ref, { ref, category, layer, w, h: 4 }];
 const lib = new Map([

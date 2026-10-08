@@ -1,4 +1,4 @@
-// Saved layouts for his tank (tank-layouts.js): keep the tank under a name,
+// Saved layouts for his tank (tank/layouts.js): keep the tank under a name,
 // put one up, tag one to a season, forget one. Putting one up goes through
 // the tank's own keep() (tank.sanitize), so it's checked like any edit.
 //
@@ -8,7 +8,7 @@
 //
 // The seasons are looked at whenever the Tank tab asks for its layouts (each
 // time you open it): nothing runs on a timer for them.
-const layouts = require('../tank-layouts');
+const layouts = require('../tank/layouts');
 const { activeSeasons } = require('../wardrobe/seasons');
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);

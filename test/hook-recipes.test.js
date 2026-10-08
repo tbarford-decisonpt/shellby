@@ -7,9 +7,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { RECIPES, GROUPS, describeHook, describeCommand } = require('../src/main/hook-recipes');
-const { HOOK_EVENTS, validateHook } = require('../src/main/claude-setup');
-const { samplePayload, findBash, runHook } = require('../src/main/hook-test');
+const { RECIPES, GROUPS, describeHook, describeCommand } = require('../src/main/hooks/recipes');
+const { HOOK_EVENTS, validateHook } = require('../src/main/claude/setup');
+const { samplePayload, findBash, runHook } = require('../src/main/hooks/test');
 
 const bash = findBash();
 const needsBash = { skip: bash ? false : 'no bash on this machine' };

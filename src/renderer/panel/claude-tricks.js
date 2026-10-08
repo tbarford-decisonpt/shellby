@@ -1,5 +1,5 @@
 /* Shellby panel — new tricks. When Claude Code updates, main reads its
-   changelog (src/main/claude-tricks.js) and sends a few highlights. They wait
+   changelog (src/main/claude/tricks.js) and sends a few highlights. They wait
    above the composer, like the recap, until dismissed. "Try it" puts a question
    about the feature in a new tab's box: nothing is sent until you send it. */
 'use strict';

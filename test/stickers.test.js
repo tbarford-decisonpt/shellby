@@ -2,8 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const art = require('../src/main/sticker-art');
-const { shellMask, stickerSlots, STICKER } = require('../src/main/sticker-slots');
+const art = require('../src/main/stickers/art');
+const { shellMask, stickerSlots, STICKER } = require('../src/main/stickers/slots');
 const st = require('../src/main/stickers');
 const { SHELLS } = require('../src/main/shells');
 

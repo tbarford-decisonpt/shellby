@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { randomUUID } = require('crypto');
 
-const { checkStatus, claudeMoved, currentClaude, findClaude } = require('./claude-cli');
+const { checkStatus, claudeMoved, currentClaude, findClaude } = require('./claude/cli');
 const { loadSkins } = require('./skins');
 const { clampToDisplays } = require('./placement');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
@@ -156,7 +156,7 @@ const shared = {
   // there. Claude Code's installer moves it while Shellby runs (the native
   // updater takes an npm copy away), and until this the old path was started on
   // every turn — "can't find Claude Code" until Shellby itself was restarted.
-  // When it has moved, the search runs again (claude-cli.js currentClaude) and
+  // When it has moved, the search runs again (claude/cli.js currentClaude) and
   // the status is checked once more so Settings, the updater and the status
   // line see the copy actually in use. Screenshot and fake-CLI runs keep their
   // faked status (see ipc/panel.js claude:status).
@@ -186,7 +186,7 @@ const shared = {
   profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null, timeSync: null,
   workflows: null,                 // the Automate page's engine (workflows/service.js)
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
-  claudeUpdates: null,             // the daily look at Claude Code's own version (claude-update.js)
+  claudeUpdates: null,             // the daily look at Claude Code's own version (claude/update.js)
   projects: null,                  // the Projects page (projects/service.js)
   remoteService: null,             // other computers Claude Code runs on, over ssh (remote/service.js)
   devServers: null,                // the dev servers in them (devservers/service.js)
@@ -202,12 +202,12 @@ const shared = {
   pranks: null,                    // mischief, if you asked for it (see pranks.js)
   floor: null,                     // the strip of floor with his pals and footprints (see floor.js)
   life: null,                      // his life between tasks: scenes, gifts, the bond, your day (see life.js)
-  tankRemark: null,                // a word about his tank for the desktop, set by ipc/tank.js (tank-life.js)
+  tankRemark: null,                // a word about his tank for the desktop, set by ipc/tank.js (tank/life.js)
   homeTurnEnded: null,             // a tab's turn ended: its place on the home line moves on, set by ipc/repo.js (home-line.js)
   settingsSynced: null,            // settings changed on another PC take effect here, set by ipc/settings.js (sync-prefs.js)
   playtime: null,                  // hide and seek, fetch (see playtime.js)
   typing: null,                    // tapping along while you type (see typing.js)
-  weatherSvc: null,                // the weather outside, for what he wears (see weather-service.js)
+  weatherSvc: null,                // the weather outside, for what he wears (see weather/service.js)
 
   // ---- as he runs
   claudeStatus: null,

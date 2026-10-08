@@ -2,8 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
-const { TASKKILL } = require('./system32');
-const processJob = require('./process-job');
+const { TASKKILL } = require('../system32');
+const processJob = require('../process-job');
 
 // Env vars that would route the CLI to API-key billing or another provider.
 // Claude Code gets them as set: how it signs in is the user's call, not ours.

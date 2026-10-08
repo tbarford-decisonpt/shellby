@@ -7,7 +7,7 @@
 // config.weatherNow. No Electron here: `fetch` is passed in (main gives it
 // net.fetch, so a proxy set in Windows applies), which keeps this testable.
 
-const weather = require('./weather');
+const weather = require('../weather');
 
 const MINUTE = 60 * 1000;
 const POLL_MS = 30 * MINUTE;

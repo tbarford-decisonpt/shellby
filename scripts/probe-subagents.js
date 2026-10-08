@@ -7,7 +7,7 @@ const readline = require('readline');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
-const { findClaude, claudeEnv } = require('../src/main/claude-cli');
+const { findClaude, claudeEnv } = require('../src/main/claude/cli');
 
 const target = path.join(os.tmpdir(), `shellby-probe-${Date.now()}.txt`);
 const exe = findClaude();

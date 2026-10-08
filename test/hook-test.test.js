@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const os = require('os');
 const path = require('path');
 
-const { samplePayload, parsePayload, verdict, findBash, runHook } = require('../src/main/hook-test');
-const { HOOK_EVENTS } = require('../src/main/claude-setup');
+const { samplePayload, parsePayload, verdict, findBash, runHook } = require('../src/main/hooks/test');
+const { HOOK_EVENTS } = require('../src/main/claude/setup');
 
 const bash = findBash();
 const needsBash = { skip: bash ? false : 'no bash on this machine' };

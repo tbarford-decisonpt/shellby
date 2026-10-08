@@ -3,8 +3,8 @@
 // it up.
 const { shell } = require('electron');
 const path = require('path');
-const claudeSetup = require('../claude-setup');
-const hookTest = require('../hook-test');
+const claudeSetup = require('../claude/setup');
+const hookTest = require('../hooks/test');
 const snippets = require('../snippets');
 const { samePath } = require('../toolbox');
 

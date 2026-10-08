@@ -1,4 +1,4 @@
-/* Shellby panel — him tidying his tank (src/main/tank-tidy.js). Opening the
+/* Shellby panel — him tidying his tank (src/main/tank/tidy.js). Opening the
    Tank tab asks main once whether he's moved a find; if he has, a note says
    which, with "Put it back" (Ctrl+Z works too while you're not decorating).
    Ctrl+Z on the Tank tab is one slot, SB.tankUndo, shared with the saved

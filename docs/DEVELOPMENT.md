@@ -326,7 +326,8 @@ src/main/        Electron main process
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
   routines.js      schedule maths + scheduler for recurring tasks
-  routine-draft.js Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude
+  routines/        draft.js (Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude),
+                   templates.js (the built-in routines) and service.js (starting a run, making room, holding it)
   corrections.js   learning from corrections (pure): the same comment, Deny or undo twice in a project -> a rule offered;
                    learned-rules.js appends it to that project's CLAUDE.md, correction-draft.js lets Claude word it
   workflows/       the workflow engine (docs/plans/workflows.md): schema, expr (templates and conditions),
@@ -359,11 +360,11 @@ src/main/        Electron main process
   automemory.js    Claude Code's auto memory for a project: listing it, fixing one, forgetting one (Toolbox → Memory), and noticing a new one
   cloud-routines.js Claude Code's cloud routines (/schedule) through a one-off RemoteTrigger call: the list, a routine's runs, Run now
   held.js          messages and routine runs held for after the usage reset (pure list ops; held-service.js sends them)
-  usage-ledger.js  what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
-                   composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
   selfaware.js     what Claude is told about Shellby (a fixed note, the usage line at 80% and 95%) and the feature offers it may make;
                    crabmcp.js serves the crab's tools (say, celebrate, wear, status, suggest) to Shellby's own conversations
-  usage.js         the usage meter without a prompt: a short-lived `claude -p` asked for its /usage data
+  usage.js         the usage meter without a prompt: a short-lived `claude -p` asked for its /usage data; usage/ holds
+                   ledger.js (what each turn cost, pure: the per-turn ledger, a prompt's kind of ask, and the estimate the
+                   composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate), scan.js (what Claude Code used lately, from its transcripts) and service.js
   notes.js         Notes (pure): a list per project and a General one, their limits
   sync-prefs.js    which settings sync between PCs, each checked by its own rule, and the newest change wins
   events.js        tide events (pure): six short named runs inside the seasons, their goals, medals, boosts and the bug that comes along;
@@ -390,8 +391,13 @@ src/main/        Electron main process
                    and redaction (GitHub Actions logs and GitLab job traces), review threads quoted, TODO parsing;
                    github/prwork.js and gitlab/mrwork.js fetch them
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
-  claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
-  claude-update.js keeps the CLI itself current: the daily registry check, `claude update` on request or by itself while idle, tell | auto | off (fetch and run are injected; wiring/claude-updates.js)
+  claude/          Claude Code itself: cli.js finds the CLI, checks auth, scrubs billing env vars; setup.js (its hooks and CLAUDE.md files); tricks.js (what's
+                   new in its changelog); update.js keeps the CLI itself current: the daily registry check, `claude update` on request or by itself while idle, tell | auto | off (fetch and run are injected; wiring/claude-updates.js)
+  depwatch.js      dependency watch; depwatch/ holds parse, prompts, python and tools (each package manager's checker)
+  tank.js          his tank; tank/ holds gauges, glass, layouts, life, share and tidy (docs/TANK.md)
+  stickers.js      shell stickers (pure); stickers/ holds art (drawing), slots (where they fit) and service
+  weather.js       the weather; weather/service.js fetches it
+  hooks/           Toolbox → Hooks: draft.js (Ask Claude for one), recipes.js (ready-made ones), test.js (Test run)
   history.js       local conversation index + transcripts
   log.js           the log behind "Report a problem" (scrubbed of paths and tokens)
   trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log

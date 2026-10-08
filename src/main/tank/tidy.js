@@ -9,7 +9,7 @@
 // Pure: no I/O, no clock, no Math.random (callers pass `now` and `rand`).
 // See test/tank-tidy.test.js.
 
-const tank = require('./tank');
+const tank = require('../tank');
 
 const DAY = 24 * 60 * 60 * 1000;
 const CHANCE = 0.35;       // of a day he could, the share he does

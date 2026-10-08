@@ -1,11 +1,11 @@
-// Keeping Claude Code itself up to date (src/main/claude-update.js): the
+// Keeping Claude Code itself up to date (src/main/claude/update.js): the
 // registry answer and `claude update`'s output parsed, the daily schedule, the
 // one notification per release, and automatic updates only while he's idle.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   ClaudeUpdates, fetchLatest, newer, normalizeSettings, parseLatest, parseUpdate, EVERY, RETRY_MS, LATEST_URL, PACKAGE,
-} = require('../src/main/claude-update');
+} = require('../src/main/claude/update');
 
 const HOUR = 3600000;
 const DAY = 24 * HOUR;

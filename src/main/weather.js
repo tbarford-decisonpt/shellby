@@ -1,6 +1,6 @@
 // The weather outside his window: what it's doing where you are, and what he
 // puts on for it (a sou'wester and an umbrella in the rain, a bobble hat in the
-// snow, shades on a hot sunny day). weather-service.js does the asking; this is
+// snow, shades on a hot sunny day). weather/service.js does the asking; this is
 // the pure part: the addresses, reading the answers, and dressing for them.
 //
 // Open-Meteo (open-meteo.com) is free, needs no account or key, and is asked

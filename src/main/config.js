@@ -32,8 +32,8 @@ const DEFAULTS = {
   effortPick: true, // with effort on Auto, size each new conversation from its first message instead (effort-pick.js)
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
-  claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
-  planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude-cli.js)
+  claudePath: null, // set only when the user points at the CLI by hand (see claude/cli.js)
+  planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude/cli.js)
   onboarded: false,
   firstTour: false,  // a new install's first New task offers Show me around until it's opened once (onboarding.js, feed.js)
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
@@ -92,15 +92,15 @@ const DEFAULTS = {
   spendGuard: true,  // stop unattended runs before they eat the share of the 5-hour window you keep (see guard.js)
   spendReserve: 25,  // % of the 5-hour window routines, workflows and away-from-the-PC Autonomous tabs leave you
   spendMaxMinutes: 60, // the longest one routine run may take
-  holdBigTasks: false, // hold a message for the reset when it usually takes more than the window has left (usage-ledger.js)
+  holdBigTasks: false, // hold a message for the reset when it usually takes more than the window has left (usage/ledger.js)
   streaks: null,      // work days, projects and nudge settings (see streaks.js)
   stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
   beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
-  tankLayouts: null,  // his tank's saved layouts (tank-layouts.js): synced, never on a card
+  tankLayouts: null,  // his tank's saved layouts (tank/layouts.js): synced, never on a card
   tankLive: null,
-  tankTidy: null,     // whether he tidies his finds, and what he moved last (tank-tidy.js): per PC, never synced     // which of his tank's live decor is on (tank-gauges.js): per PC, never synced
+  tankTidy: null,     // whether he tidies his finds, and what he moved last (tank/tidy.js): per PC, never synced     // which of his tank's live decor is on (tank/gauges.js): per PC, never synced
   tank: null,         // his tank: its size, floor and back glass, and where each piece stands (see tank.js)
-  tankLife: null,     // his life in it: what he uses most, sets shown, the biggest tank (see tank-life.js); this PC only
+  tankLife: null,     // his life in it: what he uses most, sets shown, the biggest tank (see tank/life.js); this PC only
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
   flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
@@ -136,7 +136,7 @@ const DEFAULTS = {
   lastUsage: null,
   journalPending: [], // conversations whose handoff note was still settling at quit (see wiring/journal.js)
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
-  turnCosts: [],      // what each turn cost, by project and kind of ask, never the prompt (see usage-ledger.js); this PC only
+  turnCosts: [],      // what each turn cost, by project and kind of ask, never the prompt (see usage/ledger.js); this PC only
   // Lean Shell (efficiency.js, lean.js): cache reads per day, each project's
   // setup weight, what Claude Code used lately, plugins' always-on estimates,
   // what was tidied away (XP once each), and when things were first seen.
@@ -158,9 +158,9 @@ const DEFAULTS = {
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
   plainCards: true, // permission cards and the Working bar say what a step does, in plain words (plain-words.js)
-  claudeTricks: true, // say what a new Claude Code can do, from its changelog (see claude-tricks.js)
+  claudeTricks: true, // say what a new Claude Code can do, from its changelog (see claude/tricks.js)
   claudeTricksState: null, // { lastSeen, pending }: the version he last saw, and a card not yet dismissed
-  claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude-update.js); null -> tell me
+  claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude/update.js); null -> tell me
   notes: null,        // { general, projects }: ideas to plan, build or ask about (see notes.js)
   health: null,       // health monitor settings (see health/service.js); null -> defaults
   healthLog: [],      // recent health alerts, newest first
@@ -175,7 +175,7 @@ const DEFAULTS = {
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
   typing: null,       // { enabled, remarks }: tapping along while you type (see typing.js); off until you turn it on
   typingBest: 0,      // your fastest burst, in words a minute (typing.js)
-  weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather-service.js); off until you pick a town
+  weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather/service.js); off until you pick a town
   weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   remoteComputers: [], // [{ alias, added, check }]: other computers Claude Code runs on, over ssh (see remote/service.js)
