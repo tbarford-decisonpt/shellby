@@ -57,6 +57,9 @@
     }
     // Typed out in full, Enter runs it, like the terminal; otherwise it completes the name.
     if (e.key === 'Enter' && input.value.trim().toLowerCase() === `/${slashItems[slashIndex]?.name}`.toLowerCase()) { SB.hideSlash(); return false; }
+    // Nor does Enter swap what you typed for a name that only matched on its
+    // description: /compact is Claude Code's own, not /handoff that mentions it.
+    if (e.key === 'Enter' && !slashItems[slashIndex]?.name.toLowerCase().includes(input.value.trim().slice(1).toLowerCase())) { SB.hideSlash(); return false; }
     if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickSlash(slashIndex); return true; }
     return false;
   }

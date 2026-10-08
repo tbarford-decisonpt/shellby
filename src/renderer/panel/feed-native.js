@@ -128,7 +128,7 @@
           h('span', { class: 'ask-crab' }, SB.sprite()),
           h('div', {},
             h('div', { class: 'ask-title', text: "Here's my plan" }),
-            h('div', { class: 'ask-sub', text: 'Nothing changes until you approve. Hover a line and press 💬 to leave a note on it.' })),
+            h('div', { class: 'ask-sub', text: `${state.settings.plainCards !== false && item.planSummary ? `${item.planSummary}. ` : ''}Nothing changes until you approve. Hover a line and press 💬 to leave a note on it.` })),
           copy),
         h('div', { class: 'ask-body' }, planEl),
         noteList,

@@ -155,12 +155,12 @@ function makeRepo() {
     await ev("SB.$('effortChip').click()");
     check(await until("!SB.$('effortMenu').hidden"), 'the effort chip opens its menu');
     await ev("[...SB.$('effortMenu').querySelectorAll('.menu-item')].find(b => b.textContent.startsWith('High')).click()");
-    check(await until("SB.state.settings.effort === 'high' && SB.$('effortLabel').textContent === 'high'"), 'picking High saves it and shows it');
+    check(await until("SB.activeTab().effort === 'high' && SB.$('effortLabel').textContent === 'high'"), 'picking High sets it for this conversation and shows it');
     await type('effort');
     await idle();
     check((await lastReply()).includes('effort:high'), 'the running conversation thinks at the new effort');
     await type('/effort low');
-    check(await until("SB.state.settings.effort === 'low'"), '/effort low works too');
+    check(await until("SB.activeTab().effort === 'low'"), '/effort low works too');
 
     // 9. /export, the Rules tab, MCP statuses, output styles.
     check((await ev(`shellby.exportSession(SB.activeTab().id, 'clipboard')`))?.ok === true, '/export clipboard exports the conversation');

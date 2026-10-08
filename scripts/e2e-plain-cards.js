@@ -68,7 +68,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
     // 2. A plan.
     const plan = await ask('askplan');
-    check(plan.sub === '3 steps · names 2 files. Nothing changes until you approve.', `the plan card says its size (${plan.sub})`);
+    check(plan.sub.startsWith('3 steps · names 2 files. Nothing changes until you approve.'), `the plan card says its size (${plan.sub})`);
     check(await answer('deny', 'STILL PLANNING'), 'Keep planning still works');
 
     // 3. A test run that takes a while.
