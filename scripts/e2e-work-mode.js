@@ -61,7 +61,7 @@ async function connect(url) {
 
     // 1. Three paths; Work mode needs Claude Code, so its steps show.
     check(await panel.ev('document.body.dataset.view') === 'onboarding', 'new user sees onboarding');
-    check(await panel.ev("document.querySelectorAll('#onboardPaths .path').length") === 3, 'three paths offered');
+    check(await panel.ev("document.querySelectorAll('#onboardPaths .path').length") === 4, 'four paths offered');
     await panel.ev("document.querySelector('.path[data-path=work]').click()");
     await wait(500);
     check(await panel.ev("!document.getElementById('claudeSetup').hidden"), 'Work mode shows the Claude Code steps');

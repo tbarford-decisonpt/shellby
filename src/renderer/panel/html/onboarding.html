@@ -21,9 +21,16 @@
         <span class="path-title">Work mode</span>
         <span class="path-sub">The tools, and a quiet crab. Chat, Projects and the Toolbox come first, and I only speak up when something's done, broken or needs you. <b>Switch any time in Settings.</b></span>
       </button>
+      <button type="button" class="path" data-path="remote">
+        <span class="path-icon" aria-hidden="true">🖥️</span>
+        <span class="path-title">Claude Code on another computer</span>
+        <span class="path-sub">Claude Code stays on a server or a PC of yours, and I reach it over ssh. <b>Nothing to install on this PC.</b></span>
+      </button>
     </div>
     <div id="claudeSetup" hidden>
       <ol class="steps" id="steps"></ol>
+      <!-- the remote path: Settings' Other computers section is lent here (onboarding.js) -->
+      <div id="onboardRemote" hidden><p class="small muted" id="onboardRemoteHint" aria-live="polite"></p></div>
       <section class="setting-group onboarding-modes">
         <h3>How much can I do without asking?</h3>
         <div class="mode-cards compact" id="onboardModeCards"></div>

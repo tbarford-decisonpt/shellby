@@ -48,7 +48,7 @@ async function launch() {
     await wait(3000);
     // 1. First run: onboarding with three paths, Claude steps tucked away.
     check(await panel.ev("document.body.dataset.view") === 'onboarding', 'new user sees onboarding');
-    check(await panel.ev("document.querySelectorAll('#onboardPaths .path').length") === 3, 'three paths offered');
+    check(await panel.ev("document.querySelectorAll('#onboardPaths .path').length") === 4, 'four paths offered');
     check(await panel.ev("document.getElementById('claudeSetup').hidden"), 'Claude steps hidden until chosen');
     await shot(panel, '1-onboarding');
 
