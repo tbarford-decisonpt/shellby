@@ -85,18 +85,19 @@
 }
 @keyframes bb-bubble { 50% { transform: translate(5px, -200px); } to { transform: translate(-3px, -420px); opacity: 0; } }
 
-/* the rocks they stand on */
+/* the seabed they share, and a rock under each */
+.bb-water::before { content: ''; position: absolute; left: 0; right: 0; bottom: 22%; height: 16%; background: linear-gradient(transparent, color-mix(in srgb, var(--pad2) 55%, transparent) 40%, var(--pad2)); }
 .bb-pad { position: absolute; z-index: 0; border-radius: 50%; background: radial-gradient(closest-side, var(--pad1), var(--pad2) 75%, transparent 76%); }
 .bb-pad::after { content: ''; position: absolute; inset: 18% 12% auto; height: 22%; border-radius: 50%; background: rgba(255, 255, 255, .12); }
-.foe-pad { right: 6%; top: 30%; width: 40%; height: 12%; }
-.me-pad { left: 2%; bottom: 25%; width: 44%; height: 14%; }
+.foe-pad { right: 5%; bottom: 25%; width: 38%; height: 11%; }
+.me-pad { left: 5%; bottom: 25%; width: 38%; height: 11%; }
 
 /* the two of them */
-.bb-foe { position: absolute; z-index: 2; right: 12%; top: 2%; width: 28%; height: 35%; display: grid; place-items: end center; }
+.bb-foe { position: absolute; z-index: 2; right: 10%; bottom: 29%; width: 28%; height: 34%; display: grid; place-items: end center; }
 .bb-foe-art { display: grid; place-items: center; animation: bb-idle 2.2s steps(2, end) infinite; }
 .bb-foe-art svg { width: 100%; height: auto; max-width: 128px; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .3)); }
 .bb-foe.low .bb-foe-art { animation-duration: .7s; }
-.bb-me { position: absolute; z-index: 3; left: 8%; bottom: 28%; width: 27%; height: 36%; display: grid; place-items: end center; }
+.bb-me { position: absolute; z-index: 3; left: 10%; bottom: 28%; width: 26%; height: 36%; display: grid; place-items: end center; }
 .bb-me-art { width: 100%; display: grid; place-items: end center; }
 .bb-crab { width: 100%; height: auto; max-height: 100%; animation: bb-breathe 2.6s steps(2, end) infinite; }
 .bb-shadow { position: absolute; bottom: -3%; left: 22%; right: 22%; height: 10%; border-radius: 50%; background: rgba(0, 0, 0, .28); }
@@ -105,12 +106,12 @@
 
 /* ---------------------------------------------------------------- HUDs */
 .bb-hud {
-  position: absolute; z-index: 5; display: grid; gap: 2px; padding: 5px 9px 6px; min-width: 42%;
+  position: absolute; z-index: 5; top: 4%; display: grid; gap: 2px; padding: 5px 9px 6px; width: 44%; box-sizing: border-box;
   background: linear-gradient(#f8f1de, #e7dcc2); color: #26323a;
   border: 2px solid #26323a; box-shadow: 3px 3px 0 rgba(0, 0, 0, .35);
 }
-.bb-hud.foe { left: 4%; top: 6%; border-radius: 3px 12px 3px 3px; }
-.bb-hud.me { right: 4%; bottom: 27%; min-width: 40%; border-radius: 12px 3px 3px 3px; }
+.bb-hud.foe { right: 4%; border-radius: 3px; }
+.bb-hud.me { left: 4%; border-radius: 3px; }
 .bb-hud-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .bb-name { font-size: var(--fs-12-5); letter-spacing: .04em; }
 .bb-lv { font-size: var(--fs-11); }
@@ -153,8 +154,8 @@
 @keyframes bb-caret { 50% { transform: translateY(2px); } }
 
 /* ---------------------------------------------------------------- the intro */
-.bb-blinds { position: absolute; inset: 0; z-index: 30; display: grid; grid-template-rows: repeat(8, 1fr); pointer-events: none; }
-.bb-blinds i { display: block; background: #050b0c; transform: translateX(-101%); }
+.bb-blinds { position: absolute; inset: 0; z-index: 30; display: grid; grid-template-columns: repeat(8, 1fr); pointer-events: none; overflow: hidden; }
+.bb-blinds i { display: block; background: #050b0c; border-radius: 40% 40% 0 0; transform: translateY(101%); }
 .rank-boss .bb-blinds i, .rank-elite .bb-blinds i { background: #3b0d0d; }
 .rank-champion .bb-blinds i { background: #3b2d05; }
 .bb-warning {
@@ -188,14 +189,14 @@
 .bb-float.resist { color: #9fd3ff; }
 .bb-float.scout { color: #8ecae6; font-size: clamp(16px, 5cqw, 24px); }
 .bb-star { color: #ffd23f; font-size: 14px; text-shadow: 0 0 6px #ffd23f; }
-.bb-capture { width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(closest-side, #fff, #ff8fab 55%, transparent); }
+.bb-line { width: 1px; top: 0; background: linear-gradient(rgba(255, 255, 255, .25), rgba(255, 255, 255, .7)); transform: translateX(-50%); }
 .bb-confetti { width: 4px; height: 6px; }
 .bb-jar { position: absolute; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
 .bb-jar.sealed svg { animation: bb-glint 1.2s steps(3, end) 2; }
 @keyframes bb-glint { 50% { filter: brightness(1.6); } }
 
 /* a crew member, in to help */
-.bb-helper { position: absolute; z-index: 4; left: 26%; bottom: 31%; width: 17%; display: grid; justify-items: center; gap: 2px; }
+.bb-helper { position: absolute; z-index: 4; left: 33%; bottom: 29%; width: 16%; display: grid; justify-items: center; gap: 2px; }
 .bb-helper svg { width: 100%; height: auto; }
 .bb-helper-tag { padding: 0 5px; border-radius: 3px; background: #26323a; color: #fdfaf2; font-size: var(--fs-9-5); white-space: nowrap; }
 

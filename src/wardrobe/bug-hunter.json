@@ -63,12 +63,12 @@
     },
     {
       "id": "trainer-cap",
-      "name": "Trainer Cap",
-      "description": "Forty kinds of bug caught. Gotta fix 'em all.",
+      "name": "Field Researcher's Cap",
+      "description": "Forty kinds of bug caught. A proper marine field researcher now.",
       "slot": "hat",
       "rarity": "epic",
       "pivot": [5, 3],
-      "palette": { "r": "#e63946", "R": "#9d0208", "w": "#f8f9fa", "k": "#2b2d42" },
+      "palette": { "r": "#2a9d8f", "R": "#1d6b62", "w": "#e9d8a6", "k": "#5c4a32" },
       "pixels": [
         "...rrrr....",
         "..rrwwwr...",

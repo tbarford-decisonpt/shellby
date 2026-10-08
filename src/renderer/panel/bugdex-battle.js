@@ -1,7 +1,7 @@
 /* Shellby panel — bug battles. While a bug is on the loose, Claude's work on
-   it plays out as a fight on a little handheld screen: the wild bug on its rock,
-   Shellby on his, the text box typing out each move, the HP bar draining as
-   failing tests clear, and the jar when the fix is proven (src/main/bugdex/
+   it plays out as a tussle on the seabed: the bug and Shellby face to face on
+   the sand, the text box typing out each move, the HP bar draining as failing
+   tests clear, and the jar lowered on its line when the fix is proven (src/main/bugdex/
    battle.js decides all of it; this only draws). A chip under the tabs shows
    the fight in the conversation where it's happening; the Bugdex's "on the
    loose" rows open it too. Nothing here is ever put in as HTML. */
@@ -19,7 +19,7 @@
     install: '#cdb4db', git: '#f3722c', run: '#4cc9f0', remedy: '#b8ffd9', assist: '#ff8fab',
   };
   const RANK = { boss: 'BOSS', elite: 'DEEP FOUR', champion: 'CHAMPION' };
-  // A jar for the throw: glass, a cork, a glint (the Bugdex's own jar is per bug; this one is empty).
+  // The specimen jar lowered for it: glass, a cork, a glint (the Bugdex's own jar is per bug; this one is empty).
   const JAR = { palette: { j: '#bfe9ff', c: '#b07a4a', h: '#ffffff', g: '#7fb8d6' }, pixels: ['..cccc..', '..cccc..', '.j....j.', 'jh.....j', 'jh.....j', 'j......j', 'j......j', 'jg....gj', '.jjjjjj.'] };
   const LENS = { palette: { r: '#d9c8a0', g: '#bfe9ff', w: '#ffffff', k: '#5c4a32' }, pixels: ['.rrr...', 'rgwgr..', 'rggggr.', 'rggggr.', '.rrrr..', '....kk.', '.....kk'] };
 
@@ -68,8 +68,8 @@
     chipSeq = b.seq;
     const share = hpShare(b);
     el.hidden = false;
-    el.className = `bb-chip rank-${b.league || (b.boss ? 'boss' : 'wild')}${b.over ? ` over-${b.over}` : ''}`;
-    el.setAttribute('aria-label', b.over === 'caught' ? `${b.name} caught. Watch the battle.` : `A wild ${b.name}, ${Math.round(share * 100)}% HP. Watch the battle.`);
+    el.className = `bb-chip rank-${b.league || (b.boss ? 'boss' : 'plain')}${b.over ? ` over-${b.over}` : ''}`;
+    el.setAttribute('aria-label', b.over === 'caught' ? `${b.name} caught. Watch the battle.` : `${b.name} on the loose, ${Math.round(share * 100)}% HP. Watch the battle.`);
     el.title = 'Watch the bug battle';
     el.replaceChildren(...[
       h('span', { class: 'bb-chip-art', 'aria-hidden': 'true' }, sprite(b, fitPx(b.pixels, 16))),
@@ -173,20 +173,22 @@
     cue(rank ? 'boss' : 'battle');
     if (!reduced()) {
       parts.screen.classList.add('entering');
+      // The tide comes in over the screen, and goes out on the fight.
+      const wave = i => Math.abs(i - 3.5) * 45;
       await Promise.all([...parts.blinds.children].map((bar, i) => bar.animate(
-        [{ transform: `scaleX(${i % 2 ? -1 : 1}) translateX(-101%)` }, { transform: `scaleX(${i % 2 ? -1 : 1}) translateX(0)`, offset: 0.45 }, { transform: `scaleX(${i % 2 ? -1 : 1}) translateX(0)`, offset: 0.55 }, { transform: `scaleX(${i % 2 ? -1 : 1}) translateX(101%)` }],
-        { duration: 900, delay: i * 35, easing: 'steps(12, end)', fill: 'both' }).finished));
+        [{ transform: 'translateY(101%)' }, { transform: 'translateY(0)', offset: 0.45 }, { transform: 'translateY(0)', offset: 0.55 }, { transform: 'translateY(-101%)' }],
+        { duration: 1000, delay: wave(i), easing: 'cubic-bezier(.4,0,.6,1)', fill: 'both' }).finished));
       parts.screen.classList.remove('entering');
       parts.foe.animate([{ transform: 'translateX(140%)', filter: 'brightness(0)' }, { transform: 'translateX(0)', filter: 'brightness(0)', offset: 0.7 }, { transform: 'translateX(0)', filter: 'brightness(1)' }], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
       parts.me.animate([{ transform: 'translateX(-140%)' }, { transform: 'translateX(0)' }], { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      parts.foeHud.animate([{ transform: 'translateX(-120%)' }, { transform: 'translateX(0)' }], { duration: 500, delay: 500, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
-      parts.meHud.animate([{ transform: 'translateX(120%)' }, { transform: 'translateX(0)' }], { duration: 500, delay: 600, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+      parts.foeHud.animate([{ transform: 'translateY(-160%)' }, { transform: 'translateY(0)' }], { duration: 500, delay: 500, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+      parts.meHud.animate([{ transform: 'translateY(-160%)' }, { transform: 'translateY(0)' }], { duration: 500, delay: 600, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
       await wait(700);
       if (rank) await warning(rank);
     }
     cue('cry', { species: b.species });
     if (!reduced()) parts.foeArt.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12, .9)' }, { transform: 'scale(.95, 1.08)' }, { transform: 'scale(1)' }], { duration: 420 });
-    await say(b.moves[0]?.line || `A wild ${b.name} appeared!`);
+    await say(b.moves[0]?.line || `${b.name} surfaced!`);
     if (scene !== s) return;
     // Opening one already under way: catch up quietly, and replay what just happened.
     const now = SB.battleOf(s.id) || b; // it may have moved on during the intro
@@ -491,9 +493,11 @@
     const p = scene.parts;
     setHp(0);
     cue('faint');
-    if (reduced()) { p.foeArt.style.opacity = '0.25'; return; }
+    if (reduced()) { p.foeArt.style.transform = 'rotate(180deg)'; return; }
     await blink(p.foeArt, 3);
-    await p.foeArt.animate([{ transform: 'translateY(0)', clipPath: 'inset(0 0 0 0)' }, { transform: 'translateY(70%)', clipPath: 'inset(0 0 70% 0)' }], { duration: 520, easing: 'ease-in', fill: 'forwards' }).finished.catch(() => {});
+    // Belly-up, the way a knocked-out fish floats.
+    p.foeArt.style.animation = 'none';
+    await p.foeArt.animate([{ transform: 'rotate(0)', filter: 'saturate(1)' }, { transform: 'rotate(180deg)', filter: 'saturate(.4)' }], { duration: 520, easing: 'cubic-bezier(.3,1.4,.5,1)', fill: 'forwards' }).finished.catch(() => {});
   }
 
   // Pixel confetti for a badge or the Hall of Fame.
@@ -546,54 +550,52 @@
   }
 
   // ------------------------------------------------------------ the catch
+  // Out cold, it's collected the Shellby way: a specimen jar lowered on a line,
+  // it drifts up into it, the cork goes on, and the jar comes to rest on the rock.
   async function catchIt(b, m) {
     const p = scene.parts;
     const jar = h('div', { class: 'bb-jar' }, SB.Sprite.grid(JAR.pixels, JAR.palette, { px: 4 }));
-    // Where it stood (its own box; the art itself has sunk out of sight).
+    // Where it stood (its own box: the art itself is floating belly-up).
     const stood = centre(p.foe);
-    const pad = { ...stood, y: stood.y + stood.h * 0.18 };
-    const from = centre(p.crab);
+    const rest = { x: stood.x, y: stood.y + stood.h * 0.32 };
+    const hang = { x: stood.x, y: stood.y - stood.h * 0.25 };
     if (reduced()) {
-      jar.style.cssText = `left:${pad.x}px;top:${pad.y + pad.h * 0.2}px`;
+      jar.style.cssText = `left:${rest.x}px;top:${rest.y}px`;
+      p.foeArt.style.opacity = '0';
       p.fx.append(jar);
       await say(m.line);
       return showCaught(b, m);
     }
-    // The throw: an arc from his claw to where it fainted.
-    cue('throw');
+    // Down it comes on its line.
+    cue('lower');
+    const line = bit('bb-line', hang.x, 0, 'height:0');
     p.fx.append(jar);
-    const steps = 12;
-    const arc = Array.from({ length: steps + 1 }, (_, i) => {
-      const t = i / steps;
-      const x = from.x + (pad.x - from.x) * t;
-      const y = from.y + (pad.y - from.y) * t - Math.sin(Math.PI * t) * 70;
-      return { left: `${x}px`, top: `${y}px`, transform: `translate(-50%,-50%) rotate(${t * 720}deg)` };
-    });
-    await jar.animate(arc, { duration: 650, easing: 'linear', fill: 'forwards' }).finished.catch(() => {});
-    // The cork pops, the bug goes in as light.
-    flash('#ffe8f0', 260);
-    const light = bit('bb-capture', pad.x, pad.y);
-    gone(light.animate([{ transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0.9 }, { transform: 'translate(-50%,-50%) scale(.1)', opacity: 1 }], { duration: 420, easing: 'ease-in' }));
+    jar.style.cssText = `left:${hang.x}px;top:-30px`;
+    await Promise.all([
+      line.animate([{ height: '0px' }, { height: `${hang.y - 14}px` }], { duration: 700, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' }).finished,
+      jar.animate([{ top: '-30px' }, { top: `${hang.y}px` }], { duration: 700, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' }).finished,
+    ]).catch(() => {});
+    // Up it drifts, small enough to fit.
+    await p.foeArt.animate([
+      { transform: 'rotate(180deg) translateY(0) scale(1)', opacity: 1 },
+      { transform: `rotate(180deg) translateY(${stood.h * 0.45}px) scale(.25)`, opacity: 0 },
+    ], { duration: 650, easing: 'ease-in', fill: 'forwards' }).finished.catch(() => {});
     p.foeArt.style.opacity = '0';
-    await wait(420);
-    // Down onto the sand, then the wobbles: one, two, three by rarity.
-    await jar.animate([{ top: `${pad.y}px` }, { top: `${pad.y + pad.h * 0.22}px` }], { duration: 260, easing: 'cubic-bezier(.5,0,.8,.6)', fill: 'forwards' }).finished.catch(() => {});
-    const wobbles = m.jar?.wobbles || 1;
-    for (let i = 0; i < wobbles; i++) {
-      await wait(380);
-      cue('wobble');
-      await jar.animate([{ transform: 'translate(-50%,-50%) rotate(0)' }, { transform: 'translate(-50%,-50%) rotate(-22deg)' }, { transform: 'translate(-50%,-50%) rotate(16deg)' }, { transform: 'translate(-50%,-50%) rotate(0)' }], { duration: 520, easing: 'ease-in-out', fill: 'forwards' }).finished.catch(() => {});
-    }
-    await wait(300);
     cue('caught');
+    jar.classList.add('sealed');
     const at = centre(jar);
-    burst(at, '#ffd23f', 14, 50);
+    burst(at, '#bfe9ff', 10, 34);
+    // ...and the line sets it down on the rock, then reels in.
+    await Promise.all([
+      jar.animate([{ top: `${hang.y}px` }, { top: `${rest.y}px` }], { duration: 520, easing: 'cubic-bezier(.5,0,.6,1)', fill: 'forwards' }).finished,
+      line.animate([{ height: `${hang.y - 14}px` }, { height: `${rest.y - 14}px` }], { duration: 520, easing: 'cubic-bezier(.5,0,.6,1)', fill: 'forwards' }).finished,
+    ]).catch(() => {});
+    gone(line.animate([{ height: `${rest.y - 14}px` }, { height: '0px' }], { duration: 500, delay: 150, easing: 'ease-in', fill: 'forwards' }));
     for (let i = 0; i < 3; i++) {
-      const star = bit('bb-star', at.x + (i - 1) * 16, at.y - 10);
+      const star = bit('bb-star', rest.x + (i - 1) * 16, rest.y - 18);
       star.textContent = '✦';
       gone(star.animate([{ transform: 'translate(-50%,-50%) scale(.2)', opacity: 0 }, { transform: 'translate(-50%,-120%) scale(1.2)', opacity: 1, offset: 0.4 }, { transform: 'translate(-50%,-180%) scale(.8)', opacity: 0 }], { duration: 1000, delay: i * 120 }));
     }
-    jar.classList.add('sealed');
     await say(m.line);
     await showCaught(b, m);
   }

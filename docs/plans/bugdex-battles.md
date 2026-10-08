@@ -28,12 +28,12 @@ Every open encounter has a battle, kept **in memory only** (`wiring/bugdex.js`
 
 - **A re-run** with a failing-test count (`detect.failedCount`) sets HP in
   proportion to failures left over failures at the start. Clearing half of them
-  in one run is a **critical hit**. Fewer failures with the right tool for the bug's type
-  (`SUPER`, the type chart) is **super effective**. More failures **heals** it, and the
+  in one run is **a big one**. Fewer failures with the right tool for the bug's type
+  (`SUPER`, the type chart) is **the right tool for the job** and counts double. More failures **heals** it, and the
   same number **misses**. With no count to go on, a re-run that still fails is a miss.
 - Runs of the same Scout or Patch within 20 s are one move done ×N.
-- The view gives every move its line ("Claude used Test Run! It's super
-  effective!"). The panel only draws.
+- The view gives every move its line ("Claude tries Test Run! Right tool for
+  the job!"). The panel only draws.
 
 ## The screen (`src/renderer/panel/bugdex-battle.js`, `.css`)
 
@@ -41,15 +41,17 @@ An overlay with a handheld bezel. Each habitat paints its own water and decor
 (kelp, the lighthouse beam, the trench's motes...). The scene has the HUDs, a
 typed text box and a battle log for screen readers. Each move announces itself,
 then animates (lens, slashes, beams, dodge, heal, shield, a crew member hopping
-in), then says how it landed. The catch is the faint, the jar's arc, 1-3 wobbles
-by rarity, the seal, then a card: the Bugdex entry, a badge, or the Hall of Fame.
+in), then says how it landed. The catch: it goes belly-up, a specimen jar is
+lowered on a line, it drifts up in, the cork goes on and the line sets the jar
+on the rock. (Nothing is thrown at it, and there's no wobble count: see
+"Someone else's games" below.) Then a card: the Bugdex entry, a badge, or the Hall of Fame.
 
 - Opened mid-fight, it catches up quietly and replays the latest move. Opened
   after a catch, it replays the finish.
 - Sounds are asked of the crab (`bugdex:cue` → `critter:sound`), so they follow
   your sound settings. Each species' **cry** is synthesized from its dex number:
   its type picks the wave, its rarity the pitch.
-- Reduced motion: no blinds, shakes or particles, and the lines show at once.
+- Reduced motion: no tide wipe, shakes or particles, and the lines show at once.
 - A **chip under the tabs** shows the battle in that conversation, and
   `Watch` on the Bugdex page opens any of them. Switch: `bugBattles`.
 
@@ -57,7 +59,7 @@ by rarity, the seal, then a card: the Bugdex entry, a badge, or the Hall of Fame
 
 `crew-roster.js` keeps `beat: { [bugType]: n }` per member, credited at the catch
 for each member in the battle's party (`recordBeat`), at `XP.beat` = 8. The type
-with at least 3 is its **specialty**, which makes its assists super effective.
+with at least 3 is its **specialty**, which makes its assists count double.
 
 ## Badges and the league (`bugdex/species.js`)
 
@@ -83,8 +85,25 @@ kept locally, never synced, never a catch, and can go in the tank.
 - **Follower**: the favourite catch's art (`critter:buddy`) walks a step behind
   him, and waits on the ground while he climbs or rides a window. Switch: `bugFollower`.
 
+## Someone else's games
+
+The Bugdex is a nod to the creature-collecting handhelds, and nothing more:
+
+- **No names of theirs**: not the series, its book, its ball, its "Elite Four" (ours
+  are the Deep Four), its creatures or its slogan.
+- **No lines of theirs.** Battle text is Shellby's own ("Nullfish surfaced!", "Claude
+  tries Test Run! Right tool for the job!", "Nullfish is out cold!", "Nullfish is in
+  the jar!").
+- **Not their screen.** Both creatures face each other on one seabed with both HUDs
+  in a strip at the top (not one top-right and one bottom-left with a HUD each),
+  and the screen opens with a tide wipe (not striped blinds).
+- **Not their patented mechanics.** Nintendo holds and enforces patents on catching a
+  creature by throwing an item at it and on showing the odds of a catch. Here nothing
+  is thrown (the jar is lowered on a line, or he scoops it on the desk), there is no
+  wobble count, and nothing shows a chance of catching. A catch is never a chance
+  anyway: it's the fix being proven.
+
 ## Not doing
 
 - Battles between friends' bugs (it would rank people by how many bugs they had).
 - Outbreaks or bonus days for a kind of bug (rewarding bugs, not fixes).
-- Naming the games the Bugdex is a nod to (see bugdex.md §14).

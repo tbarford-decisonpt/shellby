@@ -7,7 +7,7 @@ const S = 1000;
 const wild = (over = {}) => ({ species: 'nullfish', rarity: 'common', type: 'runtime', ...over });
 const fresh = (opts = {}) => battle.start(wild(opts.enc), { id: 'p|fp', now: T0, ...opts });
 
-test('a wild bug appears at full HP, bosses and the league bigger and stronger', () => {
+test('a bug surfaces at full HP, bosses and the league bigger and stronger', () => {
   const b = fresh();
   assert.equal(b.hp, b.max);
   assert.equal(b.max, battle.HP.common);
@@ -109,11 +109,11 @@ test('a fix that did not count is not very effective, and gives it some back', (
 
 test('a catch knocks it out, then jars it; nothing moves after', () => {
   let b = fresh({ failed: 3 });
-  b = battle.finish(b, { at: T0 + S, outcome: 'caught', jar: { wobbles: 3, isNew: true, forms: ['golden'], badge: 'kelp' } });
+  b = battle.finish(b, { at: T0 + S, outcome: 'caught', jar: { isNew: true, forms: ['golden'], badge: 'kelp' } });
   assert.equal(b.over, 'caught');
   assert.deepEqual(b.moves.slice(-2).map(m => m.fx), ['ko', 'caught']);
   assert.equal(b.hp, 0);
-  assert.equal(b.moves.at(-1).jar.wobbles, 3);
+  assert.equal(b.moves.at(-1).jar.isNew, true);
   assert.equal(b.moves.at(-1).jar.badge, 'kelp');
   assert.equal(battle.act(b, { move: 'patch', at: T0 + 2 * S }), b);
   assert.equal(battle.finish(b, { at: T0 + 3 * S, outcome: 'fled' }), b);
@@ -139,13 +139,13 @@ test('the view gives every move its line', () => {
   b = battle.finish(b, { at: T0 + 3 * S, outcome: 'caught' });
   const v = battle.view(b, 'Nullfish');
   assert.deepEqual(v.moves.map(m => m.line), [
-    'A wild Nullfish appeared!',
-    'Claude used Test Run! A critical hit!',
-    'Pinchy jumped in to help!',
-    'The wild Nullfish fainted!',
-    'Gotcha! Nullfish was caught!',
+    'Nullfish surfaced!',
+    'Claude tries Test Run! A big one!',
+    'Pinchy pitches in!',
+    'Nullfish is out cold!',
+    'Nullfish is in the jar!',
   ]);
-  assert.match(battle.view(fresh({ boss: true }), 'Knotted Eels').moves[0].line, /habitat boss/);
+  assert.match(battle.view(fresh({ boss: true }), 'Knotted Eels').moves[0].line, /boss of these waters/);
   assert.equal(battle.view(null), null);
 });
 

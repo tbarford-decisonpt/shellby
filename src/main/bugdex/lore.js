@@ -1,5 +1,5 @@
 // What the Bugdex learns about a bug as you keep catching it: a field note
-// (where it lurks and how it behaves) at stage II, and a trainer's tip (how
+// (where it lurks and how it behaves) at stage II, and a field tip (how
 // it's usually beaten) at stage III. Until then the entry says how many
 // more catches it'll take. Written for people, not parsed: no error text.
 //

@@ -304,7 +304,7 @@
     const row = (label, text, more) => h('div', { class: `bd-lore${text ? '' : ' locked'}` },
       h('b', { text: label }),
       h('span', { text: text || `🔒 ${plural(more, 'more catch', 'more catches')} to unlock` }));
-    return h('div', { class: 'bd-lores' }, row('Field note', s.note, s.noteIn), row('Trainer’s tip', s.tip, s.tipIn));
+    return h('div', { class: 'bd-lores' }, row('Field note', s.note, s.noteIn), row('Field tip', s.tip, s.tipIn));
   }
 
   function select(id) {

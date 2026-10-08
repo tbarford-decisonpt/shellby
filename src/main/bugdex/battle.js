@@ -7,7 +7,7 @@
 //
 // The honest parts: a re-run that fails with fewer failing tests takes HP off
 // in proportion, one that fails as before misses, one that fails worse heals
-// it, and a fix that didn't count (a skipped test) is "not very effective".
+// it, and a fix that didn't count (a skipped test) "doesn't count".
 // Scouting and patching are effort, so they chip at it, a little.
 //
 // Kept in memory only (wiring/bugdex.js): a restart starts a fresh battle with
@@ -22,7 +22,7 @@ const MOVES = Object.freeze({
 const COMMAND_MOVES = new Set(['tests', 'typecheck', 'lint', 'build', 'install', 'git', 'run']);
 
 // The type chart: which moves hit each type of bug hardest. A command is
-// "super effective" when it's the right tool for that kind of bug.
+// "the right tool for the job" for that kind of bug, and does double.
 const SUPER = Object.freeze({
   runtime: ['tests', 'run'], io: ['run', 'remedy'], net: ['run', 'tests', 'remedy'], vcs: ['git'],
   ci: ['git', 'tests'], build: ['build', 'install', 'lint'], types: ['typecheck'], py: ['tests', 'run'],
@@ -40,7 +40,7 @@ const PATCH = 0.08;
 const ASSIST = 0.1;
 const REMEDY = 0.1;
 const RESIST_HEAL = 0.2;
-const CRIT_SHARE = 0.5;    // one re-run that clears half the failing tests is a critical hit
+const CRIT_SHARE = 0.5;    // one re-run that clears half the failing tests is a big one
 const COALESCE_MS = 20 * 1000;
 const MAX_MOVES = 40;
 const MAX_PARTY = 6;
@@ -55,7 +55,7 @@ const clampHp = (b, hp) => Math.max(floorOf(b), Math.min(b.max, Math.round(hp)))
 const isSuper = (move, type) => (SUPER[type] || []).includes(move);
 
 /**
- * A wild bug appears.
+ * A bug surfaces.
  *   enc: { species, rarity, type, project?, tabId? } (id is lifecycle.encId)
  *   opts: { id, boss, league ('elite' | 'champion' | null), stage (your own of it, 0-4), failed, now }
  */
@@ -135,7 +135,7 @@ function act(b, m) {
   return { ...push(b, { move: kind, fx, dmg, hp: b.hp - dmg, at }), lastFailed: now };
 }
 
-/** A fix that didn't count (cheats.js): not very effective, and the bug gets some back. */
+/** A fix that didn't count (cheats.js): it doesn't count, and the bug gets some back. */
 function resist(b, { at, reason }) {
   if (!b || b.over || !Number.isFinite(at)) return b;
   const hp = Math.min(b.max, Math.round(b.hp + b.max * RESIST_HEAL));
@@ -144,7 +144,7 @@ function resist(b, { at, reason }) {
 
 /**
  * It's over: caught (it faints, then the jar), or it got away.
- *   end: { at, outcome: 'caught' | 'fled', jar: { wobbles, isNew, forms, badge, league } }
+ *   end: { at, outcome: 'caught' | 'fled', jar: { isNew, forms, badge, league, fame, reveal, counted } }
  */
 function finish(b, { at, outcome, jar = null }) {
   if (!b || b.over || !Number.isFinite(at)) return b;
@@ -163,11 +163,10 @@ function cleanBy(by) {
   };
 }
 
-const WOBBLES = new Set([1, 2, 3]);
 function cleanJar(j) {
   const o = j && typeof j === 'object' ? j : {};
   return {
-    wobbles: WOBBLES.has(o.wobbles) ? o.wobbles : 1, isNew: o.isNew === true,
+    isNew: o.isNew === true,
     forms: Array.isArray(o.forms) ? o.forms.filter(f => typeof f === 'string').slice(0, 6) : [],
     evolved: Number.isInteger(o.evolved) ? o.evolved : 0,
     badge: typeof o.badge === 'string' ? o.badge.slice(0, 40) : null,
@@ -188,24 +187,23 @@ const WHY = {
 };
 
 function lineFor(b, m, name) {
-  const wild = b.boss || b.league ? name : `The wild ${name}`;
   const who = m.by ? m.by.name : 'Claude';
   const times = m.n > 1 ? ` ×${m.n}` : '';
   switch (m.fx) {
-    case 'appear': return b.league === 'champion' ? `The Champion, ${name}, rises from the deep!`
-      : b.league === 'elite' ? `${name}, one of the Deep Four, rises to fight!`
-        : b.boss ? `The habitat boss, ${name}, blocks the way!` : `A wild ${name} appeared!`;
-    case 'ko': return `${wild} fainted!`;
+    case 'appear': return b.league === 'champion' ? `${name}, the champion of the deep, stirs!`
+      : b.league === 'elite' ? `${name}, one of the Deep Four, stirs!`
+        : b.boss ? `${name}, the boss of these waters, won’t budge!` : `${name} surfaced!`;
+    case 'ko': return `${name} is out cold!`;
     case 'caught':
-      if (m.jar?.reveal) return `Gotcha! It was a ${m.jar.reveal} all along!`;
-      return m.jar && !m.jar.counted ? `${name} is fixed! (Already in a jar today.)` : `Gotcha! ${name} was caught!`;
-    case 'fled': return `${wild} got away…`;
+      if (m.jar?.reveal) return `Into the jar! It was a ${m.jar.reveal} all along!`;
+      return m.jar && !m.jar.counted ? `${name} is fixed! (Already in a jar today.)` : `${name} is in the jar!`;
+    case 'fled': return `${name} slipped away…`;
     default: break;
   }
-  const used = m.move === 'assist' ? `${who} jumped in to help!` : `${who} used ${MOVES[m.move] || 'a move'}!${times}`;
+  const used = m.move === 'assist' ? `${who} pitches in!` : `${who} tries ${MOVES[m.move] || 'something'}!${times}`;
   const after = {
-    hit: '', super: ' It’s super effective!', crit: ' A critical hit!', resist: ` It’s not very effective… ${WHY[m.reason] ? `(${WHY[m.reason]})` : ''}`.trimEnd(),
-    heal: ` ${name} got stronger!`, miss: m.move === 'scout' ? ` ${name} is being studied.` : ` ${name} shook it off!`,
+    hit: '', super: ' Right tool for the job!', crit: ' A big one!', resist: ` That doesn’t count… ${WHY[m.reason] ? `(${WHY[m.reason]})` : ''}`.trimEnd(),
+    heal: ` ${name} digs in!`, miss: m.move === 'scout' ? ` ${name} is being studied.` : ` ${name} holds on!`,
   }[m.fx] || '';
   return `${used}${after}`;
 }

@@ -17,7 +17,7 @@
     bounce: 70, land: 250, hop: 150, tada: 1500, fanfare: 2500, sparkle: 800, slap: 400, crit: 2500, landing: 2500,
     // Bug battles (src/main/bugdex/battle.js), asked for by the panel's battle screen.
     battle: 1500, boss: 2500, hit: 120, super: 300, smash: 600, miss: 200, heal: 300, resist: 300,
-    faint: 800, throw: 400, wobble: 250, caught: 1500, badge: 2500, fled: 800, cry: 600,
+    faint: 800, lower: 400, caught: 1500, badge: 2500, fled: 800, cry: 600,
   };
 
   let ctx = null;
@@ -222,14 +222,10 @@
     faint(ac, at) {
       tone(ac, { at, freq: 700, to: 60, ms: 650, gain: 0.025 });
     },
-    // The jar thrown: a whistle up.
-    throw(ac, at) {
-      tone(ac, { at, freq: 380, to: 1500, ms: 260, type: 'sine', gain: 0.03 });
-    },
-    // The jar rocking on the sand.
-    wobble(ac, at) {
-      noise(ac, { at, ms: 25, freq: 4200, q: 4, gain: 0.06 });
-      tone(ac, { at, freq: hz(7), ms: 40, type: 'triangle', gain: 0.015 });
+    // The specimen jar lowered on its line: a reel ticking out.
+    lower(ac, at) {
+      for (let i = 0; i < 6; i++) noise(ac, { at: at + i * 0.08, ms: 14, freq: 3600, q: 6, gain: 0.04 });
+      tone(ac, { at, freq: 900, to: 520, ms: 480, type: 'sine', gain: 0.012 });
     },
     // The cork goes on: a click, then the little tune.
     caught(ac, at) {

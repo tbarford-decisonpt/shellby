@@ -421,7 +421,7 @@ function createLife(d) {
     jarWaiting = null;
     presenting = `jar:${j.species}`;
     d.toCrab('critter:bit', { bit: 'catch', ms: JAR_MS });
-    d.toCrab('critter:prop', { prop: 'jar', ms: JAR_MS, wobbles: j.wobbles || 1, ghost: !!j.ghost });
+    d.toCrab('critter:prop', { prop: 'jar', ms: JAR_MS, ghost: !!j.ghost });
     later(700, () => d.toCrab('critter:hold', { pixels: j.pixels, palette: j.palette }));
     if (j.line) d.speak('found', { force: true, text: j.line });
     // Its cry as the cork goes on (critter/sound.js CUES.cry).

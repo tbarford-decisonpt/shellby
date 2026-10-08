@@ -28,7 +28,6 @@ const { normalizeXp } = require('../xp');
 // Everything that can be seen: the book's live species, and the hidden one.
 const LIVE = new Set([...live().map(s => s.id), 'missingno']);
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, legendary: 3, special: 4 };
-const WOBBLES = { common: 1, uncommon: 2, rare: 3, legendary: 3, special: 3 };
 const PROJECT_TTL_MS = 60 * 1000;
 const MAX_TREES = 30;              // per project: trees seen, for "that's just a revert"
 const MAX_REMEDIES = 20;
@@ -41,7 +40,7 @@ const BATTLE_PUSH_MS = 150;            // moves come in flurries: one push for a
 const BATTLE_KEEP_MS = 3 * 60 * 1000;  // a finished battle stays this long, for the panel to play out
 const MAX_BATTLES = 40;
 // Cues the battle screen may ask the crab to play (critter/sound.js).
-const BATTLE_CUES = new Set(['battle', 'boss', 'hit', 'super', 'smash', 'miss', 'heal', 'resist', 'faint', 'throw', 'wobble', 'caught', 'badge', 'fled', 'cry']);
+const BATTLE_CUES = new Set(['battle', 'boss', 'hit', 'super', 'smash', 'miss', 'heal', 'resist', 'faint', 'lower', 'caught', 'badge', 'fled', 'cry']);
 
 /** d: what main shares (main.js `shared`). */
 function wireBugdex(d) {
@@ -320,7 +319,7 @@ function wireBugdex(d) {
     const reveal = was && was.species !== sp.id ? sp.name : null;
     fight(e, b => battle.finish(b, {
       at: now, outcome: 'caught',
-      jar: { wobbles: WOBBLES[sp.rarity], isNew: r.isNew, forms: r.forms, evolved: r.evolved, badge: r.badge, league: r.league, fame: r.fame, reveal, counted: r.counted },
+      jar: { isNew: r.isNew, forms: r.forms, evolved: r.evolved, badge: r.badge, league: r.league, fame: r.fame, reveal, counted: r.counted },
     }));
     const party = battles.get(lifecycle.encId(e))?.party || [];
     if (r.counted && party.length) d.crewRoster?.beat?.(party.map(p => p.type), sp.type);
@@ -361,7 +360,7 @@ function wireBugdex(d) {
       const jar = bugdex.jarFor(sp.id, r.forms);
       const hushed = focus.guarding(d.config.get('focus'), Date.now());
       d.life?.presentJar({
-        species: sp.id, ...jar, wobbles: WOBBLES[sp.rarity], ghost: sp.habitat === 'wreck',
+        species: sp.id, ...jar, ghost: sp.habitat === 'wreck',
         cry: { no: sp.no, type: sp.type, rarity: sp.rarity }, // its own little call as it goes in (critter/sound.js)
         line: hushed ? null : bugdex.catchLine(sp.id, { isNew: r.isNew, forms: r.forms, evolved: r.evolved }),
       });

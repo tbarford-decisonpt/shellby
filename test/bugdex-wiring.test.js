@@ -107,7 +107,7 @@ test('a red build is a battle: reads and edits wear it down, a helper joins, and
   let [fight] = b.battles();
   assert.equal(fight.species, 'red-tide');
   assert.equal(fight.hp, fight.max);
-  assert.equal(fight.moves[0].line, 'A wild Red Tide appeared!');
+  assert.equal(fight.moves[0].line, 'Red Tide surfaced!');
   await b.tool('t1', { kind: 'tool', name: 'Read' });
   await b.tool('t1', { kind: 'tool', name: 'Edit', filePath: `${root}/x.js` });
   await b.tool('t1', { kind: 'tool', name: 'Read', sub: true, parent: 'p1' }); // a helper's own read: not a move

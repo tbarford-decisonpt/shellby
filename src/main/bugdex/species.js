@@ -115,7 +115,7 @@ const SPECIES = Object.freeze([
     evolves: ['Port Warden', 'Harbour Master'], remedies: ['kill'],
     palette: { g: '#b08d57', w: '#a8dadc', r: '#ff6b4a', k: K },
     pixels: ['..gggg..', '.gwwwwg.', 'gwkwwkwg', 'gwrrrrwg', 'grrrrrrg', '.grwwrg.', '..gggg..'] },
-  { no: 16, id: 'slowpoke-snail', name: 'Slowpoke Snail', habitat: 'currents', type: 'net', rarity: 'uncommon', phase: 2,
+  { no: 16, id: 'slowpoke-snail', name: 'Dawdling Snail', habitat: 'currents', type: 'net', rarity: 'uncommon', phase: 2,
     blurb: 'Still on its way.', hint: 'A timeout, fixed (not just by waiting longer).',
     palette: { a: '#9e9e9e', s: '#e0e0e0', b: '#c9b38a', k: K },
     pixels: ['....a...', '..aaaaa.', 'k.asksa.', 'b.askka.', 'b.aaaaa.', 'bbbbbbbb'] },
@@ -348,7 +348,7 @@ const SPECIES = Object.freeze([
     pixels: ['.k.k..s.', '.z.z.sss', 'zzzzzsks', 'ZzzzZsss', 'z.z.zsss'] },
 
   // ---- kept apart: not in any habitat, hidden until caught
-  { no: 99, id: 'missingno', name: 'MISSINGNO.', habitat: null, type: 'ghost', rarity: 'special', phase: 3,
+  { no: 99, id: 'missingno', name: 'UNDEFINED.', habitat: null, type: 'ghost', rarity: 'special', phase: 3,
     blurb: 'This one isn\'t in any book.', hint: 'Not in any habitat. Something glitchy.',
     palette: { a: K, b: '#f72585', c: '#4ea8de', d: '#fff4e4', e: '#7b2cbf' },
     pixels: ['aab.cdaa', 'daceabdc', 'aaadd.ab', 'cbaeadaa', 'aadcabea', 'abaaaacd', 'deacbaaa', 'aabdaeca'] },
@@ -409,7 +409,7 @@ const bossOf = id => HABITATS.find(h => h.boss === id) || null;
 const BY_ID = new Map(SPECIES.map(s => [s.id, s]));
 const speciesById = id => BY_ID.get(id) || null;
 
-/** The species that count toward "of N": built, and living in a habitat (not MISSINGNO.). */
+/** The species that count toward "of N": built, and living in a habitat (not the hidden glitch, #099). */
 const live = () => SPECIES.filter(s => s.phase <= LIVE_PHASE && s.habitat);
 
 module.exports = { SPECIES, HABITATS, TYPES, RARITY, BY_ID, LIVE_PHASE, LEAGUE, speciesById, live, leagueOf, bossOf };
