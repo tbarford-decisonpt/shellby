@@ -1,8 +1,10 @@
-// ci: finding things: Settings search
+// ci: finding things: Settings search, what you use
 // Finding what's there: the search box on Settings shows every tab at once, cut
 // down to the sections and rows that match, opens a fold that matches and
 // closes it again, says when nothing matches, and Esc puts the tabs back.
-// Runs against the fake CLI; no account needed.
+// What you use (Settings → General) counts the screens you go to, on this PC
+// only, and suggests the ones you haven't opened. Runs against the fake CLI;
+// no account needed.
 //   node scripts/e2e-find-features.js
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -16,9 +18,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
+  // Someone who has every screen open (rooms.js), so all of them can be suggested.
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ onboarded: true, sounds: false, wander: false, rooms: { tasks: 0, open: [], all: true } }));
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
-    env: { ...process.env, SHELLBY_USER_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')), SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47959' },
+    env: { ...process.env, SHELLBY_USER_DATA: data, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47959' },
   });
   try {
     let list = [];
@@ -70,6 +75,24 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', code: 'KeyF', ctrlKey: true, bubbles: true }))");
     check(await ev("document.activeElement.id") === 'settingsSearch', 'Ctrl+F on Settings goes to the search box');
     check(await ev("document.getElementById('findBar')?.hidden ?? true") !== false, "and doesn't open the conversation's find bar");
+
+    // ---- What you use
+    for (const v of ['projects', 'chat', 'projects', 'projects', 'tank', 'projects', 'settings']) await ev(`SB.setView('${v}')`);
+    await wait(300);
+    const saved = JSON.parse(fs.readFileSync(path.join(data, 'settings.json'), 'utf8')).featureUse;
+    check(saved?.views?.projects?.n === 3 && saved.views.tank?.n === 1, `each arrival at a screen is counted, staying put is not (${JSON.stringify(saved?.views)})`);
+    check(!saved?.views?.settings, 'Settings itself is not');
+    await ev("SB.showSettingsTab('general'); SB.views.settings.render()");
+    await wait(600);
+    const top = await ev("document.getElementById('usesTop').textContent");
+    check(/^Most: Projects 3/.test(top), `What you use leads with the most opened (${top})`);
+    const never = await ev("[...document.querySelectorAll('#usesNever .uses-row b')].map(b => b.textContent)");
+    check(never.includes('Beach') && never.includes('Health') && !never.includes('Projects') && !never.includes('Tank'), `and lists what you haven't opened (${never.join(', ')})`);
+    await ev("[...document.querySelectorAll('#usesNever .uses-row')].find(r => r.querySelector('b').textContent === 'Beach').querySelector('button').click()");
+    check(await ev('SB.state.view') === 'beach', 'Take a look goes there');
+    check(/never sent anywhere/.test(await ev("document.getElementById('usesLede').textContent")), 'and it says the count stays on this PC');
+    const sync = require(path.join(ROOT, 'src', 'main', 'sync-prefs.js'));
+    check(!JSON.stringify(Object.keys(sync.PREFS || {})).includes('featureUse'), 'the count is not one of the settings Sync carries');
   } catch (e) {
     check(false, e.message);
   } finally {

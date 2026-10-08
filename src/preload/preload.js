@@ -414,6 +414,9 @@ contextBridge.exposeInMainWorld('shellby', {
   openRoom: invoke('rooms:open'),
   openAllRooms: invoke('rooms:all'),
   onRooms: on('rooms'),
+  // what you use: screens opened, counted on this PC (feature-use.js)
+  featureUsed: fire('features:used'),
+  featureReport: invoke('features:report'),
 
   // quests: the features worth finding, one at a time (quests.js)
   getQuests: invoke('quests:get'),

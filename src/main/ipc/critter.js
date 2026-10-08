@@ -1,8 +1,10 @@
 // The crab's own window: dragging, throwing, poking and petting him, and the
 // dev/e2e-only handlers that drive him (rooms.js decides which screens are open,
-// quests.js which tricks he has shown you).
+// feature-use.js counts which ones you open, quests.js which tricks he has
+// shown you).
 // Kept out of main.js, which only wires it up.
 const { app, screen } = require('electron');
+const featureUse = require('../feature-use');
 const focus = require('../focus');
 const native = require('../native-windows');
 const quests = require('../quests');
@@ -80,6 +82,13 @@ function registerCritterIpc(ipcMain, d) {
   ipcMain.handle('rooms:get', () => d.roomsPanelView());
   ipcMain.handle('rooms:open', (_e, id) => d.setRooms(rooms.openRoom(d.config.get('rooms'), String(id || ''))));
   ipcMain.handle('rooms:all', () => d.setRooms(rooms.openAll(d.config.get('rooms'))));
+
+  // ---- what you use: a count per screen, on this PC only (feature-use.js)
+  ipcMain.on('features:used', (_e, id) => {
+    const next = featureUse.record(d.config.get('featureUse'), String(id || ''), Date.now());
+    if (JSON.stringify(next) !== JSON.stringify(featureUse.normalize(d.config.get('featureUse')))) d.config.set({ featureUse: next });
+  });
+  ipcMain.handle('features:report', () => featureUse.report(d.config.get('featureUse'), Date.now()));
   // ---- quests: the features worth finding, and the chat's card for the next one (quests.js)
   ipcMain.handle('quests:get', () => d.questsPanelView());
   ipcMain.handle('quests:hide', (_e, hidden) => d.setQuests(quests.setHidden(d.config.get('quests'), hidden === true)));

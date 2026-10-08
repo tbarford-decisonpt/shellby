@@ -115,6 +115,16 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 }
 .view-settings.searching .settings-panel { animation: none; }
 
+/* What you use (uses.js): the most-opened screens on one line, then the ones
+   you haven't opened, each with what it's for and a way in. */
+.uses-top { margin: 8px 0 0; font-size: var(--fs-12-5); color: var(--sand); }
+.uses-head { margin: 14px 0 4px; font-size: var(--fs-12-5); font-weight: 700; color: var(--sand); }
+.uses-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line-soft); }
+.uses-row:first-of-type { border-top: 0; }
+.uses-what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.uses-what b { font-size: var(--fs-13); }
+.uses-row .btn { flex: none; }
+
 /* The extras: one line each until opened. The label above them carries the
    divider, so the first fold (a first-of-type details) needs none. */
 .settings-sub {
