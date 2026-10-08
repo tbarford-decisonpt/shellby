@@ -186,6 +186,34 @@ test('clicking elsewhere lets your own next toast through', withClock(({ SB, doc
   assert.equal(toastText(slot), 'Copied.');
 }));
 
+const toastClose = t => t.children.find(c => c.className === 'toast-close');
+
+test('every toast has a ✕ that clears it and whatever waited behind it', withClock(({ SB, slot, tick }) => {
+  SB.toast('Copied.');
+  toastClose(slot).listeners.click();
+  assert.equal(slot.children.length, 0);
+
+  let asked = 0;
+  SB.toast('It clashes with main.', { ms: 12000, action: 'Ask him to sort it out', onAction() { asked++; } });
+  SB.toast('Tabs a and b both changed it.', { ms: 5000 });
+  toastClose(slot).listeners.click();
+  assert.equal(asked, 0, 'dismissing is not the button');
+  assert.equal(slot.children.length, 0);
+  tick(60000);
+  assert.equal(slot.children.length, 0, 'the one that waited is gone too');
+
+  SB.toast('Copied.');
+  assert.equal(toastText(slot), 'Copied.', 'the next toast shows straight away');
+}));
+
+test('Escape on a toast dismisses it', withClock(({ SB, slot }) => {
+  SB.toast('It clashes with main.', { ms: 12000, action: 'Ask him to sort it out', onAction() {} });
+  let stopped = false;
+  slot.listeners.keydown({ key: 'Escape', stopPropagation() { stopped = true; } });
+  assert.equal(slot.children.length, 0);
+  assert.ok(stopped, "Escape doesn't also close whatever is behind it");
+}));
+
 test('picking a menu item runs it', () => {
   const { SB } = loadCore();
   let picked = 0;
