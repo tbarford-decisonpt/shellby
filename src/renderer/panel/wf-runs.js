@@ -6,7 +6,7 @@
   const {
     setMapMode, current, workflows, fill, screen, backBtn, runNow, home, startRun, keepFocus, RUN_TRIGGER,
     runDuration, go, statusPill, firstLine, pref, PREF, layoutSwitch, focusFk, normalise, toDef, G, MAX, icon,
-    TRIGGER_INFO, STATUS_WORD, STEP_INFO, STATUS_GLYPH, roomBtn, plural, openEditor, answer, throttle,
+    TRIGGER_INFO, STATUS_WORD, STEP_INFO, STATUS_GLYPH, roomBtn, plural, openEditor, answer, throttle, openFileBtn,
   } = W;
   // The editor's, in workflows.js (loaded after this): how a step or a trigger
   // reads in a line, and the frame of a map node's inspector.
@@ -308,12 +308,13 @@
   function askBox(r, e) {
     const question = e.question || r.waiting?.question || '';
     const choices = e.choices?.length ? e.choices : r.waiting?.choices?.length ? r.waiting.choices : ['Continue', 'Stop'];
+    const file = e.file || (r.waiting?.key === e.key && r.waiting.file);
     return h('div', { class: 'wf-waiting', role: 'group', 'aria-label': 'Waiting for you' },
       h('p', { class: 'wf-waiting-q', text: question }),
       h('div', { class: 'row wrap' }, choices.map(c => h('button', {
         type: 'button', class: 'btn slim-btn',
         onclick: async ev => { ev.currentTarget.disabled = true; await answer(r.id, e.key, c); refreshRun(); },
-      }, c))));
+      }, c)), file ? openFileBtn(file) : null));
   }
 
   function openTab(tabId) {
@@ -334,8 +335,8 @@
       body = [h('pre', { class: 'wf-pre', text: String(o.output ?? '') || '(nothing printed)' }), h('p', { class: 'field-hint', text: `Exit code ${o.code}` })];
     } else if (e.type === 'http' && typeof o === 'object') {
       body = [h('p', { class: 'field-hint', text: `Status ${o.status}` }), h('pre', { class: 'wf-pre', text: o.json != null ? pretty(o.json) : String(o.body ?? '') })];
-    } else if (e.type === 'file' && typeof o === 'object' && 'text' in o) {
-      body = h('pre', { class: 'wf-pre', text: String(o.text ?? '') });
+    } else if (e.type === 'file' && typeof o === 'object' && o.path) {
+      body = [h('p', { class: 'field-hint' }, SB.fileLink(o.path, { text: o.path })), 'text' in o ? h('pre', { class: 'wf-pre', text: String(o.text ?? '') }) : null];
     } else {
       body = h('pre', { class: 'wf-pre', text: pretty(o) });
     }

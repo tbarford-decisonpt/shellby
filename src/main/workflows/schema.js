@@ -321,6 +321,11 @@ function checkStep(s, at, depth, ctx) {
         else if (new Set(c.map(x => x.toLowerCase())).size !== c.length) err(`${at}.choices`, 'Choices must all be different');
         else step.choices = c;
       }
+      // A file to open while it waits, for "edit this, then carry on".
+      if (s.path) {
+        const p = absPath(s.path);
+        if (!p) err(`${at}.path`, 'Pick the file to open (a full path)'); else step.path = p;
+      }
       break;
     }
     case 'tell': {

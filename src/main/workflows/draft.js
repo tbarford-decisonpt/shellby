@@ -48,7 +48,7 @@ Steps (each may have "id" (snake_case, how later steps refer to it), "label", "i
 - { "type": "mcp", "server": "name", "tool": "tool_name", "args": "{ \\"title\\": \\"{{ diagnose.cause }}\\" }", "cwd": "", "allowFail": false }  calls one tool of an MCP server directly, no Claude turn. args is a JSON object as text: text values in "quotes", lists and numbers without. Only use a tool name you know the server has. output: ok, text, json
 - { "type": "run", "command": "PowerShell", "cwd": "", "allowFail": false }  output: output, code, ok
 - { "type": "http", "method": "GET"|"POST"|..., "url": "https://...", "headers": {}, "body": "" }  output: status, ok, body, json
-- { "type": "ask", "question": "...", "choices": ["A","B"] }  asks the person and waits. Without choices it's Continue/Stop. output: choice
+- { "type": "ask", "question": "...", "choices": ["A","B"], "path": "" }  asks the person and waits. Without choices it's Continue/Stop. path (optional, a full path like {{ draft.path }}) is a file they can open from the question to change before answering; a file step reading it afterwards picks up their edits. output: choice
 - { "type": "tell", "to": "notification"|"phone"|"crab"|"file", "title": "", "text": "...", "path": "file only" }
 - { "type": "set", "values": { "name": "{{ ... }}" } }  sets vars.name
 - { "type": "if", "test": "condition", "then": [steps], "else": [steps] }

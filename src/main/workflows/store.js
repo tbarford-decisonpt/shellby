@@ -22,7 +22,7 @@ function summary(rec) {
     id: rec.id, workflowId: rec.workflowId, workflowName: rec.workflowName,
     status: rec.status, startedAt: rec.startedAt, endedAt: rec.endedAt ?? null,
     trigger: { type: rec.trigger?.type || 'manual' }, error: rec.error ?? null,
-    waiting: rec.waiting && rec.waiting.choices ? { key: rec.waiting.key, question: rec.waiting.question, choices: rec.waiting.choices }
+    waiting: rec.waiting && rec.waiting.choices ? { key: rec.waiting.key, question: rec.waiting.question, choices: rec.waiting.choices, file: rec.waiting.file }
       : rec.waiting?.until ? { key: rec.waiting.key, until: rec.waiting.until }
         // A Claude step held up by a permission prompt in its tab.
         : rec.attention?.tabId ? { key: null, permission: true, tabId: rec.attention.tabId } : null,

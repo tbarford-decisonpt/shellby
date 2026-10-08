@@ -51,7 +51,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
           const dev = await connect(dlg);
           await wait(300);
           const text = await dev('document.body.innerText');
-          await dev(`document.querySelectorAll('button')[${index}]?.click()`);
+          // A click that closes the window can close it before CDP answers.
+          await Promise.race([dev(`document.querySelectorAll('button')[${index}]?.click()`), wait(1000)]);
           return text || '';
         }
         await wait(150);
@@ -100,7 +101,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(!!r1?.steps?.look?.output?.tabId && await ev('/⚡ Triage/.test(document.body.textContent)'), 'its Claude step ran in a ⚡ tab');
 
     // 3. A risky save asks in the confirmation window: No keeps nothing, Yes saves.
-    const risky = { name: 'Run it', cwd: work, steps: [{ id: 'cmd', type: 'run', command: 'Write-Output "hi {{ inputs.who }}"' }, { id: 'q', type: 'ask', question: 'Carry on?' }, { type: 'run', command: 'Write-Output after' }], inputs: [{ name: 'who', default: 'there' }] };
+    const plan = path.join(work, 'plan.md');
+    const risky = {
+      name: 'Run it', cwd: work, inputs: [{ name: 'who', default: 'there' }],
+      steps: [
+        { id: 'cmd', type: 'run', command: 'Write-Output "hi {{ inputs.who }}"' },
+        { id: 'draft', type: 'file', action: 'write', path: plan, content: 'draft' },
+        { id: 'q', type: 'ask', question: 'Carry on?', path: '{{ draft.path }}' },
+        { type: 'run', command: 'Write-Output after' },
+      ],
+    };
     const pendingNo = ev(`shellby.saveWorkflow(${JSON.stringify(risky)}).then(r => JSON.stringify(r))`);
     const shown = await answerDialog(1);
     check(shown !== null && /Write-Output/.test(shown), 'the confirmation window shows the command');
@@ -120,11 +130,21 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(stopped?.status === 'stopped', 'Stop stops it');
     check(JSON.parse(await ev(`shellby.resumeRun(${JSON.stringify(run2.runId)}).then(r => JSON.stringify(r))`)).ok, 'Resume picks it up');
     await waitRun(run2.runId, ['waiting']);
+    // The file it names opens from the question, on the list and in the run.
+    const openBtn = "[...document.querySelectorAll('#workflowsView .wf-waiting button')].some(b => b.textContent === 'Open plan.md')";
+    await ev("SB.setView('workflows')");
+    check(await until(openBtn), 'the list\'s waiting question has an Open button for the file');
+    await ev(`SB.wfKit.go('run', { runId: ${JSON.stringify(run2.runId)} })`);
+    check(await until(`${openBtn} && !!document.querySelector('#workflowsView .wf-tl-item.s-waiting')`), 'so does the run\'s');
     const answered = JSON.parse(await ev(`shellby.answerRun(${JSON.stringify(run2.runId)}, 'q', 'Continue').then(r => JSON.stringify(r))`));
     check(answered.ok, 'the answer is taken');
     const r2b = await waitRun(run2.runId, ['ok', 'error']);
     check(r2b?.status === 'ok', `it finishes after the answer (${r2b?.status}: ${r2b?.error || ''})`);
     check(r2b?.steps?.cmd?.attempts === 1, 'the first command did not run twice');
+    // The map's inspector shows one step: the list shows them all.
+    await ev(`SB.wfKit.pref.set(SB.wfKit.PREF.runLayout, 'list'); SB.wfKit.go('run', { runId: ${JSON.stringify(run2.runId)} })`);
+    check(await until(`[...document.querySelectorAll('#workflowsView a.file-link')].some(a => a.dataset.path === ${JSON.stringify(plan)})`), 'the File step\'s path is a link in the run');
+    await ev('SB.wfKit.home()');
 
     // 5. A web hook on the plugin's local port.
     const hooked = { name: 'Hooked', when: [{ type: 'webhook' }], inputs: [{ name: 'msg' }], steps: [{ type: 'set', values: { got: '{{ inputs.msg }}' } }] };

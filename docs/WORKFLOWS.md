@@ -131,13 +131,13 @@ Every workflow can also be run by hand with **Run**.
 | **Command** | runs a PowerShell command and keeps its output and exit code |
 | **Web request** | calls a web address (GET, POST…) and keeps the answer, parsed as JSON when it is |
 | **MCP tool** | calls one tool of one of your MCP servers directly ("create an issue in Linear"), with no Claude turn. See [MCP servers](#mcp-servers). |
-| **Ask me** | stops and asks you, with your own choices or Continue / Stop. A notification and your phone say it's waiting. |
+| **Ask me** | stops and asks you, with your own choices or Continue / Stop. A notification and your phone say it's waiting. Give it a **file to open** and the question has a button that opens it in your editor, so you can change a file an earlier step wrote before you answer (a **File** step that reads it afterwards gets your version). |
 | **Tell me** | a notification, a message on your phone, a line from the crab, or a line added to a file |
 | **Set values** | names a value for later steps |
 | **If** | runs one list of steps or another |
 | **For each** | repeats steps for every item in a list (up to 100) |
 | **Wait** | for up to 7 days, even across a restart |
-| **File** | reads, writes or adds to a file |
+| **File** | reads, writes or adds to a file. In the run, its path is a link that opens the file. |
 | **Run workflow** | runs another workflow and waits for it |
 | **Stop** | ends the run, as done or as failed |
 | **Make a copy** | a copy of a GitHub repository cloned on this PC, on its own branch, started from its main branch on GitHub. Later steps work in it as `{{ copy.path }}`. |
