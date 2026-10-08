@@ -8,7 +8,7 @@ Nothing here needs administrator rights, and nothing leaves your PC.
 
 | Reading | Source | Notes |
 |---|---|---|
-| GPU temperature, load, VRAM | `nvidia-smi`, which comes with every NVIDIA driver | Read every 5 seconds; takes about 50 ms |
+| GPU temperature, load, VRAM | `nvidia-smi`, which comes with every NVIDIA driver | Read every 5 seconds while a reading is off or the panel is open, otherwise every 15; takes about 50 ms |
 | CPU temperature | [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'s local web server | See below. Windows doesn't expose CPU temperature to normal apps |
 | AMD / Intel GPU temperature | LibreHardwareMonitor | Used when there's no NVIDIA card |
 | Fans, drive temperatures, battery | LibreHardwareMonitor or HWiNFO | Shown when your sensor app reports them |
@@ -40,7 +40,7 @@ The graphs under each gauge cover the last 10 minutes or the last hour: switch w
 
 | Mood | When | On the desktop |
 |---|---|---|
-| **Hot** | A GPU or CPU temperature is over your line (default **GPU 80°C**, **CPU 85°C**) | Sweat drips, his cheeks flush, and he fans himself with his claw. The bubble shows the temperature |
+| **Hot** | A GPU, CPU or drive temperature is over your line (default **GPU 80°C**, **CPU 85°C**, **drive 70°C**) | Sweat drips, his cheeks flush, and he fans himself with his claw. The bubble shows the temperature |
 | **Scorching** | 8°C past your line | Faster sweat, panting, heat shimmer over his shell. Wakes him up if he was asleep |
 | **Dizzy** | Memory use over your line (default **90%**; very high is 6 points more) | Stars circle his eyes and his eye stalks wobble |
 | **Stuffed** | A drive's free space under your line (default **50 GB**, or 10% on small drives; very low is a quarter of that, or 4%) | Boxes, papers, a sock and a floppy disk jammed in his shell, and one keeps popping out |
@@ -98,7 +98,7 @@ The Health view lists what launches when you sign in: the Run entries in the reg
 **Switch off / Switch on** next to an entry flips the same switch as Task Manager → Startup apps (the `StartupApproved` value under your account). The entry and the app stay where they are, so switching it back on puts things as they were, and Task Manager shows the change too. Shellby only switches your own entries. These stay **locked**, and hovering the tag says why:
 
 - Entries for everyone (HKLM, the shared Startup folder) need an administrator. Use Task Manager.
-- Shellby's own entry is controlled by **Open at login** in Settings.
+- Shellby's own entry is controlled by **Start with Windows** in Settings.
 - RunOnce and the system accounts' entries have no switch.
 
 **Ask Shellby which ones I need** starts a task with that list. Claude explains what each one is, also looks (read-only) at scheduled tasks that run at logon and at non-Microsoft services that start automatically, and gives you a table of what to keep, what to switch off, and how to do it yourself. Like the other Ask Shellby tasks, it's told not to disable or change anything. It always runs in **Ask** mode, whatever mode you're in, because the list comes from the registry and any installer can write there. So anything Claude wants to run still asks you first.
@@ -119,9 +119,9 @@ Measuring is read-only, and each cache walk stops after 2 seconds, so the sizes 
 
 | Trophy | How | Reward |
 |---|---|---|
-| 🩺 Check-Up | Open the Health view | Stethoscope |
-| 🧊 Keep Your Cool (secret) | Shellby cools down after a heat warning | Sweatband + Handheld Fan |
-| 🧹 Spring Cleaning | Free up space after a low-disk warning | Broom |
+| 🩺 Check-Up | Open the Health view | Stethoscope + Scanner Visor |
+| 🧊 Keep Your Cool (secret) | Shellby cools down after a heat warning | Sweatband + Handheld Fan + Fire Extinguisher |
+| 🧹 Spring Cleaning | Free up space after a low-disk warning | Broom + Toadstool |
 
 ## Turning it off
 
@@ -141,5 +141,5 @@ In the Health view:
 - `src/main/health/startup.js`: the startup list, its on/off switch and the audit prompt. Also covered in `test/hogs.test.js`.
 - `src/main/health/hwinfo.js`: HWiNFO's readings through Remote Sensor Monitor.
 - `src/main/health/space.js`: Docker, WSL and the package caches, and the cleanup prompt.
-- **Fake sensors.** `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu npm start` runs a dev build with scripted sensors and no waiting. It's ignored by installed builds.
+- **Fake sensors.** `SHELLBY_FAKE_HEALTH=hot|scorching|dizzy|stuffed|calm|nocpu|hotdrive|cluttered npm start` runs a dev build with scripted sensors and no waiting. It's ignored by installed builds.
 - **End-to-end check.** `node scripts/e2e-health.js` launches each scenario and checks the desktop mood, the bubble, the Health view and the badge on Health in the panel's bottom bar.

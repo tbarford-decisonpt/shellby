@@ -33,7 +33,7 @@ The alternative is a regular OV certificate from a CA, which costs roughly $200â
    | Variable | `AZURE_SIGN_PROFILE` | The certificate profile name |
    | Variable | `AZURE_SIGN_PUBLISHER` | The publisher name exactly as on the certificate (your validated legal name) |
 
-6. **Tag a release.** The workflow notices the credentials, signs the installer, the portable exe and the app inside, and checks that each is validly signed by `AZURE_SIGN_PUBLISHER` before publishing.
+6. **Tag a release.** The workflow notices the credentials, signs the installer, the portable exe and the app inside, and checks that the installer and the portable exe are validly signed by `AZURE_SIGN_PUBLISHER` before publishing.
 7. **Then tidy up the wording.** Drop the "not signed yet" notes from the README's install section and [.github/release-notes.md](../.github/release-notes.md), and the "being set up" note in the README's code signing policy.
 
 Without these settings the workflow builds unsigned and prints a warning. Auto-update keeps working across the switch from unsigned to signed builds.

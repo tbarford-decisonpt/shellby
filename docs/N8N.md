@@ -44,7 +44,7 @@ Claude summary or a failing build can all go to n8n.
 ## n8n → Shellby
 
 1. In Shellby, start from the **Look at what n8n sends** template and save it.
-   Open its **Web hook** trigger and copy the token. (Web hooks need
+   Open its **From a script** trigger and copy the token. (Web hooks need
    **Settings → Claude Code everywhere** turned on, since that's what opens
    Shellby's local port.) Items that arrive while one is being read wait their
    turn.
@@ -99,5 +99,5 @@ read what n8n passes on before it goes anywhere public.
   → Slack, posting the summary when `urgent` is true.
 - **Every pull request merged → changelog line:** a GitHub trigger in n8n,
   Claude writes the line, and n8n adds it to a Notion page.
-- **Shellby's red build → PagerDuty:** a **CI** trigger in Shellby, then a
+- **Shellby's red build → PagerDuty:** a **When a build changes** trigger in Shellby, then a
   **Web request** step to an n8n webhook that pages whoever's on call.
