@@ -1577,6 +1577,17 @@
         </div>
       </details>
 
+      <details class="setting-group setting-fold" id="discordGroup" data-nav="Discord" data-fold-on="discordBody">
+        <summary><h3>On your Discord profile</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Show his level and what he's up to under your name on Discord, the way a game does: <em>Lv 12 Abyssal Admin · working with Claude Code</em>. Shellby talks to the Discord app on this PC, so there's nothing to sign in to, and your friends list sees it while Shellby and Discord are both open.</p>
+        <label class="toggle"><input type="checkbox" id="discordEnabled"><span class="switch"></span>Show Shellby on my Discord profile</label>
+        <div id="discordBody" hidden>
+          <label class="toggle"><input type="checkbox" id="discordTask"><span class="switch"></span>Say what the task is, by its title</label>
+          <p class="small muted">Never in Work mode. With visiting crabs on, there's a button to his calling card too.</p>
+          <p class="small ext-status" id="discordStatus" aria-live="polite"></p>
+        </div>
+      </details>
+
       <details class="setting-group setting-fold" id="obsGroup" data-nav="On a stream" data-fold-on="obsBody">
         <summary><h3>On a stream</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Serve Shellby as a browser source, on a transparent background, so he can sit in the corner of a stream and react while you work. It's the same crab, in the same outfit, on 127.0.0.1 only.</p>

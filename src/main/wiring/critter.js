@@ -219,9 +219,10 @@ function wireCritter(d) {
     const was = d.lastStatus;
     d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
     refreshStatusLine();
-    // Whatever the crab is doing, the stream and the desk lighting follow it.
+    // Whatever the crab is doing, the stream, the desk lighting and Discord follow it.
     d.obsServer?.broadcast(d.obsState());
     d.paintLights();
+    d.updatePresence();
 
     // Remarks that belong to a change, not a state. lastStatus is already updated,
     // so the refresh that speaking triggers can't fire these a second time.

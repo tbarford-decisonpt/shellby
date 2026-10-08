@@ -548,6 +548,11 @@ contextBridge.exposeInMainWorld('shellby', {
   testRgb: invoke('rgb:test'),
   installOpenRgb: invoke('rgb:install'),
 
+  // on your Discord profile (discord.js)
+  getDiscord: invoke('discord:get'),
+  setDiscord: invoke('discord:set'),
+  onDiscord: on('discord'),
+
   // listening along
   getNowPlaying: invoke('nowplaying:get'),
   setNowPlaying: invoke('nowplaying:set'),

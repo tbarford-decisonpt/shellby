@@ -105,6 +105,15 @@ test('rgbStatus says the step it is on before any error or device count', () => 
   assert.deepEqual(T.rgbStatus({}), { text: '', tone: '' });
 });
 
+test('discordStatus: showing, waiting for Discord, or turned down', () => {
+  assert.deepEqual(T.discordStatus({ enabled: false, status: 'on' }), { text: '', tone: '' });
+  assert.deepEqual(T.discordStatus({ enabled: true, status: 'on', user: 'Crab Fan' }), { text: "Showing on Crab Fan's profile.", tone: 'ok' });
+  assert.equal(T.discordStatus({ enabled: true, status: 'looking' }).text, "Discord isn't open. He'll show up when it is.");
+  assert.deepEqual(T.discordStatus({ enabled: true, status: 'refused', error: 'Invalid Client ID' }), { text: 'Discord said no: Invalid Client ID', tone: 'warn' });
+  assert.equal(T.discordStatus({ enabled: true, status: 'refused', configured: false }).tone, 'warn');
+  assert.equal(T.discordStatus({ enabled: true, status: 'connecting' }).text, 'Looking for Discord…');
+});
+
 test('nowPlayingStatus shows the track, paused or playing, with the app', () => {
   assert.deepEqual(T.nowPlayingStatus({ available: true, track: { playing: true, title: 'Song', artist: 'Band', app: 'Spotify' } }), { text: '♪ Song — Band (Spotify)', tone: 'ok' });
   assert.deepEqual(T.nowPlayingStatus({ available: true, track: { playing: false, title: 'Song' } }), { text: 'Paused: Song', tone: '' });

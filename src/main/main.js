@@ -156,7 +156,7 @@ const shared = {
   parityIpc: null,
   teamIpc: null,                   // Toolbox → Team: the repo's .shellby/team.json (team-ipc.js)
   lean: null,                      // Lean Shell: the prompt cache, setup weight and idle tools (lean.js)
-  obsServer: null, rgbClient: null, media: null, remote: null, channelSecret: null,
+  obsServer: null, rgbClient: null, presence: null, media: null, remote: null, channelSecret: null,
   dictation: null, ptt: null,      // push-to-talk: hold the hotkey and say the task (see dictation.js)
   motion: null,                    // throws and strolls (see motion.js)
   perching: null,                  // up on your windows (see perching.js)
@@ -270,7 +270,7 @@ const { createCrabApi } = share(wireCrabApi(shared));
 const { channelPlace, channelSettings, confirmChannelPlace, createObs, createRemote, loadChannelSecret } = share(wireChannels(shared));
 const { createPhoneTasks } = share(wirePhoneTasks(shared));
 const {
-  createDictation, createLifeAndPlay, createMedia, createRgb, createTypingAlong, createWeather, ensureOpenRgb, rgbSettings,
+  createDictation, createLifeAndPlay, createMedia, createPresence, createRgb, createTypingAlong, createWeather, ensureOpenRgb, rgbSettings,
 } = share(wireSurroundings(shared));
 const { createShop, createToolbox } = share(wireToolbox(shared));
 const { createCi, createFriends, createGitHub, createIssues, sendVisitor } = share(wireGithub(shared));
@@ -371,6 +371,7 @@ app.whenReady().then(() => {
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(err => log.warn('OpenRGB could not be started', err?.message)); // lighting on: start OpenRGB if it isn't running
   createWeather();
+  createPresence(); // his line on your Discord profile, if you asked for it
   createMedia();
   createLifeAndPlay();
   createTypingAlong();
