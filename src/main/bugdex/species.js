@@ -393,7 +393,7 @@ const HABITATS = Object.freeze([
   members: Object.freeze(SPECIES.filter(s => s.habitat === h.id).map(s => s.id)),
 })));
 
-// After the badges, the league: four elite bugs and the champion. Catching all
+// After the badges, the league: the Deep Four and the champion. Catching all
 // of them, with every badge, puts you in the Hall of Fame.
 const LEAGUE = Object.freeze({
   elite: Object.freeze(['segfault-squid', 'leaky-clam', 'flaky-phantom', 'the-kraken']),

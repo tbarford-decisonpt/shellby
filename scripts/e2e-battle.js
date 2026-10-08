@@ -114,7 +114,25 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     const crew = await ev('shellby.getCrew ? shellby.getCrew() : null');
     if (crew) check(crew.members.some(m => m.beaten === 1), 'the helper has it on its record');
 
-    // ---- 5. the page: the loose row is gone, the badge case is there
+    // ---- 5. his favourite catch follows him on the desk
+    const critterTarget = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()).find(t => t.url.endsWith('critter.html'));
+    const cws = new WebSocket(critterTarget.webSocketDebuggerUrl);
+    await new Promise(r => { cws.onopen = r; });
+    let cid = 0; const cp = new Map();
+    cws.onmessage = e => { const m = JSON.parse(e.data); cp.get(m.id)?.(m); };
+    const csend = (method, params = {}) => new Promise(r => { const i = ++cid; cp.set(i, m => r(m.result)); cws.send(JSON.stringify({ id: i, method, params })); });
+    const cev = async expr => (await csend('Runtime.evaluate', { expression: expr, returnByValue: true }))?.result?.value;
+    let follows = false;
+    for (let i = 0; i < 40 && !follows; i++) { follows = await cev("!document.getElementById('buddy').hidden && !!document.querySelector('#buddy svg')"); if (!follows) await wait(250); }
+    check(follows, 'his favourite catch follows him on the desk');
+    if (SHOTS) await savePng(csend, path.join(SHOTS, `${String(++shot).padStart(2, '0')}-buddy.png`));
+    await ev("shellby.setSettings({ bugFollower: false }).then(r => { SB.state.settings = r.settings; })");
+    let gone = false;
+    for (let i = 0; i < 20 && !gone; i++) { gone = await cev("document.getElementById('buddy').hidden"); if (!gone) await wait(250); }
+    check(gone, 'and stays home when that is switched off');
+    cws.close();
+
+    // ---- 6. the page: the loose row is gone, the badge case is there
     await ev("document.querySelector('.bb-close')?.click(); SB.setView('bugdex')");
     check(await until("document.querySelectorAll('#bdLeague .bd-badge-slot').length === 12"), 'the Bugdex page shows the badge case');
     await snap('page');

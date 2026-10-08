@@ -193,7 +193,7 @@ function lineFor(b, m, name) {
   const times = m.n > 1 ? ` ×${m.n}` : '';
   switch (m.fx) {
     case 'appear': return b.league === 'champion' ? `The Champion, ${name}, rises from the deep!`
-      : b.league === 'elite' ? `Elite bug ${name} wants to fight!`
+      : b.league === 'elite' ? `${name}, one of the Deep Four, rises to fight!`
         : b.boss ? `The habitat boss, ${name}, blocks the way!` : `A wild ${name} appeared!`;
     case 'ko': return `${wild} fainted!`;
     case 'caught':

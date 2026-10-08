@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('shellby', {
     onSound: on('critter:sound'), // a ta-da and the like (src/renderer/critter/sound.js)
     onCalm: on('critter:calm'), // screen locked: stop animating, nobody can see him
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
+    onBuddy: on('critter:buddy'), // his favourite Bugdex catch, following him (src/main/wiring/bugdex.js)
     onTogether: on('critter:together'), // ...and the two of them do something together
     onSticker: on('critter:sticker'), // a project shipped for the first time: slap its sticker on (src/main/stickers.js)
     onStickerGlint: on('critter:sticker-glint'), // ...or one already on his shell catches the light

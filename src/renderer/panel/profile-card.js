@@ -151,10 +151,10 @@
     const tank = { x: 16, y: 16, w: 164, h: H - 32 };
     const sandY = tank.y + tank.h - 30;
     // The Bugdex as a bare count (no species, no projects), once there's a catch to show.
-    const dex = state.bugdex?.caught > 0 ? { caught: state.bugdex.caught, of: state.bugdex.of } : null;
+    const dex = state.bugdex?.caught > 0 ? { caught: state.bugdex.caught, of: state.bugdex.of, badges: state.bugdex.league?.earned || 0 } : null;
     // His decorated tank when there's something in it; plain sand otherwise.
     const decorated = withTank ? tankScene(tank) : null;
-    const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}${dex ? `, Bugdex ${dex.caught} of ${dex.of}` : ''}${decorated ? `, in his tank with ${decorated.pieces} piece${decorated.pieces === 1 ? '' : 's'} of decor` : ''}`;
+    const alt = `${whose}: level ${xp.level}${xp.title ? ` ${xp.title}` : ''}, ${days ? `${days}-day streak` : 'no streak yet'}, ${stickers.length} recent sticker${stickers.length === 1 ? '' : 's'}${dex ? `, Bugdex ${dex.caught} of ${dex.of}${dex.badges ? ` with ${dex.badges} badge${dex.badges === 1 ? '' : 's'}` : ''}` : ''}${decorated ? `, in his tank with ${decorated.pieces} piece${decorated.pieces === 1 ? '' : 's'} of decor` : ''}`;
     const inTank = decorated ? decorated.body : `<rect x="${tank.x}" y="${tank.y}" width="${tank.w}" height="${tank.h}" fill="${C.abyss}" fill-opacity=".7"/>
 <rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="30" fill="#7a6a4b"/>
 <rect x="${tank.x}" y="${sandY}" width="${tank.w}" height="5" fill="#a8946c"/>
@@ -191,7 +191,7 @@ ${inTank}
 <rect x="${x0}" y="82" width="${colW}" height="5" rx="2.5" fill="${C.glass}" fill-opacity=".15"/>
 <rect x="${x0}" y="82" width="${barW}" height="5" rx="2.5" fill="${C.glass}"/>
 <text x="${x0}" y="110" class="sans" font-size="14" fill="${days ? C.amber : C.sandDim}">${esc(streak)}</text>
-${dex ? `<text x="${W - 20}" y="110" text-anchor="end" class="mono" font-size="11" font-weight="600" fill="${C.glass}">${esc(`Bugdex ${dex.caught}/${dex.of}`)}</text>` : ''}
+${dex ? `<text x="${W - 20}" y="110" text-anchor="end" class="mono" font-size="11" font-weight="600" fill="${C.glass}">${esc(`Bugdex ${dex.caught}/${dex.of}${dex.badges ? ` · ${dex.badges}✦` : ''}`)}</text>` : ''}
 <text x="${x0}" y="134" class="mono" font-size="10" font-weight="600" letter-spacing="1" fill="${C.sandFaint}">${stickers.length ? 'LATEST STICKERS' : 'NO STICKERS YET'}</text>
 ${stickers.length ? stickerRow(stickers, x0, 142, 30, 10) : `<text x="${x0}" y="156" class="sans" font-size="12" fill="${C.sandDim}">Ship a project to earn the first one</text>`}
 <text x="${W - 20}" y="${H - 14}" text-anchor="end" class="mono" font-size="9" fill="${C.sandFaint}">shellby · ${esc(updated)}</text>

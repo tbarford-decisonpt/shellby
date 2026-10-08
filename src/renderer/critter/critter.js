@@ -769,6 +769,16 @@ api.onCalm(msg => {
 // screen's: a transparent window pays the GPU for every frame (shared/framecap.js).
 window.ShellbyFrameCap.cap(document);
 
+// ---- his favourite Bugdex catch follows him round the desk, a step behind
+// whichever way he faces, and bobs along faster when he walks.
+const buddyEl = document.getElementById('buddy');
+api.onBuddy(b => {
+  if (!b || !Array.isArray(b.pixels) || !b.palette) { buddyEl.hidden = true; buddyEl.replaceChildren(); return; }
+  buddyEl.hidden = false;
+  buddyEl.classList.toggle('ghost', !!b.ghost);
+  buddyEl.replaceChildren(window.ShellbySprite.grid(b.pixels, b.palette, { px: Math.max(2, Math.round(px * 0.85)) }));
+});
+
 // ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
 // him, ahead of any helpers, and walks back off to the left when it's time.
 const VISITOR_SCALE = 0.7; // must match VISITOR_SCALE in src/main/main.js

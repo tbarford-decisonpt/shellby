@@ -62,7 +62,7 @@ test('a boss\'s first catch earns its badge; a later one doesn\'t again', () => 
   assert.equal(other.boss, null);
 });
 
-test('every badge, the elite four and the champion: the Hall of Fame, once', () => {
+test('every badge, the Deep Four and the champion: the Hall of Fame, once', () => {
   let s = null;
   let at = T0;
   const ids = [...HABITATS.map(h => h.boss), ...LEAGUE.elite];
@@ -147,4 +147,15 @@ test('every species has a field note and a tip, unlocked at stage II and III', (
   for (let i = b.STAGES[1]; i < b.STAGES[2]; i++) s = caught(s, 'nullfish', at += DAY).state;
   assert.equal(entry().tip, loreOf('nullfish').tip);
   assert.equal(entry().tipIn, 0);
+});
+
+test('a friend\'s gift jar can go in the tank, even of a bug you haven\'t caught', () => {
+  const { library } = require('../src/main/tank');
+  let s = caught(null, 'nullfish', T0).state;
+  s = b.addGift(s, { species: 'nullfish', from: 'bro' }, T0 + HOUR);
+  s = b.addGift(s, { species: 'syntax-slug', from: 'bro' }, T0 + DAY);
+  const lib = library({ bugState: s });
+  assert.equal(lib.get('jar:nullfish').max, 2);
+  assert.equal(lib.get('jar:syntax-slug').max, 1);
+  assert.match(lib.get('jar:syntax-slug').description, /@bro/);
 });

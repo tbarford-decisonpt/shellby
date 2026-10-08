@@ -117,7 +117,29 @@ function wireBugdex(d) {
     return bugdex.view(state(), Date.now(), { names: nameMap(), tabs, friends: friendBooks() });
   }
 
-  const push = () => { if (d.panel) d.send(d.panel, 'bugdex', view()); };
+  // His favourite catch follows him round the desk (critter.js #buddy): its art, or null.
+  let buddySent = null;
+  function buddy() {
+    if (!on() || d.config.get('bugFollower') === false) return null;
+    const s = state();
+    const id = bugdex.favourite(s);
+    if (!id) return null;
+    const sp = speciesById(id);
+    const a = bugdex.artFor(sp, s.species[id]);
+    return { id, name: sp.name, ghost: sp.habitat === 'wreck', pixels: a.pixels, palette: a.palette };
+  }
+  function sendBuddy({ force = true } = {}) {
+    const b = buddy();
+    const key = JSON.stringify(b);
+    if (!force && key === buddySent) return;
+    buddySent = key;
+    if (d.critter) d.send(d.critter, 'critter:buddy', b);
+  }
+
+  const push = () => {
+    if (d.panel) d.send(d.panel, 'bugdex', view());
+    sendBuddy({ force: false }); // a new favourite (or its next stage) goes straight to the desk
+  };
 
   /** Change the book, then tell the panel. */
   function update(fn) {
@@ -353,11 +375,11 @@ function wireBugdex(d) {
       const title = r.fame ? 'Bugdex: you made the Hall of Fame!'
         : badge ? `You earned the ${badge.name}!`
           : r.league === 'champion' ? `You beat the Champion, ${sp.name}!`
-            : r.league === 'elite' ? `An elite bug beaten: ${sp.name}!`
+            : r.league === 'elite' ? `One of the Deep Four beaten: ${sp.name}!`
               : habitats.length ? `Bugdex: ${habitats[0].name} is complete!`
         : r.evolved ? `Your ${sp.name} evolved!`
           : sp.rarity === 'legendary' ? `A legendary bug: ${sp.name}!` : `New to the Bugdex: ${sp.name}`;
-      const body = r.fame ? `Every badge, the elite four and the champion. ${sp.name} was the last.`
+      const body = r.fame ? `Every badge, the Deep Four and the champion. ${sp.name} was the last.`
         : badge ? `You beat ${sp.name}, the boss of ${HABITATS.find(h => h.id === r.badge).name}.${where}`
           : r.evolved ? `It's a ${card.name} now.${where}` : `${sp.blurb}${where}`;
       d.notify(title, body, () => openPage(sp.id), { tone: 'celebrate', pet: true });
@@ -817,7 +839,7 @@ function wireBugdex(d) {
   }).map(([k, fn]) => [k, guarded(fn)]));
 
   return {
-    on, view, push, openPage, seen, setFavourite, openTab, forget, battles: battleList, cue,
+    on, view, push, openPage, seen, setFavourite, openTab, forget, battles: battleList, cue, buddy, sendBuddy,
     ...hooks,
     // For the tests: the species a red build would be.
     ciSpecies,

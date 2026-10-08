@@ -312,7 +312,7 @@ function jarFor(id, forms = []) {
 const firstOf = (state, id) => (caughtOf(state.species[id]) > 0 ? state.species[id].first || 1 : 0);
 
 /**
- * When you made the Hall of Fame (every badge, the elite four and the
+ * When you made the Hall of Fame (every badge, the Deep Four and the
  * champion), or 0. Worked out from the book, so sync needs nothing new.
  */
 function hallOf(stateIn) {

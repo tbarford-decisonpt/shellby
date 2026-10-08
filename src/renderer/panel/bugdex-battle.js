@@ -18,7 +18,7 @@
     scout: '#8ecae6', patch: '#ffd166', tests: '#90be6d', typecheck: '#9d8cff', lint: '#f9c74f', build: '#ff9f1c',
     install: '#cdb4db', git: '#f3722c', run: '#4cc9f0', remedy: '#b8ffd9', assist: '#ff8fab',
   };
-  const RANK = { boss: 'BOSS', elite: 'ELITE', champion: 'CHAMPION' };
+  const RANK = { boss: 'BOSS', elite: 'DEEP FOUR', champion: 'CHAMPION' };
   // A jar for the throw: glass, a cork, a glint (the Bugdex's own jar is per bug; this one is empty).
   const JAR = { palette: { j: '#bfe9ff', c: '#b07a4a', h: '#ffffff', g: '#7fb8d6' }, pixels: ['..cccc..', '..cccc..', '.j....j.', 'jh.....j', 'jh.....j', 'j......j', 'j......j', 'jg....gj', '.jjjjjj.'] };
   const LENS = { palette: { r: '#d9c8a0', g: '#bfe9ff', w: '#ffffff', k: '#5c4a32' }, pixels: ['.rrr...', 'rgwgr..', 'rggggr.', 'rggggr.', '.rrrr..', '....kk.', '.....kk'] };
@@ -207,7 +207,7 @@
 
   async function warning(rank) {
     const { parts } = scene;
-    const stripe = h('div', { class: `bb-warning ${rank}` }, h('span', { text: rank === 'champion' ? '★ CHAMPION ★' : rank === 'elite' ? 'ELITE BUG' : '!! HABITAT BOSS !!' }));
+    const stripe = h('div', { class: `bb-warning ${rank}` }, h('span', { text: rank === 'champion' ? '★ CHAMPION ★' : rank === 'elite' ? 'THE DEEP FOUR' : '!! HABITAT BOSS !!' }));
     parts.fx.append(stripe);
     shake(6, 500);
     await stripe.animate([{ transform: 'scaleY(0)', opacity: 0 }, { transform: 'scaleY(1)', opacity: 1, offset: 0.15 }, { transform: 'scaleY(1)', opacity: 1, offset: 0.85 }, { transform: 'scaleY(0)', opacity: 0 }], { duration: 1400 }).finished.catch(() => {});
@@ -611,7 +611,7 @@
         ? h('div', { class: 'bb-reg-badge' }, SB.Sprite.grid(b.badge.pixels, b.badge.palette, { px: 7 }))
         : h('div', { class: 'bb-reg-art' }, sprite(b, fitPx(b.pixels, 56))),
       h('p', { class: 'bb-reg-name', text: jar.badge && b.badge ? `The ${b.badge.name}` : `#${String(b.no).padStart(3, '0')} ${b.name}` }),
-      h('p', { class: 'bb-reg-sub', text: jar.fame ? 'Every badge, the elite four and the champion.' : jar.badge ? `You beat the boss of ${b.habitatName}.` : b.blurb || '' }),
+      h('p', { class: 'bb-reg-sub', text: jar.fame ? 'Every badge, the Deep Four and the champion.' : jar.badge ? `You beat the boss of ${b.habitatName}.` : b.blurb || '' }),
       forms.length ? h('p', { class: 'bb-reg-forms', text: forms.join('  ') }) : null,
       h('div', { class: 'bb-reg-actions' },
         h('button', { type: 'button', class: 'btn primary slim-btn', onclick: () => { close(); SB.focusBug?.(b.species); } }, 'See it in the Bugdex'),

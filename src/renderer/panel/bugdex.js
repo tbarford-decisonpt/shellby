@@ -129,8 +129,8 @@
       h('ul', { class: 'bd-badges', 'aria-label': 'Badge case' }, l.badges.map(badge)),
       h('div', { class: 'bd-badges-head' },
         h('h3', { class: 'bd-section-title', text: l.open ? 'The league' : 'The league · opens with every badge' })),
-      h('ul', { class: `bd-league-row${l.open ? ' open' : ''}`, 'aria-label': 'The elite four and the champion' }, [...l.elite, l.champion].map(member)),
-      l.hall ? h('p', { class: 'bd-hall', text: `🏆 Hall of Fame, ${day(l.hall)}. Every badge, the elite four and the champion.` }) : '');
+      h('ul', { class: `bd-league-row${l.open ? ' open' : ''}`, 'aria-label': 'The Deep Four and the champion' }, [...l.elite, l.champion].map(member)),
+      l.hall ? h('p', { class: 'bd-hall', text: `🏆 Hall of Fame, ${day(l.hall)}. Every badge, the Deep Four and the champion.` }) : '');
   }
 
   function renderFriends(v) {
@@ -280,8 +280,8 @@
 
   function rankLine(s, where) {
     if (s.state === 'unknown') return null;
-    if (s.league === 'champion') return h('p', { class: 'bd-rank-line champion', text: '★ The champion. Beat it with every badge and the elite four to make the Hall of Fame.' });
-    if (s.league) return h('p', { class: 'bd-rank-line elite', text: '♛ One of the elite four.' });
+    if (s.league === 'champion') return h('p', { class: 'bd-rank-line champion', text: '★ The champion. Beat it with every badge and the Deep Four to make the Hall of Fame.' });
+    if (s.league) return h('p', { class: 'bd-rank-line elite', text: '♛ One of the Deep Four, the hardest bugs in the sea.' });
     if (s.boss) {
       const b = dex()?.league?.badges.find(x => x.habitat === s.boss);
       return h('p', { class: 'bd-rank-line boss', text: `♜ Boss of ${where?.name || 'its habitat'}. Catch it for the ${b?.name || 'badge'}.` });

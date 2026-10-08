@@ -120,6 +120,7 @@ function registerSettingsIpc(ipcMain, d) {
     d.config.set(allowed);
     // Snacks and naps on again: he comes back full, not hungry (care.js).
     if ('needsOn' in allowed && allowed.needsOn !== neededBefore) d.life?.needsSwitched(allowed.needsOn);
+    if ('bugFollower' in allowed || 'catchBugs' in allowed || 'crabOnly' in allowed) d.bugdex?.sendBuddy(); // his favourite catch, following him
     if (allowed.pushToTalk === false) { d.ptt?.reset(); d.showListening(false); d.dictation?.stop(); }
     // Asked to hush, he stops mid-line rather than finishing it.
     if (changed('chatter') && !voice.hasHabits(eff.chatter)) { d.said = null; d.refreshCritter(); }

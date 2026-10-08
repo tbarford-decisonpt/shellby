@@ -111,3 +111,10 @@ body.crab-only [data-goto="crew"] { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .cr-dock-crab svg { transition: none; }
 }
+
+/* bug battles: what it's helped beat, and its specialty (crew-roster.js specialtyOf) */
+.cr-bugs { margin: 2px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.cr-specialty {
+  padding: 0 7px; border-radius: 99px; font: 600 var(--fs-9-5)/16px var(--font-mono); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--type, var(--sand-dim)); background: color-mix(in srgb, var(--type, var(--sand-dim)) 16%, transparent); border: 1px solid color-mix(in srgb, var(--type, var(--sand-dim)) 45%, transparent);
+}
