@@ -136,6 +136,8 @@ contextBridge.exposeInMainWorld('shellby', {
   repoStatus: invoke('repo:status'),
   pushRepo: invoke('repo:push'),
   bringAllHome: invoke('repo:home-all'),
+  sortOutHome: invoke('worktree:sort-out'), // a clash, sorted out in turn and brought home (home-line.js)
+  sortOutAll: invoke('repo:sort-out'),
   listClashes: invoke('clashes:list'), // copies that changed the same files (wiring/clashes.js)
 
   // history
@@ -676,6 +678,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),
+  onHomeLine: on('home:line'), // { tabId, title, base, status: 'sorting' | 'home' | 'stuck', ... }
   onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files
   onTabOpened: on('tab:opened'),
   onTabReturned: on('tab:returned'), // a popped-out conversation's window closed

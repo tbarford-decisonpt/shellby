@@ -231,6 +231,8 @@ function wireTimetrack(d) {
     // Once the turn's diff is noted: did it just change a file another copy has? (wiring/clashes.js)
     const noted = Promise.resolve(d.endTurn(tabId));
     noted.then(() => d.clashTurnEnded?.(tabId), () => {});
+    // A copy lined up to sort out its clash and come home: maybe it just has (home-line.js).
+    noted.catch(() => {}).then(() => d.homeTurnEnded?.(tabId)).catch(err => d.log.info(`home line: ${err.message}`));
     // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
     noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));
     // What it cost, for estimates next time (usage-ledger.js). Never worth losing the rest of the turn's end over.

@@ -18,6 +18,8 @@
         return { icon: '📱', text: 'Started from your phone, in Ask first: he asks before he changes anything' };
       case 'home':
         return { icon: '↩', text: `Brought home: ${commits(item.commits)} merged into ${item.base}` };
+      case 'home-wait':
+        return { icon: '⋯', text: `Waiting its turn: another copy is coming home into ${item.base} first` };
       case 'pushed':
         return { icon: '⇡', text: `Pushed ${item.branch} to ${item.remote}: ${commits(item.commits)}${item.pulled ? `, after taking in ${item.pulled} from ${item.remote}` : ''}` };
       case 'compacted':
