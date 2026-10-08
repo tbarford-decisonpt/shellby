@@ -72,7 +72,7 @@ test('a patched audit catches the Barnacled Anchor; a flaky fix the Phantom, or 
   assert.ok(sent.some(m => m.channel === 'bugdex:caught'));
 });
 
-test('his favourite catch follows him as its little desk sprite, never the big portrait', () => {
+test('his favourite catch follows him as its Bugdex portrait, the art the book shows', () => {
   const { d, sent } = fakeMain();
   Object.assign(d, { stat() {}, noteWeek() {}, awardXp() {}, notify() {}, life: { presentJar() {} }, critter: {}, outfit: () => ({ confetti: null }), noteRecap() {} });
   const b = wireBugdex(d);
@@ -81,7 +81,8 @@ test('his favourite catch follows him as its little desk sprite, never the big p
   const buddy = sent.filter(m => m.channel === 'critter:buddy').pop().payload;
   const sp = require('../src/main/bugdex/species').speciesById(buddy.id);
   assert.ok(sp.portrait, 'pick a catch that has a portrait, or this proves nothing');
-  assert.equal(buddy.pixels.length, sp.pixels.length);
+  assert.deepEqual(buddy.pixels, require('../src/main/bugdex').artFor(sp, null).pixels);
+  assert.ok(buddy.pixels.length > sp.pixels.length);
 });
 
 test('red builds are told apart by the checks that failed', () => {

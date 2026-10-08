@@ -844,13 +844,25 @@ reducedQuery.addEventListener?.('change', tellReduced);
 tellReduced();
 
 // ---- his favourite Bugdex catch follows him round the desk, a step behind
-// whichever way he faces, and bobs along faster when he walks.
+// whichever way he faces, and bobs along faster when he walks. Its Bugdex
+// portrait is drawn in finer pixels than his, so it stays the size the little
+// 8×8 sprites were; small art (a hatchling) keeps his chunky pixels.
 const buddyEl = document.getElementById('buddy');
-api.onBuddy(b => {
-  if (!b || !Array.isArray(b.pixels) || !b.palette) { buddyEl.hidden = true; buddyEl.replaceChildren(); return; }
+const BUDDY_BOX = 8; // its longer side, in his pixels: at any size it stays in his slot, clear of the helpers (critter.css #buddy)
+let buddyArt = null;
+function drawBuddy() {
+  const b = buddyArt;
+  if (!b) { buddyEl.hidden = true; buddyEl.replaceChildren(); return; }
+  const side = Math.max(b.pixels.length, ...b.pixels.map(r => r.length));
+  const dpr = window.devicePixelRatio || 1;
+  const fit = Math.max(1, Math.round(px * BUDDY_BOX * dpr / side)) / dpr; // whole screen pixels, so it stays crisp
   buddyEl.hidden = false;
   buddyEl.classList.toggle('ghost', !!b.ghost);
-  buddyEl.replaceChildren(window.ShellbySprite.grid(b.pixels, b.palette, { px: Math.max(2, Math.round(px * 0.85)) }));
+  buddyEl.replaceChildren(window.ShellbySprite.grid(b.pixels, b.palette, { px: Math.min(Math.max(2, Math.round(px * 0.85)), fit) }));
+}
+api.onBuddy(b => {
+  buddyArt = b && Array.isArray(b.pixels) && b.pixels.length && b.palette ? b : null;
+  drawBuddy();
 });
 
 // ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
@@ -891,8 +903,8 @@ api.onVisitor(v => {
   crewHost.prepend(el);
   visitorEl = el;
 });
-// A new size (Settings → Look) redraws the visitor along with everyone else.
-api.onSkin(() => { if (visitorEl && visitorLook) visitorEl.querySelector('svg')?.replaceWith(visitorSprite()); });
+// A new size (Settings → Look) redraws the visitor and his buddy along with everyone else.
+api.onSkin(() => { if (visitorEl && visitorLook) visitorEl.querySelector('svg')?.replaceWith(visitorSprite()); drawBuddy(); });
 
 // ---- the two of them doing something together: dance, party, high-five, sing.
 // Main picks what and when (src/main/friends.js); the moves are one body class

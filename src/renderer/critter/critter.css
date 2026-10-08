@@ -937,7 +937,7 @@ body.together-party .together-bit { color: #ffd166; }
 /* A step behind him: on his left when he faces right, on his right when he faces left. */
 #buddy {
   position: absolute; bottom: 16px; left: 50%; pointer-events: none;
-  transform: translateX(calc(-50% - var(--dir, 1) * (var(--px) * 9 + 12px)));
+  transform: translateX(calc(-50% - var(--dir, 1) * (var(--px) * 9.5 + 12px)));
   filter: drop-shadow(0 1px 0 rgba(0,0,0,.35));
 }
 #buddy[hidden] { display: none; }
