@@ -2,6 +2,7 @@
 // the flaky test detective and the week in review.
 // Kept out of main.js, which only wires it up.
 const os = require('os');
+const crabLine = require('../crab-line');
 const path = require('path');
 const changes = require('../changes');
 const character = require('../character');
@@ -98,6 +99,17 @@ function wireProgress(d) {
     awardXp('quest', { label: r.quest.title });
     if (r.finished) awardXp('questline');
   }
+
+  // The crab in a line, for pull requests and commits (crab-line.js): only what's public about him.
+  function crabSummary() {
+    const v = xpView();
+    const now = Date.now();
+    const log = d.config.get('bugdex')?.log;
+    const a = d.activeEvent?.();
+    return { level: v.level, title: v.title, cls: v.character?.cls?.name || null, bugs: crabLine.bugsThisWeek(log, now), event: a ? { emoji: a.ev.emoji } : null };
+  }
+  /** The trailer for Shellby's own bring-home commits, or null when it's off (Settings → Folder). */
+  const crabTrailer = () => (d.config.get('signCommits') === true ? crabLine.trailer(crabSummary()) : null);
 
   /** Pay XP for an event and show it. -> xp.award()'s result (its `kind` says what it counted as), or undefined. */
   function awardXp(kind, meta = {}) {
@@ -472,6 +484,7 @@ function wireProgress(d) {
   }
 
   return {
+    crabSummary, crabTrailer,
     awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
     knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, questDone, questsPanelView,
     roomTaskDone, roomsPanelView, runCheckup, setQuests, setRooms, showFlaky, weekView, xpView,

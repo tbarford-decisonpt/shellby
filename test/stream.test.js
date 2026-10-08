@@ -215,3 +215,51 @@ test('commands_changed drops entries with no usable name and tolerates a missing
 test('the stream knows the four mod system subtypes', () => {
   for (const s of ['ui_log', 'ui_toast', 'ui_status', 'commands_changed']) assert.ok(KNOWN.system.has(s), s);
 });
+
+// ---- what Claude Code does by itself (shapes recorded from 2.1.293)
+
+test('to-do calls carry what they do to the list, and TaskCreate results the new id', () => {
+  const [create] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'a', name: 'TaskCreate', input: { subject: 'Alpha', description: 'Alpha', activeForm: 'Doing alpha' } }] } });
+  assert.deepEqual(create.todo, { op: 'create', subject: 'Alpha', activeForm: 'Doing alpha' });
+  assert.equal(create.label, 'Added a to-do');
+  assert.equal(create.detail, 'Alpha');
+  const [made] = toItems({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'a', content: 'Task #1 created successfully: Alpha' }] }, tool_use_result: { task: { id: '1', subject: 'Alpha' } } });
+  assert.equal(made.todoId, '1');
+  const [update] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'b', name: 'TaskUpdate', input: { taskId: '1', status: 'completed' } }] } });
+  assert.deepEqual(update.todo, { op: 'update', id: '1', status: 'completed' });
+  assert.equal(update.detail, '#1 done');
+  const [write] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'c', name: 'TodoWrite', input: { todos: [{ content: 'X', status: 'in_progress', activeForm: 'Xing' }, { content: '' }] } }] } });
+  assert.deepEqual(write.todo, { op: 'set', items: [{ subject: 'X', status: 'in_progress', activeForm: 'Xing' }] });
+  assert.equal(write.detail, '2 to-dos', 'the row says how many, not a blob of JSON');
+});
+
+test('a backgrounded command is a task_started with task_type, and its result names its output file', () => {
+  const [t] = toItems({ type: 'system', subtype: 'task_started', task_id: 'bnyot46nq', tool_use_id: 'tu', description: 'Run sleep', is_backgrounded: true, task_type: 'local_bash' });
+  assert.deepEqual([t.kind, t.taskType, t.background], ['task', 'local_bash', true]);
+  const [r] = toItems({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu', content: 'Command running in background with ID: bnyot46nq. Output is being written to: /tmp/claude/p/s/tasks/bnyot46nq.output. You will be notified when it completes.' }] } });
+  assert.equal(r.outputFile, '/tmp/claude/p/s/tasks/bnyot46nq.output');
+  const [plain] = toItems({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'x', content: 'Output is being written to: /evil.output.' }] } });
+  assert.equal(plain.outputFile, undefined, 'only the CLI\'s own sentence, from its start');
+});
+
+test('a skill, a message between agents, and an agent\'s name are kept on their tool items', () => {
+  const [skill] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 's', name: 'Skill', input: { skill: 'code-review:code-review' } }] } });
+  assert.equal(skill.skill, 'code-review:code-review');
+  const [msg] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'm', name: 'SendMessage', input: { to: 'scout', message: 'Now reply DONE.', summary: 'Ask scout to reply DONE', type: 'message' } }] } });
+  assert.deepEqual(msg.message, { to: 'scout', text: 'Now reply DONE.', summary: 'Ask scout to reply DONE' });
+  assert.equal(msg.detail, 'scout: Now reply DONE.');
+  const [agent] = toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'g', name: 'Agent', input: { subagent_type: 'general-purpose', description: 'Scout', name: 'scout', run_in_background: true } }] } });
+  assert.equal(agent.agent.name, 'scout');
+});
+
+test('a result says how much of the turn was thinking', () => {
+  const [r] = toItems({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 4, output_tokens: 641, output_tokens_details: { thinking_tokens: 54 } } });
+  assert.equal(r.thinkingTokens, 54);
+  assert.equal(toItems({ type: 'result', subtype: 'success', usage: {} })[0].thinkingTokens, null);
+});
+
+test('background_tasks_changed is a known event, read past on purpose', () => {
+  const { KNOWN } = require('../src/main/stream');
+  assert.ok(KNOWN.system.has('background_tasks_changed'));
+  assert.deepEqual(toItems({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }), []);
+});

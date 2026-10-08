@@ -72,6 +72,12 @@ const LORE = Object.freeze({
   'race-wraith': ['Two threads touch the same value with nothing between them.', 'Guard shared state with a lock or a channel, or stop sharing it. The race detector shows where.'],
   'cache-ghoul': ['Lives in build caches, stale lockfiles and a browser that remembers too much.', 'Clear the cache once to prove it, then fix why it went stale.'],
   'zombie-process': ['Left behind when a parent crashed or a terminal closed without stopping its children.', 'Stop it on purpose, and make sure whatever starts it also stops it.'],
+  'harvest-mouse': ['Only seen at Harvest Moon, and only when the first thing Claude tried was the right thing.', 'Read the failure all the way through before changing anything. That’s what first try looks like.'],
+  'will-o-wisp': ['Drifts over the wreck during The Haunting, after nine at night, wherever someone is still fixing things.', 'It can’t be chased. Fix something late and it comes to you.'],
+  'frost-mite': ['Wakes in Frostbite on the busiest days: the third catch, never the first.', 'Keep going. It only shows itself to someone on a run.'],
+  'lovebug': ['Seen in Pen Pal Week, always in pairs: you and a helper crab, on the same bug.', 'Send a helper to read round while you fix. It turns up for the two of you.'],
+  'dust-bunny': ['Grows in code nobody calls any more. Spring Clean is the one week it comes out.', 'The best fix deletes something. Look for the branch nothing reaches.'],
+  'tide-pool-nudibranch': ['Stranded in the Shallows at Low Tide. Any JavaScript bug fixed then might have one under it.', 'Catch anything in the Shallows while the tide is out.'],
   missingno: ['It isn’t in any habitat. It isn’t in any book. Nobody is sure what it is.', 'There is no tip. It will find you.'],
 });
 

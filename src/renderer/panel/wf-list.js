@@ -5,7 +5,7 @@
   const W = SB.wfKit;
   const {
     clone, setMapMode, fill, screen, openEditor, blankWorkflow, current, throttle, editing, keepFocus, uid,
-    unsaved, TRIGGER_INFO, icon, ICON, iconBtn, go, normErrors, popup, menuItem, focusFk,
+    unsaved, TRIGGER_INFO, icon, ICON, iconBtn, go, normErrors, popup, menuItem, focusFk, openFileBtn,
   } = W;
 
   // ================================================================ the list
@@ -218,7 +218,7 @@
         h('div', { class: 'row wrap' }, choices.map(c => h('button', {
           type: 'button', class: 'btn slim-btn',
           onclick: async ev => { ev.currentTarget.disabled = true; await answer(last.id, wt.key, c); },
-        }, c))));
+        }, c)), wt.file ? openFileBtn(wt.file) : null));
     }
     return h('div', { class: 'wf-waiting quiet' }, h('span', { text: wt.until ? `Waiting until ${SB.untilTime(wt.until)}` : 'Waiting for your OK in its conversation' }),
       h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => go('run', { runId: last.id }) }, 'Open the run'));

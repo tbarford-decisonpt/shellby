@@ -31,7 +31,7 @@
   function renderFinds() {
     const v = life()?.finds;
     if (!v) return;
-    $('fdTotal').textContent = v.kinds ? `${v.kinds} of ${v.of} finds${v.total > v.kinds ? ` · ${v.total} dug up` : ''}` : 'Nothing on the shelf yet';
+    $('fdTotal').textContent = v.kinds ? `${v.kinds} of ${v.of} finds${v.total > v.kinds ? ` · ${v.total} dug up` : ''}${v.sparkles ? ` · ✨ ${v.sparkles} sparkly` : ''}` : 'Nothing on the shelf yet';
     const fav = v.finds.find(f => f.id === v.favourite);
     $('fdFav').replaceChildren(fav
       ? h('div', { class: `fd-fav-art rarity-${fav.rarity}`, title: fav.name }, art(fav, fit(fav, 84)), h('span', { class: 'fd-fav-cap', text: 'showing off' }))
@@ -49,13 +49,14 @@
     const sorted = [...v.finds].sort((a, b) => (b.owned - a.owned) || RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity]);
     $('fdGrid').replaceChildren(...sorted.map(f => h('li', {},
       h('button', {
-        type: 'button', class: `fd-tile rarity-${f.rarity}${f.owned ? '' : ' locked'}${selected === f.id ? ' on' : ''}`,
-        'aria-label': f.owned ? `${f.name}, ${f.rarityLabel}${f.count > 1 ? `, ${f.count} of them` : ''}` : `Not found yet. ${f.blurb}`,
+        type: 'button', class: `fd-tile rarity-${f.rarity}${f.owned ? '' : ' locked'}${f.shiny ? ' sparkly' : ''}${selected === f.id ? ' on' : ''}`,
+        'aria-label': f.owned ? `${f.name}, ${f.rarityLabel}${f.count > 1 ? `, ${f.count} of them` : ''}${f.shiny ? `, ${f.shiny} sparkly` : ''}` : `Not found yet. ${f.blurb}`,
         onclick: () => select(f.id),
       },
-      h('span', { class: 'fd-art' }, art(f, fit(f, 40))),
+      h('span', { class: 'fd-art' }, f.shiny && f.shinyArt ? art(f.shinyArt, fit(f, 40)) : art(f, fit(f, 40))),
       h('span', { class: 'fd-name', text: f.name }),
-      h('span', { class: 'fd-rarity', text: f.owned ? f.rarityLabel : f.special ? 'Keepsake' : f.season ? 'Seasonal' : f.night ? 'Night only' : '' }),
+      h('span', { class: 'fd-rarity', text: f.owned ? f.rarityLabel : f.special ? 'Keepsake' : f.event ? (f.inSeason ? 'Out now' : 'Tide event') : f.season ? 'Seasonal' : f.night ? 'Night only' : '' }),
+      f.shiny ? h('span', { class: 'sparkle-pill', 'aria-hidden': 'true', text: f.shiny > 1 ? `✨×${f.shiny}` : '✨' }) : null,
       f.count > 1 ? h('span', { class: 'fd-count-pill', text: `×${f.count}` }) : null,
       unseen.has(f.id) ? h('span', { class: 'new-pill', text: 'new' }) : null))));
     renderDetail();
@@ -71,12 +72,14 @@
     box.hidden = false;
     box.className = `fd-detail rarity-${f.rarity}`;
     box.replaceChildren(
-      h('div', { class: 'fd-big' }, art(f, fit(f, 110))),
+      h('div', { class: 'fd-big' }, art(f, fit(f, f.shiny ? 80 : 110)), f.shiny && f.shinyArt ? art(f.shinyArt, fit(f, 80)) : null),
       h('div', { class: 'fd-info' },
         h('p', { class: 'fd-rarity-line', text: f.owned ? f.rarityLabel : 'Not found yet' }),
         h('h3', { text: f.name }),
         h('p', { class: 'fd-blurb', text: f.blurb }),
         f.owned ? h('p', { class: 'fd-when', text: `First found ${when(f.first)}${f.count > 1 ? ` · found ${plural(f.count, 'time')}` : ''}` }) : null,
+        f.shiny ? h('p', { class: 'fd-when fd-sparkly', text: `✨ ${f.shiny === 1 ? 'One sparkly one' : `${f.shiny} sparkly ones`}, the first ${when(f.shinyFirst)}` }) : null,
+        f.event && !f.inSeason && f.back ? h('p', { class: 'fd-when', text: `Back ${new Date(f.back).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })}` }) : null,
         set ? h('p', { class: 'fd-in-set', text: `Part of ${set.icon} ${set.name} (${set.have} of ${set.of})` }) : null,
         f.owned ? h('div', { class: 'fd-actions' },
           isFav

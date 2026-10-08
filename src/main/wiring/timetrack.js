@@ -211,6 +211,7 @@ function wireTimetrack(d) {
   function stat(event, payload) {
     if (d.CAPTURE) return;
     try { d.life?.onStat(event, payload); } catch (e) { d.log.warn('life stat failed', e.message); }
+    try { d.eventsOnStat?.(event, payload); } catch (e) { d.log.warn('tide event stat failed', e.message); }
     if (!d.wardrobe) return;
     try { d.wardrobe.record(event, payload); } catch (e) { console.warn('[shellby] stat failed:', e.message); }
   }

@@ -20,7 +20,11 @@ const EXE = 'C:\\Users\\me\\.local\\bin\\claude.exe';
 const CWD = 'C:\\code\\my app';
 const SYS = { wt: 'C:\\Users\\me\\AppData\\Local\\Microsoft\\WindowsApps\\wt.exe', powershell: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', cmd: 'C:\\Windows\\System32\\cmd.exe' };
 const decode = b64 => Buffer.from(b64, 'base64').toString('utf16le');
-const scriptOf = plan => decode(plan.args[plan.args.indexOf('-EncodedCommand') + 1]);
+// The start plans carry their whole line as one verbatim string, so go by words.
+const scriptOf = plan => {
+  const words = plan.args.join(' ').split(' ');
+  return decode(words[words.indexOf('-EncodedCommand') + 1]);
+};
 
 // ---------------------------------------------------------------- ids and paths
 
@@ -67,12 +71,17 @@ test('launchPlans: Windows Terminal first, then PowerShell, then cmd', () => {
   const [wt, ps, cmd] = r.plans;
   assert.equal(wt.file, SYS.wt);
   assert.deepEqual(wt.args.slice(0, 5), ['-w', 'new', '-d', CWD, SYS.powershell]);
-  assert.deepEqual(ps.args.slice(0, 3), ['-NoLogo', '-NoExit', '-EncodedCommand']);
-  assert.deepEqual(cmd.args, ['/d', '/k', EXE, '--resume', ID]);
+  // Through start: a detached console program spawned directly gets no window.
+  assert.equal(ps.file, SYS.cmd);
+  assert.equal(ps.args.length, 3);
+  assert.ok(ps.args[2].startsWith(`start "" "${SYS.powershell}" -NoLogo -NoExit -EncodedCommand `), ps.args[2]);
+  assert.equal(cmd.file, SYS.cmd);
+  assert.deepEqual(cmd.args, ['/d', '/c', `start "" "${SYS.cmd}" /d /k "${EXE}" --resume ${ID}`]);
   for (const p of r.plans) {
     assert.equal(p.options.cwd, CWD);
-    assert.equal(p.options.detached, true, 'a window of its own, outliving Shellby');
+    assert.equal(p.options.detached, true, 'outliving Shellby');
     assert.equal(p.options.windowsHide, false);
+    assert.equal(p.options.windowsVerbatimArguments, p.shell === 'wt' ? undefined : true, 'the start line reaches cmd as written');
   }
 });
 
@@ -102,8 +111,9 @@ test('a hostile folder name stays a folder name', () => {
   assert.equal(wt.args.includes('-d'), false, 'a ; would start another Windows Terminal tab, so -d is left out');
   const script = scriptOf(wt);
   assert.match(script, /Set-Location -LiteralPath 'C:\\x''; Start-Process calc; ''\u2019\u2019 & echo %PATH% ;wt'/);
-  const cmd = r.plans.find(p => p.shell === 'cmd');
-  assert.equal(cmd.args.includes(cwd), false, 'cmd gets the folder as its working directory, never on its line');
+  for (const p of r.plans.filter(x => x.shell !== 'wt')) {
+    assert.equal(p.args.join(' ').includes(cwd), false, `${p.shell} gets the folder as its working directory, never on its line`);
+  }
 });
 
 test('cmd is skipped when the CLI path has cmd syntax in it', () => {
@@ -134,7 +144,7 @@ test('launch falls through to the next terminal when one will not start', async 
   };
   const { plans } = handoff.launchPlans({ exe: EXE, cwd: CWD, sessionId: ID, ...SYS });
   assert.deepEqual(await handoff.launch(plans, fake), { ok: true, shell: 'powershell' });
-  assert.deepEqual(tried, [SYS.wt, SYS.powershell]);
+  assert.deepEqual(tried, [SYS.wt, SYS.cmd]);
   const none = await handoff.launch(plans, () => { throw new Error('nope'); });
   assert.equal(none.ok, false);
 });
@@ -374,4 +384,21 @@ test('Continue in terminal refuses mid-turn and before the first message, withou
   history.create({ id: 'blank', title: 't', cwd: project, mode: 'ask' });
   assert.match((await h.continueInTerminal('blank')).error, /send this conversation something first/);
   assert.equal((await h.continueInTerminal('gone')).ok, false);
+});
+
+test('launchPlans can start a fresh session on the ultra review, and on nothing else', () => {
+  const r = handoff.launchPlans({ exe: EXE, cwd: CWD, prompt: handoff.TERMINAL_PROMPTS.ultraReview, ...SYS });
+  assert.equal(r.ok, true);
+  const script = scriptOf(r.plans.find(p => p.shell === 'powershell'));
+  assert.ok(script.includes(`& '${EXE}' '/code-review ultra'`), 'a literal, never expanded');
+  assert.ok(!script.includes('--resume'));
+  const line = r.plans.find(p => p.shell === 'cmd').args.at(-1);
+  assert.ok(line.endsWith(`/k "${EXE}" "/code-review ultra"`), line);
+  assert.ok(!line.includes('--resume'));
+  for (const p of Object.values(handoff.TERMINAL_PROMPTS)) assert.ok(!/["%^&|<>!]/.test(p), 'nothing cmd reads as its own');
+  for (const prompt of ['/code-review ultra; calc', 'rm -rf /', '', 42]) {
+    assert.equal(handoff.launchPlans({ exe: EXE, cwd: CWD, prompt, ...SYS }).ok, false, String(prompt));
+  }
+  // No prompt: still a resume, and still only of a real session id.
+  assert.equal(handoff.launchPlans({ exe: EXE, cwd: CWD, ...SYS }).ok, false);
 });

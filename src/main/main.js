@@ -59,6 +59,10 @@ const { wireRemote } = require('./wiring/remote');
 const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
 const { wireSurprises } = require('./wiring/surprises');
+const { wireNative } = require('./wiring/native');
+const { wireEvents } = require('./wiring/events');
+const { wireSocial } = require('./wiring/social');
+const { makeToday } = require('./today');
 const { wireQuit } = require('./wiring/quit');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -131,6 +135,7 @@ const shared = {
   LOG_DIR, log, every, repeating, randomUUID,
   PRIMARY: false, lastRun: null, sentry: null, // crash reports, started below
   captureClock: { now: null }, // screenshot runs can pretend it's Halloween
+  today: null,                  // what day it is for seasons and tide events (today.js), set just below
   isStr: s => typeof s === 'string' && s.length > 0 && s.length < 10000,
   isFolder: d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } }, // missing or unreadable: not a folder
   send(win, channel, payload) {
@@ -195,7 +200,7 @@ const shared = {
   tankGauges: null,                // the tank's live decor feed (ipc/tank-gauges.js): Health and dev servers push into it
   levelUpAt: 1,                    // level shown in the critter's level-up bubble
   lastXp: null,                    // { amount, at } for the status line's "+25 XP"
-  lastStatus: { state: 'idle', busy: 0, crew: 0, background: 0 },
+  lastStatus: { state: 'idle', busy: 0, crew: 0, background: 0, work: null },
   lastActivity: Date.now(),
   dragging: false,                 // the user is dragging him around
   sleepTimer: null,
@@ -213,6 +218,9 @@ const shared = {
   focusTimer: null,
   focusTick: null,
 };
+
+// Dev and test runs can say what day it is (SHELLBY_TODAY); screenshot runs set captureClock.
+shared.today = makeToday({ packaged: app.isPackaged, env: process.env, capture: shared.captureClock });
 
 // Adds an area's exports to shared, where the others reach them. Two areas
 // giving the same name would quietly replace one another, so that stops boot.
@@ -309,6 +317,9 @@ const { createComputers } = share(wireRemote(shared)); // Claude Code on your ot
 const { journal } = share({ journal: wireJournal(shared) }); // handoff notes per project, read from Claude Code's own files
 share({ crewRoster: wireCrew(shared) }); // one lasting helper crab per agent type
 share({ surprises: wireSurprises(shared) }); // crit hits and clean landings, now and then
+share({ native: wireNative(shared) }); // the crab noticing Claude's own to-dos, background commands, memories and skills
+const { eventsTick } = share(wireEvents(shared)); // tide events: a week or so with its own bug, finds, goals and medal
+const { startSocial } = share(wireSocial(shared)); // swaps with friends and crab eggs, over calling cards
 
 // ================================================================ boot
 
@@ -320,7 +331,7 @@ app.whenReady().then(() => {
   // This PC's own XP count, so sync can add PCs together (xp.js).
   if (!CAPTURE && !config.get('xp')?.device) config.set({ xp: withDevice(config.get('xp'), randomUUID()) });
   awardXp('day');
-  every(() => { shared.wardrobe.collectSeasonals(); broadcastWardrobe(); }, HOUR_MS);
+  every(() => { shared.wardrobe.collectSeasonals(); broadcastWardrobe(); eventsTick(); }, HOUR_MS);
   shared.skins = loadSkins(userSkinsDir());
 
   // Renderers never need camera, mic, geolocation etc.
@@ -363,6 +374,7 @@ app.whenReady().then(() => {
   // Answers given before a restart still apply: walk the queue once so what was
   // turned down leaves the disk, and what was okayed goes.
   setTimeout(drainCrashQueue, 10 * 1000);
+  setTimeout(eventsTick, 12 * 1000); // a tide event that started while he was closed: said once he's up
   shared.health.start();
   createExternal();
   createTimeTracker();
@@ -374,6 +386,7 @@ app.whenReady().then(() => {
   createCi();
   createIssues();
   createFriends();
+  startSocial();
   shared.channelSecret = loadChannelSecret();
   // Set up before destinations needed confirming (0.46.1): what you already
   // had running counts as said yes to, so an update doesn't silence it.

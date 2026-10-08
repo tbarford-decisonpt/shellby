@@ -103,6 +103,7 @@ function registerCritterIpc(ipcMain, d) {
       if (what === 'day') return d.life.newDayForTest(), true;
       if (what === 'call') return d.life.callForTest(args.on), true;
       if (what === 'needs') return d.life.needsForTest(args); // { meters, pantry }
+      if (what === 'nap') return d.life.napForTest(Math.min(Math.max(Number(args.ms) || 4000, 500), 60000));
       return d.life.view();
     });
     ipcMain.handle('dev:quest', (_e, id) => (d.questDone(String(id || '')), d.questsPanelView()));

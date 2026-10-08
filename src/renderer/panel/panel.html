@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="bugdex.css">
 <link rel="stylesheet" href="bugdex-battle.css">
+<link rel="stylesheet" href="tide.css">
 <link rel="stylesheet" href="crew.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
@@ -28,6 +29,7 @@
 <link rel="stylesheet" href="crabonly.css">
 <link rel="stylesheet" href="github.css">
 <link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="native.css">
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="line-comments.css">
 <link rel="stylesheet" href="turn-checks.css">
@@ -162,6 +164,9 @@
     </div>
 
     <footer class="composer" id="composer">
+      <!-- Claude's own to-do list, and what it left running in the background (native-strip.js) -->
+      <div class="todos" id="todos" role="region" aria-label="Claude's to-do list" hidden></div>
+      <div class="jobs" id="jobs" role="region" aria-label="Running in the background" hidden></div>
       <div class="status" id="status" hidden>
         <span class="status-crab" aria-hidden="true"></span>
         <span class="status-text" id="statusText">Working…</span>
@@ -361,6 +366,16 @@
     </div>
     <!-- Your routines come first; the tools below them are secondary (.rt-section). -->
     <ul class="routine-list" id="routineList"></ul>
+    <!-- Claude Code's own cloud routines (/schedule), listed by asking Claude Code (routines-cloud.js) -->
+    <section class="rt-section cloud-routines" id="cloudRoutines" aria-labelledby="cloudRoutinesTitle">
+      <div class="deps-head">
+        <h3 id="cloudRoutinesTitle">In Claude's cloud</h3>
+        <span class="deps-summary" id="cloudSummary"></span>
+      </div>
+      <p class="view-lede">Routines you made with <code>/schedule</code> in Claude Code. They run in Anthropic's cloud on their own schedule, even with your PC off. Claude Code keeps them; Shellby shows them here.</p>
+      <ul class="deps-list cloud-list" id="cloudList"></ul>
+      <div class="row cloud-actions" id="cloudActions"></div>
+    </section>
     <!-- The reset queue (held.js tasks, outlook.js state): heavy work for a fresh 5-hour window. -->
     <section class="rt-section reset-queue" id="resetQueue" aria-labelledby="resetQueueTitle">
       <div class="rq-head">
@@ -856,6 +871,7 @@
         </div>
       </div>
     </section>
+    <section class="ev-banner" data-ev-banner="finds" hidden aria-label="Tide event"></section>
     <ul class="fd-sets" id="fdSets" aria-label="Sets"></ul>
     <section class="fd-detail" id="fdDetail" hidden aria-live="polite"></section>
     <ul class="fd-grid" id="fdGrid" role="list" aria-label="Every find"></ul>
@@ -884,7 +900,17 @@
         <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
       </div>
     </section>
+    <section class="ev-banner" data-ev-banner="bugdex" hidden aria-label="Tide event"></section>
     <section class="bd-league" id="bdLeague" aria-label="Badges and the league"></section>
+    <section class="bd-board" id="bdBoard" hidden aria-labelledby="bdBoardTitle">
+      <div class="bd-board-head">
+        <h3 class="bd-section-title" id="bdBoardTitle">This month</h3>
+        <button type="button" class="btn ghost slim-btn" id="bdBoardShare" data-share-moment>📸 Share the board</button>
+      </div>
+      <div class="kind-chips bd-board-tabs" id="bdBoardTabs" role="tablist" aria-label="Board" data-roving></div>
+      <ol class="bd-board-list" id="bdBoardList"></ol>
+      <p class="muted small bd-board-note">You and friends who share their Bugdex, by the bugs Claude fixed for each of you this month. Starts fresh on the 1st.</p>
+    </section>
     <section class="bd-friends" id="bdFriends" hidden aria-labelledby="bdFriendsTitle">
       <h3 class="bd-section-title" id="bdFriendsTitle">Friends' books</h3>
       <ul id="bdFriendList"></ul>
@@ -920,6 +946,8 @@
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
     </div>
+    <!-- Tide events (tide.js, src/main/events.js): the event going on, or the next one. -->
+    <section class="ev-banner" data-ev-banner="us" hidden aria-label="Tide event"></section>
     <!-- The diorama is static markup: together.js patches it, so his breathing and the waves don't restart on every update. -->
     <section class="us-hero" id="usHero" aria-labelledby="usLevelName">
       <div class="us-stage" id="usStage" data-time="night">
@@ -996,6 +1024,26 @@
       <div class="us-h"><h3 id="usScenesTitle">His little scenes</h3><span class="us-h-meta" id="usScenesCount"></span></div>
       <p class="us-lede">What he gets up to when nothing's happening. Some only at night, at the weekend, or while you play music.</p>
       <ul class="us-scenes" id="usScenes"></ul>
+    </section>
+
+    <section class="us-sec us-clutch" id="usClutch" hidden aria-labelledby="usClutchTitle">
+      <div class="us-h"><h3 id="usClutchTitle">Eggs and the clutch</h3><span class="us-h-meta" id="usClutchMeta"></span></div>
+      <p class="us-lede">He can lay an egg for someone who doesn't have Shellby yet. They install it, paste the code, and it hatches into a baby crab you both keep. You become friends, too.</p>
+      <div id="usEggs"></div>
+      <ul class="eg-babies" id="usBabies" aria-label="The clutch"></ul>
+      <div id="usHatchRow">
+        <form class="row wrap eg-hatch" id="usHatchForm">
+          <input type="text" class="field" id="usHatchInput" placeholder="EGG-…" aria-label="Egg code" spellcheck="false" autocomplete="off" maxlength="300">
+          <button type="submit" class="btn slim-btn" id="usHatchGo">Hatch it</button>
+        </form>
+        <p class="small muted" id="usHatchNote"></p>
+      </div>
+    </section>
+
+    <section class="us-sec us-medals" id="usMedals" hidden aria-labelledby="usMedalsTitle">
+      <div class="us-h"><h3 id="usMedalsTitle">Tide event medals</h3><span class="us-h-meta" id="usMedalCount"></span></div>
+      <p class="us-lede">One for each tide event you finished while it was on. A year's medal never comes back.</p>
+      <ul class="ev-medals" id="usMedalList"></ul>
     </section>
 
     <section class="us-sec" aria-labelledby="usStoryTitle">
@@ -1692,6 +1740,8 @@
         <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
         <label class="toggle"><input type="checkbox" id="clashToggle"><span class="switch"></span>Warn me when two copies change the same file</label>
         <p class="muted small">Two copies (or a copy and your own uncommitted work) that both change a file will clash when they come home. Shellby looks after each turn, marks both tabs with ⚠ and says so once, so you can sort it out early.</p>
+        <label class="toggle"><input type="checkbox" id="signCommitsToggle"><span class="switch"></span>Sign Shellby's bring-home commits</label>
+        <p class="muted small">Adds one line at the end of the commits Shellby makes bringing a copy home: <code>Shipped-with: Shellby (Lv 12 Abyssal Admin)</code>. Only his level and title. Claude Code's own commits keep their own sign-off.</p>
       </section>
 
       <section class="setting-group" id="remoteGroup" data-nav="Other computers">
@@ -1896,6 +1946,8 @@
             <button type="submit" class="btn slim-btn" id="frAdd">Add friend</button>
           </form>
           <ul class="fr-list" id="frList" aria-label="Friends"></ul>
+          <h4 class="fr-head" id="frSwapsHead" hidden>Swaps</h4>
+          <ul class="sw-list" id="frSwaps" aria-label="Swaps"></ul>
           <h4 class="fr-head" id="frInboxHead" hidden>Waves</h4>
           <ul class="fr-inbox" id="frInbox"></ul>
           <h4 class="fr-head">Guestbook</h4>
@@ -2044,6 +2096,8 @@
           <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
           <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
         </div>
+        <label class="toggle"><input type="checkbox" id="tideEventsToggle"><span class="switch"></span>Tide events: a week or so with its own bug, finds and medal</label>
+        <p class="muted small">Six times a year (The Haunting, Frostbite, Pen Pal Week, Spring Clean, Low Tide and Harvest Moon), with a countdown on the Us page and four goals counted from what you already do. Finish them while it's on for that year's medal. Off hides the banner and the event's bug and finds.</p>
         <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
         <div class="row wrap" id="checkEachTurnOptions">
           <label class="inline-label" for="checkTimeoutSelect">Give up after
@@ -2342,6 +2396,7 @@
 <script src="../shared/minishell.js"></script>
 <script src="../shared/markdown.js"></script>
 <script src="../shared/diff.js"></script>
+<script src="../shared/todos.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
 <script src="../shared/outlook-format.js"></script>
@@ -2360,6 +2415,7 @@
 <script src="feed-asks.js"></script>
 <script src="feed-changes.js"></script>
 <script src="feed-lanes.js"></script>
+<script src="feed-native.js"></script>
 <script src="line-comments.js"></script>
 <script src="line-comments-ui.js"></script>
 <script src="turn-checks.js"></script>
@@ -2369,6 +2425,7 @@
 <script src="tab-strip.js"></script>
 <script src="tab-panes.js"></script>
 <script src="tab-send.js"></script>
+<script src="native-strip.js"></script>
 <script src="tab-queue.js"></script>
 <script src="slash-menu.js"></script>
 <script src="tab-chips.js"></script>
@@ -2383,6 +2440,7 @@
 <script src="composer.js"></script>
 <script src="tries.js"></script>
 <script src="toolbox-setup.js"></script>
+<script src="toolbox-automemory.js"></script>
 <script src="toolbox-hooks.js"></script>
 <script src="lean.js"></script>
 <script src="toolbox-snippets.js"></script>
@@ -2392,6 +2450,7 @@
 <script src="shop.js"></script>
 <script src="mcp-picker.js"></script>
 <script src="routines.js"></script>
+<script src="routines-cloud.js"></script>
 <script src="reset-queue.js"></script>
 <script src="depwatch.js"></script>
 <script src="wf-graph.js"></script>
@@ -2429,6 +2488,8 @@
 <script src="health-drives.js"></script>
 <script src="health-hogs.js"></script>
 <script src="card.js"></script>
+<script src="moment-card.js"></script>
+<script src="sparkle.js"></script>
 <script src="beach-paint.js"></script>
 <script src="beach.js"></script>
 <script src="tank-paint.js"></script>
@@ -2438,6 +2499,7 @@
 <script src="tank-layouts.js"></script>
 <script src="tank-tidy.js"></script>
 <script src="celebrate.js"></script>
+<script src="tide.js"></script>
 <script src="recap.js"></script>
 <script src="claude-tricks.js"></script>
 <script src="outlook.js"></script>
@@ -2466,6 +2528,7 @@
 <script src="pr-badge.js"></script>
 <script src="github.js"></script>
 <script src="gitlab.js"></script>
+<script src="social.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
 <script src="boot.js"></script>

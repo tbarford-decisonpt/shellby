@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const REGISTRY_URL = 'https://x-salmon.github.io/shellby-packs/';
 const PROTOCOL = 'shellby';
 const PACK_ID_RE = /^[a-z0-9][a-z0-9-]{1,39}$/; // same rule as wardrobe/catalog.js
+const EGG_CODE_RE = /^EGG-[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})-[a-z0-9]{16}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const INDEX_FORMAT = 1;
 const MAX_LINK_CHARS = 2048;
@@ -28,7 +29,8 @@ const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
  * Parse a shellby:// link. Accepts shellby://install?pack=<id> and
  * shellby:install?pack=<id> (any scheme case, optional trailing slashes).
  * Other query params are ignored; any URL or path in the link is never used.
- * @returns {{ action: 'install', packId: string } | null}
+ * Also shellby://hatch?egg=EGG-<login>-<id> (a crab egg, eggs.js): only the code is used.
+ * @returns {{ action: 'install', packId: string } | { action: 'hatch', code: string } | null}
  */
 function parseDeepLink(url) {
   if (typeof url !== 'string' || url.length > MAX_LINK_CHARS) return null;
@@ -45,6 +47,10 @@ function parseDeepLink(url) {
     action = u.host;
   } else {
     action = u.pathname.replace(/\/+$/, '');
+  }
+  if (action.toLowerCase() === 'hatch') {
+    const codes = u.searchParams.getAll('egg');
+    return codes.length === 1 && EGG_CODE_RE.test(codes[0]) ? { action: 'hatch', code: codes[0] } : null;
   }
   if (action.toLowerCase() !== 'install') return null;
 

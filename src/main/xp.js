@@ -17,10 +17,16 @@ const { characterSheet } = require('./character');
 // the list of ways to earn (panel/xp.js).
 const AWARDS = Object.freeze({
   questline: { xp: 150, perHour: 1, label: 'Finished the quest line', way: 'Finishes the whole quest line', claude: true },
+  // Tide events (events.js): every goal finished while it was on.
+  medal: { xp: 150, perHour: 1, label: 'Finished a tide event', way: 'Finishes every goal of a tide event while it\'s on' },
+  // Crab eggs (eggs.js): a friend you invited hatched one.
+  hatch: { xp: 100, perHour: 2, label: 'An egg hatched', way: 'A crab egg you gave someone hatches, or you hatch one' },
   trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick', way: 'Writes himself a new skill or agent', claude: true },
   deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes', claude: true },
   merged: { xp: 50, perHour: 4, label: 'Pull request merged', way: 'Gets one of your pull requests merged', claude: true },
   bond: { xp: 50, perHour: 1, label: 'Grew closer', way: 'The two of you grow closer' },
+  // A sparkly find or bug (gifts.js, bugdex.js): rare, so the roll is the limit.
+  sparkle: { xp: 50, perHour: 3, label: 'Found a sparkly one', way: 'Now and then a find or a catch comes up sparkly' },
   // Surprises (surprises.js): rare, so the roll is the limit, not the hour.
   crit: { xp: 60, perHour: 3, label: 'Critical hit', way: 'Now and then, when one turn takes a red suite to green', claude: true },
   landing: { xp: 40, perHour: 3, label: 'Clean landing', way: 'Now and then, when a copy comes home green on the first try', claude: true },
@@ -43,7 +49,10 @@ const AWARDS = Object.freeze({
   helped: { xp: 15, perHour: 6, label: "Put a helper's find to use", way: 'Acts on what one of his helper agents found', claude: true },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },
   fresh: { xp: 20, perHour: 2, label: 'Started a crowded chat fresh', way: 'Starts a crowded conversation fresh with a summary', claude: true },
+  quiz: { xp: 15, perHour: 3, label: "Passed a quiz on Claude's work", way: 'You pass a quiz on a change Claude made', claude: true },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },
+  // Swaps with friends (swaps.js).
+  swap: { xp: 15, perHour: 3, label: 'Swapped finds with a friend', way: 'Swaps a find with a friend' },
   task: { xp: 10, perHour: 60, label: 'Finished a task', way: 'Finishes a task', claude: true },
   catch: { xp: 10, perHour: 6, label: 'Caught a bug', way: 'Fixes a bug and catches it for the Bugdex', claude: true },
   play: { xp: 10, perHour: 4, label: 'Played a game with him', way: 'Plays hide and seek or fetch with you' },
@@ -271,7 +280,8 @@ function addTo(map, key, n) { return n > 0 ? { ...map, [key]: own(map, key) + n 
  * never mutated).
  *   kind: one of AWARDS ('tests' becomes 'fixed' after a failure in that project)
  *   meta: { label?, project?, streak? (current streak in days),
- *           sameCode? (a test pass on the very code that failed: a flake, so not 'fixed') }
+ *           sameCode? (a test pass on the very code that failed: a flake, so not 'fixed'),
+ *           boost?: { by: 1.5, label: 'Harvest Moon' } (a tide event's, events.js; at most 2×) }
  */
 function award(stateIn, kindIn, now, meta = {}) {
   const state = normalizeXp(stateIn);
@@ -317,6 +327,9 @@ function award(stateIn, kindIn, now, meta = {}) {
   // Only what still pays counts toward the day's bounties, so spamming can't clear them.
   const b = base > 0 ? progressBounties(next.bounties, today, kind, project) : { state: next.bounties, completed: [], cleared: false, xp: 0 };
   next.bounties = b.state;
+  // A tide event that pays more (events.js boosts): on what the event itself would pay.
+  const by = Math.min(2, Number(meta.boost?.by) || 1);
+  if (base > 0 && by > 1) bonuses.push({ label: clip(meta.boost.label) || 'tide event', xp: Math.round(base * (by - 1)) });
   const raw = base + bonuses.reduce((n, x) => n + x.xp, 0);
   const mult = streakMultiplier(meta.streak);
   const gainedEvent = raw > 0 ? Math.round(raw * mult) : 0;

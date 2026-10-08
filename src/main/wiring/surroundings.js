@@ -23,6 +23,7 @@ const { createTyping } = require('../typing');
 const voice = require('../voice');
 const { DiscordPresence, activityFor, phaseOf } = require('../discord');
 const { activeSeasons } = require('../wardrobe/seasons');
+const tideEvents = require('../events');
 const { publicItem } = require('../wardrobe/service');
 const weatherRules = require('../weather');
 const { createWeatherService } = require('../weather-service');
@@ -232,7 +233,19 @@ function wireSurroundings(d) {
       playing: () => !!d.playtime?.busy(),
       guarding: () => focus.guarding(d.config.get('focus'), Date.now()),
       music: () => !!d.nowPlaying?.playing,
-      seasons: () => activeSeasons(new Date(), d.seasonsWhere()).map(x => x.id),
+      seasons: () => activeSeasons(d.today ? d.today() : new Date(), d.seasonsWhere()).map(x => x.id),
+      // The tide event going on (wiring/events.js): its own finds, and its boosts to digging and sparkles.
+      tide: () => { const b = d.eventBoosts?.(); return b ? { event: b.event, digBoost: b.dig, shinyBoost: b.shinyFor(null) } : {}; },
+      level: () => d.currentLevel?.() || 1,
+      // The shelf's event finds: which event is on, and when each is next (events.js).
+      tideShelf: () => {
+        const a = d.activeEvent?.();
+        const day = d.today ? d.today() : new Date();
+        const where = d.seasonsWhere?.() || {};
+        const back = {};
+        for (const ev of tideEvents.EVENTS) { const at = tideEvents.backOn(ev.id, day, where); if (at) back[ev.id] = at.getTime(); }
+        return { event: a ? a.ev.id : null, back };
+      },
       calm: () => !!d.crabCalm?.().calm, // covered, under a game, away or locked (wiring/windows.js)
       locked: () => d.calmReason === 'locked',
       // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.

@@ -16,6 +16,9 @@ claude -p --input-format stream-json --output-format stream-json --verbose
 - **Stop** sends an `interrupt` control request, and falls back to killing the process tree if the CLI doesn't wind down.
 - **Mode changes** mid-conversation send `set_permission_mode`.
 - **Subagents** come through as `task_started` / `task_progress` / `task_notification` system events. Their messages carry `parent_tool_use_id`, the Agent call that spawned them, and their permission prompts carry `agent_id`, which equals the `task_id`. That's all it takes to route every event, prompt and helper crab to the right lane.
+- **Background commands and watches** (`Bash { run_in_background }`, `Monitor`) come through as the same `task_*` events with `task_type: "local_bash"` (helpers are `local_agent`), and only `task_started` says the type, so later events are known by their task id (jobs.js). A command's exit code is only in `task_notification`'s summary. Stop sends a `stop_task` control request, as Claude Code's own TaskStop does. A helper sent another message (`SendMessage`) starts again under that call's id while its messages keep the first Agent call's.
+- **Claude's own to-do list** is its `TaskCreate` / `TaskUpdate` calls (`TodoWrite` in older versions); the new to-do's id comes back in `TaskCreate`'s result (shared/todos.js).
+- **Cloud routines** (`/schedule`) are listed and run by a one-off `claude -p` that may only call Claude Code's RemoteTrigger tool (Haiku, no MCP servers, no settings, a 5¢ cap); Shellby reads the tool's own result out of the stream (cloud-routines.js). The ultra review (`/code-review ultra`) opens in a terminal, where Claude Code's launch dialog asks first.
 - **The toolbox** merges the skills, agents, commands and MCP servers reported in Claude Code's `init` event with a scan of `~/.claude` and the project's `.claude/`. A file watcher on those folders is how Shellby notices new tricks.
 - **Billing safety:** Shellby never sees your Claude sign-in. You log in to the official, unmodified Claude Code CLI yourself, and Shellby only reads `claude auth status` to show which account and plan it's on. Claude Code gets the environment as it is on your PC, so if `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` or a Bedrock/Vertex/Foundry switch is set, Settings warns that it may bill that instead. **Always use my Claude plan** leaves them all out. Usage counts against your plan's normal limits, exactly as if you'd typed the task into a terminal.
 
@@ -62,6 +65,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-editor.js [folder]` | An edit's permission card shows its diff with line numbers, the tool row folds open to it, a path in a reply becomes a link (checked, never clicked), Ctrl+F counts and steps through matches, Ctrl+= zooms, Ctrl+Shift+P opens the palette, and Settings → Editor says what Automatic means. Screenshots go in `[folder]` |
 | `node scripts/e2e-panes.js [--shots <dir>]` | Conversations side by side and in their own windows: Split puts one beside another, dragging a tab into the chat splits a pane and fills a 2x2 grid, a click picks which pane the box talks to, a tab dragged out gets a window of its own with its conversation and what was typed, and its × hands it back |
 | `node scripts/e2e-notes.js` | Notes: a list per project plus a General one; adding, editing, ticking off, moving between lists and deleting, and Plan / Build / Ask each opening a task in the right folder, in the right mode, with the right prompt |
+| `node scripts/e2e-native.js [folder]` | What Claude Code does by itself, made visible, with the fake CLI and a throwaway Claude config folder: its to-do list above the box ticking over, a command left running (the tray, its output, Stop, the crab's badge, done and failed), a plan with a note on one line sent back whole and then approved (the crab's "plan?"), Claude switching itself to planning, a skill's first use and what it's for, a memory written down, listed in Toolbox → Memory and forgotten, the effort and thinking beside a turn's cost, a helper messaged again (one lane, both answers, the message on the desktop) and cloud routines on the Routines page. Screenshots go in `[folder]` |
 | `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
 | `node scripts/e2e-feed-cap.js` | A very long conversation stops growing the DOM: 3,600 blocks pumped through one tab, the cap holds, the tool and lane maps let go with the elements, a result for a long-trimmed tool is ignored, and replay is capped too |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
@@ -92,7 +96,9 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-work-mode.js` | A brand-new user with a lively crab picks Work mode: the Claude setup, a bar that leads with the tools, Work mode's quiet settings on show while the file keeps theirs, a pal added in Work mode kept as its own, his needs resting, and Ctrl+K → Leave Work mode putting everything back |
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused, his tank painted on it, and on the profile card only once you share it |
+| `node scripts/e2e-tides.js [folder]` | Tide events with the day pinned inside The Haunting (`SHELLBY_TODAY`): the Us page's banner (countdown, goals, its bug and finds, the medal), the event bug out now in the Bugdex, its finds on the shelf, the sparkly reveal (odds, the keyboard on Share), the shiny and medal cards as 1200×630 PNGs, and the switch hiding it all. Screenshots go in `[folder]` |
 | `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
+| `node scripts/e2e-beats.js` | How he moves between moods and how he works, fed real hook events: the crouch before work, thinking between tools, a pose and a held thing for each tool (scroll, pencil, wrench, magnifying glass, spyglass, checklist, a wave), the scuttle for a tool with no pose, every loop on him one framecap can read, a question that gets a claw tap after 20 s and a nod when answered, the breath after a turn, and a nap he nods off into in stages and wakes from eyes first |
 | `node scripts/e2e-voice.js` | His voice and his little habits with the fake CLI: Quiet says nothing at all, Normal puts words in his bubble (and clears them), the bubble never clips or resizes his window, he remarks on a test run and a push, each idle habit plays, he keeps quiet on guard, a health warning outranks him, and he's the same crab after a restart |
 | `node scripts/e2e-push-to-talk.js` | Push-to-talk, pressing the real hotkey through Windows with a recording in place of the microphone: the Settings switch, a tap still opens and closes the panel, a hold shows *listening…* and puts the words in the box after what's typed (not sent), and switched off a hold is just a tap |
 | `node scripts/e2e-updates.js` | The update button with a scripted updater (`SHELLBY_FAKE_UPDATE=1`, `=fail` or `=current`): the download and its progress, "Restart and update" and the dot on the gear, the toast, the route the tray and the notification take, and a failed check offering another go |
@@ -156,8 +162,8 @@ interleaved runs on a shared, busy desktop: expect ±1 point):
 
 The first row was ~3.4–4.2% before the bats flew in flights and the idle went
 to pixel-art frames (interleaved with the same build minus those, same hour).
-Of what's left, about half is his idle (about one frame a second: the breathe,
-a blink, the snap) and half is life: a habit (dig, polish, peek...) about once
+Of what's left, about half is his idle (about 1.4 frames a second: the breathe,
+his blinks and glances, the snap) and half is life: a habit (dig, polish, peek...) about once
 a minute at 12 fps for two or three seconds, a stroll, and a bat flight every
 three minutes. Under 1% would mean fewer of those, which is a call about how
 alive he looks rather than a fix. `--unfocused` on a busy desktop may leave the
@@ -182,6 +188,20 @@ the work is in drawing fewer frames, not cheaper ones:
   tick; one that steps (the idle breathe, blink and claw snap) draws a few
   frames a cycle. Prefer `steps()` for anything that runs all day. A step at
   the start of a hold changes nothing, so `steps(n)` (jump-end) isn't moved there.
+- **It can only skip what it can read.** A keyframe list with no 0% or 100%,
+  or `steps(n)` applied across many intervals, and it moves the animation every
+  tick. `leg` and `snap` had no 100% and the working "..." in his bubble jumped
+  sixteen times a lap, so the scuttle drew all 12 frames a second.
+  e2e-beats checks that every loop on him is readable.
+- **The work beat.** Everything he does while he works (the scuttle, every
+  .work-<pose> in critter.css, the helpers, the "...") steps on 166 ms, a hair under
+  two ticks. Steps of different loops then fall on the same ticks, so the
+  scuttle draws 6 frames a second where it drew 12, and the poses 2 to 6
+  (reading is 2). Exactly a sixth of a second splits them: some steps land
+  just after a tick and move one late.
+- **His idle eyes** run on 24 s with uneven blinks and a glance each way, about
+  1.4 frames a second for all of his idle where the fixed 6 s blink made 1.1:
+  the price of not looking like a metronome.
 - **Particle effects** (the seasonal bats are on by default in October) cost
   ~2 points while they play, so on the crab's window they come in flights
   (effects.js `FLIGHT`: 8 s every 3 min, fading in and out) and the particles
@@ -279,6 +299,7 @@ src/main/        Electron main process
     quit.js          what quitting stops, in order
     popouts.js       a conversation in a window of its own, and handing it back to the panel
     notes.js         Notes: Plan, Build and Ask open a task in the right folder and mode
+    native.js        the crab noticing what Claude Code does by itself: to-dos ticked off, a background command done, a memory, a skill's first use
   ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`;
                    index.js registers them all behind the window check (ipc-guard.js)
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
@@ -311,9 +332,11 @@ src/main/        Electron main process
                    the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in
   handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
   btw.js           /btw side questions: a tool-less -p on a fork of the conversation that saves nothing
+  quiz.js          "Quiz me" on a turn's changes: Claude's questions from the diff (tool-less -p, --json-schema); main keeps the answers
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
   shells.js        the shells he grows into as he levels up (molting)
+  moon.js          the real moon's phase from the clock alone (pure): moonlit finds and the beach's night sky
   motion.js        throws (release velocity, flight, landing) and idle strolls
   work-pose.js     how he works (pure): the pose for the tool Claude has running, and which tab or outside session moved last
   voice.js         what he says and when (pure): line pools, cooldowns, temperament, idle habits
@@ -321,7 +344,10 @@ src/main/        Electron main process
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
-  turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
+  turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge, the effort and thinking badge
+  jobs.js          commands and Monitor watches Claude left running in the background (pure): the tray above the box and the crab's badge
+  automemory.js    Claude Code's auto memory for a project: listing it, fixing one, forgetting one (Toolbox → Memory), and noticing a new one
+  cloud-routines.js Claude Code's cloud routines (/schedule) through a one-off RemoteTrigger call: the list, a routine's runs, Run now
   held.js          messages and routine runs held for after the usage reset (pure list ops; held-service.js sends them)
   usage-ledger.js  what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
                    composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
@@ -330,6 +356,13 @@ src/main/        Electron main process
   usage.js         the usage meter without a prompt: a short-lived `claude -p` asked for its /usage data
   notes.js         Notes (pure): a list per project and a General one, their limits
   sync-prefs.js    which settings sync between PCs, each checked by its own rule, and the newest change wins
+  events.js        tide events (pure): six short named runs inside the seasons, their goals, medals, boosts and the bug that comes along;
+                   wiring/events.js counts every stat toward them, says when one starts or ends, and gives the medal (docs/plans/viral.md)
+  today.js         the app's one calendar: captureClock for screenshots, SHELLBY_TODAY for dev and test runs, the real day otherwise
+  board.js         the friends' board (pure): you and friends who share their Bugdex, ranked by this month's catches
+  swaps.js         swapping finds with friends (pure): offers, answers and call-offs as letters on calling cards (github/mail.js)
+  eggs.js          crab eggs (pure): laying, the hash on your card, hatching, the baby both crabs get; wiring/social.js ties both in
+  crab-line.js     the crab in a line (pure): the PR badge's text and the bring-home commit trailer
   bugdex.js        the Bugdex (pure): catches, stages, badges, the league, sync and the friends' share; bugdex/ holds species,
                    detect, lifecycle, cheats, art, lore and battle (the bug battle, in memory only); wiring/bugdex.js ties it in
   fileindex.js     @ mentions: the files in a conversation's folder and a fuzzy match over them
@@ -358,10 +391,11 @@ src/main/        Electron main process
   capture.js       `npm run screenshots`; reel.js records the README demo
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
-  critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
-  panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · workmode · outfitcode · github · boot
+  critter/         the desktop crab: critter.js (moods, bubble, habits, how he works: src/main/work-pose.js picks the pose) · beats.js (the beats between moods, nodding off and waking, a question left waiting) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
+  shared/todos.js  Claude's own to-do list folded from a conversation's items (pure; main and the panel both use it)
+  panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · feed-native (messages between agents, skills, memories, the plan card) · native-strip (the to-do list and background tray above the box) · toolbox-automemory · routines-cloud · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · moment-card (one 1200×630 card per moment) · sparkle (the sparkly reveal) · tide (tide events) · social (swaps and eggs) · celebrate · crabonly · workmode · outfitcode · github · boot
                    a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
-  shared/          used by more than one window or by tests too: framecap, diff (an edit's red and green lines), panes (the split grid; pure)
+  shared/          used by more than one window or by tests too: framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 src/streamdeck/  the Stream Deck plugin (Node 24, no packages): Stream Deck's websocket on one side, deck.js on the other, keys drawn as SVG

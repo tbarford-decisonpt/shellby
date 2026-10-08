@@ -43,7 +43,9 @@ And a few limits keep it honest: the same bug in the same project counts once in
 - **They evolve.** Catch one kind 5 times and it reaches stage II, 15 times stage III (the starters take new names as they grow), and 40 times a master's crown.
 - **Field notes and tips.** At 5 catches its entry gets a field note on where it lurks. At 15 you get a tip on how it's usually beaten.
 - **Every bug has a cry,** a little chiptune call of its own as it goes in the jar. Press **♪ Its cry** on its card to hear it.
-- **Special catches:** *first try* (the first fix worked), *swift* (within 5 minutes of the failure), *golden* (both), *nocturnal* (after midnight), *spectral* (a ghost at Halloween), and once in a long while a sparkly one.
+- **Special catches:** *first try* (the first fix worked), *swift* (within 5 minutes of the failure), *golden* (both), *nocturnal* (after midnight), *spectral* (a ghost at Halloween), and once in a long while (1 in 64) a sparkly one, which stops the panel for a look and a picture to share ([Sparklies](TIDES.md#sparklies)).
+- **Tide event bugs:** six more, one for each [tide event](TIDES.md#tide-events), that only come along with a real fix while their event is on. They're under **🧭 Tide events**, in no habitat, and never in the "of 66".
+- **The friends' board:** with **Share my Bugdex with friends** on, **This month** ranks you and your friends by bugs caught since the 1st ([more](TIDES.md#the-friends-board)).
 - **Your favourite catch follows him round the desk,** a step behind, and waits on the ground while he climbs a window.
 
 A new kind is worth 40 XP. The trophies: **Gotcha!** for your first catch, **Field Notes** for 10 kinds, **Naturalist** for a whole habitat, **Field Researcher** for 40 kinds, **Pest Control** for 100 catches, **Ghost Whisperer** for three ghosts, and two secret ones. Each comes with something to wear or put in the [tank](TANK.md).

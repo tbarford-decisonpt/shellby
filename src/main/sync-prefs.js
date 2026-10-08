@@ -43,12 +43,13 @@ const PREFS = {
   mode: v => (MODES.includes(v) && v !== 'autonomous' ? v : undefined),
   model: v => (isModel(v) ? v : undefined),
   effort: v => (v === '' || EFFORTS.includes(v) ? v : undefined),
+  effortPick: bool,
   outputStyle: v => (typeof v === 'string' ? outputStyles.clean(v) : undefined),
   hotkey: v => (typeof v === 'string' && /^[A-Za-z0-9+]{0,60}$/.test(v) ? v : undefined),
   critterScale: oneOf([0.75, 1, 1.5, 2]),
   notifications: bool, recap: bool, claudeTricks: bool, plainCards: bool, leaveGuard: bool, crabOnly: bool, workMode: bool, wander: bool, onTop: bool,
   sounds: bool, soundFx: bool, needsOn: bool, forecast: bool, spendGuard: bool, holdBigTasks: bool, flakyTests: bool,
-  surprises: bool, catchBugs: bool, bugBattles: bool, bugFollower: bool, checkEachTurn: bool, turnShots: bool, worktrees: bool, clashWarnings: bool, planOnly: bool,
+  surprises: bool, tideEvents: bool, signCommits: bool, catchBugs: bool, bugBattles: bool, bugFollower: bool, checkEachTurn: bool, turnShots: bool, worktrees: bool, clashWarnings: bool, planOnly: bool,
   perch: oneOf(PERCH_SETTINGS),
   climb: oneOf(CLIMB_SETTINGS),
   mischief: oneOf(mischief.LEVELS),
@@ -87,10 +88,10 @@ const MAX_GONE = 200;
 
 // What a sync names when it brings one in ("Synced from your other PC: ...").
 const LABELS = Object.freeze({
-  mode: 'mode', model: 'model', effort: 'effort', outputStyle: 'output style', hotkey: 'hotkey', critterScale: 'his size',
+  mode: 'mode', model: 'model', effort: 'effort', effortPick: 'effort picking', outputStyle: 'output style', hotkey: 'hotkey', critterScale: 'his size',
   notifications: 'notifications', recap: 'recaps', claudeTricks: 'new tricks', plainCards: 'plain words', leaveGuard: 'shutdown guard', crabOnly: 'just the crab', workMode: 'Work mode',
   wander: 'wandering', onTop: 'always on top', sounds: 'his voice', soundFx: 'sound effects', needsOn: 'snacks and naps',
-  forecast: 'forecast', spendGuard: 'limit guard', holdBigTasks: 'holding big tasks', flakyTests: 'flaky tests', surprises: 'surprises',
+  forecast: 'forecast', spendGuard: 'limit guard', holdBigTasks: 'holding big tasks', flakyTests: 'flaky tests', surprises: 'surprises', tideEvents: 'tide events', signCommits: 'signed commits',
   catchBugs: 'bug catching', bugBattles: 'bug battles', bugFollower: 'his favourite catch', checkEachTurn: 'checks after each turn',
   turnShots: 'turn screenshots', worktrees: 'copies', clashWarnings: 'clash warnings', planOnly: 'plan only', perch: 'perching',
   climb: 'climbing', mischief: 'mischief', mischiefPranks: 'pranks', colony: 'pals', chatter: 'chatter', ambient: 'ambient sound',

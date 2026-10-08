@@ -381,7 +381,9 @@ async function status(w) {
  * running process is working in.
  *   -> { ok: true, merged, commits } | { ok: false, error, conflict? }
  */
-async function bringHome(w, { message }) {
+async function bringHome(w, { message, trailer = null }) {
+  // Shellby's own commits may carry a "Shipped-with:" trailer (crab-line.js), if you turned it on.
+  const tail = typeof trailer === 'string' && /^[A-Za-z-]+: [^\n]{1,120}$/.test(trailer) ? `\n\n${trailer}` : '';
   const bad = checkWorktree(w);
   if (bad) return { ok: false, error: bad };
   if (!fs.existsSync(w.path)) return { ok: false, error: 'The copy is gone (deleted outside Shellby).' };
@@ -390,7 +392,7 @@ async function bringHome(w, { message }) {
   const dirty = await git(w.path, ['status', '--porcelain'], { timeout: 15000 });
   if (dirty.ok && dirty.out.trim()) {
     const add = await git(w.path, ['add', '-A']);
-    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', said]);
+    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', `${said}${tail}`]);
     if (!commit?.ok) return { ok: false, error: `Couldn't commit the copy's changes: ${firstLine(commit?.error || add.error)}` };
   }
 
@@ -404,7 +406,7 @@ async function bringHome(w, { message }) {
     // Titled with what the work is, so `git log --first-parent` reads as a list
     // of changes (release drafts skip merges, so it isn't counted twice).
     // In English whatever git's language, so its refusals can be read below.
-    const title = `${said.split('\n')[0]}\n\nBrought home from ${w.branch}`;
+    const title = `${said.split('\n')[0]}\n\nBrought home from ${w.branch}${tail}`;
     const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', title, w.branch], { timeout: 60000, env: { LC_ALL: 'C' } });
     if (!merge.ok) {
       const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
@@ -583,7 +585,7 @@ async function pushBase(root, { base } = {}) {
  * started from another branch are skipped, not merged somewhere else.
  *   -> { ok, results: [{ branch, ok, merged, commits, error?, conflict?, skipped? }], clashed: [branch], stopped? }
  */
-async function bringAllHome(list, { messageFor = w => workMessage(w.branch) } = {}) {
+async function bringAllHome(list, { messageFor = w => workMessage(w.branch), trailer = null } = {}) {
   const results = [];
   const clashed = [];
   for (const w of list) {
@@ -594,7 +596,7 @@ async function bringAllHome(list, { messageFor = w => workMessage(w.branch) } = 
       results.push({ branch: w.branch, ok: false, skipped: true, error: `started from ${w.base}` });
       continue;
     }
-    const r = await bringHome(w, { message: messageFor(w) });
+    const r = await bringHome(w, { message: messageFor(w), trailer });
     results.push({ branch: w.branch, ...r });
     if (r.conflict) { clashed.push(w.branch); continue; }
     if (!r.ok && !/gone/.test(r.error || '')) return { ok: false, results, clashed, stopped: w.branch };

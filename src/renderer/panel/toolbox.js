@@ -298,6 +298,22 @@
     return WHERE_FROM[t.source] || null;
   }
 
+// A skill Claude never reaches for: Claude Code picks skills by their
+  // description alone, so one that doesn't say when to use it sits idle. Yours
+  // can be sharpened by Claude; a plugin's can only be noted.
+  function skillHint(t) {
+    if (t.kind !== 'skill' || !isIdle(usageOf(t))) return null;
+    const own = ownTool(t);
+    return h('div', { class: 'tool-hint' },
+      h('p', { text: own
+        ? "Claude hasn't reached for this lately. It decides from the description alone, so one that says plainly when to use it (in the words you'd use) gets used."
+        : "Claude hasn't reached for this lately. It decides from the description alone; if you never need it, turning its plugin off saves room in every conversation." }),
+      own ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => SB.prefillNew(
+        `Look at my skill "${t.name}" in ${t.path}. Claude Code decides whether to use a skill from its description alone, and it hasn't used this one lately. `
+        + "Rewrite the description in its frontmatter so it says plainly what the skill does and when to reach for it, in the words I'd use when I need it. "
+        + 'Keep it under 1024 characters, leave the rest of the file alone, and show me the change before you save it.') }, 'Sharpen its description with Claude') : null);
+  }
+
   const actBtn = (icon, label, attrs) => h('button', { class: 'btn ghost slim-btn tool-act', type: 'button', ...attrs },
     SB.icon(icon, { width: 1.4 }), label);
 
@@ -316,6 +332,7 @@
     return h('div', { class: 'tool-detail', id },
       where ? h('p', { class: 'tool-where', text: where }) : null,
       t.kind === 'mcp' ? null : statsLine(t),
+      skillHint(t),
       t.path ? h('code', { class: 'tool-path', text: SB.shortPath(t.path, 64), title: t.path }) : null,
       acts.length ? h('div', { class: 'tool-detail-actions' }, acts) : null);
   }

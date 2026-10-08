@@ -28,6 +28,8 @@
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
     if (tab) syncSteers(tab);
     SB.renderModStatus?.(tab);
+    SB.renderTodos?.(tab); // Claude's to-do list and its background commands (native-strip.js)
+    SB.renderJobs?.(tab);
     tickClock();
     renderQueue();
   }

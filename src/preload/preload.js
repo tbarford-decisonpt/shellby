@@ -91,6 +91,7 @@ contextBridge.exposeInMainWorld('shellby', {
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
   shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
+  setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
@@ -130,6 +131,8 @@ contextBridge.exposeInMainWorld('shellby', {
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
+  startQuiz: invoke('quiz:start'),                 // three questions on a turn's diff (quiz.js)
+  pickQuiz: invoke('quiz:pick'),                   // { tabId, after, question, choice } -> right or not, and why
   runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
   onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
   openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
@@ -247,6 +250,19 @@ contextBridge.exposeInMainWorld('shellby', {
   writeTeamPack: invoke('team:write'),
   revealTeamPack: fire('team:reveal'),
   refreshMcp: invoke('mcp:refresh'),
+  // What Claude Code does by itself (ipc/native.js): background commands, auto memory, cloud routines, the ultra review.
+  jobOutput: (tabId, jobId) => ipcRenderer.invoke('jobs:output', { tabId, jobId }),
+  stopJob: (tabId, jobId) => ipcRenderer.invoke('jobs:stop', { tabId, jobId }),
+  listMemory: invoke('memory:list'),
+  saveMemory: (tabId, file, body, mtimeMs) => ipcRenderer.invoke('memory:save', { tabId, file, body, mtimeMs }),
+  forgetMemory: (tabId, file) => ipcRenderer.invoke('memory:forget', { tabId, file }),
+  openMemoryFolder: invoke('memory:open-folder'),
+  listCloudRoutines: fresh => ipcRenderer.invoke('cloud:list', { fresh: !!fresh }),
+  cloudRuns: invoke('cloud:runs'),
+  runCloudRoutine: invoke('cloud:run'),
+  openCloudRoutine: fire('cloud:open'),
+  ultraReview: invoke('review:ultra'),
+  onSkillFirst: on('native:skill-first'),
   reconnectMcp: (tabId, name) => ipcRenderer.invoke('mcp:reconnect', { tabId, name }),
   toggleMcp: (tabId, name, enabled) => ipcRenderer.invoke('mcp:toggle', { tabId, name, enabled }),
   addMcp: invoke('mcp:add'),
@@ -474,6 +490,24 @@ contextBridge.exposeInMainWorld('shellby', {
   bugdexCue: fire('bugdex:cue'),
   onBugBattles: on('bugdex:battles'),
   onBugdexGift: on('bugdex:gift'),
+  // tide events and sparkly finds (events.js, gifts.js): the banner, a finished event, a sparkly reveal
+  getEvents: invoke('events:get'),
+  onEvents: on('events'),
+  onEventFinished: on('events:finished'),
+  onSparkle: on('sparkle:reveal'),
+  // swaps with friends and crab eggs (swaps.js, eggs.js)
+  getSocial: invoke('social:get'),
+  onSocial: on('social'),
+  onSocialFocus: on('social:focus'),
+  onHatchPrefill: on('social:prefill'),
+  onHatched: on('social:hatched'),
+  swapOptions: invoke('swaps:options'),
+  swapOffer: invoke('swaps:offer'),
+  swapCancel: invoke('swaps:cancel'),
+  swapAnswer: invoke('swaps:answer'),
+  layEgg: invoke('eggs:lay'),
+  hatchEgg: invoke('eggs:hatch'),
+  followBaby: invoke('eggs:follow'),
   // the flaky test detective (flaky.js)
   getFlaky: invoke('flaky:get'),
   flakyAct: invoke('flaky:act'),

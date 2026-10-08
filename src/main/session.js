@@ -24,6 +24,9 @@ const { plainPermission } = require('./plain-words');
 const { lineOf, MAX_TEXT } = require('../renderer/shared/diff');
 const crabmcp = require('./crabmcp');
 const processJob = require('./process-job');
+const todos = require('../renderer/shared/todos');
+const jobs = require('./jobs');
+const { memoryOf } = require('./automemory');
 
 // The tools that can change files, for the beforeWork hook.
 const WORK_TOOLS = 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell';
@@ -60,6 +63,8 @@ async function placeEdit(item) {
 
 // Effort levels Claude Code takes (--effort). '' leaves it to Claude Code.
 const { EFFORTS, unknownType } = require('./cli-contract');
+// How long a helper shows a message it sent or was sent (noteMessage).
+const TALK_MS = 8000;
 // How long Shellby waits for the CLI to answer one of its own control requests.
 const REQUEST_TIMEOUT_MS = 15000;
 
@@ -150,6 +155,14 @@ class ClaudeSession extends EventEmitter {
     this.held = null;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
+    // Commands and Monitor watches running in the background (jobs.js): kept
+    // apart from the helpers, so a `npm run dev` left running isn't a crab.
+    this.jobs = jobs.create();
+    this.todos = todos.create();   // Claude's own to-do list (shared/todos.js)
+    this.agentNames = new Map();   // Agent tool use id -> the name it was given, for SendMessage
+    // Planning: started in plan mode, or Claude switched to it (EnterPlanMode),
+    // until a plan is approved or the mode changes.
+    this.planning = mode === 'plan';
     this.counted = new Map();      // message id -> weight already reported as 'spend'
     this.calls = new Map();        // message id -> token counts already reported as 'call'
     this.cache = null;             // { at, ttlMs }: when this conversation last touched the prompt cache
@@ -300,6 +313,7 @@ class ClaudeSession extends EventEmitter {
         if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
       }
       if (crewChanged) this.emit('crew', this.crew);
+      if (jobs.stopAll(this.jobs, Date.now())) this.emit('jobs', this.jobView()); // what it left running can't finish now
       // You pressed Stop and it didn't wind down in time (interrupt() killed it),
       // or it went on its own meanwhile: a stop either way, not a crash.
       const stopped = this.interrupting;
@@ -378,11 +392,29 @@ class ClaudeSession extends EventEmitter {
         if (item.sessionId) this.sessionId = item.sessionId;
         this.resumeAt = null; // the fork is made: from here on it's an ordinary resume
         break;
-      case 'tool':
+      case 'tool': {
         if (item.filePath) this.createdFiles.add(item.filePath);
+        // Claude writing down something to remember (Claude Code's auto memory).
+        const memory = item.filePath ? memoryOf(item.filePath) : null;
+        if (memory) item.memory = memory;
+        jobs.noteTool(this.jobs, item);
+        if (item.agent) this.nameAgent(item);
+        if (item.message) this.noteMessage(item);
+        if (item.name === 'EnterPlanMode' && !item.sub) this.setPlanning(true);
+        this.noteTodos(item);
         if (item.edits?.length) return this.placeThenEmit(item);
         break;
+      }
+      case 'tool_result':
+        jobs.noteResult(this.jobs, item);
+        this.noteTodos(item);
+        break;
       case 'task':
+        // A command or a watch left running isn't a helper (jobs.js).
+        if (jobs.isJob(item, this.jobs)) {
+          if (jobs.track(this.jobs, item, Date.now())) this.emit('jobs', this.jobView());
+          break;
+        }
         this.trackTask(item);
         break;
       case 'permission':
@@ -414,7 +446,7 @@ class ClaudeSession extends EventEmitter {
         // A command that outran its timeout (or was backgrounded on purpose)
         // is still going: the turn ended, but the work isn't done.
         if (item.ok && !item.interrupted) {
-          const waiting = this.runningCrew().map(t => t.description || 'a background task');
+          const waiting = [...this.runningCrew(), ...jobs.running(this.jobs)].map(t => t.description || 'a background task');
           if (waiting.length) item.waiting = waiting;
         }
         // Background subagents can outlive the turn, so pending prompts stay open;
@@ -461,7 +493,7 @@ class ClaudeSession extends EventEmitter {
     const turn = this.turn;
     this.turn = null;
     if (!turn) return;
-    const cost = turncost.turnCost({ usages: [...turn.usages.values()], weight: turn.weight }, this.context);
+    const cost = turncost.turnCost({ usages: [...turn.usages.values()], weight: turn.weight, effort: turn.effort, thinking: item.thinkingTokens }, this.context);
     if (cost) item.cost = cost;
     this.growths = turncost.addGrowth(this.growths, turn.before, this.context?.tokens);
   }
@@ -524,8 +556,14 @@ class ClaudeSession extends EventEmitter {
     const prev = this.tasks.get(item.taskId) || { taskId: item.taskId, status: 'running', startedAt: Date.now() };
     const next = { ...prev };
     for (const k of ['toolUseId', 'description', 'subagentType', 'background', 'lastTool', 'usage']) {
-      if (item[k] != null && !(k === 'description' && prev.description && item.phase === 'progress')) next[k] = item[k];
+      if (item[k] == null || (k === 'description' && prev.description && item.phase === 'progress')) continue;
+      // A helper sent another message (SendMessage) starts again under that call's
+      // id, but its messages still point at the Agent call that made it.
+      if (k === 'toolUseId' && prev.toolUseId && prev.toolUseId !== item.toolUseId) { next.messagedBy = item.toolUseId; continue; }
+      next[k] = item[k];
     }
+    if (item.phase === 'started' && prev.status !== 'running') { next.status = 'running'; next.startedAt = Date.now(); delete next.activity; }
+    if (!next.name && this.agentNames.get(next.toolUseId)) next.name = this.agentNames.get(next.toolUseId);
     if (item.phase === 'progress' && item.description) next.activity = item.description;
     if (item.status) next.status = item.status === 'completed' ? 'completed' : item.status;
     if (item.phase === 'done' && !item.status) next.status = 'completed';
@@ -539,6 +577,57 @@ class ClaudeSession extends EventEmitter {
 
   runningCrew() {
     return this.crew.filter(t => t.status === 'running');
+  }
+
+  nameAgent(item) {
+    if (!item.agent.name) return;
+    this.agentNames.set(item.id, item.agent.name);
+    if (this.agentNames.size > 200) this.agentNames.delete(this.agentNames.keys().next().value);
+  }
+
+  // One agent wrote to another (SendMessage): the helper it's for heard it, and
+  // a helper that sent it said it. The crab window shows both for a moment.
+  noteMessage(item) {
+    const { to, text, summary } = item.message;
+    const helpers = [...this.tasks.values()];
+    const target = helpers.find(t => t.name === to || t.taskId === to);
+    const from = item.parent ? helpers.find(t => t.toolUseId === item.parent) : null;
+    const words = summary || text;
+    if (!words || (!target && !from)) return;
+    const at = Date.now();
+    if (target) this.tasks.set(target.taskId, { ...this.tasks.get(target.taskId), heard: { text: words, from: from ? (from.name || from.subagentType || 'a helper') : null, at } });
+    if (from) this.tasks.set(from.taskId, { ...this.tasks.get(from.taskId), said: { text: words, to: target?.name || to, at } });
+    this.emit('crew', this.crew);
+    clearTimeout(this.talkTimer);
+    this.talkTimer = setTimeout(() => this.emit('crew', this.crew), TALK_MS + 50);
+    this.talkTimer.unref?.();
+  }
+
+  /** Background commands and watches, running and just finished (jobs.js). */
+  jobView(now = Date.now()) {
+    return jobs.view(this.jobs, now);
+  }
+
+  /**
+   * Ask Claude Code to stop one background command or watch, the way its own
+   * TaskStop does. -> { ok } | { ok: false, error }.
+   */
+  async stopJob(taskId) {
+    const job = this.jobs.byId.get(taskId);
+    if (!job || job.status !== 'running') return { ok: false, error: "That isn't running any more." };
+    const r = await this.request('stop_task', { task_id: taskId });
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  }
+
+  // Claude's to-do list moved: 'todos' with the list at a glance (shared/todos.js).
+  noteTodos(item) {
+    if (todos.apply(this.todos, item)) this.emit('todos', todos.summary(this.todos));
+  }
+
+  setPlanning(on) {
+    if (this.planning === on) return;
+    this.planning = on;
+    this.emit('planning', on);
   }
 
   setBusy(b) {
@@ -564,7 +653,8 @@ class ClaudeSession extends EventEmitter {
   send(content, ready = null) {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
     this.setBusy(true);
-    this.turn = { usages: new Map(), weight: 0, tokens: 0, before: this.context?.tokens ?? null };
+    // effort: what this turn thinks at, for its cost line ('' is Claude Code's own default).
+    this.turn = { usages: new Map(), weight: 0, tokens: 0, before: this.context?.tokens ?? null, effort: this.effort || '' };
     // No conversation yet: its first call will show the setup weight. A prompt
     // with an image can't be sized, so that one isn't measured (-1).
     if (!this.sessionId && !this.proc) this.setupChars = eff.promptChars(content) ?? -1;
@@ -603,6 +693,7 @@ class ClaudeSession extends EventEmitter {
         response.updatedInput = { ...item.input, answers: clean };
       }
       if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
+      if (item.toolName === 'ExitPlanMode') this.setPlanning(false); // the plan's approved: on to the work
     }
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
     this.emitItem({ kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' || via === 'deck' ? { via } : {}) });
@@ -671,10 +762,14 @@ class ClaudeSession extends EventEmitter {
     else this.sessionId = null;
     this.lastUuid = null;
     this.setContext(0);
+    // The panel rebuilds the list from what's left of the feed; here it starts over.
+    this.todos = todos.create();
+    this.emit('todos', todos.summary(this.todos));
   }
 
   setMode(mode) {
     this.mode = mode;
+    this.setPlanning(mode === 'plan');
     if (this.proc) {
       this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'set_permission_mode', mode: CLI_MODE[mode] } });
     }
@@ -772,4 +867,4 @@ class ClaudeSession extends EventEmitter {
   }
 }
 
-module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, initHooks, setLogger, placeEdit };
+module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, initHooks, setLogger, placeEdit, TALK_MS };

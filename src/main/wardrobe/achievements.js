@@ -101,6 +101,26 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'golden-touch', name: 'Golden Touch', icon: '✨', description: 'Catch a golden bug', stat: 'goldenCatches', goal: 1, rewards: ['golden-net'], hidden: true },
   { id: 'ghost-whisperer', name: 'Ghost Whisperer', icon: '🏮', description: 'Catch 3 different ghosts from the wreck', stat: 'ghostSpecies', goal: 3, rewards: ['ghost-jar'] },
   { id: 'heisenberg', name: 'Uncertainty Principle', icon: '🥽', description: 'Catch a legendary bug', stat: 'legendaryBugs', goal: 1, rewards: ['quantum-goggles'], hidden: true },
+  // Tide events (src/main/events.js): finish every goal while it's on. The
+  // trophy is once; the medal for each year is the events' own.
+  { id: 'harvest-home', name: 'Harvest Home', icon: '🌾', description: 'Finish Harvest Moon while it\'s on', stat: 'eventsHarvest', goal: 1, rewards: ['harvest-sheaf'] },
+  { id: 'the-haunted', name: 'The Haunted', icon: '🎃', description: 'Finish The Haunting while it\'s on', stat: 'eventsHaunting', goal: 1, rewards: ['wisp-lantern'] },
+  { id: 'snowed-in', name: 'Snowed In', icon: '❄️', description: 'Finish Frostbite while it\'s on', stat: 'eventsFrostbite', goal: 1, rewards: ['ice-castle'] },
+  { id: 'pen-pals-forever', name: 'Pen Pals Forever', icon: '💌', description: 'Finish Pen Pal Week while it\'s on', stat: 'eventsPenpal', goal: 1, rewards: ['post-box'] },
+  { id: 'spick-and-span', name: 'Spick and Span', icon: '🌸', description: 'Finish Spring Clean while it\'s on', stat: 'eventsSpringClean', goal: 1, rewards: ['flower-pot'] },
+  { id: 'beachcombed', name: 'Beachcombed', icon: '🌊', description: 'Finish Low Tide while it\'s on', stat: 'eventsLowTide', goal: 1, rewards: ['giant-clam'] },
+  { id: 'tide-turner', name: 'Tide Turner', icon: '🏅', description: 'Win 6 tide event medals', stat: 'eventMedals', goal: 6, rewards: [] },
+  // Sparkly finds and bugs (gifts.js, bugdex.js).
+  { id: 'glimmer', name: 'Glimmer', icon: '✨', description: 'Find your first sparkly one, find or bug', stat: 'sparkles', goal: 1, rewards: ['glitter-jar'] },
+  { id: 'shiny-hunter', name: 'Shiny Hunter', icon: '🌟', description: 'Find 5 sparkly ones', stat: 'sparkles', goal: 5, rewards: ['sparkle-trail'] },
+  { id: 'dazzled', name: 'Dazzled', icon: '💎', description: 'A sparkly legendary', stat: 'legendarySparkles', goal: 1, rewards: [], hidden: true },
+  // Crab eggs (src/main/eggs.js) and swaps (src/main/swaps.js).
+  { id: 'proud-parent', name: 'Proud Parent', icon: '🥚', description: 'A friend hatches one of your eggs', stat: 'eggsHatched', goal: 1, rewards: ['crab-nest'] },
+  { id: 'big-clutch', name: 'Big Clutch', icon: '🐣', description: '5 friends hatch your eggs', stat: 'eggsHatched', goal: 5, rewards: [] },
+  { id: 'hatchling', name: 'Hatchling', icon: '🍼', description: 'Hatch a friend\'s egg', stat: 'eggsFromFriends', goal: 1, rewards: ['baby-bib'] },
+  { id: 'fair-trade', name: 'Fair Trade', icon: '🤝', description: 'Swap a find with a friend', stat: 'swapsMade', goal: 1, rewards: [] },
+  { id: 'missing-piece', name: 'Missing Piece', icon: '🧩', description: 'Finish a set with a swap', stat: 'swapSets', goal: 1, rewards: [] },
+  { id: 'top-crab', name: 'Top Crab', icon: '🥇', description: 'Top the friends\' board for a month', stat: 'boardWins', goal: 1, rewards: [] },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -116,6 +136,8 @@ const COUNTERS = [
   'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
   'tankPieces', 'houseGuests', 'tankPlants', 'setsShown', 'tankSize', 'tankNaps', 'critHits', 'cleanLandings',
   'bugsCaught', 'habitatsDone', 'legendaryBugs', 'goldenCatches', 'bugSpecies', 'ghostSpecies',
+  'eventsHarvest', 'eventsHaunting', 'eventsFrostbite', 'eventsPenpal', 'eventsSpringClean', 'eventsLowTide', 'eventMedals',
+  'sparkles', 'legendarySparkles', 'eggsHatched', 'eggsFromFriends', 'swapsMade', 'swapSets', 'boardWins',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -175,6 +197,20 @@ const INCREMENTS = {
   'habitat-done': 'habitatsDone',
   'legendary-bug': 'legendaryBugs',
   'golden-catch': 'goldenCatches',
+  // Tide events (src/main/wiring/events.js).
+  'event-done-harvest': 'eventsHarvest',
+  'event-done-haunting': 'eventsHaunting',
+  'event-done-frostbite': 'eventsFrostbite',
+  'event-done-penpal': 'eventsPenpal',
+  'event-done-spring-clean': 'eventsSpringClean',
+  'event-done-low-tide': 'eventsLowTide',
+  'sparkle-found': 'sparkles',
+  'sparkle-legendary': 'legendarySparkles',
+  'egg-hatched': 'eggsHatched',
+  'hatched-from-egg': 'eggsFromFriends',
+  'swap-made': 'swapsMade',
+  'swap-set': 'swapSets',
+  'board-won': 'boardWins',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
@@ -191,6 +227,8 @@ const MAXIMA = {
   'tank-plants': 'tankPlants', 'sets-shown': 'setsShown', 'tank-size': 'tankSize',
   // The Bugdex (src/main/bugdex.js) reports how many kinds of bug, and of ghost, it has caught.
   'bug-species': 'bugSpecies', 'ghost-species': 'ghostSpecies',
+  // Tide event medals won, all years (src/main/events.js).
+  'event-medal': 'eventMedals',
 };
 
 function emptyStats() {

@@ -182,8 +182,9 @@ function wireCritter(d) {
       state: own.state === 'asking' || ext.state === 'asking' ? 'asking' : own.state === 'working' || ext.state === 'working' ? 'working' : own.state,
       busy: own.busy + ext.busy,
       crew: [...own.crew, ...ext.crew],
-      // Commands a turn backgrounded and walked away from (src/main/external.js).
-      background: ext.background || [],
+      // Commands a turn backgrounded and walked away from: Claude Code in a
+      // terminal (src/main/external.js), and Shellby's own conversations (jobs.js).
+      background: [...(ext.background || []), ...(own.jobs || [])],
     };
     let state = agg.state;
     const limited = d.usageService.limitWait();
@@ -194,12 +195,14 @@ function wireCritter(d) {
     else if (Date.now() - d.lastActivity > d.SLEEP_AFTER_MS && d.healthMood?.level !== 'critical') state = 'sleeping';
 
     if (d.said && d.said.until <= Date.now()) d.said = null;
+    // How he works: reading, editing, running a command... (work-pose.js), from
+    // whichever of your tabs and outside sessions moved last. The OBS overlay
+    // shows the same (lastStatus below).
+    const work = state === 'working' ? workPose.poseOf(workPose.latest([own, ext])?.tool) : null;
     d.send(d.critter, 'critter:state', {
       state,
       busy: agg.busy,
-      // How he works: reading, editing, running a command... (work-pose.js), from
-      // whichever of your tabs and outside sessions moved last.
-      work: state === 'working' ? workPose.poseOf(workPose.latest([own, ext])?.tool) : null,
+      work,
       // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
       crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
@@ -207,6 +210,8 @@ function wireCritter(d) {
       level: d.levelUpAt,
       ci: { failing: d.ci?.view().failing || 0 },
       background: agg.background.length,
+      // Claude is planning (plan mode, or it switched itself), or has a plan for you to read.
+      planning: !!own.planning, plan: !!own.plans,
       // Dev servers: the "up :5173" pill and the sign when one crashed (devservers/service.js).
       servers: d.devServers && !d.config.get('crabOnly') ? d.devServers.summary() : null,
       focus: d.focusState(),
@@ -221,7 +226,7 @@ function wireCritter(d) {
     });
     d.setCrewSlots(Math.min(agg.crew.length, d.MAX_CREW_SHOWN));
     const was = d.lastStatus;
-    d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
+    d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length, work, planning: own.planning || 0 };
     refreshStatusLine();
     // Whatever the crab is doing, the stream, the desk lighting and Discord follow it.
     d.obsServer?.broadcast(d.obsState());
@@ -231,6 +236,7 @@ function wireCritter(d) {
     // Remarks that belong to a change, not a state. lastStatus is already updated,
     // so the refresh that speaking triggers can't fire these a second time.
     if (agg.crew.length >= d.CREW_WORTH_MENTIONING) speak('crew');
+    if ((own.planning || 0) > (was.planning || 0)) speak('planning');
     // Work (or a question) takes him off whatever he was doing on his own.
     if ((state === 'working' || state === 'asking') && was.state !== state) {
       d.life?.cancel();

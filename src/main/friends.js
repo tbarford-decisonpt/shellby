@@ -285,6 +285,29 @@ class Friends extends EventEmitter {
     const fresh = r.waves.map(w => ({ from: w.from, wave: w.wave, at: w.at || this.now() }));
     this.save({ mailCursor: r.cursor, inbox: [...[...fresh].reverse(), ...s.inbox].slice(0, MAX_INBOX) });
     for (const w of fresh) this.emit('wave', { ...w, text: `@${w.from} ${mail.WAVES[w.wave]}` });
+    // Swaps and hatched eggs (swaps.js, eggs.js): whoever listens checks them.
+    for (const l of r.letters || []) this.emit('letter', { ...l, friend: s.list.some(f => card.sameLogin(f.login, l.from)) });
+  }
+
+  /** A friend on your list, with their card if it's been fetched. */
+  friend(login) { return this.state.list.find(f => card.sameLogin(f.login, login)) || null; }
+
+  /**
+   * Leave a letter on someone's card (a swap, an egg hatched). Their card gist,
+   * or found by login for someone not on your list (the crab whose egg you hatched).
+   */
+  async letter(login, marker, words) {
+    if (!this.enabled) return { ok: false, error: 'Turn on Visiting crabs first.' };
+    const gh = this.github.gh();
+    let cardId = this.friend(login)?.cardId || null;
+    try {
+      if (!cardId) cardId = (await card.findCard(gh, login, null))?.id || null;
+      if (!cardId) return { ok: false, error: `@${login} has no calling card, so there's nowhere to leave it.` };
+      await mail.sendLetter(gh, cardId, marker, this.me(), words);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.status === 404 ? `@${login}'s card is gone. They may have turned visits off.` : `Couldn't reach GitHub: ${String(e.message).slice(0, 150)}` };
+    }
   }
 
   async add(loginIn) {

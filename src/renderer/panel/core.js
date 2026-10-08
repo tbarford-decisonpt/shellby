@@ -128,6 +128,8 @@ SB.prettyAccel = a => String(a || '').replace(/Control/g, 'Ctrl').replace(/\+/g,
 // "1 file", "3 files", "2 children". format writes the number (n => n.toLocaleString()
 // for counts that can run into the thousands).
 SB.plural = (n, one, many = `${one}s`, format = String) => `${format(n)} ${n === 1 ? one : many}`;
+// "1st", "2nd", "3rd", "11th" (src/main/board.js ordinal, for places on the friends' board).
+SB.ordinal = k => { const t = k % 100; return t >= 11 && t <= 13 ? `${k}th` : `${k}${['th', 'st', 'nd', 'rd'][k % 10] || 'th'}`; };
 
 // A preference kept on this PC. Storage can refuse (then it lasts this session),
 // and an empty value reads as no value.

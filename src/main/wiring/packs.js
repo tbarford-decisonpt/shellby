@@ -74,9 +74,19 @@ function wirePacks(d) {
       return;
     }
     // The panel must be loaded to switch views and hear the result.
-    const go = () => installFromRegistry(parsed.packId);
+    const go = parsed.action === 'hatch' ? () => hatchFromLink(parsed.code) : () => installFromRegistry(parsed.packId);
     if (d.panel.webContents.isLoading()) d.panel.webContents.once('did-finish-load', go);
     else go();
+  }
+
+  // A crab egg (eggs.js): the Us page, with the code in the hatch box. A link
+  // never hatches by itself: hatching adds a friend and writes on their card
+  // as you, so it waits for you to press Hatch it.
+  function hatchFromLink(code) {
+    d.startView = 'us';
+    d.showPanel({ focusInput: false });
+    d.send(d.panel, 'panel:view', 'us');
+    d.send(d.panel, 'social:prefill', code);
   }
 
   async function installFromRegistry(packId) {

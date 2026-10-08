@@ -23,6 +23,13 @@ const CMD_SPECIAL = /["%^&|<>!]/;
 // doubled, not just the ASCII one.
 const PS_QUOTES = /['‘’‚‛]/g;
 
+// What Shellby may start a fresh terminal session with, instead of resuming one.
+// Only these: nothing a page or a hook sends ever reaches a command line.
+// ultraReview: Claude Code's cloud review of the branch (/code-review ultra),
+// which asks in its own launch dialog before it starts, and is billed apart.
+const TERMINAL_PROMPTS = Object.freeze({ ultraReview: '/code-review ultra' });
+const ALLOWED_PROMPTS = new Set(Object.values(TERMINAL_PROMPTS));
+
 // The names the panel uses for each way of opening one.
 const SHELL_NAMES = { wt: 'Windows Terminal', powershell: 'PowerShell', cmd: 'Command Prompt' };
 
@@ -56,17 +63,31 @@ function terminalCwd({ cwd, worktree = null } = {}, exists = () => true) {
  * our own environment, because a Windows Terminal that is already open starts
  * new tabs with its own environment, not ours.
  */
-function resumeScript({ exe, cwd, sessionId, scrub = [] }) {
+function resumeScript({ exe, cwd, sessionId, prompt = null, scrub = [] }) {
   const drop = ['SHELLBY_OWNED', ...scrub].filter(v => ENV_NAME.test(v));
   return [
     ...[...new Set(drop)].map(v => `Remove-Item -LiteralPath 'Env:${v}' -ErrorAction SilentlyContinue`),
     `Set-Location -LiteralPath ${psQuote(cwd)}`,
-    `& ${psQuote(exe)} --resume ${sessionId}`,
+    // A fresh session that starts on one of TERMINAL_PROMPTS, or the conversation resumed.
+    prompt ? `& ${psQuote(exe)} ${psQuote(prompt)}` : `& ${psQuote(exe)} --resume ${sessionId}`,
   ].join('\n');
 }
 
 /** PowerShell's -EncodedCommand form: base64 of UTF-16LE, so nothing needs quoting. */
 const encodeScript = script => Buffer.from(script, 'utf16le').toString('base64');
+
+/**
+ * Open a console program in a window of its own, through cmd's `start`. Spawned
+ * directly, it can't have one: detached (so closing Shellby doesn't close the
+ * terminal) means DETACHED_PROCESS on Windows, which runs it with no console at
+ * all, started but invisible. The line is passed verbatim: program comes from
+ * System32 and rest is only flags, base64 and checked paths and ids.
+ */
+const viaStart = (cmd, program, rest, options) => ({
+  file: cmd,
+  args: ['/d', '/c', `start "" "${program}" ${rest.join(' ')}`],
+  options: { ...options, windowsVerbatimArguments: true },
+});
 
 /**
  * How to open the conversation in a terminal, best first. Each plan is what
@@ -75,12 +96,13 @@ const encodeScript = script => Buffer.from(script, 'utf16le').toString('base64')
  * window, already scrubbed (claude-cli.js terminalEnv).
  *   -> { ok: true, plans: [{ shell, file, args, options }] } | { ok: false, error }
  */
-function launchPlans({ exe, cwd, sessionId, scrub = [], env = undefined, wt = null, powershell = null, cmd = null }) {
-  if (!isSessionId(sessionId)) return { ok: false, error: "That conversation's id doesn't look like Claude Code's, so Shellby won't put it on a command line." };
+function launchPlans({ exe, cwd, sessionId, prompt = null, scrub = [], env = undefined, wt = null, powershell = null, cmd = null }) {
+  if (prompt !== null && !ALLOWED_PROMPTS.has(prompt)) return { ok: false, error: "Shellby won't start a terminal with that." };
+  if (prompt === null && !isSessionId(sessionId)) return { ok: false, error: "That conversation's id doesn't look like Claude Code's, so Shellby won't put it on a command line." };
   if (!safePath(exe)) return { ok: false, error: 'Shellby can’t find Claude Code to run in the terminal.' };
   if (!safePath(cwd)) return { ok: false, error: "That conversation's folder has a name Shellby can't safely open a terminal in." };
   const options = { cwd, env, detached: true, stdio: 'ignore', windowsHide: false };
-  const encoded = encodeScript(resumeScript({ exe, cwd, sessionId, scrub }));
+  const encoded = encodeScript(resumeScript({ exe, cwd, sessionId, prompt, scrub }));
   const psArgs = ['-NoLogo', '-NoExit', '-EncodedCommand', encoded];
   const plans = [];
   // Windows Terminal reads ; as "and then another tab", even inside -d, so a
@@ -88,10 +110,14 @@ function launchPlans({ exe, cwd, sessionId, scrub = [], env = undefined, wt = nu
   if (safePath(wt) && safePath(powershell)) {
     plans.push({ shell: 'wt', file: wt, args: ['-w', 'new', ...(cwd.includes(';') ? [] : ['-d', cwd]), powershell, ...psArgs], options });
   }
-  if (safePath(powershell)) plans.push({ shell: 'powershell', file: powershell, args: psArgs, options });
+  // The rest go through cmd's start (viaStart), so cmd and the program must both
+  // be free of what cmd would read as its own syntax.
+  const startable = p => safePath(p) && !CMD_SPECIAL.test(p);
+  if (startable(cmd) && startable(powershell)) plans.push({ shell: 'powershell', ...viaStart(cmd, powershell, psArgs, options) });
   // cmd gets no script: the folder is the process's working directory and the
   // environment is already scrubbed, so only the CLI's path and the id are on its line.
-  if (safePath(cmd) && !CMD_SPECIAL.test(exe)) plans.push({ shell: 'cmd', file: cmd, args: ['/d', '/k', exe, '--resume', sessionId], options });
+  // A prompt is one of TERMINAL_PROMPTS: fixed, and free of anything cmd reads as its own.
+  if (startable(cmd) && startable(exe)) plans.push({ shell: 'cmd', ...viaStart(cmd, cmd, ['/d', '/k', `"${exe}"`, ...(prompt ? [`"${prompt}"`] : ['--resume', sessionId])], options) });
   return plans.length ? { ok: true, plans } : { ok: false, error: 'Shellby couldn’t find a terminal to open.' };
 }
 
@@ -184,5 +210,5 @@ function titleFor(session) {
 
 module.exports = {
   isSessionId, safePath, psQuote, terminalCwd, resumeScript, encodeScript, launchPlans, launch,
-  continueCheck, externalFor, bringInCheck, entryFor, titleFor, SHELL_NAMES,
+  continueCheck, externalFor, bringInCheck, entryFor, titleFor, SHELL_NAMES, TERMINAL_PROMPTS,
 };

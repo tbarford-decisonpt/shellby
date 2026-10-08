@@ -155,3 +155,75 @@ test('junk from disk is tolerated', () => {
   assert.deepEqual(s.unseen, ['pearl']);
   assert.deepEqual(s.specials, ['birthday:2026']);
 });
+
+const ev = require('../src/main/events');
+
+test('every tide event\'s finds are its own, in the Tide chest, and named like the event', () => {
+  for (const e of ev.EVENTS) {
+    assert.equal(g.EVENT_NAMES[e.id], e.name, `${e.id} name matches events.js`);
+    for (const id of e.finds) {
+      const f = g.findById(id);
+      assert.ok(f, `${id} exists`);
+      assert.equal(f.event, e.id);
+      assert.equal(f.set, 'tides');
+    }
+  }
+  assert.equal(g.FINDS.filter(f => f.event).length, ev.EVENTS.length * 2);
+});
+
+test('event finds only turn up while their event is on', () => {
+  const off = g.eligible(g.normalize(null), {});
+  assert.ok(!off.some(f => f.event));
+  const on = g.eligible(g.normalize(null), { event: 'haunting' });
+  assert.deepEqual(on.filter(f => f.event).map(f => f.id).sort(), ['cursed-doubloon', 'ghost-lantern']);
+});
+
+test('a sparkly find is counted apart, and the first one says so', () => {
+  let r = g.dig(null, {}, T0, always);
+  assert.equal(r.shiny, true);
+  assert.equal(r.firstShiny, true);
+  assert.equal(r.state.items[r.find.id].shiny, 1);
+  assert.equal(g.sparkles(r.state), 1);
+  r = g.dig(null, {}, T0, never);
+  assert.equal(r.shiny, false);
+  assert.equal(r.state.items[r.find.id].shiny, undefined);
+  const v = g.view(g.normalize({ items: { pebble: { n: 2, first: T0, last: T0, shiny: 1, shinyFirst: T0 } } }), T0);
+  const pebble = v.finds.find(f => f.id === 'pebble');
+  assert.equal(pebble.shiny, 1);
+  assert.ok(pebble.shinyArt && pebble.shinyArt.palette.a !== pebble.palette.a, 'drawn in its own colours');
+  assert.equal(v.sparkles, 1);
+});
+
+test('the sparkle odds: 1 in 128, raised by an event but never past 4×', () => {
+  const rollAt = x => {
+    let first = true;
+    // The first roll is the pick, the second the sparkle.
+    return () => { if (first) { first = false; return 0; } return x; };
+  };
+  assert.equal(g.dig(null, {}, T0, rollAt(g.SPARKLE_CHANCE * 0.99)).shiny, true);
+  assert.equal(g.dig(null, {}, T0, rollAt(g.SPARKLE_CHANCE * 1.01)).shiny, false);
+  assert.equal(g.dig(null, { shinyBoost: 2 }, T0, rollAt(g.SPARKLE_CHANCE * 1.9)).shiny, true);
+  assert.equal(g.dig(null, { shinyBoost: 99 }, T0, rollAt(g.SPARKLE_CHANCE * 4.1)).shiny, false);
+});
+
+test('copies set aside for a swap never outnumber the copies', () => {
+  const s = g.normalize({ items: { pebble: { n: 2, held: 5, shiny: 9 } } });
+  assert.equal(s.items.pebble.held, 2);
+  assert.equal(s.items.pebble.shiny, 2);
+});
+
+test('moonlit finds only turn up after dark under their own moon, and say so on the shelf', () => {
+  const set = g.SETS.find(s => s.id === 'moonlight');
+  assert.ok(set.members.length >= 2);
+  const pool = ctx => new Set(g.eligible(g.normalize({}), ctx).map(f => f.id));
+  for (const id of set.members) {
+    const f = g.findById(id);
+    assert.ok(f.night && ['full', 'new'].includes(f.moon), id);
+    assert.ok(pool({ night: true, moon: f.moon }).has(id), `${id} under a ${f.moon} moon`);
+    assert.ok(!pool({ night: true, moon: null }).has(id), `${id} needs its moon`);
+    assert.ok(!pool({ night: false, moon: f.moon }).has(id), `${id} needs the dark`);
+    assert.ok(!pool({ night: true, moon: f.moon === 'full' ? 'new' : 'full' }).has(id), `${id} not under the other moon`);
+  }
+  const shelf = g.view({}).finds.find(f => f.id === set.members[0]);
+  assert.match(shelf.blurb, /under a (full|new) moon/);
+});

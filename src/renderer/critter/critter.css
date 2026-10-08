@@ -24,11 +24,12 @@ html, body {
   position: relative; flex: none; cursor: pointer;
   animation: helper-in .55s cubic-bezier(.2,.9,.3,1.2) backwards;
 }
-.helper svg { display: block; overflow: visible; animation: hop .38s ease-in-out infinite; }
-.helper:nth-child(2n) svg { animation-delay: -.19s; }
-.helper .part-legs-a { animation: leg .19s steps(1) infinite; }
-.helper .part-legs-b { animation: leg .19s steps(1) infinite reverse; }
-.helper .part-claw { animation: snap .38s steps(1) infinite; }
+/* On Shellby's work beat (see .state-working): a helper's steps land on his frames. */
+.helper svg { display: block; overflow: visible; animation: hop .664s steps(1) infinite; }
+.helper:nth-child(2n) svg { animation-delay: -.332s; }
+.helper .part-legs-a { animation: leg .332s steps(1) infinite; }
+.helper .part-legs-b { animation: leg .332s steps(1) infinite reverse; }
+.helper .part-claw { animation: snap .664s steps(1) infinite; }
 .helper::after {
   content: ""; position: absolute; left: 50%; bottom: -5px; width: 70%; height: 5px;
   transform: translateX(-50%); border-radius: 50%;
@@ -43,6 +44,9 @@ html, body {
   opacity: 0; transition: opacity .15s; pointer-events: none;
 }
 .helper:hover .tag, .helper.fresh .tag { opacity: 1; }
+/* a message between helpers (SendMessage): the tag shows it while it's fresh */
+.helper.talking .tag { opacity: 1; max-width: 160px; background: var(--glass); z-index: 3; }
+.helper.talking.heard .tag { background: #cfe8ff; color: #10324f; }
 /* stagger neighbouring labels so they never overlap */
 .helper:nth-child(even) .tag { bottom: calc(100% + 26px); }
 .helper:hover .tag { z-index: 2; }
@@ -131,35 +135,48 @@ html, body {
    so wherever the eyes move on their own it moves with them: not their squash. */
 .part-claw { transform-origin: 0% 50%; }
 
-/* ---------- idle: breathe, blink, the odd claw snap ---------- */
+/* ---------- idle: breathe, blink, a glance about, the odd claw snap ---------- */
 /* Each picture he shows costs a presented frame of a transparent window, all
    day (shared/framecap.js only moves what changes), so idle is pixel-art
    frames: the breathe is two (up, down), a blink two, the snap-snap four, and
-   the snap comes round every 18 s. About one frame a second in all. */
+   the snap comes round every 18 s. His eyes run on 24 s with the blinks
+   spaced unevenly (one of them double) and a glance each way, so the loop
+   doesn't read as a metronome. About one frame a second in all. */
 .state-idle #sprite { animation: breathe 4.4s steps(1) infinite; }
-.state-idle .part-eyes { animation: blink 6s steps(1) infinite; }
+.state-idle .part-eyes { animation: idle-eyes 24s steps(1) infinite; }
+.state-idle .acc.part-stalks { animation: idle-glance 24s steps(1) infinite; }
 .state-idle .part-claw { animation: snap-idle 18s steps(1) infinite; }
 #crab:hover #sprite { animation: perk .5s ease-out; }
 #crab:hover .part-claw { animation: wave 0.6s ease-in-out 2; }
 
-/* ---------- working: scuttle in place ---------- */
-.state-working #sprite { animation: hop .42s ease-in-out infinite; }
-.state-working .part-legs-a { animation: leg .21s steps(1) infinite; }
-.state-working .part-legs-b { animation: leg .21s steps(1) infinite reverse; }
-.state-working .part-claw { animation: snap .42s steps(1) infinite; }
-.state-working .part-eyes, .state-working .part-stalks { animation: look 1.6s steps(1) infinite; }
+/* ---------- working: scuttle in place ----------
+   On the work beat (166 ms, a hair under two framecap ticks), like his tool
+   poses in beats.css: every loop steps on it, so the hop, the legs and the
+   claw land on the same frames and the whole scuttle draws six a second. */
+.state-working #sprite { animation: hop .664s steps(1) infinite; }
+.state-working .part-legs-a { animation: leg .332s steps(1) infinite; }
+.state-working .part-legs-b { animation: leg .332s steps(1) infinite reverse; }
+.state-working .part-claw { animation: snap .664s steps(1) infinite; }
+.state-working .part-eyes, .state-working .part-stalks { animation: look 1.992s steps(1) infinite; }
+.state-working #shadow { animation: shadow-hop .664s steps(1) infinite; }
 
-/* ---------- working the way Claude is (src/main/work-pose.js, critter.js setPose) ----------
-   One class per pose; 'busy' is the scuttle above. Every loop is a few stepped
-   frames, so a pose draws less than the scuttle's eased hop (see "What he
-   costs when idle" in docs/DEVELOPMENT.md). What a pose doesn't move holds still. */
+/* ---------- planning: the bubble says so (the think pose is his claw to his chin). Nothing changes yet ---------- */
+.planning #bubble, .plan-ready #bubble { background: #cfe8ff; color: #10324f; }
+.planning #bubble::after, .plan-ready #bubble::after { border-top-color: #cfe8ff; }
+
+/* ---------- working the way Claude is (src/main/work-pose.js, critter.js "how he works") ----------
+   One class per pose; 'busy' is the scuttle above. Most poses have something
+   in his claw (shared/workposes.js). Every loop steps on the work beat (166 ms,
+   like the scuttle), so a pose draws no more than the scuttle and usually far
+   less (see "The work beat" in docs/DEVELOPMENT.md). What a pose doesn't move
+   holds still. */
 body[class*=" work-"] #sprite, body[class*=" work-"] [class*="part-legs"], body[class*=" work-"] .part-eyes,
-body[class*=" work-"] .part-stalks, body[class*=" work-"] .part-claw { animation: none; }
+body[class*=" work-"] .part-stalks, body[class*=" work-"] .part-claw, body[class*=" work-"] #shadow { animation: none; }
 
 /* thinking (between tools): claw to his chin, tap-tap, eyes up and about */
-body.work-think #sprite { animation: breathe 2.4s steps(1) infinite; }
-body.work-think .part-claw { animation: think-tap 1.6s steps(1) infinite; }
-body.work-think .part-eyes, body.work-think .part-stalks { animation: think-eyes 3.2s steps(1) infinite; }
+body.work-think #sprite { animation: breathe 2.324s steps(1) infinite; }
+body.work-think .part-claw { animation: think-tap 1.66s steps(1) infinite; }
+body.work-think .part-eyes, body.work-think .part-stalks { animation: think-eyes 3.32s steps(1) infinite; }
 @keyframes think-tap {
   0%, 40%, 60%, 100% { transform: rotate(-40deg) translate(-1px, -2px); }
   50%, 70% { transform: rotate(-30deg) translate(-1px, -2px); }
@@ -167,64 +184,100 @@ body.work-think .part-eyes, body.work-think .part-stalks { animation: think-eyes
 }
 @keyframes think-eyes { 0%, 100% { transform: translateY(-1px); } 45% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, -1px); } }
 
-/* reading: leant in, eyes running along a line and dropping to the next */
+/* reading: leant in over a scroll, eyes squinting along a line and dropping to
+   the next, and a page turned every few seconds */
 body.work-read #sprite { transform-origin: 50% 100%; transform: rotate(3deg) translateY(1px); }
-body.work-read .part-claw { transform: rotate(8deg); }
-body.work-read .part-eyes, body.work-read .part-stalks { animation: read-scan 2s steps(1) infinite; }
+body.work-read .part-claw { animation: read-claw 3.984s steps(1) infinite; }
+body.work-read .part-eyes { animation: read-squint 1.992s steps(1) infinite; }
+body.work-read .part-stalks { animation: read-scan 1.992s steps(1) infinite; }
+@keyframes read-claw {
+  0%, 100% { transform: rotate(-10deg) translateY(-1px); }
+  91.667% { transform: rotate(-26deg) translate(1px, -2px); }
+  95.833% { transform: rotate(-10deg) translateY(-1px); }
+}
 @keyframes read-scan {
-  0% { transform: translate(-1px, 0); } 20% { transform: translate(0, 0); } 40% { transform: translate(1px, 0); }
-  50% { transform: translate(-1px, 1px); } 70% { transform: translate(0, 1px); } 90% { transform: translate(1px, 1px); }
+  0% { transform: translate(-1px, 0); } 16.667% { transform: translate(0, 0); } 33.333% { transform: translate(1px, 0); }
+  50% { transform: translate(-1px, 1px); } 66.667% { transform: translate(0, 1px); } 83.333%, 100% { transform: translate(1px, 1px); }
+}
+@keyframes read-squint {
+  0% { transform: translate(-1px, 0) scaleY(.7); } 16.667% { transform: scaleY(.7); } 33.333% { transform: translate(1px, 0) scaleY(.7); }
+  50% { transform: translate(-1px, 1px) scaleY(.7); } 66.667% { transform: translate(0, 1px) scaleY(.7); } 83.333%, 100% { transform: translate(1px, 1px) scaleY(.7); }
 }
 
-/* editing: eyes down on the work, claw scribbling, a bob with the strokes */
-body.work-write #sprite { animation: write-bob .5s steps(1) infinite; }
-body.work-write .part-eyes, body.work-write .part-stalks { transform: translateY(1px); }
-body.work-write .part-claw { animation: scribble .5s steps(1) infinite; }
+/* editing: eyes down on the work, a pencil scribbling, a bob with the strokes,
+   and a look up now and then to think */
+body.work-write #sprite { animation: write-bob .664s steps(1) infinite; }
+body.work-write .part-claw { animation: scribble .664s steps(1) infinite; }
+body.work-write .part-eyes { animation: write-eyes 2.656s steps(1) infinite; }
+body.work-write .part-stalks { animation: write-look 2.656s steps(1) infinite; }
 @keyframes scribble {
   0%, 100% { transform: rotate(10deg) translateY(1px); } 25% { transform: rotate(-6deg); }
   50% { transform: rotate(14deg) translate(1px, 1px); } 75% { transform: rotate(-4deg); }
 }
 @keyframes write-bob { 0%, 100% { transform: none; } 50% { transform: translateY(1px); } }
+@keyframes write-eyes { 0%, 100% { transform: translateY(1px) scaleY(.8); } 75% { transform: translateY(-1px); } 87.5% { transform: translateY(1px) scaleY(.8); } }
+@keyframes write-look { 0%, 100% { transform: translateY(1px); } 75% { transform: translateY(-1px); } 87.5% { transform: translateY(1px); } }
 
-/* a command running: he digs in */
-body.work-run #sprite { animation: run-bob .48s steps(1) infinite; }
-body.work-run .part-claw { animation: run-dig .48s steps(1) infinite; }
-body.work-run [class*="part-legs"] { animation: leg .24s steps(1) infinite; }
-@keyframes run-dig { 0%, 100% { transform: rotate(8deg); } 33% { transform: rotate(-12deg) translateY(1px); } 66% { transform: rotate(-26deg) translateY(3px); } }
-@keyframes run-bob { 0%, 100% { transform: none; } 66% { transform: translateY(1px); } }
+/* a command running: he digs in and turns a wrench, eyes narrowed */
+body.work-run #sprite { animation: run-bob .664s steps(1) infinite; }
+body.work-run .part-claw { animation: crank .664s steps(1) infinite; }
+body.work-run [class*="part-legs"] { animation: leg .332s steps(1) infinite; }
+body.work-run .part-eyes { transform: scaleY(.75); }
+@keyframes crank {
+  0%, 100% { transform: rotate(-10deg); }
+  25% { transform: rotate(-30deg) translateY(-1px); }
+  50% { transform: rotate(-46deg) translate(1px, -1px); }
+  75% { transform: rotate(-30deg) translateY(-1px); }
+}
+@keyframes run-bob { 0%, 100% { transform: none; } 50% { transform: translateY(1px); } }
 
-/* searching: stalks up, swivelling from one side to the other */
-body.work-search #sprite { transform-origin: 50% 100%; animation: search-turn 2s steps(1) infinite; }
-body.work-search .part-claw { transform: rotate(-10deg); }
-body.work-search .part-eyes, body.work-search .part-stalks { animation: search-look 2s steps(1) infinite; }
+/* searching: stalks up, swivelling from one side to the other, a magnifying glass held up */
+body.work-search #sprite { transform-origin: 50% 100%; animation: search-turn 1.992s steps(1) infinite; }
+body.work-search .part-claw { transform: rotate(-30deg) translate(1px, -1px); }
+body.work-search .part-eyes, body.work-search .part-stalks { animation: search-look 1.992s steps(1) infinite; }
 @keyframes search-turn { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 @keyframes search-look {
   0%, 100% { transform: translate(-2px, -1px); } 25% { transform: translate(-1px, -1px); }
   50% { transform: translate(2px, -1px); } 75% { transform: translate(1px, -1px); }
 }
 
-/* on the web: leant back on his toes, claw shading his eyes, gazing a long way off */
-body.work-web #sprite { transform-origin: 50% 100%; animation: tiptoe 2.4s steps(1) infinite; }
-body.work-web .part-claw { transform: rotate(-62deg) translate(0, -2px); }
-body.work-web .part-eyes, body.work-web .part-stalks { animation: far-look 4.8s steps(1) infinite; }
+/* on the web: up on his toes, a spyglass to his eye, gazing a long way off */
+body.work-web #sprite { transform-origin: 50% 100%; animation: tiptoe 2.324s steps(1) infinite; }
+body.work-web .part-claw { transform: rotate(-52deg) translate(-1px, -2px); }
+body.work-web .part-eyes, body.work-web .part-stalks { animation: far-look 4.648s steps(1) infinite; }
 @keyframes tiptoe { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(-5deg) translateY(-1px) scale(1, 1.04); } }
-@keyframes far-look { 0%, 100% { transform: translate(1px, -2px); } 60% { transform: translate(2px, -2px); } }
+@keyframes far-look { 0%, 100% { transform: translate(1px, -2px); } 57.143% { transform: translate(2px, -2px); } }
 
-/* a subagent on the job: waving the helpers on, a spring in his step */
-body.work-crew #sprite { animation: run-bob .8s steps(1) infinite; }
-body.work-crew .part-claw { animation: wave-on .8s steps(1) infinite; }
-body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
+/* a plan or a to-do list: ticking off a checklist, with a pleased blink at each tick */
+body.work-plan .part-claw { animation: plan-claw 1.328s steps(1) infinite; }
+body.work-plan .part-eyes { animation: plan-eyes 1.328s steps(1) infinite; }
+body.work-plan .part-stalks { transform: translateY(1px); }
+@keyframes plan-claw { 0%, 100% { transform: rotate(-18deg); } 75% { transform: rotate(-28deg) translateY(-1px); } 87.5% { transform: rotate(-18deg); } }
+@keyframes plan-eyes { 0%, 100% { transform: translateY(1px); } 75% { transform: translateY(1px) scaleY(.2); } 87.5% { transform: translateY(1px); } }
+
+/* a subagent on the job: waving the helpers on from his left, a spring in his step */
+body.work-crew #sprite { animation: run-bob .664s steps(1) infinite; }
+body.work-crew .part-claw { animation: wave-on .664s steps(1) infinite; }
+body.work-crew [class*="part-legs"] { animation: leg .332s steps(1) infinite; }
+body.work-crew .part-eyes, body.work-crew .part-stalks { transform: translateX(-1px); }
 @keyframes wave-on {
   0%, 100% { transform: rotate(-20deg); } 25% { transform: rotate(-42deg) translateY(-1px); }
   50% { transform: rotate(-20deg); } 75% { transform: rotate(-34deg); }
 }
 
+/* from one tool to the next: the claw dips into his shell, and comes out with it */
+body.tool-swap #crab .part-claw { animation: swap-claw .332s steps(1); }
+body.tool-swap #crab .part-eyes, body.tool-swap #crab .part-stalks { animation: none; transform: translateX(-1px); }
+@keyframes swap-claw { 0% { transform: rotate(18deg) translate(-1px, 1px); } 50%, 100% { transform: rotate(34deg) translate(-3px, 1px); } }
+
 /* ---------- asking: claw up, waiting on you ---------- */
-.state-asking #sprite { animation: sway 1.2s ease-in-out infinite; }
+.state-asking #sprite { animation: sway 1.328s steps(1) infinite; }
 .state-asking .part-claw { transform: rotate(-35deg) translate(1px, -2px); }
 
 /* ---------- success / error ---------- */
 .state-success #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) 2; }
+.state-success #shadow, .state-learned #shadow { animation: shadow-jump .7s cubic-bezier(.3,1.6,.5,1) 2; }
+.state-unlocked #shadow, .state-levelup #shadow { animation: shadow-jump .7s cubic-bezier(.3,1.6,.5,1) 3; }
 .state-error #sprite { transform-origin: 50% 100%; animation: oof .9s ease-out; }
 .state-error .part-eyes { animation: oof-eyes .9s steps(1); }
 
@@ -261,7 +314,7 @@ body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
   border: 5px solid transparent; border-top-color: var(--sand); border-bottom: 0;
 }
 .bubble-on #bubble { opacity: 1; transform: none; }
-.state-asking #bubble { background: var(--coral); color: #fff; animation: pulse 1s ease-in-out infinite; }
+.state-asking #bubble { background: var(--coral); color: #fff; animation: ask-pulse 1.328s steps(1) infinite; }
 .state-asking #bubble::after { border-top-color: var(--coral); }
 .state-success #bubble { background: var(--glass); }
 .state-success #bubble::after { border-top-color: var(--glass); }
@@ -275,7 +328,8 @@ body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
 .state-unlocked .part-claw { animation: wave .45s ease-in-out 6; }
 .state-error #bubble { background: #ff5a4a; color: #fff; }
 .state-error #bubble::after { border-top-color: #ff5a4a; }
-.state-working #bubbleText::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+/* one jump per dot, on the work beat: steps(4) here meant four in every interval, a frame every tick */
+.state-working #bubbleText::after { content: ""; animation: dots 1.328s steps(1) infinite; }
 
 /* ---------- zzz ---------- */
 #zzz { position: absolute; left: 34%; top: 14px; opacity: 0; transition: opacity .6s; pointer-events: none; }
@@ -293,11 +347,27 @@ body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
 @keyframes breathe { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-2px) } }
 @keyframes perk { 40% { transform: translateY(-4px) } }
 @keyframes blink { 0%,95%,100% { transform: scaleY(1) } 97% { transform: scaleY(.1) } }
+/* 24 s: blinks at 3 s, 10.8 s (a double) and 20.4 s; a glance right at 7.2 s and left at 15 s */
+@keyframes idle-eyes {
+  0%, 100% { transform: none }
+  12.5% { transform: scaleY(.1) } 13.194% { transform: none }
+  30% { transform: translateX(1px) } 37.5% { transform: none }
+  45% { transform: scaleY(.1) } 45.694% { transform: none } 46.528% { transform: scaleY(.1) } 47.222% { transform: none }
+  62.5% { transform: translateX(-1px) } 66.667% { transform: translate(-1px, -1px) } 70.833% { transform: none }
+  85% { transform: scaleY(.1) } 85.694% { transform: none }
+}
+@keyframes idle-glance {
+  0%, 100% { transform: none }
+  30% { transform: translateX(1px) } 37.5% { transform: none }
+  62.5% { transform: translateX(-1px) } 66.667% { transform: translate(-1px, -1px) } 70.833% { transform: none }
+}
 @keyframes snap-idle { 0%,94%,100% { transform: none } 95.5%,98.5% { transform: rotate(-18deg) } 97% { transform: none } }
 @keyframes wave { 50% { transform: rotate(-30deg) } }
 @keyframes hop { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
-@keyframes leg { 0% { transform: translateY(0) } 50% { transform: translateY(-1px) translateX(1px) } }
-@keyframes snap { 0% { transform: none } 50% { transform: rotate(-20deg) } }
+/* leg and snap only ever step (steps(1)), so 100% repeats 50%: the same picture, but
+   with an end keyframe shared/framecap.js can read and skip the ticks between steps. */
+@keyframes leg { 0% { transform: translateY(0) } 50%, 100% { transform: translateY(-1px) translateX(1px) } }
+@keyframes snap { 0% { transform: none } 50%, 100% { transform: rotate(-20deg) } }
 @keyframes look { 0%,100% { transform: translateX(0) } 33% { transform: translateX(1px) } 66% { transform: translateX(-1px) } }
 @keyframes sway { 0%,100% { transform: rotate(-2deg) } 50% { transform: rotate(2deg) } }
 /* crouch to spring, stretch going up, round at the top, squash on the way back down */
@@ -322,7 +392,23 @@ body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
 @keyframes snooze { 0%,100% { transform: rotate(0) } 50% { transform: rotate(-3deg) } }
 @keyframes float { 0% { transform: translate(0, 0); opacity: 0 } 20% { opacity: 1 } 100% { transform: translate(10px, -30px); opacity: 0 } }
 @keyframes pulse { 50% { transform: scale(1.12) } }
-@keyframes dots { 0% { content: "" } 25% { content: "." } 50% { content: ".." } 75% { content: "..." } }
+@keyframes ask-pulse { 0%, 100% { transform: none } 50% { transform: scale(1.12) } }
+/* His shadow answers his feet: smaller while he's up, wider as he lands. */
+@keyframes shadow-hop { 0%, 100% { transform: translateX(-50%) } 50% { transform: translateX(-50%) scale(.85) } }
+@keyframes shadow-jump {
+  0%,100% { transform: translateX(-50%) }
+  12% { transform: translateX(-50%) scale(1.12, 1) }
+  28% { transform: translateX(-50%) scale(.8) }
+  42% { transform: translateX(-50%) scale(.65); opacity: .6 }
+  80% { transform: translateX(-50%) scale(1.1, 1) }
+}
+@keyframes shadow-land {
+  0% { transform: translateX(-50%) scale(.45); opacity: .5 }
+  40% { transform: translateX(-50%) scale(1.15, 1) }
+  58% { transform: translateX(-50%) scale(.95) }
+  76%, 100% { transform: translateX(-50%) }
+}
+@keyframes dots { 0% { content: "" } 25% { content: "." } 50% { content: ".." } 75%, 100% { content: "..." } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -384,6 +470,8 @@ body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
 body.surprise-crit #sprite { animation: jump .62s cubic-bezier(.3, 1.6, .5, 1) 2; filter: drop-shadow(0 0 5px rgba(255, 210, 63, .8)); }
 body.surprise-crit .part-claw { animation: wave .3s ease-in-out 5; }
 body.surprise-landing #sprite { animation: touchdown 1.2s cubic-bezier(.3, 1.3, .5, 1); }
+body.surprise-crit #shadow { animation: shadow-jump .62s cubic-bezier(.3, 1.6, .5, 1) 2; }
+body.surprise-landing #shadow { animation: shadow-land 1.2s cubic-bezier(.3, 1.3, .5, 1); }
 body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
 @keyframes touchdown {
   0% { transform: translateY(-18px); }
@@ -402,6 +490,7 @@ body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
 .molt-bare .part-claw { transform: rotate(-30deg) translate(1px, -1px); }
 .molt-in .part-shell { animation: molt-drop .7s cubic-bezier(.3, 1.5, .5, 1) backwards; }
 .molt-in #sprite { animation: jump .7s cubic-bezier(.3,1.6,.5,1) .65s 2; }
+.molt-in #shadow { animation: shadow-jump .7s cubic-bezier(.3,1.6,.5,1) .65s 2; }
 .molt-in .part-claw { animation: wave .45s ease-in-out .65s 4; }
 .molt-out #bubble, .molt-bare #bubble, .molt-in #bubble { background: #ffd23f; color: #3d2a00; font-size: var(--fs-12); }
 .molt-out #bubble::after, .molt-bare #bubble::after, .molt-in #bubble::after { border-top-color: #ffd23f; }
@@ -504,6 +593,7 @@ body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
 .limited.state-sleeping #bubble::after { border-top-color: #ffb347; }
 .state-refreshed #sprite { animation: stretch 1s cubic-bezier(.3, 1.4, .5, 1), jump .7s cubic-bezier(.3,1.6,.5,1) 1s 2; }
 .state-refreshed .part-claw { animation: wave .4s ease-in-out .2s 6; }
+.state-refreshed #shadow { animation: shadow-jump .7s cubic-bezier(.3,1.6,.5,1) 1s 2; }
 .state-refreshed .part-eyes { transform: scaleY(1.2); }
 .state-refreshed #bubble { background: #ffd23f; color: #3d2a00; animation: pulse .5s ease-in-out 4; }
 .state-refreshed #bubble::after { border-top-color: #ffd23f; }

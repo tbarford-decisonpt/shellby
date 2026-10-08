@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const b = require('../src/main/bugdex/species');
+const { EVENTS } = require('../src/main/events');
 
 const REMEDIES = new Set(['install', 'kill', 'service', 'lock', 'cache']);
 
@@ -8,6 +9,7 @@ test('every species is drawable and has a home', () => {
   const ids = new Set();
   const nos = new Set();
   const habitats = new Set(b.HABITATS.map(h => h.id));
+  const events = new Set(EVENTS.map(e => e.id));
   for (const s of b.SPECIES) {
     assert.ok(/^[a-z0-9-]+$/.test(s.id) && !ids.has(s.id), s.id);
     ids.add(s.id);
@@ -19,6 +21,7 @@ test('every species is drawable and has a home', () => {
     assert.ok(b.RARITY[s.rarity], `${s.id} rarity`);
     assert.ok(b.TYPES[s.type], `${s.id} type`);
     if (s.id === 'missingno') assert.equal(s.habitat, null);
+    else if (s.event) { assert.equal(s.habitat, null, `${s.id} lives in no habitat`); assert.ok(events.has(s.event), `${s.id} event`); }
     else assert.ok(habitats.has(s.habitat), `${s.id} habitat`);
     for (const [key, hex] of Object.entries(s.palette)) {
       assert.ok(/^[^.]$/.test(key), `${s.id} palette key '${key}'`);
@@ -56,6 +59,7 @@ test('dex numbers are pinned', () => {
     57: 'assertive-lobster', 58: 'mirror-mullet', 59: 'leaky-clam', 60: 'barnacled-anchor',
     61: 'cert-cuttlefish', 62: 'flaky-phantom', 63: 'heisenbug', 64: 'race-wraith',
     65: 'cache-ghoul', 66: 'zombie-process', 99: 'missingno',
+    101: 'harvest-mouse', 102: 'will-o-wisp', 103: 'frost-mite', 104: 'lovebug', 105: 'dust-bunny', 106: 'tide-pool-nudibranch',
   };
   assert.deepEqual(Object.fromEntries(b.SPECIES.map(s => [s.no, s.id])), pinned);
 });
@@ -68,7 +72,7 @@ test('every habitat has at least three members', () => {
     for (const id of h.members) assert.equal(b.speciesById(id).habitat, h.id);
   }
   const housed = b.HABITATS.reduce((n, h) => n + h.members.length, 0);
-  assert.equal(housed, b.SPECIES.length - 1, 'everyone but the hidden glitch has a home');
+  assert.equal(housed, b.SPECIES.length - 1 - b.eventSpecies().length, 'everyone but the hidden glitch and the event bugs has a home');
 });
 
 test('remedies use known keys', () => {
@@ -102,4 +106,14 @@ test('live() leaves out the hidden one', () => {
   assert.ok(!live.some(s => s.id === 'missingno'));
   assert.ok(live.every(s => s.habitat && s.phase <= b.LIVE_PHASE));
   assert.ok(b.speciesById('missingno'), 'still in the book, just kept apart');
+});
+
+test('every tide event has exactly its own bug, and the bug is its event\'s', () => {
+  for (const e of EVENTS) {
+    const sp = b.speciesById(e.bug);
+    assert.ok(sp, `${e.id} bug exists`);
+    assert.equal(sp.event, e.id);
+  }
+  assert.equal(b.eventSpecies().length, EVENTS.length);
+  for (const sp of b.eventSpecies()) assert.ok(!b.live().includes(sp), `${sp.id} is never in "of N"`);
 });

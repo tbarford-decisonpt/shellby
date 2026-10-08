@@ -8,6 +8,7 @@
 // species id and a short hash. A catch needs the code to have changed (or a
 // remedy to have run) and the change to be a fix (cheats.js), so a false
 // catch is rarer than a missed one.
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const changes = require('../changes');
@@ -24,6 +25,8 @@ const { cmdKey } = require('../flaky/ids');
 const { projectOf } = require('../gitinfo');
 const { activeSeasons } = require('../wardrobe/seasons');
 const { normalizeXp } = require('../xp');
+const events = require('../events');
+const boards = require('../board');
 
 // Everything that can be seen: the book's live species, and the hidden one.
 const LIVE = new Set([...live().map(s => s.id), 'missingno']);
@@ -41,6 +44,8 @@ const BATTLE_KEEP_MS = 3 * 60 * 1000;  // a finished battle stays this long, for
 const MAX_BATTLES = 40;
 // Cues the battle screen may ask the crab to play (critter/sound.js).
 const BATTLE_CUES = new Set(['battle', 'boss', 'hit', 'super', 'smash', 'miss', 'heal', 'resist', 'faint', 'lower', 'caught', 'badge', 'fled', 'cry']);
+// A tide event's bug comes along after the catch that brought it, as a moment of its own.
+const EVENT_BUG_AFTER_MS = 4500;
 
 /** d: what main shares (main.js `shared`). */
 function wireBugdex(d) {
@@ -53,7 +58,8 @@ function wireBugdex(d) {
     return dev !== 'local' ? bugdex.withDevice(d.config.get('bugdex'), dev) : bugdex.normalize(d.config.get('bugdex'));
   };
   const save = s => d.config.set({ bugdex: s });
-  const seasons = () => { try { return activeSeasons(new Date(), d.seasonsWhere?.() || {}).map(x => x.id); } catch { return []; } };
+  const today = () => (d.today ? d.today() : new Date()); // the app's one calendar (today.js)
+  const seasons = () => { try { return activeSeasons(today(), d.seasonsWhere?.() || {}).map(x => x.id); } catch { return []; } };
 
   // ---- memory: never saved
 
@@ -111,14 +117,49 @@ function wireBugdex(d) {
   // Friends whose cards share their Bugdex (github/card.js): their reports, on your page.
   const friendBooks = () => (d.config.get('friends')?.list || []).filter(f => f?.card?.bugdex).map(f => ({ login: f.login, bugdex: f.card.bugdex }));
 
+  // The tide event going on (events.js), and when each one is next on, for the book's event bugs.
+  function eventInfo() {
+    const where = d.seasonsWhere?.() || {};
+    const day = today();
+    const a = d.activeEvent?.();
+    const back = {};
+    for (const ev of events.EVENTS) { const at = events.backOn(ev.id, day, where); if (at) back[ev.id] = at.getTime(); }
+    return { on: a ? a.ev.id : null, back };
+  }
+
   function view() {
     const tabs = new Set(d.manager ? [...d.manager.tabs.keys()] : []);
-    return bugdex.view(state(), Date.now(), { names: nameMap(), tabs, friends: friendBooks() });
+    return { ...bugdex.view(state(), Date.now(), { names: nameMap(), tabs, friends: friendBooks(), event: eventInfo() }), board: board() };
+  }
+
+  // The friends' board (board.js): only when you share your Bugdex, and someone else does too.
+  function board() {
+    if (!d.config.get('shareBugdex')) return null;
+    const friends = friendBooks();
+    if (!friends.length) return null;
+    const now = Date.now();
+    const b = boards.board({ me: { login: d.github?.view?.().login || null, month: bugdex.shared(state(), now).month }, friends, key: bugdex.monthKey(now) });
+    const r = boards.settle(d.config.get('boardLast'), b);
+    if (JSON.stringify(r.state) !== JSON.stringify(d.config.get('boardLast'))) d.config.set({ boardLast: r.state });
+    if (r.ended) monthOver(r.ended);
+    return b;
+  }
+
+  // A month on the board is over: where you finished goes in the journal, and first is a trophy.
+  function monthOver(e) {
+    d.log.info(`board: ${e.month} over, ${e.place} of ${e.of}`);
+    d.life?.remember?.('board-month', { place: `${boards.ordinal(e.place)} of ${e.of}`, month: e.month });
+    if (e.place === 1) {
+      d.stat('board-won');
+      d.send(d.panel, 'life:moment', { eyebrow: 'The friends\' board', icon: '🥇', title: `Top crab in ${e.month}`, text: `More bugs fixed than any of your ${e.of - 1} friends on the board.` });
+    }
   }
 
   // His favourite catch follows him round the desk (critter.js #buddy): its art, or null.
   let buddySent = null;
   function buddy() {
+    const baby = d.babyBuddy?.();
+    if (baby && d.config.get('bugFollower') !== false) return baby;
     if (!on() || d.config.get('bugFollower') === false) return null;
     const s = state();
     const id = bugdex.favourite(s);
@@ -297,18 +338,45 @@ function wireBugdex(d) {
    */
   function catchIt(e, { remedy = false, quiet = false } = {}) {
     const now = Date.now();
+    const sp = speciesById(e.species);
+    const boosts = d.eventBoosts?.() || null;
+    // Who helped, read before the battle ends: a helper in the fight brings Pen Pal Week's bug.
+    const party = e.source ? (battles.get(lifecycle.encId(e))?.party?.length || 0) : 0;
     const r = bugdex.recordCatch(state(), {
       species: e.species, fp: e.fp, project: e.project, name: e.name || names.get(e.project) || '',
       firstAt: e.firstAt, firstTry: e.reruns === 0, remedy, lang: e.lang, device: device(), seasons: seasons(), rand: Math.random,
+      shinyBoost: boosts ? boosts.shinyFor(sp?.habitat) : 1,
     }, now);
     const next = e.source ? bugdex.closeEncounter(r.state, lifecycle.encId(e)) : r.state;
     save(next);
     if (e.source) endBattle(e, r, now);
     if (!r.counted) { push(); return r; }
     d.log.info(`bugdex: caught ${e.species}${r.isNew ? ' (new)' : ''}`);
-    reward(e, r, { quiet });
+    reward(e, r, { quiet, boosts });
     push();
+    if (sp && !sp.event) maybeEventBug(e, r, { party, now });
     return r;
+  }
+
+  /**
+   * A tide event's own bug comes along with a real catch made its way
+   * (events.js bugComesAlong): after nine at The Haunting, with a helper in
+   * Pen Pal Week, a fix that deletes more than it adds in Spring Clean...
+   */
+  function maybeEventBug(e, r, { party, now }) {
+    const a = d.activeEvent?.();
+    if (!a) return;
+    const sp = speciesById(e.species);
+    const ctx = { hour: new Date(now).getHours(), habitat: sp.habitat, forms: r.forms, party, trimmed: e.trimmed === true, todayCount: r.state.today };
+    if (!events.bugComesAlong(a.ev.id, ctx)) return;
+    // Its own fingerprint, from the catch that brought it: the same fix can't bring it twice.
+    const fp = crypto.createHash('sha1').update(`event:${a.ev.id}:${e.fp}`).digest('hex').slice(0, 12);
+    setTimeout(() => {
+      try {
+        const got = catchIt({ species: a.ev.bug, fp, project: e.project, name: e.name, firstAt: now });
+        if (got.counted) d.log.info(`bugdex: ${a.ev.bug} came along (${a.ev.id})`);
+      } catch (err) { d.log.warn('event bug failed', err.message); }
+    }, EVENT_BUG_AFTER_MS);
   }
 
   /** The battle's ending: it faints, the jar, and the crew who helped get it on their record. */
@@ -325,10 +393,19 @@ function wireBugdex(d) {
     if (r.counted && party.length) d.crewRoster?.beat?.(party.map(p => p.type), sp.type);
   }
 
-  function reward(e, r, { quiet }) {
+  function reward(e, r, { quiet, boosts = null }) {
     const sp = speciesById(e.species);
     const projectName = e.name || names.get(e.project) || null;
-    d.stat('bug-caught');
+    // What the tide events' goals look at (events.js): where it lived, and whether it was the event's own.
+    d.stat('bug-caught', { habitat: sp.habitat, species: sp.id });
+    if (sp.event) d.stat('event-bug', { event: sp.event, species: sp.id });
+    const shiny = r.forms.includes('shiny');
+    if (shiny) {
+      d.stat('sparkle-found');
+      if (sp.rarity === 'legendary') d.stat('sparkle-legendary');
+      d.awardXp('sparkle', { project: projectName, label: `A sparkly ${sp.name}` });
+      d.life?.remember?.('first-shiny', { item: sp.name });
+    }
     if (sp.rarity === 'legendary') d.stat('legendary-bug');
     if (r.forms.includes('golden')) d.stat('golden-catch');
     const book = r.state.species;
@@ -341,7 +418,9 @@ function wireBugdex(d) {
     // A catch that came along quietly with another still pays: only the moment is shared.
     if (r.pays) {
       const label = r.isNew ? `Caught a ${sp.name} (${sp.rarity === 'special' ? 'mystery' : sp.rarity})` : `Caught a ${sp.name}`;
-      d.awardXp(r.isNew ? 'newbug' : 'catch', { project: projectName, label });
+      // Harvest Moon pays half again on a catch (events.js boosts).
+      const boost = boosts && boosts.xp > 1 ? { by: boosts.xp, label: events.eventById(boosts.event)?.name } : undefined;
+      d.awardXp(r.isNew ? 'newbug' : 'catch', { project: projectName, label, boost });
     }
     const habitats = r.completed.map(id => HABITATS.find(h => h.id === id)).filter(Boolean);
     for (const h of habitats) {
@@ -356,6 +435,14 @@ function wireBugdex(d) {
       battle: e.source ? lifecycle.encId(e) : null, // the battle screen plays the catch out itself
     };
     d.send(d.panel, 'bugdex:caught', card);
+    if (shiny) {
+      const odds = Math.round(1 / (bugdex.SHINY_CHANCE * Math.max(1, boosts ? boosts.shinyFor(sp.habitat) : 1)));
+      d.send(d.panel, 'sparkle:reveal', {
+        kind: 'bug', id: sp.id, name: card.name, rarity: sp.rarity, pixels: card.pixels, palette: card.palette,
+        odds, after: bugdex.summary(r.state).jars - 1, at: Date.now(), level: d.currentLevel?.() || 1, project: projectName,
+      });
+      d.send(d.critter, 'critter:sound', { cue: 'sparkle' });
+    }
     if (r.moment) {
       const jar = bugdex.jarFor(sp.id, r.forms);
       const hushed = focus.guarding(d.config.get('focus'), Date.now());
@@ -368,7 +455,7 @@ function wireBugdex(d) {
     }
     if (r.badge || r.fame) d.send(d.critter, 'critter:sound', { cue: 'badge' });
     const badge = r.badge ? HABITATS.find(h => h.id === r.badge)?.badge : null;
-    const big = r.isNew || r.evolved || habitats.length || sp.rarity === 'legendary';
+    const big = r.isNew || r.evolved || habitats.length || sp.rarity === 'legendary' || shiny || !!sp.event;
     if (big && !(d.panel?.isVisible() && d.panel.isFocused())) {
       const where = projectName ? ` Caught in ${projectName}.` : '';
       const title = r.fame ? 'Bugdex: you made the Hall of Fame!'
@@ -376,11 +463,14 @@ function wireBugdex(d) {
           : r.league === 'champion' ? `You beat the Champion, ${sp.name}!`
             : r.league === 'elite' ? `One of the Deep Four beaten: ${sp.name}!`
               : habitats.length ? `Bugdex: ${habitats[0].name} is complete!`
+        : shiny ? `✨ A sparkly ${sp.name}!`
+        : sp.event ? `${events.eventById(sp.event)?.emoji || ''} ${sp.name} came along!`.trim()
         : r.evolved ? `Your ${sp.name} evolved!`
           : sp.rarity === 'legendary' ? `A legendary bug: ${sp.name}!` : `New to the Bugdex: ${sp.name}`;
       const body = r.fame ? `Every badge, the Deep Four and the champion. ${sp.name} was the last.`
         : badge ? `You beat ${sp.name}, the boss of ${HABITATS.find(h => h.id === r.badge).name}.${where}`
-          : r.evolved ? `It's a ${card.name} now.${where}` : `${sp.blurb}${where}`;
+          : shiny ? `1 in ${Math.round(1 / bugdex.SHINY_CHANCE)}, and it's in a jar.${where}`
+            : r.evolved ? `It's a ${card.name} now.${where}` : `${sp.blurb}${where}`;
       d.notify(title, body, () => openPage(sp.id), { tone: 'celebrate', pet: true });
     }
   }
@@ -428,7 +518,11 @@ function wireBugdex(d) {
         d.log.info(`bugdex: no catch (${verdict.reason})`);
         continue;
       }
-      caught.push({ e, remedy });
+      // Spring Clean's bug wants a fix that took code away (events.js).
+      const lines = patch.split('\n');
+      const added = lines.filter(l => l.startsWith('+') && !l.startsWith('+++')).length;
+      const removed = lines.filter(l => l.startsWith('-') && !l.startsWith('---')).length;
+      caught.push({ e: { ...e, trimmed: removed > added }, remedy });
     }
     // One pass, one moment: the rarest is the catch, the rest come along quietly.
     caught.sort((a, b) => RARITY_ORDER[speciesById(b.e.species).rarity] - RARITY_ORDER[speciesById(a.e.species).rarity]);

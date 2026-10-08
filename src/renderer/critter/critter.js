@@ -25,8 +25,15 @@ let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
 let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
 let onCall = false;  // you're on a call: he holds up his "shh" sign (src/main/surroundings.js)
+let planning = false; // Claude is planning, not changing anything yet (plan mode)
+let planReady = false; // ...and has a plan for you to read
 // Things a scene or a game puts on him for a moment, by slot (src/renderer/critter/life.js).
 const overrides = new Map();
+// What he works with while Claude uses a tool, a scroll or a wrench (see
+// "how he works" below). It beats his own held item and a scene's, and gives
+// way to a sign or a sticker.
+let tool = null;
+const holdTool = item => { if (item === tool) return; tool = item || null; drawSelf(); };
 // The sign he holds up while CI is red. It goes in the held slot like any other
 // prop, so the post lands in the claw pinch and the whole thing swings with his
 // arm instead of hanging in the air beside it.
@@ -122,6 +129,7 @@ function drawSelf() {
   // (see throwHeld) and the sign goes in once he has let go of it.
   // A scene's prop or a find to show off takes its slot for a moment.
   for (const [slot, item] of overrides) accessories = [...accessories.filter(a => a.slot !== slot), item];
+  if (tool) accessories = [...accessories.filter(a => a.slot !== 'held'), tool];
   if (tossed || holdingSign() || slap?.holding) accessories = accessories.filter(a => a.slot !== 'held');
   if (holdingSign()) accessories = [...accessories, SIGNS[signKind()]];
   if (slap?.holding) accessories = [...accessories, slap.held];
@@ -348,6 +356,11 @@ function helperTag(c) {
   return c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
 }
 
+// "📨 check the tests" for a message it got, "→ scout: done" for one it sent.
+function helperTalk(b) {
+  return b.kind === 'said' ? `→ ${b.to}: ${b.text}` : `📨 ${b.text}`;
+}
+
 function renderCrew(crew, more) {
   const live = new Set(crew.map(c => c.id));
   // Helpers whose task finished walk back into Shellby, then disappear.
@@ -387,7 +400,10 @@ function renderCrew(crew, more) {
       el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, c.accessories));
     }
     // Themed name tag only: a native `title` would pop an unstyled OS tooltip.
-    el.querySelector('.tag').textContent = helperTag(c);
+    // While a helper is sent a message, or sends one, the tag shows it (session.js noteMessage).
+    el.querySelector('.tag').textContent = c.bubble ? helperTalk(c.bubble) : helperTag(c);
+    el.classList.toggle('talking', !!c.bubble);
+    el.classList.toggle('heard', c.bubble?.kind === 'heard');
     el.setAttribute('aria-label', c.name ? `${c.name}, level ${c.level} ${c.type}: ${c.label}` : `Helper ${c.type}: ${c.label}`);
   });
   crewHost.querySelector('.more')?.remove();
@@ -412,6 +428,9 @@ function bubbleFor() {
   // His own voice comes last of the things that mean something, and still beats
   // the bare mood glyph it replaces.
   if (saying()) return say.text;
+  // Planning reads differently from working, and a plan waiting differently from a yes/no.
+  if (state === 'asking' && planReady) return 'plan?';
+  if (state === 'working' && planning) return 'plan…';
   return BUBBLES[state] ?? '';
 }
 const saying = () => !!say && say.until > Date.now();
@@ -435,28 +454,38 @@ const needClasses = () => (needs ? [NEED_MOODS.has(needs.mood) ? `need-${needs.m
 let stillNow = false; // calm from main (locked, covered, nobody at the desk): see api.onCalm
 
 // ---- how he works (src/main/work-pose.js): reading, editing, running a
-// command, thinking... one body class per pose in critter.css. Claude can
-// switch tools several times a second, so a pose is held a moment before the
-// next takes over. Anything else that has his body (a throw, a walk, a habit,
+// command, thinking... one body class per pose in critter.css, and for most
+// of them something in his claw (a scroll, a pencil, a wrench...). How long a
+// pose holds, and what he holds, is shared/workposes.js (the OBS overlay works
+// the same way). Anything else that has his body (a throw, a walk, a habit,
 // typing along) outranks it, and he scuttles as he always did.
-const WORK_POSES = new Set(['think', 'read', 'write', 'run', 'search', 'web', 'crew', 'busy']);
-const POSE_HOLD_MS = 1500;
-const SHARES_BODY = f => f.startsWith('weather-') || f.startsWith('surface-') || f === 'on-perch';
-let pose = null;   // the pose showing
-let poseAt = 0;    // ...since when
-let wanted = null; // the newest one main asked for
-let poseTimer = null;
-function setPose(next) {
-  wanted = WORK_POSES.has(next) ? next : null;
-  clearTimeout(poseTimer);
-  if (wanted === pose) return false;
-  const wait = pose && wanted ? poseAt + POSE_HOLD_MS - Date.now() : 0;
-  if (wait > 0) { poseTimer = setTimeout(() => { if (setPose(wanted)) paintBody(); }, wait); return false; }
-  pose = wanted;
-  poseAt = Date.now();
-  return true;
-}
-const poseClass = dropping => (state === 'working' && pose && pose !== 'busy' && !molt && !dropping && ![...flags].some(f => !SHARES_BODY(f)) ? `work-${pose}` : '');
+const WORK = window.ShellbyWorkPoses;
+const SWAP_MS = 332; // into his shell for the next thing, and back out (two steps of the work beat)
+// The claw dipping for the next tool is part of the pose, not something that takes it over.
+const SHARES_BODY = f => f.startsWith('weather-') || f.startsWith('surface-') || f === 'on-perch' || f === 'tool-swap';
+let swapTimers = [];
+const poses = WORK.holder((shown, was) => {
+  const item = shown ? WORK.ITEMS[shown] : null;
+  swapTimers.forEach(clearTimeout);
+  swapTimers = [];
+  flags.delete('tool-swap');
+  // From one thing in his claw to another while he works: the claw dips into
+  // his shell, and comes back out with it.
+  if (state === 'working' && was && WORK.ITEMS[was] !== item &&!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    flags.add('tool-swap');
+    swapTimers = [
+      setTimeout(() => holdTool(item), SWAP_MS / 2),
+      setTimeout(() => { flags.delete('tool-swap'); paintBody(); }, SWAP_MS),
+    ];
+  } else {
+    holdTool(item);
+  }
+  paintBody();
+});
+const poseClass = dropping => {
+  const pose = poses.shown();
+  return state === 'working' && pose && pose !== 'busy' && !molt && !dropping && ![...flags].some(f => !SHARES_BODY(f)) ? `work-${pose}` : '';
+};
 
 function paintBody() {
   const dropping = document.body.classList.contains('dropping');
@@ -464,6 +493,7 @@ function paintBody() {
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
     focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '',
+    planning && state === 'working' ? 'planning' : '', planReady && state === 'asking' ? 'plan-ready' : '',
     poseClass(dropping),
     stillNow ? 'calm-deep' : '', // kept through every repaint, or the next state push would wake him
     ...needClasses(), ...flags,
@@ -474,7 +504,6 @@ function paintBody() {
 api.onState(msg => {
   const wasLoad = clawLoad();
   state = msg.state;
-  setPose(state === 'working' ? msg.work : null);
   health = msg.health || null;
   level = msg.level || level;
   ciFailing = msg.ci?.failing || 0;
@@ -482,6 +511,8 @@ api.onState(msg => {
   limit = msg.limit || null;
   say = msg.say || null;
   onCall = !!msg.call;
+  planning = !!msg.planning;
+  planReady = !!msg.plan;
   confetti = msg.confetti !== false;
   window.ShellbySound.setMix(msg.sound);
   needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;
@@ -492,6 +523,7 @@ api.onState(msg => {
   if (wantsSign() && !tossed && settled() && heldItem()) throwHeld();
   if (!wantsSign() && tossed && settled()) catchHeld();
   if (wasGuarding !== (focusing?.phase === 'focus') || wasLoad !== clawLoad()) drawSelf();
+  poses.set(msg.work, state === 'working'); // how he works, and what's in his claw for it
   healthFx.set(health?.mood);
   paintBody();
   // Work a turn backgrounded and never came back to. It outlasts his moods, so
@@ -903,7 +935,9 @@ api.onTogether(msg => {
 // ---- what src/renderer/critter/life.js needs from in here: his slots, a
 // redraw, his body classes, and where the visitor is.
 window.ShellbyCritter = {
-  wear(slot, item) { if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
+  // Clearing a slot that's already empty (a scene cancelled as a nap or a task
+  // starts) leaves him be: a redraw would cut short the parts moving into the new mood.
+  wear(slot, item) { if (!item && !overrides.has(slot)) return; if (item) overrides.set(slot, item); else overrides.delete(slot); drawSelf(); },
   flags, paint: paintBody, setDir, hearts,
   px: () => px,
   claw: () => skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw,

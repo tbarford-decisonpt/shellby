@@ -200,6 +200,8 @@ function registerSurroundingsIpc(ipcMain, d) {
   // picks the path itself, saves it and puts it on the clipboard.
   /** @type {string | null} */
   let lastCard = null;
+  // What a card may be called after: anything else is just a card. Moments are moment-card.js's.
+  const CARD_KINDS = new Set(['week', 'beach', 'shiny', 'medal', 'board', 'egg']);
   // Isolated dev/test runs keep cards in their throwaway profile and never touch the clipboard.
   const isolated = !app.isPackaged && !!process.env.SHELLBY_USER_DATA;
   const cardImage = bytes => {
@@ -223,7 +225,7 @@ function registerSurroundingsIpc(ipcMain, d) {
       const dir = path.join(isolated ? app.getPath('userData') : app.getPath('pictures'), 'Shellby');
       fs.mkdirSync(dir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-      lastCard = path.join(dir, `shellby-${kind === 'week' || kind === 'beach' ? kind : 'card'}-${stamp}.png`);
+      lastCard = path.join(dir, `shellby-${CARD_KINDS.has(kind) ? kind : 'card'}-${stamp}.png`);
       fs.writeFileSync(lastCard, card.buf);
     } catch (e) {
       d.log.warn("couldn't save a crab card", e?.message);

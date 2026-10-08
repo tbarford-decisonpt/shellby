@@ -89,7 +89,7 @@ function registerRepoIpc(ipcMain, d) {
   async function mergeTabHome(tabId, w, { green, firstTry, push }) {
     // It waited its turn: he may have started on something since.
     if (d.manager.isBusy(tabId)) return { ok: false, error: 'He started on something new. Bring it home once he has finished.' };
-    const merged = { ...await worktrees.bringHome(w, { message: worktrees.workMessage(w.branch, d.manager.tabs.get(tabId)?.title) }), ...green };
+    const merged = { ...await worktrees.bringHome(w, { message: worktrees.workMessage(w.branch, d.manager.tabs.get(tabId)?.title), trailer: d.crabTrailer() }), ...green };
     d.bugdex?.homeResult(tabId, w, merged); // a clash is a Two-Headed Crab; home at last, it's caught
     if (!merged.ok) {
       // What git said goes in the conversation, where it can be read in full.
@@ -255,7 +255,7 @@ ${r.detail}` });
   // The merges and the push, on this checkout's turn (home-line.js).
   async function homeAll(root, list, busy, gated, opts, tabId) {
     const titles = new Map(list.map(c => [c.w.branch, c.title]));
-    const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => worktrees.workMessage(w.branch, titles.get(w.branch)) });
+    const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => worktrees.workMessage(w.branch, titles.get(w.branch)), trailer: d.crabTrailer() });
     for (const x of r.results) {
       const c = list.find(l => l.w.branch === x.branch);
       if (x.ok && x.merged && c && d.manager.tabs.has(c.id)) d.manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });

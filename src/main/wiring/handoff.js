@@ -18,10 +18,12 @@ function wireHandoff(d) {
 
   // Windows Terminal's own launcher, where the Store and winget both put it.
   // Not on PATH lookup: Shellby works in project folders (see system32.js).
+  // lstat, not existsSync: wt.exe is an app execution alias, a reparse point
+  // Node can't follow, so existsSync calls it missing.
   function wtPath() {
     const local = process.env.LOCALAPPDATA;
     const wt = local && path.join(local, 'Microsoft', 'WindowsApps', 'wt.exe');
-    return wt && fs.existsSync(wt) ? wt : null;
+    try { return wt && fs.lstatSync(wt) ? wt : null; } catch { return null; }
   }
 
   // Claude Code looks for a conversation under the folder it's resumed in. One
@@ -174,7 +176,29 @@ function wireHandoff(d) {
     return { text: `It's open in Shellby. ${check.warning}` };
   }
 
-  return { continueInTerminal, pickUp, bringIn, take };
+  /**
+   * Claude Code's cloud review of a conversation's branch (/code-review ultra),
+   * in a terminal of its own in that conversation's folder or copy. It runs
+   * interactively on purpose: Claude Code's launch dialog says what it costs
+   * and asks before anything starts, and the review is billed apart from your plan.
+   */
+  async function ultraReview(tabId) {
+    const tab = d.manager.tabs.get(tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    const cwd = handoff.terminalCwd({ cwd: tab.session?.cwd, worktree: tab.worktree }, isDir);
+    if (!cwd) return { ok: false, error: "That conversation's folder isn't there any more." };
+    const exe = claudeExe();
+    if (!exe) return { ok: false, error: 'Claude Code is not installed.' };
+    const r = handoff.launchPlans({
+      exe, cwd, prompt: handoff.TERMINAL_PROMPTS.ultraReview, scrub: billingScrub(), env: terminalEnv(),
+      wt: wtPath(), powershell: POWERSHELL, cmd: CMD,
+    });
+    const started = r.ok ? await handoff.launch(r.plans, spawn) : r;
+    if (!started.ok) return started;
+    return { ok: true, shell: started.shell, text: `Opened ${handoff.SHELL_NAMES[started.shell] || 'a terminal'} with /code-review ultra. Claude Code asks there before it starts.` };
+  }
+
+  return { continueInTerminal, pickUp, bringIn, take, ultraReview };
 }
 
 module.exports = { wireHandoff };

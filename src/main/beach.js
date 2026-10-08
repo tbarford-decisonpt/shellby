@@ -21,6 +21,7 @@ const stickers = require('./stickers');
 const streaks = require('./streaks');
 const gifts = require('./gifts');
 const bugdex = require('./bugdex');
+const moon = require('./moon');
 
 const HEIGHT = 100;            // the scene, top of the sky to the front of the sand
 const SEA_TOP = 36;            // the horizon
@@ -350,6 +351,7 @@ function view({ stickerState, streakState, findState, bugState = null, state: st
   }
 
   const bugs = bugdex.normalize(bugState);
+  const tonight = moon.phase(now);
   const newBugs = since > 0 ? Object.values(bugs.species).filter(e => bugdex.caughtOf(e) > 0 && e.first > since).length : 0;
 
   return {
@@ -366,6 +368,8 @@ function view({ stickerState, streakState, findState, bugState = null, state: st
     },
     news: castles.filter(c => c.isNew || c.grew).length + finds.filter(f => f.isNew).length + newBugs,
     firstVisit: since === 0,
+    // The real moon tonight (moon.js): the night sky shows its phase.
+    moon: { fraction: Math.round(tonight.fraction * 1000) / 1000, name: tonight.name },
   };
 }
 

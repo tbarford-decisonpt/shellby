@@ -8,7 +8,11 @@ const focus = require('../focus');
 const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: friendsSyncable } = require('../friends');
 const bugdex = require('../bugdex');
+const swaps = require('../swaps');
+const eggs = require('../eggs');
+const events = require('../events');
 const gifts = require('../gifts');
+const recap = require('../recap');
 const { TokenStore } = require('../github/auth');
 const { CiHub } = require('../ci-hub');
 const { CiWatcher } = require('../github/ci');
@@ -74,12 +78,15 @@ function wireGithub(d) {
       const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
       const tankMoved = 'tank' in patch && JSON.stringify(tankShare.syncable(patch.tank)) !== JSON.stringify(tankShare.syncable(prev.tank));
       const friendsMoved = 'friends' in patch && friendsChanged(patch, prev);
-      if (changed || stickersMoved || tankMoved || friendsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
+      const eventsMoved = 'events' in patch && JSON.stringify(events.normalize(patch.events)) !== JSON.stringify(events.normalize(prev.events));
+      if (changed || stickersMoved || tankMoved || friendsMoved || eventsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
     d.profileCard = new ProfileCard({ config: d.config, github: d.github });
     d.prBadge = new prBadges.PrBadge({ config: d.config, github: d.github, level: d.currentLevel, web: githubEndpoints().web });
+    // The line under him: his title and class, the week's catches, and the tide event's emoji (crab-line.js).
+    d.prBadge.summary = () => d.crabSummary();
   }
 
   // Who's on the friends list (or was removed) differs: not a card fetch or a visit.
@@ -234,7 +241,10 @@ function wireGithub(d) {
           temperament: voice.temperamentOf(voice.normalize(d.config.get('voice')).seed),
           find: gifts.favourite(d.config.get('finds'))?.id || null,
           tank: tankShare.forCard(d.config.get('tank')), // only if you share it
-          bugdex: d.config.get('shareBugdex') ? bugdex.shared(d.config.get('bugdex')) : null, // only if you share it
+          bugdex: d.config.get('shareBugdex') ? bugdex.shared(d.config.get('bugdex'), Date.now()) : null, // only if you share it: kinds, badges, this month's tally
+          swap: swaps.forCard(d.config.get('finds')), // spare finds, and what you're after (swaps.js)
+          eggs: eggs.forCard(d.config.get('eggs'), d.github.view().login), // hashes only: the code is what hatches one
+          medals: events.normalize(d.config.get('events')).medals,
         };
       },
       sharesTank: () => !!tankShare.forCard(d.config.get('tank')), // a visit then counts for House Guest
@@ -298,6 +308,7 @@ function wireGithub(d) {
     if (type !== 'comment') d.workflows?.event('ci', { event: type, forge: pr.forge || 'github', ref: where, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
     const open = () => openPrUrl(pr);
     if (type === 'failed') d.noteRed(`ci:${where}`);
+    d.noteRecap?.(recap.ciEvent(type, where, pr.title)); // red or back to green, in the while-you-were-away card
     if (type === 'fixed') d.noteFix(`ci:${where}`);
     // A Red Tide (or a Kraken...) on the loose; caught when it goes green with Shellby's help.
     if (type === 'failed') d.bugdex?.ciFailed(pr);

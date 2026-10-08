@@ -28,7 +28,8 @@ const DEFAULTS = {
   recap: true,        // a digest of what happened when you come back after an hour away (see recap.js)
   leaveGuard: true,   // hold up a shutdown or sign-out while work is unpushed, uncommitted or mid-turn (see leaving.js)
   model: '', // '' -> Claude Code's default
-  effort: '', // '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
+  effort: '', // new conversations' effort: '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
+  effortPick: true, // with effort on Auto, size each new conversation from its first message instead (effort-pick.js)
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude-cli.js)
@@ -65,6 +66,12 @@ const DEFAULTS = {
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex.js)
+  events: null,      // tide events: each run's goals, and the medals won (see events.js)
+  boardLast: null,   // where you stood on the friends' board last time it was drawn (see board.js)
+  swaps: null,       // swaps with friends: offers out and in, and the last few done (see swaps.js)
+  eggs: null,        // crab eggs: the ones he laid, the one you hatched, your clutch (see eggs.js)
+  tideEvents: true,  // tide events on: their banner, goals, bugs and finds (see events.js)
+  signCommits: false, // a "Shipped-with: Shellby" trailer on Shellby's own bring-home commits (see crab-line.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
   play: null,        // hide and seek and fetch scores (see play.js)
   needs: null,       // his tummy, shine, pep and cheer, and the snack pantry (see needs.js); this PC only
@@ -143,6 +150,7 @@ const DEFAULTS = {
   snippetUse: {},     // { name: { n, at } }: how often each snippet has run, and when last
   snippetFormat: 0,   // snippets.FORMAT once the saved list has been migrated to it
   learnedTricks: [],  // recently discovered skills/agents/commands
+  skillsSeen: null,   // skills Claude has used in Shellby, so the first use of each is noticed (wiring/native.js)
   corrections: null,  // { events, offers }: corrections noted and rules offered from them (see corrections.js); this PC only
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on

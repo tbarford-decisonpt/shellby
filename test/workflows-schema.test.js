@@ -64,7 +64,7 @@ test('every step type validates its own fields', () => {
       { id: 'look', type: 'claude', prompt: 'Look at {{ inputs.target }}', mode: 'plan', output: { files: 'list', fixable: { type: 'boolean', description: 'can it be fixed' } } },
       { type: 'run', command: 'npm test', cwd: 'C:\\code', allowFail: true, retry: { times: 2, delaySec: 5 }, timeoutMin: 5 },
       { type: 'http', method: 'post', url: 'https://example.com/hook', headers: { Authorization: 'Bearer {{ secrets.TOKEN }}' }, body: { a: 1 } },
-      { type: 'ask', question: 'Go on?', choices: ['Ship', 'Wait'] },
+      { type: 'ask', question: 'Go on?', choices: ['Ship', 'Wait'], path: 'C:\\plan.md' },
       { type: 'set', values: { total: '{{ look.files | length }}', list: [1, 2] } },
       { type: 'if', test: 'look.fixable', then: [{ type: 'tell', to: 'phone', text: 'fixable' }], else: [{ type: 'stop', status: 'error', message: 'no' }] },
       { type: 'each', over: '{{ look.files }}', as: 'file', steps: [{ type: 'tell', text: '{{ file }} #{{ loop.number }}' }] },
@@ -79,6 +79,8 @@ test('every step type validates its own fields', () => {
   assert.equal(http.method, 'POST');
   assert.equal(http.body, '{"a":1}');
   assert.deepEqual(ask.choices, ['Ship', 'Wait']);
+  assert.equal(ask.path, 'C:\\plan.md');
+  assert.ok(errs(base({ steps: [{ type: 'ask', question: 'Edited?', path: 'plan.md' }] })).some(e => e.path === 'steps[0].path'));
   assert.equal(set.values.list, '[1,2]');
   assert.equal(ifs.then.length, 1);
   assert.equal(ifs.else[0].type, 'stop');

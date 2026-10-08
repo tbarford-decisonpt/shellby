@@ -27,11 +27,14 @@
     'first-try': ['🎯', 'First try'], swift: ['⚡', 'Swift'], golden: ['✦', 'Golden'], nocturnal: ['☾', 'Nocturnal'],
     spectral: ['👻', 'Spectral'], shiny: ['✨', 'Shiny'], 'for-good': ['🛡', 'For good'],
   };
+  // The tide events' names (src/main/events.js EVENTS: the renderer can't require main files).
+  const EVENTS = { harvest: '🌾 Harvest Moon', haunting: '🎃 The Haunting', frostbite: '❄️ Frostbite', penpal: '💌 Pen Pal Week', 'spring-clean': '🌸 Spring Clean', 'low-tide': '🌊 Low Tide' };
   const LANGS = { js: 'JS', ts: 'TypeScript', py: 'Python', rust: 'Rust', go: 'Go', jvm: 'JVM', cs: 'C#', rb: 'Ruby', php: 'PHP', git: 'Git', ci: 'CI' };
   const STAGE_NAMES = ['', 'I', 'II', 'III', 'Master'];
 
   let selected = null; // the species whose card is open
   let filter = 'all';  // all, caught, seen, or a habitat id
+  let boardTab = 'all'; // the friends' board: all, a habitat id, or sparkles
   let seenTimer = null;
 
   SB.NAV_SECTION.bugdex = 'wardrobe'; // a tab of the Shellby screen, like Finds
@@ -67,6 +70,7 @@
     if (!v) return;
     renderHero(v);
     renderLeague(v);
+    renderBoard(v);
     renderFriends(v);
     renderLoose(v);
     renderHabitats(v);
@@ -133,6 +137,41 @@
       l.hall ? h('p', { class: 'bd-hall', text: `🏆 Hall of Fame, ${day(l.hall)}. Every badge, the Deep Four and the champion.` }) : '');
   }
 
+  // The friends' board (src/main/board.js): this month, you and friends who share their Bugdex.
+  function renderBoard(v) {
+    const b = v.board;
+    $('bdBoard').hidden = !b;
+    if (!b) return;
+    if (!b.tabs.some(t => t.id === boardTab)) boardTab = 'all';
+    $('bdBoardTitle').textContent = `${b.month}: the friends' board`;
+    $('bdBoardTabs').replaceChildren(...b.tabs.map(t => h('button', {
+      type: 'button', role: 'tab', 'aria-selected': String(t.id === boardTab), dataset: { board: t.id },
+    }, `${t.icon} ${t.label}`)));
+    const unit = boardTab === 'sparkles' ? ['sparkly', 'sparklies'] : ['bug', 'bugs'];
+    $('bdBoardList').replaceChildren(...b.rows[boardTab].map(r => h('li', { class: `bd-board-row${r.me ? ' me' : ''}${r.place === 1 && r.value ? ' first' : ''}` },
+      h('span', { class: 'bd-board-place', 'aria-label': `Place ${r.place}` }, r.medal || String(r.place)),
+      h('b', { class: 'bd-board-name', text: r.me ? `You${r.login !== 'you' ? ` (@${r.login})` : ''}` : `@${r.login}` }),
+      h('span', { class: 'bd-board-n', text: plural(r.value, unit[0], unit[1]) }))));
+  }
+
+  function shareBoard() {
+    const b = dex()?.board;
+    if (!b) return;
+    const rows = b.rows.all;
+    const me = rows.find(r => r.me);
+    const top = rows.slice(0, 3).map(r => `${r.medal || r.place} ${r.me ? 'me' : `@${r.login}`}: ${r.value}`);
+    SB.momentCard.share('board', {
+      eyebrow: `🫙 The friends' board · ${b.month}`, title: me?.place === 1 && me.value ? 'Top crab!' : `${me ? SB.ordinal(me.place) : '?'} of ${rows.length}`,
+      sub: top.join('   '), accent: '#ffc15e', glints: me?.place === 1,
+      art: dex().species.find(s => s.id === dex().favourite && s.state === 'caught') || null,
+      stats: [['bugs this month', me?.value ?? 0], ['crabs on the board', rows.length]],
+    }, {
+      title: `The friends' board, ${b.month}`,
+      alt: `The friends' board for ${b.month}: ${top.join(', ')}`,
+      post: `🦀 ${b.month} on the friends' board: ${me ? `${SB.ordinal(me.place)} of ${rows.length}` : ''}, with ${plural(me?.value || 0, 'bug')} Claude fixed and my Shellby jarred.`,
+    });
+  }
+
   function renderFriends(v) {
     const list = v.friends || [];
     $('bdFriends').hidden = !list.length;
@@ -163,6 +202,8 @@
       { id: 'caught', label: 'Caught', n: count('caught') },
       { id: 'seen', label: 'Seen', n: count('seen') },
       ...v.habitats.filter(x => x.of > 0).map(x => ({ id: x.id, label: `${x.icon} ${x.name}`, n: `${x.have}/${x.of}` })),
+      // The tide events' own bugs: there while one's on, and for good once caught.
+      ...(v.species.some(sp => sp.event) ? [{ id: 'tides', label: '🧭 Tide events', n: v.species.filter(sp => sp.event && sp.state === 'caught').length }] : []),
     ];
     if (!chips.some(c => c.id === filter)) filter = 'all';
     $('bdFilters').hidden = !v.seen;
@@ -171,12 +212,13 @@
     }, c.label, ' ', h('span', { class: 'n', text: String(c.n) }))));
   }
 
-  const shows = s => filter === 'all' || (filter === 'caught' ? s.state === 'caught' : filter === 'seen' ? s.state === 'seen' : s.habitat === filter);
+  const shows = s => filter === 'all' || (filter === 'caught' ? s.state === 'caught' : filter === 'seen' ? s.state === 'seen' : filter === 'tides' ? !!s.event : s.habitat === filter);
 
   function labelOf(s) {
     if (s.state === 'unknown') return `${num(s.no)}, not seen yet. ${s.blurb}`;
     if (s.state === 'seen') return `${num(s.no)} ${s.name}, seen but not caught yet. ${s.blurb}`;
     if (s.state === 'reported') return `${num(s.no)} ${s.name}, reported by a friend. ${s.blurb}`;
+    if (s.state === 'event') return `${num(s.no)} ${s.name}, out now for ${EVENTS[s.event] || 'a tide event'}. ${s.blurb}`;
     const forms = (s.forms || []).map(f => FORMS[f]?.[1]).filter(Boolean);
     return `${num(s.no)} ${s.name}, ${s.rarityLabel}, caught ${times(s.caught)}${forms.length ? `, ${forms.join(', ')}` : ''}${s.isNew ? ', new' : ''}`;
   }
@@ -190,16 +232,18 @@
   function tile(s) {
     const caught = s.state === 'caught';
     const forms = caught ? (s.forms || []).map(f => FORMS[f]?.[0]).filter(Boolean).join('') : '';
+    const sparkly = caught && (s.forms || []).includes('shiny');
     return h('li', {},
       h('button', {
-        type: 'button', class: `fd-tile bd-tile rarity-${s.rarity} ${s.state}${caught ? '' : ' locked'}${selected === s.id ? ' on' : ''}`,
+        type: 'button', class: `fd-tile bd-tile rarity-${s.rarity} ${s.state}${caught ? '' : ' locked'}${sparkly ? ' sparkly' : ''}${selected === s.id ? ' on' : ''}`,
         'aria-label': labelOf(s), 'aria-pressed': String(selected === s.id), dataset: { id: s.id },
         onclick: () => select(s.id),
       },
       h('span', { class: 'bd-no', 'aria-hidden': 'true', text: num(s.no) }),
       h('span', { class: 'fd-art' }, hasArt(s) ? art(s, 40) : unknownArt()),
       h('span', { class: 'fd-name', text: s.name }),
-      h('span', { class: 'fd-rarity', text: caught ? s.rarityLabel : s.state === 'seen' ? 'Seen' : s.state === 'reported' ? 'Reported' : '' }),
+      h('span', { class: 'fd-rarity', text: caught ? s.rarityLabel : s.state === 'seen' ? 'Seen' : s.state === 'reported' ? 'Reported' : s.state === 'event' ? 'Out now' : '' }),
+      sparkly ? h('span', { class: 'sparkle-pill', 'aria-hidden': 'true', text: '✨' }) : null,
       (s.boss || s.league) && s.state !== 'unknown' ? h('span', { class: `bd-rank-mark ${s.league || 'boss'}`, 'aria-hidden': 'true', text: s.league === 'champion' ? '★' : s.league ? '♛' : '♜' }) : null,
       h('span', { class: 'bd-meta', 'aria-hidden': 'true' }, pips(s), forms ? h('span', { class: 'bd-forms', text: forms }) : null),
       caught && s.caught > 1 ? h('span', { class: 'fd-count-pill', 'aria-hidden': 'true', text: `×${s.caught}` }) : null,
@@ -222,6 +266,7 @@
       return `${from.filter(Boolean).join(' · ')}. You haven’t met one yet.`;
     }
     if (s.state === 'seen') return `Seen ${times(s.seenCount || 1)}${s.seenAt ? ` · last spotted ${ago(s.seenAt)}` : ''} · not caught yet`;
+    if (s.state === 'event') return `Only while ${EVENTS[s.event] || 'its tide event'} is on, and only along with a real fix.`;
     if (s.state !== 'caught') return null;
     return [
       s.first ? `First caught ${day(s.first)}${s.firstProject ? ` in ${s.firstProject}` : ''}` : null,
@@ -260,7 +305,7 @@
       h('div', { class: 'fd-big' }, hasArt(s) ? art(s, 110) : unknownArt()),
       h('div', { class: 'fd-info' },
         h('p', { class: 'fd-rarity-line bd-where' },
-          [num(s.no), where?.name, caught ? s.rarityLabel : s.state === 'seen' ? 'Seen' : null].filter(Boolean).join(' · '),
+          [num(s.no), where?.name || (s.event ? EVENTS[s.event] : null), caught ? s.rarityLabel : s.state === 'seen' ? 'Seen' : s.state === 'event' ? 'Out now' : null].filter(Boolean).join(' · '),
           s.state !== 'unknown' && s.typeLabel ? h('span', { class: 'bd-type', style: HEX.test(s.typeColor) ? `--type:${s.typeColor}` : null, text: s.typeLabel }) : null),
         h('h3', { text: s.state === 'unknown' ? 'Not seen yet' : s.name }),
         nextLine(s),
@@ -280,6 +325,10 @@
 
   function rankLine(s, where) {
     if (s.state === 'unknown') return null;
+    if (s.event) {
+      const back = s.back && !s.eventOn ? ` Back ${new Date(s.back).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })}.` : '';
+      return h('p', { class: 'bd-rank-line event' }, h('span', { class: 'bd-event-tag', text: 'Tide event bug' }), ` From ${EVENTS[s.event] || 'a tide event'}.${back}`);
+    }
     if (s.league === 'champion') return h('p', { class: 'bd-rank-line champion', text: '★ The champion. Beat it with every badge and the Deep Four to make the Hall of Fame.' });
     if (s.league) return h('p', { class: 'bd-rank-line elite', text: '♛ One of the Deep Four, the hardest bugs in the sea.' });
     if (s.boss) {
@@ -381,6 +430,13 @@
     render();
   });
   $('bdForget').addEventListener('click', startOver);
+  $('bdBoardTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-board]');
+    if (!b || b.dataset.board === boardTab) return;
+    boardTab = b.dataset.board;
+    renderBoard(dex());
+  });
+  $('bdBoardShare').addEventListener('click', shareBoard);
 
   api.onBugdex(apply);
   api.onBugdexFocus(m => focusOn(m?.id));

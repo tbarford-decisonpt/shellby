@@ -455,6 +455,21 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .chg-more { margin: 0; padding: 0 11px 6px; }
 .chg-actions { display: flex; align-items: center; gap: 10px; padding: 6px 11px 9px; border-top: 1px solid var(--line-soft); }
 .chg-actions .btn.deny { border-color: var(--coral); color: var(--coral); }
+/* "Quiz me" on a turn's changes (feed-changes.js) */
+.quiz { padding: 4px 11px 10px; border-top: 1px solid var(--line-soft); }
+.quiz-q { margin: 8px 0 0; padding: 0; border: 0; min-width: 0; }
+.quiz-q legend { padding: 0; margin-bottom: 6px; font-size: var(--fs-12); color: var(--sand); }
+.quiz-choices { display: flex; flex-direction: column; gap: 4px; }
+.quiz-choice { text-align: left; padding: 5px 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--reef); color: var(--sand-dim); font: inherit; font-size: var(--fs-12); cursor: pointer; }
+.quiz-choice:hover:not(:disabled) { background: var(--reef-2); color: var(--sand); }
+.quiz-choice:disabled { cursor: default; }
+.quiz-choice.right { border-color: var(--glass); color: var(--sand); }
+.quiz-choice.right::before { content: '✓ '; color: var(--glass); }
+.quiz-choice.wrong { border-color: var(--coral); color: var(--sand); }
+.quiz-choice.wrong::before { content: '✗ '; color: var(--coral); }
+.quiz-why { margin: 6px 0 0; color: var(--sand-dim); }
+.quiz-result { margin: 10px 0 0; font-size: var(--fs-12); color: var(--sand); }
+.quiz-result:empty { display: none; }
 .diff {
   margin: 0; max-height: 360px; overflow: auto;
   background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm);
