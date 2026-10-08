@@ -373,6 +373,13 @@ body[data-view="projects"] .view-projects {
 .bl-foot { margin-top: 6px; gap: 10px; align-items: center; }
 .bl-note { margin: 6px 0 0; line-height: 1.45; }
 .bl-note .link-btn { vertical-align: baseline; }
+/* Linear and Jira: keys run longer than #42, and the setup sits quietly under the list. */
+.bl-tag.ticket { max-width: 52px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn.bl-tracker-link { margin-left: auto; color: var(--sand-faint); }
+.bl-tracker { margin-top: 8px; padding: 8px; border: 1px solid var(--line-soft); border-radius: 6px; }
+.bl-tracker-row { gap: 6px; align-items: center; }
+.bl-tracker-row + .bl-tracker-row { margin-top: 6px; }
+.bl-tracker-scope { flex: 1 1 180px; min-width: 0; }
 /* The inbox (inbox.js): what's waiting on you across every repo, above the list.
    The panel is narrow, so a row's buttons go under its text. */
 .pj-inbox[hidden] { display: none; }

@@ -314,6 +314,10 @@ contextBridge.exposeInMainWorld('shellby', {
   backlogOpenPr: invoke('backlog:open-pr'),
   backlogTickLinked: invoke('backlog:tick-linked'),
   onBacklogOfferTick: on('backlog:offer-tick'),
+  // Linear or Jira on Next up (backlog/trackers.js): set it up, and hear when a read in the background lands.
+  backlogTrackerChoices: invoke('backlog:tracker-choices'),
+  backlogTrackerSet: invoke('backlog:tracker-set'),
+  onBacklogChanged: on('backlog:changed'),
   // A project's next release (src/main/projects/releases-ipc.js): nothing is pushed unless you say so.
   getRelease: invoke('releases:get'),
   cutRelease: invoke('releases:cut'),

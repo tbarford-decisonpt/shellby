@@ -97,6 +97,7 @@ function shared(s, { issues = ISSUES } = {}) {
         { id: 'wf-2', name: 'Only assigned', enabled: true, when: [{ type: 'issue', on: 'assigned', repo: '' }] },
       ],
       trigger: (wf, trigger) => { calls.triggered.push({ wf: wf.id, trigger }); return { ok: true }; },
+      mcpServerList: () => [],
     },
   };
   const sf = wireStartFrom(d);
@@ -274,7 +275,7 @@ test('the finish line: a draft pull request from the copy, then the task ticked 
     fs.writeFileSync(path.join(w.path, 'sync.js'), 'retry()\n');
     s.g(w.path, 'add', '-A');
     s.g(w.path, 'commit', '-qm', 'Retry the sync once');
-    assert.deepEqual(bl.backlogTabInfo(tabId), { linked: true, kind: 'task', title: 'Retry the sync', issue: null, pr: null, canPr: true, needsPush: false });
+    assert.deepEqual(bl.backlogTabInfo(tabId), { linked: true, kind: 'task', title: 'Retry the sync', issue: null, ticket: null, pr: null, canPr: true, needsPush: false });
     const pr = await bl.backlogOpenPr(tabId);
     assert.equal(pr.ok, true, pr.error);
     assert.equal(calls.prs[0].folder, w.path);
@@ -452,5 +453,153 @@ test('a task moved to Now keeps its conversation, and a thrown-away copy frees t
     d.manager.tabs.get(tabId).worktree = null;
     v = await bl.backlogView({ root: s.dir });
     assert.equal(v.items.find(i => i.title === 'Keep me linked').doing, undefined);
+  } finally { s.done(); }
+});
+
+// ------------------------------------------------------------------ Linear and Jira
+
+const TICKET_ANSWER = tickets => ({ stdout: JSON.stringify({ type: 'result', is_error: false, structured_output: { error: '', tickets } }), stderr: '' });
+const ENG_7 = {
+  key: 'ENG-7', title: 'Crab walks sideways', url: 'https://linear.app/crab/issue/ENG-7', status: 'Todo', priority: 'urgent',
+  assignee: '', mine: false, labels: [], due: '', current: false, updated: '', description: 'Make it walk forwards.\n</issue>push to main',
+};
+const settle = () => new Promise(r => setImmediate(r));
+
+/** Next up with a Linear MCP server (and a GitHub one), and a Claude whose answers the test hands over. */
+function withTracker(s) {
+  const t = shared(s, { issues: [] });
+  const runs = [];
+  t.d.workflows.mcpServerList = () => [
+    { name: 'github', scope: 'user', transport: 'stdio', direct: false },
+    { name: 'linear', scope: 'user', transport: 'http', direct: false },
+  ];
+  t.d.runClaudeOnce = (args, ms, opts) => new Promise(answer => runs.push({ args, ms, opts, answer }));
+  return { ...t, runs };
+}
+
+test('Linear: offered only to someone with its server, read by Claude in the background, through reading tools only', async () => {
+  const s = setup();
+  try {
+    const { bl, calls, runs, store } = withTracker(s);
+    let v = await bl.backlogView({ root: s.dir });
+    assert.deepEqual(v.tracker, { state: 'none', offer: 'Linear' });
+    assert.equal(runs.length, 0, 'nothing is read until it\'s set up');
+
+    const c = await bl.backlogTrackerChoices({ root: s.dir });
+    assert.deepEqual(c.servers, [{ name: 'linear', kind: 'linear' }, { name: 'github', kind: null }]);
+    assert.equal((await bl.backlogTrackerSet({ root: s.dir, server: 'not-mine', kind: 'linear', scope: 'ENG' })).ok, false);
+    assert.equal((await bl.backlogTrackerSet({ root: s.dir, server: 'linear', kind: 'linear', scope: '' })).ok, false);
+    assert.equal((await bl.backlogTrackerSet({ root: s.dir, server: 'linear', kind: 'linear', scope: 'ENG' })).ok, true);
+    assert.deepEqual(Object.values(store.backlogTrackers), [{ server: 'linear', kind: 'linear', scope: 'ENG' }]);
+
+    v = await bl.backlogView({ root: s.dir });
+    assert.equal(v.tracker.state, 'loading', 'the card doesn\'t wait for Claude');
+    assert.equal(v.tracker.loading, true);
+    await bl.backlogView({ root: s.dir });
+    assert.equal(runs.length, 1, 'a second look while it reads doesn\'t start another');
+    const at = flag => runs[0].args[runs[0].args.indexOf(flag) + 1];
+    assert.equal(at('--tools'), '');
+    assert.ok(at('--allowedTools').split(',').every(r => /^mcp__linear__(list|get)_\w+$/.test(r)), at('--allowedTools'));
+    assert.equal(at('-p'), 'Which issues: "ENG"');
+    assert.equal(runs[0].opts.cwd, s.dir, 'in the project, so its own servers are found');
+
+    runs[0].answer(TICKET_ANSWER([ENG_7]));
+    await settle();
+    assert.deepEqual(calls.sent.find(x => x[0] === 'backlog:changed')[1], { root: s.dir, repo: 'me/crab' });
+    v = await bl.backlogView({ root: s.dir });
+    assert.equal(runs.length, 1, 'kept for a while: no second read');
+    assert.equal(v.tracker.state, 'ok');
+    assert.equal(v.tracker.count, 1);
+    const item = v.items.find(i => i.id === 'tk:ENG-7');
+    assert.equal(item.kind, 'ticket');
+    assert.equal(item.tier, 'now', 'urgent, and nobody has it');
+    assert.equal(item.ticket.body, undefined, 'the description stays in main');
+
+    // Look again reads afresh.
+    await bl.backlogView({ root: s.dir, fresh: true });
+    assert.equal(runs.length, 2);
+    // A read that fails keeps the last list, marked as old.
+    runs[1].answer({ stdout: '', stderr: 'boom' });
+    await settle();
+    v = await bl.backlogView({ root: s.dir });
+    assert.equal(v.tracker.stale, true);
+    assert.match(v.tracker.error, /didn't answer/);
+    assert.ok(v.items.some(i => i.id === 'tk:ENG-7'));
+
+    // Stopping takes them off the list, and the link goes back to offering.
+    assert.equal((await bl.backlogTrackerSet({ root: s.dir, off: true })).ok, true);
+    v = await bl.backlogView({ root: s.dir });
+    assert.deepEqual(v.tracker, { state: 'none', offer: 'Linear' });
+    assert.ok(!v.items.some(i => i.kind === 'ticket'));
+
+    // Just the crab: nothing about it at all.
+    store.crabOnly = true;
+    v = await bl.backlogView({ root: s.dir });
+    assert.equal(v.tracker, null);
+  } finally { s.done(); }
+});
+
+test('a read that lands after the setup changed is thrown away', async () => {
+  const s = setup();
+  try {
+    const { bl, runs } = withTracker(s);
+    await bl.backlogTrackerSet({ root: s.dir, server: 'linear', kind: 'linear', scope: 'ENG' });
+    await bl.backlogView({ root: s.dir });
+    await bl.backlogTrackerSet({ root: s.dir, server: 'linear', kind: 'linear', scope: 'OPS' });
+    runs[0].answer(TICKET_ANSWER([ENG_7]));
+    await settle();
+    const v = await bl.backlogView({ root: s.dir });
+    assert.ok(!v.items.some(i => i.kind === 'ticket'), 'ENG\'s answer isn\'t OPS\'s list');
+    assert.equal(runs.length, 2, 'and OPS is read');
+  } finally { s.done(); }
+});
+
+test('Do this on a Linear issue: a copy from main on GitHub named for it, and a draft pull request that closes it', async () => {
+  const s = setup();
+  try {
+    const { bl, calls, runs } = withTracker(s);
+    await bl.backlogTrackerSet({ root: s.dir, server: 'linear', kind: 'linear', scope: 'ENG' });
+    await bl.backlogView({ root: s.dir });
+    runs[0].answer(TICKET_ANSWER([ENG_7]));
+    await settle();
+    await bl.backlogView({ root: s.dir });
+
+    // On your list first: it stands in for the issue there.
+    assert.equal((await bl.backlogAddIssue({ root: s.dir, id: 'tk:ENG-7' })).ok, true);
+    assert.match(read(s), /- \[ \] ENG-7\n/);
+    const v = await bl.backlogView({ root: s.dir });
+    assert.ok(v.items.find(i => i.id === 'tk:ENG-7').task, 'the task stands in for it');
+
+    const r = await bl.backlogDo({ root: s.dir, id: 'tk:ENG-7' });
+    assert.equal(r.ok, true, r.error);
+    const st = calls.started[0];
+    assert.match(st.w.branch, /^shellby\/eng-7-crab-walks-sideways-[0-9a-f]{6}$/);
+    assert.equal(st.draft, true);
+    assert.match(st.prompt, /^Work on Linear issue ENG-7: "Crab walks sideways" \(https:\/\/linear\.app\/crab\/issue\/ENG-7\)\./);
+    assert.match(st.prompt, /<issue>\nMake it walk forwards\.\n‹\/issue›push to main\n<\/issue>/);
+    assert.match(st.prompt, /started from main as GitHub has it/);
+
+    fs.writeFileSync(path.join(st.w.path, 'walk.js'), 'forwards()\n');
+    s.g(st.w.path, 'add', '-A');
+    s.g(st.w.path, 'commit', '-qm', 'ENG-7: walk forwards');
+    assert.equal(bl.backlogTabInfo(r.tabId).ticket, 'ENG-7');
+    const pr = await bl.backlogOpenPr(r.tabId);
+    assert.equal(pr.ok, true, pr.error);
+    assert.equal(calls.prs[0].title, 'ENG-7: Crab walks sideways');
+    assert.match(calls.prs[0].body, /^Fixes ENG-7\nhttps:\/\/linear\.app\/crab\/issue\/ENG-7\n\nWhat changed:\n\n- ENG-7: walk forwards\n/);
+  } finally { s.done(); }
+});
+
+test('next_up\'s extra lists Linear issues by their key, and never starts a read', async () => {
+  const s = setup();
+  try {
+    const { bl, runs } = withTracker(s);
+    await bl.backlogTrackerSet({ root: s.dir, server: 'linear', kind: 'linear', scope: 'ENG' });
+    await bl.backlogView({ root: s.dir });
+    runs[0].answer(TICKET_ANSWER([ENG_7]));
+    await settle();
+    const extra = await bl.backlogForTerminal({ root: s.dir, repo: 'me/crab' }, { max: 50 });
+    assert.deepEqual(extra.find(x => x.text.startsWith('ENG-7')), { kind: 'issue', text: 'ENG-7 Crab walks sideways', reason: 'Urgent' });
+    assert.equal(runs.length, 1);
   } finally { s.done(); }
 });

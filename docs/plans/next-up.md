@@ -55,6 +55,7 @@ Each phase ships on its own (bump, CHANGELOG, tag at merge, as every shellby cha
 | `src/main/backlog/tasks.js` | `.shellby/tasks.md` → tasks, and the edits back (add, tick, edit, remove, move). Pure: text in, text out. |
 | `src/main/backlog/github.js` | A repository's open issues and milestones from the API → items. Takes `gh` as a dependency. |
 | `src/main/backlog/rank.js` | Issues + loose ends + tasks → one ranked list with reasons, references folded together. Pure. |
+| `src/main/backlog/trackers.js` | Linear and Jira: which MCP servers look like them, the read-only `claude -p` call, its answer → items. Pure. |
 | `src/main/backlog/prompts.js` | The prompt for each kind of item. Pure. |
 | `src/main/wiring/backlog.js` | The service: caches, reading and writing the file safely, links between items and the tabs working on them, Do this. |
 | `src/main/ipc/backlog.js` | `backlog:*` channels; the panel only names things, main looks them up (the same pattern as `ipc/startfrom.js`). |
@@ -306,6 +307,18 @@ Phase 3 adds the headless way as a separate, explicit choice: **⋯ → Hand it 
 - **Tick it off?** When a task's copy is brought home, or its pull request merges (the merge watcher that pays stickers already sees this), Shellby asks once, on the card and as a quiet toast. A yes ticks it off in your checkout.
 - **Commit tasks.md:** "tasks.md has changes no commit has · Commit" under the card, running `git commit --only -m "chore: update tasks" -- .shellby/tasks.md`. Nothing else you have staged or changed goes in, and nothing is pushed.
 
+## Linear and Jira
+
+Optional, per project, and invisible to anyone without a Linear or Jira MCP server. Shellby gets no API client and no sign-in of its own: the issues come through the server you already use with Claude Code, the same servers a workflow's Claude step can use (`mcpservers.js`).
+
+- **Offered** only when `mcpServerList` for the project has a server whose name (or, for one Shellby can load, its definition) says `linear`, `jira` or `atlassian` (`trackers.kindOf`). Then the card's footer ends with a quiet **Linear…** / **Jira…** link that opens a three-field form: the server, Linear or Jira, and which issues in your own words (a team, a project, a JQL search). Saved in `config.backlogTrackers[projectKey] = { server, kind, scope }`, this PC only.
+- **Read** by one `claude -p` call (`runClaudeOnce`, Haiku, `--json-schema`) in the project's folder, in the background: the view returns what was last read (or `loading`) and never waits. When the read lands, main sends `backlog:changed` and the card looks again. Kept 30 minutes in memory; **Look again** reads afresh; the terminal's `next_up` only uses what's kept and never starts a read.
+- **Only reading.** `--tools ''` (none of Claude Code's own tools) and `--allowedTools` naming each reading tool in full, never `mcp__server__*`: for a server Shellby can start itself, the tools it marks `readOnlyHint` or whose names start with list/get/search… with no create/update/comment… word in them (`trackers.readingTools`); for a connector or OAuth server, the official servers' known reading tools. Anything else Claude tries is refused, since a `-p` call has nobody to ask. On top of that, `--disallowedTools` (which beats any allow rule, your own settings' included) takes away the server's tools with a changing word anywhere in the name (`mcp__linear__*create*`, `*Comment*`…) and every other MCP server's tools whole (`trackers.deniedFor`). So a description that says "close this issue" can't. (Checked against Claude Code: `--tools ""` keeps MCP tools, connectors included; an unlisted tool in `-p` is refused into `permission_denials`; a wildcard deny removes the tool from the session.)
+- **The answer is data:** each issue through `ticketOf`: a key like `ENG-123`, titles and descriptions cleaned like GitHub's (`clip`, `clipBody`, description capped at 1500), a URL kept only on the tracker's own host, at most 50, the first of each key.
+- **Ranked** (`rank.js` `scoreTicket`): urgent +5, high +4, medium +1; yours +4; in the current cycle or sprint +3; due within 3 days +5 (any due date +1); bug +2; active lately +1; someone else's −3. **Now** when urgent/high or due soon and yours or nobody's; **Up next** when yours or in the current cycle; otherwise **Later**. A task `- [ ] ENG-123 note` stands in for it (`tasks.js` `ticket`), only when the list has that key, so `UTF-8 handling` stays a task.
+- **Do this:** like an issue: on GitHub, `makeIssueCopy` from the default branch; otherwise a copy from HEAD. The branch slug starts with the key (`eng-123-…`), which is how Linear and Jira link branches. `ticketPrompt` fences the description and says not to change the issue in the tracker. The draft pull request is titled `ENG-123: title`, and its body starts `Fixes ENG-123` for Linear (closes it on merge) or the key for Jira.
+- Failures stay on the card: a read that fails keeps the last list, marked as old; a server that's gone, no reading tools, or Claude saying it can't (signing in, no such team) are one plain line.
+
 ## Security notes
 
 - **Issue text is someone else's.** It's fenced, cleaned (`clipBody`), capped at 4000 characters, labelled as a request, waits in the box, and is flagged when you didn't write it. The copy starts from the default branch, not from anyone's pull request, so the `CLAUDE.md` / `.claude/` / `.mcp.json` it loads are the repository's own (the risk `prRisks` exists for doesn't come up).
@@ -382,7 +395,8 @@ States the card gets (`view().sentry.state`): `none` (shows nothing), `offer` (u
 - **Syncing tasks to GitHub issues.** A task is a note to yourself. **Add to my tasks** goes from an issue to a task, never the other way round. Filing an issue is a separate, deliberate act.
 - **Drag to reorder mixed items.** Your order lives in the file. Referencing an issue (`- [ ] #42`) is how you put it where you want it.
 - **Polling for issues.** The list is read when you look at it. Being told about new ones is the Issue watcher's job.
-- **Other forges.** Only GitHub, like the rest of the GitHub features.
+- **Other forges.** Only GitHub, like the rest of the GitHub features. Linear and Jira come in as issue trackers, through your MCP server, not as forges: no pull requests, no API client.
+- **Changing Linear or Jira issues.** The read can't, and Do this's prompt says not to. Moving an issue along is yours to do, or Claude's in the conversation if you ask it there.
 
 ## Decisions
 

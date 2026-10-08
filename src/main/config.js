@@ -114,6 +114,7 @@ const DEFAULTS = {
   issueWatch: null,   // which GitHub issues he has already offered to take on (see github/issues.js)
   backlogDoing: {},   // Next up items with a conversation on them, by project (see wiring/backlog.js); this PC only
   backlogHidden: {},  // Next up items you hid, by project; this PC only
+  backlogTrackers: {}, // { project key: { server, kind: 'linear' | 'jira', scope } }: Linear or Jira issues on Next up, read through that MCP server (see backlog/trackers.js)
   sentry: null,       // { url, token (encrypted by Windows), links, snoozed }: errors from Sentry on Next up (wiring/sentry.js); this PC only, never synced
   ciSeen: null,       // { 'owner/repo#12': ms }: when you last opened each of your PRs, for "new comments" (see github/ci.js); this PC only
   syncGistId: null,   // the private gist progress syncs through
