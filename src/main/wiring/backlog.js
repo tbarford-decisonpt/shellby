@@ -1,6 +1,7 @@
 // Next up: a ranked backlog on each project's page (docs/plans/next-up.md).
 // Your tasks in .shellby/tasks.md, the repository's open issues and
-// milestones, and the loose ends in its code, in one list (backlog/rank.js),
+// milestones, the loose ends in its code and, once Sentry is connected, its
+// new production errors (wiring/sentry.js), in one list (backlog/rank.js),
 // each with "Do this": a copy on its own branch, a conversation in it, and the
 // prompt waiting in the box for you to read and send.
 //
@@ -8,22 +9,30 @@
 // (or a repository it listed, for one only on GitHub), an item by the id the
 // last list gave it. Main looks each one up before using it.
 //
+// A project can add its Linear or Jira issues too (backlog/trackers.js): read
+// through an MCP server you already have, by one short Claude call in the
+// background, so the card never waits for it. It says so when they arrive.
+//
 // tasks.md is only ever written here, in your checkout, never in a copy:
 // copies start from a commit, so a tick made on a branch would collide with
 // your uncommitted list when it came home. Kept out of main.js, which only
 // wires it up.
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const tasks = require('../backlog/tasks');
 const { rank } = require('../backlog/rank');
 const { fetchBacklog } = require('../backlog/github');
 const prompts = require('../backlog/prompts');
+const trackers = require('../backlog/trackers');
+const mcpServers = require('../mcpservers');
 const confirm = require('../confirm');
 const editor = require('../editor');
 const worktrees = require('../worktrees');
 
 const ISSUES_TTL_MS = 5 * 60 * 1000;
+const TICKETS_TTL_MS = 30 * 60 * 1000; // each read is a Claude call: kept longer than GitHub's
 const MAX_FILE_BYTES = 256 * 1024;
 const DOING_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_HIDDEN = 200;
@@ -46,6 +55,8 @@ function wireBacklog(d) {
   const issueCache = new Map(); // repo (lower case) -> { at, data }
   const lists = new Map();      // project key -> { items, root, repo, name }
   const reads = new Map();      // root (lower case) -> hash of tasks.md as last listed
+  const ticketCache = new Map(); // project key -> { at, sig, tickets, error }
+  const ticketReads = new Map(); // project key -> the read in flight
 
   const keyOf = p => (p.root ? `root:${lower(p.root)}` : `repo:${lower(p.repo)}`);
   const login = () => d.github?.view().login || null;
@@ -149,6 +160,122 @@ function wireBacklog(d) {
     return { state: 'error', error: r.error };
   }
 
+  // ---- Linear and Jira (backlog/trackers.js)
+
+  const trackersAll = () => ({ ...(d.config.get('backlogTrackers') || {}) });
+  const trackerReady = () => claudeReady() && !!d.workflows;
+  const folderFor = p => p.root || os.homedir();
+
+  /** Your MCP servers for this project, each with what it looks like: [{ name, kind, direct }]. */
+  function serversFor(p) {
+    if (!trackerReady()) return [];
+    const cwd = folderFor(p);
+    return d.workflows.mcpServerList(cwd).map(sv => {
+      const r = sv.direct ? mcpServers.resolveServer(sv.name, { home: os.homedir(), cwd }) : null;
+      return { name: sv.name, kind: trackers.kindOf(sv.name, r?.ok ? r.def : null), direct: !!sv.direct };
+    });
+  }
+
+  /** One read through Claude. -> { ok, tickets } | { ok: false, error } */
+  async function readTickets(p, setup) {
+    const cwd = folderFor(p);
+    const servers = serversFor(p);
+    const server = servers.find(sv => sv.name === setup.server);
+    if (!server) return { ok: false, error: `There's no MCP server called “${setup.server}” any more. Pick another with ${trackers.KINDS[setup.kind].label}… under the list.` };
+    // A server Shellby can start itself says which of its tools only read; the rest go by the kind's known names.
+    const listed = server.direct ? await d.workflows.mcpTools(setup.server, cwd).catch(() => null) : null;
+    const allowed = trackers.allowedFor(setup, listed?.ok ? listed.tools : null);
+    if (!allowed.length) return { ok: false, error: `“${setup.server}” has no tools that only read, so Shellby won't use it for this.` };
+    const denied = trackers.deniedFor(setup, servers.map(sv => sv.name));
+    const res = await d.runClaudeOnce(trackers.fetchArgs(setup, { allowed, denied }), trackers.FETCH_TIMEOUT_MS, { cwd });
+    if (res.timedOut) return { ok: false, error: `${trackers.KINDS[setup.kind].label} took too long to answer. Look again in a bit.` };
+    if (!String(res.stdout || '').trim()) {
+      d.log?.warn('Next up: reading tickets failed', String(res.stderr || res.err?.message || '').slice(-400));
+      return { ok: false, error: 'Claude Code didn\'t answer. Check it\'s signed in, in Settings.' };
+    }
+    return trackers.parseTickets(res.stdout, setup);
+  }
+
+  /** Start a read in the background, unless one's going; the panel hears when it's done. */
+  function refreshTickets(p, setup, sig) {
+    if (ticketReads.has(p.key)) return;
+    const read = readTickets(p, setup).catch(e => ({ ok: false, error: e.message })).then(r => {
+      ticketReads.delete(p.key);
+      // Changed or turned off while it was reading: this answer is for something else.
+      if (JSON.stringify(trackersAll()[p.key] || null) !== sig) return;
+      const hit = ticketCache.get(p.key);
+      const kept = hit?.sig === sig ? hit.tickets : null;
+      ticketCache.set(p.key, r.ok ? { at: Date.now(), sig, tickets: r.tickets, error: null } : { at: Date.now(), sig, tickets: kept, error: r.error });
+      d.send(d.panel, 'backlog:changed', { root: p.root, repo: p.repo });
+    });
+    ticketReads.set(p.key, read);
+  }
+
+  /**
+   * This project's Linear or Jira issues, as last read (never waits for Claude).
+   * kick: start a read if they're old. -> { state, setup?, tickets?, error?, at?, loading? }
+   */
+  function ticketsFor(p, { fresh = false, kick = false } = {}) {
+    const setup = trackersAll()[p.key];
+    if (!setup) return { state: 'none' };
+    if (!trackerReady()) return { state: 'off', setup };
+    const sig = JSON.stringify(setup);
+    const hit = ticketCache.get(p.key)?.sig === sig ? ticketCache.get(p.key) : null;
+    if (kick && (fresh || !hit || Date.now() - hit.at > TICKETS_TTL_MS)) refreshTickets(p, setup, sig);
+    const loading = ticketReads.has(p.key);
+    if (!hit) return { state: 'loading', setup, loading };
+    if (!hit.tickets) return { state: 'error', setup, error: hit.error, loading };
+    return { state: 'ok', setup, tickets: hit.tickets, at: hit.at, error: hit.error, stale: !!hit.error, loading };
+  }
+
+  /**
+   * What the card says about it. null when the project has none and you have no
+   * Linear or Jira server, so nobody without one ever sees any of this.
+   * offer: what the link under the list says ('Linear', 'Jira' or 'Linear or Jira').
+   */
+  function trackerView(p, t) {
+    if (t.state === 'none') {
+      const kinds = trackerReady() ? [...new Set(serversFor(p).map(sv => sv.kind).filter(Boolean))].sort((a, b) => b.localeCompare(a)) : [];
+      return kinds.length ? { state: 'none', offer: kinds.map(k => trackers.KINDS[k].label).join(' or ') } : null;
+    }
+    const { kind, server, scope } = t.setup;
+    return {
+      state: t.state, kind, label: trackers.KINDS[kind].label, server, scope,
+      error: t.error || null, stale: !!t.stale, loading: !!t.loading, at: t.at || null,
+      count: t.tickets?.length || 0,
+    };
+  }
+
+  /** For the Linear or Jira form: the servers to pick from (likely ones first) and what's set now. */
+  async function trackerChoices({ root, repo } = {}) {
+    const p = await resolve({ root, repo });
+    if (!p.ok) return p;
+    if (!trackerReady()) return { ok: false, error: 'That needs Claude Code: Shellby reads them through it.' };
+    const servers = serversFor(p).map(({ name, kind }) => ({ name, kind }))
+      .sort((a, b) => (!!b.kind - !!a.kind) || a.name.localeCompare(b.name));
+    const hints = Object.fromEntries(Object.entries(trackers.KINDS).map(([k, v]) => [k, v.scopeHint]));
+    return { ok: true, servers, setup: trackersAll()[p.key] || null, hints };
+  }
+
+  /** Save the setup ({ server, kind, scope }), or { off: true } to stop. */
+  async function trackerSet({ root, repo, off = false, ...raw } = {}) {
+    const p = await resolve({ root, repo });
+    if (!p.ok) return p;
+    const all = trackersAll();
+    ticketCache.delete(p.key);
+    if (off) {
+      delete all[p.key];
+      d.config.set({ backlogTrackers: all });
+      return { ok: true };
+    }
+    const c = trackers.checkSetup(raw);
+    if (!c.ok) return c;
+    if (!serversFor(p).some(sv => sv.name === c.setup.server)) return { ok: false, error: `There's no MCP server called “${c.setup.server}” here. Add it in Toolbox → MCP first.` };
+    all[p.key] = c.setup;
+    d.config.set({ backlogTrackers: all });
+    return { ok: true };
+  }
+
   // ---- what's being worked on, and what's hidden (this PC only)
 
   const doingAll = () => ({ ...(d.config.get('backlogDoing') || {}) });
@@ -222,10 +349,12 @@ function wireBacklog(d) {
     return {
       id: it.id, kind: it.kind, tier: it.tier, title: it.title, reason: it.reason, reasons: it.reasons.slice(0, 4),
       ...(it.issue ? { issue } : {}),
+      ...(it.ticket ? { ticket: (({ body: _body, ...t }) => t)(it.ticket) } : {}),
       ...(it.task ? { task: it.task } : {}),
       ...(it.note ? { note: it.note } : {}),
       ...(it.todo ? { todo: it.todo } : {}),
       ...(it.todos?.length ? { todos: it.todos } : {}),
+      ...(it.error ? { error: it.error } : {}),
       ...(link ? { doing: { tabId: link.tabId, branch: link.branch, open: !!d.manager?.tabs.has(link.tabId), pr: link.pr || null } } : {}),
     };
   }
@@ -239,11 +368,13 @@ function wireBacklog(d) {
   }
 
   /** Everything for one project, ranked, with what was hidden taken out (raw: for the CLI and MCP). */
-  async function build(p, { fresh = false } = {}) {
-    const [read, ends, gh] = await Promise.all([
+  async function build(p, { fresh = false, kick = false } = {}) {
+    const tk = ticketsFor(p, { fresh, kick });
+    const [read, ends, gh, se] = await Promise.all([
       p.root ? readTasks(p.root) : null,
       p.root ? d.looseEnds(p.root, { fresh }) : null,
       issuesFor(p.repo, fresh),
+      d.sentryFor ? d.sentryFor(p, { fresh }).catch(() => ({ state: 'none' })) : { state: 'none' },
     ]);
     const parsed = read?.ok ? tasks.parse(read.text) : { items: [], done: 0, more: 0 };
     const projectKey = d.projects?.keyFor?.(p) || null;
@@ -254,13 +385,15 @@ function wireBacklog(d) {
       complete: gh.complete !== false,
       milestones: gh.state === 'ok' ? gh.milestones : [],
       todos: ends?.ok ? ends.items : [],
+      tickets: tk.state === 'ok' ? tk.tickets : [],
+      errors: se.errors || [],
       repo: p.repo, login: login(), now: Date.now(),
     });
     const hidden = new Set(hiddenAll()[p.key] || []);
     const items = ranked.items.filter(it => !hidden.has(it.id));
     lists.set(p.key, { items, root: p.root, repo: p.repo, name: p.name });
     if (p.root && read?.ok) reads.set(lower(p.root), read.hash);
-    return { read, ends, gh, parsed, ranked, items, projectKey, hiddenCount: ranked.items.length - items.length };
+    return { read, ends, gh, se, tk, parsed, ranked, items, projectKey, hiddenCount: ranked.items.length - items.length };
   }
 
   /**
@@ -270,7 +403,7 @@ function wireBacklog(d) {
   async function view({ root, repo, fresh = false } = {}) {
     const p = await resolve({ root, repo });
     if (!p.ok) return p;
-    const b = await build(p, { fresh });
+    const b = await build(p, { fresh, kick: true });
     const links = linksFor(p.key);
     const tasksFile = p.root
       ? (b.read.ok ? { exists: b.read.exists, ...(b.read.exists ? await tasksGit(p.root) : { ignored: false, uncommitted: false }) } : { error: b.read.error })
@@ -283,6 +416,9 @@ function wireBacklog(d) {
       milestone: b.ranked.milestone,
       milestones: b.gh.state === 'ok' ? b.gh.milestones.slice(0, 10) : [],
       github: { state: b.gh.state, error: b.gh.error || null, stale: !!b.gh.stale },
+      tracker: trackerView(p, b.tk),
+      // none: not a Sentry project (nothing shows). offer, pick, ok, error: wiring/sentry.js forProject.
+      sentry: { state: b.se.state, error: b.se.error || null, stale: !!b.se.stale, project: b.se.project || null, projects: b.se.projects || [], url: d.sentryUrl?.() || null },
       tasks: tasksFile,
       looseEnds: b.ends ? { error: b.ends.ok ? null : b.ends.error, more: b.ends.more || 0 } : null,
       done: b.parsed.done,
@@ -336,14 +472,14 @@ function wireBacklog(d) {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
   };
 
-  /** "Add to my tasks" on an issue: `- [ ] #42` in ## Next, so you can put it where you want it. */
+  /** "Add to my tasks" on an issue: `- [ ] #42` (or `- [ ] ENG-123`) in ## Next, so you can put it where you want it. */
   async function addIssueTask({ root, id } = {}) {
     const p = await resolve({ root });
     if (!p.ok) return p;
-    const item = lists.get(p.key)?.items.find(i => i.id === id && i.kind === 'issue');
+    const item = lists.get(p.key)?.items.find(i => i.id === id && (i.kind === 'issue' || i.kind === 'ticket'));
     if (!item) return { ok: false, stale: true, error: 'That one isn\'t in the list any more. Look again.' };
     if (item.task) return { ok: false, error: 'It\'s on your list already.' };
-    return editTask({ root: p.root, op: 'add', title: `#${item.issue.number}` });
+    return editTask({ root: p.root, op: 'add', title: item.ticket ? item.ticket.key : `#${item.issue.number}` });
   }
 
   // ---- Do this
@@ -389,10 +525,41 @@ function wireBacklog(d) {
       res = await d.startTaskInCopy(copy.worktree.root, `#${issue.number} ${issue.title}`.slice(0, 80), prompt, { copy: copy.worktree, draft: true });
       if (!res.ok) await worktrees.remove(copy.worktree, { force: true }).catch(() => {});
       if (issue.author && lower(issue.author) !== lower(login())) warn = `Written by @${issue.author}, not you: read it before sending.`;
+    } else if (item.kind === 'ticket') {
+      if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };
+      const t = item.ticket;
+      const notes = item.task?.notes || [];
+      // The key in the branch's name: Linear and Jira link a branch (and its pull request) by it.
+      const slug = `${t.key.toLowerCase()}-${slugOf(t.title).split('-').slice(0, 3).join('-')}`;
+      if (p.repo) {
+        // On GitHub, from the default branch as GitHub has it, like an issue.
+        const copy = await d.makeIssueCopy({ repo: p.repo, slug });
+        if (!copy.ok) return { ok: false, error: copy.error };
+        res = await d.startTaskInCopy(copy.worktree.root, `${t.key} ${t.title}`.slice(0, 80), w => prompts.ticketPrompt({ ticket: t, notes, copy: { branch: w.branch, base: copy.base, fromGitHub: true } }), { copy: copy.worktree, draft: true });
+        if (!res.ok) await worktrees.remove(copy.worktree, { force: true }).catch(() => {});
+      } else {
+        res = await d.startTaskInCopy(p.root, slug, w => prompts.ticketPrompt({ ticket: t, notes, copy: { branch: w.branch, base: w.base } }), { draft: true });
+      }
     } else if (item.kind === 'task') {
       if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };
       const task = { title: item.title, notes: item.task.notes || [] };
       res = await d.startTaskInCopy(p.root, slugOf(item.title), w => prompts.taskPrompt({ project: p.name, task, copy: { branch: w.branch, base: w.base } }), { draft: true });
+    } else if (item.kind === 'error') {
+      if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };
+      const error = item.error;
+      const more = await d.sentryDetails(p, error);
+      const slug = `sentry-${slugOf(error.shortId)}`;
+      const title = `${error.shortId} ${error.title}`.slice(0, 80);
+      // Production runs what GitHub has: start there when it's on GitHub, else from your HEAD.
+      const copy = p.repo && d.github?.signedIn ? await d.makeIssueCopy({ repo: p.repo, slug }) : null;
+      const prompt = (w, base, fromGitHub) => prompts.errorPrompt({ project: p.name, error, ...more, copy: { branch: w.branch, base, fromGitHub } });
+      if (copy?.ok) {
+        res = await d.startTaskInCopy(copy.worktree.root, title, w => prompt(w, copy.base, true), { copy: copy.worktree, draft: true });
+        if (!res.ok) await worktrees.remove(copy.worktree, { force: true }).catch(() => {});
+      } else {
+        res = await d.startTaskInCopy(p.root, title, w => prompt(w, w.base, false), { draft: true });
+      }
+      warn = 'Error messages can carry what your users sent: read it before sending.';
     } else {
       const t = item.todo;
       const r = d.looseEndDraft({ root: p.root, file: t.file, line: t.line });
@@ -409,6 +576,8 @@ function wireBacklog(d) {
         title: item.title.slice(0, 200), root: p.root, repo: p.repo,
         start: tab?.unsentCopy?.head || null,
         ...(item.issue ? { issue: item.issue.number } : {}),
+        ...(item.ticket ? { ticket: { key: item.ticket.key, url: item.ticket.url, tracker: item.ticket.tracker } } : {}),
+        ...(item.error ? { fixes: item.error.shortId } : {}),
         ...(item.task ? { taskId: item.task.id } : {}),
       },
     });
@@ -466,6 +635,21 @@ function wireBacklog(d) {
     return { ok: true };
   }
 
+  // ---- Sentry (wiring/sentry.js): connecting, and which Sentry project this is
+
+  /** op: connect { token, url } | link { org, slug } (slug null: not a Sentry project) | unlink | snooze | disconnect. */
+  async function sentryOp({ root, op, token, url, org, slug } = {}) {
+    if (!d.sentryConnect) return { ok: false, error: 'Sentry isn\'t ready yet.' };
+    if (op === 'disconnect') return d.sentryDisconnect();
+    if (op === 'connect') return d.sentryConnect({ token, url });
+    const p = await resolve({ root });
+    if (!p.ok) return p;
+    if (op === 'link') return d.sentryLink(p, { org, slug });
+    if (op === 'unlink') return d.sentryUnlink(p);
+    if (op === 'snooze') return d.sentrySnooze(p);
+    return { ok: false, error: 'That isn\'t something Shellby can do with Sentry.' };
+  }
+
   // ---- the finish line (Phase 2)
 
   /** What a conversation's copy menu offers, if the conversation came from Next up. */
@@ -474,7 +658,7 @@ function wireBacklog(d) {
     if (!found || !d.manager.tabs.get(tabId)?.worktree) return { linked: false };
     const { link } = found;
     return {
-      linked: true, kind: link.kind, title: link.title, issue: link.issue || null, pr: link.pr || null,
+      linked: true, kind: link.kind, title: link.title, issue: link.issue || null, ticket: link.ticket?.key || null, pr: link.pr || null,
       canPr: !!link.repo && !!d.github?.can('claude') && !link.pr,
       needsPush: !!link.repo && !d.github?.can('claude'),
     };
@@ -493,8 +677,9 @@ function wireBacklog(d) {
     const range = /^[0-9a-f]{40}$/.test(link.start || '') ? `${link.start}..HEAD` : `${w.base}..HEAD`;
     const log = await worktrees.git(w.path, ['log', '--format=%s', '-n', '20', range], { timeout: 10000 });
     const commits = log.ok ? log.out.split('\n').map(s => s.trim()).filter(Boolean) : [];
-    const title = link.title;
-    const body = prompts.prBody({ issue: link.issue ? { number: link.issue } : null, title: link.issue ? '' : title, commits });
+    // Linear and Jira link a pull request by the key in its title.
+    const title = link.ticket ? `${link.ticket.key}: ${link.title}`.slice(0, 200) : link.title;
+    const body = prompts.prBody({ issue: link.issue ? { number: link.issue } : null, ticket: link.ticket || null, title: link.issue ? '' : title, commits, fixes: link.fixes || '' });
     const r = await d.openIssuePr({ folder: w.path, title, body, draft: true });
     if (!r.ok) return r;
     const links = { ...(doingAll()[key] || {}) };
@@ -516,6 +701,7 @@ function wireBacklog(d) {
 
   /** A pull request merged (github/ci.js): one opened from Next up offers its task's tick, and its link is done. */
   function onMerged(pr) {
+    if (pr?.forge === 'gitlab') return; // Next up only ever opens pull requests on GitHub
     for (const [key, links] of Object.entries(doingAll())) {
       for (const [id, link] of Object.entries(links || {})) {
         if (!link?.pr || link.pr.number !== pr?.number || lower(link.pr.repo) !== lower(pr?.repo)) continue;
@@ -660,9 +846,9 @@ function wireBacklog(d) {
     const p = root ? { root, repo, name: '' } : repo ? { root: null, repo, name: '' } : null;
     if (!p) return [];
     const b = await build({ ...p, key: keyOf(p) }, {}).catch(() => null);
-    return (b?.items || []).filter(it => it.kind === 'issue' || it.kind === 'todo').slice(0, max).map(it => ({
-      kind: it.kind,
-      text: it.kind === 'issue' ? `#${it.issue.number} ${it.title}` : `${it.todo.tag} in ${it.todo.file}:${it.todo.line}: ${it.title}`,
+    return (b?.items || []).filter(it => it.kind === 'issue' || it.kind === 'ticket' || it.kind === 'todo').slice(0, max).map(it => ({
+      kind: it.kind === 'ticket' ? 'issue' : it.kind,
+      text: it.kind === 'issue' ? `#${it.issue.number} ${it.title}` : it.kind === 'ticket' ? `${it.ticket.key} ${it.title}` : `${it.todo.tag} in ${it.todo.file}:${it.todo.line}: ${it.title}`,
       reason: it.reason,
     }));
   }
@@ -672,7 +858,9 @@ function wireBacklog(d) {
     backlogOpenDoing: openDoing, backlogOpenTodo: openTodo, backlogOpenIssue: openIssue, backlogHide: hide,
     backlogTabInfo: tabInfo, backlogOpenPr: openPr, backlogTick: tickLinked, backlogCommit: commitTasks,
     backlogHand: handToWorkflow, backlogHome: onHome, backlogMerged: onMerged, backlogTabClosed: onTabGone,
+    backlogSentry: sentryOp,
     backlogRepoTasks: { list: repoTodos, add: repoTodoAdd, finish: repoTodoFinish }, backlogForTerminal: forTerminal,
+    backlogTrackerChoices: trackerChoices, backlogTrackerSet: trackerSet,
   };
 }
 

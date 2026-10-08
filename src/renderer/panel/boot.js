@@ -60,6 +60,13 @@
     else SB.renderTabStrip();
   });
   api.onTabFocus(tabId => { if (state.tabs.has(tabId)) SB.activate(tabId); });
+  // A Stream Deck key that needs the panel (main shows it first): the same as
+  // Ctrl+Shift+H on that conversation, or opening the review inbox.
+  api.onDeckPress(({ what, tabId } = {}) => {
+    const tab = state.tabs.get(tabId);
+    if (what === 'home' && tab?.worktree) SB.bringHome(tab);
+    if (what === 'review') SB.openReview?.();
+  });
   api.onNewTabRequest(() => SB.newTab());
   api.onUsage(SB.applyUsage);
   api.onRecap(d => SB.showRecap(d));

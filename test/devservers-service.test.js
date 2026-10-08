@@ -415,3 +415,46 @@ test('settings: when Shellby quits, and the crab', () => {
     assert.equal(t.svc.summary().up, 0, 'the pill is a setting');
   } finally { t.done(); }
 });
+
+test('a taken port: noticed on the crash, then moved to another and remembered', async () => {
+  const t = setup();
+  try {
+    const started = [];
+    const start = t.svc.deps.runner.start;
+    t.svc.deps.runner.start = opts => { started.push({ command: opts.command, env: opts.env }); return start(opts); };
+    const { id } = t.svc.start({ root: ROOT, script: 'dev', project: 'site' }).server;
+    assert.deepEqual(started[0], { command: 'npm run dev', env: {} });
+    t.say(id, 'error when starting dev server:\nError: Port 5173 is already in use\n[shellby-exit 1]\n');
+    t.poll(id, true);
+    let s = t.svc.view().servers[0];
+    assert.equal(s.status, 'crashed');
+    assert.equal(s.portTaken, 5173);
+
+    const r = await t.svc.usePort(id, 5174);
+    assert.equal(r.ok, true);
+    assert.deepEqual(started[1], { command: 'npm run dev -- --port 5174', env: { PORT: '5174' } });
+    s = t.svc.view().servers[0];
+    assert.equal(s.pickedPort, 5174);
+    assert.equal(s.portTaken, null, 'a fresh run has said nothing yet');
+    assert.equal(s.command, 'npm run dev -- --port 5174');
+
+    // Stopped, then started again from the card: still on 5174.
+    await t.svc.stop(id);
+    const again = t.svc.start({ root: ROOT, script: 'dev', project: 'site' });
+    assert.equal(again.server.pickedPort, 5174);
+    assert.equal(started[2].command, 'npm run dev -- --port 5174');
+    assert.deepEqual(Object.values(t.data().devServers.ports), [5174]);
+
+    // Back to its usual port: no flag, no PORT, and forgotten.
+    await t.svc.usePort(again.server.id, null);
+    assert.deepEqual(started[3], { command: 'npm run dev', env: {} });
+    assert.deepEqual(t.data().devServers.ports, {});
+    assert.equal((await t.svc.usePort(again.server.id, 99999)).ok, false);
+  } finally { t.done(); }
+});
+
+test('remembered ports are checked like the rest of settings.json', () => {
+  const n = normalize({ ports: { 'c:/code/site|dev': 5174, 'c:/x|dev': 'nope', 'c:/y|dev': 70000 } });
+  assert.deepEqual(n.ports, { 'c:/code/site|dev': 5174 });
+  assert.deepEqual(normalize({}).ports, {});
+});

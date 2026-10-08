@@ -278,7 +278,7 @@ async function withServer(def, fn, opts = {}) {
   }
 }
 
-/** -> [{ name, description, inputSchema }] (at most 200). */
+/** -> [{ name, description, inputSchema, readOnly }] (at most 200). */
 async function listTools(def, opts) {
   return withServer(def, async s => {
     const tools = [];
@@ -287,7 +287,11 @@ async function listTools(def, opts) {
       const r = await s.request('tools/list', cursor ? { cursor } : {});
       for (const t of Array.isArray(r?.tools) ? r.tools : []) {
         if (typeof t?.name !== 'string') continue;
-        tools.push({ name: t.name.slice(0, 128), description: typeof t.description === 'string' ? t.description.slice(0, 500) : '', inputSchema: isObj(t.inputSchema) ? t.inputSchema : null });
+        tools.push({
+          name: t.name.slice(0, 128), description: typeof t.description === 'string' ? t.description.slice(0, 500) : '', inputSchema: isObj(t.inputSchema) ? t.inputSchema : null,
+          // The server's own word that it only reads (Next up's Linear and Jira lists allow only those).
+          readOnly: t.annotations?.readOnlyHint === true,
+        });
       }
       cursor = typeof r?.nextCursor === 'string' && r.nextCursor ? r.nextCursor : null;
       if (!cursor) break;

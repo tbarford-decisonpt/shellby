@@ -323,6 +323,7 @@
       main && F.journal(p, { newHere, onChange: reload, keptDetails }),
       F.health(p),
       main && SB.releasesCard(main.root, p.name),
+      main && SB.projectTools.card({ root: main.root, name: p.name }),
       main && F.conversations(p, { newHere }),
       main && SB.pjReport.card(p),
     ];

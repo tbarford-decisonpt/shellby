@@ -10,6 +10,7 @@ const { EventEmitter } = require('events');
 const { randomUUID, createHash } = require('crypto');
 const out = require('./output');
 const scripts = require('./scripts');
+const doctor = require('./doctor');
 
 const MAX_RUNNING = 8;
 const TICK_MS = 750;
@@ -22,11 +23,15 @@ const STOP_WAIT_MS = 5000;
 const STOP_POLL_MS = 150;
 const LIVE = new Set(['starting', 'up']);
 const ON_QUIT = ['keep', 'stop'];
+const MAX_PORTS = 100;
 
 const caseKey = p => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
 const bool = (v, d) => (typeof v === 'boolean' ? v : d);
 const str = (v, n) => (typeof v === 'string' ? v.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').trim().slice(0, n) : '');
 const int = v => (Number.isInteger(v) ? v : null);
+const portNum = v => (Number.isInteger(v) && v >= 1 && v <= 65535 ? v : null);
+// A script in a clone, for remembering things about it (the last one run, a port picked for it).
+const scriptKey = (root, script) => `${caseKey(root)}|${script}`;
 const num = v => (Number.isFinite(v) ? v : 0);
 const localDir = p => typeof p === 'string' && path.isAbsolute(p) && !/^[\\/]{2}/.test(p) && p.length <= 400;
 const LOCAL_URL = /^https?:\/\/localhost:\d{1,5}\/\S*$/;
@@ -43,6 +48,11 @@ function normalize(raw, dir = null) {
     .filter(x => x && localDir(x.root) && scripts.SCRIPT_RE.test(String(x.script)))
     .map(x => ({ root: x.root, script: x.script, project: str(x.project, 80) || path.basename(x.root) }))
     .slice(0, MAX_RUNNING);
+  // A port Shellby moved a server to, kept for its next start until you move it back.
+  const ports = {};
+  for (const [k, v] of Object.entries(r.ports && typeof r.ports === 'object' ? r.ports : {}).slice(0, MAX_PORTS)) {
+    if (portNum(v) && k.length <= 480) ports[k] = v;
+  }
   return {
     onQuit: ON_QUIT.includes(r.onQuit) ? r.onQuit : 'keep',
     quitNoteSeen: r.quitNoteSeen === true,
@@ -50,6 +60,7 @@ function normalize(raw, dir = null) {
     sign: bool(r.sign, true),
     toast: bool(r.toast, true),
     last,
+    ports,
     resume,
     servers: (Array.isArray(r.servers) ? r.servers : []).map(s => normalizeServer(s, dir)).filter(Boolean).slice(0, MAX_RUNNING * 2),
   };
@@ -74,11 +85,12 @@ function normalizeServer(s, dir) {
     log: log && s.log === log ? log : null, status, port: int(s.port), url: typeof s.url === 'string' && LOCAL_URL.test(s.url) ? s.url : null,
     startedAt: num(s.startedAt), upAt: num(s.upAt), endedAt: num(s.endedAt), exitCode: int(s.exitCode), restarts: int(s.restarts) || 0,
     seen: s.seen === true, missed: s.missed === true, neverUp: s.neverUp === true, fixTabId: str(s.fixTabId, 80) || null, fixedAt: num(s.fixedAt),
+    pickedPort: kind === 'server' ? portNum(s.pickedPort) : null, portTaken: portNum(s.portTaken),
   };
 }
 
 const PERSISTED = ['id', 'kind', 'root', 'project', 'script', 'manager', 'framework', 'pid', 'pidStartedAt', 'log', 'status', 'port', 'url',
-  'startedAt', 'upAt', 'endedAt', 'exitCode', 'restarts', 'seen', 'missed', 'neverUp', 'fixTabId', 'fixedAt'];
+  'startedAt', 'upAt', 'endedAt', 'exitCode', 'restarts', 'seen', 'missed', 'neverUp', 'fixTabId', 'fixedAt', 'pickedPort', 'portTaken'];
 const pick = s => Object.fromEntries(PERSISTED.map(k => [k, s[k] ?? null]));
 
 class DevServers extends EventEmitter {
@@ -157,7 +169,12 @@ class DevServers extends EventEmitter {
 
   lastScript(root) { return this.settings.last[caseKey(root)] || null; }
 
-  commandOf(s) { return scripts.commandFor(s.manager, s.script, { install: s.kind === 'install' }); }
+  // The command, with the port flag when Shellby picked one (doctor.portArgs: a number and a fixed flag, nothing from the repository).
+  commandOf(s) {
+    const base = scripts.commandFor(s.manager, s.script, { install: s.kind === 'install' });
+    const { args } = s.kind === 'server' && base ? doctor.portArgs(s.manager, s.framework, s.pickedPort) : { args: '' };
+    return args ? `${base} ${args}` : base;
+  }
 
   // ------------------------------------------------------------------ settings
 
@@ -213,6 +230,7 @@ class DevServers extends EventEmitter {
     s.fixedAt = 0;
     s.manager = found.manager;
     s.framework = kind === 'install' ? null : found.scripts.find(x => x.name === script)?.framework || null;
+    s.pickedPort = kind === 'server' ? this.settings.ports[scriptKey(root, script)] || null : null;
     const r = this.launch(s);
     if (!r.ok) return r;
     if (kind === 'server') this.settings = { ...this.settings, last: { ...this.settings.last, [caseKey(root)]: script } };
@@ -225,12 +243,13 @@ class DevServers extends EventEmitter {
     const command = this.commandOf(s);
     if (!command) return { ok: false, error: "That script can't be run." };
     const log = path.join(this.deps.dir, `${s.id}.log`);
-    const r = this.deps.runner.start({ root: s.root, command, logFile: log, ...(this.deps.startOpts || {}) });
+    const { env } = s.kind === 'server' ? doctor.portArgs(s.manager, s.framework, s.pickedPort) : { env: {} };
+    const r = this.deps.runner.start({ root: s.root, command, logFile: log, env, ...(this.deps.startOpts || {}) });
     if (!r.ok) return { ok: false, error: r.error };
     const now = this.now();
     Object.assign(s, {
       pid: r.pid, pidStartedAt: this.deps.info(r.pid)?.createdAt || now, thisSession: true, log, status: 'starting', port: null, url: null,
-      startedAt: now, upAt: 0, endedAt: 0, exitCode: null, seen: false, missed: false, neverUp: false, stopping: false,
+      startedAt: now, upAt: 0, endedAt: 0, exitCode: null, seen: false, missed: false, neverUp: false, stopping: false, portTaken: null,
     });
     this.servers.set(s.id, s);
     this.runtime.set(s.id, { tail: new this.deps.runner.LogTail(log), buf: new out.LineBuffer(), lastAlive: now, marker: undefined });
@@ -297,6 +316,23 @@ class DevServers extends EventEmitter {
       this.changed();
       return { ok: true, server: this.publicView(s) };
     });
+  }
+
+  /**
+   * Run it on another port from now on (the doctor's "Use :5174"), or back on
+   * its usual one (port null). Remembered for the script, so the next Start
+   * keeps it. -> restart's answer
+   */
+  usePort(id, port) {
+    const s = this.servers.get(id);
+    if (!s || s.kind !== 'server') return Promise.resolve({ ok: false, error: 'That server has already gone.' });
+    const p = port === null ? null : portNum(port);
+    if (port !== null && !p) return Promise.resolve({ ok: false, error: "That isn't a port." });
+    const ports = { ...this.settings.ports };
+    if (p) ports[scriptKey(s.root, s.script)] = p; else delete ports[scriptKey(s.root, s.script)];
+    this.settings = { ...this.settings, ports: Object.fromEntries(Object.entries(ports).slice(-MAX_PORTS)) };
+    s.pickedPort = p;
+    return this.restart(id);
   }
 
   /** A crashed (or failed) one off the list. */
@@ -444,6 +480,8 @@ class DevServers extends EventEmitter {
     }
     s.status = 'crashed';
     s.neverUp = neverUp;
+    // Its port was someone else's: the card says who, and offers another (doctor.js).
+    s.portTaken = doctor.portInUse(this.lines(s).slice(-80));
     s.missed = quietly;
     // Ended while Shellby was closed with no word on how (no marker): it may
     // have been stopped on purpose, so no sign for it, just the card.

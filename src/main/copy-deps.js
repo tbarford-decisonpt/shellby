@@ -14,16 +14,22 @@
 //   - Only what you've installed yourself: the copy's lockfile is the one in
 //     your checkout, byte for byte, and your node_modules was installed after
 //     that lockfile last changed. Then the copy gets nothing you haven't
-//     already got on this PC.
+//     already got on this PC. Your checkout's packages fall behind once you
+//     work only in copies, so any other copy of the repository counts too: a
+//     change of packages is asked about in the first copy, not in every one.
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { findNpm, npmEnv } = require('./depwatch');
+const { git } = require('./worktrees');
+const { parseWorktrees } = require('./leaving');
 
 const INSTALL_MS = 3 * 60 * 1000;
 const ARGS = ['ci', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error'];
 const LOCK = 'package-lock.json';
 const HIDDEN_LOCK = path.join('node_modules', '.package-lock.json'); // npm writes it on every install
+
+const MAX_HOMES = 40; // checkouts of one repository looked at for its packages
 
 const lastLine = s => String(s || '').trim().split('\n').map(l => l.trim()).filter(Boolean).pop() || '';
 const isLink = p => { try { return fs.lstatSync(p).isSymbolicLink(); } catch { return false; } };
@@ -46,38 +52,57 @@ function registryOnly(lockText) {
 }
 
 /**
+ * Every checkout of the copy's repository but the copy itself: yours first,
+ * then the other copies (git worktrees). -> Promise<string[]>
+ */
+async function homesOf(w, { run = git } = {}) {
+  const r = await run(w.root, ['worktree', 'list', '--porcelain']);
+  const others = r.ok ? parseWorktrees(r.out).map(t => t.path) : [];
+  const same = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+  return [w.root, ...others.filter(p => !same(p, w.root) && !same(p, w.path))].slice(0, MAX_HOMES);
+}
+
+/**
  * Where in the copy to install, or null: the tab's own folder or the copy's
  * top, whichever has a package-lock.json first, as long as the same folder in
- * your checkout has node_modules and the copy doesn't yet.
+ * one of `homes` (your checkout by default) has node_modules and the copy doesn't yet.
  *   w: the worktree record (path, cwd, root)
  */
-function installDir(w, { exists = fs.existsSync } = {}) {
+function installDir(w, { exists = fs.existsSync, homes = [w.root] } = {}) {
   for (const dir of [...new Set([w.cwd, w.path])]) {
     if (!dir || !exists(path.join(dir, LOCK))) continue;
-    const mine = path.join(w.root, path.relative(w.path, dir));
-    return exists(path.join(mine, 'node_modules')) && !exists(path.join(dir, 'node_modules')) ? dir : null;
+    const installed = homes.some(home => exists(path.join(home, path.relative(w.path, dir), 'node_modules')));
+    return installed && !exists(path.join(dir, 'node_modules')) ? dir : null;
   }
+  return null;
+}
+
+/** Why `text` isn't the lockfile installed in `mine`, or null when it is. */
+function notInstalledIn(mine, text) {
+  let theirs;
+  try { theirs = fs.readFileSync(path.join(mine, LOCK), 'utf8'); } catch { return "your checkout's package-lock.json couldn't be read"; }
+  if (text !== theirs) return "its package-lock.json isn't the one installed in your checkout";
+  try {
+    if (fs.statSync(path.join(mine, HIDDEN_LOCK)).mtimeMs < fs.statSync(path.join(mine, LOCK)).mtimeMs) return 'package-lock.json changed after you last installed, in your checkout or any copy';
+  } catch { return "your checkout's node_modules wasn't installed by npm"; }
   return null;
 }
 
 /**
  * Why the copy in `dir` shouldn't be installed, or null when it can be: the
- * reasons above, read from the files. -> string | null
+ * reasons above, read from the files. Any of `homes` having this lockfile
+ * installed will do; when none has, the reason is your checkout's. -> string | null
  */
-function refusal(w, dir) {
-  const mine = path.join(w.root, path.relative(w.path, dir));
+function refusal(w, dir, { homes = [w.root] } = {}) {
   const copyLock = path.join(dir, LOCK);
   if (isLink(copyLock) || isLink(dir)) return 'its package-lock.json is a link';
   let real;
   try { real = fs.realpathSync.native(dir); } catch { return "the folder couldn't be read"; }
   if (!inside(real, fs.realpathSync.native(w.path)) && path.resolve(dir) !== path.resolve(w.path)) return 'the folder leads outside the copy';
   let text;
-  let theirs;
-  try { text = fs.readFileSync(copyLock, 'utf8'); theirs = fs.readFileSync(path.join(mine, LOCK), 'utf8'); } catch { return "your checkout's package-lock.json couldn't be read"; }
-  if (text !== theirs) return "its package-lock.json isn't the one installed in your checkout";
-  try {
-    if (fs.statSync(path.join(mine, HIDDEN_LOCK)).mtimeMs < fs.statSync(path.join(mine, LOCK)).mtimeMs) return 'package-lock.json changed after you last installed';
-  } catch { return "your checkout's node_modules wasn't installed by npm"; }
+  try { text = fs.readFileSync(copyLock, 'utf8'); } catch { return "the copy's package-lock.json couldn't be read"; }
+  const whys = homes.map(home => notInstalledIn(path.join(home, path.relative(w.path, dir)), text));
+  if (!whys.includes(null)) return whys[0];
   if (!registryOnly(text)) return 'it has packages from git or a folder, which npm would build by running their scripts';
   return null;
 }
@@ -100,10 +125,11 @@ function runNpm(npm, cwd) {
  * Install the copy's packages if it needs them and may have them.
  * -> { installed: true, dir } | { installed: false, error, dir } | { skipped: true, why?, dir? }
  */
-async function installCopyDeps(w, { exists, check = refusal, find = findNpm, run = runNpm } = {}) {
-  const dir = installDir(w, { exists });
+async function installCopyDeps(w, { exists, homes, check = refusal, find = findNpm, run = runNpm } = {}) {
+  homes = homes || await homesOf(w);
+  const dir = installDir(w, { exists, homes });
   if (!dir) return { skipped: true };
-  const why = check(w, dir);
+  const why = check(w, dir, { homes });
   if (why) return { skipped: true, why, dir };
   const npm = find();
   if (!npm) return { installed: false, dir, error: "npm isn't on PATH" };
@@ -129,4 +155,4 @@ function depsSentence(result, w) {
   return "It has every committed file; anything uncommitted or ignored in the original (node_modules, build output) isn't in it. ";
 }
 
-module.exports = { installCopyDeps, installDir, refusal, registryOnly, depsSentence, ARGS };
+module.exports = { installCopyDeps, installDir, homesOf, refusal, registryOnly, depsSentence, ARGS };

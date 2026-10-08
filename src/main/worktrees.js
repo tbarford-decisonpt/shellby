@@ -551,12 +551,15 @@ async function pushBase(root, { base } = {}) {
 
 /**
  * Bring several copies home, one after another, into the branch your checkout
- * is on. Stops at the first that clashes; the ones before it stay merged.
- * Copies started from another branch are skipped, not merged somewhere else.
- *   -> { ok, results: [{ branch, ok, merged, commits, error?, conflict?, skipped? }], stopped? }
+ * is on. A copy that clashes is backed out and passed over, so the rest still
+ * land (its clash is sorted out afterwards, in turn: home-line.js). Anything
+ * else git refuses stops the sweep; the ones before it stay merged. Copies
+ * started from another branch are skipped, not merged somewhere else.
+ *   -> { ok, results: [{ branch, ok, merged, commits, error?, conflict?, skipped? }], clashed: [branch], stopped? }
  */
 async function bringAllHome(list, { messageFor = w => workMessage(w.branch) } = {}) {
   const results = [];
+  const clashed = [];
   for (const w of list) {
     const bad = checkWorktree(w);
     if (bad) { results.push({ branch: w?.branch, ok: false, skipped: true, error: bad }); continue; }
@@ -567,13 +570,27 @@ async function bringAllHome(list, { messageFor = w => workMessage(w.branch) } = 
     }
     const r = await bringHome(w, { message: messageFor(w) });
     results.push({ branch: w.branch, ...r });
-    if (!r.ok && !/gone/.test(r.error || '')) return { ok: false, results, stopped: w.branch };
+    if (r.conflict) { clashed.push(w.branch); continue; }
+    if (!r.ok && !/gone/.test(r.error || '')) return { ok: false, results, clashed, stopped: w.branch };
   }
-  return { ok: true, results };
+  return { ok: true, results, clashed };
+}
+
+/**
+ * Has the copy taken in everything its base has now, with no merge left half
+ * done? A clash sorted out in the copy is ready to come home cleanly then.
+ */
+async function caughtUp(w) {
+  if (checkWorktree(w) || !fs.existsSync(w.path)) return false;
+  const [has, mid] = await Promise.all([
+    git(w.root, ['merge-base', '--is-ancestor', w.base, w.branch], { timeout: 15000 }),
+    git(w.path, ['rev-parse', '-q', '--verify', 'MERGE_HEAD'], { timeout: 5000 }),
+  ]);
+  return has.ok && !mid.ok;
 }
 
 module.exports = {
   git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, workMessage, checkWorktree, BRANCH,
-  remoteStatus, pushBase, bringAllHome, upstreamOf, copyRefusal,
+  remoteStatus, pushBase, bringAllHome, caughtUp, upstreamOf, copyRefusal,
   startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
 };

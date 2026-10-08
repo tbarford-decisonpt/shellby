@@ -55,6 +55,11 @@ body.crab-only .work-mode-row { display: none; }
 .ext-status { margin: 4px 0 6px !important; color: var(--sand-dim); }
 .ext-status.ok { color: var(--glass); }
 .ext-status.warn { color: var(--amber); }
+/* Weather: the town search, its finds, the remarks toggle and the status each get room. */
+.weather-body:not([hidden]) { display: grid; gap: 12px; margin-top: 10px; }
+.weather-search .field { flex: 1; min-width: 0; }
+.weather-search .slim-btn { flex: none; height: 34px; padding: 0 16px; }
+.weather-body .ext-status { margin: 0 !important; }
 .ext-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .ext-session { display: grid; grid-template-columns: 10px auto 1fr auto auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: var(--reef); font-size: var(--fs-12-5); }
 .ext-session b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -45,7 +45,7 @@ function backlogIpc() {
   const calls = [];
   const ipcMain = { handle(ch, fn) { handlers[ch] = fn; }, on() {} };
   const d = {};
-  for (const name of ['View', 'Edit', 'AddIssue', 'Do', 'OpenDoing', 'OpenTodo', 'OpenIssue', 'Hide', 'Commit', 'Hand', 'TabInfo', 'OpenPr', 'Tick']) {
+  for (const name of ['View', 'Edit', 'AddIssue', 'Do', 'OpenDoing', 'OpenTodo', 'OpenIssue', 'Hide', 'Commit', 'Hand', 'TabInfo', 'OpenPr', 'Tick', 'Sentry', 'TrackerChoices', 'TrackerSet']) {
     d[`backlog${name}`] = (...args) => { calls.push([`backlog${name}`, ...args]); return { ok: true }; };
   }
   registerBacklogIpc(ipcMain, d);
@@ -53,8 +53,26 @@ function backlogIpc() {
   return { call, calls, handlers };
 }
 
-const GOOD_IDS = ['t:0123456789', 't:0123456789~2', 'gh:me/crab#42', 'todo:src/a.js:12'];
-const BAD_IDS = ['x', '', 'gh:me/crab#', 'gh:me/crab#1234567890', 't:xyz', 't:0123456789~', 'todo:a.js', 'todo:a\nb.js:1', null, 5, {}];
+const GOOD_IDS = ['t:0123456789', 't:0123456789~2', 'gh:me/crab#42', 'todo:src/a.js:12', 'se:4815162342', 'tk:ENG-12', 'tk:MY_PROJ-7'];
+const BAD_IDS = ['x', '', 'gh:me/crab#', 'gh:me/crab#1234567890', 't:xyz', 't:0123456789~', 'todo:a.js', 'todo:a\nb.js:1', 'se:', 'se:12a', 'se:123456789012345678901', 'tk:eng-1', 'tk:ENG-', 'tk:-1', 'tk:ENG-1/x', null, 5, {}];
+
+test('backlog:sentry passes on only the ops and fields it knows', () => {
+  const { call, calls } = backlogIpc();
+  assert.equal(call('backlog:sentry', { op: 'connect', token: '  sntryu_abc  ', url: 'https://sentry.io' }).ok, true);
+  assert.deepEqual(calls.pop(), ['backlogSentry', { op: 'connect', token: 'sntryu_abc', url: 'https://sentry.io' }]);
+  call('backlog:sentry', { op: 'link', root: 'C:\\p', org: 'acme', slug: 'web' });
+  assert.deepEqual(calls.pop(), ['backlogSentry', { root: 'C:\\p', op: 'link', org: 'acme', slug: 'web' }]);
+  call('backlog:sentry', { op: 'link', root: 'C:\\p', slug: null });
+  assert.deepEqual(calls.pop(), ['backlogSentry', { root: 'C:\\p', op: 'link', slug: null }]);
+  call('backlog:sentry', { op: 'disconnect', root: 'C:\\p', token: 'x' });
+  assert.deepEqual(calls.pop(), ['backlogSentry', { op: 'disconnect' }]);
+
+  for (const bad of [
+    { op: 'delete' }, { op: 'connect', token: 5 }, { op: 'connect', token: 'x'.repeat(700) }, { op: 'connect', token: 'abc', url: 7 },
+    { op: 'link', root: 'C:\\p', org: '../x', slug: 'web' }, { op: 'link', root: 'C:\\p', org: 'acme' }, { op: 'snooze' },
+  ]) assert.equal(call('backlog:sentry', bad).ok, false, JSON.stringify(bad));
+  assert.equal(calls.length, 0);
+});
 
 test('ID_RE takes the ids the list gives out and nothing else', () => {
   for (const id of GOOD_IDS) assert.ok(ID_RE.test(id), id);
@@ -226,6 +244,28 @@ test('backlog:commit needs a root', async () => {
 
   assert.equal(calls.length, 1);
   assert.equal(r.ok, false);
+});
+
+test('Linear or Jira setup: a project, and three short strings or off', async () => {
+  const { call, calls } = backlogIpc();
+
+  await call('backlog:tracker-choices', { root: 'C:\\p' });
+  await call('backlog:tracker-set', { root: 'C:\\p', server: 'linear', kind: 'linear', scope: 'ENG', extra: 'dropped' });
+  await call('backlog:tracker-set', { repo: 'me/crab', off: true });
+  const bad = [
+    await call('backlog:tracker-choices', {}),
+    await call('backlog:tracker-set', { root: 'C:\\p', server: 'linear', kind: 'linear' }),
+    await call('backlog:tracker-set', { root: 'C:\\p', server: 'linear', kind: 'linear', scope: 'x'.repeat(401) }),
+    await call('backlog:tracker-set', { root: 'C:\\p', server: ['linear'], kind: 'linear', scope: 'ENG' }),
+    await call('backlog:tracker-set', { server: 'linear', kind: 'linear', scope: 'ENG' }),
+  ];
+
+  assert.deepEqual(calls, [
+    ['backlogTrackerChoices', { root: 'C:\\p' }],
+    ['backlogTrackerSet', { root: 'C:\\p', server: 'linear', kind: 'linear', scope: 'ENG' }],
+    ['backlogTrackerSet', { repo: 'me/crab', off: true }],
+  ]);
+  for (const r of bad) assert.equal(r.ok, false);
 });
 
 test('the conversation menu calls need a tab id', async () => {

@@ -397,5 +397,5 @@ module.exports = {
   regQwords,
   load, available, hwndOf, topLevelWindows, describe, quick, foreground, frontWindow, isWindow, keyDown, mouseDown, setCursor, isVisible, ownerOf,
   QUNS, notificationState, desktopHost, ownBy, ownByDesktop, raiseAbove, float, focus, minimize, restore, close, move, dpiAware,
-  lockScreen, blockShutdown, unblockShutdown, processInfo,
+  lockScreen, blockShutdown, unblockShutdown, processInfo, imageOf,
 };

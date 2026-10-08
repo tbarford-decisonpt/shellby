@@ -1202,7 +1202,7 @@
         <li><b>Claude at work.</b> While Claude works in a project, your terminal and docs count for it.</li>
         <li><b>Git.</b> A commit, checkout or pull says which project you're in.</li>
       </ul>
-      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere.</p>
+      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere unless you send it to your time tracker.</p>
     </section>
     <p class="tm-now" id="timeNow" aria-live="polite"></p>
     <section class="focus-card" id="focusCard" aria-label="Focus">
@@ -1257,6 +1257,7 @@
           <button type="button" class="btn ghost slim-btn" id="timeCopy">Copy as text</button>
         </div>
         <p class="muted small" id="timeExportNote">For the period above, rounded as set below. Each day's line is its note, or else your commit messages.</p>
+        <div class="tm-sync" id="timeSync"></div>
       </section>
 
       <section class="setting-group" aria-labelledby="timeAddTitle">
@@ -1295,7 +1296,7 @@
         <p class="muted small" id="timeIgnored" hidden></p>
       </section>
     </div>
-    <p class="muted small history-note">Hours are kept only on this PC, never synced or sent anywhere.</p>
+    <p class="muted small history-note" id="timePrivacy">Hours are kept only on this PC, never synced or sent anywhere.</p>
   </main>
 
   <!-- ====================== PROJECTS (projects.js) ====================== -->
@@ -1552,8 +1553,8 @@
         <summary><h3>The weather outside</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
         <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
-        <div id="weatherBody" hidden>
-          <form class="row wrap" id="weatherSearch">
+        <div class="weather-body" id="weatherBody" hidden>
+          <form class="row weather-search" id="weatherSearch">
             <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
             <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
           </form>
@@ -1577,6 +1578,17 @@
         </div>
       </details>
 
+      <details class="setting-group setting-fold" id="discordGroup" data-nav="Discord" data-fold-on="discordBody">
+        <summary><h3>On your Discord profile</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Show his level and what he's up to under your name on Discord, the way a game does: <em>Lv 12 Abyssal Admin · working with Claude Code</em>. Shellby talks to the Discord app on this PC, so there's nothing to sign in to, and your friends list sees it while Shellby and Discord are both open.</p>
+        <label class="toggle"><input type="checkbox" id="discordEnabled"><span class="switch"></span>Show Shellby on my Discord profile</label>
+        <div id="discordBody" hidden>
+          <label class="toggle"><input type="checkbox" id="discordTask"><span class="switch"></span>Say what the task is, by its title</label>
+          <p class="small muted">Never in Work mode. With visiting crabs on, there's a button to his calling card too.</p>
+          <p class="small ext-status" id="discordStatus" aria-live="polite"></p>
+        </div>
+      </details>
+
       <details class="setting-group setting-fold" id="obsGroup" data-nav="On a stream" data-fold-on="obsBody">
         <summary><h3>On a stream</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Serve Shellby as a browser source, on a transparent background, so he can sit in the corner of a stream and react while you work. It's the same crab, in the same outfit, on 127.0.0.1 only.</p>
@@ -1585,6 +1597,19 @@
           <div class="cmd-row"><code id="obsUrl">—</code><button type="button" class="btn ghost slim-btn" data-copy="obsUrl">Copy</button></div>
           <p class="small muted">In OBS: <b>+</b> → <b>Browser</b>, paste that URL, and tick <b>Shutdown source when not visible</b>.</p>
           <p class="small ext-status" id="obsStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="deckGroup" data-nav="Stream Deck" data-fold-on="deckBody">
+        <summary><h3>Stream Deck</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Hardware keys for <b>Allow</b>, <b>Deny</b>, <b>Stop</b>, <b>Bring it home</b> and <b>Ready to review</b>, each showing what's waiting. Like answering from your phone, a question, a plan or anything the card would warn about says <b>Look</b> instead, and opens here. Needs Stream Deck 7.1 or newer.</p>
+        <label class="toggle"><input type="checkbox" id="deckEnabled"><span class="switch"></span>Answer from a Stream Deck</label>
+        <div class="deck-body" id="deckBody" hidden>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="deckAdd">Add the keys to Stream Deck</button>
+            <p class="small ext-status" id="deckStatus"></p>
+          </div>
+          <p class="small muted">Stream Deck asks before it installs them. Then drag the keys you want from <b>Shellby</b> in its list of actions.</p>
         </div>
       </details>
       </div>
@@ -1910,6 +1935,22 @@
         <p class="small muted gh-note" id="ghClaudeNote"></p>
         <label class="toggle"><input type="checkbox" id="ghWorkflows"><span class="switch"></span>…including changes to CI workflows</label>
         <p class="small muted gh-note" id="ghWorkflowsNote"></p>
+      </section>
+
+      <section class="setting-group" id="gitlabGroup" data-nav="GitLab">
+        <h3>GitLab</h3>
+        <p class="small muted ext-lede">Your merge requests and pipelines in the inbox and on his CI sign, with "Fix this build", "Address the review" and CI on the Releases card. Shellby goes through the glab CLI with the sign-in glab already has, so it never sees a GitLab token.</p>
+        <div class="gh-ci-head" id="glMissing" hidden><p class="small ext-status bad">glab isn't installed. Install it, then run <code>glab auth login</code> in a terminal.</p><button type="button" class="btn ghost slim-btn" id="glGet">Get glab</button></div>
+        <label class="toggle"><input type="checkbox" id="glCi"><span class="switch"></span>Watch my merge requests: he worries when a pipeline goes red and dances when it's fixed</label>
+        <div class="gh-ci" id="glCiRow" hidden>
+          <div class="gh-ci-head"><p class="small ext-status" id="glStatus"></p><button type="button" class="btn ghost slim-btn" id="glCheck">Check now</button></div>
+          <ul class="gh-ci-list" id="glList"></ul>
+        </div>
+        <form class="fr-add" id="glHostsForm">
+          <input type="text" class="field" id="glHosts" placeholder="Self-managed hosts, like gitlab.example.org" aria-label="Self-managed GitLab hosts, separated by commas" spellcheck="false" autocomplete="off" maxlength="600">
+          <button type="submit" class="btn slim-btn" id="glHostsSave">Save</button>
+        </form>
+        <p class="small muted gh-note">gitlab.com is always asked. Hosts your clones point at are found by themselves when their name says gitlab; add any others here, separated by commas, and sign glab in to each with <code>glab auth login --hostname &lt;host&gt;</code>.</p>
       </section>
       </div>
 
@@ -2365,10 +2406,12 @@
 <script src="projects-logic.js"></script>
 <script src="projects.js"></script>
 <script src="projects-servers.js"></script>
+<script src="project-tools.js"></script>
 <script src="projects-add.js"></script>
 <script src="profile-card.js"></script>
 <script src="pr-badge.js"></script>
 <script src="github.js"></script>
+<script src="gitlab.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
 <script src="boot.js"></script>

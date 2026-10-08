@@ -2,12 +2,17 @@
 // the draft, "Cut release", "Push" and "Write it with Claude". Kept out of
 // main.js, which only wires it up.
 //
+// CI on the commit comes from GitHub, or from GitLab through glab when the
+// clone's origin is a GitLab project (gitlab/mrwork.js commitCi).
+//
 // The panel names a clone only by a root the Projects page listed (knowsRoot),
 // and a release only by the commit it read: a clone that has moved since isn't
 // released. Nothing is pushed unless the push box was ticked or Push pressed.
 const { caseKey } = require('./merge');
 const rg = require('./release-git');
 const R = require('./releases');
+const mrwork = require('../gitlab/mrwork');
+const { isGitLabHost, tagsUrl } = require('../gitlab/remote');
 const worktrees = require('../worktrees');
 
 const CI_TTL_MS = 60 * 1000;
@@ -16,7 +21,8 @@ const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
 const no = { ok: false, error: 'That folder isn\'t on the Projects page.' };
 
 /**
- * d: what main shares (main.js `shared`): projects, github, shipped(root, kind, meta), githubEndpoints()
+ * d: what main shares (main.js `shared`): projects, github, shipped(root, kind, meta), githubEndpoints(),
+ *    gitlabApi(host), gitlabSettings()
  * git: the runner (tests pass a fake)
  */
 function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
@@ -28,19 +34,30 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
   // Your GitHub sign-in helps a push only to GitHub; any other remote never sees the token.
   const envFor = repo => () => (repo && signedIn() ? d.github.claudeEnv() : {});
 
-  // The clone's GitHub repository, from what the Projects page read.
-  async function repoOf(root) {
+  // Where the clone's origin lives, from what the Projects page read:
+  // its GitHub repository ("owner/name"), or { host, path } on a GitLab.
+  async function originOf(root) {
     const repos = await d.projects.localRepos().catch(() => []);
-    return repos.find(r => caseKey(r.root) === caseKey(root))?.remote || null;
+    const r = repos.find(x => caseKey(x.root) === caseKey(root));
+    const listed = d.gitlabSettings?.().hosts || [];
+    return {
+      repo: r?.remote || null,
+      gitlab: !r?.remote && r?.forge && isGitLabHost(r.forge.host, listed) ? r.forge : null,
+    };
   }
+  const repoOf = async root => (await originOf(root)).repo;
 
-  // CI on the commit to be released, when GitHub has it (this clone is pushed). Kept a minute.
-  async function ciFor(repo, state) {
-    if (!repo || !signedIn() || !state.upstream || state.upstream.ahead) return null;
-    const id = `${repo}@${state.head}`;
+  // CI on the commit to be released, when GitHub (or GitLab) has it: this clone is pushed. Kept a minute.
+  async function ciFor(origin, state) {
+    if (!state.upstream || state.upstream.ahead) return null;
+    const { repo, gitlab } = origin || {};
+    const id = repo ? `${repo}@${state.head}` : gitlab ? `${gitlab.host}/${gitlab.path}@${state.head}` : null;
+    if (!id || (repo && !signedIn()) || (gitlab && !d.gitlabApi)) return null;
     const hit = ci.get(id);
     if (hit && Date.now() - hit.at < CI_TTL_MS) return hit.value;
-    const value = await rg.ciOf(d.github.gh(), repo, state.head).catch(() => null);
+    const value = repo
+      ? await rg.ciOf(d.github.gh(), repo, state.head).catch(() => null)
+      : await mrwork.commitCi(d.gitlabApi(gitlab.host), gitlab.path, state.head).catch(() => null);
     ci.set(id, { at: Date.now(), value });
     return value;
   }
@@ -48,14 +65,17 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
   async function view(root) {
     const state = await rg.readRelease(root, { git });
     if (!state.ok) return state;
-    const repo = await repoOf(root);
+    const origin = await originOf(root);
     const web = d.githubEndpoints?.().web || 'https://github.com';
+    const { repo, gitlab } = origin;
     return {
       ...state,
       blocker: rg.blocker(state),
-      ci: await ciFor(repo, state),
-      repo,
-      releasesUrl: repo ? `${web}/${repo}/releases` : null,
+      ci: await ciFor(origin, state),
+      repo: repo || (gitlab ? gitlab.path : null),
+      forge: repo ? 'github' : gitlab ? 'gitlab' : null,
+      // GitLab lists a pushed tag under Tags; its Releases page only has the ones made there.
+      releasesUrl: repo ? `${web}/${repo}/releases` : gitlab ? tagsUrl(gitlab.host, gitlab.path) : null,
       busy: busy.has(caseKey(root)),
     };
   }
@@ -80,10 +100,11 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
     if (!root) return no;
     if (!/^[0-9a-f]{40}$/.test(String(o.head))) return { ok: false, error: 'Look again: the draft is missing what it was read from.' };
     return once(root, async () => {
-      const repo = await repoOf(root);
+      const origin = await originOf(root);
+      const repo = origin.repo;
       // Over red or unfinished CI only with the card's "Release it anyway" ticked.
       const now = await rg.readRelease(root, { git });
-      const checks = now.ok ? await ciFor(repo, now) : null;
+      const checks = now.ok ? await ciFor(origin, now) : null;
       if ((checks?.state === 'failing' || checks?.state === 'pending') && o.ack !== true) {
         return { ok: false, error: checks.state === 'failing' ? 'CI failed on this commit. Tick "Release it anyway" to go ahead.' : 'CI hasn\'t finished on this commit. Tick "Release it anyway" to go ahead.' };
       }

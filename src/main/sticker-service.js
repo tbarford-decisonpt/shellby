@@ -111,7 +111,7 @@ function createStickers(d) {
   async function shippedMerge(pr) {
     if (d.CAPTURE || !d.config) return;
     try {
-      const remote = stickers.normalizeRemote(`${d.githubEndpoints().web}/${pr.repo}`);
+      const remote = stickers.normalizeRemote(pr.forge === 'gitlab' ? `https://${pr.host}/${pr.repo}` : `${d.githubEndpoints().web}/${pr.repo}`);
       if (!remote) return;
       const id = stickers.projectId(remote);
       const known = stickerState().projects[id];

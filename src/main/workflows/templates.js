@@ -19,7 +19,7 @@ function templates({ home = '' } = {}) {
         steps: [
           {
             id: 'diagnose', type: 'claude', mode: 'plan', label: 'Find out why it failed',
-            prompt: 'The pull request {{ trigger.title }} ({{ trigger.url }}) on branch {{ trigger.branch }} has failing checks: {{ trigger.failing | join ", " }}. Find the cause from the code and, if you can, the logs (gh run view --log-failed). Do not change anything yet.',
+            prompt: 'The pull request {{ trigger.title }} ({{ trigger.url }}) on branch {{ trigger.branch }} has failing checks: {{ trigger.failing | join ", " }}. Find the cause from the code and, if you can, the logs (gh run view --log-failed on GitHub, glab ci trace on GitLab). Do not change anything yet.',
             output: {
               cause: { type: 'string', description: 'The cause in one or two sentences' },
               fixable: { type: 'boolean', description: 'True if a small, safe code change fixes it' },
@@ -33,7 +33,7 @@ function templates({ home = '' } = {}) {
               { type: 'claude', mode: 'smart', label: 'Push it', prompt: 'Commit the fix with a clear message and push it to the branch {{ trigger.branch }}.' },
             ],
             else: [
-              { type: 'tell', to: 'phone', title: 'Build needs you', text: '{{ trigger.repo }}#{{ trigger.number }}: {{ diagnose.cause }}' },
+              { type: 'tell', to: 'phone', title: 'Build needs you', text: '{{ trigger.ref }}: {{ diagnose.cause }}' },
             ],
           },
         ],

@@ -1,0 +1,2 @@
+### Fixed
+- **A new copy gets its packages again when you only work in copies.** Shellby used to install a copy's packages only if your own checkout had exactly those installed, so once a release changed them every new copy asked Claude to install them by hand. Now another copy that already has them installed counts too: a change of packages is asked about once, in the first copy, and every copy after it is ready straight away.

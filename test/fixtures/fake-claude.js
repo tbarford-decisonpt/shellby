@@ -121,6 +121,12 @@ if (ONE_SHOT) {
     } else if (schema.properties.command && schema.properties.event) {
       // Toolbox → Hooks, Ask Claude: a hook that says when Claude finishes.
       answer = { event: 'Stop', matcher: '', command: "bash -c 'echo done'", timeout: 0, scope: 'user', title: 'Say done', note: 'Prints "done" each time Claude finishes replying.' };
+    } else if (schema.properties.tickets) {
+      // Next up reading Linear through an MCP server (backlog/trackers.js): one issue, only if it was asked through reading tools.
+      const reading = /mcp__\w+__list_issues/.test(args[args.indexOf('--allowedTools') + 1] || '') && args[args.indexOf('--tools') + 1] === '';
+      answer = reading
+        ? { error: '', tickets: [{ key: 'ENG-7', title: 'Crab walks sideways', url: 'https://linear.app/crab/issue/ENG-7', status: 'Todo', priority: 'urgent', assignee: '', mine: false, labels: ['Bug'], due: '', current: true, updated: '', description: 'He should walk forwards when asked.' }] }
+        : { error: 'Not asked through reading tools only.', tickets: [] };
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };

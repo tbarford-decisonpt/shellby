@@ -1,7 +1,7 @@
 // Time on each project (timetrack.js), and what the Projects page and the
 // Sticker Book show about each one.
 // Kept out of main.js, which only wires it up.
-const { BrowserWindow, Notification, app, clipboard, dialog, nativeImage, powerMonitor, shell } = require('electron');
+const { BrowserWindow, Notification, app, clipboard, dialog, nativeImage, net, powerMonitor, safeStorage, shell } = require('electron');
 const path = require('path');
 const attach = require('../attachments');
 const beach = require('../beach');
@@ -24,6 +24,7 @@ const stickers = require('../stickers');
 const streaks = require('../streaks');
 const timetrack = require('../timetrack');
 const { TimeTracker } = require('../timetrack-service');
+const { TimeSync } = require('../timesync');
 const { markRed } = require('../xp');
 const toast = require('../toast');
 
@@ -70,6 +71,26 @@ function wireTimetrack(d) {
       panel: () => d.panel,
     });
     if (start) d.timeTracker.start();
+    // Sending days to Toggl, Clockify or Harvest (timesync.js). The token is
+    // encrypted by Windows like the channel's, and never kept in the clear.
+    d.timeSync = new TimeSync({
+      config: d.config,
+      fetch: (url, opts) => net.fetch(url, opts),
+      tracker: d.timeTracker,
+      secret: {
+        get() {
+          const raw = d.config.get('timeSyncToken');
+          if (!raw || !safeStorage.isEncryptionAvailable()) return '';
+          try { return safeStorage.decryptString(Buffer.from(raw, 'base64')); } catch { return ''; }
+        },
+        set(token) {
+          if (!token) { d.config.set({ timeSyncToken: null }); return true; }
+          if (!safeStorage.isEncryptionAvailable()) return false;
+          d.config.set({ timeSyncToken: safeStorage.encryptString(token).toString('base64') });
+          return true;
+        },
+      },
+    });
   }
 
   // Sticker milestones for the trophies (wardrobe/achievements.js).
@@ -213,6 +234,8 @@ function wireTimetrack(d) {
     // Once the turn's diff is noted: did it just change a file another copy has? (wiring/clashes.js)
     const noted = Promise.resolve(d.endTurn(tabId));
     noted.then(() => d.clashTurnEnded?.(tabId), () => {});
+    // A copy lined up to sort out its clash and come home: maybe it just has (home-line.js).
+    noted.catch(() => {}).then(() => d.homeTurnEnded?.(tabId)).catch(err => d.log.info(`home line: ${err.message}`));
     // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
     noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));
     // What it cost, for estimates next time (usage-ledger.js). Never worth losing the rest of the turn's end over.

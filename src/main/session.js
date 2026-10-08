@@ -494,7 +494,8 @@ class ClaudeSession extends EventEmitter {
 
   // decision: 'allow' | 'always' | 'deny'. answers: AskUserQuestion's
   // { [question text]: chosen label(s) or the user's own words }. via: 'phone'
-  // when it was answered from a notification (replies.js), so the card says so.
+  // when it was answered from a notification (replies.js), 'deck' from a Stream
+  // Deck key (deck.js), so the card says so.
   respond(requestId, decision, message, answers, via) {
     const item = this.pending.get(requestId);
     if (!item) return false;
@@ -514,7 +515,7 @@ class ClaudeSession extends EventEmitter {
       if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
     }
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
-    this.emit('item', { kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' ? { via } : {}) });
+    this.emit('item', { kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' || via === 'deck' ? { via } : {}) });
     return true;
   }
 

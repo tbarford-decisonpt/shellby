@@ -183,7 +183,7 @@ function registerProgressIpc(ipcMain, d) {
     };
   };
   const timeKey = k => (d.isStr(k) && k.length <= 400 && path.isAbsolute(k) ? k : null); // a project is a folder
-  ipcMain.handle('time:get', (_e, o) => d.timeTracker.view(timeOpts(o)));
+  ipcMain.handle('time:get', async (_e, o) => ({ ...await d.timeTracker.view(timeOpts(o)), sync: d.timeSync.view() }));
   ipcMain.handle('time:settings', (_e, patch) => d.timeTracker.setSettings(patch && typeof patch === 'object' ? patch : {}));
   ipcMain.handle('time:project', (_e, key, patch) => d.timeTracker.setProject(timeKey(key), patch && typeof patch === 'object' ? patch : {}));
   ipcMain.handle('time:remove', (_e, key) => d.timeTracker.removeProject(timeKey(key)));
@@ -199,6 +199,12 @@ function registerProgressIpc(ipcMain, d) {
   ipcMain.handle('time:export-csv', (_e, o) => d.timeTracker.exportCsv(timeOpts(o)).catch(e => { d.log.error('time csv', e); return { ok: false, error: "Couldn't save that file." }; }));
   ipcMain.handle('time:export-pdf', (_e, o) => d.timeTracker.exportPdf(timeOpts(o)).catch(e => { d.log.error('time pdf', e); return { ok: false, error: "Couldn't make the timesheet." }; }));
   ipcMain.handle('time:copy', (_e, o) => d.timeTracker.copyText(timeOpts(o)));
+  // Sending days to a time tracker (timesync.js). The token goes in and never comes back out.
+  ipcMain.handle('time:sync-connect', (_e, provider, token) => d.timeSync.connect(typeof provider === 'string' ? provider : '', typeof token === 'string' ? token.slice(0, 400) : ''));
+  ipcMain.handle('time:sync-disconnect', () => d.timeSync.disconnect());
+  ipcMain.handle('time:sync-projects', (_e, o) => d.timeSync.projects({ fresh: !!o?.fresh }));
+  ipcMain.handle('time:sync-link', (_e, key, target) => d.timeSync.link(timeKey(key), typeof target === 'string' ? target : null));
+  ipcMain.handle('time:sync-send', (_e, day) => d.timeSync.sendDay(DAY.test(day) ? day : null).catch(e => { d.log.error('time sync', e); return { ok: false, error: "Couldn't send that day." }; }));
   // Only a file this page just saved: it says where, and nothing else gets opened.
   ipcMain.handle('time:show-file', (_e, file) => {
     if (!d.isStr(file) || !d.timeTracker.wasSaved(file) || !fs.existsSync(file)) return false;

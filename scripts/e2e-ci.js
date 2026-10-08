@@ -64,6 +64,7 @@ const SUITE = [
   'e2e-routines',     // Fix with Claude on a failed routine, and a request that needs a workflow handed to the workflow builder
   'e2e-projects',     // projects and dev servers: start, the crab's pill, a crash's approval card, restart, the quit choice
   'e2e-inbox',        // the Projects inbox: stale branches in a throwaway repo, Delete a merged one, Keep the other
+  'e2e-helpers',      // a project's Helpers and the port doctor: before-start notes, a taken port moved, bisect, docs and the tour waiting unsent
   'e2e-streaks',      // streaks and nudges in a throwaway git repo: the streak, the nudge, Pick it up
   'e2e-rooms',        // rooms: a newcomer's short bar, rooms opening as they're earned, Show every screen
   'e2e-quests',       // quests: the card after his first task, a real review finishing one, the line complete, hide and bring back
