@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { samePath } = require('./toolbox');
 const eff = require('./efficiency');
-const claudeSetup = require('./claude-setup');
+const claudeSetup = require('./claude/setup');
 
 const MAX_EDIT = 256 * 1024; // the Toolbox skips bigger files, so saving one would make it vanish
 

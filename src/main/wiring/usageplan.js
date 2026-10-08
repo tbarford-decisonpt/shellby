@@ -3,7 +3,7 @@
 // type it. Kept out of main.js, which only wires it up. Nothing here leaves
 // the PC, and the prompt itself is never kept, only its category.
 const guard = require('../guard');
-const usageLedger = require('../usage-ledger');
+const usageLedger = require('../usage/ledger');
 
 const SAVE_DELAY_MS = 5000;   // turns end in bursts (a workflow's steps); one write when they settle
 

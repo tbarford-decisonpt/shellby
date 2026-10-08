@@ -114,7 +114,7 @@ function demoStickers(now) {
 }
 
 async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, wardrobe, captureClock, broadcastWardrobe, health, config, broadcastSkin, makeTimeTracker }) {
-  const out = path.join(ROOT, 'docs');
+  const out = path.join(ROOT, 'docs', 'img');
   fs.mkdirSync(out, { recursive: true });
   const base = { toolbox: DEMO_TOOLBOX, routines: DEMO_ROUTINES, learned: LEARNED, pinned: PINNED, usage: DEMO_USAGE };
   // Off-season for the plain shots; each wardrobe shot sets its own date.

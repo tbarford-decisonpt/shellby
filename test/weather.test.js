@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const w = require('../src/main/weather');
-const { createWeatherService, getJson, POLL_MS, RETRY_MS } = require('../src/main/weather-service');
+const { createWeatherService, getJson, POLL_MS, RETRY_MS } = require('../src/main/weather/service');
 const seasons = require('../src/main/wardrobe/seasons');
 
 const HOUR = 60 * 60 * 1000;

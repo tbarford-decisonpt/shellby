@@ -1,6 +1,6 @@
-// Tidying up (tank-tidy.js): asked when you open his tank, never on a timer.
+// Tidying up (tank/tidy.js): asked when you open his tank, never on a timer.
 // His move goes through the tank's own keep() (tank.sanitize) like any edit.
-const tidy = require('../tank-tidy');
+const tidy = require('../tank/tidy');
 
 /**
  * deps: {

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const { ExternalSessions, applyHookEvent, expire, summarize, acceptable, markerPath, programOf } = require('../src/main/external');
-const { claudeEnv } = require('../src/main/claude-cli');
+const { claudeEnv } = require('../src/main/claude/cli');
 
 const ev = (hook_event_name, extra = {}) => ({ hook_event_name, session_id: 'abc-123', cwd: 'C:\\Users\\you\\code\\3d-rack', ...extra });
 

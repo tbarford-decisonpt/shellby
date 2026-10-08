@@ -24,6 +24,7 @@
   },
   "scripts": {
     "start": "electron .",
+    "dev:crab": "node scripts/dev-crab.js",
     "test": "node --test --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",
     "panel:html": "node scripts/panel-html.js",

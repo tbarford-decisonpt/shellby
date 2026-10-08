@@ -1,8 +1,8 @@
-// routines-service.js: starting a routine's run, making room for it, holding
+// routines/service.js: starting a routine's run, making room for it, holding
 // it at the limit, and asking before Claude adds one, with fakes for the tabs.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createRoutines, ROUTINE_TABS_KEPT, ROUTINE_COOLDOWN_MS } = require('../src/main/routines-service');
+const { createRoutines, ROUTINE_TABS_KEPT, ROUTINE_COOLDOWN_MS } = require('../src/main/routines/service');
 
 const NOW = 1_790_000_000_000;
 const H = 60 * 60 * 1000;

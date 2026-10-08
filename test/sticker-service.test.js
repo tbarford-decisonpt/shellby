@@ -1,7 +1,7 @@
-// sticker-service.js: the parts that don't need a repo or a window.
+// stickers/service.js: the parts that don't need a repo or a window.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createStickers } = require('../src/main/sticker-service');
+const { createStickers } = require('../src/main/stickers/service');
 
 function setup(over = {}) {
   const data = { ...over.data };

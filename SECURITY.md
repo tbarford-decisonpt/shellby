@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/critter-asking.png" width="180" alt="Shellby, a pixel hermit crab with a teal shell, with a speech bubble holding a question mark: he's asking before he acts">
+<img src="docs/img/critter-asking.png" width="180" alt="Shellby, a pixel hermit crab with a teal shell, with a speech bubble holding a question mark: he's asking before he acts">
 
 # Security
 

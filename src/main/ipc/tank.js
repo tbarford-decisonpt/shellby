@@ -6,9 +6,9 @@
 // done; tank.sanitize decides what of it he can really have, so nothing the
 // panel sends goes into settings unchecked.
 const tank = require('../tank');
-const tankShare = require('../tank-share');
-const tankGlass = require('../tank-glass');
-const tankLife = require('../tank-life');
+const tankShare = require('../tank/share');
+const tankGlass = require('../tank/glass');
+const tankLife = require('../tank/life');
 const gifts = require('../gifts');
 const friends = require('../friends');
 const { LOGIN_RE, sameLogin } = require('../github/card');
@@ -38,7 +38,7 @@ function registerTankIpc(ipcMain, d) {
     finds: gifts.FINDS,
     bugState: d.config.get('bugdex'),
   }), d.config.get('stickers')); // and his stickers, for the front glass
-  // The Health porthole looks at his favourite piece, once he has one (tank-life.js).
+  // The Health porthole looks at his favourite piece, once he has one (tank/life.js).
   const view = (l = lib()) => {
     const v = tank.view({ state: d.config.get('tank'), lib: l, level: d.level(), shipped: d.shipped() });
     const fav = tankLife.favourite(d.config.get('tankLife'), v.layout.placed);
@@ -68,7 +68,7 @@ function registerTankIpc(ipcMain, d) {
     return keep(draft);
   });
 
-  // ---- his life in it (tank-life.js): kept apart from the layout, per PC, never synced
+  // ---- his life in it (tank/life.js): kept apart from the layout, per PC, never synced
 
   // What a saved tank means to him: a look at what's new, moving day, sets on display.
   function lived(before, after, l) {
@@ -134,7 +134,7 @@ function registerTankIpc(ipcMain, d) {
     return tankLife.remark({ pieces, fav });
   };
 
-  // His tank on your calling card, or off it (tank-share.js). The card catches up on the next refresh, started now.
+  // His tank on your calling card, or off it (tank/share.js). The card catches up on the next refresh, started now.
   ipcMain.handle('tank:share', (_e, on) => {
     if (typeof on !== 'boolean') return { ok: false, view: view() };
     const current = tank.normalize(d.config.get('tank'));

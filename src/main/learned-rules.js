@@ -8,7 +8,7 @@
 // See test/learned-rules.test.js.
 const fs = require('fs');
 const path = require('path');
-const claudeSetup = require('./claude-setup');
+const claudeSetup = require('./claude/setup');
 const { cleanRule } = require('./corrections');
 
 const HEADING = '## Learned from your corrections';

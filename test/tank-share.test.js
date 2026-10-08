@@ -1,9 +1,9 @@
 // His tank on the calling card (opt-in), a friend's tank to peek at, and the
-// tank in the private sync gist: src/main/tank-share.js and where it plugs into
+// tank in the private sync gist: src/main/tank/share.js and where it plugs into
 // github/card.js and github/sync.js.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const S = require('../src/main/tank-share');
+const S = require('../src/main/tank/share');
 const T = require('../src/main/tank');
 const { cleanCard, lookOf } = require('../src/main/github/card');
 const sync = require('../src/main/github/sync');

@@ -87,6 +87,8 @@ const absoluteDirs = env => String(env.PATH || env.Path || '').split(path.delimi
  * Every checker Shellby could use, found up front. -> { node, npm, pnpm, yarn,
  * corepack, pipAudit, cargoAudit, go, govulncheck }, each a launcher
  * { file, pre: [args before ours] } or null. npm also has git (see findNpm).
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {{ exists?: (p: string) => boolean, platform?: NodeJS.Platform, findNpm?: Function }} [opts]
  */
 function findTools(env = process.env, { exists = fs.existsSync, platform = process.platform, findNpm } = {}) {
   const win = platform === 'win32';
@@ -96,7 +98,7 @@ function findTools(env = process.env, { exists = fs.existsSync, platform = proce
   const abs = d => (typeof d === 'string' && path.isAbsolute(d) ? d : null);
   // Where their installers put them, when that isn't on PATH.
   const extra = {
-    cargo: [abs(env.CARGO_HOME) && path.join(env.CARGO_HOME, 'bin'), home && path.join(home, '.cargo', 'bin')],
+    cargo: [abs(env.CARGO_HOME) && path.join(/** @type {string} */ (env.CARGO_HOME), 'bin'), home && path.join(home, '.cargo', 'bin')],
     go: [abs(env.GOBIN), ...String(env.GOPATH || '').split(path.delimiter).filter(abs).map(d => path.join(d, 'bin')), home && path.join(home, 'go', 'bin')],
     python: [home && path.join(home, '.local', 'bin')],
   };

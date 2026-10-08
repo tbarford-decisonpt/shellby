@@ -12,8 +12,8 @@
 //   Go:                 `go list -m -u` + govulncheck
 // A checker that isn't installed shows as "needs X" for that project.
 //
-// Parsers (depwatch-parse.js), projects, words and prompts (depwatch-prompts.js)
-// are pure (test/depwatch*.test.js); depwatch-tools.js finds and runs the
+// Parsers (depwatch/parse.js), projects, words and prompts (depwatch/prompts.js)
+// are pure (test/depwatch*.test.js); depwatch/tools.js finds and runs the
 // checkers with fixed arguments and never throws; DepWatch decides when.
 const fs = require('fs');
 const os = require('os');
@@ -21,10 +21,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { EventEmitter } = require('events');
-const parse = require('./depwatch-parse');
-const tools = require('./depwatch-tools');
-const python = require('./depwatch-python');
-const { bumpPrompt, routinePrompt } = require('./depwatch-prompts');
+const parse = require('./depwatch/parse');
+const tools = require('./depwatch/tools');
+const python = require('./depwatch/python');
+const { bumpPrompt, routinePrompt } = require('./depwatch/prompts');
 
 const HOUR = 3600000;
 const DAY = 24 * HOUR;

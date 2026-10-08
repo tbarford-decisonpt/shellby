@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const L = require('../src/main/tank-layouts');
-const tankShare = require('../src/main/tank-share');
+const L = require('../src/main/tank/layouts');
+const tankShare = require('../src/main/tank/share');
 const sync = require('../src/main/github/sync');
 
 const tankWith = (...refs) => ({ size: 'nano', style: { substrate: null, backdrop: null, light: 'clock' }, placed: refs.map((ref, i) => ({ uid: i + 1, ref, x: 10 * i, row: 1, z: 0, flip: false })) });

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const cloud = require('../src/main/cloud-routines');
-const { run } = require('../src/main/claude-cli');
+const { run } = require('../src/main/claude/cli');
 
 const FAKE = path.join(__dirname, 'fixtures', 'fake-claude.js');
 const viaFake = (env = {}) => (exe, args, timeout, opts) => {

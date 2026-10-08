@@ -7,7 +7,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const handoff = require('../handoff');
 const worktrees = require('../worktrees');
-const { terminalEnv, billingScrub } = require('../claude-cli');
+const { terminalEnv, billingScrub } = require('../claude/cli');
 const { POWERSHELL, CMD } = require('../system32');
 
 const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };

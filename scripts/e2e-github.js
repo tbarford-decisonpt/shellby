@@ -95,7 +95,7 @@ async function connect(url) {
     const bin = fs.readFileSync(path.join(data, 'github.bin'));
     check(bin.length > 0 && !bin.toString('latin1').includes(mock.state.token), 'the token file is encrypted');
 
-    // 3b. His tank goes along (tank-share.js): the layout, never whether it's on your cards.
+    // 3b. His tank goes along (tank/share.js): the layout, never whether it's on your cards.
     await ev("shellby.saveTank({ size: 'nano', style: { substrate: 'gravel', backdrop: null, light: 'night' }, placed: [{ ref: 'castle-keep', x: 30, row: 0, z: 0, flip: false }] })");
     await ev('shellby.shareTank(true)');
     await ev('shellby.githubSync()');

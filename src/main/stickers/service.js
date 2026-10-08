@@ -1,15 +1,15 @@
 // Shell stickers (stickers.js): the first time a project ships, Shellby gets a
 // sticker for it and slaps it on his shell; shipping it again makes the sticker
-// better. The drawing is generated from the project (sticker-art.js), so only
+// better. The drawing is generated from the project (stickers/art.js), so only
 // the counts and where each one sits are stored.
 // Moved out of main.js.
 const fs = require('fs');
-const shells = require('./shells');
-const stickerArt = require('./sticker-art');
-const stickers = require('./stickers');
-const streaks = require('./streaks');
-const { projectOf, trackedFiles, stickerFile } = require('./gitinfo');
-const { shellMask, stickerSlots, STICKER } = require('./sticker-slots');
+const shells = require('../shells');
+const stickerArt = require('./art');
+const stickers = require('../stickers');
+const streaks = require('../streaks');
+const { projectOf, trackedFiles, stickerFile } = require('../gitinfo');
+const { shellMask, stickerSlots, STICKER } = require('./slots');
 
 const SLAP_MS = 3200;                 // the critter's slap, from holding it up to the squash
 const TROPHY_AFTER_SLAP_MS = 900;     // a trophy it earns waits for the slap to land
@@ -26,7 +26,7 @@ const MERGE_LOOKUP_MAX = 50;          // known projects checked for a merged PR'
  *   currentLevel, activeSkin, githubEndpoints, noteWeek, stickersView, stickerStats
  */
 function createStickers(d) {
-  const drawings = new Map();     // look -> drawing (sticker-art.js)
+  const drawings = new Map();     // look -> drawing (stickers/art.js)
   const projectFacts = new Map(); // repo root -> { lang, custom, at }
 
   const shellIdOf = shell => (shell ? shell.id : stickers.HOME);

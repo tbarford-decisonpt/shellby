@@ -64,7 +64,7 @@
     scheduleEstimate();
   });
 
-  // ------------------------------------------------------------ what this usually costs (src/main/usage-ledger.js)
+  // ------------------------------------------------------------ what this usually costs (src/main/usage/ledger.js)
 
   const EST_DELAY_MS = 450;   // after you stop typing for a moment
   const EST_MIN_CHARS = 15;   // shorter than this says too little to guess from

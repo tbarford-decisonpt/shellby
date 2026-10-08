@@ -1,7 +1,7 @@
-// New tricks (claude-tricks.js): when the Claude Code Shellby finds is newer
+// New tricks (claude/tricks.js): when the Claude Code Shellby finds is newer
 // than the one he saw last, read its changelog and tell you what it can do now.
 // The first version he ever sees is only remembered, never announced.
-const tricks = require('../claude-tricks');
+const tricks = require('../claude/tricks');
 
 /** @param d  what main shares with its wiring (main.js shared); fetchImpl is for tests */
 function wireClaudeTricks(d, { fetchImpl } = {}) {

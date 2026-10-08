@@ -5,11 +5,11 @@
 // it goes as a getter, read when it's used.
 // Kept out of main.js, which only wires it up.
 const { app, powerMonitor, powerSaveBlocker } = require('electron');
-const { createUsage } = require('../usage-service');
+const { createUsage } = require('../usage/service');
 const { createHeldQueue } = require('../held-service');
-const { createRoutines } = require('../routines-service');
+const { createRoutines } = require('../routines/service');
 const { createAway } = require('../away-service');
-const { createStickers } = require('../sticker-service');
+const { createStickers } = require('../stickers/service');
 const { createCopies } = require('../copy-service');
 const confirm = require('../confirm');
 const native = require('../native-windows');

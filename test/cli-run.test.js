@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { run } = require('../src/main/claude-cli');
+const { run } = require('../src/main/claude/cli');
 
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
 const wait = ms => new Promise(r => setTimeout(r, ms));

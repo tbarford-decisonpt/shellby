@@ -26,8 +26,8 @@
 
 <table>
 <tr>
-<td width="50%"><img src="screenshot-crew.png" alt="Three helper agents in crew lanes; one asks to run a script it wrote"></td>
-<td width="50%"><img src="screenshot-lean.png" alt="Toolbox → Lean: every new conversation carries about 24k tokens; plugins priced, with two marked idle"></td>
+<td width="50%"><img src="img/screenshot-crew.png" alt="Three helper agents in crew lanes; one asks to run a script it wrote"></td>
+<td width="50%"><img src="img/screenshot-lean.png" alt="Toolbox → Lean: every new conversation carries about 24k tokens; plugins priced, with two marked idle"></td>
 </tr>
 <tr>
 <td align="center"><sub>Helpers in parallel lanes</sub></td>
@@ -60,7 +60,7 @@
   <br><sub>Instead of: keeping one eye on the terminal.</sub>
 
 <p align="center">
-  <img src="screenshot-routines.png" width="360" alt="Automate → Routines: a 'describe it' box above three routines (a Friday Downloads tidy, a morning briefing, a paused disk space watch)"><br>
+  <img src="img/screenshot-routines.png" width="360" alt="Automate → Routines: a 'describe it' box above three routines (a Friday Downloads tidy, a morning briefing, a paused disk space watch)"><br>
   <sub>Routines, with "describe it" on top. Templates, triggers and step types are in <a href="WORKFLOWS.md">Workflows</a>.</sub>
 </p>
 

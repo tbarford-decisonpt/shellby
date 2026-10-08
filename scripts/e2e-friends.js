@@ -39,7 +39,7 @@ async function connect(url) {
     shell: [{ slot: 0, nudge: [0, 0], tier: 'holo', ...patch('#ff006e') }, { slot: 1, nudge: [0, 0], tier: 'paper', ...patch('#3a86ff') }],
     trade: [{ name: 'coral-reef', tier: 'vinyl', palette: { a: '#ff7a5c', b: '#fffaf0' }, pixels: ['bbbb', 'baab', 'baab', 'bbbb'] }],
   };
-  // They share their tank too (tank-share.js): two real pieces, one from a newer
+  // They share their tank too (tank/share.js): two real pieces, one from a newer
   // Shellby, and the kind of thing a hostile card might try, which never gets drawn.
   const tank = {
     size: 'ten-gallon', style: { substrate: 'gravel', backdrop: 'https://evil.example/wall.png', light: 'day' },

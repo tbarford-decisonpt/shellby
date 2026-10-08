@@ -1,9 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const tank = require('../src/main/tank');
-const tankShare = require('../src/main/tank-share');
-const glass = require('../src/main/tank-glass');
-const L = require('../src/main/tank-layouts');
+const tankShare = require('../src/main/tank/share');
+const glass = require('../src/main/tank/glass');
+const L = require('../src/main/tank/layouts');
 const sync = require('../src/main/github/sync');
 
 const A = 'aaaaaaaaaaaa', B = 'bbbbbbbbbbbb';

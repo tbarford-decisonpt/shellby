@@ -2,7 +2,7 @@
 
 Your phone, your stream, your desk lights, your Discord profile, your pull requests and your GitHub account. All optional, all off until you turn them on. Back to the [README](../README.md).
 
-<p align="center"><img src="screenshot-away.png" width="420" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked"></p>
+<p align="center"><img src="img/screenshot-away.png" width="420" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked"></p>
 
 ## 📱 Your phone
 

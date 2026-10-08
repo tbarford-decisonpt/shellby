@@ -1,4 +1,4 @@
-/* Shellby panel — his tank's live decor (src/main/tank-gauges.js decides what
+/* Shellby panel — his tank's live decor (src/main/tank/gauges.js decides what
    it shows). Main pushes a new reading only when it changes; this keeps the
    latest and paints it into the tank: the thermometer on the front glass, the
    lighthouse's lamp, bubblers that hurry with CPU load, and Health's moods in

@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const eff = require('../src/main/efficiency');
-const { scanTranscripts } = require('../src/main/usagescan');
+const { scanTranscripts } = require('../src/main/usage/scan');
 const { ClaudeSession } = require('../src/main/session');
 
 const NOW = new Date(2026, 9, 3, 15, 0).getTime();
@@ -278,7 +278,7 @@ test('scanTranscripts reads new and changed transcripts only', async () => {
 });
 
 test('use counts survive a transcript growing, and leave with it', async () => {
-  const { totalUses } = require('../src/main/usagescan');
+  const { totalUses } = require('../src/main/usage/scan');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-lean-'));
   const dir = path.join(root, 'projects', 'C--x');
   fs.mkdirSync(dir, { recursive: true });

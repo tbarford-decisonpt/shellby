@@ -13,7 +13,7 @@
 //     Code's transcripts, how often and how lately, so ones that sit idle can
 //     be pointed out. Turning one off or removing it is always the user's call.
 //
-// Pure: callers pass `now` (test/efficiency.test.js). usagescan.js reads the
+// Pure: callers pass `now` (test/efficiency.test.js). usage/scan.js reads the
 // transcripts; lean.js wires it to the panel.
 
 const MIN = 60 * 1000;

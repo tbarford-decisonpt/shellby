@@ -67,6 +67,7 @@ function addUses(stateIn, report, placed) {
 /** The piece he uses most (its uid), once he's used it a few times; ties go to the older piece. */
 function favourite(stateIn, placed) {
   const state = normalize(stateIn);
+  /** @type {{ uid: any, n: number } | null} */
   let best = null;
   for (const p of placed || []) {
     const n = state.uses[String(p.uid)] || 0;
@@ -152,10 +153,12 @@ const movingLine = size => fit(`moving day! ${short(size?.name)}`) || 'moving da
 /**
  * Now and then, on the desktop, a word about his tank: his favourite, a plant,
  * a find. Null when the tank is empty. `pieces` are library entries placed.
+ * @param {{ pieces?: any[], fav?: any, rand?: () => number }} opts
  */
 function remark({ pieces, fav = null, rand = Math.random }) {
   if (!pieces?.length) return null;
   const pick = a => a[Math.min(a.length - 1, Math.floor(rand() * a.length))];
+  /** @type {(string | null)[]} */
   const lines = ['I tidied my tank. ish.', 'my tank’s looking good', 'thinking about my tank'];
   if (fav) lines.push(fit(`I miss my ${short(fav.name)}`), fit(`my ${short(fav.name)} is the best`));
   const plant = pieces.find(p => p.category === PLANT);

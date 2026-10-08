@@ -24,8 +24,8 @@
 - **Sticker spots** are computed from each shell's shape (3–6 per shell), and the same
   spot number lands in the same place on a friend's crab, whatever skin it wears here.
 
-The code: `src/main/stickers.js` (state, pure), `sticker-art.js` (drawing),
-`sticker-slots.js` (spots), the `shell stickers` section of `main.js`, and
+The code: `src/main/stickers.js` (state, pure), `stickers/art.js` (drawing),
+`stickers/slots.js` (spots), the `shell stickers` section of `main.js`, and
 `src/renderer/panel/stickers.js` (the Sticker Book). Tests: `test/stickers.test.js`,
 `scripts/e2e-stickers.js`, `scripts/e2e-stickers-molt.js`, and the swap in
 `scripts/e2e-friends.js`.
@@ -128,7 +128,7 @@ strict limits, a bad file is ignored and logged without throwing. An
 open-source project can then give every contributor's crab the same sticker
 for it.
 
-Pure module: `src/main/sticker-art.js`. `art(project) → { full, micro }`, no
+Pure module: `src/main/stickers/art.js`. `art(project) → { full, micro }`, no
 I/O, fully unit-testable.
 
 ---
@@ -301,8 +301,8 @@ least-shipped untouched ones are dropped from the *book*, never from a shell.
 | File | Kind | Does |
 |---|---|---|
 | `src/main/stickers.js` | **pure** (callers pass `now`, like `xp.js`/`streaks.js`) | `normalize`, `recordShip(state, project, kind, now, meta)` → `{ state, minted, tierUp, newMarks }`, `tierFor`, `weathering(project, now)`, `autoPlace`, `carryOnMolt`, `merge(local, remote)` for sync |
-| `src/main/sticker-art.js` | **pure** | seed → full and micro art; language palettes; pixel font; shapes |
-| `src/main/sticker-slots.js` | **pure** | shell mask → slots |
+| `src/main/stickers/art.js` | **pure** | seed → full and micro art; language palettes; pixel font; shapes |
+| `src/main/stickers/slots.js` | **pure** | shell mask → slots |
 | `src/main/gitinfo.js` | I/O | `projectOf(dir)`, `languageOf(root)` (cached) |
 | `src/renderer/shared/sprite.js` | render | `opts.stickers`: painted after the home shell, in the `shell` group so they follow its animation (they snooze along when he sleeps) |
 | `src/renderer/panel/stickers.js` + `.css` | UI | Sticker Book and shell editor |
@@ -337,7 +337,7 @@ keep the full `dir` so the hook can resolve `projectOf(dir)`.
 ## 10. Phases
 
 ### Phase 1: "First mark" (0.41.0), the MVP
-- `stickers.js`, `sticker-art.js` and `sticker-slots.js`, with tests (target
+- `stickers.js`, `stickers/art.js` and `stickers/slots.js`, with tests (target
   ≥ 90% coverage, since they're all pure).
 - `projectOf()` with worktree resolution and remote-based ids.
 - Hooks: `pushHome` plus `git push` / deploy commands in tabs.
@@ -346,7 +346,7 @@ keep the full `dir` so the hook can resolve `projectOf(dir)`.
 - A minimal Sticker Book (grid and detail page, with no editor yet).
 - Auto-placement only, paper tier only.
 - Capture mode: deterministic demo stickers for `npm run screenshots`, plus
-  `docs/critter-stickers.png` and `docs/screenshot-stickers.png`.
+  `docs/img/critter-stickers.png` and `docs/img/screenshot-stickers.png`.
 
 ### Phase 2: "Decorate" (0.42.0)
 - The shell editor (drag, keyboard, z-order, flip).

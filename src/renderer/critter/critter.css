@@ -68,6 +68,19 @@ html, body {
 @keyframes visitor-wave { 0%, 62%, 100% { transform: none; } 70%, 86% { transform: rotate(-24deg); } 78% { transform: rotate(-6deg); } }
 @keyframes helper-in { from { transform: translateX(70px) scale(.4); opacity: 0; } }
 @keyframes helper-out { 30% { transform: translateY(-8px); } to { transform: translateX(90px) scale(.3); opacity: 0; } }
+/* Done: a little hop with a scroll held up, then home. Failed: a slow, low trudge. */
+.helper.leaving.home-ok { animation: helper-out-ok 1.5s ease-in forwards; }
+.helper.leaving.home-sad { animation: helper-out-sad 1.5s ease-in forwards; }
+.helper.home-sad svg { animation: none; transform: rotate(8deg) translateY(2px); filter: saturate(.55) brightness(.9); }
+.helper .loot {
+  position: absolute; left: 50%; bottom: 100%; width: 10px; height: 6px; margin-left: -5px;
+  background: #f4e4bc; border-left: 2px solid #8a5a2b; border-right: 2px solid #8a5a2b;
+  box-shadow: 0 1px 0 rgba(0,0,0,.35); image-rendering: pixelated;
+  animation: loot-up .5s steps(3) backwards;
+}
+@keyframes helper-out-ok { 0%, 40% { transform: none; } 20% { transform: translateY(-6px); } 55% { transform: translateY(-3px); } to { transform: translateX(90px) scale(.3); opacity: 0; } }
+@keyframes helper-out-sad { 0%, 25% { transform: translateY(1px); } to { transform: translateX(90px) translateY(2px) scale(.3); opacity: 0; } }
+@keyframes loot-up { from { transform: translateY(6px); opacity: 0; } }
 
 /* ---------- busy count ---------- */
 /* In front of #pose, whose Bugdex buddy tags along in this same corner. */
@@ -627,6 +640,12 @@ body.bit-dig [class*="part-legs"] { animation: leg .3s steps(1) infinite; }
 @keyframes dig-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1px); } }
 
 /* buffs his own shell, which he is quietly proud of */
+/* the conversation was compacted (wiring/native.js): he squashes his shell down twice and pats it flat */
+body.bit-pack .part-shell { animation: pack-shell 1.1s ease-in-out 2; transform-origin: 50% 100%; }
+body.bit-pack .part-claw { animation: pack-claw .275s ease-in-out 8; }
+@keyframes pack-shell { 0%, 100% { transform: none; } 35% { transform: scale(1.12, .78); } 55% { transform: scale(.94, 1.08); } 75% { transform: scale(1.03, .97); } }
+@keyframes pack-claw { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px) rotate(-10deg); } }
+
 body.bit-polish .part-claw { animation: polish-claw .6s ease-in-out infinite; }
 body.bit-polish .part-shell { animation: polish-shine 1.2s ease-in-out infinite; }
 @keyframes polish-claw { 0%, 100% { transform: rotate(-30deg) translate(-2px, -4px); } 50% { transform: rotate(-44deg) translate(-5px, -6px); } }

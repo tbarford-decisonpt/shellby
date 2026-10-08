@@ -6,7 +6,7 @@
 // Shellby reads the lockfile here instead, keeps only exact pins that pass
 // the name and version grammar, and hands pip-audit a file of those alone
 // (--no-deps --disable-pip), so nothing is installed or built. Pure.
-const { NAMES, VERSIONS, parseJson } = require('./depwatch-parse');
+const { NAMES, VERSIONS, parseJson } = require('./parse');
 
 const MAX_PINS = 2000;
 // A line any longer is no pin (and long runs of spaces are what make a regex crawl).
@@ -23,9 +23,11 @@ const pin = (name, version) => (typeof name === 'string' && typeof version === '
  * ([[packages]]). Only each block's own name, version and (uv) source lines
  * matter, so this reads those and nothing else. Packages from the project
  * itself (uv's editable, virtual and path sources) or from git aren't on PyPI.
+ * @returns {{ name: string, version: string }[]}
  */
 function tomlPins(text) {
   const out = [];
+  /** @type {Record<string, any> | null} */
   let cur = null;
   const flush = () => { if (cur && !cur.local) { const p = pin(cur.name, cur.version); if (p) out.push(p); } cur = null; };
   for (const raw of String(text || '').split(/\r?\n/)) {

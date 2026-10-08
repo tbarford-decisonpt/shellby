@@ -206,6 +206,7 @@ function wireCritter(d) {
       // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
       crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
+      crewEnded: own.crewEnded || [], // how the helpers that just left got on (sessions.js)
       health: d.healthMood,
       level: d.levelUpAt,
       ci: { failing: d.ci?.view().failing || 0 },

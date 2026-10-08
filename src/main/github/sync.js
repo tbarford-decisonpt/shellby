@@ -5,7 +5,7 @@
 // added together (xp.js mergeXpCounts), so XP earned on two PCs adds up. The
 // outfit, skin and sticker layouts follow whichever PC changed them last. The
 // Bugdex's catches are counted per PC like XP (bugdex.js merge). His tank's
-// layout follows whichever PC changed it last (tank-share.js). Your friends list
+// layout follows whichever PC changed it last (tank/share.js). Your friends list
 // follows the latest add or remove on any PC (friends.js mergeSync), and each of
 // your settings whichever PC changed it last, snippets and pins item by item
 // (sync-prefs.js). The gist is yours but is still treated as untrusted input.
@@ -13,8 +13,8 @@ const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
 const bugdex = require('../bugdex');
-const tankShare = require('../tank-share');
-const tankLayouts = require('../tank-layouts');
+const tankShare = require('../tank/share');
+const tankLayouts = require('../tank/layouts');
 const friends = require('../friends');
 const events = require('../events');
 const prefs = require('../sync-prefs');

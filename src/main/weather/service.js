@@ -7,7 +7,7 @@
 // config.weatherNow. No Electron here: `fetch` is passed in (main gives it
 // net.fetch, so a proxy set in Windows applies), which keeps this testable.
 
-const weather = require('./weather');
+const weather = require('../weather');
 
 const MINUTE = 60 * 1000;
 const POLL_MS = 30 * MINUTE;
@@ -38,7 +38,7 @@ async function getJson(fetchImpl, url, { timeoutMs = TIMEOUT_MS, maxBytes = MAX_
   } catch (e) {
     return { error: e?.name === 'AbortError' ? "the weather service didn't answer" : "couldn't reach the weather service" };
   } finally {
-    clearTimeout(timer);
+    clearTimeout(/** @type {any} */ (timer));
   }
 }
 
@@ -51,10 +51,14 @@ async function getJson(fetchImpl, url, { timeoutMs = TIMEOUT_MS, maxBytes = MAX_
  */
 function createWeatherService(d) {
   const now = () => d.now?.() ?? Date.now();
+  /** @type {NodeJS.Timeout | null} */
   let timer = null;
   let failures = 0;
+  /** @type {string | null} */
   let lastError = null;
+  /** @type {Promise<any> | null} */
   let checking = null;
+  /** @type {Promise<any> | null} */
   let searching = null;
   const tell = (fn, ...args) => { try { fn?.(...args); } catch (e) { d.log?.(`Weather: ${e.message}`); } };
 
@@ -63,7 +67,7 @@ function createWeatherService(d) {
   const active = () => { const s = settings(); return s.enabled && !!s.place; };
 
   function schedule(ms) {
-    clearTimeout(timer);
+    clearTimeout(/** @type {any} */ (timer));
     timer = active() ? setTimeout(() => { check().catch(e => d.log?.(`Weather check: ${e.message}`)); }, Math.max(0, ms)) : null;
     timer?.unref?.();
   }
@@ -107,7 +111,7 @@ function createWeatherService(d) {
   /** Begin (or carry on) checking: straight away if the last reading is old. */
   function start() { schedule(dueIn()); }
 
-  function stop() { clearTimeout(timer); timer = null; }
+  function stop() { clearTimeout(/** @type {any} */ (timer)); timer = null; }
 
   /** Apply a Settings change. A new town forgets the old town's weather and asks again. */
   function set(patch = {}) {

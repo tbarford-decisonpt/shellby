@@ -12,7 +12,7 @@ const { createAskpass, kindOf } = require('../src/main/remote/askpass');
 const agentMod = require('../src/main/remote/agent');
 const { createRemoteService } = require('../src/main/remote/service');
 const { registerRemoteIpc } = require('../src/main/ipc/remote');
-const { findBash } = require('../src/main/hook-test');
+const { findBash } = require('../src/main/hooks/test');
 const { createFakeIpc, fakeConfig } = require('./helpers/fake-ipc');
 
 const FAKE_CLAUDE = path.join(__dirname, 'fixtures', 'fake-claude.js');

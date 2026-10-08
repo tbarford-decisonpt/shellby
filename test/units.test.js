@@ -8,7 +8,7 @@ const { clampToDisplays, panelPosition } = require('../src/main/placement');
 const { validate, loadSkins, BUILTIN_DIR } = require('../src/main/skins');
 const { Config, CLI_MODE, MODES } = require('../src/main/config');
 const { History } = require('../src/main/history');
-const { claudeEnv, billingEnv, findClaude, skipSettings } = require('../src/main/claude-cli');
+const { claudeEnv, billingEnv, findClaude, skipSettings } = require('../src/main/claude/cli');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 

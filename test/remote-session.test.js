@@ -9,7 +9,7 @@ const os = require('os');
 const path = require('path');
 const { ClaudeSession } = require('../src/main/session');
 const { SessionManager } = require('../src/main/sessions');
-const { findBash } = require('../src/main/hook-test');
+const { findBash } = require('../src/main/hooks/test');
 
 const FAKE_CLAUDE = path.join(__dirname, 'fixtures', 'fake-claude.js');
 const FAKE_SSH = path.join(__dirname, 'fixtures', 'fake-ssh.js');
