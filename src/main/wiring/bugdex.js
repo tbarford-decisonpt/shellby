@@ -165,7 +165,7 @@ function wireBugdex(d) {
     const id = bugdex.favourite(s);
     if (!id) return null;
     const sp = speciesById(id);
-    const a = bugdex.artFor(sp, s.species[id]);
+    const a = bugdex.artFor(sp, s.species[id], { small: true }); // the desk sprite: a portrait would swamp him
     return { id, name: sp.name, ghost: sp.habitat === 'wreck', pixels: a.pixels, palette: a.palette };
   }
   function sendBuddy({ force = true } = {}) {
