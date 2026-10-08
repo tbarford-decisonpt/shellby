@@ -18,6 +18,7 @@ const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
+const { plainPermission } = require('./plain-words');
 const { lineOf, MAX_TEXT } = require('../renderer/shared/diff');
 const crabmcp = require('./crabmcp');
 const processJob = require('./process-job');
@@ -298,6 +299,7 @@ class ClaudeSession extends EventEmitter {
         break;
       case 'permission':
         Object.assign(item, annotatePermission(item, { createdFiles: this.createdFiles, tasks: this.tasks }));
+        Object.assign(item, plainPermission(item, { cwd: this.cwd, inCopy: !!this.inCopy?.(), originalCwd: this.copyOf?.() || null }));
         if (item.edits?.length) placeEdit(item);
         this.pending.set(item.requestId, item);
         break;

@@ -21,6 +21,7 @@ const SUITE = [
   'e2e-feed-cap',     // a very long conversation stops growing the DOM
   'e2e-tab-overview', // lots of tabs: edge markers, the list of every open one, closing the quiet ones
   'e2e-questions',    // Claude's multiple-choice questions
+  'e2e-plain-cards',  // plain words: what a step does on its card, warnings, a plan's size, the Working bar, off
   'e2e-editor',       // an edit's diff on its card and row, file links, Ctrl+F, zoom, Ctrl+Shift+P, Settings → Editor
   'e2e-xp',           // XP, levels, the desktop float and the level-up
   'e2e-flaky',        // flaky tests: fail then pass on the same code, the list, his line, Fix it in a copy

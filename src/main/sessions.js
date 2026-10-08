@@ -89,6 +89,9 @@ class SessionManager extends EventEmitter {
     if (historyEntry) for (const i of this.history.load?.(tabId) || []) if (i?.kind === 'suggest') tab.offered.add(i.feature);
     this.tabs.set(tabId, tab);
     session.takeSteers = () => this.takeSteers(tab);
+    // Where it works, for the plain words on its permission cards (plain-words.js).
+    session.inCopy = () => !!tab.worktree;
+    session.copyOf = () => tab.worktree?.originalCwd || null;
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));

@@ -567,6 +567,43 @@ function onLine(line) {
     return;
   }
 
+  if (content.startsWith('askdelete')) {
+    // Asks to delete a file outside the project: plain words and a warning on the card (plain-words.js).
+    const input = { command: 'Remove-Item C:\\Users\\someone\\notes.txt', description: 'Remove the old notes' };
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_del', name: 'PowerShell', input }] } });
+    out({ type: 'control_request', request_id: `req-del-${turn}`, request: { subtype: 'can_use_tool', tool_name: 'PowerShell', input, tool_use_id: 'tu_del', permission_suggestions: [] } });
+    pending = { requestId: `req-del-${turn}`, onAnswer: r => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_del', is_error: r.behavior !== 'allow', content: 'done' }] } });
+      text(r.behavior === 'allow' ? 'DELETED' : 'KEPT');
+      result(true);
+    } };
+    return;
+  }
+
+  if (content.startsWith('askplan')) {
+    // Plan mode's ExitPlanMode: the plan card and its size.
+    const input = { plan: '## Plan\n1. Add `src/a.js`\n2. Change `src/b.js`\n3. Run the tests' };
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_plan', name: 'ExitPlanMode', input }] } });
+    out({ type: 'control_request', request_id: `req-plan-${turn}`, request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input, tool_use_id: 'tu_plan', permission_suggestions: [{ type: 'setMode', mode: 'acceptEdits', destination: 'session' }] } });
+    pending = { requestId: `req-plan-${turn}`, onAnswer: r => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_plan', is_error: r.behavior !== 'allow', content: 'ok' }] } });
+      text(r.behavior === 'allow' ? 'PLAN APPROVED' : 'STILL PLANNING');
+      result(true);
+    } };
+    return;
+  }
+
+  if (content.startsWith('longtests')) {
+    // A test run that takes a while: the Working bar says what it's doing meanwhile.
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_lt', name: 'Bash', input: { command: 'npm test', description: 'Run the test suite' } }] } });
+    setTimeout(() => {
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_lt', content: 'all passed' }] } });
+      text('TESTS DONE');
+      result(true);
+    }, 2500);
+    return;
+  }
+
   if (content.startsWith('tool')) {
     const input = { file_path: 'C:\\tmp\\x.txt', content: '' };
     out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_1', name: 'Write', input }] } });

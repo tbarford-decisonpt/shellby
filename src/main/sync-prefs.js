@@ -38,7 +38,7 @@ const PREFS = {
   outputStyle: v => (typeof v === 'string' ? outputStyles.clean(v) : undefined),
   hotkey: v => (typeof v === 'string' && /^[A-Za-z0-9+]{0,60}$/.test(v) ? v : undefined),
   critterScale: oneOf([0.75, 1, 1.5, 2]),
-  notifications: bool, recap: bool, claudeTricks: bool, leaveGuard: bool, crabOnly: bool, workMode: bool, wander: bool, onTop: bool,
+  notifications: bool, recap: bool, claudeTricks: bool, plainCards: bool, leaveGuard: bool, crabOnly: bool, workMode: bool, wander: bool, onTop: bool,
   sounds: bool, soundFx: bool, needsOn: bool, forecast: bool, spendGuard: bool, holdBigTasks: bool, flakyTests: bool,
   surprises: bool, catchBugs: bool, bugBattles: bool, bugFollower: bool, checkEachTurn: bool, turnShots: bool, worktrees: bool, clashWarnings: bool, planOnly: bool,
   perch: oneOf(PERCH_SETTINGS),

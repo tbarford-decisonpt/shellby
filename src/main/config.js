@@ -139,6 +139,7 @@ const DEFAULTS = {
   corrections: null,  // { events, offers }: corrections noted and rules offered from them (see corrections.js); this PC only
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
+  plainCards: true, // permission cards and the Working bar say what a step does, in plain words (plain-words.js)
   claudeTricks: true, // say what a new Claude Code can do, from its changelog (see claude-tricks.js)
   claudeTricksState: null, // { lastSeen, pending }: the version he last saw, and a card not yet dismissed
   claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude-update.js); null -> tell me

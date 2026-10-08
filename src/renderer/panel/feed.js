@@ -294,9 +294,11 @@
       }
       this.tools.set(item.id, el);
       this.append(el, item.parent);
-      if (!replay && !item.sub) this.setStatus(`${item.label} ${item.detail}`.trim());
+      // In plain words when there are some (plain-words.js), else the step as Claude Code names it.
+      const now = state.settings.plainCards !== false && item.doing ? `${item.doing}…` : `${item.label} ${item.detail}`.trim();
+      if (!replay && !item.sub) this.setStatus(now);
       const lane = item.parent && this.lanes.get(item.parent);
-      if (lane && !replay) lane.setActivity(`${item.label} ${item.detail}`);
+      if (lane && !replay) lane.setActivity(now);
     }
 
     renderToolResult(item) {

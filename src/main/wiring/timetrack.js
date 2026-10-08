@@ -203,7 +203,8 @@ function wireTimetrack(d) {
       notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Answer' });
       return;
     }
-    notify('Shellby needs your OK', `${who}: ${item.label} ${item.detail}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
+    const what = d.config.get('plainCards') !== false && item.plain ? item.plain.ask : `${item.label} ${item.detail}`;
+    notify('Shellby needs your OK', `${who}: ${what}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
   }
 
   function onResult(tabId, item, tab) {

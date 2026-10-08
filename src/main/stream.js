@@ -3,6 +3,7 @@
 
 const { clean } = require('./mods');
 const { editsOf } = require('../renderer/shared/diff');
+const plainWords = require('./plain-words');
 
 const MAX_RESULT_CHARS = 8000;
 
@@ -127,6 +128,9 @@ function toolItem(b, sub) {
   const input = b.input || {};
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
+  // What it's doing, in plain words, for the Working bar (plain-words.js).
+  const plain = plainWords.describe(b.name, input);
+  if (plain) item.doing = plain.doing;
   // Its result only says it started: not a finished run (flaky.js).
   if ((b.name === 'Bash' || b.name === 'PowerShell') && input.run_in_background === true) item.background = true;
   const fp = writtenPath(b.name, input);
