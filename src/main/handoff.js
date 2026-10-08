@@ -69,6 +69,19 @@ function resumeScript({ exe, cwd, sessionId, scrub = [] }) {
 const encodeScript = script => Buffer.from(script, 'utf16le').toString('base64');
 
 /**
+ * Open a console program in a window of its own, through cmd's `start`. Spawned
+ * directly, it can't have one: detached (so closing Shellby doesn't close the
+ * terminal) means DETACHED_PROCESS on Windows, which runs it with no console at
+ * all, started but invisible. The line is passed verbatim: program comes from
+ * System32 and rest is only flags, base64 and checked paths and ids.
+ */
+const viaStart = (cmd, program, rest, options) => ({
+  file: cmd,
+  args: ['/d', '/c', `start "" "${program}" ${rest.join(' ')}`],
+  options: { ...options, windowsVerbatimArguments: true },
+});
+
+/**
  * How to open the conversation in a terminal, best first. Each plan is what
  * child_process.spawn takes. wt, powershell, cmd: full paths (wt may be null
  * when Windows Terminal isn't installed). env: the environment for the new
@@ -88,10 +101,13 @@ function launchPlans({ exe, cwd, sessionId, scrub = [], env = undefined, wt = nu
   if (safePath(wt) && safePath(powershell)) {
     plans.push({ shell: 'wt', file: wt, args: ['-w', 'new', ...(cwd.includes(';') ? [] : ['-d', cwd]), powershell, ...psArgs], options });
   }
-  if (safePath(powershell)) plans.push({ shell: 'powershell', file: powershell, args: psArgs, options });
+  // The rest go through cmd's start (viaStart), so cmd and the program must both
+  // be free of what cmd would read as its own syntax.
+  const startable = p => safePath(p) && !CMD_SPECIAL.test(p);
+  if (startable(cmd) && startable(powershell)) plans.push({ shell: 'powershell', ...viaStart(cmd, powershell, psArgs, options) });
   // cmd gets no script: the folder is the process's working directory and the
   // environment is already scrubbed, so only the CLI's path and the id are on its line.
-  if (safePath(cmd) && !CMD_SPECIAL.test(exe)) plans.push({ shell: 'cmd', file: cmd, args: ['/d', '/k', exe, '--resume', sessionId], options });
+  if (startable(cmd) && startable(exe)) plans.push({ shell: 'cmd', ...viaStart(cmd, cmd, ['/d', '/k', `"${exe}"`, '--resume', sessionId], options) });
   return plans.length ? { ok: true, plans } : { ok: false, error: 'Shellby couldn’t find a terminal to open.' };
 }
 
