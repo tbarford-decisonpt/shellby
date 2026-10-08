@@ -182,7 +182,7 @@
       "minProperties": 1,
       "propertyNames": {
         "enum": [
-          "working", "success", "error", "learned", "unlocked", "petted",
+          "working", "success", "error", "learned", "newTricks", "unlocked", "petted",
           "tests", "passed", "push", "deploy", "bigWrite", "sameFile", "searching", "web", "crew", "longTask", "serverDown",
           "morning", "latenight", "back",
           "gameOver", "callOver", "sheetStretch", "docStretch", "slideStretch", "friday", "weekend", "monday", "tank", "tankNew",

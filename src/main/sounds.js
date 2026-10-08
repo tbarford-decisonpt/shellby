@@ -20,6 +20,7 @@ const CHEERS = Object.freeze({
   crit: 'crit',         // surprises.js: rarer than any of these, so a sound of its own
   landing: 'landing',
   learned: 'sparkle',
+  newTricks: 'sparkle',
 });
 
 const SILENT = Object.freeze({ voice: false, fx: false, ambient: 'off', volume: DEFAULT_VOLUME });
