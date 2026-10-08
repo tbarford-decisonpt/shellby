@@ -188,7 +188,7 @@
     }
     cue('cry', { species: b.species });
     if (!reduced()) parts.foeArt.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12, .9)' }, { transform: 'scale(.95, 1.08)' }, { transform: 'scale(1)' }], { duration: 420 });
-    await say(b.moves[0]?.line || `${b.name} surfaced!`);
+    await say(b.moves[0]?.line || `A wild ${b.name} appeared!`);
     if (scene !== s) return;
     // Opening one already under way: catch up quietly, and replay what just happened.
     const now = SB.battleOf(s.id) || b; // it may have moved on during the intro

@@ -107,7 +107,7 @@ test('a red build is a battle: reads and edits wear it down, a helper joins, and
   let [fight] = b.battles();
   assert.equal(fight.species, 'red-tide');
   assert.equal(fight.hp, fight.max);
-  assert.equal(fight.moves[0].line, 'Red Tide surfaced!');
+  assert.equal(fight.moves[0].line, 'A wild Red Tide appeared!');
   await b.tool('t1', { kind: 'tool', name: 'Read' });
   await b.tool('t1', { kind: 'tool', name: 'Edit', filePath: `${root}/x.js` });
   await b.tool('t1', { kind: 'tool', name: 'Read', sub: true, parent: 'p1' }); // a helper's own read: not a move
@@ -124,4 +124,22 @@ test('a red build is a battle: reads and edits wear it down, a helper joins, and
   assert.deepEqual(fight.moves.slice(-2).map(m => m.fx), ['ko', 'caught']);
   assert.deepEqual(beats, [{ types: ['Explore'], bugType: 'ci' }]);
   assert.ok(sent.some(m => m.channel === 'bugdex:caught' && m.payload.battle));
+});
+
+test('a bug spotted in one conversation is that conversation\'s fight: another one\'s reads and edits miss it', async () => {
+  const root = require('path').resolve(__dirname, '..');
+  const { d, data } = fakeMain();
+  Object.assign(d, {
+    projects: { localRepos: async () => [{ root, remote: 'x/y' }] },
+    manager: { tabs: new Map([['t1', { session: { cwd: root } }], ['t2', { session: { cwd: root } }]]) },
+  });
+  const b = wireBugdex(d);
+  await b.ciFailed({ key: 'x/y#8', repo: 'x/y', failing: ['test'] });
+  data.bugdex.open[0].tabId = 't1'; // as a failed command in t1 leaves it
+  await b.tool('t2', { kind: 'tool', name: 'Edit', filePath: `${root}/x.js` });
+  let [fight] = b.battles();
+  assert.deepEqual(fight.moves.map(m => m.move), ['appear']);
+  await b.tool('t1', { kind: 'tool', name: 'Edit', filePath: `${root}/x.js` });
+  [fight] = b.battles();
+  assert.deepEqual(fight.moves.map(m => m.move), ['appear', 'patch']);
 });
