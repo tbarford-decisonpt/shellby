@@ -23,7 +23,7 @@ test('a bug surfaces at full HP, bosses and the league bigger and stronger', () 
 
 test('scouting and patching wear it down, but never past the floor before a proven fix', () => {
   let b = fresh();
-  for (let i = 0; i < 60; i++) b = battle.act(b, { move: i % 2 ? 'patch' : 'scout', at: T0 + i * 30 * S });
+  for (let i = 0; i < 60; i++) b = battle.act(b, { move: i % 2 ? 'patch' : 'scout', at: T0 + i * 5 * S });
   assert.equal(b.hp, battle.floorOf(b));
   assert.ok(b.hp > 0);
   assert.ok(!b.over);
@@ -31,7 +31,7 @@ test('scouting and patching wear it down, but never past the floor before a prov
 
 test('scouting chips only so much in all', () => {
   let b = fresh();
-  for (let i = 0; i < 30; i++) b = battle.act(b, { move: 'scout', at: T0 + i * 60 * S });
+  for (let i = 0; i < 30; i++) b = battle.act(b, { move: 'scout', at: T0 + i * 15 * S });
   assert.ok(b.max - b.hp <= Math.ceil(b.max * 0.15) + 1);
   assert.equal(b.moves.at(-1).fx, 'miss'); // studied out
 });
@@ -139,7 +139,7 @@ test('the view gives every move its line', () => {
   b = battle.finish(b, { at: T0 + 3 * S, outcome: 'caught' });
   const v = battle.view(b, 'Nullfish');
   assert.deepEqual(v.moves.map(m => m.line), [
-    'Nullfish surfaced!',
+    'A wild Nullfish appeared!',
     'Claude tries Test Run! A big one!',
     'Pinchy pitches in!',
     'Nullfish is out cold!',
@@ -155,4 +155,16 @@ test('every type has a super-effective move, and every one of them is a move', (
     assert.ok(battle.SUPER[t]?.length, t);
     for (const m of battle.SUPER[t]) assert.ok(battle.MOVES[m], m);
   }
+});
+
+test('work long after the bug last showed itself is about something else: it just waits', () => {
+  let b = fresh({ failed: 4 });
+  const later = T0 + battle.FOCUS_MS + S;
+  for (const move of ['scout', 'patch']) assert.equal(battle.act(b, { move, at: later }), b);
+  assert.equal(battle.act(b, { move: 'assist', by: { type: 'Explore', name: 'Pinchy' }, at: later }), b);
+  // Its command failing again puts it back in play.
+  b = battle.act(b, { move: 'tests', failed: 4, at: later });
+  const hp = b.hp;
+  b = battle.act(b, { move: 'patch', at: later + S });
+  assert.ok(b.hp < hp);
 });

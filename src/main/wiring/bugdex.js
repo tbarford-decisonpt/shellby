@@ -614,11 +614,15 @@ function wireBugdex(d) {
     if (p) update(s => bugdex.engage(s, p.id, Date.now()));
   }
 
-  /** What's open in the project a tab works in (for its battles), or []. */
+  /**
+   * What a tab can be fighting, or []: in the project it works in, and spotted
+   * in that tab (or in none, like a red build). Another conversation's bug is
+   * its own fight.
+   */
   async function openInTab(tabId) {
     if (!state()?.open?.length) return [];
     const p = await project(d.manager?.tabs.get(tabId)?.session?.cwd);
-    return p ? state().open.filter(e => e.project === p.id) : [];
+    return p ? state().open.filter(e => e.project === p.id && (!e.tabId || e.tabId === tabId)) : [];
   }
 
   /**

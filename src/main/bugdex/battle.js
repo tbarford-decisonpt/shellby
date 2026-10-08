@@ -8,7 +8,10 @@
 // The honest parts: a re-run that fails with fewer failing tests takes HP off
 // in proportion, one that fails as before misses, one that fails worse heals
 // it, and a fix that didn't count (a skipped test) "doesn't count".
-// Scouting and patching are effort, so they chip at it, a little.
+// Scouting and patching are effort, so they chip at it, a little, and only
+// while the bug is in play: within FOCUS_MS of it last showing itself (it
+// surfaced, or its command failed again). Work long after that is about
+// something else, and the bug just waits.
 //
 // Kept in memory only (wiring/bugdex.js): a restart starts a fresh battle with
 // whatever is still on the loose. Pure: no clock, no randomness. See
@@ -42,6 +45,7 @@ const REMEDY = 0.1;
 const RESIST_HEAL = 0.2;
 const CRIT_SHARE = 0.5;    // one re-run that clears half the failing tests is a big one
 const COALESCE_MS = 20 * 1000;
+const FOCUS_MS = 10 * 60 * 1000; // reads, edits and helpers count this long after it last showed itself
 const MAX_MOVES = 40;
 const MAX_PARTY = 6;
 
@@ -66,7 +70,7 @@ function start(enc, { id, boss = false, league = null, stage = 0, failed = null,
   const level = Math.min(100, LEVEL[rarity] + (big ? BOSS_LEVELS : 0) + Math.max(0, Math.min(4, stage | 0)) * 2);
   return {
     id, species: enc.species, type: enc.type, rarity, boss: !!boss, league: league === 'elite' || league === 'champion' ? league : null,
-    max, hp: max, level, startedAt: now, seq: 1,
+    max, hp: max, level, startedAt: now, seenAt: now, seq: 1,
     firstFailed: count(failed), lastFailed: count(failed), scouted: 0,
     party: [],
     moves: [{ seq: 1, move: 'appear', fx: 'appear', dmg: 0, hp: max, at: now, n: 1, by: null }],
@@ -99,6 +103,8 @@ const hitFor = (b, share) => {
 function act(b, m) {
   if (!b || b.over || !MOVES[m.move] || !Number.isFinite(m.at)) return b;
   const at = m.at;
+  const effort = m.move === 'scout' || m.move === 'patch' || m.move === 'assist';
+  if (effort && at - (b.seenAt ?? b.startedAt) > FOCUS_MS) return b;
   if (m.move === 'scout') {
     const share = b.scouted < SCOUT_MAX ? Math.min(SCOUT, SCOUT_MAX - b.scouted) : 0;
     const { hp, dmg } = hitFor(b, share);
@@ -120,6 +126,7 @@ function act(b, m) {
   const now = count(m.failed);
   const kind = COMMAND_MOVES.has(m.move) ? m.move : 'run';
   const sup = isSuper(kind, b.type);
+  b = { ...b, seenAt: at }; // it showed itself again: in play
   if (now == null || b.lastFailed == null || !b.firstFailed) {
     return push(b, { move: kind, fx: 'miss', dmg: 0, hp: b.hp, at });
   }
@@ -192,7 +199,7 @@ function lineFor(b, m, name) {
   switch (m.fx) {
     case 'appear': return b.league === 'champion' ? `${name}, the champion of the deep, stirs!`
       : b.league === 'elite' ? `${name}, one of the Deep Four, stirs!`
-        : b.boss ? `${name}, the boss of these waters, won’t budge!` : `${name} surfaced!`;
+        : b.boss ? `${name}, the boss of these waters, won’t budge!` : `A wild ${name} appeared!`;
     case 'ko': return `${name} is out cold!`;
     case 'caught':
       if (m.jar?.reveal) return `Into the jar! It was a ${m.jar.reveal} all along!`;
@@ -220,6 +227,6 @@ function view(b, name) {
 }
 
 module.exports = {
-  MOVES, SUPER, HP, LEVEL, FLOOR, MAX_MOVES, COMMAND_MOVES,
+  MOVES, SUPER, HP, LEVEL, FLOOR, FOCUS_MS, MAX_MOVES, COMMAND_MOVES,
   isSuper, start, act, resist, finish, lineFor, view, floorOf,
 };
