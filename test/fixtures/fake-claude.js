@@ -325,6 +325,39 @@ function onLine(line) {
     setTimeout(() => { text(`fixed ${n}: all green`); result(true); }, 7500);
     return;
   }
+  // "suite <n>" -> `npx jest` with <n> failing tests (0: all green), exiting as
+  // Jest would: a bug battle's HP follows the failing count (bugdex/battle.js).
+  if (content.startsWith('suite ')) {
+    const n = Math.max(0, Math.min(20, parseInt(content.slice(6), 10) || 0));
+    const names = Array.from({ length: n }, (_, i) => `case ${i + 1}`);
+    const output = n
+      ? `FAIL src/cart.spec.js\n  cart\n${names.map(t => `    ✕ ${t} (4 ms)`).join('\n')}\n\n  ● cart › case 1\n\n    expect(received).toBe(expected)\n\nTest Suites: 1 failed, 1 total\nTests:       ${n} failed, 3 passed, ${n + 3} total`
+      : 'PASS src/cart.spec.js\n\nTest Suites: 1 passed, 1 total\nTests:       7 passed, 7 total';
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_suite_${turn}`, name: 'Bash', input: { command: 'npx jest' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_suite_${turn}`, is_error: n > 0, content: output }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(n ? `${n} failing` : 'all green');
+    result(true);
+    return;
+  }
+  // "patch <file> <words...>" -> an Edit tool call that writes <words> into <file> (a bug battle's Patch).
+  if (content.startsWith('patch ')) {
+    const [, file, ...words] = content.split(' ');
+    const full = require('path').join(process.cwd(), file);
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_patch_${turn}`, name: 'Edit', input: { file_path: full, old_string: 'x', new_string: words.join(' ') } }] }, parent_tool_use_id: null, session_id: sessionId });
+    require('fs').writeFileSync(full, `${words.join(' ')}\n`);
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_patch_${turn}`, content: 'edited' }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(`patched ${file}`);
+    result(true);
+    return;
+  }
+  // "read <file>" -> a Read of a file (a bug battle's Scout).
+  if (content.startsWith('read ')) {
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_read_${turn}`, name: 'Read', input: { file_path: content.slice(5).trim() } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_read_${turn}`, content: '1\tbroken' }] }, parent_tool_use_id: null, session_id: sessionId });
+    text('read it');
+    result(true);
+    return;
+  }
   // "bug <fixture>" -> a Bash call whose command, output and error flag come from
   // test/fixtures/bugdex/<fixture>.json (the Bugdex's e2e).
   if (content.startsWith('bug ')) {

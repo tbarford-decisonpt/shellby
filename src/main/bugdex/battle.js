@@ -179,23 +179,32 @@ function cleanJar(j) {
 }
 
 /** The words for a move, as the battle's text box says them. */
+// Why a fix didn't count, as the text box puts it (cheats.js REASONS).
+const WHY = {
+  'no-change': 'the code didn’t change', revert: 'that only undid things', 'deleted-tests': 'a test was deleted',
+  skipped: 'a test was skipped', suppressed: 'the error was silenced', 'fewer-tests': 'fewer tests ran',
+  'snapshots-only': 'the snapshots were just updated', 'bigger-number': 'a limit was just raised',
+  insecure: 'the checks were switched off', 'tests-only': 'only the tests changed',
+};
+
 function lineFor(b, m, name) {
+  const wild = b.boss || b.league ? name : `The wild ${name}`;
   const who = m.by ? m.by.name : 'Claude';
   const times = m.n > 1 ? ` ×${m.n}` : '';
   switch (m.fx) {
     case 'appear': return b.league === 'champion' ? `The Champion, ${name}, rises from the deep!`
       : b.league === 'elite' ? `Elite bug ${name} wants to fight!`
         : b.boss ? `The habitat boss, ${name}, blocks the way!` : `A wild ${name} appeared!`;
-    case 'ko': return `The wild ${name} fainted!`;
+    case 'ko': return `${wild} fainted!`;
     case 'caught':
       if (m.jar?.reveal) return `Gotcha! It was a ${m.jar.reveal} all along!`;
       return m.jar && !m.jar.counted ? `${name} is fixed! (Already in a jar today.)` : `Gotcha! ${name} was caught!`;
-    case 'fled': return `The wild ${name} got away…`;
+    case 'fled': return `${wild} got away…`;
     default: break;
   }
   const used = m.move === 'assist' ? `${who} jumped in to help!` : `${who} used ${MOVES[m.move] || 'a move'}!${times}`;
   const after = {
-    hit: '', super: ' It’s super effective!', crit: ' A critical hit!', resist: ' It’s not very effective…',
+    hit: '', super: ' It’s super effective!', crit: ' A critical hit!', resist: ` It’s not very effective… ${WHY[m.reason] ? `(${WHY[m.reason]})` : ''}`.trimEnd(),
     heal: ` ${name} got stronger!`, miss: m.move === 'scout' ? ` ${name} is being studied.` : ` ${name} shook it off!`,
   }[m.fx] || '';
   return `${used}${after}`;

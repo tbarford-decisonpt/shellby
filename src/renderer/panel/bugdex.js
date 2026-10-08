@@ -66,6 +66,8 @@
     const v = dex();
     if (!v) return;
     renderHero(v);
+    renderLeague(v);
+    renderFriends(v);
     renderLoose(v);
     renderHabitats(v);
     renderFilters(v);
@@ -90,13 +92,54 @@
     $('bdLoose').replaceChildren(...list.map(l => {
       const where = l.project ? ` in ${l.project}` : '';
       const why = l.refused ? `Not like that: ${REASONS[l.refused] || 'that fix didn’t count'}` : l.engaged ? 'Claude’s on it' : 'Waiting for a fix';
+      // Its battle (bugdex-battle.js): how much fight it has left, and a way to watch.
+      const b = SB.battleOf?.(l.id);
+      const share = b && b.max ? b.hp / b.max : null;
       return h('li', { class: `bd-loose-row${l.refused ? ' refused' : ''}` },
         h('span', { class: 'bd-loose-art', 'aria-hidden': 'true' }, hasArt(l) ? art(l, 28) : null),
         h('span', { class: 'bd-loose-text' },
           h('span', {}, h('b', { text: l.name }), ` spotted${where} ${ago(l.at)}`),
-          h('span', { class: 'bd-loose-why', text: why })),
-        l.tabId ? h('button', { type: 'button', class: 'btn ghost slim-btn', 'aria-label': `Open the tab where ${l.name} is loose`, onclick: () => api.openBugTab(l.tabId) }, 'Open the tab') : h('span'));
+          h('span', { class: 'bd-loose-why', text: why }),
+          share != null ? h('span', { class: 'bd-loose-hp', 'aria-label': `${Math.round(share * 100)}% HP left` }, `Lv${b.level} HP`,
+            h('span', { class: `bb-chip-hp ${share > 0.5 ? 'high' : share > 0.2 ? 'mid' : 'low'}`, 'aria-hidden': 'true' }, h('i', { style: `width:${Math.round(share * 100)}%` }))) : null),
+        h('span', { class: 'bd-loose-actions' },
+          b ? h('button', { type: 'button', class: 'btn primary slim-btn', 'aria-label': `Watch the battle with ${l.name}`, onclick: () => SB.openBattle(l.id) }, 'Watch') : null,
+          l.tabId ? h('button', { type: 'button', class: 'btn ghost slim-btn', 'aria-label': `Open the tab where ${l.name} is loose`, onclick: () => api.openBugTab(l.tabId) }, 'Open the tab') : null));
     }));
+  }
+  SB.renderLooseBattles = () => { if (state.view === 'bugdex' && dex()) renderLoose(dex()); };
+
+  // The badge case: one per habitat, for beating its boss. Then the league, and the Hall of Fame.
+  function renderLeague(v) {
+    const l = v.league;
+    const box = $('bdLeague');
+    if (!l) { box.replaceChildren(); return; }
+    const badge = b => h('li', {
+      class: `bd-badge-slot${b.earned ? ' earned' : ''}`, tabindex: '0',
+      title: b.earned ? `${b.name}: beat ${b.boss} in ${b.habitatName}, ${day(b.at)}` : `${b.name}: beat ${b.boss || 'the boss'} of ${b.habitatName}`,
+      'aria-label': b.earned ? `${b.name}, earned ${day(b.at)}` : `${b.name}, not earned yet. Beat ${b.boss || 'the boss'} of ${b.habitatName}.`,
+    }, SB.Sprite.grid(b.pixels, b.palette, { px: 4 }));
+    const member = m => h('li', { class: `bd-elite ${m.rank}${m.beaten ? ' beaten' : ''}`, title: m.beaten ? `${m.name}: beaten ${day(m.at)}` : m.name },
+      hasArt(m) ? art(m, 30) : h('span', { class: 'bd-unknown', text: '?' }),
+      h('span', { class: 'bd-elite-name', text: m.rank === 'champion' ? `★ ${m.name}` : m.name }));
+    box.replaceChildren(
+      h('div', { class: 'bd-badges-head' },
+        h('h3', { class: 'bd-section-title', text: 'Badges' }),
+        h('span', { class: 'bd-badges-count', text: `${l.earned} of ${l.of}` })),
+      h('ul', { class: 'bd-badges', 'aria-label': 'Badge case' }, l.badges.map(badge)),
+      h('div', { class: 'bd-badges-head' },
+        h('h3', { class: 'bd-section-title', text: l.open ? 'The league' : 'The league · opens with every badge' })),
+      h('ul', { class: `bd-league-row${l.open ? ' open' : ''}`, 'aria-label': 'The elite four and the champion' }, [...l.elite, l.champion].map(member)),
+      l.hall ? h('p', { class: 'bd-hall', text: `🏆 Hall of Fame, ${day(l.hall)}. Every badge, the elite four and the champion.` }) : '');
+  }
+
+  function renderFriends(v) {
+    const list = v.friends || [];
+    $('bdFriends').hidden = !list.length;
+    $('bdFriendList').replaceChildren(...list.map(f => h('li', { class: 'bd-friend' },
+      h('b', { text: `@${f.login}` }),
+      h('span', { text: `${f.caught} of ${v.of} caught · ${plural(f.badges, 'badge')}${f.hall ? ' · Hall of Fame' : ''}` }),
+      h('span', { class: 'bd-friend-vs', text: f.caught > v.caught ? `${f.caught - v.caught} ahead of you` : f.caught < v.caught ? `${v.caught - f.caught} behind you` : 'neck and neck' }))));
   }
 
   function renderHabitats(v) {
@@ -133,6 +176,7 @@
   function labelOf(s) {
     if (s.state === 'unknown') return `${num(s.no)}, not seen yet. ${s.blurb}`;
     if (s.state === 'seen') return `${num(s.no)} ${s.name}, seen but not caught yet. ${s.blurb}`;
+    if (s.state === 'reported') return `${num(s.no)} ${s.name}, reported by a friend. ${s.blurb}`;
     const forms = (s.forms || []).map(f => FORMS[f]?.[1]).filter(Boolean);
     return `${num(s.no)} ${s.name}, ${s.rarityLabel}, caught ${times(s.caught)}${forms.length ? `, ${forms.join(', ')}` : ''}${s.isNew ? ', new' : ''}`;
   }
@@ -155,7 +199,8 @@
       h('span', { class: 'bd-no', 'aria-hidden': 'true', text: num(s.no) }),
       h('span', { class: 'fd-art' }, hasArt(s) ? art(s, 40) : unknownArt()),
       h('span', { class: 'fd-name', text: s.name }),
-      h('span', { class: 'fd-rarity', text: caught ? s.rarityLabel : s.state === 'seen' ? 'Seen' : '' }),
+      h('span', { class: 'fd-rarity', text: caught ? s.rarityLabel : s.state === 'seen' ? 'Seen' : s.state === 'reported' ? 'Reported' : '' }),
+      (s.boss || s.league) && s.state !== 'unknown' ? h('span', { class: `bd-rank-mark ${s.league || 'boss'}`, 'aria-hidden': 'true', text: s.league === 'champion' ? '★' : s.league ? '♛' : '♜' }) : null,
       h('span', { class: 'bd-meta', 'aria-hidden': 'true' }, pips(s), forms ? h('span', { class: 'bd-forms', text: forms }) : null),
       caught && s.caught > 1 ? h('span', { class: 'fd-count-pill', 'aria-hidden': 'true', text: `×${s.caught}` }) : null,
       s.isNew ? h('span', { class: 'new-pill', 'aria-hidden': 'true', text: 'new' }) : null));
@@ -172,6 +217,10 @@
   }
 
   function statsLine(s) {
+    if (s.state === 'reported') {
+      const from = [s.reportedBy?.length ? `Reported by ${s.reportedBy.map(l => `@${l}`).join(', ')}` : null, s.gifts ? `a jar from ${s.giftFrom.map(l => `@${l}`).join(', ')}` : null];
+      return `${from.filter(Boolean).join(' · ')}. You haven’t met one yet.`;
+    }
     if (s.state === 'seen') return `Seen ${times(s.seenCount || 1)}${s.seenAt ? ` · last spotted ${ago(s.seenAt)}` : ''} · not caught yet`;
     if (s.state !== 'caught') return null;
     return [
@@ -217,12 +266,45 @@
         nextLine(s),
         h('p', { class: 'fd-blurb', text: s.blurb }),
         statsLine(s) ? h('p', { class: 'fd-when', text: statsLine(s) }) : null,
+        rankLine(s, where),
+        friendsLine(s),
         chips(s),
-        caught ? h('div', { class: 'fd-actions' },
-          isFav
+        lore(s),
+        caught || s.state === 'seen' ? h('div', { class: 'fd-actions' },
+          h('button', { type: 'button', class: 'btn ghost slim-btn', 'aria-label': `Hear ${s.name}’s cry`, onclick: () => api.bugdexCue('cry', { species: s.id }) }, '♪ Its cry'),
+          !caught ? null : isFav
             ? h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => favourite(null) }, '★ His favourite (let him choose)')
             : h('button', { type: 'button', class: 'btn primary slim-btn', onclick: () => favourite(s.id) }, 'Make this his favourite')) : null),
       h('button', { type: 'button', class: 'icon-btn fd-close', 'aria-label': 'Close', onclick: () => close() }, '×'));
+  }
+
+  function rankLine(s, where) {
+    if (s.state === 'unknown') return null;
+    if (s.league === 'champion') return h('p', { class: 'bd-rank-line champion', text: '★ The champion. Beat it with every badge and the elite four to make the Hall of Fame.' });
+    if (s.league) return h('p', { class: 'bd-rank-line elite', text: '♛ One of the elite four.' });
+    if (s.boss) {
+      const b = dex()?.league?.badges.find(x => x.habitat === s.boss);
+      return h('p', { class: 'bd-rank-line boss', text: `♜ Boss of ${where?.name || 'its habitat'}. Catch it for the ${b?.name || 'badge'}.` });
+    }
+    return null;
+  }
+
+  function friendsLine(s) {
+    if (s.state === 'reported') return null; // the stats line says it
+    const bits = [
+      s.reportedBy?.length ? `${s.reportedBy.map(l => `@${l}`).join(', ')} ${s.reportedBy.length === 1 ? 'has' : 'have'} one too` : null,
+      s.gifts ? `${plural(s.gifts, 'gift jar')} from ${s.giftFrom.map(l => `@${l}`).join(', ')}` : null,
+    ].filter(Boolean);
+    return bits.length ? h('p', { class: 'fd-when bd-friends-line', text: bits.join(' · ') }) : null;
+  }
+
+  // What the Bugdex learns as you keep catching it: a field note at stage II, a tip at stage III.
+  function lore(s) {
+    if (s.state !== 'caught') return null;
+    const row = (label, text, more) => h('div', { class: `bd-lore${text ? '' : ' locked'}` },
+      h('b', { text: label }),
+      h('span', { text: text || `🔒 ${plural(more, 'more catch', 'more catches')} to unlock` }));
+    return h('div', { class: 'bd-lores' }, row('Field note', s.note, s.noteIn), row('Trainer’s tip', s.tip, s.tipIn));
   }
 
   function select(id) {
@@ -302,6 +384,13 @@
 
   api.onBugdex(apply);
   api.onBugdexFocus(m => focusOn(m?.id));
+  SB.focusBug = focusOn;
+  // A friend left a jar when they visited.
+  api.onBugdexGift(g => {
+    if (!g?.name) return;
+    refresh();
+    SB.toast(`@${g.from} brought you a jar: ${g.name}`, { action: 'Bugdex', ms: 5000, onAction: () => focusOn(g.id) });
+  });
 
   // A catch: a card for a first rare one, a toast for the rest, and only while you're looking.
   api.onBugdexCaught(c => {
@@ -309,6 +398,8 @@
     refresh();
     if (document.hidden) return;
     const open = () => focusOn(c.id);
+    // Caught in a battle you weren't watching: the battle screen can play the finish.
+    const watch = c.battle && SB.battleOf?.(c.battle) && state.settings?.bugBattles !== false ? () => SB.openBattle(c.battle) : null;
     if (c.isNew && (c.rarity === 'rare' || c.rarity === 'legendary')) {
       SB.celebrate({
         eyebrow: c.rarity === 'legendary' ? 'Legendary catch' : 'Rare catch', icon: '🫙', title: c.name,
@@ -321,7 +412,8 @@
       c.evolved ? `It evolved to stage ${STAGE_NAMES[c.stage] || c.stage}!` : '',
       c.completed?.length ? `${c.completed.join(' and ')} finished!` : '',
     ].filter(Boolean).join(' ');
-    SB.toast(`${c.isNew ? 'New to the Bugdex' : 'In the jar'}: ${c.name}${extra ? `. ${extra}` : ''}`, { action: 'Bugdex', ms: 4500, onAction: open });
+    const head = c.fame ? 'Hall of Fame!' : c.badge ? `${c.badge} earned` : c.isNew ? 'New to the Bugdex' : 'In the jar';
+    SB.toast(`${head}: ${c.name}${extra ? `. ${extra}` : ''}`, watch ? { action: 'Watch', ms: 6000, onAction: watch } : { action: 'Bugdex', ms: 4500, onAction: open });
   });
 
   SB.views.bugdex = { render: () => { render(); notice(); refresh(); } };

@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="bugdex.css">
+<link rel="stylesheet" href="bugdex-battle.css">
 <link rel="stylesheet" href="crew.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
@@ -840,6 +841,11 @@
         <h3 id="bdTotal">No bugs in the jars yet</h3>
         <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
       </div>
+    </section>
+    <section class="bd-league" id="bdLeague" aria-label="Badges and the league"></section>
+    <section class="bd-friends" id="bdFriends" hidden aria-labelledby="bdFriendsTitle">
+      <h3 class="bd-section-title" id="bdFriendsTitle">Friends' books</h3>
+      <ul id="bdFriendList"></ul>
     </section>
     <section class="bd-empty" id="bdEmpty" hidden>
       <b>The jars are empty, for now.</b>
@@ -2240,6 +2246,7 @@
 <script src="crew.js"></script>
 <script src="together.js"></script>
 <script src="bugdex.js"></script>
+<script src="bugdex-battle.js"></script>
 <script src="needs.js"></script>
 <script src="health-logic.js"></script>
 <script src="health.js"></script>

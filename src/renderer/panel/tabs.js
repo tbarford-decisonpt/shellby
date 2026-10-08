@@ -63,6 +63,7 @@
     applyFolderLabel(tab.cwd || state.cwd, tab);
     syncContextUi();
     syncBusyUi();
+    SB.renderBattleChip?.(); // a bug battle in this conversation (bugdex-battle.js)
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
     SB.renderTabStrip();
