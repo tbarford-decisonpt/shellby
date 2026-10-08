@@ -1444,6 +1444,8 @@
     <div class="view-head">
       <h2>Settings</h2>
     </div>
+    <input type="search" id="settingsSearch" class="field settings-search" placeholder="Search settings…" aria-label="Search settings" aria-describedby="settingsSearchLine" autocomplete="off" spellcheck="false">
+    <p class="small muted settings-search-line" id="settingsSearchLine" role="status" hidden></p>
     <nav class="seg settings-tabs" id="settingsTabs" role="tablist" aria-label="Settings">
       <button type="button" role="tab" id="setTab-shellby" data-tab="shellby" aria-controls="setPanel-shellby" aria-selected="false" tabindex="-1">Shellby</button>
       <button type="button" role="tab" id="setTab-claude" data-tab="claude" aria-controls="setPanel-claude" aria-selected="false" tabindex="-1">Claude</button>
@@ -2465,6 +2467,7 @@
 <script src="wf-save.js"></script>
 <script src="workflows.js"></script>
 <script src="settings-text.js"></script>
+<script src="settings-search-logic.js"></script>
 <script src="notes.js"></script>
 <script src="settings.js"></script>
 <script src="settings-account.js"></script>
@@ -2531,6 +2534,7 @@
 <script src="social.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
+<script src="settings-search.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

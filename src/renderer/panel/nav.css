@@ -101,6 +101,19 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .settings-panel { animation: fadein .14s var(--ease-out); }
 .view-settings .setting-group { scroll-margin-top: 50px; }
 
+/* Searching Settings (settings-search.js): every tab at once, each under its
+   name, cut down to what matches. */
+.settings-search { width: 100%; margin: 0 0 18px; }
+.settings-search-line { margin: -4px 0 10px; }
+.view-settings.searching .settings-tabs,
+.view-settings.searching .settings-sub,
+.view-settings .search-out { display: none !important; }
+.view-settings.searching .settings-panel::before {
+  content: attr(data-tab-name); display: block; margin: 10px 0 2px;
+  font-size: var(--fs-13); font-weight: 700; color: var(--sand);
+}
+.view-settings.searching .settings-panel { animation: none; }
+
 /* The extras: one line each until opened. The label above them carries the
    divider, so the first fold (a first-of-type details) needs none. */
 .settings-sub {
