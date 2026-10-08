@@ -155,3 +155,19 @@ test('junk from disk is tolerated', () => {
   assert.deepEqual(s.unseen, ['pearl']);
   assert.deepEqual(s.specials, ['birthday:2026']);
 });
+
+test('moonlit finds only turn up after dark under their own moon, and say so on the shelf', () => {
+  const set = g.SETS.find(s => s.id === 'moonlight');
+  assert.ok(set.members.length >= 2);
+  const pool = ctx => new Set(g.eligible(g.normalize({}), ctx).map(f => f.id));
+  for (const id of set.members) {
+    const f = g.findById(id);
+    assert.ok(f.night && ['full', 'new'].includes(f.moon), id);
+    assert.ok(pool({ night: true, moon: f.moon }).has(id), `${id} under a ${f.moon} moon`);
+    assert.ok(!pool({ night: true, moon: null }).has(id), `${id} needs its moon`);
+    assert.ok(!pool({ night: false, moon: f.moon }).has(id), `${id} needs the dark`);
+    assert.ok(!pool({ night: true, moon: f.moon === 'full' ? 'new' : 'full' }).has(id), `${id} not under the other moon`);
+  }
+  const shelf = g.view({}).finds.find(f => f.id === set.members[0]);
+  assert.match(shelf.blurb, /under a (full|new) moon/);
+});

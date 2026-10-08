@@ -348,6 +348,7 @@
       plural(s.finds, 'find'),
       s.plots ? plural(s.plots, 'plot') : null,
       v.pool ? poolLabel().replace(/^T/, 't') : null,
+      P.timeOfDay() === 'night' && v.moon ? `a ${v.moon.name.replace(/ moon$/, '')} moon overhead` : null,
     ].filter(Boolean))}.`);
   }
 

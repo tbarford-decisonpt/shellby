@@ -169,10 +169,22 @@
     return first ? first.trim().slice(0, 120) : null;
   }
 
+  // "Quiz me" on a turn's changes (src/main/quiz.js, which checks the size again):
+  // offered once the turn added and removed at least this many lines.
+  const QUIZ_MIN_LINES = 30;
+  const quizWorthy = item => (Number(item?.added) || 0) + (Number(item?.removed) || 0) >= QUIZ_MIN_LINES;
+
+  // The line under a finished quiz.
+  function quizResult(score, total) {
+    if (score === total) return `All ${total} right. You know this change.`;
+    if (score >= Math.min(2, total)) return `${score} of ${total} right. Worth a look at the one you missed.`;
+    return `${score} of ${total} right. Have a read through the diff before it ships.`;
+  }
+
   const api = {
     files, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan,
     decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneFirstLine,
-    cutOffLine, cutOffToast, CARRY_ON,
+    cutOffLine, cutOffToast, CARRY_ON, quizWorthy, quizResult, QUIZ_MIN_LINES,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyFeedLogic = api;

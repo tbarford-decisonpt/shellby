@@ -1,12 +1,14 @@
 // "While you were away": when you come back after an hour or more, a short
-// digest of what finished, what failed, what's waiting on you, and where the
-// 5-hour usage window went.
+// digest of what finished, what failed, what's waiting on you, held work sent
+// once the usage window reset, pull requests whose CI went red or back to
+// green, and where the 5-hour usage window went.
 //
 // Three pieces, all pure (callers pass `now`; see test/recap.test.js):
 //   - watch():  is anyone at the keyboard? Turns idle readings into "you left
 //               at X and you're back now".
-//   - record(): a small ledger of finished runs, usage readings and bugs
-//               caught for the Bugdex, kept in memory for the last day.
+//   - record(): a small ledger of finished runs, usage readings, bugs caught
+//               for the Bugdex, held work sent and CI going red or green,
+//               kept in memory for the last day.
 //   - build():  the digest for one absence, or null when nothing happened.
 //
 // Usage is attributed by difference. Claude Code only ever reports how full
@@ -14,6 +16,8 @@
 // one before is charged to the conversation that reported it. Claude Code
 // running outside Shellby fills the same window, and its share lands on
 // whichever tab reports next: the panel calls these numbers "about".
+
+const held = require('./held');
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -66,6 +70,39 @@ function usageEvent(tabId, title, usage) {
 function bugEvent(species, isNew = false) {
   if (typeof species !== 'string' || !/^[a-z0-9-]{1,40}$/.test(species)) return null;
   return { kind: 'bug', species, isNew: !!isNew };
+}
+
+/** Held work sent after a reset (held-service.js): how many of each kind, or null for none. */
+function heldEvent(went) {
+  const list = Array.isArray(went) ? went : [];
+  const n = k => list.filter(h => h?.kind === k).length;
+  const counts = { messages: n('message'), routines: n('routine'), tasks: n('task') };
+  return counts.messages + counts.routines + counts.tasks ? { kind: 'held', ...counts } : null;
+}
+
+/** A pull request's CI going red ('failed') or back to green ('fixed'), or null for anything else. */
+function ciEvent(type, ref, title) {
+  if ((type !== 'failed' && type !== 'fixed') || typeof ref !== 'string' || !ref) return null;
+  return { kind: 'ci', state: type, ref: ref.slice(0, 120), title: String(title || ref).slice(0, 120) };
+}
+
+/** Held work sent between since and until: { messages, routines, tasks, text } or null. */
+function heldDuring(log, since, until) {
+  const sent = log.filter(e => e.kind === 'held' && e.t >= since && e.t <= until);
+  if (!sent.length) return null;
+  const sum = k => sent.reduce((n, e) => n + (Number(e[k]) || 0), 0);
+  const counts = { messages: sum('messages'), routines: sum('routines'), tasks: sum('tasks') };
+  const items = [['message', counts.messages], ['routine', counts.routines], ['task', counts.tasks]].flatMap(([kind, k]) => Array.from({ length: k }, () => ({ kind })));
+  return { ...counts, text: held.summary(items) };
+}
+
+// Each pull request once, as its CI last stood while you were out: a build that
+// went red and then green again is only "back to green".
+function ciDuring(log, since, until) {
+  const latest = new Map();
+  for (const e of log) if (e.kind === 'ci' && e.t >= since && e.t <= until) latest.set(e.ref, { tabId: null, ref: e.ref, title: e.title, state: e.state, at: e.t });
+  const all = [...latest.values()].sort((a, b) => b.at - a.at);
+  return { red: all.filter(c => c.state === 'failed'), green: all.filter(c => c.state === 'fixed') };
 }
 
 /** Bugs caught between since and until: { caught, kinds, fresh } or null for none. */
@@ -142,7 +179,9 @@ function build(log, { since, until, waiting = [], limit = null }) {
   const finished = runs.filter(r => r.outcome === 'ok');
   const failed = runs.filter(r => r.outcome === 'error');
   const usage = usageDuring(Array.isArray(log) ? log : [], since, until);
-  if (!finished.length && !failed.length && !waiting.length && !usage?.spent && !limit) return null;
+  const sent = heldDuring(Array.isArray(log) ? log : [], since, until);
+  const ci = ciDuring(Array.isArray(log) ? log : [], since, until);
+  if (!finished.length && !failed.length && !waiting.length && !usage?.spent && !limit && !sent && !ci.red.length && !ci.green.length) return null;
   // Bugs ride along with the rest: a catch is always a turn that finished, so they never make a recap alone.
   const bugs = bugsDuring(Array.isArray(log) ? log : [], since, until);
   return {
@@ -151,6 +190,8 @@ function build(log, { since, until, waiting = [], limit = null }) {
     usage: usage && (usage.spent || usage.rolledOver) ? { ...usage, by: usage.by.slice(0, MAX_LISTED) } : null,
     limit,
     bugs,
+    held: sent,
+    ciRed: capped(ci.red), ciGreen: capped(ci.green),
   };
 }
 
@@ -170,6 +211,9 @@ function headline(d) {
   if (total(d.finished)) parts.push(`${total(d.finished)} finished`);
   if (total(d.failed)) parts.push(`${total(d.failed)} failed`);
   if (total(d.waiting)) parts.push(`${total(d.waiting)} waiting on you`);
+  if (d.ciRed && total(d.ciRed)) parts.push(`${total(d.ciRed)} ${total(d.ciRed) === 1 ? 'build' : 'builds'} went red`);
+  if (d.ciGreen && total(d.ciGreen)) parts.push(`${total(d.ciGreen)} back to green`);
+  if (d.held) parts.push(`sent ${d.held.text} after the reset`);
   if (d.usage?.spent) parts.push(`about ${d.usage.spent}% of your 5-hour window used`);
   if (d.bugs?.caught) parts.push(`${d.bugs.caught} ${d.bugs.caught === 1 ? 'bug' : 'bugs'} caught`);
   if (!parts.length && d.limit) parts.push('Paused at your usage limit');
@@ -177,6 +221,6 @@ function headline(d) {
 }
 
 module.exports = {
-  watch, record, runEvent, usageEvent, bugEvent, usageDuring, build, awayFor, headline,
+  watch, record, runEvent, usageEvent, bugEvent, heldEvent, ciEvent, usageDuring, build, awayFor, headline,
   AWAY_MS, IDLE_MS, KEEP_MS, MAX_EVENTS, MAX_LISTED,
 };

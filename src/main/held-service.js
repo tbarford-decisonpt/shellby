@@ -4,6 +4,7 @@
 // Moved out of main.js; the limit and forecast it waits on are usage-service.js.
 const path = require('path');
 const held = require('./held');
+const recap = require('./recap');
 const { isModel } = require('./models');
 const worktrees = require('./worktrees');
 
@@ -26,7 +27,7 @@ const pause = ms => new Promise(r => setTimeout(r, ms));
  *   config, panel, manager, history, claudeStatus: getters
  *   tabWindow(tabId): optional, the window a tab is shown in (the panel, or its own: wiring/popouts.js)
  *   CAPTURE, graceMs (how long after the reset held work goes),
- *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab,
+ *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab, noteRecap (away-service.js),
  *   currentCwd, isFolder, isStr, dialogLook, confirm ({ ask }), randomUUID,
  *   powerSaveBlocker (Electron's), worktreeHome, adoptPhoneTab (wiring/phone-tasks.js),
  *   from usage-service.js: limitWait, resetTarget, clockTime, sendOutlook,
@@ -183,6 +184,7 @@ function createHeldQueue(d) {
     if (!went.length) return;
     const what = held.summary(went);
     d.log.info('Held work released', what);
+    d.noteRecap?.(recap.heldEvent(went)); // "sent … after the reset" in the while-you-were-away card
     if (!went.some(h => h.kind === 'task')) return d.notify('Your usage window reset', `Shellby sent ${what}.`, () => d.showPanel());
     const left = heldList().filter(h => h.kind === 'task').length;
     d.notify(left ? 'Shellby got through part of your queue' : 'Your reset queue is done',

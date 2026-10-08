@@ -72,6 +72,34 @@
 
   // ------------------------------------------------------------ the backdrop
 
+  // How much of the moon's face is lit, 0 at new to 1 at full; fraction runs 0 → 0.5 (full) → 1.
+  const litOf = fraction => (1 - Math.cos(2 * Math.PI * fraction)) / 2;
+
+  /**
+   * Which pixels of the 8×8 moon are in shadow at this phase, as [x, y] pairs.
+   * Waxing, the right side fills first; waning, the right side empties first
+   * (as it looks from the northern hemisphere).
+   */
+  function moonDark(fraction) {
+    const out = [];
+    const c = Math.cos(2 * Math.PI * fraction);
+    for (let y = 0; y < ORB.length; y++) {
+      for (let x = 0; x < ORB[y].length; x++) {
+        if (ORB[y][x] === '.') continue;
+        const u = (x + 0.5 - 4) / 4, w = Math.sqrt(Math.max(0, 1 - ((y + 0.5 - 4) / 4) ** 2));
+        const lit = fraction < 0.5 ? u > w * c : u < -w * c;
+        if (!lit) out.push([x, y]);
+      }
+    }
+    return out;
+  }
+
+  // The unlit part of the moon: dark, but not quite gone (earthshine).
+  function moonShadow(ctx, T, ox, fraction) {
+    ctx.fillStyle = mix(T.skyTop, T.orb[1], 0.18);
+    for (const [x, y] of moonDark(fraction)) ctx.fillRect(ox + x, T.orbY + y, 1, 1);
+  }
+
   function sky(ctx, T, v, x0, x1, t) {
     const { seaTop } = v.world;
     const bands = 9;
@@ -106,10 +134,13 @@
     // The sun or the moon, low at dawn and dusk (the sea goes over its bottom half).
     const ox = v.orbX;
     if (ox + 16 > x0 && ox - 8 < x1) {
+      // At night it's the real moon (src/main/moon.js): a thin one barely glows.
+      const moonlit = T === THEMES.night && Number.isFinite(v.moon?.fraction) ? v.moon.fraction : null;
+      const glow = moonlit === null ? 1 : 0.25 + 0.75 * litOf(moonlit);
       // A halo in two pixel rings, then the disc itself.
       ctx.fillStyle = T.orb[0];
       for (const [r, a] of [[9, 0.07], [7, 0.1]]) {
-        ctx.globalAlpha = a;
+        ctx.globalAlpha = a * glow;
         for (let dy = -r; dy <= r; dy++) {
           const w = Math.round(Math.sqrt(r * r - dy * dy));
           ctx.fillRect(ox + 4 - w, T.orbY + 4 + dy, w * 2, 1);
@@ -117,6 +148,7 @@
       }
       ctx.globalAlpha = 1;
       ctx.drawImage(sprite(ORB, { 1: T.orb[0], 2: T.orb[1] }), ox, T.orbY);
+      if (moonlit !== null) moonShadow(ctx, T, ox, moonlit);
     }
     // Far-off headlands along the horizon, every so often.
     ctx.fillStyle = mix(T.skyLow, T.sea, 0.55);

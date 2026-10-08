@@ -59,6 +59,7 @@ function wireServices(d) {
     get claudeStatus() { return d.claudeStatus; },
     get notify() { return d.notify; },
     get tellChannel() { return d.tellChannel; },
+    get noteRecap() { return d.noteRecap; },
     get wake() { return d.wake; },
     get openTab() { return d.openTab; },
     get sendToTab() { return d.sendToTab; },
