@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.74.1: First-run fix
+
+### Fixed
+- Keep the ssh first-run path in its onboarding piece, and expect four paths in e2e.
+
 ## 0.74.0: Search Settings, helper costs and Bugdex portraits
 
 ### New
