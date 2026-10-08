@@ -7,6 +7,7 @@ const path = require('path');
 const focus = require('../focus');
 const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: friendsSyncable } = require('../friends');
+const bugdex = require('../bugdex');
 const gifts = require('../gifts');
 const { TokenStore } = require('../github/auth');
 const { CiWatcher } = require('../github/ci');
@@ -226,6 +227,7 @@ function wireGithub(d) {
           temperament: voice.temperamentOf(voice.normalize(d.config.get('voice')).seed),
           find: gifts.favourite(d.config.get('finds'))?.id || null,
           tank: tankShare.forCard(d.config.get('tank')), // only if you share it
+          bugdex: d.config.get('shareBugdex') ? bugdex.shared(d.config.get('bugdex')) : null, // only if you share it
         };
       },
       sharesTank: () => !!tankShare.forCard(d.config.get('tank')), // a visit then counts for House Guest
@@ -245,6 +247,7 @@ function wireGithub(d) {
       sendVisitor();
       d.refreshCritter();
       if (v) d.sayText(`@${v.login} dropped by!`, 'visit', 4000);
+      if (v?.card?.bugdex) setTimeout(() => d.bugdex?.friendVisited(v.login, v.card.bugdex.caught), 8 * 1000); // a jar for you, once they've said hello
       if (v?.signed) setTimeout(() => stickerSwap(v), 20 * 1000); // once they've said hello
       // ...and then the two of them talk (banter.js, through life.js).
       const togetherAt = [];

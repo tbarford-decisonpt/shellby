@@ -156,7 +156,7 @@ Types (the "element") are `runtime`, `io`, `net`, `vcs`, `ci`, `build`, `types`,
 | 013 | `overstuffed-pufferfish` Overstuffed Pufferfish | burrows · io | rare | puffed to bursting | B S | remedy allowed (cache cleanup) | "No space left. Not even for air." | 3 |
 | 014 | `closed-clam` Closed Clam | currents · net | uncommon | clam firmly shut | B S T | remedy allowed (start a service) | "Knocked. Nobody home." | 2 |
 | 015 | `port-squatter` Port Squatter | currents · net | uncommon | crab sitting in a porthole labelled `:3000` | B S | remedy allowed (kill / kill-port); if fixed by a kill, may be **revealed** as 066 Zombie Process (phase 3) | "Got there first. Won't move." | 1 |
-| 016 | `slowpoke-snail` Slowpoke Snail | currents · net | uncommon | snail with a stopwatch shell | B T S | pass, and the diff isn't only a bigger timeout number (§4.4) | "Still on its way." | 2 |
+| 016 | `slowpoke-snail` Dawdling Snail | currents · net | uncommon | snail with a stopwatch shell | B T S | pass, and the diff isn't only a bigger timeout number (§4.4) | "Still on its way." | 2 |
 | 017 | `snapped-line` Snapped Line | currents · net | uncommon | fishing line cut mid-air | B S T | — | "Hung up on you. Rude." | 2 |
 | 018 | `nameless-buoy` Nameless Buoy | currents · net | uncommon | buoy with a `?` flag | B S | — | "Can't find where it's going. Or where it is." | 3 |
 | 019 | `border-crab` Border Crab | currents · net | uncommon | crab in a customs cap holding a stamp | B T S | the diff touches non-test code | "Your origin isn't on the list." | 3 |
@@ -207,7 +207,7 @@ Types (the "element") are `runtime`, `io`, `net`, `vcs`, `ci`, `build`, `types`,
 | 064 | `race-wraith` Race Wraith | wreck · ghost | rare | two ghosts racing through one door | B T | `WARNING: DATA RACE` gone from a `-race` run on a changed tree | "Arrives before itself." | 3 |
 | 065 | `cache-ghoul` Cache Ghoul | wreck · ghost | uncommon | ghoul peeking out of a box | B T | **same tree**, fixed only by a cache-clearing remedy (§4.3) | "Lives in the cache. Rent-free." | 3 |
 | 066 | `zombie-process` Zombie Process | wreck · ghost | uncommon | green ghost crab with a little gravestone | B S | revealed at catch: a Port Squatter or Clingy Barnacle fixed by killing a leftover process | "Its parent left. It didn't." | 3 |
-| 099 | `missingno` MISSINGNO. | — (no habitat) | special | glitch-block sprite | B T | a JS `undefined is not a function` or an error whose message is `[object Object]` gets fixed | "This one isn't in any book." | 3 |
+| 099 | `missingno` UNDEFINED. | — (no habitat) | special | glitch-block sprite | B T | a JS `undefined is not a function` or an error whose message is `[object Object]` gets fixed | "This one isn't in any book." | 3 |
 
 (099 is kept apart on purpose, like keepsakes in `gifts.js`: no set, hidden until caught, and never counted in "of N".)
 
@@ -528,7 +528,7 @@ newbug: { xp: 40, perHour: 3, label: 'A new bug for the Bugdex', way: 'Catches a
 | `gotcha` | Gotcha! | 🫙 | bugsCaught 1 | `bug-net` (held), `specimen-jar` (shell cargo) |
 | `field-notes` | Field Notes | 📓 | bugSpecies 10 | `magnifier` (face) |
 | `naturalist` | Naturalist | 🌿 | habitatsDone 1 | `terrarium` (tank decor) |
-| `fix-em-all` | Fix 'Em All | 🧢 | bugSpecies 40 | `trainer-cap` (hat) |
+| `fix-em-all` | Field Researcher | 🧢 | bugSpecies 40 | `trainer-cap` (hat, "Field Researcher's Cap") |
 | `exterminator` | Pest Control | 🧯 | bugsCaught 100 | `bug-sprayer-pack` (shell) |
 | `golden-touch` | Golden Touch | ✦ | goldenCatches 1, hidden | `golden-net` (held) |
 | `ghost-whisperer` | Ghost Whisperer | 🏮 | ghostSpecies 3 | `ghost-jar` (held) |
@@ -895,7 +895,7 @@ const JAR = [
 
 ### Phase 3: "Tide pool"
 
-- **Live**: Lighthouse by check names (Matrix Hydra, Sunken Deploy, The Kraken; Stalled Galleon needs `verdict()` to return `conclusions` per check, a `ci.test.js` addition), the Haunted Wreck (Heisenbug, Race Wraith, Cache Ghoul, Zombie Process reveal), Spectral and Shiny forms, Old Salt, Lockfile Lobster, Overstuffed Pufferfish, the network extras (Nameless Buoy, Border Crab, 404/5xx, Cert Cuttlefish with `insecure`), MISSINGNO.
+- **Live**: Lighthouse by check names (Matrix Hydra, Sunken Deploy, The Kraken; Stalled Galleon needs `verdict()` to return `conclusions` per check, a `ci.test.js` addition), the Haunted Wreck (Heisenbug, Race Wraith, Cache Ghoul, Zombie Process reveal), Spectral and Shiny forms, Old Salt, Lockfile Lobster, Overstuffed Pufferfish, the network extras (Nameless Buoy, Border Crab, 404/5xx, Cert Cuttlefish with `insecure`), UNDEFINED.
 - **Beach tide pool**: `beach.test.js` (`the pool never overlaps a castle`, `at most 8 micros`).
 - **Tank**: `jar` category (`tank.test.js`).
 - **Elsewhere**: the Haunted Shell wisps and Ghost Buddy cheer; recap line ("Caught 2 bugs while you were away", `recap.js`); "Bugdex 23/66" on the crab card (`github/card.js`); a `bug-caught` workflow trigger (`workflows` event, like `d.workflows?.event('ci', …)`).
@@ -921,7 +921,7 @@ As flaky v2: if Claude Code sends `PostToolUseFailure`, register it in `claude-p
 | **Regex blow-ups** on huge output | 64 KB / 200 lines / 500 characters per line, `[ \t]` only, a timing test |
 | **Moment spam** | one jar moment per 10 min for repeats, toasts only for new / legendary / evolution / habitat, the focus and quiet gates |
 | **Overlapping critter moments** (a dig and a jar) | `presentJar` queues one behind `present()` |
-| **Trademark** ("Pokédex", "Gotta catch 'em all") | The UI never says Pokémon, Pokédex or Poké Ball. "Bugdex" and "Fix 'Em All" are parody-safe, and `TRADEMARK.md` shows the project cares. |
+| **Someone else's games** (their names, slogans, characters, screens and patented mechanics) | Nothing of theirs is used: no names (Pokémon, Pokédex, Poké Ball, Elite Four, any creature's name), no slogans, no copied battle lines, no copied screen layout. Mechanics that are the subject of patents are avoided: nothing is thrown at a bug to catch it (a jar is lowered on a line, or he scoops it), and no wobble count or other sign of the odds of a catch. Ids from the first build (`slowpoke-snail`, `fix-em-all`, `trainer-cap`) are kept as ids only, so saved books and earned hats don't break; what you see is renamed. See [bugdex-battles.md](bugdex-battles.md). |
 | **Catalogue growth renumbering** | pinned `no` with a test; new species only append |
 | **Sync size or abuse** | `normalizeSync` caps species to the catalogue ids, devices to 20, forms and langs to known values |
 

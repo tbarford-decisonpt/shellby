@@ -27,12 +27,15 @@ function element(tag) {
   };
 }
 
-function loadCore({ storage } = {}) {
+function loadCore({ storage, search = '' } = {}) {
   const byId = new Map();
   const docListeners = {};
+  const body = element('body');
+  const classes = new Set();
+  body.classList = { toggle() {}, contains: c => classes.has(c), add: c => classes.add(c), remove: c => classes.delete(c) };
   const document = {
     listeners: docListeners,
-    body: element('body'),
+    body,
     scrollingElement: {},
     activeElement: null,
     createElement: element,
@@ -45,7 +48,11 @@ function loadCore({ storage } = {}) {
   };
   const window = { shellby: {}, addEventListener() {}, localStorage: storage, innerWidth: 400, innerHeight: 600 };
   // The timers and clock as they are now, so a test's mock.timers reach in here too.
-  const context = vm.createContext({ window, document, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout, Date: globalThis.Date });
+  // The page's address: a popped-out conversation's window says which tab it shows (?popout=).
+  const context = vm.createContext({
+    window, document, location: { search }, URLSearchParams,
+    setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout, Date: globalThis.Date,
+  });
   vm.runInContext(CORE, context, { filename: 'core.js' });
   return { SB: window.SB, document };
 }
@@ -185,4 +192,13 @@ test('picking a menu item runs it', () => {
   const item = SB.menuItem('Rename', () => { picked++; });
   item.listeners.click();
   assert.equal(picked, 1);
+});
+
+test('the panel is the panel; a popped-out window knows its one conversation from its address', () => {
+  const panel = loadCore();
+  assert.equal(panel.SB.solo, null);
+  assert.equal(panel.document.body.classList.contains('solo'), false);
+  const popout = loadCore({ search: '?popout=tab-123' });
+  assert.equal(popout.SB.solo, 'tab-123');
+  assert.equal(popout.document.body.classList.contains('solo'), true);
 });

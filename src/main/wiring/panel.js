@@ -75,6 +75,7 @@ function wirePanel(d) {
     panel.on('minimize', () => throttle(true));
     panel.on('resized', () => {
       if (Date.now() - roomyAt < ROOMY.settleMs) return; // it was us, not you
+      if (panel.isMaximized()) return; // the size to come back to is the one before
       // Resizing it yourself while it's made room keeps your size: there's nothing to put back,
       // and the panel stops asking for room.
       if (roomyFrom) { roomyFrom = null; d.send(panel, 'panel:roomy-lost'); }
@@ -134,13 +135,15 @@ function wirePanel(d) {
   }
 
   function showPanel({ focusInput = true, tabId = null } = {}) {
+    // A conversation in its own window is shown there instead (wiring/popouts.js).
+    if (tabId && d.isPoppedOut(tabId)) return d.showPopout(tabId);
     const { panel } = d;
     if (openBehind || (Date.now() - reachedAt > REACHED_MS && gameInFront())) {
-      if (!panel.isVisible()) { placePanel(); panel.showInactive(); sendToBottom(panel); }
+      if (!panel.isVisible()) { if (!panel.isMaximized()) placePanel(); panel.showInactive(); sendToBottom(panel); }
       if (tabId) d.send(panel, 'tab:focus', tabId);
       return;
     }
-    if (!panel.isVisible()) placePanel();
+    if (!panel.isVisible() && !panel.isMaximized()) placePanel();
     if (panel.isMinimized()) panel.restore();
     panel.show();
     panel.moveTop();

@@ -115,7 +115,7 @@ const SPECIES = Object.freeze([
     evolves: ['Port Warden', 'Harbour Master'], remedies: ['kill'],
     palette: { g: '#b08d57', w: '#a8dadc', r: '#ff6b4a', k: K },
     pixels: ['..gggg..', '.gwwwwg.', 'gwkwwkwg', 'gwrrrrwg', 'grrrrrrg', '.grwwrg.', '..gggg..'] },
-  { no: 16, id: 'slowpoke-snail', name: 'Slowpoke Snail', habitat: 'currents', type: 'net', rarity: 'uncommon', phase: 2,
+  { no: 16, id: 'slowpoke-snail', name: 'Dawdling Snail', habitat: 'currents', type: 'net', rarity: 'uncommon', phase: 2,
     blurb: 'Still on its way.', hint: 'A timeout, fixed (not just by waiting longer).',
     palette: { a: '#9e9e9e', s: '#e0e0e0', b: '#c9b38a', k: K },
     pixels: ['....a...', '..aaaaa.', 'k.asksa.', 'b.askka.', 'b.aaaaa.', 'bbbbbbbb'] },
@@ -348,7 +348,7 @@ const SPECIES = Object.freeze([
     pixels: ['.k.k..s.', '.z.z.sss', 'zzzzzsks', 'ZzzzZsss', 'z.z.zsss'] },
 
   // ---- kept apart: not in any habitat, hidden until caught
-  { no: 99, id: 'missingno', name: 'MISSINGNO.', habitat: null, type: 'ghost', rarity: 'special', phase: 3,
+  { no: 99, id: 'missingno', name: 'UNDEFINED.', habitat: null, type: 'ghost', rarity: 'special', phase: 3,
     blurb: 'This one isn\'t in any book.', hint: 'Not in any habitat. Something glitchy.',
     palette: { a: K, b: '#f72585', c: '#4ea8de', d: '#fff4e4', e: '#7b2cbf' },
     pixels: ['aab.cdaa', 'daceabdc', 'aaadd.ab', 'cbaeadaa', 'aadcabea', 'abaaaacd', 'deacbaaa', 'aabdaeca'] },
@@ -360,25 +360,56 @@ const SPECIES = Object.freeze([
   palette: Object.freeze({ ...s.palette }),
 })));
 
+// Each habitat has a boss: catch it and you earn the habitat's badge. Badges
+// are 7×7 emblems drawn like the bugs (gifts.js format).
 const HABITATS = Object.freeze([
-  { id: 'shallows', name: 'The Shallows', icon: '🌊' },
-  { id: 'burrows', name: 'The Burrows', icon: '🕳️' },
-  { id: 'currents', name: 'The Currents', icon: '🌀' },
-  { id: 'nets', name: 'Tangled Nets', icon: '🪢' },
-  { id: 'lighthouse', name: 'The Lighthouse', icon: '🗼' },
-  { id: 'workshop', name: 'The Reef Workshop', icon: '🛠️' },
-  { id: 'kelp', name: 'The Kelp Maze', icon: '🌿' },
-  { id: 'pypool', name: 'The Sea-Snake Pool', icon: '🐍' },
-  { id: 'trench', name: 'The Deep Trench', icon: '🌑' },
-  { id: 'proving', name: 'The Proving Pools', icon: '🧪' },
-  { id: 'vault', name: 'The Sunken Vault', icon: '🔐' },
-  { id: 'wreck', name: 'The Haunted Wreck', icon: '👻' },
-].map(h => Object.freeze({ ...h, members: Object.freeze(SPECIES.filter(s => s.habitat === h.id).map(s => s.id)) })));
+  { id: 'shallows', name: 'The Shallows', icon: '🌊', boss: 'heap-leviathan',
+    badge: { name: 'Tide Badge', palette: { a: '#1d6fd1', b: '#8ecae6', c: '#ffffff' }, pixels: ['...a...', '..aba..', '.abcba.', 'abcbbba', 'abbbbba', '.abbba.', '..aaa..'] } },
+  { id: 'burrows', name: 'The Burrows', icon: '🕳️', boss: 'overstuffed-pufferfish',
+    badge: { name: 'Burrow Badge', palette: { a: '#8d6e63', b: '#d7b899', c: '#3b2a1a' }, pixels: ['.......', '.aaaaa.', 'abbbbba', 'abcccba', 'abbbbba', '.aaaaa.', '.......'] } },
+  { id: 'currents', name: 'The Currents', icon: '🌀', boss: 'meltdown-medusa',
+    badge: { name: 'Current Badge', palette: { a: '#4ea8de', b: '#caf0f8' }, pixels: ['aaaaaaa', 'a.....a', 'a.aaa.a', 'a.a.a.a', 'a.a.bba', 'a.aaaaa', 'a......'] } },
+  { id: 'nets', name: 'Tangled Nets', icon: '🪢', boss: 'two-headed-crab',
+    badge: { name: 'Knot Badge', palette: { a: '#f3722c', b: '#ffd6a5' }, pixels: ['a.....a', '.a...a.', '..a.a..', '...b...', '..a.a..', '.a...a.', 'a.....a'] } },
+  { id: 'lighthouse', name: 'The Lighthouse', icon: '🗼', boss: 'matrix-hydra',
+    badge: { name: 'Beacon Badge', palette: { a: '#e63946', b: '#ffe66d', c: '#ffffff' }, pixels: ['...b...', '..bbb..', '.b.a.b.', '...a...', '..aca..', '..aca..', '.aaaaa.'] } },
+  { id: 'workshop', name: 'The Reef Workshop', icon: '🛠️', boss: 'tangled-tree-crab',
+    badge: { name: 'Wrench Badge', palette: { a: '#adb5bd', b: '#e9ecef' }, pixels: ['.a...a.', '.ab.ba.', '..aba..', '...a...', '...a...', '...b...', '..aaa..'] } },
+  { id: 'kelp', name: 'The Kelp Maze', icon: '🌿', boss: 'optional-oarfish',
+    badge: { name: 'Kelp Badge', palette: { a: '#2a9d8f', b: '#80ed99' }, pixels: ['....aa.', '...aba.', '..aba..', '.aba...', '.ab....', 'a......', 'a......'] } },
+  { id: 'pypool', name: 'The Sea-Snake Pool', icon: '🐍', boss: 'circular-sea-snake',
+    badge: { name: 'Coil Badge', palette: { a: '#43aa8b', b: '#ffd43b' }, pixels: ['.aaaab.', 'a......', 'a......', '.aaaa..', '.....a.', '.....a.', '.aaaa..'] } },
+  { id: 'trench', name: 'The Deep Trench', icon: '🌑', boss: 'knotted-eels',
+    badge: { name: 'Abyss Badge', palette: { a: '#5a189a', b: '#9d4edd', c: '#e0aaff' }, pixels: ['...a...', '..aba..', '.abcba.', 'abcccba', '.abcba.', '..aba..', '...a...'] } },
+  { id: 'proving', name: 'The Proving Pools', icon: '🧪', boss: 'mirror-mullet',
+    badge: { name: 'Flask Badge', palette: { a: '#90be6d', b: '#d8f3dc' }, pixels: ['..aaa..', '...a...', '...a...', '..a.a..', '.abbba.', 'abbbbba', 'aaaaaaa'] } },
+  { id: 'vault', name: 'The Sunken Vault', icon: '🔐', boss: 'cert-cuttlefish',
+    badge: { name: 'Key Badge', palette: { a: '#ffc15e', b: '#fff1a8' }, pixels: ['.......', '.aa....', 'abbaaaa', 'abba.aa', '.aa....', '.......', '.......'] } },
+  { id: 'wreck', name: 'The Haunted Wreck', icon: '👻', boss: 'race-wraith',
+    badge: { name: 'Lantern Badge', palette: { a: '#57cc99', b: '#b8ffd9', c: '#ffffff' }, pixels: ['..aaa..', '.a...a.', '.abbba.', '.abcba.', '.abbba.', '.a...a.', '..aaa..'] } },
+].map(h => Object.freeze({
+  ...h,
+  badge: Object.freeze({ name: h.badge.name, palette: Object.freeze({ ...h.badge.palette }), pixels: Object.freeze([...h.badge.pixels]) }),
+  members: Object.freeze(SPECIES.filter(s => s.habitat === h.id).map(s => s.id)),
+})));
+
+// After the badges, the league: the Deep Four and the champion. Catching all
+// of them, with every badge, puts you in the Hall of Fame.
+const LEAGUE = Object.freeze({
+  elite: Object.freeze(['segfault-squid', 'leaky-clam', 'flaky-phantom', 'the-kraken']),
+  champion: 'heisenbug',
+});
+
+/** 'elite', 'champion' or null: a species' place in the league. */
+const leagueOf = id => (id === LEAGUE.champion ? 'champion' : LEAGUE.elite.includes(id) ? 'elite' : null);
+
+/** The habitat a species is the boss of, or null. */
+const bossOf = id => HABITATS.find(h => h.boss === id) || null;
 
 const BY_ID = new Map(SPECIES.map(s => [s.id, s]));
 const speciesById = id => BY_ID.get(id) || null;
 
-/** The species that count toward "of N": built, and living in a habitat (not MISSINGNO.). */
+/** The species that count toward "of N": built, and living in a habitat (not the hidden glitch, #099). */
 const live = () => SPECIES.filter(s => s.phase <= LIVE_PHASE && s.habitat);
 
-module.exports = { SPECIES, HABITATS, TYPES, RARITY, BY_ID, LIVE_PHASE, speciesById, live };
+module.exports = { SPECIES, HABITATS, TYPES, RARITY, BY_ID, LIVE_PHASE, LEAGUE, speciesById, live, leagueOf, bossOf };

@@ -90,11 +90,8 @@
     'hearts': () => ['♥', '♥'].map((t, i) => { const e = el('i', 'love', { '--d': `${i * 320}ms`, '--x': `${i * 10 - 5}px` }); e.textContent = t; return e; }),
     // A bug scooped into a jar (src/main/bugdex.js): a splash as it drops in,
     // a puff of sparkles as the cork goes on, and the jar in his claw (critter:hold)
-    // wobbling once, twice or three times by rarity (--wobbles, life.css). A
-    // ghost leaves a wisp behind.
+    // settling with one little rock (life.css). A ghost leaves a wisp behind.
     'jar': msg => {
-      const wobbles = [1, 2, 3].includes(msg.wobbles) ? msg.wobbles : 1;
-      root.setProperty('--wobbles', String(wobbles));
       const splash = Array.from({ length: 6 }, (_, i) => el('i', 'splash', { '--d': `${i * 30}ms`, '--dx': `${(i - 2.5) * 5}px`, '--dy': `${-8 - (i * 7) % 11}px` }));
       const sparks = ['✦', '✧', '✦'].map((t, i) => { const s = el('i', 'spark', { '--d': `${i * 180}ms`, '--x': `${(i - 1) * 9}px`, '--y': `${-2 - (i % 2) * 6}px` }); s.textContent = t; return s; });
       return [...splash, ...sparks, ...(msg.ghost ? [el('i', 'wisp')] : [])];
@@ -107,7 +104,7 @@
     if (reduced() && prop !== 'castle' && prop !== 'heart') return clearProp(); // a still picture, no moving parts
     clearProp();
     host.className = `prop-${prop}`;
-    host.append(...DRAW[prop](msg)); // the whole message: some props are drawn to order (a jar's wobbles)
+    host.append(...DRAW[prop](msg)); // the whole message: some props are drawn to order (a ghost's wisp)
     const ms = Number.isFinite(msg.ms) ? Math.min(Math.max(msg.ms, 400), 8000) : 2000;
     propTimer = setTimeout(clearProp, ms + 200);
   });

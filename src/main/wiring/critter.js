@@ -71,6 +71,7 @@ function wireCritter(d) {
     const skin = activeSkin();
     const o = outfit();
     d.send(d.critter, 'critter:skin', { skin, px: d.px(), helperWidth: d.helperWidth(), outfit: o });
+    d.bugdex?.sendBuddy(); // his favourite catch, at his new size
     d.send(d.panel, 'skin', { skin, outfit: o });
     d.floor?.reskin(); // his pals are his colours, his size
   }

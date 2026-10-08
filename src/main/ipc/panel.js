@@ -1,7 +1,7 @@
 // The panel itself: opening and closing it, Claude Code's sign-in and status,
 // pictures and files for the composer (attachments.js), and updates.
 // Kept out of main.js, which only wires it up.
-const { app, dialog, nativeImage } = require('electron');
+const { BrowserWindow, app, dialog, nativeImage } = require('electron');
 const { execFile } = require('child_process');
 const os = require('os');
 const path = require('path');
@@ -36,12 +36,17 @@ function registerPanelIpc(ipcMain, d) {
 
   // ---- panel lifecycle
   ipcMain.on('panel:hide', () => d.panel.hide());
-  ipcMain.on('panel:minimize', () => d.panel.minimize());
+  // These two come from the panel or a popped-out conversation (wiring/popouts.js): they act on whichever asked.
+  ipcMain.on('panel:minimize', e => BrowserWindow.fromWebContents(e.sender)?.minimize());
+  ipcMain.on('window:maximize', e => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win || win === d.critter) return;
+    if (win.isMaximized()) win.unmaximize(); else win.maximize();
+  });
   ipcMain.handle('panel:roomy', (_e, on) => d.setPanelRoomy(on === true));
 
   ipcMain.handle('app:bootstrap', async () => {
     d.claudeStatus = d.CAPTURE || d.FAKE_CLI ? require('../capture').FAKE_STATUS : await checkStatus({ configured: d.claudePath() });
-    const demoHome = 'C:\\Users\\you';
     // Restore the tabs that were open last time (idle until you send something).
     if (!d.CAPTURE && !d.manager.tabs.size) {
       for (const id of d.config.get('openTabs') || []) {
@@ -54,6 +59,21 @@ function registerPanelIpc(ipcMain, d) {
         if (h.kind === 'message' && !d.manager.tabs.has(h.tabId)) { try { d.reopenForHeld(h); } catch { /* limit reached */ } }
       }
     }
+    // A conversation popped out into its own window stays out of the panel's tabs.
+    const tabs = d.manager.summary.filter(t => !d.isPoppedOut(t.id));
+    return {
+      ...panelView(),
+      welcomeTrophies: d.welcomeTrophies.splice(0),
+      tabs,
+      tabItems: Object.fromEntries(tabs.map(t => [t.id, d.history.load(t.id)])),
+      startView: (() => { const v = d.startView; d.startView = null; return v; })(),
+    };
+  });
+
+  // What every window drawing the panel page starts from: the panel itself, or
+  // a conversation popped out on its own. Reading it changes nothing.
+  function panelView() {
+    const demoHome = 'C:\\Users\\you';
     return {
       version: app.getVersion(),
       settings: d.CAPTURE ? { ...d.panelSettings(), onboarded: true, mode: 'ask', recentFolders: [], lastUsage: null } : d.panelSettings(),
@@ -65,10 +85,7 @@ function registerPanelIpc(ipcMain, d) {
       homes: d.homesView(),
       stickers: d.stickersView(),
       wardrobe: d.wardrobe.view(),
-      welcomeTrophies: d.welcomeTrophies.splice(0),
       sessions: d.CAPTURE ? [] : d.history.list(),
-      tabs: d.manager.summary,
-      tabItems: Object.fromEntries(d.manager.summary.map(t => [t.id, d.history.load(t.id)])),
       toolbox: d.CAPTURE ? null : d.toolbox.current,
       pinned: d.pinnedTools(),
       snippets: snippets.view(d.snippetList(), d.config.get('snippetUse')),
@@ -82,8 +99,16 @@ function registerPanelIpc(ipcMain, d) {
       updates: d.updateView(),
       claudeUpdate: d.claudeUpdateView(),
       registryUrl: d.registryUrl(),
-      startView: (() => { const v = d.startView; d.startView = null; return v; })(),
     };
+  }
+
+  // A popped-out window: the panel's view, and its one conversation as it stands,
+  // with whatever was typed but not sent in the panel (wiring/popouts.js).
+  ipcMain.handle('popout:bootstrap', e => {
+    const tabId = d.popoutTabOf(e.sender);
+    const tab = tabId && d.manager.summary.find(t => t.id === tabId);
+    if (!tab) return null;
+    return { ...panelView(), tab, items: d.history.load(tabId), carry: d.takeCarry(tabId) };
   });
   // FAKE_CLI here too, like the bootstrap and startup paths: without it, a dev or
   // e2e run driving the fake CLI had its faked status replaced by a real check the

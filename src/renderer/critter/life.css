@@ -217,9 +217,9 @@ body.bit-peekaboo .part-claw { animation: wave .25s ease-in-out infinite; }
 .prop-jar .wisp { left: calc(var(--px) * -3); bottom: calc(var(--px) * 12); width: 8px; height: 12px; border-radius: 50% 50% 40% 40%; background: rgba(184, 255, 217, .55); filter: blur(1px); opacity: 0; animation: wisp-rise 1.8s ease-out .5s; }
 @keyframes wisp-rise { 0% { transform: none; opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(-8px, -32px) scale(.6); opacity: 0; } }
 /* the jar in his claw (a held accessory, so it shares the claw's group and pivot)
-   wobbles on top of whatever the claw is doing: `rotate`, not `transform` */
-body:has(#prop.prop-jar) .acc-held { animation: jar-wobble .32s ease-in-out .9s var(--wobbles, 1); }
-body.bit-catch:has(#prop.prop-jar) .acc-held { animation: catch-scoop .8s ease-out, jar-wobble .32s ease-in-out .9s var(--wobbles, 1); }
+   settles with one rock on top of whatever the claw is doing: `rotate`, not `transform` */
+body:has(#prop.prop-jar) .acc-held { animation: jar-wobble .32s ease-in-out .9s 1; }
+body.bit-catch:has(#prop.prop-jar) .acc-held { animation: catch-scoop .8s ease-out, jar-wobble .32s ease-in-out .9s 1; }
 @keyframes jar-wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -9deg; } 75% { rotate: 9deg; } }
 
 /* ---------- a visiting crab talking back (src/main/banter.js) ---------- */

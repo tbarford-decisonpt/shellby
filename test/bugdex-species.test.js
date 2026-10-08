@@ -68,7 +68,7 @@ test('every habitat has at least three members', () => {
     for (const id of h.members) assert.equal(b.speciesById(id).habitat, h.id);
   }
   const housed = b.HABITATS.reduce((n, h) => n + h.members.length, 0);
-  assert.equal(housed, b.SPECIES.length - 1, 'everyone but MISSINGNO. has a home');
+  assert.equal(housed, b.SPECIES.length - 1, 'everyone but the hidden glitch has a home');
 });
 
 test('remedies use known keys', () => {

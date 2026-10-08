@@ -96,6 +96,9 @@ const DEFAULTS = {
   surprises: true,    // now and then a fanfare for a real outcome: a critical hit, a clean landing (see surprises.js)
   crits: null,        // the surprises' luck: when the last one was, misses since, how many (see surprises.js); this PC only
   catchBugs: true,    // the Bugdex: catch each kind of bug Claude fixes (see bugdex.js)
+  bugBattles: true,   // ...and show Claude's work on each one as a battle (see bugdex/battle.js)
+  bugFollower: true,  // ...and his favourite catch follows him round the desk
+  shareBugdex: false, // ...and put which kinds you've caught (and your badges) on your calling card, for friends
   checkEachTurn: false, // run the project's tests after a turn that changed files, and before bringing a copy home (see checks.js)
   checkTimeoutMin: 5, // the longest one check may run, in minutes (checks.TIMEOUTS_MIN)
   checksTrusted: {},  // { project root (lower-case): true | false }: asked once before running a project's own tests (checks.js)

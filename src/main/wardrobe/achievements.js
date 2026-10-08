@@ -96,7 +96,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'gotcha', name: 'Gotcha!', icon: '🫙', description: 'Catch your first bug for the Bugdex', stat: 'bugsCaught', goal: 1, rewards: ['bug-net', 'specimen-jar'] },
   { id: 'field-notes', name: 'Field Notes', icon: '📓', description: 'Catch 10 different kinds of bug', stat: 'bugSpecies', goal: 10, rewards: ['magnifier'] },
   { id: 'naturalist', name: 'Naturalist', icon: '🌿', description: 'Catch every bug in one habitat of the Bugdex', stat: 'habitatsDone', goal: 1, rewards: ['bug-terrarium'] },
-  { id: 'fix-em-all', name: "Fix 'Em All", icon: '🧢', description: 'Catch 40 different kinds of bug', stat: 'bugSpecies', goal: 40, rewards: ['trainer-cap'] },
+  { id: 'fix-em-all', name: 'Field Researcher', icon: '🧢', description: 'Catch 40 different kinds of bug', stat: 'bugSpecies', goal: 40, rewards: ['trainer-cap'] }, // ids kept: earned trophies and hats stay earned
   { id: 'exterminator', name: 'Pest Control', icon: '🧯', description: 'Catch 100 bugs', stat: 'bugsCaught', goal: 100, rewards: ['bug-sprayer-pack'] },
   { id: 'golden-touch', name: 'Golden Touch', icon: '✨', description: 'Catch a golden bug', stat: 'goldenCatches', goal: 1, rewards: ['golden-net'], hidden: true },
   { id: 'ghost-whisperer', name: 'Ghost Whisperer', icon: '🏮', description: 'Catch 3 different ghosts from the wreck', stat: 'ghostSpecies', goal: 3, rewards: ['ghost-jar'] },

@@ -1,6 +1,7 @@
 /* Shellby panel — the tab strip: each conversation's tab, its icon and name,
-   renaming it, its right-click menu, and dragging it along the strip. tabs.js
-   owns the tabs themselves. */
+   renaming it, its right-click menu, and dragging it: along the strip, into a
+   pane of the chat, or out of the window (where it lands: tab-panes.js).
+   tabs.js owns the tabs themselves. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -48,13 +49,15 @@
     // A busy tab redraws the strip as it streams; keep the keyboard on the tab (or ×) it was on.
     const focused = strip.contains(document.activeElement) ? document.activeElement : null;
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
+    const split = SB.panes.ids(state.grid).length > 1;
     strip.replaceChildren(...[...state.tabs.values()].map(t => {
       const active = t.id === state.activeTab;
+      const shown = split && SB.isShown(t.id);
       const clash = SB.clashLine?.(t.id) || '';
       // .tab draws the tab; inside it the role=tab part and its × sit side by
       // side (a button can't live inside a tab).
       const btn = h('div', {
-        class: L.tabClass(t, { active, clash, dragging: !!drag?.moved && t.id === drag.id }),
+        class: L.tabClass(t, { active, shown, clash, dragging: !!drag?.moved && t.id === drag.id }),
         role: 'presentation',
         'data-tab-id': t.id,
         onclick: () => SB.activate(t.id),
@@ -91,6 +94,7 @@
     // Title bar shows total running count at a glance.
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
+    SB.refreshPaneHeads(); // the panes' headers show the same names and marks
   };
   const shownTitle = L.shownTitle;
   SB.shownTitle = shownTitle;
@@ -201,51 +205,63 @@
   $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   $('newTabBtn').addEventListener('click', () => SB.newTab());
 
-  // ------------------------------------------------------------ drag to reorder
+  // ------------------------------------------------------------ drag to reorder, split or pop out
 
   // The strip reorders live as the pointer crosses a neighbour's midpoint, and the
   // dragged tab keeps its place in the flow (just lifted). Nothing is positioned by
   // hand, so there's nothing to re-apply when a working tab redraws the strip
   // mid-drag — and pointermove/up are on the window, so replacing the tab's element
   // underneath the pointer doesn't cut the drag short.
+  //
+  // Pulled down into the chat, the tab splits a pane (a preview shows where it
+  // will land); let go well outside the window, it opens in a window of its own.
+  // A pane's header drags the same way (tab-panes.js).
   const EDGE = 26;            // px from a strip edge where dragging starts scrolling it
   const SLOP = 5;             // px of movement before a click becomes a drag
 
   function dragStart(e, tabId) {
-    if (e.button !== 0 || e.target.closest('.tab-x') || state.tabs.size < 2) return;
-    drag = { id: tabId, startX: e.clientX, x: e.clientX, moved: false };
+    if (e.button !== 0 || e.target.closest('button') || SB.solo) return;
+    drag = { id: tabId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, moved: false, drop: null };
     window.addEventListener('pointermove', dragMove);
     window.addEventListener('pointerup', dragEnd);
     window.addEventListener('pointercancel', dragEnd);
   }
+  SB.dragTab = dragStart;
 
   function dragMove(e) {
     if (!drag) return;
     drag.x = e.clientX;
+    drag.y = e.clientY;
     // A click that wobbles a few pixels is still a click.
-    if (!drag.moved && Math.abs(e.clientX - drag.startX) < SLOP) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < SLOP) return;
     if (!drag.moved) {
       drag.moved = true;
       document.body.classList.add('reordering');
       lift();
       requestAnimationFrame(edgeScroll);
     }
-    SB.moveTab(drag.id, dropBefore(drag.x));
+    drag.drop = SB.dropAt(drag.x, drag.y, drag.id);
+    SB.showDrop(drag.drop);
+    if (drag.drop?.kind === 'strip') SB.moveTab(drag.id, dropBefore(drag.x));
   }
 
-  function dragEnd() {
-    const moved = drag?.moved;
+  function dragEnd(e) {
+    const d = drag;
     drag = null;
     window.removeEventListener('pointermove', dragMove);
     window.removeEventListener('pointerup', dragEnd);
     window.removeEventListener('pointercancel', dragEnd);
-    if (!moved) return;
+    if (!d?.moved) return;
     document.body.classList.remove('reordering');
     lift();
-    // The click that follows this pointerup is left alone on purpose: you grabbed
-    // that tab, so ending up in its conversation is what you asked for. That also
-    // means not redrawing the strip here — replacing the element the pointer came
-    // up on would lose the click.
+    SB.showDrop(null);
+    if (e.type === 'pointercancel') return;
+    if (d.drop?.kind === 'pane') SB.placeTab(d.id, d.drop.target, d.drop.zone);
+    if (d.drop?.kind === 'out') SB.popOut(d.id, { x: e.screenX, y: e.screenY });
+    // On the strip, the click that follows this pointerup is left alone on purpose:
+    // you grabbed that tab, so ending up in its conversation is what you asked for.
+    // That also means not redrawing the strip here — replacing the element the
+    // pointer came up on would lose the click.
   }
 
   // Marks the dragged tab in place, so starting and ending a drag don't have to
@@ -270,7 +286,8 @@
     if (!drag?.moved) return;
     const strip = $('tabs');
     const r = strip.getBoundingClientRect();
-    const dx = drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
+    const onStrip = drag.drop?.kind === 'strip';
+    const dx = !onStrip ? 0 : drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
     if (dx) {
       strip.scrollLeft += dx;
       SB.moveTab(drag.id, dropBefore(drag.x));

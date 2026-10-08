@@ -7,6 +7,10 @@ const SB = window.SB = {
   Sprite: window.ShellbySprite,
   MiniShell: window.ShellbyMiniShell,
   shortcuts: window.ShellbyShortcuts, // every shortcut, for the handlers, the palette and the cheat sheet
+  panes: window.ShellbyPanes,         // conversations side by side (shared/panes.js)
+  // Set in a popped-out conversation's window: the one tab it shows. That
+  // window is this same page with the chat alone (main's wiring/popouts.js).
+  solo: new URLSearchParams(location.search).get('popout'),
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
@@ -14,10 +18,13 @@ const SB = window.SB = {
     snippets: [],         // saved prompts: /name in the box, @name from a terminal (toolbox.js)
     workflows: null,      // the workflows View (docs/plans/workflows.md), fetched on first visit
     tabs: new Map(),      // tabId -> Tab (see feed.js)
-    activeTab: null,
+    activeTab: null,      // the focused pane: where the box sends
+    grid: [],             // the tabs on screen, as columns of ids (see shared/panes.js)
+    popped: new Set(),    // tabs out in windows of their own (main's 'tabs' says which)
     clashes: [],          // copies that changed the same files (clashes.js; src/main/clash.js has the shape)
   },
 };
+if (SB.solo) document.body.classList.add('solo');
 
 SB.$ = id => document.getElementById(id);
 
@@ -320,8 +327,9 @@ SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
 SB.setView = view => {
   const s = SB.state;
-  // Just-the-crab mode has no chat: Health is home.
+  // Just-the-crab mode has no chat: Health is home. A popped-out window has nothing but.
   if (view === 'chat' && s.settings.crabOnly) view = 'health';
+  if (SB.solo) view = 'chat';
   s.view = view;
   document.body.dataset.view = view;
   const section = SB.NAV_SECTION[view] || view;

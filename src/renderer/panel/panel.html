@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="stickers.css">
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="bugdex.css">
+<link rel="stylesheet" href="bugdex-battle.css">
 <link rel="stylesheet" href="crew.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
@@ -49,6 +50,7 @@
       <span class="brand-xp" aria-hidden="true"><i id="brandXp"></i></span>
     </button>
     <button type="button" class="brand-level" id="brandLevel" hidden></button>
+    <span class="win-title" id="winTitle"></span>
     <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode (Shift+Tab in the message box cycles it)" aria-keyshortcuts="Shift+Tab">
       <span class="mode-dot"></span><span id="modeLabel">Ask</span>
       <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -64,6 +66,9 @@
       <span class="sep"></span>
       <button type="button" id="minBtn" class="icon-btn" title="Minimize" aria-label="Minimize">
         <svg viewBox="0 0 16 16"><path d="M4 8.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" id="maxBtn" class="icon-btn" title="Maximize or restore (double-click the title bar)" aria-label="Maximize or restore">
+        <svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
       <button type="button" id="closeBtn" class="icon-btn close" title="Hide" aria-label="Hide">
         <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -113,6 +118,12 @@
       <span class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></span>
       <span class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></span>
     </button>
+    <button type="button" class="icon-btn pop-btn" id="splitBtn" title="Split: another conversation alongside (Ctrl+\)" aria-label="Split" aria-keyshortcuts="Control+\">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 3v10" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+    <button type="button" class="icon-btn pop-btn" id="popOutBtn" title="Open this conversation in its own window (or drag its tab out)" aria-label="Open in its own window">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 
   <div class="popover" id="modeMenu" role="menu" hidden></div>
@@ -134,7 +145,7 @@
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
-    <div class="feeds" id="feeds"></div>
+    <div class="feeds" id="feeds" data-panes="1"></div>
     <div class="findbar" id="findBar" role="search" hidden>
       <input id="findInput" class="field" type="text" placeholder="Find in conversation" aria-label="Find in this conversation" spellcheck="false">
       <span class="find-count" id="findCount" aria-live="polite"></span>
@@ -871,6 +882,11 @@
         <h3 id="bdTotal">No bugs in the jars yet</h3>
         <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
       </div>
+    </section>
+    <section class="bd-league" id="bdLeague" aria-label="Badges and the league"></section>
+    <section class="bd-friends" id="bdFriends" hidden aria-labelledby="bdFriendsTitle">
+      <h3 class="bd-section-title" id="bdFriendsTitle">Friends' books</h3>
+      <ul id="bdFriendList"></ul>
     </section>
     <section class="bd-empty" id="bdEmpty" hidden>
       <b>The jars are empty, for now.</b>
@@ -1941,6 +1957,12 @@
         <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
         <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
         <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
+        <div class="sub-toggles" id="bugdexOptions">
+          <label class="toggle"><input type="checkbox" id="bugBattlesToggle"><span class="switch"></span>Bug battles: watch Claude take on each bug while it's loose</label>
+          <label class="toggle"><input type="checkbox" id="bugFollowerToggle"><span class="switch"></span>His favourite catch follows him round the desk</label>
+          <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
+          <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
+        </div>
         <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
         <div class="row wrap" id="checkEachTurnOptions">
           <label class="inline-label" for="checkTimeoutSelect">Give up after
@@ -2214,6 +2236,8 @@
   </div>
 
   <div class="toast" id="toast" role="status"></div>
+  <!-- where a dragged tab will land in the chat view (tab-panes.js) -->
+  <div class="drop-hint" id="dropHint" aria-hidden="true" hidden></div>
   <p class="sr-only" id="announcer" role="status" aria-live="polite"></p>
 
 <script src="../shared/framecap.js"></script>
@@ -2226,6 +2250,7 @@
 <script src="../shared/outlook-format.js"></script>
 <script src="../shared/time-format.js"></script>
 <script src="../shared/streaks-format.js"></script>
+<script src="../shared/panes.js"></script>
 <script src="shortcuts.js"></script>
 <script src="core.js"></script>
 <script src="a11y.js"></script>
@@ -2245,6 +2270,7 @@
 <script src="tab-logic.js"></script>
 <script src="tabs.js"></script>
 <script src="tab-strip.js"></script>
+<script src="tab-panes.js"></script>
 <script src="tab-send.js"></script>
 <script src="tab-queue.js"></script>
 <script src="slash-menu.js"></script>
@@ -2296,6 +2322,7 @@
 <script src="crew.js"></script>
 <script src="together.js"></script>
 <script src="bugdex.js"></script>
+<script src="bugdex-battle.js"></script>
 <script src="needs.js"></script>
 <script src="health-logic.js"></script>
 <script src="health.js"></script>

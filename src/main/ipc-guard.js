@@ -2,7 +2,8 @@
 // window can reach only what its own bridge offers: the crab's window (which
 // draws friends' visiting crabs and stickers) can move him and take a drop,
 // and nothing more, even if something it shows ever runs code. The panel gets
-// its full bridge; no other window gets anything here (the confirmation
+// its full bridge, and so does a conversation popped out into a window of its
+// own, which is the panel's page and bridge (wiring/popouts.js); no other window gets anything here (the confirmation
 // windows answer on confirm.js's own channels, which check their sender).
 //
 // allow(channel, sender) -> boolean. A refused invoke rejects; a refused send
@@ -40,11 +41,12 @@ const FLOOR_CHANNELS = /^floor:(hit|poke)$/;
 // A note he dragged in (note-preload.js): throw it away.
 const NOTE_CHANNELS = /^note:close$/;
 
-/** windows: () => ({ panel, critter, isToy(wc), isFloor(wc), isNote(wc) }), any of them possibly gone. */
+/** windows: () => ({ panel, critter, isPopout(wc), isToy(wc), isFloor(wc), isNote(wc) }), any of them possibly gone. */
 function windowPolicy(windows) {
   return (channel, sender) => {
-    const { panel, critter, isToy, isFloor, isNote } = windows();
+    const { panel, critter, isPopout, isToy, isFloor, isNote } = windows();
     if (sender && panel && sender === panel) return true;
+    if (sender && isPopout?.(sender)) return true;
     if (sender && critter && sender === critter) return CRITTER_CHANNELS.test(channel);
     if (sender && isToy?.(sender)) return TOY_CHANNELS.test(channel);
     if (sender && isFloor?.(sender)) return FLOOR_CHANNELS.test(channel);

@@ -752,7 +752,7 @@ api.onBit(msg => {
 // ---- a little chirp when he speaks, a ta-da for a big moment (off by default;
 // see chirp.js and sound.js). Main decides whether; this only plays.
 api.onChirp(msg => window.ShellbyChirp.play(msg?.occasion));
-api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(msg.cue); });
+api.onSound(msg => { if (typeof msg?.cue === 'string') window.ShellbySound.cue(msg.cue, { data: msg }); });
 
 // ---- the screen is locked (or the machine is suspending): stop animating.
 // He is on the wallpaper, so he animates all day; while the screen is off there
@@ -768,6 +768,16 @@ api.onCalm(msg => {
 // ---- and while you can see him, he moves at a pixel-art frame rate, not the
 // screen's: a transparent window pays the GPU for every frame (shared/framecap.js).
 window.ShellbyFrameCap.cap(document);
+
+// ---- his favourite Bugdex catch follows him round the desk, a step behind
+// whichever way he faces, and bobs along faster when he walks.
+const buddyEl = document.getElementById('buddy');
+api.onBuddy(b => {
+  if (!b || !Array.isArray(b.pixels) || !b.palette) { buddyEl.hidden = true; buddyEl.replaceChildren(); return; }
+  buddyEl.hidden = false;
+  buddyEl.classList.toggle('ghost', !!b.ghost);
+  buddyEl.replaceChildren(window.ShellbySprite.grid(b.pixels, b.palette, { px: Math.max(2, Math.round(px * 0.85)) }));
+});
 
 // ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
 // him, ahead of any helpers, and walks back off to the left when it's time.

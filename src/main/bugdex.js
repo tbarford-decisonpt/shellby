@@ -12,7 +12,8 @@
 // Pure: no I/O, no clock, no randomness of its own (callers pass `now` and
 // `rand`). The encounters themselves are bugdex/lifecycle.js. See
 // test/bugdex.test.js.
-const { SPECIES, HABITATS, RARITY, TYPES, BY_ID, speciesById, live } = require('./bugdex/species');
+const { SPECIES, HABITATS, RARITY, TYPES, BY_ID, LEAGUE, speciesById, live, leagueOf, bossOf } = require('./bugdex/species');
+const { loreOf } = require('./bugdex/lore');
 const lifecycle = require('./bugdex/lifecycle');
 const art = require('./bugdex/art');
 
@@ -33,6 +34,8 @@ const MAX_RECENT = 200;
 const MAX_LOG = 30;
 const MAX_PROJECTS = 12;
 const MAX_DEVICES = 20;
+const MAX_GIFTS = 40;
+const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const FORMS = Object.freeze(['first-try', 'swift', 'golden', 'nocturnal', 'spectral', 'shiny']);
 const LANGS = Object.freeze(['js', 'ts', 'py', 'rust', 'go', 'jvm', 'cs', 'rb', 'php', 'git', 'ci']);
 const DEVICE_RE = /^[a-z0-9-]{4,40}$/;
@@ -106,6 +109,10 @@ function normalize(raw) {
     lastMomentAt: pos(r.lastMomentAt),
     // When the book was started over: sync drops counts from before it (see merge).
     resetAt: pos(r.resetAt),
+    // Jars friends brought when they visited: decoration, never a catch (and never synced).
+    gifts: (Array.isArray(r.gifts) ? r.gifts : [])
+      .filter(g => g && BY_ID.has(g.species) && g.species !== 'missingno' && typeof g.from === 'string' && LOGIN_RE.test(g.from) && pos(g.at))
+      .map(g => ({ species: g.species, from: g.from, at: g.at })).slice(0, MAX_GIFTS),
   };
 }
 
@@ -171,7 +178,7 @@ function finishedHabitats(state, now) {
 function recordCatch(stateIn, c, now) {
   let state = normalize(stateIn);
   const sp = speciesById(c.species);
-  const none = { state, counted: false, pays: false, isNew: false, forms: [], stage: 0, evolved: 0, completed: [], moment: false };
+  const none = { state, counted: false, pays: false, isNew: false, forms: [], stage: 0, evolved: 0, completed: [], moment: false, badge: null, league: null, fame: false };
   if (!sp || !Number.isFinite(now)) return none;
   const key = `${c.project}|${c.fp}`;
   const r = state.recent[key] || { caughtAt: 0, paidAt: 0 };
@@ -217,11 +224,15 @@ function recordCatch(stateIn, c, now) {
   };
   const fin = finishedHabitats(state, now);
   state = { ...state, habitats: fin.habitats };
+  // A boss's first catch is its habitat's badge; the league's first catches count toward the Hall of Fame.
+  const badge = isNew && bossOf(sp.id) ? bossOf(sp.id).id : null;
+  const league = isNew ? leagueOf(sp.id) : null;
+  const fame = !!(badge || league) && !hallOf(stateIn) && !!hallOf(state);
   const evolved = stage > stageBefore && stage >= 2 ? stage : 0;
-  const loud = isNew || evolved || fin.done.length || sp.rarity === 'rare' || sp.rarity === 'legendary' || forms.includes('golden') || forms.includes('shiny');
+  const loud = isNew || evolved || fin.done.length || sp.rarity === 'rare' || sp.rarity === 'legendary' || forms.includes('golden') || forms.includes('shiny') || badge || league;
   const moment = !!loud || now - state.lastMomentAt >= MOMENT_GAP;
   if (moment) state = { ...state, lastMomentAt: now };
-  return { state, counted: true, pays, isNew, forms, stage, evolved, completed: fin.done, moment };
+  return { state, counted: true, pays, isNew, forms, stage, evolved, completed: fin.done, moment, badge, league, fame };
 }
 
 // ------------------------------------------------------------------ encounters (see lifecycle.js)
@@ -296,6 +307,98 @@ function jarFor(id, forms = []) {
   return sp ? art.jarArt(art.formed(sp, forms)) : null;
 }
 
+// ------------------------------------------------------------------ badges and the league
+
+const firstOf = (state, id) => (caughtOf(state.species[id]) > 0 ? state.species[id].first || 1 : 0);
+
+/**
+ * When you made the Hall of Fame (every badge, the Deep Four and the
+ * champion), or 0. Worked out from the book, so sync needs nothing new.
+ */
+function hallOf(stateIn) {
+  const s = normalize(stateIn);
+  const ids = [...HABITATS.map(h => h.boss), ...LEAGUE.elite, LEAGUE.champion];
+  const firsts = ids.map(id => firstOf(s, id));
+  return firsts.every(Boolean) ? Math.max(...firsts) : 0;
+}
+
+/** The badge case and the league, as the page draws them (nothing you haven't earned in colour). */
+function leagueView(stateIn) {
+  const s = normalize(stateIn);
+  const known = id => caughtOf(s.species[id]) > 0 || !!s.species[id]?.seen;
+  const badges = HABITATS.map(h => {
+    const at = firstOf(s, h.boss);
+    return {
+      habitat: h.id, habitatName: h.name, icon: h.icon, name: h.badge.name, earned: !!at, at,
+      boss: known(h.boss) ? BY_ID.get(h.boss).name : null,
+      ...(at ? { pixels: h.badge.pixels, palette: h.badge.palette } : art.silhouette(h.badge)),
+    };
+  });
+  const member = (id, rank) => {
+    const sp = BY_ID.get(id);
+    const at = firstOf(s, id);
+    return { id, rank, at, beaten: !!at, name: known(id) ? sp.name : '???', ...(at ? { pixels: sp.pixels, palette: sp.palette } : known(id) ? art.silhouette(sp) : {}) };
+  };
+  const earned = badges.filter(b => b.earned).length;
+  return {
+    badges, earned, of: badges.length,
+    // The league opens once you hold every badge; until then it's who's waiting.
+    open: earned === badges.length,
+    elite: LEAGUE.elite.map(id => member(id, 'elite')),
+    champion: member(LEAGUE.champion, 'champion'),
+    hall: hallOf(s),
+  };
+}
+
+// ------------------------------------------------------------------ friends
+
+/**
+ * What a visiting friend brings: a jar of one of their own catches, picked by
+ * who they are and the day, preferring one you haven't caught. Null when their
+ * card doesn't share their Bugdex, they've caught nothing, or they already
+ * brought one today.
+ */
+function giftFor(stateIn, login, theirs, now) {
+  const s = normalize(stateIn);
+  const ids = (Array.isArray(theirs) ? theirs : []).filter(id => BY_ID.has(id) && id !== 'missingno');
+  if (!ids.length || !LOGIN_RE.test(login || '')) return null;
+  const day = dayKey(now);
+  if (s.gifts.some(g => g.from.toLowerCase() === login.toLowerCase() && dayKey(g.at) === day)) return null;
+  const fresh = ids.filter(id => !(caughtOf(s.species[id]) > 0));
+  const pool = [...(fresh.length ? fresh : ids)].sort();
+  let h = 2166136261;
+  for (const ch of `${login.toLowerCase()}|${day}`) h = Math.imul(h ^ ch.codePointAt(0), 16777619) >>> 0;
+  return pool[h % pool.length];
+}
+
+/** Keep a friend's gift jar. */
+function addGift(stateIn, { species, from }, now) {
+  const s = normalize(stateIn);
+  if (!BY_ID.has(species) || species === 'missingno' || !LOGIN_RE.test(from || '') || !pos(now)) return s;
+  return normalize({ ...s, gifts: [{ species, from, at: now }, ...s.gifts] });
+}
+
+/** How many gift jars of each species: { id: n }. */
+function giftCounts(stateIn) {
+  const out = {};
+  for (const g of normalize(stateIn).gifts) out[g.species] = (out[g.species] || 0) + 1;
+  return out;
+}
+
+/** A friend's shared Bugdex as their card carries it (github/card.js), cleaned. */
+function cleanShared(raw) {
+  const r = obj(raw);
+  const caught = [...new Set((Array.isArray(r.caught) ? r.caught : []).filter(id => typeof id === 'string' && BY_ID.has(id)))].slice(0, SPECIES.length);
+  return { caught, badges: Math.min(HABITATS.length, count(r.badges)), hall: r.hall === true };
+}
+
+/** What your card says about your Bugdex when you share it: which kinds, and badges. No counts, no projects. */
+function shared(stateIn) {
+  const s = normalize(stateIn);
+  const l = leagueView(s);
+  return { caught: Object.keys(s.species).filter(id => caughtOf(s.species[id]) > 0).sort(), badges: l.earned, hall: !!l.hall };
+}
+
 // ------------------------------------------------------------------ the view
 
 /**
@@ -303,8 +406,14 @@ function jarFor(id, forms = []) {
  * spoilers); seen ones as silhouettes.
  *   opts: { names: { projectId: name }, tabs: Set of open tab ids }
  */
-function view(stateIn, now, { names = {}, tabs = null } = {}) {
+function view(stateIn, now, { names = {}, tabs = null, friends = [] } = {}) {
   const state = prune(stateIn, now);
+  // Friends who share their Bugdex: who has caught what.
+  const pals = (Array.isArray(friends) ? friends : []).filter(f => f && LOGIN_RE.test(f.login || '')).slice(0, 30)
+    .map(f => ({ login: f.login, ...cleanShared(f.bugdex) }));
+  const reporters = id => pals.filter(f => f.caught.includes(id)).map(f => f.login).slice(0, 3);
+  const gifts = giftCounts(state);
+  const giftFrom = id => [...new Set(state.gifts.filter(g => g.species === id).map(g => g.from))].slice(0, 3);
   const fav = favourite(state);
   const ids = new Set(live().map(s => s.id));
   const shown = SPECIES.filter(sp => ids.has(sp.id) || caughtOf(state.species[sp.id]) > 0);
@@ -318,7 +427,11 @@ function view(stateIn, now, { names = {}, tabs = null } = {}) {
       no: sp.no, id: sp.id, state: st, habitat: sp.habitat, rarity: sp.rarity, rarityLabel: RARITY[sp.rarity].label,
       type: sp.type, typeLabel: TYPES[sp.type]?.label || '', typeColor: TYPES[sp.type]?.color || '#888888',
       isNew: state.unseen.includes(sp.id),
+      boss: bossOf(sp.id)?.id || null, league: leagueOf(sp.id),
+      reportedBy: reporters(sp.id), gifts: gifts[sp.id] || 0, giftFrom: giftFrom(sp.id),
     };
+    // A friend's report (or a jar they brought) puts a name and a silhouette to one you've never met.
+    if (st === 'unknown' && (base.reportedBy.length || base.gifts)) return { ...base, state: 'reported', name: sp.name, blurb: sp.hint, ...art.silhouette(sp) };
     if (st === 'unknown') return { ...base, name: '???', blurb: sp.habitat ? `Lives in ${HABITATS.find(h => h.id === sp.habitat).name}.` : 'Nobody knows where it lives.' };
     if (st === 'seen') return { ...base, name: sp.name, blurb: hintFor(sp, e), ...art.silhouette(sp), seenCount: e.seen, seenAt: e.seenAt };
     const forGood = now - e.last >= ESCAPE_MS && e.lastEscapeAt < e.last;
@@ -330,6 +443,8 @@ function view(stateIn, now, { names = {}, tabs = null } = {}) {
       caught, seenCount: e.seen, first: e.first, last: e.last, fastest: e.fastest, escapes: sum(e.escapes),
       forms: [...e.forms, ...(forGood ? ['for-good'] : [])], langs: e.langs,
       firstProject: names[e.projects[0]] || null,
+      // The field note at stage II, the tip at stage III: until then, how many catches off they are.
+      ...loreAt(sp.id, caught),
     };
   });
   const loose = state.open.map(enc => {
@@ -350,7 +465,7 @@ function view(stateIn, now, { names = {}, tabs = null } = {}) {
   const caughtList = species.filter(s => s.state === 'caught');
   return {
     caught: caughtList.filter(s => ids.has(s.id)).length,
-    seen: species.filter(s => s.state !== 'unknown').length,
+    seen: species.filter(s => s.state === 'caught' || s.state === 'seen').length, // a friend's report isn't your sighting
     of: ids.size,
     jars: totalCaught(state),
     favourite: fav,
@@ -358,6 +473,17 @@ function view(stateIn, now, { names = {}, tabs = null } = {}) {
     loose, habitats, species,
     log: state.log.slice(0, 10).map(l => ({ ...l, name: BY_ID.get(l.species).name })),
     types: Object.entries(TYPES).map(([id, t]) => ({ id, ...t })),
+    league: leagueView(state),
+    friends: pals.map(f => ({ login: f.login, caught: f.caught.filter(id => ids.has(id)).length, badges: f.badges, hall: f.hall })),
+  };
+}
+
+function loreAt(id, caught) {
+  const l = loreOf(id);
+  if (!l) return { note: null, tip: null, noteIn: 0, tipIn: 0 };
+  return {
+    note: caught >= STAGES[1] ? l.note : null, noteIn: Math.max(0, STAGES[1] - caught),
+    tip: caught >= STAGES[2] ? l.tip : null, tipIn: Math.max(0, STAGES[2] - caught),
   };
 }
 
@@ -472,5 +598,6 @@ module.exports = {
   STAGES, CATCH_COOLDOWN, PAY_COOLDOWN, SPECIES_DAY_CAP, DAY_CAP, ESCAPE_MS, SWIFT_MS, SHINY_CHANCE, MOMENT_GAP, FORMS,
   normalize, recordSeen, recordCatch, spot, engage, engageKey, refuse, closeEncounter, prune,
   catchLine, nameAt, favourite, jarFor, artFor, view, markSeen, setFavourite, summary, poolOf,
+  hallOf, leagueView, giftFor, addGift, giftCounts, cleanShared, shared,
   syncable, normalizeSync, merge, applySync, withDevice, caughtOf, stageOf,
 };

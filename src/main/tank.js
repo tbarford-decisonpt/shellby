@@ -126,7 +126,8 @@ const sizeOfPixels = pixels => ({ w: Math.max(1, ...pixels.map(r => r.length)), 
  * Wardrobe#decorView, with `locked` and `isNew`) and the finds on his shelf
  * (gifts.js state and FINDS). A find can be placed as many times as he has it.
  * Every bug caught (the Bugdex's state, anything; bugdex.normalize cleans it)
- * is a specimen jar, as many as times it's been caught.
+ * is a specimen jar, as many as times it's been caught, plus any jars friends
+ * brought of it (bugdex.js addGift), which can be of bugs you've not caught.
  */
 function library({ decor = [], findState = null, finds = [], bugState = null } = {}) {
   const lib = new Map();
@@ -154,13 +155,17 @@ function library({ decor = [], findState = null, finds = [], bugState = null } =
     });
   }
   const bugs = bugdex.normalize(bugState);
-  for (const [id, entry] of Object.entries(bugs.species)) {
-    const have = bugdex.caughtOf(entry);
+  const gifted = bugdex.giftCounts(bugs);
+  for (const id of new Set([...Object.keys(bugs.species), ...Object.keys(gifted)])) {
+    const entry = bugs.species[id];
+    const caught = bugdex.caughtOf(entry);
+    const have = caught + (gifted[id] || 0);
     const sp = speciesById(id);
-    if (!have || !sp) continue; // only what Claude has actually fixed
-    const jar = bugdex.jarFor(id, entry.forms);
+    if (!have || !sp) continue; // only what Claude has actually fixed, or a friend brought
+    const jar = bugdex.jarFor(id, entry?.forms || []);
+    const from = caught ? '' : bugs.gifts.find(g => g.species === id)?.from;
     lib.set(`jar:${id}`, {
-      ref: `jar:${id}`, kind: 'jar', name: `${sp.name} jar`, description: sp.blurb || '', rarity: sp.rarity,
+      ref: `jar:${id}`, kind: 'jar', name: `${sp.name} jar`, description: from ? `A gift from @${from}.` : sp.blurb || '', rarity: sp.rarity,
       category: 'jar', layer: 'floor',
       palette: jar.palette, pixels: jar.pixels, frames: [], fps: 0, spots: [],
       ...sizeOfPixels(jar.pixels), max: have, locked: null, isNew: bugs.unseen.includes(id),

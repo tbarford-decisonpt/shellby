@@ -18,7 +18,8 @@ const bugdex = require('../bugdex');
 const detect = require('../bugdex/detect');
 const lifecycle = require('../bugdex/lifecycle');
 const { judge } = require('../bugdex/cheats');
-const { HABITATS, live, speciesById } = require('../bugdex/species');
+const battle = require('../bugdex/battle');
+const { HABITATS, TYPES, live, speciesById, bossOf, leagueOf } = require('../bugdex/species');
 const { cmdKey } = require('../flaky/ids');
 const { projectOf } = require('../gitinfo');
 const { activeSeasons } = require('../wardrobe/seasons');
@@ -27,13 +28,19 @@ const { normalizeXp } = require('../xp');
 // Everything that can be seen: the book's live species, and the hidden one.
 const LIVE = new Set([...live().map(s => s.id), 'missingno']);
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, legendary: 3, special: 4 };
-const WOBBLES = { common: 1, uncommon: 2, rare: 3, legendary: 3, special: 3 };
 const PROJECT_TTL_MS = 60 * 1000;
 const MAX_TREES = 30;              // per project: trees seen, for "that's just a revert"
 const MAX_REMEDIES = 20;
 const STAY_UP_MS = 60 * 1000;      // a fixed dev server has to stay up this long
 const SERVER_FIX_WINDOW_MS = 30 * 60 * 1000;
 const GIT_MS = 5000;
+// Bug battles (bugdex/battle.js), in memory only.
+const SCOUT_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead', 'WebFetch', 'WebSearch']);
+const BATTLE_PUSH_MS = 150;            // moves come in flurries: one push for a flurry
+const BATTLE_KEEP_MS = 3 * 60 * 1000;  // a finished battle stays this long, for the panel to play out
+const MAX_BATTLES = 40;
+// Cues the battle screen may ask the crab to play (critter/sound.js).
+const BATTLE_CUES = new Set(['battle', 'boss', 'hit', 'super', 'smash', 'miss', 'heal', 'resist', 'faint', 'lower', 'caught', 'badge', 'fled', 'cry']);
 
 /** d: what main shares (main.js `shared`). */
 function wireBugdex(d) {
@@ -57,6 +64,7 @@ function wireBugdex(d) {
   const conflicts = new Map();       // encounter id -> { files } (the files git named)
   const stayUp = new Map();          // dev server id -> timer
   const fixTurns = new Map();        // dev server id -> when its fix turn ended
+  const battles = new Map();         // encounter id -> its battle (bugdex/battle.js)
 
   function project(dir) {
     if (!dir) return Promise.resolve(null);
@@ -100,12 +108,37 @@ function wireBugdex(d) {
     return out;
   }
 
+  // Friends whose cards share their Bugdex (github/card.js): their reports, on your page.
+  const friendBooks = () => (d.config.get('friends')?.list || []).filter(f => f?.card?.bugdex).map(f => ({ login: f.login, bugdex: f.card.bugdex }));
+
   function view() {
     const tabs = new Set(d.manager ? [...d.manager.tabs.keys()] : []);
-    return bugdex.view(state(), Date.now(), { names: nameMap(), tabs });
+    return bugdex.view(state(), Date.now(), { names: nameMap(), tabs, friends: friendBooks() });
   }
 
-  const push = () => { if (d.panel) d.send(d.panel, 'bugdex', view()); };
+  // His favourite catch follows him round the desk (critter.js #buddy): its art, or null.
+  let buddySent = null;
+  function buddy() {
+    if (!on() || d.config.get('bugFollower') === false) return null;
+    const s = state();
+    const id = bugdex.favourite(s);
+    if (!id) return null;
+    const sp = speciesById(id);
+    const a = bugdex.artFor(sp, s.species[id]);
+    return { id, name: sp.name, ghost: sp.habitat === 'wreck', pixels: a.pixels, palette: a.palette };
+  }
+  function sendBuddy({ force = true } = {}) {
+    const b = buddy();
+    const key = JSON.stringify(b);
+    if (!force && key === buddySent) return;
+    buddySent = key;
+    if (d.critter) d.send(d.critter, 'critter:buddy', b);
+  }
+
+  const push = () => {
+    if (d.panel) d.send(d.panel, 'bugdex', view());
+    sendBuddy({ force: false }); // a new favourite (or its next stage) goes straight to the desk
+  };
 
   /** Change the book, then tell the panel. */
   function update(fn) {
@@ -129,14 +162,101 @@ function wireBugdex(d) {
     }
   };
 
+  // ---- bug battles: Claude's work on what's loose, as a fight (bugdex/battle.js)
+
+  const battleMeta = new Map();      // encounter id -> { tabId, project, source }: kept past the catch
+  let battleTimer = null;
+
+  /** Its battle, started if there isn't one yet (after a restart they start afresh). */
+  function battleOf(e, now = Date.now(), failed = null) {
+    const id = lifecycle.encId(e);
+    battleMeta.set(id, { tabId: e.tabId || battleMeta.get(id)?.tabId || null, project: e.name || names.get(e.project) || '', source: e.source });
+    if (battles.has(id)) return battles.get(id);
+    const sp = speciesById(e.species);
+    if (!sp) return null;
+    const b = battle.start({ species: sp.id, rarity: sp.rarity, type: sp.type }, {
+      id, boss: !!bossOf(sp.id), league: leagueOf(sp.id), stage: bugdex.stageOf(bugdex.caughtOf(state().species[sp.id])), failed, now,
+    });
+    battles.set(id, b);
+    while (battles.size > MAX_BATTLES) { const old = battles.keys().next().value; battles.delete(old); battleMeta.delete(old); }
+    pushBattles();
+    return b;
+  }
+
+  /** Change one encounter's battle; the panel hears about it a moment later. */
+  function fight(e, fn) {
+    const b = battleOf(e);
+    if (!b) return;
+    const next = fn(b);
+    if (next === b) return;
+    battles.set(b.id, next);
+    pushBattles();
+  }
+
+  const fightAll = (list, fn) => { for (const e of list) fight(e, fn); };
+
+  function pushBattles() {
+    if (battleTimer || !d.panel) return;
+    battleTimer = setTimeout(() => { battleTimer = null; d.send(d.panel, 'bugdex:battles', d.config.get('bugBattles') === false ? [] : battleList()); }, BATTLE_PUSH_MS);
+    battleTimer.unref?.();
+  }
+
+  /**
+   * Every battle the panel may draw: each open encounter's (started if need
+   * be), and ones that just ended, for long enough to play the ending out.
+   * One whose encounter closed without a catch got away.
+   */
+  function battleList() {
+    const now = Date.now();
+    const open = on() ? state().open : [];
+    const ids = new Set(open.map(lifecycle.encId));
+    for (const e of open) battleOf(e, now);
+    for (const [id, b] of [...battles]) {
+      const done = !b.over && !ids.has(id) ? battle.finish(b, { at: now, outcome: 'fled' }) : b;
+      if (done !== b) battles.set(id, done);
+      if (done.over && now - (done.moves.at(-1)?.at || 0) > BATTLE_KEEP_MS) { battles.delete(id); battleMeta.delete(id); }
+    }
+    const tabs = new Set(d.manager ? [...d.manager.tabs.keys()] : []);
+    return [...battles.values()].map(b => {
+      const sp = speciesById(b.species);
+      const meta = battleMeta.get(b.id) || {};
+      const h = HABITATS.find(x => x.id === sp.habitat);
+      const boss = bossOf(sp.id);
+      return {
+        ...battle.view(b, sp.name),
+        no: sp.no, name: sp.name, blurb: sp.blurb, habitat: sp.habitat || 'none', habitatName: h?.name || '', habitatIcon: h?.icon || '',
+        typeLabel: TYPES[sp.type]?.label || '', typeColor: TYPES[sp.type]?.color || '#888888',
+        pixels: sp.pixels, palette: sp.palette,
+        badge: boss ? { name: boss.badge.name, pixels: boss.badge.pixels, palette: boss.badge.palette } : null,
+        tabId: meta.tabId && tabs.has(meta.tabId) ? meta.tabId : null, project: meta.project || '', source: meta.source || 'bash',
+      };
+    }).sort((a, b) => b.startedAt - a.startedAt);
+  }
+
+  /** The battle screen asks the crab to play a sound (he has the speaker, and your sound settings). */
+  function cue(name, opts = {}) {
+    if (!BATTLE_CUES.has(name) || !d.critter) return;
+    const sp = name === 'cry' ? speciesById(opts.species) : null;
+    if (name === 'cry' && !sp) return;
+    d.send(d.critter, 'critter:sound', sp ? { cue: 'cry', no: sp.no, type: sp.type, rarity: sp.rarity } : { cue: name });
+  }
+
   // ---- seeing
 
-  async function spot(enc) {
-    const r = bugdex.spot(state(), enc, Date.now(), { device: device() });
+  /**
+   * Open an encounter, or refresh one that failed again.
+   *   again: { kind (detect.js commandKind), failed } — what failed again, for its battle
+   */
+  async function spot(enc, again = null) {
+    const now = Date.now();
+    const r = bugdex.spot(state(), enc, now, { device: device() });
     save(r.state);
     push();
     if (r.isNew) d.log.info(`bugdex: spotted ${enc.species}`);
     if (r.escaped) d.log.info(`bugdex: ${enc.species} got away`);
+    const e = r.state.open.find(x => lifecycle.encId(x) === lifecycle.encId(enc));
+    if (e && r.isNew) battleOf(e, now, again?.failed ?? null);
+    else if (e) fight(e, b => battle.act(b, { move: again?.kind || 'run', failed: again?.failed ?? null, at: now }));
     return r;
   }
 
@@ -166,7 +286,7 @@ function wireBugdex(d) {
       failTree: snap?.tree || null, tabId: at.tabId || null, lang: hit.lang, passed: r.passed,
     };
     if (conflict) { conflicts.set(lifecycle.encId(enc), { files: r.conflictFiles }); bound(conflicts); }
-    await spot(enc);
+    await spot(enc, { kind: r.kind, failed: Number.isInteger(r.failed) ? r.failed : null });
   }
 
   // ---- catching
@@ -183,11 +303,26 @@ function wireBugdex(d) {
     }, now);
     const next = e.source ? bugdex.closeEncounter(r.state, lifecycle.encId(e)) : r.state;
     save(next);
+    if (e.source) endBattle(e, r, now);
     if (!r.counted) { push(); return r; }
     d.log.info(`bugdex: caught ${e.species}${r.isNew ? ' (new)' : ''}`);
     reward(e, r, { quiet });
     push();
     return r;
+  }
+
+  /** The battle's ending: it faints, the jar, and the crew who helped get it on their record. */
+  function endBattle(e, r, now) {
+    const sp = speciesById(e.species);
+    const was = battles.get(lifecycle.encId(e));
+    // A squatter that was a zombie all along: the battle was with what it looked like.
+    const reveal = was && was.species !== sp.id ? sp.name : null;
+    fight(e, b => battle.finish(b, {
+      at: now, outcome: 'caught',
+      jar: { isNew: r.isNew, forms: r.forms, evolved: r.evolved, badge: r.badge, league: r.league, fame: r.fame, reveal, counted: r.counted },
+    }));
+    const party = battles.get(lifecycle.encId(e))?.party || [];
+    if (r.counted && party.length) d.crewRoster?.beat?.(party.map(p => p.type), sp.type);
   }
 
   function reward(e, r, { quiet }) {
@@ -215,21 +350,37 @@ function wireBugdex(d) {
     }
     if (quiet) return;
     const v = view().species.find(x => x.id === e.species);
-    const card = { id: sp.id, name: v?.name || sp.name, rarity: sp.rarity, isNew: r.isNew, forms: r.forms, evolved: r.evolved, stage: r.stage, completed: habitats.map(h => h.name), pixels: v?.pixels || sp.pixels, palette: v?.palette || sp.palette };
+    const card = {
+      id: sp.id, name: v?.name || sp.name, rarity: sp.rarity, isNew: r.isNew, forms: r.forms, evolved: r.evolved, stage: r.stage, completed: habitats.map(h => h.name), pixels: v?.pixels || sp.pixels, palette: v?.palette || sp.palette,
+      badge: r.badge ? HABITATS.find(h => h.id === r.badge).badge.name : null, league: r.league, fame: r.fame,
+      battle: e.source ? lifecycle.encId(e) : null, // the battle screen plays the catch out itself
+    };
     d.send(d.panel, 'bugdex:caught', card);
     if (r.moment) {
       const jar = bugdex.jarFor(sp.id, r.forms);
       const hushed = focus.guarding(d.config.get('focus'), Date.now());
-      d.life?.presentJar({ species: sp.id, ...jar, wobbles: WOBBLES[sp.rarity], ghost: sp.habitat === 'wreck', line: hushed ? null : bugdex.catchLine(sp.id, { isNew: r.isNew, forms: r.forms, evolved: r.evolved }) });
-      if (sp.rarity === 'legendary' || r.forms.includes('golden') || r.forms.includes('shiny')) d.send(d.critter, 'critter:burst', d.outfit().confetti);
+      d.life?.presentJar({
+        species: sp.id, ...jar, ghost: sp.habitat === 'wreck',
+        cry: { no: sp.no, type: sp.type, rarity: sp.rarity }, // its own little call as it goes in (critter/sound.js)
+        line: hushed ? null : bugdex.catchLine(sp.id, { isNew: r.isNew, forms: r.forms, evolved: r.evolved }),
+      });
+      if (sp.rarity === 'legendary' || r.forms.includes('golden') || r.forms.includes('shiny') || r.badge || r.fame) d.send(d.critter, 'critter:burst', d.outfit().confetti);
     }
+    if (r.badge || r.fame) d.send(d.critter, 'critter:sound', { cue: 'badge' });
+    const badge = r.badge ? HABITATS.find(h => h.id === r.badge)?.badge : null;
     const big = r.isNew || r.evolved || habitats.length || sp.rarity === 'legendary';
     if (big && !(d.panel?.isVisible() && d.panel.isFocused())) {
       const where = projectName ? ` Caught in ${projectName}.` : '';
-      const title = habitats.length ? `Bugdex: ${habitats[0].name} is complete!`
+      const title = r.fame ? 'Bugdex: you made the Hall of Fame!'
+        : badge ? `You earned the ${badge.name}!`
+          : r.league === 'champion' ? `You beat the Champion, ${sp.name}!`
+            : r.league === 'elite' ? `One of the Deep Four beaten: ${sp.name}!`
+              : habitats.length ? `Bugdex: ${habitats[0].name} is complete!`
         : r.evolved ? `Your ${sp.name} evolved!`
           : sp.rarity === 'legendary' ? `A legendary bug: ${sp.name}!` : `New to the Bugdex: ${sp.name}`;
-      const body = r.evolved ? `It's a ${card.name} now.${where}` : `${sp.blurb}${where}`;
+      const body = r.fame ? `Every badge, the Deep Four and the champion. ${sp.name} was the last.`
+        : badge ? `You beat ${sp.name}, the boss of ${HABITATS.find(h => h.id === r.badge).name}.${where}`
+          : r.evolved ? `It's a ${card.name} now.${where}` : `${sp.blurb}${where}`;
       d.notify(title, body, () => openPage(sp.id), { tone: 'celebrate', pet: true });
     }
   }
@@ -273,6 +424,7 @@ function wireBugdex(d) {
       });
       if (!verdict.ok) {
         update(s => bugdex.refuse(s, lifecycle.encId(e), verdict.reason));
+        fight(e, b => battle.resist(b, { at: Date.now(), reason: verdict.reason }));
         d.log.info(`bugdex: no catch (${verdict.reason})`);
         continue;
       }
@@ -301,6 +453,7 @@ function wireBugdex(d) {
     if (!p) return;
     if (r.remedy) ringPush(remedies, p.id, { kind: r.remedy, at: Date.now() }, MAX_REMEDIES);
     const open = state().open.filter(e => e.project === p.id && e.source === 'bash');
+    if (r.remedy) fightAll(open, b => battle.act(b, { move: 'remedy', at: Date.now() }));
     if (r.flee) {
       const fled = open.filter(e => e.species === 'two-headed-crab');
       if (fled.length) update(s => fled.reduce((acc, e) => bugdex.closeEncounter(acc, lifecycle.encId(e)), s));
@@ -365,6 +518,39 @@ function wireBugdex(d) {
     const dir = d.manager?.tabs.get(tabId)?.session?.cwd;
     const p = await project(dir);
     if (p) update(s => bugdex.engage(s, p.id, Date.now()));
+  }
+
+  /** What's open in the project a tab works in (for its battles), or []. */
+  async function openInTab(tabId) {
+    if (!state()?.open?.length) return [];
+    const p = await project(d.manager?.tabs.get(tabId)?.session?.cwd);
+    return p ? state().open.filter(e => e.project === p.id) : [];
+  }
+
+  /**
+   * Any tool Claude used in a tab: an edit engages what's loose (and is a
+   * Patch), reading round is a Scout. A helper's own tools are its assist.
+   */
+  async function tool(tabId, item) {
+    if (!on() || !item?.name) return;
+    if (item.filePath) await wrote(tabId);
+    if (item.sub || item.parent) return;
+    const move = item.filePath ? 'patch' : SCOUT_TOOLS.has(item.name) ? 'scout' : null;
+    if (!move) return;
+    const at = Date.now();
+    fightAll(await openInTab(tabId), b => battle.act(b, { move, at }));
+  }
+
+  /** A helper Claude sent out came back (wiring/crew.js): its crew member jumps into the battles there. */
+  async function assist(tabId, type) {
+    if (!on() || !type) return;
+    const m = d.crewRoster?.member?.(type);
+    if (!m) return;
+    const at = Date.now();
+    for (const e of await openInTab(tabId)) {
+      const special = !!m.specialty && m.specialty === speciesById(e.species)?.type;
+      fight(e, b => battle.act(b, { move: 'assist', at, by: { type: m.type, name: m.name, hue: m.hue, level: m.level, special } }));
+    }
   }
 
   /**
@@ -612,6 +798,18 @@ function wireBugdex(d) {
     return v;
   }
 
+  /** A friend who shares their Bugdex dropped by: they leave a jar (one a day each). */
+  function friendVisited(login, theirs) {
+    if (!on()) return;
+    const species = bugdex.giftFor(state(), login, theirs, Date.now());
+    if (!species) return;
+    save(bugdex.addGift(state(), { species, from: login }, Date.now()));
+    push();
+    const sp = speciesById(species);
+    d.sayText?.(`@${login} brought a jar: ${sp.name}!`.slice(0, 60), 'visit', 5000);
+    d.send(d.panel, 'bugdex:gift', { id: species, name: sp.name, from: login });
+  }
+
   function openTab(tabId) {
     if (typeof tabId !== 'string' || !view().loose.some(l => l.tabId === tabId)) return;
     d.showPanel({ focusInput: false, tabId });
@@ -634,13 +832,13 @@ function wireBugdex(d) {
   // Main calls these from its own events and never waits: each one logs its
   // own failure instead of letting it reach main's "snag" handler.
   const hooks = Object.fromEntries(Object.entries({
-    commandStart, commandResult, wrote, treeSeen, changed, turnEnded, outsideStart, outsideResult, outsideWrote,
+    commandStart, commandResult, wrote, tool, assist, friendVisited, treeSeen, changed, turnEnded, outsideStart, outsideResult, outsideWrote,
     serverCrashed, serverUp, ciFailed, ciFixed, ciEngaged, homeResult, secretSpotted, secretIgnored, pushedClean,
     flakySeen, flakyFixed, auditIssues, auditPatched,
   }).map(([k, fn]) => [k, guarded(fn)]));
 
   return {
-    on, view, push, openPage, seen, setFavourite, openTab, forget,
+    on, view, push, openPage, seen, setFavourite, openTab, forget, battles: battleList, cue, buddy, sendBuddy,
     ...hooks,
     // For the tests: the species a red build would be.
     ciSpecies,

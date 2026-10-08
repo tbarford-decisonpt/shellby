@@ -89,7 +89,8 @@
       h('div', { class: 'cr-face', 'aria-hidden': 'true' }, crab(m, 2)),
       h('div', { class: 'cr-who' },
         h('h3', { text: m.name }),
-        h('p', { class: 'cr-type' }, h('code', { text: m.type }), ` ${m.title}`)),
+        h('p', { class: 'cr-type' }, h('code', { text: m.type }), ` ${m.title}`),
+        bugsLine(m)),
       h('span', { class: 'cr-lv', title: `Level ${m.level}`, 'aria-label': `Level ${m.level}` }, m.level),
       h('div', { class: 'cr-bar', role: 'progressbar', 'aria-label': next, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(m.progress * 100)), 'aria-valuetext': `Level ${m.level}, ${next}` },
         h('i', { style: `transform: scaleX(${m.progress})` })),
@@ -100,6 +101,15 @@
         stat(pct(m.completed, m.runs), 'finished'),
         stat(SB.compact(m.tokens) || '0', 'tokens')),
       drawer);
+  }
+
+  // Bug battles (bugdex/battle.js): the bugs it helped beat, and the type it's best against.
+  function bugsLine(m) {
+    if (!m.beaten) return null;
+    const t = m.specialty && state.bugdex?.types?.find(x => x.id === m.specialty);
+    return h('p', { class: 'cr-bugs' },
+      `🫙 ${plural(m.beaten, 'bug')} beaten`,
+      t ? h('span', { class: 'cr-specialty', style: /^#[0-9a-f]{6}$/i.test(t.color) ? `--type:${t.color}` : null, title: `Super effective against ${t.label} bugs`, text: `${t.label} specialist` }) : null);
   }
 
   function show(type) {

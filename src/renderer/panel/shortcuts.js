@@ -23,6 +23,7 @@
     { id: 'moveTab', group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
     { id: 'renameTab', group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
+    { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'Another conversation alongside this one (or drag a tab into the chat, or out of the window)' },
 
     { id: 'stop', group: 'This conversation', keys: ['Esc'], what: 'Stop, while he’s working' },
     { id: 'find', group: 'This conversation', keys: ['Ctrl+F'], what: 'Find text in it (Enter and Shift+Enter step through)' },

@@ -141,3 +141,18 @@ test('names lose control and invisible format characters', () => {
   const sneaky = 'Bob' + String.fromCodePoint(0x202e) + 'evil' + String.fromCodePoint(0x200b) + String.fromCodePoint(7) + 'x';
   assert.equal(R.rename(s, 'Explore', sneaky).members.Explore.name, 'Bob evil x');
 });
+
+test('helping beat bugs goes on the record, and makes a specialist', () => {
+  let s = R.enlist(null, 'Explore', 1);
+  s = R.enlist(s, 'code-reviewer', 1);
+  for (let i = 0; i < R.SPECIALTY_AT - 1; i++) s = R.recordBeat(s, ['Explore'], 'types');
+  assert.equal(R.memberOf(s, 'Explore').specialty, null);
+  s = R.recordBeat(s, ['Explore', 'Explore', 'code-reviewer', 'nobody'], 'types');
+  const m = R.memberOf(s, 'Explore');
+  assert.equal(m.specialty, 'types');
+  assert.equal(m.beaten, R.SPECIALTY_AT);
+  assert.equal(m.xp, R.SPECIALTY_AT * R.XP.beat);
+  assert.equal(R.memberOf(s, 'code-reviewer').beaten, 1);
+  assert.equal(R.recordBeat(s, ['Explore'], 'not-a-type'), s);
+  assert.deepEqual(R.normalize({ members: { Explore: { beat: { types: 2, nope: 4, io: -1 } } } }).members.Explore.beat, { types: 2 });
+});

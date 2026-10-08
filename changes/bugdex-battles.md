@@ -1,0 +1,11 @@
+### New
+- **Bug battles.** While a bug is on the loose, Claude's work on it plays out as a tussle on the seabed of its own habitat: the bug and Shellby face to face, and a text box calling each move. Reading round is Scout, an edit is Patch, re-running the failing command is that command's move. Its HP drops as failing tests clear: half of them in one go is a big one, the right tool for the bug counts double, failing worse makes it dig in, and a skipped test doesn't count (and it says so). Only the real fix knocks it out cold, then a specimen jar comes down on a line, it drifts in, and the cork goes on. A chip under the tabs shows the fight in that conversation, and "Watch" on the Bugdex page opens it. Switch: **Settings → Safety nets → Bug battles**.
+- **Your crew pitches in.** A helper Claude sends out joins the battle. Each crew member keeps count of the bugs it helped beat, and becomes a specialist (counting double) against the kind it beats most. It's on the Crew page.
+- **Badges and the league.** Every habitat has a boss. Beat it for that habitat's badge, twelve in all. Then come the Deep Four and the champion, and beating them all puts you in the Hall of Fame. The badge case is on the Bugdex page.
+- **Field notes and tips.** Catch a bug 5 times and its entry gets a field note on where it lurks. At 15 you get a tip on how it's usually beaten.
+- **Every bug has a cry.** A little chiptune call of its own as it goes in the jar. Press "♪ Its cry" on its card to hear it.
+- **Your favourite catch follows him round the desk.** Switch: **Settings → Safety nets → His favourite catch follows him**.
+- **Trade notes with friends.** Turn on **Share my Bugdex with friends** and your calling card says which kinds you've caught and how many badges you hold. Never counts, projects or errors. Friends who share theirs report bugs you've never met as silhouettes with names, and when they visit they bring you a jar for the tank.
+
+### Changed
+- **Some names in the Bugdex are its own now.** The Slowpoke Snail is the Dawdling Snail, the Fix 'Em All trophy is Field Researcher, and its Trainer Cap is a Field Researcher's Cap in sea colours. Anything you'd earned stays earned. On the desk, a caught bug's jar settles with one little rock instead of wobbling by rarity.

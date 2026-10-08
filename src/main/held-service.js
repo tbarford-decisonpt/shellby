@@ -24,6 +24,7 @@ const pause = ms => new Promise(r => setTimeout(r, ms));
 /**
  * d: what this needs from main, read when it's used.
  *   config, panel, manager, history, claudeStatus: getters
+ *   tabWindow(tabId): optional, the window a tab is shown in (the panel, or its own: wiring/popouts.js)
  *   CAPTURE, graceMs (how long after the reset held work goes),
  *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab,
  *   currentCwd, isFolder, isStr, dialogLook, confirm ({ ask }), randomUUID,
@@ -256,7 +257,7 @@ function createHeldQueue(d) {
     syncKeepAwake();
     d.sendOutlook();
     d.wake();
-    if (open) d.send(d.panel, 'tab:sent', { tabId, item: { kind: 'user', text: prompt, attachments: [], turnId } });
+    if (open) { const win = d.tabWindow?.(tabId) || d.panel; d.send(win, 'tab:sent', { tabId, item: { kind: 'user', text: prompt, attachments: [], turnId } }); }
     else d.send(d.panel, 'tab:opened', { tabId, entry: history.get(tabId), items: history.load(tabId), background: true, busy: true });
     d.log.info('Queued task started', `${h.name}${carryOn ? ' (carrying on)' : ''}`);
 
@@ -329,7 +330,7 @@ function createHeldQueue(d) {
         tabId: h.tabId, entry: d.history.get(h.tabId), items: d.history.load(h.tabId), background: true, busy: r.ok,
         ...(r.ok ? {} : { draft: h.text, attachments: h.attachments }),
       });
-    } else if (r.ok) d.send(d.panel, 'tab:sent', { tabId: h.tabId, item: r.item });
+    } else if (r.ok) { const win = d.tabWindow?.(h.tabId) || d.panel; d.send(win, 'tab:sent', { tabId: h.tabId, item: r.item }); }
     else d.send(d.panel, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
     if (!r.ok) d.notify("A held message couldn't be sent", `${r.error} It's back in its conversation's box.`, () => d.showPanel());
     return r.ok ? 'sent' : 'failed';
