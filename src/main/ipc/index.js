@@ -6,7 +6,7 @@ const { app, clipboard, dialog, shell } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { findClaude, run: runCli } = require('../claude-cli');
+const { run: runCli } = require('../claude-cli');
 const claudeSetup = require('../claude-setup');
 const confirm = require('../confirm');
 const editor = require('../editor');
@@ -66,9 +66,9 @@ function registerIpc(electronIpcMain, d) {
     isNote: wc => !!d.pranks?.isNote(wc),
   })), { onRefused: channel => d.log.warn('IPC refused', channel) });
   const { config, log } = d;
-  // Claude Code's own CLI, for parity and team packs: the one the status check found, or the usual places.
+  // Claude Code's own CLI, for parity and team packs: the one in use now (main.js claudeExe).
   const runClaude = (args, timeout, opts) => {
-    const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    const exe = d.claudeExe();
     return exe ? runCli(exe, args, timeout, opts) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
   };
   const lean = d.lean = createLean({
@@ -92,7 +92,7 @@ function registerIpc(electronIpcMain, d) {
     // Just-the-crab mode leaves Claude Code alone, mods' checks and tests included.
     blocked: () => (config.get('crabOnly') ? { ok: false, error: 'Mods need Claude Code. Turn it on in Settings.' } : null),
     runClaude: (args, timeout) => {
-      const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+      const exe = d.claudeExe();
       if (!exe) return Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
       const cwd = path.join(app.getPath('userData'), 'plugin-cli');
       try { fs.mkdirSync(cwd, { recursive: true }); } catch { /* execFile reports it */ }

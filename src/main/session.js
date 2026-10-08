@@ -118,6 +118,12 @@ class ClaudeSession extends EventEmitter {
   // the process starts: a folder on another computer (remote/service.js), whose
   // Claude Code runs there over ssh. exe is ssh, env what it needs to ask for a
   // passphrase in Shellby, extra more of ssh's options; argsPrefix, as above, is for tests.
+  //
+  // exe: the CLI's path, or a function that gives it, asked each time the
+  // process starts. The process is started again after an idle stop, and by
+  // then Claude Code may have moved (its installer took the npm copy away and
+  // left the native one, say): a path fixed when the tab opened would fail
+  // every turn after that until Shellby restarted.
   constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null, remote = () => null }) {
     super();
     Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp, remote });
@@ -222,13 +228,14 @@ class ClaudeSession extends EventEmitter {
     // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
     // MCP server leaves its copies of them out of every request.
     const crabEnv = this.mcp ? { SHELLBY_CRAB_TOOLS: '1' } : {};
+    const exe = typeof this.exe === 'function' ? this.exe() : this.exe;
     const proc = remote
       // Only Shellby's own markers go over: your GitHub token and the rest of
       // this PC's environment stay here.
       ? spawn(remote.exe, [...(remote.argsPrefix || []), ...remoteSsh.sshArgs(remote.host, remoteSsh.sessionScript({ dir: remote.dir, args: this.buildArgs(), env: { SHELLBY_OWNED: '1', ...crabEnv } }), { extra: remote.extra || [] })], {
         cwd: os.homedir(), env: { ...process.env, ...remote.env }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
       })
-      : spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
+      : spawn(exe, [...this.argsPrefix, ...this.buildArgs()], {
         cwd: this.cwd, env: { ...claudeEnv(), ...crabEnv, ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
       });
     this.proc = proc;

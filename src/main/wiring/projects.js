@@ -5,7 +5,7 @@ const { app, clipboard, safeStorage } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { findClaude, run: runCli, skipSettings } = require('../claude-cli');
+const { run: runCli, skipSettings } = require('../claude-cli');
 const confirm = require('../confirm');
 const depwatch = require('../depwatch');
 const devRunner = require('../devservers/runner');
@@ -263,7 +263,7 @@ function wireProjects(d) {
   // opts.lean: the call needs none of your settings, hooks or plugins (skipSettings).
   function runClaudeOnce(args, timeoutMs, { lean = false, ...opts } = {}) {
     if (d.FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [d.FAKE_CLI, ...args], timeoutMs, { cwd: os.homedir(), ...opts });
-    const exe = d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    const exe = d.claudeExe();
     if (!exe) return Promise.resolve({ stdout: '', stderr: 'Claude Code isn\'t installed yet. Set it up in Settings first.', timedOut: false });
     return runCli(exe, lean ? [...args, ...skipSettings(os.homedir())] : args, timeoutMs, { cwd: os.homedir(), ...opts });
   }

@@ -72,7 +72,10 @@ class SessionManager extends EventEmitter {
     const ownEffort = ['you', 'picked'].includes(historyEntry?.effortBy) && (historyEntry.effort === '' || EFFORTS.includes(historyEntry.effort)) ? historyEntry.effort : null;
     const session = new ClaudeSession({
       remote: () => this.getRemote(session.cwd), // only ever called once it exists
-      exe, argsPrefix: this.argsPrefix,
+      // Asked again at each start: Claude Code may move while the tab is open
+      // (session.js). The path found now stands in should it go missing, so
+      // the start fails the usual way (ENOENT, "can't find Claude Code").
+      exe: () => this.getExe() || exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
       mode: mode || this.getMode(),
       model: this.getModel() || null,

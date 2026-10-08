@@ -7,7 +7,6 @@ const os = require('os');
 const path = require('path');
 const changes = require('../changes');
 const checkup = require('../checkup');
-const { findClaude } = require('../claude-cli');
 const ctx = require('../context');
 const fileIndex = require('../fileindex');
 const prBadges = require('../github/pr-badge');
@@ -51,7 +50,7 @@ function wireSessions(d) {
     d.manager = new SessionManager({
       argsPrefix: d.FAKE_CLI ? [d.FAKE_CLI] : [],
       history: d.history,
-      getExe: () => (d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeStatus?.exe || findClaude(process.env, d.claudePath())),
+      getExe: () => (d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeExe()),
       getMode: () => d.config.get('mode'),
       getModel: () => d.config.get('model'),
       getEffort: () => d.config.get('effort'),
@@ -308,7 +307,7 @@ function wireSessions(d) {
   function refreshUsage() {
     const last = d.config.get('lastUsage')?.at || 0;
     if (usageProbe || d.config.get('crabOnly') || Date.now() - last < USAGE_REFRESH_MS) return;
-    const exe = d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+    const exe = d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeExe();
     if (!exe) return;
     const started = Date.now();
     usageProbe = usage.probe({ exe, argsPrefix: d.FAKE_CLI ? [d.FAKE_CLI] : [], cwd: os.homedir() }).then(u => {

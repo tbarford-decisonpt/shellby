@@ -7,14 +7,14 @@ const path = require('path');
 const { spawn } = require('child_process');
 const handoff = require('../handoff');
 const worktrees = require('../worktrees');
-const { findClaude, terminalEnv, billingScrub } = require('../claude-cli');
+const { terminalEnv, billingScrub } = require('../claude-cli');
 const { POWERSHELL, CMD } = require('../system32');
 
 const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
 
 /** d: what main shares (main.js `shared`). */
 function wireHandoff(d) {
-  const claudeExe = () => d.claudeStatus?.exe || findClaude(process.env, d.claudePath());
+  const claudeExe = () => d.claudeExe();
 
   // Windows Terminal's own launcher, where the Store and winget both put it.
   // Not on PATH lookup: Shellby works in project folders (see system32.js).
