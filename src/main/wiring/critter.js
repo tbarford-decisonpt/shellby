@@ -10,6 +10,7 @@ const streaks = require('../streaks');
 const voice = require('../voice');
 const { publicItem } = require('../wardrobe/service');
 const weatherRules = require('../weather');
+const workPose = require('../work-pose');
 const { levelFor } = require('../xp');
 
 /** d: what main shares (main.js `shared`). */
@@ -196,6 +197,9 @@ function wireCritter(d) {
     d.send(d.critter, 'critter:state', {
       state,
       busy: agg.busy,
+      // How he works: reading, editing, running a command... (work-pose.js), from
+      // whichever of your tabs and outside sessions moved last.
+      work: state === 'working' ? workPose.poseOf(workPose.latest([own, ext])?.tool) : null,
       // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
       crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
