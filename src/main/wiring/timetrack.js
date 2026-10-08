@@ -24,6 +24,7 @@ const stickers = require('../stickers');
 const streaks = require('../streaks');
 const timetrack = require('../timetrack');
 const { TimeTracker } = require('../timetrack-service');
+const { markRed } = require('../xp');
 const toast = require('../toast');
 
 /** d: what main shares (main.js `shared`). */
@@ -423,6 +424,11 @@ function wireTimetrack(d) {
     d.external.on('command-ok', e => {
       d.awardXp(e.kind, { project: e.project });
       if (e.cwd && e.ship) d.shipped(e.cwd, e.ship.kind, { version: e.ship.version });
+    });
+    d.external.on('command-fail', e => {
+      if (e.kind !== 'tests' || !e.project || d.CAPTURE || !d.config) return;
+      d.config.set({ xp: markRed(d.config.get('xp'), e.project, Date.now()) });
+      d.noteRed?.(`t:${e.project}`);
     });
     d.external.on('checkup', e => d.checkedUp(e.dir, e.check, e.result));
     // The Bugdex, outside Shellby too: readings only, never what a command printed (external.js bugsOf).

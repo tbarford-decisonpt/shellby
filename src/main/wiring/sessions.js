@@ -25,6 +25,23 @@ const { classifyCommand, markRed } = require('../xp');
 function wireSessions(d) {
   // ---- sessions
 
+  // A project's code when its tests last failed (by project, as xp.js marks red).
+  const redTrees = new Map();
+
+  // A command that went well pays its XP, and he says so. A test pass on code
+  // that changed since the failure is a fix ('fixed', with its own line); on
+  // the very same code it was a flake, and stays an ordinary pass.
+  async function awardCommand(kind, c) {
+    let sameCode = false;
+    if (kind === 'tests' && c.project && redTrees.has(c.project)) {
+      const snap = await c.tree?.catch(() => null);
+      sameCode = !!snap?.tree && snap.tree === redTrees.get(c.project);
+    }
+    const r = d.awardXp(kind, { project: c.project, sameCode });
+    if (r?.kind === 'fixed') redTrees.delete(c.project);
+    d.speak(r?.kind === 'fixed' ? 'fixed' : voice.occasionForCommand(kind));
+  }
+
   function currentCwd() {
     const cwd = d.config.get('cwd');
     return cwd && fs.existsSync(cwd) ? cwd : os.homedir();
@@ -135,14 +152,13 @@ function wireSessions(d) {
         if (item.isError && meant === 'tests' && c.project && d.config && !d.CAPTURE) {
           d.config.set({ xp: markRed(d.config.get('xp'), c.project, Date.now()) });
           d.noteRed(`t:${c.project}`);
+          // The code as it failed: a pass on the very same tree is a flake, not a fix.
+          c.tree?.then(s => { if (s?.tree) redTrees.set(c.project, s.tree); }).catch(() => {});
         }
         if (c.tree) d.noteTestRun(c, item, tail);
         d.bugdex?.commandResult(c, item, tail); // a bug seen, or one caught (wiring/bugdex.js)
         const kind = !item.isError && meant;
-        if (kind) {
-          d.awardXp(kind, { project: c.project });
-          d.speak(voice.occasionForCommand(kind));
-        }
+        if (kind) awardCommand(kind, c);
         // A push, deploy or release ships the project: its sticker (stickers.js).
         const ship = c.dir && stickers.shipOf(kind, c.command);
         if (ship) d.shipped(c.dir, ship.kind, ship.meta);

@@ -287,6 +287,7 @@ function wireGithub(d) {
         canFix ? () => d.showBuildFix(pr.key) : open, { tone: 'problem', action: canFix ? 'Fix this build' : null });
     } else if (type === 'fixed') {
       d.stat('ci-fixed');
+      d.awardXp('cifix', { project: pr.repo, label: `CI back to green on ${where}` });
       d.flashState('cheer', 6500);
       d.tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });
       d.send(d.critter, 'critter:burst', d.outfit().confetti);
@@ -301,6 +302,10 @@ function wireGithub(d) {
       const who = pr.talk?.people?.length ? pr.talk.people.join(', ') : 'Someone';
       d.notify(`New on ${where}`, `${who} on "${pr.title}"`.slice(0, 160), () => { d.ci?.markSeen(pr.key); open(); });
     } else if (type === 'merged') {
+      // Your pull request is in: XP, a line and a little dance.
+      d.awardXp('merged', { project: pr.repo, label: `Merged ${where}` });
+      d.flashState('success', 4500);
+      d.speak('merged');
       d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
       d.backlogMerged?.(pr); // one opened from Next up: offer to tick its task off (wiring/backlog.js)
     }

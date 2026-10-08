@@ -14,6 +14,8 @@ const DEFAULT_VOLUME = 60;                    // the chirp's loudness before the
 const CHEERS = Object.freeze({
   deploy: 'tada',
   passed: 'tada',
+  fixed: 'tada',
+  merged: 'tada',
   milestone: 'tada',
   unlocked: 'tada',
   levelup: 'fanfare',
