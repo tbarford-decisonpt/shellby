@@ -42,6 +42,36 @@ function freeKey(palette, wanted) {
   return '~';
 }
 
+const INK = '#141225';
+
+/**
+ * A portrait with a one-pixel line round its edge, each pixel of it the
+ * colour it borders sunk almost to ink, so a red crab gets a deep maroon
+ * line and a blue fish a navy one. Grows the art by 1 on every side.
+ */
+function inked(art) {
+  const p = art.palette;
+  const w = art.pixels[0].length + 2;
+  const grid = [Array(w).fill('.'), ...art.pixels.map(r => ['.', ...r.padEnd(w - 2, '.'), '.']), Array(w).fill('.')];
+  const palette = { ...p };
+  const keyFor = new Map(); // the colour it borders -> its ink's key
+  const spare = [...'0123456789!#$%&*+-:;<=>?@^_~|'].filter(k => !p[k]);
+  const out = grid.map((row, y) => row.map((ch, x) => {
+    if (ch !== '.') return ch;
+    const near = [[0, -1], [-1, 0], [1, 0], [0, 1]].map(([dx, dy]) => grid[y + dy]?.[x + dx]).filter(c => c && c !== '.');
+    if (!near.length) return '.';
+    // The darkest colour it touches decides the line, so it never glows.
+    const by = near.sort((a, b) => lum(p[a]) - lum(p[b]))[0];
+    if (!keyFor.has(by)) {
+      const k = spare.shift() || by;
+      keyFor.set(by, k);
+      if (k !== by) palette[k] = mix(p[by], INK, 0.78);
+    }
+    return keyFor.get(by);
+  }).join(''));
+  return { pixels: out, palette };
+}
+
 /**
  * The art for an evolution stage (1-4): stage 2 is outlined in the rarity's
  * colour, stage 3 adds a sparkle above, stage 4 a crown.
@@ -113,4 +143,4 @@ function formed(art, forms = []) {
   return art;
 }
 
-module.exports = { SILHOUETTE, OUTLINE, silhouette, golden, shiny, spectral, staged, jarArt, micro, formed };
+module.exports = { SILHOUETTE, OUTLINE, silhouette, golden, shiny, spectral, staged, jarArt, micro, formed, inked };

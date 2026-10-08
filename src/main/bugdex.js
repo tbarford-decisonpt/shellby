@@ -360,10 +360,13 @@ function favourite(stateIn) {
   return caught[0]?.id || null;
 }
 
-/** The art a species shows: its best form, at its stage. */
-function artFor(sp, entry) {
+/** Its portrait for the book, or its desk sprite if it has none yet. */
+const portrait = sp => sp.portrait || sp;
+
+/** The art a species shows: its best form, at its stage (`small`: the desk sprite, not the portrait). */
+function artFor(sp, entry, { small = false } = {}) {
   const forms = entry?.forms || [];
-  return art.staged(art.formed(sp, forms), stageOf(caughtOf(entry)), sp.rarity);
+  return art.staged(art.formed(small ? sp : portrait(sp), forms), stageOf(caughtOf(entry)), sp.rarity);
 }
 
 /** The jar he holds up for a catch. */
@@ -402,7 +405,7 @@ function leagueView(stateIn) {
   const member = (id, rank) => {
     const sp = BY_ID.get(id);
     const at = firstOf(s, id);
-    return { id, rank, at, beaten: !!at, name: known(id) ? sp.name : '???', ...(at ? { pixels: sp.pixels, palette: sp.palette } : known(id) ? art.silhouette(sp) : {}) };
+    return { id, rank, at, beaten: !!at, name: known(id) ? sp.name : '???', ...(at ? { pixels: portrait(sp).pixels, palette: portrait(sp).palette } : known(id) ? art.silhouette(portrait(sp)) : {}) };
   };
   const earned = badges.filter(b => b.earned).length;
   return {
@@ -508,11 +511,11 @@ function view(stateIn, now, { names = {}, tabs = null, friends = [], event = nul
       event: sp.event, eventOn: !!sp.event && sp.event === eventOn, back: backOf(sp),
     };
     // Out now: its name and shape are the point (the event says how to catch it).
-    if (st === 'unknown' && base.eventOn) return { ...base, state: 'event', name: sp.name, blurb: sp.hint, ...art.silhouette(sp) };
+    if (st === 'unknown' && base.eventOn) return { ...base, state: 'event', name: sp.name, blurb: sp.hint, ...art.silhouette(portrait(sp)) };
     // A friend's report (or a jar they brought) puts a name and a silhouette to one you've never met.
-    if (st === 'unknown' && (base.reportedBy.length || base.gifts)) return { ...base, state: 'reported', name: sp.name, blurb: sp.hint, ...art.silhouette(sp) };
+    if (st === 'unknown' && (base.reportedBy.length || base.gifts)) return { ...base, state: 'reported', name: sp.name, blurb: sp.hint, ...art.silhouette(portrait(sp)) };
     if (st === 'unknown') return { ...base, name: '???', blurb: sp.habitat ? `Lives in ${HABITATS.find(h => h.id === sp.habitat).name}.` : 'Nobody knows where it lives.' };
-    if (st === 'seen') return { ...base, name: sp.name, blurb: hintFor(sp, e), ...art.silhouette(sp), seenCount: e.seen, seenAt: e.seenAt };
+    if (st === 'seen') return { ...base, name: sp.name, blurb: hintFor(sp, e), ...art.silhouette(portrait(sp)), seenCount: e.seen, seenAt: e.seenAt };
     const forGood = now - e.last >= ESCAPE_MS && e.lastEscapeAt < e.last;
     return {
       ...base, name: nameAt(sp, stage), baseName: sp.name,
@@ -587,7 +590,7 @@ function summary(stateIn) {
 function poolOf(stateIn, max = 8) {
   const s = normalize(stateIn);
   return Object.entries(s.species).filter(([, e]) => caughtOf(e) > 0).sort((a, b) => b[1].last - a[1].last).slice(0, max)
-    .map(([id, e]) => ({ id, name: BY_ID.get(id).name, ...art.micro(artFor(BY_ID.get(id), { ...e, byDevice: { x: 1 } })) }));
+    .map(([id, e]) => ({ id, name: BY_ID.get(id).name, ...art.micro(artFor(BY_ID.get(id), { ...e, byDevice: { x: 1 } }, { small: true })) }));
 }
 
 // ------------------------------------------------------------------ sync

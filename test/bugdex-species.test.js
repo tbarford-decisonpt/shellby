@@ -1,9 +1,24 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const b = require('../src/main/bugdex/species');
+const { PORTRAITS } = require('../src/main/bugdex/portraits');
 const { EVENTS } = require('../src/main/events');
 
 const REMEDIES = new Set(['install', 'kill', 'service', 'lock', 'cache']);
+
+test('every portrait is a species, drawn within 22×22 in lettered colours', () => {
+  for (const [id, p] of Object.entries(PORTRAITS)) {
+    assert.ok(b.speciesById(id), `portrait for an unknown species ${id}`);
+    assert.ok(p.pixels.length <= 22 && p.pixels.every(r => r.length === p.pixels[0].length) && p.pixels[0].length <= 22, `${id} is at most 22×22 and square-cornered`);
+    for (const [key, hex] of Object.entries(p.palette)) {
+      assert.match(key, /^[A-Za-z]$/, `${id} palette key '${key}' (digits and symbols are the outline's)`);
+      assert.match(hex, /^#[0-9a-f]{6}$/i, `${id} colour ${key}`);
+    }
+    for (const row of p.pixels) for (const ch of row) assert.ok(ch === '.' || Object.hasOwn(p.palette, ch), `${id} uses an undefined colour '${ch}'`);
+    const sp = b.speciesById(id);
+    assert.ok(Object.isFrozen(sp.portrait) && sp.portrait.pixels.length === p.pixels.length + 2, `${id} is inked and frozen`);
+  }
+});
 
 test('every species is drawable and has a home', () => {
   const ids = new Set();

@@ -231,9 +231,34 @@ test('art: jar, stages, forms and specks stay well formed', () => {
     ok(m);
     assert.equal(m.pixels.length, 3);
     assert.ok(art.jarArt(sp).pixels[0].length <= 12 && art.jarArt(sp).pixels.length <= 12);
+    if (!sp.portrait) continue;
+    ok(sp.portrait);
+    for (let st = 1; st <= 4; st++) ok(art.staged(sp.portrait, st, sp.rarity));
+    ok(art.golden(sp.portrait)); ok(art.shiny(sp.portrait)); ok(art.silhouette(sp.portrait));
   }
   assert.ok(b.jarFor('nullfish'));
   assert.equal(b.jarFor('nope'), null);
+});
+
+test('art: inked rings the shape in a darker shade of what it borders', () => {
+  const a = art.inked({ palette: { r: '#ff0000', b: '#0000ff' }, pixels: ['rb', '.r'] });
+  assert.equal(a.pixels.length, 4);
+  assert.equal(a.pixels[0].length, 4);
+  assert.equal(a.pixels[2][2], 'r'); // the art itself is untouched, one in from the edge
+  const red = a.palette[a.pixels[0][1]], blue = a.palette[a.pixels[0][2]];
+  assert.notEqual(red, blue);
+  assert.ok(parseInt(red.slice(1, 3), 16) > parseInt(red.slice(5, 7), 16), 'red ink stays reddish');
+  assert.equal(a.pixels[3][0], '.'); // nothing touches the far corner
+});
+
+test('the book shows portraits; the desk keeps the little sprite', () => {
+  const sp = speciesById('nullfish');
+  assert.ok(sp.portrait);
+  const s = b.recordCatch(null, catchOf(), T0).state;
+  const caught = b.view(s, T0).species.find(x => x.id === 'nullfish');
+  assert.equal(caught.pixels.length, sp.portrait.pixels.length);
+  assert.equal(b.poolOf(s)[0].pixels.length, 3);
+  assert.equal(b.jarFor('nullfish').pixels.length, art.jarArt(sp).pixels.length);
 });
 
 test('poolOf lists the latest catches as specks', () => {
