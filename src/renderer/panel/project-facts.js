@@ -226,21 +226,27 @@
 
     if (pinDraft.root !== root) Object.assign(pinDraft, { root, text: '', kind: 'decision' });
     const text = h('input', { type: 'text', class: 'pj-jn-input', maxlength: '300', placeholder: 'Pin a decision or next step…', 'aria-label': 'Pin a decision or next step', dataset: { keep: 'jn-text' } });
-    const kind = h('select', { class: 'pj-jn-kind', 'aria-label': 'Kind', dataset: { keep: 'jn-kind' } },
-      Object.entries(PIN_LABEL).map(([k, label]) => h('option', { value: k, text: label })));
+    const pinBtn = h('button', { type: 'submit', class: 'pj-jn-pin-btn', text: 'Pin' });
     text.value = pinDraft.text;
-    kind.value = pinDraft.kind;
-    text.addEventListener('input', () => { pinDraft.text = text.value; });
-    kind.addEventListener('change', () => { pinDraft.kind = kind.value; });
+    const ready = () => { pinBtn.disabled = !text.value.trim(); };
+    ready();
+    text.addEventListener('input', () => { pinDraft.text = text.value; ready(); });
+    // The kinds as a row of chips, each in its own colour; the field takes the chosen one's.
+    const kinds = h('div', { class: 'pj-jn-kinds', role: 'radiogroup', 'aria-label': 'Kind' },
+      Object.entries(PIN_LABEL).map(([k, label]) => h('label', { class: `pj-jn-kind pj-jn-${k}` },
+        h('input', { type: 'radio', name: `jn-kind-${root}`, value: k, checked: k === pinDraft.kind, dataset: { keep: `jn-kind-${k}` },
+          onchange: e => { pinDraft.kind = k; e.target.form.dataset.kind = k; } }),
+        h('span', { text: label }))));
     const pinIt = async e => {
       e.preventDefault();
       if (!text.value.trim()) return;
-      const r = await api.pinToJournal({ root, kind: kind.value, text: text.value });
+      const r = await api.pinToJournal({ root, kind: pinDraft.kind, text: text.value });
       if (!r?.ok) return SB.toast(r?.error || "Couldn't pin that.");
       text.value = pinDraft.text = '';
       onChange();
     };
-    const form = h('form', { class: 'row pj-jn-form', onsubmit: pinIt }, kind, text, h('button', { type: 'submit', class: 'btn ghost slim-btn', text: 'Pin' }));
+    const form = h('form', { class: 'pj-jn-form', onsubmit: pinIt, dataset: { kind: pinDraft.kind } },
+      kinds, h('div', { class: 'pj-jn-box' }, text, pinBtn));
 
     if (!latest && !pins.length) {
       return card('Where you left off',
