@@ -104,6 +104,10 @@ async function connect(url) {
     check(await until(panel, "document.querySelector('#jobs .job.done')", 6000), 'one that finishes by itself says done');
     await ev("SB.send('bg 500 fail')");
     check(await until(panel, "document.querySelector('#jobs .job.failed')", 6000), 'one that exits non-zero says failed');
+    await ev("SB.send('bg 300')");
+    check(await until(panel, "!document.querySelector('#jobs .job') && /4 finished/.test(document.querySelector('#jobs .job-fold')?.textContent || '')", 6000), 'past three finished, they fold into one line');
+    await ev("document.querySelector('#jobs .job-fold').click()");
+    check(await until(panel, "document.querySelectorAll('#jobs .job').length === 4"), 'which opens them all');
 
     // ---- 3. a plan
     await fresh();
