@@ -1934,6 +1934,22 @@
         <label class="toggle"><input type="checkbox" id="ghWorkflows"><span class="switch"></span>…including changes to CI workflows</label>
         <p class="small muted gh-note" id="ghWorkflowsNote"></p>
       </section>
+
+      <section class="setting-group" id="gitlabGroup" data-nav="GitLab">
+        <h3>GitLab</h3>
+        <p class="small muted ext-lede">Your merge requests and pipelines in the inbox and on his CI sign, with "Fix this build", "Address the review" and CI on the Releases card. Shellby goes through the glab CLI with the sign-in glab already has, so it never sees a GitLab token.</p>
+        <div class="gh-ci-head" id="glMissing" hidden><p class="small ext-status bad">glab isn't installed. Install it, then run <code>glab auth login</code> in a terminal.</p><button type="button" class="btn ghost slim-btn" id="glGet">Get glab</button></div>
+        <label class="toggle"><input type="checkbox" id="glCi"><span class="switch"></span>Watch my merge requests: he worries when a pipeline goes red and dances when it's fixed</label>
+        <div class="gh-ci" id="glCiRow" hidden>
+          <div class="gh-ci-head"><p class="small ext-status" id="glStatus"></p><button type="button" class="btn ghost slim-btn" id="glCheck">Check now</button></div>
+          <ul class="gh-ci-list" id="glList"></ul>
+        </div>
+        <form class="fr-add" id="glHostsForm">
+          <input type="text" class="field" id="glHosts" placeholder="Self-managed hosts, like gitlab.example.org" aria-label="Self-managed GitLab hosts, separated by commas" spellcheck="false" autocomplete="off" maxlength="600">
+          <button type="submit" class="btn slim-btn" id="glHostsSave">Save</button>
+        </form>
+        <p class="small muted gh-note">gitlab.com is always asked. Hosts your clones point at are found by themselves when their name says gitlab; add any others here, separated by commas, and sign glab in to each with <code>glab auth login --hostname &lt;host&gt;</code>.</p>
+      </section>
       </div>
 
     <div class="settings-panel" role="tabpanel" id="setPanel-general" data-tab="general" aria-labelledby="setTab-general" hidden>
@@ -2390,6 +2406,7 @@
 <script src="profile-card.js"></script>
 <script src="pr-badge.js"></script>
 <script src="github.js"></script>
+<script src="gitlab.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
 <script src="boot.js"></script>

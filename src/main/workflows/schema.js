@@ -81,7 +81,8 @@ function checkTrigger(t, at, err) {
       const on = t.on ?? 'failed';
       if (!CI_EVENTS.includes(on)) { err(`${at}.on`, 'Pick which build event'); return null; }
       const repo = line(t.repo, 140);
-      if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) { err(`${at}.repo`, 'Repository must look like owner/name'); return null; }
+      // GitLab projects can sit in nested groups: group/sub/project.
+      if (repo && !/^[\w.-]+(?:\/[\w.+-]+)+$/.test(repo)) { err(`${at}.repo`, 'Repository must look like owner/name (or group/project on GitLab)'); return null; }
       return { type: 'ci', on, repo };
     }
     case 'issue': {

@@ -117,6 +117,8 @@ const DEFAULTS = {
   backlogTrackers: {}, // { project key: { server, kind: 'linear' | 'jira', scope } }: Linear or Jira issues on Next up, read through that MCP server (see backlog/trackers.js)
   sentry: null,       // { url, token (encrypted by Windows), links, snoozed }: errors from Sentry on Next up (wiring/sentry.js); this PC only, never synced
   ciSeen: null,       // { 'owner/repo#12': ms }: when you last opened each of your PRs, for "new comments" (see github/ci.js); this PC only
+  gitlab: null,       // { ci, hosts }: watch GitLab merge requests through glab, and self-managed hosts to ask (see wiring/gitlab.js); glab keeps the sign-in
+  gitlabSeen: null,   // { 'group/project!12': ms }: ciSeen for merge requests (see gitlab/watcher.js); this PC only
   syncGistId: null,   // the private gist progress syncs through
   syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
   autonomousAcknowledged: false,

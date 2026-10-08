@@ -1,6 +1,7 @@
 // The Projects page's inbox: one list, across every repository, of what's
 // waiting on you. Pull requests you've been asked to review, your own with
-// something new said on them (both from github/ci.js), branches gone stale
+// something new said on them (both from github/ci.js, and the same for merge
+// requests on GitLab from gitlab/watcher.js, through ci-hub.js), branches gone stale
 // (branches.js) and copies Shellby made that nobody has gone back to.
 //
 // Only joins and words what's been read elsewhere. Pure.
@@ -25,7 +26,8 @@ function sessionIn(sessions, path) {
 /**
  * input: {
  *   now
- *   ci:        ci.view() + enabled  (prs with talk, reviews, reviewsTotal, error)
+ *   ci:        ciView(): prs with talk, reviews, reviewsTotal, error, enabled,
+ *              githubEnabled, gitlab: { enabled, error, lastPollAt }
  *   repos:     [{ project, root, read: branches.read() | null, git: { copyList } | null }]
  *   sessions:  History's index
  *   open:      [folder] every open tab works in: a copy one of them is in isn't abandoned
@@ -34,13 +36,19 @@ function sessionIn(sessions, path) {
  */
 function build({ now = Date.now(), ci = null, repos = [], sessions = [], open = [], dismissed = new Set() } = {}) {
   const on = !!ci?.enabled;
+  const githubOn = on && (ci.githubEnabled ?? true);
+  const gitlabOn = on && !!ci.gitlab?.enabled;
+  // How each is named and which forge it's on: "owner/repo#12" on GitHub, "group/project!12" on GitLab.
+  const named = p => ({ forge: p.forge || 'github', ref: p.ref || `${p.repo}#${p.number}` });
   const reviews = on ? (ci.reviews || []).map(r => ({
-    key: r.key, repo: r.repo, number: r.number, title: r.title, url: r.url,
+    key: r.key, repo: r.repo, number: r.number, title: r.title, url: r.url, ...named(r),
     author: r.author || null, updatedAt: r.updatedAt || null, draft: !!r.draft,
   })) : [];
   const talk = on ? (ci.prs || []).filter(p => p.talk?.unread > 0).map(p => ({
-    key: p.key, repo: p.repo, number: p.number, title: p.title, url: p.url, state: p.state,
+    key: p.key, repo: p.repo, number: p.number, title: p.title, url: p.url, state: p.state, ...named(p),
     unread: p.talk.unread, people: p.talk.people || [], lastAt: p.talk.lastAt, verdict: p.talk.verdict,
+    // GitLab says which threads are still open; GitHub's count includes resolved ones, so it isn't used.
+    threads: p.forge === 'gitlab' ? p.reviewComments || 0 : 0,
   })).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)) : [];
 
   const branches = [];
@@ -73,7 +81,8 @@ function build({ now = Date.now(), ci = null, repos = [], sessions = [], open = 
   copies.sort((a, b) => (a.lastAt || 0) - (b.lastAt || 0));
 
   const out = {
-    github: { enabled: on, error: on ? ci.error || null : null, lastPollAt: on ? ci.lastPollAt || null : null },
+    github: { enabled: githubOn, error: githubOn ? ci.error || null : null, lastPollAt: on ? ci.lastPollAt || null : null },
+    gitlab: { enabled: gitlabOn, error: gitlabOn ? ci.gitlab.error || null : null, lastPollAt: gitlabOn ? ci.gitlab.lastPollAt || null : null },
     reviews: reviews.slice(0, MAX_EACH),
     reviewsMore: on ? Math.max(0, (ci.reviewsTotal || 0) - reviews.length) : 0,
     talk: talk.slice(0, MAX_EACH),

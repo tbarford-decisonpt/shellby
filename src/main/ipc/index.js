@@ -36,6 +36,7 @@ const { registerSettingsIpc } = require('./settings');
 const { registerToolboxIpc } = require('./toolbox');
 const { registerRoutinesIpc } = require('./routines');
 const { registerGithubIpc } = require('./github');
+const { registerGitlabIpc } = require('./gitlab');
 const { registerProgressIpc } = require('./progress');
 const { registerSurroundingsIpc } = require('./surroundings');
 const { registerTriesIpc } = require('./tries');
@@ -183,6 +184,7 @@ function registerIpc(electronIpcMain, d) {
   registerToolboxIpc(ipcMain, d);
   registerRoutinesIpc(ipcMain, d);
   registerGithubIpc(ipcMain, d);
+  registerGitlabIpc(ipcMain, d);
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
   registerTriesIpc(ipcMain, d);

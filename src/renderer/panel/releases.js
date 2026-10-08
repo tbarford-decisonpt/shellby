@@ -64,7 +64,7 @@
       : [h('b', { text: 'No releases yet' }), r.total && `${plural(r.total, 'commit')} so far`];
     return h('div', { class: 'row wrap rl-head' },
       h('p', { class: 'small rl-summary' }, ...bits.filter(Boolean).flatMap((b, i) => (i ? [h('span', { class: 'pj-sep', 'aria-hidden': 'true', text: '·' }), b] : [b]))),
-      r.releasesUrl && act('Releases on GitHub', () => api.openExternal(r.releasesUrl), 'link-btn small'));
+      r.releasesUrl && act(r.forge === 'gitlab' ? 'Tags on GitLab' : 'Releases on GitHub', () => api.openExternal(r.releasesUrl), 'link-btn small'));
   }
 
   // A release tagged here that hasn't gone out yet.
@@ -81,7 +81,7 @@
     if (o.ok && o.pushed) {
       return h('div', { class: 'rl-note good', role: 'status' },
         h('span', { class: 'small', text: `${o.tag} is out: committed, tagged and pushed to ${o.remote || 'the remote'}.` }),
-        r.releasesUrl && act('Open on GitHub', () => api.openExternal(r.releasesUrl)),
+        r.releasesUrl && act(r.forge === 'gitlab' ? 'Open on GitLab' : 'Open on GitHub', () => api.openExternal(r.releasesUrl)),
         act('OK', () => { done.delete(ctx.root); draw(ctx, r); }));
     }
     if (o.ok) {
@@ -119,7 +119,7 @@
     return list;
   }
 
-  // CI on the commit about to be released, when GitHub has it.
+  // CI on the commit about to be released, when GitHub (or GitLab, through glab) has it.
   function ciLine(r) {
     if (r.upstream?.ahead) {
       return h('p', { class: 'muted small rl-ci' }, h('span', { class: 'pj-dot off', 'aria-hidden': 'true' }),

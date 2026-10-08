@@ -294,6 +294,10 @@ contextBridge.exposeInMainWorld('shellby', {
   markPrSeen: invoke('ci:seen'),
   reviewWithClaude: invoke('ci:review'),
   onCi: on('ci'),
+  // GitLab, through the glab CLI (wiring/gitlab.js)
+  getGitLab: invoke('gitlab:get'),
+  setGitLab: invoke('gitlab:set'),
+  checkGitLab: invoke('gitlab:check'),
   // Start a task from a red build or a review (startfrom.js): drafts are shown before anything is sent.
   startFromDraft: invoke('startfrom:draft'),
   startFromSend: invoke('startfrom:send'),

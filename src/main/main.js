@@ -36,6 +36,7 @@ const { wirePhoneTasks } = require('./wiring/phone-tasks');
 const { wireSurroundings } = require('./wiring/surroundings');
 const { wireToolbox } = require('./wiring/toolbox');
 const { wireGithub } = require('./wiring/github');
+const { wireGitlab } = require('./wiring/gitlab');
 const { wireFocus } = require('./wiring/focus');
 const { wireSnippets } = require('./wiring/snippets');
 const { wireProjects } = require('./wiring/projects');
@@ -148,7 +149,7 @@ const shared = {
 
   // ---- made at boot
   config: null, history: null, skins: null, wardrobe: null, manager: null, toolbox: null, shop: null,
-  health: null, external: null, github: null, ci: null, issues: null, updates: null, friends: null,
+  health: null, external: null, github: null, ci: null, ciGithub: null, ciGitlab: null, issues: null, updates: null, friends: null,
   profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null, timeSync: null,
   workflows: null,                 // the Automate page's engine (workflows/service.js)
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
@@ -277,6 +278,7 @@ const {
   createDictation, createLifeAndPlay, createMedia, createPresence, createRgb, createTypingAlong, createWeather, ensureOpenRgb, rgbSettings,
 } = share(wireSurroundings(shared));
 const { createShop, createToolbox } = share(wireToolbox(shared));
+share(wireGitlab(shared)); // merge requests and pipelines through the glab CLI, into the same CI watcher
 const { createCi, createFriends, createGitHub, createIssues, sendVisitor } = share(wireGithub(shared));
 const { advanceFocus } = share(wireFocus(shared));
 share(wireSnippets(shared));

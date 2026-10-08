@@ -139,7 +139,7 @@ function inputFrom(detail, { commits = [], sessions = [], time = {}, tasks = {} 
   };
 }
 
-const prName = pr => `#${pr.number} ${clip(pr.title, MAX_TITLE)}`;
+const prName = pr => `${pr.forge === 'gitlab' ? '!' : '#'}${pr.number} ${clip(pr.title, MAX_TITLE)}`;
 
 /** What's in your way, from what the Projects page flags. */
 function blockersOf(detail) {

@@ -701,6 +701,7 @@ function wireBacklog(d) {
 
   /** A pull request merged (github/ci.js): one opened from Next up offers its task's tick, and its link is done. */
   function onMerged(pr) {
+    if (pr?.forge === 'gitlab') return; // Next up only ever opens pull requests on GitHub
     for (const [key, links] of Object.entries(doingAll())) {
       for (const [id, link] of Object.entries(links || {})) {
         if (!link?.pr || link.pr.number !== pr?.number || lower(link.pr.repo) !== lower(pr?.repo)) continue;
