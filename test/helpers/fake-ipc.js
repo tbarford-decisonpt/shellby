@@ -60,7 +60,7 @@ function installFakeElectron({ userData = 'C:\\fake\\userData', pictures = 'C:\\
   const electron = {
     calls: rec.calls,
     callsOf: rec.of,
-    app: { isPackaged: false, getPath: name => (name === 'pictures' ? pictures : userData) },
+    app: { isPackaged: false, getPath: name => (name === 'pictures' ? pictures : userData), commandLine: { appendSwitch: () => {} } },
     shell: {
       openExternal: rec.fn('shell.openExternal', async () => {}),
       openPath: rec.fn('shell.openPath', async () => ''),

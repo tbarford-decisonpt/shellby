@@ -131,6 +131,8 @@ const isHookedCommit = cmd => { const c = normalizeCmd(cmd); return COMMIT.test(
 
 // [species, pattern, language, condition?]. Tier 1 is specific, tier 2 a
 // family, tier 3 an umbrella; the lowest tier wins, then the last line.
+/** @typedef {[string, RegExp, string | null, ((ctx: { kind: string, cmd: string }) => boolean)?]} Signature */
+/** @type {Signature[]} */
 const TIER1 = [
   ['nullfish', /\bTypeError:[ \t]+(Cannot read propert(y|ies) of (undefined|null)|Cannot set propert(y|ies) of (undefined|null)|(undefined|null) is not an object|Cannot destructure property)/, 'js'],
   ['nullfish', /\bAttributeError:[ \t]+'NoneType' object has no attribute/, 'py'],
@@ -180,6 +182,7 @@ const TIER1 = [
   ['optional-oarfish', /error TS(2531|2532|2533|18047|18048|18049):/, 'ts'],
   ['hinted-hermit', /: error: .* \[[a-z-]+\]$| - error: /, 'py', ({ kind }) => kind === 'typecheck'],
 ];
+/** @type {Signature[]} */
 const TIER2 = [
   ['shapeshifter-shrimp', /\bTypeError:[ \t]+\S/, null],
   ['nameless-nudibranch', /\bReferenceError:[ \t]+\S+ is not defined|\bNameError:[ \t]+name '/, null],
@@ -189,6 +192,7 @@ const TIER2 = [
   ['type-tangle', /error TS\d{4}:/, 'ts'],
   ['rusty-nautilus', /^error(\[E\d{4}\])?:[ \t]/, 'rust', ({ cmd }) => RUST_CMD.test(cmd)],
 ];
+/** @type {Signature[]} */
 const TIER3 = [
   ['collapsed-castle', /Build failed with \d+ errors?|Failed to compile|error during build|compiled with \d+ errors?|error: could not compile `|BUILD FAILED|FAILURE: Build failed|make: \*\*\* .* Error \d/, null],
 ];
@@ -227,7 +231,7 @@ const LIB = /node_modules|site-packages|dist-packages|[\\/]rustc[\\/]|[\\/]go[\\
 const SOURCE_TOKEN = /^(?:[A-Za-z]:)?[\w.@~/\\-]*\.(?:[cm]?[jt]sx?|py|rs|go|rb|java|kt|cs|php|vue|svelte|swift|c|cc|cpp|h)(?::\d+){0,2}$/;
 // ...that a location follows: `:12`, `", line 12` (Python) or `(3,7)` (tsc).
 const LOCATED = /^(?::\d|", line \d|\(\d)/;
-const basename = p => String(p).split(/[\\/]/).pop();
+const basename = p => /** @type {string} */ (String(p).split(/[\\/]/).pop());
 const MAX_FILE_LINES = 60;
 
 /** The first file of yours in the trace, as a basename ('' when none). */
@@ -268,12 +272,13 @@ function fingerprint(species, line, file = '') {
  *   opts: { cmd, source: 'bash' | 'server' | 'ci', live?: Set of species ids that can be seen now }
  * -> { species, fp, lang, tier }
  */
-function classify(output, { cmd = '', source = 'bash', live = null } = {}) {
+function classify(output, { cmd = '', source = 'bash', live = /** @type {Set<string> | null} */ (null) } = {}) {
   const lines = windowOf(output);
   const kind = source === 'bash' ? commandKind(cmd) : 'run';
   const ok = id => !live || live.has(id);
   const ctx = { kind, cmd: normalizeCmd(cmd) };
   for (let t = 0; t < TIERS.length; t++) {
+    /** @type {{ species: string, lang: string | null, line: string, tier: number } | null} */
     let hit = null;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -305,7 +310,7 @@ function classify(output, { cmd = '', source = 'bash', live = null } = {}) {
 const stillShows = (output, fp, opts = {}) => fingerprintsIn(output, opts).includes(fp);
 
 /** Every bug fingerprint an output shows, whichever tier: a pass still printing one hasn't fixed it. */
-function fingerprintsIn(output, { cmd = '', live = null } = {}) {
+function fingerprintsIn(output, { cmd = '', live = /** @type {Set<string> | null} */ (null) } = {}) {
   const lines = windowOf(output);
   const ctx = { kind: commandKind(cmd), cmd: normalizeCmd(cmd) };
   const file = fileBase(lines);

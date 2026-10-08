@@ -26,6 +26,7 @@
     "start": "electron .",
     "test": "node --test --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",
+    "panel:html": "node scripts/panel-html.js",
     "typecheck": "tsc -p jsconfig.json",
     "e2e:ci": "node scripts/e2e-ci.js",
     "perf": "node scripts/perf-budget.js",
@@ -67,7 +68,8 @@
       "src/**/*",
       "assets/**/*",
       "package.json",
-      "!**/*.md"
+      "!**/*.md",
+      "!src/renderer/panel/html/**"
     ],
     "asarUnpack": [
       "node_modules/koffi/**",

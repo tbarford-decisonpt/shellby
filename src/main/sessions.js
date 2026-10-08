@@ -182,7 +182,13 @@ class SessionManager extends EventEmitter {
     if (item.kind === 'result' && item.cost) {
       let share = null;
       try { share = this.windowShare?.(item.cost.weight, tab) ?? null; } catch { /* no reading to go on: tokens and context still show */ }
-      const cost = { ...item.cost, share: Number.isFinite(share) ? share : null };
+      // Each helper's share the same way: its part of what Shellby spent in this window.
+      const helpers = item.cost.helpers?.map(x => {
+        let s = null;
+        try { s = this.windowShare?.(x.weight, tab) ?? null; } catch { /* as above */ }
+        return { ...x, share: Number.isFinite(s) ? s : null, shareText: turncost.shareText(s) };
+      });
+      const cost = { ...item.cost, share: Number.isFinite(share) ? share : null, ...(helpers ? { helpers } : {}) };
       item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost), effortBadge: turncost.effortBadge(cost) };
     }
     if (item.kind === 'result') {

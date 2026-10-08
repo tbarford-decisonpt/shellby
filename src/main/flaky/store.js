@@ -277,6 +277,7 @@ function due(stateIn, now) {
   const state = normalizeFlaky(stateIn);
   const today = dayKey(now);
   if (state.said.day === today && state.said.n >= SAY_A_DAY) return null;
+  /** @type {{ key: string, id: string, project: any, label: any, week: any } | null} */
   let best = null;
   for (const [key, p] of Object.entries(state.projects)) {
     for (const [id, t] of Object.entries(p.tests)) {

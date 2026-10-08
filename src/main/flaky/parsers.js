@@ -4,6 +4,7 @@ const { MAX_FAILED, FRAMEWORKS, ANSI_RE, cleanId, cmdKey, masked } = require('./
 
 // ------------------------------------------------------------------ parsers
 
+/** @type {[string, RegExp][]} */
 const FRAMEWORK_CMD = [
   ['playwright', /\bplaywright\s+test\b/i],
   ['vitest', /\bvitest\b/i],
@@ -19,6 +20,7 @@ const FRAMEWORK_CMD = [
 ];
 // Whole-text patterns: only [ \t], never \s, so none can run across lines
 // (a flood of blank lines would make that quadratic, on Electron's main thread).
+/** @type {[string, RegExp][]} */
 const FRAMEWORK_OUT = [
   ['playwright', /\[(chromium|firefox|webkit)[^\]\n]*\] ›|Running \d+ tests? using \d+ workers?/],
   ['vitest', /^[ \t]*(RUN|DEV)[ \t]+v\d+\.\d+|^[ \t]*Test Files[ \t]+\d+/m],

@@ -39,7 +39,7 @@ function parseService(query, config) {
 /** `ssh-add -l` lines -> [{ bits, fingerprint, comment, type }] */
 function parseKeys(text) {
   return String(text || '').split(/\r?\n/).map(l => /^(\d+)\s+(SHA256:\S+)\s+(.*?)\s+\((\w+)\)\s*$/.exec(l.trim())).filter(Boolean)
-    .map(m => ({ bits: Number(m[1]), fingerprint: m[2], comment: m[3], type: m[4] }));
+    .map(/** @param {RegExpExecArray} m */ m => ({ bits: Number(m[1]), fingerprint: m[2], comment: m[3], type: m[4] }));
 }
 
 /** The elevated PowerShell that turns the service on (start at sign-in, and now). */

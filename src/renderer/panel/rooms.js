@@ -4,7 +4,8 @@
    what opens next and can open everything at once. Going to a screen by any
    other road (Ctrl+K, a link) opens it for good. Just-the-crab mode has its own
    bar (crabonly.css) and ignores rooms, and so does Work mode (workmode.js),
-   which shows every tool from the start. */
+   which shows every tool from the start. The Shellby screen's own tabs
+   (Trophies, Finds, Bugdex...) are rooms too, and open the same way. */
 'use strict';
 (function () {
   const { api, state, $ } = SB;
@@ -12,18 +13,23 @@
 
   let view = null; // main's roomsView(); null until it arrives (everything shows)
 
+  // Every door: the bar's buttons, and the tabs along the top of his screen
+  // (repeated on each of its pages).
+  const doors = () => [
+    ...[...document.querySelectorAll('.dock [data-view-btn]')].map(b => ({ id: b.dataset.viewBtn, b })),
+    ...[...document.querySelectorAll('.shellby-tabs [data-goto]')].map(b => ({ id: b.dataset.goto, b })),
+  ].filter(d => d.id !== 'wardrobe' && d.id !== 'chat');
+
   const lockedIds = () => {
     if (!view || view.all || SB.isCrabOnly() || SB.isWorkMode?.()) return [];
     const open = new Set(view.open);
-    return [...document.querySelectorAll('.dock [data-view-btn]')]
-      .map(b => b.dataset.viewBtn)
-      .filter(id => id !== 'wardrobe' && id !== 'chat' && !open.has(id));
+    return [...new Set(doors().map(d => d.id))].filter(id => !open.has(id));
   };
   SB.isRoomLocked = id => lockedIds().includes(id);
 
   function apply() {
     const locked = new Set(lockedIds());
-    for (const b of document.querySelectorAll('.dock [data-view-btn]')) b.classList.toggle('room-locked', locked.has(b.dataset.viewBtn));
+    for (const { id, b } of doors()) b.classList.toggle('room-locked', locked.has(id));
     const more = $('dockMore');
     more.hidden = !locked.size;
     if (!locked.size) return;
@@ -34,16 +40,17 @@
   function moreText() {
     const n = view?.next;
     if (!n) return 'More screens open as he works.';
-    return `${n.name} opens after ${n.tasksToGo === 1 ? (view.tasks ? 'his next task' : 'his first task') : `${n.tasksToGo} more tasks`}.`;
+    return `${n.name}${n.in ? ' (on his screen)' : ''} opens after ${n.tasksToGo === 1 ? (view.tasks ? 'his next task' : 'his first task') : `${n.tasksToGo} more tasks`}.`;
   }
 
   function glow(id) {
-    const b = document.querySelector(`.dock [data-view-btn="${id}"]`);
-    if (!b) return;
-    b.classList.remove('room-new');
-    void b.offsetWidth;
-    b.classList.add('room-new');
-    setTimeout(() => b.classList.remove('room-new'), GLOW_MS);
+    for (const { id: d, b } of doors()) {
+      if (d !== id) continue;
+      b.classList.remove('room-new');
+      void b.offsetWidth;
+      b.classList.add('room-new');
+      setTimeout(() => b.classList.remove('room-new'), GLOW_MS);
+    }
   }
 
   function received({ view: v, opened = [] } = {}) {
@@ -75,8 +82,10 @@
   const setView = SB.setView;
   SB.setView = target => {
     setView(target);
-    const section = SB.NAV_SECTION[state.view] || state.view;
-    if (SB.isRoomLocked(section)) api.openRoom(section).then(v => received({ view: v })).catch(() => {}); // the screen showed; only the door stays shut
+    // A tab of his screen is its own door; the bar's button is the screen's.
+    for (const id of new Set([state.view, SB.NAV_SECTION[state.view] || state.view])) {
+      if (SB.isRoomLocked(id)) api.openRoom(id).then(v => received({ view: v })).catch(() => {}); // the screen showed; only the door stays shut
+    }
   };
 
   // Switching in or out of just the crab changes which bar shows. Leaving it from

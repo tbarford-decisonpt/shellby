@@ -1,0 +1,52 @@
+  <!-- ====================== BUGDEX: the bugs Claude has fixed for you (bugdex.js, src/main/bugdex.js) ====================== -->
+  <main class="view view-bugdex" id="bugdexView">
+    <div class="view-head">
+      <h2 class="sr-only">Bugdex</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="bugdex">Bugdex <span class="n bd-count"></span></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <section class="fd-hero bd-hero" aria-label="The Bugdex">
+      <div class="fd-fav" id="bdFav"></div>
+      <div class="fd-hero-text">
+        <p class="xp-eyebrow bd-eyebrow">The Bugdex</p>
+        <h3 id="bdTotal">No bugs in the jars yet</h3>
+        <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
+      </div>
+    </section>
+    <section class="ev-banner" data-ev-banner="bugdex" hidden aria-label="Tide event"></section>
+    <section class="bd-league" id="bdLeague" aria-label="Badges and the league"></section>
+    <section class="bd-board" id="bdBoard" hidden aria-labelledby="bdBoardTitle">
+      <div class="bd-board-head">
+        <h3 class="bd-section-title" id="bdBoardTitle">This month</h3>
+        <button type="button" class="btn ghost slim-btn" id="bdBoardShare" data-share-moment>📸 Share the board</button>
+      </div>
+      <div class="kind-chips bd-board-tabs" id="bdBoardTabs" role="tablist" aria-label="Board" data-roving></div>
+      <ol class="bd-board-list" id="bdBoardList"></ol>
+      <p class="muted small bd-board-note">You and friends who share their Bugdex, by the bugs Claude fixed for each of you this month. Starts fresh on the 1st.</p>
+    </section>
+    <section class="bd-friends" id="bdFriends" hidden aria-labelledby="bdFriendsTitle">
+      <h3 class="bd-section-title" id="bdFriendsTitle">Friends' books</h3>
+      <ul id="bdFriendList"></ul>
+    </section>
+    <section class="bd-empty" id="bdEmpty" hidden>
+      <b>The jars are empty, for now.</b>
+      <p>When a command fails in one of Shellby's tabs (or in Claude Code anywhere on this PC, with the Shellby plugin), that kind of bug shows up here as a silhouette. Once Claude fixes it and the command passes, it's caught and goes in a jar, in colour. A crashed dev server, a red build and a clash bringing a copy home count too.</p>
+    </section>
+    <section class="bd-loose" id="bdLooseBox" hidden aria-labelledby="bdLooseTitle">
+      <h3 id="bdLooseTitle">On the loose</h3>
+      <ul id="bdLoose"></ul>
+    </section>
+    <ul class="fd-sets bd-habitats" id="bdHabitats" aria-label="Habitats"></ul>
+    <div class="kind-chips bd-filters" id="bdFilters" role="tablist" aria-label="Show" data-roving></div>
+    <section class="fd-detail bd-detail" id="bdDetail" hidden aria-live="polite"></section>
+    <ul class="fd-grid bd-grid" id="bdGrid" role="list" aria-label="Every kind of bug"></ul>
+    <p class="bd-over"><button type="button" class="link-btn inline" id="bdForget">Start the Bugdex over</button></p>
+  </main>

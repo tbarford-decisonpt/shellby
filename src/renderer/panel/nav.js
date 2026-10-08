@@ -67,6 +67,7 @@
   }
 
   SB.showSettingsTab = tab => showTab(tab);
+  SB.settingsTab = () => currentTab;
   // /model, /output-style: the setting itself, in view and focused.
   SB.showSetting = id => {
     const el = $(id);

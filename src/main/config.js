@@ -37,6 +37,7 @@ const DEFAULTS = {
   onboarded: false,
   firstTour: false,  // a new install's first New task offers Show me around until it's opened once (onboarding.js, feed.js)
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
+  featureUse: null,  // how often each screen is opened, on this PC only, never synced (feature-use.js)
   quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,

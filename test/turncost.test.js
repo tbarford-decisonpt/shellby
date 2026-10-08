@@ -234,3 +234,22 @@ test("a session puts the turn's cost on its result, helpers' calls included", ()
   s.handle({ kind: 'result', ok: true });
   assert.equal(items.filter(i => i.kind === 'result')[1].cost, undefined);
 });
+
+test("each helper's part of a turn: costliest first, empty ones left out", () => {
+  const u = n => ({ input_tokens: n, output_tokens: 0 });
+  const c = tc.turnCost({
+    usages: [u(1000), u(3000), u(500)], weight: 10,
+    helpers: [{ id: 'tu_a', usages: [u(500)], weight: 1 }, { id: 'tu_b', usages: [u(3000)], weight: 6 }, { id: 'tu_c', usages: [], weight: 0 }, { id: 7, usages: [u(9)], weight: 1 }],
+  }, null);
+  assert.deepEqual(c.helpers, [{ id: 'tu_b', tokens: 3000, read: 0, weight: 6 }, { id: 'tu_a', tokens: 500, read: 0, weight: 1 }]);
+  assert.equal(tc.turnCost({ usages: [u(10)], weight: 1 }, null).helpers, undefined, 'no helpers, no field');
+});
+
+test('the cost line and its tooltip say what the helpers spent', () => {
+  const cost = { tokens: 18000, read: 0, share: 3, contextPct: null, helpers: [{ id: 'a', tokens: 9000, share: 1.4 }, { id: 'b', tokens: 3000, share: 0.6 }] };
+  assert.equal(tc.costLine(cost), 'this turn: 18k tokens (helpers 12k) · ~3% of your 5-hour window');
+  assert.match(tc.costDetail(cost), /2 helpers: 12k of those tokens, ~2% of your 5-hour window\. Each helper's lane shows what it spent\./);
+  const one = { ...cost, helpers: [{ id: 'a', tokens: 9000, share: null }] };
+  assert.match(tc.costDetail(one), /A helper: 9k of those tokens\. Its lane shows what it spent\./);
+  assert.equal(tc.helpersTotal({ tokens: 1 }), null);
+});

@@ -707,14 +707,16 @@ function onLine(line) {
     out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_scout', name: 'Agent', input: { subagent_type: 'Explore', description: 'Scout the repo', prompt: 'look around', name: 'scout', run_in_background: true } }] } });
     out({ type: 'system', subtype: 'task_started', task_id: agentId, tool_use_id: 'tu_scout', description: 'Scout the repo', subagent_type: 'Explore', is_backgrounded: true, spawn_depth: 1, task_type: 'local_agent' });
     out({ type: 'user', parent_tool_use_id: null, tool_use_result: { isAsync: true, status: 'async_launched', agentId }, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_scout', content: [{ type: 'text', text: `Async agent launched successfully.\nagentId: ${agentId}` }] }] } });
-    out({ type: 'assistant', parent_tool_use_id: 'tu_scout', message: { content: [{ type: 'text', text: 'Found three folders.' }] } });
+    // The helper's own calls carry their usage, like the real CLI's (a turn's cost splits them out).
+    const scoutSaid = t => out({ type: 'assistant', parent_tool_use_id: 'tu_scout', message: { id: `msg_scout_${++messages}`, model: 'claude-haiku-4-5', usage: { input_tokens: 2000, output_tokens: 500, cache_read_input_tokens: 6000 }, content: [{ type: 'text', text: t }] } });
+    scoutSaid('Found three folders.');
     setTimeout(() => {
       out({ type: 'system', subtype: 'task_updated', task_id: agentId, patch: { status: 'completed' } });
       out({ type: 'system', subtype: 'task_notification', task_id: agentId, tool_use_id: 'tu_scout', status: 'completed', summary: 'Found three folders.', usage: { total_tokens: 700, tool_uses: 2, duration_ms: ms } });
       out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_msg', name: 'SendMessage', input: { to: 'scout', message: 'Now count the tests in each.', summary: 'Count the tests' } }] } });
       out({ type: 'system', subtype: 'task_started', task_id: agentId, tool_use_id: 'tu_msg', description: 'Scout the repo', subagent_type: 'Explore', is_backgrounded: true, spawn_depth: 1, task_type: 'local_agent' });
       out({ type: 'user', parent_tool_use_id: null, tool_use_result: { success: true, message: 'Resuming agent scout', resumedAgentId: agentId }, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_msg', content: [{ type: 'text', text: '{"success":true,"message":"Resuming agent scout"}' }] }] } });
-      out({ type: 'assistant', parent_tool_use_id: 'tu_scout', message: { content: [{ type: 'text', text: '12, 4 and 9 tests.' }] } });
+      scoutSaid('12, 4 and 9 tests.');
       setTimeout(() => {
         out({ type: 'system', subtype: 'task_updated', task_id: agentId, patch: { status: 'completed' } });
         out({ type: 'system', subtype: 'task_notification', task_id: agentId, tool_use_id: 'tu_msg', status: 'completed', summary: '12, 4 and 9 tests.', usage: { total_tokens: 400, tool_uses: 1, duration_ms: ms } });

@@ -89,7 +89,7 @@ function readingTools(tools) {
  * server's tools when Shellby could start it and ask, else null (the kind's
  * known reading tools stand in).
  */
-function allowedFor({ server, kind }, listed = null) {
+function allowedFor({ server, kind }, listed = /** @type {any[] | null} */ (null)) {
   const known = KINDS[kind].reads;
   const names = listed ? [...readingTools(listed), ...known.filter(n => listed.some(t => t?.name === n))] : known;
   const prefix = allowRules([server])[0].replace(/\*$/, '');

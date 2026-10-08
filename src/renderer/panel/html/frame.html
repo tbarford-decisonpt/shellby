@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>Shellby</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/fonts.css">
+<link rel="stylesheet" href="panel.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="notes.css">
+<link rel="stylesheet" href="files.css">
+<link rel="stylesheet" href="shop.css">
+<link rel="stylesheet" href="../shared/effects.css">
+<link rel="stylesheet" href="wardrobe.css">
+<link rel="stylesheet" href="stickers.css">
+<link rel="stylesheet" href="together.css">
+<link rel="stylesheet" href="bugdex.css">
+<link rel="stylesheet" href="bugdex-battle.css">
+<link rel="stylesheet" href="tide.css">
+<link rel="stylesheet" href="crew.css">
+<link rel="stylesheet" href="needs.css">
+<link rel="stylesheet" href="beach.css">
+<link rel="stylesheet" href="tank.css">
+<link rel="stylesheet" href="tank-layouts.css">
+<link rel="stylesheet" href="../shared/health.css">
+<link rel="stylesheet" href="health-view.css">
+<link rel="stylesheet" href="card.css">
+<link rel="stylesheet" href="crabonly.css">
+<link rel="stylesheet" href="github.css">
+<link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="native.css">
+<link rel="stylesheet" href="composer.css">
+<link rel="stylesheet" href="line-comments.css">
+<link rel="stylesheet" href="turn-checks.css">
+<link rel="stylesheet" href="review.css">
+<link rel="stylesheet" href="lessons.css">
+<link rel="stylesheet" href="hooks.css">
+<link rel="stylesheet" href="remote.css">
+<link rel="stylesheet" href="workflows.css">
+<link rel="stylesheet" href="workflow-canvas.css">
+<link rel="stylesheet" href="wf-chat.css">
+<link rel="stylesheet" href="time.css">
+<link rel="stylesheet" href="projects.css">
+</head>
+<body data-view="chat">
+  <div class="caustics" aria-hidden="true"></div>
+
+  <header class="titlebar">
+    <button type="button" class="brand" id="brandBtn" title="Shellby's outfits and trophies" aria-label="Shellby: outfits and trophies">
+      <span class="brand-crab" id="brandCrab"></span>
+      <span class="brand-name">Shellby</span>
+      <span class="brand-xp" aria-hidden="true"><i id="brandXp"></i></span>
+    </button>
+    <button type="button" class="brand-level" id="brandLevel" hidden></button>
+    <span class="win-title" id="winTitle"></span>
+    <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode (Shift+Tab in the message box cycles it)" aria-keyshortcuts="Shift+Tab">
+      <span class="mode-dot"></span><span id="modeLabel">Ask</span>
+      <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+    <div class="win-btns">
+      <button type="button" id="paletteBtn" class="icon-btn" title="Jump anywhere (Ctrl+K)" aria-label="Jump anywhere" aria-keyshortcuts="Control+K">
+        <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.2 10.2l3.3 3.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" data-view-btn="settings" class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+        <i class="dot-badge" id="updateDot" hidden></i>
+        <svg viewBox="0 0 16 16"><path d="M6.56 1.76A6.4 6.4 0 0 1 9.44 1.76L9.8 3.55A4.8 4.8 0 0 1 10.96 4.22L12.68 3.64A6.4 6.4 0 0 1 14.12 6.13L12.75 7.33A4.8 4.8 0 0 1 12.75 8.67L14.12 9.87A6.4 6.4 0 0 1 12.68 12.36L10.96 11.78A4.8 4.8 0 0 1 9.8 12.45L9.44 14.24A6.4 6.4 0 0 1 6.56 14.24L6.2 12.45A4.8 4.8 0 0 1 5.04 11.78L3.32 12.36A6.4 6.4 0 0 1 1.88 9.87L3.25 8.67A4.8 4.8 0 0 1 3.25 7.33L1.88 6.13A6.4 6.4 0 0 1 3.32 3.64L5.04 4.22A4.8 4.8 0 0 1 6.2 3.55Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <span class="sep"></span>
+      <button type="button" id="minBtn" class="icon-btn" title="Minimize" aria-label="Minimize">
+        <svg viewBox="0 0 16 16"><path d="M4 8.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" id="maxBtn" class="icon-btn" title="Maximize or restore (double-click the title bar)" aria-label="Maximize or restore">
+        <svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <button type="button" id="closeBtn" class="icon-btn close" title="Hide" aria-label="Hide">
+        <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- conversation tabs -->
+  <div class="tabstrip" id="tabstrip">
+    <div class="tabs-wrap">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Conversations"></div>
+      <button type="button" class="tab-edge left" id="tabEdgeLeft" hidden></button>
+      <button type="button" class="tab-edge right" id="tabEdgeRight" hidden></button>
+    </div>
+    <button type="button" class="tab-add" id="newTabBtn" title="New conversation (Ctrl+T)" aria-label="New conversation">
+      <svg viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <button type="button" class="tab-review" id="reviewBtn" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+Shift+R" title="Ready to review (Ctrl+Shift+R)" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.8 2.8 6.2-6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="reviewCount">0</span>
+    </button>
+    <button type="button" class="tab-all" id="tabAllBtn" aria-haspopup="dialog" aria-expanded="false" title="Every open conversation (Ctrl+Shift+A)" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span id="tabAllCount">0</span>
+    </button>
+  </div>
+
+  <div class="subbar" id="subbar">
+    <button type="button" class="folder-chip" id="folderChip" aria-haspopup="menu" title="Working folder">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      <span id="folderLabel">~</span>
+    </button>
+    <button type="button" class="folder-chip branch-chip" id="branchChip" aria-haspopup="menu" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11M4.5 10.5c0-3 7-2.5 7-6.5M11.5 2.5v1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="4.5" cy="12.6" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="11.5" cy="3.2" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <span id="branchLabel">own copy</span>
+    </button>
+    <button type="button" class="folder-chip effort-chip" id="effortChip" aria-haspopup="menu" title="How hard Claude thinks (effort)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2 9.4 6l3.9.3-3 2.5 1 3.9L8 10.6l-3.3 2.1 1-3.9-3-2.5L6.6 6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      <span id="effortLabel">auto</span>
+    </button>
+    <button type="button" class="ctx-chip" id="ctxChip" aria-haspopup="menu" hidden>
+      <span class="meter-label">ctx</span>
+      <span class="meter-track"><span class="meter-fill"></span></span>
+      <span id="ctxLabel">0%</span>
+    </button>
+    <button type="button" class="usage" id="usage" aria-haspopup="menu" aria-label="Usage limits: see what used them" hidden>
+      <span class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></span>
+      <span class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></span>
+    </button>
+    <button type="button" class="icon-btn pop-btn" id="splitBtn" title="Split: another conversation alongside (Ctrl+\)" aria-label="Split" aria-keyshortcuts="Control+\">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 3v10" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+    <button type="button" class="icon-btn pop-btn" id="popOutBtn" title="Open this conversation in its own window (or drag its tab out)" aria-label="Open in its own window">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="popover" id="modeMenu" role="menu" hidden></div>
+  <div class="popover" id="folderMenu" role="menu" hidden></div>
+  <div class="popover" id="branchMenu" role="menu" hidden></div>
+  <div class="popover" id="ctxMenu" role="menu" hidden></div>
+  <div class="popover usage-menu" id="usageMenu" role="menu" hidden></div>
+  <div class="popover" id="effortMenu" role="menu" hidden></div>
+  <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
+  <div class="popover" id="tabMenu" role="menu" hidden></div>
+  <div class="popover tab-list" id="tabList" role="dialog" aria-label="Open conversations" hidden></div>
+  <div class="popover review-list" id="reviewList" role="dialog" aria-label="Ready to review" hidden></div>
+  <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
+  <div class="popover" id="pjMenu" role="menu" hidden></div>
+  <div class="popover" id="blMenu" role="menu" hidden></div>
+  <div class="popover" id="snipMenu" role="menu" hidden></div>
+  <div class="popover text-menu" id="textMenu" role="menu" aria-label="Text" hidden></div>
+  <div class="popover" id="noteMenu" role="menu" hidden></div>
+
+  <!-- @include chat.html -->
+
+  <!-- @include toolbox.html -->
+
+  <!-- @include shop.html -->
+
+  <!-- @include workflows.html -->
+
+  <!-- @include routines.html -->
+
+  <!-- @include notes.html -->
+
+  <!-- @include health.html -->
+
+  <!-- @include wardrobe.html -->
+
+  <!-- @include trophies.html -->
+
+  <!-- @include crew.html -->
+
+  <!-- @include stickers.html -->
+
+  <!-- @include finds.html -->
+
+  <!-- @include bugdex.html -->
+
+  <!-- @include us.html -->
+
+  <!-- @include beach.html -->
+
+  <!-- @include tank.html -->
+
+  <!-- @include history.html -->
+
+  <!-- @include time.html -->
+
+  <!-- @include projects.html -->
+
+  <!-- @include settings.html -->
+
+  <!-- @include onboarding.html -->
+
+  <!-- ====================== MAIN NAVIGATION ====================== -->
+  <nav class="dock" id="dock" aria-label="Main">
+    <button type="button" class="dock-btn dock-shellby" data-view-btn="wardrobe" aria-keyshortcuts="Control+1">
+      <span class="dock-crab" id="dockCrab" aria-hidden="true"></span>
+      <span>Shellby</span>
+      <i class="dot-badge" id="wardrobeBadge" hidden></i>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="chat" aria-keyshortcuts="Control+2">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.2c0-.9.7-1.6 1.6-1.6h7.8c.9 0 1.6.7 1.6 1.6v5c0 .9-.7 1.6-1.6 1.6H7.2l-2.9 2.4v-2.4h-.2c-.9 0-1.6-.7-1.6-1.6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>Chat</span>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="toolbox" aria-keyshortcuts="Control+3">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6.5h11v6.2c0 .5-.4.8-.8.8H3.3c-.5 0-.8-.4-.8-.8zM5.5 6.5V4.4c0-.5.4-.9.9-.9h3.2c.5 0 .9.4.9.9v2.1M2.5 9.2h11M7 9.2v1.3h2V9.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>Toolbox</span>
+      <i class="dot-badge" id="toolboxBadge" hidden></i>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="workflows" aria-keyshortcuts="Control+4">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.8L3.6 9h4l-1 5.2L12.4 7h-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Automate</span>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="health" aria-keyshortcuts="Control+5">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.6h2.8l1.6-4.4 3 7.8 1.8-5 1 1.6h2.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Health</span>
+      <i class="dot-badge" id="healthBadge" hidden></i>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="history" aria-keyshortcuts="Control+6">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>History</span>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="projects" aria-keyshortcuts="Control+7">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.3c0-.6.5-1.1 1.1-1.1h3.2l1.4 1.6h5.2c.6 0 1.1.5 1.1 1.1v6.3c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>Projects</span>
+      <i class="dot-badge" id="projectsBadge" hidden></i>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="notes" aria-keyshortcuts="Control+8">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM10 2.5V5h2.5M6 8h4.5M6 10.5h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Notes</span>
+    </button>
+    <!-- Someone new: the rooms still to open (rooms.js) -->
+    <button type="button" class="dock-btn dock-more" id="dockMore" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span id="dockMoreLabel">More</span>
+    </button>
+  </nav>
+
+  <!-- ====================== JUMP ANYWHERE (Ctrl+K) ====================== -->
+  <div class="palette-sheet" id="paletteSheet" hidden>
+    <div class="palette" role="dialog" aria-modal="true" aria-label="Jump anywhere">
+      <input type="text" class="palette-input" id="paletteInput" placeholder="Jump to a screen, setting, skill or conversation…" autocomplete="off" spellcheck="false"
+        role="combobox" aria-expanded="true" aria-controls="paletteList" aria-autocomplete="list">
+      <ul class="palette-list" id="paletteList" role="listbox" aria-label="Results"></ul>
+      <p class="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span><span><kbd>Ctrl+/</kbd> every shortcut</span></p>
+    </div>
+  </div>
+
+  <!-- ====================== EVERY SHORTCUT (Ctrl+/ or ?) ====================== -->
+  <div class="card-sheet" id="shortcutsSheet" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" hidden>
+    <div class="card-box keys-box">
+      <div class="card-head">
+        <h2 id="shortcutsTitle">Keyboard shortcuts</h2>
+        <button type="button" class="icon-btn" id="shortcutsClose" aria-label="Close" title="Close (Esc)">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="keys-list" id="shortcutsList" tabindex="0" role="region" aria-label="Every shortcut"></div>
+      <p class="keys-foot muted small">Or press <kbd>Ctrl+K</kbd> and type what you want to do.</p>
+    </div>
+  </div>
+
+  <!-- shareable crab card preview -->
+  <div class="card-sheet" id="cardSheet" role="dialog" aria-modal="true" aria-labelledby="cardTitle" hidden>
+    <div class="card-box">
+      <div class="card-head">
+        <h2 id="cardTitle">Your crab card</h2>
+        <button type="button" class="icon-btn" id="cardClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <img id="cardImg" class="card-img" alt="Your Shellby card: your crab as he's dressed now, with your trophies and task count">
+      <p class="card-note">Copied to your clipboard and saved as <b id="cardPath"></b>. Paste it into a post:</p>
+      <div class="row wrap">
+        <button type="button" class="btn primary" id="cardX">Post on X</button>
+        <button type="button" class="btn primary" id="cardBsky">Post on Bluesky</button>
+        <button type="button" class="btn" id="cardCopy">Copy again</button>
+        <button type="button" class="btn ghost" id="cardReveal">Show file</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- crab-only mode: what Claude Code would add -->
+  <div class="card-sheet" id="upsellSheet" role="dialog" aria-modal="true" aria-labelledby="upsellTitle" hidden>
+    <div class="card-box upsell-box">
+      <div class="card-head">
+        <h2 id="upsellTitle">That's a Claude Code trick</h2>
+        <button type="button" class="icon-btn" id="upsellClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="upsell-lede" id="upsellLede"></p>
+      <ul class="upsell-list">
+        <li><b>Investigates for you.</b> What's using the GPU, what's eating memory, what's filling C:</li>
+        <li><b>Does the chores.</b> Tidies folders, renames files, writes and runs scripts, with your OK first.</li>
+        <li><b>Sends out helper crabs</b> to work in parallel, and learns new tricks as he goes.</li>
+      </ul>
+      <p class="muted small">Needs Claude Code and a Claude Pro or Max plan. No API keys, nothing billed per use.</p>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="upsellLater">Not now</button>
+        <button type="button" class="btn primary" data-claude-setup>Set up Claude Code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- outfit codes: wear someone else's look -->
+  <div class="card-sheet" id="codeSheet" role="dialog" aria-modal="true" aria-labelledby="codeTitle" hidden>
+    <div class="card-box code-box">
+      <div class="card-head">
+        <h2 id="codeTitle">Wear someone's look</h2>
+        <button type="button" class="icon-btn" id="codeClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="muted small code-lede">Paste an outfit code from a post, a comment or a friend.</p>
+      <input class="field code-input" id="codeInput" placeholder="SHB-XXXX-XXXX-XXXX" spellcheck="false" autocomplete="off" maxlength="60" aria-label="Outfit code">
+      <p class="code-error" id="codeError" role="alert" hidden></p>
+      <div class="code-preview" id="codePreview" hidden>
+        <div class="code-crab" id="codeCrab"></div>
+        <ul class="code-items" id="codeItems"></ul>
+      </div>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="codeCancel">Cancel</button>
+        <button type="button" class="btn primary" id="codeWear" disabled>Wear it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ssh needs a passphrase or a password (remote/askpass.js): asked here, handed back, forgotten -->
+  <div class="card-sheet" id="rcAskSheet" role="dialog" aria-modal="true" aria-labelledby="rcAskTitle" hidden>
+    <form class="card-box rc-ask-box" id="rcAskForm">
+      <div class="card-head">
+        <h2 id="rcAskTitle">Unlock your key</h2>
+      </div>
+      <p class="muted small" id="rcAskLede"></p>
+      <input class="field" id="rcAskInput" type="password" spellcheck="false" autocomplete="off" maxlength="1024" aria-labelledby="rcAskLede">
+      <p class="muted small">Shellby hands it to ssh and doesn't keep it.</p>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="rcAskCancel">Cancel</button>
+        <button type="submit" class="btn primary" id="rcAskOk">Unlock</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- a red build or a review on your pull request: exactly what goes to Claude, before it goes (startfrom.js) -->
+  <div class="card-sheet" id="sfSheet" role="dialog" aria-modal="true" aria-labelledby="sfTitle" hidden>
+    <div class="card-box sf-box">
+      <div class="card-head">
+        <h2 id="sfTitle">Fix this build</h2>
+        <button type="button" class="icon-btn" id="sfClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="small sf-lede" id="sfLede" role="status"></p>
+      <pre class="pj-prompt sf-prompt" id="sfPrompt" tabindex="0" aria-label="What will be sent to Claude" hidden></pre>
+      <textarea class="field pj-note" id="sfNote" rows="2" maxlength="500" placeholder="Anything to add? (optional)" aria-label="A note for Claude" hidden></textarea>
+      <p class="muted small pj-where" id="sfWhere" hidden></p>
+      <section class="sf-risk" id="sfRisk" aria-labelledby="sfRiskTitle" hidden>
+        <p class="sf-risk-title" id="sfRiskTitle">Look at these before Claude works in it</p>
+        <div class="small" id="sfRiskBody"></div>
+        <label class="pj-check sf-risk-ack"><input type="checkbox" id="sfAck"><span>I've looked at these</span></label>
+      </section>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="sfGitHub">Open on GitHub</button>
+        <button type="button" class="btn ghost" id="sfCancel">Not now</button>
+        <button type="button" class="btn primary" id="sfSend" disabled>Send to Claude</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <!-- where a dragged tab will land in the chat view (tab-panes.js) -->
+  <div class="drop-hint" id="dropHint" aria-hidden="true" hidden></div>
+  <p class="sr-only" id="announcer" role="status" aria-live="polite"></p>
+
+<script src="../shared/framecap.js"></script>
+<script src="../shared/sprite.js"></script>
+<script src="../shared/minishell.js"></script>
+<script src="../shared/markdown.js"></script>
+<script src="../shared/diff.js"></script>
+<script src="../shared/todos.js"></script>
+<script src="../shared/effects.js"></script>
+<script src="../shared/health-fx.js"></script>
+<script src="../shared/outlook-format.js"></script>
+<script src="../shared/time-format.js"></script>
+<script src="../shared/streaks-format.js"></script>
+<script src="../shared/panes.js"></script>
+<script src="shortcuts.js"></script>
+<script src="core.js"></script>
+<script src="a11y.js"></script>
+<script src="files.js"></script>
+<script src="find.js"></script>
+<script src="textmenu.js"></script>
+<script src="feed-logic.js"></script>
+<script src="feed.js"></script>
+<script src="feed-notes.js"></script>
+<script src="feed-asks.js"></script>
+<script src="feed-changes.js"></script>
+<script src="feed-lanes.js"></script>
+<script src="feed-native.js"></script>
+<script src="line-comments.js"></script>
+<script src="line-comments-ui.js"></script>
+<script src="turn-checks.js"></script>
+<script src="lessons.js"></script>
+<script src="tab-logic.js"></script>
+<script src="tabs.js"></script>
+<script src="tab-strip.js"></script>
+<script src="tab-panes.js"></script>
+<script src="tab-send.js"></script>
+<script src="native-strip.js"></script>
+<script src="tab-queue.js"></script>
+<script src="slash-menu.js"></script>
+<script src="tab-chips.js"></script>
+<script src="tab-git.js"></script>
+<script src="tab-meters.js"></script>
+<script src="clash-text.js"></script>
+<script src="clashes.js"></script>
+<script src="tab-sort.js"></script>
+<script src="tab-overview.js"></script>
+<script src="review-queue.js"></script>
+<script src="review-view.js"></script>
+<script src="composer.js"></script>
+<script src="tries.js"></script>
+<script src="toolbox-setup.js"></script>
+<script src="toolbox-automemory.js"></script>
+<script src="toolbox-hooks.js"></script>
+<script src="lean.js"></script>
+<script src="toolbox-snippets.js"></script>
+<script src="toolbox-team.js"></script>
+<script src="toolbox-mods.js"></script>
+<script src="toolbox.js"></script>
+<script src="shop.js"></script>
+<script src="mcp-picker.js"></script>
+<script src="routines.js"></script>
+<script src="routines-cloud.js"></script>
+<script src="reset-queue.js"></script>
+<script src="depwatch.js"></script>
+<script src="wf-graph.js"></script>
+<script src="workflow-canvas.js"></script>
+<script src="wf-chat.js"></script>
+<script src="wf-kit.js"></script>
+<script src="wf-model.js"></script>
+<script src="wf-list.js"></script>
+<script src="wf-fields.js"></script>
+<script src="wf-steps.js"></script>
+<script src="wf-runs.js"></script>
+<script src="wf-save.js"></script>
+<script src="workflows.js"></script>
+<script src="settings-text.js"></script>
+<script src="settings-search-logic.js"></script>
+<script src="notes.js"></script>
+<script src="settings.js"></script>
+<script src="settings-account.js"></script>
+<script src="settings-everywhere.js"></script>
+<script src="settings-channels.js"></script>
+<script src="settings-desk.js"></script>
+<script src="remote-logic.js"></script>
+<script src="settings-remote.js"></script>
+<script src="history.js"></script>
+<script src="onboarding.js"></script>
+<script src="wardrobe.js"></script>
+<script src="stickers.js"></script>
+<script src="crew.js"></script>
+<script src="together.js"></script>
+<script src="bugdex.js"></script>
+<script src="bugdex-battle.js"></script>
+<script src="needs.js"></script>
+<script src="health-logic.js"></script>
+<script src="health.js"></script>
+<script src="health-gauges.js"></script>
+<script src="health-drives.js"></script>
+<script src="health-hogs.js"></script>
+<script src="card.js"></script>
+<script src="moment-card.js"></script>
+<script src="sparkle.js"></script>
+<script src="beach-paint.js"></script>
+<script src="beach.js"></script>
+<script src="tank-paint.js"></script>
+<script src="tank-gauges.js"></script>
+<script src="tank-life.js"></script>
+<script src="tank.js"></script>
+<script src="tank-layouts.js"></script>
+<script src="tank-tidy.js"></script>
+<script src="celebrate.js"></script>
+<script src="tide.js"></script>
+<script src="recap.js"></script>
+<script src="claude-tricks.js"></script>
+<script src="outlook.js"></script>
+<script src="crabonly.js"></script>
+<script src="rooms.js"></script>
+<script src="uses.js"></script>
+<script src="quests.js"></script>
+<script src="workmode.js"></script>
+<script src="outfitcode.js"></script>
+<script src="xp.js"></script>
+<script src="week-card.js"></script>
+<script src="time.js"></script>
+<script src="streaks.js"></script>
+<script src="focus.js"></script>
+<script src="startfrom.js"></script>
+<script src="backlog.js"></script>
+<script src="project-facts.js"></script>
+<script src="inbox.js"></script>
+<script src="releases.js"></script>
+<script src="project-report.js"></script>
+<script src="projects-logic.js"></script>
+<script src="projects.js"></script>
+<script src="projects-servers.js"></script>
+<script src="project-tools.js"></script>
+<script src="projects-add.js"></script>
+<script src="profile-card.js"></script>
+<script src="pr-badge.js"></script>
+<script src="github.js"></script>
+<script src="gitlab.js"></script>
+<script src="social.js"></script>
+<script src="friends.js"></script>
+<script src="nav.js"></script>
+<script src="settings-search.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>

@@ -10,7 +10,7 @@ in an area you haven't touched.
 
 ```powershell
 npm run lint
-npm run typecheck   # jsconfig over src/preload and src/main/ipc only
+npm run typecheck   # jsconfig over src/preload and src/main/{ipc,flaky,remote,backlog,bugdex} only
 npm test            # node:test, a fake Claude CLI stands in for the real one
 npm run e2e:ci      # the real app over CDP; `npm run e2e:ci -- queue voice` runs only those
 ```
@@ -53,6 +53,8 @@ one lands under "Changed" word for word.
 
 ## Traps that have bitten before
 
+- **panel.html is built.** Edit the pieces in `src/renderer/panel/html/` (a file per
+  screen), then `npm run panel:html`. A test fails while the built file is stale.
 - **Line endings are LF.** Edits through Python's text mode on Windows rewrite whole
   files as CRLF. Use the Edit tool, Node `fs`, or `open(..., newline='')`.
   `claude-plugin/mcp/server.js` has literal control characters in a regex, and its

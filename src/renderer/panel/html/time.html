@@ -1,0 +1,113 @@
+  <!-- ====================== TIME (timetrack.js) ====================== -->
+  <main class="view view-time" id="timeView">
+    <nav class="seg auto-switch" aria-label="History">
+      <button type="button" data-goto-view="history">Conversations</button>
+      <button type="button" aria-current="page">Time</button>
+    </nav>
+    <div class="view-head">
+      <h2>Time</h2>
+      <label class="toggle tm-onoff"><input type="checkbox" id="timeToggle"><span class="switch"></span>Keep time</label>
+    </div>
+    <section class="tm-intro" id="timeIntro" hidden>
+      <p>Shellby can keep track of how long you spend on each project, for timesheets and invoices. He works it out from what he already sees:</p>
+      <ul>
+        <li><b>The window in front.</b> An editor or terminal showing a project's folder, or the project's page on GitHub.</li>
+        <li><b>Claude at work.</b> While Claude works in a project, your terminal and docs count for it.</li>
+        <li><b>Git.</b> A commit, checkout or pull says which project you're in.</li>
+      </ul>
+      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere unless you send it to your time tracker.</p>
+    </section>
+    <p class="tm-now" id="timeNow" aria-live="polite"></p>
+    <section class="focus-card" id="focusCard" aria-label="Focus">
+      <div class="focus-head">
+        <span class="focus-badge" aria-hidden="true">⛑️</span>
+        <div class="focus-titles">
+          <p class="xp-eyebrow focus-eyebrow">Focus</p>
+          <h3 id="focusTitle">Guard my focus</h3>
+        </div>
+        <span class="focus-clock" id="focusClock" hidden></span>
+      </div>
+      <p class="streak-sub" id="focusSub"></p>
+      <div class="focus-actions" id="focusActions"></div>
+    </section>
+    <div id="timeBody">
+      <div class="seg tm-ranges" id="timeRanges" role="tablist" aria-label="Period" data-roving></div>
+      <section class="tm-overview" aria-labelledby="timeTotal">
+        <div class="tm-totals">
+          <p class="tm-total" id="timeTotal"></p>
+          <p class="tm-amount" id="timeAmount"></p>
+        </div>
+        <ul class="tm-chart" id="timeChart" aria-label="Hours each day"></ul>
+      </section>
+      <p class="tm-fill" id="timeFill" hidden></p>
+      <ul class="tm-projects" id="timeProjects"></ul>
+
+      <section class="streak-card" id="streakCard" aria-label="Streaks">
+        <div class="streak-head">
+          <span class="streak-flame" id="streakFlame">🔥</span>
+          <div>
+            <p class="xp-eyebrow streak-eyebrow">Streak</p>
+            <h3 id="streakTitle">No streak yet</h3>
+          </div>
+          <span class="xp-total" id="streakBest"></span>
+        </div>
+        <p class="streak-sub" id="streakSub"></p>
+        <ul class="streak-projects" id="streakProjects"></ul>
+        <div class="streak-settings">
+          <label class="toggle"><input type="checkbox" id="nudgeToggle"><span class="switch"></span>Nudge me when a project goes quiet for</label>
+          <select class="field slim" id="nudgeDays" aria-label="Days before a nudge">
+            <option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">a week</option><option value="14">2 weeks</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="setting-group tm-export" aria-labelledby="timeExportTitle">
+        <h3 id="timeExportTitle">Timesheet</h3>
+        <div class="row wrap">
+          <select class="field slim" id="timeOnly" aria-label="Which projects go on it"></select>
+          <button type="button" class="btn slim-btn" id="timePdf">Save PDF</button>
+          <button type="button" class="btn slim-btn" id="timeCsv">Save CSV</button>
+          <button type="button" class="btn ghost slim-btn" id="timeCopy">Copy as text</button>
+        </div>
+        <p class="muted small" id="timeExportNote">For the period above, rounded as set below. Each day's line is its note, or else your commit messages.</p>
+        <div class="tm-sync" id="timeSync"></div>
+      </section>
+
+      <section class="setting-group" aria-labelledby="timeAddTitle">
+        <h3 id="timeAddTitle">Add time by hand</h3>
+        <form class="tm-add" id="timeAdd" novalidate>
+          <div class="grid-2">
+            <label class="field-label">Project<select class="field" id="timeAddProject" required></select></label>
+            <label class="field-label">Day<input class="field" type="date" id="timeAddDay" required></label>
+          </div>
+          <div class="tm-add-row">
+            <div class="seg tm-sign" role="radiogroup" aria-label="Add or take off">
+              <button type="button" role="radio" aria-checked="true" data-sign="1">Add</button>
+              <button type="button" role="radio" aria-checked="false" data-sign="-1">Take off</button>
+            </div>
+            <label class="field-label tm-num">Hours<input class="field" type="number" id="timeAddHours" min="0" max="24" step="1" value="0" inputmode="numeric"></label>
+            <label class="field-label tm-num">Minutes<input class="field" type="number" id="timeAddMinutes" min="0" max="59" step="5" value="30" inputmode="numeric"></label>
+          </div>
+          <label class="field-label">What it was for <span class="field-hint">(optional, goes on the timesheet)</span><input class="field" id="timeAddNote" maxlength="200" placeholder="Kickoff call with the client"></label>
+          <p class="form-errors" id="timeAddError" role="alert" hidden></p>
+          <div class="row"><button type="submit" class="btn primary slim-btn">Add time</button></div>
+        </form>
+      </section>
+
+      <section class="setting-group" aria-labelledby="timeSetTitle">
+        <h3 id="timeSetTitle">How time is kept</h3>
+        <div class="tm-settings">
+          <label class="field-label">Stop the clock after<select class="field slim" id="timeIdle"></select></label>
+          <label class="field-label">Round each day<select class="field slim" id="timeRound"></select></label>
+          <label class="field-label">Currency<input class="field slim tm-cur" id="timeCurrency" maxlength="3" spellcheck="false" autocomplete="off" aria-describedby="timeCurHint"></label>
+        </div>
+        <p class="muted small" id="timeCurHint">Three letters, like USD, EUR or GBP.</p>
+        <div class="row wrap">
+          <button type="button" class="btn ghost slim-btn" id="timeAddFolder">Add a project folder…</button>
+        </div>
+        <p class="muted small">Projects show up on their own once Shellby sees you in them. Add one here if he hasn't yet.</p>
+        <p class="muted small" id="timeIgnored" hidden></p>
+      </section>
+    </div>
+    <p class="muted small history-note" id="timePrivacy">Hours are kept only on this PC, never synced or sent anywhere.</p>
+  </main>

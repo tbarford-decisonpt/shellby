@@ -57,7 +57,7 @@ body.busy .dock-crab svg { animation: hop .4s ease-in-out infinite; }
 
 /* Rooms (rooms.js): screens someone new hasn't opened yet stay off the bar,
    and "More" says what opens next. A room that just opened glows once. */
-.dock-btn.room-locked { display: none; }
+.dock-btn.room-locked, .shellby-tabs .room-locked { display: none; }
 body:not(.rooms-ready) .dock-btn:not(.dock-shellby):not([data-view-btn="chat"]) { visibility: hidden; } /* no flash of the full bar */
 .dock-more > svg { border: 1px dashed var(--line); padding: 3px 12px; }
 .dock-more:hover > svg { border-color: var(--glass); }
@@ -67,6 +67,7 @@ body:not(.rooms-ready) .dock-btn:not(.dock-shellby):not([data-view-btn="chat"]) 
   100% { box-shadow: 0 0 0 9px transparent; }
 }
 
+.shellby-tabs button.room-new { animation: room-open 1.6s var(--ease-out) 2; }
 .shellby-tabs button[aria-current="page"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 
 /* popups clear the bar (and the composer, in chat) */
@@ -100,6 +101,29 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .settings-tabs .tab-dot { top: 5px; right: 6px; }
 .settings-panel { animation: fadein .14s var(--ease-out); }
 .view-settings .setting-group { scroll-margin-top: 50px; }
+
+/* Searching Settings (settings-search.js): every tab at once, each under its
+   name, cut down to what matches. */
+.settings-search { width: 100%; margin: 0 0 18px; }
+.settings-search-line { margin: -4px 0 10px; }
+.view-settings.searching .settings-tabs,
+.view-settings.searching .settings-sub,
+.view-settings .search-out { display: none !important; }
+.view-settings.searching .settings-panel::before {
+  content: attr(data-tab-name); display: block; margin: 10px 0 2px;
+  font-size: var(--fs-13); font-weight: 700; color: var(--sand);
+}
+.view-settings.searching .settings-panel { animation: none; }
+
+/* What you use (uses.js): the most-opened screens on one line, then the ones
+   you haven't opened, each with what it's for and a way in. */
+.uses-top { margin: 8px 0 0; font-size: var(--fs-12-5); color: var(--sand); }
+.uses-head { margin: 14px 0 4px; font-size: var(--fs-12-5); font-weight: 700; color: var(--sand); }
+.uses-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line-soft); }
+.uses-row:first-of-type { border-top: 0; }
+.uses-what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.uses-what b { font-size: var(--fs-13); }
+.uses-row .btn { flex: none; }
 
 /* The extras: one line each until opened. The label above them carries the
    divider, so the first fold (a first-of-type details) needs none. */
@@ -193,6 +217,6 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 @media (prefers-reduced-motion: reduce) {
   .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button, .setting-fold > summary::before { transition: none; }
   .settings-panel, .setting-group.arrived { animation: none; }
-  .dock-shellby:hover .dock-crab svg, body.busy .dock-crab svg, .dock-btn.room-new > svg { animation: none; }
+  .dock-shellby:hover .dock-crab svg, body.busy .dock-crab svg, .dock-btn.room-new > svg, .shellby-tabs button.room-new { animation: none; }
   .palette-sheet, .palette { animation: none; }
 }

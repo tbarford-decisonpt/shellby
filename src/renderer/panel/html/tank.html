@@ -1,0 +1,106 @@
+  <!-- ====================== TANK: a home you decorate (tank.js, tank-paint.js, src/main/tank.js) ====================== -->
+  <main class="view view-tank" id="tankView">
+    <div class="view-head">
+      <h2 class="sr-only">His tank</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="tk-hero" aria-labelledby="tkTitle">
+      <div class="tk-head">
+        <div>
+          <h3 id="tkTitle">His tank</h3>
+          <p class="tk-sub" id="tkSub"></p>
+        </div>
+        <div class="tk-tools">
+          <button type="button" class="btn primary slim-btn" id="tkDecorate">Decorate</button>
+          <button type="button" class="btn ghost slim-btn" id="tkUndo" hidden title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkRedo" hidden title="Redo (Ctrl+Y)">Redo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkCancel" hidden>Cancel</button>
+          <button type="button" class="btn primary slim-btn" id="tkDone" hidden>Done</button>
+        </div>
+      </div>
+      <div class="tk-stage" id="tkStage">
+        <div class="tk-frame">
+          <canvas class="tk-canvas" id="tkCanvas" role="img" aria-label="His tank"></canvas>
+          <div class="tk-hits" id="tkHits" role="group" aria-label="In the tank"></div>
+        </div>
+        <div class="tk-empty" id="tkEmpty" hidden>
+          <b>Nothing in here yet</b>
+          <span>Press Decorate to give him a castle, some plants, or the finds he’s dug up for you.</span>
+        </div>
+      </div>
+      <div class="tk-picked" id="tkPicked" hidden>
+        <span class="tk-picked-name" id="tkPickedName"></span>
+        <button type="button" class="btn ghost slim-btn" id="tkFlip" title="Flip (F)">Flip</button>
+        <button type="button" class="btn ghost slim-btn" id="tkBack" title="Send back ([)">Send back</button>
+        <button type="button" class="btn ghost slim-btn" id="tkForward" title="Bring forward (])">Bring forward</button>
+        <button type="button" class="btn ghost slim-btn" id="tkAway" title="Put away (Delete)">Put away</button>
+      </div>
+      <p class="tk-keys muted small" id="tkKeysHint" hidden><span id="tkKeys">Arrow keys move it (Shift for bigger steps), Up and Down change the row, F flips it, [ and ] send it back or bring it forward, Delete puts it away.</span></p>
+      <p class="tk-note" id="tkNote" hidden></p>
+      <p class="tk-note muted small" id="tkMissing" hidden></p>
+      <p class="sr-only" id="tkLive" aria-live="polite"></p>
+    </section>
+    <section class="tk-tray" id="tkTray" hidden aria-label="Decor">
+      <div class="seg tk-shelves" id="tkShelves" role="tablist" aria-label="Shelf" data-roving></div>
+      <div class="tk-items" id="tkItems" role="group"></div>
+      <div class="tk-settings">
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Tank</span>
+          <div class="seg tk-sizes" id="tkSizes" role="radiogroup" aria-label="Tank size" data-roving></div>
+        </div>
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Light</span>
+          <div class="seg tk-light" id="tkLight" role="radiogroup" aria-label="Light" data-roving>
+            <button type="button" role="radio" data-light="clock" title="Day and night follow your clock">Clock</button>
+            <button type="button" role="radio" data-light="day">Day</button>
+            <button type="button" role="radio" data-light="night">Night</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="us-sec" id="tkKeySec" aria-labelledby="tkKeyTitle">
+      <div class="us-h"><h3 id="tkKeyTitle">Where his decor comes from</h3><span class="us-h-meta" id="tkKeyMeta"></span></div>
+      <ul class="tk-key" id="tkKey"></ul>
+    </section>
+    <section class="us-sec tk-layouts" id="tkLayoutsSec" aria-labelledby="tkLayoutsTitle">
+      <div class="us-h"><h3 id="tkLayoutsTitle">Layouts</h3><span class="us-h-meta" id="tkLayoutsMeta"></span></div>
+      <p class="muted small">Keep up to three. One tagged to a season goes up when the season starts and comes down when it ends.</p>
+      <ul class="tk-layout-list" id="tkLayouts"></ul>
+      <form class="tk-layout-save" id="tkLayoutForm">
+        <label class="sr-only" for="tkLayoutName">Name this layout</label>
+        <input type="text" class="field" id="tkLayoutName" maxlength="24" placeholder="Name this layout" autocomplete="off">
+        <button type="submit" class="btn ghost slim-btn" id="tkLayoutSave">Save the tank as it is</button>
+      </form>
+    </section>
+    <section class="us-sec tk-tidy" aria-labelledby="tkTidyTitle">
+      <div class="us-h"><h3 id="tkTidyTitle">Tidying up</h3></div>
+      <label class="toggle"><input type="checkbox" id="tkTidyOn" checked><span class="switch"></span>Let him tidy up: now and then he moves one of his finds a little, never anything else</label>
+      <p class="tk-note" id="tkTidyNote" hidden><span id="tkTidyText"></span> <button type="button" class="btn ghost slim-btn" id="tkTidyUndo">Put it back</button></p>
+    </section>
+    <section class="us-sec tk-live" aria-labelledby="tkLiveTitle">
+      <div class="us-h"><h3 id="tkLiveTitle">Gauges in disguise</h3></div>
+      <p class="muted small">A few things in his tank quietly show what Shellby knows about your PC. They stay on this PC: never synced, never on a card.</p>
+      <label class="toggle"><input type="checkbox" data-live="thermometer"><span class="switch"></span>Thermometer on the glass: your GPU (or CPU) temperature, red past your Health line</label>
+      <label class="toggle"><input type="checkbox" data-live="bubbler"><span class="switch"></span>Bubblers hurry when the CPU is busy</label>
+      <label class="toggle"><input type="checkbox" data-live="lighthouse"><span class="switch"></span>The lighthouse is lit while a dev server runs, and blinks when one crashes</label>
+      <label class="toggle"><input type="checkbox" data-live="moods"><span class="switch"></span>His Health moods reach the water</label>
+      <p class="muted small" id="tkLiveNow"></p>
+    </section>
+    <section class="us-sec tk-share" aria-labelledby="tkShareTitle">
+      <div class="us-h"><h3 id="tkShareTitle">On your cards</h3></div>
+      <p class="muted small">Your calling card (Visiting crabs) and profile card are public. His tank stays off them unless you turn this on.</p>
+      <label class="toggle"><input type="checkbox" id="tkShare" aria-describedby="tkShareHelp"><span class="switch"></span>Show his tank: friends can peek at it, and it’s on your profile card</label>
+      <p class="muted small" id="tkShareHelp"></p>
+    </section>
+  </main>

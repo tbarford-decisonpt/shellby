@@ -25,12 +25,12 @@ test('an undecided value (null) shows everything rather than hiding screens', ()
 test('finished tasks open rooms in order and report each one once', () => {
   let s = fresh();
   const opened = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 9; i++) {
     const r = rooms.taskDone(s);
     s = r.state;
     opened.push(r.opened.map(x => x.id));
   }
-  assert.deepEqual(opened, [['history', 'projects', 'notes'], [], ['health', 'toolbox'], [], ['workflows'], []]);
+  assert.deepEqual(opened, [['history', 'projects', 'notes', 'trophies'], ['finds', 'stickers'], ['health', 'toolbox', 'crew'], ['bugdex'], ['workflows', 'us'], ['tank'], [], ['beach'], []]);
   assert.equal(rooms.roomsView(s).all, true);
 });
 
@@ -39,7 +39,7 @@ test('a room opened by hand stays open and is not announced again later', () => 
   assert.deepEqual(rooms.openRooms(s), ['workflows']);
   let t = s;
   const opened = [];
-  for (let i = 0; i < 5; i++) { const r = rooms.taskDone(t); t = r.state; opened.push(...r.opened.map(x => x.id)); }
+  for (let i = 0; i < 8; i++) { const r = rooms.taskDone(t); t = r.state; opened.push(...r.opened.map(x => x.id)); }
   assert.ok(!opened.includes('workflows'));
 });
 
@@ -57,8 +57,14 @@ test('openAll opens everything and stops counting toward rooms', () => {
 });
 
 test('the next room counts down the tasks still to go', () => {
-  assert.deepEqual(rooms.roomsView(after(1)).next, { id: 'health', name: 'Health', tasksToGo: 2 });
+  assert.deepEqual(rooms.roomsView(after(1)).next, { id: 'finds', name: 'Finds', tasksToGo: 1, in: 'wardrobe' });
   assert.deepEqual(rooms.roomsView(after(4)).next, { id: 'workflows', name: 'Automate', tasksToGo: 1 });
+  assert.deepEqual(rooms.roomsView(after(6)).next, { id: 'beach', name: 'Beach', tasksToGo: 2, in: 'wardrobe' });
+});
+
+test('rooms open in the order they are listed, so "next" is always the soonest', () => {
+  const tasks = rooms.ROOMS.map(r => r.tasks);
+  assert.deepEqual(tasks, [...tasks].sort((a, b) => a - b));
 });
 
 test('a corrupt stored value is cleaned up, not trusted', () => {

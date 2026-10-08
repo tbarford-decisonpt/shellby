@@ -179,6 +179,10 @@ async function connect(url) {
     await idle();
     check(await until(panel, "SB.activeTab().el.querySelector('.lane').querySelectorAll('.lane-summary:not([hidden])').length === 2", 6000), 'one lane, both of its answers');
     check(await ev("SB.activeTab().el.querySelectorAll('.lane').length === 1"), 'still one lane');
+    // What the helper spent: split out on the turn's cost line, and on its own lane.
+    check(await until(panel, "/\\(helpers 5k\\)/.test([...SB.activeTab().el.querySelectorAll('.turn-cost-line')].at(-1)?.textContent || '')", 4000), "the turn's cost says what its helper spent");
+    const laneCost = await ev("(m => [m.textContent, m.title])(SB.activeTab().el.querySelector('.lane .lane-meta'))");
+    check(/5\.0k tok/.test(laneCost[0]) && /This helper sent and wrote 5\.0k new tokens/.test(laneCost[1]), `and so does its lane (${laneCost[0]})`);
 
     // ---- 9. cloud routines
     await ev("SB.setView('routines')");

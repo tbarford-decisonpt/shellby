@@ -1,0 +1,22 @@
+  <!-- ====================== SETTINGS ====================== -->
+  <main class="view view-settings" id="settingsView">
+    <div class="view-head">
+      <h2>Settings</h2>
+    </div>
+    <input type="search" id="settingsSearch" class="field settings-search" placeholder="Search settings…" aria-label="Search settings" aria-describedby="settingsSearchLine" autocomplete="off" spellcheck="false">
+    <p class="small muted settings-search-line" id="settingsSearchLine" role="status" hidden></p>
+    <nav class="seg settings-tabs" id="settingsTabs" role="tablist" aria-label="Settings">
+      <button type="button" role="tab" id="setTab-shellby" data-tab="shellby" aria-controls="setPanel-shellby" aria-selected="false" tabindex="-1">Shellby</button>
+      <button type="button" role="tab" id="setTab-claude" data-tab="claude" aria-controls="setPanel-claude" aria-selected="false" tabindex="-1">Claude</button>
+      <button type="button" role="tab" id="setTab-connect" data-tab="connect" aria-controls="setPanel-connect" aria-selected="false" tabindex="-1">Connections</button>
+      <button type="button" role="tab" id="setTab-general" data-tab="general" aria-controls="setPanel-general" aria-selected="false" tabindex="-1">General<span class="dot-badge tab-dot" id="updateTabDot" hidden></span></button>
+    </nav>
+
+    <!-- @include settings-shellby.html -->
+
+    <!-- @include settings-claude.html -->
+
+    <!-- @include settings-connect.html -->
+
+    <!-- @include settings-general.html -->
+  </main>

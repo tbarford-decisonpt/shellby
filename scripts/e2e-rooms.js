@@ -1,8 +1,9 @@
-// ci: rooms: a newcomer's short bar, rooms opening as they're earned, Show every screen
+// ci: rooms: a newcomer's short bar and Shellby tabs, rooms opening as they're earned, Show every screen
 // End-to-end check of rooms (main/rooms.js, panel/rooms.js) against the dev app
 // over CDP, driven by the fake Claude CLI (test/fixtures/fake-claude.js):
 //   1. Someone new: only Shellby, Chat and "More" are on the bar
-//   2. Their first finished task opens History and Projects, with a card
+//   2. Their first finished task opens History, Projects, Notes and the
+//      Trophies tab of his screen, with a card
 //   3. Ctrl+K to a locked screen opens it for good
 //   4. "Show every screen" puts the rest on the bar
 //   5. Someone who was here before rooms keeps the whole bar
@@ -48,6 +49,7 @@ async function run(settings, body) {
   }
 }
 
+const TABS = "[...document.querySelectorAll('#wardrobeView .shellby-tabs [data-goto]')].filter(b => getComputedStyle(b).display !== 'none').map(b => b.dataset.goto).join()";
 const SHOWN = "[...document.querySelectorAll('.dock .dock-btn')].filter(b => getComputedStyle(b).display !== 'none' && !b.hidden).map(b => b.dataset.viewBtn || b.id).join()";
 
 (async () => {
@@ -59,13 +61,20 @@ const SHOWN = "[...document.querySelectorAll('.dock .dock-btn')].filter(b => get
       await ev("SB.setView('chat')");
       check(await ev(SHOWN) === 'wardrobe,chat,dockMore', `a new bar is Shellby, Chat and More (${await ev(SHOWN)})`);
       check(/History opens after his first task/.test(await ev("SB.$('dockMore').title")), '"More" says what opens next');
+      check(await ev(TABS) === 'wardrobe', `his screen starts as just his outfits (${await ev(TABS)})`);
 
       // 2. A finished task opens History and Projects.
       await ev("(i => { i.value = 'hello'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })(SB.$('input'))");
       check(await until(`(${SHOWN}) === 'wardrobe,chat,history,projects,notes,dockMore'`, 15000), 'the first task puts History and Projects on the bar');
       check(await ev("document.querySelector('.dock [data-view-btn=\"history\"]').classList.contains('room-new')"), 'the new button glows');
       // The first task's trophy card may go first; the room card waits its turn.
-      check(await until("/History, Projects and Notes are open/.test(document.querySelector('.celebrate')?.textContent || '')", 20000), 'a "New room" card says so');
+      check(await until("/History, Projects, Notes and Trophies are open/.test(document.querySelector('.celebrate')?.textContent || '')", 20000), 'a "New room" card says so');
+      check(await ev(TABS) === 'wardrobe,trophies', `and Trophies joins his screen (${await ev(TABS)})`);
+      check(/Finds \(on his screen\) opens after his next task/.test(await ev("SB.$('dockMore').title")), '"More" names the next tab on his screen');
+
+      // A link to a tab that's still shut (a find's card, Ctrl+K) opens it for good.
+      await ev("SB.setView('bugdex')");
+      check(await until(`(${TABS}).includes('bugdex')`), 'going to the Bugdex another way puts its tab on his screen');
       const saved = JSON.parse(fs.readFileSync(path.join(data, 'settings.json'), 'utf8')).rooms;
       check(saved?.tasks === 1 && !saved.all, 'the count is saved');
 
@@ -77,6 +86,7 @@ const SHOWN = "[...document.querySelectorAll('.dock .dock-btn')].filter(b => get
       // 4. Show every screen.
       await ev('SB.openAllRooms()');
       check(await until(`(${SHOWN}) === 'wardrobe,chat,toolbox,workflows,health,history,projects,notes'`), '"Show every screen" opens the rest and hides More');
+      check(await ev(TABS) === 'wardrobe,trophies,crew,stickers,finds,bugdex,tank,us,beach', 'and every tab of his screen');
     });
 
     // 5. Someone who was here before rooms: no rooms value yet, already onboarded.

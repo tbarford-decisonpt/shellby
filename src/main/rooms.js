@@ -6,14 +6,24 @@
 // test/rooms.test.js.
 
 // The order rooms open in, and how many finished tasks open each. Shellby and
-// Chat are always open; Settings is the gear, not a room.
+// Chat are always open; Settings is the gear, not a room. A room with `in` is a
+// tab of that screen (the Shellby screen's Trophies, Finds, Bugdex...), so his
+// own screen starts as just his outfits and grows with him too.
 const ROOMS = Object.freeze([
   { id: 'history', tasks: 1, name: 'History', text: 'Every conversation you two have had, to pick back up any time.' },
   { id: 'projects', tasks: 1, name: 'Projects', text: 'Every repo you work in on one page, with its dev server a click away.' },
   { id: 'notes', tasks: 1, name: 'Notes', text: 'Ideas to plan, build or ask Claude about, for each project and in one General list.' },
+  { id: 'trophies', tasks: 1, in: 'wardrobe', name: 'Trophies', text: 'What you two have done together, and what unlocks next.' },
+  { id: 'finds', tasks: 2, in: 'wardrobe', name: 'Finds', text: 'Things he digs up on the desk while you work, to keep on a shelf.' },
+  { id: 'stickers', tasks: 2, in: 'wardrobe', name: 'Stickers', text: 'A mark on his shell for every repo you ship.' },
   { id: 'health', tasks: 3, name: 'Health', text: 'He keeps an eye on your PC: temperatures, memory and drives.' },
   { id: 'toolbox', tasks: 3, name: 'Toolbox', text: 'The skills, agents and tools he works with, and a shop for more.' },
+  { id: 'crew', tasks: 3, in: 'wardrobe', name: 'Crew', text: 'The helper crabs Claude sends out, and what each is best at.' },
+  { id: 'bugdex', tasks: 4, in: 'wardrobe', name: 'Bugdex', text: 'Every bug you two have caught, and the battles to catch them.' },
   { id: 'workflows', tasks: 5, name: 'Automate', text: 'Routines and workflows: work he does on a schedule or when something happens.' },
+  { id: 'us', tasks: 5, in: 'wardrobe', name: 'Us', text: 'Your time together: streaks, tide events and his friends.' },
+  { id: 'tank', tasks: 6, in: 'wardrobe', name: 'Tank', text: 'His home, to decorate with castles, plants and his finds.' },
+  { id: 'beach', tasks: 8, in: 'wardrobe', name: 'Beach', text: 'A beach that fills in as he grows, day and night.' },
 ]);
 const IDS = new Set(ROOMS.map(r => r.id));
 const ALL = Object.freeze({ tasks: 0, open: [], all: true });
@@ -72,7 +82,7 @@ function roomsView(v) {
     open,
     all: open.length === ROOMS.length,
     tasks: s?.tasks || 0,
-    next: next ? { id: next.id, name: next.name, tasksToGo: Math.max(1, next.tasks - s.tasks) } : null,
+    next: next ? { id: next.id, name: next.name, tasksToGo: Math.max(1, next.tasks - s.tasks), ...(next.in ? { in: next.in } : {}) } : null,
   };
 }
 

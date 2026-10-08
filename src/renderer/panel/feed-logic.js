@@ -153,13 +153,24 @@
 
   // ------------------------------------------------------------ crew lanes
 
-  // A helper lane's meta: tools used, tokens, how long. compact and duration: SB's.
+  // A helper lane's meta: tools used, tokens, its share of the 5-hour window
+  // once its turn has ended (turncost.js), how long. compact and duration: SB's.
   function laneMeta(stats, ms, { compact, duration }) {
     const bits = [];
     if (stats?.toolUses) bits.push(`${stats.toolUses} tool${stats.toolUses > 1 ? 's' : ''}`);
     if (stats?.tokens) bits.push(`${compact(stats.tokens)} tok`);
+    if (stats?.share) bits.push(stats.share);
     bits.push(duration(ms));
     return bits.join(' · ');
+  }
+
+  // The lane's tooltip for what it spent: { tokens, read, shareText } from the turn's cost.
+  function laneCostTitle(c, compact) {
+    if (!c) return '';
+    return [
+      `This helper sent and wrote ${compact(c.tokens)} new tokens${c.read ? `, and re-read ${compact(c.read)} from the prompt cache` : ''}.`,
+      c.shareText ? `${c.shareText.startsWith('<') ? `Under ${c.shareText.slice(1)}` : `About ${c.shareText.replace(/^~/, '')}`} of your 5-hour window (an estimate).` : null,
+    ].filter(Boolean).join('\n');
   }
 
   // ------------------------------------------------------------ cut off mid-turn
@@ -203,7 +214,7 @@
 
   const api = {
     files, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan, planNotesMessage,
-    decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneFirstLine,
+    decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneCostTitle, laneFirstLine,
     cutOffLine, cutOffToast, CARRY_ON, quizWorthy, quizResult, QUIZ_MIN_LINES,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

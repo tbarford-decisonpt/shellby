@@ -46,7 +46,8 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm start` | Run in development |
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
-| `npm run typecheck` | TypeScript's checker over the JSDoc in `src/preload` and `src/main/ipc` (jsconfig.json), with no build step |
+| `npm run panel:html` | Builds `src/renderer/panel/panel.html` from the files in `src/renderer/panel/html/` (a frame plus one per screen, `<!-- @include x.html -->`). Run it after editing any of them; `-- --check` says if it's stale |
+| `npm run typecheck` | TypeScript's checker over the JSDoc in `src/preload` and `src/main`'s `ipc`, `flaky`, `remote`, `backlog` and `bugdex` (jsconfig.json), with no build step |
 | `npm run packs` | Validates the built-in wardrobe packs in `src/wardrobe/` |
 | `npm run packs:format` | Rewrites those packs in the house style: pivot and palette on one line, one pixel row per line |
 | `npm run packs:sheet` | A contact sheet of every built-in pack worn by the crab (Python), to eyeball new art |
@@ -66,7 +67,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-editor.js [folder]` | An edit's permission card shows its diff with line numbers, the tool row folds open to it, a path in a reply becomes a link (checked, never clicked), Ctrl+F counts and steps through matches, Ctrl+= zooms, Ctrl+Shift+P opens the palette, and Settings → Editor says what Automatic means. Screenshots go in `[folder]` |
 | `node scripts/e2e-panes.js [--shots <dir>]` | Conversations side by side and in their own windows: Split puts one beside another, dragging a tab into the chat splits a pane and fills a 2x2 grid, a click picks which pane the box talks to, a tab dragged out gets a window of its own with its conversation and what was typed, and its × hands it back |
 | `node scripts/e2e-notes.js` | Notes: a list per project plus a General one; adding, editing, ticking off, moving between lists and deleting, and Plan / Build / Ask each opening a task in the right folder, in the right mode, with the right prompt |
-| `node scripts/e2e-native.js [folder]` | What Claude Code does by itself, made visible, with the fake CLI and a throwaway Claude config folder: its to-do list above the box ticking over, a command left running (the tray, its output, Stop, the crab's badge, done and failed), a plan with a note on one line sent back whole and then approved (the crab's "plan?"), Claude switching itself to planning, a skill's first use and what it's for, a memory written down, listed in Toolbox → Memory and forgotten, the effort and thinking beside a turn's cost, a helper messaged again (one lane, both answers, the message on the desktop) and cloud routines on the Routines page. Screenshots go in `[folder]` |
+| `node scripts/e2e-native.js [folder]` | What Claude Code does by itself, made visible, with the fake CLI and a throwaway Claude config folder: its to-do list above the box ticking over, a command left running (the tray, its output, Stop, the crab's badge, done and failed), a plan with a note on one line sent back whole and then approved (the crab's "plan?"), Claude switching itself to planning, a skill's first use and what it's for, a memory written down, listed in Toolbox → Memory and forgotten, the effort and thinking beside a turn's cost, a helper messaged again (one lane, both answers, the message on the desktop, what it spent on the turn's cost line and its lane) and cloud routines on the Routines page. Screenshots go in `[folder]` |
 | `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
 | `node scripts/e2e-feed-cap.js` | A very long conversation stops growing the DOM: 3,600 blocks pumped through one tab, the cap holds, the tool and lane maps let go with the elements, a result for a long-trimmed tool is ignored, and replay is capped too |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
@@ -93,6 +94,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-mcp.js` | MCP servers in workflows and routines, with the fake CLI and a fake MCP server in a throwaway home folder: the server list, reading its tools, an MCP tool step that runs and hands on its answer, the confirmation window naming what a step may use unasked, and the pickers in both editors |
 | `node scripts/e2e-workflows.js` | Workflows with the fake CLI: typed Claude output steering an If, the confirmation window for risky saves, an Ask answered, Stop and Resume, a web hook on the local port |
 | `node scripts/workflows-shots.js [dir]` | Screenshots of the Automate page (list, editor, a waiting run, a failed run) for a visual check |
+| `node scripts/e2e-find-features.js` | Finding what's there: Settings search shows every tab at once cut down to the rows that match, opens a matching fold and closes it after, says when nothing matches, Esc brings the tabs back, and Ctrl+F on Settings lands in the box; then What you use counts each arrival at a screen (not Settings, not synced), leads with the most opened, lists what you haven't opened and Take a look goes there |
 | `node scripts/e2e-history-done.js` | The Done tick in History: a ticked conversation leaves the default list, the Not done / Done / All tabs only appear once something is done, Undo puts it back, and sending a done conversation more work un-ticks it |
 | `node scripts/e2e-crab-only.js` | A brand-new user picks "Just the crab": Health as home, chat hidden, Claude features become the upsell, survives a restart |
 | `node scripts/e2e-work-mode.js` | A brand-new user with a lively crab picks Work mode: the Claude setup, a bar that leads with the tools, Work mode's quiet settings on show while the file keeps theirs, a pal added in Work mode kept as its own, his needs resting, and Ctrl+K → Leave Work mode putting everything back |
@@ -160,6 +162,13 @@ interleaved runs on a shared, busy desktop: expect ±1 point):
 | Panel open behind your windows, no outfit | ~0.5–0.8% (crab and panel both calm or covered) | ~490 MB |
 | Panel open and focused | ~4% (the panel's drifting light ticks at 12 fps) | ~500 MB |
 | Nobody at the desk for 5 minutes (any outfit) | ~0.1% | ~490 MB |
+
+Memory: Chromium's network service used to be a process of its own, ~53 MB
+resident for the handful of requests he makes. It runs inside main now
+(src/main/lighter.js; `SHELLBY_NETWORK_PROCESS=1` puts it back to compare):
+`idle-cost.js 30 --closed` went from 5 processes and ~537 MB to 4 and
+~485–513 MB, main growing by a few MB. `--js-flags=--optimize-for-size` was
+tried too and changed nothing.
 
 The first row was ~3.4–4.2% before the bats flew in flights and the idle went
 to pixel-art frames (interleaved with the same build minus those, same hour).
@@ -396,6 +405,7 @@ src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits, how he works: src/main/work-pose.js picks the pose) · beats.js (the beats between moods, nodding off and waking, a question left waiting) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
   shared/todos.js  Claude's own to-do list folded from a conversation's items (pure; main and the panel both use it)
   panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · feed-native (messages between agents, skills, memories, the plan card) · native-strip (the to-do list and background tray above the box) · toolbox-automemory · routines-cloud · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · moment-card (one 1200×630 card per moment) · sparkle (the sparkly reveal) · tide (tide events) · social (swaps and eggs) · celebrate · crabonly · workmode · outfitcode · github · boot
+                   its page, panel.html, is built from html/: frame.html (head, title bar, menus, bar, sheets, scripts) plus a file per screen (chat.html, projects.html, settings.html with a file per tab…). Edit those and run `npm run panel:html`; the built file is committed, and test/panel-html.test.js fails when it's stale
                    a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
   shared/          used by more than one window or by tests too: framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)

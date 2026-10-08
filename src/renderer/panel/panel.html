@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Built from html/ by `npm run panel:html` (scripts/panel-html.js). Edit those files, not this one. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1444,6 +1445,8 @@
     <div class="view-head">
       <h2>Settings</h2>
     </div>
+    <input type="search" id="settingsSearch" class="field settings-search" placeholder="Search settings…" aria-label="Search settings" aria-describedby="settingsSearchLine" autocomplete="off" spellcheck="false">
+    <p class="small muted settings-search-line" id="settingsSearchLine" role="status" hidden></p>
     <nav class="seg settings-tabs" id="settingsTabs" role="tablist" aria-label="Settings">
       <button type="button" role="tab" id="setTab-shellby" data-tab="shellby" aria-controls="setPanel-shellby" aria-selected="false" tabindex="-1">Shellby</button>
       <button type="button" role="tab" id="setTab-claude" data-tab="claude" aria-controls="setPanel-claude" aria-selected="false" tabindex="-1">Claude</button>
@@ -2127,6 +2130,14 @@
         <p class="small muted" id="pushToTalkMsg">Tap the shortcut to open Shellby; hold it and say what you need. Windows' own speech recognition does the listening, on this PC. What you said waits in the box for you to send.</p>
       </section>
 
+      <section class="setting-group" id="usesGroup" data-nav="What you use">
+        <h3>What you use</h3>
+        <p class="small muted" id="usesLede">Which screens you open, counted on this PC and never sent anywhere.</p>
+        <p class="uses-top" id="usesTop" hidden></p>
+        <div class="uses-list" id="usesNever" hidden></div>
+        <div class="uses-list" id="usesQuiet" hidden></div>
+      </section>
+
       <section class="setting-group about" data-nav="About">
         <h3>About</h3>
         <dl class="facts" id="facts"></dl>
@@ -2472,6 +2483,7 @@
 <script src="wf-save.js"></script>
 <script src="workflows.js"></script>
 <script src="settings-text.js"></script>
+<script src="settings-search-logic.js"></script>
 <script src="notes.js"></script>
 <script src="settings.js"></script>
 <script src="settings-account.js"></script>
@@ -2512,6 +2524,7 @@
 <script src="outlook.js"></script>
 <script src="crabonly.js"></script>
 <script src="rooms.js"></script>
+<script src="uses.js"></script>
 <script src="quests.js"></script>
 <script src="workmode.js"></script>
 <script src="outfitcode.js"></script>
@@ -2538,6 +2551,7 @@
 <script src="social.js"></script>
 <script src="friends.js"></script>
 <script src="nav.js"></script>
+<script src="settings-search.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

@@ -396,6 +396,8 @@
       const turnId = this.lastTurnId;
       const fork = turnId && item.anchor ? h('button', { class: 'meta-branch', type: 'button', title: 'Branch from here: a new tab that carries on from this reply, leaving this one as it is', onclick: () => SB.openBranch(this, turnId, 'after') }, SB.forkIcon(), 'branch') : null;
       const cost = item.cost?.line ? item.cost : null;
+      // Each helper's part goes on its own lane (turncost.js helperCosts).
+      for (const c of item.cost?.helpers || []) this.lanes.get(c.id)?.setCost(c);
       this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}${cost ? ' has-cost' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null },
         h('span', { text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }), fork));
       // What the turn cost (src/main/turncost.js): the context chip's menu scrolls back to it.
