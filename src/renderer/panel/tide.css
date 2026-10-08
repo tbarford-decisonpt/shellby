@@ -35,7 +35,6 @@
 .ev-left.urgent { background: var(--coral); animation: ev-pulse 2.4s steps(2, jump-none) infinite; }
 .finished .ev-left { background: var(--amber); }
 .ev-twist { margin: 10px 0 0; font-size: var(--fs-12-5); color: var(--sand); }
-.ev-twist::before { content: '🌊 '; }
 .ev-progress { margin: 6px 0 0 42px; font-size: var(--fs-12); color: var(--sand-dim); }
 .ev-next { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--reef); font-size: var(--fs-12-5); color: var(--sand-dim); }
 .ev-next b { color: var(--sand); }

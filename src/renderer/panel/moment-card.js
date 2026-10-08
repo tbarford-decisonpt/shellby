@@ -27,6 +27,7 @@
     const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     for (let i = 0; i < n; i++) {
       const x = rnd() * W, y = rnd() * (H - 80), s = 2 + Math.floor(rnd() * 3);
+      if (x > 500 && x < W - 30 && y > 90 && y < 500) continue; // never over the words
       ctx.fillStyle = i % 3 ? 'rgba(255,255,255,.55)' : accent;
       ctx.fillRect(x, y - s, s / 2 + 1, s * 2 + 1);
       ctx.fillRect(x - s, y, s * 2 + 1, s / 2 + 1);

@@ -70,6 +70,7 @@ const SUITE = [
   'e2e-team',         // team packs in throwaway repos: noticed, listed, snippets scoped to the repo, Make a team pack
   'e2e-statusline',   // the Claude Code status line, with an isolated status file and settings.json
   'e2e-card',         // the crab card: Share, the preview, the 1200x630 PNG, the Show-Off trophy
+  'e2e-tides',        // tide events pinned to The Haunting: the banner, the event bug and finds, the sparkly reveal, shiny and medal cards
   'ui-regressions',   // closing the last tab, themed tooltips, no native titles
   'titlebar-fit',     // the title bar fits at every width in every mode
 ];

@@ -86,7 +86,7 @@
       eyebrow: `${m.emoji} Tide event medal`, title: name, sub: 'Every goal, while it was on.',
       art: { pixels: m.medal?.pixels || m.pixels, palette: m.medal?.palette || m.palette }, accent: '#ffc15e', glints: true,
       badge: 'Only this year’s, for good',
-      stats: (m.goals || []).length ? [['goals', `${m.goals.length}/${m.goals.length}`], ['days left', String(m.daysLeft ?? 0)]] : [],
+      stats: (m.goals || []).length ? [['goals', `${m.goals.length}/${m.goals.length}`], ['days to spare', String(m.daysLeft ?? 0)]] : [],
     }, {
       title: `${name} medal`,
       alt: `The ${name} medal, a pixel emblem on a starry card`,

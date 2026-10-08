@@ -21,8 +21,8 @@
   function share(r) {
     const what = r.kind === 'bug' ? 'bug' : 'find';
     SB.momentCard.share('shiny', {
-      eyebrow: `✨ A sparkly ${what}`, title: r.name, sub: oddsLine(r), art: { pixels: r.pixels, palette: r.palette },
-      accent: '#fff1a8', glints: true, badge: `1 in ${r.odds}`,
+      eyebrow: `✨ A sparkly ${what}`, title: r.name, sub: `${r.kind === 'bug' ? 'Fixed by Claude, jarred' : 'Dug up'} ${day(r.at)}`, art: { pixels: r.pixels, palette: r.palette },
+      accent: '#fff1a8', glints: true,
       stats: [['odds', `1/${r.odds}`], [r.kind === 'bug' ? 'bugs before it' : 'finds before it', r.after.toLocaleString()], ['his level', `Lv ${r.level}`]],
     }, {
       title: `A sparkly ${r.name}`,
