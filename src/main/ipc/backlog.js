@@ -4,10 +4,12 @@
 // a repository it listed, an item by the id the last list gave it, a task line
 // by the number it was shown at. Main looks each one up before using it.
 // No . or .. as an owner or name (as github/prwork.js): GitHub has neither, and they'd walk an API path.
-const ID_RE = /^(?:t:[0-9a-f]{10}(?:~\d{1,3})?|gh:(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}#)[A-Za-z0-9_.-]{1,100}#\d{1,9}|todo:[^\0\r\n]{1,1100}:\d{1,7})$/;
+const ID_RE = /^(?:t:[0-9a-f]{10}(?:~\d{1,3})?|gh:(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}#)[A-Za-z0-9_.-]{1,100}#\d{1,9}|todo:[^\0\r\n]{1,1100}:\d{1,7}|se:\d{1,20})$/;
 const REPO_RE = /^(?!\.{1,2}\/)[A-Za-z0-9_.-]{1,100}\/(?!\.{1,2}$)[A-Za-z0-9_.-]{1,100}$/;
 const WORKFLOW_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const TO = new Set(['now', 'next', 'later']);
+const SENTRY_OPS = new Set(['connect', 'link', 'unlink', 'snooze', 'disconnect']);
+const SLUG_RE = /^[a-z0-9][a-z0-9_.-]{0,99}$/i;
 
 const isRoot = r => typeof r === 'string' && r.length > 0 && r.length < 1000;
 const isId = id => typeof id === 'string' && ID_RE.test(id);
@@ -54,6 +56,20 @@ function registerBacklogIpc(ipcMain, d) {
     if (!p) return no;
     if (raw.show === true) return d.backlogHide({ ...p, show: true });
     return isId(raw.id) ? d.backlogHide({ ...p, id: raw.id }) : no;
+  });
+  // Sentry: the token only ever goes this way (panel to main), and never back.
+  ipcMain.handle('backlog:sentry', (_e, raw = {}) => {
+    if (!SENTRY_OPS.has(raw.op)) return no;
+    if (raw.op === 'disconnect') return d.backlogSentry({ op: 'disconnect' });
+    if (raw.op === 'connect') {
+      return typeof raw.token === 'string' && raw.token.length < 600 && (raw.url === undefined || (typeof raw.url === 'string' && raw.url.length < 300))
+        ? d.backlogSentry({ op: 'connect', token: raw.token.trim(), url: raw.url || '' }) : no;
+    }
+    if (!isRoot(raw.root)) return no;
+    if (raw.op !== 'link') return d.backlogSentry({ root: raw.root, op: raw.op });
+    if (raw.slug === null) return d.backlogSentry({ root: raw.root, op: 'link', slug: null });
+    const isSlug = s => typeof s === 'string' && SLUG_RE.test(s);
+    return isSlug(raw.org) && isSlug(raw.slug) ? d.backlogSentry({ root: raw.root, op: 'link', org: raw.org, slug: raw.slug }) : no;
   });
   ipcMain.handle('backlog:commit', (_e, raw = {}) => (isRoot(raw.root) ? d.backlogCommit({ root: raw.root }) : no));
   ipcMain.handle('backlog:hand', (_e, raw = {}) => (typeof raw.workflowId === 'string' && WORKFLOW_ID_RE.test(raw.workflowId)

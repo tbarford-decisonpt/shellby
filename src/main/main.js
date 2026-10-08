@@ -31,6 +31,7 @@ const { wireBugdex } = require('./wiring/bugdex');
 const { wireTimetrack } = require('./wiring/timetrack');
 const { wireCrabApi } = require('./wiring/crab-api');
 const { wireChannels } = require('./wiring/channels');
+const { wireDeck } = require('./wiring/deck');
 const { wirePhoneTasks } = require('./wiring/phone-tasks');
 const { wireSurroundings } = require('./wiring/surroundings');
 const { wireToolbox } = require('./wiring/toolbox');
@@ -41,6 +42,7 @@ const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireStartFrom } = require('./wiring/startfrom');
 const { wireBacklog } = require('./wiring/backlog');
+const { wireSentry } = require('./wiring/sentry');
 const { wireNotes } = require('./wiring/notes');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { wireTray } = require('./wiring/tray');
@@ -147,7 +149,7 @@ const shared = {
   // ---- made at boot
   config: null, history: null, skins: null, wardrobe: null, manager: null, toolbox: null, shop: null,
   health: null, external: null, github: null, ci: null, issues: null, updates: null, friends: null,
-  profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null,
+  profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null, timeSync: null,
   workflows: null,                 // the Automate page's engine (workflows/service.js)
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude-update.js)
@@ -157,6 +159,7 @@ const shared = {
   teamIpc: null,                   // Toolbox → Team: the repo's .shellby/team.json (team-ipc.js)
   lean: null,                      // Lean Shell: the prompt cache, setup weight and idle tools (lean.js)
   obsServer: null, rgbClient: null, presence: null, media: null, remote: null, channelSecret: null,
+  deck: null, deckShown: null,     // the Stream Deck keys, and the conversation they follow (see deck.js)
   dictation: null, ptt: null,      // push-to-talk: hold the hotkey and say the task (see dictation.js)
   motion: null,                    // throws and strolls (see motion.js)
   perching: null,                  // up on your windows (see perching.js)
@@ -269,6 +272,7 @@ const { createExternal, createHealth, createTimeTracker, stat } = share(wireTime
 const { createCrabApi } = share(wireCrabApi(shared));
 const { channelPlace, channelSettings, confirmChannelPlace, createObs, createRemote, loadChannelSecret } = share(wireChannels(shared));
 const { createPhoneTasks } = share(wirePhoneTasks(shared));
+const { createDeck } = share(wireDeck(shared));
 const {
   createDictation, createLifeAndPlay, createMedia, createPresence, createRgb, createTypingAlong, createWeather, ensureOpenRgb, rgbSettings,
 } = share(wireSurroundings(shared));
@@ -279,6 +283,7 @@ share(wireSnippets(shared));
 const { createDepWatch, createProjects, createWorkflows } = share(wireProjects(shared));
 const { onDeepLink } = share(wirePacks(shared));
 share(wireStartFrom(shared));
+share(wireSentry(shared)); // new production errors on Next up, once Sentry is connected
 share(wireBacklog(shared)); // Next up on each project's page (docs/plans/next-up.md)
 share(wireNotes(shared)); // the Notes page: ideas per project and General, run as Plan, Build or Ask
 const { createClaudeUpdates } = share(wireClaudeUpdates(shared));
@@ -368,6 +373,7 @@ app.whenReady().then(() => {
   // stay silently "on" and send nothing.
   confirmChannelPlace().catch(e => log.warn('channel confirm failed', e.message));
   createObs();
+  createDeck(); // the Stream Deck keys, if they're on
   createRgb();
   if (rgbSettings().enabled) ensureOpenRgb().catch(err => log.warn('OpenRGB could not be started', err?.message)); // lighting on: start OpenRGB if it isn't running
   createWeather();

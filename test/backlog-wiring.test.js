@@ -219,6 +219,35 @@ test('Do this on an issue: the Issue helper\'s copy from main on GitHub, the bod
   } finally { s.done(); }
 });
 
+test('Fix this error: a Sentry error in a copy from main on GitHub, its stack fenced, and the draft pull request says Fixes', async () => {
+  const s = setup();
+  try {
+    const { bl, d, calls } = shared(s, { issues: [] });
+    const error = { id: '4815162342', shortId: 'CRAB-7', title: 'TypeError: x is undefined', culprit: 'src/a.js', url: 'https://acme.sentry.io/issues/4815162342/', level: 'error', substatus: 'new', count: 12, users: 3, firstSeen: Date.now() - 60000, lastSeen: Date.now(), unhandled: true };
+    d.sentryFor = async () => ({ state: 'ok', errors: [error], project: 'acme/crab' });
+    d.sentryDetails = async () => ({ stack: ['TypeError: x is undefined', '  at go (src/a.js:3)'], tags: [['release', 'crab@1.0.0']], mcp: true });
+    const v = await bl.backlogView({ root: s.dir });
+    assert.equal(v.sentry.project, 'acme/crab');
+    const it = v.items.find(i => i.kind === 'error');
+    assert.equal(it.id, 'se:4815162342');
+    assert.equal(it.tier, 'now');
+    const r = await bl.backlogDo({ root: s.dir, id: it.id });
+    assert.equal(r.ok, true, r.error);
+    assert.match(r.warn, /read it before sending/);
+    const st = calls.started[0];
+    assert.equal(st.draft, true, 'it waits in the box');
+    assert.match(st.w.branch, /^shellby\/sentry-crab-7-[0-9a-f]{6}$/);
+    assert.match(st.prompt, /that Sentry caught: "TypeError: x is undefined" \(CRAB-7/);
+    assert.match(st.prompt, /<stack-trace>\nTypeError: x is undefined\n {2}at go \(src\/a\.js:3\)\n<\/stack-trace>/);
+    assert.match(st.prompt, /Sentry's MCP server is set up/);
+    assert.match(st.prompt, /started from main as GitHub has it/);
+
+    const pr = await bl.backlogOpenPr(r.tabId);
+    assert.equal(pr.ok, true, pr.error);
+    assert.match(calls.prs[0].body, /Fixes CRAB-7/);
+  } finally { s.done(); }
+});
+
 test('Do this on a loose end quotes the lines around it, in a copy', async () => {
   const s = setup();
   try {

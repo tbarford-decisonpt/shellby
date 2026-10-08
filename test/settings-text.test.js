@@ -91,6 +91,17 @@ test('cliStatus is ready only when installed and listening', () => {
   assert.deepEqual(T.cliStatus({ available: true, installed: false }), { text: '', tone: '' });
 });
 
+test('deckStatus says whether the Stream Deck is listening, or what is in the way', () => {
+  const on = { status: 'listening', port: 47915, installed: true, connected: 0 };
+  assert.deepEqual(T.deckStatus({ ...on, connected: 1 }), { text: 'Stream Deck is connected.', tone: 'ok' });
+  assert.equal(T.deckStatus(on).text, 'Add the keys to start.');
+  assert.equal(T.deckStatus({ ...on, added: true }).text, 'Waiting for Stream Deck.');
+  assert.equal(T.deckStatus({ ...on, installed: false }).tone, 'warn');
+  assert.equal(T.deckStatus({ ...on, status: 'busy' }).text, 'Another app is using port 47915.');
+  assert.equal(T.deckStatus({ ...on, error: 'Nope.' }).text, 'Nope.');
+  assert.equal(T.deckStatus({ status: 'off', installed: true }).text, '');
+});
+
 test('obsStatus counts connected sources', () => {
   assert.deepEqual(T.obsStatus({ status: 'listening', viewers: 1 }), { text: '1 source connected.', tone: 'ok' });
   assert.equal(T.obsStatus({ status: 'listening' }).text, 'Waiting for OBS to connect.');

@@ -34,6 +34,7 @@ function wireQuit(d) {
     d.usageService.stop(); // the reset tap
     d.repeating.forEach(clearInterval);
     d.remote?.shutdown();
+    d.deck?.stop();
     d.dictation?.stop();
     d.media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
     if (d.PRIMARY && !d.CAPTURE) crashReport.endRun(d.LOG_DIR); // quit on purpose: nothing to report next time

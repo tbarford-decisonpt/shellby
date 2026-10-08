@@ -1,6 +1,7 @@
 // The world around him: Claude Code sessions elsewhere, PC health, telling you
-// when you're away (channels.js), the stream overlay (obs.js), desk lighting
-// (rgb.js), your Discord profile (discord.js), music, typing, the weather, the shellby command and the crab card.
+// when you're away (channels.js), the stream overlay (obs.js), the Stream Deck
+// keys (deck.js), desk lighting (rgb.js), your Discord profile (discord.js),
+// music, typing, the weather, the shellby command and the crab card.
 // Kept out of main.js, which only wires it up.
 const { app, clipboard, ClipboardItem, nativeImage, shell } = require('electron');
 const fs = require('fs');
@@ -103,6 +104,11 @@ function registerSurroundingsIpc(ipcMain, d) {
     if (next.enabled) { d.obsServer.port = next.port; d.obsServer.start(); }
     return d.obsView();
   });
+
+  // ---- the Stream Deck keys (deck.js)
+  ipcMain.handle('deck:get', () => d.deckView());
+  ipcMain.handle('deck:set', (_e, patch) => d.setDeck(patch && typeof patch === 'object' ? patch : {}));
+  ipcMain.handle('deck:add', () => d.addToStreamDeck());
 
   // ---- the desk lighting (rgb.js)
   ipcMain.handle('rgb:get', () => d.rgbView());
