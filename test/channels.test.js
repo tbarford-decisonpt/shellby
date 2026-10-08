@@ -347,3 +347,78 @@ test('queued-task results are on by default, and can be turned off', () => {
   const old = { ...s, events: { asking: true, done: true } };
   assert.equal(normalizeChannelSettings(old).events.queue, true);
 });
+
+// ------------------------------------------------------------------ when it doesn't go
+
+const { DeliveryLog, plainDeliveryError, FAILS_BEFORE_TOAST, RETRY_CAP_MS } = require('../src/main/channels');
+
+const reqFor = () => ({ url: 'https://ntfy.sh/x', method: 'POST', headers: {}, body: '' });
+const answers = list => {
+  const seen = [];
+  return { seen, fetchImpl: async () => { seen.push(1); return list.shift(); } };
+};
+const busy = (status, { header = null, body = '' } = {}) => ({
+  ok: false, status, headers: { get: k => (k === 'retry-after' ? header : null) }, text: async () => body,
+});
+
+test('a permission prompt gets one more go when the server is busy, after the wait it asks for', async () => {
+  const { seen, fetchImpl } = answers([busy(429, { header: '7' }), { ok: true, status: 200 }]);
+  const waited = [];
+  const r = await deliver(reqFor(), { retry: true, fetchImpl, wait: async ms => { waited.push(ms); } });
+  assert.deepEqual(r, { ok: true });
+  assert.equal(seen.length, 2);
+  assert.deepEqual(waited, [7000]);
+});
+
+test('the retry waits at most 30 seconds, reads Telegram\'s retry_after, and happens once', async () => {
+  const waited = [];
+  const wait = async ms => { waited.push(ms); };
+  const { seen, fetchImpl } = answers([busy(429, { header: '3600' }), busy(429, { header: '3600' })]);
+  const r = await deliver(reqFor(), { retry: true, fetchImpl, wait });
+  assert.equal(r.ok, false);
+  assert.equal(seen.length, 2, 'one retry, not a loop');
+  await deliver(reqFor(), { retry: true, wait, fetchImpl: answers([busy(429, { body: JSON.stringify({ ok: false, error_code: 429, parameters: { retry_after: 4 } }) }), { ok: true }]).fetchImpl });
+  await deliver(reqFor(), { retry: true, wait, fetchImpl: answers([busy(503), { ok: true }]).fetchImpl });
+  assert.deepEqual(waited, [RETRY_CAP_MS, 4000, 3000]);
+  assert.equal(RETRY_CAP_MS, 30_000);
+});
+
+test('no retry for anything else: other events, or a server that said no', async () => {
+  let { seen, fetchImpl } = answers([busy(503), { ok: true }]);
+  assert.equal((await deliver(reqFor(), { fetchImpl, wait: async () => {} })).status, 503);
+  assert.equal(seen.length, 1, 'not asked to retry');
+  ({ seen, fetchImpl } = answers([busy(401), { ok: true }]));
+  assert.equal((await deliver(reqFor(), { retry: true, fetchImpl, wait: async () => {} })).status, 401);
+  assert.equal(seen.length, 1, 'a 401 will say the same thing again');
+});
+
+test('a failed delivery is said in plain words, never the server\'s own text', () => {
+  assert.equal(plainDeliveryError({ status: 401, error: '401: bad token tk_secret' }, 'telegram'), 'Telegram turned down the token or key.');
+  assert.equal(plainDeliveryError({ status: 429 }, 'ntfy'), 'ntfy said too many, too fast.');
+  assert.equal(plainDeliveryError({ status: 502 }, 'discord'), 'Discord was having trouble (it said 502).');
+  assert.equal(plainDeliveryError({ error: 'timed out' }, 'slack'), 'Slack took too long to answer.');
+  assert.equal(plainDeliveryError({ error: 'getaddrinfo ENOTFOUND ntfy.sh' }, 'ntfy'), "Couldn't reach ntfy. Is this PC online?");
+  assert.doesNotMatch(plainDeliveryError({ status: 400, error: '400: https://hooks.slack.com/services/T/B/x' }, 'slack'), /hooks\.slack/);
+});
+
+test('the last error is kept per destination, cleared by a success, and toasts once at three in a row', () => {
+  const log = new DeliveryLog();
+  const fail = { ok: false, status: 500 };
+  const toasts = [];
+  for (let i = 0; i < 5; i++) toasts.push(log.note('ntfy|a', fail, { provider: 'ntfy', now: 1000 + i }).toast);
+  assert.equal(FAILS_BEFORE_TOAST, 3);
+  assert.deepEqual(toasts, [false, false, true, false, false], 'one toast, at the third');
+  assert.deepEqual(log.view('ntfy|a'), { lastDeliveryError: 'ntfy was having trouble (it said 500).', lastDeliveryErrorAt: 1004 });
+  assert.deepEqual(log.view('ntfy|b'), { lastDeliveryError: null, lastDeliveryErrorAt: null }, 'another destination starts clean');
+  log.note('ntfy|a', { ok: true });
+  assert.deepEqual(log.view('ntfy|a'), { lastDeliveryError: null, lastDeliveryErrorAt: null });
+  const again = [1, 2, 3].map(() => log.note('ntfy|a', fail, { provider: 'ntfy' }).toast);
+  assert.deepEqual(again, [false, false, true], 'a new run of failures can toast again');
+});
+
+test('the view carries the last error and what the listener ran into', () => {
+  const v = view(settingsFor('ntfy', 'shellby-abc'), { delivery: { lastDeliveryError: 'x', lastDeliveryErrorAt: 5 }, listenProblem: 'y' });
+  assert.deepEqual([v.lastDeliveryError, v.lastDeliveryErrorAt, v.listenProblem], ['x', 5, 'y']);
+  const clean = view(settingsFor('ntfy', 'shellby-abc'));
+  assert.deepEqual([clean.lastDeliveryError, clean.lastDeliveryErrorAt, clean.listenProblem], [null, null, null]);
+});

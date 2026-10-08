@@ -30,6 +30,7 @@ const PERCH_BITS_MS = 6000;
  *   toRenderer(kind, info), perchView(view), bit(name, ms), refresh(), dragging(), crew(), capture,
  *   veiled() -> hidden behind a game or the lock screen (main.js veil)
  *   onTop() -> true while he's kept above your apps (desktop-layer.js)
+ *   wanders() -> whether he goes off on his own (motion.js wanders; config wander without it)
  * }
  */
 function createPerching(d) {
@@ -46,7 +47,8 @@ function createPerching(d) {
 
   const self = () => native.hwndOf(d.critter());
   const setting = () => perch.settingOf(d.config.get('perch'));
-  const allowed = () => !d.capture && native.available() && setting() !== 'off' && d.config.get('wander') !== false;
+  const wanders = () => (d.wanders ? d.wanders() : d.config.get('wander') !== false);
+  const allowed = () => !d.capture && native.available() && setting() !== 'off' && wanders();
   const ignore = () => new Set((d.config.get('perchIgnore') || []).filter(x => typeof x === 'string'));
   const ctx = () => ({ ownPids: new Set([process.pid]), ignore: ignore(), geo: d.geo() });
 

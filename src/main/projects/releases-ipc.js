@@ -13,6 +13,7 @@ const rg = require('./release-git');
 const R = require('./releases');
 const mrwork = require('../gitlab/mrwork');
 const { isGitLabHost, tagsUrl } = require('../gitlab/remote');
+const { secretGate } = require('../secret-gate');
 const worktrees = require('../worktrees');
 
 const CI_TTL_MS = 60 * 1000;
@@ -33,6 +34,8 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
   const signedIn = () => !!d.github?.signedIn;
   // Your GitHub sign-in helps a push only to GitHub; any other remote never sees the token.
   const envFor = repo => () => (repo && signedIn() ? d.github.claudeEnv() : {});
+  // Every commit the push would send is looked over for secrets first, as every push is (secret-gate.js).
+  const gate = (root, o) => secretGate(d, root, o);
 
   // Where the clone's origin lives, from what the Projects page read:
   // its GitHub repository ("owner/name"), or { host, path } on a GitLab.
@@ -111,7 +114,7 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
       const r = await rg.cutRelease(root, {
         version: str(o.version, 60), title: str(o.title, 300), notes: str(o.notes, R.NOTES_MAX + 1000),
         head: o.head, push: o.push === true,
-      }, { git, env: envFor(repo) });
+      }, { git, env: envFor(repo), gate });
       if (r.ok && r.pushed) released(root, r.version);
       d.projects.emit?.('change');
       return r;
@@ -124,7 +127,7 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
     const t = R.parseTag(str(tag, 80));
     if (!t) return { ok: false, error: 'That isn\'t a release tag.' };
     return once(root, async () => {
-      const r = await rg.pushRelease(root, { tag: t.tag }, { git, env: envFor(await repoOf(root)) });
+      const r = await rg.pushRelease(root, { tag: t.tag }, { git, env: envFor(await repoOf(root)), gate });
       if (r.ok) released(root, t.version);
       return r;
     });

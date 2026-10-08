@@ -28,6 +28,22 @@ function wireChannels(d) {
   }
   const channelConfirmed = (s = channelSettings()) => d.config.get('channelsConfirmed') === channelPlace(s);
 
+  // What went wrong last, per destination, for Settings; and after three in a
+  // row, one toast at the desk, since the phone is the one place he can't say so.
+  const deliveries = new channels.DeliveryLog();
+
+  /** How a send went (tellChannel, and phone tasks' replies). place: channelPlace() when it was sent. */
+  function noteDelivery(result, settings, place) {
+    const { toast, error } = deliveries.note(place, result, { provider: settings.provider });
+    if (toast) d.notify?.("Your phone isn't getting his messages", `${error} The last few didn't go.`, showPhoneSettings, { action: 'Have a look' });
+  }
+
+  function showPhoneSettings() {
+    d.showPanel({ focusInput: false });
+    d.send(d.panel, 'panel:view', 'settings');
+    d.send(d.panel, 'panel:jump', 'Elsewhere');
+  }
+
   /**
    * After any change: a destination you haven't confirmed is asked about, or
    * switched off. testing: asked for the Test button, which works while it's off
@@ -81,8 +97,14 @@ function wireChannels(d) {
     if (!channelConfirmed(settings)) { d.log.info('channel: destination not confirmed, nothing sent'); return false; }
     const built = channels.buildRequest(settings, d.channelSecret, event);
     if (built.error) { d.log.info(`channel: ${built.error}`); return false; }
-    channels.deliver(built.request)
-      .then(r => { if (!r.ok) d.log.info(`channel: ${r.error}`); onSent(r, built.message); })
+    const place = channelPlace(settings);
+    // A permission prompt gets one more go if the server was busy: he waits on it.
+    channels.deliver(built.request, { retry: event.kind === 'asking' })
+      .then(r => {
+        if (!r.ok) d.log.info(`channel: ${r.error}`);
+        noteDelivery(r, settings, place);
+        onSent(r, built.message);
+      })
       .catch(() => onSent({ ok: false }, built.message));
     return true;
   }
@@ -137,7 +159,10 @@ function wireChannels(d) {
   }
 
   function channelsView() {
-    const v = channels.view(channelSettings(), { hasSecret: !!d.channelSecret });
+    const s = channelSettings();
+    const v = channels.view(s, {
+      hasSecret: !!d.channelSecret, delivery: deliveries.view(channelPlace(s)), listenProblem: d.remote?.trouble?.() || null,
+    });
     return v.subscribeUrl ? { ...v, qr: qrRows(v.subscribeUrl) } : v;
   }
 
@@ -182,7 +207,7 @@ function wireChannels(d) {
 
   return {
     answerPermission, askOnPhone, channelConfirmed, channelPlace, channelSettings, channelsView, confirmChannelPlace,
-    createObs, createRemote, loadChannelSecret, obsSettings, obsState, obsView, saveChannelSecret,
+    createObs, createRemote, loadChannelSecret, noteDelivery, obsSettings, obsState, obsView, saveChannelSecret,
     tellChannel,
   };
 }

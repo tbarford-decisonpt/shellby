@@ -7,7 +7,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { History, MAX_ENTRIES, TRASH_DAYS } = require('../src/main/history');
+const { History: Batched, MAX_ENTRIES, TRASH_DAYS } = require('../src/main/history');
+
+// Most of these are about what lands on disk, so each append goes straight
+// there. The batching itself is tested at the end, with Batched as it is.
+class History extends Batched {
+  append(id, item) { super.append(id, item); this.flush(id); }
+}
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 const transcripts = dir => fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).sort();
@@ -312,4 +318,76 @@ test('turn check verdicts, before/after pictures and try cards are kept, so they
   h.append('c', { kind: 'shots', after: 'abc', url: 'http://localhost:3000/', shots: { before: 'b1', after: 'a1' } });
   h.append('c', { kind: 'tries', runId: 'r1', firstId: 'c', n: 2, rows: [] });
   assert.deepEqual(new History(dir).load('c').map(i => i.kind), ['checks', 'shots', 'tries']);
+});
+
+test('a busy turn is written in one append, in order, and nothing waiting is lost to a read, a rewind or quitting', async () => {
+  const dir = tmp();
+  const h = new Batched(dir, { appendMs: 20 });
+  h.create({ id: 'a', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  const file = path.join(dir, 'a.jsonl');
+  const writes = [];
+  const real = fs.appendFileSync;
+  fs.appendFileSync = (...args) => { writes.push(args[0]); return real(...args); };
+  try {
+    for (let i = 0; i < 5; i++) h.append('a', { kind: 'text', text: `t${i}` });
+    assert.equal(fs.existsSync(file), false, 'held a moment');
+    await new Promise(r => setTimeout(r, 60));
+    assert.deepEqual(writes, [file], 'five items, one write');
+    assert.deepEqual(h.load('a').map(i => i.text), ['t0', 't1', 't2', 't3', 't4']);
+
+    // Read straight away: load() writes what is waiting first.
+    h.append('a', { kind: 'text', text: 't5' });
+    assert.deepEqual(h.load('a').map(i => i.text).slice(-1), ['t5']);
+
+    // A rewind's cut keeps what was waiting before it.
+    h.append('a', { kind: 'text', text: 't6' });
+    const kept = h.load('a').slice(0, 2);
+    h.append('a', { kind: 'text', text: 'late' });
+    h.rewrite('a', kept);
+    assert.deepEqual(h.load('a').map(i => i.text), ['t0', 't1']);
+
+    // Quitting (wiring/quit.js) flushes everything, for every conversation.
+    h.create({ id: 'b', title: 'two', cwd: 'C:/work', mode: 'ask' });
+    h.append('a', { kind: 'text', text: 'last' });
+    h.append('b', { kind: 'user', text: 'hi' });
+    h.flush();
+    const again = new Batched(dir);
+    assert.deepEqual(again.load('a').map(i => i.text), ['t0', 't1', 'last']);
+    assert.deepEqual(again.load('b').map(i => i.text), ['hi']);
+  } finally {
+    fs.appendFileSync = real;
+  }
+});
+
+test('a discarded conversation drops what was waiting instead of writing it back', () => {
+  const dir = tmp();
+  const h = new Batched(dir, { appendMs: 10000 });
+  h.create({ id: 'a', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  h.append('a', { kind: 'text', text: 'gone' });
+  h.remove('a');
+  h.flush();
+  assert.deepEqual(transcripts(dir), []);
+});
+
+test('results and review marks wait a moment and go to the index in one write; flush() writes it at once', async () => {
+  const dir = tmp();
+  const h = new Batched(dir, { indexSaveMs: 30 });
+  h.create({ id: 'a', title: 'one', cwd: 'C:/work', mode: 'ask' });
+  const onDisk = () => JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'))[0];
+  h.update('a', { lastOutcome: 'done' });
+  h.setReady('a', { at: 1 });
+  assert.equal(onDisk().lastOutcome, undefined, 'not yet');
+  await new Promise(r => setTimeout(r, 80));
+  assert.equal(onDisk().lastOutcome, 'done');
+  assert.deepEqual(onDisk().ready, { at: 1 });
+
+  h.update('a', { context: 42 });
+  h.flush();
+  assert.equal(onDisk().context, 42);
+
+  // A rename is something you did: it's written straight away, with anything waiting.
+  h.update('a', { lastOutcome: 'stopped' });
+  h.rename('a', 'Named');
+  assert.equal(onDisk().title, 'Named');
+  assert.equal(onDisk().lastOutcome, 'stopped');
 });

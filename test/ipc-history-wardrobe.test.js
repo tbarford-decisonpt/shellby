@@ -132,7 +132,9 @@ function wardrobeSetup({ skin = 'classic', skins = [{ id: 'classic' }, { id: 'go
     view: () => ({ v: 1 }),
     setVoice: key => ({ ok: key === 'pirate' }),
     wearCode: text => (text === 'SHB-GOOD' ? { ok: true, skin: 'gold' } : text === 'SHB-LOCKED' ? { ok: true, skin: 'secret' } : { ok: false, error: 'bad' }),
-    remove: id => calls.push(['remove', id]),
+    remove: id => { calls.push(['remove', id]); return id === 'mine'; },
+    load: () => calls.push(['load']),
+    emit: ev => calls.push(['emit', ev]),
   };
   registerWardrobeIpc(ipc, {
     wardrobe: () => wardrobe,
@@ -220,12 +222,22 @@ test("Wardrobe: an outfit code's missing items are grouped by the pack that has 
   assert.deepEqual(packsFor(missing, { ok: false }).unknown.length, 3, 'no catalog: every item is unknown');
 });
 
+test('Wardrobe: removing a pack says whether it went, and Undo brings it back', () => {
+  const { ipc, calls } = wardrobeSetup();
+  assert.deepEqual(ipc.invoke('wardrobe:remove-pack', 'mine'), { ok: true, view: { v: 1 } });
+  assert.deepEqual(ipc.invoke('wardrobe:remove-pack', 'builtin'), { ok: false, view: { v: 1 } });
+  assert.deepEqual(ipc.invoke('wardrobe:remove-pack', 5), { ok: false, view: { v: 1 } });
+  assert.equal(ipc.invoke('wardrobe:restore-pack', '../evil').ok, false);
+  assert.equal(ipc.invoke('wardrobe:restore-pack', 'not-in-the-trash').ok, false);
+  assert.ok(!calls.some(c => c[0] === 'load'), 'nothing came back, so nothing reloads');
+});
+
 test('Wardrobe: every channel main used to register is still registered', () => {
   const { ipc } = wardrobeSetup();
   assert.deepEqual(ipc.channels().sort(), [
     'external:clear-background', 'skins:open-folder', 'skins:reload',
     'wardrobe:code', 'wardrobe:code-preview', 'wardrobe:code-wear', 'wardrobe:install', 'wardrobe:install-registry',
-    'wardrobe:open-folder', 'wardrobe:options', 'wardrobe:randomize', 'wardrobe:remove-pack', 'wardrobe:seen',
+    'wardrobe:open-folder', 'wardrobe:options', 'wardrobe:randomize', 'wardrobe:remove-pack', 'wardrobe:restore-pack', 'wardrobe:seen',
     'wardrobe:set-outfit', 'wardrobe:set-voice', 'wardrobe:view', 'wardrobe:wear-season',
   ]);
 });

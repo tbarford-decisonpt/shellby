@@ -30,7 +30,6 @@
   let stepN = 0;
   const lastAt = {};
 
-  const reduced = () => !!root.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const busGain = () => mix.volume / BASE_VOLUME;
 
   // Made the first time something actually plays: a crab with every sound off
@@ -274,7 +273,9 @@
   function cue(name, { strength = 0.5, hit = null, data = null } = {}) {
     const play = CUES[name];
     if (!play || calm) return false;
-    if (!mix.fx || reduced()) return false;
+    // Animations off still plays them: sound isn't motion, and main only sends
+    // a hop or a bump for one that really happened (src/main/motion.js still).
+    if (!mix.fx) return false;
     const now = Date.now();
     if (now - (lastAt[name] || 0) < (MIN_GAP_MS[name] || 0)) return false;
     const ac = audio();
@@ -285,10 +286,11 @@
   }
 
   // ---- scuttling: little clicks for as long as he walks, quicker the faster he goes.
+  // Only while his window really walks: with animations off main doesn't stroll him.
   function scuttle(speed) {
     clearTimeout(stepTimer);
     stepTimer = null;
-    if (!speed || !mix.fx || calm || reduced()) return;
+    if (!speed || !mix.fx || calm) return;
     const gap = Math.max(STEP_MIN_MS, Math.min(STEP_MAX_MS, TICK_MS_PER_SPEED / speed));
     const tick = () => {
       const ac = audio();
@@ -325,7 +327,7 @@
   }
 
   root.ShellbySound = {
-    audio, out, cue, scuttle, setMix, setCalm, tone, noise, reduced,
+    audio, out, cue, scuttle, setMix, setCalm, tone, noise,
     get mix() { return mix; },
     get opened() { return !!ctx; },
     get calm() { return calm; },

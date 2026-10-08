@@ -11,7 +11,8 @@
 // hands it can point the push somewhere else), commits what's left, pushes
 // that branch and nothing else, never with --force, and opens the pull request
 // as a draft. The commit and the push run no hooks: Claude may have just edited
-// a tracked one while working on an issue someone else wrote.
+// a tracked one while working on an issue someone else wrote. What the push
+// sends is looked over for secrets first, `git add -A` and all (secret-gate.js).
 //
 // Everything that touches git or GitHub comes in as deps, so tests run on a
 // real repository with a pretend GitHub (test/pullrequest.test.js).
@@ -74,10 +75,11 @@ async function makeCopy({ repo, slug }, { findRoot, gh, git, create, home, env =
 
 /**
  * Commit what's left in a copy, push its branch and open a pull request.
- *   deps: { gh, git, home, env, web }
- * -> { ok: true, url, number, branch, repo, base, draft } | { ok: false, error }
+ *   deps: { gh, git, home, env, web, gate }
+ *   gate(root, { rev, remote }): the secret scan, null to push on (secret-gate.js)
+ * -> { ok: true, url, number, branch, repo, base, draft } | { ok: false, error, cancelled?, secrets? }
  */
-async function openPullRequest({ folder, title, body = '', draft = true }, { gh, git, home, env = {}, web = 'https://github.com' }) {
+async function openPullRequest({ folder, title, body = '', draft = true }, { gh, git, home, env = {}, web = 'https://github.com', gate = null }) {
   if (!insideHome(folder, home) || !fs.existsSync(folder)) return fail('A pull request can only be opened from a copy Shellby made (a “Make a copy” step).');
   const top = await git(folder, ['rev-parse', '--show-toplevel'], { timeout: 5000 });
   const root = top.ok ? top.out.trim() : '';
@@ -102,6 +104,9 @@ async function openPullRequest({ folder, title, body = '', draft = true }, { gh,
   if (!ahead.ok) return fail(`Couldn't compare the copy with ${base}: ${firstLine(ahead.error)}`);
   if (!Number(ahead.out.trim())) return fail('There\'s nothing to propose: the copy has no changes.');
 
+  // After the commit, so whatever it swept in is looked at too.
+  const stopped = gate ? await gate(root, { rev: `refs/heads/${branch}`, remote: 'origin' }) : null;
+  if (stopped) return stopped;
   const push = await git(root, [...NO_HOOKS, 'push', '--quiet', 'origin', `refs/heads/${branch}:refs/heads/${branch}`], { timeout: PUSH_MS, env });
   if (!push.ok) return fail(`The push didn't go through: ${firstLine(push.error) || 'git refused it.'}`);
 

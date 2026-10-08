@@ -769,6 +769,13 @@ api.onCalm(msg => {
 // screen's: a transparent window pays the GPU for every frame (shared/framecap.js).
 window.ShellbyFrameCap.cap(document);
 
+// ---- Windows' animation effects off: critter.css stills his sprite, and main
+// is told so his window holds still too (no strolls, climbs or flights).
+const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const tellReduced = () => api.reducedMotion?.(reducedQuery.matches);
+reducedQuery.addEventListener?.('change', tellReduced);
+tellReduced();
+
 // ---- his favourite Bugdex catch follows him round the desk, a step behind
 // whichever way he faces, and bobs along faster when he walks.
 const buddyEl = document.getElementById('buddy');

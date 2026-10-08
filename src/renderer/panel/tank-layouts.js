@@ -1,7 +1,10 @@
 /* Shellby panel — his tank's saved layouts (src/main/tank-layouts.js): keep
    the tank under a name, put one up, tag one to a season, forget one. Main
    checks the seasons each time this asks for the list, so opening the Tank
-   tab in a new season is what puts its layout up. Loaded after tank.js. */
+   tab in a new season is what puts its layout up. Putting one up, saving
+   over a name you had and removing one each offer to take it back, in the
+   toast and with Ctrl+Z (SB.tankUndo, shared with his tidying in
+   tank-tidy.js). Loaded after tank.js. */
 'use strict';
 (function () {
   const { h, api, $ } = SB;
@@ -36,6 +39,8 @@
     render();
   }
 
+  // done: the toast to show, or a function of the reply giving it. An
+  // { msg, undo } toast offers to take it back: undo is the button's label.
   async function call(fn, arg, done) {
     if (busy) return null;
     busy = true;
@@ -44,15 +49,27 @@
     if (!r) { SB.toast('Couldn’t do that. Try again in a moment.'); return null; }
     take(r);
     if (!r.ok) { SB.toast(r.error || 'Couldn’t do that.'); return r; }
-    const msg = typeof done === 'function' ? done(r) : done;
-    if (msg) SB.toast(msg);
+    const said = typeof done === 'function' ? done(r) : done;
+    if (said?.undo) {
+      SB.toast(said.msg, { action: said.undo, onAction: undoLast });
+      SB.tankUndo?.offer(undoLast);
+    } else if (said) SB.toast(said);
     return r;
+  }
+
+  function undoLast() {
+    if (SB.tankEditing?.()) { SB.toast('Finish decorating first.'); return null; }
+    SB.tankUndo?.drop(undoLast);
+    return call(api.undoTankLayout, undefined, r => (r.undid === 'use' ? 'The old tank is back.'
+      : r.undid === 'replace' ? `The old “${r.name}” is back.` : `${r.name} is back.`));
   }
 
   $('tkLayoutForm').addEventListener('submit', async e => {
     e.preventDefault();
     const name = $('tkLayoutName').value;
-    const r = await call(api.saveTankLayout, { name }, `Saved as “${name.trim()}”.`);
+    const r = await call(api.saveTankLayout, { name }, r => (r.replaced
+      ? { msg: `Saved over “${name.trim()}”.`, undo: 'Keep the old one' }
+      : `Saved as “${name.trim()}”.`));
     if (r?.ok) $('tkLayoutName').value = '';
   });
 
@@ -63,9 +80,12 @@
     const l = lv.list.find(x => x.id === li.dataset.id);
     if (!l) return;
     if (b.dataset.act === 'use') {
-      call(api.useTankLayout, l.id, r => (r.dropped?.length ? `${l.name} is up. ${plural(r.dropped.length, 'piece')} he doesn’t have here stayed out.` : `${l.name} is up.`));
+      call(api.useTankLayout, l.id, r => ({
+        msg: r.dropped?.length ? `${l.name} is up. ${plural(r.dropped.length, 'piece')} he doesn’t have here stayed out.` : `${l.name} is up.`,
+        undo: 'Put the old one back',
+      }));
     } else if (b.dataset.act === 'remove') {
-      call(api.removeTankLayout, l.id, `${l.name} is gone. The tank stays as it is.`);
+      call(api.removeTankLayout, l.id, { msg: `${l.name} is gone. The tank stays as it is.`, undo: 'Bring it back' });
     }
   });
 

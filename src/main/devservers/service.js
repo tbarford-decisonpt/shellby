@@ -21,6 +21,9 @@ const LOOP_WINDOW_MS = 5 * 60 * 1000;
 const LOOP_CRASHES = 3;
 const STOP_WAIT_MS = 5000;
 const STOP_POLL_MS = 150;
+// A server still running this long after it started is up, whether or not it
+// said where: plenty never print an address Shellby can read.
+const UP_GRACE_MS = 25 * 1000;
 const LIVE = new Set(['starting', 'up']);
 const ON_QUIT = ['keep', 'stop'];
 const MAX_PORTS = 100;
@@ -441,9 +444,9 @@ class DevServers extends EventEmitter {
     for (const line of rt.buf.push(rt.tail.read())) {
       const code = out.exitOf(line);
       if (code !== undefined) { rt.marker = code; sawMarker = true; continue; }
-      if (s.status === 'starting' && s.kind === 'server') {
+      if (s.kind === 'server' && !s.url) {
         const u = out.detectUrl(line);
-        if (u) { Object.assign(s, { status: 'up', port: u.port, url: u.url, upAt: this.now() }); changed = true; }
+        if (u) { Object.assign(s, { status: 'up', port: u.port, url: u.url, upAt: s.upAt || this.now() }); changed = true; }
       }
     }
     if (checkAlive || sawMarker) {
@@ -459,13 +462,20 @@ class DevServers extends EventEmitter {
       // A marker with that cmd still there: it may be on its way out, or
       // the server printed it. Look again shortly; only its absence decides.
       if (sawMarker) setTimeout(() => this.poll(id, { checkAlive: true }), MARKER_RECHECK_MS).unref?.();
+      else if (s.status === 'starting' && s.kind === 'server' && this.livedPastGrace(s)) {
+        Object.assign(s, { status: 'up', upAt: this.now() });
+        changed = true;
+      }
     }
     if (changed) { this.changed(); this.emit('up', this.publicView(s)); }
   }
 
+  // Running long enough to count as up, with or without an address.
+  livedPastGrace(s) { return !!s.startedAt && this.now() - s.startedAt >= UP_GRACE_MS; }
+
   ended(s, code, { quietly = false, unknown = false } = {}) {
     if (s.stopping) return;
-    const neverUp = !s.upAt;
+    const neverUp = !s.upAt && !this.livedPastGrace(s);
     Object.assign(s, { endedAt: this.now(), exitCode: code });
     if (s.kind === 'install') {
       if (code === 0) {

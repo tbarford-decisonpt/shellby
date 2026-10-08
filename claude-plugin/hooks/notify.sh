@@ -6,7 +6,13 @@
 port="${SHELLBY_PORT:-47913}"
 # Shellby leaves this marker while it's listening. Without it, skip instantly:
 # on Windows a refused localhost connection would otherwise cost ~1 s per hook.
-[ -f "${TEMP:-${TMPDIR:-/tmp}}/shellby-hooks-$port" ] || exit 0
+marker="${TEMP:-${TMPDIR:-/tmp}}/shellby-hooks-$port"
+[ -f "$marker" ] || exit 0
+# Shellby touches it every minute, so one older than two was left by a crash:
+# skip just the same. A find that can't run (some other find.exe first on
+# PATH) trusts the marker, as before.
+fresh=$(find "$marker" -mmin -2 2>/dev/null) || fresh=y
+[ -n "$fresh" ] || exit 0
 
 # Which app this session is running in, so the crab can say "shellby in Cursor"
 # instead of just "Claude Code". Only ever a single word from the list below:

@@ -102,7 +102,7 @@ async function launch(mode, profile) {
     await wait(2500);
     await panel.ev("SB.setView('settings')");
     check(await until(panel, "SB.state.updates.state === 'error'"), 'a failed check ends in an error');
-    check(/ERR_INTERNET_DISCONNECTED/.test(await text(panel, 'updateStatus')), 'which says what went wrong');
+    check(/Couldn't reach GitHub/.test(await text(panel, 'updateStatus')), 'which says what went wrong, in plain words');
     check(await text(panel, 'updateBtn') === 'Check for updates', 'the button offers another go');
     check(await panel.ev("document.getElementById('updateDot').hidden"), 'no dot on the gear for a failed check');
     await shot(panel, '3-offline');

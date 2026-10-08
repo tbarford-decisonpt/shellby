@@ -67,6 +67,16 @@ test('after boot: tabs are killed, spending saved, timers cleared', () => {
   assert.ok(order.indexOf('workflows.shutdown') < order.indexOf('manager.closeAll'), 'workflows freeze before their tabs close');
 });
 
+test('history still waiting to be written is flushed, after the tabs have had their last word', () => {
+  const rec = recorder();
+  const d = bareShared(rec);
+  Object.assign(d, { manager: { closeAll: rec.fn('manager.closeAll') }, history: { flush: rec.fn('history.flush') } });
+  quit(d);
+  const order = rec.calls.map(c => c.name);
+  assert.equal(rec.of('history.flush').length, 1);
+  assert.ok(order.indexOf('manager.closeAll') < order.indexOf('history.flush'));
+});
+
 test('"Stop them" stops the dev servers, detached, on any quit', () => {
   const rec = recorder();
   const d = bareShared(rec);
