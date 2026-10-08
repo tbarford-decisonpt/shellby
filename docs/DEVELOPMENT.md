@@ -33,7 +33,7 @@ npm start
 
 ### Crash reports
 
-Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash-report.js` for releases, and `SHELLBY_SENTRY_DSN` for a dev run (point it at a separate Sentry project, or at a local server that records what arrives). With neither, Sentry is never loaded and the **Crash reports** row in Settings stays hidden. To see the "closed unexpectedly" path, end a run from Task Manager and start it again. The run marker is `logs\running.json` in the profile.
+Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash-report.js` for releases, and `SHELLBY_SENTRY_DSN` for a dev run (point it at a separate Sentry project, or at a local server that records what arrives). With neither, Sentry is never loaded and the **Crash reports** row in Settings stays hidden. To see the "closed unexpectedly" path, end a run from Task Manager and start it again. The run marker is `logs\running.json` in the profile. A conversation mid-turn has a mark of its own, `turnOpen` on its entry in `sessions\index.json`: written the moment the turn starts, cleared when it ends. The next start turns any left behind into a "Cut off" note with a Carry on button (`History.takeCutOff`, from wiring/profile.js). End a run from Task Manager while a `wait 30000` turn runs on the fake CLI to see it.
 
 ## Scripts
 

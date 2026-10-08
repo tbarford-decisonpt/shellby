@@ -802,6 +802,8 @@ select.field option { background: var(--reef); }
 /* The note where a conversation went to a terminal, with its way back. */
 .handoff-mark { align-items: center; }
 .handoff-mark .handoff-pick { margin-left: auto; flex: none; }
+.cutoff-mark { align-items: center; border-left-color: var(--coral); }
+.cutoff-mark .cutoff-go { margin-left: auto; flex: none; }
 /* Recently deleted: a quiet way in under the list, a bar on top once inside. */
 .history-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .history-foot .history-note { flex: 1 1 auto; margin: 0; }
