@@ -10,16 +10,17 @@ const repoKey = repo => `github:${repo.toLowerCase()}`;
 const localKey = root => `local:${caseKey(root)}`;
 
 /**
- * local:  [{ root, name, remote: "owner/name" | null, branch }]
+ * local:  [{ root, name, remote: "owner/name" | null, forge: { host, path } | null, branch }]
  * github: [{ repo, private, url, description, pushedAt, archived, fork }]
  * opts:   { hidden: Set(project key), lastWorked: Map(caseKey(root) -> ms), running: Set(caseKey(root)) }
- * -> [{ key, name, github | null, local: [{ root, branch, main }], lastWorkedAt, running }], sorted.
+ * -> [{ key, name, github | null, forge | null, local: [{ root, branch, main }], lastWorkedAt, running }], sorted.
+ * forge: where a project that isn't on GitHub lives (a GitLab project, say), from its clone's origin.
  */
 function merge(local = [], github = [], { hidden = new Set(), lastWorked = new Map(), running = new Set() } = {}) {
   const byKey = new Map();
   const project = key => {
     let p = byKey.get(key);
-    if (!p) { p = { key, name: '', github: null, local: [], lastWorkedAt: 0, running: false }; byKey.set(key, p); }
+    if (!p) { p = { key, name: '', github: null, forge: null, local: [], lastWorkedAt: 0, running: false }; byKey.set(key, p); }
     return p;
   };
 
@@ -38,6 +39,7 @@ function merge(local = [], github = [], { hidden = new Set(), lastWorked = new M
     const repo = checkRepo(l.remote);
     const p = project(repo ? repoKey(repo) : localKey(l.root));
     if (!p.name) p.name = l.name || path.basename(l.root);
+    if (!repo && !p.forge && l.forge?.host && l.forge?.path) p.forge = { host: l.forge.host, path: l.forge.path };
     p.local.push({ root: l.root, branch: l.branch || null, main: false });
     p.lastWorkedAt = Math.max(p.lastWorkedAt, lastWorked.get(caseKey(l.root)) || 0);
     if (running.has(caseKey(l.root))) p.running = true;

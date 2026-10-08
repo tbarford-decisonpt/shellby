@@ -61,8 +61,12 @@
 
   // ------------------------------------------------------------ CI on your pull requests
   const CI_LABEL = { failing: 'Failing', pending: 'Running', passing: 'Passing', none: 'No checks' };
-  function renderCi(v) {
-    if (!v) return;
+  function renderCi(all) {
+    if (!all) return;
+    // GitLab's merge requests share the watcher; Settings → GitLab lists those (gitlab.js).
+    const gh = p => p.forge !== 'gitlab';
+    const v = { ...all, enabled: all.githubEnabled ?? all.enabled, prs: all.prs.filter(gh), reviews: all.reviews.filter(gh) };
+    v.failing = v.prs.filter(p => p.state === 'failing').length;
     $('ghCiRow').hidden = !v.enabled;
     if (!v.enabled) return;
     const n = v.prs.length;
@@ -92,7 +96,7 @@
     renderCi(await api.pollCi());
     $('ghCiCheck').disabled = false;
   });
-  api.onCi(v => renderCi({ ...v, enabled: !!(state.github?.signedIn && state.github.features.ci?.on) }));
+  api.onCi(v => renderCi({ ...v, githubEnabled: !!(state.github?.signedIn && state.github.features.ci?.on) }));
 
   $('ghSignIn').addEventListener('click', async () => {
     $('ghSignIn').disabled = true;

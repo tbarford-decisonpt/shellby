@@ -324,10 +324,15 @@ src/main/        Electron main process
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), finding your own gists (gists.js), and the service tying them together
+  gitlab/          GitLab through the glab CLI (glab.js runs `glab api`, glab keeps the sign-in): which remotes are GitLab
+                   projects (remote.js), the merge request watcher (watcher.js, github/ci.js's twin) and the material for
+                   Fix this build, Address the review and Releases CI (mrwork.js); wiring/gitlab.js ties it in
+  ci-hub.js        GitHub's and GitLab's watchers as the one d.ci everything reads: keys "owner/repo#12" and "group/project!12"
   friends.js       visiting crabs: friends list, drop-ins, guestbook and souvenirs, on top of github/card.js and mail.js
   streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
   startfrom.js     prompts for Fix this build, Address the review and loose ends (pure): log trimming
-                   and redaction, review threads quoted, TODO parsing; github/prwork.js fetches them
+                   and redaction (GitHub Actions logs and GitLab job traces), review threads quoted, TODO parsing;
+                   github/prwork.js and gitlab/mrwork.js fetch them
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   claude-update.js keeps the CLI itself current: the daily registry check, `claude update` on request or by itself while idle, tell | auto | off (fetch and run are injected; wiring/claude-updates.js)

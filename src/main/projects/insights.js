@@ -17,6 +17,16 @@ const WEIGHT = Object.freeze({ down: 5, ci: 4, vulnHigh: 4, vuln: 2, unpushed: 2
 
 const lower = s => String(s || '').toLowerCase();
 const repoOf = p => (p.key.startsWith('github:') ? p.key.slice('github:'.length) : null);
+
+// A project's pull requests on GitHub, or its merge requests on the GitLab its clone points at.
+function prsOf(p, all) {
+  const list = Array.isArray(all) ? all : [];
+  const repo = repoOf(p);
+  if (repo) return list.filter(r => r.forge !== 'gitlab' && lower(r.repo) === repo);
+  const f = p.forge;
+  if (!f?.host || !f.path) return [];
+  return list.filter(r => r.forge === 'gitlab' && lower(r.host) === lower(f.host) && lower(r.repo) === lower(f.path));
+}
 const sum = (list, f) => list.reduce((n, x) => n + (f(x) || 0), 0);
 const maxOf = (list, f) => list.reduce((m, x) => Math.max(m, f(x) || 0), 0);
 
@@ -35,7 +45,7 @@ function inside(dir, root) {
  *   time:     null (tracking off) | { days: [dayKey], projects: [{ key: root, seconds, days: [{ day, seconds }] }] }
  *   deps:     [{ key: root, manager, label, ok, outdatedTotal, vulnTotal, vulns, summary, attention, worst, at, hasTests }]
  *   flaky:    [{ key, root, id, label, week, total, status, retry, lastAt }]
- *   prs:      [{ key, repo, number, title, state, failing, url }]
+ *   prs:      [{ key, repo, number, title, state, failing, url, forge?, host? }]
  *   stickers: [{ root, tierName, ships, marks: [{ icon, name }], art }]
  *   servers:  [{ root, status, port }]
  *   git:      Map(caseKey(root) -> { dirty, unpushed, stashes, copies })  (what's been read so far)
@@ -60,8 +70,7 @@ function insightsFor(p, sources) {
   // The latest check; of a folder's two managers (pnpm and Rust, say), the one that needs something.
   const deps = (s.deps || []).filter(r => own(r.key)).sort((a, b) => (b.at || 0) - (a.at || 0) || !!b.attention - !!a.attention)[0] || null;
   const flaky = (s.flaky || []).filter(r => own(r.root) && r.status !== 'fixed').slice(0, MAX_FLAKY);
-  const repo = repoOf(p);
-  const prs = repo ? (s.prs || []).filter(r => lower(r.repo) === repo).slice(0, MAX_PRS) : [];
+  const prs = prsOf(p, s.prs).slice(0, MAX_PRS);
   const sticker = (s.stickers || []).find(x => own(x.root)) || null;
   const servers = (s.servers || []).filter(x => own(x.root));
   const gits = roots.map(r => s.git?.get(caseKey(r))).filter(Boolean);

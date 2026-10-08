@@ -32,7 +32,7 @@ Every workflow can also be run by hand, so "when" may be empty.
 
 Triggers:
 - { "type": "schedule", "schedule": { "type": "daily", "time": "HH:MM" } | { "type": "weekly", "time": "HH:MM", "days": [0-6, 0=Sunday] } | { "type": "interval", "everyHours": 1-168 } | { "type": "minutes", "every": 5-1440 } }
-- { "type": "ci", "on": "failed"|"fixed"|"passed"|"merged"|"review"|"any", "repo": "owner/name" or "" }  data: event, repo, number, title, url, branch, failing
+- { "type": "ci", "on": "failed"|"fixed"|"passed"|"merged"|"review"|"any", "repo": "owner/name" (or "group/project" on GitLab) or "" }  data: event, forge ("github"|"gitlab"), ref ("owner/name#12" or "group/project!12"), repo, number, title, url, branch, failing
 - { "type": "issue", "on": "assigned"|"labelled"|"any", "repo": "owner/name" or "" }  (a GitHub issue assigned to them or labelled shellby) data: event, reasons, repo, number, title, body, labels, author, url
 - { "type": "shipped", "kind": "push"|"deploy"|"release"|"merge"|"any", "project": "" }  data: kind, project, version
 - { "type": "task", "outcome": "ok"|"error"|"any" }  (a Shellby task finished) data: title, outcome, folder, error

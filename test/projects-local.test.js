@@ -49,7 +49,7 @@ test('readRepo: root, name, GitHub remote and branch', async () => {
   const t = tree();
   try {
     const dir = t.repo('site');
-    assert.deepEqual(await local.readRepo(dir, fakeGit()), { root: path.resolve(dir), name: 'site', remote: 'me/site', branch: 'main' });
+    assert.deepEqual(await local.readRepo(dir, fakeGit()), { root: path.resolve(dir), name: 'site', remote: 'me/site', forge: null, branch: 'main' });
     assert.equal(await local.readRepo(path.join(t.base), fakeGit()), null);
     assert.equal(await local.readRepo('\\\\server\\share\\x', fakeGit()), null, 'never a network share');
     assert.equal(await local.readRepo('relative\\path', fakeGit()), null);

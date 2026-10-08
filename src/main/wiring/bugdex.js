@@ -679,6 +679,10 @@ function wireBugdex(d) {
   }
 
   async function ciProject(pr) {
+    if (pr.forge === 'gitlab') {
+      const root = await d.gitlabCloneOf?.(pr.host, pr.repo);
+      return root ? project(root) : null;
+    }
     const want = String(pr.repo || '').toLowerCase();
     const repos = d.projects ? await d.projects.localRepos().catch(() => []) : [];
     const root = repos.find(r => r.remote && r.remote.toLowerCase() === want)?.root;

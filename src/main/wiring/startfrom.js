@@ -2,6 +2,8 @@
 // and "Address the review" on your pull requests, and "Do this" on a loose end
 // in a project. Kept out of main.js, which only wires it up.
 //
+// Merge requests on GitLab work the same way, through glab (gitlab/mrwork.js).
+//
 // The pull request ones go the crashed-server way: the panel is shown the
 // exact prompt first, and Send carries that prompt's hash, so what's sent is
 // what you read or nothing. They work in a copy of the clone on this PC
@@ -13,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const startfrom = require('../startfrom');
 const prwork = require('../github/prwork');
+const mrwork = require('../gitlab/mrwork');
 const worktrees = require('../worktrees');
 
 const DRAFT_TTL_MS = 10 * 60 * 1000;  // what GitHub said, kept while the sheet is open
@@ -31,13 +34,28 @@ function wireStartFrom(d) {
   const claudeReady = () => !d.config.get('crabOnly') && !!d.claudeStatus?.installed && !!d.claudeStatus?.loggedIn;
   const web = () => d.githubEndpoints().web;
 
-  // Only pull requests the CI watcher found: yours, open, on GitHub.
+  // Only pull requests the CI watcher found: yours, open, on GitHub (or merge requests on GitLab).
   const knownPr = key => (typeof key === 'string' && d.ci ? d.ci.view().prs.find(p => p.key === key) : null) || null;
+  const onGitLab = pr => pr?.forge === 'gitlab';
+  const refOf = pr => pr.ref || `${pr.repo}#${pr.number}`;
 
-  async function cloneOf(repo) {
+  async function cloneOf(pr) {
     if (!d.projects) return null;
-    const want = String(repo).toLowerCase();
+    if (onGitLab(pr)) return (await d.gitlabCloneOf?.(pr.host, pr.repo)) || null;
+    const want = String(pr.repo).toLowerCase();
     return (await d.projects.localRepos()).find(r => r.remote && r.remote.toLowerCase() === want)?.root || null;
+  }
+
+  // What GitLab said, through glab, in the shapes GitHub's answers have.
+  async function gitlabMaterial(kind, pr) {
+    const gl = d.gitlabApi(pr.host);
+    const mr = { host: pr.host, projectId: pr.projectId, number: pr.number, repo: pr.repo };
+    const data = kind === 'build' ? await mrwork.failingBuild(gl, mr) : await mrwork.reviewThreads(gl, mr);
+    if (data.error) return data;
+    // Your commits are the ones under your emails: GitLab ties no commit to an account.
+    const who = await mrwork.myEmails(gl);
+    const changes = await mrwork.mrChanges(gl, mr, who);
+    return { ...data, risk: startfrom.prRisks({ ...changes, login: who.me, headSha: data.pull.sha, forge: 'gitlab' }) };
   }
 
   // What GitHub said for this pull request, fetched once per sheet (a note
@@ -46,6 +64,11 @@ function wireStartFrom(d) {
     const id = `${kind}:${pr.key}`;
     const hit = fetched.get(id);
     if (!fresh && hit && Date.now() - hit.at < DRAFT_TTL_MS) return hit.data;
+    if (onGitLab(pr)) {
+      const full = await gitlabMaterial(kind, pr);
+      if (!full.error) fetched.set(id, { at: Date.now(), data: full });
+      return full;
+    }
     const gh = d.github.gh();
     const data = kind === 'build'
       ? await prwork.failingBuild(gh, { repo: pr.repo, number: pr.number, web: web() })
@@ -64,44 +87,56 @@ function wireStartFrom(d) {
    * -> { ok, prompt, hash, title, where, url, ...facts } | { ok: false, error, needsClone? }
    */
   async function draft({ kind, key, note = '', fresh = false }) {
-    if (!d.github?.signedIn) return { ok: false, error: 'Sign in with GitHub first (Settings → GitHub).' };
     const pr = knownPr(key);
+    if (onGitLab(pr)) {
+      if (!d.gitlabOn?.()) return { ok: false, error: 'Turn on GitLab in Settings → GitLab first.' };
+    } else if (!d.github?.signedIn) return { ok: false, error: 'Sign in with GitHub first (Settings → GitHub).' };
     if (!pr) return { ok: false, error: 'Shellby isn\'t watching that pull request any more.' };
-    const root = await cloneOf(pr.repo);
-    if (!root) return { ok: false, needsClone: true, repo: pr.repo, error: `${pr.repo} isn't cloned on this PC. Clone it from the Projects page first, so Claude has somewhere to work.` };
+    const root = await cloneOf(pr);
+    if (!root) {
+      return onGitLab(pr)
+        ? { ok: false, error: `${pr.repo} isn't cloned on this PC. Clone it from ${pr.host}, then add it on the Projects page, so Claude has somewhere to work.` }
+        : { ok: false, needsClone: true, repo: pr.repo, error: `${pr.repo} isn't cloned on this PC. Clone it from the Projects page first, so Claude has somewhere to work.` };
+    }
     const m = await material(kind, pr, fresh);
     if (m.error) return { ok: false, error: m.error };
-    const facts = { repo: pr.repo, number: pr.number, title: m.pull.title || pr.title, url: pr.url };
+    const forge = onGitLab(pr) ? 'gitlab' : 'github';
+    const facts = { repo: pr.repo, number: pr.number, title: m.pull.title || pr.title, url: pr.url, forge };
     const copy = { headRef: m.pull.headRef, headRepo: m.pull.headRepo };
     // The checks to tick go in the hash too: a different list is a different draft.
     const ack = startfrom.needsAck(m.risk) ? m.risk : null;
     const sign = prompt => hashOf(`${prompt}\n${JSON.stringify(ack)}`);
-    const base = { ok: true, kind, key, where: root, url: pr.url, branch: m.pull.headRef, risk: ack };
+    const base = { ok: true, kind, key, forge, where: root, url: pr.url, branch: m.pull.headRef, risk: ack };
     if (kind === 'build') {
-      const log = m.log ? startfrom.trimLog(m.log) : null;
+      const log = m.log ? startfrom.trimLog(m.log, { format: forge }) : null;
       const shown = log?.lines.length ? log : null;
       const why = shown ? '' : m.why || 'it was empty';
       const prompt = startfrom.buildPrompt({ pr: facts, job: m.job, log: shown, why, note, copy });
-      return { ...base, prompt, hash: sign(prompt), title: `Fix the build on ${pr.repo}#${pr.number}`, job: m.job.name, step: m.job.step, jobUrl: m.job.url, logShown: !!shown, why };
+      return { ...base, prompt, hash: sign(prompt), title: `Fix the build on ${refOf(pr)}`, job: m.job.name, step: m.job.step, jobUrl: m.job.url, logShown: !!shown, why };
     }
     const threads = startfrom.openThreads(m.threads);
-    if (!threads.length) return { ok: false, error: `Every review comment on ${pr.repo}#${pr.number} is resolved.` };
+    if (!threads.length) return { ok: false, error: `Every review comment on ${refOf(pr)} is resolved.` };
     const prompt = startfrom.reviewPrompt({ pr: facts, threads, resolvedKnown: m.resolvedKnown, note, copy });
-    return { ...base, prompt, hash: sign(prompt), title: `Address the review on ${pr.repo}#${pr.number}`, comments: threads.length, resolvedKnown: m.resolvedKnown };
+    return { ...base, prompt, hash: sign(prompt), title: `Address the review on ${refOf(pr)}`, comments: threads.length, resolvedKnown: m.resolvedKnown };
   }
 
   // The pull request's head in the clone, to start the copy from: exactly the
   // commit the sheet's checks were made against, never whatever was pushed
-  // since. Fetched as refs/pull/N/head, which GitHub keeps for forks' too.
+  // since. Fetched as refs/pull/N/head, which GitHub keeps for forks' too
+  // (GitLab's is refs/merge-requests/N/head, fetched with your own git sign-in).
   async function prStart(root, pr, sha) {
-    if (!/^[0-9a-f]{40}$/.test(String(sha))) return { ok: false, error: "GitHub didn't say which commit that pull request is on." };
-    const ref = `refs/remotes/origin/shellby-pr/${pr.number}`;
-    const got = await worktrees.git(root, ['fetch', '--quiet', '--no-tags', 'origin', `+refs/pull/${pr.number}/head:${ref}`], { timeout: 120000, env: d.github.claudeEnv() });
+    const gitlab = onGitLab(pr);
+    const name = gitlab ? 'GitLab' : 'GitHub';
+    const what = gitlab ? 'merge request' : 'pull request';
+    if (!/^[0-9a-f]{40}$/.test(String(sha))) return { ok: false, error: `${name} didn't say which commit that ${what} is on.` };
+    const ref = `refs/remotes/origin/shellby-${gitlab ? 'mr' : 'pr'}/${pr.number}`;
+    const from = gitlab ? `refs/merge-requests/${pr.number}/head` : `refs/pull/${pr.number}/head`;
+    const got = await worktrees.git(root, ['fetch', '--quiet', '--no-tags', 'origin', `+${from}:${ref}`], { timeout: 120000, env: gitlab ? {} : d.github.claudeEnv() });
     // Offline, or the fetch was refused: the commit may be here already.
     if ((await worktrees.git(root, ['cat-file', '-e', `${sha}^{commit}`], { timeout: 5000 })).ok) return { ok: true, start: sha };
     return got.ok
-      ? { ok: false, stale: true, error: 'The pull request has changed since Shellby looked. Check it again, then send.' }
-      : { ok: false, error: `Couldn't get the pull request's branch from GitHub: ${firstLine(got.error) || 'git refused.'}` };
+      ? { ok: false, stale: true, error: `The ${what} has changed since Shellby looked. Check it again, then send.` }
+      : { ok: false, error: `Couldn't get the ${what}'s branch from ${name}: ${firstLine(got.error) || 'git refused.'}` };
   }
 
   /**
