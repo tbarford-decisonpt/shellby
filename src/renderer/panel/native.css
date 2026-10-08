@@ -36,7 +36,9 @@
   font-size: var(--fs-12); animation: fadein .18s var(--ease-out);
 }
 .job-title { margin: 0 0 4px; }
-.job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+/* However many Claude starts, the tray stays a strip: past this it scrolls. */
+.job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 196px; overflow-y: auto; }
+.job-fold { margin: 4px 0 0 22px; }
 .job-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .job-icon { flex: none; width: 14px; text-align: center; color: var(--amber); }
 .job.done .job-icon { color: var(--glass); }
@@ -48,7 +50,7 @@
 .job-state { flex: none; font: var(--fs-11) var(--font-mono); font-stretch: 88%; font-variant-numeric: tabular-nums; color: var(--sand-dim); }
 .job.failed .job-state { color: var(--danger); }
 .job-row .slim-btn { height: 24px; flex: none; }
-.job-summary { margin: 2px 0 0 22px; }
+.job-summary { margin: 2px 0 0 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-out {
   margin: 4px 0 2px 22px; max-height: 160px; overflow: auto; padding: 6px 8px; border-radius: var(--r-sm);
   background: var(--abyss); border: 1px solid var(--line-soft);

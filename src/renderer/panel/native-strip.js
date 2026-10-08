@@ -12,6 +12,7 @@
   const KEEP_FINISHED_MS = 2 * 60 * 1000; // a finished command stays in the tray this long
   const OUTPUT_EVERY_MS = 2000;           // an open output refreshes this often while it runs
   const OPEN_UP_TO = 6;                   // a list this short starts open
+  const FOLD_FINISHED_OVER = 3;           // more finished commands than this fold into one line
 
   // ------------------------------------------------------------ to-dos
 
@@ -93,7 +94,7 @@
         h('span', { class: 'job-state', dataset: { since: String(j.startedAt) }, text: statusText(j, now) }),
         j.hasOutput ? h('button', { class: 'btn ghost slim-btn', type: 'button', 'aria-expanded': String(!!o), onclick: () => toggleOutput(tab, j) }, o ? 'Hide output' : 'Output') : null,
         stopBtn),
-      j.status !== 'running' && j.summary ? h('div', { class: 'job-summary muted small', text: j.summary }) : null,
+      j.status !== 'running' && j.summary && j.summary !== j.description ? h('div', { class: 'job-summary muted small', title: j.summary, text: j.summary }) : null,
       o ? (o.error ? h('p', { class: 'job-out err', role: 'alert', text: o.error })
         : h('pre', { class: 'job-out', tabindex: '0', 'aria-label': `Output of ${j.description}` }, o.cut ? h('span', { class: 'muted', text: '… the start is cut off\n' }) : null, o.text ?? 'Reading…')) : null);
   }
@@ -109,12 +110,22 @@
     for (const [key, o] of outputs) if (!list.some(j => `${tab?.id}:${j.id}` === key)) { clearInterval(o.timer); outputs.delete(key); }
     if (!list.length) { box.replaceChildren(); stopTicker(); return; }
     const running = list.filter(j => j.status === 'running').length;
+    // Past a few, the finished ones fold into one line so the tray doesn't push the feed off screen.
+    const finished = list.length - running;
+    const folds = finished > FOLD_FINISHED_OVER;
+    const shown = folds && !tab.jobsOpen ? list.filter(j => j.status === 'running') : list;
     // Keep any output the reader has scrolled, rather than jumping it back to the top on every redraw.
     const scrolls = new Map([...box.querySelectorAll('pre.job-out')].map(p => [p.getAttribute('aria-label'), p.scrollTop]));
-    box.replaceChildren(
+    const listScroll = box.querySelector('.job-list')?.scrollTop;
+    box.replaceChildren(...[
       h('div', { class: 'job-title muted small' },
         running ? `Running in the background (${running}) · Claude is told when each one finishes` : 'Finished in the background'),
-      h('ul', { class: 'job-list' }, list.map(j => jobRow(tab, j, now))));
+      shown.length ? h('ul', { class: 'job-list' }, shown.map(j => jobRow(tab, j, now))) : null,
+      folds ? h('button', { class: 'link-btn job-fold small', type: 'button', 'aria-expanded': String(!!tab.jobsOpen),
+        onclick: () => { tab.jobsOpen = !tab.jobsOpen; renderJobs(tab); } },
+      tab.jobsOpen ? 'Hide the finished ones' : `${finished} finished · show`) : null].filter(Boolean)); // replaceChildren writes a null out as text
+    const ul = box.querySelector('.job-list');
+    if (ul && listScroll) ul.scrollTop = listScroll;
     for (const p of box.querySelectorAll('pre.job-out')) {
       const at = scrolls.get(p.getAttribute('aria-label'));
       p.scrollTop = at ?? p.scrollHeight; // a fresh one shows its newest lines
