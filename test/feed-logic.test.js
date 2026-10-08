@@ -165,3 +165,11 @@ test('quizResult: all right, a pass, and a nudge to read the diff', () => {
   assert.match(F.quizResult(2, 3), /^2 of 3 right\. Worth a look/);
   assert.match(F.quizResult(0, 3), /read through the diff/);
 });
+
+test("a helper's lane shows its share of the window once known, and says what it spent", () => {
+  const fmt = { compact: n => `${Math.round(n / 1000)}k`, duration: ms => `${ms / 1000}s` };
+  assert.equal(F.laneMeta({ toolUses: 2, tokens: 12000, share: '~2%' }, 3000, fmt), '2 tools · 12k tok · ~2% · 3s');
+  assert.equal(F.laneCostTitle({ tokens: 9000, read: 40000, shareText: '~2%' }, fmt.compact), 'This helper sent and wrote 9k new tokens, and re-read 40k from the prompt cache.\nAbout 2% of your 5-hour window (an estimate).');
+  assert.equal(F.laneCostTitle({ tokens: 9000, read: 0, shareText: '<1%' }, fmt.compact), 'This helper sent and wrote 9k new tokens.\nUnder 1% of your 5-hour window (an estimate).');
+  assert.equal(F.laneCostTitle(null, fmt.compact), '');
+});

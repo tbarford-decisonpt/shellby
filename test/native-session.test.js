@@ -214,3 +214,19 @@ test("the manager's summary and the crab's rollup carry to-dos, jobs and plannin
   assert.equal(agg.state, 'idle', 'a command left running is not him working');
   tab.session.close();
 });
+
+test("a turn's cost splits out what each helper spent, by the Agent call that sent it", async () => {
+  const { s, items } = makeSession();
+  s.send('team');
+  await result(s);
+  const r = items.find(i => i.kind === 'result');
+  assert.equal(r.cost.helpers?.length, 1, 'one helper, both its answers counted together');
+  const [scout] = r.cost.helpers;
+  assert.equal(scout.id, 'tu_scout');
+  assert.equal(scout.tokens, 2 * 2500, "the helper's two calls: input and output, not the cache reads");
+  assert.equal(scout.read, 2 * 6000);
+  assert.ok(scout.weight > 0 && scout.weight < r.cost.weight, 'part of the turn, not all of it');
+  assert.ok(r.cost.tokens > scout.tokens, "the main thread's own calls are in the turn too");
+  assert.match(turncost.costLine(r.cost), /\(helpers 5k\)/);
+  s.close();
+});

@@ -154,11 +154,12 @@ function tokensOf(u) {
 
 // What one API call cost, for the usage-by-project ledger (spend.js). Claude Code
 // sends one assistant event per content block, each repeating the message's id
-// and usage, so callers count each id once (session.js).
+// and usage, so callers count each id once (session.js). parent: the Agent call
+// a helper's call was made under, or null for the main thread's own.
 function spendFrom(ev) {
   const m = ev?.type === 'assistant' ? ev.message : null;
   if (!m || typeof m.id !== 'string' || !m.usage || typeof m.usage !== 'object') return null;
-  return { messageId: m.id, model: typeof m.model === 'string' ? m.model : null, usage: m.usage };
+  return { messageId: m.id, model: typeof m.model === 'string' ? m.model : null, usage: m.usage, parent: typeof ev.parent_tool_use_id === 'string' ? ev.parent_tool_use_id : null };
 }
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);

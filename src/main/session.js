@@ -482,7 +482,10 @@ class ClaudeSession extends EventEmitter {
     this.counted.delete(s.messageId);
     this.counted.set(s.messageId, weight);
     if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
-    if (this.turn) this.turn.weight += weight - before;
+    if (this.turn) {
+      this.turn.weight += weight - before;
+      if (s.parent) this.helperOf(s.parent).weight += weight - before;
+    }
     this.emit('spend', { messageId: s.messageId, weight: weight - before });
   }
 
@@ -491,19 +494,32 @@ class ClaudeSession extends EventEmitter {
   countTurnTokens(s) {
     const turn = this.turn;
     turn.usages.set(s.messageId, turncost.mergeUsage(turn.usages.get(s.messageId), s.usage));
+    if (s.parent) {
+      const helper = this.helperOf(s.parent);
+      helper.usages.set(s.messageId, turn.usages.get(s.messageId));
+    }
     const { fresh } = turncost.tokensOf([...turn.usages.values()]);
     if (fresh <= turn.tokens) return;
     turn.tokens = fresh;
     this.emit('tokens', fresh);
   }
 
+  // What one helper (by the Agent call that sent it) has spent this turn.
+  helperOf(parent) {
+    const helpers = this.turn.helpers ||= new Map();
+    if (!helpers.has(parent)) helpers.set(parent, { usages: new Map(), weight: 0 });
+    return helpers.get(parent);
+  }
+
   // The turn's cost goes on its result, so History keeps it with the turn.
-  // Helpers' calls count too: they spend from the same window.
+  // Helpers' calls count too: they spend from the same window. Each helper's
+  // part is kept beside it, for its lane.
   closeTurn(item) {
     const turn = this.turn;
     this.turn = null;
     if (!turn) return;
-    const cost = turncost.turnCost({ usages: [...turn.usages.values()], weight: turn.weight, effort: turn.effort, thinking: item.thinkingTokens }, this.context);
+    const helpers = [...(turn.helpers || [])].map(([id, x]) => ({ id, usages: [...x.usages.values()], weight: x.weight }));
+    const cost = turncost.turnCost({ usages: [...turn.usages.values()], weight: turn.weight, effort: turn.effort, thinking: item.thinkingTokens, helpers }, this.context);
     if (cost) item.cost = cost;
     this.growths = turncost.addGrowth(this.growths, turn.before, this.context?.tokens);
   }
@@ -664,7 +680,7 @@ class ClaudeSession extends EventEmitter {
     if (this.busy) throw new Error('Shellby is still working on the last task.');
     this.setBusy(true);
     // effort: what this turn thinks at, for its cost line ('' is Claude Code's own default).
-    this.turn = { usages: new Map(), weight: 0, tokens: 0, before: this.context?.tokens ?? null, effort: this.effort || '' };
+    this.turn = { usages: new Map(), helpers: new Map(), weight: 0, tokens: 0, before: this.context?.tokens ?? null, effort: this.effort || '' };
     // No conversation yet: its first call will show the setup weight. A prompt
     // with an image can't be sized, so that one isn't measured (-1).
     if (!this.sessionId && !this.proc) this.setupChars = eff.promptChars(content) ?? -1;

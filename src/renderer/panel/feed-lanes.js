@@ -69,6 +69,14 @@
       this.tick();
     }
 
+    // What it spent, once its turn has ended (the result's cost.helpers): its
+    // tokens counted the way the turn's line counts them, so the two agree.
+    setCost(c) {
+      this.stats = { ...this.stats, tokens: c.tokens || this.stats?.tokens, share: c.shareText || null };
+      this.meta.title = F.laneCostTitle(c, SB.compact);
+      this.tick();
+    }
+
     reopen(replay) {
       this.el.classList.remove('done', 'failed', 'stopped');
       this.el.classList.add('running');

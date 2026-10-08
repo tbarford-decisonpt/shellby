@@ -104,7 +104,9 @@ test('normalize tolerates junk from disk', () => {
 
 test('spendFrom reads an assistant message id, model and usage', () => {
   const ev = { type: 'assistant', message: { id: 'msg_1', model: 'claude-opus-5-5', usage: { input_tokens: 3, output_tokens: 9 }, content: [] } };
-  assert.deepEqual(spendFrom(ev), { messageId: 'msg_1', model: 'claude-opus-5-5', usage: { input_tokens: 3, output_tokens: 9 } });
+  assert.deepEqual(spendFrom(ev), { messageId: 'msg_1', model: 'claude-opus-5-5', usage: { input_tokens: 3, output_tokens: 9 }, parent: null });
+  // A helper's call says which Agent call it was made under.
+  assert.equal(spendFrom({ ...ev, parent_tool_use_id: 'tu_scout' }).parent, 'tu_scout');
   assert.equal(spendFrom({ type: 'user', message: ev.message }), null);
   assert.equal(spendFrom({ type: 'assistant', message: { id: 'msg_2' } }), null);
   assert.equal(spendFrom(null), null);

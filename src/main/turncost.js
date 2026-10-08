@@ -61,19 +61,42 @@ function windowShare({ weight, windowWeight, windowPct }) {
 }
 
 /**
+ * What each helper (subagent) spent of a turn: [{ id, tokens, read, weight }],
+ * costliest first, where id is the Agent call that sent it. helpers:
+ * [{ id, usages, weight }]. Their calls are in the turn's own totals too.
+ */
+function helperCosts(helpers) {
+  return (Array.isArray(helpers) ? helpers : [])
+    .map(x => ({ id: typeof x?.id === 'string' ? x.id : '', ...tokensOf(x?.usages), weight: num(x?.weight) }))
+    .filter(x => x.id && (x.fresh || x.read))
+    .map(({ id, fresh, read, weight }) => ({ id, tokens: fresh, read, weight }))
+    .sort((a, b) => b.weight - a.weight || b.tokens - a.tokens);
+}
+
+/**
  * What one turn cost, as the result item carries it, or null for a turn that
  * made no calls (a local command, one stopped before it started).
- * turn: { usages, weight }; context: the conversation's reading after it.
+ * turn: { usages, weight, helpers? }; context: the conversation's reading after it.
  */
 function turnCost(turn, context) {
   const { fresh, read } = tokensOf(turn?.usages);
   if (!fresh && !read) return null;
+  const helpers = helperCosts(turn?.helpers);
   return {
     tokens: fresh, read, weight: num(turn?.weight), share: null, contextPct: Number.isFinite(context?.pct) ? context.pct : null,
     // How hard it was asked to think ('' is Claude Code's own default), and how much it did.
     effort: EFFORT_NAMES[turn?.effort] ? turn.effort : '',
     thinking: Number.isFinite(turn?.thinking) && turn.thinking >= 0 ? turn.thinking : null,
+    ...(helpers.length ? { helpers } : {}),
   };
+}
+
+/** The helpers' part of a turn: { tokens, share } added up, or null with none. */
+function helpersTotal(cost) {
+  const list = Array.isArray(cost?.helpers) ? cost.helpers : [];
+  if (!list.length) return null;
+  const shares = list.map(x => x.share).filter(Number.isFinite);
+  return { tokens: list.reduce((n, x) => n + num(x.tokens), 0), share: shares.length ? shares.reduce((a, b) => a + b, 0) : null, count: list.length };
 }
 
 const EFFORT_NAMES = { '': 'auto', low: 'low', medium: 'medium', high: 'high', xhigh: 'extra high', max: 'max' };
@@ -109,12 +132,13 @@ function compact(n) {
 /** A share of the window in words: "<1%", "~3%". Always "~": it's an estimate. */
 const shareText = pct => (!Number.isFinite(pct) ? null : pct < 1 ? '<1%' : `~${Math.round(pct)}%`);
 
-/** "this turn: 18k tokens · ~3% of your 5-hour window · 41% of context" */
+/** "this turn: 18k tokens (helpers 12k) · ~3% of your 5-hour window · 41% of context" */
 function costLine(cost) {
   if (!cost) return '';
   const share = shareText(cost.share);
+  const helpers = helpersTotal(cost);
   return [
-    `this turn: ${compact(cost.tokens)} tokens`,
+    `this turn: ${compact(cost.tokens)} tokens${helpers ? ` (helpers ${compact(helpers.tokens)})` : ''}`,
     share ? `${share} of your 5-hour window` : null,
     Number.isFinite(cost.contextPct) ? `${cost.contextPct}% of context` : null,
   ].filter(Boolean).join(' · ');
@@ -126,8 +150,17 @@ function costDetail(cost) {
   return [
     `${cost.tokens.toLocaleString('en-GB')} new tokens: what this turn sent and Claude wrote.`,
     cost.read ? `Plus ${compact(cost.read)} re-read from the prompt cache, at a tenth of the price.` : null,
+    helpersLine(cost),
     Number.isFinite(cost.share) ? 'The share of your 5-hour window is an estimate: Claude Code only says how full the window is, and Claude used outside Shellby fills it too.' : null,
   ].filter(Boolean).join('\n');
+}
+
+// "2 helpers: 12k of those tokens, ~2% of your 5-hour window. Each helper's lane shows what it spent."
+function helpersLine(cost) {
+  const t = helpersTotal(cost);
+  if (!t) return null;
+  const share = shareText(t.share);
+  return `${t.count === 1 ? 'A helper' : `${t.count} helpers`}: ${compact(t.tokens)} of those tokens${share ? `, ${share} of your 5-hour window` : ''}. ${t.count === 1 ? 'Its lane shows what it spent.' : "Each helper's lane shows what it spent."}`;
 }
 
 const PROMPT_CHARS = 60;
@@ -210,7 +243,7 @@ function nudge(context, growths) {
 }
 
 module.exports = {
-  mergeUsage, tokensOf, windowShare, turnCost, compact, shareText, costLine, costDetail, effortBadge,
+  mergeUsage, tokensOf, windowShare, turnCost, helperCosts, helpersTotal, compact, shareText, costLine, costDetail, effortBadge,
   turnsOf, topTurns, tabTotal, addGrowth, turnsLeft, nudge,
   SOON_PCT, SOON_TURNS, RECENT_TURNS, TOP_TURNS,
 };
