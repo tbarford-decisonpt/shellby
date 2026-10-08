@@ -4,10 +4,12 @@
    remote-logic.js decides what each step says. */
 'use strict';
 (function () {
-  const { h, api, $ } = SB;
+  const { h, api, state, $ } = SB;
   const L = window.ShellbyRemoteLogic;
 
   let view = null;
+  // Off on a PC that can't run Windows' ssh agent: never suggested, and ssh asks instead.
+  const useAgent = () => state.settings?.sshAgent !== false;
   let browsing = null;          // { alias, dir, here, folders, error, loading }
   const working = new Map();    // alias -> what's running ("Installing…")
   const removing = new Set();   // aliases whose Remove was pressed once
@@ -19,8 +21,17 @@
 
   // ---------------------------------------------------------------- actions
 
+  // Use Windows' ssh agent on this PC, or do without it (remembered here, never synced).
+  async function setAgentUse(on) {
+    const r = await api.setSettings({ sshAgent: on });
+    state.settings = r.settings;
+    render();
+    SB.toast(on ? "Shellby will suggest Windows' ssh agent again." : "Doing without the ssh agent. Shellby asks for your key's passphrase when ssh needs it.", { ms: 6000 });
+  }
+
   // Runs one step's action for a computer, then shows how it went.
   async function act(alias, action) {
+    if (action.id === 'agent-skip' || action.id === 'agent-use') return setAgentUse(action.id === 'agent-use');
     if (working.has(alias)) return;
     const say = {
       check: 'Connecting…',
@@ -43,7 +54,9 @@
     } finally {
       working.delete(alias);
     }
-    if (r && !r.ok && r.error) SB.toast(r.error, { ms: 6000 });
+    // Can't turn it on here (no administrator, say): it isn't needed, so offer to stop asking.
+    if (action.id === 'agent-on' && r && !r.ok) SB.toast(`${r.error || "Windows' ssh agent didn't start."} You don't need it: Shellby can ask for your passphrase instead.`, { ms: 9000, action: 'Do without it', onAction: () => setAgentUse(false) });
+    else if (r && !r.ok && r.error) SB.toast(r.error, { ms: 6000 });
     else if (action.id === 'sign-in' && r?.ok) SB.toast("Sign in in the terminal that opened, then press Check again here.", { ms: 7000 });
     else if (action.id === 'setup-key' && r?.ok) SB.toast(`${r.created ? 'Made a key and put' : 'Put your key'} on ${alias}: no more password.`, { ms: 6000 });
     else if (action.id === 'agent-on' && r?.ok) SB.toast("Windows' ssh agent is on. Unlock your key once and ssh stops asking.", { ms: 6000 });
@@ -120,7 +133,7 @@
 
   function card(c) {
     const busy = working.get(c.alias);
-    const stepRows = L.steps({ ...c, busy: c.busy || !!busy }, { agent: view.agent, keys: view.keys }).map(s => h('li', { class: `rc-step ${s.state}` },
+    const stepRows = L.steps({ ...c, busy: c.busy || !!busy }, { agent: view.agent, keys: view.keys, useAgent: useAgent() }).map(s => h('li', { class: `rc-step ${s.state}` },
       h('span', { class: 'rc-mark', 'aria-hidden': 'true', text: MARK[s.state] || '' }),
       h('span', { class: 'rc-text', text: s.state === 'busy' && busy ? busy : s.text }),
       ...s.actions.map(a => h('button', { type: 'button', class: `btn slim-btn${a.id === 'check' ? ' ghost' : ''}`, text: a.label, disabled: !!busy, onclick: () => act(c.alias, a) }))));
@@ -155,13 +168,18 @@
     const chosen = jump.value;
     jump.replaceChildren(h('option', { value: '', text: 'Nothing: reach it directly' }), ...view.jumps.map(a => h('option', { value: a, text: a })));
     jump.value = view.jumps.includes(chosen) ? chosen : '';
-    const ag = L.agentLine(view.agent, view.keys);
+    const ag = L.agentLine(view.agent, view.keys, { useAgent: useAgent() });
     $('rcAgent').hidden = !view.keys.length && !view.computers.length;
     $('rcAgentText').textContent = ag.text;
     $('rcAgentBtn').hidden = !ag.action;
     if (ag.action) {
       $('rcAgentBtn').textContent = ag.action.label;
       $('rcAgentBtn').onclick = () => act(null, ag.action);
+    }
+    $('rcAgentSkip').hidden = !ag.skip;
+    if (ag.skip) {
+      $('rcAgentSkip').textContent = ag.skip.label;
+      $('rcAgentSkip').onclick = () => act(null, ag.skip);
     }
     SB.remoteChanged?.(view); // first run's remote path (onboarding.js)
   }

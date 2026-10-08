@@ -266,9 +266,10 @@
       { icon: '🏖️', title: 'Shellby: beach', sub: 'A sandcastle for every project you’ve shipped', keys: 'beach sandcastle castles shipped projects tide streak snapshot share', run: go('beach') },
       { icon: '🙈', title: 'Play hide and seek', sub: 'He hides behind your windows', keys: 'game play hide seek', run: () => SB.play('hide') },
       { icon: '🎾', title: 'Play fetch', sub: 'Throw him a pebble', keys: 'game play fetch ball throw', run: () => SB.play('fetch') },
-      claude() && (SB.isWorkMode?.()
-        ? { icon: '🦀', title: 'Leave Work mode', sub: 'Everything back as it was', keys: 'work mode off crab pet lively', run: () => SB.setWorkMode(false) }
-        : { icon: '🛠️', title: 'Work mode', sub: 'The tools up front, and a quiet crab', keys: 'work mode quiet calm developer tools focus', run: () => SB.setWorkMode(true) }),
+      claude() && SB.isWorkMode?.() && { icon: '🦀', title: 'Leave Work mode', sub: 'Everything back as it was', keys: 'work mode off crab pet lively switch', run: () => SB.switchMode('claude') },
+      ...SB.MODES.filter(m => m.id !== SB.modeNow() && !(m.id === 'claude' && SB.isWorkMode())).map(m => ({
+        icon: m.icon, title: `Mode: ${m.title}`, sub: m.sub, keys: `mode switch change ${m.id} work quiet calm developer tools focus crab pet lively claude`, run: () => SB.switchMode(m.id),
+      })),
       claude() && { icon: '💬', title: 'Chat', sub: 'Give Shellby a task', keys: 'home task conversation', run: go('chat') },
       claude() && { icon: '➕', title: 'New conversation', sub: 'A fresh tab, in the usual folder', keys: 'tab chat', shortcut: 'newTab', run: () => { SB.setView('chat'); SB.newTab(); } },
       claude() && { icon: '🧰', title: 'Toolbox', sub: 'Skills, agents, commands, MCP servers, mods, hooks and memory', keys: 'tools mcp mods plugins hooks memory claude.md', run: go('toolbox') },

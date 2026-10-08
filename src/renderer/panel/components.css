@@ -354,7 +354,7 @@ body.reordering .tab-edge { pointer-events: none; }
 .seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--r); background: var(--abyss); border: 1px solid var(--line-soft); }
 .seg button { flex: 1; height: 28px; border: 0; border-radius: 7px; background: none; color: var(--sand-dim); font-size: var(--fs-12-5); font-weight: 700; }
 .seg button:hover { color: var(--sand); }
-.seg button[aria-selected="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
+.seg button[aria-selected="true"], .mode-seg button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 .seg .n { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); margin-left: 3px; }
 .tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 /* A grid item is as wide as its longest unbreakable line by default: one long name would widen every row. */

@@ -89,4 +89,24 @@ function behaviour(settings) {
 /** behaviour() for anything holding a config (or a stand-in with get). */
 const behaviourOf = config => behaviour({ workMode: config?.get('workMode'), crabOnly: config?.get('crabOnly') });
 
-module.exports = { PRESET, KEYS, DOCK, isOn, overridesOf, effective, valueOf, write, behaviour, behaviourOf };
+// Shellby's three modes, for the one switch between them (his right-click
+// menu, the tray, Ctrl+K and Settings): Claude Code with a lively crab, Work
+// mode, or just the crab.
+const MODE_IDS = Object.freeze(['claude', 'work', 'crab']);
+
+/** Which of the three is on. */
+function modeOf(settings) {
+  if (settings?.crabOnly) return 'crab';
+  return isOn(settings) ? 'work' : 'claude';
+}
+
+/**
+ * Leaving just the crab for a mode with tasks needs Claude Code first: here
+ * and signed in, or on another computer. status: the Claude status (installed, loggedIn).
+ */
+function needsSetup(settings, status, id) {
+  if (id === 'crab' || !settings?.crabOnly || settings?.claudeElsewhere) return false;
+  return !(status?.installed && status?.loggedIn);
+}
+
+module.exports = { PRESET, KEYS, DOCK, MODE_IDS, modeOf, needsSetup, isOn, overridesOf, effective, valueOf, write, behaviour, behaviourOf };

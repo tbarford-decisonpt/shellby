@@ -116,3 +116,15 @@ test('config: get() sees Work mode, the file keeps your own', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('the three modes, and when leaving just the crab needs Claude Code set up first', () => {
+  assert.equal(workmode.modeOf({}), 'claude');
+  assert.equal(workmode.modeOf({ workMode: true }), 'work');
+  assert.equal(workmode.modeOf({ workMode: true, crabOnly: true }), 'crab');
+  const ready = { installed: true, loggedIn: true };
+  assert.equal(workmode.needsSetup({ crabOnly: true }, {}, 'work'), true);
+  assert.equal(workmode.needsSetup({ crabOnly: true }, ready, 'claude'), false);
+  assert.equal(workmode.needsSetup({ crabOnly: true, claudeElsewhere: true }, {}, 'claude'), false);
+  assert.equal(workmode.needsSetup({ crabOnly: true }, {}, 'crab'), false);
+  assert.equal(workmode.needsSetup({}, {}, 'work'), false);
+});

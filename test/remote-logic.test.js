@@ -17,10 +17,17 @@ test('a computer not looked at yet offers Connect', () => {
   assert.deepEqual(s.actions.map(a => a.id), ['check']);
 });
 
-test('a refused sign-in offers the agent while a passphrase key is locked', () => {
+test('a refused sign-in with a locked key: type the passphrase first, the agent only as an extra', () => {
   const c = { alias: 'sandbox', check: { ok: false, kind: 'remote-auth', message: 'no' } };
   const keys = [{ name: 'sandbox_key', locked: true, loaded: false }];
-  assert.deepEqual(L.steps(c, { agent: { state: 'stopped' }, keys })[0].actions.map(a => a.id), ['agent-on', 'setup-key', 'check']);
+  const off = L.steps(c, { agent: { state: 'stopped' }, keys })[0].actions;
+  assert.deepEqual(off.map(a => a.id), ['check', 'agent-on', 'setup-key']);
+  assert.equal(off[0].label, 'Type my passphrase');
+  // A PC that can't run the agent: never suggested, even when it happens to be running.
+  assert.deepEqual(L.steps(c, { agent: { state: 'stopped' }, keys, useAgent: false })[0].actions.map(a => a.id), ['check', 'setup-key']);
+  assert.deepEqual(L.steps(c, { agent: { state: 'running' }, keys, useAgent: false })[0].actions.map(a => a.id), ['check', 'setup-key']);
+  // No agent installed at all: nothing to turn on.
+  assert.deepEqual(L.steps(c, { agent: null, keys })[0].actions.map(a => a.id), ['check', 'setup-key']);
   const on = L.steps(c, { agent: { state: 'running' }, keys })[0].actions;
   assert.deepEqual(on.map(a => a.id), ['unlock', 'setup-key', 'check']);
   assert.equal(on[0].key, 'sandbox_key');
@@ -57,7 +64,14 @@ test('busy shows one step that says so', () => {
 
 test('the agent line', () => {
   const locked = [{ name: 'sandbox_key', locked: true, loaded: false }];
-  assert.equal(L.agentLine({ state: 'stopped', startType: 'disabled' }, locked).action.id, 'agent-on');
+  const off = L.agentLine({ state: 'stopped', startType: 'disabled' }, locked);
+  assert.equal(off.action.id, 'agent-on');
+  assert.equal(off.skip.id, 'agent-skip');
+  assert.match(off.text, /asks for your key's passphrase/);
+  const without = L.agentLine({ state: 'stopped' }, locked, { useAgent: false });
+  assert.match(without.text, /Not used on this PC/);
+  assert.equal(without.action.id, 'agent-use');
+  assert.equal(without.skip, undefined);
   assert.equal(L.agentLine({ state: 'stopped' }, []).action, null);
   const on = L.agentLine({ state: 'running' }, [{ name: 'a', loaded: true }, ...locked]);
   assert.match(on.text, /holding a/);
