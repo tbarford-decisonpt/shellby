@@ -34,7 +34,7 @@
     }
     Object.assign(tab, {
       title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy, busySince: summary.busySince ?? (summary.busy ? tab.busySince : null),
-      turnTokens: summary.turnTokens ?? tab.turnTokens ?? 0,
+      turnTokens: summary.turnTokens ?? tab.turnTokens ?? 0, plan: summary.plan || null,
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
       unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
       worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
