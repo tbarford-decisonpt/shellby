@@ -449,6 +449,11 @@ contextBridge.exposeInMainWorld('shellby', {
   bugdexCue: fire('bugdex:cue'),
   onBugBattles: on('bugdex:battles'),
   onBugdexGift: on('bugdex:gift'),
+  // tide events and sparkly finds (events.js, gifts.js): the banner, a finished event, a sparkly reveal
+  getEvents: invoke('events:get'),
+  onEvents: on('events'),
+  onEventFinished: on('events:finished'),
+  onSparkle: on('sparkle:reveal'),
   // the flaky test detective (flaky.js)
   getFlaky: invoke('flaky:get'),
   flakyAct: invoke('flaky:act'),

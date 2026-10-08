@@ -389,7 +389,9 @@ function createLife(d) {
     if (!manual && !free()) return null;
     care.wear('dig'); // sand in places sand shouldn't be
     const t = now();
-    const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), manual }, t);
+    const tide = d.tide?.() || {};
+    const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), manual, event: tide.event || null, digBoost: tide.digBoost, shinyBoost: tide.shinyBoost }, t);
+    if (r.shiny) r.odds = Math.round(1 / (gifts.SPARKLE_CHANCE * Math.max(1, Math.min(4, tide.shinyBoost || 1))));
     setFinds(r.state);
     if (!r.find) { if (manual) changed(); return null; }
     present(r.find, r);
@@ -437,11 +439,16 @@ function createLife(d) {
 
   function present(find, r) {
     presenting = find.id;
-    d.toCrab('critter:bit', { bit: 'present', ms: PRESENT_MS });
-    d.toCrab('critter:hold', { pixels: find.pixels, palette: find.palette });
+    const shiny = !!r?.shiny;
+    // A sparkly one: held up in its own colours, a longer glint and a chime, and his loudest line.
+    const look = shiny ? gifts.sparkly(find) : find;
+    const ms = shiny ? PRESENT_MS + 1800 : PRESENT_MS;
+    d.toCrab('critter:bit', { bit: 'present', ms });
+    d.toCrab('critter:hold', { pixels: look.pixels, palette: look.palette, shiny });
     const rare = find.rarity === 'rare' || find.rarity === 'legendary';
-    if (rare) d.toCrab('critter:prop', { prop: 'sparkle', ms: PRESENT_MS });
-    d.speak('found', { force: true, text: gifts.foundLine(find) });
+    if (rare || shiny) d.toCrab('critter:prop', { prop: 'sparkle', ms, big: shiny });
+    if (shiny) d.toCrab('critter:sound', { cue: 'sparkle' });
+    d.speak('found', { force: true, text: shiny ? '✨ a SPARKLY one!!' : gifts.foundLine(find) });
     // A trophy it earns has a line of its own: after he's shown you the find, not over it.
     // Cut short (cancel()), it still counts, straight away.
     presentDone = () => {
@@ -451,15 +458,29 @@ function createLife(d) {
       d.toCrab('critter:prop', { prop: null });
       if (r) credit(find, r);
     };
-    later(PRESENT_MS, () => presentDone?.());
-    if (r) d.toPanel('life:found', { ...findCard(find), isNew: r.isNew });
+    later(ms, () => presentDone?.());
+    if (r) d.toPanel('life:found', { ...findCard(find), isNew: r.isNew, shiny });
+    if (r && shiny) {
+      d.toPanel('sparkle:reveal', {
+        kind: 'find', id: find.id, name: find.name, rarity: find.rarity, pixels: look.pixels, palette: look.palette,
+        odds: r.odds || Math.round(1 / gifts.SPARKLE_CHANCE), after: Math.max(0, gifts.total(r.state) - 1), at: now(), level: d.level?.() || 1,
+        first: !!r.firstShiny,
+      });
+    }
   }
 
   // The find counts: a stat (trophies), XP, the bond, the story, any set it finished.
   function credit(find, r) {
     const rare = find.rarity === 'rare' || find.rarity === 'legendary';
-    d.stat('find-made');
+    // What the tide events' goals look at (events.js): which find, and whether it was the event's own.
+    d.stat('find-made', { id: find.id, event: find.event });
     d.awardXp(rare ? 'treasure' : 'find', { label: `He found you a ${find.name.toLowerCase()}` });
+    if (r.shiny) {
+      d.stat('sparkle-found');
+      if (find.rarity === 'legendary') d.stat('sparkle-legendary');
+      d.awardXp('sparkle', { label: `A sparkly ${find.name.toLowerCase()}` });
+      remember('first-shiny', { item: find.name });
+    }
     grow('find');
     const bondNow = getBond();
     if (!bondNow.journal.some(e => e.kind === 'first-find')) remember('first-find', { item: find.name });
@@ -587,7 +608,7 @@ function createLife(d) {
     return {
       temperament: { id: t, ...voice.TEMPERAMENT_INFO[t] },
       bond: bond.view(getBond(), now()),
-      finds: gifts.view(getFinds(), now(), { seasons: d.seasons() }),
+      finds: gifts.view(getFinds(), now(), { seasons: d.seasons(), ...(d.tideShelf?.() || {}) }),
       play: d.playView?.() || null,
       needs: care.view(),
       scenes: { seen: seen.length, of: scenes.SCENES.length, list: scenes.SCENES.map(s => ({ id: s.id, name: seen.includes(s.id) ? s.name : null })) },

@@ -1,0 +1,140 @@
+/* Shellby — tide events (tide.js) and the sparkly reveal (sparkle.js).
+   Tokens come from panel.css. Each event tints the banner with its own colour. */
+
+/* ---------------------------------------------------------------- the banner */
+.ev-banner { margin: 0 0 14px; }
+.ev-card {
+  --ev: var(--glass);
+  position: relative; overflow: hidden;
+  padding: 14px 16px; border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ev) 16%, var(--reef)) 0%, var(--reef) 70%);
+  border: 1px solid color-mix(in srgb, var(--ev) 40%, transparent);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 10px 28px -18px var(--ev);
+}
+.ev-card.compact { padding: 10px 14px; }
+.ev-harvest { --ev: #e9a23b; }
+.ev-haunting { --ev: #ff9f1c; }
+.ev-frostbite { --ev: #8ecae6; }
+.ev-penpal { --ev: #ff5d8f; }
+.ev-spring-clean { --ev: #ffb3c6; }
+.ev-low-tide { --ev: #4ea8de; }
+.ev-card.finished { border-color: color-mix(in srgb, var(--amber) 60%, transparent); }
+
+.ev-head { display: flex; align-items: center; gap: 12px; }
+.ev-emoji { font-size: 30px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .4)); }
+.compact .ev-emoji { font-size: 22px; }
+.ev-titles { flex: 1; min-width: 0; }
+.ev-eyebrow { margin: 0; font: 600 var(--fs-10)/1.2 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ev); }
+.ev-titles h3 { margin: 2px 0 0; font: 400 var(--fs-16)/1.2 var(--font-pixel); color: var(--sand); }
+.ev-blurb { margin: 4px 0 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.ev-left {
+  flex: none; padding: 4px 10px; border-radius: 999px;
+  font: 600 var(--fs-11)/1.2 var(--font-mono); color: var(--ink);
+  background: var(--ev);
+}
+.ev-left.urgent { background: var(--coral); animation: ev-pulse 2.4s steps(2, jump-none) infinite; }
+.finished .ev-left { background: var(--amber); }
+.ev-twist { margin: 10px 0 0; font-size: var(--fs-12-5); color: var(--sand); }
+.ev-twist::before { content: '🌊 '; }
+.ev-progress { margin: 6px 0 0 42px; font-size: var(--fs-12); color: var(--sand-dim); }
+.ev-next { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--reef); font-size: var(--fs-12-5); color: var(--sand-dim); }
+.ev-next b { color: var(--sand); }
+
+.ev-goals { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+@media (max-width: 520px) { .ev-goals { grid-template-columns: 1fr; } }
+.ev-goal { display: grid; grid-template-columns: 18px 1fr auto; grid-template-rows: auto 4px; align-items: center; gap: 3px 6px; font-size: var(--fs-12-5); }
+.ev-goal-tick {
+  grid-row: 1 / 3; width: 16px; height: 16px; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--ev) 60%, transparent);
+  font-size: 10px; line-height: 13px; text-align: center; color: var(--ink);
+}
+.ev-goal.done .ev-goal-tick { background: var(--ev); border-color: var(--ev); }
+.ev-goal.done .ev-goal-text { color: var(--sand-dim); }
+.ev-goal-n { font: var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.ev-goal-bar { grid-column: 2 / 4; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, .3); overflow: hidden; }
+.ev-goal-bar i { display: block; height: 100%; background: var(--ev); transition: width .4s var(--ease-out); }
+
+.ev-extras { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ev-bug, .ev-find, .ev-medal {
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 150px;
+  padding: 6px 10px; border-radius: 10px; background: rgba(0, 0, 0, .22);
+}
+.ev-bug b, .ev-find b, .ev-medal b { display: block; font-size: var(--fs-12); color: var(--sand); }
+.ev-bug small, .ev-find small, .ev-medal small { display: block; font-size: var(--fs-11); color: var(--sand-faint); }
+.ev-thumb { flex: none; display: grid; place-items: center; width: 40px; height: 40px; }
+.ev-medal:not(.won) .ev-thumb { filter: grayscale(1) brightness(.6); }
+.ev-medal.won { background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.ev-medal .btn { margin-left: auto; }
+
+@keyframes ev-pulse { 50% { opacity: .65; } }
+
+/* ---------------------------------------------------------------- medals on the Us page */
+.ev-medals { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.ev-medal-slot {
+  display: grid; justify-items: center; gap: 4px; padding: 8px 10px; border-radius: 10px;
+  background: var(--reef); font: var(--fs-10-5) var(--font-mono); color: var(--sand-dim);
+}
+.ev-medal-slot:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- the sparkly reveal */
+.sp-reveal {
+  position: fixed; inset: 0; z-index: 900; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 241, 168, .14), rgba(4, 10, 12, .88) 60%);
+  animation: fadein .25s var(--ease-out);
+}
+.sp-card { perspective: 900px; }
+.sp-flip { position: relative; width: min(380px, 86vw); transform-style: preserve-3d; animation: sp-flip .9s var(--ease-out) both; }
+.sp-back, .sp-front { border-radius: 18px; backface-visibility: hidden; }
+.sp-back {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: linear-gradient(160deg, var(--reef-3), var(--abyss));
+  border: 1px solid var(--line); transform: rotateY(180deg);
+  font: 64px var(--font-pixel); color: var(--sand-faint-deco);
+}
+.sp-front {
+  padding: 22px 22px 18px; text-align: center;
+  background: linear-gradient(170deg, #213a44, var(--ink));
+  border: 1px solid rgba(255, 241, 168, .5);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 20px 60px -20px rgba(255, 241, 168, .55);
+}
+.sp-art { position: relative; display: grid; place-items: center; height: 190px; }
+.sp-art > svg, .sp-art > canvas, .sp-art > div { filter: drop-shadow(0 0 14px rgba(255, 241, 168, .55)); }
+.sp-glint { position: absolute; width: 14px; height: 14px; opacity: 0; animation: sp-glint 2.2s steps(4, jump-none) infinite; }
+.sp-glint::before, .sp-glint::after { content: ''; position: absolute; background: #fff; }
+.sp-glint::before { left: 6px; top: 0; width: 2px; height: 14px; }
+.sp-glint::after { top: 6px; left: 0; width: 14px; height: 2px; }
+.sp-glint.g1 { top: 18%; left: 24%; animation-delay: .9s; }
+.sp-glint.g2 { top: 30%; right: 22%; animation-delay: 1.5s; }
+.sp-glint.g3 { bottom: 16%; left: 58%; animation-delay: 2.1s; }
+.sp-eyebrow { margin: 6px 0 0; font: 600 var(--fs-11) var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: #fff1a8; }
+.sp-front h3 { margin: 4px 0 0; font: 400 26px/1.15 var(--font-pixel); color: var(--sand); }
+.sp-odds { margin: 6px 0 0; font: var(--fs-11-5) var(--font-mono); color: var(--sand-dim); }
+.sp-blurb { margin: 10px auto 0; max-width: 32ch; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.sp-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+
+@keyframes sp-flip { from { transform: rotateY(180deg) scale(.85); } 60% { transform: rotateY(-8deg) scale(1.03); } to { transform: none; } }
+@keyframes sp-glint { 0%, 100% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; transform: scale(1); } 60% { opacity: 0; transform: scale(.4); } }
+
+/* A sparkly tile on the shelf or in the Bugdex: the same glint, small. */
+.fd-tile.sparkly, .bd-tile.sparkly { box-shadow: inset 0 0 0 1px rgba(255, 241, 168, .55); }
+.fd-tile.sparkly .fd-art { filter: drop-shadow(0 0 6px rgba(255, 241, 168, .5)); }
+.sparkle-pill {
+  position: absolute; top: 4px; left: 4px; padding: 0 5px; border-radius: 999px;
+  font: 600 var(--fs-9-5)/16px var(--font-mono); color: var(--ink); background: #fff1a8;
+}
+/* An event's own bug in the book while it's on, before you've caught it. */
+.bd-tile.event { border-style: dashed; border-color: color-mix(in srgb, var(--amber) 60%, transparent); }
+.bd-event-tag { font: 600 var(--fs-9-5) var(--font-mono); color: var(--amber); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-flip, .sp-reveal, .ev-left.urgent { animation: none; }
+  .sp-glint { display: none; }
+  .ev-goal-bar i { transition: none; }
+}
+.sp-reveal.still .sp-flip { animation: none; }
+.sp-reveal.still .sp-glint { display: none; }
+
+/* A sparkly find's card shows it both ways: as it comes, and sparkly. */
+.fd-big:has(svg + svg) { grid-auto-flow: column; width: auto; gap: 10px; }
+.fd-big svg + svg { filter: drop-shadow(0 0 8px rgba(255, 241, 168, .6)); }
+.fd-sparkly { color: #fff1a8; }

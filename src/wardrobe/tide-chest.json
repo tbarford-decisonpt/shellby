@@ -1,0 +1,237 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "tide-chest",
+  "name": "Tide Chest",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rewards for the tide events, sparkly finds, crab eggs and swaps with friends.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "baby-bib",
+      "name": "Baby Bib",
+      "description": "For the crab who hatched from a friend's egg. Spotless, for now.",
+      "slot": "neck",
+      "pivot": [2, -1],
+      "rarity": "rare",
+      "palette": { "w": "#fff4e4", "p": "#ffb3c6", "b": "#9bf6ff" },
+      "pixels": [
+        "wwwww",
+        "wpwbw",
+        ".www."
+      ],
+      "unlock": { "achievement": "hatchling" }
+    }
+  ],
+  "effects": [
+    {
+      "id": "sparkle-trail",
+      "name": "Sparkle Trail",
+      "description": "Five sparkly finds in, it rubs off on him.",
+      "motion": "rise",
+      "count": 7,
+      "speed": 0.7,
+      "rarity": "epic",
+      "unlock": { "achievement": "shiny-hunter" },
+      "sprites": [
+        {
+          "palette": { "w": "#ffffff", "y": "#fff1a8" },
+          "pixels": [
+            ".y.",
+            "ywy",
+            ".y."
+          ]
+        },
+        {
+          "palette": { "c": "#b8f2e6" },
+          "pixels": [
+            "c"
+          ]
+        }
+      ]
+    }
+  ],
+  "decor": [
+    {
+      "id": "glitter-jar",
+      "name": "Glitter Jar",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "A jar of whatever came off his first sparkly find. It never settles.",
+      "palette": { "g": "#cdeafe", "k": "#8a6a4a", "y": "#fff1a8", "p": "#ffb3c6", "c": "#b8f2e6" },
+      "pixels": [
+        ".kkk.",
+        "g...g",
+        "gy.pg",
+        "g.c.g",
+        "gpy.g",
+        "ggggg"
+      ],
+      "frames": [
+        [
+          ".kkk.",
+          "g...g",
+          "g.p.g",
+          "gc.yg",
+          "g.y.g",
+          "ggggg"
+        ]
+      ],
+      "fps": 2,
+      "unlock": { "achievement": "glimmer" }
+    },
+    {
+      "id": "crab-nest",
+      "name": "Crab Nest",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "Where the egg sat before a friend hatched it. He still checks on it.",
+      "palette": { "b": "#8a6a4a", "B": "#b89470", "e": "#fff4e4", "s": "#ffb4a2" },
+      "pixels": [
+        "...ee...",
+        "..esee..",
+        "B.eeee.B",
+        "bBbBbBbB",
+        ".bbbbbb."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [4, -1]
+        }
+      ],
+      "unlock": { "achievement": "proud-parent" }
+    },
+    {
+      "id": "harvest-sheaf",
+      "name": "Harvest Sheaf",
+      "category": "plant",
+      "rarity": "rare",
+      "description": "From Harvest Moon. Tied with the string from a lost parcel.",
+      "palette": { "y": "#ffd166", "Y": "#e9a23b", "r": "#c97b4a" },
+      "pixels": [
+        "y.y.y",
+        "YyYyY",
+        ".YyY.",
+        ".rrr.",
+        ".yYy.",
+        "y.Y.y"
+      ],
+      "unlock": { "achievement": "harvest-home" }
+    },
+    {
+      "id": "wisp-lantern",
+      "name": "Wisp Lantern",
+      "category": "bubbler",
+      "rarity": "epic",
+      "description": "From The Haunting. Something green lives in it and it won't say what.",
+      "palette": { "k": "#2b2d42", "g": "#57cc99", "G": "#b8ffd9" },
+      "pixels": [
+        "..k..",
+        ".kkk.",
+        "kgGgk",
+        "kGgGk",
+        "kgGgk",
+        ".kkk."
+      ],
+      "frames": [
+        [
+          "..k..",
+          ".kkk.",
+          "kGgGk",
+          "kgGgk",
+          "kGgGk",
+          ".kkk."
+        ]
+      ],
+      "fps": 2,
+      "unlock": { "achievement": "the-haunted" }
+    },
+    {
+      "id": "ice-castle",
+      "name": "Ice Castle",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "From Frostbite. Built in one cold night, by someone very busy.",
+      "palette": { "i": "#cdeafe", "I": "#8ecae6", "w": "#ffffff", "d": "#4ea8de" },
+      "pixels": [
+        "w.....w",
+        "i..w..i",
+        "iI.i.Ii",
+        "iiiiiii",
+        "iIIdIIi",
+        "iIIdIIi"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [3, 4]
+        }
+      ],
+      "unlock": { "achievement": "snowed-in" }
+    },
+    {
+      "id": "post-box",
+      "name": "Post Box",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "From Pen Pal Week. Letters go in. He's never seen one come out.",
+      "palette": { "r": "#e63946", "R": "#9d0208", "k": "#2b2d42", "w": "#fff4e4" },
+      "pixels": [
+        ".rrr.",
+        "rRRRr",
+        "rkkkr",
+        "rrrrr",
+        "rrwrr",
+        ".R.R."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [2, -1]
+        }
+      ],
+      "unlock": { "achievement": "pen-pals-forever" }
+    },
+    {
+      "id": "flower-pot",
+      "name": "Flower Pot",
+      "category": "plant",
+      "rarity": "rare",
+      "description": "From Spring Clean. The only thing that came back from the clear-out.",
+      "palette": { "p": "#ff8fab", "y": "#ffd166", "g": "#57cc99", "t": "#c97b4a", "T": "#8a5a3a" },
+      "pixels": [
+        "p.y.p",
+        ".g.g.",
+        "..g..",
+        "ttttt",
+        ".tTt.",
+        ".ttt."
+      ],
+      "unlock": { "achievement": "spick-and-span" }
+    },
+    {
+      "id": "giant-clam",
+      "name": "Giant Clam",
+      "category": "rock",
+      "rarity": "epic",
+      "description": "From Low Tide. Left behind when the sea came back in. Opens for him only.",
+      "palette": { "a": "#4ea8de", "b": "#8ecae6", "w": "#fff4e4", "p": "#f8f4ff" },
+      "pixels": [
+        ".aaaaaa.",
+        "abababab",
+        "a.wwpw.a",
+        "abababab",
+        ".aaaaaa."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [4, -1]
+        }
+      ],
+      "unlock": { "achievement": "beachcombed" }
+    }
+  ]
+}

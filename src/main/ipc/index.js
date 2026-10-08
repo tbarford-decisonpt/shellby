@@ -160,7 +160,7 @@ function registerIpc(electronIpcMain, d) {
   });
   d.tankRemark = tankIpc.remark; // a word about his tank for the desktop (life.js)
   // ...its saved layouts, and switching with the seasons (tank-layouts.js)
-  registerTankLayoutsIpc(ipcMain, { config, tank: tankIpc, where: () => d.seasonsWhere?.() || {}, ready: () => !!d.wardrobe });
+  registerTankLayoutsIpc(ipcMain, { config, tank: tankIpc, where: () => d.seasonsWhere?.() || {}, ready: () => !!d.wardrobe, now: () => d.today().getTime() });
   // ...him tidying his finds now and then (tank-tidy.js)
   registerTankTidyIpc(ipcMain, { config, tank: tankIpc, ready: () => !!d.wardrobe });
   // ...and its live decor: Health and the dev servers, pushed as they change (tank-gauges.js)

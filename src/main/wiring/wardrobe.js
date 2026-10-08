@@ -23,7 +23,7 @@ function wireWardrobe(d) {
     const { config } = d;
     const wardrobe = d.wardrobe = new Wardrobe({
       config, builtinDir: path.join(__dirname, '..', '..', 'wardrobe'), userDir: path.join(app.getPath('userData'), 'wardrobe'),
-      now: () => d.captureClock.now || new Date(),
+      now: () => (d.today ? d.today() : new Date()),
       south: () => d.seasonsWhere().south,
       // "Unlock everything" is held back for a paid tier; dev runs (e2e, screenshots) keep it.
       canUnlockAll: () => !app.isPackaged,

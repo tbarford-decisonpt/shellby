@@ -93,7 +93,7 @@ test('each event bug comes along only with its kind of fix', () => {
 
 test('goals count only what they ask for, and only while the event is on', () => {
   const d = at(2026, 10, 25);
-  let s = ev.record(null, 'bug-caught', { habitat: 'shallows' }, at(2026, 10, 20)).state;
+  const s = ev.record(null, 'bug-caught', { habitat: 'shallows' }, at(2026, 10, 20)).state;
   assert.deepEqual(s.runs, {}, 'before it starts, nothing counts');
   let r = ev.record(s, 'bug-caught', { habitat: 'shallows' }, d);
   assert.deepEqual(r.moved, ['bugs']);

@@ -168,6 +168,8 @@ function registerProgressIpc(ipcMain, d) {
     d.bugdex.cue(name, { species: typeof opts?.species === 'string' ? opts.species.slice(0, 40) : null });
   });
   ipcMain.handle('week:get', () => d.weekView());
+  // ---- tide events (events.js, wiring/events.js): the banner and the medals. Read-only from the panel.
+  ipcMain.handle('events:get', () => d.eventsView());
 
   // ---- time on each project (timetrack-service.js). Everything from the panel is checked here.
   const DAY = /^\d{4}-\d{2}-\d{2}$/;

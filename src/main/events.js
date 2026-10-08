@@ -113,11 +113,11 @@ const EVENTS = freeze([
     medal: { palette: { a: '#4ea8de', b: '#caf0f8', c: '#ffd166' }, pixels: ['..ccc..', '.ccccc.', '..ccc..', '.......', 'a.a.a.a', '.b.b.b.', 'aaaaaaa'] },
   },
 ].map(e => freeze({
-  nature: false, boosts: {}, ...e,
+  nature: false, ...e,
   start: freeze([...e.start]), end: freeze([...e.end]),
   finds: freeze([...e.finds]),
   goals: freeze(e.goals.map(g => freeze({ where: null, distinct: false, ...g }))),
-  boosts: freeze({ ...e.boosts }),
+  boosts: freeze({ ...(e.boosts || {}) }),
   medal: freeze({ palette: freeze({ ...e.medal.palette }), pixels: freeze([...e.medal.pixels]) }),
 })));
 

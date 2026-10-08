@@ -93,6 +93,7 @@
     $('leaveGuardToggle').checked = state.settings.leaveGuard !== false;
     $('flakyToggle').checked = state.settings.flakyTests !== false;
     $('surprisesToggle').checked = state.settings.surprises !== false;
+    $('tideEventsToggle').checked = state.settings.tideEvents !== false;
     $('catchBugsToggle').checked = state.settings.catchBugs !== false;
     $('bugBattlesToggle').checked = state.settings.bugBattles !== false;
     $('bugFollowerToggle').checked = state.settings.bugFollower !== false;
@@ -254,6 +255,7 @@
   $('soundsToggle').addEventListener('change', async e => { const r = await api.setSettings({ sounds: e.target.checked }); state.settings = r.settings; });
   $('soundFxToggle').addEventListener('change', async e => { const r = await api.setSettings({ soundFx: e.target.checked }); state.settings = r.settings; });
   $('surprisesToggle').addEventListener('change', async e => { const r = await api.setSettings({ surprises: e.target.checked }); state.settings = r.settings; });
+  $('tideEventsToggle').addEventListener('change', async e => { const r = await api.setSettings({ tideEvents: e.target.checked }); state.settings = r.settings; SB.tide?.refresh(); });
   $('ambientSelect').addEventListener('change', async e => { const r = await api.setSettings({ ambient: e.target.value }); state.settings = r.settings; });
   $('soundVolumeSelect').addEventListener('change', async e => { const r = await api.setSettings({ soundVolume: Number(e.target.value) }); state.settings = r.settings; });
   // His needs (src/main/needs.js). Back on, he comes back full; the Us page follows.

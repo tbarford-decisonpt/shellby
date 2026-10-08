@@ -81,6 +81,12 @@ const MEMORIES = Object.freeze({
   level: { icon: '💞', text: d => `Became ${d.name}` },
   birthday: { icon: '🎂', text: () => 'Wished you a happy birthday' },
   hatchday: { icon: '🕯️', text: d => `${d.years} year${d.years === 1 ? '' : 's'} on your desktop` },
+  // Tide events, sparklies, eggs, swaps and the friends' board (docs/plans/viral.md).
+  'event-medal': { icon: '🏅', text: d => `Finished ${d.event || 'a tide event'}` },
+  'first-shiny': { first: true, icon: '✨', text: d => `His first sparkly one: ${d.item || 'something'}` },
+  'egg-hatched': { icon: '🐣', text: d => (d.login ? `@${d.login} hatched one of his eggs: ${d.name || 'a baby crab'}` : `Hatched from @${d.from || 'a friend'}'s egg`) },
+  'first-swap': { first: true, icon: '🤝', text: d => `Swapped finds with @${d.login || 'a friend'} for the first time` },
+  'board-month': { icon: '🥇', text: d => `${d.place || 'On'} the friends' board in ${d.month || 'a month'}` },
 });
 
 const fmtTime = ms => { const s = Math.max(0, Math.round((ms || 0) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };

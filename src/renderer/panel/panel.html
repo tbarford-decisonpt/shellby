@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="together.css">
 <link rel="stylesheet" href="bugdex.css">
 <link rel="stylesheet" href="bugdex-battle.css">
+<link rel="stylesheet" href="tide.css">
 <link rel="stylesheet" href="crew.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
@@ -855,6 +856,7 @@
         </div>
       </div>
     </section>
+    <section class="ev-banner" data-ev-banner="finds" hidden aria-label="Tide event"></section>
     <ul class="fd-sets" id="fdSets" aria-label="Sets"></ul>
     <section class="fd-detail" id="fdDetail" hidden aria-live="polite"></section>
     <ul class="fd-grid" id="fdGrid" role="list" aria-label="Every find"></ul>
@@ -883,6 +885,7 @@
         <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
       </div>
     </section>
+    <section class="ev-banner" data-ev-banner="bugdex" hidden aria-label="Tide event"></section>
     <section class="bd-league" id="bdLeague" aria-label="Badges and the league"></section>
     <section class="bd-friends" id="bdFriends" hidden aria-labelledby="bdFriendsTitle">
       <h3 class="bd-section-title" id="bdFriendsTitle">Friends' books</h3>
@@ -919,6 +922,8 @@
         <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
     </div>
+    <!-- Tide events (tide.js, src/main/events.js): the event going on, or the next one. -->
+    <section class="ev-banner" data-ev-banner="us" hidden aria-label="Tide event"></section>
     <!-- The diorama is static markup: together.js patches it, so his breathing and the waves don't restart on every update. -->
     <section class="us-hero" id="usHero" aria-labelledby="usLevelName">
       <div class="us-stage" id="usStage" data-time="night">
@@ -995,6 +1000,12 @@
       <div class="us-h"><h3 id="usScenesTitle">His little scenes</h3><span class="us-h-meta" id="usScenesCount"></span></div>
       <p class="us-lede">What he gets up to when nothing's happening. Some only at night, at the weekend, or while you play music.</p>
       <ul class="us-scenes" id="usScenes"></ul>
+    </section>
+
+    <section class="us-sec us-medals" id="usMedals" hidden aria-labelledby="usMedalsTitle">
+      <div class="us-h"><h3 id="usMedalsTitle">Tide event medals</h3><span class="us-h-meta" id="usMedalCount"></span></div>
+      <p class="us-lede">One for each tide event you finished while it was on. A year's medal never comes back.</p>
+      <ul class="ev-medals" id="usMedalList"></ul>
     </section>
 
     <section class="us-sec" aria-labelledby="usStoryTitle">
@@ -2004,6 +2015,8 @@
           <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
           <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
         </div>
+        <label class="toggle"><input type="checkbox" id="tideEventsToggle"><span class="switch"></span>Tide events: a week or so with its own bug, finds and medal</label>
+        <p class="muted small">Six times a year (The Haunting, Frostbite, Pen Pal Week, Spring Clean, Low Tide and Harvest Moon), with a countdown on the Us page and four goals counted from what you already do. Finish them while it's on for that year's medal. Off hides the banner and the event's bug and finds.</p>
         <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
         <div class="row wrap" id="checkEachTurnOptions">
           <label class="inline-label" for="checkTimeoutSelect">Give up after
@@ -2371,6 +2384,8 @@
 <script src="health-drives.js"></script>
 <script src="health-hogs.js"></script>
 <script src="card.js"></script>
+<script src="moment-card.js"></script>
+<script src="sparkle.js"></script>
 <script src="beach-paint.js"></script>
 <script src="beach.js"></script>
 <script src="tank-paint.js"></script>
@@ -2380,6 +2395,7 @@
 <script src="tank-layouts.js"></script>
 <script src="tank-tidy.js"></script>
 <script src="celebrate.js"></script>
+<script src="tide.js"></script>
 <script src="recap.js"></script>
 <script src="outlook.js"></script>
 <script src="crabonly.js"></script>

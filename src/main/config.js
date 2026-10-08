@@ -64,6 +64,8 @@ const DEFAULTS = {
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex.js)
+  events: null,      // tide events: each run's goals, and the medals won (see events.js)
+  tideEvents: true,  // tide events on: their banner, goals, bugs and finds (see events.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
   play: null,        // hide and seek and fetch scores (see play.js)
   needs: null,       // his tummy, shine, pep and cheer, and the snack pantry (see needs.js); this PC only
