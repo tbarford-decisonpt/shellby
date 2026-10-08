@@ -585,6 +585,7 @@ contextBridge.exposeInMainWorld('shellby', {
   checkDocs: invoke('tools:docs'),
   docsRoutine: invoke('tools:docs-routine'),
   showMeAround: invoke('tools:tour'),
+  firstTour: invoke('tools:first-tour'),
   setServerSettings: invoke('servers:settings'),
   onServersChanged: on('servers:changed'),
   onStickers: on('stickers'),

@@ -62,10 +62,10 @@ test('the tour changes nothing and names files so they open', () => {
 
 // ---- the IPC
 
-function setup({ refs = {}, ancestors = new Set(['abc']) } = {}) {
+function setup({ refs = {}, ancestors = new Set(['abc']), cwd = 'C:\\Users\\me', repos = {}, picked = null } = {}) {
   const handlers = new Map();
   const ipcMain = { handle: (ch, fn) => handlers.set(ch, fn), on: (ch, fn) => handlers.set(ch, fn) };
-  const calls = { copies: [], drafts: [], git: [] };
+  const calls = { copies: [], drafts: [], git: [], picks: 0 };
   const git = async (cwd, args) => {
     calls.git.push(args);
     if (args[0] === 'tag') return { ok: true, out: 'v1.2.0\x1f2026-09-30T10:00:00Z\n' };
@@ -83,8 +83,11 @@ function setup({ refs = {}, ancestors = new Set(['abc']) } = {}) {
       return { ok: true, tabId: 'tab-1', worktree: COPY };
     },
     startDraft: (cwd, title, prompt, opts) => { calls.drafts.push({ cwd, title, prompt, opts }); return { ok: true, tabId: 'tab-2' }; },
+    currentCwd: () => cwd,
   };
-  registerProjectToolsIpc(ipcMain, d, { git });
+  const readRepo = async dir => repos[dir] || null;
+  const pickFolder = async () => { calls.picks++; return picked; };
+  registerProjectToolsIpc(ipcMain, d, { git, readRepo, pickFolder });
   const call = (ch, ...a) => handlers.get(ch)({}, ...a);
   return { call, calls };
 }
@@ -118,6 +121,31 @@ test('When did this break?: checked, then a draft in a copy', async () => {
   // No last good version: Claude finds one.
   await t.call('tools:bisect', { root: ROOT, what: 'x', good: '' });
   assert.match(t.calls.copies[1].prompt, /Find one\./);
+});
+
+test("the first task's tour: the folder Shellby works in, else one you pick", async () => {
+  const site = { root: ROOT, name: 'site' };
+  // Working in a repository: no picker, the tour of it waits in Ask first.
+  let t = setup({ cwd: ROOT, repos: { [ROOT]: site } });
+  assert.deepEqual(await t.call('tools:first-tour'), { ok: true, tabId: 'tab-2' });
+  assert.equal(t.calls.picks, 0);
+  assert.equal(t.calls.drafts[0].cwd, ROOT);
+  assert.equal(t.calls.drafts[0].title, 'Tour of site');
+  assert.match(t.calls.drafts[0].prompt, /Show me around site/);
+  assert.deepEqual(t.calls.drafts[0].opts, { mode: 'ask' });
+
+  // Working in your home folder: you pick one.
+  t = setup({ repos: { 'D:\\code\\site': site }, picked: 'D:\\code\\site' });
+  assert.equal((await t.call('tools:first-tour')).ok, true);
+  assert.equal(t.calls.picks, 1);
+  assert.equal(t.calls.drafts[0].cwd, ROOT);
+
+  // Cancelled, or not a repository: nothing opens.
+  t = setup();
+  assert.deepEqual(await t.call('tools:first-tour'), { ok: false, cancelled: true });
+  t = setup({ picked: 'D:\\photos' });
+  assert.match((await t.call('tools:first-tour')).error, /isn't in a git repository/);
+  assert.equal(t.calls.drafts.length, 0);
 });
 
 test('the docs and the tour wait to be sent; the routine is a draft', async () => {

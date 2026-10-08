@@ -10,6 +10,7 @@
 // never a folder of its own.
 const tools = require('../projects/tools');
 const worktrees = require('../worktrees');
+const local = require('../projects/local');
 
 const isRoot = r => typeof r === 'string' && r.length > 0 && r.length < 1000;
 const text = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '');
@@ -17,9 +18,17 @@ const text = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '');
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d  what main shares with its IPC (main.js ipcDeps)
- * @param [opts]  git: worktrees.git, or a test's
+ * @param [opts]  git: worktrees.git, or a test's; readRepo(dir) and pickFolder() likewise
  */
-function registerProjectToolsIpc(ipcMain, d, { git = worktrees.git } = {}) {
+function registerProjectToolsIpc(ipcMain, d, {
+  git = worktrees.git,
+  readRepo = dir => local.readRepo(dir),
+  pickFolder = async () => {
+    const { dialog } = require('electron');
+    const r = await dialog.showOpenDialog(d.panel, { title: 'Which project should Shellby show you around?', defaultPath: d.currentCwd(), properties: ['openDirectory'] });
+    return r.canceled ? null : r.filePaths[0] || null;
+  },
+} = {}) {
   const unknown = { ok: false, error: "That folder isn't on the Projects page." };
   /** -> { root, name } | null */
   const known = raw => {
@@ -76,6 +85,20 @@ function registerProjectToolsIpc(ipcMain, d, { git = worktrees.git } = {}) {
     const p = known(root);
     if (!p) return unknown;
     return d.startDraft(p.root, `Tour of ${p.name}`.slice(0, 80), tools.tourPrompt({ project: p.name }), { mode: 'ask' });
+  });
+
+  // The same tour, offered once on a new install's first New task. The project
+  // is the folder Shellby works in when that's a repository, or one you pick
+  // here: the panel names no folder.
+  ipcMain.handle('tools:first-tour', async () => {
+    let repo = await readRepo(d.currentCwd());
+    if (!repo) {
+      const dir = await pickFolder();
+      if (!dir) return { ok: false, cancelled: true };
+      repo = await readRepo(dir);
+      if (!repo) return { ok: false, error: "That folder isn't in a git repository. Pick a project's folder." };
+    }
+    return d.startDraft(repo.root, `Tour of ${repo.name}`.slice(0, 80), tools.tourPrompt({ project: repo.name }), { mode: 'ask' });
   });
 }
 

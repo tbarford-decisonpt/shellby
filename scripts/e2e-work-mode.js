@@ -77,6 +77,7 @@ async function connect(url) {
     check(JSON.stringify(order) === JSON.stringify(['chat', 'projects', 'notes', 'history', 'toolbox', 'workflows', 'health', 'wardrobe']), `the bar leads with the tools (${order})`);
     check(await panel.ev("document.querySelector('.dock [data-view-btn=chat]').title") === 'Chat (Ctrl+1)', 'Ctrl+1 is the chat');
     check(await panel.ev("[...document.querySelectorAll('.dock [data-view-btn]')].every(b => getComputedStyle(b).display !== 'none')"), 'every tool is on the bar from the start');
+    check(await panel.ev("/^Show me around a project/.test(SB.activeTab().empty.querySelector('.suggestion')?.textContent.slice(1) || '')"), 'the first task leads with Show me around');
     await panel.shot('2-chat');
 
     // 3. Settings show Work mode's; the file keeps yours.

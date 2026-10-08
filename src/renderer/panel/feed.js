@@ -33,6 +33,18 @@
     'Send three helpers to audit my Documents, Desktop and Downloads in parallel',
   ];
 
+  // The tour in a tab of its own, in Ask first, waiting to be sent. The folder
+  // Shellby works in when it's a repository, or one you pick (tools:first-tour).
+  async function firstTour() {
+    const t = await api.firstTour();
+    if (!t?.ok) return t?.cancelled ? null : t?.needsClaude ? SB.claudeUpsell('helpers') : SB.toast(t?.error || "Couldn't open the tour.");
+    const r = await api.setSettings({ firstTour: false });
+    state.settings = r.settings;
+    SB.refreshEmptyStates();
+    if (state.tabs.has(t.tabId)) SB.activate(t.tabId);
+    SB.toast('Read the prompt, then send it. It runs in Ask first, so nothing changes.', { ms: 6000 });
+  }
+
   class Tab {
     constructor(id, { title = 'New task', cwd = '', saved = false, routineId = null } = {}) {
       Object.assign(this, { id, title, cwd, saved, routineId });
@@ -96,10 +108,14 @@
       e.querySelector('.empty-folder').textContent = SB.tildify(this.cwd || state.cwd);
       e.querySelector('.hotkey-hint').textContent = SB.prettyAccel(state.settings.hotkey) || 'The tray icon';
       // A quest card takes the third suggestion's room.
-      const picks = [...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, SB.questCardShows?.() ? 2 : 3);
-      e.querySelector('.suggestions').replaceChildren(...picks.map((s, i) =>
-        h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick: () => SB.send(s) },
-          h('span', { class: 'glyph', text: '›' }), s)));
+      // A new install's first tasks lead with a tour of a project, until it's opened once.
+      const tour = state.settings.firstTour && !SB.isCrabOnly();
+      const picks = [...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
+      const chip = (text, onclick, i) => h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick },
+        h('span', { class: 'glyph', text: '›' }), text);
+      e.querySelector('.suggestions').replaceChildren(
+        ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
+        ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
       SB.renderQuestCard?.(e.querySelector('.quest-card'));
       const pinned = state.pinned || [];
       e.querySelector('.pinned-row').hidden = !pinned.length;

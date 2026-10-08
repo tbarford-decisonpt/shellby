@@ -44,10 +44,11 @@
 
   // First run: the Work mode path goes through the same Claude Code setup (settings.js).
   SB.chooseWorkMode = async () => {
-    const r = await api.setSettings({ onboarded: true, crabOnly: false, workMode: true });
+    const r = await api.setSettings({ onboarded: true, firstTour: true, crabOnly: false, workMode: true });
     state.settings = r.settings;
     SB.onboardPath = null;
     SB.applyCrabOnly();
+    SB.refreshEmptyStates();
     SB.setView('chat');
     SB.toast("Work mode it is. He's on your desktop, keeping quiet unless something needs you.", { ms: 6000 });
   };
