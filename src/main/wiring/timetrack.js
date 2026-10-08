@@ -388,10 +388,12 @@ function wireTimetrack(d) {
   // for after the usage reset (releaseMessage). Returns { ok, tabId, turnId,
   // item } or { ok: false, error }.
   function sendToTab(tabId, text, files) {
-    if (!d.claudeStatus?.installed) return { ok: false, error: "Shellby can't find Claude Code on this PC, so nothing was sent.", action: 'setup' };
-    if (!d.claudeStatus?.loggedIn) return { ok: false, error: 'Claude Code is signed out, so nothing was sent.', action: 'sign-in' };
+    const tab = d.manager.tabs.get(tabId);
+    // A folder on another computer needs Claude Code there, not here (remote/service.js).
+    const elsewhere = !!tab && !!d.remoteService?.placeOf(tab.session.cwd);
+    if (!elsewhere && !d.claudeStatus?.installed) return { ok: false, error: "Shellby can't find Claude Code on this PC, so nothing was sent.", action: 'setup' };
+    if (!elsewhere && !d.claudeStatus?.loggedIn) return { ok: false, error: 'Claude Code is signed out, so nothing was sent.', action: 'sign-in' };
     try {
-      const tab = d.manager.tabs.get(tabId);
       if (!tab) return { ok: false, error: 'That conversation is closed.' };
       // Nothing typed: the conversation is named for what was attached.
       const title = text ? undefined : files.every(attach.imageType) ? 'Screenshot' : 'Attached files';

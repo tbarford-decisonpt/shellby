@@ -81,7 +81,9 @@ function registerTabsIpc(ipcMain, d) {
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
     try {
-      if (d.claudeStatus?.installed && d.claudeStatus?.loggedIn && (!d.isStr(tabId) || !d.manager.tabs.has(tabId))) tabId = d.openTab({ tabId: d.isStr(tabId) ? tabId : undefined }).id;
+      // A folder on another computer runs Claude Code there, so this PC needn't have it.
+      const ready = (d.claudeStatus?.installed && d.claudeStatus?.loggedIn) || !!d.remoteService?.placeOf(d.currentCwd());
+      if (ready && (!d.isStr(tabId) || !d.manager.tabs.has(tabId))) tabId = d.openTab({ tabId: d.isStr(tabId) ? tabId : undefined }).id;
     } catch (err) {
       return { ok: false, error: err.message };
     }
