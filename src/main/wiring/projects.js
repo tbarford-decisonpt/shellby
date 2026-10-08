@@ -223,6 +223,23 @@ function wireProjects(d) {
     }
   }
 
+  // A conversation in a folder as it is, with the prompt waiting in its box for
+  // you to read and send (the project page's Show me around). Nothing is sent,
+  // so nothing is spent, until you press Send.
+  function startDraft(cwd, title, prompt, { mode = null } = {}) {
+    if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
+    const tabId = d.randomUUID();
+    try {
+      d.openTab({ tabId, title, mode, cwd });
+      d.wake();
+      d.send(d.panel, 'tab:opened', { tabId, entry: { title, cwd }, items: [], background: false, busy: false, draft: prompt });
+      return { ok: true, tabId };
+    } catch (err) {
+      if (d.manager.tabs.has(tabId)) d.manager.close(tabId);
+      return { ok: false, error: err.message };
+    }
+  }
+
   // A draft tab (startTaskInCopy's draft) closed before anything was sent from
   // it: a copy with nothing in it goes too, and so does its History entry,
   // which would only point at a folder that's gone. One with changes stays.
@@ -324,7 +341,7 @@ function wireProjects(d) {
 
   return {
     createDepWatch, createProjects, createWorkflows, registerWorkflowIpc, runClaudeOnce,
-    dropUnsentCopy, serversOnQuit, showServer, startTaskInCopy,
+    dropUnsentCopy, serversOnQuit, showServer, startTaskInCopy, startDraft,
   };
 }
 

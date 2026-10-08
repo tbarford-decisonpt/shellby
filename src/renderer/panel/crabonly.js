@@ -36,6 +36,7 @@
     review: "With Claude Code, Shellby can look over the changes you haven't committed or pushed yet and say what looks risky, without changing anything.",
     lhm: 'With Claude Code, Shellby can install LibreHardwareMonitor and switch on its web server for you. Until then, the steps in the Health view do the same by hand.',
     notes: 'With Claude Code, Shellby can plan a note, build it, or tell you whether it is worth doing.',
+    helpers: 'With Claude Code, Shellby can find the commit that broke something, check the docs against the code, or show you around a repository, each one ready for you to read before it goes.',
   };
 
   SB.claudeUpsell = (reason = 'health') => {

@@ -4,6 +4,8 @@
 // The panel never hands in a path: folders come from a dialog main opens, or
 // are picked from what the service listed (knowsRoot); servers are named by id.
 const { checkRepo } = require('./remote');
+const doctorIo = require('../devservers/doctor-io');
+const runner = require('../devservers/runner');
 const { ID } = require('./todo');
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 2000;
@@ -19,11 +21,18 @@ const LOCAL_URL = /^https?:\/\/localhost:\d{1,5}\/\S*$/;
  *   openPath(p), showItem(p), openExternal(url)
  *   ask(spec) -> Promise<button index>: Shellby's own confirm dialog (confirm.js)
  *   journal()                       wiring/journal.js (null until created)
+ *   processInfo(pid), imageOf(pid)  native-windows: is it the same process, and what is it
+ *   ownPids() -> Set                Shellby's own processes, never offered to stop
+ *   doctor?                         doctor-io.js, or a test's
  * }
  */
 function registerProjectsIpc(ipcMain, d) {
   const P = () => d.projects();
   const S = () => d.devServers();
+  const io = d.doctor || doctorIo;
+  // What the card was last shown for each server: who held its port and the
+  // free one offered. Stopping or moving only ever acts on these.
+  const portLooks = new Map(); // server id -> { port, holders: [{ pid, name, createdAt }], free }
   let pickedCloneParent = null; // the folder the clone sheet's dialog returned: the only one clone takes
 
   ipcMain.handle('projects:list', (_e, opts) => P()?.list({ refresh: !!opts?.refresh }) ?? null);
@@ -176,6 +185,71 @@ function registerProjectsIpc(ipcMain, d) {
     return true;
   });
   ipcMain.handle('servers:stop-all', async () => { await S()?.stopAll(); return S()?.view(); });
+
+  // ---------------------------------------------------------------- the port and environment doctor (doctor.js)
+
+  // A crashed server's port was taken: who has it, and a free one to move to.
+  ipcMain.handle('servers:port-look', async (_e, id) => {
+    const s = isId(id) ? S()?.servers.get(id) : null;
+    if (!s?.portTaken) return null;
+    const own = d.ownPids?.() || new Set();
+    const holders = (await io.whoHasPort(s.portTaken, { info: d.processInfo, image: d.imageOf }))
+      .map(h => ({ ...h, canStop: h.canStop && !own.has(h.pid) }));
+    const free = await io.freePort(s.portTaken);
+    portLooks.set(id, { port: s.portTaken, holders, free });
+    return { port: s.portTaken, free, holders: holders.map(({ pid, name, canStop }) => ({ pid, name, canStop })) };
+  });
+
+  // "Stop it": the program the card named, if it's still the same one, after
+  // Shellby's own window has asked. Then the server starts again.
+  ipcMain.handle('servers:port-stop', async (_e, { id, pid } = {}) => {
+    const look = isId(id) ? portLooks.get(id) : null;
+    const h = look?.holders.find(x => x.pid === pid && x.canStop);
+    if (!h) return { ok: false, error: "Look again: that program isn't the one holding the port any more." };
+    const now = d.processInfo?.(h.pid);
+    if (!now?.alive || (h.createdAt && now.createdAt && Math.abs(now.createdAt - h.createdAt) > 3000)) {
+      return { ok: false, stale: true, error: 'That program has already closed. Try starting the server again.' };
+    }
+    const name = h.name || 'a program';
+    const yes = await d.ask({
+      icon: '🔌', danger: true,
+      title: `Stop ${name}?`,
+      message: `${name} (process ${h.pid}) is using port ${look.port}. Stopping it ends it and anything it started, the way Task Manager's End task does.`,
+      note: "Anything unsaved in it is lost. If you don't know what it is, use another port instead.",
+      buttons: [{ label: `Stop ${name}`, style: 'danger' }, { label: 'Leave it' }], defaultId: 1, cancelId: 1,
+    });
+    if (yes !== 0) return { ok: false, cancelled: true };
+    await runner.stop(h.pid);
+    // Wait for the port to come free (a few seconds at most), then start again.
+    for (let i = 0; i < 20; i++) {
+      if (!(await io.whoHasPort(look.port, { info: d.processInfo, image: d.imageOf })).length) break;
+      await new Promise(r => setTimeout(r, 250));
+    }
+    portLooks.delete(id);
+    return S().restart(id);
+  });
+
+  // "Use :5174": the free port the card offered, remembered for this script.
+  // port null: back to the usual one.
+  ipcMain.handle('servers:use-port', (_e, { id, port } = {}) => {
+    if (!isId(id)) return { ok: false };
+    if (port === null) return S().usePort(id, null);
+    const look = portLooks.get(id);
+    if (!look?.free || look.free !== port) return { ok: false, error: 'Look again: that port was never offered.' };
+    portLooks.delete(id);
+    return S().usePort(id, port);
+  });
+
+  // Before a start: .env keys the example has and yours doesn't, and the Node version it wants.
+  ipcMain.handle('servers:doctor', (_e, root) => {
+    const known = P()?.knowsRoot(root);
+    return known ? io.checkProject(known) : null;
+  });
+  // ".env from the example": only where there's no .env at all.
+  ipcMain.handle('servers:make-env', (_e, root) => {
+    const known = P()?.knowsRoot(root);
+    return known ? io.makeEnv(known) : { ok: false, error: 'Unknown project folder.' };
+  });
   ipcMain.handle('servers:settings', (_e, patch) => S()?.setSettings(patch && typeof patch === 'object' ? patch : {}));
 }
 

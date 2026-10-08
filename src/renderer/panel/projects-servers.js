@@ -15,6 +15,9 @@
   const logs = new Map();     // id -> { lines, errors }
   const notes = new Map();    // id -> what you typed for Claude
   const drafts = new Map();   // id -> the prompt as main built it
+  const portLooks = new Map(); // id -> who holds its port and a free one (doctor.js), or 'looking'
+  const checkups = new Map();  // root -> { at, notes, canMakeEnv, example } | 'looking'
+  const CHECKUP_MS = 30 * 1000;
   const modeTitle = () => SB.MODES.find(m => m.id === state.settings.mode)?.title || 'your current mode';
 
   // ------------------------------------------------------------------ servers in a clone
@@ -27,6 +30,7 @@
       box.append(h('p', { class: 'muted small', text: c.manager === null ? 'No package.json here, so nothing to run yet.' : 'No scripts in package.json.' }));
       return box;
     }
+    box.append(doctorBox(c));
     if (install) box.append(serverCard(install, c));
     else if (c.installed === false) {
       box.append(h('div', { class: 'pj-install' },
@@ -87,7 +91,11 @@
         h('span', { class: 'pj-script-name' }, h('code', { text: name }), s.framework && h('span', { class: 'pj-tag', text: s.framework })),
         h('span', { class: 'pj-status', role: 'status', text: statusText(s) })),
       fixed && h('p', { class: 'pj-fixed', text: "Claude's done. Restart the server?" }),
+      s.pickedPort && h('p', { class: 'muted small pj-moved' },
+        `Shellby moved it to :${s.pickedPort} because its usual port was taken. `,
+        h('button', { type: 'button', class: 'link-btn', text: 'Use its usual port', onclick: () => usePort(s, null) })),
       h('div', { class: 'row wrap pj-card-actions' }, buttons),
+      crashed && s.portTaken && portBox(s),
       open && logBox(s),
       crashed && !fixed && s.canFix && approvalSheet(s));
     if (crashed && !s.seen) api.serverSeen(s.id);
@@ -99,6 +107,7 @@
     if (r && r.ok === false && r.error) SB.toast(r.error);
     if (method !== 'stopServer') openCards.delete(id);
     logs.delete(id);
+    portLooks.delete(id);
     drafts.delete(id);
     await P.reloadServers();
   }
@@ -121,6 +130,88 @@
     if (logs.has(s.id) && !isLive(s)) draw(logs.get(s.id));
     else api.serverLog(s.id).then(l => { if (l) { logs.set(s.id, l); draw(l); } });
     return box;
+  }
+
+  // ------------------------------------------------------------------ the port and environment doctor
+
+  // Before a start: what the project needs that this PC hasn't got. Read again
+  // at most every half a minute, while the page is drawn.
+  function doctorBox(c) {
+    const box = h('div', { class: 'pj-doctor-wrap' });
+    const draw = v => {
+      if (!v?.notes?.length) return box.replaceChildren();
+      box.replaceChildren(h('div', { class: 'pj-doctor', role: 'note', 'aria-label': 'Before you start' },
+        h('p', { class: 'pj-doctor-title', text: 'Before you start' }),
+        h('ul', {}, v.notes.map(n => h('li', { class: 'small' },
+          h('span', { text: n.text }),
+          n.kind === 'no-env' && v.canMakeEnv && h('button', { type: 'button', class: 'btn slim-btn', text: `Make .env from ${v.example}`, onclick: () => makeEnv(c, v.example) }))))));
+    };
+    const have = checkups.get(c.root);
+    if (have && have !== 'looking') draw(have);
+    if (have !== 'looking' && (!have || Date.now() - have.at > CHECKUP_MS)) {
+      checkups.set(c.root, 'looking');
+      api.serverDoctor(c.root).then(v => {
+        checkups.set(c.root, { ...(v || { notes: [] }), at: Date.now() });
+        // Redrawn while it was asking: the page now has another box, which takes it from the cache.
+        if (box.isConnected) draw(v); else if (v?.notes?.length) renderAll();
+      }, () => checkups.delete(c.root));
+    }
+    return box;
+  }
+
+  async function makeEnv(c, example) {
+    const r = await api.serverMakeEnv(c.root);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't make the .env.");
+    checkups.delete(c.root);
+    SB.toast(`Made .env from ${example}. Fill in your own values before you start it.`, { action: 'Open folder', onAction: () => api.openProjectFolder(c.root) });
+    renderAll();
+  }
+
+  // Its port was taken: who has it, Stop it, or move to a free one.
+  function portBox(s) {
+    const box = h('section', { class: 'pj-port', 'aria-label': `Port ${s.portTaken} is taken` });
+    const look = portLooks.get(s.id);
+    if (!look) {
+      portLooks.set(s.id, 'looking');
+      api.serverPortLook(s.id).then(v => { portLooks.set(s.id, v || { port: s.portTaken, holders: [], free: null }); renderAll(); },
+        () => portLooks.delete(s.id));
+    }
+    if (!look || look === 'looking') {
+      box.append(h('p', { class: 'small', text: `Port ${s.portTaken} was taken. Looking for who has it…` }));
+      return box;
+    }
+    const holder = look.holders[0];
+    // append() writes a false as text, unlike h(): only what's there goes in.
+    box.append(...[
+      h('p', { class: 'pj-port-title' }, `Port ${look.port} was already taken`, holder ? `, by ${holder.name || 'a program'} (process ${holder.pid}).` : '.'),
+      !holder && h('p', { class: 'muted small', text: "Whatever had it has let go. Restart, and it may well start." }),
+      h('div', { class: 'row wrap' },
+        look.free && h('button', { type: 'button', class: 'btn primary slim-btn', text: `Use :${look.free} instead`, onclick: () => usePort(s, look.free) }),
+        holder?.canStop && h('button', { type: 'button', class: 'btn ghost slim-btn', text: `Stop ${holder.name || 'it'}`, onclick: e => stopHolder(s, holder, e.currentTarget) })),
+      look.free && h('p', { class: 'muted small', text: `Shellby remembers :${look.free} for this script until you move it back.` }),
+    ].filter(Boolean));
+    return box;
+  }
+
+  async function usePort(s, port) {
+    const r = await api.serverUsePort({ id: s.id, port });
+    portLooks.delete(s.id);
+    if (r && r.ok === false && r.error) SB.toast(r.error);
+    logs.delete(s.id);
+    drafts.delete(s.id);
+    await P.reloadServers();
+  }
+
+  async function stopHolder(s, holder, btn) {
+    btn.disabled = true;
+    const r = await api.serverPortStop({ id: s.id, pid: holder.pid });
+    btn.disabled = false;
+    if (r?.cancelled) return;
+    portLooks.delete(s.id);
+    if (r && r.ok === false && r.error) SB.toast(r.error);
+    logs.delete(s.id);
+    drafts.delete(s.id);
+    await P.reloadServers();
   }
 
   // ------------------------------------------------------------------ the approval sheet
