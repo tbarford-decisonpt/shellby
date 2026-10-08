@@ -1,6 +1,12 @@
     <div class="settings-panel" role="tabpanel" id="setPanel-claude" data-tab="claude" aria-labelledby="setTab-claude" hidden>
       <section class="setting-group" id="claudeModeGroup" data-nav="Claude Code">
         <h3>Claude Code</h3>
+        <div class="seg mode-seg" id="modeSeg" role="radiogroup" aria-label="Mode" data-roving>
+          <button type="button" role="radio" data-mode="claude">Claude Code</button>
+          <button type="button" role="radio" data-mode="work">Work mode</button>
+          <button type="button" role="radio" data-mode="crab">Just the crab</button>
+        </div>
+        <p class="small muted">Switch any time from here, Ctrl+K, or Mode in his right-click menu.</p>
         <p class="small" id="claudeModeText"></p>
         <div class="row wrap">
           <button type="button" class="btn" id="claudeModeBtn"></button>
@@ -106,7 +112,10 @@
         <div class="sl-card" id="rcAgent">
           <div class="sl-head">
             <b>Windows' ssh agent</b>
-            <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
+            <span class="row">
+              <button type="button" class="btn ghost slim-btn" id="rcAgentSkip" hidden></button>
+              <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
+            </span>
           </div>
           <p class="small muted" id="rcAgentText">Checking…</p>
         </div>

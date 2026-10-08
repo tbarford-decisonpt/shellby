@@ -776,5 +776,6 @@ contextBridge.exposeInMainWorld('shellby', {
   onCalm: on('panel:calm'), // unfocused or locked: pause the decorative animation
   onUpdates: on('updates'),
   onJump: on('panel:jump'),
+  onMode: on('panel:mode'), // his menu's Mode: claude, work or crab (workmode.js)
   onDemo: on('demo'),
 });

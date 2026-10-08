@@ -39,6 +39,7 @@ function createRemoteService(deps) {
   const configArgs = sshConfigFile ? ['-F', sshConfigFile] : [];
   const anchorsRoot = path.join(dir, 'folders');
   let askEnv = null; // askpass's environment once its server is up (sessions start synchronously)
+  let askError = null; // why it couldn't start (a PC that won't run the helper), for the sign-in step to say
   const busy = new Map(); // alias -> what's running for it, so a second press waits for the first
 
   const computers = () => (Array.isArray(config.get('remoteComputers')) ? config.get('remoteComputers') : []).filter(c => ssh.isHost(c?.alias));
@@ -48,7 +49,7 @@ function createRemoteService(deps) {
   /** Start the askpass server now, so a session started later can ask for a passphrase. */
   function warm() {
     if (!computers().length) return Promise.resolve(null);
-    return askpass.env().then(env => { askEnv = env; return env; }, err => { log(`askpass: ${err.message}`); return null; });
+    return askpass.env().then(env => { askEnv = env; askError = null; return env; }, err => { askError = err.message; log(`askpass: ${err.message}`); return null; });
   }
 
   // ---- running ssh
@@ -164,9 +165,12 @@ function createRemoteService(deps) {
     const p = (async () => {
       const r = await runSsh(alias, ssh.probeScript(), { interactive, timeout: 60000 });
       const probe = ssh.parseProbe(r.stdout);
+      const failed = probe.reached ? null : failure(r);
+      // ssh had no way to ask for the passphrase: say that, not "it didn't accept the sign-in".
+      const said = failed?.kind === 'remote-auth' && interactive && askError ? `Shellby couldn't show its passphrase box on this PC (${askError}), so ssh had no way to ask. Windows' ssh agent can hold the key instead, or set up a key without a passphrase.` : null;
       const result = probe.reached
         ? { at: Date.now(), ok: true, ...probe }
-        : { at: Date.now(), ok: false, reached: false, ...failure(r) };
+        : { at: Date.now(), ok: false, reached: false, ...failed, ...(said ? { message: said } : {}) };
       saveComputer(alias, { check: result });
       return { ok: true, check: result };
     })().finally(() => busy.delete(alias));

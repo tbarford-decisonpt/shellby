@@ -8,6 +8,7 @@ const confirm = require('../confirm');
 const crashReport = require('../crash-report');
 const focus = require('../focus');
 const { Updates, fakeUpdater, installedBy, trayLabel: updateLabel } = require('../updates');
+const workmode = require('../workmode');
 
 /** d: what main shares (main.js `shared`). */
 function wireTray(d) {
@@ -48,6 +49,7 @@ function wireTray(d) {
       { label: leaveMenuLabel(), click: () => d.awayService.leaveCheck() },
       { label: 'Lock the PC', click: () => d.awayService.leaveCheck({ lock: true }) },
       { label: d.healthMood ? `Health: ${d.HEALTH_TIP[d.healthMood.mood]} (${d.healthMood.text})` : 'Health', click: d.showHealth },
+      modeMenu(),
       focusMenu(),
       playMenu(),
       ...careMenu(),
@@ -190,6 +192,26 @@ function wireTray(d) {
     if (!m) return [];
     const us = { label: 'How he\'s doing…', click: () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'us'); } };
     return [m.feed, { label: 'Care', submenu: [...m.care, { type: 'separator' }, us] }];
+  }
+
+  // Claude Code, Work mode or just the crab, one click from his menu. The
+  // panel makes the switch (workmode.js there), so it reads the same as
+  // Ctrl+K and Settings; leaving just the crab without Claude Code set up
+  // opens the panel on its setup.
+  const MODE_LABELS = { claude: 'Claude Code', work: 'Work mode', crab: 'Just the crab' };
+  function modeMenu() {
+    const now = workmode.modeOf(d.config.data);
+    return {
+      label: `Mode: ${MODE_LABELS[now]}`,
+      submenu: workmode.MODE_IDS.map(id => ({
+        label: MODE_LABELS[id], type: 'radio', checked: id === now,
+        click: () => {
+          if (id === workmode.modeOf(d.config.data)) return;
+          if (workmode.needsSetup(d.config.data, d.claudeStatus, id)) d.showPanel({ focusInput: false });
+          d.send(d.panel, 'panel:mode', id);
+        },
+      })),
+    };
   }
 
   function focusMenu() {

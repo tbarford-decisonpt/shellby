@@ -15,14 +15,18 @@
   const lockedKeys = keys => (keys || []).filter(k => k.locked && !k.loaded);
 
   /**
-   * The way past "it didn't accept the sign-in", best first.
+   * The way past "it didn't accept the sign-in", best first. The agent only
+   * saves typing a passphrase: without it (off, or a PC that won't run it,
+   * useAgent false) Shellby asks for the passphrase each time ssh needs it.
    * agent: { state, startType, reachable } | null; keys: view().keys
    */
-  function signInFixes(agent, keys) {
+  function signInFixes(agent, keys, { useAgent = true } = {}) {
     const fixes = [];
     const locked = lockedKeys(keys);
-    if (locked.length && agent?.state !== 'running') fixes.push({ id: 'agent-on', label: "Turn on Windows' ssh agent" });
-    if (locked.length && agent?.state === 'running') for (const k of locked) fixes.push({ id: 'unlock', key: k.name, label: `Unlock ${k.name}` });
+    const running = agent?.state === 'running';
+    if (locked.length && useAgent && running) for (const k of locked) fixes.push({ id: 'unlock', key: k.name, label: `Unlock ${k.name}` });
+    if (locked.length && !(useAgent && running)) fixes.push({ id: 'check', label: 'Type my passphrase' });
+    if (locked.length && useAgent && !running && agent) fixes.push({ id: 'agent-on', label: "Turn on Windows' ssh agent" });
     fixes.push({ id: 'setup-key', label: 'Sign in with my password, and set up a key' });
     return fixes;
   }
@@ -31,13 +35,14 @@
    * One computer's steps. c: a view().computers row. -> [{ id, state, text, actions }]
    * state: ok | todo | bad | busy
    */
-  function steps(c, { agent = null, keys = [] } = {}) {
+  function steps(c, { agent = null, keys = [], useAgent = true } = {}) {
     const check = c?.check;
     if (c?.busy) return [{ id: 'reach', state: 'busy', text: 'Looking…', actions: [] }];
     if (!check) return [{ id: 'reach', state: 'todo', text: 'Not connected yet.', actions: [{ id: 'check', label: 'Connect' }] }];
     if (!check.ok) {
-      const actions = check.kind === 'remote-auth' ? signInFixes(agent, keys) : [];
-      return [{ id: 'reach', state: 'bad', text: check.message || "Couldn't connect.", actions: [...actions, { id: 'check', label: 'Try again' }] }];
+      const actions = check.kind === 'remote-auth' ? signInFixes(agent, keys, { useAgent }) : [];
+      const again = actions.some(a => a.id === 'check') ? [] : [{ id: 'check', label: 'Try again' }];
+      return [{ id: 'reach', state: 'bad', text: check.message || "Couldn't connect.", actions: [...actions, ...again] }];
     }
     const out = [{ id: 'reach', state: 'ok', text: `Connected${check.os ? ` (${check.os})` : ''}.`, actions: [{ id: 'check', label: 'Check again' }] }];
     if (!check.claude) {
@@ -71,10 +76,15 @@
     return c ? c.folders[0].anchor : null;
   }
 
-  /** The agent's line, and its button, when it's worth one. */
-  function agentLine(agent, keys) {
-    if (!agent) return { text: "Windows' ssh agent isn't installed on this PC.", action: null };
+  /**
+   * The agent's line, its button when it's worth one, and `skip`: the way to
+   * do without it, for a PC where it can't be turned on (a work PC, say).
+   */
+  function agentLine(agent, keys, { useAgent = true } = {}) {
+    const asks = "Shellby asks for your key's passphrase when ssh needs it.";
+    if (!agent) return { text: `Windows' ssh agent isn't installed on this PC. Not needed: ${asks}`, action: null };
     const locked = lockedKeys(keys);
+    if (!useAgent) return { text: `Not used on this PC. ${asks}`, action: { id: 'agent-use', label: 'Use it' } };
     if (agent.state === 'running') {
       const held = (keys || []).filter(k => k.loaded).map(k => k.name);
       const text = held.length ? `On, holding ${held.join(', ')}.` : 'On, holding no keys yet.';
@@ -82,9 +92,10 @@
     }
     return {
       text: locked.length
-        ? `Off. Turn it on and unlock ${locked.map(k => k.name).join(', ')} once, and ssh stops asking for the passphrase.`
+        ? `Off, and that's fine: ${asks} Turn it on and unlock ${locked.map(k => k.name).join(', ')} once if you'd rather not type it. It needs an administrator.`
         : 'Off. It only matters for keys with a passphrase.',
       action: locked.length ? { id: 'agent-on', label: 'Turn it on' } : null,
+      skip: locked.length ? { id: 'agent-skip', label: 'Do without it' } : null,
     };
   }
 
