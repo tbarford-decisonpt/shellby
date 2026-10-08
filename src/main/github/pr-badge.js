@@ -14,6 +14,7 @@
 // body it's opened with (workflows), or by editing it afterwards (a tab's
 // `gh pr create`). Pure helpers are exported for test/pr-badge.test.js.
 const crypto = require('crypto');
+const crabLine = require('../crab-line');
 const { cleanSvg } = require('./profile-card');
 
 const REPO = 'shellby-badge';
@@ -60,18 +61,24 @@ function pictureUrl(login, commit, web = 'https://github.com') {
     : `${web}/${login}/${REPO}/raw/${commit}/${FILE}`;
 }
 
-/** The badge, as it goes in a description. */
-function badgeBlock({ login, commit, level, web }) {
+/**
+ * The badge, as it goes in a description.
+ *   summary: { title, cls, bugs, event } for the line under him (crab-line.js); words only, escaped anyway
+ */
+function badgeBlock({ login, commit, level, web, summary = {} }) {
   const src = pictureUrl(login, commit, web);
   if (!src) return null;
   const lv = Number.isFinite(level) ? Math.min(99, Math.max(1, Math.floor(level))) : 1;
+  const line = escapeHtml(crabLine.badgeText({ ...summary, level: lv }));
   return [
     START,
     `<a href="${SHELLBY_URL}"><img src="${src}" width="${IMG_WIDTH}" alt="Shellby, a pixel hermit crab, at level ${lv}"></a><br>`,
-    `<sub>Built with <a href="${SHELLBY_URL}">Shellby</a> · Lv ${lv}</sub>`,
+    `<sub>🦀 Built with <a href="${SHELLBY_URL}">Shellby</a> · ${line}</sub>`,
     END,
   ].join('\n');
 }
+
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** A description with the badge at the bottom (replacing one already there). */
 function withBadge(body, block) {
@@ -152,7 +159,7 @@ class PrBadge {
     if (!this.github.can('prBadge')) return null;
     try {
       const { commit, login } = await this.picture();
-      return badgeBlock({ login, commit, level: this.level(), web: this.web });
+      return badgeBlock({ login, commit, level: this.level(), web: this.web, summary: this.summary?.() || {} });
     } catch (e) {
       this.save({ error: describe(e, 'Couldn\'t put your crab\'s picture up') });
       return null;

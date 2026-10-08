@@ -458,6 +458,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getSocial: invoke('social:get'),
   onSocial: on('social'),
   onSocialFocus: on('social:focus'),
+  onHatchPrefill: on('social:prefill'),
   onHatched: on('social:hatched'),
   swapOptions: invoke('swaps:options'),
   swapOffer: invoke('swaps:offer'),

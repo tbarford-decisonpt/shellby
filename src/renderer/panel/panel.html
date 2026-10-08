@@ -1722,6 +1722,8 @@
         <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
         <label class="toggle"><input type="checkbox" id="clashToggle"><span class="switch"></span>Warn me when two copies change the same file</label>
         <p class="muted small">Two copies (or a copy and your own uncommitted work) that both change a file will clash when they come home. Shellby looks after each turn, marks both tabs with ⚠ and says so once, so you can sort it out early.</p>
+        <label class="toggle"><input type="checkbox" id="signCommitsToggle"><span class="switch"></span>Sign Shellby's bring-home commits</label>
+        <p class="muted small">Adds one line at the end of the commits Shellby makes bringing a copy home: <code>Shipped-with: Shellby (Lv 12 Abyssal Admin)</code>. Only his level and title. Claude Code's own commits keep their own sign-off.</p>
       </section>
 
       <section class="setting-group" id="editorGroup" data-nav="Editor">

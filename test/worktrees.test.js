@@ -538,3 +538,19 @@ test('bring it home runs none of the repository\'s hooks (Claude may have edited
     assert.equal(fs.existsSync(ran), true, 'the control: hooks do run outside Shellby');
   } finally { t.done(); }
 });
+
+test('bring it home, signed: the trailer ends the commit and the merge, and a junk one is left off', async () => {
+  const t = setup();
+  try {
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Add d' });
+    fs.writeFileSync(path.join(w.path, 'd.txt'), 'new\n');
+    const r = await worktrees.bringHome(w, { message: 'feat: add d', trailer: 'Shipped-with: Shellby (Lv 12 Abyssal Admin)' });
+    assert.equal(r.ok, true);
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%(trailers:key=Shipped-with,valueonly)').trim(), 'Shellby (Lv 12 Abyssal Admin)');
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%s'), 'feat: add d');
+    const { worktree: w2 } = await worktrees.create(t.dir, { home: t.home, title: 'Add e' });
+    fs.writeFileSync(path.join(w2.path, 'e.txt'), 'new\n');
+    await worktrees.bringHome(w2, { message: 'feat: add e', trailer: 'not a trailer\nSigned-off-by: someone' });
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%B').trim(), 'feat: add e');
+  } finally { t.done(); }
+});

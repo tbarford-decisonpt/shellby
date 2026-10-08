@@ -164,7 +164,7 @@
       h('button', { type: 'button', class: 'btn ghost slim-btn', 'aria-pressed': String(e.follower === b.id), onclick: () => follow(e.follower === b.id ? null : b.id) },
         e.follower === b.id ? 'Following him' : 'Follow him'))));
     $('usHatchRow').hidden = !!e.hatchedFrom;
-    $('usHatchNote').textContent = e.pending ? `@${e.pending.from}’s egg is waiting. It hatches once Visiting crabs is on.` : e.hatchedFrom ? '' : 'Someone sent you an egg? Paste its code.';
+    $('usHatchNote').textContent = e.pending ? `@${e.pending.from}’s egg is waiting. It hatches once Visiting crabs is on.` : e.hatchedFrom ? '' : 'Someone sent you an egg? Paste its code. Hatching adds them as a friend and leaves a note on their calling card.';
   }
 
   async function layEgg(btn) {
@@ -225,6 +225,15 @@
   api.onSocialFocus(() => {
     SB.setView('settings');
     requestAnimationFrame(() => $('ghFriendsRow')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  });
+  // A shellby://hatch link: the code waits in the box for you to press Hatch it.
+  api.onHatchPrefill(code => {
+    if (typeof code !== 'string' || !/^EGG-/.test(code)) return;
+    const input = $('usHatchInput');
+    if (!input) return;
+    input.value = code.slice(0, 300);
+    requestAnimationFrame(() => { $('usClutch')?.scrollIntoView({ block: 'center' }); $('usHatchGo')?.focus(); });
+    SB.toast('An egg! Press Hatch it to hatch it.', { ms: 6000 });
   });
   api.getSocial().then(apply).catch(() => {});
   SB.social = { swapFor, refresh: () => api.getSocial().then(apply).catch(() => {}) };

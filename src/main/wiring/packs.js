@@ -79,13 +79,14 @@ function wirePacks(d) {
     else go();
   }
 
-  // A crab egg (eggs.js): the Us page, where the clutch is, and the hatch itself.
-  async function hatchFromLink(code) {
+  // A crab egg (eggs.js): the Us page, with the code in the hatch box. A link
+  // never hatches by itself: hatching adds a friend and writes on their card
+  // as you, so it waits for you to press Hatch it.
+  function hatchFromLink(code) {
     d.startView = 'us';
     d.showPanel({ focusInput: false });
     d.send(d.panel, 'panel:view', 'us');
-    const r = await d.hatchEgg(code);
-    if (!r.ok) d.send(d.panel, 'social', { ...d.socialView(), notice: r.error });
+    d.send(d.panel, 'social:prefill', code);
   }
 
   async function installFromRegistry(packId) {

@@ -81,6 +81,8 @@ function wireGithub(d) {
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
     d.profileCard = new ProfileCard({ config: d.config, github: d.github });
     d.prBadge = new prBadges.PrBadge({ config: d.config, github: d.github, level: d.currentLevel, web: githubEndpoints().web });
+    // The line under him: his title and class, the week's catches, and the tide event's emoji (crab-line.js).
+    d.prBadge.summary = () => d.crabSummary();
   }
 
   // Who's on the friends list (or was removed) differs: not a card fetch or a visit.
