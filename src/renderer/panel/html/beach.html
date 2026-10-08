@@ -1,0 +1,43 @@
+  <!-- ====================== BEACH: a scene that only grows (beach.js, beach-paint.js, src/main/beach.js) ====================== -->
+  <main class="view view-beach" id="beachView">
+    <div class="view-head">
+      <h2 class="sr-only">Your beach</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" aria-current="page" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="bc-hero" aria-labelledby="bcTitle">
+      <div class="bc-stage" id="bcStage" data-time="night">
+        <canvas class="bc-canvas" id="bcCanvas" role="img" aria-label="Your beach"></canvas>
+        <div class="bc-hits" id="bcHits" role="group" aria-label="On the beach"></div>
+        <div class="bc-title">
+          <h3 id="bcTitle">Your beach</h3>
+          <p class="bc-sub" id="bcSub"></p>
+        </div>
+        <div class="bc-empty" id="bcEmpty" hidden>
+          <b>His first castle goes here</b>
+          <span>Ship a project and he builds it. A push, a deploy, a release or a merged PR all count.</span>
+        </div>
+      </div>
+      <canvas class="bc-map" id="bcMap" hidden aria-hidden="true" title="The whole beach: click or drag to look along it"></canvas>
+      <div class="bc-tools">
+        <button type="button" class="btn primary slim-btn" id="bcShare">Share a snapshot</button>
+        <span class="bc-hint muted small" id="bcHint" hidden>Drag the beach, or tab through it, to look along.</span>
+      </div>
+      <p class="sr-only" id="bcLive" aria-live="polite"></p>
+    </section>
+    <section class="bc-detail" id="bcDetail" hidden aria-live="polite"></section>
+    <section class="us-sec" aria-labelledby="bcKeyTitle">
+      <div class="us-h"><h3 id="bcKeyTitle">How it grows</h3><span class="us-h-meta">Nothing on it ever washes away</span></div>
+      <ul class="bc-key" id="bcKey"></ul>
+    </section>
+  </main>

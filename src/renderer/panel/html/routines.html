@@ -1,0 +1,148 @@
+  <!-- ====================== ROUTINES ====================== -->
+  <main class="view view-routines" id="routinesView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows>Workflows</button>
+      <button type="button" aria-current="page">Routines</button>
+    </nav>
+    <div class="view-head">
+      <h2>Routines</h2>
+      <button type="button" class="btn primary slim-btn" id="newRoutineBtn">New routine</button>
+    </div>
+    <p class="view-lede">Tasks Shellby runs on a schedule while your PC is on. Each run opens its own tab, and if it needs you, you'll get a notification.</p>
+    <form class="routine-ask" id="routineAsk" novalidate>
+      <label class="field-label" for="routineAskText">Describe a routine</label>
+      <div class="row">
+        <input class="field" id="routineAskText" name="text" maxlength="500" autocomplete="off" placeholder="Every weekday at 8:30, list what changed in my Documents">
+        <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
+      </div>
+      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check before anything is saved.</p>
+      <button type="button" class="btn ghost slim-btn routine-as-workflow" id="routineAsWorkflow" hidden>Build it as a workflow instead</button>
+    </form>
+    <!-- The editor, with Build it with Claude (wf-chat.js) beside it once there's room. -->
+    <div class="wf-work routine-work" id="routineWork" hidden>
+    <form class="routine-editor" id="routineEditor" novalidate>
+      <h3 id="routineEditorTitle">New routine</h3>
+      <p class="routine-tpl-note" id="routineTplNote" hidden></p>
+      <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>
+      <label class="field-label">What should Shellby do?
+        <textarea class="field area" name="prompt" rows="4" maxlength="8000" placeholder="Sort ~/Downloads into subfolders by type and tell me what moved." required></textarea>
+      </label>
+      <div class="grid-2">
+        <label class="field-label">Repeat
+          <select class="field" name="type">
+            <option value="daily">Every day</option>
+            <option value="weekly">On certain days</option>
+            <option value="interval">Every few hours</option>
+          </select>
+        </label>
+        <label class="field-label" data-when="daily weekly">At<input class="field" type="time" name="time" value="09:00"></label>
+        <label class="field-label" data-when="interval">Every (hours)<input class="field" type="number" name="everyHours" min="1" max="168" value="4"></label>
+      </div>
+      <div class="days" data-when="weekly" role="group" aria-label="Days">
+        <label><input type="checkbox" name="day" value="1" checked><span>Mon</span></label>
+        <label><input type="checkbox" name="day" value="2"><span>Tue</span></label>
+        <label><input type="checkbox" name="day" value="3"><span>Wed</span></label>
+        <label><input type="checkbox" name="day" value="4"><span>Thu</span></label>
+        <label><input type="checkbox" name="day" value="5"><span>Fri</span></label>
+        <label><input type="checkbox" name="day" value="6"><span>Sat</span></label>
+        <label><input type="checkbox" name="day" value="0"><span>Sun</span></label>
+      </div>
+      <div class="grid-2">
+        <label class="field-label">Permission mode
+          <select class="field" name="mode">
+            <option value="smart">Smart (recommended for routines)</option>
+            <option value="ask">Ask first</option>
+            <option value="acceptEdits">Auto-edit</option>
+            <option value="plan">Plan only</option>
+            <option value="autonomous">Autonomous</option>
+          </select>
+        </label>
+        <div class="field-label">Folder
+          <div class="row"><code class="path" id="routineFolder">Default folder</code><button type="button" class="btn slim-btn" id="routineFolderBtn">Change</button></div>
+        </div>
+      </div>
+      <label class="field-label">Model
+        <select class="field" name="model" aria-describedby="routineModelHint"></select>
+      </label>
+      <p class="muted small routine-model-hint" id="routineModelHint">A lighter model is plenty for tidy-ups and summaries.</p>
+      <p class="routine-model-suggest" id="routineModelSuggest" role="status" hidden></p>
+      <div id="routineMcp"></div>
+      <label class="toggle"><input type="checkbox" name="catchUp" checked><span class="switch"></span>If the PC was off, run once when Shellby starts</label>
+      <p class="form-errors" id="routineErrors" role="alert" hidden></p>
+      <div class="row end">
+        <button type="button" class="btn ghost" id="routineCancel">Cancel</button>
+        <button type="submit" class="btn primary">Save routine</button>
+      </div>
+    </form>
+    </div>
+    <!-- Your routines come first; the tools below them are secondary (.rt-section). -->
+    <ul class="routine-list" id="routineList"></ul>
+    <!-- Claude Code's own cloud routines (/schedule), listed by asking Claude Code (routines-cloud.js) -->
+    <section class="rt-section cloud-routines" id="cloudRoutines" aria-labelledby="cloudRoutinesTitle">
+      <div class="deps-head">
+        <h3 id="cloudRoutinesTitle">In Claude's cloud</h3>
+        <span class="deps-summary" id="cloudSummary"></span>
+      </div>
+      <p class="view-lede">Routines you made with <code>/schedule</code> in Claude Code. They run in Anthropic's cloud on their own schedule, even with your PC off. Claude Code keeps them; Shellby shows them here.</p>
+      <ul class="deps-list cloud-list" id="cloudList"></ul>
+      <div class="row cloud-actions" id="cloudActions"></div>
+    </section>
+    <!-- The reset queue (held.js tasks, outlook.js state): heavy work for a fresh 5-hour window. -->
+    <section class="rt-section reset-queue" id="resetQueue" aria-labelledby="resetQueueTitle">
+      <div class="rq-head">
+        <h3 id="resetQueueTitle">When your limit resets</h3>
+        <span class="rq-when" id="resetQueueWhen"></span>
+      </div>
+      <p class="rq-lede">Heavy tasks wait for a fresh 5-hour window, then run one after another, overnight too.</p>
+      <ol class="rq-list" id="resetQueueList"></ol>
+      <form class="rq-add" id="resetQueueForm" novalidate>
+        <label class="sr-only" for="resetQueueText">Task to run after the reset</label>
+        <textarea class="field area" id="resetQueueText" rows="2" maxlength="50000" placeholder="Refactor the billing module into smaller files, then write tests for it"></textarea>
+        <div class="rq-controls">
+          <button type="button" class="btn ghost slim-btn rq-folder" id="resetQueueFolder" title="The folder it runs in. Click to change."></button>
+          <select class="field rq-mode" id="resetQueueMode" aria-label="Permission mode">
+            <option value="smart">Smart</option>
+            <option value="acceptEdits">Auto-edit</option>
+            <option value="ask">Ask first</option>
+            <option value="plan">Plan only</option>
+            <option value="autonomous">Autonomous</option>
+          </select>
+          <select class="field rq-mode" id="resetQueueModel" aria-label="Model" title="The model it runs on"></select>
+          <button type="submit" class="btn slim-btn" id="resetQueueAdd">Queue it</button>
+        </div>
+        <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>
+      </form>
+      <div class="rq-foot">
+        <label class="toggle"><input type="checkbox" id="resetQueueAwake"><span class="switch"></span>Keep the PC awake while tasks wait or run</label>
+        <p class="rq-phone" id="resetQueuePhone"></p>
+      </div>
+    </section>
+    <section class="rt-section deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
+      <div class="deps-head">
+        <h3 id="depsTitle">Dependency health</h3>
+        <span class="deps-summary" id="depsSummary"></span>
+      </div>
+      <p class="view-lede">What the last <code>npm audit</code>, <code>pip-audit</code>, <code>cargo outdated</code> and the like found in each project. A clean audit keeps a project 🧼 fresh for 30 days.</p>
+      <ul class="deps-list" id="depsList"></ul>
+    </section>
+
+    <section class="rt-section deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
+      <div class="deps-head">
+        <h3 id="flakyTitle">Flaky tests</h3>
+        <span class="deps-summary" id="flakySummary"></span>
+      </div>
+      <p class="view-lede">Tests that failed and then passed with the code exactly the same, in Shellby's tabs. Fixing or quarantining one happens in a copy of the repository, on its own branch.</p>
+      <ul class="deps-list" id="flakyList"></ul>
+      <button type="button" class="btn ghost slim-btn flaky-forget" id="flakyForget">Forget all of this</button>
+    </section>
+
+    <section class="rt-section dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
+      <div class="dw-head">
+        <h3 id="depWatchTitle">Dependency watch</h3>
+        <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects' packages every week</label>
+      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
+      <ul class="dw-list" id="depWatchList"></ul>
+    </section>
+  </main>

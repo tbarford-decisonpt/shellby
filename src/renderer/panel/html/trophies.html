@@ -1,0 +1,92 @@
+  <!-- ====================== TROPHIES ====================== -->
+  <main class="view view-trophies" id="trophiesView">
+    <div class="view-head">
+      <h2 class="sr-only">Trophies and XP</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+      <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Make a shareable picture of your Shellby" aria-label="Make a shareable picture of your Shellby">📸</button>
+    </div>
+    <section class="xp-card" id="xpCard" aria-label="Level and XP">
+      <div class="xp-head">
+        <span class="xp-level" id="xpLevel">1</span>
+        <div class="xp-titles">
+          <p class="xp-eyebrow" id="xpEyebrow">Level</p>
+          <h3 id="xpTitle">Hatchling</h3>
+        </div>
+        <span class="xp-total" id="xpTotal">0 XP</span>
+        <button type="button" class="xp-streak" id="xpStreak" hidden></button>
+      </div>
+      <div class="xp-bar" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="100" id="xpBarWrap"><i id="xpBar"></i></div>
+      <div class="xp-meta">
+        <p class="xp-next"><span id="xpNext"></span><span class="xp-unlock" id="xpUnlock" hidden></span></p>
+        <ul class="xp-boosts" id="xpBoosts" aria-label="XP boosts" hidden></ul>
+      </div>
+      <div class="xp-section xp-bounties" id="xpBounties" aria-label="Today's bounties">
+        <p class="xp-sub">Today's bounties <span id="xpBountyBonus"></span></p>
+        <ul id="xpBountyList"></ul>
+      </div>
+      <div class="xp-section xp-quests" id="xpQuests" aria-label="Quests" hidden>
+        <div class="xp-quests-head">
+          <p class="xp-sub">Quests <span id="xpQuestCount"></span></p>
+          <button type="button" class="btn ghost slim-btn" id="xpQuestShow" hidden>Show in the chat</button>
+        </div>
+        <ol class="quest-trail" id="xpQuestList"></ol>
+      </div>
+      <div class="xp-section xp-sheet" id="xpSheet" aria-label="Character sheet" hidden>
+        <div class="xp-sheet-head">
+          <p class="xp-sub">Character sheet <span id="xpSheetWeek"></span></p>
+        </div>
+        <div class="xp-class" id="xpClass">
+          <span class="xp-class-icon" id="xpClassIcon" aria-hidden="true">🐚</span>
+          <div class="xp-class-text">
+            <p class="xp-class-eyebrow">Class</p>
+            <h4 id="xpClassName">Wanderer</h4>
+            <p class="xp-class-blurb" id="xpClassBlurb"></p>
+          </div>
+        </div>
+        <ul class="xp-stats" id="xpStats" aria-label="Stats"></ul>
+        <p class="xp-classes" id="xpClasses" hidden></p>
+      </div>
+      <div class="xp-section xp-week" id="xpWeek" aria-label="This week" hidden>
+        <div class="xp-week-head">
+          <p class="xp-sub">This week <span id="xpWeekRange"></span></p>
+          <button type="button" class="btn slim-btn" data-share-week title="Make a shareable picture of your week: tasks, streak, top project and new trophies">📅 Share my week</button>
+        </div>
+        <div class="xp-week-plan" id="xpWeekPlan" role="group" aria-label="What your plan bought you" hidden>
+          <p class="xp-week-hours"><b id="xpWeekHours"></b><span id="xpWeekHoursNote"></span></p>
+          <ul class="xp-week-ledger" id="xpWeekLedger"></ul>
+        </div>
+        <p class="xp-week-line" id="xpWeekLine"></p>
+        <ul class="xp-week-work" id="xpWeekWork" aria-label="The week's work"></ul>
+        <div class="xp-week-row" id="xpWeekTrophiesRow" hidden>
+          <p class="xp-week-label">New trophies</p>
+          <ul class="xp-week-chips" id="xpWeekTrophies"></ul>
+        </div>
+        <div class="xp-week-row" id="xpWeekShippedRow" hidden>
+          <p class="xp-week-label">Shipped</p>
+          <ul class="xp-week-chips xp-week-shipped" id="xpWeekShipped"></ul>
+        </div>
+      </div>
+      <div class="xp-section xp-history">
+        <p class="xp-sub">Last 30 days <span id="xpHistoryTotal"></span></p>
+        <div class="xp-spark" id="xpSpark" role="img"></div>
+        <ul class="xp-kinds" id="xpKinds" aria-label="Where the XP came from"></ul>
+        <ul class="xp-log" id="xpLog" aria-label="Latest XP"></ul>
+      </div>
+      <details class="xp-section xp-ways-box">
+        <summary class="xp-sub">How to earn XP <span id="xpWaysCount"></span></summary>
+        <ul class="xp-ways" id="xpWays"></ul>
+      </details>
+    </section>
+    <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
+    <ul class="trophy-list" id="trophyList"></ul>
+  </main>

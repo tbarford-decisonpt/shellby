@@ -1,0 +1,90 @@
+  <!-- ====================== PROJECTS (projects.js) ====================== -->
+  <main class="view view-projects" id="projectsView">
+    <div class="view-head">
+      <h2>Projects</h2>
+      <button type="button" class="btn ghost slim-btn" id="pjRefresh">Refresh</button>
+    </div>
+
+    <!-- The list -->
+    <div id="pjListScreen">
+      <p class="pj-summary" id="pjSummary"></p>
+      <!-- Shown while servers run: how many, what happens to them when Shellby quits. -->
+      <section class="pj-quit" id="pjQuit" aria-label="Dev servers running" hidden>
+        <span class="pj-dot up" aria-hidden="true"></span>
+        <span class="pj-quit-count" id="pjQuitCount"></span>
+        <label class="pj-quit-when">On quit
+          <select class="field slim" id="pjOnQuit" aria-label="When Shellby quits">
+            <option value="keep">keep running</option>
+            <option value="stop">stop them</option>
+          </select>
+        </label>
+        <button type="button" class="btn ghost slim-btn" id="pjStopAll">Stop all</button>
+      </section>
+      <!-- What's waiting on you across every repo (inbox.js) -->
+      <section class="pj-panel pj-inbox" id="pjInbox" aria-label="Inbox" hidden></section>
+      <div class="pj-tools">
+        <input type="search" id="pjSearch" class="field" placeholder="Search projects…" aria-label="Search projects">
+        <div class="pj-tools-row">
+          <div class="seg pj-sort" id="pjSort" role="tablist" aria-label="Order" data-roving>
+            <button type="button" role="tab" data-sort="recent" aria-selected="true">Recent</button>
+            <button type="button" role="tab" data-sort="attention" aria-selected="false">Needs you</button>
+            <button type="button" role="tab" data-sort="name" aria-selected="false">A–Z</button>
+          </div>
+          <select class="field slim pj-scope" id="pjScope" aria-label="Show which projects">
+            <option value="all">All</option>
+            <option value="local">On this PC</option>
+            <option value="running">Running</option>
+            <option value="github">GitHub only</option>
+          </select>
+        </div>
+      </div>
+      <ul class="pj-list" id="pjProjects"></ul>
+      <div class="pj-empty" id="pjEmpty" hidden>
+        <p class="muted" id="pjEmptyText"></p>
+        <div class="row wrap" id="pjEmptyActions">
+          <button type="button" class="btn primary slim-btn" id="pjEmptyScan">Scan a folder…</button>
+          <button type="button" class="btn ghost slim-btn" id="pjEmptyAdd">Add a repo…</button>
+        </div>
+      </div>
+      <div class="row wrap pj-add" id="pjAddRow">
+        <button type="button" class="btn slim-btn" id="pjAdd">Add a repo…</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScan">Scan a folder…</button>
+      </div>
+      <p class="muted small" id="pjGitHubNote"></p>
+    </div>
+
+    <!-- One project -->
+    <div id="pjDetailScreen" hidden></div>
+
+    <!-- Scan a folder: pick which of the repos it found to add -->
+    <section class="pj-sheet" id="pjScanSheet" aria-labelledby="pjScanTitle" hidden>
+      <h3 id="pjScanTitle">Add repositories</h3>
+      <p class="muted small" id="pjScanLede"></p>
+      <ul class="pj-checks" id="pjScanList"></ul>
+      <div class="row wrap">
+        <button type="button" class="btn primary slim-btn" id="pjScanAdd" disabled>Add selected</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScanAll">Select all</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScanCancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- Clone a GitHub repository into a folder you choose -->
+    <section class="pj-sheet" id="pjCloneSheet" aria-labelledby="pjCloneTitle" hidden>
+      <h3 id="pjCloneTitle">Clone</h3>
+      <p class="muted small">Nothing is downloaded until you've chosen where it goes. Nothing is installed or run afterwards.</p>
+      <p class="field-label">Where</p>
+      <div class="row wrap">
+        <code class="path" id="pjCloneWhere">No folder chosen</code>
+        <button type="button" class="btn slim-btn" id="pjCloneChoose">Choose folder…</button>
+        <button type="button" class="btn ghost slim-btn" id="pjCloneAgain" hidden></button>
+      </div>
+      <p class="muted small" id="pjCloneDest"></p>
+      <div class="pj-progress" id="pjCloneProgress" hidden><span class="pj-progress-bar" id="pjCloneBar"></span></div>
+      <p class="muted small" id="pjCloneStatus" role="status"></p>
+      <p class="form-errors" id="pjCloneError" role="alert" hidden></p>
+      <div class="row wrap">
+        <button type="button" class="btn primary slim-btn" id="pjCloneGo" disabled>Clone</button>
+        <button type="button" class="btn ghost slim-btn" id="pjCloneCancel">Cancel</button>
+      </div>
+    </section>
+  </main>

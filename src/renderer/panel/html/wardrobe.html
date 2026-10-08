@@ -1,0 +1,70 @@
+  <!-- ====================== WARDROBE ====================== -->
+  <main class="view view-wardrobe" id="wardrobeView">
+    <div class="view-head">
+      <h2 class="sr-only">Wardrobe</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+      <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
+      <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
+    </div>
+    <div class="season-banner" id="seasonBanner" hidden></div>
+    <div class="stage" id="wdStage" role="group" aria-label="Preview">
+      <div class="stage-fx" id="wdFx" aria-hidden="true"></div>
+      <div class="stage-crab" id="wdCrab" aria-hidden="true"></div>
+      <div class="stage-floor"></div>
+      <div class="stage-caption" id="wdCaption"></div>
+    </div>
+    <div class="stage-moods" role="group" aria-label="Preview mood">
+      <button type="button" class="mood on" data-mood="idle" aria-pressed="true">Idle</button>
+      <button type="button" class="mood" data-mood="working" aria-pressed="false">Working</button>
+      <button type="button" class="mood" data-mood="asking" aria-pressed="false">Asking</button>
+      <button type="button" class="mood" data-mood="sleeping" aria-pressed="false">Sleeping</button>
+      <button type="button" class="mood random" id="randomizeBtn" title="Surprise me" aria-label="Random outfit">🎲</button>
+    </div>
+    <div class="outfit-code" id="outfitCodeRow">
+      <span class="oc-label">Outfit code</span>
+      <code id="outfitCode" title="Share this: anyone with Shellby can wear your look">SHB-…</code>
+      <button type="button" class="btn ghost slim-btn" id="copyCodeBtn">Copy</button>
+      <button type="button" class="btn slim-btn" id="wearCodeBtn">Wear a code…</button>
+    </div>
+    <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots" data-roving>
+      <button type="button" role="tab" data-slot="hat" aria-selected="true">Hats</button>
+      <button type="button" role="tab" data-slot="face">Face</button>
+      <button type="button" role="tab" data-slot="neck">Neck</button>
+      <button type="button" role="tab" data-slot="held">Held</button>
+      <button type="button" role="tab" data-slot="home" title="The shell he lives in. He grows into new ones as he levels up.">Homes</button>
+      <button type="button" role="tab" data-slot="shell">Shell</button>
+      <button type="button" role="tab" data-slot="effect">Effects</button>
+      <button type="button" role="tab" data-slot="skin">Colors</button>
+      <button type="button" role="tab" data-slot="voice" title="How he talks. Packs can add new voices: a pirate, a grump, another language.">Voice</button>
+    </div>
+    <div class="wd-grid" id="wdGrid" role="listbox" aria-label="Items" data-roving></div>
+    <p class="muted small wd-hint" id="wdHint" hidden>Packs can teach him new ways to talk: a pirate, a grump, another language. Find them in the community gallery below.</p>
+    <section class="setting-group wd-options">
+      <h3>Options</h3>
+      <label class="toggle"><input type="checkbox" id="seasonalToggle"><span class="switch"></span>Seasonal outfits: dress up automatically for Halloween, winter and more</label>
+      <label class="toggle"><input type="checkbox" id="crewToggle"><span class="switch"></span>Helper crabs wear hats: each crew member its own (pick them on the Crew page)</label>
+      <label class="toggle" id="unlockAllOption" hidden><input type="checkbox" id="unlockAllToggle"><span class="switch"></span>Unlock everything (skip the achievements)</label>
+    </section>
+    <section class="setting-group wd-packs">
+      <h3>Wardrobe packs</h3>
+      <p class="muted small">Community packs add hats, effects, colors, voices and little scenes. They're pixel art, lines and settings only and can't run code. Browse the gallery and click <b>Add to Shellby</b>, drop a pack <code>.json</code> here, or:</p>
+      <div class="row wrap">
+        <button type="button" class="btn primary" id="browsePacksBtn">Browse community packs</button>
+        <button type="button" class="btn" id="installPackBtn">Install pack…</button>
+        <button type="button" class="btn ghost" id="packsFolderBtn">Packs folder</button>
+        <button type="button" class="btn ghost" id="reloadPacksBtn" title="Re-read packs after editing them">Reload</button>
+        <button type="button" class="btn ghost" id="packGuideBtn">Make your own</button>
+      </div>
+      <ul class="pack-list" id="packList"></ul>
+    </section>
+  </main>

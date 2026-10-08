@@ -53,6 +53,8 @@ one lands under "Changed" word for word.
 
 ## Traps that have bitten before
 
+- **panel.html is built.** Edit the pieces in `src/renderer/panel/html/` (a file per
+  screen), then `npm run panel:html`. A test fails while the built file is stale.
 - **Line endings are LF.** Edits through Python's text mode on Windows rewrite whole
   files as CRLF. Use the Edit tool, Node `fs`, or `open(..., newline='')`.
   `claude-plugin/mcp/server.js` has literal control characters in a regex, and its

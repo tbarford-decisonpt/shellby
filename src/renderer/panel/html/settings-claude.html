@@ -1,0 +1,186 @@
+    <div class="settings-panel" role="tabpanel" id="setPanel-claude" data-tab="claude" aria-labelledby="setTab-claude" hidden>
+      <section class="setting-group" id="claudeModeGroup" data-nav="Claude Code">
+        <h3>Claude Code</h3>
+        <p class="small" id="claudeModeText"></p>
+        <div class="row wrap">
+          <button type="button" class="btn" id="claudeModeBtn"></button>
+        </div>
+        <div class="gh-account" id="claudeAccount" hidden>
+          <div class="gh-who"><b id="claudeWho"></b><span class="small muted" id="claudePlan"></span></div>
+          <button type="button" class="btn ghost slim-btn" id="claudeSwitch" title="Sign out, then sign in with a different Claude account">Switch account</button>
+          <button type="button" class="btn ghost slim-btn" id="claudeSignOut">Sign out</button>
+          <button type="button" class="btn primary slim-btn" id="claudeSignIn" hidden>Sign in</button>
+        </div>
+        <div class="update-head claude-update-hint" id="claudeUpdateHint" hidden>
+          <p class="small ext-status"><b id="claudeUpdateHintText"></b> <button type="button" class="link-btn inline" id="claudeUpdateHintMore">Update options</button></p>
+          <button type="button" class="btn primary slim-btn" id="claudeUpdateHintBtn">Update</button>
+        </div>
+        <div class="billing-guard" id="billingGuard" data-state="off">
+          <div class="billing-guard-head">
+            <span class="billing-guard-icon" aria-hidden="true"></span>
+            <b id="billingGuardTitle">Billing</b>
+            <span class="billing-guard-pill" id="billingGuardPill"></span>
+          </div>
+          <label class="toggle"><input type="checkbox" id="planOnlyToggle" aria-describedby="billingGuardText billingEnvNote"><span class="switch"></span>Always use my Claude plan</label>
+          <p class="small" id="billingGuardText">If an API key or another provider (Bedrock, Vertex, Foundry) is set on this PC, Claude Code bills that, per token, instead of your Pro or Max plan. Turn this on and Shellby leaves them out, so every conversation runs on your plan. Applies to new conversations.</p>
+          <p class="small" id="billingEnvNote" hidden></p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="selfAwareToggle"><span class="switch"></span>Tell Claude it's running in Shellby</label>
+        <label class="toggle"><input type="checkbox" id="suggestToggle"><span class="switch"></span>Let Claude offer Shellby features</label>
+        <p class="small muted">Claude gets a short note about Shellby and can make him talk, celebrate or dress up. The note never changes, so Claude Code caches it and it costs very little of your plan. When your usage passes 80%, Claude is told so it can keep things lean. Offers show up as cards and nothing happens unless you tap them. Changes apply to new conversations.</p>
+        <label class="toggle"><input type="checkbox" id="plainCardsToggle"><span class="switch"></span>Say what Claude is doing in plain words</label>
+        <p class="small muted">Permission cards and the Working bar say what a step does ("Run your tests in its own copy of the repo") and point out deletes, files outside the project, installs and anything that goes online. The command itself is still shown. Worked out by Shellby from the step itself, so it costs no usage.</p>
+        <div class="row wrap" id="mutedSuggestRow" hidden>
+          <span class="small muted" id="mutedSuggestText"></span>
+          <button type="button" class="btn slim-btn" id="unmuteSuggestBtn">Offer them again</button>
+        </div>
+      </section>
+
+      <section class="setting-group" data-nav="Mode">
+        <h3>How much can Shellby do?</h3>
+        <div class="mode-cards" id="modeCards"></div>
+        <div class="danger-confirm" id="autonomousConfirm" hidden>
+          <p><b>Autonomous mode skips every permission check.</b> Shellby and its helper agents can edit, run or delete anything your Windows account can, without asking. That includes running scripts it writes for itself. Use it only for tasks you'd trust to an unsupervised script.</p>
+          <div class="row">
+            <button type="button" class="btn danger" id="autonomousYes">I understand, enable it</button>
+            <button type="button" class="btn ghost" id="autonomousNo">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="setting-group" data-nav="Model">
+        <h3>Model</h3>
+        <div class="row">
+          <label class="inline-label" for="modelSelect">Model</label>
+          <select id="modelSelect" class="field slim">
+            <option value="">Claude Code default</option>
+          </select>
+        </div>
+        <p class="muted small">Applies to new conversations.</p>
+        <div class="row">
+          <label class="inline-label" for="styleSelect">Output style</label>
+          <select id="styleSelect" class="field slim">
+            <option value="">Default</option>
+          </select>
+        </div>
+        <p class="muted small" id="styleNote">How Claude talks while it works. Applies to new conversations.</p>
+      </section>
+
+      <section class="setting-group" data-nav="Folder">
+        <h3>Working folder</h3>
+        <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
+        <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
+        <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give a conversation its own copy of a git project when it starts changing things</label>
+        <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
+        <label class="toggle"><input type="checkbox" id="clashToggle"><span class="switch"></span>Warn me when two copies change the same file</label>
+        <p class="muted small">Two copies (or a copy and your own uncommitted work) that both change a file will clash when they come home. Shellby looks after each turn, marks both tabs with ⚠ and says so once, so you can sort it out early.</p>
+        <label class="toggle"><input type="checkbox" id="signCommitsToggle"><span class="switch"></span>Sign Shellby's bring-home commits</label>
+        <p class="muted small">Adds one line at the end of the commits Shellby makes bringing a copy home: <code>Shipped-with: Shellby (Lv 12 Abyssal Admin)</code>. Only his level and title. Claude Code's own commits keep their own sign-off.</p>
+      </section>
+
+      <section class="setting-group" id="remoteGroup" data-nav="Other computers">
+        <h3>Other computers</h3>
+        <p class="small muted ext-lede">Run Claude Code on another computer, like a server or a PC that stays on, and work with it here as usual. Shellby connects with ssh, through any computer in between. Add a folder there, and conversations in that folder run over there.</p>
+        <p class="small warn" id="rcNoSsh" hidden>Windows' own ssh isn't installed. Add <b>OpenSSH Client</b> in Windows Settings, under System, Optional features, then come back.</p>
+        <div class="rc-list" id="rcList"></div>
+        <div class="row wrap" id="rcAddRow">
+          <select class="field slim" id="rcPick" aria-label="A computer from your ssh settings"></select>
+          <button type="button" class="btn slim-btn" id="rcAdd">Add</button>
+          <button type="button" class="btn ghost slim-btn" id="rcNew">A new computer…</button>
+        </div>
+        <form class="rc-form" id="rcForm" hidden>
+          <label class="field-label"><span>Name</span><input type="text" class="field" id="rcAlias" placeholder="homebox" spellcheck="false" autocomplete="off" maxlength="63"></label>
+          <label class="field-label"><span>Address</span><input type="text" class="field" id="rcAddress" placeholder="192.168.1.20 or homebox.lan" spellcheck="false" autocomplete="off" maxlength="253"></label>
+          <div class="rc-form-row">
+            <label class="field-label"><span>User</span><input type="text" class="field" id="rcUser" placeholder="you" spellcheck="false" autocomplete="off" maxlength="32"></label>
+            <label class="field-label rc-port"><span>Port</span><input type="text" class="field" id="rcPort" placeholder="22" inputmode="numeric" autocomplete="off" maxlength="5"></label>
+          </div>
+          <label class="field-label"><span>Reach it through</span><select class="field" id="rcJump"></select></label>
+          <p class="small muted">Through another computer if this one is only reachable from there, like a home PC behind a VPS. Shellby adds it to your ssh settings, so your own terminal can use it too.</p>
+          <p class="small warn" id="rcFormError" role="alert" hidden></p>
+          <div class="row wrap end">
+            <button type="button" class="btn ghost slim-btn" id="rcFormCancel">Cancel</button>
+            <button type="submit" class="btn primary slim-btn" id="rcFormSave">Add computer</button>
+          </div>
+        </form>
+        <div class="sl-card" id="rcAgent">
+          <div class="sl-head">
+            <b>Windows' ssh agent</b>
+            <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
+          </div>
+          <p class="small muted" id="rcAgentText">Checking…</p>
+        </div>
+      </section>
+
+      <section class="setting-group" id="editorGroup" data-nav="Editor">
+        <h3>Editor</h3>
+        <div class="row">
+          <label class="inline-label" for="editorSelect">Open file links in</label>
+          <select id="editorSelect" class="field slim">
+            <option value="auto" data-label="Automatic">Automatic</option>
+            <option value="vscode" data-label="VS Code">VS Code</option>
+            <option value="cursor" data-label="Cursor">Cursor</option>
+            <option value="windsurf" data-label="Windsurf">Windsurf</option>
+            <option value="insiders" data-label="VS Code Insiders">VS Code Insiders</option>
+            <option value="system" data-label="Windows' default app">Windows' default app</option>
+          </select>
+        </div>
+        <p class="muted small" id="editorNote"></p>
+      </section>
+
+      <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
+        <h3>Dev servers</h3>
+        <p class="muted small">The servers you start from the Projects page. Shellby watches each one and holds up a sign if it crashes.</p>
+        <p class="field-label" id="setOnQuitLabel">When Shellby quits</p>
+        <div class="pj-quit-choices" role="group" aria-labelledby="setOnQuitLabel">
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="keep"> Leave dev servers running</label>
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="stop"> Stop them</label>
+        </div>
+        <p class="muted small">Left running, they carry on after Shellby closes, and Shellby picks them back up, log and all, when it starts again.</p>
+        <label class="toggle"><input type="checkbox" id="srvCrabToggle"><span class="switch"></span>Show running servers on the crab (":5173")</label>
+        <label class="toggle"><input type="checkbox" id="srvSignToggle"><span class="switch"></span>Hold up a sign when one crashes</label>
+        <label class="toggle"><input type="checkbox" id="srvToastToggle"><span class="switch"></span>Notify me when one crashes</label>
+      </section>
+
+      <section class="setting-group" id="externalGroup" data-nav="Everywhere">
+        <h3>Claude Code everywhere</h3>
+        <p class="small muted ext-lede">Shellby can react to Claude Code in your terminal or editor too: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. That needs the Shellby plugin in Claude Code on this PC.</p>
+        <div class="sl-card" id="pluginCard">
+          <div class="sl-head">
+            <b>Shellby plugin</b>
+            <button type="button" class="btn primary slim-btn" id="pluginBtn">Install the plugin</button>
+          </div>
+          <p class="small muted" id="pluginText">Checking…</p>
+        </div>
+        <p class="small muted ext-lede">Or add it yourself from inside Claude Code:</p>
+        <div class="cmd-row"><code id="cmdMarket">/plugin marketplace add x-salmon/shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdMarket">Copy</button></div>
+        <div class="cmd-row"><code id="cmdInstall">/plugin install shellby@shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdInstall">Copy</button></div>
+        <label class="toggle"><input type="checkbox" id="externalToggle"><span class="switch"></span>React to Claude Code sessions outside Shellby</label>
+        <p class="small ext-status" id="externalStatus"></p>
+        <ul class="ext-sessions" id="externalList"></ul>
+        <div class="bg-left" id="bgLeft" hidden>
+          <div class="bg-head">
+            <b>Left running</b>
+            <button type="button" class="btn ghost slim-btn" id="bgClear">I've checked</button>
+          </div>
+          <p class="small muted">Commands a turn put in the background. Shellby hears when they start, never when they stop, so these are worth a look rather than a promise.</p>
+          <ul class="bg-list" id="bgList"></ul>
+        </div>
+        <div class="sl-card" id="slCard">
+          <div class="sl-head">
+            <b>Status line</b>
+            <button type="button" class="btn slim-btn" id="slBtn">Add to Claude Code</button>
+          </div>
+          <p class="small muted" id="slText">Show Shellby's mood, level and XP under Claude Code's prompt, in the terminal and VS Code.</p>
+          <code class="sl-preview" id="slPreview"></code>
+        </div>
+        <div class="sl-card" id="cliCard">
+          <div class="sl-head">
+            <b>The <code>shellby</code> command</b>
+            <button type="button" class="btn slim-btn" id="cliBtn">Add to my PATH</button>
+          </div>
+          <p class="small muted" id="cliText">Hand Shellby a task from any terminal: <code>shellby do "tidy my Downloads"</code>. He asks before starting it, the same as always.</p>
+          <p class="small ext-status" id="cliStatus"></p>
+        </div>
+      </section>
+      </div>

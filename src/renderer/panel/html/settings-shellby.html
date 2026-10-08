@@ -1,0 +1,212 @@
+    <div class="settings-panel" role="tabpanel" id="setPanel-shellby" data-tab="shellby" aria-labelledby="setTab-shellby" hidden>
+      <section class="setting-group" data-nav="Look">
+        <h3>Look</h3>
+        <div class="skins" id="skinGrid"></div>
+        <div class="row wrap">
+          <label class="inline-label">Size
+            <select id="scaleSelect" class="field slim">
+              <option value="0.75">Small</option><option value="1">Medium</option>
+              <option value="1.5">Large</option><option value="2">Huge</option>
+            </select>
+          </label>
+          <button type="button" class="btn ghost" id="resetPosBtn">Find Shellby</button>
+          <button type="button" class="btn ghost" id="openSkinsBtn">Open skins folder</button>
+          <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
+        </div>
+      </section>
+
+      <section class="setting-group" id="moveGroup" data-nav="Moving around">
+        <h3>Moving around</h3>
+        <label class="toggle"><input type="checkbox" id="wanderToggle" aria-describedby="wanderNote"><span class="switch"></span>Let him stroll around a little when he's idle</label>
+        <p class="small muted" id="wanderNote">With Windows' animation effects off, he stays put unless you switch this on.</p>
+        <label class="toggle"><input type="checkbox" id="onTopToggle"><span class="switch"></span>Keep him on top of your apps instead of on the desktop</label>
+        <div class="row wrap">
+          <label class="inline-label" for="perchSelect">Climbing onto your windows
+            <select id="perchSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+        </div>
+        <div class="perch-ignore" id="perchIgnoreRow" hidden>
+          <span class="small muted">He stays off:</span>
+          <span id="perchIgnoreList"></span>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="climbSelect">Climbing the edges of the screen
+            <select id="climbSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+          <label class="inline-label" for="colonySelect">Pals on the floor
+            <select id="colonySelect" class="field slim">
+              <option value="0">Just him</option>
+              <option value="1">1 pal</option>
+              <option value="2">2 pals</option>
+              <option value="3">3 pals</option>
+              <option value="4">4 pals</option>
+              <option value="5">5 pals</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted">Rub the mouse over him to pet him. Right-click him for more.</p>
+      </section>
+
+      <section class="setting-group" id="personalityGroup" data-nav="Personality">
+        <h3>Personality</h3>
+        <div class="work-mode-row" id="workModeRow">
+          <label class="toggle"><input type="checkbox" id="workModeToggle" aria-describedby="workModeNote"><span class="switch"></span>Work mode</label>
+          <p class="small muted" id="workModeNote">Your tools first on the bar, and a quiet crab: no pals, pranks or climbing, and his needs rest. Anything you change below while it's on wins. Off, everything's as you left it.</p>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="chatterSelect">How much he talks
+            <select id="chatterSelect" class="field slim">
+              <option value="quiet">Quiet</option>
+              <option value="work">Just about work</option>
+              <option value="normal">Normal</option>
+              <option value="chatty">Chatty</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted" id="chatterNote">Quiet: just a mark in his bubble. Just about work: done, failed or broken. Chatty: talks and plays more.</p>
+        <p class="small temper-note" id="temperNote" hidden></p>
+        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
+        <p class="small muted">He gets peckish, sandy, sleepy or mopey, never worse. Snacks come from getting things done.</p>
+      </section>
+
+      <section class="setting-group" id="soundGroup" data-nav="Sound">
+        <h3>Sound</h3>
+        <div class="row wrap">
+          <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
+          <label class="toggle"><input type="checkbox" id="soundFxToggle"><span class="switch"></span>Footsteps, bumps and ta-das</label>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="ambientSelect">Background
+            <select id="ambientSelect" class="field slim">
+              <option value="off">Silence</option>
+              <option value="surf">Rolling surf</option>
+              <option value="tidepool">Rock pool</option>
+            </select>
+          </label>
+          <label class="inline-label" for="soundVolumeSelect">Volume
+            <select id="soundVolumeSelect" class="field slim">
+              <option value="25">Soft</option>
+              <option value="60">Normal</option>
+              <option value="100">Loud</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted">He goes quiet during focus, calls and when the screen is locked.</p>
+      </section>
+
+      <p class="settings-sub" id="extrasLabel">Extras <span>Off until you turn them on</span></p>
+      <details class="setting-group setting-fold mischief-group" id="mischiefGroup" data-nav="Mischief" data-fold-on="mischiefPranks">
+        <summary><h3>Mischief</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Off unless you turn it on. A cheeky crab gets up to a little harmless trouble now and then, Desktop Goose style. He never does it while you're clicking, on a call, guarding your focus, gaming or presenting, or while a task is running.</p>
+        <div class="row wrap">
+          <label class="inline-label" for="mischiefSelect">How cheeky
+            <select id="mischiefSelect" class="field slim">
+              <option value="off">Off, he behaves</option>
+              <option value="cheeky">Cheeky (now and then)</option>
+              <option value="gremlin">Gremlin (every few minutes)</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="mischief-pranks" id="mischiefPranks" hidden>
+          <legend class="small muted">What he gets up to</legend>
+          <label class="toggle"><input type="checkbox" data-prank="pinch"><span class="switch"></span>Pinch the cursor for half a second when it hangs about near him</label>
+          <label class="toggle"><input type="checkbox" data-prank="nudge"><span class="switch"></span>Give the window he's sitting on a shove (only when you're not using it)</label>
+          <label class="toggle"><input type="checkbox" data-prank="tracks"><span class="switch"></span>Leave sandy footprints where he walks</label>
+          <label class="toggle"><input type="checkbox" data-prank="notes"><span class="switch"></span>Drag little notes onto your desktop (click one to throw it away)</label>
+        </fieldset>
+        <p class="small muted" id="mischiefNote" hidden>Right-click him for <b>Do something cheeky</b> to see it now, or <b>Behave for an hour</b> when you need him to.</p>
+      </details>
+
+      <details class="setting-group setting-fold" id="musicGroup" data-nav="Music" data-fold-on="npBody">
+        <summary><h3>Listening along</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Shellby notices what's playing on this PC — Spotify, a browser tab, anything that shows up in the volume flyout — and puts his headphones on. Read from Windows itself: no account, and nothing leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="npEnabled"><span class="switch"></span>Notice what I'm listening to</label>
+        <div class="np-body" id="npBody" hidden>
+          <label class="toggle"><input type="checkbox" id="npHeadphones"><span class="switch"></span>Put his headphones on while it plays</label>
+          <label class="toggle"><input type="checkbox" id="npRemarks"><span class="switch"></span>Let him remark on it now and then</label>
+          <p class="small ext-status" id="npStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="typingGroup" data-nav="Typing along" data-fold-on="typingBody">
+        <summary><h3>Typing along</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">While you type, in any app, he taps along on a little keyboard, bobs to keep up when you're quick, and watches a long fast burst with stars in his eyes. He hears <em>that</em> a key was pressed, never which one, and none of it leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="typingEnabled"><span class="switch"></span>Tap along while I type</label>
+        <div id="typingBody" hidden>
+          <label class="toggle"><input type="checkbox" id="typingRemarks"><span class="switch"></span>Tell me how fast a burst was</label>
+          <p class="small ext-status" id="typingStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="weatherGroup" data-nav="Weather" data-fold-on="weatherBody">
+        <summary><h3>The weather outside</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
+        <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
+        <div class="weather-body" id="weatherBody" hidden>
+          <form class="row weather-search" id="weatherSearch">
+            <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
+          </form>
+          <div class="row wrap" id="weatherPlaces" role="group" aria-label="Towns found" hidden></div>
+          <label class="toggle"><input type="checkbox" id="weatherRemarks"><span class="switch"></span>Let him say so when the weather turns</label>
+          <p class="small ext-status" id="weatherStatus" aria-live="polite"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="rgbGroup" data-nav="Desk lighting" data-fold-on="rgbBody">
+        <summary><h3>Desk lighting</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. Shellby can install it for you and starts it in the tray whenever the lighting is on.</p>
+        <label class="toggle"><input type="checkbox" id="rgbEnabled"><span class="switch"></span>Follow his mood with my lighting</label>
+        <div class="rgb-body" id="rgbBody" hidden>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="rgbInstall" hidden>Install OpenRGB for me</button>
+            <button type="button" class="btn slim-btn" id="rgbTest">Find my devices</button>
+            <p class="small ext-status" id="rgbStatus"></p>
+          </div>
+          <ul class="ext-sessions" id="rgbList"></ul>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="discordGroup" data-nav="Discord" data-fold-on="discordBody">
+        <summary><h3>On your Discord profile</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Show his level and what he's up to under your name on Discord, the way a game does: <em>Lv 12 Abyssal Admin · working with Claude Code</em>. Shellby talks to the Discord app on this PC, so there's nothing to sign in to, and your friends list sees it while Shellby and Discord are both open.</p>
+        <label class="toggle"><input type="checkbox" id="discordEnabled"><span class="switch"></span>Show Shellby on my Discord profile</label>
+        <div id="discordBody" hidden>
+          <label class="toggle"><input type="checkbox" id="discordTask"><span class="switch"></span>Say what the task is, by its title</label>
+          <p class="small muted">Never in Work mode. With visiting crabs on, there's a button to his calling card too.</p>
+          <p class="small ext-status" id="discordStatus" aria-live="polite"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="obsGroup" data-nav="On a stream" data-fold-on="obsBody">
+        <summary><h3>On a stream</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Serve Shellby as a browser source, on a transparent background, so he can sit in the corner of a stream and react while you work. It's the same crab, in the same outfit, on 127.0.0.1 only.</p>
+        <label class="toggle"><input type="checkbox" id="obsEnabled"><span class="switch"></span>Serve the overlay</label>
+        <div class="obs-body" id="obsBody" hidden>
+          <div class="cmd-row"><code id="obsUrl">—</code><button type="button" class="btn ghost slim-btn" data-copy="obsUrl">Copy</button></div>
+          <p class="small muted">In OBS: <b>+</b> → <b>Browser</b>, paste that URL, and tick <b>Shutdown source when not visible</b>.</p>
+          <p class="small ext-status" id="obsStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="deckGroup" data-nav="Stream Deck" data-fold-on="deckBody">
+        <summary><h3>Stream Deck</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Hardware keys for <b>Allow</b>, <b>Deny</b>, <b>Stop</b>, <b>Bring it home</b> and <b>Ready to review</b>, each showing what's waiting. Like answering from your phone, a question, a plan or anything the card would warn about says <b>Look</b> instead, and opens here. Needs Stream Deck 7.1 or newer.</p>
+        <label class="toggle"><input type="checkbox" id="deckEnabled"><span class="switch"></span>Answer from a Stream Deck</label>
+        <div class="deck-body" id="deckBody" hidden>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="deckAdd">Add the keys to Stream Deck</button>
+            <p class="small ext-status" id="deckStatus"></p>
+          </div>
+          <p class="small muted">Stream Deck asks before it installs them. Then drag the keys you want from <b>Shellby</b> in its list of actions.</p>
+        </div>
+      </details>
+      </div>

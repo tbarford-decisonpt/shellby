@@ -1,0 +1,121 @@
+  <!-- ====================== US: the two of you (together.js, src/main/bond.js, playtime.js) ====================== -->
+  <main class="view view-us" id="usView">
+    <div class="view-head">
+      <h2 class="sr-only">You and Shellby</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- Tide events (tide.js, src/main/events.js): the event going on, or the next one. -->
+    <section class="ev-banner" data-ev-banner="us" hidden aria-label="Tide event"></section>
+    <!-- The diorama is static markup: together.js patches it, so his breathing and the waves don't restart on every update. -->
+    <section class="us-hero" id="usHero" aria-labelledby="usLevelName">
+      <div class="us-stage" id="usStage" data-time="night">
+        <div class="us-sky" aria-hidden="true"><i class="us-stars"></i><span class="us-orb" id="usOrb"></span></div>
+        <div class="us-sea" aria-hidden="true"><i class="us-wave back"></i><i class="us-wave"></i></div>
+        <div class="us-sand" aria-hidden="true"></div>
+        <div class="us-props" id="usProps" aria-hidden="true"></div>
+        <button type="button" class="us-crab" id="usCrab" aria-label="Pet Shellby" title="Give him a pet"></button>
+        <div class="us-pops" id="usPops" aria-hidden="true"></div>
+        <div class="us-title">
+          <h3 id="usLevelName"></h3>
+          <p class="us-sub" id="usSub"></p>
+        </div>
+      </div>
+      <div class="us-bond">
+        <ol class="us-path" id="usPath" role="progressbar" aria-label="How close you are" aria-valuemin="0" aria-valuemax="100"></ol>
+        <p class="us-next" id="usNext"></p>
+      </div>
+      <p class="us-temper" id="usTemper"></p>
+    </section>
+
+    <!-- His needs (needs.js in panel/, src/main/needs.js, care.js). Hidden when Snacks and naps is off. -->
+    <section class="us-sec us-needs" id="usNeeds" aria-labelledby="usNeedsTitle" hidden>
+      <div class="us-h"><h3 id="usNeedsTitle">How he's doing</h3><span class="us-h-meta us-needs-mood" id="usNeedsMood"></span></div>
+      <div class="us-needs-intro" id="usNeedsIntro" hidden>
+        <p>New: he gets peckish now, and a little mopey if you're right there and ignore him. Snacks come from <span id="usNeedsIntroFrom">getting things done</span>. He never gets worse than a bit peckish, and nothing you've earned ever goes away.</p>
+        <div class="row wrap">
+          <button type="button" class="btn primary slim-btn" id="usNeedsGotIt">Got it</button>
+          <button type="button" class="btn ghost slim-btn" id="usNeedsOff">Turn this off</button>
+        </div>
+      </div>
+      <ul class="us-meters" id="usMeters"></ul>
+      <div class="us-games us-care">
+        <button type="button" class="us-game" data-care="feed" data-hue="glass"><span class="us-game-icon" aria-hidden="true">🦐</span><b>Feed him</b><span class="us-game-stat" id="usCareFeed"></span></button>
+        <button type="button" class="us-game" data-care="rinse" data-hue="surf"><span class="us-game-icon" aria-hidden="true">🧼</span><b>Give him a rinse</b><span class="us-game-stat" id="usCareRinse"></span></button>
+        <button type="button" class="us-game" data-care="tuck" data-hue="night"><span class="us-game-icon" aria-hidden="true">💤</span><b>Tuck him in</b><span class="us-game-stat" id="usCareTuck"></span></button>
+      </div>
+      <div class="us-pantry">
+        <ul class="us-pantry-list" id="usPantry" aria-label="His snacks"></ul>
+        <details class="us-sources">
+          <summary>Where snacks come from</summary>
+          <ul id="usSources"></ul>
+        </details>
+      </div>
+    </section>
+
+    <section class="us-sec us-play" aria-labelledby="usPlayTitle">
+      <div class="us-h"><h3 id="usPlayTitle">Play with him</h3><span class="us-h-meta">Right-click him on the desktop for these too</span></div>
+      <div class="us-games">
+        <button type="button" class="us-game" data-play="hide" data-hue="glass"><span class="us-game-icon" aria-hidden="true">🙈</span><b>Hide and seek</b><span class="us-game-stat" id="usStatHide"></span></button>
+        <button type="button" class="us-game" data-play="fetch" data-hue="amber"><span class="us-game-icon" aria-hidden="true">🎾</span><b>Fetch</b><span class="us-game-stat" id="usStatFetch"></span></button>
+        <button type="button" class="us-game" data-play="dig" data-hue="sand"><span class="us-game-icon" aria-hidden="true">⛏️</span><b>Dig for treasure</b><span class="us-game-stat" id="usStatDig"></span></button>
+      </div>
+      <button type="button" class="btn ghost us-stop" data-play="stop" hidden>Stop playing</button>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usUnlocksTitle">
+      <div class="us-h"><h3 id="usUnlocksTitle">As you get closer</h3><span class="us-h-meta">Your bond never goes back down</span></div>
+      <ul class="us-unlocks" id="usUnlocks"></ul>
+    </section>
+
+    <section class="us-sec us-birthday" aria-labelledby="usBdTitle">
+      <div class="us-h"><h3 id="usBdTitle">Your birthday</h3><span class="us-h-meta us-bd-when" id="usBdWhen"></span></div>
+      <p class="us-lede">He'll make a fuss on the day and dig up something you can't find any other way. It stays on this PC.</p>
+      <div class="row wrap us-bd-row">
+        <select class="field slim" id="usBdMonth" aria-label="Month"></select>
+        <select class="field slim" id="usBdDay" aria-label="Day"></select>
+        <button type="button" class="btn slim-btn" id="usBdSave">Save</button>
+        <button type="button" class="btn ghost slim-btn" id="usBdForget" hidden>Forget it</button>
+      </div>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usScenesTitle">
+      <div class="us-h"><h3 id="usScenesTitle">His little scenes</h3><span class="us-h-meta" id="usScenesCount"></span></div>
+      <p class="us-lede">What he gets up to when nothing's happening. Some only at night, at the weekend, or while you play music.</p>
+      <ul class="us-scenes" id="usScenes"></ul>
+    </section>
+
+    <section class="us-sec us-clutch" id="usClutch" hidden aria-labelledby="usClutchTitle">
+      <div class="us-h"><h3 id="usClutchTitle">Eggs and the clutch</h3><span class="us-h-meta" id="usClutchMeta"></span></div>
+      <p class="us-lede">He can lay an egg for someone who doesn't have Shellby yet. They install it, paste the code, and it hatches into a baby crab you both keep. You become friends, too.</p>
+      <div id="usEggs"></div>
+      <ul class="eg-babies" id="usBabies" aria-label="The clutch"></ul>
+      <div id="usHatchRow">
+        <form class="row wrap eg-hatch" id="usHatchForm">
+          <input type="text" class="field" id="usHatchInput" placeholder="EGG-…" aria-label="Egg code" spellcheck="false" autocomplete="off" maxlength="300">
+          <button type="submit" class="btn slim-btn" id="usHatchGo">Hatch it</button>
+        </form>
+        <p class="small muted" id="usHatchNote"></p>
+      </div>
+    </section>
+
+    <section class="us-sec us-medals" id="usMedals" hidden aria-labelledby="usMedalsTitle">
+      <div class="us-h"><h3 id="usMedalsTitle">Tide event medals</h3><span class="us-h-meta" id="usMedalCount"></span></div>
+      <p class="us-lede">One for each tide event you finished while it was on. A year's medal never comes back.</p>
+      <ul class="ev-medals" id="usMedalList"></ul>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usStoryTitle">
+      <div class="us-h"><h3 id="usStoryTitle">Our story</h3><span class="us-h-meta">Every so often he brings one up</span></div>
+      <ol class="us-story" id="usStory"></ol>
+    </section>
+  </main>

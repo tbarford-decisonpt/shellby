@@ -1,0 +1,62 @@
+  <!-- ====================== CHAT ====================== -->
+  <main class="view view-chat" id="chatView">
+    <div class="feeds" id="feeds" data-panes="1"></div>
+    <div class="findbar" id="findBar" role="search" hidden>
+      <input id="findInput" class="field" type="text" placeholder="Find in conversation" aria-label="Find in this conversation" spellcheck="false">
+      <span class="find-count" id="findCount" aria-live="polite"></span>
+      <button type="button" class="icon-btn" id="findPrev" title="Previous match (Shift+Enter)" aria-label="Previous match">
+        <svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="findNext" title="Next match (Enter)" aria-label="Next match">
+        <svg viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="findClose" title="Close (Esc)" aria-label="Close find">
+        <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <footer class="composer" id="composer">
+      <!-- Claude's own to-do list, and what it left running in the background (native-strip.js) -->
+      <div class="todos" id="todos" role="region" aria-label="Claude's to-do list" hidden></div>
+      <div class="jobs" id="jobs" role="region" aria-label="Running in the background" hidden></div>
+      <div class="status" id="status" hidden>
+        <span class="status-crab" aria-hidden="true"></span>
+        <span class="status-text" id="statusText">Working…</span>
+        <span class="status-time" id="statusTime" title="How long this prompt has been running, the tokens it has used so far, and its step through Claude's to-do list with a rough time left"></span>
+        <button type="button" class="stop-btn" id="stopBtn">Stop <kbd>Esc</kbd></button>
+      </div>
+      <div class="crowded" id="crowded" role="status" hidden></div>
+      <div class="mod-status" id="modStatus" role="status" aria-label="What your mods say" hidden></div>
+      <div class="outlook" id="outlook" role="status" hidden></div>
+      <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
+      <div class="queued" id="queued" hidden></div>
+      <div class="attachments" id="attachments" hidden></div>
+      <form class="input-row" id="form">
+        <button type="button" class="attach-btn" id="attachBtn" aria-label="Attach files" title="Attach files · or paste a screenshot (Ctrl+V)">
+          <svg viewBox="0 0 16 16"><path d="M13 7.6 8.1 12.5a3.2 3.2 0 0 1-4.6-4.6l5.3-5.3a2.1 2.1 0 0 1 3 3L6.6 10.8a1 1 0 0 1-1.5-1.5l4.6-4.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <textarea id="input" rows="1" placeholder="Give Shellby a task… (/ for commands, @ for files, ! to run one yourself)" aria-label="Task for Shellby"></textarea>
+        <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
+          <svg viewBox="0 0 16 16"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+      <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
+      <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
+      <div class="input-hint"><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
+    </footer>
+  </main>
+
+  <template id="emptyTemplate">
+    <div class="empty">
+      <div class="empty-crab"></div>
+      <h1>What should I scuttle off and do?</h1>
+      <p class="empty-sub">I'm Claude Code in a shell. I work in <b class="empty-folder">~</b> on your own Claude plan.</p>
+      <div class="pinned-row" hidden>
+        <div class="row-label">Your tricks</div>
+        <div class="pinned-chips"></div>
+      </div>
+      <section class="quest-card" aria-label="Your next quest" hidden></section>
+      <div class="suggestions"></div>
+      <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files or paste a screenshot · <kbd>/</kbd> for skills · <kbd>Ctrl+K</kbd> jumps anywhere · <kbd>Shift+Tab</kbd> switches mode</p>
+    </div>
+  </template>

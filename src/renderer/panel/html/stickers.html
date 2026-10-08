@@ -1,0 +1,52 @@
+  <!-- ====================== STICKERS ====================== -->
+  <main class="view view-stickers" id="stickersView">
+    <div class="view-head">
+      <h2 class="sr-only">Sticker Book</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+      <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
+    </div>
+    <section class="st-hero" aria-label="His shell">
+      <div class="st-bench" id="stBench">
+        <div class="st-crab" id="stCrab"></div>
+        <div class="st-spots" id="stSpots" role="group" aria-label="Spots on his shell"></div>
+      </div>
+      <div class="st-hero-text">
+        <p class="xp-eyebrow st-eyebrow">Sticker Book</p>
+        <h3 id="stTotal">No stickers yet</h3>
+        <p class="st-sub" id="stSub"></p>
+        <div class="st-shells" id="stShells" role="radiogroup" aria-label="Which shell to decorate" data-roving></div>
+        <div class="st-tools">
+          <button type="button" class="btn slim-btn" id="stArrange" title="Lay the stickers out again, most shipped in the middle">Tidy up</button>
+          <label class="toggle st-auto"><input type="checkbox" id="stAuto"><span class="switch"></span>New stickers go straight on</label>
+        </div>
+      </div>
+    </section>
+    <p class="st-hint" id="stHint" aria-live="polite"></p>
+    <section class="st-detail" id="stDetail" hidden aria-live="polite"></section>
+    <ul class="st-grid" id="stGrid" role="listbox" aria-label="Your stickers" data-roving></ul>
+    <section class="st-waiting" id="stWaitingWrap" hidden>
+      <h3>Waiting to ship</h3>
+      <p class="muted small">Projects you've worked in that haven't shipped yet. Push one to earn its sticker.</p>
+      <ul class="st-waiting-list" id="stWaiting"></ul>
+    </section>
+    <section class="setting-group st-options">
+      <h3>On your calling card</h3>
+      <p class="muted small">With Visiting crabs on, your calling card is public. Nothing about your stickers goes on it until you choose here, and projects you keep off it never leave your PC.</p>
+      <div class="seg st-card-mode" id="stCardMode" role="radiogroup" aria-label="What friends see" data-roving>
+        <button type="button" role="radio" data-card="off">Nothing</button>
+        <button type="button" role="radio" data-card="art">His shell</button>
+        <button type="button" role="radio" data-card="names">Shell and names</button>
+      </div>
+      <p class="muted small st-card-help" id="stCardHelp"></p>
+    </section>
+  </main>

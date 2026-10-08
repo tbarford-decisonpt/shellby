@@ -1,0 +1,36 @@
+  <!-- ====================== ONBOARDING ====================== -->
+  <main class="view view-onboarding" id="onboardingView">
+    <div class="hello">
+      <div class="hello-crab" id="helloCrab"></div>
+      <h1>Hi, I'm Shellby.</h1>
+      <p>A pixel hermit crab who lives on your desktop. How do you want me?</p>
+    </div>
+    <div class="paths" id="onboardPaths" role="group" aria-label="How do you want Shellby?">
+      <button type="button" class="path" data-path="crab">
+        <span class="path-icon" aria-hidden="true">🦀</span>
+        <span class="path-title">Just the crab</span>
+        <span class="path-sub">I watch your PC: I sweat when the GPU runs hot, get dizzy when memory's full and overflow when a drive fills up. Dress me up and earn trophies. <b>No account needed.</b></span>
+      </button>
+      <button type="button" class="path" data-path="claude">
+        <span class="path-icon" aria-hidden="true">⚡</span>
+        <span class="path-title">Crab + Claude Code</span>
+        <span class="path-sub">Everything above, plus give me tasks and I'll do them on your PC with helper crabs, using your Claude Pro or Max plan.</span>
+      </button>
+      <button type="button" class="path" data-path="work">
+        <span class="path-icon" aria-hidden="true">🛠️</span>
+        <span class="path-title">Work mode</span>
+        <span class="path-sub">The tools, and a quiet crab. Chat, Projects and the Toolbox come first, and I only speak up when something's done, broken or needs you. <b>Switch any time in Settings.</b></span>
+      </button>
+    </div>
+    <div id="claudeSetup" hidden>
+      <ol class="steps" id="steps"></ol>
+      <section class="setting-group onboarding-modes">
+        <h3>How much can I do without asking?</h3>
+        <div class="mode-cards compact" id="onboardModeCards"></div>
+      </section>
+      <div class="row end">
+        <button type="button" class="btn ghost" id="crabInsteadBtn">Just the crab for now</button>
+        <button type="button" class="btn primary" id="letsGoBtn" disabled>Let's go</button>
+      </div>
+    </div>
+  </main>
