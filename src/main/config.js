@@ -105,6 +105,8 @@ const DEFAULTS = {
   turnShots: true,   // before/after pictures of a Shellby dev server either side of a turn (see shots.js)
   flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky.js); this PC only
   timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
+  timeSync: null,     // { provider, account, links, sent }: sending days to Toggl, Clockify or Harvest (see timesync.js); off until you connect one
+  timeSyncToken: null, // ...and its token, encrypted by Windows (never in the clear)
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   pausedHooks: [],    // hooks taken out of a Claude Code settings file by Pause, kept to put back (main.js pauseHook)
   externalSessions: true, // react to Claude Code sessions outside Shellby (via the plugin's hooks)
@@ -112,6 +114,7 @@ const DEFAULTS = {
   issueWatch: null,   // which GitHub issues he has already offered to take on (see github/issues.js)
   backlogDoing: {},   // Next up items with a conversation on them, by project (see wiring/backlog.js); this PC only
   backlogHidden: {},  // Next up items you hid, by project; this PC only
+  sentry: null,       // { url, token (encrypted by Windows), links, snoozed }: errors from Sentry on Next up (wiring/sentry.js); this PC only, never synced
   ciSeen: null,       // { 'owner/repo#12': ms }: when you last opened each of your PRs, for "new comments" (see github/ci.js); this PC only
   syncGistId: null,   // the private gist progress syncs through
   syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
@@ -145,6 +148,9 @@ const DEFAULTS = {
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)
   obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)
+  streamDeck: null,   // { enabled }: Allow, Deny, Stop, Bring it home and Ready to review on a Stream Deck (see deck.js)
+  streamDeckToken: null, // the Stream Deck plugin's way in, encrypted by Windows (wiring/deck.js)
+  streamDeckAdded: false, // the plugin has been handed to Stream Deck's installer at least once
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
   rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)

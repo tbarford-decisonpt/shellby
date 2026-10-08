@@ -1202,7 +1202,7 @@
         <li><b>Claude at work.</b> While Claude works in a project, your terminal and docs count for it.</li>
         <li><b>Git.</b> A commit, checkout or pull says which project you're in.</li>
       </ul>
-      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere.</p>
+      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere unless you send it to your time tracker.</p>
     </section>
     <p class="tm-now" id="timeNow" aria-live="polite"></p>
     <section class="focus-card" id="focusCard" aria-label="Focus">
@@ -1257,6 +1257,7 @@
           <button type="button" class="btn ghost slim-btn" id="timeCopy">Copy as text</button>
         </div>
         <p class="muted small" id="timeExportNote">For the period above, rounded as set below. Each day's line is its note, or else your commit messages.</p>
+        <div class="tm-sync" id="timeSync"></div>
       </section>
 
       <section class="setting-group" aria-labelledby="timeAddTitle">
@@ -1295,7 +1296,7 @@
         <p class="muted small" id="timeIgnored" hidden></p>
       </section>
     </div>
-    <p class="muted small history-note">Hours are kept only on this PC, never synced or sent anywhere.</p>
+    <p class="muted small history-note" id="timePrivacy">Hours are kept only on this PC, never synced or sent anywhere.</p>
   </main>
 
   <!-- ====================== PROJECTS (projects.js) ====================== -->
@@ -1585,6 +1586,19 @@
           <div class="cmd-row"><code id="obsUrl">—</code><button type="button" class="btn ghost slim-btn" data-copy="obsUrl">Copy</button></div>
           <p class="small muted">In OBS: <b>+</b> → <b>Browser</b>, paste that URL, and tick <b>Shutdown source when not visible</b>.</p>
           <p class="small ext-status" id="obsStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="deckGroup" data-nav="Stream Deck" data-fold-on="deckBody">
+        <summary><h3>Stream Deck</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Hardware keys for <b>Allow</b>, <b>Deny</b>, <b>Stop</b>, <b>Bring it home</b> and <b>Ready to review</b>, each showing what's waiting. Like answering from your phone, a question, a plan or anything the card would warn about says <b>Look</b> instead, and opens here. Needs Stream Deck 7.1 or newer.</p>
+        <label class="toggle"><input type="checkbox" id="deckEnabled"><span class="switch"></span>Answer from a Stream Deck</label>
+        <div class="deck-body" id="deckBody" hidden>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="deckAdd">Add the keys to Stream Deck</button>
+            <p class="small ext-status" id="deckStatus"></p>
+          </div>
+          <p class="small muted">Stream Deck asks before it installs them. Then drag the keys you want from <b>Shellby</b> in its list of actions.</p>
         </div>
       </details>
       </div>

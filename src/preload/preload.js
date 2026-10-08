@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('shellby', {
   popInTab: (tabId, carry) => ipcRenderer.send('tab:pop-in', { tabId, carry }),
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
+  shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
@@ -308,6 +309,7 @@ contextBridge.exposeInMainWorld('shellby', {
   backlogHide: invoke('backlog:hide'),
   backlogCommit: invoke('backlog:commit'),
   backlogHand: invoke('backlog:hand'),
+  backlogSentry: invoke('backlog:sentry'), // connect (the token goes in, never comes back), link, unlink, snooze, disconnect
   backlogTab: invoke('backlog:tab'),
   backlogOpenPr: invoke('backlog:open-pr'),
   backlogTickLinked: invoke('backlog:tick-linked'),
@@ -456,6 +458,11 @@ contextBridge.exposeInMainWorld('shellby', {
   exportTimePdf: invoke('time:export-pdf'),
   copyTime: invoke('time:copy'),
   showTimeFile: invoke('time:show-file'),
+  connectTimeSync: invoke('time:sync-connect'),
+  disconnectTimeSync: invoke('time:sync-disconnect'),
+  timeSyncProjects: invoke('time:sync-projects'),
+  linkTimeSync: invoke('time:sync-link'),
+  sendTimeSync: invoke('time:sync-send'),
   onTimeNow: on('time:now'),
   // Projects and their dev servers (src/main/projects/ipc.js)
   listProjects: invoke('projects:list'),
@@ -551,6 +558,13 @@ contextBridge.exposeInMainWorld('shellby', {
   getObs: invoke('obs:get'),
   setObs: invoke('obs:set'),
   onObs: on('obs'),
+
+  // hardware keys on a Stream Deck
+  getDeck: invoke('deck:get'),
+  setDeck: invoke('deck:set'),
+  addToStreamDeck: invoke('deck:add'),
+  onDeck: on('deck'),
+  onDeckPress: on('deck:press'), // { what: 'home' | 'review', tabId? }: a key that needs the panel
 
   // his mood on the desk lighting
   getRgb: invoke('rgb:get'),

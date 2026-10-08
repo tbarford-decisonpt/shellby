@@ -7,7 +7,8 @@
 
 /* his eyes follow your cursor: a cell either way, never while he's asleep or in the air */
 .part-eyes, .part-stalks { translate: calc(var(--lookx, 0) * 1px) calc(var(--looky, 0) * .6px); transition: translate .22s ease-out, transform .35s cubic-bezier(.3, 1.4, .5, 1), opacity .3s; }
-.state-sleeping .part-eyes, .state-sleeping .part-stalks, .flying .part-eyes, .hopping .part-eyes { translate: none; }
+.state-sleeping .part-eyes, .state-sleeping .part-stalks, .flying .part-eyes, .hopping .part-eyes,
+.flying .acc.part-stalks, .hopping .acc.part-stalks { translate: none; }
 
 /* squints at something (your cursor, a fly) */
 body.bit-squint.state-idle #sprite, body.bit-squint #sprite { animation: squint-lean 1.4s ease-in-out forwards; transform-origin: 50% 100%; }
@@ -106,7 +107,7 @@ body.bit-gaze .part-eyes, body.bit-gaze .part-stalks { animation: none; transfor
 
 /* juggles pebbles, then one lands on his head */
 body.bit-juggle .part-claw { animation: snap .24s steps(1) infinite; }
-body.bit-juggle .part-eyes { transform: translateY(-1px); }
+body.bit-juggle .part-eyes, body.bit-juggle .acc.part-stalks { transform: translateY(-1px); }
 body.bit-bonk.state-idle #sprite, body.bit-bonk #sprite { animation: squash .6s cubic-bezier(.3, 1.6, .5, 1); }
 body.bit-bonk .part-eyes { animation: none; transform: scaleY(.1); }
 
@@ -114,6 +115,7 @@ body.bit-bonk .part-eyes { animation: none; transform: scaleY(.1); }
 body.bit-present.state-idle #sprite, body.bit-present #sprite { animation: present-bounce .7s cubic-bezier(.3, 1.6, .5, 1); }
 body.bit-present .part-claw { animation: none; transform: rotate(-40deg) translate(1px, -3px); }
 body.bit-present .part-eyes { animation: none; transform: translateY(-1px) scaleY(.35); }
+body.bit-present .acc.part-stalks { transform: translateY(-1px); }
 @keyframes present-bounce { 0% { transform: translateY(2px); } 40% { transform: translateY(-5px); } 100% { transform: none; } }
 
 /* scoops a bug into a jar (src/main/bugdex.js): a lunge forward with the claw low,
@@ -121,6 +123,7 @@ body.bit-present .part-eyes { animation: none; transform: translateY(-1px) scale
 body.bit-catch.state-idle #sprite, body.bit-catch #sprite { animation: catch-lunge .8s cubic-bezier(.3, 1.6, .5, 1); transform-origin: 50% 100%; }
 body.bit-catch .part-claw { animation: catch-scoop .8s ease-out; transform: rotate(-40deg) translate(1px, -3px); }
 body.bit-catch .part-eyes { animation: none; transform: translateY(-1px) scaleY(.35); }
+body.bit-catch .acc.part-stalks { transform: translateY(-1px); }
 @keyframes catch-lunge { 0% { transform: none; } 30% { transform: translateX(calc(var(--dir, 1) * 3px)) scale(1.05, .92); } 65% { transform: translate(calc(var(--dir, 1) * -1px), -5px); } 100% { transform: none; } }
 @keyframes catch-scoop { 0% { transform: none; } 30% { transform: rotate(20deg) translateX(2px); } 65%, 100% { transform: rotate(-40deg) translate(1px, -3px); } }
 

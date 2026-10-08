@@ -1,6 +1,6 @@
 /* Shellby panel — Settings: what he picks up around your desk. On a stream
-   (OBS), desk lighting (OpenRGB), the music playing, your typing and the
-   weather outside. */
+   (OBS), the Stream Deck's keys, desk lighting (OpenRGB), the music playing,
+   your typing and the weather outside. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -16,6 +16,22 @@
     $('obsStatus').className = `small ext-status ${said.tone}`;
   }
   $('obsEnabled').addEventListener('change', async e => renderObs(await api.setObs({ enabled: e.target.checked })));
+
+  // ---------------------------------------------------------------- the Stream Deck
+  function renderDeck(v) {
+    $('deckEnabled').checked = !!v.enabled;
+    $('deckBody').hidden = !v.enabled;
+    $('deckAdd').textContent = v.added ? 'Add them again' : 'Add the keys to Stream Deck';
+    $('deckAdd').disabled = !v.installed;
+    const said = T.deckStatus(v);
+    $('deckStatus').textContent = said.text;
+    $('deckStatus').className = `small ext-status ${said.tone}`;
+  }
+  $('deckEnabled').addEventListener('change', async e => renderDeck(await api.setDeck({ enabled: e.target.checked })));
+  $('deckAdd').addEventListener('click', async e => {
+    e.target.disabled = true;
+    try { renderDeck(await api.addToStreamDeck()); } finally { e.target.disabled = false; }
+  });
 
   // ---------------------------------------------------------------- desk lighting
   let rgbLast = null;
@@ -148,9 +164,11 @@
   });
   api.onWeather(v => { if (state.view === 'settings') renderWeather(v); });
   api.onObs(v => { if (state.view === 'settings') renderObs(v); });
+  api.onDeck(v => { if (state.view === 'settings') renderDeck(v); });
 
   SB.onSettingsOpen(() => {
     api.getObs().then(renderObs);
+    api.getDeck().then(renderDeck);
     api.getRgb().then(renderRgb);
     api.getNowPlaying().then(renderNowPlaying);
     api.getTyping().then(renderTyping);
