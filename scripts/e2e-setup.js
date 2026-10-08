@@ -62,7 +62,8 @@ const readJson = f => JSON.parse(fs.readFileSync(f, 'utf8'));
 
 // Answer the confirm window: check what it says, then press `label`.
 async function answer(label, expect) {
-  const dlg = await cdp((await target('dialog.html', 20)).webSocketDebuggerUrl);
+  const t = await target('dialog.html', 20);
+  const dlg = await cdp(t.webSocketDebuggerUrl);
   await until(() => dlg.evaluate(`(document.getElementById('title')?.textContent || '').length > 0`).catch(() => false), 'confirm content');
   // The default button is focused a frame after the content goes in.
   await until(() => dlg.evaluate(`document.activeElement?.tagName === 'BUTTON'`).catch(() => false), 'default button focus', 5000);
@@ -72,6 +73,9 @@ async function answer(label, expect) {
   if (d.focused !== 'Cancel') throw new Error('Cancel must be the default button');
   await dlg.evaluate(`[...document.querySelectorAll('#actions button')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
   dlg.close();
+  // Gone before the next one is looked for: a slow CI box still lists this one
+  // as it closes, and a connection to it never answers.
+  await until(async () => !(await list()).some(x => x.id === t.id), 'confirm window closed', 10000);
 }
 
 (async () => {

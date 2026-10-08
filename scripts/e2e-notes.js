@@ -17,7 +17,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
   // A project to work in: a git repo, so it's keyed by its root.
-  const repo = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-notes-rack-'))) // CI's temp is an 8.3 short path; git says the long one;
+  const repo = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-notes-rack-'))); // CI's temp is an 8.3 short path; git says the long one
   execFileSync('git', ['init', '-q', repo]);
   const key = repo.toLowerCase();
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
