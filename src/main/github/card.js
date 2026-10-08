@@ -13,6 +13,9 @@ const { findGist } = require('./gists');
 const { cleanCardStickers } = require('../stickers');
 const { cleanCardTank } = require('../tank-share');
 const { cleanShared } = require('../bugdex');
+const { cleanCardSwap } = require('../swaps');
+const { cleanCardEggs } = require('../eggs');
+const { cleanMedals } = require('../events');
 
 const CARD_FILE = 'shellby-card.json';
 const FORMAT = 1;
@@ -46,6 +49,10 @@ function cleanCard(raw) {
     find: typeof r.find === 'string' && FIND_RE.test(r.find) ? r.find : null,
     tank: cleanCardTank(r.tank),
     bugdex: r.bugdex ? cleanShared(r.bugdex) : null,
+    // What they'd swap and what they're after (swaps.js), their open eggs as hashes (eggs.js), tide event medals (events.js).
+    swap: r.swap ? cleanCardSwap(r.swap) : null,
+    eggs: cleanCardEggs(r.eggs),
+    medals: cleanMedals(r.medals),
     updatedAt: Number.isFinite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0,
   };
 }

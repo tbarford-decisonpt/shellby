@@ -21,15 +21,25 @@ const MAX_OPEN = 3;            // waiting to hatch at once
 const MAX_LAID = 20;
 const MAX_CLUTCH = 24;
 const LEVEL_TO_LAY = 5;
-const EGG_RE = /^[a-z0-9]{8}$/;
+// 16 characters of [a-z0-9], about 82 bits: the card's hash of one can't be walked back to it.
+const EGG_LEN = 16;
+const EGG_RE = /^[a-z0-9]{16}$/;
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const HASH_RE = /^[0-9a-f]{16}$/;
-const CODE_RE = /\bEGG-([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))-([a-z0-9]{8})\b/i;
+const CODE_RE = /\bEGG-([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))-([a-z0-9]{16})\b/i;
 const LINK_RE = /^shellby:\/\/hatch\/?\?(.*)$/i;
 
 const pos = v => (Number.isFinite(v) && v > 0 ? v : 0);
 const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
+
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+/** A new egg id: every character equally likely (bytes past 251 are thrown back, so none is favoured). */
+function newEggId(bytes = n => crypto.randomBytes(n)) {
+  let out = '';
+  while (out.length < EGG_LEN) for (const b of bytes(EGG_LEN * 2)) if (b < 252 && out.length < EGG_LEN) out += ALPHABET[b % 36];
+  return out;
+}
 
 /** What goes on the card for an egg: enough to check a code against, not enough to hatch it. */
 const hashOf = (login, id) => crypto.createHash('sha256').update(`shellby-egg:${String(login).toLowerCase()}:${id}`).digest('hex').slice(0, 16);
@@ -198,6 +208,6 @@ function view(stateIn, { login = null, level = 1, cardOn = false } = {}, now) {
 }
 
 module.exports = {
-  LAY_EVERY, MAX_OPEN, LEVEL_TO_LAY, hashOf, hatchling, eggArt, normalize, canLay, lay, share, parseCode, forCard, cleanCardEggs,
+  EGG_LEN, newEggId, LAY_EVERY, MAX_OPEN, LEVEL_TO_LAY, hashOf, hatchling, eggArt, normalize, canLay, lay, share, parseCode, forCard, cleanCardEggs,
   hatch, onHatch, keepPending, setFollower, view,
 };

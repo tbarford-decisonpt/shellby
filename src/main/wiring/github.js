@@ -8,6 +8,9 @@ const focus = require('../focus');
 const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: friendsSyncable } = require('../friends');
 const bugdex = require('../bugdex');
+const swaps = require('../swaps');
+const eggs = require('../eggs');
+const events = require('../events');
 const gifts = require('../gifts');
 const { TokenStore } = require('../github/auth');
 const { CiHub } = require('../ci-hub');
@@ -232,6 +235,9 @@ function wireGithub(d) {
           find: gifts.favourite(d.config.get('finds'))?.id || null,
           tank: tankShare.forCard(d.config.get('tank')), // only if you share it
           bugdex: d.config.get('shareBugdex') ? bugdex.shared(d.config.get('bugdex'), Date.now()) : null, // only if you share it: kinds, badges, this month's tally
+          swap: swaps.forCard(d.config.get('finds')), // spare finds, and what you're after (swaps.js)
+          eggs: eggs.forCard(d.config.get('eggs'), d.github.view().login), // hashes only: the code is what hatches one
+          medals: events.normalize(d.config.get('events')).medals,
         };
       },
       sharesTank: () => !!tankShare.forCard(d.config.get('tank')), // a visit then counts for House Guest

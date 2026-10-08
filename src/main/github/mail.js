@@ -25,12 +25,11 @@ const MAX_DELIVER = 3; // a backlog after a week away still only says a few thin
 const isWave = k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(WAVES, k);
 
 // Letters: <!-- shellby-swap:offer:SID:give=ID[*]:get=ID[*] -->, <!-- shellby-swap:accept|decline|cancel:SID -->,
-// <!-- shellby-hatch:EGGID -->. A * is a sparkly copy.
+// <!-- shellby-hatch:EGGID -->. A * is a sparkly copy. Swap ids are 8 characters; egg ids 16 (eggs.js).
 const ID = '[a-z0-9](?:[a-z0-9-]{0,39})';
 const SID_RE = /^[a-z0-9]{8}$/;
 const SWAP_RE = new RegExp(`<!-- shellby-swap:(offer|accept|decline|cancel):([a-z0-9]{8})(?::give=(${ID})(\\*?):get=(${ID})(\\*?))? -->`);
-const HATCH_RE = /<!-- shellby-hatch:([a-z0-9]{8}) -->/;
-const MAX_LETTERS = 20;
+const HATCH_RE = /<!-- shellby-hatch:([a-z0-9]{16}) -->/;
 
 /** A gist comment as a letter: { id, from, at, kind: 'swap' | 'hatch', ... }, or null. */
 function parseLetter(c) {
@@ -95,9 +94,13 @@ async function checkWaves(gh, cardId, { cursor = {}, friends = [], me = null } =
         if (!sameLogin(w.from, me) && friends.some(f => sameLogin(f, w.from))) found.push(w);
         continue;
       }
-      // Letters from anyone: what's in one is checked against what's open before anything happens.
+      // Swaps come from friends only, like waves. A hatch can come from anyone
+      // (the person you sent the egg to isn't a friend yet), but only names an
+      // egg id, checked against the eggs you laid. Nothing is capped, so a
+      // stranger's junk can't crowd a real one out.
       const l = parseLetter(c);
-      if (l && !sameLogin(l.from, me)) letters.push(l);
+      if (!l || sameLogin(l.from, me)) continue;
+      if (l.kind === 'hatch' || friends.some(f => sameLogin(f, l.from))) letters.push(l);
     }
     for (const c of list || []) if (Number.isSafeInteger(c?.id)) seenId = Math.max(seenId, c.id);
     if (!list || list.length < PAGE) break;
@@ -106,7 +109,7 @@ async function checkWaves(gh, cardId, { cursor = {}, friends = [], me = null } =
   // The first look only marks where things are: old waves aren't news. Letters
   // are still delivered: an egg hatched before you ever looked still hatched.
   const waves = firstCheck ? [] : found.slice(-MAX_DELIVER);
-  return { waves, letters: letters.slice(-MAX_LETTERS), cursor: { page, seenId } };
+  return { waves, letters, cursor: { page, seenId } };
 }
 
 module.exports = { WAVES, SID_RE, isWave, formatWave, parseWave, sendWave, checkWaves, parseLetter, formatLetter, sendLetter };
