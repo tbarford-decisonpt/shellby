@@ -288,6 +288,7 @@ src/main/        Electron main process
   filelinks.js     file links in a conversation: which editor, its vscode://-style link, and what's never opened (pure); ipc/files.js opens them
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
   clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
+  home-line.js     copies coming home into one checkout take turns; clashes sorted out one copy at a time, each brought home by itself
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox

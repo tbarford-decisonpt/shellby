@@ -103,24 +103,63 @@
     const bits = [r.merged ? `Merged ${plural(r.merged, 'copy', 'copies')} (${plural(r.commits, 'commit')}).${r.green ? ` Tests green on ${plural(r.green, 'branch', 'branches')}.` : ''}` : 'Nothing new to merge.'];
     if (r.skipped) bits.push(`${r.skipped} started from another branch and ${r.skipped === 1 ? 'was' : 'were'} left alone.`);
     if (r.busy) bits.push(`${r.busy} still working, left for later.`);
+    // Clashes were passed over, so the rest still landed. The open ones can
+    // sort it out in turn, each on a base that already has the one before.
+    const clashed = r.clashed || [];
+    const open = clashed.filter(c => c.tabId && state.tabs.get(c.tabId));
+    if (clashed.length) {
+      bits.push(clashed.length === 1 ? `"${clashed[0].title || clashed[0].branch}" clashes with ${clashed[0].base}, so it stayed in its copy.` : `${clashed.length} clash with ${clashed[0].base}, so they stayed in their copies.`);
+      if (open.length < clashed.length) bits.push(`Open ${clashed.length - open.length === 1 ? 'the closed one' : 'the closed ones'} from History to sort ${clashed.length - open.length === 1 ? 'it' : 'them'} out.`);
+    }
+    const lineUp = open.length ? {
+      label: open.length === 1 ? 'Ask him to sort it out' : 'Sort them out in turn',
+      onAction: () => sortOutAll(open.map(c => c.tabId), { push }),
+    } : null;
     const s = r.stopped;
     if (s) {
-      const open = s.tabId && state.tabs.get(s.tabId);
-      bits.push(s.conflict ? `"${s.title || s.branch}" clashes with ${s.base}, so it stopped there.` : `Stopped at "${s.title || s.branch}": ${s.error}`);
-      if (s.conflict && open) {
-        return SB.toast(bits.join(' '), { ms: 14000, action: 'Ask him to sort it out', onAction: () => {
-          SB.activate(open.id);
-          SB.send(`Merge ${s.base} into this branch (git merge ${s.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
-        } });
-      }
-      if (s.fixable && open) return offerFix(open, s, s.base, { ms: 14000, text: bits.join(' ') });
-      if (s.conflict || s.fixable) bits.push('Open it from History to sort it out.');
-      return SB.toast(bits.join(' '), { ms: 14000 });
+      const stuck = s.tabId && state.tabs.get(s.tabId);
+      bits.push(`Stopped at "${s.title || s.branch}": ${s.error}`);
+      if (s.fixable && stuck && !lineUp) return offerFix(stuck, s, s.base, { ms: 14000, text: bits.join(' ') });
+      if (s.fixable && !stuck) bits.push('Open it from History to sort it out.');
+      return SB.toast(bits.join(' '), { ms: 14000, ...(lineUp ? { action: lineUp.label, onAction: lineUp.onAction } : {}) });
     }
     if (r.push && !r.push.ok) { SB.toast(bits.join(' '), { ms: 5000 }); return pushTrouble(tab, r.push); }
     if (r.push) bits.push(pushNews(r.push));
-    SB.toast(bits.join(' '), { ms: 8000 });
+    SB.toast(bits.join(' '), { ms: lineUp ? 14000 : 8000, ...(lineUp ? { action: lineUp.label, onAction: lineUp.onAction } : {}) });
   }
+
+  // ------------------------------------------------------------ clashes, sorted out in turn (src/main/home-line.js)
+  //
+  // Copies that clash with their base line up: the one at the front merges the
+  // base in, and once it has, it comes home by itself. The next starts on a base
+  // that already has it, so they don't clash with each other all over again.
+
+  async function sortOut(tab, { push = false } = {}) {
+    const r = await api.sortOutHome(tab.id, { push, check: checksHome(tab) });
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't line it up.", { ms: 8000 });
+    if (!r.position) return SB.activate(tab.id);
+    SB.toast(`${r.already ? 'Already in line' : 'In line'} behind "${r.ahead}": he'll sort this one out once that's home, so they don't clash again.`, { ms: 8000 });
+  }
+
+  async function sortOutAll(tabIds, { push = false } = {}) {
+    const r = await api.sortOutAll(tabIds, { push });
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't line them up.", { ms: 8000 });
+    if (r.lined > 1) SB.toast(`Lined up ${r.lined}: each sorts out its clash once the one before it is home.`, { ms: 8000 });
+  }
+
+  api.onHomeLine(e => {
+    const name = `"${e.title}"`;
+    if (e.status === 'sorting') {
+      return SB.toast(e.again ? `${e.base} moved on again, so ${name} is taking it in once more.` : `Sorting out ${name}'s clash with ${e.base}. It comes home by itself when he's done.`, { ms: 7000 });
+    }
+    if (e.status === 'home') {
+      const merged = e.merged ? `${name} is sorted out and home: ${plural(e.commits, 'commit')} merged into ${e.base}.` : `${name} is sorted out; ${e.base} already had all of it.`;
+      if (e.push && !e.push.ok) { SB.toast(`${merged} The push didn't go through.`, { ms: 5000 }); return pushTrouble(state.tabs.get(e.tabId), e.push); }
+      return SB.toast(`${merged}${e.push ? ` ${pushNews(e.push)}` : ''}`, { ms: 8000 });
+    }
+    const open = state.tabs.get(e.tabId);
+    SB.toast(`${name}: ${e.error}`, { ms: 12000, ...(e.fix && open ? { action: 'Ask him to fix them', onAction: () => { SB.activate(open.id); SB.send(e.fix); } } : {}) });
+  });
 
   // ------------------------------------------------------------ its own copy (worktrees.js)
 
@@ -252,11 +291,9 @@
       return;
     }
     if (r?.conflict) {
-      // Nothing was merged; the copy's own branch is the safe place to sort it out.
-      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => {
-        SB.activate(tab.id);
-        SB.send(`Merge ${tab.worktree.base} into this branch (git merge ${tab.worktree.base}), resolve the conflicts so both sides' intent survives, run the tests if there are any, and commit. Then tell me it's ready to bring home.`);
-      } });
+      // Nothing was merged; the copy's own branch is the safe place to sort it
+      // out, in turn with any other copy doing the same.
+      SB.toast(r.error, { ms: 12000, action: 'Ask him to sort it out', onAction: () => sortOut(tab, { push }) });
       return;
     }
     if (r?.fixable) return offerFix(tab, r, tab.worktree.base);
