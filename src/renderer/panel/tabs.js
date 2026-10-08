@@ -55,8 +55,9 @@
     if (prev) { prev.draft = input.value; }
     const tab = state.tabs.get(tabId);
     if (!tab) return;
+    SB.showInPane(tabId); // on screen already, or in the focused pane (tab-panes.js)
     state.activeTab = tabId;
-    for (const t of state.tabs.values()) t.el.hidden = t !== tab;
+    SB.renderPanes();
     input.value = tab.draft || '';
     autosize();
     renderAttachments();
@@ -66,7 +67,6 @@
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
     SB.renderTabStrip();
-    requestAnimationFrame(() => { tab.el.scrollTop = tab.el.scrollHeight; });
     if (state.view !== 'chat') SB.setView('chat'); else input.focus();
   };
 
@@ -97,11 +97,14 @@
   };
 
   SB.syncTabs = (summaries) => {
+    // A popped-out conversation belongs to its own window, and that window to it alone (tab-panes.js).
+    state.popped = new Set(summaries.filter(s => s.popped).map(s => s.id));
+    summaries = summaries.filter(s => (SB.solo ? s.id === SB.solo : !s.popped));
     const ids = new Set(summaries.map(s => s.id));
     for (const s of summaries) SB.ensureTab(s);
     // A tab created locally may not be in this snapshot yet; only drop tabs the
     // main process no longer knows about once they've been reported at least once.
-    for (const [id, tab] of state.tabs) if (!ids.has(id) && tab.reported) { tab.destroy(); state.tabs.delete(id); }
+    for (const [id, tab] of state.tabs) if (!ids.has(id) && tab.reported) SB.forgetTab(id);
     for (const s of summaries) { const t = state.tabs.get(s.id); if (t) t.reported = true; }
     // Main owns the order; a tab created here that isn't in the snapshot yet waits
     // at the end. A drag in progress wins, so a background tab reporting progress
@@ -109,7 +112,7 @@
     if (!SB.isDraggingTab()) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
       const next = [...state.tabs.keys()].pop();
-      if (next) SB.activate(next); else SB.newTab();
+      if (next) SB.activate(next); else if (!SB.solo) SB.newTab();
     }
     syncBusyUi();
     const active = SB.activeTab();
@@ -122,9 +125,9 @@
   // last tab while the main process reports "no tabs") share one in-flight
   // request, so they can never produce two blank tabs.
   let creating = null;
-  SB.newTab = ({ focus = true } = {}) => {
+  SB.newTab = ({ focus = true, reuse = true } = {}) => {
     const cur = SB.activeTab();
-    if (isBlank(cur)) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
+    if (reuse && isBlank(cur)) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
     if (creating) return creating;
     creating = (async () => {
       const r = await api.newTab();
@@ -152,13 +155,7 @@
   SB.closeTab = async (tabId, { quiet = false } = {}) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
-    tab.destroy();
-    state.tabs.delete(tabId);
-    if (state.activeTab === tabId) {
-      state.activeTab = null;
-      const next = [...state.tabs.keys()].pop();
-      if (next) SB.activate(next); else SB.newTab();
-    }
+    SB.forgetTab(tabId); // and its pane; the next one shown takes the focus (tab-panes.js)
     await api.closeTab(tabId);
     SB.renderTabStrip();
     if (tab.saved && !quiet) SB.toast('Closed. It is still in History.');
@@ -199,8 +196,11 @@
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
     const K = SB.shortcuts;
-    if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
+    // A popped-out window has its one conversation: no strip to add to, split or walk along.
+    if (SB.solo && ['newTab', 'splitPane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
+    if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
+    if (K.matches(e, 'splitPane')) { e.preventDefault(); SB.splitPane(); return; }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
     if (K.matches(e, 'moveTab')) {

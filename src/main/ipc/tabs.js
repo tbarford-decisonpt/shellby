@@ -28,6 +28,7 @@ function registerTabsIpc(ipcMain, d) {
     d.manager.interrupt(tabId);
     d.cancelChecks(tabId); // its tests stop with it
     const tab = d.manager.tabs.get(tabId);
+    d.closePopout(tabId); // in a window of its own: that goes too
     d.manager.close(tabId);
     // A Next up draft closed unsent: its empty copy goes with it (wiring/projects.js).
     if (tab?.unsentCopy) d.dropUnsentCopy?.(tab).then(gone => { if (gone) d.backlogTabClosed?.(tabId); }).catch(e => d.log.info(`unsent copy: ${e.message}`));
@@ -45,6 +46,19 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reorder', (_e, { tabId, beforeId } = {}) =>
     d.isStr(tabId) && d.manager.reorder(tabId, d.isStr(beforeId) ? beforeId : null));
   ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
+  // A conversation in a window of its own (wiring/popouts.js). x, y: where it was
+  // dropped, in screen pixels; carry: what was typed in the panel but not sent.
+  ipcMain.handle('tab:pop-out', (_e, { tabId, x, y, carry } = {}) => {
+    if (!d.isStr(tabId) || !d.manager.tabs.has(tabId)) return { ok: false, error: 'That conversation is closed.' };
+    d.setCarry(tabId, carry);
+    return { ok: d.popOut(tabId, { x, y }) };
+  });
+  // Its window's own ×: back into the panel, with whatever was typed there.
+  ipcMain.on('tab:pop-in', (e, { tabId, carry } = {}) => {
+    if (!d.isStr(tabId) || d.popoutTabOf(e.sender) !== tabId) return;
+    d.setCarry(tabId, carry);
+    d.popIn(tabId);
+  });
   // The review inbox (review-inbox.js): you've looked at its latest changes, or want them back in the list.
   // after: the changes you looked at. Newer ones that landed meanwhile stay unreviewed.
   ipcMain.handle('tab:reviewed', (_e, { tabId, reviewed = true, after = null } = {}) =>

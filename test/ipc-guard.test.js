@@ -107,3 +107,14 @@ test('a closed floor or note is nobody', () => {
   assert.equal(closed('floor:hit', floor), false);
   assert.equal(closed('note:close', note), false);
 });
+
+test('a popped-out conversation is the panel page: it reaches what the panel does, and nothing once closed', () => {
+  const popout = { id: 7 };
+  const open = windowPolicy(() => ({ panel, critter, isPopout: wc => wc === popout }));
+  for (const c of ['task:send', 'task:permission', 'tab:pop-in', 'popout:bootstrap', 'settings:set']) assert.equal(open(c, popout), true, c);
+  assert.equal(open('task:send', stranger), false, 'another window is not a pop-out');
+  assert.equal(open('critter:click', critter), true, 'the crab keeps his own');
+  assert.equal(open('task:send', critter), false, 'and only his own');
+  const closed = windowPolicy(() => ({ panel, critter, isPopout: () => false }));
+  assert.equal(closed('task:send', popout), false);
+});

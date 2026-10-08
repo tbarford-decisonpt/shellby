@@ -8,6 +8,7 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
  *   history                       history.js's store
  *   manager                       the tab manager (tabs, close, rename)
  *   openTab({ tabId, historyEntry })
+ *   isPoppedOut(id), showPopout(id)   a conversation in a window of its own (wiring/popouts.js)
  *   confirmClear(count, openCount) -> Promise<boolean>   asks first, Cancel by default
  *   onCleared()                   optional: what else goes with Clear all history (the per-turn ledger)
  *   log
@@ -22,6 +23,8 @@ function registerHistoryIpc(ipcMain, d) {
   ipcMain.handle('session:open', (_e, id) => {
     const entry = isStr(id) && history.get(id);
     if (!entry) return null;
+    // Already out in a window of its own: that window comes forward instead.
+    if (d.isPoppedOut?.(id)) { d.showPopout(id); return { popped: true }; }
     if (!manager.tabs.has(id)) {
       try { d.openTab({ tabId: id, historyEntry: entry }); } catch (err) { return { error: err.message }; }
     }

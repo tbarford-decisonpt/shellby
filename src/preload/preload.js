@@ -77,6 +77,10 @@ contextBridge.exposeInMainWorld('shellby', {
   newTab: invoke('tab:new'),
   closeTab: invoke('tab:close'),
   moveTab: (tabId, beforeId) => ipcRenderer.invoke('tab:reorder', { tabId, beforeId }),
+  // a conversation in a window of its own (x/y: where it was dropped, in screen pixels)
+  popOutTab: (tabId, { x, y, carry } = {}) => ipcRenderer.invoke('tab:pop-out', { tabId, x, y, carry }),
+  popInTab: (tabId, carry) => ipcRenderer.send('tab:pop-in', { tabId, carry }),
+  popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
@@ -619,6 +623,7 @@ contextBridge.exposeInMainWorld('shellby', {
 
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
+  maximize: fire('window:maximize'),
   setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
 
   onTabItem: on('tab:item'),
@@ -626,6 +631,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabs: on('tabs'),
   onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files
   onTabOpened: on('tab:opened'),
+  onTabReturned: on('tab:returned'), // a popped-out conversation's window closed
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),
   onUsage: on('usage'),

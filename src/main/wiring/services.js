@@ -52,6 +52,7 @@ function wireServices(d) {
     log, send, showPanel, isFolder, isStr, randomUUID, confirm, powerSaveBlocker, CAPTURE, graceMs: HELD_GRACE_MS,
     get config() { return d.config; },
     get panel() { return d.panel; },
+    get tabWindow() { return d.tabWindow; },
     get manager() { return d.manager; },
     get history() { return d.history; },
     get claudeStatus() { return d.claudeStatus; },

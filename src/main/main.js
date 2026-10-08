@@ -17,6 +17,7 @@ const { registerIpc } = require('./ipc');
 const { wireCrash } = require('./wiring/crash');
 const { wireProfile } = require('./wiring/profile');
 const { wirePanel } = require('./wiring/panel');
+const { wirePopouts } = require('./wiring/popouts');
 const { wireCrewSlots } = require('./wiring/crew-slots');
 const { wireStreaks } = require('./wiring/streaks');
 const { wireSettings } = require('./wiring/settings');
@@ -252,6 +253,7 @@ if (!CAPTURE) {
 // What were main's own functions, there from the start.
 const { openProfile } = share(wireProfile(shared));
 const { createPanel, reachedForShellby, showPanel } = share(wirePanel(shared));
+share(wirePopouts(shared)); // a conversation in a window of its own
 const { setCrewSlots } = share(wireCrewSlots(shared));
 const { checkNudges } = share(wireStreaks(shared));
 const { applyHotkey, applyLoginItem, userSkinsDir } = share(wireSettings(shared));

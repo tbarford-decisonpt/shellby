@@ -75,7 +75,7 @@ function wireSessions(d) {
     });
 
     // Queued messages just handed to Claude mid-turn: their chips can't be edited now.
-    d.manager.on('steering', (tabId, ids) => d.send(d.panel, 'tab:steering', { tabId, ids }));
+    d.manager.on('steering', (tabId, ids) => { const win = d.tabWindow(tabId); d.send(win, 'tab:steering', { tabId, ids }); });
 
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {
@@ -93,7 +93,8 @@ function wireSessions(d) {
         d.toolbox?.setCommands(item.commands); // a mod's slash commands, for the / menu
         return;
       }
-      d.send(d.panel, 'tab:item', { tabId, item });
+      const win = d.tabWindow(tabId); // the panel, or the conversation's own window (wiring/popouts.js)
+      d.send(win, 'tab:item', { tabId, item });
       d.workflows?.onTabItem(tabId, item);
       if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
       if (item.kind === 'decision') d.remote?.settle(item.requestId, item.decision);
@@ -161,7 +162,7 @@ function wireSessions(d) {
       }
     });
     d.manager.on('tabs', summary => {
-      d.send(d.panel, 'tabs', summary);
+      d.sendTabs(summary); // the panel and any popped-out windows (wiring/popouts.js)
       d.clashTabsChanged?.(); // a copy opened or closed: look for clashes again (wiring/clashes.js)
       const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
       if (!d.CAPTURE) d.config.set({ openTabs: saved });

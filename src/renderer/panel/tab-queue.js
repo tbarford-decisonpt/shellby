@@ -41,8 +41,11 @@
   };
 
   // Each queued message has an id of its own, for main to say which went in.
+  // Each window numbers its own apart, since a queue can move between them
+  // with its conversation (tab-panes.js).
+  const QUEUE_PREFIX = `q${Math.random().toString(36).slice(2, 7)}-`;
   let queued = 0;
-  const queueItem = (text, attachments) => ({ id: `q${++queued}`, text, attachments });
+  const queueItem = (text, attachments) => ({ id: `${QUEUE_PREFIX}${++queued}`, text, attachments });
   SB.queueItem = queueItem;
 
   // ------------------------------------------------------------ queued messages
