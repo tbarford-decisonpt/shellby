@@ -207,7 +207,9 @@ function createHeldQueue(d) {
       tell('error', { body: why });
       return 'failed';
     };
-    if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return fail('Claude Code isn\'t set up and signed in, so it couldn\'t start. Queue it again once it is.');
+    // A folder on another computer needs Claude Code there, not here (remote/service.js).
+    const elsewhere = !!d.remoteService?.placeOf(h.cwd || d.currentCwd());
+    if (d.config.get('crabOnly') || (!elsewhere && (!d.claudeStatus?.installed || !d.claudeStatus?.loggedIn))) return fail('Claude Code isn\'t set up and signed in, so it couldn\'t start. Queue it again once it is.');
     if (held.spent(h)) return fail(`It was cut off ${held.MAX_TRIES} times, so Shellby stopped retrying. Its conversation is in History.`);
 
     const { manager, history } = d;

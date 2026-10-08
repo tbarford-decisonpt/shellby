@@ -348,6 +348,7 @@ SB.setView = view => {
   // Just-the-crab mode has no chat: Health is home. A popped-out window has nothing but.
   if (view === 'chat' && s.settings.crabOnly) view = 'health';
   if (SB.solo) view = 'chat';
+  if (view !== 'onboarding') SB.views.onboarding?.leave?.(); // gives back what first run borrowed
   s.view = view;
   document.body.dataset.view = view;
   const section = SB.NAV_SECTION[view] || view;

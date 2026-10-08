@@ -164,3 +164,25 @@ test('a held message that fails to send for a popped-out conversation goes back 
   assert.equal(back.payload.text, 'carry on');
   assert.match(calls.notify.at(-1).body, /back in its conversation's box/);
 });
+
+test('a queued task in a folder on another computer goes without Claude Code on this PC', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: NOW });
+  const task = { id: 'h1', kind: 'task', name: 'Tidy', prompt: 'tidy up', cwd: 'C:\\code', at: NOW - 1, createdAt: NOW - H };
+  const opened = [];
+  // It gets as far as opening its tab (which stops it here: the rest waits for the turn to end).
+  const openTab = o => { opened.push(o.cwd); throw new Error('stop here'); };
+  const { q, calls } = setup({ data: { held: [task] }, d: { claudeStatus: { installed: false, loggedIn: false }, remoteService: { placeOf: cwd => (cwd === 'C:\\code' ? { host: 'box', dir: '~/code' } : null) }, openTab } });
+  await q.releaseHeld();
+  assert.deepEqual(opened, ['C:\\code']);
+  assert.equal(calls.notify.at(-1).body, 'stop here');
+});
+
+test('a queued task here still needs Claude Code on this PC', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: NOW });
+  const task = { id: 'h1', kind: 'task', name: 'Tidy', prompt: 'tidy up', cwd: 'C:\\code', at: NOW - 1, createdAt: NOW - H };
+  const opened = [];
+  const { q, calls } = setup({ data: { held: [task] }, d: { claudeStatus: { installed: false, loggedIn: false }, remoteService: { placeOf: () => null }, openTab: o => opened.push(o) } });
+  await q.releaseHeld();
+  assert.deepEqual(opened, []);
+  assert.match(calls.notify.at(-1).body, /isn't set up and signed in/);
+});

@@ -40,6 +40,7 @@ const DEFAULTS = {
   quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
+  claudeElsewhere: false, // Claude Code only on another computer, over ssh: first run asks for one there, not here (onboarding.js)
   workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)
   workOverrides: {}, // what you changed while in Work mode; it wins over Work mode's own (workmode.js write)
   wander: true,      // idle strolls near his spot (see motion.js)

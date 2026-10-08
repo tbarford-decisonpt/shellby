@@ -163,7 +163,12 @@
       $('rcAgentBtn').textContent = ag.action.label;
       $('rcAgentBtn').onclick = () => act(null, ag.action);
     }
+    SB.remoteChanged?.(view); // first run's remote path (onboarding.js)
   }
+
+  // First run borrows this section: it fills it, and reads what's ready.
+  SB.remoteRefresh = refresh;
+  SB.remoteNow = () => view;
 
   // ---------------------------------------------------------------- adding one
 

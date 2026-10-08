@@ -8,8 +8,40 @@
   SB.needsOnboarding = () => {
     const s = state.status || {};
     if (!state.settings.onboarded) return true;
-    return !state.settings.crabOnly && (!s.installed || !s.loggedIn);
+    // Claude Code only on another computer: this PC never needs it (the remote path below).
+    return !state.settings.crabOnly && !state.settings.claudeElsewhere && (!s.installed || !s.loggedIn);
   };
+
+  // The remote path lends Settings' Other computers section to this screen,
+  // and gives it back on the way out (core.js setView calls leave).
+  let lentFrom = null;
+  function lendRemote(on) {
+    const group = $('remoteGroup');
+    if (on && !lentFrom) {
+      lentFrom = document.createComment('remoteGroup');
+      group.before(lentFrom);
+      $('onboardRemote').append(group);
+      SB.remoteRefresh?.();
+    } else if (!on && lentFrom) {
+      lentFrom.replaceWith(group);
+      lentFrom = null;
+    }
+  }
+
+  // Where the remote path stands, and whether Let's go can go.
+  function renderRemote() {
+    const L = window.ShellbyRemoteLogic;
+    const computers = SB.remoteNow?.()?.computers || [];
+    const anchor = L.readyFolder(computers);
+    const place = anchor ? computers.flatMap(c => c.folders).find(f => f.anchor === anchor)?.label : null;
+    $('onboardRemoteHint').textContent = place
+      ? `Ready. Conversations start in ${place}.`
+      : computers.some(L.ready)
+        ? 'Claude Code is signed in there. Now add a folder there to work in.'
+        : 'Add the computer you ssh to. Shellby walks you through the rest: signing in, then Claude Code installed and signed in over there.';
+    $('letsGoBtn').disabled = !anchor;
+  }
+  SB.remoteChanged = () => { if (state.view === 'onboarding' && SB.onboardPath === 'remote') renderRemote(); };
 
   function renderOnboarding() {
     const s = state.status || {};
@@ -17,7 +49,11 @@
     // with a lively crab or Work mode's quiet one (workmode.js).
     const path = SB.onboardPath || null;
     $('onboardPaths').querySelectorAll('.path').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.path === path)));
-    $('claudeSetup').hidden = path !== 'claude' && path !== 'work';
+    $('claudeSetup').hidden = !['claude', 'work', 'remote'].includes(path);
+    const remote = path === 'remote';
+    $('steps').hidden = remote;
+    $('onboardRemote').hidden = !remote;
+    lendRemote(remote);
     const step = (n, done, title, sub, actions) => h('li', { class: `step ${done ? 'done' : 'todo'}` },
       h('span', { class: 'step-badge', text: done ? '✓' : n }),
       h('div', {}, h('div', { class: 'step-title', text: title }), sub ? h('div', { class: 'step-sub' }, sub) : null, !done && actions ? h('div', { class: 'row' }, actions) : null));
@@ -48,7 +84,8 @@
       SB.renderModeCards($('onboardModeCards'), pick);
     };
     SB.renderModeCards($('onboardModeCards'), pick);
-    $('letsGoBtn').disabled = !(installed && signedIn);
+    if (remote) renderRemote();
+    else $('letsGoBtn').disabled = !(installed && signedIn);
   }
   async function recheckStatus() {
     state.status = await api.claudeStatus();
@@ -66,6 +103,7 @@
   }
   $('letsGoBtn').addEventListener('click', async () => {
     if (SB.onboardPath === 'work') return SB.chooseWorkMode();
+    if (SB.onboardPath === 'remote') return chooseRemote();
     // firstTour: the first New task offers Show me around (feed.js), once.
     const r = await api.setSettings({ onboarded: true, firstTour: true, crabOnly: false, workMode: false });
     state.settings = r.settings;
@@ -74,15 +112,27 @@
     SB.refreshEmptyStates();
     SB.setView('chat');
   });
+  // Done with Claude Code over there: start in its folder, and never ask for it here.
+  async function chooseRemote() {
+    const anchor = window.ShellbyRemoteLogic.readyFolder(SB.remoteNow?.()?.computers);
+    if (!anchor) return;
+    const r = await api.setSettings({ onboarded: true, firstTour: true, crabOnly: false, workMode: false, claudeElsewhere: true });
+    state.settings = r.settings;
+    SB.onboardPath = null;
+    SB.applyCrabOnly();
+    SB.refreshEmptyStates();
+    SB.setView('chat');
+    await SB.folderChanged(await api.remoteWorkHere(anchor));
+  }
   $('onboardPaths').addEventListener('click', e => {
     const b = e.target.closest('.path');
     if (!b) return;
     if (b.dataset.path === 'crab') return SB.chooseCrabOnly();
-    SB.onboardPath = b.dataset.path === 'work' ? 'work' : 'claude';
+    SB.onboardPath = ['work', 'remote'].includes(b.dataset.path) ? b.dataset.path : 'claude';
     renderOnboarding();
     $('claudeSetup').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   $('crabInsteadBtn').addEventListener('click', () => SB.chooseCrabOnly());
 
-  SB.views.onboarding = { render: renderOnboarding };
+  SB.views.onboarding = { render: renderOnboarding, leave: () => lendRemote(false) };
 })();

@@ -62,6 +62,15 @@
   /** Ready to work there: reached, and Claude Code signed in. */
   const ready = c => !!(c?.check?.ok && c.check.claude && c.check.loggedIn);
 
+  /**
+   * First run without Claude Code on this PC: the folder to start in, the first
+   * one on a computer that's ready, or null until there is one.
+   */
+  function readyFolder(computers) {
+    const c = (computers || []).find(x => ready(x) && x.folders?.length);
+    return c ? c.folders[0].anchor : null;
+  }
+
   /** The agent's line, and its button, when it's worth one. */
   function agentLine(agent, keys) {
     if (!agent) return { text: "Windows' ssh agent isn't installed on this PC.", action: null };
@@ -116,7 +125,7 @@
 
   const joinDir = (dir, name) => (dir === '/' ? `/${name}` : `${dir.replace(/\/+$/, '')}/${name}`);
 
-  const api = { whereLine, lockedKeys, signInFixes, steps, ready, agentLine, askText, formProblem, placeName, parentDir, joinDir };
+  const api = { whereLine, lockedKeys, signInFixes, steps, ready, readyFolder, agentLine, askText, formProblem, placeName, parentDir, joinDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyRemoteLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

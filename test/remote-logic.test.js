@@ -97,3 +97,17 @@ test('moving about the folders there', () => {
   assert.equal(L.joinDir('~', 'code'), '~/code');
   assert.equal(L.joinDir('/', 'srv'), '/srv');
 });
+
+test('first run without Claude Code here starts in a folder on a computer that is ready', () => {
+  const folder = (anchor, dir) => ({ anchor, dir, label: `box: ${dir}` });
+  assert.equal(L.readyFolder([]), null);
+  assert.equal(L.readyFolder(undefined), null);
+  // Ready, but no folder there yet.
+  assert.equal(L.readyFolder([{ alias: 'box', check: signedIn, folders: [] }]), null);
+  // A folder, but Claude Code there isn't signed in.
+  assert.equal(L.readyFolder([{ alias: 'old', check: { ...signedIn, loggedIn: false }, folders: [folder('a1', '~/x')] }]), null);
+  assert.equal(L.readyFolder([
+    { alias: 'old', check: { ...signedIn, loggedIn: false }, folders: [folder('a1', '~/x')] },
+    { alias: 'box', check: signedIn, folders: [folder('a2', '~/app'), folder('a3', '~/other')] },
+  ]), 'a2');
+});
