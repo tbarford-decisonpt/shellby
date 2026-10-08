@@ -1,3 +1,4 @@
+// ci: his tank's gauges in disguise, saved layouts and the seasons, the tidying switch
 // End-to-end for his tank's Phase 3 over the Chrome DevTools Protocol: the
 // gauges in disguise (a faked hot PC reaching the thermometer and the water,
 // a gauge turned off staying off), saved layouts (save, put up, a season's

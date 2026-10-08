@@ -62,6 +62,8 @@ test('updateStatus and updateButton follow the updater, with idle for anything u
   assert.equal(T.updateStatus({ state: 'current', checkedAt: 7 }, relTime), "You're on the latest version, checked at 7.");
   assert.equal(T.updateStatus({ state: 'current' }, relTime), "You're on the latest version.");
   assert.equal(T.updateStatus({ state: 'error' }, relTime), "Couldn't check for updates.");
+  assert.equal(T.updateStatus({ state: 'error', error: "Couldn't reach GitHub. Is this PC online?", retryAt: Date.now() + 10 * 60000 }, relTime),
+    "Couldn't reach GitHub. Is this PC online? He'll try again in 10 minutes.");
   assert.equal(T.updateStatus({ state: 'mystery' }, relTime), 'Shellby updates himself from GitHub Releases.');
   assert.equal(T.updateButton({ state: 'downloading', percent: 42 }), '42%');
   assert.equal(T.updateButton({ state: 'ready' }), 'Restart and update');
@@ -153,4 +155,13 @@ test('weatherStatus asks for a town, then shows the reading, an error or that it
   assert.deepEqual(T.weatherStatus({ place: {}, label: 'Leeds', summary: 'Rain', reading: { at: now - 120000 } }, now), { text: 'Rain in Leeds, checked 2 minutes ago.', tone: 'ok' });
   assert.deepEqual(T.weatherStatus({ place: {}, label: 'Leeds', error: 'no answer' }, now), { text: "Leeds: No answer. He'll try again shortly.", tone: '' });
   assert.equal(T.weatherStatus({ place: {}, label: 'Leeds' }, now).text, 'Checking the weather in Leeds…');
+});
+
+test('phoneStatus: what is missing, then the listener, then the last send that did not go', () => {
+  const now = 10 * 60000;
+  assert.deepEqual(T.phoneStatus({ problem: 'Telegram needs the bot token.', listenProblem: 'x', lastDeliveryError: 'y' }, now), { text: 'Telegram needs the bot token.', tone: 'warn' });
+  assert.deepEqual(T.phoneStatus({ listenProblem: 'Telegram turned down the bot token.', lastDeliveryError: 'y' }, now), { text: 'Telegram turned down the bot token.', tone: 'warn' });
+  assert.deepEqual(T.phoneStatus({ lastDeliveryError: 'ntfy said too many, too fast.', lastDeliveryErrorAt: now - 3 * 60000 }, now),
+    { text: "The last one didn't go (3 minutes ago): ntfy said too many, too fast.", tone: 'warn' });
+  assert.deepEqual(T.phoneStatus({}, now), { text: '', tone: '' });
 });

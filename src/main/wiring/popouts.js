@@ -72,6 +72,7 @@ function wirePopouts(d) {
     d.secureWindow(win);
     popouts.set(tabId, win);
     win.loadFile(path.join(d.RENDERER, 'panel', 'panel.html'), { query: { popout: tabId } });
+    win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(d.config.get('panelZoom') || 1)); // the panel's zoom (ipc/files.js)
     win.once('ready-to-show', () => { win.show(); win.focus(); });
     win.on('closed', () => {
       if (popouts.get(tabId) !== win) return; // closed with its conversation: nothing to hand back
@@ -110,6 +111,13 @@ function wirePopouts(d) {
     if (!win.isDestroyed()) win.destroy();
   }
 
+  // The panel and every popped-out conversation, for what isn't one tab's:
+  // the usage meter, the outlook, the zoom.
+  const everyWindow = () => [d.panel, ...popouts.values()].filter(w => w && !w.isDestroyed());
+  function sendEveryWindow(channel, payload) {
+    for (const win of everyWindow()) d.send(win, channel, payload);
+  }
+
   // Every window hears about every tab; the panel leaves out the ones marked `popped`.
   function sendTabs(summary = d.manager.summary) {
     for (const id of popouts.keys()) if (!d.manager.tabs.has(id)) closePopout(id);
@@ -118,7 +126,7 @@ function wirePopouts(d) {
     for (const win of popouts.values()) d.send(win, 'tabs', list);
   }
 
-  return { closePopout, isPoppedOut, isPopout, popIn, popOut, popoutTabOf, sendTabs, setCarry, showPopout, tabWindow, takeCarry };
+  return { closePopout, everyWindow, isPoppedOut, isPopout, popIn, popOut, popoutTabOf, sendEveryWindow, sendTabs, setCarry, showPopout, tabWindow, takeCarry };
 }
 
 module.exports = { wirePopouts, cleanCarry };

@@ -60,6 +60,53 @@ test('detect reads a real folder and never throws on a missing one', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("detect runs pytest with the project's own virtualenv when it has one", () => {
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-checks-venv-')));
+  try {
+    fs.writeFileSync(path.join(dir, 'pytest.ini'), '[pytest]\n');
+    assert.deepEqual(C.detect(dir), ['python -m pytest -q'], 'no venv: the python on PATH');
+    // A venv folder with no python in it doesn't count.
+    fs.mkdirSync(path.join(dir, 'venv', 'Scripts'), { recursive: true });
+    assert.deepEqual(C.detect(dir), ['python -m pytest -q']);
+    fs.writeFileSync(path.join(dir, 'venv', 'Scripts', 'python.exe'), '');
+    assert.deepEqual(C.detect(dir), ['venv\\Scripts\\python.exe -m pytest -q']);
+    fs.mkdirSync(path.join(dir, '.venv', 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.venv', 'bin', 'python.exe'), '');
+    assert.deepEqual(C.detect(dir), ['.venv\\bin\\python.exe -m pytest -q'], '.venv beats venv');
+    fs.mkdirSync(path.join(dir, '.venv', 'Scripts'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.venv', 'Scripts', 'python.exe'), '');
+    assert.deepEqual(C.detect(dir), ['.venv\\Scripts\\python.exe -m pytest -q']);
+    for (const cmd of C.detect(dir)) assert.equal(C.isSafeCommand(cmd), true);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pickCommands only takes a virtualenv python it knows the path of', () => {
+  assert.deepEqual(C.pickCommands({ files: ['pytest.ini'], venvPython: 'evil.exe & calc' }), ['python -m pytest -q']);
+  assert.deepEqual(C.pickCommands({ files: ['pytest.ini'], venvPython: 'venv\\Scripts\\python.exe' }), ['venv\\Scripts\\python.exe -m pytest -q']);
+  for (const py of C.VENV_PYTHONS) assert.equal(C.isSafeCommand(`${py} -m pytest -q`), true, py);
+  assert.equal(C.isSafeCommand('other\\Scripts\\python.exe -m pytest -q'), false);
+});
+
+test("pytest missing from the python that ran it reads as needing its virtualenv, and doesn't block bringing home", () => {
+  const missing = C.commandVerdict({ cmd: 'python -m pytest -q', exitCode: 1, output: 'C:\\Python312\\python.exe: No module named pytest\n' });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.needsEnv, true);
+  assert.match(missing.error, /virtualenv/);
+  const v = C.buildVerdict([{ cmd: 'python -m pytest -q', exitCode: 1, output: "ModuleNotFoundError: No module named 'pytest'" }], { after: 't' });
+  assert.equal(v.status, 'error');
+  assert.equal(C.gatePasses(v), true);
+  // A test whose own import is missing is still a real failure.
+  const plugin = C.commandVerdict({ cmd: 'python -m pytest -q', exitCode: 1, output: "E   ModuleNotFoundError: No module named 'pytest_mock'" });
+  assert.equal(plugin.needsEnv, undefined);
+  assert.equal(C.gatePasses(C.buildVerdict([{ cmd: 'python -m pytest -q', exitCode: 1, output: "No module named 'pytest_mock'" }], { after: 't' })), false);
+  // Only pytest's own commands; and alongside a real failure the gate still stops.
+  assert.equal(C.commandVerdict({ cmd: 'npm run test', exitCode: 1, output: 'No module named pytest' }).needsEnv, undefined);
+  assert.equal(C.gatePasses(C.buildVerdict([
+    { cmd: 'python -m pytest -q', exitCode: 1, output: 'No module named pytest' },
+    { cmd: 'npm run test', exitCode: 1, output: '' },
+  ], { after: 't' })), false);
+});
+
 // ---- the command-line guard
 
 test('isSafeCommand accepts only the command lines checks.js builds', () => {

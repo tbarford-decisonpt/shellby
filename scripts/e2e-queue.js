@@ -1,3 +1,4 @@
+// ci: queued messages: queue, edit, drain, stop, error pauses
 // End-to-end check of queued messages against the dev app over CDP, driven by
 // the fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
 // Type while Shellby works -> messages queue -> they send one by one when each
@@ -32,7 +33,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const ev = expr => new Promise(r => { const i = ++id; p.set(i, m => r(m.result?.result?.value)); ws.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true, awaitPromise: true } })); });
     const until = async (expr, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
     const type = async text => ev(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new Event('input')); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })(SB.$('input'))`);
-    const users = () => ev("JSON.stringify([...SB.activeTab().el.querySelectorAll('.msg.user')].map(e => e.textContent.trim()))").then(JSON.parse);
+    const users = () => ev("JSON.stringify([...SB.activeTab().el.querySelectorAll('.msg.user')].map((e => { const c = e.cloneNode(true); c.querySelectorAll('.routine-tag').forEach(t => t.remove()); return c.textContent.trim(); })))").then(JSON.parse);
     await wait(3000);
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
     await wait(500);
@@ -94,9 +95,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await until("!SB.activeTab().busy && SB.activeTab().queue.length === 0"), 'the /command waited, and went once the turn ended');
     // The feed from the prompt on: the steer sits inside the turn (no "done" line
     // before it), right after the step it went in at, with Claude's reply next.
-    const turn = JSON.parse(await ev(`JSON.stringify((els => els.slice(els.findIndex(e => e.textContent.trim() === 'steps 6 500')))([...SB.activeTab().el.querySelectorAll('.msg.user, .msg.assistant, .meta, details.tool')]).map(e => e.matches('.meta') ? 'meta' : e.matches('details.tool') ? 'tool' : e.textContent.trim()))`));
+    const turn = JSON.parse(await ev(`JSON.stringify((els => els.slice(els.findIndex(e => e.textContent.trim() === 'steps 6 500')))([...SB.activeTab().el.querySelectorAll('.msg.user, .msg.assistant, .meta, details.tool')]).map(e => e.matches('.meta') ? 'meta' : e.matches('details.tool') ? 'tool' : (e => { const c = e.cloneNode(true); c.querySelectorAll('.routine-tag').forEach(t => t.remove()); return c.textContent.trim(); })(e)))`));
     check(JSON.stringify(turn.slice(0, 4)) === JSON.stringify(['steps 6 500', 'tool', 'use tabs', 'steered: use tabs']) && turn[4] === 'meta', `the steer went in mid-turn: ${turn.slice(0, 5).join(' | ')}`);
     const tail = (await users()).slice(-3);
+    check(await ev("[...SB.activeTab().el.querySelectorAll('.msg.user')].some(e => e.querySelector('.routine-tag')?.textContent.includes('sent mid-turn'))"), 'the steer says it was sent mid-turn');
     check(JSON.stringify(tail) === JSON.stringify(['steps 6 500', 'use tabs', '/compact']), `in order: ${tail.join(' | ')}`);
   } catch (e) {
     check(false, e.message);

@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { inspectPlugin, isOlderVersion, pluginStatus, PLUGIN_VERSION, formatStatus, formatPlain, upgradeStatusLine, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, COMMAND } = require('../src/main/statusline');
+const { inspectPlugin, isOlderVersion, pluginStatus, PLUGIN_VERSION, formatStatus, formatPlain, upgradeStatusLine, writeStatus, touchStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, COMMAND } = require('../src/main/statusline');
 
 const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '');
 const xp = { level: 5, title: 'Claw Coder', progress: 0.6 };
@@ -142,6 +142,25 @@ test('the statusLine command prints the file, and nothing (exit 0) without it', 
   assert.deepEqual([r.status, r.stdout], [0, '🦀 Shellby · Lv 2']);
   clearStatus(path.join(dir, 'shellby-status.txt'));
   assert.equal(fs.existsSync(path.join(dir, 'shellby-status.txt')), false);
+});
+
+test('a status file a crash left behind prints nothing, and a touched one prints again', () => {
+  const bash = ['C:\\Program Files\\Git\\bin\\bash.exe'].find(b => fs.existsSync(b)) || 'bash';
+  const dir = tmp();
+  const file = path.join(dir, 'shellby-status.txt');
+  const env = { ...process.env, TEMP: dir, TMPDIR: dir, OS: '' };
+  const inner = COMMAND.slice(COMMAND.indexOf("'") + 1, COMMAND.lastIndexOf("'"));
+  writeStatus('🦀 Shellby · stale test', file, 'Shellby stale test');
+  const old = new Date(Date.now() - 5 * 60 * 1000);
+  fs.utimesSync(file, old, old);
+  let r = spawnSync(bash, ['-c', inner], { env, encoding: 'utf8' });
+  assert.deepEqual([r.status, r.stdout], [0, ''], 'five minutes untouched: Shellby is gone');
+  touchStatus();
+  assert.ok(Date.now() - fs.statSync(file).mtimeMs < 60 * 1000, 'touched');
+  assert.ok(Date.now() - fs.statSync(path.join(dir, 'shellby-status-plain.txt')).mtimeMs < 60 * 1000, 'the plain twin too');
+  r = spawnSync(bash, ['-c', inner], { env, encoding: 'utf8' });
+  assert.deepEqual([r.status, r.stdout], [0, '🦀 Shellby · stale test']);
+  clearStatus(file);
 });
 
 test('settings: install into an empty config, recognise it, remove it cleanly', () => {

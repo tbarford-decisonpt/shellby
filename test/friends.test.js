@@ -419,3 +419,38 @@ test('together: a visit plans a few shared moments, skips them while he is busy,
   t.mock.timers.tick(200000);
   assert.equal(did.length, 2, 'nothing after the visitor has gone');
 });
+
+test('friends: a card left up after turning off is tried again, and sign-out can see it', async () => {
+  const world = fakeGitHub('sam');
+  const { f } = service({ world });
+  await f.refresh();
+  let on = true;
+  f.github.can = () => on;
+  f.github.view = () => ({ login: 'sam', features: { friends: { on } } });
+  assert.equal(f.retryTakeDown(), null, 'on: the card is meant to be up');
+  on = false;
+  const del = world.gh.delete;
+  world.gh.delete = async () => { throw Object.assign(new Error('offline'), { status: 500 }); };
+  assert.equal((await f.takeDown()).ok, false);
+  assert.equal(f.isUp, true, 'still up, so sign-out takes it down too');
+  world.gh.delete = del;
+  const [a, b] = [f.retryTakeDown(), f.retryTakeDown()];
+  assert.equal(a, b, 'one try at a time');
+  assert.equal((await a).ok, true);
+  assert.equal(world.gists.size, 0);
+  assert.equal(f.isUp, false);
+  assert.equal(f.retryTakeDown(), null, 'nothing left to do');
+});
+
+test('friends: no retry while turning it on waits for GitHub, or signed out', async () => {
+  const world = fakeGitHub('sam');
+  const { f } = service({ world });
+  await f.refresh();
+  f.github.can = () => false;
+  f.github.view = () => ({ login: 'sam', features: { friends: { on: true } } });
+  assert.equal(f.retryTakeDown(), null);
+  f.github.view = () => ({ login: 'sam', features: { friends: { on: false } } });
+  f.github.signedIn = false;
+  assert.equal(f.retryTakeDown(), null);
+  assert.equal(world.gists.size, 1);
+});

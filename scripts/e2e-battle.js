@@ -1,3 +1,4 @@
+// ci: bug battles: HP down as failing tests clear, a helper joins, the fix knocks it out, the screen plays the jar
 // Bug battles, end to end against the fake CLI: a red suite opens a battle at
 // full HP; a read is a Scout and an edit a Patch; a re-run with fewer failing
 // tests takes HP off (super effective: tests against a test bug); a helper

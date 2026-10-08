@@ -216,7 +216,7 @@ function wireJournal(d) {
     }
     let result = null;
     books().update(root, path.basename(root), book => {
-      result = journal.pin(book, { kind, text }, Date.now());
+      result = journal.pin(book, { kind, text, by: fromPanel ? 'you' : 'claude' }, Date.now());
       return result.book;
     });
     if (result?.error) return { ok: false, error: result.error };
@@ -224,16 +224,40 @@ function wireJournal(d) {
     return { ok: true, id: result.id };
   }
 
+  // The last pin or note taken off, for the page's Undo: { root, pin } | { root, note }.
+  // Held here, so Undo puts back exactly what was there, never what the page sends.
+  let lastRemoved = null;
+
   /** Take a pin or a session's note off a project's page. root: a folder the page was shown. */
   function remove(root, { pinId = null, sessionId = null } = {}) {
     const found = bookFor([root]);
     if (!found) return { ok: false };
+    const pin = pinId ? found.book.pins.find(p => p.id === pinId) : null;
+    const note = !pinId ? found.book.notes.find(n => n.sessionId === sessionId) : null;
     books().write(found.root, pinId ? journal.unpin(found.book, pinId) : journal.forget(found.book, sessionId));
+    if (pin || note) lastRemoved = { root: found.root, pin, note };
     d.send(d.panel, 'projects:changed');
     return { ok: true };
   }
 
-  return { touched, savePending, resumePending, view, draftFor, briefFor, pinFor, remove };
+  /** Undo the last remove(): that pin or note back. pinId / sessionId: the one the page means. */
+  function restore(root, { pinId = null, sessionId = null } = {}) {
+    const found = bookFor([root]);
+    const u = lastRemoved;
+    const same = u && found && u.root === found.root && (pinId ? u.pin?.id === pinId : !!sessionId && u.note?.sessionId === sessionId);
+    if (!same) return { ok: false, error: 'That can’t be put back any more.' };
+    let result = null;
+    books().update(found.root, path.basename(found.root), book => {
+      result = journal.putBack(book, { pin: u.pin, note: u.note });
+      return result.book;
+    });
+    if (result?.error) return { ok: false, error: result.error };
+    lastRemoved = null;
+    d.send(d.panel, 'projects:changed');
+    return { ok: true };
+  }
+
+  return { touched, savePending, resumePending, view, draftFor, briefFor, pinFor, remove, restore };
 }
 
 module.exports = { wireJournal };

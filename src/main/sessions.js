@@ -224,16 +224,33 @@ class SessionManager extends EventEmitter {
     return true;
   }
 
+  /**
+   * Take a queued message back before Claude has it (the panel's × on its chip).
+   * By id, here, where takeSteers() runs: the panel's own list can be a step
+   * behind. -> false when it's too late (it went in this turn), else true.
+   */
+  unsteer(tabId, id) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return true; // nothing of it can reach Claude
+    if (tab.steeredIds.has(id)) return false;
+    tab.steers = tab.steers.filter(m => m.id !== id);
+    return true;
+  }
+
   // What the session hands Claude now, taken off the list ('steering' tells the
   // panel, so its chip can't be edited any more). The chip goes once Claude has
   // read it: the 'user' item carries its steerId. One that can't be put
   // together stays queued, and so does all after it.
+  //
+  // It has no rewind point of its own: Shellby keeps the code as it stood
+  // between turns, not mid-turn, so "just before it" can't be put back. turnOf
+  // is the message whose turn it went into, which the panel offers instead.
   takeSteers(tab) {
     const taken = [];
     for (const m of tab.steers) {
       let content;
       try { content = this.compose(m.text, m.attachments); } catch { break; }
-      taken.push({ content, item: { kind: 'user', text: m.text, attachments: m.attachments, steerId: m.id } });
+      taken.push({ content, item: { kind: 'user', text: m.text, attachments: m.attachments, steerId: m.id, turnOf: tab.turnId || null } });
     }
     tab.steers = tab.steers.slice(taken.length);
     for (const t of taken) tab.steeredIds.add(t.item.steerId);

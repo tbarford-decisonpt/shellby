@@ -1,3 +1,4 @@
+// ci: Notes per project and General: add, edit, move, and Plan / Build / Ask
 // Notes: a list per project plus a General one. Adding, editing, ticking off,
 // moving between lists and deleting; and Plan / Build / Ask each opening a task
 // in the right folder, in the right mode, with the right prompt. Runs against

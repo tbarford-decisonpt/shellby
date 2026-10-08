@@ -1,3 +1,4 @@
+// ci: shell stickers: a push earns one, the slap, a release's marks, the Sticker Book's editor, the crab card
 // Shell stickers end to end: a real push from a real repo earns its sticker,
 // the critter slaps it on his shell, the trophy unlocks, a release adds its
 // marks, and the Sticker Book's editor moves, flips, peels and tidies them.

@@ -58,13 +58,20 @@
     return 'He looks once a day.';
   }
 
+  // After a failed check he tries again sooner than usual (updates.js RETRY_AFTER).
+  function retryNote(at, now = Date.now()) {
+    if (!Number.isFinite(at)) return '';
+    const m = Math.max(1, Math.round((at - now) / 60000));
+    return ` He'll try again in ${m === 1 ? 'a minute' : `${m} minutes`}.`;
+  }
+
   // Shellby's own update, by the updater's state.
   const UPDATE_STATUS = {
     checking: () => 'Looking for a new version…',
     downloading: u => `Downloading ${u.version ? `v${u.version}` : 'the update'}…`,
     ready: u => `Version ${u.version} is downloaded and ready.`,
     current: (u, relTime) => `You're on the latest version${u.checkedAt ? `, checked ${relTime(u.checkedAt)}` : ''}.`,
-    error: u => u.error || "Couldn't check for updates.",
+    error: u => `${u.error || "Couldn't check for updates."}${retryNote(u.retryAt)}`,
     idle: () => 'Shellby updates himself from GitHub Releases.',
     off: () => 'Updates run in the installed app.',
     scoop: () => 'Scoop keeps Shellby up to date: run scoop update shellby.',
@@ -159,6 +166,19 @@
     return m < 1 ? 'just now' : m === 1 ? 'a minute ago' : m < 90 ? `${m} minutes ago` : `${Math.round(m / 60)} hours ago`;
   };
 
+  // Notifications to your phone (channels.js view): what's missing from the
+  // settings first, then what the bot's listener ran into, then the last send
+  // that didn't go.
+  function phoneStatus(v, now = Date.now()) {
+    if (v.problem) return { text: v.problem, tone: 'warn' };
+    if (v.listenProblem) return { text: v.listenProblem, tone: 'warn' };
+    if (v.lastDeliveryError) {
+      const when = v.lastDeliveryErrorAt ? ` (${minutesAgo(v.lastDeliveryErrorAt, now)})` : '';
+      return { text: `The last one didn't go${when}: ${v.lastDeliveryError}`, tone: 'warn' };
+    }
+    return { text: '', tone: '' };
+  }
+
   function weatherStatus(v, now = Date.now()) {
     if (!v.place) return { text: 'Find your town to begin.', tone: '' };
     if (v.reading) return { text: `${v.summary} in ${v.label}, checked ${minutesAgo(v.reading.at, now)}.`, tone: 'ok' };
@@ -169,6 +189,7 @@
   const api = {
     accelerator, BILLING_GUARD, billingState, planLabel, claudeUpdateTitle, claudeUpdateNote, updateStatus, updateButton,
     sessionState, externalStatus, cliStatus, obsStatus, deckStatus, rgbStatus, discordStatus, nowPlayingStatus, typingStatus, minutesAgo, weatherStatus,
+    phoneStatus,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbySettingsText = api;

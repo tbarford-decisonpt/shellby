@@ -41,6 +41,7 @@ const DEFAULTS = {
   workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)
   workOverrides: {}, // what you changed while in Work mode; it wins over Work mode's own (workmode.js write)
   wander: true,      // idle strolls near his spot (see motion.js)
+  wanderChosen: false, // you set wander yourself: with Windows' animation effects off, only that strolls (motion.js wanders)
   onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop-layer.js)
   perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
@@ -194,6 +195,9 @@ class Config {
   get(key) { return workmode.valueOf(this.data, key); }
 
   set(patch) {
+    // Every save writes the defaults too, so a saved wander: true can't say
+    // whether you chose it; this does (set from Settings, or another PC's sync).
+    if (patch && 'wander' in patch && !('wanderChosen' in patch)) patch = { ...patch, wanderChosen: true };
     const prev = this.data;
     this.data = { ...this.data, ...patch };
     if (!this.unreadable) writeSettings(this.file, JSON.stringify(this.data, null, 2));

@@ -1,3 +1,4 @@
+// ci: quests: the card after his first task, a real review finishing one, the line complete, hide and bring back
 // End-to-end check of quests (main/quests.js, panel/quests.js) against the dev app
 // over CDP, driven by the fake Claude CLI (test/fixtures/fake-claude.js):
 //   1. Someone brand new: no quest card until his first task is done

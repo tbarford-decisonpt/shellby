@@ -1,3 +1,4 @@
+// ci: plain words: what a step does on its card, warnings, a plan's size, the Working bar, off
 // End-to-end check of plain words against the dev app over CDP, with the fake
 // CLI: a permission card says what the step does ("Delete 1 file or folder")
 // and warns about a file outside the project, a plan card says how big the plan

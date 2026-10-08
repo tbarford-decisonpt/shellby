@@ -1,7 +1,7 @@
 // A quick look for secrets before anything leaves your PC: API keys, tokens
 // and private keys in the lines a push would publish, and files that are
 // secrets by nature (.env, id_rsa, *.pem). Asked by every push Shellby makes
-// (main.js pushHome) and by "Is it safe to leave?" (leaving.js), whose "Tidy
+// (secret-gate.js) and by "Is it safe to leave?" (leaving.js), whose "Tidy
 // up" hands Claude the job of committing and pushing everything.
 //
 // Two scopes:
@@ -149,9 +149,16 @@ const PATCH = ['log', '-p', '--no-color', '--no-ext-diff', '--no-textconv', '-U0
 
 const result = (findings, { partial = false, ok = true } = {}) => ({ ok, partial, findings: findings.slice(0, MAX_FINDINGS), more: Math.max(0, findings.length - MAX_FINDINGS) });
 
-/** What a push of root's checkout would send. -> { ok, partial, findings, more } */
-async function outgoing(root, run = git) {
-  const r = await run(root, [...PATCH, 'HEAD', '--not', '--remotes']);
+const SAFE_REF = /^(?!-)[\w./-]{1,250}$/;
+
+/**
+ * What a push of root's checkout would send. -> { ok, partial, findings, more }
+ * rev: what's pushed (HEAD); remote: where to, so only what that remote has
+ * counts as gone already (any remote, when not given).
+ */
+async function outgoing(root, run = git, { rev = 'HEAD', remote } = {}) {
+  if (!SAFE_REF.test(rev) || (remote != null && !SAFE_REF.test(remote))) return result([], { ok: false });
+  const r = await run(root, [...PATCH, rev, '--not', remote ? `--remotes=${remote}` : '--remotes']);
   if (!r.ok) return result([], { ok: false });
   return result(scanPatch(r.out, 'unpushed'), { partial: !!r.partial });
 }

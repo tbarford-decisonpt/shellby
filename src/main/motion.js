@@ -100,6 +100,17 @@ function planStroll(x, homeX, box, rand = Math.random) {
   return Math.abs(target - x) < STROLL_MIN ? null : Math.round(target);
 }
 
+/**
+ * Whether he strolls, climbs and hops onto windows on his own. Off when you
+ * switched it off; with Windows' animation effects off (reduced motion), off
+ * too unless you switched it on yourself (config wanderChosen), not just left
+ * it at the default.
+ */
+function wanders({ wander, chosen = false, reduced = false } = {}) {
+  if (wander === false) return false;
+  return !reduced || (wander === true && chosen === true);
+}
+
 /** Move x toward target at speed (a stroll by default). { x, done }. */
 function stepStroll(x, target, dtMs, speed = STROLL_SPEED) {
   const step = speed * dtMs / 1000;
@@ -114,12 +125,14 @@ function stepStroll(x, target, dtMs, speed = STROLL_SPEED) {
  *   grips() -> { left, right, ceiling } | null (the edges he can stick to; see climb.js),
  *   onState(kind | null, info?), onSettled(kind, info?),
  *   onInterrupted(kind): someone else called stop() mid-move,
- *   onBounce({ hit, speed }): a flight bumped a wall, the ceiling or the floor.
+ *   onBounce({ hit, speed }): a flight bumped a wall, the ceiling or the floor,
+ *   still() -> true while Windows' animation effects are off: a throw is just a
+ *   drop, and a fall or a hop arrives where it would have ended in one step.
  * Kinds: 'flight', 'stroll' (also walkTo), 'hop', 'ride'. Timers are injectable for tests.
  */
 class CritterMotion {
-  constructor({ getPos, place, box, ledges = () => [], grips = () => null, onState = () => {}, onSettled = () => {}, onInterrupted = () => {}, onBounce = () => {}, setTimer = setInterval, clearTimer = clearInterval, now = () => Date.now() }) {
-    Object.assign(this, { getPos, place, box, ledges, grips, onState, onSettled, onInterrupted, onBounce, setTimer, clearTimer, now });
+  constructor({ getPos, place, box, ledges = () => [], grips = () => null, onState = () => {}, onSettled = () => {}, onInterrupted = () => {}, onBounce = () => {}, still = () => false, setTimer = setInterval, clearTimer = clearInterval, now = () => Date.now() }) {
+    Object.assign(this, { getPos, place, box, ledges, grips, onState, onSettled, onInterrupted, onBounce, still, setTimer, clearTimer, now });
     this.timer = null;
     this.kind = null;
   }
@@ -158,7 +171,8 @@ class CritterMotion {
   /** Let go of a drag. Returns true when it was a throw (now flying). */
   release(samples) {
     const v = releaseVelocity(samples);
-    if (!isThrow(v)) return false;
+    // Animations off: let go is let go, and he stays where you put him.
+    if (!isThrow(v) || this.still()) return false;
     this.stop();
     this.launch(v, { style: 'tumble', why: 'thrown' });
     return true;
@@ -177,6 +191,18 @@ class CritterMotion {
     // Only a throw sticks: a leap or a fall off a wall is meant to come down.
     const grips = why === 'thrown' ? this.grips() || null : null;
     const started = this.now();
+    if (this.still()) {
+      // No flight to watch: one tick later he's where he'd have come down.
+      this.run('flight', FRAME_MS, () => {
+        let r = { body, landed: false, ledge: null, wall: null };
+        for (let t = 0; t < MAX_FLIGHT_MS && !r.landed; t += FRAME_MS) r = stepFlight(r.body, FRAME_MS, { ...this.box(), ledges, grips });
+        this.place(Math.round(r.body.x), Math.round(r.body.y));
+        this.halt();
+        this.onState('landed', { ledge: r.ledge, wall: r.wall, dizzy });
+        this.onSettled('flight', { ledge: r.ledge, wall: r.wall, style, why, dizzy });
+      });
+      return;
+    }
     this.onState('flying', { vx: v.vx, style });
     this.run('flight', FRAME_MS, (dt, t) => {
       const r = stepFlight(body, Math.min(40, dt), { ...this.box(), ledges, grips });
@@ -203,6 +229,19 @@ class CritterMotion {
     const from = this.getPos();
     const first = target();
     if (!first) return false;
+    if (this.still()) {
+      // Animations off: no crouch and no arc, just there on the next tick.
+      this.run('hop', FRAME_MS, () => {
+        const to = target();
+        if (!to) return this.launch({ vx: 0, vy: 0 }, { style: 'fall', why: 'missed' });
+        this.place(to.x, to.y);
+        this.halt();
+        this.onState('landed', {});
+        this.onSettled('hop');
+        onLand();
+      });
+      return true;
+    }
     this.onState('crouch', { vx: first.x - from.x });
     const crouched = this.now();
     let began = null;
@@ -288,4 +327,4 @@ class CritterMotion {
   }
 }
 
-module.exports = { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, CritterMotion, MIN_THROW, STROLL_RANGE, STROLL_SPEED, GRAVITY, GRIP_SPEED, GRIP_CLEAR };
+module.exports = { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, wanders, CritterMotion, MIN_THROW, STROLL_RANGE, STROLL_SPEED, GRAVITY, GRIP_SPEED, GRIP_CLEAR };

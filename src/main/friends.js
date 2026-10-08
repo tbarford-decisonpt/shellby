@@ -172,6 +172,7 @@ class Friends extends EventEmitter {
     this.togetherTimers = [];
     this.visiting = null;
     this.refreshing = null;
+    this.takingDown = null;
   }
 
   get state() { return normalize(this.config.get('friends')); }
@@ -395,8 +396,13 @@ class Friends extends EventEmitter {
     this.emit('change', this.view());
   }
 
-  /** Visiting crabs turned off: take the card down so it isn't public any more. */
-  async takeDown() {
+  /** Visiting crabs turned off: take the card down so it isn't public any more. One at a time. */
+  takeDown() {
+    if (!this.takingDown) this.takingDown = this.removeCard().finally(() => { this.takingDown = null; });
+    return this.takingDown;
+  }
+
+  async removeCard() {
     this.stop();
     // A refresh still out could publish the card after we delete it: let it land first.
     await this.refreshing?.catch(() => {});
@@ -410,6 +416,20 @@ class Friends extends EventEmitter {
     // A new card later starts with a fresh mail cursor: the old one points into the deleted gist's comments.
     this.save({ cardId: null, publishedLook: null, publishedAt: 0, mailCursor: {} });
     return { ok: true };
+  }
+
+  /** A card is (or may still be) up: sign-out should try to take it down. */
+  get isUp() { return !!this.state.cardId; }
+
+  /**
+   * Visiting crabs is off but its card is still up, because taking it down
+   * failed (offline, or signed out meanwhile): try again. null when there's
+   * nothing to do (or it's on: the card is meant to be up, or waiting on
+   * GitHub's OK), else what takeDown says.
+   */
+  retryTakeDown() {
+    if (this.enabled || !this.isUp || !this.github.signedIn || this.github.view().features?.friends?.on) return null;
+    return this.takeDown();
   }
 }
 

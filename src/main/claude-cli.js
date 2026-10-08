@@ -36,6 +36,29 @@ function terminalEnv(base = process.env, { onlyPlan = planOnly } = {}) {
   return env;
 }
 
+// Settings that change how Claude Code signs in or which service it calls.
+const SIGN_IN_SETTINGS = ['apiKeyHelper', 'env', 'awsAuthRefresh', 'awsCredentialExport', 'forceLoginMethod', 'forceLoginOrgUUID'];
+
+/**
+ * Extra arguments for a tool-less `claude -p` that needs nothing of yours (a
+ * draft, a rule's wording). --setting-sources '' leaves out your settings, and
+ * with them your hooks and plugins: thousands of tokens on every call. Not when
+ * those settings files are where you sign in, or can't be read.
+ */
+function skipSettings(home) {
+  for (const name of ['settings.json', 'settings.local.json']) {
+    let text;
+    try { text = fs.readFileSync(path.join(home, '.claude', name), 'utf8'); } catch (e) {
+      if (e.code === 'ENOENT') continue;
+      return [];
+    }
+    let s;
+    try { s = JSON.parse(text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text); } catch { return []; }
+    if (s && typeof s === 'object' && SIGN_IN_SETTINGS.some(k => Object.hasOwn(s, k))) return [];
+  }
+  return ['--setting-sources', ''];
+}
+
 // The variables a terminal must drop for "Always use my Claude plan" (none when it's off).
 const billingScrub = (onlyPlan = planOnly) => (onlyPlan ? [...BILLING_ENV] : []);
 
@@ -148,4 +171,4 @@ async function checkStatus({ configured = null } = {}) {
   return status;
 }
 
-module.exports = { findClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, skipSettings, candidatePaths, run, BILLING_ENV };

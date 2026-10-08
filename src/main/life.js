@@ -233,7 +233,9 @@ function createLife(d) {
   }
 
   async function micCheck() {
-    if (!d.enabled() || !d.readMic || d.calm()) return; // locked: nobody's on a call at this desk
+    // Locked: nobody's on a call at this desk. Only covered or away, a call may
+    // well be going on (Discord over him, a long listen), so the check goes on.
+    if (!d.enabled() || !d.readMic || (d.locked ? d.locked() : d.calm())) return;
     try {
       const out = await d.readMic(MIC_KEY);
       micBusy = surroundings.micUsers(out, { own: d.ownExes?.() || [], now: now(), bootAt: d.bootAt?.() ?? null }).length > 0;
@@ -262,6 +264,8 @@ function createLife(d) {
   }
 
   // ---------------------------------------------------------------- his eyes on your cursor
+  // Not while he's calm (covered, hidden under a game, nobody at the desk, the
+  // screen locked): nobody sees where his eyes go, and it's a poll every 280 ms.
   function lookTick() {
     if (!d.enabled() || d.calm()) return;
     const eye = d.eyePoint();

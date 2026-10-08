@@ -103,7 +103,9 @@
     $('checkEachTurnOptions').hidden = state.settings.checkEachTurn !== true;
     $('checkTimeoutSelect').value = String([2, 5, 10, 20].includes(state.settings.checkTimeoutMin) ? state.settings.checkTimeoutMin : 5);
     $('turnShotsToggle').checked = state.settings.turnShots !== false;
-    $('wanderToggle').checked = state.settings.wander !== false;
+    // Windows' animation effects off: the default stays put (main's motion.js wanders), so it shows off.
+    const stillByDefault = !state.settings.wanderChosen && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $('wanderToggle').checked = state.settings.wander !== false && !stillByDefault;
     $('onTopToggle').checked = state.settings.onTop === true;
     renderPerch();
     $('worktreeToggle').checked = !!state.settings.worktrees;

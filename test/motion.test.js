@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, CritterMotion, STROLL_RANGE, GRIP_SPEED, GRIP_CLEAR } = require('../src/main/motion');
+const { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, wanders, CritterMotion, STROLL_RANGE, GRIP_SPEED, GRIP_CLEAR } = require('../src/main/motion');
 
 const BOX = { minX: 0, maxX: 1700, minY: 0, floorY: 900 };
 
@@ -312,4 +312,47 @@ test('a leap off a wall is meant to come down: it ignores what he could grip', (
   assert.equal(info.wall, null);
   assert.equal(info.why, 'leap');
   assert.ok(r.pos.x >= BOX.minX);
+});
+
+// Windows' animation effects off (reduced motion, reported by his renderer).
+test('wanders: off when you say so, and with animations off unless you switched it on yourself', () => {
+  assert.equal(wanders({ wander: true }), true);
+  assert.equal(wanders({ wander: undefined }), true, 'the default strolls');
+  assert.equal(wanders({ wander: false }), false);
+  assert.equal(wanders({ wander: true, reduced: true }), false, 'animations off: the default keeps him still');
+  assert.equal(wanders({ wander: true, chosen: true, reduced: true }), true, '...but switched on in Settings, he strolls');
+  assert.equal(wanders({ wander: false, chosen: true, reduced: true }), false);
+});
+
+test('animations off: a throw is a drop, and he stays where you let go', () => {
+  const r = rigMotion({ x: 500, y: 400 }, { still: () => true });
+  assert.equal(r.m.release([{ x: 0, y: 0, t: 0 }, { x: 150, y: -60, t: 60 }]), false, 'not a throw');
+  assert.equal(r.ticking, false, 'nothing flies');
+  assert.deepEqual(r.pos, { x: 500, y: 400 });
+});
+
+test('animations off: a fall lands in one step, at the same spot a real one would', () => {
+  const real = rigMotion({ x: 500, y: 400 });
+  real.m.launch({ vx: 0, vy: 60 }, { style: 'fall', why: 'letgo' });
+  real.run(500);
+  const still = rigMotion({ x: 500, y: 400 }, { still: () => true });
+  still.m.launch({ vx: 0, vy: 60 }, { style: 'fall', why: 'letgo' });
+  assert.equal(still.m.busy, true, 'busy until the next tick, like any move');
+  still.run(1);
+  assert.deepEqual(still.pos, real.pos);
+  assert.equal(still.pos.y, BOX.floorY);
+  assert.deepEqual(still.states.map(([s]) => s), [null, 'landed'], 'no flying state to animate');
+  assert.equal(still.settled.at(-1)[0], 'flight');
+  assert.equal(still.m.busy, false);
+});
+
+test('animations off: a hop arrives in one step, no crouch, no arc', () => {
+  const r = rigMotion({ x: 500, y: 900 }, { still: () => true });
+  let landed = false;
+  assert.equal(r.m.hop(() => ({ x: 300, y: 300 }), { path: () => { throw new Error('no arc'); }, ms: 500, onLand: () => { landed = true; } }), true);
+  r.run(1);
+  assert.deepEqual(r.pos, { x: 300, y: 300 });
+  assert.equal(landed, true);
+  assert.deepEqual(r.states.map(([s]) => s), [null, 'landed'], 'no crouch or hopping state');
+  assert.deepEqual(r.settled.at(-1), ['hop', undefined]);
 });

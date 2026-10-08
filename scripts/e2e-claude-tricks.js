@@ -1,3 +1,4 @@
+// ci: new tricks: what a newer Claude Code can do, from a changelog served locally; Try it, Got it, off
 // End-to-end check of new tricks against the dev app over CDP, with the fake
 // CLI (which says it's Claude Code 2.1.290) and a changelog served from here
 // (SHELLBY_CHANGELOG_URL), so no network. Shellby last saw 2.1.288: the card

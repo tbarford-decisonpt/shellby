@@ -1,3 +1,4 @@
+// ci: the Done tick in History: filter tabs, Undo, un-ticking
 // The Done tick in History: a conversation you've finished with leaves the
 // default list, the Not done / Done / All tabs only turn up once there's
 // something to filter, Undo puts a row back, and giving a done conversation

@@ -1,3 +1,4 @@
+// ci: the skill list: labelled tabs, a page at a time, where-from and order, editing your own
 // End-to-end check of the Toolbox's skill list against the dev app over CDP:
 // a row of sections with that section's kinds as chips below, All grouped by
 // where things come from, a search box that says what it searches, long lists

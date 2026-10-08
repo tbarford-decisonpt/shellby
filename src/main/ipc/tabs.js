@@ -95,6 +95,11 @@ function registerTabsIpc(ipcMain, d) {
     }
     d.manager.steer(tabId, turnId, list);
   });
+  // A queued message taken back: by its id, so one Claude already has can't be. -> { ok } | { ok: false, taken: true }.
+  ipcMain.handle('task:unsteer', (_e, { tabId, id } = {}) => {
+    if (!d.isStr(tabId) || !d.isStr(id)) return { ok: false };
+    return d.manager.unsteer(tabId, id) ? { ok: true } : { ok: false, taken: true };
+  });
   ipcMain.on('task:stop', (_e, tabId) => { if (d.isStr(tabId)) d.manager.interrupt(tabId); });
   // A crowded conversation: Claude writes a summary, then onResult starts it fresh.
   ipcMain.handle('tab:fresh', (_e, tabId) => {

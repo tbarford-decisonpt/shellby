@@ -53,8 +53,31 @@ test('only messages from after you turned it on, and from the last ten minutes',
   assert.equal(read(at(NOW - pt.MAX_AGE_MS - 1000)), null, 'too old');
   assert.equal(read(at(NOW + 5 * 60 * 1000)), null, 'from the future');
   assert.ok(read(at(NOW - 1000)));
-  // Turned on long ago: still only the last ten minutes.
-  assert.equal(pt.parseTelegramMessage(at(NOW - 20 * 60 * 1000), CHAT, { since: 0, now: NOW }), null);
+  // Turned on long ago: still only the last ten minutes. An older one of yours
+  // is only marked late, never given back as text to start.
+  const old = pt.parseTelegramMessage(at(NOW - 20 * 60 * 1000), CHAT, { since: 0, now: NOW });
+  assert.deepEqual(old, { late: true, minutes: 20, at: NOW - 20 * 60 * 1000, messageId: 42 });
+  assert.equal('text' in old, false);
+});
+
+test('a late message is only marked late when it is yours, and from after you turned it on', () => {
+  const at = (ms, msg = {}) => tgUpdate({}, { date: Math.floor(ms / 1000), ...msg });
+  const read = (u, since = NOW - 60 * 60 * 1000) => pt.parseTelegramMessage(u, CHAT, { since, now: NOW });
+  assert.equal(read(at(NOW - 30 * 60 * 1000)).late, true);
+  assert.equal(read(at(NOW - 30 * 60 * 1000), NOW - 5 * 60 * 1000), null, 'sent before it was on: silent');
+  assert.equal(read(at(NOW - 30 * 60 * 1000, { from: { id: 999, is_bot: false } })), null, 'someone else: silent');
+  assert.equal(read(at(NOW - 30 * 60 * 1000, { chat: { id: Number(CHAT), type: 'group' } })), null, 'a group: silent');
+  assert.equal(read(at(NOW - 30 * 60 * 1000, { forward_date: 1 })), null, 'a forward: silent');
+});
+
+test('the late reply says how late, and to send it again', () => {
+  assert.equal(pt.lateReply(14), "This came in 14 minutes late, so it didn't start. Send it again if you still want it.");
+  assert.match(pt.lateReply(60 * 5), /came in 5 hours late/);
+});
+
+test('ntfy stays silent about a late post', () => {
+  const msg = { event: 'message', id: 'a1', time: Math.floor((NOW - 30 * 60 * 1000) / 1000), message: `${PASS} do it` };
+  assert.equal(pt.parseNtfyTask(msg, PASS, { since: 0, now: NOW }), null);
 });
 
 test('a group chat id is never one tasks can come from', () => {

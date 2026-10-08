@@ -187,7 +187,15 @@ function wireBacklog(d) {
     const allowed = trackers.allowedFor(setup, listed?.ok ? listed.tools : null);
     if (!allowed.length) return { ok: false, error: `“${setup.server}” has no tools that only read, so Shellby won't use it for this.` };
     const denied = trackers.deniedFor(setup, servers.map(sv => sv.name));
-    const res = await d.runClaudeOnce(trackers.fetchArgs(setup, { allowed, denied }), trackers.FETCH_TIMEOUT_MS, { cwd });
+    // Only this server starts for the read, when Shellby can load it alone. Its definition
+    // can hold a token, so it goes in a file of the read's own rather than on the command line.
+    const own = server.direct ? mcpServers.configFor([setup.server], { home: os.homedir(), cwd }) : null;
+    let mcpConfigFile = own?.ok ? path.join(os.tmpdir(), `shellby-mcp-${crypto.randomUUID()}.json`) : null;
+    try {
+      if (mcpConfigFile) fs.writeFileSync(mcpConfigFile, JSON.stringify(own.config), { mode: 0o600, flag: 'wx' });
+    } catch { mcpConfigFile = null; }  // then every server starts, as before
+    const res = await d.runClaudeOnce(trackers.fetchArgs(setup, { allowed, denied, mcpConfigFile }), trackers.FETCH_TIMEOUT_MS, { cwd })
+      .finally(() => { if (mcpConfigFile) fs.rm(mcpConfigFile, { force: true }, () => {}); });
     if (res.timedOut) return { ok: false, error: `${trackers.KINDS[setup.kind].label} took too long to answer. Look again in a bit.` };
     if (!String(res.stdout || '').trim()) {
       d.log?.warn('Next up: reading tickets failed', String(res.stderr || res.err?.message || '').slice(-400));

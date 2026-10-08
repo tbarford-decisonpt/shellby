@@ -99,6 +99,8 @@ function registerSettingsIpc(ipcMain, d) {
     applied(allowed, { ...allowed, ...(allowed.workOverrides || {}) }, before);
     d.send(d.panel, 'settings', d.panelSettings());
     if ('snippets' in allowed || 'pinnedTools' in allowed) d.send(d.panel, 'snippets', d.snippetsView());
+    // One quiet word per sync, so a setting doesn't change under you unexplained.
+    if (Object.keys(allowed).length) d.send(d.panel, 'github:error', `Synced from your other PC: ${syncPrefs.describe(Object.keys(allowed))}.`);
   };
 
   ipcMain.handle('settings:set', async (_e, patch = {}) => {

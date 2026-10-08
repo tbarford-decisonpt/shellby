@@ -15,11 +15,23 @@ const MAX_ENTRIES = 200;
 const TRASH_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Every result, init and review mark used to rewrite the whole index there and
+// then, and every item was its own append: a busy turn was a stream of small
+// synchronous writes on the main thread. Bookkeeping now waits this long and
+// goes in one write; anything that reads the file, and quitting, flushes first.
+const INDEX_SAVE_MS = 1000;
+const APPEND_MS = 100;
+
 class History {
   // onError: called with (what, err) when the disk refuses a write. History is a
   // convenience, never worth taking the app down for; see append().
-  constructor(dir, { onError = () => {} } = {}) {
+  constructor(dir, { onError = () => {}, indexSaveMs = INDEX_SAVE_MS, appendMs = APPEND_MS } = {}) {
     this.dir = dir;
+    this.indexSaveMs = indexSaveMs;
+    this.appendMs = appendMs;
+    this.indexTimer = null;
+    this.pending = new Map(); // id -> transcript lines not written yet, in order
+    this.appendTimer = null;
     this.indexFile = path.join(dir, 'index.json');
     // Deleted conversations, kept apart from the index so nothing that reads
     // list() or get() ever sees one. Their transcripts stay where they were.
@@ -40,7 +52,38 @@ class History {
   // file in place. A crash mid-write used to leave truncated JSON, which parses
   // as nothing and empties the whole History list.
   saveIndex() {
+    clearTimeout(this.indexTimer);
+    this.indexTimer = null;
     if (writeJson(this.indexFile, this.index, e => this.onError('history index', e))) this.indexIntact = true;
+  }
+
+  // For the frequent, small changes (update, setReady): one write in a moment.
+  saveIndexSoon() {
+    if (this.indexTimer) return;
+    this.indexTimer = setTimeout(() => this.saveIndex(), this.indexSaveMs);
+    this.indexTimer.unref?.();
+  }
+
+  /**
+   * Write whatever is waiting: the index, and the transcript lines of one
+   * conversation (id) or of all of them. On quit, and before anything reads.
+   */
+  flush(id = null) {
+    if (id == null && this.indexTimer) this.saveIndex();
+    for (const key of id == null ? [...this.pending.keys()] : [id]) {
+      const lines = this.pending.get(key);
+      if (!lines) continue;
+      this.pending.delete(key);
+      // Guarded: a full disk, or a file locked by antivirus or a cloud-sync folder,
+      // used to throw from here straight into the session's item handler, in the
+      // middle of a running task. Losing a transcript line is the lesser problem.
+      try {
+        fs.appendFileSync(this.file(key), lines.join(''));
+      } catch (e) {
+        this.onError('transcript', e);
+      }
+    }
+    if (!this.pending.size) { clearTimeout(this.appendTimer); this.appendTimer = null; }
   }
 
   saveTrash() {
@@ -70,7 +113,7 @@ class History {
     const e = this.get(id);
     if (!e) return;
     Object.assign(e, patch, { updatedAt: Date.now() });
-    this.saveIndex();
+    this.saveIndexSoon();
   }
 
   /**
@@ -94,7 +137,7 @@ class History {
     const e = this.get(id);
     if (!e) return null;
     if (ready) e.ready = ready; else delete e.ready;
-    this.saveIndex();
+    this.saveIndexSoon();
     return e;
   }
 
@@ -116,17 +159,19 @@ class History {
     if (item.kind === 'task' && (item.phase === 'progress' || item.phase === 'updated')) return; // start + finish are enough to replay
     // A permission card's edit text is the tool's input too; the tool row keeps the diff.
     const rec = item.kind === 'permission' ? { ...item, input: undefined, edits: undefined } : item;
-    // Guarded: a full disk, or a file locked by antivirus or a cloud-sync folder,
-    // used to throw from here straight into the session's item handler, in the
-    // middle of a running task. Losing a transcript line is the lesser problem.
-    try {
-      fs.appendFileSync(this.file(id), JSON.stringify({ t: Date.now(), ...rec }) + '\n');
-    } catch (e) {
-      this.onError('transcript', e);
+    try { this.file(id); } catch (e) { this.onError('transcript', e); return; }
+    // Held a moment and written with whatever else arrives meanwhile (flush()).
+    const line = JSON.stringify({ t: Date.now(), ...rec }) + '\n';
+    const lines = this.pending.get(id);
+    if (lines) lines.push(line); else this.pending.set(id, [line]);
+    if (!this.appendTimer) {
+      this.appendTimer = setTimeout(() => { this.appendTimer = null; this.flush(); }, this.appendMs);
+      this.appendTimer.unref?.();
     }
   }
 
   load(id) {
+    this.flush(id);
     try {
       return fs.readFileSync(this.file(id), 'utf8').split('\n').filter(Boolean)
         .map(l => { try { return JSON.parse(l); } catch { return null; } })
@@ -140,6 +185,7 @@ class History {
    * Written the way the index is: a temp file and a rename, never half a file.
    */
   rewrite(id, items) {
+    this.flush(id); // lines still on their way were written before the cut, not after it
     const file = this.file(id);
     const tmp = `${file}.tmp`;
     try {
@@ -226,6 +272,7 @@ class History {
     const gone = this.index.length + this.bin.length;
     this.index = [];
     this.bin = [];
+    this.pending.clear();
     this.saveIndex();
     this.saveTrash();
     let names;
@@ -241,6 +288,7 @@ class History {
   discard(id) {
     let file;
     try { file = this.file(id); } catch { return; }
+    this.pending.delete(id); // lines on their way to a file that's going
     try { fs.rmSync(file, { force: true }); } catch (e) { this.onError('transcript delete', e); }
   }
 
@@ -268,6 +316,7 @@ class History {
 
   /** Bytes the transcripts take up, for Settings to show. */
   size() {
+    this.flush();
     let bytes = 0;
     try {
       for (const name of fs.readdirSync(this.dir)) {
