@@ -44,7 +44,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 ## Everything he can do
 
-You start with just him and a chat box. The rest of his shell opens as he works: **History** and **Projects** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar, and [Work mode](docs/DESKTOP.md#work-mode) starts with every one of them.
+You start with just him and a chat box. The rest of his shell opens as he works: **History**, **Projects** and **Notes** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar, and [Work mode](docs/DESKTOP.md#work-mode) starts with every one of them.
 
 | | |
 |---|---|
@@ -208,7 +208,7 @@ None of this needs Claude or an account.
 - **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
 - **A character sheet:** Shipping, Rigour, Craft and Tidiness stats from the work he does, and a class from the highest: Shipper, Tester, Toolsmith, Curator or a dual class. [See](docs/WARDROBE.md#character-sheet)
 - **A sticker for every project you ship,** drawn from the repo itself, going vinyl, holo and foil as you keep shipping.
-- **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 66 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves. While one is loose, Claude's work on it plays out as a **bug battle**: its HP drops as failing tests clear, helpers join in, and the fix knocks it out into the jar. Beat each habitat's boss for its badge, then the Deep Four and the champion for the Hall of Fame.
+- **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 66 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves. While one is loose, Claude's work on it plays out as a **bug battle**: its HP drops as failing tests clear, helpers join in, and the fix knocks it out into the jar. Beat each habitat's boss for its badge, then the Deep Four and the champion for the Hall of Fame. [More about the Bugdex and bug battles](docs/BUGDEX.md).
 - **Cards to share:** a crab card of him as he's dressed, and a weekly one every Friday.
 
 <p align="center"><img src="docs/week-card.png" width="700" alt="A weekly crab card: Shipped 3 projects, 22 tasks done, a 5-day streak, XP for each day, the top project and three new trophies"></p>
@@ -285,46 +285,46 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <tr>
 <td width="33%" valign="top">
 
-**📅 The weekly crab card** · 0.62<br>
-<sub>Every Friday he hands you a card of your week: what you shipped, your streak, your top project, the trophies you earned and his character sheet. [See one](docs/WARDROBE.md#your-week)</sub>
+**🐠 His tank comes alive** · 0.72<br>
+<sub>He hides in the castle, naps in his cave and nibbles the kelp, and the tank quietly shows your PC's temperature and dev servers. Saved layouts, stickers on the glass, and a peek at friends' tanks. [See](docs/TANK.md)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🪶 Lean Shell** · 0.61<br>
-<sub>How many tokens every conversation carries before you type, which plugins cost the most, and which sit idle. More out of your plan, without asking Claude to do any less. [How](docs/CLAUDE-CODE.md#lean-shell-more-out-of-your-plan)</sub>
+**📋 Next up** · 0.71<br>
+<sub>"What now?" for every project in one ranked list: your to-dos, its issues and the TODOs in its code. Plus one inbox across your repos, Releases, and where you left off. [How](docs/PROJECTS.md#next-up)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🗂️ Projects and dev servers** · 0.60<br>
-<sub>Every repo you work in on one page. Start <code>npm run dev</code>, and if it crashes he holds up a red sign and offers Claude the error. [How](docs/PROJECTS.md#projects-and-dev-servers)</sub>
+**🫙 The Bugdex** · 0.70<br>
+<sub>Every kind of bug Claude fixes is a pixel creature in a jar, and only a real fix catches one. Coming next: bug battles, badges and the league. [See](docs/BUGDEX.md)</sub>
 
 </td>
 </tr>
 <tr>
 <td valign="top">
 
-**🧪 Flaky test detective** · 0.59<br>
-<sub>A test that fails, then passes on the same code, gets caught. One button has Claude find the real cause and prove the fix 20 times over. [How](docs/PROJECTS.md#flaky-tests)</sub>
+**🧩 Mods** · 0.69<br>
+<sub>Claude Code mods in the Toolbox, each saying in plain words what it can do, and mods that make him react from any conversation. [How](docs/MODS.md)</sub>
 
 </td>
 <td valign="top">
 
-**✂️ Prompt snippets** · 0.58<br>
-<sub>Save "review my diff" once, then <code>/review</code> in the box or <code>shellby do @review</code> in any terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
+**🔀 Try it N ways** · 0.68<br>
+<sub><code>/tries 3</code> sends the same task to three copies at once, runs each one's tests, and ranks them for you to keep the best. [How](docs/CLAUDE-CODE.md#your-code-safe)</sub>
 
 </td>
 <td valign="top">
 
-**⏱️ Time on each project** · 0.57<br>
-<sub>Hours per project, worked out from what he already sees, with clients, rates and a PDF timesheet. It never leaves your PC. [How](docs/PROJECTS.md#time-on-each-project)</sub>
+**🔌 Your MCP servers in workflows** · 0.67<br>
+<sub>Tick the servers a step may use and Claude files the issue or posts to Slack without stopping to ask. Or call one tool with no Claude at all. [How](docs/WORKFLOWS.md#mcp-servers)</sub>
 
 </td>
 </tr>
 </table>
 
-<sub>And before that: a life of his own, gifts from digging, workflows, phone notifications, shell stickers. Everything is in the [changelog](CHANGELOG.md).</sub>
+<sub>And before that: the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets, time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
 
 ## Install
 

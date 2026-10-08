@@ -5,13 +5,13 @@
 // DOM. Works in the browser and in Node (for tests).
 (function (root) {
   // keys: how each way of pressing it is written, shown as is. Ones that can't
-  // be matched as a single press ("Esc Esc", "Ctrl+1…6") are only ever shown;
+  // be matched as a single press ("Esc Esc", "Ctrl+1…8") are only ever shown;
   // their handlers live where they always did.
   const SHORTCUTS = [
     { id: 'palette', group: 'Anywhere', keys: ['Ctrl+K', 'Ctrl+Shift+P'], what: 'Jump anywhere, or run an action on this conversation' },
     { id: 'shortcuts', group: 'Anywhere', keys: ['Ctrl+/', '?'], what: 'This list of shortcuts (? when you’re not typing)' },
-    { id: 'dock', group: 'Anywhere', keys: ['Ctrl+1…6'], what: 'The screens on the bottom bar, in order' },
-    { id: 'back', group: 'Anywhere', keys: ['Esc'], what: 'Close a menu, go back a screen, or hide the panel' },
+    { id: 'dock', group: 'Anywhere', keys: ['Ctrl+1…8'], what: 'The screens on the bottom bar, in order' },
+    { id: 'back', group: 'Anywhere', keys: ['Esc'], what: 'Close a menu, or go back a screen' },
     { id: 'zoomIn', group: 'Anywhere', keys: ['Ctrl+=', 'Ctrl++'], what: 'Bigger text in the panel (it stays that way)' },
     { id: 'zoomOut', group: 'Anywhere', keys: ['Ctrl+-'], what: 'Smaller text in the panel' },
     { id: 'zoomReset', group: 'Anywhere', keys: ['Ctrl+0'], what: 'Text back to its usual size' },

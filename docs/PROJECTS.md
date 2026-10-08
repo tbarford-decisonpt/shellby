@@ -76,6 +76,16 @@ When it's done:
 
 Hide what you'll never get to (**⋯ → Hide**, kept on this PC). The to-do list is the same one Claude Code (`add_task`, `finish_task`) and the terminal (`shellby next add`, `shellby next done`) keep: what they add lands in `.shellby/tasks.md` marked *(from Claude Code)* or *(from the terminal)*, and the card says so. `next_up` and `shellby next` read the to-dos back, with the issues and TODOs from this card after the rest of their answer.
 
+## Notes
+
+Somewhere to put ideas before they're tasks. **Notes** on the bar (<kbd>Ctrl</kbd>+<kbd>8</kbd>, or **New note** in <kbd>Ctrl</kbd>+<kbd>K</kbd>) keeps a list for each project and one **General** list, and opens on the project you're working in. Type a note and press <kbd>Enter</kbd> (<kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line). Each one has three buttons:
+
+- **Plan:** Claude plans it, and nothing changes until you approve the plan.
+- **Build:** it goes to Claude as written, in your current mode.
+- **Ask:** Claude reads round and says whether it's a good idea, changing nothing.
+
+Afterwards the note says *Planned*, *Built* or *Asked*, with a link back to that conversation. Tick a note off when it's done (with Undo), click its text to edit it, or move it to another list from its menu. General notes run in the folder you're working in. Notes stay on this PC: up to 100 a list, and they don't sync. Notes turns up on the bar after his first task.
+
 ## Time on each project
 
 <p align="center"><img src="screenshot-time.png" width="420" alt="History → Time: hours and what they come to this week, a bar for each day, and each project with its client and rate"></p>
