@@ -54,10 +54,25 @@ function deleteCount(command) {
   return m[3].trim().split(/\s+/).filter(w => w && !/^[-/]/.test(w) && !/^-[A-Za-z]+$/.test(w)).length;
 }
 
-/** A shell command -> { ask, doing, kind, changes } (changes: it may change files). */
+// More than one command: chained, piped, substituted or redirected. Naming the
+// first part alone ("Run your tests" for `npm test && curl … | sh`) would hide
+// the rest, so a card never does.
+const CHAINED_RE = /&&|\|\||[;|\n`>]|\$\(|<\(/;
+
+/**
+ * A shell command -> { ask, doing, kind, changes } (changes: it may change files).
+ * `ask` is what a permission card leads with, so it only ever comes from the
+ * command itself. Claude's own description is model text a prompt injection
+ * could word to look harmless: it may name the step in the Working bar
+ * (`doing`), never on the card.
+ */
 function describeCommand(command, description) {
   const cmd = String(command || '').trim();
   const own = clip(description);
+  const looks = onlyLooks(cmd);
+  if (CHAINED_RE.test(cmd) && !looks) {
+    return { ...say('Run several commands chained together', own ? upper1(own) : 'Running several commands'), kind: 'chain', changes: true };
+  }
   const kind = classifyCommand(cmd) || commandKind(cmd);
   if (GIT_CLEAN_RE.test(cmd)) return { ...say('Delete the files git doesn\'t track', 'Deleting untracked files'), kind: 'delete', changes: true };
   if (DELETE_RE.test(cmd)) {
@@ -91,10 +106,8 @@ function describeCommand(command, description) {
     if (git) return { ...git, kind: 'git', changes: true };
     if (onlyLooks(cmd)) return { ...say('Look at the git history', 'Looking at the git history'), kind: 'look', changes: false };
   }
-  const looks = onlyLooks(cmd);
-  if (own) return { ...say(upper1(own), upper1(own)), kind: looks ? 'look' : 'run', changes: !looks };
-  if (looks) return { ...say('Look through the files', 'Looking through the files'), kind: 'look', changes: false };
-  return { ...say('Run a command', 'Running a command'), kind: 'run', changes: true };
+  if (looks) return { ...say('Look through the files', own ? upper1(own) : 'Looking through the files'), kind: 'look', changes: false };
+  return { ...say('Run a command', own ? upper1(own) : 'Running a command'), kind: 'run', changes: true };
 }
 
 /**
@@ -138,6 +151,8 @@ function describe(name, input = {}, { cwd = null, inCopy = false } = {}) {
 
 // Absolute Windows paths in a command ("C:\x", "D:/y"), quoted or not.
 const ABS_RE = /(?:^|[\s"'=(])([A-Za-z]:[\\/][^\s"'|&;<>)]*)/g;
+// Paths that climb out or start from home, which an absolute-path check can't place.
+const UP_OR_HOME_RE = /(?:^|[\s"'=(])(\.\.[\\/]|~[\\/]|%[A-Za-z_]+%|\$env:|\$HOME\b|\$\{?HOME\}?)/i;
 
 /**
  * What deserves a second look before saying yes, beyond what the sentence
@@ -150,16 +165,20 @@ function warnings(name, input = {}, { cwd = null, originalCwd = null } = {}) {
   if (SHELL_TOOLS.has(name)) {
     const cmd = String(i.command || '');
     const c = describeCommand(cmd);
-    // A delete already says so in its sentence; git clean's reach is the surprise.
+    // Every part of a chain, not just the first: the sentence only says "several commands".
+    const kinds = new Set(cmd.split(/&&|\|\||[;|\n]/).map(part => classifyCommand(part) || commandKind(part.trim())));
+    // A lone delete already says so in its sentence; in a chain it doesn't, and git clean's reach is the surprise.
     if (GIT_CLEAN_RE.test(cmd)) out.push("Deletes every file git doesn't track, including ones never committed");
+    else if (c.kind === 'chain' && DELETE_RE.test(cmd)) out.push('Deletes files');
     if (HARD_UNDO_RE.test(cmd)) out.push('Hard to undo');
-    if (c.kind === 'deploy') out.push('Changes something live');
-    if (c.kind === 'ship') out.push('Sends your commits to the remote');
-    if (c.kind === 'install') out.push('Downloads and runs packages from the internet');
+    if (kinds.has('deploy')) out.push('Changes something live');
+    if (kinds.has('ship')) out.push('Sends your commits to the remote');
+    if (kinds.has('install')) out.push('Downloads and runs packages from the internet');
     else if (NET_RE.test(cmd)) out.push('Goes online');
     if (c.changes && cwd) {
       const outside = [...cmd.matchAll(ABS_RE)].map(m => m[1]).filter(p => !inside(p));
       if (outside.length) out.push(`Reaches outside the project: ${clip(outside[0], 80)}`);
+      else if (UP_OR_HOME_RE.test(cmd)) out.push('May reach outside the project');
     }
   } else if (['Edit', 'MultiEdit', 'Write', 'NotebookEdit'].includes(name)) {
     const file = i.file_path || i.notebook_path;

@@ -203,7 +203,8 @@ function wireTimetrack(d) {
       notify('Shellby has a question', `${who}: ${item.questions?.[0]?.question || item.detail}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Answer' });
       return;
     }
-    const what = d.config.get('plainCards') !== false && item.plain ? item.plain.ask : `${item.label} ${item.detail}`;
+    // The plain sentence leads, but the command itself always follows: a notification is decided on too.
+    const what = d.config.get('plainCards') !== false && item.plain ? `${item.plain.ask}: ${item.detail || item.toolName}` : `${item.label} ${item.detail}`;
     notify('Shellby needs your OK', `${who}: ${what}`.slice(0, 160), () => d.showPanel({ focusInput: false, tabId }), { urgent: true, action: 'Review' });
   }
 
