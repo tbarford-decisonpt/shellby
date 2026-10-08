@@ -1,6 +1,6 @@
 /* Shellby panel — the Projects page's inbox: what's waiting on you across every
-   repository. Pull requests you've been asked to review, your own with
-   something new said on them, branches gone stale and copies Shellby made that
+   repository. Pull requests (and GitLab merge requests) you've been asked to
+   review, your own with something new said on them, branches gone stale and copies Shellby made that
    nobody went back to. Main works it all out (src/main/projects/inbox.js);
    this draws it and sends back what you click. Deleting anything that exists
    nowhere else is asked in main's own dialog, not here. */
@@ -65,7 +65,7 @@
   // ------------------------------------------------------------------ the four kinds
 
   function reviewRow(r) {
-    return row('wait', `${r.repo}#${r.number} ${r.title}`,
+    return row('wait', `${r.ref} ${r.title}`,
       [r.author && `@${r.author}`, r.updatedAt && `updated ${ago(r.updatedAt)}`].filter(Boolean).join(' · '),
       [
         busyButton('Read it with Claude', async () => {
@@ -80,16 +80,19 @@
 
   function talkRow(t) {
     const who = t.people.length ? t.people.map(p => `@${p}`).join(', ') : 'someone';
-    return row(t.verdict === 'changes' ? 'crashed' : 'wait', `${t.repo}#${t.number} ${t.title}`,
+    // GitLab says which threads are still open, so they can be answered without a "changes requested".
+    const answer = t.verdict === 'changes' || t.threads > 0;
+    return row(t.verdict === 'changes' ? 'crashed' : 'wait', `${t.ref} ${t.title}`,
       `${plural(t.unread, 'new comment')} from ${who}${t.lastAt ? ` · ${ago(t.lastAt)}` : ''}`,
       [
-        t.verdict === 'changes' && act('Address the review', () => SB.startFrom.open('review', t.key), 'btn slim-btn', `fix:${t.key}`),
+        answer && act('Address the review', () => SB.startFrom.open('review', t.key), 'btn slim-btn', `fix:${t.key}`),
         act('Open', () => api.openPr(t.key), undefined, `open:${t.key}`),
         busyButton('Mark read', async () => ({ ok: !!(await api.markPrSeen(t.key)) }), undefined, `seen:${t.key}`),
       ],
       [
         t.verdict === 'changes' && { tone: 'bad', text: 'changes requested' },
         t.verdict === 'approved' && { tone: 'info', text: 'approved' },
+        t.verdict !== 'changes' && t.threads > 0 && { tone: 'info', text: plural(t.threads, 'open thread') },
         t.state === 'failing' && { tone: 'bad', text: 'CI failing' },
       ]);
   }
@@ -112,7 +115,7 @@
         }, safe ? 'btn slim-btn' : undefined, `del:${b.id}`),
         busyButton('Keep', () => api.dismissInboxItem(b.id), undefined, `keep:${b.id}`),
       ],
-      [b.gone && { tone: 'info', text: 'deleted on GitHub', title: 'Its branch on the remote is gone' }]);
+      [b.gone && { tone: 'info', text: 'deleted on the remote', title: 'Its branch on the remote is gone' }]);
   }
 
   function copyRow(c) {
@@ -143,15 +146,18 @@
     const groups = [
       group('reviews', 'Waiting on your review', v.reviews.map(reviewRow),
         v.reviewsMore > 0 && h('p', { class: 'muted small', text: `And ${v.reviewsMore} more on GitHub.` })),
-      group('talk', 'New on your pull requests', v.talk.map(talkRow)),
+      group('talk', v.gitlab?.enabled && !v.github.enabled ? 'New on your merge requests' : 'New on your pull requests', v.talk.map(talkRow)),
       group('branches', 'Stale branches', v.branches.map(branchRow),
         v.branchesMore > 0 && h('p', { class: 'muted small', text: `And ${v.branchesMore} more.` })),
       group('copies', 'Copies left behind', v.copies.map(copyRow)),
     ].filter(Boolean);
-    const note = !v.github.enabled
+    const link = (text, id) => h('button', { type: 'button', class: 'link-btn', text, onclick: () => SB.showSetting(id) });
+    const glOn = !!v.gitlab?.enabled;
+    const note = !v.github.enabled && !glOn
       ? h('p', { class: 'muted small pj-inbox-note' }, 'Pull requests show up here once ',
-        h('button', { type: 'button', class: 'link-btn', text: 'Watch CI on my pull requests', onclick: () => SB.showSetting('ghCi') }), ' is on in GitHub settings.')
-      : v.github.error && h('p', { class: 'muted small pj-inbox-note bad', text: v.github.error });
+        link('Watch CI on my pull requests', 'ghCi'), ' is on in GitHub settings, and GitLab merge requests once ',
+        link('Watch my merge requests', 'glCi'), ' is on in GitLab settings.')
+      : (v.github.error || v.gitlab?.error) && h('p', { class: 'muted small pj-inbox-note bad', text: [v.github.error, v.gitlab?.error].filter(Boolean).join(' ') });
     const body = groups.length ? groups : [h('p', { class: 'muted small pj-calm', text: 'Nothing waiting on you. No reviews, no new comments, no branches or copies left lying about. 🐚' })];
     SB.keepFocus(box, () => box.replaceChildren(
       h('p', { class: 'row-label pj-inbox-title' }, 'Inbox', v.total ? h('span', { class: 'pj-inbox-n', text: String(v.total) }) : null),

@@ -65,7 +65,7 @@
   // What each trigger hands to the steps as trigger.*
   const TRIGGER_FIELDS = {
     schedule: { at: 'When it was due' },
-    ci: { event: 'What happened', repo: 'owner/name', number: 'Pull request number', title: 'Pull request title', url: 'Link', branch: 'Branch', failing: 'Failing checks (a list)' },
+    ci: { event: 'What happened', forge: 'github or gitlab', ref: 'owner/name#12 (or group/project!12)', repo: 'owner/name', number: 'Pull or merge request number', title: 'Pull or merge request title', url: 'Link', branch: 'Branch', failing: 'Failing checks (a list)' },
     issue: { event: 'assigned or labelled', reasons: 'Every reason it came in (a list)', repo: 'owner/name', number: 'Issue number', title: 'Issue title', body: 'What the issue says', labels: 'Its labels (a list)', author: 'Who opened it', url: 'Link' },
     shipped: { kind: 'push, deploy, release or merge', project: 'Project', version: 'Version, if any' },
     task: { title: 'Task title', outcome: 'ok or error', folder: 'Its folder', error: 'The error, if it failed' },

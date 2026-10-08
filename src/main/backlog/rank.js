@@ -1,6 +1,8 @@
 // One ranked list of what to work on in a project (docs/plans/next-up.md):
-// your tasks (.shellby/tasks.md), the repository's open issues, and the loose
-// ends in its code, in three tiers.
+// your tasks (.shellby/tasks.md), the repository's open issues, the loose
+// ends in its code and new production errors from Sentry, in three tiers.
+// An error new today, escalating or back after being resolved is Now; one
+// new this week is Up next.
 //
 //   Now:      tasks under ## Now; issues in a milestone due within 3 days (or
 //             overdue) or labelled urgent, that are yours or nobody's
@@ -14,6 +16,10 @@
 //
 // A task that says "#42" stands in for issue 42 (the issue takes the task's
 // place in your order), and a loose end that says TODO(#42) folds into it.
+//
+// Linear and Jira issues (backlog/trackers.js), when a project has them, rank
+// the same way as GitHub's: by priority, whether they're yours, the current
+// cycle or sprint and a due date. A task that says "ENG-123" stands in for one.
 //
 // Pure. test/backlog-rank.test.js.
 const DAY = 24 * 60 * 60 * 1000;
@@ -87,6 +93,77 @@ function scoreIssue(issue, { login, nearest, now }) {
   return { score, reasons, mine, free, urgent, soon, inNearest };
 }
 
+/** A Linear or Jira issue's score and reasons, the same way. -> { score, reasons, mine, free, urgent, soon, current } */
+function scoreTicket(t, { now }) {
+  const signals = [];
+  const add = (points, text) => signals.push({ points, text });
+  const mine = t.mine === true;
+  const free = !mine && !t.assignee;
+  const soon = Number.isFinite(t.dueOn) && t.dueOn - now <= SOON_DAYS * DAY;
+  const urgent = t.priority === 'urgent' || t.priority === 'high';
+  const labels = Array.isArray(t.labels) ? t.labels : [];
+
+  if (t.priority === 'urgent') add(5, 'Urgent');
+  else if (t.priority === 'high') add(4, 'High priority');
+  else if (t.priority === 'medium') add(1, 'Medium priority');
+  if (mine) add(4, 'Assigned to you');
+  if (t.current) add(3, t.tracker === 'jira' ? 'In the current sprint' : 'In the current cycle');
+  if (Number.isFinite(t.dueOn)) add(soon ? 5 : 1, dueText(t.dueOn, now).replace(/^./, c => c.toUpperCase()));
+  if (labels.some(l => BUG.test(l))) add(2, 'Bug');
+  if (labels.some(l => same(l, 'shellby'))) add(2, 'Labelled shellby');
+  const age = Number.isFinite(t.updatedAt) ? now - t.updatedAt : null;
+  if (age !== null && age <= ACTIVE_DAYS * DAY) add(1, 'Active lately');
+  if (!mine && !free) add(-3, `${t.assignee} has it`);
+  if (age !== null && age > STALE_DAYS * DAY) add(-1, '');
+
+  const score = signals.reduce((sum, x) => sum + x.points, 0);
+  const shown = signals.filter(x => x.text).sort((a, b) => b.points - a.points);
+  const good = shown.filter(x => x.points > 0);
+  const reasons = (good.length ? [...good, ...shown.filter(x => x.points <= 0)] : shown).map(x => x.text);
+  if (t.status) reasons.push(t.status);
+  return { score, reasons, mine, free, urgent, soon, current: !!t.current };
+}
+
+function ticketTier(s) {
+  if ((s.mine || s.free) && (s.soon || s.urgent)) return 'now';
+  return s.mine || s.current ? 'next' : 'later';
+}
+
+const ticketItem = (ticket, s, tier) => ({
+  id: `tk:${ticket.key}`,
+  kind: 'ticket',
+  tier,
+  title: ticket.title,
+  reason: s.reasons[0] || ticket.key,
+  reasons: s.reasons,
+  score: s.score,
+  ticket,
+});
+
+/**
+ * A production error's (backlog/sentry.js) score, reasons and tier: new today,
+ * escalating or back after being resolved is Now; new this week is Up next.
+ */
+function scoreError(e, now) {
+  const signals = [];
+  const add = (points, text) => signals.push({ points, text });
+  const age = Number.isFinite(e.firstSeen) ? now - e.firstSeen : null;
+  const today = age !== null && age <= DAY;
+  if (e.substatus === 'escalating') add(6, 'Escalating');
+  if (e.substatus === 'regressed') add(5, 'Back after being resolved');
+  if (today) add(5, 'New today');
+  else if (age !== null && age <= 7 * DAY) add(2, 'New this week');
+  if (e.count) add(Math.log2(1 + e.count), plural(e.count, 'event'));
+  if (e.users) add(1.5 * Math.log2(1 + e.users), plural(e.users, 'user'));
+  if (e.level === 'fatal') add(2, 'Fatal');
+  else if (e.unhandled) add(1, 'Unhandled');
+  // Why it's here (new, escalating) first, then how big it is.
+  const reasons = signals.map(s => s.text);
+  const score = signals.reduce((s, x) => s + x.points, 0);
+  const tier = today || e.substatus === 'escalating' || e.substatus === 'regressed' ? 'now' : age !== null && age <= 7 * DAY ? 'next' : 'later';
+  return { score, reasons, tier };
+}
+
 function issueTier(s, issue) {
   const forUs = s.mine || s.free;
   if (forUs && (s.soon || s.urgent)) return 'now';
@@ -113,15 +190,20 @@ const issueItem = (issue, s, tier) => ({
  *   todos: loose ends ({ file, line, tag, text, ref }). repo: owner/name or null.
  *   notes: to-dos kept in Shellby for a project with no clone ({ id, text, from }).
  *   complete: issues holds every open one (so a "#42" not in it has closed), not just the first page.
+ *   tickets: Linear or Jira issues (backlog/trackers.js parseTickets), or [].
+ *   errors: new production errors from Sentry (backlog/sentry.js errorOf).
  * -> { items: [{ id, kind, tier, title, reason, reasons, ... }], milestone }
  */
-function rank({ tasks = [], notes = [], issues = null, complete = true, milestones = [], todos = [], repo = null, login = null, now = Date.now() } = {}) {
+function rank({ tasks = [], notes = [], issues = null, complete = true, milestones = [], todos = [], tickets = [], errors = [], repo = null, login = null, now = Date.now() } = {}) {
   const known = Array.isArray(issues);
   const nearest = nearestMilestone(milestones);
   const byNumber = new Map();
   for (const i of known ? issues : []) if (Number.isInteger(i?.number)) byNumber.set(i.number, i);
   const refersHere = ref => ref && (!ref.repo || same(ref.repo, repo));
   const claimed = new Set();
+  const byKey = new Map();
+  for (const t of Array.isArray(tickets) ? tickets : []) if (t?.key && !byKey.has(t.key)) byKey.set(t.key, t);
+  const claimedKeys = new Set();
   const ordered = { now: [], next: [], later: [] };   // your order
   const scored = { now: [], next: [], later: [] };    // the rest, by score
 
@@ -136,6 +218,15 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
       const tier = issueTier(s, issue) === 'now' ? 'now' : tierOfTask;
       const note = t.ref.note ? [t.ref.note, ...t.notes] : t.notes;
       ordered[tier].push({ ...issueItem(issue, s, tier), task: { id: t.id, line: t.line, notes: note }, reasons: ['On your list', ...s.reasons], reason: s.reasons[0] || 'On your list' });
+      continue;
+    }
+    const ticket = !issue && t.ticket && !claimedKeys.has(t.ticket.key) ? byKey.get(t.ticket.key) : null;
+    if (ticket) {
+      claimedKeys.add(ticket.key);
+      const s = scoreTicket(ticket, { now });
+      const tier = ticketTier(s) === 'now' ? 'now' : tierOfTask;
+      const note = t.ticket.note ? [t.ticket.note, ...t.notes] : t.notes;
+      ordered[tier].push({ ...ticketItem(ticket, s, tier), task: { id: t.id, line: t.line, notes: note }, reasons: ['On your list', ...s.reasons], reason: s.reasons[0] || 'On your list' });
       continue;
     }
     // A reference to an issue of this repository that GitHub no longer lists as open: closed.
@@ -162,6 +253,12 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
     issueItems.set(issue.number, item);
     scored[item.tier].push(item);
   }
+  for (const ticket of byKey.values()) {
+    if (claimedKeys.has(ticket.key)) continue;
+    const s = scoreTicket(ticket, { now });
+    const item = ticketItem(ticket, s, ticketTier(s));
+    scored[item.tier].push(item);
+  }
   // Issues on your list can have loose ends too.
   for (const tier of TIERS) for (const it of ordered[tier]) if (it.kind === 'issue') issueItems.set(it.issue.number, it);
 
@@ -182,9 +279,18 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
     if (it.todos.length) it.reasons = [...it.reasons, plural(it.todos.length, 'loose end') + ' in the code'];
   }
 
+  for (const e of Array.isArray(errors) ? errors : []) {
+    const s = scoreError(e, now);
+    scored[s.tier].push({
+      id: `se:${e.id}`, kind: 'error', tier: s.tier, title: e.title,
+      reason: s.reasons[0] || e.shortId, reasons: s.reasons, score: s.score, error: e,
+    });
+  }
+
   const byScore = (a, b) => b.score - a.score
-    || (b.issue?.updatedAt || 0) - (a.issue?.updatedAt || 0)
+    || (b.issue?.updatedAt || b.ticket?.updatedAt || b.error?.lastSeen || 0) - (a.issue?.updatedAt || a.ticket?.updatedAt || a.error?.lastSeen || 0)
     || (a.issue?.number || Infinity) - (b.issue?.number || Infinity)
+    || String(a.ticket?.key || '').localeCompare(String(b.ticket?.key || ''), undefined, { numeric: true })
     || String(a.todo?.file || '').localeCompare(String(b.todo?.file || ''))
     || (a.todo?.line || 0) - (b.todo?.line || 0);
   const items = TIERS.flatMap(tier => [...ordered[tier], ...scored[tier].sort(byScore)]);
@@ -195,4 +301,4 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
   };
 }
 
-module.exports = { rank, scoreIssue, nearestMilestone, dueText, TIERS };
+module.exports = { rank, scoreIssue, scoreTicket, scoreError, nearestMilestone, dueText, TIERS };

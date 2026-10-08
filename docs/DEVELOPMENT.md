@@ -67,6 +67,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
 | `node scripts/e2e-streaks.js` | Streaks and nudges with a real throwaway git repo (last commit 6 days ago): the streak starts, the repo root is found from a subfolder, the nudge fires once, and "Pick it up" opens a tab there |
 | `node scripts/e2e-inbox.js` | The Projects inbox with a real throwaway repo: a merged branch and one with a commit nowhere else under Stale branches, Delete takes the merged one at once, Keep files the other away (still in git, still away after a refresh), and the pull-request half says how to turn it on |
+| `node scripts/e2e-helpers.js [folder]` | A project's Helpers card and the port doctor in a throwaway repo, with the fake CLI: Before you start (a setting the example has and no .env does, Make .env from the example, a Node version that doesn't fit), a dev server on a port the script holds crashes and the card names who has it, Use :N instead brings it up there and remembers it, then Show me around (Ask first), When did this break? (refs checked, a copy) and Check the docs each wait unsent in the box, and Make it automatic… opens the routine editor without saving. Screenshots go in `[folder]` |
 | `node scripts/e2e-github-workflows.js` | The CI-workflow permission toggle: present, gated on "Let Claude tasks push", never on by default, and the right wording in each state (a fake signed-in view, so no account or network) |
 | `node scripts/e2e-friends.js` | Visiting crabs against a mock GitHub: asked first, a public calling card with only the look, a friend added by username, their crab on the desktop in their outfit, guestbook and souvenir, the Open House trophy, Peek at their tank (a hostile card's bits never drawn), his own tank on the card only once you choose and House Guest, waves both ways (strangers ignored), and the card deleted when it's turned off |
 | `node scripts/e2e-github.js` | GitHub sign-in against a mock GitHub: the device code, only the chosen permissions, profile, the first sync into a private gist (his tank's layout included, its sharing left behind), publishing a pack as a pull request through the confirm window, Claude's git access (asked for separately, then present in new tasks), sign-out removes the encrypted token |
@@ -287,6 +288,7 @@ src/main/        Electron main process
   filelinks.js     file links in a conversation: which editor, its vscode://-style link, and what's never opened (pure); ipc/files.js opens them
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
   clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
+  home-line.js     copies coming home into one checkout take turns; clashes sorted out one copy at a time, each brought home by itself
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
@@ -299,6 +301,8 @@ src/main/        Electron main process
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts, his own footprint
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
+  deck.js          the Stream Deck keys (pure: what each shows, what a press does) and the token-guarded 127.0.0.1 server
+                   the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in
   handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
@@ -324,10 +328,15 @@ src/main/        Electron main process
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), finding your own gists (gists.js), and the service tying them together
+  gitlab/          GitLab through the glab CLI (glab.js runs `glab api`, glab keeps the sign-in): which remotes are GitLab
+                   projects (remote.js), the merge request watcher (watcher.js, github/ci.js's twin) and the material for
+                   Fix this build, Address the review and Releases CI (mrwork.js); wiring/gitlab.js ties it in
+  ci-hub.js        GitHub's and GitLab's watchers as the one d.ci everything reads: keys "owner/repo#12" and "group/project!12"
   friends.js       visiting crabs: friends list, drop-ins, guestbook and souvenirs, on top of github/card.js and mail.js
   streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
   startfrom.js     prompts for Fix this build, Address the review and loose ends (pure): log trimming
-                   and redaction, review threads quoted, TODO parsing; github/prwork.js fetches them
+                   and redaction (GitHub Actions logs and GitLab job traces), review threads quoted, TODO parsing;
+                   github/prwork.js and gitlab/mrwork.js fetch them
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   claude-update.js keeps the CLI itself current: the daily registry check, `claude update` on request or by itself while idle, tell | auto | off (fetch and run are injected; wiring/claude-updates.js)
@@ -347,6 +356,7 @@ src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   shared/          used by more than one window or by tests too: framecap, diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
+src/streamdeck/  the Stream Deck plugin (Node 24, no packages): Stream Deck's websocket on one side, deck.js on the other, keys drawn as SVG
 test/            node:test suites and a fake Claude CLI
 claude-plugin/   the Shellby plugin for Claude Code (hooks that report sessions to the app)
 ```

@@ -194,7 +194,7 @@
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
         // Shellby's own one-line notes: moved into a copy, from the phone, brought
         // home, pushed, compacted, started fresh, rewound.
-        case 'moved': case 'phone': case 'home': case 'pushed': case 'compacted': case 'fresh': case 'rewound': {
+        case 'moved': case 'phone': case 'home': case 'home-wait': case 'pushed': case 'compacted': case 'fresh': case 'rewound': {
           const mark = F.markFor(item, SB.compact);
           return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: mark.icon }), mark.text));
         }

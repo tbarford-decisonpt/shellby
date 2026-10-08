@@ -10,6 +10,7 @@ const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: frien
 const bugdex = require('../bugdex');
 const gifts = require('../gifts');
 const { TokenStore } = require('../github/auth');
+const { CiHub } = require('../ci-hub');
 const { CiWatcher } = require('../github/ci');
 const { IssueWatcher } = require('../github/issues');
 const prBadges = require('../github/pr-badge');
@@ -84,20 +85,23 @@ function wireGithub(d) {
   // Who's on the friends list (or was removed) differs: not a card fetch or a visit.
   const friendsChanged = (now, before) => JSON.stringify(friendsSyncable(now.friends)) !== JSON.stringify(friendsSyncable(before.friends));
 
-  // ---- CI on your pull requests
+  // ---- CI on your pull requests (and merge requests on GitLab: wiring/gitlab.js)
 
   function createCi() {
     const ep = githubEndpoints();
-    d.ci = new CiWatcher({
+    d.ciGithub = new CiWatcher({
       gh: () => d.github.gh(), login: () => d.github.view().login, web: ep.web, api: ep.api,
       seen: { load: () => d.config.get('ciSeen'), save: v => d.config.set({ ciSeen: v }) },
     });
-    d.ci.on('change', v => { d.send(d.panel, 'ci', v); d.refreshCritter(); d.refreshStatusLine(); });
+    // One watcher for both, so everything that reads d.ci takes GitLab's merge requests too (ci-hub.js).
+    d.ci = new CiHub({ github: d.ciGithub, gitlab: d.createGitLabWatcher?.() || null });
+    d.ci.on('change', () => { d.send(d.panel, 'ci', ciView()); d.refreshCritter(); d.refreshStatusLine(); });
     d.ci.on('event', onCiEvent);
-    // Follows the GitHub toggle and sign-in.
-    const follow = () => { if (d.github.can('ci')) d.ci.start(); else if (d.ci.running) d.ci.stop(); };
+    // GitHub's follows its toggle and sign-in; GitLab's its own toggle.
+    const follow = () => { if (d.github.can('ci')) d.ciGithub.start(); else if (d.ciGithub.running) d.ciGithub.stop(); };
     d.github.on('change', follow);
     follow();
+    d.followGitLab?.();
   }
 
   // ---- issues he could take on
@@ -289,10 +293,10 @@ function wireGithub(d) {
 
   function onCiEvent({ type, pr }) {
     if (!pr) return;
-    const where = `${pr.repo}#${pr.number}`;
+    const where = pr.ref || `${pr.repo}#${pr.number}`;
     // New comments are for the inbox and a nudge, not a workflow trigger (schema.js CI_EVENTS has no 'comment').
-    if (type !== 'comment') d.workflows?.event('ci', { event: type, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
-    const open = () => openGitHubUrl(pr.url);
+    if (type !== 'comment') d.workflows?.event('ci', { event: type, forge: pr.forge || 'github', ref: where, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
+    const open = () => openPrUrl(pr);
     if (type === 'failed') d.noteRed(`ci:${where}`);
     if (type === 'fixed') d.noteFix(`ci:${where}`);
     // A Red Tide (or a Kraken...) on the loose; caught when it goes green with Shellby's help.
@@ -332,7 +336,19 @@ function wireGithub(d) {
     if (typeof url === 'string' && url.startsWith(`${web}/`) && (url.startsWith('https:') || !app.isPackaged)) shell.openExternal(url);
   }
 
-  const ciView = () => ({ ...(d.ci ? d.ci.view() : { prs: [], reviews: [], reviewsTotal: 0, failing: 0, unread: 0 }), enabled: !!d.github?.can('ci') });
+  // A pull request's page on GitHub, or a merge request's on its GitLab.
+  function openPrUrl(pr) {
+    if (pr?.forge === 'gitlab') d.openGitLabUrl?.(pr.url);
+    else openGitHubUrl(pr?.url);
+  }
+
+  // enabled: either forge is watched. githubEnabled / gitlab.enabled say which.
+  const ciView = () => {
+    const github = !!d.github?.can('ci');
+    const gitlab = !!d.gitlabOn?.();
+    const v = d.ci ? d.ci.view() : { prs: [], reviews: [], reviewsTotal: 0, failing: 0, unread: 0, gitlab: {} };
+    return { ...v, enabled: github || gitlab, githubEnabled: github, gitlab: { ...v.gitlab, enabled: gitlab } };
+  };
 
   // Claude tasks with your GitHub sign-in can push anywhere you can: ask, with the risk spelled out.
   async function confirmGitHubFeature(feature, on) {
@@ -474,7 +490,7 @@ function wireGithub(d) {
   return {
     badgePr, ciView, confirmAndAddMarketplace, confirmAndPublishPack, confirmGitHubFeature,
     createCi, createFriends, createGitHub, createIssues, friendsView, githubEndpoints,
-    makeIssueCopy, openGitHubUrl, openIssuePr, pinnedTools, sendVisitor,
+    makeIssueCopy, openGitHubUrl, openIssuePr, openPrUrl, pinnedTools, sendVisitor,
   };
 }
 

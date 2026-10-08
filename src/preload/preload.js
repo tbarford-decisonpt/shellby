@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('shellby', {
   popInTab: (tabId, carry) => ipcRenderer.send('tab:pop-in', { tabId, carry }),
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
+  shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
@@ -136,6 +137,8 @@ contextBridge.exposeInMainWorld('shellby', {
   repoStatus: invoke('repo:status'),
   pushRepo: invoke('repo:push'),
   bringAllHome: invoke('repo:home-all'),
+  sortOutHome: invoke('worktree:sort-out'), // a clash, sorted out in turn and brought home (home-line.js)
+  sortOutAll: invoke('repo:sort-out'),
   listClashes: invoke('clashes:list'), // copies that changed the same files (wiring/clashes.js)
 
   // history
@@ -295,6 +298,10 @@ contextBridge.exposeInMainWorld('shellby', {
   markPrSeen: invoke('ci:seen'),
   reviewWithClaude: invoke('ci:review'),
   onCi: on('ci'),
+  // GitLab, through the glab CLI (wiring/gitlab.js)
+  getGitLab: invoke('gitlab:get'),
+  setGitLab: invoke('gitlab:set'),
+  checkGitLab: invoke('gitlab:check'),
   // Start a task from a red build or a review (startfrom.js): drafts are shown before anything is sent.
   startFromDraft: invoke('startfrom:draft'),
   startFromSend: invoke('startfrom:send'),
@@ -310,10 +317,15 @@ contextBridge.exposeInMainWorld('shellby', {
   backlogHide: invoke('backlog:hide'),
   backlogCommit: invoke('backlog:commit'),
   backlogHand: invoke('backlog:hand'),
+  backlogSentry: invoke('backlog:sentry'), // connect (the token goes in, never comes back), link, unlink, snooze, disconnect
   backlogTab: invoke('backlog:tab'),
   backlogOpenPr: invoke('backlog:open-pr'),
   backlogTickLinked: invoke('backlog:tick-linked'),
   onBacklogOfferTick: on('backlog:offer-tick'),
+  // Linear or Jira on Next up (backlog/trackers.js): set it up, and hear when a read in the background lands.
+  backlogTrackerChoices: invoke('backlog:tracker-choices'),
+  backlogTrackerSet: invoke('backlog:tracker-set'),
+  onBacklogChanged: on('backlog:changed'),
   // A project's next release (src/main/projects/releases-ipc.js): nothing is pushed unless you say so.
   getRelease: invoke('releases:get'),
   cutRelease: invoke('releases:cut'),
@@ -459,6 +471,11 @@ contextBridge.exposeInMainWorld('shellby', {
   exportTimePdf: invoke('time:export-pdf'),
   copyTime: invoke('time:copy'),
   showTimeFile: invoke('time:show-file'),
+  connectTimeSync: invoke('time:sync-connect'),
+  disconnectTimeSync: invoke('time:sync-disconnect'),
+  timeSyncProjects: invoke('time:sync-projects'),
+  linkTimeSync: invoke('time:sync-link'),
+  sendTimeSync: invoke('time:sync-send'),
   onTimeNow: on('time:now'),
   // Projects and their dev servers (src/main/projects/ipc.js)
   listProjects: invoke('projects:list'),
@@ -502,6 +519,16 @@ contextBridge.exposeInMainWorld('shellby', {
   openServer: invoke('servers:open'),
   openServerLog: invoke('servers:open-log'),
   stopAllServers: invoke('servers:stop-all'),
+  serverPortLook: invoke('servers:port-look'),
+  serverPortStop: invoke('servers:port-stop'),
+  serverUsePort: invoke('servers:use-port'),
+  serverDoctor: invoke('servers:doctor'),
+  serverMakeEnv: invoke('servers:make-env'),
+  bisectRefs: invoke('tools:bisect-refs'),
+  startBisect: invoke('tools:bisect'),
+  checkDocs: invoke('tools:docs'),
+  docsRoutine: invoke('tools:docs-routine'),
+  showMeAround: invoke('tools:tour'),
   setServerSettings: invoke('servers:settings'),
   onServersChanged: on('servers:changed'),
   onStickers: on('stickers'),
@@ -546,11 +573,23 @@ contextBridge.exposeInMainWorld('shellby', {
   setObs: invoke('obs:set'),
   onObs: on('obs'),
 
+  // hardware keys on a Stream Deck
+  getDeck: invoke('deck:get'),
+  setDeck: invoke('deck:set'),
+  addToStreamDeck: invoke('deck:add'),
+  onDeck: on('deck'),
+  onDeckPress: on('deck:press'), // { what: 'home' | 'review', tabId? }: a key that needs the panel
+
   // his mood on the desk lighting
   getRgb: invoke('rgb:get'),
   setRgb: invoke('rgb:set'),
   testRgb: invoke('rgb:test'),
   installOpenRgb: invoke('rgb:install'),
+
+  // on your Discord profile (discord.js)
+  getDiscord: invoke('discord:get'),
+  setDiscord: invoke('discord:set'),
+  onDiscord: on('discord'),
 
   // listening along
   getNowPlaying: invoke('nowplaying:get'),
@@ -643,6 +682,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),
+  onHomeLine: on('home:line'), // { tabId, title, base, status: 'sorting' | 'home' | 'stuck', ... }
   onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files
   onTabOpened: on('tab:opened'),
   onTabReturned: on('tab:returned'), // a popped-out conversation's window closed

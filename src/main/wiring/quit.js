@@ -34,6 +34,7 @@ function wireQuit(d) {
     d.usageService.stop(); // the reset tap
     d.repeating.forEach(clearInterval);
     d.remote?.shutdown();
+    d.deck?.stop();
     d.dictation?.stop();
     d.media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
     d.history?.flush(); // transcript lines and index changes still waiting (history.js)
@@ -46,6 +47,7 @@ function wireQuit(d) {
     app.isQuitting = true;
     d.journal.savePending();
     d.remote?.shutdown(); // no task from the phone starts while he's on his way out
+    d.presence?.stop();   // Discord clears his activity as the pipe closes
     d.workflows?.shutdown();
     d.manager?.closeAll({ kill: true });
     d.cancelAllChecks(); // a test run Shellby started ends with him

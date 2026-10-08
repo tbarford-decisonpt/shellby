@@ -2,7 +2,7 @@
    them, and cloning one from GitHub. projects.js draws the rest. */
 'use strict';
 (function () {
-  const { h, api, $ } = SB;
+  const { h, api, state, $ } = SB;
   const L = window.ShellbyProjectsLogic;
   const P = SB.pj;
   const { load, showScreen } = P;
@@ -119,7 +119,8 @@
       $('pjCloneGo').disabled = false;
       return;
     }
-    SB.toast(`Cloned to ${r.root}`);
+    // A repo you've only just got: a tour is the obvious next step, offered, never started.
+    SB.toast(`Cloned to ${r.root}`, { action: 'Show me around', onAction: () => showAround(r.root), ms: 9000 });
     await load({ refresh: true });
     showScreen('detail');
   });
@@ -132,6 +133,15 @@
     $('pjCloneBar').style.width = `${p.percent}%`;
     $('pjCloneStatus').textContent = `${p.phase}: ${p.percent}%`;
   });
+
+  async function showAround(root) {
+    if (SB.isCrabOnly()) return SB.claudeUpsell('helpers');
+    const t = await api.showMeAround(root);
+    if (!t?.ok) return t?.needsClaude ? SB.claudeUpsell('helpers') : SB.toast(t?.error || "Couldn't open the tour.");
+    SB.setView('chat');
+    if (state.tabs.has(t.tabId)) SB.activate(t.tabId);
+    SB.toast('Read the prompt, then send it. It runs in Ask first, so nothing changes.', { ms: 6000 });
+  }
 
   Object.assign(P, { openClone });
 })();

@@ -18,6 +18,8 @@
         return { icon: '📱', text: 'Started from your phone, in Ask first: he asks before he changes anything' };
       case 'home':
         return { icon: '↩', text: `Brought home: ${commits(item.commits)} merged into ${item.base}` };
+      case 'home-wait':
+        return { icon: '⋯', text: `Waiting its turn: another copy is coming home into ${item.base} first` };
       case 'pushed':
         return { icon: '⇡', text: `Pushed ${item.branch} to ${item.remote}: ${commits(item.commits)}${item.pulled ? `, after taking in ${item.pulled} from ${item.remote}` : ''}` };
       case 'compacted':
@@ -80,11 +82,12 @@
   }
 
   const DECISION_WORDS = { allow: 'Allowed', always: 'Always allowed', deny: 'Denied', cancelled: 'Cancelled' };
+  const VIA_WORDS = { phone: ' from your phone', deck: ' from the Stream Deck' };
 
   // A decided permission card: { text, tone } with tone 'allow' or 'deny'.
   function decisionVerdict(decision, via) {
     return {
-      text: `→ ${DECISION_WORDS[decision] || decision}${via === 'phone' ? ' from your phone' : ''}`,
+      text: `→ ${DECISION_WORDS[decision] || decision}${VIA_WORDS[via] || ''}`,
       tone: decision === 'deny' || decision === 'cancelled' ? 'deny' : 'allow',
     };
   }

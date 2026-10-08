@@ -7,6 +7,7 @@
 //     Only on the second monitor.        <- notes: lines indented under it
 //   ## Next
 //   - [ ] #42 start with the parser      <- a reference to issue #42
+//   - [ ] ENG-123                        <- or to a Linear or Jira issue
 //   ## Done
 //   - [x] Rename the branch prefix (2026-10-05)
 //
@@ -28,6 +29,8 @@ const MAX_NOTE = 400;
 const ITEM = /^( {0,3})([-*]) \[( |x|X)\][ \t]+(.*\S)\s*$/;
 const HEADING = /^ {0,3}(#{1,6})[ \t]+(.*?)[ \t#]*$/;
 const REF = /^(?:([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}))?#(\d{1,9})(?![\w-])[\s:.\-–—]*(.*)$/;
+// ENG-123 (Linear), SHB-42 (Jira): only a reference when Next up lists that issue (rank.js).
+const TICKET_REF = /^([A-Z][A-Z0-9_]{0,9}-\d{1,7})(?![\w-])[\s:.\-–—]*(.*)$/;
 const FROM_SUFFIX = / \(from (Claude Code|the terminal)\)$/;
 const FROM_TEXT = { claude: 'Claude Code', terminal: 'the terminal' };
 const DATE_SUFFIX =/ \(\d{4}-\d\d-\d\d\)$/;
@@ -90,8 +93,8 @@ function blockEnd(lines, start) {
 
 /**
  * The file -> its tasks.
- * -> { items: [{ id, line, title, notes, section, heading, done, ref }], done, more }
- *   line: 1-based. ref: { repo|null, number, note } for "#42 …". done: how many
+ * -> { items: [{ id, line, title, notes, section, heading, done, ref, ticket }], done, more }
+ *   line: 1-based. ref: { repo|null, number, note } for "#42 …". ticket: { key, note } for "ENG-123 …". done: how many
  *   are ticked off (they aren't in items). more: items past the cap.
  */
 function parse(text) {
@@ -125,12 +128,14 @@ function parse(text) {
     while (notes.length && !notes[notes.length - 1]) notes.pop();
     const r = REF.exec(title);
     const ref = r ? { repo: r[1] || null, number: Number(r[2]), note: clean(r[3], MAX_TITLE) } : null;
+    const k = r ? null : TICKET_REF.exec(title);
+    const ticket = k ? { key: k[1], note: clean(k[2], MAX_TITLE) } : null;
     // Section and title make the id, so it stays put when lines above it move.
     const key = `${section}\n${raw.toLowerCase()}`;
     const n = (seen.get(key) || 0) + 1;
     seen.set(key, n);
     const id = `t:${crypto.createHash('sha1').update(key).digest('hex').slice(0, 10)}${n > 1 ? `~${n}` : ''}`;
-    items.push({ id, line: i + 1, title, from, notes, section: section === 'done' ? 'next' : section, heading, done: false, ref });
+    items.push({ id, line: i + 1, title, from, notes, section: section === 'done' ? 'next' : section, heading, done: false, ref, ticket });
     i = end - 1;
   }
   return { items, done, more };

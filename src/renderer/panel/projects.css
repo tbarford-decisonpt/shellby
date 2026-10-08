@@ -361,12 +361,25 @@ body[data-view="projects"] .view-projects {
 .bl-tag { font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .04em; padding: 2px 5px; border-radius: 4px; color: var(--sand-dim); background: var(--abyss); border: 1px solid var(--line-soft); min-width: 3ch; text-align: center; }
 .bl-tag.issue { color: var(--glass); border-color: color-mix(in srgb, var(--glass) 35%, transparent); }
 .bl-tag.now { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.bl-tag.error { color: var(--coral); border-color: color-mix(in srgb, var(--coral) 40%, transparent); }
 .bl-where { font: var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.bl-sentry { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--abyss); display: grid; gap: 6px; }
+.bl-sentry p { margin: 0; line-height: 1.45; }
+.bl-sentry-row { gap: 6px; align-items: center; }
+.bl-sentry-row .field.slim { flex: 1 1 160px; min-width: 0; }
+.bl-sentry details .field.slim { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; }
 .bl-more { width: 26px; height: 26px; }
 .bl-rename { width: 100%; }
 .bl-foot { margin-top: 6px; gap: 10px; align-items: center; }
 .bl-note { margin: 6px 0 0; line-height: 1.45; }
 .bl-note .link-btn { vertical-align: baseline; }
+/* Linear and Jira: keys run longer than #42, and the setup sits quietly under the list. */
+.bl-tag.ticket { max-width: 52px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn.bl-tracker-link { margin-left: auto; color: var(--sand-faint); }
+.bl-tracker { margin-top: 8px; padding: 8px; border: 1px solid var(--line-soft); border-radius: 6px; }
+.bl-tracker-row { gap: 6px; align-items: center; }
+.bl-tracker-row + .bl-tracker-row { margin-top: 6px; }
+.bl-tracker-scope { flex: 1 1 180px; min-width: 0; }
 /* The inbox (inbox.js): what's waiting on you across every repo, above the list.
    The panel is narrow, so a row's buttons go under its text. */
 .pj-inbox[hidden] { display: none; }
@@ -425,3 +438,34 @@ body[data-view="projects"] .view-projects {
 .bl-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .bl-title b { min-width: 0; font-size: var(--fs-13); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bl-from { flex: none; }
+
+/* ---------- the port and environment doctor (projects-servers.js) ---------- */
+.pj-doctor {
+  margin-bottom: 8px; padding: 8px 10px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 7%, var(--abyss));
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+}
+.pj-doctor-title { margin: 0 0 4px; font-weight: 700; font-size: var(--fs-12-5); }
+.pj-doctor ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.pj-doctor li { line-height: 1.45; }
+.pj-doctor li .btn { margin-left: 8px; }
+.pj-port {
+  margin-top: 10px; padding: 10px; border-radius: var(--r-sm); display: grid; gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 6%, var(--abyss));
+}
+.pj-port p { margin: 0; }
+.pj-port-title { font-weight: 700; font-size: var(--fs-13); }
+.pj-moved { margin: 8px 0 0; }
+
+/* ---------- Helpers: when did this break, the tour, the docs (project-tools.js) ---------- */
+.pt-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.pt-row:first-of-type { border-top: none; padding-top: 0; }
+.pt-text { flex: 1 1 220px; min-width: 0; }
+.pt-text p { margin: 0; }
+.pt-title { font-weight: 700; font-size: var(--fs-13); margin-bottom: 2px !important; }
+.pt-acts { flex: 0 1 auto; justify-content: flex-end; margin-left: auto; }
+.pt-form { display: grid; gap: 8px; margin: 0 0 10px; padding: 10px; border-radius: var(--r-sm); background: var(--abyss); border: 1px solid var(--line-soft); }
+.pt-what { width: 100%; box-sizing: border-box; resize: vertical; min-height: 54px; }
+.pt-field { display: grid; gap: 4px; }
+.pt-foot { margin: 8px 0 0; }

@@ -56,6 +56,7 @@
     const tab = state.tabs.get(tabId);
     if (!tab) return;
     SB.showInPane(tabId); // on screen already, or in the focused pane (tab-panes.js)
+    if (state.activeTab !== tabId) api.shownTab(tabId); // the Stream Deck's Stop and Bring it home follow it
     state.activeTab = tabId;
     SB.renderPanes();
     input.value = tab.draft || '';

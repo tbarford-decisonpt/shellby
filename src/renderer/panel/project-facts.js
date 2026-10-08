@@ -127,8 +127,8 @@
     for (const pr of i.prs || []) {
       rows.push(h('li', { class: 'pj-h-row' },
         h('span', { class: `pj-dot ${pr.state === 'failing' ? 'crashed' : pr.state === 'passing' ? 'up' : pr.state === 'pending' ? 'starting' : 'off'}`, 'aria-hidden': 'true' }),
-        h('span', { class: 'pj-h-text' }, h('b', { text: `#${pr.number} ${pr.title}` }),
-          h('span', { class: 'muted small', text: pr.state === 'failing' ? `Failing: ${(pr.failing || []).join(', ') || 'checks'}` : `Checks ${pr.state === 'none' ? 'not reported' : pr.state}` })),
+        h('span', { class: 'pj-h-text' }, h('b', { text: `${pr.forge === 'gitlab' ? '!' : '#'}${pr.number} ${pr.title}` }),
+          h('span', { class: 'muted small', text: pr.state === 'failing' ? `Failing: ${(pr.failing || []).join(', ') || (pr.forge === 'gitlab' ? 'jobs' : 'checks')}` : `${pr.forge === 'gitlab' ? 'Pipeline' : 'Checks'} ${pr.state === 'none' ? 'not reported' : pr.state}` })),
         h('span', { class: 'pj-h-acts' },
           pr.state === 'failing' && act('Fix this build', () => SB.startFrom.open('build', pr.key), 'btn slim-btn'),
           pr.state === 'failing' && taskButton('Ask why', () => api.askAboutCi(pr.key)),

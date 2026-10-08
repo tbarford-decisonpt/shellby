@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { git, mainRoot, okDir } = require('../leaving');
 const { githubRepoOf } = require('./remote');
+const { forgeRepoOf } = require('../gitlab/remote');
 
 const SCAN_DEPTH = 2;
 const SCAN_MAX = 200;           // repos found before the scan stops
@@ -17,7 +18,11 @@ const SCAN_DIRS_MAX = 5000;     // folders looked at before the scan stops
 // Folders that are never a repo you'd want listed, and can be huge.
 const SKIP_DIRS = new Set(['node_modules', '$recycle.bin', 'system volume information', 'appdata', 'windows', 'program files', 'program files (x86)']);
 
-/** One folder -> { root, name, remote, branch } for the repository it belongs to, or null. */
+/**
+ * One folder -> { root, name, remote, forge, branch } for the repository it belongs to, or null.
+ * remote: "owner/name" on GitHub. forge: { host, path } when origin is somewhere else
+ * (a GitLab, say: gitlab/remote.js decides which hosts are).
+ */
 async function readRepo(dir, run = git) {
   if (!okDir(dir)) return null;
   const root = await mainRoot(dir, run);
@@ -26,10 +31,12 @@ async function readRepo(dir, run = git) {
     run(['-C', root, 'remote', 'get-url', 'origin']),
     run(['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD']),
   ]);
+  const github = githubRepoOf(remote?.trim());
   return {
     root,
     name: path.basename(root),
-    remote: githubRepoOf(remote?.trim()),
+    remote: github,
+    forge: github ? null : forgeRepoOf(remote?.trim()),
     branch: branch?.trim() && branch.trim() !== 'HEAD' ? branch.trim().slice(0, 120) : null,
   };
 }

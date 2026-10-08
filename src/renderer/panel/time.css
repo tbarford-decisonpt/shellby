@@ -112,7 +112,10 @@ body[data-view="time"] .view-time {
 .tm-settings { display: flex; flex-wrap: wrap; gap: 12px 16px; }
 .tm-settings + .muted.small + .row { margin-top: 12px; }
 .field.slim.tm-cur { width: 76px; text-transform: uppercase; font-family: var(--font-mono); }
-#timeIgnored .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--glass); text-decoration: underline dotted; cursor: pointer; }
+.tm-sync { display: grid; gap: 8px; margin-top: 4px; }
+.tm-sync .row { gap: 6px; align-items: end; }
+.tm-sync input[type="password"] { flex: 1; min-width: 160px; }
+#timeIgnored .link-btn, .tm-sync .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--glass); text-decoration: underline dotted; cursor: pointer; }
 
 @media (max-width: 420px) {
   .tm-day { grid-template-columns: 84px 1fr auto; }

@@ -1,7 +1,8 @@
 /* Shellby panel — start a task from where the work already is
    (src/main/startfrom.js): "Fix this build" and "Address the review" on your
    pull requests (Settings → GitHub, a project's Health card, the red build's
-   notification). Loose ends are on Next up now (backlog.js).
+   notification), and on your merge requests on GitLab alike. Loose ends are
+   on Next up now (backlog.js).
 
    The pull request ones open a sheet with the exact prompt main wrote, like a
    crashed server's card: only its Send button sends, and it carries that
@@ -23,6 +24,8 @@
 
   const modeTitle = () => SB.MODES.find(m => m.id === state.settings.mode)?.title || 'your current mode';
   const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  // GitLab's merge requests have keys like "group/project!12"; GitHub's pull requests "owner/repo#12".
+  const forgeName = key => (/![0-9]+$/.test(String(key || '')) ? 'GitLab' : 'GitHub');
 
   // ------------------------------------------------------------------ the sheet
 
@@ -31,6 +34,7 @@
     open = { kind, key, from: document.activeElement };
     shown = null;
     $('sfTitle').textContent = TITLES[kind];
+    $('sfGitHub').textContent = `Open on ${forgeName(key)}`;
     $('sfNote').value = '';
     $('sfAck').checked = false;
     $('sfRisk').hidden = true;
@@ -50,12 +54,12 @@
 
   function lede(d) {
     if (d.kind === 'build') {
-      const job = `“${d.job}”${d.step ? `, at “${d.step}”` : ''}`;
+      const job = `“${d.job}”${d.step ? `, ${d.forge === 'gitlab' ? 'in' : 'at'} “${d.step}”` : ''}`;
       return d.logShown
         ? `This is exactly what will be sent: the failing part of the log from ${job} (secrets blanked out) and what to do about it.`
         : `Shellby couldn't read the log of ${job}: ${d.why}. So its name and link go instead, and Claude is asked to read the log itself.`;
     }
-    return `This is exactly what will be sent: ${plural(d.comments, d.resolvedKnown ? 'unresolved review comment' : 'review comment')}, quoted, and what to do with them.${d.resolvedKnown ? '' : ' GitHub didn\'t say which are resolved, so some here may be done already.'}`;
+    return `This is exactly what will be sent: ${plural(d.comments, d.resolvedKnown ? 'unresolved review comment' : 'review comment')}, quoted, and what to do with them.${d.resolvedKnown ? '' : ` ${forgeName(d.key)} didn't say which are resolved, so some here may be done already.`}`;
   }
 
   // Send is off while a draft is on its way, only ever for the one on screen,
@@ -65,7 +69,7 @@
   }
 
   // What could change what Claude Code runs in the copy (startfrom.prRisks): named, plainly.
-  function renderRisk(risk, prev) {
+  function renderRisk(risk, prev, forge) {
     $('sfRisk').hidden = !risk;
     if (!risk) return;
     // A different list is a different question: the tick doesn't carry over.
@@ -76,7 +80,7 @@
       risk.files.length ? list(risk.moreFiles ? [...risk.files, `and ${risk.moreFiles} more`] : risk.files) : null,
       risk.authors.length ? h('p', { text: 'It has commits from someone other than you:' }) : null,
       risk.authors.length ? list(risk.authors) : null,
-      risk.unknown.length ? h('p', { text: `GitHub didn't tell Shellby ${risk.unknown.join(' or ')}, so he can't say it's only your work.` }) : null);
+      risk.unknown.length ? h('p', { text: `${forge} didn't tell Shellby ${risk.unknown.join(' or ')}, so he can't say it's only your work.` }) : null);
   }
 
   async function refresh({ fresh = false } = {}) {
@@ -86,7 +90,7 @@
     pending = true;
     syncSend();
     if (!shown) {
-      $('sfLede').textContent = kind === 'build' ? 'Getting the failing log from GitHub…' : 'Getting the review comments from GitHub…';
+      $('sfLede').textContent = kind === 'build' ? `Getting the failing log from ${forgeName(key)}…` : `Getting the review comments from ${forgeName(key)}…`;
       $('sfPrompt').hidden = $('sfNote').hidden = $('sfWhere').hidden = true;
     }
     const note = $('sfNote').value;
@@ -95,7 +99,7 @@
     if (!d?.ok) {
       shown = null;
       pending = false;
-      $('sfLede').textContent = d?.error || 'Couldn\'t get that from GitHub.';
+      $('sfLede').textContent = d?.error || `Couldn't get that from ${forgeName(key)}.`;
       $('sfPrompt').hidden = $('sfNote').hidden = $('sfWhere').hidden = $('sfRisk').hidden = true;
       return;
     }
@@ -105,7 +109,7 @@
       `Claude will work in a copy of ${SB.shortPath(d.where, 40)} started from ${d.branch}, in ${modeTitle()} mode. `,
       h('button', { type: 'button', class: 'link-btn', text: 'Change the mode', onclick: () => { closeSheet(); SB.setView('settings'); } }));
     $('sfPrompt').hidden = $('sfNote').hidden = $('sfWhere').hidden = false;
-    renderRisk(d.risk, shown?.risk);
+    renderRisk(d.risk, shown?.risk, forgeName(key));
     shown = { hash: d.hash, note, risk: d.risk || null };
     // Typed into while this was on its way: the next draft (already due) turns Send back on.
     pending = note !== $('sfNote').value;

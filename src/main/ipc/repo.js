@@ -7,6 +7,7 @@ const branching = require('../branching');
 const changes = require('../changes');
 const checks = require('../checks');
 const confirm = require('../confirm');
+const { createHomeLine } = require('../home-line');
 const { secretGate: gateSecrets } = require('../secret-gate');
 const { MAX_TABS } = require('../sessions');
 const worktrees = require('../worktrees');
@@ -25,6 +26,23 @@ function registerRepoIpc(ipcMain, d) {
     return w && typeof w.path === 'string' && path.resolve(w.path).toLowerCase().startsWith(home) ? w : null;
   };
   const retiring = new Set(); // tabs mid bring-home or throw-away: a double click is one
+  // Merges into one checkout take turns, and clashes are sorted out in turn (home-line.js).
+  const line = createHomeLine({
+    isOpen: id => d.manager.tabs.has(id),
+    isBusy: id => d.manager.isBusy(id),
+    send: (id, prompt) => {
+      const turnId = d.manager.send(id, prompt, { kind: 'user', text: prompt });
+      d.send(d.tabWindow?.(id) || d.panel, 'tab:sent', { tabId: id, item: { kind: 'user', text: prompt, attachments: [], turnId } });
+    },
+    bringHome: (id, opts) => bringTabHome(id, opts),
+    caughtUp: w => worktrees.caughtUp(w),
+    tell: e => d.send(d.panel, 'home:line', e),
+    log: d.log,
+  });
+  d.homeTurnEnded = tabId => line.turnEnded(tabId); // wiring/timetrack.js onResult
+  d.manager.on?.('tabs', summary => line.prune(new Set(summary.map(t => t.id))));
+  // Another copy is merging into (or pushing from) this checkout: say why this one waits.
+  const waitNote = (tabId, w) => { if (line.busy(w.root) && d.manager.tabs.has(tabId)) d.manager.note(tabId, { kind: 'home-wait', base: w.base }); };
   ipcMain.handle('worktree:status', (_e, tabId) => {
     const w = worktreeOf(tabId);
     return w ? worktrees.status(w) : { ok: false, error: 'That conversation has no copy of its own.' };
@@ -52,37 +70,62 @@ function registerRepoIpc(ipcMain, d) {
       const green = gate.verdict?.status === 'pass' ? { green: true } : {};
       // Asked before "Brought home" goes in the conversation, which would count against it.
       const firstTry = !!d.surprises?.firstLanding(tabId, gate.verdict);
-      const merged = { ...await worktrees.bringHome(w, { message: worktrees.workMessage(w.branch, d.manager.tabs.get(tabId)?.title) }), ...green };
-      d.bugdex?.homeResult(tabId, w, merged); // a clash is a Two-Headed Crab; home at last, it's caught
-      if (!merged.ok) {
-        // What git said goes in the conversation, where it can be read in full.
-        if (merged.detail) d.manager.note(tabId, { kind: 'error', text: `${merged.error}\n\n${merged.detail}` });
-        return { ...merged, base: w.base };
-      }
-      d.recordWork(w.originalCwd, { task: false });
-      if (merged.merged) {
-        d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
-        d.noteWeek('home'); // the weekly card's "brought N branches home"
-        d.questDone?.('home');
-        d.backlogHome?.(tabId); // a Next up task's work came home: offer to tick it off (wiring/backlog.js)
-        if (firstTry) d.surprises.landed(tabId, { branch: w.branch, base: w.base });
-      }
-      d.refreshClashes?.(w.root); // its work is in the base now, so it clashes with nothing
-      // And on to GitHub. A push that fails leaves the merge where it is: the
-      // copy stays, so the push can be tried again from the folder menu.
-      const pushed = opts?.push ? await pushHome(w.root, { base: w.base, tabId }) : null;
-      if (pushed && !pushed.ok) return { ...merged, base: w.base, kept: true, push: pushed };
-      if (!opts?.finish) return { ...merged, base: w.base, kept: true, push: pushed };
+      waitNote(tabId, w);
+      const landed = await line.turn(w.root, () => mergeTabHome(tabId, w, { green, firstTry, push: !!opts?.push }));
+      // A push that fails leaves the merge where it is: the copy stays, so the
+      // push can be tried again from the folder menu.
+      if (!landed.ok || !opts?.finish || (landed.push && !landed.push.ok)) return landed;
       const removed = await d.retireWorktree(tabId, w, { force: false });
       // Home and the copy tidied away: that conversation's work is finished, so
       // History ticks it off. Throw away doesn't (discarded isn't done), and
       // giving it more work later puts it back (sessions.js).
       d.history.setDone(tabId, true);
-      return { ...merged, base: w.base, tidied: removed.ok, push: pushed };
+      return { ...landed, kept: false, tidied: removed.ok };
     } finally {
       retiring.delete(tabId);
     }
   }
+  // The merge and the push, on this checkout's turn (home-line.js).
+  async function mergeTabHome(tabId, w, { green, firstTry, push }) {
+    // It waited its turn: he may have started on something since.
+    if (d.manager.isBusy(tabId)) return { ok: false, error: 'He started on something new. Bring it home once he has finished.' };
+    const merged = { ...await worktrees.bringHome(w, { message: worktrees.workMessage(w.branch, d.manager.tabs.get(tabId)?.title) }), ...green };
+    d.bugdex?.homeResult(tabId, w, merged); // a clash is a Two-Headed Crab; home at last, it's caught
+    if (!merged.ok) {
+      // What git said goes in the conversation, where it can be read in full.
+      if (merged.detail) d.manager.note(tabId, { kind: 'error', text: `${merged.error}\n\n${merged.detail}` });
+      return { ...merged, base: w.base };
+    }
+    d.recordWork(w.originalCwd, { task: false });
+    if (merged.merged) {
+      d.manager.note(tabId, { kind: 'home', base: w.base, commits: merged.commits });
+      d.noteWeek('home'); // the weekly card's "brought N branches home"
+      d.questDone?.('home');
+      d.backlogHome?.(tabId); // a Next up task's work came home: offer to tick it off (wiring/backlog.js)
+      if (firstTry) d.surprises.landed(tabId, { branch: w.branch, base: w.base });
+    }
+    d.refreshClashes?.(w.root); // its work is in the base now, so it clashes with nothing
+    // And on to GitHub, still on this checkout's turn.
+    const pushed = push ? await pushHome(w.root, { base: w.base, tabId }) : null;
+    return { ...merged, base: w.base, kept: true, push: pushed };
+  }
+
+  // A copy that clashed with its base: line it up to sort that out and come
+  // home, after the copies ahead of it (home-line.js). opts: what Bring it home was asked for.
+  ipcMain.handle('worktree:sort-out', (_e, tabId, opts) => {
+    const w = worktreeOf(tabId);
+    if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
+    return line.sortOut(tabId, w, d.manager.tabs.get(tabId)?.title, { push: opts?.push === true, check: typeof opts?.check === 'boolean' ? opts.check : undefined });
+  });
+  // Several at once (Bring all home's clashes), in the order given.
+  ipcMain.handle('repo:sort-out', (_e, tabIds, opts) => {
+    if (!Array.isArray(tabIds)) return { ok: false, error: 'Nothing to sort out.' };
+    const lined = tabIds.slice(0, MAX_TABS).map(id => {
+      const w = worktreeOf(id);
+      return w ? line.sortOut(id, w, d.manager.tabs.get(id)?.title, { push: opts?.push === true }) : null;
+    }).filter(r => r?.ok);
+    return { ok: lined.length > 0, lined: lined.length, error: lined.length ? undefined : 'None of them is open.' };
+  });
 
   // ---- the repository as a whole: push it, and bring every copy home
   //
@@ -154,7 +197,7 @@ ${r.detail}` });
     if (!root) return { ok: false, error: 'Not a git repository.' };
     if (repoBusy) return { ok: false, error: 'Already on it.' };
     repoBusy = true;
-    try { return await pushHome(root, { tabId }); } finally { repoBusy = false; }
+    try { return await line.turn(root, () => pushHome(root, { tabId })); } finally { repoBusy = false; }
   });
   // Every copy with something to bring home gets its checks first, one at a
   // time (wiring/checks.js). Any red: nothing is merged, and the panel hears
@@ -201,43 +244,51 @@ ${r.detail}` });
       // ...or one checked earlier started on something while the others' tests ran.
       const moved = gated.checked && list.find(c => d.manager.isBusy(c.id));
       if (moved) return { ok: false, error: `"${moved.title || moved.w.branch}" started on something new while the tests ran, so nothing was merged. Try again once it's finished.` };
-      const titles = new Map(list.map(c => [c.w.branch, c.title]));
-      const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => worktrees.workMessage(w.branch, titles.get(w.branch)) });
-      for (const x of r.results) {
-        const c = list.find(l => l.w.branch === x.branch);
-        if (x.ok && x.merged && c && d.manager.tabs.has(c.id)) d.manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });
-      }
-      const merged = r.results.filter(x => x.ok && x.merged);
-      if (merged.length) {
-        d.recordWork(root, { task: false });
-        d.noteWeek('home', null, merged.length);
-        d.questDone?.('home');
-        d.refreshClashes?.(root);
-      }
-      // One fanfare for the lot, in the first of them that's open.
-      const clean = merged.map(x => list.find(c => c.w.branch === x.branch)).filter(c => c && gated.firstTries?.has(c.w.branch));
-      if (clean.length) {
-        const where = clean.find(c => d.manager.tabs.has(c.id)) || clean[0];
-        d.surprises.landed(where.id, { branch: where.w.branch, base: where.w.base, copies: clean.length });
-      }
-      const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
-      const last = r.results.at(-1);
-      const clashTab = clash && d.manager.tabs.has(clash.id) ? clash.id : null;
-      if (clashTab && last.detail) d.manager.note(clashTab, { kind: 'error', text: `${last.error}\n\n${last.detail}` });
-      const out = {
-        ok: r.ok, root, busy,
-        merged: merged.length, commits: merged.reduce((n, x) => n + x.commits, 0),
-        skipped: r.results.filter(x => x.skipped).length,
-        stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: clashTab, base: clash.w.base, error: last.error, conflict: !!last.conflict, fixable: !!last.fixable, root: last.root, detail: last.detail } : null,
-        green: gated.green,
-      };
-      if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
-      return out;
+      return await line.turn(root, () => homeAll(root, list, busy, gated, opts, tabId));
     } finally {
       for (const c of list) retiring.delete(c.id);
       repoBusy = false;
     }
   });
+  // The merges and the push, on this checkout's turn (home-line.js).
+  async function homeAll(root, list, busy, gated, opts, tabId) {
+    const titles = new Map(list.map(c => [c.w.branch, c.title]));
+    const r = await worktrees.bringAllHome(list.map(c => c.w), { messageFor: w => worktrees.workMessage(w.branch, titles.get(w.branch)) });
+    for (const x of r.results) {
+      const c = list.find(l => l.w.branch === x.branch);
+      if (x.ok && x.merged && c && d.manager.tabs.has(c.id)) d.manager.note(c.id, { kind: 'home', base: c.w.base, commits: x.commits });
+    }
+    const merged = r.results.filter(x => x.ok && x.merged);
+    if (merged.length) {
+      d.recordWork(root, { task: false });
+      d.noteWeek('home', null, merged.length);
+      d.questDone?.('home');
+      d.refreshClashes?.(root);
+    }
+    // One fanfare for the lot, in the first of them that's open.
+    const clean = merged.map(x => list.find(c => c.w.branch === x.branch)).filter(c => c && gated.firstTries?.has(c.w.branch));
+    if (clean.length) {
+      const where = clean.find(c => d.manager.tabs.has(c.id)) || clean[0];
+      d.surprises.landed(where.id, { branch: where.w.branch, base: where.w.base, copies: clean.length });
+    }
+    const clash = r.stopped ? list.find(c => c.w.branch === r.stopped) : null;
+    const last = r.results.at(-1);
+    const clashTab = clash && d.manager.tabs.has(clash.id) ? clash.id : null;
+    if (clashTab && last.detail) d.manager.note(clashTab, { kind: 'error', text: `${last.error}\n\n${last.detail}` });
+    // The ones that clashed were passed over: the panel offers to line them up to sort it out.
+    const clashed = (r.clashed || []).map(b => list.find(c => c.w.branch === b)).filter(Boolean)
+      .map(c => ({ branch: c.w.branch, title: c.title, base: c.w.base, tabId: d.manager.tabs.has(c.id) ? c.id : null }));
+    const out = {
+      ok: r.ok, root, busy,
+      merged: merged.length, commits: merged.reduce((n, x) => n + x.commits, 0),
+      skipped: r.results.filter(x => x.skipped).length,
+      clashed,
+      stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: clashTab, base: clash.w.base, error: last.error, conflict: !!last.conflict, fixable: !!last.fixable, root: last.root, detail: last.detail } : null,
+      green: gated.green,
+    };
+    if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
+    return out;
+  }
   // Copies that changed the same files (wiring/clashes.js): what the panel shows on load.
   ipcMain.handle('clashes:list', () => d.clashesView());
   ipcMain.handle('worktree:discard', async (_e, tabId) => {

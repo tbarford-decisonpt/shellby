@@ -1,6 +1,7 @@
 // The world around him: Claude Code sessions elsewhere, PC health, telling you
-// when you're away (channels.js), the stream overlay (obs.js), desk lighting
-// (rgb.js), music, typing, the weather, the shellby command and the crab card.
+// when you're away (channels.js), the stream overlay (obs.js), the Stream Deck
+// keys (deck.js), desk lighting (rgb.js), your Discord profile (discord.js),
+// music, typing, the weather, the shellby command and the crab card.
 // Kept out of main.js, which only wires it up.
 const { app, clipboard, ClipboardItem, nativeImage, shell } = require('electron');
 const fs = require('fs');
@@ -107,6 +108,11 @@ function registerSurroundingsIpc(ipcMain, d) {
     return d.obsView();
   });
 
+  // ---- the Stream Deck keys (deck.js)
+  ipcMain.handle('deck:get', () => d.deckView());
+  ipcMain.handle('deck:set', (_e, patch) => d.setDeck(patch && typeof patch === 'object' ? patch : {}));
+  ipcMain.handle('deck:add', () => d.addToStreamDeck());
+
   // ---- the desk lighting (rgb.js)
   ipcMain.handle('rgb:get', () => d.rgbView());
   ipcMain.handle('rgb:set', (_e, patch) => {
@@ -130,6 +136,19 @@ function registerSurroundingsIpc(ipcMain, d) {
   });
   ipcMain.handle('rgb:test', async () => ({ ...d.rgbView(), ...(await d.ensureOpenRgb()) }));
   ipcMain.handle('rgb:install', () => d.confirmAndInstallOpenRgb());
+
+  // ---- on your Discord profile (discord.js)
+  ipcMain.handle('discord:get', () => d.presenceView());
+  ipcMain.handle('discord:set', (_e, patch) => {
+    const prev = d.presenceSettings();
+    const next = { ...prev };
+    for (const k of ['enabled', 'task']) if (patch && typeof patch === 'object' && k in patch) next[k] = patch[k] === true;
+    d.config.set({ discord: next });
+    if (next.enabled && !prev.enabled) d.presence.start();
+    else if (!next.enabled && prev.enabled) d.presence.stop();
+    d.updatePresence();
+    return d.presenceView();
+  });
 
   // ---- listening along (media.js)
   ipcMain.handle('nowplaying:get', () => d.mediaView());

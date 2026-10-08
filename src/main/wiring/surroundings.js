@@ -1,4 +1,5 @@
-// The world around him: desk lighting (rgb.js), music (media.js),
+// The world around him: desk lighting (rgb.js), your Discord profile
+// (discord.js), music (media.js),
 // push-to-talk, his life between tasks (life.js, playtime.js), typing along
 // and the weather.
 // Kept out of main.js, which only wires it up.
@@ -20,10 +21,12 @@ const { createPlaytime } = require('../playtime');
 const { OpenRgbClient, colorFor } = require('../rgb');
 const { createTyping } = require('../typing');
 const voice = require('../voice');
+const { DiscordPresence, activityFor, phaseOf } = require('../discord');
 const { activeSeasons } = require('../wardrobe/seasons');
 const { publicItem } = require('../wardrobe/service');
 const weatherRules = require('../weather');
 const { createWeatherService } = require('../weather-service');
+const workmode = require('../workmode');
 
 /** d: what main shares (main.js `shared`). */
 function wireSurroundings(d) {
@@ -119,6 +122,43 @@ function wireSurroundings(d) {
     if (!installed.ok) return { ...rgbView(), ok: false, error: installed.error, noWinget: !!installed.noWinget };
     return { ...rgbView(), ...(await ensureOpenRgb()) };
   }
+
+  // ---- on your Discord profile
+
+  function presenceSettings() {
+    const raw = d.config.get('discord');
+    // Off until you turn it on, and the task's title is a second yes of its own:
+    // everyone on your friends list sees it.
+    return { enabled: raw?.enabled === true, task: raw?.task === true };
+  }
+
+  let presenceSince = { phase: null, at: 0 };
+
+  function createPresence() {
+    d.presence = new DiscordPresence({ log: msg => d.log.info(msg) });
+    d.presence.on('change', () => { d.send(d.panel, 'discord', presenceView()); updatePresence(); });
+    if (presenceSettings().enabled && !d.CAPTURE) d.presence.start();
+  }
+
+  function updatePresence() {
+    if (!d.presence || d.presence.status === 'off') return;
+    const state = d.lastStatus.state;
+    const phase = phaseOf(state);
+    if (phase !== presenceSince.phase) presenceSince = { phase, at: Date.now() };
+    const settings = presenceSettings();
+    // Work mode keeps what you're working on to yourself, whatever this says.
+    const shareTask = settings.task && !workmode.behaviourOf(d.config).on;
+    const running = shareTask ? (d.manager?.summary || []).filter(t => t.busy) : [];
+    const v = d.xpView();
+    d.presence.set(activityFor({
+      state, busy: d.lastStatus.busy, level: v.level, title: v.title, health: d.healthMood,
+      task: running.length === 1 ? running[0].title : null,
+      since: presenceSince.at,
+      cardUrl: d.friends?.view().cardUrl || null,
+    }));
+  }
+
+  const presenceView = () => ({ ...presenceSettings(), ...(d.presence ? d.presence.view() : { status: 'off', user: null, error: null, configured: false }) });
 
   // ---- listening along
 
@@ -368,10 +408,10 @@ function wireSurroundings(d) {
   }
 
   return {
-    confirmAndInstallOpenRgb, createDictation, createLifeAndPlay, createMedia, createRgb,
+    confirmAndInstallOpenRgb, createDictation, createLifeAndPlay, createMedia, createPresence, createRgb,
     createTypingAlong, createWeather, ensureOpenRgb, mediaSettings, mediaView, musicHeadphones,
-    onHotkey, paintLights, restoreLights, rgbSettings, rgbView, showListening, typingSettings,
-    weatherView,
+    onHotkey, paintLights, presenceSettings, presenceView, restoreLights, rgbSettings, rgbView, showListening, typingSettings,
+    updatePresence, weatherView,
   };
 }
 

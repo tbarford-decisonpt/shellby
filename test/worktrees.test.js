@@ -354,7 +354,7 @@ test('a pre-push hook that says no is shown in its own words', async () => {
   } finally { t.done(); }
 });
 
-test('bring them all home: each lands in turn, other bases are skipped, a clash stops the sweep', async () => {
+test('bring them all home: each lands in turn, other bases are skipped, a clash is passed over', async () => {
   const t = setup();
   try {
     const one = (await worktrees.create(t.dir, { home: t.home, title: 'One' })).worktree;
@@ -368,12 +368,33 @@ test('bring them all home: each lands in turn, other bases are skipped, a clash 
     const elsewhere = { ...two, base: 'release' };
 
     const r = await worktrees.bringAllHome([one, elsewhere, two, clash, after], { messageFor: w => `Shellby: ${w.branch}` });
-    assert.equal(r.ok, false);
-    assert.equal(r.stopped, clash.branch);
-    assert.deepEqual(r.results.map(x => [x.ok, !!x.skipped, !!x.conflict]), [[true, false, false], [false, true, false], [true, false, false], [false, false, true]]);
-    assert.equal(fs.readFileSync(path.join(t.dir, 'two.txt'), 'utf8'), '2\n', 'the ones before the clash stay merged');
-    assert.equal(fs.existsSync(path.join(t.dir, 'after.txt')), false, 'nothing after it');
+    assert.equal(r.ok, true);
+    assert.equal(r.stopped, undefined);
+    assert.deepEqual(r.clashed, [clash.branch]);
+    assert.deepEqual(r.results.map(x => [x.ok, !!x.skipped, !!x.conflict]), [[true, false, false], [false, true, false], [true, false, false], [false, false, true], [true, false, false]]);
+    assert.equal(fs.readFileSync(path.join(t.dir, 'two.txt'), 'utf8'), '2\n');
+    assert.equal(fs.readFileSync(path.join(t.dir, 'one.txt'), 'utf8'), '1\n', 'the clash was backed out');
+    assert.equal(fs.readFileSync(path.join(t.dir, 'after.txt'), 'utf8'), 'a\n', 'the ones after it still land');
     assert.equal(t.g(t.dir, 'status', '--porcelain'), '');
+  } finally { t.done(); }
+});
+
+test('caughtUp: only once the copy has merged in all of its base, with nothing half done', async () => {
+  const t = setup();
+  try {
+    const w = (await worktrees.create(t.dir, { home: t.home, title: 'Late' })).worktree;
+    assert.equal(await worktrees.caughtUp(w), true, 'fresh from its base');
+    fs.writeFileSync(path.join(t.dir, 'a.txt'), 'base moved\n');
+    t.g(t.dir, 'commit', '-qam', 'base moved');
+    assert.equal(await worktrees.caughtUp(w), false, 'its base moved on');
+
+    fs.writeFileSync(path.join(w.path, 'a.txt'), 'copy\n');
+    t.g(w.path, 'commit', '-qam', 'copy');
+    assert.throws(() => t.g(w.path, 'merge', 'main'), 'a clash, left half done');
+    assert.equal(await worktrees.caughtUp(w), false, 'mid merge');
+    fs.writeFileSync(path.join(w.path, 'a.txt'), 'both\n');
+    t.g(w.path, 'commit', '-qam', 'sorted out');
+    assert.equal(await worktrees.caughtUp(w), true, 'sorted out');
   } finally { t.done(); }
 });
 

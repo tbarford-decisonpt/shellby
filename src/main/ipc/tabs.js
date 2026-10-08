@@ -46,6 +46,8 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reorder', (_e, { tabId, beforeId } = {}) =>
     d.isStr(tabId) && d.manager.reorder(tabId, d.isStr(beforeId) ? beforeId : null));
   ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
+  // The conversation on screen: the Stream Deck's Stop and Bring it home follow it (deck.js).
+  ipcMain.on('tab:shown', (_e, tabId) => { if (d.isStr(tabId) && d.manager.tabs.has(tabId)) d.deckShownTab(tabId); });
   // A conversation in a window of its own (wiring/popouts.js). x, y: where it was
   // dropped, in screen pixels; carry: what was typed in the panel but not sent.
   ipcMain.handle('tab:pop-out', (_e, { tabId, x, y, carry } = {}) => {
