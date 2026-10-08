@@ -162,6 +162,13 @@ interleaved runs on a shared, busy desktop: expect ±1 point):
 | Panel open and focused | ~4% (the panel's drifting light ticks at 12 fps) | ~500 MB |
 | Nobody at the desk for 5 minutes (any outfit) | ~0.1% | ~490 MB |
 
+Memory: Chromium's network service used to be a process of its own, ~53 MB
+resident for the handful of requests he makes. It runs inside main now
+(src/main/lighter.js; `SHELLBY_NETWORK_PROCESS=1` puts it back to compare):
+`idle-cost.js 30 --closed` went from 5 processes and ~537 MB to 4 and
+~485–513 MB, main growing by a few MB. `--js-flags=--optimize-for-size` was
+tried too and changed nothing.
+
 The first row was ~3.4–4.2% before the bats flew in flights and the idle went
 to pixel-art frames (interleaved with the same build minus those, same hour).
 Of what's left, about half is his idle (about 1.4 frames a second: the breathe,
