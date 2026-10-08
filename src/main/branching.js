@@ -208,7 +208,7 @@ function register(deps) {
     const attempt = async f => worktrees.createAt({
       repoRoot, base, tree: f?.tree,
       head: f?.head || await worktrees.startingPoint({ repoRoot, worktree: own }),
-      prefix, home: deps.worktreeHome(), slug: branch.branchSlug({ ...entry, title: tab?.title || entry.title }),
+      prefix, home: deps.worktreeHome(), slug: branch.branchSlug({ ...entry, title: tab?.title || entry.title }), named: !!entry.worktree?.named,
       originalCwd: own?.originalCwd || sourceCwd,
     });
     let made = files ? await attempt(files) : { ok: false, error: "Couldn't take a look at the folder." };

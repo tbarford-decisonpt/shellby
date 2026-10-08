@@ -55,11 +55,14 @@ function branchName(title, suffix = crypto.randomBytes(3).toString('hex')) {
   return `shellby/${slug}-${suffix}`;
 }
 
-// The commit that takes home what a copy left uncommitted. Its subject comes
-// from the branch name Claude chose for the work ("fix-tall-menu-overflow"),
-// which says what changed. The tab's title is usually the start of your prompt,
-// so it goes in the body. Release drafts group commits by their type, and an
-// untyped subject lands under "Changed" word for word.
+// The commits that take a copy's work home. Their subject comes from the branch
+// name Claude chose for the work ("fix-tall-menu-overflow"), which says what
+// changed, or else from the files that changed. Never from the conversation:
+// the tab's title is the start of your prompt, and a commit is public wherever
+// the repository is. A copy only counts as named when Claude named it
+// (`named` on the copy): otherwise its branch was made from that same title.
+// Release drafts group commits by their type, and an untyped subject lands
+// under "Changed" word for word.
 const TYPE_WORDS = new Map([
   ['feat', 'feat'], ['feature', 'feat'], ['fix', 'fix'], ['bugfix', 'fix'], ['hotfix', 'fix'],
   ['perf', 'perf'], ['refactor', 'refactor'], ['docs', 'docs'], ['doc', 'docs'],
@@ -69,22 +72,36 @@ const FIX_WORDS = /^(bug|bugs|broken|crash|crashes|regression|typo)$/;
 const FEAT_WORDS = /^(add|adds|new|support|implement)$/;
 const SUBJECT_MAX = 72;
 
+/** "update a.js, b.js and 3 more files", in at most `room` characters. Pure. */
+function changedFiles(files, room) {
+  const names = [...new Set((files || []).map(f => path.posix.basename(String(f).replace(/\\/g, '/'))).filter(Boolean))];
+  if (!names.length) return 'work from Shellby';
+  const say = k => {
+    const shown = names.slice(0, k);
+    const more = names.length - k;
+    if (!more) return `update ${shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0]}`;
+    return `update ${shown.join(', ')} and ${more} more file${more > 1 ? 's' : ''}`;
+  };
+  for (let k = Math.min(names.length, 3); k > 0; k--) if (say(k).length <= room) return say(k);
+  return `update ${names.length} file${names.length > 1 ? 's' : ''}`;
+}
+
 /**
- * -> "fix: tall menu overflow\n\nFrom the conversation: …". Typed only when
- * the name says which type ("Next up backlog" otherwise): a wrong "feat" would
- * have the release card suggest a minor version for a tweak. Pure.
+ * w: the copy ({ branch, named }). files: the paths the commit changes.
+ * -> "fix: tall menu overflow", or "Update a.js and b.js" for a copy Claude
+ * didn't name. Typed only when the name says which type ("Next up backlog"
+ * otherwise): a wrong "feat" would have the release card suggest a minor
+ * version for a tweak. Pure.
  */
-function workMessage(branch, title) {
-  const said = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 200);
-  const m = /^shellby\/(.+)-[0-9a-f]{6}$/.exec(String(branch || ''));
+function workMessage(w, files = []) {
+  const m = w?.named ? /^shellby\/(.+)-[0-9a-f]{6}$/.exec(String(w.branch || '')) : null;
   const words = m ? m[1].split('-').filter(Boolean) : [];
   const named = TYPE_WORDS.get(words[0]);
-  const type = named || (words.some(w => FIX_WORDS.test(w)) ? 'fix' : FEAT_WORDS.test(words[0] || '') ? 'feat' : '');
+  const type = named || (words.some(x => FIX_WORDS.test(x)) ? 'fix' : FEAT_WORDS.test(words[0] || '') ? 'feat' : '');
   const rest = (named ? words.slice(1) : words).join(' ');
   const room = SUBJECT_MAX - (type ? type.length + 2 : 0);
-  const what = (rest || said.toLowerCase() || 'work from Shellby').slice(0, room).trim();
-  const subject = type ? `${type}: ${what}` : what[0].toUpperCase() + what.slice(1);
-  return said && said.toLowerCase() !== what ? `${subject}\n\nFrom the conversation: ${said}` : subject;
+  const what = (rest || changedFiles(files, room)).slice(0, room).trim();
+  return type ? `${type}: ${what}` : what[0].toUpperCase() + what.slice(1);
 }
 
 // ------------------------------------------------------------ when to make one
@@ -246,9 +263,10 @@ function findSession({ configDir, sessionId, prefer = [] }) {
  *   dir:  where the tab would have worked (may be a subfolder of the repo)
  *   home: the folder worktrees live under (%APPDATA%/Shellby/worktrees)
  *   start: the commit to start from (default HEAD), e.g. origin/main for work that becomes a pull request
- * -> { ok: true, worktree: { path, cwd, branch, base, root, originalCwd } } | { ok: false, error } | null (not a repo)
+ *   named: `title` is a name Claude gave the work, so commits may use it (never the start of your prompt)
+ * -> { ok: true, worktree: { path, cwd, branch, base, root, originalCwd, named } } | { ok: false, error } | null (not a repo)
  */
-async function create(dir, { home, title, start = 'HEAD' }) {
+async function create(dir, { home, title, named = false, start = 'HEAD' }) {
   if (typeof dir !== 'string' || !path.isAbsolute(dir) || !fs.existsSync(dir)) return null;
   // Where the folder sits inside the repo, in git's own words: comparing paths
   // here would trip over 8.3 short names (C:\Users\RUNNER~1\...) that git
@@ -274,7 +292,7 @@ async function create(dir, { home, title, start = 'HEAD' }) {
   if (!add.ok) return { ok: false, error: copyRefusal(add.error), detail: lastLines(add.error) || undefined };
   const rel = prefix.trim().replace(/\/$/, '');
   const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
-  return { ok: true, worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base: base.out.trim(), root, originalCwd: path.resolve(dir) } };
+  return { ok: true, worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base: base.out.trim(), root, originalCwd: path.resolve(dir), named: !!named } };
 }
 
 const OBJECT = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
@@ -287,9 +305,10 @@ const OBJECT = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
  * uncommitted, just as it was, so "Bring it home" works the same as for any copy.
  *   repoRoot: the repository itself (never one of our copies: git worktrees share it)
  *   base: the branch to bring it home to. prefix: the tab's folder inside the repo.
+ *   named: `slug` is a name Claude gave the work (see create()).
  * -> { ok: true, worktree } | { ok: false, error, gone? }
  */
-async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, originalCwd }) {
+async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, named = false, originalCwd }) {
   if (typeof repoRoot !== 'string' || !path.isAbsolute(repoRoot) || !fs.existsSync(repoRoot)) return { ok: false, error: 'That repository has moved.' };
   if (!OBJECT.test(tree || '') || !OBJECT.test(head || '')) return { ok: false, error: "That point in the conversation has no snapshot to start from." };
   if (typeof base !== 'string' || !REF.test(base)) return { ok: false, error: 'There is no branch to bring it home to.' };
@@ -321,7 +340,7 @@ async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, o
   const cwd = fs.existsSync(sub) && (real + path.sep).toLowerCase().startsWith(longPath(wt).toLowerCase() + path.sep) ? sub : wt;
   return {
     ok: true,
-    worktree: { path: wt, cwd, branch, base, root: path.resolve(repoRoot), originalCwd: path.resolve(originalCwd || repoRoot) },
+    worktree: { path: wt, cwd, branch, base, root: path.resolve(repoRoot), originalCwd: path.resolve(originalCwd || repoRoot), named: !!named },
   };
 }
 
@@ -379,19 +398,23 @@ async function status(w) {
  * checkout. Removing the copy is a separate step (remove()), because the tab's
  * Claude process has to be gone first: Windows won't delete a folder a
  * running process is working in.
+ *   message: the subject for both commits, or null to name them with workMessage()
  *   -> { ok: true, merged, commits } | { ok: false, error, conflict? }
  */
-async function bringHome(w, { message, trailer = null }) {
+async function bringHome(w, { message = null, trailer = null } = {}) {
   // Shellby's own commits may carry a "Shipped-with:" trailer (crab-line.js), if you turned it on.
   const tail = typeof trailer === 'string' && /^[A-Za-z-]+: [^\n]{1,120}$/.test(trailer) ? `\n\n${trailer}` : '';
   const bad = checkWorktree(w);
   if (bad) return { ok: false, error: bad };
   if (!fs.existsSync(w.path)) return { ok: false, error: 'The copy is gone (deleted outside Shellby).' };
 
-  const said = String(message || 'Work from Shellby').slice(0, 400);
+  const given = message ? String(message).slice(0, 400) : '';
+  const names = out => out.split('\0').filter(Boolean);
   const dirty = await git(w.path, ['status', '--porcelain'], { timeout: 15000 });
   if (dirty.ok && dirty.out.trim()) {
     const add = await git(w.path, ['add', '-A']);
+    const staged = add.ok && await git(w.path, ['diff', '--cached', '--name-only', '-z'], { timeout: 15000 });
+    const said = given || workMessage(w, staged?.ok ? names(staged.out) : []);
     const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', `${said}${tail}`]);
     if (!commit?.ok) return { ok: false, error: `Couldn't commit the copy's changes: ${firstLine(commit?.error || add.error)}` };
   }
@@ -405,8 +428,14 @@ async function bringHome(w, { message, trailer = null }) {
     }
     // Titled with what the work is, so `git log --first-parent` reads as a list
     // of changes (release drafts skip merges, so it isn't counted twice).
+    // One commit lends the merge its subject; more are summed up by what they
+    // changed. The branch is only named when Claude named it.
     // In English whatever git's language, so its refusals can be read below.
-    const title = `${said.split('\n')[0]}\n\nBrought home from ${w.branch}${tail}`;
+    let said = given;
+    if (!said && commits === 1) said = (await git(w.root, ['log', '-1', '--format=%s', w.branch], { timeout: 5000 })).out?.trim();
+    if (!said) said = workMessage(w, names((await git(w.root, ['diff', '--name-only', '-z', `${w.base}...${w.branch}`], { timeout: 15000 })).out || ''));
+    const from = w.named ? `\n\nBrought home from ${w.branch}` : '';
+    const title = `${said.split('\n')[0]}${from}${tail}`;
     const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', title, w.branch], { timeout: 60000, env: { LC_ALL: 'C' } });
     if (!merge.ok) {
       const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
@@ -585,7 +614,7 @@ async function pushBase(root, { base } = {}) {
  * started from another branch are skipped, not merged somewhere else.
  *   -> { ok, results: [{ branch, ok, merged, commits, error?, conflict?, skipped? }], clashed: [branch], stopped? }
  */
-async function bringAllHome(list, { messageFor = w => workMessage(w.branch), trailer = null } = {}) {
+async function bringAllHome(list, { messageFor = () => null, trailer = null } = {}) {
   const results = [];
   const clashed = [];
   for (const w of list) {

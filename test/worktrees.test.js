@@ -34,27 +34,36 @@ test('branchName makes a safe, recognisable branch from a title', () => {
   assert.match(worktrees.branchName('x'.repeat(200)), worktrees.BRANCH);
 });
 
-test('workMessage types the subject from the branch Claude named and keeps the prompt in the body', () => {
-  assert.equal(worktrees.workMessage('shellby/fix-tall-menu-overflow-755f4f', 'See how there is so many errors'),
-    'fix: tall menu overflow\n\nFrom the conversation: See how there is so many errors');
-  assert.equal(worktrees.workMessage('shellby/add-dark-mode-abc123'), 'feat: add dark mode');
-  assert.equal(worktrees.workMessage('shellby/docs-release-steps-abc123'), 'docs: release steps');
-  assert.equal(worktrees.workMessage('shellby/toast-crash-on-merge-abc123'), 'fix: toast crash on merge', 'a fix word anywhere makes it a fix');
+const named = branch => ({ branch, named: true });
+
+test('workMessage types the subject from the branch Claude named', () => {
+  assert.equal(worktrees.workMessage(named('shellby/fix-tall-menu-overflow-755f4f')), 'fix: tall menu overflow');
+  assert.equal(worktrees.workMessage(named('shellby/add-dark-mode-abc123')), 'feat: add dark mode');
+  assert.equal(worktrees.workMessage(named('shellby/docs-release-steps-abc123')), 'docs: release steps');
+  assert.equal(worktrees.workMessage(named('shellby/toast-crash-on-merge-abc123')), 'fix: toast crash on merge', 'a fix word anywhere makes it a fix');
 });
 
 test('workMessage leaves the type off when the name doesn\'t say, rather than guess "feat"', () => {
   // A wrong feat would have the release card suggest a minor version for a tweak.
-  assert.equal(worktrees.workMessage('shellby/next-up-backlog-37bd9f', 'Can you fully flesh this out: 1. "Next up"'),
-    'Next up backlog\n\nFrom the conversation: Can you fully flesh this out: 1. "Next up"');
-  assert.equal(worktrees.workMessage('shellby/update-readme-ab12cd'), 'Update readme');
+  assert.equal(worktrees.workMessage(named('shellby/next-up-backlog-37bd9f')), 'Next up backlog');
+  assert.equal(worktrees.workMessage(named('shellby/update-readme-ab12cd')), 'Update readme');
 });
 
-test('workMessage falls back to the title when the branch says nothing beyond its type', () => {
-  assert.equal(worktrees.workMessage('shellby/fix-abc123', 'The login redirect loops'), 'fix: the login redirect loops');
-  assert.equal(worktrees.workMessage('shellby/task-abc123', ''), 'Task');
-  assert.equal(worktrees.workMessage('not-ours', ''), 'Work from Shellby');
-  const long = worktrees.workMessage('shellby/fix-abc123', 'x'.repeat(300));
-  assert.ok(long.split('\n')[0].length <= 72, 'the subject fits one line of git log');
+test('workMessage never says what the conversation said: a branch Claude didn\'t name is the prompt', () => {
+  // Commits are public wherever the repository is; the tab's title is the start of your prompt.
+  const fromPrompt = { branch: 'shellby/so-i-have-other-pcs-dedicated-to-abc123' };
+  assert.equal(worktrees.workMessage(fromPrompt, ['src/main/a.js']), 'Update a.js');
+  assert.equal(worktrees.workMessage({ ...fromPrompt, named: false }, ['a.js', 'src/b.js']), 'Update a.js and b.js');
+  assert.equal(worktrees.workMessage(fromPrompt, ['a.js', 'b.js', 'c.js', 'd.js', 'e.js']), 'Update a.js, b.js, c.js and 2 more files');
+  assert.equal(worktrees.workMessage(fromPrompt), 'Work from Shellby');
+  assert.equal(worktrees.workMessage(null), 'Work from Shellby');
+});
+
+test('workMessage falls back to the files when the name says nothing beyond its type', () => {
+  assert.equal(worktrees.workMessage(named('shellby/fix-abc123'), ['src\\main\\login.js']), 'fix: update login.js');
+  assert.equal(worktrees.workMessage(named('shellby/task-abc123')), 'Task');
+  const long = worktrees.workMessage(named('shellby/fix-abc123'), ['x'.repeat(100) + '.js', 'y.js']);
+  assert.equal(long, 'fix: update 2 files', 'the subject fits one line of git log');
 });
 
 test('checkWorktree refuses records that are not Shellby\'s own', () => {
@@ -108,19 +117,56 @@ test('bring it home: commits what was left, merges into the base, then tidies up
   } finally { t.done(); }
 });
 
-test('a merge home is titled with what the work is, not the branch', async () => {
+test('a merge home is titled with what the work is, and names the branch Claude named', async () => {
   const t = setup();
   try {
-    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Add c' });
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'add-c', named: true });
+    assert.equal(w.named, true);
     fs.writeFileSync(path.join(w.path, 'c.txt'), 'new\n');
     fs.writeFileSync(path.join(t.dir, 'd.txt'), 'meanwhile\n');
     t.g(t.dir, 'add', 'd.txt');
     t.g(t.dir, 'commit', '-q', '-m', 'meanwhile');
-    const r = await worktrees.bringHome(w, { message: 'feat: add c\n\nFrom the conversation: make c' });
+    const r = await worktrees.bringHome(w);
     assert.deepEqual(r, { ok: true, merged: true, commits: 1 });
     assert.equal(t.g(t.dir, 'log', '-1', '--format=%s'), 'feat: add c');
     assert.equal(t.g(t.dir, 'log', '-1', '--format=%b'), `Brought home from ${w.branch}`);
     assert.equal(t.g(t.dir, 'rev-list', '--count', '--merges', '-1', 'HEAD'), '1', 'a real merge, not a fast-forward');
+  } finally { t.done(); }
+});
+
+test('work from a copy named after the prompt comes home with none of the prompt in it', async () => {
+  const t = setup();
+  try {
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'so i have other pcs dedicated to claude' });
+    assert.equal(w.named, false);
+    // Claude's own commit in the copy keeps its message.
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'new\n');
+    t.g(w.path, 'add', 'c.txt');
+    t.g(w.path, 'commit', '-q', '-m', 'feat: add c');
+    fs.writeFileSync(path.join(w.path, 'src', 'b.txt'), 'changed\n');
+    fs.writeFileSync(path.join(t.dir, 'd.txt'), 'meanwhile\n');
+    t.g(t.dir, 'add', 'd.txt');
+    t.g(t.dir, 'commit', '-q', '-m', 'meanwhile');
+    assert.deepEqual(await worktrees.bringHome(w), { ok: true, merged: true, commits: 2 });
+    const log = t.g(t.dir, 'log', '-4', '--format=%B');
+    assert.ok(!/pcs|dedicated|so-i-have/i.test(log), log);
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%s', 'HEAD^2'), 'Update b.txt', 'what was left is named by its files');
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%s'), 'Update c.txt and b.txt', 'the merge sums up both commits');
+  } finally { t.done(); }
+});
+
+test('a copy with one commit lends its subject to the merge', async () => {
+  const t = setup();
+  try {
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'please fix my thing' });
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'new\n');
+    t.g(w.path, 'add', 'c.txt');
+    t.g(w.path, 'commit', '-q', '-m', 'feat: add c');
+    fs.writeFileSync(path.join(t.dir, 'd.txt'), 'meanwhile\n');
+    t.g(t.dir, 'add', 'd.txt');
+    t.g(t.dir, 'commit', '-q', '-m', 'meanwhile');
+    assert.deepEqual(await worktrees.bringHome(w), { ok: true, merged: true, commits: 1 });
+    assert.equal(t.g(t.dir, 'log', '-1', '--format=%B'), 'feat: add c');
   } finally { t.done(); }
 });
 

@@ -79,7 +79,8 @@ function createCopies(d) {
       carryOn('Shellby could not make a copy, so this conversation stays in this folder. Carry on with what you were about to do, here.');
     };
 
-    const made = await worktrees.create(from, { home: d.worktreeHome(), title: worktrees.suggestedName(tab.lastReply) || tab.title });
+    const named = worktrees.suggestedName(tab.lastReply);
+    const made = await worktrees.create(from, { home: d.worktreeHome(), title: named || tab.title, named: !!named });
     if (!manager.tabs.has(tab.id)) { // closed while the copy was being made
       if (made?.ok) worktrees.remove(made.worktree, { force: true });
       return;
