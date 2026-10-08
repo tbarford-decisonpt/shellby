@@ -26,6 +26,7 @@ const { secretGate } = require('../secret-gate');
 const { SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('../marketplace');
 const shells = require('../shells');
 const stickers = require('../stickers');
+const syncLife = require('../sync-life');
 const syncPrefs = require('../sync-prefs');
 const tankShare = require('../tank-share');
 const voice = require('../voice');
@@ -57,6 +58,7 @@ function wireGithub(d) {
       onSynced: before => {
         d.broadcastWardrobe(); d.send(d.panel, 'xp', d.xpView()); d.send(d.panel, 'homes', d.homesView()); d.send(d.panel, 'stickers', d.stickersView()); d.refreshStatusLine();
         d.settingsSynced?.(before);
+        if (d.life) d.send(d.panel, 'life', d.life.view()); // finds, the bond, games from another PC
         // A friend added on another PC needs their card fetched here.
         if (d.friends && friendsChanged(d.config.data, before)) { d.friends.emit('change', d.friends.view()); d.friends.refresh().catch(() => {}); }
       },
@@ -74,12 +76,15 @@ function wireGithub(d) {
       // Snippets and pins are stamped one by one, with a marker for each one deleted.
       const prefStamps = syncPrefs.restamp(patch, prev, stamps.prefs, Date.now());
       if (prefStamps) { stamps.prefs = prefStamps; changed = true; }
+      // A favourite find or your birthday follows the PC that set it last (sync-life.js).
+      if ('finds' in patch && (patch.finds?.favourite ?? null) !== (prev.finds?.favourite ?? null)) { stamps.life = { ...stamps.life, favouriteAt: Date.now() }; changed = true; }
+      if ('bond' in patch && JSON.stringify(patch.bond?.birthday ?? null) !== JSON.stringify(prev.bond?.birthday ?? null)) { stamps.life = { ...stamps.life, birthdayAt: Date.now() }; changed = true; }
       if (changed) d.config.set({ syncStamps: stamps });
       const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
       const tankMoved = 'tank' in patch && JSON.stringify(tankShare.syncable(patch.tank)) !== JSON.stringify(tankShare.syncable(prev.tank));
       const friendsMoved = 'friends' in patch && friendsChanged(patch, prev);
       const eventsMoved = 'events' in patch && JSON.stringify(events.normalize(patch.events)) !== JSON.stringify(events.normalize(prev.events));
-      if (changed || stickersMoved || tankMoved || friendsMoved || eventsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
+      if (changed || syncLife.moved(patch, prev) || stickersMoved || tankMoved || friendsMoved || eventsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
